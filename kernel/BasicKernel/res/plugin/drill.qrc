@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/drill">
+    <file>drill/info.qml</file>
+  </qresource>
+</RCC>

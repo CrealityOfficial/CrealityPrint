@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/support">
+        <file>simple_support/cube.stl</file>
+        <file>simple_support/cylinder.stl</file>
+        <file>simple_support/SupportUIPanel.qml</file>
+    </qresource>
+</RCC>

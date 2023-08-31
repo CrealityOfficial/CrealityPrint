@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/slice">
+        <file>slice/slice.png</file>
+        <file>slice/slice_d.png</file>
+        <file>slice/add.png</file>
+        <file>slice/add_d.png</file>
+        <file>slice/preview.png</file>
+        <file>slice/preview_d.png</file>
+        <file>slice/unpreview.png</file>
+        <file>slice/unpreview_d.png</file>
+        <file>slice/SlicePanel.qml</file>
+    </qresource>
+</RCC>

@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/scence3d">
+        <file>res/MainWindow.qml</file>
+        <file>res/Creative3D.ico</file>
+        <file>res/main.qml</file>
+        <file>res/splash.png</file>
+        <file>res/logo.png</file>
+        <file>res/splashLogo.png</file>
+    </qresource>
+</RCC>

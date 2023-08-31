@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/info">
+        <file>res/RightBtns.qml</file>
+        <file>res/ZSliderInfoPreview.qml</file>
+    </qresource>
+</RCC>

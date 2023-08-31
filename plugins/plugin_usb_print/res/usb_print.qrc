@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/usbprint">
+        <file>usbphoto/devicon.png</file>
+        <file>usbphoto/extemp.png</file>
+        <file>usbphoto/fileicon.png</file>
+        <file>usbphoto/platformicon.png</file>
+        <file>usbphoto/printtimeicon.png</file>
+        <file>usbphoto/retimeicon.png</file>
+        <file>usbphoto/progressicon.png</file>
+        <file>UsbControlDlg.qml</file>
+        <file>IconLabel.qml</file>
+        <file>CusExtruderBox.qml</file>
+        <file>CusHeatBedBox.qml</file>
+        <file>CusManualPrinterControlBox.qml</file>
+    </qresource>
+</RCC>

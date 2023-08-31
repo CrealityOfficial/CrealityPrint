@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/laser">
+        <file>laser/RightPanel.qml</file>
+        <file>laser/LaserLayout.qml</file>
+    </qresource>
+</RCC>
