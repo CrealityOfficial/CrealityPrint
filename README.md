@@ -1,8 +1,9 @@
 
 # Creality Print
-Creality Print is feature-rich slicing software.
+Creality Print is feature-rich FDM slicing software of [Creality](https://www.creality.com/).
 It contains model libraries, machine control and other functions, as well as cutting-edge slicing algorithms, providing users with the best printing experience.
-Creality Print slicer engine is based on CuraEngine by Ultimaker, which is the world's first slicing software
+Creality Print slicer engine is based on [CuraEngine](https://github.com/Ultimaker/CuraEngine) by Ultimaker, which is the world's first slicing software.
+
 See the [wiki](https://wiki.creality.com/en/Software-&-Firmware/All-Creality-Softwares) and the documentation directory for more informations.
 
 ## Main features
