@@ -3,7 +3,7 @@
 Creality Print is feature-rich FDM slicing software from [Creality](https://www.creality.com/). It contains model libraries, machine control and other functions, as well as cutting-edge slicing algorithms, providing users with the best printing experience.
 Creality Print slicer engine is based on [CuraEngine](https://github.com/Ultimaker/CuraEngine) by Ultimaker，Some functions refer to [PrusaSlicer](https://github.com/prusa3d/PrusaSlicer) (Auto-arrange,Auto-orient,Support G2/G3,Overhang down speed).  
 
-Calibration function ideas and models come from the open source community.
+Calibration function ideas and models come from the open source community. Thanks [OrcaSlicer](https://github.com/SoftFever/OrcaSlicer)
   1. The Flowrate test and retraction test is inspired by [SuperSlicer](https://github.com/supermerill/SuperSlicer).
   2. The PA Tower method is inspired by [Klipper](https://marlinfw.org/tools/lin_advance/k-factor.html).
   3. The temp tower model is remixed from [Smart compact temperature calibration tower](https://www.thingiverse.com/thing:2729076).
