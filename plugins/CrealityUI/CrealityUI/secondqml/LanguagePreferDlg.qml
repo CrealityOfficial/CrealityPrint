@@ -62,7 +62,6 @@ BasicDialog
 //                        ListElement { text: qsTr("Hrvatska/Croatian");} //hr.ts
 //                        ListElement { text: qsTr("Italiano/Italian");}  //it.ts
 //                        ListElement { text: qsTr("日本語/Japanese");}   //jp.ts
-//                        ListElement { text: qsTr("한국어/Korean");}  //ko.ts
 //                        ListElement { text: qsTr("Portugal/Portugal");}  //pl.ts
 //                        ListElement { text: qsTr("Pусский язык/Russian");} //ru.ts
 //                        ListElement { text: qsTr("Türkçe/Turkish");}    //tr.ts
@@ -71,6 +70,7 @@ BasicDialog
                         ListElement { text: qsTr("English");}    //en.ts
                         ListElement { text: qsTr("简体中文");}  //zh_CN.ts
                         ListElement { text: qsTr("繁体中文");} //zh_TW.ts
+                        ListElement { text: qsTr("한국어/Korean");}  //ko.ts
                     }
                     onCurrentIndexChanged:
                     {
