@@ -202,7 +202,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="226"/>
         <source>Message</source>
-        <translation>메세지</translation>
+        <translation>메시지</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="238"/>
@@ -6245,7 +6245,7 @@
     </message>
     <message>
         <source>Z Hop When Retracted</source>
-        <translation>리트렉션시 Z 홉</translation>
+        <translation>리트렉션시 Z 올리기</translation>
     </message>
     <message>
         <source>Retraction Speed</source>
@@ -12302,12 +12302,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction Z Hop Type</source>
-        <translation>리트렉션 Z 홉 종류</translation>
+        <translation>리트렉션 Z 올리기 종류</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Z Hop Type when retraction </source>
-        <translation>리트렉션시 Z 홉</translation>
+        <translation>리트렉션시 Z 올리기</translation>
     </message>
     <message>
         <source>DirectLift</source>
@@ -12699,12 +12699,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Z Hop Speed</source>
-        <translation>Z 홉 속도</translation>
+        <translation>Z 올리기 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the vertical Z movement is made for Z Hops. This is typically lower than the print speed since the build plate or machine&apos;s gantry is harder to move.</source>
-        <translation>Z 홉에 대해 수직 Z 이동이 이루어지는 속도입니다. 베드나 장치의 갠트리가 이동하기 어렵기 때문에 이는 일반적으로 출력 속도보다 낮습니다.</translation>
+        <translation>Z 올리기에 대해 수직 Z 이동이 이루어지는 속도입니다. 베드나 장치의 갠트리가 이동하기 어렵기 때문에 이는 일반적으로 출력 속도보다 낮습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13234,7 +13234,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Z Hop When Retracted</source>
-        <translation>리트렉션시 Z 홉</translation>
+        <translation>리트렉션시 Z 올리기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13244,27 +13244,27 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Z Hop Only Over Printed Parts</source>
-        <translation>Z 홉은 출력된 부품에만 적용됩니다.</translation>
+        <translation>Z 올리기은 출력된 부품에만 적용됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Only perform a Z Hop when moving over printed parts which cannot be avoided by horizontal motion by Avoid Printed Parts when Traveling.</source>
-        <translation>이동 시 출력된 부품 피하기를 통해 수평 이동으로 피할수 없는 출력된 부품 위로 이동시만 Z 홉을 수행하십시오.</translation>
+        <translation>이동 시 출력된 부품 피하기를 통해 수평 이동으로 피할수 없는 출력된 부품 위로 이동시만 Z 올리기을 수행하십시오.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Z Hop Height</source>
-        <translation>Z 홉 높이</translation>
+        <translation>Z 올리기 높이</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The height difference when performing a Z Hop.</source>
-        <translation>Z 홉 수행 시 높이 차이.</translation>
+        <translation>Z 올리기 수행 시 높이 차이.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Z Hop After Extruder Switch</source>
-        <translation>익스트루더 전환후 Z 홉</translation>
+        <translation>익스트루더 전환후 Z 올리기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13279,7 +13279,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The height difference when performing a Z Hop after extruder switch.</source>
-        <translation>익스트루더 전환 후 Z 홉 수행 시 높이 차이.</translation>
+        <translation>익스트루더 전환 후 Z 올리기 수행 시 높이 차이.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16200,17 +16200,17 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Z Hop When Retracted</source>
-        <translation>리트렉션 상태에서 닦기 Z 홉</translation>
+        <translation>리트렉션 상태에서 닦기 Z 올리기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Z Hop Height</source>
-        <translation>닦기 Z 홉 높이</translation>
+        <translation>닦기 Z 올리기 높이</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Hop Speed</source>
-        <translation>닦기 Z 홉 속도</translation>
+        <translation>닦기 Z 올리기 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16525,7 +16525,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Z Hop</source>
-        <translation>닦기 Z 홉</translation>
+        <translation>닦기 Z 올리기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -17473,7 +17473,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="155"/>
         <source>G-code Flavor:</source>
-        <translation>G코드 호환:</translation>
+        <translation>G코드 유형:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="449"/>
