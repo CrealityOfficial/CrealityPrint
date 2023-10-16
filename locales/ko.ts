@@ -326,7 +326,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="153"/>
         <source>ENDER series</source>
-        <translation>ENDER 시리즈</translation>
+        <translation>Ender 시리즈</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="174"/>
@@ -837,7 +837,7 @@
     </message>
     <message>
         <source>Marlin (Volumetric)</source>
-        <translation>Marlin (체적)</translation>
+        <translation>Marlin (볼륨메트릭)</translation>
     </message>
     <message>
         <source>RepRap</source>
@@ -1409,7 +1409,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
         <source>Flow step</source>
-        <translation>단계:</translation>
+        <translation>흐름 단계:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
@@ -2243,7 +2243,7 @@
         <location filename="../plugins/plugin_cx3d_exporter/src/cx3dsubmenurecentproject.cpp" line="16"/>
         <location filename="../plugins/plugin_cx3d_exporter/src/cx3dsubmenurecentproject.cpp" line="44"/>
         <source>Recently Opened Project</source>
-        <translation>최근 오픈한 프로젝트</translation>
+        <translation>최근에 열린 프로젝트</translation>
     </message>
 </context>
 <context>
@@ -2353,7 +2353,7 @@
     <message>
         <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="70"/>
         <source>No device found, try refreshing to get it again.</source>
-        <translation>기기를 찾을수 없습니다. 다시 가져오려면 새로고침해 보세요.</translation>
+        <translation>기기를 찾을수 없습니다. 다시 가져오려면 새로고침하세요.</translation>
     </message>
     <message>
         <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="86"/>
@@ -2424,7 +2424,7 @@
     <message>
         <location filename="../plugins/CrealityUITest/DlgTest.qml" line="610"/>
         <source> Please select a print file</source>
-        <translation> 출력할 파일을 선택해주세요</translation>
+        <translation> 출력할 파일을 선택하세요</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUITest/DlgTest.qml" line="782"/>
@@ -2868,7 +2868,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMPreviewPanel.qml" line="60"/>
         <source>Upload to Crealitycloud</source>
-        <translation>Crealitycloud 에 업로드</translation>
+        <translation>Creality Cloud에 업로드</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMPreviewPanel.qml" line="102"/>
@@ -4522,7 +4522,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserShapeSettings.qml" line="294"/>
         <source>Uniform</source>
-        <translation>Uniform</translation>
+        <translation>잠금비율</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserShapeSettings.qml" line="318"/>
@@ -7056,7 +7056,7 @@
         <location filename="../plugins/plugin_pick_bottom/pickbottomcommand.cpp" line="16"/>
         <location filename="../plugins/plugin_pick_bottom/pickbottomcommand.cpp" line="34"/>
         <source>P Bottom</source>
-        <translation>P Bottom</translation>
+        <translation>선택면을 바닥으로</translation>
     </message>
 </context>
 <context>
@@ -7065,7 +7065,7 @@
         <location filename="../kernel/BasicKernel/internal/tool/pickmode.cpp" line="10"/>
         <location filename="../kernel/BasicKernel/internal/tool/pickmode.cpp" line="29"/>
         <source>Pick</source>
-        <translation>Pick</translation>
+        <translation>선택</translation>
     </message>
 </context>
 <context>
@@ -8099,7 +8099,7 @@
         <location filename="../kernel/BasicKernel/internal/tool/scalemode.cpp" line="15"/>
         <location filename="../kernel/BasicKernel/internal/tool/scalemode.cpp" line="63"/>
         <source>Scale</source>
-        <translation>스케일</translation>
+        <translation>규모</translation>
     </message>
 </context>
 <context>
@@ -8123,12 +8123,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/ScalePanel.qml" line="98"/>
         <source>Scale</source>
-        <translation>스케일</translation>
+        <translation>규모</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/ScalePanel.qml" line="495"/>
         <source>Uniform</source>
-        <translation>Uniform</translation>
+        <translation>잠금비율</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/ScalePanel.qml" line="509"/>
@@ -8435,7 +8435,7 @@
     </message>
     <message>
         <source>The model has not been supported and may fail to print. Do you want to continue adding supports before slicing?</source>
-        <translation>해당 모델은 서포트가 생성되지 않으면 출력에 실패할수 있습니다. 슬라이스하기 전에 서포트를 계속 추가하시겠습니까?</translation>
+        <translation>해당 모델은 서포트가 생성되지 않으면 출력에 실패할수 있습니다. 슬라이싱하기 전에 서포트를 계속 추가하시겠습니까?</translation>
     </message>
     <message>
         <source>Add Support</source>
@@ -8628,7 +8628,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/SupportTabPanel.qml" line="120"/>
         <source>Only add support to the hot bed</source>
-        <translation>베드에만 서포트를 추가하세요.</translation>
+        <translation>베드위에만 서포트를 추가하세요.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/SupportTabPanel.qml" line="149"/>
@@ -8903,7 +8903,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadModelDlg.qml" line="304"/>
         <source>Combintion</source>
-        <translation>Combintion</translation>
+        <translation>조합</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadModelDlg.qml" line="317"/>
@@ -10578,7 +10578,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>How many steps of the stepper motor will result in one millimeter of movement in the X direction.</source>
-        <translation>스테퍼 모터의 몇 단계가 X 방향으로 1밀리미터 이동하게 됩니까?</translation>
+        <translation>스탭모터의 몇 단계가 X 방향으로 1밀리미터 이동하게 됩니까?</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10588,7 +10588,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>How many steps of the stepper motor will result in one millimeter of movement in the Y direction.</source>
-        <translation>스테퍼 모터의 몇 단계가 Y 방향으로 1밀리미터 이동하게 됩니까?</translation>
+        <translation>스탭모터의 몇 단계가 Y 방향으로 1밀리미터 이동하게 됩니까?</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10598,7 +10598,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>How many steps of the stepper motor will result in one millimeter of movement in the Z direction.</source>
-        <translation>스테퍼 모터의 몇 단계가 Z 방향으로 1밀리미터 이동하게 됩니까?</translation>
+        <translation>스탭모터의 몇 단계가 Z 방향으로 1밀리미터 이동하게 됩니까?</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10608,7 +10608,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>How many steps of the stepper motors will result in one millimeter of extrusion.</source>
-        <translation>스테퍼 모터의 몇 단계로 인해 1밀리미터의 압출이 발생합니까?</translation>
+        <translation>스탭모터의 몇 단계로 인해 1밀리미터의 압출이 발생합니까?</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12584,7 +12584,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which top/bottom layers are printed.</source>
-        <translation>상단/하단 레이어가 출력되는 속도입니다.</translation>
+        <translation>상/하단 레이어가 출력되는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12744,7 +12744,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The model with a large number of facets is simplified to achieve the effect of accelerating slicing by subtracting facets.</source>
-        <translation>패싯 수가 많은 모델을 단순화하여 패싯을 빼서 슬라이싱을 가속화하는 효과를 얻습니다.</translation>
+        <translation>면 수가 많은 모델을 단순화하고 면을 줄여 슬라이싱 속도를 높입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13019,7 +13019,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The maximum instantaneous velocity change with which top/bottom layers are printed.</source>
-        <translation>상단/하단 레이어가 출력되는 최대 순간 속도 변화입니다.</translation>
+        <translation>상/하단 레이어가 출력되는 최대 순간 속도 변화입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13759,7 +13759,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Distance from the top/bottom of the support structure to the print. This gap provides clearance to remove the supports after the model is printed. This value is rounded up to a multiple of the layer height.</source>
-        <translation>서포트 구조의 상단/하단에서 출력물까지의 거리입니다. 이 간격은 모델이 프린트된 후 서포트를 제거할수 있는 여유 공간을 제공합니다. 이 값은 레이어 높이의 배수로 반올림됩니다.</translation>
+        <translation>서포트 구조의 상/하단에서 출력물까지의 거리입니다. 이 간격은 모델이 프린트된 후 서포트를 제거할수 있는 여유 공간을 제공합니다. 이 값은 레이어 높이의 배수로 반올림됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14780,32 +14780,32 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Enable Ooze Shield</source>
-        <translation>유출 쉴드 활성화</translation>
+        <translation>누출 쉴드 활성화</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Enable exterior ooze shield. This will create a shell around the model which is likely to wipe a second nozzle if it&apos;s at the same height as the first nozzle.</source>
-        <translation>유출 쉴드를 활성화하면 모델 주위에 쉘이 생성되고 첫번째 노즐과 높이가 같은 경우 두번째 노즐을 닦을 수 있습니다.</translation>
+        <translation>누출 쉴드를 활성화하면 모델 주위에 쉘이 생성되고 첫번째 노즐과 높이가 같은 경우 두번째 노즐을 닦을 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Ooze Shield Angle</source>
-        <translation>유출 쉴드 각도</translation>
+        <translation>누출 쉴드 각도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The maximum angle a part in the ooze shield will have. With 0 degrees being vertical, and 90 degrees being horizontal. A smaller angle leads to less failed ooze shields, but more material.</source>
-        <translation>유출 쉴드의 부품이 가질 수 있는 최대 각도입니다. 0도는 수직, 90도는 수평입니다. 각도가 작을수록 실패할수 있는 유출 쉴드가 줄어들지만 재료는 더 많아집니다.</translation>
+        <translation>누출 쉴드의 부품이 가질 수 있는 최대 각도입니다. 0도는 수직, 90도는 수평입니다. 각도가 작을수록 실패할수 있는 누출 쉴드가 줄어들지만 재료는 더 많아집니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Ooze Shield Distance</source>
-        <translation>유출 쉴드 거리</translation>
+        <translation>누출 쉴드 거리</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Distance of the ooze shield from the print, in the X/Y directions.</source>
-        <translation>X/Y 방향으로 출력물에서 유출 쉴드까지의 거리입니다.</translation>
+        <translation>X/Y 방향으로 출력물에서 누출 쉴드까지의 거리입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14895,7 +14895,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Remove empty layers beneath the first printed layer if they are present. Disabling this setting can cause empty first layers if the Slicing Tolerance setting is set to Exclusive or Middle.</source>
-        <translation>첫번째 출력 레이어 아래에 빈 레이어(있는 경우)를 제거합니다. 슬라이스 공차 설정이 단독 또는 중간으로 설정된 경우 이 설정을 비활성화하면 첫번째 레이어가 비어 있을 수 있습니다.</translation>
+        <translation>첫번째 출력 레이어 아래에 빈 레이어가 있는경우 제거합니다. 슬라이싱 공차 설정이 단독 또는 중간으로 설정된 경우 이 설정을 비활성화하면 첫번째 레이어가 비어 있을 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14925,7 +14925,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Use this mesh to modify the infill of other meshes with which it overlaps. Replaces infill regions of other meshes with regions for this mesh. It&apos;s suggested to only print one Wall and no Top/Bottom Skin for this mesh.</source>
-        <translation>이 메쉬를 사용하여 겹치는 다른 메쉬의 내부채움을 수정합니다. 다른 메쉬의 내부채움 영역을 이 메쉬의 영역으로 바꿉니다. 이 메쉬에는 하나의 벽만 출력하고 상단/하단 스킨은 출력하지 않는 것이 좋습니다.</translation>
+        <translation>이 메쉬를 사용하여 겹치는 다른 메쉬의 내부채움을 수정합니다. 다른 메쉬의 내부채움 영역을 이 메쉬의 영역으로 바꿉니다. 이 메쉬에는 하나의 벽만 출력하고 상/하단 스킨은 출력하지 않는 것이 좋습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15015,7 +15015,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="99"/>
         <source>Treat the model as a surface only, a volume, or volumes with loose surfaces. The normal print mode only prints enclosed volumes. [Surface] prints a single wall tracing the mesh surface with no infill and no top/bottom skin. [Both] prints enclosed volumes like normal and any remaining polygons as surfaces.</source>
-        <translation>모델을 표면, 공간 또는 느슨한 표면이 있는 여러 공간으로 처리합니다. 일반 출력 모드는 닫힌 공간만 출력합니다. [표면]은 필러나 상단/하단 스킨 없이 메쉬 표면을 추적하는 단일 벽을 출력합니다. [둘 다] 닫힌 공간을 정상적으로 플롯하고 나머지 다각형을 표면으로 플롯합니다.</translation>
+        <translation>모델을 표면, 공간 또는 느슨한 표면이 있는 여러 공간으로 처리합니다. 일반 출력 모드는 닫힌 공간만 출력합니다. [표면]은 필러나 상/하단 스킨 없이 메쉬 표면을 추적하는 단일 벽을 출력합니다. [둘 다] 닫힌 공간을 정상적으로 플롯하고 나머지 다각형을 표면으로 플롯합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15230,7 +15230,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Polygons in sliced layers that have a circumference smaller than this amount will be filtered out. Lower values lead to higher resolution mesh at the cost of slicing time. It is meant mostly for high resolution SLA printers and very tiny 3D models with a lot of details.</source>
-        <translation>이 양보다 작은 원주를 가진 슬라이스된 레이어의 다각형은 필터링됩니다. 값이 낮을수록 슬라이싱 시간이 길어지지만 메쉬 해상도가 높아집니다. 주로 고해상도 SLA 프린터와 세부 사항이 많은 매우 작은 3D 모델에 사용됩니다.</translation>
+        <translation>이 양보다 작은 원주를 가진 슬라이싱된 레이어의 다각형은 필터링됩니다. 값이 낮을수록 슬라이싱 시간이 길어지지만 메쉬 해상도가 높아집니다. 주로 고해상도 SLA 프린터와 세부 사항이 많은 매우 작은 3D 모델에 사용됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15240,7 +15240,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The minimum size of a line segment after slicing. If you increase this, the mesh will have a lower resolution. This may allow the printer to keep up with the speed it has to process g-code and will increase slice speed by removing details of the mesh that it can&apos;t process anyway.</source>
-        <translation>분할 후 선분의 최소 크기입니다. 이 값을 늘리면 메쉬의 해상도가 낮아집니다. 이를 통해 프린터는 G코드를 처리해야 하는 속도를 유지할수 있으며 어쨌든 처리할수 없는 메쉬의 세부 사항을 제거하여 슬라이스 속도를 높일 수 있습니다.</translation>
+        <translation>분할 후 선분의 최소 크기입니다. 이 값을 늘리면 메쉬의 해상도가 낮아집니다. 이를 통해 프린터는 G코드를 처리해야 하는 속도를 유지할수 있으며 어쨌든 처리할수 없는 메쉬의 세부 사항을 제거하여 슬라이싱 속도를 높일 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15720,7 +15720,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Delay time after an upward move, so that the upward line can harden. Only applies to Wire Printing.</source>
-        <translation>상승 후 상승 시간이 지연되어 상승 ​​선이 굳어질 수 있습니다. 와이어 출력에만 적용됩니다.</translation>
+        <translation>상승 후 상승 시간이 지연되어 상승선이 굳어질 수 있습니다. 와이어 출력에만 적용됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16195,7 +16195,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Pause after the unretract.</source>
-        <translation>취소 후 일시 일시중지합니다.</translation>
+        <translation>취소 후 일시중지합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16365,7 +16365,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Settings which are only used if CuraEngine isn&apos;t called from the Creality Print frontend.</source>
-        <translation>CuraEngine이 Creality Print 프런트엔드에서 호출되지 않는 경우에만 사용되는 설정입니다.</translation>
+        <translation>Cura Engine이 Creality Print 프런트엔드에서 호출되지 않는 경우에만 사용되는 설정입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16760,7 +16760,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
         <source>Add extra walls around the infill area. Such walls can make top/bottom skin lines sag down less which means you need less top/bottom skin layers for the same quality at the cost of some extra material.This feature can combine with the Connect Infill Polygons to connect all the infill into a single extrusion path without the need for travels or retractions if configured right.</source>
-        <translation>내부채움 영역 주위에 추가 벽을 추가합니다. 이러한 벽은 상단/하단 스킨 라인을 덜 처지게 만들 수 있으며, 이는 추가 재료를 사용하여 동일한 품질을 위해 더 적은 상단/하단 스킨 레이어가 필요하다는 것을 의미합니다. 이 기능은 내부채움 폴리곤 연결과 결합하여 모든 충전재를 하나의 내부채움으로 연결할수 있습니다. 올바르게 구성된 경우 이동이나 리트렉트가 필요 없는 단일 압출 경로.</translation>
+        <translation>내부채움 영역 주위에 추가 벽을 추가합니다. 이러한 벽은 상/하단 스킨 라인을 덜 처지게 만들 수 있으며, 이는 추가 재료를 사용하여 동일한 품질을 위해 더 적은 상/하단 스킨 레이어가 필요하다는 것을 의미합니다. 이 기능은 내부채움 폴리곤 연결과 결합하여 모든 충전재를 하나의 내부채움으로 연결할수 있습니다. 올바르게 구성된 경우 이동이나 리트렉트가 필요 없는 단일 압출 경로.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="99"/>
@@ -16995,12 +16995,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
         <source>Mold Infill Support X Numbers</source>
-        <translation>금형채움 서포트 X 번호</translation>
+        <translation>금형 내부채움 서포트 X 번호</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
         <source>Mold Infill Support Y Numbers</source>
-        <translation>금형채움 서포트 Y 번호</translation>
+        <translation>금형 내부채움 서포트 Y 번호</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
@@ -17563,11 +17563,11 @@
     </message>
     <message>
         <source>save_successed_tip</source>
-        <translation>저장이 완료되었습니다. 지금 폴더를 열시겠습니까?</translation>
+        <translation>저장이 완료되었습니다. 지금 폴더를 열어볼까요?</translation>
     </message>
     <message>
         <source>save_failed_tip</source>
-        <translation>저장하지 못했습니다. 다시 시도해 주세요.</translation>
+        <translation>저장하지 못했습니다. 재시도해 주세요.</translation>
     </message>
     <message>
         <source>Yes</source>
@@ -17706,7 +17706,7 @@
     <name>TipsManageCom</name>
     <message>
         <source>The model has not been supported and may fail to print. Do you want to continue adding supports before slicing?</source>
-        <translation>해당 모델은 서포트가 생성되지 않으면 출력에 실패할수 있습니다. 슬라이스하기 전에 서포트를 추가하시겠습니까?</translation>
+        <translation>해당 모델은 서포트가 생성되지 않으면 출력에 실패할수 있습니다. 슬라이싱하기 전에 서포트를 추가하시겠습니까?</translation>
     </message>
     <message>
         <source>Add Support</source>
@@ -17717,7 +17717,7 @@
     <name>CusStyledStatusBar</name>
     <message>
         <source>The model has not been supported and may fail to print. Do you want to continue adding supports before slicing?</source>
-        <translation>해당 모델은 서포트가 생성되지 않으면 출력에 실패할수 있습니다. 슬라이스하기 전에 서포트를 추가하시겠습니까?</translation>
+        <translation>해당 모델은 서포트가 생성되지 않으면 출력에 실패할수 있습니다. 슬라이싱하기 전에 서포트를 추가하시겠습니까?</translation>
     </message>
 	   <message>
         <source>Add Support</source>
