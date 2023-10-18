@@ -432,7 +432,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="91"/>
         <source>Model&apos;s size exceeds the printer&apos;s maximum build volume,apply auto-scale?</source>
-        <translation>모델 크기가 프린터의 최대 용량을 초과합니다. 자동으로 크기 조정을 적용하시겠습니까?</translation>
+        <translation>모델 크기가 프린터의 최대 볼륨을 초과합니다. 자동으로 크기 조정을 적용하시겠습니까?</translation>
     </message>
     <message>
         <source>Model&apos;s size too small and mabye in inches or meters measurement, do you want to scale to millimeters?</source>
@@ -2815,7 +2815,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="79"/>
         <source>Suspend</source>
-        <translation>유예하다</translation>
+        <translation>정지</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="79"/>
@@ -10304,7 +10304,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Marlin (Volumetric)</source>
-        <translation>Marlin (볼류메트릭)</translation>
+        <translation>Marlin (볼륨메트릭)</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14730,7 +14730,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Prime Tower Minimum Volume</source>
-        <translation>프라임 타워 최소 용량</translation>
+        <translation>프라임 타워 최소 볼륨</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14820,7 +14820,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Union Overlapping Volumes</source>
-        <translation>유니언 중첩 용량</translation>
+        <translation>유니언 중첩 볼륨</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15380,7 +15380,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Coasting Volume</source>
-        <translation>글라이딩 용량</translation>
+        <translation>글라이딩 볼륨</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15390,7 +15390,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Minimum Volume Before Coasting</source>
-        <translation>글라이딩 전 최소 용량</translation>
+        <translation>글라이딩 전 최소 볼륨</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15505,7 +15505,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Spaghetti Infill Extra Volume</source>
-        <translation>스파게티 내부채움 추가 용량</translation>
+        <translation>스파게티 내부채움 추가 볼륨</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -17078,7 +17078,7 @@
     </message>
     <message>
         <source>Max volumetric speed</source>
-        <translation>최대 체적 속도</translation>
+        <translation>최대 볼륨메트릭 속도</translation>
     </message>
     <message>
         <source>Enable pressure advance</source>
@@ -17086,11 +17086,11 @@
     </message>
     <message>
         <source>Material pressure advance length</source>
-        <translation>재료 압력 전진 길이</translation>
+        <translation>PA 재료 길이</translation>
     </message>
     <message>
         <source>This setting is the volume of filament that can be melted andextruded per second. Printing speed is limited by max volumetric speed.</source>
-        <translation>이 설정은 초당 녹고 압출할수 있는 필라멘트의 양입니다. 출력 속도는 최대 체적 속도에 의해 제한됩니다.</translation>
+        <translation>이 설정은 초당 녹고 압출할수 있는 필라멘트의 양입니다. 출력 속도는 최대 볼륨메트릭 속도에 의해 제한됩니다.</translation>
     </message>
     <message>
         <source>Filament Cost</source>
@@ -17106,7 +17106,7 @@
     </message>
     <message>
         <source>Pressure advance(Klipper) AKA Linear advance(Marlin).</source>
-        <translation>PA(Klipper) 일명 선형 전진(Marlin)입니다.</translation>
+        <translation>Pressure advance(Klipper) 일명 Linear advance(Marlin).</translation>
     </message>
     <message>
         <source>Enable pressure advance,auto calibration result will be overwriten once enabled</source>
@@ -17134,11 +17134,11 @@
     </message>
     <message>
         <source>Acceleration Limit Volume Enable</source>
-        <translation>가속 제한 용량 활성화</translation>
+        <translation>가속 제한 볼륨 활성화</translation>
     </message>
     <message>
         <source>Acceleration Limit Volume</source>
-        <translation>가속 제한 용량</translation>
+        <translation>가속 제한 볼륨</translation>
     </message>
     <message>
         <source>Print Speed Limit to Height Enable</source>
@@ -17448,7 +17448,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="417"/>
         <source>Is Center Origin</source>
-        <translation>중심 원점인가</translation>
+        <translation>중앙에 위치</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="417"/>
