@@ -23,22 +23,5 @@ namespace creative_kernel
 	protected:
 		QList<NUnionChangedStruct> m_changes;
 	};
-
-	class BASIC_KERNEL_API MeshChangeCommand : public QObject, public QUndoCommand
-	{
-		Q_OBJECT
-	public:
-		MeshChangeCommand(QObject* parent = nullptr);
-		virtual ~MeshChangeCommand();
-
-		void undo() override;
-		void redo() override;
-
-		void setChanges(const QList<MeshChange>& changes);
-	private:
-		void call(bool redo);
-	protected:
-		QList<MeshChange> m_changes;
-	};
 }
 #endif // CREATIVE_KERNEL_NMIXCHANGECOMMAND_1592796635575_H

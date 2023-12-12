@@ -21,6 +21,10 @@ DockItem
 
     AddPrinterDlgChoseNuzzle {
         id: idAddPrinterDlg
+        centerToWindow:false
+        x: Math.round((parent.width - width) / 2) 
+        y: Math.round((parent.height - height) / 2) 
+        //height : 600 * screenScaleFactor
         onChoseAccepted: Qt.callLater(function() { root.close() })
     }
 
@@ -96,27 +100,27 @@ DockItem
         ColumnLayout {
             spacing: 25 * screenScaleFactor
 
-            BasicScrollView {
+            ScrollView {
                 clip: true
                 id: idListScrollView
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.minimumWidth: 159 * screenScaleFactor
                 Layout.maximumWidth: 185 * screenScaleFactor
-                hpolicyVisible: contentWidth > width
-                vpolicyVisible: contentHeight > height
-                hpolicyindicator: Rectangle {
-                    radius: height / 2
-                    color: sourceTheme.scrollbar_color
-                    implicitWidth: 200 * screenScaleFactor
-                    implicitHeight: 6 * screenScaleFactor
-                }
-                vpolicyindicator: Rectangle {
-                    radius: width / 2
-                    color: sourceTheme.scrollbar_color
-                    implicitWidth: 6 * screenScaleFactor
-                    implicitHeight: 200 * screenScaleFactor
-                }
+//                hpolicyVisible: contentWidth > width
+//                vpolicyVisible: contentHeight > height
+//                hpolicyindicator: Rectangle {
+//                    radius: height / 2
+//                    color: sourceTheme.scrollbar_color
+//                    implicitWidth: 200 * screenScaleFactor
+//                    implicitHeight: 6 * screenScaleFactor
+//                }
+//                vpolicyindicator: Rectangle {
+//                    radius: width / 2
+//                    color: sourceTheme.scrollbar_color
+//                    implicitWidth: 6 * screenScaleFactor
+//                    implicitHeight: 200 * screenScaleFactor
+//                }
 
                 Column {
                     width: 125 * screenScaleFactor
@@ -165,27 +169,27 @@ DockItem
         ColumnLayout {
             spacing: 25 * screenScaleFactor
 
-            BasicScrollView {
+           ScrollView {
                 clip: true
                 id: idModelScrollView
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.minimumWidth: 983 * screenScaleFactor
                 Layout.maximumWidth: 1637 * screenScaleFactor
-                hpolicyVisible: contentWidth > width
-                vpolicyVisible: contentHeight > height
-                hpolicyindicator: Rectangle {
-                    radius: height / 2
-                    color: sourceTheme.scrollbar_color
-                    implicitWidth: 200 * screenScaleFactor
-                    implicitHeight: 6 * screenScaleFactor
-                }
-                vpolicyindicator: Rectangle {
-                    radius: width / 2
-                    color: sourceTheme.scrollbar_color
-                    implicitWidth: 6 * screenScaleFactor
-                    implicitHeight: 200 * screenScaleFactor
-                }
+//                hpolicyVisible: contentWidth > width
+//                vpolicyVisible: contentHeight > height
+//                hpolicyindicator: Rectangle {
+//                    radius: height / 2
+//                    color: sourceTheme.scrollbar_color
+//                    implicitWidth: 200 * screenScaleFactor
+//                    implicitHeight: 6 * screenScaleFactor
+//                }
+//                vpolicyindicator: Rectangle {
+//                    radius: width / 2
+//                    color: sourceTheme.scrollbar_color
+//                    implicitWidth: 6 * screenScaleFactor
+//                    implicitHeight: 200 * screenScaleFactor
+//                }
 
                 Flow {
                     width: idModelScrollView.width
@@ -209,8 +213,9 @@ DockItem
                                 idAddPrinterDlg.nozzleNum = model_nozzle_count
                                 idAddPrinterDlg.isGranular = model_granular
 
-                                idAddPrinterDlg.height = 600 * screenScaleFactor
                                 idAddPrinterDlg.visible = true
+                                idAddPrinterDlg.nozzle1Index=0
+                                idAddPrinterDlg.nozzle2Index=0
                             }
                         }
                     }

@@ -1,8 +1,8 @@
 #include "supportinput.h"
 
 #include "data/modeln.h"
-#include "mmesh/trimesh/trimeshutil.h"
-#include "qcxutil/trimesh2/conv.h"
+#include "qtuser3d/trimesh2/conv.h"
+#include "crslice/support.h"
 
 namespace creative_kernel
 {
@@ -47,7 +47,7 @@ namespace creative_kernel
 	void SupportInput::buildFDM()
 	{
 		QMatrix4x4 globalMatrix = m_model->globalMatrix();
-		trimesh::fxform xf = qcxutil::qMatrix2Xform(globalMatrix);
+		trimesh::fxform xf = qtuser_3d::qMatrix2Xform(globalMatrix);
 		size_t size = m_mesh->vertices.size();
 		for (size_t i = 0; i < size; ++i)
 		{
@@ -104,7 +104,7 @@ namespace creative_kernel
 		trimesh::TriMesh* mesh = new trimesh::TriMesh();
 		*mesh = *m_model->globalMesh().get();
 		creative_kernel::TriMeshPtr beltmesh(mesh);
-		trimesh::fxform xf = mmesh::beltXForm(m_offset, 45.0f);
+		trimesh::fxform xf = crslice::beltXForm(m_offset, 45.0f);
 		trimesh::apply_xform(beltmesh.get(), trimesh::xform(xf));
 		beltmesh->need_bbox();
 		return beltmesh;
@@ -118,7 +118,7 @@ namespace creative_kernel
 	void SupportInput::beltSet(trimesh::vec3 offset)
 	{
 #if 1
-		trimesh::fxform xf = mmesh::beltXForm(offset, 45.0f);
+		trimesh::fxform xf = crslice::beltXForm(offset, 45.0f);
 		trimesh::apply_xform(m_mesh, trimesh::xform(xf));
 
 		m_mesh->need_bbox();

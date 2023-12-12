@@ -13,12 +13,15 @@ Item{
     signal cancelJobButton()
     signal sigJobStart()
     signal sigJobEnd()
+    property var currentPhase: 0
+    property var progressMessage: 0
 
     Connections {
         target: kernel_slice_flow
         onSupportStructureRequired: {
             console.log("-------------------")
-            standaloneWindow.tipsItem.funcs[0] = addSupport
+           standaloneWindow.tipsItem.addMsgTipTemp(addSupport)
+//            standaloneWindow.tipsItem.funcs[0] = addSupport
             if(kernel_kernel.currentPhase === 1)
                 standaloneWindow.tipsItem.visible = true
         }
@@ -89,20 +92,41 @@ Item{
                 }
             }
 
-
-            StyledLabel
-            {
-                id:idSliceMessage
-                width: 176*screenScaleFactor
-                height: 18*screenScaleFactor
-                text: qsTr("Processing, Please Wait...")
-                color: "#ffffff"//Constants.textColor 深色浅色 字体一样
-                font.pointSize: 16*screenScaleFactor
-                font.family: Constants.labelFontFamilyBold
+            Row {
                 anchors.horizontalCenter: progressBarInside.horizontalCenter
                 anchors.bottom: idProgressOut.top
                 anchors.bottomMargin: 5*screenScaleFactor
+                StyledLabel
+                {
+                    id:idSliceNumber
+                    width: 50*screenScaleFactor
+                    height: 18*screenScaleFactor
+                    text: ""
+                    color: "#00A3FF"//Constants.textColor 深色浅色 字体一样
+                    font.pointSize: Constants.labelFontPointSize_14 //16*screenScaleFactor
+                    font.family: Constants.labelFontFamilyBold
+                    font.weight: Font.ExtraBold
+                }
+
+
+                StyledLabel
+                {
+                    id:idSliceMessage
+                    width: 176*screenScaleFactor
+                    height: 18*screenScaleFactor
+                    text: progressMessage
+                    color: "#ffffff"
+                    font.pointSize: Constants.labelFontPointSize_12 //16*screenScaleFactor
+                    font.family: Constants.labelFontFamilyBold
+
+                }
+
+
+
             }
+
+
+
         }
 
 
@@ -237,6 +261,14 @@ Item{
         }
     }
 
+	function setVisible()
+	{
+	    statusBur.visible = object.visible
+        progressBar.visible = object.visible
+        cancelButton.visible = object.visible
+		if(object.visible)
+			sigJobStart()
+	}
 
     function jobsStart()
     {
@@ -259,6 +291,7 @@ Item{
         statusBur.visible = false
         progressBar.visible = false
         cancelButton.visible = false
+        progressMessage = qsTr("Processing, Please Wait...")
         controlEnabled(true)
     }
 
@@ -288,6 +321,7 @@ Item{
     function jobProgress(r)
     {
         idProgress.width = r * idProgressOut.width//(progressBar.width-160)
+        idSliceNumber.text = parseInt(r*100) + "%"
         //console.log("idProgress.width r= " + r )
     }
 
@@ -298,6 +332,19 @@ Item{
         idopenFileMessageDlg.messageText = mess1 + btnMess
         idopenFileMessageDlg.show()
     }
+    function jobMessage(msg)
+    {
+		if(msg == "need_support_structure")
+		{
+				   standaloneWindow.tipsItem.addMsgTipTemp(addSupport)
+					if(kernel_kernel.currentPhase === 1)
+						standaloneWindow.tipsItem.visible = true
+		}
+		else
+		{
+				progressMessage = msg
+		}
+     }
 
     function bind(bindObject)
     {
@@ -308,6 +355,8 @@ Item{
         object.jobStart.connect(jobStart)
         //object.jobEnd.connect(jobEnd)
         object.jobProgress.connect(jobProgress)
+        object.jobMessage.connect(jobMessage)
+		object.visibleChanged.connect(setVisible)
     }
 
     function showJobFinishMessage(receiver,textMessage)

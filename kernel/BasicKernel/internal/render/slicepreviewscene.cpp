@@ -1,13 +1,13 @@
 #include "slicepreviewscene.h"
-#include "qtuser3d/entity/purecolorentity.h"
+#include "entity/purecolorentity.h"
 #include "qtuser3d/camera/screencamera.h"
-#include "qtuser3d/entity/alonepointentity.h"
+#include "entity/alonepointentity.h"
 #include "data/kernelmacro.h"
 #include "internal/render/slicepreviewnode.h"
 #include "interface/reuseableinterface.h"
 #include "interface/camerainterface.h"
 #include <cmath>
-#include "qtuser3d/entity/nozzleentity.h"
+#include "entity/nozzleentity.h"
 using namespace qtuser_3d;
 namespace creative_kernel
 {
@@ -66,7 +66,7 @@ namespace creative_kernel
 
 	void SlicePreviewScene::setGCodeVisualType(gcode::GCodeVisualType type)
 	{
-		m_slicePreviewNode->setGCodeVisualType(type);
+		m_slicePreviewNode->setGCodeVisualType((int)type);
 	}
 
 	void SlicePreviewScene::setAnimation(int animation)
@@ -145,14 +145,14 @@ namespace creative_kernel
 	void SlicePreviewScene::setRetractionGeometry(Qt3DRender::QGeometry* geometry, Qt3DRender::QGeometryRenderer::PrimitiveType type, int vCountPerPatch)
 	{
 #if SHOW_ZSEAM_POINTS
-		m_retractionPoints->setGeometry(geometry, type);
+		m_retractionPoints->setGeometry(geometry, type, true);
 #endif
 	}
 
 	void SlicePreviewScene::setZSeamsGeometry(Qt3DRender::QGeometry* geometry, Qt3DRender::QGeometryRenderer::PrimitiveType type, int vCountPerPatch)
 	{
 #if SHOW_ZSEAM_POINTS
-		m_zSeamsPoints->setGeometry(geometry, type);
+		m_zSeamsPoints->setGeometry(geometry, type, true);
 #endif
 	}
 

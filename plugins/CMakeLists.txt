@@ -1,5 +1,6 @@
 set(INCS)
-set(LIBS ${QtQmlQ3dLibs} BasicKernel )
+set(LIBS BasicKernel)
+set(QRCS)
 
 macro(add_kernel_plugin plugin)
 	__add_real_target(plugin_${plugin} dll
@@ -7,6 +8,7 @@ macro(add_kernel_plugin plugin)
 							LIB ${LIBS}
 							SOURCE_FOLDER
 							FOLDER plugin
+							QTQRC ${QRCS}
 							)	
 endmacro()
 

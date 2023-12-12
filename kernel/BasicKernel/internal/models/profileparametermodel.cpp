@@ -32,9 +32,14 @@ namespace creative_kernel
 		{
 			m_userSettings = qobject_cast<PrintMaterial*>(parent)->userSettings();
 		}
+		if (parent && qobject_cast<PrintExtruder*>(parent))
+		{
+			m_userSettings = qobject_cast<PrintExtruder*>(parent)->userSettings();
+		}
 		m_global_settings = new us::USettings(this);
 		m_global_settings->loadCompleted();
 		m_searchSettings = new us::USettings(this);
+		m_defaultSettings = new us::USettings(this);
 	}
 
 	ProfileParameterModel::~ProfileParameterModel()
@@ -48,6 +53,10 @@ namespace creative_kernel
 		{
 			delete m_searchSettings;
 			m_searchSettings = nullptr;
+		}
+		if (m_defaultSettings)
+		{
+			delete m_defaultSettings;
 		}
 	}
 
@@ -240,13 +249,17 @@ namespace creative_kernel
 			}
 			else {
 				userSettings->deleteValueByKey(key);
+				if (m_defaultSettings->hasKey(key))
+				{
+					setting->setValue(defaultValue(key));
+				}
 				base->save();
 				int row = m_filterSettings.indexOf(setting);
 				if (row >= 0)
 				{
 					emit dataChanged(createIndex(row, 0), createIndex(row, 0));
 				}
-				reCalculateSetting(key);
+				reCalculateSetting(key,true);
 				m_affectedKeys.remove(key);
 				base->setDirty();
 				return;
@@ -450,7 +463,28 @@ namespace creative_kernel
 		}
 		return false;
 	}
-	void ProfileParameterModel::reCalculateSetting(QString key)
+	QString ProfileParameterModel::defaultValue(QString key) const
+	{
+		QString retVal = "";
+		ParameterBase* base = qobject_cast<ParameterBase*>(this->parent());
+		if (base)
+		{
+					if (m_defaultSettings->hasKey(key))
+					{
+						us::USetting* setting = qobject_cast<us::USetting*>(m_defaultSettings->settingObject(key));
+						return setting->str();
+					}
+					if (m_settings->hasKey(key))
+					{
+						us::USetting* setting = qobject_cast<us::USetting*>(m_settings->settingObject(key));
+						return setting->str();
+					}
+				
+			
+		}
+		return retVal;
+	}
+	void ProfileParameterModel::reCalculateSetting(QString key,bool bReset)
 	{
 		
 		QHash<QString, us::USetting* >::const_iterator it = m_global_settings->settings().constBegin();
@@ -501,15 +535,32 @@ namespace creative_kernel
 					}
 					if (setting)
 					{
-						if (setting->def()->type == "float")
+						if (bReset)
 						{
-							float fval = value.toString().toFloat();
-							setting->setValue(QString::number(fval, 'f', 2));
+							if (m_defaultSettings->hasKey(setting->def()->name))
+							{
+								setting->setValue(defaultValue(def->name));
+							}
+							
+						}else{
+							if (!m_defaultSettings->hasKey(setting->def()->name))
+							{
+								m_defaultSettings->insert(setting->clone());
+							}
+						
+							if (setting->def()->type == "float")
+							{
+								float fval = value.toString().toFloat();
+								setting->setValue(QString::number(fval, 'f', 2));
+							}
+							else {
+								setting->setValue(value.toString());
+							}
 						}
-						else {
-							setting->setValue(value.toString());
+						if (def->name != key)
+						{
+							reCalculateSetting(def->name,bReset);
 						}
-						reCalculateSetting(def->name);
 						int row = m_filterSettings.indexOf(setting);
 						if (row >= 0)
 						{
@@ -615,6 +666,8 @@ namespace creative_kernel
 			{
 				return;
 			}
+			model->setMaterialCategory("property");
+			model->mergeFilterSettings(m_settings);
 			model->setMaterialCategory("temperature");
 			model->mergeFilterSettings(m_settings);
 			model->setMaterialCategory("flow");

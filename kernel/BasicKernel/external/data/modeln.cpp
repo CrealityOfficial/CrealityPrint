@@ -1,7 +1,7 @@
 #include "modeln.h"
 
-#include "qtuser3d/entity/purecolorentity.h"
-#include "qtuser3d/effect/texturecreator.h"
+#include "entity/purecolorentity.h"
+#include "qtuser3d/utils/texturecreator.h"
 
 #include "interface/reuseableinterface.h"
 #include "interface/spaceinterface.h"
@@ -11,38 +11,29 @@
 #include "data/fdmsupportgroup.h"
 
 #include "us/usettings.h"
-#include "utils/convexhullcalculator.h"
 
-#include "mmesh/trimesh/trimeshutil.h"
-#include "qtuser3d/effect/texturecreator.h"
 #include "qtuser3d/math/angles.h"
 #include "qtuser3d/geometry/geometrycreatehelper.h"
-#include "qhullWrapper/hull/meshconvex.h"
+#include "cxkernel/data/trimeshutils.h"
 
-
-#include "cmesh/mesh/repair.h"
 #include "qtuser3d/math/space3d.h"
 
-#include "imageproc/imageloader.h"
-#include "qcxutil/trimesh2/conv.h"
-#include "cxnd/algrithm/raymesh.h"
+#include "qtuser3d/trimesh2/conv.h"
+
+#include "cxkernel/data/raymesh.h"
 
 #include "internal/render/modelnentity.h"
 
 #include <QColor>
 #include <Qt3DRender/QAttribute>
 #include <Qt3DRender/QBuffer>
-
+#include "qtuser3d/refactor/xeffect.h"
 
 namespace creative_kernel
 {
 	ModelN::ModelN(QObject* parent)
 		:Node3D(parent)
 		, m_fdmSupportGroup(nullptr)
-		, m_errorEdges(0)
-		, m_errorNormals(0)
-        , m_errorHoles(0)
-        , m_errorIntersects(0)
 		, m_nestRotation(0)
 		, m_localAngleStack({QVector3D()})
 		, m_currentLocalDispalyAngle(0)
@@ -59,6 +50,8 @@ namespace creative_kernel
 	
 	ModelN::~ModelN()
 	{
+		m_entity->deleteLater();
+		m_setting->deleteLater();
 	}
 
 	void ModelN::onGlobalMatrixChanged(const QMatrix4x4& globalMatrix)
@@ -72,8 +65,7 @@ namespace creative_kernel
 #if 0
 		if(m_data)
 		{
-			std::vector<trimesh::vec3> convexData;
-			convex(convexData);
+			std::vector<trimesh::vec3> convexData = outline_path();
 			m_entity->updateLines(convexData);
 		}
 #endif
@@ -81,7 +73,7 @@ namespace creative_kernel
 
 	void ModelN::onStateChanged(qtuser_3d::ControlState state)
 	{
-		m_entity->setState((float)state);
+		setState((float)state);
 		m_entity->setBoxVisibility(selected() ? true : false);
 	}
 
@@ -164,7 +156,7 @@ namespace creative_kernel
 
 	void ModelN::setVisualMode(ModelVisualMode mode)
 	{
-		m_entity->setRenderMode((int)mode);
+		m_entity->setRenderMode((int)mode); 
 	}
 
 	void ModelN::setVisibility(bool visibility)
@@ -204,6 +196,8 @@ namespace creative_kernel
 		bool fanzhuan = isFanZhuan();
 		m_entity->setFanZhuan((int)fanzhuan);
 	}
+
+	
 
 	void ModelN::setNozzle(int nozzle)
 	{
@@ -350,7 +344,8 @@ namespace creative_kernel
 	void ModelN::SetModelViewClrState(qtuser_3d::ControlState statevalue,bool boxshow)
 	{
 		//m_entity->setState((float)ControlState::selected);
-		m_entity->setState((float)statevalue);
+
+		setState((float)statevalue);
 		m_entity->setBoxVisibility(boxshow);
 	}
 
@@ -370,7 +365,7 @@ namespace creative_kernel
 		trimesh::TriMesh* mesh = new trimesh::TriMesh();
 
 		*mesh = *m_data->mesh;
-		trimesh::apply_xform(mesh, trimesh::xform(qcxutil::qMatrix2Xform(globalMatrix())));
+		trimesh::apply_xform(mesh, trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())));
 		return TriMeshPtr(mesh);
 	}
 
@@ -392,31 +387,24 @@ namespace creative_kernel
 		return m_errorIntersects;
 	}
 
-    void ModelN::setErrorEdges(int value)
-    {
-        m_errorEdges = value;
-    }
-    void ModelN::setErrorNormals(int value)
-    {
-        m_errorNormals = value;
-    }
-    void ModelN::setErrorHoles(int value)
-    {
-        m_errorHoles = value;
-    }
-    void ModelN::setErrorIntersects(int value)
-    {
-        m_errorIntersects = value;
-    }
-
-	void ModelN::needDetectError()
+	void ModelN::setErrorEdges(int value)
 	{
-		cmesh::ErrorInfo  errorInfo;
-		cmesh::getErrorInfo(mesh(), errorInfo);
-		m_errorEdges = errorInfo.edgeNum;      //缺陷边
-		m_errorNormals = errorInfo.normalNum;    //缺陷的法线
-		m_errorHoles = errorInfo.holeNum;      //孔洞个数
-		m_errorIntersects = errorInfo.intersectNum; //非流面
+		m_errorEdges = value;
+	}
+
+	void ModelN::setErrorNormals(int value)
+	{
+		m_errorNormals = value;
+	}
+
+	void ModelN::setErrorHoles(int value)
+	{
+		m_errorHoles = value;
+	}
+
+	void ModelN::setErrorIntersects(int value)
+	{
+		m_errorIntersects = value;
 	}
 
 	void ModelN::setTexture()
@@ -477,13 +465,22 @@ namespace creative_kernel
 	{
 		if (m_data == data)
 			return;
+		setRenderData(std::make_shared<ModelNRenderData>(data));
+	}
 
-		m_data = data;
+	void ModelN::setRenderData(ModelNRenderDataPtr renderData)
+	{
+		if (m_renderData == renderData)
+			return;
 
-		if (m_data)
+		m_data = renderData->data();
+		m_renderData = renderData;
+
+		if (m_renderData)
 		{
-			setObjectName(m_data->input.name);
-			m_entity->setGeometry(m_data->createGeometry());
+			setObjectName(m_renderData->data()->input.name);
+
+			m_entity->setGeometry(m_renderData->geometry());
 
 			bool use = (m_data && m_data->mesh->colors.size() > 0);
 			m_entity->setUseVertexColor(use);
@@ -491,15 +488,17 @@ namespace creative_kernel
 			m_localBox = qtuser_3d::Box3D(QVector3D());
 			if (m_data->mesh)
 			{
-				m_localBox = qcxutil::triBox2Box3D(m_data->mesh->bbox);
+				m_localBox = qtuser_3d::triBox2Box3D(m_data->mesh->bbox);
 			}
 
 			setCenter(m_localBox.center());
-			if (!m_data->hull)
-			{
-				m_data->hull.reset(qhullWrapper::convex_hull_3d(data->mesh.get()));
-			}
+			m_data->resetHull();
 		}
+	}
+
+	ModelNRenderDataPtr ModelN::renderData()
+	{
+		return m_renderData;
 	}
 
 	cxkernel::ModelNDataPtr ModelN::data()
@@ -524,9 +523,9 @@ namespace creative_kernel
 		m_localBox = qtuser_3d::Box3D(QVector3D());
 		if (m_data->mesh)
 		{
-			m_data->hull.reset(qhullWrapper::convex_hull_3d(m_data->mesh.get()));
+			m_data->resetHull();
 			m_data->updateRenderData();
-			m_localBox = qcxutil::triBox2Box3D(m_data->calculateBox(trimesh::fxform()));
+			m_localBox = qtuser_3d::triBox2Box3D(m_data->calculateBox(trimesh::fxform()));
 		}
 
 		setCenter(m_localBox.center());
@@ -571,20 +570,26 @@ namespace creative_kernel
 
 			// update modelNData
 			{
-				if (m_data && m_data->mesh)
+				cxkernel::ModelNDataPtr data = m_renderData->data();
+				if (data && data->mesh)
 				{
-					int vCount = m_data->mesh->vertices.size();
+					int vCount = data->mesh->vertices.size();
 
 					for (int i = 0; i < vCount; i++)
 					{
-						m_data->mesh->vertices[i] = qcxutil::qMatrix2Xform(mat) * m_data->mesh->vertices[i];
+						data->mesh->vertices[i] = qtuser_3d::qMatrix2Xform(mat) * data->mesh->vertices[i];
 					}
-
-					m_data->updateRenderDataForced();
-					m_entity->setGeometry(m_data->createGeometry());
+					m_renderData->updateRenderDataForced();
+					m_entity->setGeometry(m_renderData->geometry());
 				}
 			}
 		}
+	}
+
+	std::vector<trimesh::vec3> ModelN::getoutline_ObjectExclude()
+	{
+		std::vector<trimesh::vec3> outline = outline_path(true, false);
+		return outline;
 	}
 
 	int ModelN::primitiveNum()
@@ -609,7 +614,7 @@ namespace creative_kernel
 		if (m_data && m_data->mesh)
 		{
 			QMatrix4x4 matrix = globalMatrix();
-			return qcxutil::triBox2Box3D(m_data->calculateBox(qcxutil::qMatrix2Xform(matrix)));
+			return qtuser_3d::triBox2Box3D(m_data->calculateBox(qtuser_3d::qMatrix2Xform(matrix)));
 		}
 		return m_localBox;
 	}
@@ -622,7 +627,7 @@ namespace creative_kernel
 			mtNoScale.translate(m_localCenter);
 			mtNoScale.rotate(m_localRotate);
 			mtNoScale.translate(-m_localCenter);
-			return qcxutil::triBox2Box3D(m_data->calculateBox(qcxutil::qMatrix2Xform(mtNoScale)));
+			return qtuser_3d::triBox2Box3D(m_data->calculateBox(qtuser_3d::qMatrix2Xform(mtNoScale)));
 		}
 		return m_localBox;
 	}
@@ -632,25 +637,30 @@ namespace creative_kernel
 		if (!m_data || !m_data->mesh)
 			return false;
 
-		trimesh::fxform xf = qcxutil::qMatrix2Xform(globalMatrix());
+		trimesh::fxform xf = qtuser_3d::qMatrix2Xform(globalMatrix());
 
-		cxnd::Ray cRay = qcxutil::qRay2CRay(ray);
+		cxkernel::Ray cRay(qtuser_3d::qVector3D2Vec3(ray.start), qtuser_3d::qVector3D2Vec3(ray.dir));
 		trimesh::vec3 tposition, tnormal;
-		bool result = cxnd::rayMeshCheck(m_data->mesh.get(), xf, primitiveID, cRay, tposition, tnormal);
+		bool result = cxkernel::rayMeshCheck(m_data->mesh.get(), xf, primitiveID, cRay, tposition, tnormal);
 		if (result)
 		{
-			collide = qcxutil::vec2qvector(tposition);
+			collide = qtuser_3d::vec2qvector(tposition);
 			if(normal)
-				*normal = qcxutil::vec2qvector(tnormal);
+				*normal = qtuser_3d::vec2qvector(tnormal);
 		}
 		return result;
 	}
 
-	void ModelN::convex(std::vector<trimesh::vec3>& datas)
+	void ModelN::convex(std::vector<trimesh::vec3>& datas, bool origin)
 	{
 		if (m_data)
 		{
-			trimesh::fxform xf = qcxutil::qMatrix2Xform(globalMatrix());
+			trimesh::fxform xf = qtuser_3d::qMatrix2Xform(globalMatrix());
+			if (origin)
+			{
+				xf = trimesh::fxform::trans(- qtuser_3d::qVector3D2Vec3(localPosition()))
+					* xf;
+			}
 			m_data->convex(xf, datas);
 		}
 	}
@@ -690,7 +700,7 @@ namespace creative_kernel
 
 	std::vector<trimesh::vec3> ModelN::outline_path(bool global, bool debug)
 	{
-		qcxutil::NestDataPtr data = nestData();
+		cxkernel::NestDataPtr data = nestData();
 		QQuaternion rotation = localQuaternion();
 		QVector3D scale = localScale();
 
@@ -703,9 +713,9 @@ namespace creative_kernel
 			TriMeshPtr mesh(new trimesh::TriMesh());
 
 			*mesh = *m_data->hull;
-			trimesh::fxform ixf = trimesh::inv(trimesh::fxform(globalMatrix().data()));
+			//trimesh::fxform ixf = trimesh::inv(trimesh::fxform(globalMatrix().data()));
 			TriMeshPtr supportMesh(m_fdmSupportGroup->createFDMSupportMesh());
-			trimesh::apply_xform(supportMesh.get(), trimesh::xform(ixf));
+			//trimesh::apply_xform(supportMesh.get(), trimesh::xform(ixf));
 
 			mesh->vertices.insert(mesh->vertices.end(), supportMesh->vertices.begin(), supportMesh->vertices.end());
 			paths = global ? data->qPath(mesh, q, s) : data->path(mesh, s);
@@ -745,7 +755,7 @@ namespace creative_kernel
 	void ModelN::resetNestRotation()
 	{
 		QQuaternion rotation = localQuaternion();
-		nestData()->setNestRotation(trimesh::quaternion(rotation.scalar(), -rotation.x(), -rotation.y(), -rotation.z()));
+		nestData()->setNestRotation(trimesh::quaternion(rotation.scalar(), rotation.x(), rotation.y(), rotation.z()));
 	}
 
 	void ModelN::dirtyNestData()
@@ -753,14 +763,25 @@ namespace creative_kernel
 		nestData()->setDirty(true);
 	}
 
-	qcxutil::NestDataPtr ModelN::nestData()
+	cxkernel::NestDataPtr ModelN::nestData()
 	{
 		if (!m_nestData)
 		{
-			m_nestData.reset(new qcxutil::NestData());
+			m_nestData.reset(new cxkernel::NestData());
 			resetNestRotation();
 		}
 		return m_nestData;
+	}
+
+	void ModelN::copyNestData(ModelN* model)
+	{
+		if (model)
+		{
+			cxkernel::NestDataPtr data = model->nestData();
+			cxkernel::NestDataPtr d = nestData();
+
+			d->copyData(data.get());
+		}
 	}
 
 	cxkernel::ModelNDataPtr ModelN::modelNData()
@@ -776,7 +797,7 @@ namespace creative_kernel
 		if (!m_data)
 			return;
 
-		trimesh::box3 _box = qcxutil::qBox32box3(box);
+		trimesh::box3 _box = qtuser_3d::qBox32box3(box);
 		trimesh::box3 _b = m_data->localBox();
 
 		if (!_b.valid)
@@ -801,7 +822,7 @@ namespace creative_kernel
 		if (!m_data)
 			return;
 
-		trimesh::box3 _box = qcxutil::qBox32box3(box);
+		trimesh::box3 _box = qtuser_3d::qBox32box3(box);
 		trimesh::vec3 bsize = 0.9f * _box.size();
 
 		float s = 1000.0f;
@@ -825,7 +846,7 @@ namespace creative_kernel
 
 		if (m_data && m_data->mesh)
 		{
-			trimesh::fxform xf = qcxutil::qMatrix2Xform(globalMatrix());
+			trimesh::fxform xf = qtuser_3d::qMatrix2Xform(globalMatrix());
 			for (trimesh::point apoint : m_data->mesh->vertices)
 			{
 				apoint = xf * apoint;
@@ -845,5 +866,33 @@ namespace creative_kernel
 	float ModelN::localZ()
 	{
 		return m_data ? m_data->localZ() : 0.0f;
+	}
+	void ModelN::setSerialName(const QString& serialName)
+	{
+		m_serialName = serialName;
+	}
+
+	QString ModelN::getSerialName()
+	{
+		return m_serialName;
+	}
+
+	void ModelN::setLocalData(const trimesh::vec3& position, const QQuaternion& q, const trimesh::vec3& scale)
+	{
+		m_localPosition = qtuser_3d::vec2qvector(position);
+		m_localRotate = q;
+		m_localScale = qtuser_3d::vec2qvector(scale);
+
+		m_localMatrixDirty = true;
+		m_parentMatrixDirty = true;
+
+		updateMatrix();
+	}
+	Qt3DRender::QGeometry* createGeometryFromMesh(trimesh::TriMesh* mesh)
+	{
+		cxkernel::GeometryData data;
+		cxkernel::generateGeometryDataFromMesh(mesh, data);
+		return qtuser_3d::GeometryCreateHelper::create(data.vcount, data.position, data.normal,
+			data.texcoord, data.color);
 	}
 }

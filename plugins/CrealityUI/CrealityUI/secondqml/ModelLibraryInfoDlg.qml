@@ -16,8 +16,8 @@ DockItem {
 
     // for library_groups_layout
 
-    property var idGroupMap: {0:0}
-    property var idGroupSearchMap: {0:0}
+    property var idGroupMap: new Map()
+    property var idGroupSearchMap: new Map()
     readonly property bool isSearchMode: model_type_repeater.model === search_result_model
 
     property int currentModelLibraryPage: 1
@@ -26,13 +26,35 @@ DockItem {
     property int currentModelSearchPage: 1
     property int nextModelSearchPage: 2
 
+    signal clearIdGroupMap()
+    signal clearIdGroupSearchMap()
+
+    onClearIdGroupMap: function() {
+        idGroupMap.clear()
+    }
+
+    onClearIdGroupSearchMap: function() {
+        idGroupSearchMap.clear()
+    }
+
     // for library_models_layout
 
     property string currentGroupId: ""
     property string currentModelId: ""
 
-    property var idImageMap: {0:0}
-    property var idModelMap: {0:0}
+    property var idImageMap: new Map()
+    property var idModelMap: new Map()
+
+    signal clearIdImageMap()
+    signal clearIdModelMap()
+
+    onClearIdImageMap: function() {
+        idImageMap.clear()
+    }
+
+    onClearIdModelMap: function() {
+        idModelMap.clear()
+    }
 
     // to MainWindow
 
@@ -41,22 +63,8 @@ DockItem {
 
     // ---------- util ----------
 
-    function countMapSize(map) {
-        let count = 0
-        for (let _ in map) {
-            count++
-        }
-        return count
-    }
-
-    function clearMap(map) {
-        for (let key in map) {
-            map[key].destroy()
-            delete map[key]
-        }
-    }
-
     function onSigLoginTip() {
+        root.visible = false
         requestLogin()
     }
 
@@ -85,8 +93,8 @@ DockItem {
             setTypeGroupList(json_string, page_index)
         }
 
-        onLoadHistoryModelGroupListSuccessed: function(json_string) {
-            setHistoryGroupList(json_string)
+        onLoadHistoryModelGroupListSuccessed: function(json_string, page_index) {
+            setHistoryGroupList(json_string, page_index)
         }
 
         onLoadModelGroupInfoSuccessed: function(json_string) {
@@ -110,12 +118,11 @@ DockItem {
         }
 
         model_type_model.reset()
-        let json_object_list = json_root.result.list
-        for (let json_object of json_object_list) {
+        for (let json_object of json_root.result.list) {
             model_type_model.append({
-                                        "modelId"  : json_object.id,
-                                        "modelText": json_object.name
-                                    })
+                "modelId"  : json_object.id,
+                "modelText": json_object.name
+            })
         }
     }
 
@@ -133,25 +140,26 @@ DockItem {
             let object_list = json_root.result.list
             for (let object of object_list) {
                 let model_item = componentGroupItem.createObject(group_list, {
-                                                                     "width"           : group_list.itemWidth,
-                                                                     "height"          : group_list.itemHeight,
-                                                                     "groupId"         : object.model.id,
-                                                                     "groupName"       : object.model.groupName,
-                                                                     "groupImage"      : object.model.covers.length == 0 ? "" : object.model.covers[0].url,
-                                                                     "authorName"      : object.model.userInfo.nickName,
-                                                                     "authorHead"      : object.model.userInfo.avatar,
-                                                                     "modelCount"      : object.model.modelCount,
-                                                                     "totalPrice"      : object.model.totalPrice,
-                                                                     "collected"       : object.model.isCollection,
-                                                                     "createdTimestamp": object.model.createTime,
-                                                                 })
+                    "width"           : group_list.itemWidth,
+                    "height"          : group_list.itemHeight,
+                    "groupId"         : object.model.id,
+                    "groupName"       : object.model.groupName,
+                    "groupImage"      : object.model.covers.length == 0 ? "" : object.model.covers[0].url,
+                    "authorName"      : object.model.userInfo.nickName,
+                    "authorHead"      : object.model.userInfo.avatar,
+                    "modelCount"      : object.model.modelCount,
+                    "totalPrice"      : object.model.totalPrice,
+                    "collected"       : object.model.isCollection,
+                    "createdTimestamp": object.model.createTime,
+                })
 
                 model_item.sigButtonDownClicked.connect(onGroupDownloadButtonClicked)
                 model_item.sigButtonClicked.connect(onGroupButtonClicked)
                 model_item.sigDownloadedTip.connect(onSigDownloadedTip)
                 model_item.sigLoginTip.connect(onSigLoginTip)
+                root.clearIdGroupMap.connect(model_item.destroy)
 
-                idGroupMap[object.model.id] = model_item
+                idGroupMap.set(object.model.id, model_item)
             }
         }
     }
@@ -171,25 +179,26 @@ DockItem {
             let object_list = json_root.result.list
             for (let object of object_list) {
                 let model_item = componentGroupItem.createObject(group_list, {
-                                                                     "width"           : group_list.itemWidth,
-                                                                     "height"          : group_list.itemHeight,
-                                                                     "groupId"         : object.id,
-                                                                     "groupName"       : object.groupName,
-                                                                     "groupImage"      : object.covers.length == 0 ? "" : object.covers[0].url,
-                                                                     "authorName"      : object.userInfo.nickName,
-                                                                     "authorHead"      : object.userInfo.avatar,
-                                                                     "modelCount"      : object.modelCount,
-                                                                     "totalPrice"      : object.totalPrice,
-                                                                     "collected"       : object.isCollection,
-                                                                     "createdTimestamp": object.createTime,
-                                                                 })
+                    "width"           : group_list.itemWidth,
+                    "height"          : group_list.itemHeight,
+                    "groupId"         : object.id,
+                    "groupName"       : object.groupName,
+                    "groupImage"      : object.covers.length == 0 ? "" : object.covers[0].url,
+                    "authorName"      : object.userInfo.nickName,
+                    "authorHead"      : object.userInfo.avatar,
+                    "modelCount"      : object.modelCount,
+                    "totalPrice"      : object.totalPrice,
+                    "collected"       : object.isCollection,
+                    "createdTimestamp": object.createTime,
+                })
 
                 model_item.sigButtonDownClicked.connect(onGroupDownloadButtonClicked)
                 model_item.sigButtonClicked.connect(onGroupButtonClicked)
                 model_item.sigDownloadedTip.connect(onSigDownloadedTip)
                 model_item.sigLoginTip.connect(onSigLoginTip)
+                root.clearIdGroupMap.connect(model_item.destroy)
 
-                idGroupMap[object.id] = model_item
+                idGroupMap.set(object.id, model_item)
             }
         }
     }
@@ -206,7 +215,7 @@ DockItem {
         }
 
         if (page === 1) {
-            clearMap(idGroupSearchMap)
+            clearIdGroupSearchMap()
         }
 
         currentModelSearchPage = page
@@ -217,43 +226,47 @@ DockItem {
 
         for (let object of object_list) {
             let model_item = componentGroupItem.createObject(group_search_list, {
-                                                                 "width"           : group_search_list.itemWidth,
-                                                                 "height"          : group_search_list.itemHeight,
-                                                                 "groupId"         : object.id,
-                                                                 "groupName"       : object.groupName,
-                                                                 "groupImage"      : object.covers.length == 0 ? "" : object.covers[0].url,
-                                                                 "authorName"      : object.userInfo.nickName,
-                                                                 "authorHead"      : object.userInfo.avatar,
-                                                                 "modelCount"      : object.modelCount,
-                                                                 "totalPrice"      : object.totalPrice,
-                                                                 "collected"       : object.isCollection,
-                                                                 "createdTimestamp": object.createTime,
-                                                             })
+                "width"           : group_search_list.itemWidth,
+                "height"          : group_search_list.itemHeight,
+                "groupId"         : object.id,
+                "groupName"       : object.groupName,
+                "groupImage"      : object.covers.length == 0 ? "" : object.covers[0].url,
+                "authorName"      : object.userInfo.nickName,
+                "authorHead"      : object.userInfo.avatar,
+                "modelCount"      : object.modelCount,
+                "totalPrice"      : object.totalPrice,
+                "collected"       : object.isCollection,
+                "createdTimestamp": object.createTime,
+            })
 
             model_item.sigButtonDownClicked.connect(onGroupDownloadButtonClicked)
             model_item.sigButtonClicked.connect(onGroupButtonClicked)
             model_item.sigDownloadedTip.connect(onSigDownloadedTip)
             model_item.sigLoginTip.connect(onSigLoginTip)
+            root.clearIdGroupSearchMap.connect(model_item.destroy)
 
-            idGroupSearchMap[object.id] = model_item
+            idGroupSearchMap.set(object.id, model_item)
         }
     }
 
-    function setHistoryGroupList(json_string) {
+    function setHistoryGroupList(json_string, page_index) {
         let model_component = Qt.createComponent("ModelLibraryItem.qml")
         if (model_component.status !== Component.Ready) {
             return
         }
 
-        //    clearMap(idGroupMap)
-        //    if (deleteModelGroupComponentStatus) {
-        //      deleteModelGroupComponentStatus = false
-        //    }
-
-        currentModelLibraryPage = 1
-        nextModelLibraryPage = 2
+        // clearIdGroupMap()
+        // if (deleteModelGroupComponentStatus) {
+        //     deleteModelGroupComponentStatus = false
+        // }
 
         let json_root = JSON.parse(json_string)
+
+        currentModelLibraryPage = page_index
+        if (json_root.group_list.length >= 24) {
+            nextModelLibraryPage = currentModelLibraryPage + 1
+        }
+
         for (let group of json_root.group_list) {
             let model_item = model_component.createObject(group_list, {
                 "width"           : group_list.itemWidth,
@@ -264,17 +277,18 @@ DockItem {
                 "totalPrice"      : group.price,
                 "authorName"      : group.author_name,
                 "authorHead"      : group.author_image,
-                "modelCount"      : 0,
-                "collected"       : false,
-                "createdTimestamp": 0
+                "modelCount"      : group.model_count,
+                "collected"       : group.collected,
+                "createdTimestamp": group.creation_time
             });
 
             model_item.sigButtonDownClicked.connect(onGroupDownloadButtonClicked)
             model_item.sigButtonClicked.connect(onGroupButtonClicked)
             model_item.sigDownloadedTip.connect(onSigDownloadedTip)
             model_item.sigLoginTip.connect(onSigLoginTip)
+            root.clearIdGroupMap.connect(model_item.destroy)
 
-            idGroupMap[group.id] = model_item
+            idGroupMap.set(group.id, model_item)
         }
     }
 
@@ -310,7 +324,7 @@ DockItem {
             license_image.visible = license_image.source !== ""
 
             let id_group_map = isSearchMode ? idGroupSearchMap : idGroupMap
-            id_group_map[currentGroupId].collected = group_info.isCollection
+            id_group_map.get(currentGroupId).collected = group_info.isCollection
             collected_group_button.collected = group_info.isCollection
         }
     }
@@ -319,12 +333,12 @@ DockItem {
         let componentImageItem = Qt.createComponent("BasicImageButton.qml")
         let componentModelItem = Qt.createComponent("ModelLibraryDetailIem.qml")
         if (componentImageItem.status !== Component.Ready ||
-                componentImageItem.status !== Component.Ready) {
+            componentImageItem.status !== Component.Ready) {
             return
         }
 
-        clearMap(idImageMap)
-        clearMap(idModelMap)
+        clearIdImageMap()
+        clearIdModelMap()
         currentModelId = ""
 
         let json_root = JSON.parse(json_string)
@@ -342,31 +356,34 @@ DockItem {
                 // init image button
 
                 let image_item = componentImageItem.createObject(image_list, {
-                                                                     "id"       : model_id,
-                                                                     "keystr"   : model_id,
-                                                                     "btnRadius": 10 * screenScaleFactor,
-                                                                     "btnImgUrl": image_url
-                                                                 })
+                    "id"       : model_id,
+                    "keystr"   : model_id,
+                    "btnRadius": 10 * screenScaleFactor,
+                    "btnImgUrl": image_url,
+                    "checkable"  : true,
+                    "autoExclusive" : true
+                })
 
                 image_item.sigBtnClicked.connect(onModelButtonClicked)
+                root.clearIdImageMap.connect(image_item.destroy)
 
-                idImageMap[model_id] = image_item
-
+                idImageMap.set(model_id, image_item)
                 // init model button
 
                 let model_item = componentModelItem.createObject(model_list, {
-                                                                     "groupId"  : group_id,
-                                                                     "modelName": model_name,
-                                                                     "modelSize": model_size,
-                                                                     "modelId"  : model_id,
-                                                                 })
+                    "groupId"  : group_id,
+                    "modelName": model_name,
+                    "modelSize": model_size,
+                    "modelId"  : model_id,
+                })
 
                 model_item.sigBtnDetailClicked.connect(onModelButtonClicked)
                 model_item.sigBtnDownLoadDetailModel.connect(onModelDownloadButtonClicked)
                 model_item.sigDownloadedTip.connect(onSigDownloadedTip)
                 model_item.sigLoginTip.connect(onSigLoginTip)
+                root.clearIdModelMap.connect(model_item.destroy)
 
-                idModelMap[model_id] = model_item
+                idModelMap.set(model_id, model_item)
 
                 if (is_first_model) {
                     currentModelId = model_id
@@ -401,7 +418,7 @@ DockItem {
     function onModelDownloadButtonClicked(model_id) {
         let id_group_map = isSearchMode ? idGroupSearchMap : idGroupMap
 
-        if (id_group_map[currentGroupId].totalPrice > 0) {
+        if (id_group_map.get(currentGroupId).totalPrice > 0) {
             Qt.openUrlExternally(cxkernel_cxcloud.modelGroupUrlHead + currentGroupId)
             return
         }
@@ -422,86 +439,86 @@ DockItem {
     }
 
     function onGroupDownloadButtonClicked(group_id) {
-        currentGroupId = group_id
-        cxkernel_cxcloud.downloadService.startModelGroupDownloadTask(currentGroupId)
+        //        currentGroupId = group_id
+        cxkernel_cxcloud.downloadService.startModelGroupDownloadTask(group_id)
 
         root.requestToShowDownloadTip()
-        root.visible = false
+        //   root.visible = false
     }
 
     onCurrentModelIdChanged: {
         if (currentModelId === "") {
-            clearMap(idModelMap)
-            clearMap(idImageMap)
+            root.clearIdModelMap()
+            root.clearIdImageMap()
             return
         }
 
-        for (let model_key in idModelMap) {
-            let model_item = idModelMap[model_key]
-            let selected = model_key === currentModelId
-            model_item.btnIsSelected = selected
+        idModelMap.forEach(item => {
+            item.btnIsSelected = item.modelId === currentModelId
+            if (item.btnIsSelected) {
+                const bar = model_list_scroll.ScrollBar.vertical
+                const position = item.y / model_list_scroll.height * bar.size
 
-            if (selected) {
-                let visiableSize = model_list_scroll.vSize
-                let virtualHeight = model_list_scroll.height / visiableSize
-                let itemPosition = model_item.y / virtualHeight
-                let position = model_list_scroll.vPosition
                 /* 当前所选项不在列表的显示范围时，把列表滑动到所选项位置 */
-                if (itemPosition < position ||
-                        itemPosition > position + visiableSize) {
-                    model_list_scroll.vPosition = Math.min(1 - visiableSize, itemPosition)
+                if (position < bar.position || position > bar.position + bar.size) {
+                    bar.position = Math.min(1 - bar.size, position)
                 }
             }
-        }
+        })
 
-        current_model_image.source = ""
-
-        for (let image_key in idImageMap) {
-            let image_item = idImageMap[image_key]
-            let selected = image_key === currentModelId
-            image_item.btnSelect = selected
-
-            if (selected) {
-                current_model_image.source = image_item.btnImgUrl
+        for (let [key, value] of idImageMap) {
+            if (key === currentModelId) {
+                const bar = image_list_view.ScrollBar.horizontal
+                const position = value.x / image_list_view.width * bar.size
+                if (position < bar.position || position > bar.position + bar.size) {
+                    bar.position = Math.min(1 - bar.size, position)
+                }
+                value.btnSelect = true
+            } else {
+                value.btnSelect = false
             }
         }
-    }
 
-    function refreshData(){
-        let curId = model_type_repeater.model.currentTypelId
-        model_type_repeater.model.currentTypelId = model_type_repeater.model.currentTypeInvalidValue
-        model_type_repeater.model.currentTypelId = curId
+        current_model_image.source = (_ => {
+            if (idImageMap.has(currentModelId)) {
+                return idImageMap.get(currentModelId).btnImgUrl
+            }
+            return ""
+        })()
     }
 
     onCurrentGroupIdChanged: {
-        let id_group_map = isSearchMode ? idGroupSearchMap : idGroupMap
+        const id_group_map = isSearchMode ? idGroupSearchMap : idGroupMap
+        const clear_signal = isSearchMode ? clearIdGroupSearchMap : clearIdGroupMap
 
         if (currentGroupId === "") {
-            clearMap(id_group_map)
+            clear_signal()
             currentModelId = ""
             return
         }
 
-        let group_item = id_group_map[currentGroupId]
+        const group_item = id_group_map.get(currentGroupId)
         if (!group_item) {
             return
         }
 
-        let group_id          = group_item.groupId
-        let group_name        = group_item.groupName
-        let group_image       = group_item.groupImage
-        let model_count       = group_item.modelCount
-        let author_name       = group_item.authorName
-        let author_head       = group_item.authorHead
-        let total_price       = group_item.totalPrice
-        let collected         = group_item.collected
-        let created_timestamp = group_item.createdTimestamp * 1000
+        const group_id          = group_item.groupId
+        const group_name        = group_item.groupName
+        const group_image       = group_item.groupImage
+        const model_count       = group_item.modelCount
+        const author_name       = group_item.authorName
+        const author_head       = group_item.authorHead
+        const total_price       = group_item.totalPrice
+        const collected         = group_item.collected
+        const created_timestamp = group_item.createdTimestamp
 
         group_name_label.text = group_name
         author_name_label.text = author_name
         author_head_image.img_src = author_head
-        group_upload_time_label.text = "%1 : %2".arg(qsTr("UploadedTime"))
-        .arg(Qt.formatDateTime(new Date(Number(created_timestamp)), "yyyy-MM-dd hh:mm"))
+        group_upload_time_label.text =
+            "%1 : %2".arg(qsTr("UploadedTime"))
+                     .arg(Qt.formatDateTime(new Date(Number(created_timestamp) * 1000),
+                                            "yyyy-MM-dd hh:mm"))
 
         share_group_dialog.setId(group_id)
         cxkernel_cxcloud.modelLibraryService.loadModelGroupInfo(group_id)
@@ -515,8 +532,12 @@ DockItem {
                                                                    String(group_name),
                                                                    String(group_image),
                                                                    Number(total_price),
+                                                                   String(created_timestamp),
+                                                                   Boolean(collected),
                                                                    String(author_name),
-                                                                   String(author_head))
+                                                                   String(author_head),
+                                                                   String(""),
+                                                                   Number(model_count))
     }
 
     onWidthChanged: {
@@ -525,11 +546,6 @@ DockItem {
     }
 
     Component.onCompleted: {
-        idGroupMap = {}
-        idGroupSearchMap = {}
-        idImageMap = {}
-        idModelMap = {}
-
         cxkernel_cxcloud.modelLibraryService.loadModelGroupCategoryList()
         model_type_model.currentTypelIdChanged()
     }
@@ -541,7 +557,7 @@ DockItem {
         anchors.bottomMargin: 40 * screenScaleFactor
         anchors.topMargin: root.currentTitleHeight + 30 * screenScaleFactor
         anchors.leftMargin: 40 * screenScaleFactor
-        anchors.rightMargin: anchors.leftMargin / 2 - group_view.verticalWidth / 2
+        anchors.rightMargin: anchors.leftMargin / 2 - 10 / 2
 
         spacing: 0
 
@@ -577,7 +593,6 @@ DockItem {
                     id: model_type_model
 
                     property int currentTypelId: -2
-                    property int currentTypeInvalidValue: -10//默认的不合法的值
 
                     ListElement {
                         modelId: -1
@@ -598,14 +613,12 @@ DockItem {
                     }
 
                     onCurrentTypelIdChanged: {
-                        if(currentTypelId == currentTypeInvalidValue)
-                            return;
-                        clearMap(idGroupMap)
+                        root.clearIdGroupMap()
 
                         model_type_repeater.model = model_type_model
                         group_search_view.visible = false
                         group_view.visible = true
-                        group_view.vPosition = 0
+                        group_view.ScrollBar.vertical.position = 0
 
                         currentModelLibraryPage = 1
                         getPageModelList(currentTypelId, currentModelLibraryPage, 24)
@@ -657,11 +670,9 @@ DockItem {
                         }
 
                         onToggled: {
-                            if (!toggled) {
-                                return
+                            if (toggled) {
+                                model_type_repeater.model.currentTypelId = modelId
                             }
-
-                            model_type_repeater.model.currentTypelId = modelId
                         }
 
                         Component.onCompleted: {
@@ -809,8 +820,8 @@ DockItem {
                     }
 
                     search_edit.prevText = search_edit.text
-                    clearMap(idGroupSearchMap)
-                    group_search_view.vPosition = 0
+                    clearIdGroupSearchMap()
+                    //   group_search_view.vPosition = 0
                     currentModelSearchPage = 1
                     cxkernel_cxcloud.modelLibraryService.searchModelGroup(search_edit.text, currentModelSearchPage, 24)
                 }
@@ -825,7 +836,7 @@ DockItem {
 
             color: root.panelColor
 
-            BasicScrollView {
+            ScrollView {
                 id: group_view
                 visible: true
                 anchors.fill: parent
@@ -833,12 +844,12 @@ DockItem {
                 rightPadding: library_groups_layout.anchors.rightMargin
                 clip: true
 
-        Grid {
-          id: group_list
-          width: parent.width
-          height: parent.height
-          spacing: 5 * screenScaleFactor
-          columns: 4
+                Grid {
+                    id: group_list
+                    width: parent.width
+                    height: parent.height
+                    spacing: 5 * screenScaleFactor
+                    columns: 4
 
                     property int itemWidth: 286 * screenScaleFactor
                     property int itemHeight: 360 * screenScaleFactor
@@ -850,25 +861,23 @@ DockItem {
                     }
                 }
 
-                onVPositionChanged: {
-                    if ((vSize + vPosition) === 1) {
-                        if (currentModelLibraryPage != nextModelLibraryPage) {
-                            if (nextModelLibraryPage != "" || nextModelLibraryPage != -1) {
-                                getPageModelList(model_type_model.currentTypelId, nextModelLibraryPage, 24)
-                            }
+                ScrollBar.vertical.onPositionChanged: {
+                    if ((ScrollBar.vertical.size + ScrollBar.vertical.position) === 1) {
+                        if (currentModelLibraryPage != nextModelLibraryPage && nextModelLibraryPage != -1) {
+                            getPageModelList(model_type_model.currentTypelId, nextModelLibraryPage, 24)
                         }
                     }
                 }
             }
 
-            BasicScrollView {
+            ScrollView {
                 id: group_search_view
                 visible: false
                 anchors.fill: parent
                 anchors.topMargin: parent.topPadding
                 rightPadding: library_groups_layout.anchors.rightMargin
                 clip: true
-                vpolicyVisible: group_search_list.height > 400 *2* screenScaleFactor
+
                 Grid {
                     id: group_search_list
                     width: parent.width
@@ -886,8 +895,8 @@ DockItem {
                     }
                 }
 
-                onVPositionChanged: {
-                    if ((vSize + vPosition) === 1) {
+                ScrollBar.vertical.onPositionChanged: {
+                    if ((ScrollBar.vertical.size + ScrollBar.vertical.position) === 1) {
                         if (currentModelSearchPage != nextModelSearchPage) {
                             cxkernel_cxcloud.modelLibraryService.searchModelGroup(search_edit.text, nextModelSearchPage, 24)
                         }
@@ -1041,21 +1050,18 @@ DockItem {
                                 }
 
                                 onClicked: {
-                                    let new_pos = image_list_view.hPosition - 1 / countMapSize(idImageMap)
-                                    image_list_view.hPosition = Math.max(0, new_pos)
-
-                                    // 查找上一个modelId
-                                    let currentIndex
-                                    var ids = Object.keys(idModelMap)
-                                    for (var i = ids.length - 1; i >= 0; i--) {
-                                        if (ids[i] === currentModelId)
-                                            currentIndex = i
+                                    let index = 0
+                                    let lastId = undefined
+                                    for (let [key, value] of idModelMap) {
+                                        if (key === currentModelId) {
+                                            if (lastId != undefined) {
+                                                currentModelId = lastId
+                                            }
+                                            break
+                                        }
+                                        index += 1
+                                        lastId = key
                                     }
-
-                                    // 切换到上一个modelId
-                                    let nextIndex = Math.max(0, currentIndex - 1);
-                                    currentModelId = ids[nextIndex];
-
                                 }
                             }
 
@@ -1069,8 +1075,9 @@ DockItem {
                                     anchors.fill: parent
                                     anchors.margins: 0
                                     wheelEnabled: false
-                                    clip: true
                                     vpolicyVisible: false
+                                    clip: true
+
                                     background: Rectangle {
                                         color: "transparent"
                                     }
@@ -1109,19 +1116,19 @@ DockItem {
                                 }
 
                                 onClicked: {
-                                    let new_pos = image_list_view.hPosition + 1 / countMapSize(idImageMap)
-                                    image_list_view.hPosition = Math.min(1 - image_list_view.hSize, new_pos)
-
-                                    // 查找下一个modelId
-                                    let currentIndex
-                                    var ids = Object.keys(idModelMap)
-                                    for (var i = ids.length - 1; i >= 0; i--) {
-                                        if (ids[i] === currentModelId)
-                                            currentIndex = i
+                                    let index = 0
+                                    let nextIndex = -1
+                                    for (let [key, value] of idModelMap) {
+                                        if (key === currentModelId) {
+                                            nextIndex = index + 1
+                                        }
+                                        if (nextIndex === index)
+                                        {
+                                            currentModelId = key
+                                            break
+                                        }
+                                        index += 1
                                     }
-
-                                    let nextIndex = Math.min(ids.length - 1, currentIndex + 1);
-                                    currentModelId = ids[nextIndex];
                                 }
                             }
                         }
@@ -1235,7 +1242,7 @@ DockItem {
                                     let group_id = currentGroupId
                                     let id_group_map = isSearchMode ? idGroupSearchMap : idGroupMap
 
-                                    if (id_group_map[group_id].totalPrice > 0) {
+                                    if (id_group_map.get(group_id).totalPrice > 0) {
                                         Qt.openUrlExternally(cxkernel_cxcloud.modelGroupUrlHead + group_id)
                                         return
                                     }
@@ -1368,15 +1375,14 @@ DockItem {
                         Layout.fillWidth: true
                         color: "transparent"
 
-                        BasicScrollView {
+                        ScrollView {
                             id: model_list_scroll
+
                             anchors.fill: parent
                             anchors.rightMargin: -15 * screenScaleFactor
+
                             clip: true
-                            vpolicyVisible: model_list.height > model_list_rect.height
-                            background: Rectangle {
-                                color: "transparent"
-                            }
+                            background: Item {}
 
                             Column {
                                 id: model_list
@@ -1483,6 +1489,7 @@ DockItem {
                 }
             }
         }
+
         Item{
             Layout.fillHeight: true
         }

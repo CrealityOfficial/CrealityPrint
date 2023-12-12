@@ -5,10 +5,7 @@
 #include "interface/spaceinterface.h"
 
 #include "data/modeln.h"
-#include "cxutil/slicer/meshslice.h"
-
-//#define MM2INT(n) ((n) * 1000 + 0.5 * (((n) > 0) - ((n) < 0)))
-//#define INT2MM(n) (static_cast<double>(n) / 1000.0)
+#include "topomesh/interface/poly.h"
 
 namespace creative_kernel {
 
@@ -106,91 +103,44 @@ chengfeiSplit ChengFeiSlice::getChengfeiSplit() {
     return m_chengfeiSplit;
 }
 
-void poly2contour(cxutil::Polygons& poly, chengfeiSplit::Contour& contour)
+void convert(const std::vector<topomesh::Contour>& polys, std::vector<chengfeiSplit::Contour>& contours)
 {
-    for (auto& path : poly.paths)
+    contours.clear();
+    for (const topomesh::Contour& poly : polys)
     {
-        chengfeiSplit::Path _path;
-        _path.solid = ClipperLib::Orientation(path);
-        for (auto& point : path)
+        chengfeiSplit::Contour c;
+        for (const topomesh::Path& path : poly)
         {
-            _path.line.push_back(std::make_pair(INT2MM(point.X), INT2MM(point.Y)));
+            chengfeiSplit::Path p;
+            p.solid = path.solid;
+            for (const trimesh::vec2& v : path.line)
+                p.line.push_back(std::make_pair(v.x, v.y));
+            c.push_back(p);
         }
-        contour.push_back(_path);
-    }
-}
-
-void contour2poly(chengfeiSplit::Contour& contour, cxutil::Polygons& poly)
-{
-    for (auto& path : contour)
-    {
-        ClipperLib::Path _path;
-        for (auto p : path.line)
-        {
-            _path.push_back(ClipperLib::IntPoint(MM2INT(p.first), MM2INT(p.second)));
-        }
-        poly.add(_path);
+        contours.push_back(c);
     }
 }
 
 void ChengFeiSlice::contourSplit()
 {
-    int interval = MM2INT(m_chengfeiSplit.interval);
-
-    std::list<chengfeiSplit::Line>& splitLine = m_chengfeiSplit.lineList;
-
-    cxutil::Polygons ploygon;
-    for (auto line: splitLine)
+    std::vector<std::vector<trimesh::vec2>> inputs;
+    const std::list<chengfeiSplit::Line>& splitLine = m_chengfeiSplit.lineList;
+    for (const chengfeiSplit::Line& line : splitLine)
     {
-        ClipperLib::Path path;
-        for (auto& point : line)
+        if (line.size() > 0)
         {
-            path.push_back(ClipperLib::IntPoint(MM2INT(point.first), MM2INT(point.second)));
-        }
-        if (!path.empty())
-        {
-            ploygon.add(path);
+            std::vector<trimesh::vec2> input;
+            for (const std::pair<float, float>& point : line)
+                input.push_back(trimesh::vec2(point.first, point.second));
+            inputs.push_back(input);
         }
     }
 
-    auto getPloygons = [&interval](cxutil::Polygons& ploygon)
-    {
-        ClipperLib::ClipperOffset clipper;
-        clipper.AddPaths(ploygon.paths, ClipperLib::JoinType::jtSquare, ClipperLib::etOpenSquare);
-        clipper.Execute(ploygon.paths, interval);
-    };
-    getPloygons(ploygon);
+    m_interactiveSlice.contourSplit(inputs, m_chengfeiSplit.interval);
 
-
-    std::vector<cxutil::Polygons> _vctPolys;
-    for (auto&contour : m_contours)
-    {
-        cxutil::Polygons poly;
-        contour2poly(contour, poly);
-        _vctPolys.push_back(poly);
-    }
-
-    for (auto& poly : _vctPolys)
-    {
-        poly = poly.difference(ploygon);
-    }
-
-    std::vector<cxutil::PolygonsPart> splitIntoParts;
-    for (auto& poly : _vctPolys)
-    {
-        std::vector<cxutil::PolygonsPart> _splitIntoParts;
-        _splitIntoParts = poly.splitIntoParts();
-
-        splitIntoParts.insert(splitIntoParts.end(), _splitIntoParts.begin(), _splitIntoParts.end());
-    }
-
-    m_contours.clear();
-    for (auto& poly : splitIntoParts)
-    {
-        chengfeiSplit::Contour contour;
-        poly2contour(poly, contour);
-        m_contours.push_back(contour);
-    }
+    std::vector<topomesh::Contour> polys;
+    m_interactiveSlice.getCurrentContours(polys);
+    convert(polys, m_contours);
 
     updatePoly();
 }
@@ -228,88 +178,29 @@ void ChengFeiSlice::addCache(chengfeiSplit::Contour& contour)
 
 void ChengFeiSlice::getPloygons()
 {
-    trimesh::box3 b;
-
     QList<ModelGroup*> groups = modelGroups();
-    std::vector<trimesh::TriMesh* > meshs;
+    std::vector<TriMeshPtr> meshptrs;
     for (ModelGroup* group : groups)
     {
          QList<ModelN*> models = group->models();
          for (ModelN* model : models)
          {
-             trimesh::TriMesh* mesh = new trimesh::TriMesh();
-             *mesh = *model->globalMesh().get();
-             mesh->need_bbox();
-             b += mesh->bbox;
-             meshs.push_back(mesh);
+             TriMeshPtr mesh = model->globalMesh();
+             meshptrs.push_back(mesh);
          }
     }
+    std::vector<trimesh::TriMesh* > meshs;
+    for (TriMeshPtr m : meshptrs)
+        meshs.push_back(m.get());
 
-    std::vector<cxutil::SlicedMesh> slicedMeshes;
-    std::vector<int> z;
+    m_interactiveSlice.reset(meshs);
 
-    int height = b.max.z - b.min.z;
-    const int layer = 10;
-    float per = height*1.0f / layer;
-    for (size_t i = 1; i <= layer; i++)
-    {
-        int h = per * i;
-        if (h > 0)
-        {
-            z.push_back(per * i);
-        }
-    }
-
-    cxutil::sliceMeshes_src(meshs, slicedMeshes, z);
-
-    m_contours.clear();
-    //std::vector<cxutil::Polygons> vctPolys;
-
-    //过滤掉有开区间的层
-    bool haveClosedLayer = false;
-    for (auto& smesh : slicedMeshes)
-    {
-        for (auto& poly : smesh.m_layers)
-        {
-            if (!poly.polygons.empty() && poly.openPolylines.empty())
-            {
-                haveClosedLayer = true;
-                break;
-            }
-        }
-    }
-
-
-    for (auto& smesh : slicedMeshes)
-    {
-        cxutil::Polygons polys;
-        for (auto& poly : smesh.m_layers)
-        {
-            if (haveClosedLayer && !poly.openPolylines.empty())
-            {
-                continue;
-            }
-            //polys = polys.unionPolygons(poly.polygons);
-            polys.add(poly.polygons);
-        }
-        polys = polys.unionPolygons();
-        if (!polys.paths.empty())
-        {
-            chengfeiSplit::Contour contour;
-            poly2contour(polys, contour);
-            m_contours.push_back(contour);
-        }
-    }
+    std::vector<topomesh::Contour> polys;
+    m_interactiveSlice.getCurrentContours(polys);
+    convert(polys, m_contours);
 
     //poly2contour
     updatePoly();
-
-    for (auto mesh : meshs)
-    {
-        delete mesh;
-        mesh = nullptr;
-    }
-    meshs.clear();
 }
 
 QVariantList ChengFeiSlice::getSelectedModelContour() {
@@ -325,7 +216,7 @@ QVariantList ChengFeiSlice::getSelectedModelContour() {
   return pointer_list;
 }
 
-QVariantList ChengFeiSlice::getModelContourList() {
+QVariantList ChengFeiSlice::getModelContourList() const {
   return contours_cache_;
 }
 

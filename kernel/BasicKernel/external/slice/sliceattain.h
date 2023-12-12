@@ -17,6 +17,7 @@
 #include "trimesh2/TriMesh.h"
 
 #include <gcode/define.h>
+#include "crslice/header.h"
 
 namespace creative_kernel
 {
@@ -26,7 +27,7 @@ namespace creative_kernel
 		sat_file
 	};
 
-	class SliceAttain : public QObject
+	class SliceAttain : public QObject, public crslice::PathData
 	{
 		Q_OBJECT
 	public:
@@ -107,6 +108,26 @@ namespace creative_kernel
         QString tempGcodeThumbnail();
 		QString tempGCodeImageFileName();
 		QString tempImageFileName();
+
+		void getPathData(const trimesh::vec3 point, float e, int type)override;
+		void getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type, bool isG2 = true) override;
+		void setParam(crslice::PathParam pathParam)override;
+		void setLayer(int layer)override;
+		void setLayers(int layer)override;
+		void setSpeed(float s)override;
+		void setTEMP(float temp)override;
+		void setExtruder(int nr)override;
+		void setFan(float fan)override;
+		void setZ(float z,float h=-1)override;
+		void setE(float e)override;
+		void setTime(float time)override;
+		void getNotPath()override;
+
+
+	signals:
+		void layerChanged(int layer);
+
+
 	protected:
 		cxgcode::SimpleGCodeBuilder builder;
 		SliceResultPointer m_result;

@@ -4,6 +4,7 @@
 #include "data/kernelenum.h"
 #include "data/undochange.h"
 #include <QtCore/QList>
+#include "cxkernel/data/modelndata.h"
 
 namespace qtuser_core
 {
@@ -16,17 +17,15 @@ namespace creative_kernel
 	class ModelGroup;
 	BASIC_KERNEL_API void openMeshFile();
 	BASIC_KERNEL_API void appendResizeModel(ModelN* model);
-
+	BASIC_KERNEL_API QList<ModelN*> getModelnsBySerialName(const QStringList& names);
+	BASIC_KERNEL_API ModelN* getModelNBySerialName(const QString& name);
 	BASIC_KERNEL_API void addModelLayout(ModelN* model);
 	BASIC_KERNEL_API void addModel(ModelN* model, bool reversible = false);
 	BASIC_KERNEL_API void modifySpace(const QList<ModelN*>& removes, const QList<ModelN*>& adds, bool reversible = false);
 	BASIC_KERNEL_API void removeAllModel(bool reversible = false);
 	BASIC_KERNEL_API void removeSelectionModels(bool reversible = false);
-	BASIC_KERNEL_API time_t getModelActiveTime();
 
-	BASIC_KERNEL_API void replaceModelsMesh(const QList<MeshChange>& changes, bool reversible = false);
-	BASIC_KERNEL_API void replaceModelsMesh(const QList<ModelN*>& models, const QList<TriMeshPtr>& meshes, const QList<QString>& names, bool reversible = false);
-	BASIC_KERNEL_API QList<MeshChange> generateMeshChanges(const QList<ModelN*>& models, const QList<TriMeshPtr>& meshes, const QList<QString>& names);
+	BASIC_KERNEL_API QList<ModelN*> replaceModelsMesh(const QList<ModelN*>& models, const QList<cxkernel::ModelNDataPtr>& datas, bool reversible = false);
 
 	BASIC_KERNEL_API void moveModel(ModelN* model, const QVector3D& start, const QVector3D& end, bool reversible = false);
 	BASIC_KERNEL_API void moveModels(const QList<ModelN*>& models, const QList<QVector3D>& starts, const QList<QVector3D>& ends, bool reversible = false);
@@ -88,6 +87,9 @@ namespace creative_kernel
 	BASIC_KERNEL_API void setModelsNozzle(const QList<ModelN*>& models, int nozzle);
 
 	BASIC_KERNEL_API QList<QVector3D> getModelHorizontalContour(ModelN* model);
+
+	BASIC_KERNEL_API ModelN* createModelFromData(cxkernel::ModelNDataPtr data, ModelN* replaceModel = nullptr);
+	BASIC_KERNEL_API void setMostRecentFile(QString filename);
 }
 
 #endif // CREATIVE_KERNEL_MODELINTERFACE_1592788083031_H

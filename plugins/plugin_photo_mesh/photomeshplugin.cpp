@@ -3,7 +3,6 @@
 
 #include "cxkernel/interface/iointerface.h"
 
-using namespace creative_kernel;
 PhotoMeshPlugin::PhotoMeshPlugin(QObject* parent)
 	: QObject(parent)
 {

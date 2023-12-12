@@ -1,8 +1,8 @@
 #include "renderinterface.h"
 
-#include "qtuserqml/gl/glquickitem.h"
+#include "qtuser3d/module/rendercenter.h"
+#include "qtuser3d/module/quickscene3dwrapper.h"
 
-#include "kernel/rendercenter.h"
 #include "kernel/kernel.h"
 #include "kernel/visualscene.h"
 
@@ -50,11 +50,11 @@ namespace creative_kernel
 
 	void setContinousRender()
 	{
-		getKernel()->renderCenter()->glQuickItem()->setAlways(true);
+		getKernel()->renderCenter()->scene3DWrapper()->setAlways(true);
 	}
 
 	void setCommandRender()
 	{
-		getKernel()->renderCenter()->glQuickItem()->setAlways(false);
+		getKernel()->renderCenter()->scene3DWrapper()->setAlways(false);
 	}
 }

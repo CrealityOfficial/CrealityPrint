@@ -3,7 +3,7 @@
 
 #include <QPointer>
 
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "qtuser3d/module/pickableselecttracer.h"
 #include "qtuser3d/module/pickable.h"
 #include "hollowoperatemode.h"

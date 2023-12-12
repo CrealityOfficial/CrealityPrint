@@ -1,6 +1,6 @@
 #ifndef _NULLSPACE_CLONECOMMAND_1589427153657_H
 #define _NULLSPACE_CLONECOMMAND_1589427153657_H
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "operation/pickop.h"
 #include "data/interface.h"
 

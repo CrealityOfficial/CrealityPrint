@@ -18,7 +18,7 @@ public:
 	Q_INVOKABLE void deleteVideoFile(const QString& ipAddress, const QString& filePath, int remoteType);
 	Q_INVOKABLE void renameVideoFile(const QString& ipAddress, const QString& filePath, const QString& targetName, int remoteType);
 	Q_INVOKABLE void switchDataSource(const QString& macAddr, RemotePrinerType remoteType, bool init = true);
-	Q_INVOKABLE void downloadVideoFile(const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType);
+	Q_INVOKABLE void downloadVideoFile(const QString& macAddr, const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType);
 	void onGetExportProgress(const QString& ipAddress, const QString& fileName, const float& progress);
 
 	int printerType() const;

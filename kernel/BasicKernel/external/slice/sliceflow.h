@@ -12,6 +12,7 @@ namespace creative_kernel
     class PreviewWorker;
 	class SliceAttain;
 	class SlicePreviewFlow;
+    class AnsycWorker;
 #if defined(CUSTOM_SLICE_HEIGHT_SETTING_ENABLED) && defined(CUSTOM_PARTITION_PRINT_ENABLED)
     class ChengFeiSlice;
 #endif
@@ -52,6 +53,8 @@ namespace creative_kernel
 
         Q_SIGNAL void supportStructureRequired();
 
+        SlicePreviewFlow* slicePreviewFlow();
+
     protected:
         QString filter() override;
         void onStopPhase() override;
@@ -65,15 +68,21 @@ namespace creative_kernel
 
     public slots:
         void onSliceMessage(const QString& message);
-        void onSliceSuccess(SliceAttain* attain);
+        void onSliceSuccess(SliceAttain* attain, bool isRemain = true);
+        void onSliceBeforeSuccess(SliceAttain* attain);
         void onSliceFailed();
         void saveTempGCodeSuccess();
+
+        void gcodeLayerChanged(int layer);
 
     protected:
         PreviewWorker* m_previewWorker;
         SlicePreviewFlow* m_slicePreviewFlow;
         QString m_strMessageText;
 		Calibrate* m_calibrate;
+        QSharedPointer<AnsycWorker> m_worker;
+
+
 #if defined(CUSTOM_SLICE_HEIGHT_SETTING_ENABLED) && defined(CUSTOM_PARTITION_PRINT_ENABLED)
         ChengFeiSlice* m_cSlice;
 #endif

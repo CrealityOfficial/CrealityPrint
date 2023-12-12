@@ -8,6 +8,14 @@
 #include "slice/sliceflow.h"
 #include "interface/uiinterface.h"
 #include "qtusercore/string/resourcesfinder.h"
+#include "interface/machineinterface.h"
+#include "interface/appsettinginterface.h"
+
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+
 using namespace creative_kernel;
 
 /******************** CusListModel ********************/
@@ -67,13 +75,17 @@ void CusListModel::onGetPreviewImage(const std::string& std_macAddr, const std::
 void CusListModel::findDeviceList()
 {
 	//qDebug() << "findDeviceList:";
-	connect(this, &CusListModel::sigGetInfoSuccess, this, &CusListModel::slotGetInfoSuccess, Qt::ConnectionType::QueuedConnection);
-	connect(this, &CusListModel::sigGetPreviewImage, this, &CusListModel::slotGetPreviewImage, Qt::ConnectionType::QueuedConnection);
+	
+	if (m_firstRun ) {
+		connect(this, &CusListModel::sigGetInfoSuccess, this, &CusListModel::slotGetInfoSuccess, Qt::ConnectionType::QueuedConnection);
+		connect(this, &CusListModel::sigGetPreviewImage, this, &CusListModel::slotGetPreviewImage, Qt::ConnectionType::QueuedConnection);
 
-	getRemotePrinterManager()->setGetPrinterInfoCb(std::bind(&CusListModel::onGetInfoSuccess, this, std::placeholders::_1));
-	getRemotePrinterManager()->setGetPreviewCb(std::bind(&CusListModel::onGetPreviewImage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-	if (m_firstRun && !m_MapDeviceInfo.isEmpty()) {
-		addLocalDevice();
+		getRemotePrinterManager()->setGetPrinterInfoCb(std::bind(&CusListModel::onGetInfoSuccess, this, std::placeholders::_1));
+		getRemotePrinterManager()->setGetPreviewCb(std::bind(&CusListModel::onGetPreviewImage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+		if (!m_MapDeviceInfo.isEmpty())
+		{
+			addLocalDevice();
+		}
 		m_firstRun = false;
 	}
 	//getRemotePrinterManager()->searchDevices();
@@ -150,6 +162,23 @@ bool CusListModel::checkOnePrint()
 		}
 	}
 	return hasPrinting;
+}
+
+void CusListModel::checkAutoPrint(bool auto_check)
+{
+	QSettings settings;
+	settings.beginGroup(QStringLiteral("localnet"));
+	settings.setValue(QStringLiteral("auto_check_one_print"), auto_check);
+	settings.endGroup();
+}
+
+bool CusListModel::showAutoPrintTip()
+{
+	QSettings settings;
+	settings.beginGroup(QStringLiteral("localnet"));
+	auto auto_check = settings.value(QStringLiteral("auto_check_one_print"), false).toBool();
+	settings.endGroup();
+	return !auto_check;
 }
 
 void CusListModel::batch_command(const QString& fileName, bool sendOnly)
@@ -367,6 +396,9 @@ QVariant CusListModel::data(const QModelIndex& index, int role) const
 		case ListModelItem::E_PrinterModel:
 			res = modelItem->pcPrinterModel();
 			break;
+		case ListModelItem::E_PrinterModelName:
+			res = modelItem->printerModelName();
+			break;
 		case ListModelItem::E_PrinterState:
 			res = modelItem->pcPrinterState();
 			break;
@@ -504,6 +536,97 @@ QString CusListModel::getErrorMsgFromCode(int errorCode)
 	return QString();
 }
 
+QString CusListModel::getPrinterNameFromCode(QString codeName)
+{
+
+	QString file_path{ DEFAULT_CONFIG_ROOT + QStringLiteral("/") +
+	  #ifdef CUSTOM_MACHINE_LIST
+		  QStringLiteral("machineList_custom.json")
+	  #else
+		  QStringLiteral("machineList.json")
+	  #endif // CUSTOM_MACHINE_LIST
+	};
+	if (!QFileInfo{ file_path }.isFile()) {
+		qDebug() << "File isn't exists!";
+		return codeName;
+	}
+
+	QFile file{ file_path };
+	if (!file.open(QIODevice::ReadOnly)) {
+		qDebug() << "File open failed!";
+		return codeName;
+	}
+	QJsonParseError error{ QJsonParseError::ParseError::NoError };
+	QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
+	if (error.error != QJsonParseError::ParseError::NoError) {
+		qDebug() << "parseJson:" << error.errorString();
+		file.close();
+		return codeName;
+	}
+
+	file.close();
+	std::map<QString, std::vector<PrinterInfo>> type_printer_map_;
+	for (const auto& type_printer_ref : document.array()) {
+		if (!type_printer_ref.isObject()) {
+			continue;
+		}
+		const auto type_printer = type_printer_ref.toObject();
+		if (type_printer.empty()) {
+			continue;
+		}
+		auto type_name = type_printer.value(QStringLiteral("name")).toString();
+		if (type_name.isEmpty()) {
+			continue;
+		}
+
+		const auto printer_array = type_printer.value(QStringLiteral("subnodes")).toArray();
+		if (printer_array.empty()) {
+			continue;
+		}
+		decltype(type_printer_map_)::value_type info_pair{ type_name, {} };
+		auto& printer_list = type_printer_map_.emplace(std::move(info_pair)).first->second;
+
+		for (const auto& printer_value : printer_array) {
+			if (!printer_value.isObject()) {
+				continue;
+			}
+
+			const auto printer = printer_value.toObject();
+			if (printer.empty()) {
+				continue;
+			}
+
+			auto printer_name = printer.value(QStringLiteral("name")).toString();
+			if (printer_name.isEmpty()) {
+				continue;
+			}
+			auto printer_code_name = printer.value(QStringLiteral("codeName")).toString();
+
+			PrinterInfo printer_info;
+			printer_info.name = printer_name;
+			printer_info.code_name = printer_code_name.isEmpty() ? printer_name : printer_code_name;
+
+			printer_list.emplace_back(std::move(printer_info));
+
+		}
+	}
+	for (auto& type_printers_pair : type_printer_map_) {
+		for (auto& printer : type_printers_pair.second) {
+			if (printer.code_name == codeName)
+			{
+				return printer.name;
+			}
+		}
+	}
+	
+	return codeName;
+}
+
+
+
+
+
+
 QString CusListModel::getErrorMsgFromCode(int errorCode, RemotePrinerType type)
 {
 	if (type == RemotePrinerType::REMOTE_PRINTER_TYPE_KLIPPER4408 && Klipper4408_ErrorMsg.contains(errorCode))
@@ -538,6 +661,8 @@ void CusListModel::slotGetInfoSuccess(const RemotePrinter& stateInfo)
 	QString ipAddress = stateInfo.ipAddress;
 	QString macAddress = stateInfo.macAddress;
 	QString printerModel = stateInfo.printerName.simplified();
+	QString printerModelName = getPrinterNameFromCode(stateInfo.printerName.simplified());
+	
 	QString errorMessage = getErrorMsgFromCode(stateInfo.errorCode, stateInfo.type);
 
 	int rowIndex = getItemRowIndex(macAddress);
@@ -549,6 +674,7 @@ void CusListModel::slotGetInfoSuccess(const RemotePrinter& stateInfo)
 		m_bIsConnecting = false;
 		m_curConnectingIpAddr.clear();
 		emit sigConnectedIpSuccessed();
+		qDebug()<<"added printer:"+ipAddress;
 	}
 
 	//记录设备信息
@@ -568,11 +694,21 @@ void CusListModel::slotGetInfoSuccess(const RemotePrinter& stateInfo)
 	}
 	else
 	{
+		bool needWrite = false;
 		DeviceInfo& deviceInfo = m_MapDeviceInfo[macAddress];
 		if (!printerModel.isEmpty() && printerModel != deviceInfo.m_modelName || deviceInfo.m_deviceName.isEmpty())
 		{
 			deviceInfo.m_modelName = printerModel;
 			deviceInfo.m_deviceName = printerModel;
+			needWrite = true;
+		}
+		if (deviceInfo.m_ipAddress != ipAddress)
+		{
+			deviceInfo.m_ipAddress = ipAddress;
+			needWrite = true;
+		}
+		if (needWrite)
+		{
 			writeConfig();
 		}
 	}
@@ -582,6 +718,7 @@ void CusListModel::slotGetInfoSuccess(const RemotePrinter& stateInfo)
 	item->setPcPrinterID(macAddress);
 	item->setPrinterType(connectType);
 	item->setPcPrinterModel(printerModel);
+	item->setPrinterModelName(printerModelName);
 	item->setErrorKey(stateInfo.errorKey);
 	item->setErrorCode(stateInfo.errorCode);
 	item->setFluiddPort(stateInfo.fluiddPort);
@@ -624,7 +761,25 @@ void CusListModel::slotGetInfoSuccess(const RemotePrinter& stateInfo)
 	item->setMachineHeight(stateInfo.machineHeight);
 	item->setMachineWidth(stateInfo.machineWidth);
 	item->setMachineDepth(stateInfo.machineDepth);
+	item->setPrintObjects(stateInfo.printObjects);
+	item->setExcludedObjects(stateInfo.excludedObjects);
+	item->setCurrentObject(stateInfo.currentObject);
+	item->setMaxNozzleTemp(stateInfo.maxNozzleTemp);
+	item->setMaxBedTemp(stateInfo.maxBedTemp);
 
+	
+	//if (settings == nullptr) {
+	    QSharedPointer<us::USettings>settings = createDefaultMachineSetting(printerModelName);
+		QString machineChamberFanExist = settings->value(QStringLiteral("machine_chamber_fan_exist"), "false");
+		QString machineCdsFanExist = settings->value(QStringLiteral("machine_cds_fan_exist"), "false");
+		QString machineLEDLightExist = settings->value(QStringLiteral("machine_LED_light_exist"), "false");
+		QString machinePlatformMotionEnable = settings->value(QStringLiteral("machine_platform_motion_enable"), "false");
+
+		item->setMachineChamberFanExist(machineChamberFanExist);
+		item->setMachineCdsFanExist(machineCdsFanExist);
+		item->setMachineLEDLightExist(machineLEDLightExist);
+		item->setMachinePlatformMotionEnable(machinePlatformMotionEnable);
+		//}
 	if (m_posRegExp.exactMatch(stateInfo.curPosition))
 	{
 		item->setPcX(m_posRegExp.cap(1).toFloat());
@@ -652,7 +807,10 @@ void CusListModel::slotGetInfoSuccess(const RemotePrinter& stateInfo)
 		onDataChanged(macAddress, item->m_roles);//Update Data
 	}
 }
-
+int CusListModel::deviceCount()
+{
+	return m_ListPrinterItem.count();
+}
 void CusListModel::slotGetPreviewImage(const QString& from_std_macAddr, const QImage& previewImage)
 {
 	if (getItemRowIndex(from_std_macAddr) < 0) return;
@@ -917,6 +1075,22 @@ void ListModelItem::setPcPrinterModel(const QString& printerModel)
 	//emit pcPrinterModelChanged();
 	m_roles += ListModelItem::E_PrinterModel;
 }
+
+const QString& ListModelItem::printerModelName() const
+{
+	return m_printerModelName;
+}
+
+void ListModelItem::setPrinterModelName(const QString& printerModel)
+{
+	if (m_printerModelName == printerModel)
+		return;
+
+	m_printerModelName = printerModel;
+	//emit pcPrinterModelChanged();
+	m_roles += ListModelItem::E_PrinterModel;
+}
+
 
 int ListModelItem::errorKey() const
 {
@@ -1485,6 +1659,126 @@ void ListModelItem::setLedOpened(bool opened)
 
     m_ledOpened = opened;
     emit ledOpenedChanged();
+}
+QString ListModelItem::printObjects() const
+{
+	return m_printObjects;
+}
+
+void ListModelItem::setPrintObjects(const QString& printobject)
+{
+	if (m_printObjects == printobject)
+		return;
+
+	m_printObjects = printobject;
+	emit printObjectsChanged();
+}
+
+QString ListModelItem::excludedObjects() const
+{
+	return m_excludedObjects;
+}
+
+void ListModelItem::setExcludedObjects(const QString& printobject)
+{
+	if (m_excludedObjects == printobject)
+		return;
+
+	m_excludedObjects = printobject;
+	emit excludedObjectsChanged();
+}
+
+QString ListModelItem::currentObject() const
+{
+	return m_currentObject;
+}
+
+void ListModelItem::setCurrentObject(const QString& printobject)
+{
+	if (m_currentObject == printobject)
+		return;
+
+	m_currentObject = printobject;
+	emit currentObjectChanged();
+}
+
+int ListModelItem::maxNozzleTemp() const
+{
+	return m_maxNozzleTemp;
+}
+
+void ListModelItem::setMaxNozzleTemp(const int temp)
+{
+	if (m_maxNozzleTemp == temp)
+		return;
+
+	m_maxNozzleTemp = temp;
+	emit maxNozzleTempChanged();
+}
+
+int ListModelItem::maxBedTemp() const
+{
+	return m_maxBedTemp;
+}
+
+void ListModelItem::setMaxBedTemp(const int temp)
+{
+	if (m_maxBedTemp == temp)
+		return;
+
+	m_maxBedTemp = temp;
+	emit maxBedTempChanged();
+}
+
+QString ListModelItem::machineChamberFanExist() const
+{
+	return m_machineChamberFanExist;
+}
+
+void ListModelItem::setMachineChamberFanExist(const QString& machineChamberFanExist)
+{
+	if (m_machineChamberFanExist == machineChamberFanExist)
+		return;
+
+	m_machineChamberFanExist = machineChamberFanExist;
+	emit machineChamberFanExistChanged();
+}
+QString ListModelItem::machineCdsFanExist() const
+{
+	return m_machineCdsFanExist;
+}
+void ListModelItem::setMachineCdsFanExist(const QString& machineCdsFanExist)
+{
+	if (m_machineCdsFanExist == machineCdsFanExist)
+		return;
+
+	m_machineCdsFanExist = machineCdsFanExist;
+	emit machineCdsFanExistChanged();
+}
+QString ListModelItem::machineLEDLightExist() const
+{
+	return m_machineLEDLightExist;
+}
+void ListModelItem::setMachineLEDLightExist(const QString& machineLEDLightExist)
+{
+	if (m_machineLEDLightExist == machineLEDLightExist)
+		return;
+
+	m_machineLEDLightExist = machineLEDLightExist;
+	emit machineLEDLightExistChanged();
+}
+
+QString ListModelItem::machinePlatformMotionEnable() const
+{
+	return m_machinePlatformMotionEnable;
+}
+void ListModelItem::setMachinePlatformMotionEnable(const QString& machinePlatformMotionEnable)
+{
+	if (m_machinePlatformMotionEnable == machinePlatformMotionEnable)
+		return;
+
+	m_machinePlatformMotionEnable = machinePlatformMotionEnable;
+	emit machinePlatformMotionEnableChanged();
 }
 
 float ListModelItem::gCodeTransProgress() const

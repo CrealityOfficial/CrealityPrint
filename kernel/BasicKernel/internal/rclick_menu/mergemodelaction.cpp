@@ -26,6 +26,7 @@ namespace creative_kernel
         SplitModelJob* job = new SplitModelJob();
 
         job->EnableSplit(false);
+        job->setModels(selectionms());
         cxkernel::executeJob(qtuser_core::JobPtr(job));
     }
 

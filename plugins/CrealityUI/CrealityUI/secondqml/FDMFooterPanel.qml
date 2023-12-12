@@ -55,6 +55,13 @@ Rectangle {
         }
     }
 
+    MouseArea {
+        id: wheelFilter
+        anchors.fill: parent
+        propagateComposedEvents: false
+        onWheel: {}
+    }
+
     Timer {
         id: idTimerDown
         repeat: true

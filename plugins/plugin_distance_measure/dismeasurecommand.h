@@ -3,7 +3,7 @@
 #include <QPointer>
 #include <QVector3D>
 
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "dismeasureop.h"
 
 class DistanceMeasureCommand : public ToolCommand {

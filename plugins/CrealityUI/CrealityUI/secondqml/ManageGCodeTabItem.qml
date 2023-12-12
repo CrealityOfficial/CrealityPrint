@@ -46,11 +46,11 @@ CustomTabViewItem {
         id : idParameterContext2
     }
 
-    BasicScrollView{
+    ScrollView{
         anchors.fill: parent
         anchors.margins: 10* screenScaleFactor
-        hpolicyVisible: false
-        vpolicyVisible: contentHeight > height
+//        hpolicyVisible: false
+//        vpolicyVisible: contentHeight > height
         clip: true
         Column{
             anchors.horizontalCenter: parent.horizontalCenter
@@ -80,8 +80,8 @@ CustomTabViewItem {
                     borderWidth: 1
                     visible: model.key === "machine_start_gcode" || model.key === "machine_end_gcode"
                     borderColor: Constants.dialogItemRectBgBorderColor
-                    contentItem: BasicScrollView{
-                        vpolicyVisible: start_gcode_editor.height > 180* screenScaleFactor
+                    contentItem: ScrollView{
+                      //  vpolicyVisible: start_gcode_editor.height > 180* screenScaleFactor
                         BasicDialogTextArea{
                             id: start_gcode_editor
                             width: 200
@@ -120,7 +120,7 @@ CustomTabViewItem {
                     borderWidth: 1
                     visible: model.key === "machine_extruder_start_code" || model.key === "machine_extruder_end_code"
                     borderColor: Constants.dialogItemRectBgBorderColor
-                    contentItem: BasicScrollView{
+                    contentItem: ScrollView{
                         BasicDialogTextArea{
                             id: start_gcode_editor2
                             width: 200
@@ -159,8 +159,8 @@ CustomTabViewItem {
                     borderWidth: 1
                     visible: model.key === "machine_extruder_start_code" || model.key === "machine_extruder_end_code"
                     borderColor: Constants.dialogItemRectBgBorderColor
-                    contentItem: BasicScrollView{
-                        vpolicyVisible: start_gcode_editor.height > 180* screenScaleFactor
+                    contentItem: ScrollView{
+                     //   vpolicyVisible: start_gcode_editor.height > 180* screenScaleFactor
                         BasicDialogTextArea{
                             id: start_gcode_editor3
                             width: 200

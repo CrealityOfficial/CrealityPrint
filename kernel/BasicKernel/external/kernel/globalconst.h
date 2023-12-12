@@ -1,7 +1,5 @@
-#pragma once
-
-#ifndef CREATIVE_KERNEL_GLOBALCONST_H_
-#define CREATIVE_KERNEL_GLOBALCONST_H_
+#ifndef CREATIVE_KERNEL_GLOBALCONST_1672882923747_H
+#define CREATIVE_KERNEL_GLOBALCONST_1672882923747_H
 
 #include <cxkernel/kernel/const.h>
 
@@ -46,6 +44,7 @@ namespace creative_kernel {
     int appType() const;
 
     QString userCoursePath();
+    QString getUiParameterDirPath();
     QString userFeedbackWebsite();
     QString calibrationTutorialWebsite();
     QString officialWebsite();
@@ -78,4 +77,4 @@ namespace creative_kernel {
 
 }  // namespace creative_kernel
 
-#endif  // CREATIVE_KERNEL_GLOBALCONST_H_
+#endif // CREATIVE_KERNEL_GLOBALCONST_1672882923747_H

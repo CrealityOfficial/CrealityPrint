@@ -1,0 +1,9 @@
+/* PickFace Fragment*/
+precision mediump float; 
+
+varying vec4 passColor;
+
+void main()
+{
+	gl_FragColor = passColor;
+}

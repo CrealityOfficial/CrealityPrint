@@ -4,8 +4,8 @@
 #include "splitjob.h"
 #include "splitpartsjob.h"
 
-#include "qtuser3d/entity/alonepointentity.h"
-#include "qtuser3d/entity/lineexentity.h"
+#include "entity/alonepointentity.h"
+#include "entity/lineexentity.h"
 #include "qtuser3d/camera/cameracontroller.h"
 #include "qtuser3d/camera/screencamera.h"
 
@@ -70,7 +70,8 @@ void SplitOp::onAttach()
 	//onSelectionsChanged();
 
 	updatePlanePosition();
-	
+	setAcitiveAxis(m_axisType);
+
 	m_bShowPop = true;
 }
 
@@ -189,6 +190,7 @@ void SplitOp::setSelectedModel(creative_kernel::ModelN* model)
 		else {
 			visShow(m_splitPlane);
 		}
+		setAcitiveAxis(m_axisType);
 	}
 	else
 	{
@@ -225,13 +227,17 @@ void SplitOp::onKeyPress(QKeyEvent* event)
 void SplitOp::onHoverMove(QHoverEvent* event)
 {
 #ifdef _DEBUG
-	printf("%s\n", __func__);
+	// printf("%s\n", __func__);
 #endif
 	processCursorMoveEvent(event->pos());
 }
 
 void SplitOp::split()
 {
+	// 平面显示时才可以切割
+	if (!m_splitPlane->isEnabled())	
+		return;
+
 	QList<ModelN*> selections = selectionms();
 
 	if (selections.size() > 0)
@@ -371,7 +377,7 @@ void SplitOp::onLeftMouseButtonRelease(QMouseEvent* event)
 	printf("%s\n", __func__);
 #endif
 
-	//�ж���û��move
+	//判断有没有move
 	bool move = false;
 
 	QVector3D position = makeWorldPositionFromScreen(event->pos());
@@ -400,17 +406,38 @@ void SplitOp::onLeftMouseButtonRelease(QMouseEvent* event)
 	}
 }
 
-void SplitOp::setAcitiveAxis(const QVector3D& axis)
+void SplitOp::setAcitiveAxis(int axisType)
 {
-	enableSelectPlaneByCursor(false);
+	m_axisType = axisType;
 
-	QVector3D center;
-	if (getSelectedModelsCenter(&center))
+	if (m_axisType < 3)
 	{
-		m_offset = 0.0f;
+		QVector3D axis;
+		switch (m_axisType)
+		{
+		case 0:
+            axis = QVector3D(1, 0, 0);
+            break;
+        case 1:
+            axis = QVector3D(0, 1, 0);
+            break;
+        case 2:
+            axis = QVector3D(0, 0, 1);
+            break;
+		}
+		enableSelectPlaneByCursor(false);
+		QVector3D center;
+		if (getSelectedModelsCenter(&center))
+		{
+			m_offset = 0.0f;
 
-		m_plane.center = center;
-		setPlaneNormal(axis);
+			m_plane.center = center;
+			setPlaneNormal(axis);
+		}
+	} 
+	else
+	{
+        enableSelectPlaneByCursor(true);
 	}
 }
 
@@ -471,29 +498,7 @@ void SplitOp::tryCollectMouseClickEvent(QMouseEvent* event)
 	m_selectedPosition.push_back(pos);
 
 	if (m_selectedPosition.size() >= 2) {
-
-		QVector3D start = m_selectedPosition.at(0);
-		QVector3D end = m_selectedPosition.at(1);
-		QVector3D v = end - start;
-
-		QVector3D viewPos = cameraController()->getViewPosition();
-
-		QVector3D viewDir = viewPos - end;
-		QVector3D planeDir = QVector3D::crossProduct(v , viewDir);
-		planeDir.normalize();
-
-		QVector3D planeNormal = planeDir;
-		setPlaneNormal(planeNormal);
-
-		QVector3D boxCenter;
-		if (getSelectedModelsCenter(&boxCenter))
-		{
-			float dis = boxCenter.distanceToPlane(start, planeNormal);
-			QVector3D planeCenter = boxCenter - planeNormal * dis;
-			setPlanePosition(planeCenter);
-
-			visHide(m_lineEntity);
-		}
+		setCustomPlanePosition();
 	}
 	else {
 		visHide(m_splitPlane);
@@ -645,6 +650,35 @@ QVector3D SplitOp::makeWorldPositionFromScreen(const QPoint& pos)
 	QVector4D worldP = inv_vp * ndcP;
 	worldP /= worldP.w();
 	return QVector3D(worldP);
+}
+
+void SplitOp::setCustomPlanePosition()
+{
+	if (m_selectedPosition.size() < 2)
+		return; 
+
+	QVector3D start = m_selectedPosition.at(0);
+	QVector3D end = m_selectedPosition.at(1);
+	QVector3D v = end - start;
+
+	QVector3D viewPos = cameraController()->getViewPosition();
+
+	QVector3D viewDir = viewPos - end;
+	QVector3D planeDir = QVector3D::crossProduct(v , viewDir);
+	planeDir.normalize();
+
+	QVector3D planeNormal = planeDir;
+	setPlaneNormal(planeNormal);
+
+	QVector3D boxCenter;
+	if (getSelectedModelsCenter(&boxCenter))
+	{
+		float dis = boxCenter.distanceToPlane(start, planeNormal);
+		QVector3D planeCenter = boxCenter - planeNormal * dis;
+		setPlanePosition(planeCenter);
+
+		visHide(m_lineEntity);
+	}
 }
 
 void SplitOp::updatePlanePosition()

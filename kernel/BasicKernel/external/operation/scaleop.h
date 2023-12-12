@@ -5,7 +5,7 @@
 #include "qtuser3d/module/pickableselecttracer.h"
 
 #include <QVector3D>
-#include "qtuser3d/entity/translatehelperentity.h"
+#include "entity/translatehelperentity.h"
 #include "data/modeln.h"
 #include "data/undochange.h"
 
@@ -22,6 +22,7 @@ class BASIC_KERNEL_API ScaleOp : public qtuser_3d::SceneOperateMode
 {
 public:
 	Q_OBJECT
+
 public:
 	ScaleOp(QObject* parent = nullptr);
 	virtual ~ScaleOp();
@@ -34,6 +35,7 @@ public:
     QVector3D box();
 	QVector3D globalbox();
 	void setScale(QVector3D scale);
+	void setScaleLock(bool on);
 
 	bool uniformCheck();
 	void setUniformCheck(bool check);
@@ -43,6 +45,7 @@ public:
 signals:
 	void scaleChanged();
 	void sizeChanged();
+	void checkChanged();
 	void mouseLeftClicked();
 protected:
 	void onAttach() override;
@@ -70,6 +73,7 @@ protected:
 protected:
 	void onBoxChanged(const qtuser_3d::Box3D& box) override;
 	void onSceneChanged(const qtuser_3d::Box3D& box) override;
+	void onModelDestroyed();
 
 private:
 	qtuser_3d::TranslateHelperEntity* m_helperEntity;
@@ -88,5 +92,8 @@ private:
 	double m_originFovy;
 
 	QList<creative_kernel::NUnionChangedStruct> m_changes;
+
+	QMap<creative_kernel::ModelN*, bool> m_modelsScaleLock;
+
 };
 #endif // _NULLSPACE_SCALEOP_1589770383921_H

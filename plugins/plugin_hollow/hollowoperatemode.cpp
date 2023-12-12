@@ -86,7 +86,7 @@ void HollowOperateMode::timerUpdate() {
     creative_kernel::setModelEffectClipMaxZSceneTop();
   }
 
-  creative_kernel::requestVisUpdate();
+  creative_kernel::requestVisUpdate(true);
 }
 
 void HollowOperateMode::hollow(float thinkness, int type) {
@@ -94,8 +94,15 @@ void HollowOperateMode::hollow(float thinkness, int type) {
   if (selected_model_list.empty()) {
     return;
   }
+  
+  for (auto* model: creative_kernel::modelns()) {
+    if (!model->isVisible()) {
+      unvisible_model_set_.emplace(model);
+    }
+  }
 
   recordModelsVisibility();
+  setNoSelectedModelsVisiable(false);
 
   auto job = QSharedPointer<HollowJob>::create();
   connect(job.get(), &HollowJob::finished, this, &HollowOperateMode::jobFinished);
@@ -106,6 +113,10 @@ void HollowOperateMode::hollow(float thinkness, int type) {
   qtuser_3d::Box3D box;
   for (auto* model : selected_model_list) { // 选中的且可见的模型才打洞
     box += model->boxWithSup();
+
+    if (model->hasFDMSupport()) {
+        model->fdmSupport()->clearSupports();
+    }
     if (model->isVisible()) {
       job->appendModel(model);
     }
@@ -114,6 +125,17 @@ void HollowOperateMode::hollow(float thinkness, int type) {
   creative_kernel::requestVisUpdate(true);
   model_max_height_ = box.max.z();
   cxkernel::executeJob(job);
+}
+
+void HollowOperateMode::setNoSelectedModelsVisiable(bool visiable)
+{
+  auto selected_model_list = creative_kernel::selectionms();
+  auto model_list = creative_kernel::modelns();
+  for (auto model: model_list) {
+    if (!selected_model_list.contains(model)) {
+      model->setVisibility(visiable);
+    }
+  }
 }
 
 void HollowOperateMode::recordModelsVisibility() {

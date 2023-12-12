@@ -32,7 +32,7 @@ namespace creative_kernel
 		Q_INVOKABLE void cancel();
 		Q_INVOKABLE void reset();
 		us::USettings* getOverrideSettings(const QString& quality);
-
+		int getTime() { return m_data.time; }
 	protected:
 		MaterialData m_data;
 		QString m_machineName;

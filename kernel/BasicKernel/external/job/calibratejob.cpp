@@ -5,6 +5,8 @@
 #include "kernel/kernel.h"
 #include "kernel/kernelui.h"
 #include "slice/sliceflow.h"
+#include "slice/ansycworker.h"
+
 #include "interface/appsettinginterface.h"
 
 QString generateTempGCodeFileName()
@@ -59,7 +61,8 @@ void Calibratejob::successed(qtuser_core::Progressor* progressor)
 
 void Calibratejob::work(qtuser_core::Progressor* progressor)
 {
-	qtuser_core::ProgressorTracer tracer(progressor);
+	creative_kernel::FormatSlice tracer(progressor);
+
 	CrScenePtr scene;
 
 	if (m_creator)

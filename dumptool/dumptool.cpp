@@ -157,9 +157,9 @@ void DumpTool::sendReport() {
     AlibabaCloud::OSS::InitializeSdk();
 
     QSettings setting;
-    setting.beginGroup(QStringLiteral("profile_setting"));
+    setting.beginGroup(QStringLiteral("cloud_service"));
     const bool is_mainland_china = setting.value(
-      QStringLiteral("service_type"), QStringLiteral("0")).toString() == QStringLiteral("0");
+      QStringLiteral("server_type"), QStringLiteral("0")).toString() == QStringLiteral("0");
     setting.endGroup();
 
     const std::string endpoint{ is_mainland_china ? DUMPTOOL_ENDPOINT : DUMPTOOL_ENDPOINT_FOREIGN };

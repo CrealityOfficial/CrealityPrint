@@ -731,14 +731,11 @@ namespace creative_kernel
         {
             return;
         }
-        QTextStream inStream(&inFile);
-        inStream.setCodec(QTextCodec::codecForName("UTF-8"));
 
-        qdoc.setObject(rootObj);
-        QByteArray qba = qdoc.toJson(QJsonDocument::Indented);
-        QString qstr = QString::fromLocal8Bit(qba);
-        QByteArray ba = qstr.toLocal8Bit();
-        inStream << ba;
+        QJsonDocument qdocIn;
+        qdocIn.setObject(rootObj);
+        QByteArray qba = qdocIn.toJson(QJsonDocument::Indented);
+        inFile.write(qba);
         inFile.close();
     }
 

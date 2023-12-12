@@ -16,18 +16,6 @@ namespace creative_kernel
 	{
 	}
 
-	void ModelSpaceUndo::replaceModels(const QList<MeshChange>& meshChanges)
-	{
-		int count = meshChanges.size();
-		if (count == 0)
-			return;
-
-		MeshChangeCommand* command = new MeshChangeCommand();
-		command->setChanges(meshChanges);
-
-		push(command);
-	}
-
 	void ModelSpaceUndo::modifySpace(const QList<ModelN*>& models, const QList<ModelN*>& removeModels)
 	{
 		SpaceModifyCommand* command = new SpaceModifyCommand();

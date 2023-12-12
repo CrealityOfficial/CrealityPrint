@@ -473,30 +473,32 @@ QVector3D TranslateOp::position()
 
 void TranslateOp::setPosition(QVector3D position)
 {
+	if (m_selectedModels.empty())
+		return;
+
+	auto model = m_selectedModels.last(); 
+	QVector3D src = model->localPosition();
+	QVector3D dst = model->mapGlobal2Local(position);
+
 	if (1 == m_selectedModels.size())
 	{
-		moveModel(m_selectedModels[0], m_selectedModels[0]->localPosition()/*QVector3D()*/, m_selectedModels[0]->mapGlobal2Local(position), true);
+		moveModel(model, src, dst, true);
 		updateHelperEntity();
 		requestVisUpdate(true);
 		emit positionChanged();
 	}
 	else
 	{
-        qDebug()<<"position =" <<position;
-
-
+		QVector3D moveOffset = dst - src;
 		for (size_t i = 0; i < m_selectedModels.size(); i++)
 		{
-            QVector3D moveOffset = position - m_selectedModels[m_selectedModels.size() - 1]->localPosition();
-            qDebug()<<"moveOffset =" <<moveOffset;
-            moveModel(m_selectedModels[i], m_selectedModels[i]->localPosition(),m_selectedModels[i]->localPosition() + moveOffset, true);
+			QVector3D pos = m_selectedModels[i]->localPosition();
+            moveModel(m_selectedModels[i], pos, pos + moveOffset, true);
 		}
-		if (m_selectedModels.size())
-		{
-			updateHelperEntity();
-			requestVisUpdate(true);
-			emit positionChanged();
-		}
+
+		updateHelperEntity();
+		requestVisUpdate(true);
+		emit positionChanged();
 	}
 }
 

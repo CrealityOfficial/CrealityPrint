@@ -51,11 +51,11 @@ CustomTabViewItem {
         parameterContext: idJerkParameterContext
     }
 
-    BasicScrollView{
+    ScrollView{
         anchors.fill: parent
         anchors.margins: 10* screenScaleFactor
-        hpolicyVisible: false
-        vpolicyVisible: contentHeight > height
+//        hpolicyVisible: false
+//        vpolicyVisible: contentHeight > height
         clip: true
         Column{
             anchors.horizontalCenter: parent.horizontalCenter

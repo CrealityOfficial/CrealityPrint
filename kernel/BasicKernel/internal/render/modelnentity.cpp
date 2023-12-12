@@ -1,7 +1,7 @@
 #include "modelnentity.h"
-#include "qtuser3d/entity/boxentity.h"
-#include "qcxutil/trimesh2/renderprimitive.h"
-#include "mmesh/trimesh/contour.h"
+#include "entity/boxentity.h"
+#include "qtuser3d/trimesh2/renderprimitive.h"
+#include "qtuser3d/trimesh2/trimeshrender.h"
 
 namespace creative_kernel
 {
@@ -11,7 +11,7 @@ namespace creative_kernel
 		m_boxEntity = new qtuser_3d::BoxEntity();
 		m_boxEntity->setColor(QVector4D(0.306f, 0.702f, 0.769f, 1.0f));
 
-		m_lineEntity = new cxkernel::PureEntity(parent);
+		m_lineEntity = new qtuser_3d::PureEntity(parent);
 		m_lineEntity->setColor(QVector4D(1.0f, 0.0f, 0.0f, 1.0f));
 		m_lineEntity->addPassFilter(0, "view");
 
@@ -42,6 +42,7 @@ namespace creative_kernel
 	{
 		if (!m_boxEntity->parent())
 			delete m_boxEntity;
+		delete m_lineEntity;
 	}
 
 	void ModelNEntity::update()
@@ -62,8 +63,8 @@ namespace creative_kernel
 	void ModelNEntity::updateLines(const std::vector<trimesh::vec3>& lines)
 	{
 		std::vector<trimesh::vec3> rlines;
-		mmesh::loopPolygon2Lines(lines, rlines);
-		m_lineEntity->setGeometry(qcxutil::createLinesGeometry(rlines), Qt3DRender::QGeometryRenderer::Lines);
+		qtuser_3d::loopPolygon2Lines(lines, rlines);
+		m_lineEntity->setGeometry(qtuser_3d::createLinesGeometry(rlines), Qt3DRender::QGeometryRenderer::Lines);
 	}
 
 	void ModelNEntity::setBoxColor(QVector4D color)

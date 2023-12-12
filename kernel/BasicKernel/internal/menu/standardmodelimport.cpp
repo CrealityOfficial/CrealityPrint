@@ -2,14 +2,10 @@
 #include "standardmodelimport.h"
 #include "menu/actioncommand.h"
 #include "interface/commandinterface.h"
-#include "mmesh/primitive/createanlulus.h"
-#include "mmesh/primitive/createcone.h"
-#include "mmesh/primitive/createcube.h"
-#include "mmesh/primitive/createsCutcylinder.h"
-#include "mmesh/primitive/createscylinder.h"
-#include "mmesh/primitive/createsphere.h"
 #include "cxkernel/interface/modelninterface.h"
 #include "cxkernel/data/modelndata.h"
+
+#include "msbase/primitive/primitive.h"
 
 namespace creative_kernel
 {
@@ -37,31 +33,31 @@ namespace creative_kernel
         switch (m_ShapeType)
         {
         case creative_kernel::StandardModelImport::ST_CUBOID:
-            triMesh = mmesh::createCuboid(20, 20, 20);
+            triMesh = msbase::createCuboid(20, 20, 20);
             break;
         case creative_kernel::StandardModelImport::ST_SPHERICAL:
-            triMesh = mmesh::createSphere(20, 100);
+            triMesh = msbase::createSphere(20, 100);
             break;
         case creative_kernel::StandardModelImport::ST_CYLINDER:
-            triMesh = mmesh::createCylinder(20, 30, 300);
+            triMesh = msbase::createCylinder(20, 30, 300);
             break;
         case creative_kernel::StandardModelImport::ST_SPHERICALSHELL:
-            triMesh = mmesh::createSphere(10, 10);
+            triMesh = msbase::createSphere(10, 10);
             break;
         case creative_kernel::StandardModelImport::ST_CONE:
-            triMesh = mmesh::createCone(300, 20, 30);
+            triMesh = msbase::createCone(300, 20, 30);
             break;
         case creative_kernel::StandardModelImport::ST_TRUNCATEDCONE:
-            triMesh = mmesh::createCCylinder(30, 20, 40, 300);
+            triMesh = msbase::createCCylinder(30, 20, 40, 300);
             break;
         case creative_kernel::StandardModelImport::ST_RING:
-            triMesh = mmesh::createtorusMesh(20, 5, 300, 300);
+            triMesh = msbase::createTorusMesh(20, 5, 300, 300);
             break;
         case creative_kernel::StandardModelImport::ST_PYRAMID:
-            triMesh = mmesh::createCone(4, 20, 30);
+            triMesh = msbase::createCone(4, 20, 30);
             break;
         case creative_kernel::StandardModelImport::ST_PRISM:
-            triMesh = mmesh::createCylinder(20, 30, 3);
+            triMesh = msbase::createCylinder(20, 30, 3);
             break;
         default:
             break;

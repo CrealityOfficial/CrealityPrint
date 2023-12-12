@@ -15,8 +15,6 @@ namespace creative_kernel
 
 		static void layout(ModelN* model, qtuser_core::Progressor* progressor,bool bAdaption = true);
 		static void layoutBelt(ModelN* model, qtuser_core::Progressor* progressor, bool bAdaption = true);
-
-		static bool nestLayout(ModelN* model);
 	};
 }
 #endif // _creative_kernel_MODELPOSITIONINITIALIZER_1589275563011_H

@@ -8,11 +8,7 @@
 #include "data/fdmsupportgroup.h"
 #include "data/modeln.h"
 
-#include "qcxutil/trimesh2/conv.h"
-
-#include "mmesh/trimesh/trimeshutil.h"
-
-#include "utils/convexhullcalculator.h"
+#include "qtuser3d/trimesh2/conv.h"
 
 #include "qtusercore/module/progressortracer.h"
 
@@ -35,7 +31,7 @@ void HollowJob::appendModel(creative_kernel::ModelN* model) {
   task_cache_list_.emplace_back(task_cache_t{
     model,
     std::make_shared<trimesh::TriMesh>(),
-    std::make_shared<trimesh::TriMesh>(),
+    std::make_shared<cxkernel::ModelNData>(),
   });
 }
 
@@ -73,13 +69,9 @@ void HollowJob::work(qtuser_core::Progressor* progressor) {
   param.fill_config.enable     = fill_enabled_;
   param.fill_config.fillratio  = fill_ratio_;
 
-  for (auto& [model, imesh, omesh] : task_cache_list_) {
-    if (model->hasFDMSupport()) {
-      model->fdmSupport()->clearSupports();
-    }
-
+  for (auto& [model, imesh, odata] : task_cache_list_) {
     try {
-      trimesh::fxform xform = qcxutil::qMatrix2Xform(model->globalMatrix());
+      trimesh::fxform xform = qtuser_3d::qMatrix2Xform(model->globalMatrix());
       *imesh = *model->meshptr(); // deep copy
       for (auto& vertiece : imesh->vertices) {
         vertiece = xform * vertiece;
@@ -89,12 +81,14 @@ void HollowJob::work(qtuser_core::Progressor* progressor) {
       imesh->need_bbox();
 
       qtuser_core::ProgressorTracer tracer{ progressor };
-      omesh.reset(ovdbutil::hollowMeshAndFill(imesh.get(), param, &tracer));
+      TriMeshPtr omesh(ovdbutil::hollowMeshAndFill(imesh.get(), param, &tracer));
       if (!omesh) { throw "omesh is nullptr!"; }
 
-      ConvexHullCalculator::calculate(omesh.get(), progressor);
       trimesh::apply_xform(omesh.get(), trimesh::xform{ trimesh::inv(xform) });
       omesh->need_bbox();
+
+      odata = cxkernel::createModelNData(omesh, QStringLiteral("hollow_%1").arg(model->objectName()),
+          cxkernel::ModelNDataType::mdt_algrithm);
 
     } catch (...) {
       assert(false && "exception catched!");
@@ -111,17 +105,14 @@ void HollowJob::failed() {
 
 void HollowJob::successed(qtuser_core::Progressor* progressor) {
   QList<creative_kernel::ModelN*> model_list;
-  QList<creative_kernel::TriMeshPtr> meshe_list;
-  QList<QString> name_list;
+  QList<cxkernel::ModelNDataPtr> data_list;
 
-  for (auto& [model, imesh, omesh] : task_cache_list_) {
+  for (auto& [model, imesh, odata] : task_cache_list_) {
     model_list.push_back(model);
-    meshe_list.push_back(omesh);
-    name_list.push_back(QStringLiteral("hollow_%1").arg(model->objectName()));
+    data_list.push_back(odata);
   }
 
-  // cacheGeometry();
-  creative_kernel::replaceModelsMesh(model_list, meshe_list, name_list, true);
+  creative_kernel::replaceModelsMesh(model_list, data_list, true);
 
   // clearCache();
   finished(true);

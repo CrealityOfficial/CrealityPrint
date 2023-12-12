@@ -4,7 +4,7 @@
 #include "data/kernelenum.h"
 
 class QTranslator;
-class QQmlApplicationEngine;
+class QQmlEngine;
 
 namespace creative_kernel
 {
@@ -17,7 +17,7 @@ namespace creative_kernel
         virtual ~Translator();
 
         void loadUserSettings();
-        void setQmlEngine(QQmlApplicationEngine* engine);
+        void setQmlEngine(QQmlEngine* engine);
         void changeLanguage(MultiLanguage language, bool force = false);
         MultiLanguage currentLanguage();
 
@@ -29,7 +29,7 @@ namespace creative_kernel
         void loadLanguage_ts(QString strFileName);
 
     private:
-        QQmlApplicationEngine* m_engine;
+        QQmlEngine* m_engine;
         QTranslator* m_translator;
 
         MultiLanguage m_language;

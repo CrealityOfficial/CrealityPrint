@@ -1,6 +1,6 @@
 #ifndef _NULLSPACE_TRANSLATEMODE_1589765331924_H
 #define _NULLSPACE_TRANSLATEMODE_1589765331924_H
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "data/interface.h"
 
 class TranslateOp;

@@ -29,7 +29,7 @@
 #include "internal/parameter/parameterutil.h"
 #include "internal/parameter/printprofile.h"
 #include  "internal/parameter/printextruder.h"
-#include "qcxutil/util/traitsutil.h"
+#include "cxkernel/utils/traitsutil.h"
 
 #include "qtusercore/string/resourcesfinder.h"
 #include <QtCore>
@@ -276,8 +276,6 @@ namespace creative_kernel
         }
 
         _setCurrentMachine(m_machines.at(index));
-
-        syncCurParamToVisScene();
     }
 
     void ParameterManager::removeMachine(QObject* machineObject)
@@ -698,11 +696,13 @@ namespace creative_kernel
             QList<qtuser_core::JobPtr> jobs;
             if (currentMachineIsBelt())
             {
-                job->setNestType(qcxutil::NestPlaceType::ONELINE);
+                job->setNestType(cxkernel::NestPlaceType::ONELINE);
             }
             jobs.push_back(qtuser_core::JobPtr(job));
             cxkernel::executeJobs(jobs);
         }
+
+        syncCurParamToVisScene();
     }
 
     void ParameterManager::_removeMachine(PrintMachine* machine)
@@ -783,17 +783,17 @@ namespace creative_kernel
 
     QStringList ParameterManager::_machineNames(const QList<PrintMachine*>& machines)
     {
-        return qcxutil::objectNames<PrintMachine>(machines);
+        return cxkernel::objectNames<PrintMachine>(machines);
     }
 
     QStringList ParameterManager::_machineUniqueNames(const QList<PrintMachine*>& machines)
     {
-        return qcxutil::objectUniqueNames<PrintMachine>(machines);
+        return cxkernel::objectUniqueNames<PrintMachine>(machines);
     }
 
     PrintMachine* ParameterManager::_findMachine(const QString& uniqueName)
     {
-        return qcxutil::findObject<PrintMachine>(uniqueName, m_machines);
+        return cxkernel::findObject<PrintMachine>(uniqueName, m_machines);
     }
 
     bool ParameterManager::_checkUniqueName(const QString& uniqueName, MachineMeta& meta, MachineData& data)

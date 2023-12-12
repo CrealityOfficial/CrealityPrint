@@ -4,14 +4,14 @@
 
 #include <Qt3DCore/QEntity>
 #include "qtuser3d/math/box3d.h"
-#include "qtuser3d/entity/boxentity.h"
-#include "qtuser3d/entity/printerskirtentity.h"
-#include "qtuser3d/entity/printergrid.h"
-#include "qtuser3d/entity/printertext.h"
-#include "qtuser3d/entity/axisentity.h"
-#include "qtuser3d/entity/faceentity.h"
-#include "qtuser3d/entity/texfaces.h"
-#include "qtuser3d/entity/hotbedentity.h"
+#include "entity/boxentity.h"
+#include "entity/printerskirtentity.h"
+#include "entity/printergrid.h"
+#include "entity/printertext.h"
+#include "entity/axisentity.h"
+#include "entity/faceentity.h"
+#include "entity/texfaces.h"
+#include "entity/hotbedentity.h"
 
 namespace creative_kernel
 {

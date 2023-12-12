@@ -7,14 +7,14 @@ import QtGraphicalEffects 1.12
 import "../qml"
 import "../secondqml"
 
-Window
+BasicDialogV4
 {
     id: root
-    color: "transparent"
+    //color: "transparent"
     width: windowMaxWidth
     height: windowMaxHeight
-    modality: Qt.ApplicationModal
-    flags: Qt.FramelessWindowHint | Qt.Dialog
+    //modality: Qt.ApplicationModal
+    //flags: Qt.FramelessWindowHint | Qt.Dialog
 
     signal sigCancelBtnClicked()
     signal sigConfirmBtnClicked()
@@ -32,16 +32,19 @@ Window
     property real windowMinWidth: 500 * screenScaleFactor
     property real windowMaxWidth: 756 * screenScaleFactor
     property real windowMinHeight: 152 * screenScaleFactor
-    property real windowMaxHeight: 554 * screenScaleFactor
+    property real windowMaxHeight: 600 * screenScaleFactor
 
-    property alias curGcodeFileName: idGcodeFileName.text
-
+    property var curGcodeFileName: ""
+    property var previewSource: ""
+    property var errorTxt:""
+    property var msgImageSource:""
+    property var gcodeFileName:""
     //Slice parameter
     property bool isFromFile: kernel_slice_flow.sliceAttain ? kernel_slice_flow.sliceAttain.isFromFile() : false
     property string printTime: kernel_slice_flow.sliceAttain ? kernel_slice_flow.sliceAttain.printing_time() : ""
     property double materialWeight: kernel_slice_flow.sliceAttain ? kernel_slice_flow.sliceAttain.material_weight() : ""
 
-    property string titleText: uploadDlgType ? qsTr("Send G-code") : qsTr("Upload G-code")
+    title: uploadDlgType ? qsTr("Send G-code") : qsTr("Upload G-code")
     property string textColor: Constants.currentTheme ? "#333333" : "#CBCBCC"
     property string shadowColor: Constants.currentTheme ? "#BBBBBB" : "#333333"
     property string borderColor: Constants.currentTheme ? "#D6D6DC" : "#262626"
@@ -78,15 +81,15 @@ Window
 
     function uploadGcodeSuccess()
     {
-        idMessageText.text = qsTr("Uploaded Successfully")
-        idMessageImage.source = "qrc:/UI/photo/upload_success_image.png"
+        errorTxt = qsTr("Uploaded Successfully")
+        msgImageSource = "qrc:/UI/photo/upload_success_image.png"
         curWindowState = UploadGcodeDlg.WindowState.State_Message
     }
 
     function uploadGcodeFailed()
     {
-        idMessageText.text = qsTr("Failed to upload gcode!")
-        idMessageImage.source = "qrc:/UI/photo/upload_msg.png"
+        errorTxt = qsTr("Failed to upload gcode!")
+        msgImageSource = "qrc:/UI/photo/upload_msg.png"
         curWindowState = UploadGcodeDlg.WindowState.State_Message
     }
 
@@ -102,112 +105,34 @@ Window
         {
             curWindowState = UploadGcodeDlg.WindowState.State_Normal
 
-            imgPreview.source = ""
-            imgPreview.source = "file:///" + kernel_slice_flow.gcodeThumbnail()
+            previewSource = ""
+            previewSource = "file:///" + kernel_slice_flow.gcodeThumbnail()
 
-            idGcodeFileName.text = kernel_slice_flow.getExportName()
-            idGcodeFileName.forceActiveFocus()
+            curGcodeFileName = kernel_slice_flow.getExportName()
+            //idGcodeFileName.forceActiveFocus()
         }
     }
 
     onCurWindowStateChanged: {
-        rect.width = curWindowState ? windowMinWidth : windowMaxWidth
-        rect.height = curWindowState ? windowMinHeight: windowMaxHeight
+        width = curWindowState ? windowMinWidth : windowMaxWidth
+        height = curWindowState ? windowMinHeight: windowMaxHeight
     }
 
-    Rectangle {
+    bdContentItem:Rectangle {
         id: rect
-        anchors.centerIn: parent
-        anchors.margins: shadowWidth
+        anchors.fill: parent
+        //anchors.margins: shadowWidth
 
-        border.width: borderWidth
-        border.color: borderColor
+        //border.width: borderWidth
+        //border.color: borderColor
         color: backgroundColor
-        radius: borderRadius
-
-        CusRoundedBg {
-            id: cusTitle
-            width: parent.width - 2 * borderWidth
-            height: titleHeight
-
-            anchors.top: parent.top
-            anchors.topMargin: borderWidth
-            anchors.horizontalCenter: parent.horizontalCenter
-
-            leftTop: true
-            rightTop: true
-            color: titleBgColor
-            radius: borderRadius
-
-            MouseArea {
-                anchors.fill: parent
-                property point clickPos: "0,0"
-                enabled: curWindowState === UploadGcodeDlg.WindowState.State_Normal
-
-                onPressed: clickPos = Qt.point(mouse.x, mouse.y)
-
-                onPositionChanged: {
-                    var cursorPos = WizardUI.cursorGlobalPos()
-                    root.x = cursorPos.x - clickPos.x
-                    root.y = cursorPos.y - clickPos.y
-                }
-            }
-
-            Row {
-                anchors.left: parent.left
-                anchors.leftMargin: 10 * screenScaleFactor
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 4 * screenScaleFactor
-
-                Image {
-                    anchors.verticalCenter: parent.verticalCenter
-                    source: "qrc:/scence3d/res/logo.png"
-                    sourceSize: Qt.size(16, 16)
-                }
-
-                Text {
-                    id: curTitleText
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    font.weight: Font.Medium
-                    font.family: Constants.mySystemFont.name
-                    font.pointSize: Constants.labelFontPointSize_9
-                    horizontalAlignment: Text.AlignLeft
-                    verticalAlignment: Text.AlignVCenter
-                    color: titleFtColor
-                    text: titleText
-                }
-            }
-
-            CusButton {
-                id: closeBtn
-                width: 30 * screenScaleFactor
-                height: 30 * screenScaleFactor
-
-                rightTop: true
-                allRadius: false
-                normalColor: "transparent"
-                hoveredColor: "#E81123"
-
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-
-                Image {
-                    anchors.centerIn: parent
-                    width: 10 * screenScaleFactor
-                    height: 10 * screenScaleFactor
-                    source: parent.isHovered ? "qrc:/UI/photo/closeBtn_d.svg" : "qrc:/UI/photo/closeBtn.svg"
-                }
-
-                onClicked: root.visible = false
-            }
-        }
+        //radius: borderRadius
 
         Item {
             width: parent.width
-            height: parent.height - cusTitle.height
+            height: parent.height
 
-            anchors.top: cusTitle.bottom
+            //anchors.top: cusTitle.bottom
             anchors.horizontalCenter: parent.horizontalCenter
 
             MouseArea {
@@ -317,9 +242,10 @@ Window
                         id: imgPreview
                         anchors.centerIn: parent
                         sourceSize: Qt.size(300, 300)
+                        source : root.previewSource
                         property string imgDefault: "qrc:/UI/photo/imgPreview_default.png"
 
-                        onStatusChanged: if(status == Image.Error) source = imgDefault
+                        onStatusChanged: if(status == Image.Error) root.previewSource = imgDefault
                     }
                 }
 
@@ -343,9 +269,9 @@ Window
                         id: idGcodeFileName
                         Layout.fillWidth: true
                         Layout.preferredHeight: 28 * screenScaleFactor
-
-                        validator: RegExpValidator { regExp: /^.{50}$/ }
-                        maximumLength: 50
+                        text:root.curGcodeFileName
+                        validator: RegExpValidator { regExp: /^.{94}$/ }
+                        maximumLength: 94
                         selectByMouse: true
                         selectionColor: Constants.currentTheme ? "#98DAFF": "#1E9BE2"
                         selectedTextColor: color
@@ -357,7 +283,7 @@ Window
                         font.weight: Font.Medium
                         font.family: Constants.mySystemFont.name
                         font.pointSize: Constants.labelFontPointSize_9
-
+                        focus:true
                         background: Rectangle {
                             color: "transparent"
                             border.color: Constants.currentTheme ? "#DDDDE1" : "#6E6E72"
@@ -403,7 +329,10 @@ Window
                                 text: qsTr(modelData)
                             }
 
-                            onClicked: index ? sigCancelBtnClicked() : sigConfirmBtnClicked()
+                            onClicked: {
+                                if(!index) gcodeFileName = idGcodeFileName.text
+                                index ? sigCancelBtnClicked() : sigConfirmBtnClicked()
+                            }
                         }
                     }
                 }
@@ -461,6 +390,7 @@ Window
                     Image {
                         id: idMessageImage
                         sourceSize: Qt.size(24, 24)
+                        source: root.msgImageSource
                     }
 
                     Text {
@@ -470,6 +400,7 @@ Window
                         font.pointSize: Constants.labelFontPointSize_9
                         verticalAlignment: Text.AlignVCenter
                         color: textColor
+                        text: root.errorTxt
                     }
                 }
 

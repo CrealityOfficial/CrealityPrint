@@ -1,0 +1,11 @@
+#version 300 es
+/* color.fragment */
+precision mediump float; 
+
+out vec4 fragColor;
+
+in vec4 fcolor;
+void main() 
+{
+	fragColor = fcolor;
+}

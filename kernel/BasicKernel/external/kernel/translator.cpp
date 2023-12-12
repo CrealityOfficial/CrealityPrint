@@ -116,7 +116,7 @@ namespace creative_kernel
         }
     }
 
-    void Translator::setQmlEngine(QQmlApplicationEngine* engine)
+    void Translator::setQmlEngine(QQmlEngine* engine)
     {
         m_engine = engine;
     }

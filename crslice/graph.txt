@@ -1,0 +1,11 @@
+cxlog/0.0.2
+trimesh2/0.0.3
+stb/0.0.2
+rapidjson/1.0.0
+polyclipping/0.0.1
+boost/0.0.2
+eigen/0.0.2
+cereal/0.0.1
+admesh/0.0.1
+tbb/0.0.2
+clipper2/0.0.1

@@ -1,0 +1,19 @@
+/* manipulate.fragment */
+
+uniform vec4 color;
+uniform vec4 changecolor;
+uniform int mt;
+
+uniform float state;
+void main() 
+{
+	if(mt == 0)
+	{
+		gl_FragColor = color * state;
+	}
+	else if(mt == 1)
+	{
+		gl_FragColor = color + changecolor * state;
+	}
+	
+}

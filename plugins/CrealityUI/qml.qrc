@@ -7,6 +7,8 @@
         <file>photo/configTabBtn_d.png</file>
         <file>photo/configTabBtn2.png</file>
         <file>photo/configTabBtn2_d.png</file>
+        <file>photo/config.png</file>
+        <file>photo/font.png</file>
         <file>photo/down.png</file>
         <file>photo/letter.png</file>
         <file>photo/letter_d.png</file>
@@ -553,7 +555,6 @@
         <file>photo/machineImage/machineImage_CT-005.png</file>
         <file>photo/machineImage/machineImage_CT-228.png</file>
         <file>photo/machineImage/machineImage_CT-300.png</file>
-        <file>photo/machineImage/machineImage_CT-300D.png</file>
         <file>photo/machineImage/machineImage_CT-400D.png</file>
         <file>photo/machineImage/machineImage_Ender-1.png</file>
         <file>photo/machineImage/machineImage_Ender-2 Pro.png</file>
@@ -570,7 +571,9 @@
         <file>photo/machineImage/machineImage_Ender-3 V2 Laser.png</file>
         <file>photo/machineImage/machineImage_Ender-3 V2 Neo.png</file>
         <file>photo/machineImage/machineImage_Ender-3 V2.png</file>
+        <file>photo/machineImage/machineImage_Ender-3 V3.png</file>
         <file>photo/machineImage/machineImage_Ender-3 V3 SE.png</file>
+        <file>photo/machineImage/machineImage_Ender-3 V3 KE.png</file>
         <file>photo/machineImage/machineImage_Ender-3.png</file>
         <file>photo/machineImage/machineImage_Ender-4.png</file>
         <file>photo/machineImage/machineImage_Ender-5 Plus.png</file>
@@ -716,6 +719,23 @@
         <file>photo/calibration/FlowFineTune_5.png</file>
         <file>photo/calibration/FlowFineTune_tip.svg</file>
         <file>photo/Infill/Aligned Rectilinear.svg</file>
+        <file>photo/addPrinterSource/extruder1_1.png</file>
+        <file>photo/addPrinterSource/extruder2_1.png</file>
+        <file>photo/addPrinterSource/extruder1_granular_1.png</file>
+        <file>photo/addPrinterSource/extruder2_granular_1.png</file>
+        <file>photo/lanPrinterSource/object_title.svg</file>
+        <file>photo/lanPrinterSource/file_sort_default.svg</file>
+        <file>photo/lanPrinterSource/file_sort_hover.svg</file>
+        <file>photo/lanPrinterSource/object_current.svg</file>
+        <file>photo/lanPrinterSource/object_default.svg</file>
+        <file>photo/lanPrinterSource/object_delete.svg</file>
+        <file>photo/machineImage/machineImage_CR-1000S.png</file>
+        <file>photo/machineImage/machineImage_K1C.png</file>
+        <file>photo/machineImage/machineImage_CT-300D.png</file>
+        <file>photo/machineImage/machineImage_GS-01.png</file>
+        <file>photo/lanPrinterSource/copy-default.svg</file>
+        <file>photo/lanPrinterSource/copy-hover.svg</file>
+        <file>photo/machineImage/machineImage_CP-TP450.png</file>
     </qresource>
     <qresource prefix="/">
         <file>CrealityUI/qml/CusRoundedBg.qml</file>
@@ -891,6 +911,7 @@
         <file>CrealityUI/qml/PanelComponent.qml</file>
         <file>CrealityUI/secondqml/MouseCombo.qml</file>
         <file>CrealityUI/secondqml/ModelListCombo.qml</file>
+        <file>CrealityUI/secondqml/CusStyledSpinBox.qml</file>
         <file>CrealityUI/qmldir</file>
         <file>CrealityUI/plugin/slice/add.png</file>
         <file>CrealityUI/plugin/slice/add_d.png</file>
@@ -968,6 +989,7 @@
         <file>CrealityUI/secondqml/RightNozzle.qml</file>
         <file>CrealityUI/secondqml/viewConverter/RightBtns.qml</file>
         <file>CrealityUI/qml/GlobalShortcut.qml</file>
-	<file>CrealityUI/secondqml/TipsManageCom.qml</file>
+        <file>CrealityUI/secondqml/TipsManageCom.qml</file>
+        <file>photo/machineImage/machineImage_CR-1000S.png</file>
     </qresource>
 </RCC>

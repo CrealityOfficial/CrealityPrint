@@ -1,0 +1,47 @@
+#version 150 core 
+
+out vec4 fragmentColor;
+
+in vec3 viewDirection;
+in vec3 normal;
+in vec3 gnormal;
+in vec3 worldPosition;
+
+uniform vec4 ambient = vec4(0.8, 0.8, 0.8, 1.0);
+uniform vec4 diffuse = vec4(0.5, 0.5, 0.5, 1.0);
+uniform vec4 specular = vec4(0.8, 0.8, 0.8, 1.0);
+uniform float specularPower = 12.0;
+uniform vec3 lightDirection = vec3(0.0, 0.0, 1.0);
+
+vec4 directLight(vec3 light_dir, vec3 fnormal, vec4 core_color, vec4 ambient_color, vec4 diffuse_color, vec4 specular_color)
+{
+	float NdotL 		  = max(dot(fnormal, light_dir), 0.0);
+	ambient_color 	  	  = ambient_color * core_color;
+
+	vec3 freflection      = reflect(-light_dir, fnormal);
+	vec3 fViewDirection   = normalize(viewDirection);
+	float RdotV           = max(0.0, dot(freflection, fViewDirection));
+	
+	diffuse_color		  = NdotL * diffuse_color * core_color;
+	specular_color        = specular_color * pow( RdotV, specularPower) * core_color;
+	
+	return ambient_color + diffuse_color + specular_color;
+}
+
+void main( void )
+{
+	vec4 color = vec4(1.0, 1.0, 1.0, 1.0);
+	
+	vec3 fnormal 		  =	normalize(normal);
+	vec3 fgnormal 		  =	normalize(gnormal);
+	vec3 lightDir = normalize(lightDirection);
+
+	if(!gl_FrontFacing)
+	{
+		color = vec4(0.3, 0.3, 0.3, 1.0);
+		fnormal = - fnormal;
+	}
+	
+	vec4 coreColor = directLight(lightDir, fnormal, color, ambient, diffuse, specular);
+	fragmentColor = vec4(coreColor.rgb, 1.0);
+}

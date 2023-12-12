@@ -86,31 +86,33 @@ namespace creative_kernel
         //    using namespace qtuser_3d;
         qtuser_3d::CameraController* obj = getKernel()->cameraController();
         qtuser_3d::Box3D box = getKernel()->modelSpace()->baseBoundingBox();
+        QVector3D boxCenter = box.center();
+        boxCenter.setZ(0);
 
         switch (m_nShowType)
         {
         case eFrontViewShow:
-            obj->home(box);         // 恢复视角的中心点
+            obj->setviewCenter(boxCenter);   // 恢复视角的中心点
             obj->viewFromFront();
             break;
         case eBackViewShow:
-            obj->home(box);
+            obj->setviewCenter(boxCenter);
             obj->viewFromBack();
             break;
         case eLeftViewShow:
-            obj->home(box);
+            obj->setviewCenter(boxCenter);
             obj->viewFromLeft();
             break;
         case eRightViewShow:
-            obj->home(box);
+            obj->setviewCenter(boxCenter);
             obj->viewFromRight();
             break;
         case eTopViewShow:
-            obj->home(box);
+            obj->setviewCenter(boxCenter);
             obj->viewFromTop();
             break;
         case eBottomViewShow:
-            obj->home(box);
+            obj->setviewCenter(boxCenter);
             obj->viewFromBottom();
             break;
         case ePerspectiveViewShow:

@@ -1,9 +1,8 @@
 import QtQml 2.10
-
-import QtQuick 2.10
 import QtQuick.Layouts 1.13
-import QtQuick.Controls 2.0
-
+import QtQuick 2.12
+import QtQuick.Controls 2.12
+import QtQuick.Controls.impl 2.12
 import "../qml"
 import "./"
 
@@ -207,14 +206,14 @@ CustomTabViewItem {
                     color: Constants.splitLineColor
                 }
 
-                BasicScrollView {
+                ScrollView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.topMargin: 10 * screenScaleFactor
                     Layout.rightMargin: 8 * screenScaleFactor
 
-                    hpolicyVisible: false
-                    vpolicyVisible: contentHeight > height
+//                    hpolicyVisible: false
+//                    vpolicyVisible: contentHeight > height
 
                     clip: true
 

@@ -80,4 +80,9 @@ namespace creative_kernel
 	{
 		getKernel()->visScene()->hidePrimeTower();
 	}
+
+	QSize surfaceSize()
+	{
+		return getKernel()->visScene()->surfaceSize();
+	}
 }

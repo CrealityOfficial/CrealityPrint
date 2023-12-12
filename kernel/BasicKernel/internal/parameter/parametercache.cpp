@@ -123,6 +123,7 @@ namespace creative_kernel
         settings.endGroup();
         settings.endGroup();
         settings.endGroup();
+        settings.endGroup();
     }
 
     bool removeMachineMaterials(const QString& machineName, const QStringList& materials, const int& index)
@@ -154,6 +155,7 @@ namespace creative_kernel
         }
 
         settings.endArray();
+        settings.endGroup();
         settings.endGroup();
         settings.endGroup();
         settings.endGroup();
@@ -191,6 +193,7 @@ namespace creative_kernel
         settings.endGroup();
         settings.endGroup();
         settings.endGroup();
+        settings.endGroup();
         return false;
     }
 
@@ -219,6 +222,7 @@ namespace creative_kernel
         settings.beginGroup("Extruders");
         settings.beginGroup(indexPrefix);
         settings.setValue("CurrentMaterial", materialName);
+        settings.endGroup();
         settings.endGroup();
         settings.endGroup();
         settings.endGroup();

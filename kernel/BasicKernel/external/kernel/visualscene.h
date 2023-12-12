@@ -4,6 +4,7 @@
 #include "data/kernelenum.h"
 #include "data/interface.h"
 #include "qtuser3d/framegraph/rendergraph.h"
+#include "qtuser3d/framegraph/surface.h"
 #include <QtCore/QTimer>
 
 namespace qtuser_3d
@@ -45,6 +46,11 @@ namespace creative_kernel
 		void showPrimeTower(float x, float y, float radius);
 		void hidePrimeTower();
 		Qt3DRender::QFrameGraphNode* getCameraViewportFrameGraphNode();
+
+		QSize surfaceSize();
+
+		void setSceneClearColor(const QColor& color);
+
 	public slots:
 		void updateRender(bool updatePick = false);
 	public:
@@ -56,6 +62,10 @@ namespace creative_kernel
 
 		void onStartPhase() override;
 		void onStopPhase() override;
+#ifdef ENABLE_DEBUG_OVERLAY
+		bool showDebugOverlay() override;
+		void setShowDebugOverlay(bool showDebugOverlay) override;
+#endif
 	private:
 		qtuser_3d::Surface* m_surface;
 		qtuser_3d::ColorPicker* m_colorPicker;

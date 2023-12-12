@@ -1,6 +1,6 @@
 #ifndef _NULLSPACE_PICKBOTTOMCOMMAND_1589850876397_H
 #define _NULLSPACE_PICKBOTTOMCOMMAND_1589850876397_H
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "data/interface.h"
 
 class PickBottomOp;

@@ -126,7 +126,7 @@ BasicDialog {
             id:idReleaseNoteText
             width: parent.width
             height: 224*screenScaleFactor
-            BasicScrollView {
+            ScrollView {
                 id: view
                 //anchors.fill: parent
                 anchors.top: parent.top

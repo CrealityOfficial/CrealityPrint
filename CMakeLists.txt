@@ -55,72 +55,32 @@ __configure_build_info_header(
 	dumptool
 )
 
-__enable_qt5()
 __enable_spdlog()
-__enable_openmp()
-
-__cc_find(QhullWrapper)
-__cc_find(Clipper)
-__cc_find(Clipper3r)
-
-__cc_find(OssWrapper)
-__cc_find(AliyunOss)
-
-__cc_find(tbb)
-
-__cc_find(CXbin)
-__cc_find(NestPlacer)
-__cc_find(Quazip)
-__cc_find(sensors_analytics_sdk)
-__cc_find(SplitSlot)
-__cc_find(enchase)
-__cc_find(libqrencode)
-__cc_find(cpr)
-__cc_find(ovdbutil)
-
-__cc_find(Eigen)
-
-__cc_find(opencascade)
-__cc_find(freetype)
-__cc_find(admesh)
 
 option(GEN_TRANSLATIONS_TS "create TS file" OFF)
 
-if(CC_BC_MAC)
-     add_definitions(-DNOUSE_IGL)
-endif()
+add_subdirectory(msbase)
 
-add_subdirectory(cxnd)
-add_subdirectory(mmesh)
-add_subdirectory(qtuser)
-
-add_subdirectory(slic3rBase)
-
-add_subdirectory(crcommon)
+add_subdirectory(gcode)
 add_subdirectory(crslice)
+add_subdirectory(topomesh)
 
-add_subdirectory(cxmdns)
+add_subdirectory(cadcore)
+
+__enable_qt5()
+add_subdirectory(qtuser)
+add_subdirectory(qtuser_3d)
+add_subdirectory(shader_entity)
+
 add_subdirectory(qcxffmpeg)
 add_subdirectory(qcxchart)
 
-add_subdirectory(topomesh)
-add_subdirectory(QCXUtil)
-add_subdirectory(gcode)
-
-if(EXISTS cxcloud)
-	add_subdirectory(cxcloud)
-endif()
-
+add_subdirectory(cxcloud)
 add_subdirectory(cxgcode)
-add_subdirectory(CADCore)
 add_subdirectory(cxkernel)
 
-add_subdirectory(cxutil)
-
-set(NPLACER_SUPPORT_LIBS clipperz libnest2d nestplacer nlopt)
-
 add_subdirectory(kernel)
-add_subdirectory(cserialport)
+
 set(Creative3D_plugins  CrealityUI
 					    plugin_cx3d_exporter
 					    plugin_info

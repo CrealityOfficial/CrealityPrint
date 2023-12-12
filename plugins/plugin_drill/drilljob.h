@@ -3,10 +3,17 @@
 #include "trimesh2/TriMesh.h"
 #include "data/modeln.h"
 
-#include "mmesh/util/drill.h"
-
 #include "qtusercore/module/job.h"
 #include "qtusercore/module/progressor.h"
+
+struct WrapDrillParam
+{
+	int cylinder_resolution;
+	double cylinder_radius;
+	double cylinder_depth;                         	// depth ����ΪС�ڵ��� 0 ʱ�����ֻ��һ��ڣ������� 0�����ָ������ڵ����б�
+	trimesh::vec3 cylinder_startPos;          //  ��������������
+	trimesh::vec3 cylinder_Dir;
+};
 
 class DrillJob : public qtuser_core::Job {
   Q_OBJECT;
@@ -20,11 +27,10 @@ public:
   void setModel(creative_kernel::ModelN* model);
 
 public:
-  mmesh::DrillParam getParam() const;
-  void setParam(const mmesh::DrillParam& param);
+  void setParam(const WrapDrillParam& param);
 
 public:
-  Q_SIGNAL void finished(bool successed);
+  Q_SIGNAL void finished(creative_kernel::ModelN* newModel);
 
 protected:
   virtual QString name() override;
@@ -36,8 +42,9 @@ protected:
 
 private:
   creative_kernel::ModelN* model_;
-  mmesh::DrillParam param_;
+  WrapDrillParam param_;
   
   creative_kernel::TriMeshPtr imesh_;
-  creative_kernel::TriMeshPtr omesh_;
+
+  cxkernel::ModelNDataPtr data_;
 };

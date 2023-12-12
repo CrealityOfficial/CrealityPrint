@@ -1,8 +1,8 @@
 #include "dismeasureop.h"
 
-#include "qtuser3d/entity/lineentity.h"
+#include "entity/lineentity.h"
 #include "qtuser3d/geometry/basicshapecreatehelper.h"
-#include "qtuserqml/property/qmlpropertysetter.h"
+#include "qtusercore/property/qmlpropertysetter.h"
 #include "interface/spaceinterface.h"
 #include "interface/selectorinterface.h"
 #include "interface/eventinterface.h"
@@ -17,7 +17,6 @@
 
 #include "AbstractMeasureObj.h"
 #include "MeasureObjFactory.h"
-#include "qcxutil/trimesh2/conv.h"
 
 #define SINGLE_MEASURE   1
 
@@ -89,6 +88,7 @@ void DistanceMeasureOp::onAttach()
 	addLeftMouseEventHandler(this);
 	addHoverEventHandler(this);
 	addKeyEventHandler(this);
+	traceSpace(this);
 
 	m_bShowPop = true;
 }
@@ -103,6 +103,8 @@ void DistanceMeasureOp::onDettach()
 	removeLeftMouseEventHandler(this);
 	removeHoverEventHandler(this);
 	removeKeyEventHandler(this);
+	unTraceSpace(this);
+
 	requestVisUpdate();
 
 	m_bShowPop = false;
@@ -190,6 +192,11 @@ void DistanceMeasureOp::onCameraChanged(qtuser_3d::ScreenCamera* camera)
 	{
 		measure_obj->updateShowUI();
 	}
+}
+
+void DistanceMeasureOp::onModelToRemoved(creative_kernel::ModelN* model)
+{
+	clear();
 }
 
 bool DistanceMeasureOp::getShowPop()

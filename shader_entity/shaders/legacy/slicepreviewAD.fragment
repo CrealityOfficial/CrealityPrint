@@ -1,0 +1,114 @@
+#version 150 core
+out vec4 fragment_color; 
+
+in vec3 normal;
+flat in vec2 flag;
+flat in vec4 drawFlag;
+in vec3 viewDirection;
+
+uniform vec4 color = vec4(0.8, 0.8, 0.8, 1.0);
+
+uniform vec4 front_ambient = vec4(0.7, 0.7, 0.7, 1.0);
+uniform vec4 front_diffuse = vec4(0.3, 0.3, 0.3, 1.0);
+uniform vec4 back_ambient = vec4(0.3, 0.3, 0.3, 1.0);
+uniform vec4 back_diffuse = vec4(0.3, 0.3, 0.3, 1.0);
+uniform vec4 specular = vec4(0.125, 0.125, 0.125, 1.0);
+
+uniform vec3 light_direction1 = vec3(0.0, 0.0, 1.0);
+
+uniform int showType = 0;
+uniform int animation = 0;
+uniform int retractionShow = 0;
+
+uniform vec4 clipValue;
+uniform vec2 layershow;
+
+uniform vec4 typecolors[16];
+uniform vec4 speedcolors[13];
+uniform vec4 nozzlecolors[9];
+
+uniform int typecolorsshow[15];
+
+uniform float specularPower = 12.0;
+
+vec4 directLight(vec3 light_dir, vec3 fnormal, vec4 diffuse_color, vec4 core_color)
+{
+	float NdotL 		  = max(dot(fnormal, light_dir), 0.0);
+	diffuse_color         = diffuse_color * core_color;
+	vec4 total_diffuse    = NdotL * diffuse_color;
+	
+//	/*
+	vec3 freflection      = reflect(-light_dir, fnormal);
+	vec3 fViewDirection   = normalize(viewDirection);
+	float RdotV           = max(0.0, dot(freflection, fViewDirection)); 
+	vec4 specularColor    = specular * pow( RdotV, specularPower);
+//	*/
+	
+	return total_diffuse + specularColor;
+}
+
+void main( void )
+{
+	if(flag.x < clipValue.x || flag.x > clipValue.y)
+		discard;
+		
+	if(flag.x == clipValue.y && (flag.y < clipValue.z || flag.y > clipValue.w))
+		discard;
+		
+	if(flag.x < layershow.x || flag.x > layershow.y)
+		discard;
+		
+	if(typecolorsshow[int(drawFlag.y)] == 0)
+		discard;
+	
+	vec4 core_color = vec4(0.5, 0.5, 0.5, 1.0);
+	
+	if(showType == 0)
+	{
+		core_color = typecolors[int(drawFlag.y)];
+		if(retractionShow == 1)
+		{
+			if(int(drawFlag.y) == 13 || int(drawFlag.y) == 14)//travel and react
+				core_color = typecolors[15];	
+		}
+	}
+	else if(showType == 1)
+	{
+		core_color = nozzlecolors[int(drawFlag.z)];
+		if(retractionShow == 1)
+		{
+			if(int(drawFlag.z) == 6 || int(drawFlag.z) == 7)//travel and react
+				core_color = nozzlecolors[8];	
+		}
+	}
+	else if(showType == 2)
+	{
+		int stype = int(drawFlag.x);
+		core_color = speedcolors[stype];
+	}
+	
+	vec3 fnormal 		  =	normalize(normal);
+	vec4 ambient_color 	  = front_ambient;
+	vec4 diffuse_color    = front_diffuse;
+	
+	ambient_color 		  = ambient_color * core_color;
+	
+	vec4 light_color1     = directLight(light_direction1, fnormal, diffuse_color, core_color);
+	
+	core_color = ambient_color + light_color1;
+	core_color.a = color.a;
+	
+	if(animation > 0)
+	{
+		if(flag.x == clipValue.y)
+		{
+			core_color += vec4(0.3, 0.3, 0.3, 0.0);
+		}
+		else
+		{
+			core_color -= vec4(0.3, 0.3, 0.3, 0.0);
+		}
+	}
+	
+	fragment_color = core_color;
+}

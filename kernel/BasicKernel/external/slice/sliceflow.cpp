@@ -28,12 +28,12 @@
 #include "interface/appsettinginterface.h"
 #include "kernel/kernelui.h"
 
-#include "qcxutil/quazip/quazipfile.h"
 #include "slice/calibrate.h"
 #include "cxgcode/gcodeloadjob.h"
 #include "calibratescenecreator.h"
 
 #include "kernel/kernel.h"
+#include <cxcloud/service_center.h>
 #include "usbprintcommand.h"
 
 #if defined(CUSTOM_SLICE_HEIGHT_SETTING_ENABLED) && defined(CUSTOM_PARTITION_PRINT_ENABLED)
@@ -92,44 +92,41 @@ namespace creative_kernel
         }
     }
 
-    void SliceFlow::onSliceSuccess(SliceAttain* attain)
+    void SliceFlow::onSliceSuccess(SliceAttain* attain, bool isRemain)
+    {
+        preview();
+        setKernelPhase(KernelPhaseType::kpt_preview);
+       if (isRemain)
+       {
+            m_slicePreviewFlow->setSliceAttain(attain);
+            m_slicePreviewFlow->useCachePreview();
+       }
+		QMetaObject::invokeMethod(this, "saveTempGCodeSuccess");
+		qDebug() << QString("Slice : slice success. [%1]").arg(currentProcessMemory());
+    }
+
+    void SliceFlow::onSliceBeforeSuccess(SliceAttain* attain)
     {
         qDebug() << QString("Slice : SliceAttain before geometry . [%1]").arg(currentProcessMemory());
         m_slicePreviewFlow->setSliceAttain(attain);
+
+        preview();
+        setKernelPhase(KernelPhaseType::kpt_preview);
         qDebug() << QString("Slice : SliceAttain after geometry . [%1]").arg(currentProcessMemory());
 
         if (attain)
         {
             auto imageCallback = [this](const QImage& image)
             {
-                SliceAttain* attain = m_slicePreviewFlow->attain();
+                m_slicePreviewFlow->endRequest(image);
+                m_slicePreviewFlow->useCachePreview();
+                qDebug() << QString("SliceFlow : requestPreview Success.");
 
-                if (attain)
-                {
-#if _DEBUG
-                    image.save(attain->tempImageFileName());
-#endif
-                    attain->saveTempGCode();
-
-                    QImage tmpImage = image;
-                    attain->saveTempGCodeWithImage(tmpImage);
-                }
-                /*m_slicePreviewFlow->requestPreview(nullptr);
-                qDebug() << QString("SliceFlow : requestPreview Success.");*/
-
-                m_slicePreviewFlow->endRequest();
-                QMetaObject::invokeMethod(this, "saveTempGCodeSuccess");
-                setCommandRender();
             };
 
-            preview();
             m_slicePreviewFlow->requestPreview(imageCallback);
             qDebug() << QString("SliceFlow : requestPreview.");
-
-            setKernelPhase(KernelPhaseType::kpt_preview);
         }
-
-        qDebug() << QString("Slice : slice success. [%1]").arg(currentProcessMemory());
     }
 
     void SliceFlow::saveTempGCodeSuccess()
@@ -142,8 +139,26 @@ namespace creative_kernel
 
     void SliceFlow::onSliceFailed()
     {
+        if (!m_worker.isNull())
+        {
+            disconnect(m_worker.data(), &AnsycWorker::gcodeLayerChanged, this, &SliceFlow::gcodeLayerChanged);
+        }
+        
         qDebug() << QString("Slice : slice failed. [%1]").arg(currentProcessMemory());
         setKernelPhase(KernelPhaseType::kpt_prepare);
+    }
+
+
+    void SliceFlow::gcodeLayerChanged(int layer)
+    {
+        qDebug() << "SliceFlow gcodeLayerChanged thread " << QThread::currentThread();
+        qDebug() << "layer =" << layer;
+
+        preview();
+        setKernelPhase(KernelPhaseType::kpt_preview);
+
+        m_slicePreviewFlow->previewSliceAttain(m_worker->sliceAttain(), layer);
+        renderOneFrame();
     }
 
     void SliceFlow::handle(const QStringList& fileNames)
@@ -264,13 +279,26 @@ namespace creative_kernel
 				name = attain->sliceName();
 			}
 			else {
-				name = QString("%1_%2").arg(mainModelName()).arg(currentMachineName());
+                QString nameTemp = attain->sliceName();
+                size_t lastDashPos = nameTemp.lastIndexOf("-");
+                QString gcodeName = nameTemp.left(lastDashPos);
+                QString suffix ="-" + nameTemp.right(nameTemp.length() - lastDashPos - 1);
+            //    int index = nameTemp.indexOf("-");
+             //   name = nameTemp;
+                //QStringList names = nameTemp.split("-");
+				// name = QString("%1_%2").arg(nameTemp.mid(index+1)).arg(nameTemp.left(index));
 				foreach(QString material, currentMaterials())
 				{
-					name += QString("_%1").arg(material);
+                    suffix += QString("_%1").arg(material.mid(0, material.lastIndexOf("_")));
 				}
 				int printTime = attain->printTime();
-				name += printTime < 3600 ? QString("_%1m").arg((int)printTime / 60 % 60) : QString("_%1h%2m").arg((int)printTime / 3600).arg((int)printTime / 60 % 60);
+                suffix += printTime < 3600 ? QString("_%1m").arg((int)printTime / 60 % 60) : QString("_%1h%2m").arg((int)printTime / 3600).arg((int)printTime / 60 % 60);
+                QString combinedName = gcodeName + suffix;
+                if (combinedName.length() > 200) {
+                    QString  truncatedFileName = gcodeName.left(200 - suffix.length()+1);
+                    combinedName = truncatedFileName + suffix;
+                }
+                name = combinedName;
 			}
         }
         return name;
@@ -288,18 +316,26 @@ namespace creative_kernel
 
     void SliceFlow::slice()
     {
+        setContinousRender();
         sensorAnlyticsTrace("Slice", "Start Slicing");
+
+        //m_slicePreviewFlow->setSliceAttain(nullptr);
+        m_worker.reset();
 
         qDebug() << QString("Slice : start slicing. [%1]").arg(currentProcessMemory());
         QSharedPointer<AnsycWorker> worker(new AnsycWorker());
         worker->setRemainAttain(m_slicePreviewFlow->takeAttain());
         connect(worker.data(), &AnsycWorker::sliceMessage, this, &SliceFlow::onSliceMessage);
         connect(worker.data(), &AnsycWorker::sliceSuccess, this, &SliceFlow::onSliceSuccess);
+        //connect(worker.data(), &AnsycWorker::sliceBeforeSuccess, this, &SliceFlow::onSliceBeforeSuccess, Qt::BlockingQueuedConnection);
+        connect(worker.data(), &AnsycWorker::sliceBeforeSuccess, this, &SliceFlow::onSliceBeforeSuccess, Qt::QueuedConnection);
         connect(worker.data(), &AnsycWorker::sliceFailed , this, &SliceFlow::onSliceFailed );
+        connect(worker.data(), &AnsycWorker::gcodeLayerChanged, this, &SliceFlow::gcodeLayerChanged);
 
-        cxkernel::executeJob(worker);
+        cxkernel::executeJob(worker, true);
+        
+        m_worker = worker;
 
-        setContinousRender();
     }
 
 #if defined(CUSTOM_SLICE_HEIGHT_SETTING_ENABLED) && defined(CUSTOM_PARTITION_PRINT_ENABLED)
@@ -333,4 +369,8 @@ namespace creative_kernel
 		return;
 	}
 
+    SlicePreviewFlow* SliceFlow::slicePreviewFlow()
+    {
+        return m_slicePreviewFlow;
+    }
 }

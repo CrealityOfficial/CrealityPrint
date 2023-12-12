@@ -1,5 +1,6 @@
 #include "repaircommand.h"
 #include "repairop.h"
+#include "cmesh/mesh/repair.h"
 
 #include "interface/spaceinterface.h"
 #include "interface/visualsceneinterface.h"
@@ -7,8 +8,7 @@
 
 #include "kernel/kernelui.h"
 #include "data/modeln.h"
-#include "mmesh/trimesh/trimeshutil.h"
-#include "omp.h"  
+//#include "omp.h"  
 #include "interface/modelinterface.h"
 #include "interface/selectorinterface.h"
 #include "interface/commandinterface.h"
@@ -76,7 +76,15 @@ void RepairCommand::execute()
 		trimesh::TriMesh* mesh = model->mesh();
 		int verticessize = mesh->vertices.size();
 		int facesize = mesh->faces.size();
-		model->needDetectError();
+
+		cmesh::ErrorInfo info;
+		cmesh::getErrorInfo(model->mesh(), info);
+
+		model->setErrorEdges(info.edgeNum);
+		model->setErrorNormals(info.normalNum);
+		model->setErrorHoles(info.holeNum);
+		model->setErrorIntersects(info.intersectNum);
+
 		int errorNormals = model->getErrorNormals();
 		int errorEdges = model->getErrorEdges();
 		int errorHoles = model->getErrorHoles();

@@ -1,6 +1,7 @@
 #ifndef CREATIVE_KERNEL_UIINTERFACE_1592721604112_H
 #define CREATIVE_KERNEL_UIINTERFACE_1592721604112_H
 #include "basickernelexport.h"
+#include "data/interface.h"
 #include <QtCore/QVariant>
 #include <QtQml/QJSValue>
 
@@ -26,7 +27,9 @@ namespace creative_kernel
 	BASIC_KERNEL_API void executeQmlCommand(const QString& cmd, QObject* receiver, const QString& objectName);
 	BASIC_KERNEL_API void requestQmlDialog(QObject* receiver, const QString& objectName);
 	BASIC_KERNEL_API void requestQmlDialog(const QString& objectName);
+
 	BASIC_KERNEL_API void requestQmlCloseAction();
+	BASIC_KERNEL_API void setCloseHook(CloseHook* hook);
 
 	BASIC_KERNEL_API QObject* createQmlObjectFromQrc(const QString& fileName);
 

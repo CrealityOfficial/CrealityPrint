@@ -1,10 +1,13 @@
 #include "kernel/kernelui.h"
-#include "qtuserqml/plugin/toolcommandcenter.h"
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommandcenter.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "qtusercore/module/systemutil.h"
 #include "internal/menu/ccommandsdata.h"
 #include "qtuser3d/event/eventsubdivide.h"
 #include "qtuser3d/module/glcompatibility.h"
+#include "cxkernel/utils/glcompatibility.h"
+
+#include <cxcloud/service_center.h>
 
 #include "interface/cloudinterface.h"
 #include "interface/eventinterface.h"
@@ -32,7 +35,10 @@
 #include <QtGui/QGuiApplication>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtCore/QSettings>
+#include <QQuickView>
 #include <QtCore/QDebug>
+#include <QQuickView>
+#include <QQuickView>
 
 
 #ifdef __APPLE__
@@ -69,6 +75,7 @@ KernelUI::KernelUI(QObject* parent)
     , m_engine(nullptr)
     , m_footer(nullptr)
     , m_topbar(nullptr)
+    , m_closeHook(nullptr)
 {
     // model list
     m_leftToolbarModelList = new qtuser_qml::ToolCommandCenter(this);
@@ -85,8 +92,9 @@ KernelUI::~KernelUI()
 void KernelUI::initialize()
 {
     addUIVisualTracer(this);
-    ProjectInfoUI::createInstance(this);
+    ProjectInfoUI::instance()->setParent(this);
     addRightMouseEventHandler(this);
+    addKeyEventHandler(this);
 
     {
         using group_t = qtuser_qml::ToolCommandGroupType;
@@ -106,10 +114,15 @@ void KernelUI::initialize()
     visibleAll(false);//
 
 	//check GL version
-	if (qtuser_3d::isGles() || qtuser_3d::isSoftwareGL())
+	if (qtuser_3d::isGles())
+	{
+		qDebug() << QString("Creality Print only partially supports OpenGL ES.");
+		emit sigUseOpenGLES();
+	}
+	else if (!cxkernel::isOpenGLVaild())
 	{
 		qDebug() << QString("OpenGL Driver is old.");
-        emit sigOpenglOld();
+		emit sigOpenglOld();
 	}
 }
 
@@ -240,8 +253,16 @@ void KernelUI::requestQmlCloseAction()
              return false;
          }
      }
-
-     creative_kernel::cmdClone(m_copyModels);
+     QList<ModelN*> models = modelns();
+     QList<ModelN*> copyModels;
+     Q_FOREACH(ModelN * m, m_copyModels)
+     {
+         if (models.contains(m))
+         {
+             copyModels.append(m);
+         }
+     }
+     creative_kernel::cmdClone(copyModels);
      return true;
  }
 
@@ -382,8 +403,7 @@ QObject* KernelUI::getUI(QString uiname)
     }
     else if (uiname == "loginbtn")
     {
-        QObject* pRoot = m_engine->rootObjects().first();
-        QObject* logindBtn = pRoot->findChild<QObject*>("loginBtn");
+        QObject* logindBtn = m_appWindow->findChild<QObject*>("loginBtn");
         return logindBtn;
     }
     else if (uiname == "uiappwindow")
@@ -561,9 +581,7 @@ void KernelUI::setAppWindow(QObject* appWindow)
     connect(macAppObject, &MyCppObject::closeSignal, [=]
         {
             qDebug() << "signal KernelUI success ";
-            // ?????????????
-            emit closeWindow();
-
+            beforeCloseWindow();
         });
 
 #endif
@@ -606,12 +624,23 @@ void KernelUI::setFontList(const QStringList& font_list) {
     std::sort(font_list_.begin(), font_list_.end());
 }
 
-void KernelUI:: beforeCloseWindow()
+void KernelUI::setCloseHook(creative_kernel::CloseHook* hook)
 {
-    emit closeWindow();
+    m_closeHook = hook;
 }
 
-void KernelUI::registerQmlEngine(QQmlApplicationEngine& engine)
+void KernelUI::beforeCloseWindow()
+{
+    if (m_closeHook)
+    {
+        m_closeHook->onWindowClose();
+        return;
+    }
+    
+    requestQmlCloseAction();
+}
+
+void KernelUI::registerQmlEngine(QQmlEngine& engine)
 {
     m_engine = &engine;
 
@@ -636,57 +665,110 @@ void KernelUI::registerQmlEngine(QQmlApplicationEngine& engine)
 
     m_engine->rootContext()->setContextProperty("kernel_ui", this);
     m_translator->setQmlEngine(m_engine);
+
+    registerImageProvider(QStringLiteral("login_qrcode_image_provider"),
+        creative_kernel::CloudAccountService().lock()->getQrcodeImageProvider());
 }
 
-QQmlApplicationEngine* KernelUI::getQmlEngine()
+QQmlEngine* KernelUI::getQmlEngine()
 {
     return m_engine;
 }
 
-bool KernelUI::eventFilter(QObject* object, QEvent* event)
+void KernelUI::onKeyPress(QKeyEvent* event)
 {
-    if (object == m_appWindow && QEvent::Type::KeyPress == event->type()) {
-        auto* key_press_event = dynamic_cast<QKeyEvent*>(event);
-
         creative_kernel::Kernel* kernel = getKernel();
         int phase = kernel->currentPhase();
-        if (key_press_event->key() == Qt::Key_Delete && phase == 0) {
+
+        if (event->key() == Qt::Key_Delete && phase == 0) {
             creative_kernel::removeSelectionModels(true);
         }
 
-        if (key_press_event->modifiers() == Qt::ControlModifier &&
-            key_press_event->key() == Qt::Key_A && phase == 0) {
+        if (event->modifiers() == Qt::ControlModifier &&
+            event->key() == Qt::Key_A && phase == 0) {
             selectAll();
         }
 
-        if (key_press_event->modifiers() == Qt::ControlModifier &&
-                key_press_event->key() == Qt::Key_Z) {
+        if (event->modifiers() == Qt::ControlModifier &&
+            event->key() == Qt::Key_Z) {
             qDebug() << "Ctrl+Z";
             cxkernel::undo();
         }
 
-        if (key_press_event->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier) &&
-                key_press_event->key() == Qt::Key_Z) {
+        if (event->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier) &&
+            event->key() == Qt::Key_Z) {
             qDebug() << "Ctrl+Shift+Z";
             cxkernel::redo();
         }
 
-        if (key_press_event->modifiers() == Qt::ControlModifier &&
-            key_press_event->key() == Qt::Key_C) {
+        if (event->modifiers() == Qt::ControlModifier &&
+            event->key() == Qt::Key_C) {
             qDebug() << "Ctrl+C";
-            return onCopy();
+            onCopy();
             //creative_kernel::undo();
 
         }
 
-        if (key_press_event->modifiers() == Qt::ControlModifier &&
-            key_press_event->key() == Qt::Key_V) {
+        if (event->modifiers() == Qt::ControlModifier &&
+            event->key() == Qt::Key_V) {
             qDebug() << "Ctrl+V";
-            return onPaste();
+            onPaste();
         }
-    }
-    return false;
 }
+
+void KernelUI::onKeyRelease(QKeyEvent* event)
+{
+
+}
+
+// bool KernelUI::eventFilter(QObject* object, QEvent* event)
+// {
+//     if (object == m_appWindow && QEvent::Type::KeyPress == event->type()) {
+//         auto* key_press_event = dynamic_cast<QKeyEvent*>(event);
+
+//         creative_kernel::Kernel* kernel = getKernel();
+//         int phase = kernel->currentPhase();
+
+//         if (m_scene3DWrapper && !m_scene3DWrapper->hasFocus())
+//             return false;
+
+//         if (key_press_event->key() == Qt::Key_Delete && phase == 0) {
+//             creative_kernel::removeSelectionModels(true);
+//         }
+
+//         if (key_press_event->modifiers() == Qt::ControlModifier &&
+//             key_press_event->key() == Qt::Key_A && phase == 0) {
+//             selectAll();
+//         }
+
+//         if (key_press_event->modifiers() == Qt::ControlModifier &&
+//                 key_press_event->key() == Qt::Key_Z) {
+//             qDebug() << "Ctrl+Z";
+//             cxkernel::undo();
+//         }
+
+//         if (key_press_event->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier) &&
+//                 key_press_event->key() == Qt::Key_Z) {
+//             qDebug() << "Ctrl+Shift+Z";
+//             cxkernel::redo();
+//         }
+
+//         if (key_press_event->modifiers() == Qt::ControlModifier &&
+//             key_press_event->key() == Qt::Key_C) {
+//             qDebug() << "Ctrl+C";
+//             return onCopy();
+//             //creative_kernel::undo();
+
+//         }
+
+//         if (key_press_event->modifiers() == Qt::ControlModifier &&
+//             key_press_event->key() == Qt::Key_V) {
+//             qDebug() << "Ctrl+V";
+//             return onPaste();
+//         }
+//     }
+//     return false;
+// }
 
 void KernelUI::onRightMouseButtonPress(QMouseEvent* event)
 {
@@ -724,6 +806,7 @@ void KernelUI::onThemeChanged(creative_kernel::ThemeCategory category)
 
 void KernelUI::onLanguageChanged(creative_kernel::MultiLanguage language)
 {
+    Q_EMIT currentLanguageChanged();
 }
 
 void KernelUI::invokeQmlObjectFunc(QObject* object, const QString& func, const QVariant& variant1, const QVariant& variant2)

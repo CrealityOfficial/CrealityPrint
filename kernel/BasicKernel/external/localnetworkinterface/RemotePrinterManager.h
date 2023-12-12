@@ -3,7 +3,6 @@
 
 #include "basickernelexport.h"
 #include "qtusercore/module/singleton.h"
-#include "cxmdns/cxmdns.h"
 #include "RemotePrinter.h"
 #include "RemotePrinterSession.h"
 #include <functional>

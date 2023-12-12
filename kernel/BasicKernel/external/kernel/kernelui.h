@@ -2,7 +2,7 @@
 #define _creative_kernel_KERNELUI_1589818161757_H
 #include "data/interface.h"
 #include "qtusercore/module/singleton.h"
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "qtuser3d/event/eventhandlers.h"
 #include "menu/actioncommand.h"
 #include "data/modeln.h"
@@ -14,6 +14,7 @@
 #include <QString>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QQuickItem>
 
 namespace qtuser_qml
 {
@@ -53,6 +54,7 @@ class SliceUI;
 class BASIC_KERNEL_API KernelUI: public QObject
     , public qtuser_3d::RightMouseEventHandler
     , public creative_kernel::UIVisualTracer
+    , public qtuser_3d::KeyEventHandler
 {
 	Q_OBJECT
     Q_PROPERTY(QObject* root READ root CONSTANT)
@@ -72,6 +74,8 @@ class BASIC_KERNEL_API KernelUI: public QObject
     Q_PROPERTY(QObject* glMainView READ glMainView WRITE setGLMainView)
 
     Q_PROPERTY(QStringList fontList READ getFontList WRITE setFontList);
+
+    Q_PROPERTY(int currentLanguage READ currentLanguage WRITE changeLanguage NOTIFY currentLanguageChanged);
 public:
     KernelUI(QObject* parent = nullptr);
 	virtual ~KernelUI();
@@ -112,6 +116,7 @@ public:
     Q_INVOKABLE void invokeModelFDMPreviewFunc(const char* func, const QVariant& variant1, const QVariant& variant2);
     void invokeMainWindowFunc(const QString& func, const QVariant& variant1 = QVariant(), const QVariant& variant2 = QVariant());
     QJSValue invokeJS(const QString& str, QObject* jsContex);
+    QJSValue invokeJSFunc(const QString& str, QObject* jsContex);
 
     QObject* getUI(QString uiname);
 
@@ -155,23 +160,31 @@ public:
     void visibleAll(bool visible);
 
     //lisugui 2020-10-30 qml closewindow，signal closewindow to closaCmd function
+    void setCloseHook(creative_kernel::CloseHook* hook);
     Q_INVOKABLE void beforeCloseWindow();
     //end
 
-    void registerQmlEngine(QQmlApplicationEngine& engine);
-    QQmlApplicationEngine* getQmlEngine();
+    void registerQmlEngine(QQmlEngine& engine);
+    QQmlEngine* getQmlEngine();
+
+    void setScene3DWrapper(QQuickItem* wrapper);
+
 signals:
     void sigChangeMenuLanguage();
     void sigCloseAction();
     void closeWindow();
     void sigOpenglOld();
+    void sigUseOpenGLES();
+    void currentLanguageChanged();
 protected:
-    bool eventFilter(QObject* object, QEvent* event) override;
+    //bool eventFilter(QObject* object, QEvent* event) override;
 
     void onRightMouseButtonPress(QMouseEvent* event) override;
     void onRightMouseButtonRelease(QMouseEvent* event) override;
     void onRightMouseButtonMove(QMouseEvent* event) override;
     void onRightMouseButtonClick(QMouseEvent* event) override;
+	void onKeyPress(QKeyEvent* event);
+	void onKeyRelease(QKeyEvent* event);
 
     void onThemeChanged(creative_kernel::ThemeCategory category) override;
     void onLanguageChanged(creative_kernel::MultiLanguage language) override;
@@ -183,16 +196,19 @@ protected:
     QObject* m_topbar;
     QObject* m_rightPanel;
     QObject* m_glMainView;
+    QQuickItem* m_scene3DWrapper { NULL };
 
 	qtuser_qml::ToolCommandCenter* m_leftToolbarModelList;
     qtuser_qml::ToolCommandCenter* m_leftOtherToolbarModelList;
 
     creative_kernel::Translator* m_translator;
-    QQmlApplicationEngine* m_engine;
+    QQmlEngine* m_engine;
 
     QList<creative_kernel::ModelN*> m_copyModels;
 
     QStringList font_list_;
+
+    creative_kernel::CloseHook* m_closeHook;
 };
 
 BASIC_KERNEL_API KernelUI* getKernelUI();

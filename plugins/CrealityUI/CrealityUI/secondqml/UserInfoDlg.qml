@@ -13,7 +13,7 @@ DockItem
     width: 1205 * screenScaleFactor
     height: 772 * screenScaleFactor
     panelColor: sourceTheme.background_color
-
+    modality: Qt.ApplicationModal
     signal quitClicked()
 
     property int themeType: -1
@@ -28,7 +28,7 @@ DockItem
 
     property var modelItemMap: {0:0}
     property var currentModelPage: ""
-    property var nextModelPage: ""
+    property var nextModelPage: 1
 
     property var deviceItemMap: {0:0}
     property var deviceImageMap: {0:0}
@@ -238,8 +238,8 @@ DockItem
 
             Item {
                 Layout.fillWidth: true
-                Layout.minimumWidth: 457 * screenScaleFactor
-                Layout.maximumWidth: 1084 * screenScaleFactor
+             //   Layout.minimumWidth: 457 * screenScaleFactor
+//                Layout.maximumWidth: 1084 * screenScaleFactor
             }
 
             BasicButton {
@@ -247,7 +247,7 @@ DockItem
                 Layout.preferredWidth: 140 * screenScaleFactor
                 Layout.preferredHeight: 36 * screenScaleFactor
 
-                btnRadius: 3
+                btnRadius: height / 2
                 btnBorderW: 0
                 defaultBtnBgColor: Constants.profileBtnColor
                 hoveredBtnBgColor: Constants.profileBtnHoverColor
@@ -500,7 +500,7 @@ DockItem
                                         cxkernel_cxcloud.modelService.loadCollectedModelGroupList(page, 24)
                                         break
                                     case 2:
-                                        cxkernel_cxcloud.modelService.loadPurchasedModelGroupList(page, 24)
+                                        cxkernel_cxcloud.modelService.loadPurchasedModelGroupList(page, 24,"",2)
                                         break
                                     default:
                                         break
@@ -550,7 +550,10 @@ DockItem
                                     idMyModelView.visible = true
                                     idMySliceView.visible = false
                                     idMyDeviceView.visible = false
-                                    currentModelPage = ""; modelFunc(currentModelPage)
+                                    currentModelPage = 1;
+                                    nextModelPage = 1
+                                    idMyModelList.children = []
+                                    modelFunc(currentModelPage)
                                 }
                             }
                         }
@@ -717,25 +720,25 @@ DockItem
 //                    text: "Hello world"
 //                }
 
-                BasicScrollView {
+                ScrollView {
                     clip: true
                     visible: false
                     id: idMySliceView
                     anchors.fill: parent
-                    hpolicyVisible: contentWidth > width
-                    vpolicyVisible: contentHeight > height
-                    hpolicyindicator: Rectangle {
-                        radius: height / 2
-                        color: sourceTheme.scrollbar_color
-                        implicitWidth: 180 * screenScaleFactor
-                        implicitHeight: 6 * screenScaleFactor
-                    }
-                    vpolicyindicator: Rectangle {
-                        radius: width / 2
-                        color: sourceTheme.scrollbar_color
-                        implicitWidth: 6 * screenScaleFactor
-                        implicitHeight: 180 * screenScaleFactor
-                    }
+//                    hpolicyVisible: contentWidth > width
+//                    vpolicyVisible: contentHeight > height
+//                    hpolicyindicator: Rectangle {
+//                        radius: height / 2
+//                        color: sourceTheme.scrollbar_color
+//                        implicitWidth: 180 * screenScaleFactor
+//                        implicitHeight: 6 * screenScaleFactor
+//                    }
+//                    vpolicyindicator: Rectangle {
+//                        radius: width / 2
+//                        color: sourceTheme.scrollbar_color
+//                        implicitWidth: 6 * screenScaleFactor
+//                        implicitHeight: 180 * screenScaleFactor
+//                    }
 
                     Grid {
                         id: idMySliceList
@@ -752,34 +755,34 @@ DockItem
                         }
                     }
 
-                    onVPositionChanged: {
-                        if((vSize + vPosition) === 1 && currentSlicePage != nextSlicePage)
-                        {
-                            let checkedBtn = subButtonGroup.checkedButton
-                            if(checkedBtn !== null) checkedBtn.modelFunc(nextSlicePage)
-                        }
-                    }
+//                    onVPositionChanged: {
+//                        if((vSize + vPosition) === 1 && currentSlicePage != nextSlicePage)
+//                        {
+//                            let checkedBtn = subButtonGroup.checkedButton
+//                            if(checkedBtn !== null) checkedBtn.modelFunc(nextSlicePage)
+//                        }
+//                    }
                 }
 
-                BasicScrollView {
+                ScrollView {
                     clip: true
                     visible: false
                     id: idMyModelView
                     anchors.fill: parent
-                    hpolicyVisible: contentWidth > width
-                    vpolicyVisible: contentHeight > height
-                    hpolicyindicator: Rectangle {
-                        radius: height / 2
-                        color: sourceTheme.scrollbar_color
-                        implicitWidth: 180 * screenScaleFactor
-                        implicitHeight: 6 * screenScaleFactor
-                    }
-                    vpolicyindicator: Rectangle {
-                        radius: width / 2
-                        color: sourceTheme.scrollbar_color
-                        implicitWidth: 6 * screenScaleFactor
-                        implicitHeight: 180 * screenScaleFactor
-                    }
+//                    hpolicyVisible: contentWidth > width
+//                    vpolicyVisible: contentHeight > height
+//                    hpolicyindicator: Rectangle {
+//                        radius: height / 2
+//                        color: sourceTheme.scrollbar_color
+//                        implicitWidth: 180 * screenScaleFactor
+//                        implicitHeight: 6 * screenScaleFactor
+//                    }
+//                    vpolicyindicator: Rectangle {
+//                        radius: width / 2
+//                        color: sourceTheme.scrollbar_color
+//                        implicitWidth: 6 * screenScaleFactor
+//                        implicitHeight: 180 * screenScaleFactor
+//                    }
 
                     Grid {
                         id: idMyModelList
@@ -796,37 +799,37 @@ DockItem
                         }
                     }
 
-                    onVPositionChanged: {
-                        if((vSize + vPosition) === 1 && currentModelPage != nextModelPage)
-                        {
-                            if(nextModelPage != "")
-                            {
-                                let checkedBtn = subButtonGroup.checkedButton
-                                if(checkedBtn !== null) checkedBtn.modelFunc(nextModelPage)
-                            }
-                        }
-                    }
+//                    onVPositionChanged: {
+//                        if((vSize + vPosition) === 1 && currentModelPage != nextModelPage)
+//                        {
+//                            if(nextModelPage)
+//                            {
+//                                let checkedBtn = subButtonGroup.checkedButton
+//                                if(checkedBtn !== null) checkedBtn.modelFunc(nextModelPage)
+//                            }
+//                        }
+//                    }
                 }
 
-                BasicScrollView {
+                ScrollView {
                     clip: true
                     visible: false
                     id: idMyDeviceView
                     anchors.fill: parent
-                    hpolicyVisible: contentWidth > width
-                    vpolicyVisible: contentHeight > height
-                    hpolicyindicator: Rectangle {
-                        radius: height / 2
-                        color: sourceTheme.scrollbar_color
-                        implicitWidth: 180 * screenScaleFactor
-                        implicitHeight: 6 * screenScaleFactor
-                    }
-                    vpolicyindicator: Rectangle {
-                        radius: width / 2
-                        color: sourceTheme.scrollbar_color
-                        implicitWidth: 6 * screenScaleFactor
-                        implicitHeight: 180 * screenScaleFactor
-                    }
+//                    hpolicyVisible: contentWidth > width
+//                    vpolicyVisible: contentHeight > height
+//                    hpolicyindicator: Rectangle {
+//                        radius: height / 2
+//                        color: sourceTheme.scrollbar_color
+//                        implicitWidth: 180 * screenScaleFactor
+//                        implicitHeight: 6 * screenScaleFactor
+//                    }
+//                    vpolicyindicator: Rectangle {
+//                        radius: width / 2
+//                        color: sourceTheme.scrollbar_color
+//                        implicitWidth: 6 * screenScaleFactor
+//                        implicitHeight: 180 * screenScaleFactor
+//                    }
 
                     Grid {
                         id: idMyDeviceList
@@ -1177,7 +1180,7 @@ DockItem
                 if(currentSlicePage == 1)
                 {
                     deleteSliceComponent()
-                    idMySliceView.vPosition = 0
+//                    idMySliceView.vPosition = 0
                 }
 
                 var objResult = objectArray.result.list
@@ -1242,13 +1245,12 @@ DockItem
                 if(currentModelPage == "")
                 {
                     deleteModelComponent()
-                    idMyModelView.vPosition = 0
+//                    idMyModelView.vPosition = 0
                 }
 
                 var objResult = objectArray.result.list
                 //idEmptyLabel.visible = objResult.length <= 0
-                nextModelPage = objectArray.result.nextCursor
-
+                if(objResult.length) nextModelPage++
                 for(var key in objResult)
                 {
                     var obj = componentModel.createObject

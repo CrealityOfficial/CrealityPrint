@@ -21,11 +21,17 @@ float ZSliderInfo::maxLayer()
 
 void ZSliderInfo::setTopCurrentLayer(float layer)
 {
+    if (layer > (m_maxLayer - 0.1f))
+        layer = m_maxLayer + 0.5f;
+
     setModelEffectClipMaxZ(layer);
 }
 
 void ZSliderInfo::setBottomCurrentLayer(float layer)
 {
+    if (layer < 0.1f)
+        layer = - 0.5f;
+
     setModelEffectClipBottomZ(layer);
 }
 
@@ -42,5 +48,6 @@ void ZSliderInfo::onSceneChanged(const qtuser_3d::Box3D& box)
     }
     
     m_maxLayer = max_z;
+	qDebug() << "m_maxLayer:" << m_maxLayer;
     emit maxLayerChanged();
 }

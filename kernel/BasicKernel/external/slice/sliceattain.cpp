@@ -13,6 +13,7 @@
 #include <QtCore/QUuid>
 #include <QtCore/QFileInfo>
 #include <QtCore/QDir>
+#include <QThread>
 
 using namespace qtuser_3d;
 namespace creative_kernel
@@ -82,8 +83,7 @@ namespace creative_kernel
 
 	QString SliceAttain::material_weight()
 	{
-		return QString::number(builder.parseInfo.materialLenth
-			* builder.parseInfo.materialDensity, 'f', 2);
+		return QString::number(builder.parseInfo.weight);
 	}
 
 	QString SliceAttain::printing_time()
@@ -97,9 +97,7 @@ namespace creative_kernel
 
 	QString SliceAttain::material_money()
 	{
-		int nTemp = (builder.parseInfo.materialLenth + 0.005) * 100;
-		float materialLength = nTemp / 100.0f;
-		return QString::number(materialLength * builder.parseInfo.unitPrice, 'f', 2);
+		return QString::number(builder.parseInfo.cost);
 	}
 
 	QString SliceAttain::material_length()
@@ -281,6 +279,7 @@ namespace creative_kernel
 		if (_layer >= 0 && _layer < layers())
 		{
 			const std::vector<int>& maps = builder.m_stepGCodesMaps.at(_layer);
+			if (nViewIndex >= maps.size()) return -1;
 			return maps.at(nViewIndex);
 		}
 		return -1;
@@ -391,7 +390,7 @@ namespace creative_kernel
 				if (screenSize == "CR-10 Inspire")
 				{
 					minPreImg = previewImage->scaled(96, 96, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-					maxPreImg = previewImage->scaled(600, 600, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+					maxPreImg = previewImage->scaled(200, 200, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 				}
 				else if (screenSize == "CR-200B Pro")
 				{
@@ -471,4 +470,101 @@ namespace creative_kernel
 		return QString("%1/slice_flow_gcode_preview.png").arg(SLICE_PATH);
 	}
 
+	void SliceAttain::getPathData(const trimesh::vec3 point, float e, int type)
+	{
+		builder.getPathData(point,e, type);
+	}
+	void SliceAttain::getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type, bool isG2)
+	{
+		builder.getPathDataG2G3(point,i,j,e,type,isG2);
+	}
+	void SliceAttain::setParam(crslice::PathParam pathParam)
+	{
+		gcode::GCodeParseInfo gcodeParaseInfo;
+		gcodeParaseInfo.machine_height = pathParam.machine_height;
+		gcodeParaseInfo.machine_width = pathParam.machine_width;
+		gcodeParaseInfo.machine_depth = pathParam.machine_depth;
+		gcodeParaseInfo.printTime = pathParam.printTime;
+		gcodeParaseInfo.materialLenth = pathParam.materialLenth;
+		gcodeParaseInfo.material_diameter = pathParam.material_diameter = { 1.75 }; //材料直径
+		gcodeParaseInfo.material_density = pathParam.material_density = { 1.24 };  //材料密度
+		gcodeParaseInfo.lineWidth = pathParam.lineWidth;
+		gcodeParaseInfo.layerHeight = pathParam.layerHeight;
+		gcodeParaseInfo.spiralMode = pathParam.spiralMode;
+		gcodeParaseInfo.exportFormat = pathParam.exportFormat;//QString exportFormat;
+		gcodeParaseInfo.screenSize = pathParam.screenSize;//QString screenSize;
+
+		gcodeParaseInfo.timeParts = {
+		pathParam.timeParts.OuterWall,
+		pathParam.timeParts.InnerWall,
+		pathParam.timeParts.Skin,
+		pathParam.timeParts.Support,
+		pathParam.timeParts.SkirtBrim,
+		pathParam.timeParts.Infill,
+		pathParam.timeParts.SupportInfill,
+		pathParam.timeParts.MoveCombing,
+		pathParam.timeParts.MoveRetraction,
+		pathParam.timeParts.PrimeTower };
+
+		gcodeParaseInfo.beltType = pathParam.beltType;  // 1 creality print belt  2 creality slicer belt
+		gcodeParaseInfo.beltOffset = pathParam.beltOffset;
+		gcodeParaseInfo.beltOffsetY = pathParam.beltOffsetY;
+		gcodeParaseInfo.xf4 = pathParam.xf4;//cr30 fxform
+
+		gcodeParaseInfo.relativeExtrude = pathParam.relativeExtrude;
+		builder.setParam(gcodeParaseInfo);
+	}
+	void SliceAttain::setLayer(int layer)
+	{
+		builder.setLayer(layer);
+
+		qDebug() << "SliceAttain setLayer thread " << QThread::currentThread() << "layer = " << layer;
+
+		if (layer > 0 && layer % 5 == 0)
+		{
+			//build_preview();
+			//emit layerChanged(layer);
+		}
+	}
+
+	void SliceAttain::setLayers(int layer)
+	{
+		if (layer >= 0)
+			builder.baseInfo.layers = layer;
+	}
+
+	void SliceAttain::setSpeed(float s)
+	{
+		builder.setSpeed(s);
+	}
+	void SliceAttain::setTEMP(float temp)
+	{
+		builder.setTEMP(temp);
+	}
+	void SliceAttain::setExtruder(int nr)
+	{
+		builder.setExtruder(nr);
+	}
+	void SliceAttain::setFan(float fan)
+	{
+		builder.setFan(fan);
+	}
+	void SliceAttain::setZ(float z, float h)
+	{
+		builder.setZ(z,h);
+	}
+	void SliceAttain::setE(float e)
+	{
+		builder.setE(e);
+	}
+
+	void SliceAttain::setTime(float time)
+	{
+		builder.setTime(time);
+	}
+
+	void SliceAttain::getNotPath()
+	{
+		builder.getNotPath();
+	}
 }

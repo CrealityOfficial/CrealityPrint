@@ -127,8 +127,9 @@ DockItem {
                     height: parent.height // 设置列表项高度
                     anchors.fill: parent
                     anchors.margins: 20*screenScaleFactor
+                    //qsTr("PA dash") PA划线还没开发好，暂时屏蔽
                     Repeater{
-                        model: [qsTr("PA tower"),qsTr("PA dash")]
+                        model: [qsTr("PA tower")]
                         delegate:RadioDelegate{
                             id: testRadioControl
                             implicitWidth: 100*screenScaleFactor

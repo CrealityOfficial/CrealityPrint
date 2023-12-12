@@ -8,10 +8,6 @@
 namespace qtuser_3d
 {
 	class XEffect;
-}
-
-namespace cxkernel
-{
 	class WorldIndicatorEntity;
 }
 
@@ -19,7 +15,7 @@ namespace creative_kernel
 {
 	class PrinterEntity;
 	PrinterEntity* getCachedPrinterEntity();
-	cxkernel::WorldIndicatorEntity* getIndicatorEntity();
+	qtuser_3d::WorldIndicatorEntity* getIndicatorEntity();
 
 	BASIC_KERNEL_API void cacheReuseable(Qt3DCore::QNode* parent);
 	BASIC_KERNEL_API Qt3DRender::QCamera* getCachedCameraEntity();
@@ -37,6 +33,9 @@ namespace creative_kernel
 
 	BASIC_KERNEL_API void setModelZProjectColor(const QVector4D& color);
 	BASIC_KERNEL_API void setModelClearColor(const QVector4D& color);
+
+	BASIC_KERNEL_API void setModelSection(const QVector3D &frontPos, const QVector3D &backPos, const QVector3D &normal);
+	BASIC_KERNEL_API void resetModelSection();
 
 	// printer entity
 	BASIC_KERNEL_API void setPrinterVisible(bool visible);

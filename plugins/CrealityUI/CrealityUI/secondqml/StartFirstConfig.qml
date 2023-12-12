@@ -52,7 +52,7 @@ Window {
         root.hide()
     }
 
-    Component.onCompleted: updateLanguage(kernel_ui.currentLanguage())
+    Component.onCompleted: updateLanguage(kernel_ui.currentLanguage)
 
     ListModel {
         id: languageServerModel
@@ -259,9 +259,9 @@ Window {
                         height: 28 * screenScaleFactor
 
                         onCurrentIndexChanged: updateLanguage(currentIndex)
-                        currentIndex: kernel_ui.currentLanguage()
+                        currentIndex: kernel_ui.currentLanguage
 
-                        model: ["English", "简体中文", "繁體中文"]
+                        model: ["English", "简体中文", "繁體中文","한국어/Korean"]
 
                         delegate: ItemDelegate {
                             width: idLanguageComboBox.width

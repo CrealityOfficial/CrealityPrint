@@ -5,17 +5,9 @@ file(GLOB QRC_SRC *.qrc)
 qt5_add_resources(RCC_SRC ${QRC_SRC})
 file(GLOB SRCS *.h *.cpp)
 
-list(APPEND LIBS ${CLibs} BasicKernel ovdbutil)
+__cc_find(ovdbutil)
+__assert_target(ovdbutil)
 
-set(DEFS _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS _CRT_SECURE_NO_WARNINGS)
-__add_real_target(plugin_hollow dll SOURCE ${SRCS} ${RCC_SRC}
-									LIB ${LIBS}
-									INC ${vcg_INCLUDE_DIRS} ${eigen_INCLUDE_DIRS}
-									DEF ${DEFS}
-									FOLDER plugin
-									)
+list(APPEND LIBS ovdbutil)
 
-
-if(WIN32)
-	set_target_properties( plugin_hollow PROPERTIES COMPILE_FLAGS "/EHa" ) 
-endif(WIN32)
+add_kernel_plugin(hollow)

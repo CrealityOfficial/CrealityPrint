@@ -6,7 +6,6 @@
 #include <QFileInfo>
 
 #include "us/settingdef.h"
-#include "qcxutil/crypt/cryptfiledevice.h"
 #include "interface/appsettinginterface.h"
 
 namespace us
@@ -37,7 +36,7 @@ namespace us
 		if (true)
 		{
 			QFile file(fileName);
-			qDebug() << QString("DefaultLoader::loadDefault : [%1]").arg(fileName);
+			//qDebug() << QString("DefaultLoader::loadDefault : [%1]").arg(fileName);
 			if (file.open(QIODevice::ReadOnly | QIODevice::Text))
 			{
 				while (!file.atEnd())
@@ -58,7 +57,7 @@ namespace us
 						USetting* setting = SETTING(lists.at(0).trimmed());
 						uSettings->insert(setting);
 					}
-					else if (lists.size() > 2) //start_gcodeÖÐ º¬ÓÐ =
+					else if (lists.size() > 2) //start_gcodeï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ =
 					{
 						for (int n = 2; n < lists.size(); n++)
 						{
@@ -79,74 +78,6 @@ namespace us
 		}
 		else //decrypt
 		{
-			qcxutil::CryptFileDevice pFile;
-			pFile.setFileName(fileName);
-			if (pFile.open(QIODevice::ReadOnly | QIODevice::Text))
-			{
-				while (!pFile.atEnd())
-				{
-					QByteArray tmp = pFile.readLine();
-					QString line = QString(tmp);
-					QStringList lists = line.split("=");
-					if (lists.size() == 1)
-					{
-                        if (lists[0] != "\n")//empty
-                        {
-                            USetting* setting = SETTING(lists.at(0).trimmed());
-                            uSettings->insert(setting);
-                        }
-					}
-					else if (lists.size()>2)
-					{
-						 for (int n=2;n<lists.size();n++)
-						 {
-							 lists[1] += "="+lists[n];
-						 }
-						 lists[1].replace("\"", "");
-						 USetting* setting = SETTING2(lists.at(0).trimmed(), lists.at(1).trimmed());
-						 uSettings->insert(setting);
-					}
-					else
-					{
-						lists[1].replace("\"","");
-						USetting* setting = SETTING2(lists.at(0).trimmed(), lists.at(1).trimmed());
-						uSettings->insert(setting);
-					}
-				}
-			}
-			pFile.close();
-
-			//Optimize the configuration file loading method
-			QFileInfo fileInfo(fileName);
-			QString defFile = "";
-			if (!fileInfo.fileName().isEmpty())
-			{
-				defFile = QString("%1/%2").arg(m_configRoot).arg(fileInfo.fileName());
-			}
-
-			m_defRecommendSetting->clear();
-			QFile tmpFile(defFile);
-			if (tmpFile.open(QIODevice::ReadOnly | QIODevice::Text))
-			{
-				while (!tmpFile.atEnd())
-				{
-					QString line = tmpFile.readLine();
-					QStringList lists = line.split("=");
-					if (lists.size() == 1)
-					{
-						USetting* setting = SETTING(lists.at(0).trimmed());
-						m_defRecommendSetting->insert(setting);
-					}
-					else
-					{
-						USetting* setting = SETTING2(lists.at(0).trimmed(), lists.at(1).trimmed());
-						m_defRecommendSetting->insert(setting);
-					}
-				}
-			}
-			tmpFile.close();
-			uSettings->mergeNewItem(m_defRecommendSetting);
-			//end
 		}
 	}
 }

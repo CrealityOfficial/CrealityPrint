@@ -4,7 +4,6 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
-#include <QDateTime>
 
 #include "interface/appsettinginterface.h"
 #include "interface/commandinterface.h"
@@ -59,12 +58,9 @@ LONG ApplicationCrashHandler(EXCEPTION_POINTERS* pException)
 	// sprintf(szMsg, ("I'm so sorry, but the program crashed.\r\ndump file : %s"), szDumpFile);
 	// FatalAppExit(1, szMsg);
 
-#if USE_CXCLOUD
 	QString creality_cloud_id = QStringLiteral("cloud_%1").arg(
 		creative_kernel::IsCloudLogined() ? creative_kernel::CloudUserBaseInfo().user_id : QString{});
-#else
-	QString creality_cloud_id = QString();
-#endif
+
 	QDir temp_gcode_dir{ TEMPGCODE_PATH };
 	temp_gcode_dir.setFilter(QDir::Filter::Files | QDir::Filter::NoSymLinks | QDir::Filter::Readable);
 	QFileInfo scene_file_info{ QStringLiteral("%1/scene").arg(temp_gcode_dir.absolutePath()) };

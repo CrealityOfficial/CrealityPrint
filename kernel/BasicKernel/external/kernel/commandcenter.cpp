@@ -8,6 +8,13 @@
 #include "interface/spaceinterface.h"
 #include "interface/machineinterface.h"
 #include "data/modeln.h"
+#ifdef _WINDOWS
+#include <Windows.h>
+#elif defined(__linux__)
+#include <linux/limits.h>
+#elif defined(__APPLE__)
+#include <sys/syslimits.h>
+#endif
 
 namespace creative_kernel
 {
@@ -69,13 +76,31 @@ namespace creative_kernel
 
 	QString CommandCenter::generateSceneName()
 	{
-		QString name = currentMachineName();
+		int maxNameLength = 0;
+#ifdef _WINDOWS
+		maxNameLength = MAX_PATH;
+#else
+		maxNameLength = NAME_MAX;
+#endif
+		QString name;
+		QString machineName = currentMachineName();
 		QList<ModelN*> models = modelns();
-		for (ModelN* model : models)
+		if (!models.isEmpty()) {
+			ModelN* firstModel = models.first();
+			QFileInfo info(firstModel->objectName());
+			name = info.completeBaseName();
+			name += "-";
+		}
+		/*for (ModelN* model : models)
 		{
 			QFileInfo info(model->objectName());
-			name += QString("-%1").arg(info.baseName());
-		}
+			if ((name + "-" + info.completeBaseName() + machineName + "_image.gcode").length() > maxNameLength)
+			{
+				break;
+			}
+			name += QString("%1-").arg(info.completeBaseName());
+		}*/
+		name += machineName;
 		return name;
 	}
 }

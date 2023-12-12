@@ -21,11 +21,11 @@ namespace creative_kernel
 	class BASIC_KERNEL_API WsClient : public std::enable_shared_from_this<WsClient>
 	{
 	public:
-		explicit WsClient(net::io_context& ioc, const std::string& ip, const int& port);
+		explicit WsClient(net::io_context& ioc, const std::string& ip, const std::string& strMac, const int& port);
 
 	public:
 		void start();
-		void stop();
+		void stop(std::function<void()> callback);
 		void sendTextMessage(const std::string& message);
 		std::function<void(const RemotePrinter&)> infoCallback = nullptr;
 		std::function<void(const std::string&, const std::string&)> fileCallback = nullptr;
@@ -38,7 +38,7 @@ namespace creative_kernel
 		void onHandshake(beast::error_code ec);
 		void onWriteGetfilelist(beast::error_code ec, std::size_t bytes_transferred);
 		void onRead(beast::error_code ec, std::size_t bytes_transferred);
-		void onClose(beast::error_code ec);
+		void onClose(beast::error_code ec, std::function<void()> callback);
 		void onWrite(beast::error_code ec, std::size_t bytes_transferred);
 		void onFail(beast::error_code ec, char const* what);
 		void ParseMsg(const std::string& message);
@@ -54,7 +54,7 @@ namespace creative_kernel
 		RemotePrinter m_printer;
 		int m_serverPort = 9999;
 		bool needStop = false;
-		int m_retryTimes = 0;
+		time_t m_offlineTime = 0;
 	};
 }
 

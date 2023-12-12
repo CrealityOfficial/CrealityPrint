@@ -1,0 +1,26 @@
+#version 150 core
+out vec4 fragmentColor; 
+
+in vec3 worldPosition;
+
+uniform vec3 machineCube;
+uniform float topVisibleHeight = 100000.0;
+uniform float bottomVisibleHeight = -10000.0;
+uniform float error;
+
+uniform float state;
+uniform vec4 stateColors[5];
+
+void main( void )
+{
+	if(worldPosition.z < bottomVisibleHeight || worldPosition.z > topVisibleHeight)
+		discard;
+
+	vec4 color = stateColors[int(state)];	
+	//if(abs(worldPosition.x) > machineCube.x/2.0 || abs(worldPosition.y) > machineCube.y/2.0 ||  worldPosition.z > machineCube.z || worldPosition.z < 0.0)
+    //   color = stateColors[3];
+	if(error == 1.0)
+		color = stateColors[3];
+	
+	fragmentColor = vec4(0.1, 0.1, 0.1, 1.0);
+}

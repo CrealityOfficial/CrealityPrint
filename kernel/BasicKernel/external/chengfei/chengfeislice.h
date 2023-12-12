@@ -5,6 +5,8 @@
 #include <QtCore/QStringList>
 #include <list>
 
+#include "topomesh/interface/interactiveslice.h"
+
 namespace creative_kernel {
 
 
@@ -78,7 +80,7 @@ public:  // util for qml
 
   Q_PROPERTY(QVariantList modelContourList READ getModelContourList NOTIFY modelContourListChanged);
   Q_SIGNAL void modelContourListChanged();
-  QVariantList getModelContourList();
+  QVariantList getModelContourList() const;
 
 private:
   chengfeiSplit m_chengfeiSplit;
@@ -86,6 +88,8 @@ private:
 
   //std::vector<cxutil::Polygons> m_vctPolys;
   std::vector<chengfeiSplit::Contour> m_contours;
+
+  topomesh::InteractiveSlice m_interactiveSlice;
 };
 
 }  // namespace creative_kernel

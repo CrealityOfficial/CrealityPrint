@@ -23,7 +23,7 @@ namespace creative_kernel
 		virtual TriMeshPtr ptr();
 		void setPtr(TriMeshPtr mesh);
 		TriMeshPtr mesh();
-
+		std::vector<trimesh::vec3> outline_ObjectExclude;
 		virtual int triangleNum() const;
 		virtual int* indices() const;
 	protected:

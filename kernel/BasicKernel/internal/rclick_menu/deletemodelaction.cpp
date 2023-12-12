@@ -27,11 +27,14 @@ namespace creative_kernel
 
     void DeleteModelAction::execute()
     {
-        if (isPopPage())
-            requestMenuDialog();
-        else
+        if(enabled())
         {
-            accept();
+            if (isPopPage())
+                requestMenuDialog();
+            else
+            {
+                accept();
+            }
         }
     }
 
@@ -75,7 +78,7 @@ namespace creative_kernel
 
     void DeleteModelAction::accept()
     {
-        removeSelectionModels();
+        removeSelectionModels(true);
         checkModelRange();
     }
 

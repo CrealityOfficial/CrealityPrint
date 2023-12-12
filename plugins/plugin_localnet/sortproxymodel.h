@@ -19,10 +19,16 @@ public:
 	QAbstractItemModel* cSourceModel() const;
 	void setSourceModel(QAbstractItemModel* sourceModel) override;
 
+	Q_INVOKABLE void setSort(int index, int role);
+
+	
 protected:
 	bool lessThan(const QModelIndex& source_left, const QModelIndex& source_right) const override;
 
 private:
+	bool sortByTime(const QModelIndex&, const QModelIndex&);
+	bool sortByFileSize(const QModelIndex&, const QModelIndex&);
+	bool sortByFileName(const QModelIndex&, const QModelIndex&);
 	QAbstractItemModel* m_cSourceModel;
 };
 

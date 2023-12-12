@@ -1,4 +1,3 @@
-__cc_find(enchase)
 set(SRCS photomeshplugin.h
 		 photomeshplugin.cpp
 		 photo2mesh.h
@@ -7,5 +6,4 @@ set(SRCS photomeshplugin.h
 		 photo2meshjob.cpp
 		 )
 
-list(APPEND LIBS enchase)
 add_kernel_plugin(photo_mesh)

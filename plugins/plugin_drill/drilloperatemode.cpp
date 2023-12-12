@@ -11,14 +11,12 @@
 #include "cxkernel/interface/jobsinterface.h"
 #include "qtuser3d/camera/cameracontroller.h"
 
-#include "qcxutil/trimesh2/conv.h"
-#include "qcxutil/trimesh2/q3drender.h"
+#include "qtuser3d/trimesh2/conv.h"
 
-#include "mmesh/trimesh/shapecreator.h"
-#include "mmesh/util/drill.h"
+#include "msbase/primitive/primitive.h"
 
 #include "drilljob.h"
-#include "qtuser3d/refactor/xrenderpass.h"
+#include "renderpass/phongrenderpass.h"
 #include "qtuser3d/refactor/xeffect.h"
 
 namespace {
@@ -69,7 +67,7 @@ DrillOperateMode::DrillOperateMode(QObject* parent)
     , entity_([]()->decltype(entity_) {
       auto entity = std::make_unique<qtuser_3d::XEntity>();
 
-      qtuser_3d::XRenderPass *renderPass = new qtuser_3d::XRenderPass("phong", entity.get());
+      qtuser_3d::PhongRenderPass*renderPass = new qtuser_3d::PhongRenderPass(entity.get());
       renderPass->addFilterKeyMask("view", 0);
 
       qtuser_3d::XEffect* effect = new qtuser_3d::XEffect(entity.get());
@@ -122,8 +120,15 @@ void DrillOperateMode::setDirection(Direction direction) {
 }
 
 void DrillOperateMode::onAttach() {
+  auto selections = creative_kernel::selectionms();
+  if (selections.empty())
+    return;
+
+  m_model = selections.first();
+
+  creative_kernel::addSelectTracer(this);
   creative_kernel::addHoverEventHandler(this);
-  creative_kernel::addLeftMouseEventHandler(this);
+  creative_kernel::prependLeftMouseEventHandler(this);
 }
 
 void DrillOperateMode::onDettach() {
@@ -131,10 +136,16 @@ void DrillOperateMode::onDettach() {
   creative_kernel::removeLeftMouseEventHandler(this);
   creative_kernel::visHide(entity_.get());
   creative_kernel::requestVisUpdate();
+  creative_kernel::removeSelectorTracer(this);
+
+  m_model = NULL;
 }
 
 void DrillOperateMode::onHoverMove(QHoverEvent* event) {
   creative_kernel::visHide(entity_.get());
+
+  if (m_model == NULL)
+    return;
 
   if (creative_kernel::selectionms().empty()) {
     return;
@@ -148,23 +159,27 @@ void DrillOperateMode::onHoverMove(QHoverEvent* event) {
   }
 
   SyncDirectionToVector3D(direction_, direction_3d);
-  direction_3d = qcxutil::vec2qvector(trimesh::normalized(qcxutil::qVector3D2Vec3(direction_3d)));
+  //direction_3d = qtuser_3d::vec2qvector(trimesh::normalized(qtuser_3d::qVector3D2Vec3(direction_3d)));
+  direction_3d.normalize();
 
 	QVector3D bottom = position_3d + 2.0f * direction_3d;
 	QVector3D top = bottom + (depth_ + 2.0f) * -direction_3d;
 
-	mesh_.reset(mmesh::ShapeCreator::createCylinderMesh(qcxutil::qVector3D2Vec3(top),
-                                                      qcxutil::qVector3D2Vec3(bottom),
+	mesh_.reset(msbase::createCylinderMesh(qtuser_3d::qVector3D2Vec3(top),
+        qtuser_3d::qVector3D2Vec3(bottom),
                                                       radius_,
                                                       ShapeToSideNumber(shape_)));
 
-	entity_->setGeometry(qcxutil::trimesh2Geometry(mesh_.get()));
+	entity_->setGeometry(creative_kernel::createGeometryFromMesh(mesh_.get()));
 
   creative_kernel::visShow(entity_.get());
   creative_kernel::requestVisUpdate();
 }
 
 void DrillOperateMode::onLeftMouseButtonClick(QMouseEvent* event) {
+  if (m_model == NULL)
+    return;
+
   if (entity_->parentEntity() == nullptr) {
     return;
   }
@@ -182,20 +197,43 @@ void DrillOperateMode::onLeftMouseButtonClick(QMouseEvent* event) {
 
   SyncDirectionToVector3D(direction_, direction_3d);
 
-  mmesh::DrillParam param;
+  WrapDrillParam param;
   param.cylinder_resolution = ShapeToSideNumber(shape_);
   param.cylinder_radius     = radius_;
   param.cylinder_depth      = one_layer_only_ ? -1 : depth_;
-  param.cylinder_startPos   = qcxutil::qVector3D2Vec3(position_3d);
-  param.cylinder_Dir        = -trimesh::normalized(qcxutil::qVector3D2Vec3(direction_3d));
+  param.cylinder_startPos   = qtuser_3d::qVector3D2Vec3(position_3d);
+  param.cylinder_Dir        = -trimesh::normalized(qtuser_3d::qVector3D2Vec3(direction_3d));
 
   auto job = QSharedPointer<DrillJob>::create();
   job->setModel(model);
   job->setParam(param);
-  connect(job.get(), &DrillJob::finished, this, [](bool successed) {
-    if (successed) { return; }
+  connect(job.get(), &DrillJob::finished, this, [=](creative_kernel::ModelN* newModel) {
+    m_dirlling = false;
+    if (newModel != NULL) 
+    { 
+      creative_kernel::selectOne(newModel);
+      return; 
+    }
     getKernelUI()->requestQmlTipDialog(QCoreApplication::translate("info", "Drill failed"));
   });
 
+  m_dirlling = true;
   cxkernel::executeJob(job);
+}
+
+void DrillOperateMode::onSelectionsChanged()
+{
+  if (m_dirlling)
+    return;
+
+  auto selections = creative_kernel::selectionms();
+  if (selections.empty())
+  {
+    creative_kernel::visHide(entity_.get());
+    m_model = NULL;
+    return;
+  } 
+
+  m_model = selections.first();
+  
 }

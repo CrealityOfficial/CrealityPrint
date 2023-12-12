@@ -4,7 +4,7 @@
 
 #include "data/interface.h"
 #include "external/operation/mirroroperatormode.h"
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 
 namespace creative_kernel {
   

@@ -8,11 +8,11 @@
 
 namespace creative_kernel
 {
-	WsClient::WsClient(net::io_context& ioc, const std::string& ip, const int& port) : m_resolver(net::make_strand(ioc)), m_serverIp(ip), m_serverPort(port)
+	WsClient::WsClient(net::io_context& ioc, const std::string& ip, const std::string& strMac, const int& port) : m_resolver(net::make_strand(ioc)), m_serverIp(ip), m_serverPort(port)
 	{
 		m_ws = std::make_unique<websocket::stream<beast::tcp_stream>>(net::make_strand(ioc));
 		m_printer.ipAddress = QString::fromStdString(ip);
-		m_printer.macAddress = QString::fromStdString(ip);
+		m_printer.macAddress = QString::fromStdString(strMac);
 		m_printer.fluiddPort = 8888; m_printer.mainsailPort = 8888;
 		m_printer.printMode = 1; m_printer.type = RemotePrinerType::REMOTE_PRINTER_TYPE_KLIPPER4408;
 	}
@@ -22,11 +22,11 @@ namespace creative_kernel
 		m_resolver.async_resolve(m_serverIp, std::to_string(m_serverPort), beast::bind_front_handler(&WsClient::onResolve, shared_from_this()));
 	}
 
-	void WsClient::stop()
+	void WsClient::stop(std::function<void()> callback)
 	{
 		needStop = true;
 		// Close the WebSocket connection
-		m_ws->async_close(websocket::close_code::normal, beast::bind_front_handler(&WsClient::onClose, shared_from_this()));
+		m_ws->async_close(websocket::close_code::normal, std::bind(&WsClient::onClose, shared_from_this(), std::placeholders::_1, callback));
 	}
 
 	void WsClient::sendTextMessage(const std::string& message)
@@ -87,7 +87,9 @@ namespace creative_kernel
 		paramObject.AddMember("reqGcodeFile", 1, allocator);
 		paramObject.AddMember("reqHistory", 1, allocator);
 		paramObject.AddMember("reqElapseVideoList", 1, allocator);
+		paramObject.AddMember("reqPrintObjects", 1, allocator);
 		doc.AddMember("params", paramObject, allocator);
+
 
 		rapidjson::StringBuffer strbuf;
 		rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
@@ -109,9 +111,9 @@ namespace creative_kernel
 		boost::ignore_unused(bytes_transferred);
 
 		if (ec) return onFail(ec, "read");
-		if (m_retryTimes)
+		if (m_offlineTime)
 		{
-			m_retryTimes = 0;
+			m_offlineTime = 0;
 		}
 		//parse message
 		auto msg = boost::beast::buffers_to_string(m_readBuffer.cdata());
@@ -121,8 +123,12 @@ namespace creative_kernel
 		m_ws->async_read(m_readBuffer, beast::bind_front_handler(&WsClient::onRead, shared_from_this()));
 	}
 
-	void WsClient::onClose(beast::error_code ec)
+	void WsClient::onClose(beast::error_code ec, std::function<void()> callback)
 	{
+		if (callback && !m_ws->is_open())
+		{
+			callback();
+		}
 		if (ec) return onFail(ec, "close");
 	}
 
@@ -149,16 +155,17 @@ namespace creative_kernel
 		{
 			return;
 		}
-		++m_retryTimes;
-		if (m_printer.printerStatus != 0)
+		time_t tmNow = time(nullptr);
+		if (m_offlineTime == 0)
+		{
+			m_offlineTime = tmNow;
+		}
+		if (m_printer.printerStatus && infoCallback && abs(tmNow - m_offlineTime) > 5)
 		{
 			m_printer.printerStatus = 0;
-		}
-		if (infoCallback && m_retryTimes > 2)
-		{
 			infoCallback(m_printer);
 		}
-		std::this_thread::sleep_for(std::chrono::seconds(1));
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 		m_ws.reset(new websocket::stream<beast::tcp_stream>(m_ws->get_executor()));
 		start();
@@ -297,7 +304,7 @@ namespace creative_kernel
 				auto fileList = retGcodeFileInfo["fileInfo"].GetString();
 				if (fileCallback)
 				{
-					fileCallback(m_printer.ipAddress.toStdString(), fileList);
+					fileCallback(m_printer.macAddress.toStdString(), fileList);
 				}
 			}
 		}
@@ -353,7 +360,7 @@ namespace creative_kernel
 			}
 			if (historyFileListCb)
 			{
-				historyFileListCb(m_printer.ipAddress.toStdString(), fileList);
+				historyFileListCb(m_printer.macAddress.toStdString(), fileList);
 			}
 		}
 
@@ -428,7 +435,7 @@ namespace creative_kernel
 			}
 			if (videoCallback)
 			{
-				videoCallback(m_printer.ipAddress.toStdString(), fileList);
+				videoCallback(m_printer.macAddress.toStdString(), fileList);
 			}
 		}
 
@@ -444,8 +451,28 @@ namespace creative_kernel
 		{
 			m_printer.auxiliaryFanSpeedState = doc["auxiliaryFanPct"].GetInt();
 		}
+		if (doc.HasMember("objects") && doc["objects"].IsString())
+		{
+			m_printer.printObjects = doc["objects"].GetString();
+		}
+		if (doc.HasMember("excluded_objects") && doc["excluded_objects"].IsString())
+		{
+			m_printer.excludedObjects = doc["excluded_objects"].GetString();
+		}
+		if (doc.HasMember("current_object") && doc["current_object"].IsString())
+		{
+			m_printer.currentObject = doc["current_object"].GetString();
+		}
+		if (doc.HasMember("maxNozzleTemp") && doc["maxNozzleTemp"].IsInt())
+		{
+			m_printer.maxNozzleTemp = doc["maxNozzleTemp"].GetInt();
+		}
+		if (doc.HasMember("maxBedTemp") && doc["maxBedTemp"].IsInt())
+		{
+			m_printer.maxBedTemp = doc["maxBedTemp"].GetInt();
+		}
 
 		m_printer.printerStatus = 1;
-		if (infoCallback) infoCallback(m_printer);
+		if (infoCallback && !needStop) infoCallback(m_printer);
 	}
 }

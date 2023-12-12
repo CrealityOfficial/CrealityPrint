@@ -55,9 +55,15 @@ namespace creative_kernel
 		Q_INVOKABLE void clearTempModels();
 		Q_INVOKABLE void ignoreTempModels();
 		Q_INVOKABLE bool haveModelsOutPlatform();
+		Q_INVOKABLE bool modelOutPlatform(ModelN* amodel);
 
 		bool haveSupports(const QList<ModelN*>& models);
 		void deleteSupports(QList<ModelN*>& models);
+
+		QList<ModelN*> getModelnsBySerialName(const QStringList& names);
+		ModelN* getModelNBySerialName(const QString& name);
+		
+		void uniformName(ModelN* item);
 	signals:
 		void signalVisualChanged(bool capture);
 		void modelNNumChanged();
@@ -68,7 +74,6 @@ namespace creative_kernel
 		int checkModelRange();
 		int checkBedRange();
 	protected:
-		void uniformName(ModelN* item);
 		void process(cxkernel::ModelNDataPtr data) override;
 	private:
 		qtuser_3d::Box3D m_baseBoundingBox;

@@ -97,8 +97,8 @@ namespace creative_kernel
 
 	void PrintMaterialModel::addMaterial(MaterialMeta* md)
 	{
-		QString materialName = md->uniqueName();
-		if (!m_SupportMaterials.contains(materialName))
+		//QString materialName = md->uniqueName();
+		if (!m_SupportMaterials.contains(md->type))
 		{
 			return;
 		}

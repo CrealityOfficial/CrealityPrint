@@ -126,12 +126,12 @@ void GcodeListModel::switchDataSource(const QString& macAddr, RemotePrinerType r
 	}
 }
 
-void GcodeListModel::downloadGcodeFile(const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType)
+void GcodeListModel::downloadGcodeFile(const QString& macAddr, const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType)
 {
 	cpr::Session session;
 	std::string url = "http://" + ipAddress.toStdString() + "/downloads/gcode/";
 	url += session.GetCurlHolder()->urlEncode(fileName.toStdString());
-	getRemotePrinterManager()->downloadFile(url, QUrl(localPath).toLocalFile().toStdString(), std::bind(&GcodeListModel::onGetExportProgress, this, ipAddress, fileName, std::placeholders::_1));
+	getRemotePrinterManager()->downloadFile(url, QUrl(localPath).toLocalFile().toStdString(), std::bind(&GcodeListModel::onGetExportProgress, this, macAddr, fileName, std::placeholders::_1));
 }
 
 void GcodeListModel::onGetExportProgress(const QString& ipAddress, const QString& fileName, const float& progress)

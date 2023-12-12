@@ -408,16 +408,9 @@ namespace us
 		{
 			QString v = setting->str();
 			QString key = setting->key();
-
-			if ("gcode_start" == key
-				|| "inter_layer" == key
-				|| "gcode_end" == key
-				|| "machine_start_gcode" == key
-				|| "machine_extruder_start_code" == key
-				|| "machine_extruder_end_code" == key
-				|| "machine_end_gcode" == key)
+			if (v.isEmpty())
 			{
-				v = v.replace("\n", "\\n");
+				continue;
 			}
 
 			if (materialKeys.contains(key))

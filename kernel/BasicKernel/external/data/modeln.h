@@ -2,13 +2,15 @@
 #define CREATIVE_KERNEL_MODELN_1592181954934_H
 #include "data/header.h"
 #include "data/kernelenum.h"
-#include "cxkernel/data/modelndata.h"
-#include "qcxutil/util/nestdata.h"
+#include "data/modelnrenderdata.h"
+
+#include "cxkernel/data/nestdata.h"
 
 #include <Qt3DCore/QEntity>
 #include "qtuser3d/module/node3d.h"
 #include "qtuser3d/math/ray.h"
 #include "qtusercore/module/progressor.h"
+#include <Qt3DRender/QGeometry>
 #include <vector>
 
 namespace us
@@ -97,12 +99,13 @@ namespace creative_kernel
         void setErrorHoles(int value);
         void setErrorIntersects(int value);
 
-		void needDetectError();
-
 		void setTexture();
 
 		void setData(cxkernel::ModelNDataPtr data);
 		cxkernel::ModelNDataPtr data();
+		
+		void setRenderData(ModelNRenderDataPtr renderData);
+		ModelNRenderDataPtr renderData();
 
 		// edit mesh vertices, return the matrix of scale and rotate
 		QMatrix4x4 embedScaleNRot();
@@ -114,7 +117,7 @@ namespace creative_kernel
 		bool rayCheck(int primitiveID, const qtuser_3d::Ray& ray, QVector3D& collide, QVector3D* normal);
 		//global normal ,normal is not normalized , represent the average lenght of edges
 
-		void convex(std::vector<trimesh::vec3>& datas);
+		void convex(std::vector<trimesh::vec3>& datas, bool origin = false);
 		QList<QVector3D> qConvex(bool toOrigin = false);
 
 		trimesh::TriMesh* createGlobalMesh();
@@ -123,7 +126,8 @@ namespace creative_kernel
 		trimesh::quaternion nestRotation();
 		void resetNestRotation();
 		void dirtyNestData();
-		qcxutil::NestDataPtr nestData();
+		cxkernel::NestDataPtr nestData();
+		void copyNestData(ModelN* model);
 		cxkernel::ModelNDataPtr modelNData();
 
 
@@ -139,6 +143,10 @@ namespace creative_kernel
 		//设置单位类型
 		void setUnitType(UnitType type);
 		UnitType unitType();
+		void setSerialName(const QString& serialName);
+		QString getSerialName();
+		void setLocalData(const trimesh::vec3& position, const QQuaternion& q, const trimesh::vec3& scale);
+		std::vector<trimesh::vec3> getoutline_ObjectExclude();
 	protected:
 		void onGlobalMatrixChanged(const QMatrix4x4& globalMatrix) override;
 		void onStateChanged(qtuser_3d::ControlState state) override;
@@ -147,10 +155,12 @@ namespace creative_kernel
 
 		void setSupportsVisibility(bool visibility);
 		void mirror(const QMatrix4x4& matrix, bool apply = true) override;
+		
 	protected:
 		cxkernel::ModelNDataPtr m_data;
-		ModelNEntity* m_entity;
+		ModelNRenderDataPtr m_renderData;
 
+		ModelNEntity* m_entity;
         bool m_needInit { true };
 		QVector3D m_initPosition;
 		us::USettings* m_setting;
@@ -162,7 +172,7 @@ namespace creative_kernel
 
 		bool m_visibility;
 		bool m_detectAdd; //for erase support;
-		qcxutil::NestDataPtr m_nestData;
+		cxkernel::NestDataPtr m_nestData;
 		
 		UnitType m_ut = UT_METRIC;
 		//show error
@@ -172,6 +182,10 @@ namespace creative_kernel
 		int m_errorIntersects; //非流面
 
 		double m_nestRotation;
+
+		QString m_serialName;
 	};
+
+	BASIC_KERNEL_API Qt3DRender::QGeometry* createGeometryFromMesh(trimesh::TriMesh* mesh);
 }
 #endif // CREATIVE_KERNEL_MODELN_1592181954934_H

@@ -12,7 +12,7 @@
 #include "qtusercore/module/systemutil.h"
 #include "interface/appsettinginterface.h"
 #include "data/kernelmacro.h"
-#include "mmesh/trimesh/split.h"
+#include "msbase/utils/cut.h"
 
 namespace creative_kernel
 {
@@ -42,7 +42,8 @@ namespace creative_kernel
     {
     }
 
-    SliceResultPointer DLLAnsycSlicer52CF::doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer)
+
+    SliceResultPointer DLLAnsycSlicer52CF::doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer, crslice::PathData* _fDebugger)
     {
         float progressStep = 0.8f;
         tracer.resetProgressScope(0.0f, progressStep);
@@ -73,7 +74,7 @@ namespace creative_kernel
             extruder_count = 1;
 
         for (size_t extruder_nr = 0; extruder_nr < extruder_count; extruder_nr++)
-            scene->m_extruders.emplace_back(new crcommon::Settings());
+            scene->m_extruders.emplace_back(new crslice::Settings());
 
         for (size_t i = 0; i < extruder_count; ++i)
         {
@@ -122,7 +123,7 @@ namespace creative_kernel
 
             int groupID = scene->addOneGroup();
 
-            SettingsPtr settings(new crcommon::Settings());
+            SettingsPtr settings(new crslice::Settings());
             const QHash<QString, us::USetting*>& MG = modelGroupInput->settings->settings();
 
             //Load the settings in the mesh group.
@@ -220,7 +221,7 @@ namespace creative_kernel
                     if (offsetXYZ != trimesh::vec3())
                         trimesh::trans(m.get(), offsetXYZ);
 
-                    SettingsPtr meshSettings(new crcommon::Settings());
+                    SettingsPtr meshSettings(new crslice::Settings());
                     //Load the settings for the mesh.
                     for (QHash<QString, us::USetting*>::const_iterator it = MS.constBegin(); it != MS.constEnd(); ++it)
                     {
@@ -236,7 +237,7 @@ namespace creative_kernel
                 {
                     //split
                     trimesh::TriMesh* out = nullptr;
-                    mmesh::splitRangeZ(m.get(), m_chengfeiSplit.topHeight, m_chengfeiSplit.bottomHeight, &out);
+                    msbase::splitRangeZ(m.get(), m_chengfeiSplit.topHeight, m_chengfeiSplit.bottomHeight, &out);
                     std::shared_ptr<trimesh::TriMesh> outptr(out);
                     m.swap(outptr);
 
@@ -263,7 +264,7 @@ namespace creative_kernel
                     }
                     std::vector < trimesh::TriMesh*> outMesh;
                     float interval = m_chengfeiSplit.interval > 0.0f ? m_chengfeiSplit.interval : 0.0f;
-                    mmesh::splitRangeXYZ(m.get(), horizon,vertical, interval, outMesh);
+                    //mmesh::splitRangeXYZ(m.get(), horizon,vertical, interval, outMesh);
 
                     for (int i = 0; i < outMesh.size(); i++)
                     {

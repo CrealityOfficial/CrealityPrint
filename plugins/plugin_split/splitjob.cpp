@@ -6,20 +6,16 @@
 #include "trimesh2/XForm.h"
 #include <stack>
 
-#include "utils/convexhullcalculator.h"
 #include "qtuser3d/math/const.h"
-
-#include "trimesh2/Vec3Utils.h"
-#include "mmesh/trimesh/polygonstack.h"
+#include "qtuser3d/trimesh2/conv.h"
 #include "data/modeln.h"
 #include "data/modelgroup.h"
 
 #include "interface/visualsceneinterface.h"
 #include "interface/modelinterface.h"
 
-#include "mmesh/trimesh/trimeshutil.h"
-#include "qcxutil/trimesh2/conv.h"
-#include "splitslot/split.h"
+#include "msbase/utils/cut.h"
+#include "msbase/mesh/tinymodify.h"
 
 using namespace creative_kernel;
 SplitJob::SplitJob(QObject* parent)
@@ -59,19 +55,11 @@ void SplitJob::work(qtuser_core::Progressor* progressor)
 	if (!m_model)
 		return;
 
-	splitslot::SplitSlotParam aparam;
-	aparam.depth = 2.0f;
-	aparam.gap = 2.0f;
-	aparam.haveSlot = false;
-	aparam.redius = 2.0f;
-	aparam.xyOffset = 0.3f;
-	aparam.zOffset = 0.3f;
-
 	QMatrix4x4 m = m_model->globalMatrix();
 
-	trimesh::fxform xf = qcxutil::qMatrix2Xform(m);
+	trimesh::fxform xf = qtuser_3d::qMatrix2Xform(m);
 	//QMatrix4x4 invm = m.inverted();
-	splitslot::SplitPlane aplane;
+	msbase::CutPlane aplane;
 	aplane.normal = m_plane.dir;
 	aplane.position = /*invm * */m_plane.center;
 
@@ -84,14 +72,7 @@ void SplitJob::work(qtuser_core::Progressor* progressor)
 		apoint = xf * apoint;
 	}
 
-	splitslot::splitSlot(&amesh, aplane, aparam, m_meshes);
-	progressor->progress(0.9f);
-	for (trimesh::TriMesh* amesh:m_meshes)
-	{
-		mmesh::dumplicateMesh(amesh);
-		//calculate convex box
-		ConvexHullCalculator::calculate(amesh, progressor);
-	}
+	msbase::planeCut(&amesh, aplane, m_meshes);
 	progressor->progress(1.0f);
 }
 
@@ -139,7 +120,7 @@ void SplitJob::successed(qtuser_core::Progressor* progressor)
 			
 			mesh->clear_bbox();
 			mesh->need_bbox();
-			trimesh::vec3 offset = mmesh::moveTrimesh2Center(mesh);
+			trimesh::vec3 offset = msbase::moveTrimesh2Center(mesh);
 
 			trimesh::vec3 layoutOffset = (trimesh::vec3(dirOnFloor.x(), dirOnFloor.y(), dirOnFloor.z()) *  trimesh::vec3(i-centerOfIndex, i-centerOfIndex, 0.0f)) * gap;
 			offset += layoutOffset;

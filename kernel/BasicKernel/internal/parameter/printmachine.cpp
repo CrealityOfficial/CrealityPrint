@@ -9,9 +9,10 @@
 #include "internal/models/profileparametermodel.h"
 #include "interface/commandinterface.h"
 
-#include "qcxutil/util/traitsutil.h"
+
 #include "interface/machineinterface.h"
 #include "kernel/kernelui.h"
+#include "cxkernel/utils/traitsutil.h"
 
 #include <QtCore/QUrl>
 #include <QDir>
@@ -55,7 +56,7 @@ namespace creative_kernel
         QStringList materialsName;
         _getSupportMaterials(materialsName);
         QStringList mn = selectTypes();
-        m_ModelProxy->setSelectMaterialTypes(selectTypes());
+        m_ModelProxy->setSelectMaterialTypes(getKernel()->materialCenter()->types());
         m_ModelProxy->setSourceModel(m_PrintMaterialModel);
 	}
 
@@ -80,6 +81,11 @@ namespace creative_kernel
         }
         return m_meta.baseName + nozzles + " nozzle";
 	}
+
+    QString PrintMachine::baseName()
+    {
+        return m_meta.baseName;
+    }
 
     QString PrintMachine::uniqueName()
     {
@@ -229,9 +235,12 @@ namespace creative_kernel
             m_materials.clear();
             for (const QString& selectMaterialName : selectMaterialNames)
             {
+                int index = selectMaterialName.lastIndexOf("_");
+                QString selectMaterial = selectMaterialName.mid(0, index);
+                float selectDiameter = selectMaterialName.mid(index + 1).toFloat();
                 for (const MaterialMeta& meta : metas)
                 {
-                    if (selectMaterialName == meta.uniqueName() || selectMaterialName == meta.name)
+                    if (selectMaterial == meta.name && meta.supportDiameters.contains(selectDiameter) || selectMaterialName == meta.name)
                     {
                         for (float diameter : meta.supportDiameters)
                         {
@@ -276,12 +285,25 @@ namespace creative_kernel
             {
                 _cacheSelectMaterials(i);
             }
+            sortMaterials();
 
             QStringList names = materialsNameList();
             QString materialName = readCacheExtruderMaterialIndex(uniqueName(), i);
             if (!names.contains(materialName))
-                materialName = names.at(0);
+            {
+                if (m_meta.supportMaterialNames.length() > 0)
+                {
 
+                    Q_FOREACH(QString name, names)
+                    {
+                        if (name.split("_")[0]==m_meta.supportMaterialNames[0])
+                        {
+                            materialName = name;
+                            break;
+                        }
+                    }
+                }
+            }
             extruder->setMaterial(materialName);
         }
 
@@ -394,6 +416,7 @@ namespace creative_kernel
             {
                 continue;
             }
+            
             _cacheSelectMaterials(i);
 
             QStringList names = materialsNameList();
@@ -403,6 +426,7 @@ namespace creative_kernel
 
             extruder->setMaterial(materialName);
         }
+        sortMaterials();
         for (const QString& fileName : fileNames)
         {
             PrintProfile* profile = new PrintProfile(uniqueName(), fileName, this);
@@ -500,7 +524,7 @@ namespace creative_kernel
 
     QStringList PrintMachine::profileNames()
     {
-        return qcxutil::objectNames(m_profiles);
+        return cxkernel::objectNames(m_profiles);
     }
 
     int PrintMachine::curProfileIndex()
@@ -1001,17 +1025,14 @@ namespace creative_kernel
         QStringList curgroupFilter;
         const QList<MaterialMeta>& allMetas = materialMetas();
         QStringList supportMaterials;
-        _getSupportMaterials(supportMaterials);
-        m_PrintMaterialModel->setSupportMaterialNames(supportMaterials);
-        foreach(auto filterType, m_meta.supportMaterialTypes) 
-        {
-            qDebug() << "type =" << filterType;
+        //_getSupportMaterials(supportMaterials);
+        m_PrintMaterialModel->setSupportMaterialNames(getKernel()->materialCenter()->types());
+        //foreach(auto filterType, m_meta.supportMaterialTypes) 
+        //{
+           // qDebug() << "type =" << filterType;
             for (int i = 0; i < allMetas.size(); i++)
             {
                 QString mType = allMetas.at(i).type.trimmed();
-                QString fType = filterType.trimmed();
-                if (mType.compare(fType)==0)
-                {
                     MaterialMeta* data = new MaterialMeta;
                     data->name = allMetas.at(i).name;
                     data->supportDiameters = allMetas.at(i).supportDiameters;
@@ -1021,12 +1042,12 @@ namespace creative_kernel
                         data->isChecked = true;
                     }
 
-                    data->type = filterType;
+                    data->type = mType;
                     m_SupportMeterialsDataList.append(data);
                     m_PrintMaterialModel->addMaterial(data);
-                }
+
             }
-        }
+        //}
     }
 
     void PrintMachine::setExtruderStatus(bool bextruder0, bool bextruder1)
@@ -1122,7 +1143,7 @@ namespace creative_kernel
 
                         //3.添加材料对象
                         m_materials.append(material);
-                        emit materialsNameChanged();
+                        //emit materialsNameChanged();
 
                         //4.添加材料到json
                         MaterialMeta metaNew = meta;
@@ -1130,13 +1151,14 @@ namespace creative_kernel
                         if (extruderNum == 0)
                         {
                             m_selectMaterials_0.append(data.uniqueName());
-                            emit userMaterialsNameChanged();
+                            //emit userMaterialsNameChanged();
                         }
                         else if (extruderNum == 1) 
                         {
                             m_selectMaterials_1.append(data.uniqueName());
-                            emit userMaterialsNameChanged();
+                            //emit userMaterialsNameChanged();
                         }
+                        metaNew.isUserDef = true;
                         m_UserMaterialsData.append(metaNew);
                         _addUserMaterialToJson(metaNew);
 
@@ -1145,7 +1167,9 @@ namespace creative_kernel
                 }
             }
         }
-
+        sortMaterials();
+        emit userMaterialsNameChanged();
+        emit materialsNameChanged();
         _cacheSelectMaterials(extruderNum);
     }
 
@@ -1254,6 +1278,7 @@ namespace creative_kernel
                 }
             }
         }
+        sortMaterials();
         _cacheSelectMaterials(extruderNum);
     }
 
@@ -1326,7 +1351,7 @@ namespace creative_kernel
             m_materials.append(material);
             m_selectMaterials_0.append(um.uniqueName());
         }
-    
+        sortMaterials();
         emit materialsNameChanged();
         emit m_extruders[index]->materialIndexChanged();
         _cacheSelectMaterials(index);
@@ -1551,11 +1576,12 @@ namespace creative_kernel
 
     void PrintMachine::_getSelectMaterials(QStringList& selectMaterialNames)
     {
-        const QList<MaterialMeta>& metas = materialMetasInMachine();
+        const QList<MaterialMeta>& metas = materialMetas();
         //1.读取注册表
-        selectMaterialNames = readCacheSelectMaterials(uniqueName(), 0);
+        //selectMaterialNames = readCacheSelectMaterials(uniqueName(), 0);
 
         //2.读取机型支持的耗材名称
+        /*
         if (selectMaterialNames.isEmpty())
         {
             for (auto mName : m_meta.supportMaterialNames)
@@ -1569,25 +1595,58 @@ namespace creative_kernel
                 }
             }
             //2.1
-        }
+        }*/
 
         //3.读取机型文件夹下的耗材
         if (selectMaterialNames.isEmpty())
         {
-            QString defFileName = QString("%1/%2").arg(_pfpt_default_materials)
-                .arg(uniqueName2BaseMachineName(uniqueName()));
+            QString defFileName = QString("%1/%2").arg(_pfpt_materials)
+                .arg(uniqueName());
             QDir dir(defFileName);
             QFileInfoList files = dir.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
             for (QFileInfo fileInfo : files)
             {
                 QString suffix = fileInfo.suffix();
-                selectMaterialNames.append(fileInfo.fileName().left(fileInfo.fileName().length()-suffix.length()-1));
+                if (suffix == "default")
+                {
+                    QString mname = fileInfo.fileName().left(fileInfo.fileName().length() - suffix.length() - 1);
+                    for (auto meta : metas)
+                    {
+                        if (meta.name == mname.split('_').at(0))
+                        {
+                            selectMaterialNames.append(mname);
+                            break;
+                        }
+                    }
+                    
+                }
+                
+            }
+            if (selectMaterialNames.isEmpty())
+            {
+                QString defFileName = QString("%1/%2").arg(_pfpt_default_materials)
+                    .arg(uniqueName2BaseMachineName(uniqueName()));
+                QDir dir(defFileName);
+                QFileInfoList files = dir.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
+                for (QFileInfo fileInfo : files)
+                {
+                    QString suffix = fileInfo.suffix();
+                    selectMaterialNames.append(fileInfo.fileName().left(fileInfo.fileName().length() - suffix.length() - 1));
+                }
             }
             //selectMaterialNames = files;
         }
+       
+
+
+        //追加自定义耗材
+        Q_FOREACH(MaterialMeta meta ,m_UserMaterialsData)
+        {
+            selectMaterialNames.append(meta.name);
+        }
 
         //4.读取机型支持的耗材类型进行筛选
-        if (selectMaterialNames.isEmpty())
+        /*if (selectMaterialNames.isEmpty())
         {
             for (const MaterialMeta& meta : metas)
             {
@@ -1596,7 +1655,7 @@ namespace creative_kernel
                     selectMaterialNames.push_back(meta.name);
                 }
             }
-        }
+        }*/
     }
 
     void PrintMachine::_getSupportMaterials(QStringList& supportMaterialNames)
@@ -1760,7 +1819,7 @@ namespace creative_kernel
 
     PrintMaterial* PrintMachine::_findMaterial(const QString& materialName)
     {
-        return qcxutil::findObject<PrintMaterial>(materialName, m_materials);
+        return cxkernel::findObject<PrintMaterial>(materialName, m_materials);
     }
 
     void PrintMachine::_cacheSelectMaterials(const int& index)
@@ -1791,13 +1850,19 @@ namespace creative_kernel
         int level = 0;
         if (name.contains(".default"))
         {
-            if (name.contains("middle"))
+            if (name.contains("best"))
                 level = 1;
-            else if (name.contains("low"))
+            else if (name.contains("high"))
                 level = 2;
+            else if (name.contains("middle"))
+                level = 3;
+            else if (name.contains("low"))
+                level = 4;
+            else if (name.contains("fast"))
+                level = 5;
         }
         else {
-            level = 3 + (int)name.at(0).unicode();
+            level = 5 + (int)name.at(0).unicode();
         }
 
         return level;
@@ -1921,13 +1986,60 @@ namespace creative_kernel
 	
     QStringList PrintMachine::materialsNameList()
     {
-        QStringList names = qcxutil::objectUniqueNames(m_materials);
+        QStringList names = cxkernel::objectUniqueNames(m_materials);
         return names;
     }
+    void PrintMachine::sortMaterials()
+    {
+        qSort(m_materials.begin(), m_materials.end(), [](PrintMaterial* s1, PrintMaterial* s2) {
+            QStringList defaultMateral = QStringList() << "Hyper PLA" << "Hyper PLA-CF" << "Hyper ABS" << "CR-PLA" << "Ender-PLA" << "Generic-PLA" << "Generic-PLA-Silk" << "Generic-PLA-CF" << "CR-PETG" << "Generic-PETG" << "CR-TPU" << "Generic-TPU" << "CR-ABS" << "Generic-ABS" << "Generic-PC" << "HP-ASA" << "Generic-ASA" << "Generic-PA-CF";
+            int a = defaultMateral.indexOf(s1->name());
 
+            int b = defaultMateral.indexOf(s2->name());
+
+            if (s1->isUserDef() || s2->isUserDef())
+            {
+                if (!(s1->isUserDef() && s2->isUserDef()))
+                {
+                    return s1->isUserDef() ? false : true;
+                }
+                a = 0;
+                b = 0;
+            }
+            if (a == b && s1->name().length() > 0 && s2->name().length() > 0)
+            {
+                if (s1->isUserDef() && s2->isUserDef())
+                {
+                    return s1->getTime() < s2->getTime();
+                }
+                else {
+                    return strcmp(s1->name().toLatin1().constData(), s2->name().toLatin1().constData()) > 0;
+                }
+                
+                /*
+                if (s1->name().at(0).cell() - s2->name().at(0).cell() == 0)
+                {
+                    return s1->name().at(s1->name().length() - 1).cell() - s2->name().at(s2->name().length() - 1).cell()<0;
+                }
+                else {
+                    return s1->name().at(0).cell() - s2->name().at(0).cell()>0;
+                }
+                */
+            }
+            if (a >= 0 && b >= 0)
+            {
+                return a < b;
+            }
+            else {
+                return a > b;
+            }
+            
+            });
+    }
     QStringList PrintMachine::materialsName(int extureIndex)
     {
-        QStringList names = qcxutil::objectUniqueNames(m_materials);
+        
+        QStringList names = cxkernel::objectUniqueNames(m_materials);
         int index = 0;
         for (QString &name : names)
         {

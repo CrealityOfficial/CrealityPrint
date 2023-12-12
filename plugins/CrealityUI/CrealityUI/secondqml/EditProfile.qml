@@ -161,11 +161,11 @@ BasicDialog
 
                 width: parent.width
                 height: 340* screenScaleFactor
-                BasicScrollView{
+                ScrollView{
                     width: parent.width
                     height: 340* screenScaleFactor
-                    hpolicy: ScrollBar.AlwaysOff
-                    vpolicy: ScrollBar.AsNeeded
+//                    hpolicy: ScrollBar.AlwaysOff
+//                    vpolicy: ScrollBar.AsNeeded
                     clip : true
                     Grid{
                         anchors.fill:parent
@@ -642,11 +642,11 @@ BasicDialog
 				Row {
 					spacing: 20
 					width: parent.width
-					BasicScrollView {
+                    ScrollView {
 						width: 125*screenScaleFactor
 						height: 450*screenScaleFactor
-						hpolicy: ScrollBar.AlwaysOff
-						vpolicy: ScrollBar.AsNeeded
+//						hpolicy: ScrollBar.AlwaysOff
+//						vpolicy: ScrollBar.AsNeeded
 						clip : true
 						Column
 						{
@@ -662,12 +662,12 @@ BasicDialog
 							anchors.fill: parent
 						}
 					}
-					BasicScrollView	{
+                    ScrollView	{
 						id: idParamScrollView
 						width: 500*screenScaleFactor
 						height: 450*screenScaleFactor
-						hpolicy: ScrollBar.AlwaysOff
-						vpolicy: ScrollBar.AsNeeded
+//						hpolicy: ScrollBar.AlwaysOff
+//						vpolicy: ScrollBar.AsNeeded
 						clip : true
 						Grid{
 							id: profileValuelList

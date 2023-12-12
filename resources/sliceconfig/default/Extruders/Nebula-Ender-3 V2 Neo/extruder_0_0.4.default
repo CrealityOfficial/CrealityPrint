@@ -1,0 +1,7 @@
+line_width=0.4
+retraction_amount=0.4
+retraction_speed=40
+retraction_retract_speed=40
+retraction_prime_speed=40
+retraction_extrusion_window=1
+retraction_combing=noskin

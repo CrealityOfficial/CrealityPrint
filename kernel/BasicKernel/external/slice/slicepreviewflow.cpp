@@ -2,15 +2,14 @@
 
 #include <QtCore/qmath.h>
 
-#include <mmesh/camera/screencamera.h>
-
 #include <qtuser3d/camera/screencamera.h>
+#include"qtuser3d/trimesh2/camera.h"
+
 #include <qtuser3d/framegraph/colorpicker.h>
 #include <qtuser3d/framegraph/surface.h>
 #include <qtuser3d/framegraph/texturerendertarget.h>
+#include <qtuser3d/trimesh2/conv.h>
 #include <qtusercore/string/stringtool.h>
-
-#include <qcxutil/trimesh2/conv.h>
 
 #include "external/data/modeln.h"
 #include "external/interface/camerainterface.h"
@@ -26,8 +25,9 @@
 #include "internal/render/slicepreviewscene.h"
 #include "qtuser3d/module/selector.h"
 #include "interface/reuseableinterface.h"
-#include "cxkernel/render/worldindicatorentity.h"
+#include "entity/worldindicatorentity.h"
 #include "QtCore/qcoreapplication.h"
+#include <QElapsedTimer>
 
 namespace creative_kernel
 {
@@ -54,7 +54,6 @@ namespace creative_kernel
 
 		m_scene = new SlicePreviewScene(this);
 		m_surface = new qtuser_3d::Surface(this);
-		m_surface->setClearColor(QColor("transparent"));
 
 		m_textureRenderTarget = new qtuser_3d::TextureRenderTarget(m_scene);
 
@@ -104,8 +103,22 @@ namespace creative_kernel
 		return m_scene;
 	}
 
+	void SlicePreviewFlow::useCachePreview()
+	{
+		if (m_attain)
+        {
+#if _DEBUG
+            m_cachePreview.save(m_attain->tempImageFileName());
+#endif
+            m_attain->saveTempGCode();
+            QImage tmpImage = m_cachePreview.isNull() ? QImage("qrc:/UI/photo/imgPreview_default.png") : m_cachePreview;
+            m_attain->saveTempGCodeWithImage(tmpImage);
+        }
+	}
+
 	void SlicePreviewFlow::requestPreview(qtuser_3d::namedReplyFunc func)
 	{
+		m_cachePreview = QImage();
 		m_colorPicker->setFilterKey("rt", 0);
 		m_colorPicker->setClearColor(QColor(0, 0, 0, 0));
 
@@ -120,11 +133,11 @@ namespace creative_kernel
 		pickerCamera->setAspectRatio(1.0f);
 
 		float fovy = 15.0f;
-		mmesh::ScreenCameraMeta meta = mmesh::viewAllByProjection(m_attain->box(), trimesh::vec3(-1.0, -1.0, 1.0), fovy);
+		qtuser_3d::ScreenCameraMeta meta = qtuser_3d::viewAllByProjection(m_attain->box(), trimesh::vec3(-1.0, -1.0, 1.0), fovy);
 
-		pickerCamera->setPosition(qcxutil::vec2qvector(meta.position));
-		pickerCamera->setViewCenter(qcxutil::vec2qvector(meta.viewCenter));
-		pickerCamera->setUpVector(qcxutil::vec2qvector(meta.upVector));
+		pickerCamera->setPosition(qtuser_3d::vec2qvector(meta.position));
+		pickerCamera->setViewCenter(qtuser_3d::vec2qvector(meta.viewCenter));
+		pickerCamera->setUpVector(qtuser_3d::vec2qvector(meta.upVector));
 
 		pickerCamera->setFieldOfView(fovy);
 		pickerCamera->setNearPlane(meta.fNear);
@@ -151,16 +164,20 @@ namespace creative_kernel
 		// 刷新场景，以便后续生成预览图
 		renderOneFrame();
 
+		//截图
 		m_colorPicker->requestNamedCapture(func);
 
-		// 刷新场景渲染
-		renderOneFrame();
-		//pickerCamera->setNearPlane(np);
-		//pickerCamera->setFarPlane(fp);
+		//// 等待截图完成，超时时间500ms
+		//QElapsedTimer timer;
+		//timer.start();
+		//while (m_cachePreview.isNull() && timer.elapsed() <= 500)
+		//	QCoreApplication::processEvents();
 	}
 
-	void SlicePreviewFlow::endRequest()
+	void SlicePreviewFlow::endRequest(const QImage &image)
 	{
+		m_cachePreview = image;
+
 		spaceEntity()->setParent((Qt3DCore::QNode*)nullptr);
 		m_surface->setViewport(QRectF(0.0f, 0.0f, 1.0f, 1.0f));
 
@@ -179,8 +196,8 @@ namespace creative_kernel
 		m_colorPicker->useSelfCamera();
 		m_textureRenderTarget->resize(m_surfaceSize);
 
-		/*renderOneFrame();*/
-		requestCapture(true);
+		renderOneFrame();
+		qDebug() << "end request";
 	}
 
 	void SlicePreviewFlow::notifyClipValue()
@@ -378,6 +395,31 @@ namespace creative_kernel
 		m_attain.reset();
 	}
 
+	void SlicePreviewFlow::previewSliceAttain(SliceAttain* attain, int layer)
+	{
+		if (attain == nullptr) return;
+		
+		/*updatePrinterBox(attain->getMachineWidth()
+			, attain->getMachineDepth()
+			, attain->getMachineHeight());*/
+
+		Qt3DRender::QGeometry* geometry = attain->createGeometry();
+		m_scene->setGeometry(geometry, Qt3DRender::QGeometryRenderer::Points);
+		
+		m_scene->setLayerHeight(attain->layerHeight());
+		m_scene->setLineWidth(attain->lineWidth());
+
+		m_scene->setPreviewNodeModelMatrix(qtuser_3d::xform2QMatrix(attain->modelMatrix()));
+
+		m_scene->setZseamRetractDis();
+
+		m_scene->setIndicatorVisible(false);
+
+		//setCurrentLayer(layer, false);
+		//setCurrentStep(attain->steps(layer));
+	}
+
+
 	void SlicePreviewFlow::setSliceAttain(SliceAttain* attain)
 	{
 
@@ -396,7 +438,7 @@ namespace creative_kernel
 		if (m_attain.data())
 		{
 			Qt3DRender::QGeometry* geometry = m_attain->createGeometry();
-			m_scene->setGeometry(geometry, Qt3DRender::QGeometryRenderer::Triangles);
+			m_scene->setGeometry(geometry, Qt3DRender::QGeometryRenderer::Points);
 			m_scene->setRetractionGeometry(m_attain->createRetractionGeometry(), Qt3DRender::QGeometryRenderer::Points);
 			m_scene->setZSeamsGeometry(m_attain->createZSeamsGeometry(), Qt3DRender::QGeometryRenderer::Points);
 
@@ -406,7 +448,9 @@ namespace creative_kernel
 			//m_scene->setRetractionGeometryRenderer(m_attain->createRetractionGeometryRenderer());
 			//m_scene->setZSeamsGeometryRenderer(m_attain->createZSeamsGeometryRenderer());
 
-			m_scene->setPreviewNodeModelMatrix(qcxutil::xform2QMatrix(m_attain->modelMatrix()));
+			m_scene->setPreviewNodeModelMatrix(qtuser_3d::xform2QMatrix(m_attain->modelMatrix()));
+
+			m_scene->setIndicatorVisible(true);
 
 			m_attain->setGCodeVisualType(m_visualType);
 
@@ -429,10 +473,10 @@ namespace creative_kernel
 		// 模型越大，从加载到显示所需的时间会越多，甚至会大于 1 秒，
 		// 所以需要先开启持续渲染，直到模型显示出来后，再换回按需渲染，
 		// 以避免加载时间超出按需阈值，所导致的模型不显示
-		setContinousRender();
+		//setContinousRender();
 		// 持续渲染模式时长
-		int continousMSecs = stepCount / 160;
-		QTimer::singleShot(continousMSecs, []() { setCommandRender(); });
+		//int continousMSecs = stepCount / 160;
+		//QTimer::singleShot(continousMSecs, []() { setCommandRender(); });
 
 		emit layersChanged();
 	}
@@ -456,7 +500,7 @@ namespace creative_kernel
 	{
 		qInfo() << "fdm slice preview begineRender";
 		cacheReuseable(this);
-
+		m_scene->setParent(this);
 		m_surface->setCamera(getCachedCameraEntity());
 
 		if (!m_attain.data())
@@ -483,6 +527,7 @@ namespace creative_kernel
 		qInfo() << "fdm slice preview endRender";
 		m_surface->setCamera(nullptr);
 		m_scene->clear();
+		m_scene->setParent((Qt3DCore::QNode*)nullptr);
 		spaceEntity()->setParent((Qt3DCore::QNode*)nullptr);
 		setModelEffectClipMaxZ();
 
@@ -499,11 +544,15 @@ namespace creative_kernel
 	{
 		if (size.width() == 0 || size.height() == 0)
 			return;
+		if (m_surfaceSize == size)
+			return;
 
 		m_surface->updateSurfaceSize(size);
 		m_colorPicker->resize(size);
 		m_textureRenderTarget->resize(size);
 		m_surfaceSize = size;
+
+		requestCapture(true);
 	}
 
 	void SlicePreviewFlow::onKeyPress(QKeyEvent* event)
@@ -512,7 +561,7 @@ namespace creative_kernel
 		{
 			auto f = [this](const QImage& image) {
 				image.save("fdm.bmp");
-				endRequest();
+				endRequest(image);
 			};
 
 			requestPreview(f);
@@ -555,5 +604,21 @@ namespace creative_kernel
 		if (capture)
 			m_colorPicker->requestCapture();
 		emit signalUpdate();
+	}
+
+#ifdef ENABLE_DEBUG_OVERLAY
+	bool SlicePreviewFlow::showDebugOverlay()
+	{
+		return m_surface->showDebugOverlay();
+	}
+	void SlicePreviewFlow::setShowDebugOverlay(bool showDebugOverlay)
+	{
+		m_surface->setShowDebugOverlay(showDebugOverlay);
+	}
+#endif
+
+	void SlicePreviewFlow::setSceneClearColor(const QColor& color)
+	{
+		m_surface->setClearColor(color);
 	}
 }

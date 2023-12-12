@@ -17,6 +17,7 @@ namespace creative_kernel
 		//virtual void name() = 0;
 	};
 
+	class ModelN;
 	class SpaceTracer
 	{
 	public:
@@ -24,6 +25,12 @@ namespace creative_kernel
 
 		virtual void onBoxChanged(const qtuser_3d::Box3D& box) = 0;
 		virtual void onSceneChanged(const qtuser_3d::Box3D& box) = 0;
+
+		virtual void onModelToAdded(ModelN* model) {}
+		virtual void onModelToRemoved(ModelN* model) {}
+
+		virtual void onModelAdded(ModelN* model) {}
+		virtual void onModelRemoved(ModelN* model) {}
 	};
 
 	class MeshIOInterface
@@ -46,6 +53,14 @@ namespace creative_kernel
 
 		virtual void onStartPhase() = 0;
 		virtual void onStopPhase() = 0;
+	};
+
+	class CloseHook
+	{
+	public:
+		virtual ~CloseHook() {}
+
+		virtual void onWindowClose() = 0;
 	};
 }
 #endif // CREATIVE_KERNEL_INTERFACE_1595470868902_H

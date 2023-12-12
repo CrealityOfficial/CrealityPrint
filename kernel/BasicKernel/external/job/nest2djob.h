@@ -2,21 +2,14 @@
 #define AUTOLAYOUT_NEST2D_JOB_H
 #include "basickernelexport.h"
 #include "data/modeln.h"
-#include "nestplacer/nestplacer.h"
 
 #include "qtusercore/module/job.h"
-#include "qcxutil/util/nest2djob.h"
+#include "cxkernel/wrapper/nest2djob.h"
 
 namespace creative_kernel
 {
-    struct NestResult
-    {
-        ModelN* model;
-        nestplacer::TransMatrix trans;
-    };
-
     class LayoutItem : public QObject,
-        public qcxutil::PlaceItem
+        public cxkernel::PlaceItem
     {
     public:
         LayoutItem(ModelN* model, QObject* parent = nullptr);
@@ -30,7 +23,7 @@ namespace creative_kernel
         ModelN* model;
     };
 
-    class BASIC_KERNEL_API Nest2DJob : public qcxutil::Nest2DJob
+    class BASIC_KERNEL_API Nest2DJob : public cxkernel::Nest2DJob
     {
         Q_OBJECT
     public:

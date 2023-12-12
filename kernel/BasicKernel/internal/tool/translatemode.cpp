@@ -90,8 +90,12 @@ namespace creative_kernel
 
     QVector3D TranslateMode::position()
     {
-        if (!m_translateOp)return QVector3D(0, 0, 0);
-        return m_translateOp->position();
+        QVector3D pos;
+        if (!m_translateOp)
+            pos = QVector3D(0, 0, 0);
+        else 
+            pos = m_translateOp->position();
+        return pos;
     }
 
     float TranslateMode::positionX()

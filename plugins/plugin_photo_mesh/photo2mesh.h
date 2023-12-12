@@ -1,6 +1,7 @@
 #ifndef _NULLSPACE_PHOTO2MESH_1589849922902_H
 #define _NULLSPACE_PHOTO2MESH_1589849922902_H
 #include "photo2meshjob.h"
+#include "cxkernel/wrapper/photomeshmodel.h"
 
 class Photo2Mesh : public QObject
 {
@@ -20,7 +21,7 @@ public:
 	Q_INVOKABLE void setMeshWidth(float meshX);
 	Q_INVOKABLE void setBlur(int blur);
 protected:
-	Photo2MeshInput m_input;
+	cxkernel::PhotoMeshModel* m_model;
 	QStringList m_fileNames;
 };
 #endif // _NULLSPACE_PHOTO2MESH_1589849922902_H

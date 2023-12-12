@@ -1,9 +1,8 @@
-
-#add_definitions(-DUSE_CGAL_REPAIR_MESH)
-add_definitions(-DCGAL_DISABLE_GMP)
-
-
 file(GLOB SRCS *.h *.cpp)
-set(LIBS ${QtQmlQ3dLibs} trimesh2 ${qtuser} mmesh cmesh BasicKernel OpenMP::OpenMP_CXX)
 
-__add_real_target(plugin_repairnew dll SOURCE ${SRCS} ${REPAIR_SRCS} LIB ${LIBS} FOLDER plugin)
+__cc_find(cmesh_noigl)
+__assert_target(cmesh_noigl)
+
+list(APPEND LIBS cmesh_noigl)
+
+add_kernel_plugin(repairnew)

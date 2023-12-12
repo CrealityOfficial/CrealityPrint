@@ -1,0 +1,982 @@
+{
+	"wall_extruder_nr":
+	{
+		"label": "Wall Extruder",
+		"description": "The extruder train used for printing the walls. This is used in multi-extrusion.",
+		"type": "optional_extruder",
+		"parameter_level": "2",
+		"default_value": "-1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": true,
+		"settable_globally": true,
+		"enabled": "eval(contex.value(\"extruders_enabled_count\")) > 1"
+	},
+	"wall_0_extruder_nr":
+	{
+		"label": "Outer Wall Extruder",
+		"description": "The extruder train used for printing the outer wall. This is used in multi-extrusion.",
+		"type": "optional_extruder",
+		"value": "eval(contex.value(\"wall_extruder_nr\"))",
+		"default_value": "-1",
+		"parameter_level": "2",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": true,
+		"settable_globally": true,
+		"enabled": "eval(contex.value(\"extruders_enabled_count\")) > 1"
+	},
+	"wall_x_extruder_nr":
+	{
+		"label": "Inner Wall Extruder",
+		"description": "The extruder train used for printing the inner walls. This is used in multi-extrusion.",
+		"type": "optional_extruder",
+		"value": "eval(contex.value(\"wall_extruder_nr\"))",
+		"default_value": "-1",
+		"parameter_level": "2",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": true,
+		"settable_globally": true,
+		"enabled": "eval(contex.value(\"extruders_enabled_count\")) > 1"
+	},
+	"wall_thickness":
+	{
+		"label": "Wall Thickness",
+		"description": "The thickness of the walls in the horizontal direction. This value divided by the wall line width defines the number of walls.",
+		"unit": "mm",
+		"default_value": "0.8",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"line_width\"))",
+		"maximum_value_warning": "10 * eval(contex.value(\"line_width\"))",
+		"type": "float",
+		"limit_to_extruder": "wall_x_extruder_nr",
+		"parameter_level": "-2",
+		"settable_per_mesh": true
+	},
+	"wall_line_count":
+	{
+		"label": "Wall Line Count",
+		"description": "The number of walls. When calculated by the wall thickness, this value is rounded to a whole number.",
+		"default_value": "2",
+		"minimum_value": "0",
+		"minimum_value_warning": "1",
+		"maximum_value_warning": "10",
+		"parameter_level": "1",
+		"type": "int",
+		"value": "eval(contex.value(\"magic_spiralize\")) == true ? 1 : (eval(contex.value(\"wall_thickness\")) != 0 ?  Math.max(1, Number(((eval(contex.value(\"wall_thickness\")) - eval(contex.value(\"wall_line_width_0\"))) / eval(contex.value(\"wall_line_width_x\"))).toFixed()) + 1) : 0)",
+		"limit_to_extruder": "wall_x_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"wall_transition_length":
+	{
+		"label": "Wall Transition Length",
+		"description": "When transitioning between different numbers of walls as the part becomes thinner, a certain amount of space is allotted to split or join the wall lines.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "0.4",
+		"value": "eval(contex.value(\"line_width\"))",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.5 * line_width",
+		"maximum_value_warning": "2 * line_width",
+		"maximum_value": "min_bead_width * 3 * math.pi"
+	},
+	"wall_distribution_count":
+	{
+		"label": "Wall Distribution Count",
+		"description": "The number of walls, counted from the center, over which the variation needs to be spread. Lower values mean that the outer walls don't change in width.",
+		"type": "int",
+		"maximum_value": "999999",
+		"default_value": "1",
+		"minimum_value": "1"
+	},
+	"wall_transition_angle":
+	{
+		"label": "Wall Transitioning Threshold Angle",
+		"description": "When to create transitions between even and odd numbers of walls. A wedge shape with an angle greater than this setting will not have transitions and no walls will be printed in the center to fill the remaining space. Reducing this setting reduces the number and length of these center walls, but may leave gaps or overextrude.",
+		"type": "float",
+		"unit": "°",
+		"default_value": "10",
+		"minimum_value": "1",
+		"minimum_value_warning": "5",
+		"maximum_value_warning": "50",
+		"maximum_value": "59"
+	},
+	"wall_transition_filter_distance":
+	{
+		"label": "Wall Transitioning Filter Distance",
+		"description": "If it would be transitioning back and forth between different numbers of walls in quick succession, don't transition at all. Remove transitions if they are closer together than this distance.",
+		"type": "float",
+		"unit": "mm",
+		"value": "100",
+		"enabled": false,
+		"default_value": "100",
+		"minimum_value": "wall_transition_length",
+		"minimum_value_warning": "math.cos(wall_transition_angle / 180 * math.pi) * wall_line_width_x",
+		"maximum_value": "999999"
+	},
+	"wall_transition_filter_deviation":
+	{
+		"label": "Wall Transitioning Filter Margin",
+		"description": "Prevent transitioning back and forth between one extra wall and one less. This margin extends the range of line widths which follow to [Minimum Wall Line Width - Margin, 2 * Minimum Wall Line Width + Margin]. Increasing this margin reduces the number of transitions, which reduces the number of extrusion starts/stops and travel time. However, large line width variation can lead to under- or overextrusion problems.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "0.1",
+		"value": ".25 * eval(contex.value(\"machine_nozzle_size\"))",
+		"minimum_value": "0",
+		"minimum_value_warning": ".01",
+		"maximum_value_warning": "machine_nozzle_size"
+	},
+	"roofing_only_one_wall":
+	{
+		"label": "Only One Wall for Roofing",
+		"description": "Only a single wall is used for the top surface, so that more space can be used for the roofing pattern.",
+		"type": "bool",
+		"default_value": "false",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"wall_0_wipe_dist":
+	{
+		"label": "Outer Wall Wipe Distance",
+		"description": "Distance of a travel move inserted after the outer wall, to hide the Z seam better.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.2",
+		"value": "eval(contex.value(\"machine_nozzle_size\")) / 2",
+		"minimum_value": "0",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\")) * 5",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"roofing_extruder_nr":
+	{
+		"label": "Top Surface Skin Extruder",
+		"description": "The extruder train used for printing the top most skin. This is used in multi-extrusion.",
+		"type": "optional_extruder",
+		"default_value": "-1",
+		"value": "eval(contex.value(\"top_bottom_extruder_nr\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": true,
+		"settable_globally": true,
+		"enabled": "eval(contex.value(\"extruders_enabled_count\")) > 1 && eval(contex.value(\"roofing_layer_count\")) > 0 && eval(contex.value(\"top_layers\")) > 0"
+	},
+	"top_bottom_extruder_nr":
+	{
+		"label": "Top/Bottom Extruder",
+		"description": "The extruder train used for printing the top and bottom skin. This is used in multi-extrusion.",
+		"type": "optional_extruder",
+		"default_value": "-1",
+		"parameter_level": "2",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": true,
+		"settable_globally": true,
+		"enabled": "eval(contex.value(\"extruders_enabled_count\")) > 1"
+	},
+	"top_bottom_thickness":
+	{
+		"label": "Top/Bottom Thickness",
+		"description": "The thickness of the top/bottom layers in the print. This value divided by the layer height defines the number of top/bottom layers.",
+		"unit": "mm",
+		"default_value": "0.8",
+		"minimum_value": "0",
+		"minimum_value_warning": "0.2",
+		"maximum_value": "eval(contex.value(\"machine_height\"))",
+		"type": "float",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"parameter_level": "-2",
+		"settable_per_mesh": true
+	},
+	"top_thickness":
+	{
+		"label": "Top Thickness",
+		"description": "The thickness of the top layers in the print. This value divided by the layer height defines the number of top layers.",
+		"unit": "mm",
+		"default_value": "0.8",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"layer_height\"))",
+		"maximum_value": "eval(contex.value(\"machine_height\"))",
+		"type": "float",
+		"value": "eval(contex.value(\"top_bottom_thickness\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"parameter_level": "-2",
+		"settable_per_mesh": true
+	},
+	"top_layers":
+	{
+		"label": "Top Layers",
+		"description": "The number of top layers. When calculated by the top thickness, this value is rounded to a whole number.",
+		"default_value": "3",
+		"minimum_value": "0",
+		"maximum_value_warning": "100",
+		"parameter_level": "1",
+		"type": "int",
+		"minimum_value_warning": "0",
+		"value": "eval(contex.value(\"infill_sparse_density\")) == 100 ? 0 : Math.ceil((eval(contex.value(\"top_thickness\")).toFixed(2)) / (eval(contex.value(\"layer_height\")).toFixed(2)))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"bottom_thickness":
+	{
+		"label": "Bottom Thickness",
+		"description": "The thickness of the bottom layers in the print. This value divided by the layer height defines the number of bottom layers.",
+		"unit": "mm",
+		"default_value": "0.6",
+		"minimum_value": "0",
+		"minimum_value_warning": "0.0 + eval(contex.value(\"layer_height\"))",
+		"type": "float",
+		"value": "eval(contex.value(\"top_bottom_thickness\"))",
+		"maximum_value": "eval(contex.value(\"machine_height\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"parameter_level": "-2",
+		"settable_per_mesh": true
+	},
+	"bottom_layers":
+	{
+		"label": "Bottom Layers",
+		"description": "The number of bottom layers. When calculated by the bottom thickness, this value is rounded to a whole number.",
+		"minimum_value": "0",
+		"minimum_value_warning": "0",
+		"parameter_level": "1",
+		"default_value": "3",
+		"type": "int",
+		"value": "eval(contex.value(\"infill_sparse_density\")) == 100 ? 999999 : Math.ceil((eval(contex.value(\"bottom_thickness\")).toFixed(2)) / (eval(contex.value(\"layer_height\")).toFixed(2)))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"initial_bottom_layers":
+	{
+		"label": "Initial Bottom Layers",
+		"description": "The number of initial bottom layers, from the build-plate upwards. When calculated by the bottom thickness, this value is rounded to a whole number.",
+		"minimum_value": "0",
+		"minimum_value_warning": "0",
+		"default_value": "6",
+		"type": "int",
+		"value": "eval(contex.value(\"bottom_layers\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"roofing_layer_count":
+	{
+		"label": "Top Surface Skin Layers",
+		"description": "The number of top most skin layers. Usually only one top most layer is sufficient to generate higher quality top surfaces.",
+		"default_value": "0",
+		"minimum_value": "0",
+		"maximum_value_warning": "eval(contex.value(\"top_layers\")) == 0 ? 0 : eval(contex.value(\"top_layers\")) - 1",
+		"type": "int",
+		"value": "0",
+		"parameter_level": "1",
+		"limit_to_extruder": "roofing_extruder_nr",
+		"settable_per_mesh": true,
+		"enabled": "eval(contex.value(\"top_layers\")) > 0"
+	},
+	"top_bottom_pattern":
+	{
+		"label": "Top/Bottom Pattern",
+		"description": "The pattern of the top/bottom layers.",
+		"type": "enum",
+		"options":
+		{
+			"lines": "Lines",
+			"concentric": "Concentric",
+			"zigzag": "Zig Zag"
+		},
+		"default_value": "zigzag",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"top_bottom_pattern_0":
+	{
+		"label": "Bottom Pattern Initial Layer",
+		"description": "The pattern on the first layer at the bottom of the print.",
+		"type": "enum",
+		"options":
+		{
+			"lines": "Lines",
+			"concentric": "Concentric",
+			"zigzag": "Zig Zag"
+		},
+		"default_value": "lines",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"value": "getEnumValue(\"top_bottom_pattern\")",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"roofing_pattern":
+	{
+		"label": "Top Surface Skin Pattern",
+		"description": "The pattern of the top most layers.",
+		"type": "enum",
+		"options":
+		{
+			"lines": "Lines",
+			"concentric": "Concentric",
+			"zigzag": "Zig Zag"
+		},
+		"default_value": "lines",
+		"value": "getEnumValue(\"top_bottom_pattern\")",
+		"limit_to_extruder": "roofing_extruder_nr",
+		"settable_per_mesh": true,
+		"enabled": "eval(contex.value(\"roofing_layer_count\")) > 0 && eval(contex.value(\"top_layers\")) > 0"
+	},
+	"connect_skin_polygons":
+	{
+		"label": "Connect Top/Bottom Polygons",
+		"description": "Connect top/bottom skin paths where they run next to each other. For the concentric pattern enabling this setting greatly reduces the travel time, but since the connections can happen midway over fillinh, this feature can reduce the top surface quality.",
+		"type": "bool",
+		"default_value": "true",
+		"enabled": "(eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0) && getEnumValue(\"top_bottom_pattern\") != 'concentric'",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skin_monotonic":
+	{
+		"label": "Monotonic Top/Bottom Order",
+		"description": "Print top/bottom lines in an ordering that causes them to always overlap with adjacent lines in a single direction. This takes slightly more time to print, but makes flat surfaces look more consistent.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "(eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0) && (getEnumValue(\"top_bottom_pattern\") != 'concentric' || getEnumValue(\"top_bottom_pattern_0\") != 'concentric')",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"roofing_monotonic":
+	{
+		"label": "Monotonic Top Surface Order",
+		"description": "Print top surface lines in an ordering that causes them to always overlap with adjacent lines in a single direction. This takes slightly more time to print, but makes flat surfaces look more consistent.",
+		"type": "bool",
+		"value": "true",
+		"default_value": "true",
+		"enabled": "eval(contex.value(\"roofing_layer_count\")) > 0 && eval(contex.value(\"top_layers\")) > 0 && eval(contex.value(\"roofing_pattern\")) != 'concentric'",
+		"limit_to_extruder": "roofing_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skin_angles":
+	{
+		"label": "Top/Bottom Line Directions",
+		"description": "A list of integer line directions to use when the top/bottom layers use the lines or zig zag pattern. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the traditional default angles (45 and 135 degrees).",
+		"type": "[int]",
+		"default_value": "[ ]",
+		"enabled": "(eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0) && getEnumValue(\"top_bottom_pattern\") != 'concentric'",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"roofing_angles":
+	{
+		"label": "Top Surface Skin Line Directions",
+		"description": "A list of integer line directions to use when the top surface skin layers use the lines or zig zag pattern. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the traditional default angles (45 and 135 degrees).",
+		"type": "[int]",
+		"default_value": "[ ]",
+		"enabled": "getEnumValue(\"roofing_pattern\") != 'concentric' && eval(contex.value(\"roofing_layer_count\")) > 0 && eval(contex.value(\"top_layers\")) > 0",
+		"limit_to_extruder": "roofing_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"wall_0_inset":
+	{
+		"label": "Outer Wall Inset",
+		"description": "Inset applied to the path of the outer wall. If the outer wall is smaller than the nozzle, and printed after the inner walls, use this offset to get the hole in the nozzle to overlap with the inner walls instead of the outside of the model.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.0",
+		"value": "(eval(contex.value(\"wall_line_width_0\")) < eval(contex.value(\"machine_nozzle_size\")) && !eval(contex.value(\"outer_inset_first\"))) ? (eval(contex.value(\"machine_nozzle_size\")) - eval(contex.value(\"wall_line_width_0\"))) / 2 : 0",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\"))",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"optimize_wall_printing_order":
+	{
+		"label": "Optimize Wall Printing Order",
+		"description": "Optimize the order of wall printing to reduce the number of retracements and the distance travelled. Most parts will benefit from enabling this feature, but some may take longer, so compare the estimated printing time with not optimized. The first layer was not optimized when selecting the brim as build plate adhesion type.",
+		"type": "bool",
+		"default_value": "true",
+		"settable_per_mesh": true
+	},
+	"inset_direction":
+	{
+		"label": "Wall Ordering",
+		"description": "Determines the order in which walls are printed. Printing outer walls earlier helps with dimensional accuracy, as faults from inner walls cannot propagate to the outside. However printing them later allows them to stack better when overhangs are printed. When there is an uneven amount of total innner walls, the 'center last line' is always printed last.",
+		"type": "enum",
+		"options":
+		{
+			"inside_out": "Inside To Outside",
+			"outside_in": "Outside To Inside"
+		},
+		"default_value": "inside_out",
+		"settable_per_mesh": true
+	},
+	"outer_inset_first":
+	{
+		"label": "Outer Wall First, Inner Wall Second",
+		"description": "Prints walls in order of outside to inside when enabled. This can help improve the dimensional accuracy of X and Y when using a high viscosity plastic like ABS; however it may reduce outer surface print quality, especially on overhangs.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"wall_0_extruder_nr\")) == eval(contex.value(\"wall_x_extruder_nr\"))",
+		"settable_per_mesh": true
+	},
+	"alternate_extra_perimeter":
+	{
+		"label": "Alternate Extra Wall",
+		"description": "Print an extra wall every other layer. In this way, the filler will get stuck between these extra walls, resulting in stronger print quality.",
+		"type": "bool",
+		"default_value": "false",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"unify_walls_print_direction":
+	{
+		"label": "Unify Walls Print Drection",
+		"description": "the walls of the outside shape and the holes will be printed in the same direction.",
+		"type": "bool",
+		"default_value": "true",
+		"settable_per_mesh": true
+	},	
+	"min_wall_line_width":
+	{
+		"label": "Minimum Wall Line Width",
+		"description": "For thin structures around once or twice the nozzle size, the line widths need to be altered to adhere to the thickness of the model. This setting controls the minimum line width allowed for the walls. The minimum line widths inherently also determine the maximum line widths, since we transition from N to N+1 walls at some geometry thickness where the N walls are wide and the N+1 walls are narrow. The widest possible wall line is twice the Minimum Wall Line Width.",
+		"unit": "mm",
+		"minimum_value_warning": "(contex.value(\"wall_line_width_0\")) > eval(contex.value(\"wall_line_width_x\"))? 0.5 * eval(contex.value(\"wall_line_width_x\")):0.5 *eval(contex.value(\"wall_line_width_0\"))",
+		"maximum_value_warning": "eval(contex.value(\"wall_line_width_x\")) > eval(contex.value(\"wall_line_width_0\"))? eval(contex.value(\"wall_line_width_x\"))*2:eval(contex.value(\"wall_line_width_0\"))*2",
+		"default_value": "0.3",
+		"value": "eval(contex.value(\"machine_nozzle_size\")) * .85",
+		"type": "float",
+		"settable_per_mesh": true
+	},
+	"min_even_wall_line_width":
+	{
+		"label": "Minimum Even Wall Line Width",
+		"description": "The minimum line width for normal polygonal walls. This setting determines at which model thickness we switch from printing a single thin wall line, to printing two wall lines. A higher Minimum Even Wall Line Width leads to a higher maximum odd wall line width. The maximum even wall line width is calculated as Outer Wall Line Width + 0.5 * Minimum Odd Wall Line Width.",
+		"unit": "mm",
+		"minimum_value_warning": "(contex.value(\"wall_line_width_0\")) > eval(contex.value(\"wall_line_width_x\"))? 0.5 * eval(contex.value(\"wall_line_width_x\")):0.5 *eval(contex.value(\"wall_line_width_0\"))",
+		"maximum_value_warning": "eval(contex.value(\"wall_line_width_x\")) > eval(contex.value(\"wall_line_width_0\"))? eval(contex.value(\"wall_line_width_x\"))*2:eval(contex.value(\"wall_line_width_0\"))*2",
+		"default_value": "0.3",
+		"value": "eval(contex.value(\"min_wall_line_width\"))",
+		"type": "float",
+		"parameter_level": "-2",
+		"settable_per_mesh": true
+	},
+	"min_odd_wall_line_width":
+	{
+		"label": "Minimum Odd Wall Line Width",
+		"description": "The minimum line width for middle line gap filler polyline walls. This setting determines at which model thickness we switch from printing two wall lines, to printing two outer walls and a single central wall in the middle. A higher Minimum Odd Wall Line Width leads to a higher maximum even wall line width. The maximum odd wall line width is calculated as 2 * Minimum Even Wall Line Width.",
+		"unit": "mm",
+		"minimum_value_warning": "(contex.value(\"wall_line_width_0\")) > eval(contex.value(\"wall_line_width_x\"))? 0.5 * eval(contex.value(\"wall_line_width_x\")):0.5 *eval(contex.value(\"wall_line_width_0\"))",
+		"maximum_value_warning": "eval(contex.value(\"wall_line_width_x\")) > eval(contex.value(\"wall_line_width_0\"))? eval(contex.value(\"wall_line_width_x\"))*2:eval(contex.value(\"wall_line_width_0\"))*2",
+		"default_value": "0.3",
+		"value": "eval(contex.value(\"min_wall_line_width\"))",
+		"type": "float",
+		"parameter_level": "-2",
+		"settable_per_mesh": true
+	},
+	"travel_compensate_overlapping_walls_enabled":
+	{
+		"label": "Compensate Wall Overlaps",
+		"description": "Compensate the flow for parts of a wall being printed where there is already a wall in place.",
+		"type": "bool",
+		"default_value": "true",
+		"limit_to_extruder": "wall_x_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"travel_compensate_overlapping_walls_0_enabled":
+	{
+		"label": "Compensate Outer Wall Overlaps",
+		"description": "Compensate the flow for parts of an outer wall being printed where there is already a wall in place.",
+		"type": "bool",
+		"default_value": "true",
+		"value": "eval(contex.value(\"travel_compensate_overlapping_walls_enabled\"))",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"travel_compensate_overlapping_walls_x_enabled":
+	{
+		"label": "Compensate Inner Wall Overlaps",
+		"description": "Compensate the flow for parts of an inner wall being printed where there is already a wall in place.",
+		"type": "bool",
+		"default_value": "true",
+		"value": "eval(contex.value(\"travel_compensate_overlapping_walls_enabled\"))",
+		"limit_to_extruder": "wall_x_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"wall_min_flow":
+	{
+		"label": "Minimum Wall Flow",
+		"description": "The minimum percentage flow rate allowed by the wall line. When a wall is close to an existing wall, wall overlap compensation can reduce its flow. Walls with a flow rate less than this value will be replaced by travel moves. When using this setting, you must enable wall overlap compensation and print the outer wall before printing the inner wall.",
+		"unit": "%",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "0",
+		"type": "float",
+		"enabled": "eval(contex.value(\"travel_compensate_overlapping_walls_0_enabled\")) || eval(contex.value(\"travel_compensate_overlapping_walls_x_enabled\"))",
+		"settable_per_mesh": true
+	},
+	"wall_min_flow_retract":
+	{
+		"label": "Prefer Retract",
+		"description": "If enabled, retraction will be used rather than combing for travel moves that replace walls whose flow is below the minimum flow threshold.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "(eval(contex.value(\"travel_compensate_overlapping_walls_0_enabled\")) || eval(contex.value(\"travel_compensate_overlapping_walls_x_enabled\"))) && eval(contex.value(\"wall_min_flow\")) > 0",
+		"settable_per_mesh": true
+	},
+	"fill_perimeter_gaps":
+	{
+		"label": "Fill Gaps Between Walls",
+		"description": "Fills the gaps between walls where no walls fit.",
+		"type": "enum",
+		"options": {
+			"nowhere": "Nowhere",
+			"everywhere": "Everywhere"
+		},
+		"default_value": "everywhere",
+		"parameter_level": "1",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"filter_out_tiny_gaps":
+	{
+		"label": "Filter Out Tiny Gaps",
+		"description": "Filter out tiny gaps to reduce blobs on outside of model.",
+		"type": "bool",
+		"default_value": "true",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"fill_outline_gaps": 
+	{
+		"label": "Print Thin Walls",
+		"description": "Print pieces of the model which are horizontally thinner than the nozzle size.",
+		"type": "bool",
+		"default_value": "false",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"min_feature_size":
+	{
+		"label": "Minimum Feature Size",
+		"description": "Minimum thickness of thin features. Model features that are thinner than this value will not be printed, while features thicker than the Minimum Feature Size will be widened to the Minimum Wall Line Width.",
+		"unit": "mm",
+		"default_value": "0.1",
+		"value": "eval(contex.value(\"wall_line_width_0\")) / 4",
+		"minimum_value": "0",
+		"maximum_value": "wall_line_width_0",
+		"type": "float",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"enabled": "fill_outline_gaps",
+		"settable_per_mesh": true
+	},
+	"min_bead_width":
+	{
+		"label": "Minimum Thin Wall Line Width",
+		"description": "Width of the wall that will replace thin features (according to the Minimum Feature Size) of the model. If the Minimum Wall Line Width is thinner than the thickness of the feature, the wall will become as thick as the feature itself.",
+		"unit": "mm",
+		"value": "eval(contex.value(\"min_wall_line_width\"))",
+		"default_value": "0.2",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "min_feature_size",
+		"maximum_value_warning": "wall_line_width_0",
+		"type": "float",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"enabled": "fill_outline_gaps",
+		"settable_per_mesh": true
+	},
+	"single_extrusion_walls": 
+	{
+		"label": "Single Extrusion Walls",
+		"description": "Enable single extrusion walls.",
+		"type": "bool",
+		"default_value": "false",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"single_wall_model": 
+	{
+		"label": "Single Wall Model",
+		"description": "whether single wall model.",
+		"type": "bool",
+		"default_value": "false",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"enabled":"eval(contex.value(\"single_extrusion_walls\"))",
+		"settable_per_mesh": true
+	},
+	"max_part_outline_num": 
+	{
+		"label": "Max Part OutLine Num",
+		"description": "The Num of part outline",
+		"type": "int",
+		"default_value": "1000",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"initial_layer_reserve": 
+	{
+		"label": "Initial Layer Reserve",
+		"description": "The number of layers reserved for the bottom layer",
+		"type": "int",
+		"default_value": "0",
+		"minimum_value": "0",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "5",
+		"settable_per_mesh": true
+	},
+	"z_offset":
+	{
+		"label": "Vertical Expansion",
+		"description": "Outward Expand Vertical.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value_warning": "-1",
+		"maximum_value_warning": "10",
+		"parameter_level": "1",
+		"default_value": "0",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"xy_offset":
+	{
+		"label": "Horizontal Expansion",
+		"description": "Amount of offset applied to all polygons in each layer. Positive values can compensate for too big holes; negative values can compensate for too small holes.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value_warning": "-1",
+		"maximum_value_warning": "10",
+		"parameter_level": "1",
+		"default_value": "0",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"xy_offset_layer_0":
+	{
+		"label": "Initial Layer Horizontal Expansion",
+		"description": "Amount of offset applied to all polygons in the first layer. A negative value can compensate for squishing of the first layer known as [elephant's foot].",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value_warning": "-1",
+		"maximum_value_warning": "10",
+		"default_value": "0",
+		"value": "eval(contex.value(\"xy_offset\"))",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"route_planning":
+	{
+		"label": "Route Planning",
+		"description": "Planning the print path.",
+		"type": "enum",
+		"options":
+		{
+			"to_and_fro": "to and fro",
+			"none": "none"
+		},
+		"default_value": "none",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"z_seam_type":
+	{
+		"label": "Z Seam Alignment",
+		"description": "The starting point of each path in a layer. When paths in consecutive layers start at the same point, a vertical seam may show on the print. When aligning these near a user specified location, the seam is easiest to remove. When placed randomly, the inaccuracies at the paths' start will be less noticeable. When taking the shortest path, the print will be quicker.",
+		"type": "enum",
+		"options":
+		{
+			"user_specified": "User Specified",
+			"shortest": "Shortest",
+			"random": "Random",
+			"sharpest_corner": "Sharpest Corner"
+		},
+		"default_value": "sharpest_corner",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"z_seam_position":
+	{
+		"label": "Z Seam Position",
+		"description": "The position near where to start printing each part in a layer.",
+		"type": "enum",
+		"options":
+		{
+			"backleft": "Back Left",
+			"back": "Back",
+			"backright": "Back Right",
+			"right": "Right",
+			"frontright": "Front Right",
+			"front": "Front",
+			"frontleft": "Front Left",
+			"left": "Left"
+		},
+		"enabled": "getEnumValue(\"z_seam_type\") == 'user_specified'",
+		"default_value": "back",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"z_seam_x":
+	{
+		"label": "Z Seam X",
+		"description": "The X coordinate of the position near where to start printing each part in a layer.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "110.0",
+		"value": "(getEnumValue(\"z_seam_position\") == 'frontleft' || getEnumValue(\"z_seam_position\") == 'left' || getEnumValue(\"z_seam_position\") == 'backleft') ? 0 : ((getEnumValue(\"z_seam_position\") == 'front' || getEnumValue(\"z_seam_position\") == 'back') ? eval(contex.value(\"machine_width\")) / 2 : eval(contex.value(\"machine_width\"))) - ((eval(contex.value(\"z_seam_relative\")) || eval(contex.value(\"machine_center_is_zero\"))) ? eval(contex.value(\"machine_width\")) / 2 : 0)",
+		"enabled": "getEnumValue(\"z_seam_type\") == 'user_specified'",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"parameter_level": "2",
+		"settable_per_mesh": true
+	},
+	"z_seam_y":
+	{
+		"label": "Z Seam Y",
+		"description": "The Y coordinate of the position near where to start printing each part in a layer.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "220.0",
+		"value": "(getEnumValue(\"z_seam_position\") == 'frontleft' || getEnumValue(\"z_seam_position\") == 'front' || getEnumValue(\"z_seam_position\") == 'frontright') ? 0 : ((getEnumValue(\"z_seam_position\") == 'left' || getEnumValue(\"z_seam_position\") == 'right') ? eval(contex.value(\"machine_depth\")) / 2 : eval(contex.value(\"machine_depth\"))) - ((eval(contex.value(\"z_seam_relative\")) || eval(contex.value(\"machine_center_is_zero\"))) ? eval(contex.value(\"machine_depth\")) / 2 : 0)",
+		"enabled": "getEnumValue(\"z_seam_type\") == 'user_specified'",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"parameter_level": "2",
+		"settable_per_mesh": true
+	},
+	"z_seam_relative":
+	{
+		"label": "Z Seam Relative",
+		"description": "When enabled, the z seam coordinates are relative to each part's centre. When disabled, the coordinates define an absolute position on the build plate.",
+		"type": "bool",
+		"default_value": "true",
+		"enabled": "getEnumValue(\"z_seam_type\") == 'user_specified'",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"z_seam_min_angle_diff": 
+	{
+		"label": "Z Seam Min Angle Diff",
+		"description": "When the angle difference between the Sharpest Corner type point and the Shortest type point is less than this value, the Shortest type point is selected.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "180",
+		"default_value": "36",
+		"enabled": "getEnumValue(\"z_seam_type\") == 'sharpest_corner'",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"z_seam_max_angle": 
+	{
+		"label": "Z Seam Max Angle",
+		"description": "Only corners smaller than this value are considered sharp corners. If there is no sharp corner point, select the Shortest type point.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "180",
+		"default_value": "162",
+		"enabled": "getEnumValue(\"z_seam_type\") == 'sharpest_corner'",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"z_seam_corner":
+	{
+		"label": "Seam Corner Preference",
+		"description": "Control whether corners on the model outline influence the position of the seam. None means that corners have no influence on the seam position. Hide Seam makes the seam more likely to occur on an inside corner. Expose Seam makes the seam more likely to occur on an outside corner. Hide or Expose Seam makes the seam more likely to occur at an inside or outside corner. Smart Hiding allows both inside and outside corners, if appropriate, they will appear more on the inner corners.",
+		"type": "enum",
+		"options":
+		{
+			"z_seam_corner_none":     "None",
+			"z_seam_corner_inner":    "Hide Seam",
+			"z_seam_corner_outer":    "Expose Seam",
+			"z_seam_corner_any":      "Hide or Expose Seam",
+			"z_seam_corner_weighted": "Smart Hiding"
+		},
+		"default_value": "z_seam_corner_inner",
+		"enabled": "getEnumValue(\"z_seam_type\") != 'random'",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"skin_no_small_gaps_heuristic":
+	{
+		"label": "No Skin In Z Gaps",
+		"description": "When there are only a few layers in the model with small vertical gaps, usually there should be a surface layer around the layers in a narrow space. If the vertical gap is very small, enable this setting to not generate a surface layer. This shortens the printing time and slicing time,but technically leaves infill exposed to the air.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skin_outline_count":
+	{
+		"label": "Extra Skin Wall Count",
+		"description": "Replace the outermost part of the top/bottom pattern with multiple concentric lines. Using one or two lines improves roofs that start on infill material.",
+		"default_value": "1",
+		"minimum_value": "0",
+		"maximum_value_warning": "10",
+		"type": "int",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"ironing_enabled":
+	{
+		"label": "Enable Ironing",
+		"description": "Go over the top surface again, but this time extruding very little material. This is to further melt the plastic on the top, creating a smoother surface. The pressure in the nozzle chamber is kept high so that the creases on the surface are filled with material.",
+		"type": "bool",
+		"default_value": "false",
+		"parameter_level": "1",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"ironing_only_highest_layer":
+	{
+		"label": "Iron Only Highest Layer",
+		"description": "Only perform ironing on the very last layer of the mesh. This saves time if the lower layers don't need a smooth surface finish.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"ironing_enabled\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"ironing_pattern":
+	{
+		"label": "Ironing Pattern",
+		"description": "The pattern to use for ironing top surfaces.",
+		"type": "enum",
+		"options":
+		{
+			"concentric": "Concentric",
+			"zigzag": "Zig Zag"
+		},
+		"default_value": "zigzag",
+		"enabled": "eval(contex.value(\"ironing_enabled\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"ironing_monotonic":
+	{
+		"label": "Monotonic Ironing Order",
+		"description": "Print ironing lines in an ordering that causes them to always overlap with adjacent lines in a single direction. This takes slightly more time to print, but makes flat surfaces look more consistent.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"ironing_enabled\")) && getEnumValue(\"ironing_pattern\") != 'concentric'",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"ironing_line_spacing":
+	{
+		"label": "Ironing Line Spacing",
+		"description": "The distance between the lines of ironing.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "0.1",
+		"minimum_value": "0.001",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_tip_outer_diameter\"))",
+		"enabled": "eval(contex.value(\"ironing_enabled\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"ironing_flow":
+	{
+		"label": "Ironing Flow",
+		"description": "The amount of material, relative to a normal skin line, to extrude during ironing. Keeping the nozzle filled helps filling some of the crevices of the top surface, but too much results in overextrusion and blips on the side of the surface.",
+		"type": "float",
+		"unit": "%",
+		"default_value": "10.0",
+		"minimum_value": "0",
+		"maximum_value_warning": "50",
+		"enabled": "eval(contex.value(\"ironing_enabled\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"ironing_inset":
+	{
+		"label": "Ironing Inset",
+		"description": "A distance to keep from the edges of the model. Ironing all the way to the edge of the mesh may result in a jagged edge on your print.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "0.35",
+		"value": "eval(contex.value(\"wall_line_width_0\")) / 2 + (getEnumValue(\"ironing_pattern\") == 'concentric' ? (eval(contex.value(\"ironing_line_spacing\")) - eval(contex.value(\"skin_line_width\")) * (1.0 + eval(contex.value(\"ironing_flow\")) / 100) / 2) : (eval(contex.value(\"skin_line_width\")) * (1.0 - eval(contex.value(\"ironing_flow\")) / 100) / 2))",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "eval(contex.value(\"wall_line_width_0\"))",
+		"enabled": "eval(contex.value(\"ironing_enabled\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"speed_ironing":
+	{
+		"label": "Ironing Speed",
+		"description": "The speed at which to pass over the top surface.",
+		"type": "float",
+		"unit": "mm/s",
+		"default_value": "20.0",
+		"value": "eval(contex.value(\"speed_topbottom\")) * 20 / 30",
+		"minimum_value": "0.001",
+		"maximum_value": "eval(Math.sqrt(Math.pow(contex.value(\"machine_max_feedrate_x\"), 2) + Math.pow(contex.value(\"machine_max_feedrate_y\"), 2)))",
+		"maximum_value_warning": "100",
+		"enabled": "eval(contex.value(\"ironing_enabled\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"acceleration_ironing":
+	{
+		"label": "Ironing Acceleration",
+		"description": "The acceleration with which ironing is performed.",
+		"unit": "mm/s²",
+		"type": "float",
+		"minimum_value": "0.1",
+		"minimum_value_warning": "100",
+		"maximum_value_warning": "10000",
+		"default_value": "3000",
+		"value": "eval(contex.value(\"acceleration_topbottom\"))",
+		"enabled": "eval(contex.value(\"acceleration_enabled\")) || eval(contex.value(\"ironing_enabled\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"jerk_ironing":
+	{
+		"label": "Ironing Jerk",
+		"description": "The maximum instantaneous velocity change while performing ironing.",
+		"unit": "mm/s",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value_warning": "50",
+		"default_value": "20",
+		"value": "eval(contex.value(\"jerk_topbottom\"))",
+		"enabled": "eval(contex.value(\"jerk_enabled\")) && eval(contex.value(\"ironing_enabled\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skin_overlap":
+	{
+		"label": "Skin Overlap Percentage",
+		"description": "Adjust the amount of overlap between the walls and (the endpoints of) the skin-centerlines, as a percentage of the line widths of the skin lines and the innermost wall. A slight overlap allows the walls to connect firmly to the skin. Note that, given an equal skin and wall line-width, any percentage over 50% may already cause any skin to go past the wall, because at that point the position of the nozzle of the skin-extruder may already reach past the middle of the wall.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "10",
+		"minimum_value_warning": "-50",
+		"maximum_value_warning": "100",
+		"value": "getEnumValue(\"top_bottom_pattern\") != 'concentric' ? 10 : 0",
+		"enabled": "(eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0) && getEnumValue(\"top_bottom_pattern\") != 'concentric'",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skin_overlap_mm":
+	{
+		"label": "Skin Overlap",
+		"description": "Adjust the amount of overlap between the walls and (the endpoints of) the skin-centerlines. A slight overlap allows the walls to connect firmly to the skin. Note that, given an equal skin and wall line-width, any value over half the width of the wall may already cause any skin to go past the wall, because at that point the position of the nozzle of the skin-extruder may already reach past the middle of the wall.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.02",
+		"minimum_value_warning": "-0.5 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\"))",
+		"value": "getEnumValue(\"top_bottom_pattern\") != 'concentric' ? 0.5 * (eval(contex.value(\"skin_line_width\")) + (eval(contex.value(\"wall_line_count\")) > 1 ? eval(contex.value(\"wall_line_width_x\")) : eval(contex.value(\"wall_line_width_0\")))) * eval(contex.value(\"skin_overlap\")) / 100 : 0",
+		"enabled": "(eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0) && getEnumValue(\"top_bottom_pattern\") != 'concentric'",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	}
+}

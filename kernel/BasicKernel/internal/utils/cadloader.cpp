@@ -19,7 +19,7 @@ namespace creative_kernel
 
 	QString CADLoader::filter()
 	{
-		QString _filter = "Mesh File (*.stp *.step)";
+		QString _filter = "CAD File (*.stp *.step)";
 		return _filter;
 	}
 

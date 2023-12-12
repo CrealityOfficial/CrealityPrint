@@ -42,6 +42,7 @@ namespace creative_kernel
 		eLanguage_EN_TS = 0,
 		eLanguage_ZHCN_TS,
 		eLanguage_ZHTW_TS,
+		eLanguage_KO_TS,
 		eLanguage_NUM
 	};
 

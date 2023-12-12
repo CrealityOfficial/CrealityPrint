@@ -58,6 +58,15 @@ struct RemotePrinter
 	float machineHeight;
 	float machineWidth;
 	float machineDepth;
+	QString printObjects;
+	QString excludedObjects;
+	QString currentObject;
+	QString machineChamberFanExist;
+	QString machineCdsFanExist;
+	QString machineLEDLightExist;
+	int maxNozzleTemp;
+	int maxBedTemp;
+
 
 
 	RemotePrinter()
@@ -107,6 +116,14 @@ struct RemotePrinter
 		fanSpeedState = 0;
 		caseFanSpeedState = 0;
 		auxiliaryFanSpeedState = 0;
+		printObjects = "";
+		excludedObjects = "";
+		currentObject = "";
+		machineChamberFanExist = "";
+		machineCdsFanExist = "";
+		machineLEDLightExist = "";
+		maxNozzleTemp = 0;
+		maxBedTemp = 0;
 	}
 };
 

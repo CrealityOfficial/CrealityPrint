@@ -1,5 +1,7 @@
-import QtQuick 2.0
-import QtQuick.Controls 2.0
+
+import QtQuick 2.12
+import QtQuick.Controls 2.12
+import QtQuick.Controls.impl 2.12
 Rectangle{
     id:control
 
@@ -23,7 +25,7 @@ Rectangle{
     property color treeItemBgHoverColor : "#E4E4E4"//"#618BFF"
     property color treeItemBgSelectColor : "#E4E4E4"
     property color treeItemBgColor : "#ffffff"
-    BasicScrollView
+    ScrollView
     {
         id: idScollView
         anchors.fill: parent

@@ -5,7 +5,7 @@
 #include "qtuser3d/module/pickableselecttracer.h"
 
 #include <QVector3D>
-#include "qtuser3d/entity/translatehelperentity.h"
+#include "entity/translatehelperentity.h"
 #include "qtuser3d/math/box3d.h"
 #include "data/modeln.h"
 

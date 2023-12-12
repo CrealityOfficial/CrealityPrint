@@ -26,6 +26,11 @@ set(SRCS
   ../plugins/CrealityUI/qml.qrc
 )
 
+__cc_find(AliyunOss)
+__cc_find(rapidjson)
+__cc_find(quazip_static)
+__conan_import(boost dll COMPONENT boost_filesystem)
+
 set(LIBS
   Qt5::Core
   Qt5::Quick
@@ -33,8 +38,7 @@ set(LIBS
   Qt5::OpenGL
   AliyunOss
   rapidjson
-  zlib
-  quazip
+  quazip_static
   boost_filesystem
 )
 

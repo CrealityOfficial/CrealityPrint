@@ -24,7 +24,7 @@ DockItem
 		checkProfileName()
 		
 		idProfileName.text = currentMachine.generateNewProfileName()
-		idProfileList.model = currentMachine.profileNames()
+        idProfileList.model = currentMachine.profileNames()
 		idProfileList.currentIndex = currentMachine.curProfileIndex
 		idPrintList.model = kernel_parameter_manager.machinesNames()
 		idPrintList.currentIndex = kernel_parameter_manager.curMachineIndex

@@ -6,7 +6,6 @@ import "../qml"
 QQC2.ComboBox {
     id: control
     font.family: Constants.labelFontFamily
-    width : 260 * screenScaleFactor
     height: cmbHeight
     opacity: enabled?1 : 0.7
 
@@ -32,6 +31,23 @@ QQC2.ComboBox {
     signal comboBoxIndexChanged(var key, var value)
     signal currentContentChanged(var ctext)
     signal styleComboBoxIndexChanged(var key, var item)
+    //property var modelText: "modelData"
+    function findTranslate(key)/*by TCJ*/
+    {
+
+        var tranlateValue = ""
+        if(key === "high")tranlateValue = qsTr("High Quality")
+        else if(key === "middle") tranlateValue= qsTr("Quality")
+        else if(key === "low")tranlateValue = qsTr("Normal")
+        else if(key === "best")tranlateValue = qsTr("Best quality")
+        else if(key === "fast")tranlateValue = qsTr("Fast")
+        else
+        {
+            tranlateValue = key
+        }
+
+        return tranlateValue
+    }
     delegate: ItemDelegate
     {
         property bool currentItem: control.highlightedIndex === index
@@ -61,7 +77,11 @@ QQC2.ComboBox {
                 x:5* screenScaleFactor
                 height: popHeight
                 width: parent.width - 5*screenScaleFactor
-                text: modelData
+                text: qsTr(control.textRole
+                           ? (Array.isArray(control.model)
+                              ? modelData[control.textRole]
+                              : model[control.textRole])
+                           : findTranslate(modelData))
                 color: textColor
                 font: control.font
                 elide: Text.ElideMiddle
@@ -103,7 +123,7 @@ QQC2.ComboBox {
         anchors.leftMargin: 10* screenScaleFactor
         anchors.right: control.indicator.left
         anchors.rightMargin: control.indicator.width + control.spacing
-        text: control.displayText
+        text: findTranslate(control.displayText)
         font: control.font
         color: textColor
         horizontalAlignment: Text.AlignLeft

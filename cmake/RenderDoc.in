@@ -1,0 +1,7 @@
+#pragma once
+
+#ifdef UNICODE
+#define RENDERDOC_DLL L"@RENDERDOC_DLL@"
+#else
+#define RENDERDOC_DLL "@RENDERDOC_DLL@"
+#endif

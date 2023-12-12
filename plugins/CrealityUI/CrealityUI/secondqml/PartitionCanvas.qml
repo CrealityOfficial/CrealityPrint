@@ -16,15 +16,39 @@ Canvas {
     HORIZONTAL_LINEAR,
     VERTICAL_LINEAR  ,
     GRID             ,
-    STAGGERED_GRID
+    STAGGERED_GRID   ,
+    RECTANGLE        ,
+    CIRCLE           ,
+    ELLIPSE
   }
 
   property double scaleFactor: 1.0
   property bool reverseYAxis: true
+  property bool originAtCenter: false
   property bool drawHistoryShape: true
   property int currentShapeType: PartitionCanvas.Shape.NONE
-  property double gridLikeShapeWidth: 200.0
-  property double gridLikeShapeHeight: 100.0
+
+  property double shapeWidth: 200.0
+  property double shapeHeight: 100.0
+  property double shapeRadius: 100.0
+
+  readonly property bool shapeWidthUsed: {
+    currentShapeType == PartitionCanvas.Shape.GRID ||
+    currentShapeType == PartitionCanvas.Shape.STAGGERED_GRID ||
+    currentShapeType == PartitionCanvas.Shape.RECTANGLE ||
+    currentShapeType == PartitionCanvas.Shape.ELLIPSE
+  }
+
+  readonly property bool shapeHeightUsed: {
+    currentShapeType == PartitionCanvas.Shape.GRID ||
+    currentShapeType == PartitionCanvas.Shape.STAGGERED_GRID ||
+    currentShapeType == PartitionCanvas.Shape.RECTANGLE ||
+    currentShapeType == PartitionCanvas.Shape.ELLIPSE
+  }
+
+  readonly property bool shapeRadiusUsed: {
+    currentShapeType == PartitionCanvas.Shape.CIRCLE
+  }
 
   property int fps: 60
   property string cursorColor: "rgb(255, 28, 28)"
@@ -42,46 +66,53 @@ Canvas {
     _currentShape = null
   }
 
-  function makeSegmentList() {
-    let segment_list = []
+  function makeLineList() {
+    let line_list = []
 
-    let push_segment = (segment) => {
-      if (!segment) {
+    let push_line = (line) => {
+      if (!line) {
         return
       }
 
-      for (let point of segment) {
+      for (let point of line) {
         if (reverseYAxis) {
           point.y = -point.y + height
         }
 
-        if (scaleFactor !== 1) {
+        if (originAtCenter) {
+          point.x -= width / 2
+          point.y -= height / 2
+        }
+
+        if (scaleFactor !== 1.0) {
           point.x *= scaleFactor
           point.y *= scaleFactor
         }
       }
 
-      segment_list.push(segment)
+      line_list.push(line)
     }
 
     for (let shape of _decideShapeStack) {
       if (typeof shape.toSegment === "function") {
-        push_segment(shape.toSegment())
+        push_line(shape.toSegment())
         continue
       }
 
       if (typeof shape.toSegmentList === "function") {
         for (let segment of shape.toSegmentList()) {
-          push_segment(segment)
+          push_line(segment)
         }
         continue
       }
 
-      for (let segment of shape.toSegmentList()) {
-        push_segment(segment)
+      if (typeof shape.toLine === "function") {
+        push_line(shape.toLine())
+        continue
       }
     }
-    return segment_list
+
+    return line_list
   }
 
   function makeLineFx(first_point, second_point) {
@@ -513,8 +544,8 @@ Canvas {
 
       move: function(mouse) {
         if (!this.vaild) {
-          this.width = root.gridLikeShapeWidth / root.scaleFactor
-          this.height = root.gridLikeShapeHeight / root.scaleFactor
+          this.width = root.shapeWidth / root.scaleFactor
+          this.height = root.shapeHeight / root.scaleFactor
           this.update()
         }
       },
@@ -626,8 +657,8 @@ Canvas {
 
       move: function(mouse) {
         if (!this.vaild) {
-          this.width = root.gridLikeShapeWidth / root.scaleFactor
-          this.height = root.gridLikeShapeHeight / root.scaleFactor
+          this.width = root.shapeWidth / root.scaleFactor
+          this.height = root.shapeHeight / root.scaleFactor
           this.update()
         }
       },
@@ -650,6 +681,245 @@ Canvas {
         this.vaild = true
       },
     }
+  }
+
+  function createRectangleShape() {
+    return {
+      type: PartitionCanvas.Shape.RECTANGLE,
+
+      previewing: false,
+      vaild: false,
+
+      rect: {
+        x: -1,
+        y: -1,
+        w: 200.0,
+        h: 100.0,
+      },
+
+      toLine: function() {
+        return [
+          Qt.point(this.rect.x              , this.rect.y              ),
+          Qt.point(this.rect.x + this.rect.w, this.rect.y              ),
+          Qt.point(this.rect.x + this.rect.w, this.rect.y + this.rect.h),
+          Qt.point(this.rect.x              , this.rect.y + this.rect.h),
+          Qt.point(this.rect.x              , this.rect.y              ),
+        ]
+      },
+
+      draw: function() {
+        root.context.beginPath()
+        root.context.rect(this.rect.x, this.rect.y, this.rect.w, this.rect.h)
+        root.context.closePath()
+        root.context.strokeStyle = this.vaild ? root.finishedShapeColor
+                                              : root.unfinishedShapeColor
+        root.context.stroke()
+      },
+
+      move: function(mouse) {
+        if (!this.vaild) {
+          this.rect.w = root.shapeWidth / 2 / root.scaleFactor
+          this.rect.h = root.shapeHeight / 2 / root.scaleFactor
+          this.rect.x = root.cursorX - this.rect.w / 2
+          this.rect.y = root.cursorY - this.rect.h / 2
+        }
+      },
+
+      click: function(mouse) {
+        if (mouse.button == Qt.RightButton) {
+          root._currentShape = null
+          this.previewing = false
+          this.vaild = false
+        }
+
+        if (!this.previewing) {
+          this.previewing = true
+          return
+        }
+
+        if (!this.vaild) {
+          this.vaild = true
+          return
+        }
+      },
+    }
+  }
+
+  function createCircleShape() {
+    return {
+      vaild: false,
+      type: PartitionCanvas.Shape.CIRCLE,
+
+      center: { vaild: false, x: -1, y:-1, },
+      radius: -1.0,
+
+      toLine: function() {
+        let path = []
+
+        let last_point = Qt.point(-1, -1)
+
+        for (let theta = 0; theta <= 2 * Math.PI; theta += 0.1) {
+          const point = Qt.point(this.center.x + this.radius * Math.cos(theta),
+                                 this.center.y + this.radius * Math.sin(theta))
+
+          if (last_point.x === point.x && last_point.y === point.y) {
+            continue
+          }
+
+          last_point = point
+          path.push(point)
+        }
+
+        return path
+      },
+
+      draw: function() {
+        root.context.beginPath()
+        root.context.arc(this.center.x, this.center.y, this.radius, 0, 2 * Math.PI)
+        root.context.closePath()
+        root.context.strokeStyle = this.vaild ? root.finishedShapeColor
+                                              : root.unfinishedShapeColor
+        root.context.stroke()
+      },
+
+      move: function(mouse) {
+        if (!this.vaild) {
+          this.center.x = root.cursorX
+          this.center.y = root.cursorY
+          this.radius = root.shapeRadius / root.scaleFactor
+        }
+      },
+
+      click: function(mouse) {
+        if (mouse.button == Qt.RightButton) {
+          root._currentShape = null
+          this.center.vaild = false
+          this.vaild = false
+        }
+
+        if (!this.center.vaild) {
+          this.center.vaild = true
+          return
+        }
+
+        if (!this.vaild) {
+          this.vaild = true
+          return
+        }
+      },
+    }
+  }
+
+  function createEllipseShape() {
+    return {
+      vaild: false,
+      type: PartitionCanvas.Shape.ELLIPSE,
+
+      center: { vaild: false, x: -1, y:-1, },
+      radius: { x: -1.0, y: -1.0 },
+
+      toLine: function() {
+        let path = []
+
+        let last_point = Qt.point(-1, -1)
+
+        for (let theta = 0; theta <= 2 * Math.PI; theta += 0.1) {
+          const point = Qt.point(this.center.x + this.radius.x * Math.cos(theta),
+                                 this.center.y + this.radius.y * Math.sin(theta))
+
+          if (last_point.x === point.x && last_point.y === point.y) {
+            continue
+          }
+
+          last_point = point
+          path.push(point)
+        }
+
+        return path
+      },
+
+      draw: function() {
+        root.context.beginPath()
+        root.context.ellipse(this.center.x - this.radius.x,
+                             this.center.y - this.radius.y,
+                             this.radius.x * 2,
+                             this.radius.y * 2)
+        root.context.closePath()
+        root.context.strokeStyle = this.vaild ? root.finishedShapeColor
+                                              : root.unfinishedShapeColor
+        root.context.stroke()
+      },
+
+      move: function(mouse) {
+        if (!this.vaild) {
+          this.center.x = root.cursorX
+          this.center.y = root.cursorY
+          this.radius.x = root.shapeWidth / 2 / root.scaleFactor
+          this.radius.y = root.shapeHeight / 2 / root.scaleFactor
+        }
+      },
+
+      click: function(mouse) {
+        if (mouse.button == Qt.RightButton) {
+          root._currentShape = null
+          this.center.vaild = false
+          this.vaild = false
+        }
+
+        if (!this.center.vaild) {
+          this.center.vaild = true
+          return
+        }
+
+        if (!this.vaild) {
+          this.vaild = true
+          return
+        }
+      },
+    }
+  }
+
+  function createShape(type) {
+    let shape = null
+
+    switch (type) {
+      case PartitionCanvas.Shape.NONE:
+        break
+      case PartitionCanvas.Shape.SEGMENT:
+        shape = root.createSegmentShape()
+        break
+      case PartitionCanvas.Shape.RAY:
+        shape = root.createRayShape()
+        break
+      case PartitionCanvas.Shape.LINEAR:
+        shape = root.createLinearShape()
+        break
+      case PartitionCanvas.Shape.HORIZONTAL_LINEAR:
+        shape = root.createHorizontalLinearShape()
+        break
+      case PartitionCanvas.Shape.VERTICAL_LINEAR:
+        shape = root.createVerticalLinearShape()
+        break
+      case PartitionCanvas.Shape.GRID:
+        shape = root.createGridShape()
+        break
+      case PartitionCanvas.Shape.RECTANGLE:
+        shape = root.createRectangleShape()
+        break
+      case PartitionCanvas.Shape.STAGGERED_GRID:
+        shape = root.createStaggeredGridShape()
+        break
+      case PartitionCanvas.Shape.CIRCLE:
+        shape = root.createCircleShape()
+        break
+      case PartitionCanvas.Shape.ELLIPSE:
+        shape = root.createEllipseShape()
+        break
+      default:
+        break
+    }
+
+    return shape
   }
 
   function drawCursor() {
@@ -677,34 +947,7 @@ Canvas {
 
     onClicked: function(mouse) {
       if (!root._currentShape) {
-        switch (root.currentShapeType) {
-          case PartitionCanvas.Shape.NONE:
-            root._currentShape = null
-            break
-          case PartitionCanvas.Shape.SEGMENT:
-            root._currentShape = root.createSegmentShape()
-            break
-          case PartitionCanvas.Shape.RAY:
-            root._currentShape = root.createRayShape()
-            break
-          case PartitionCanvas.Shape.LINEAR:
-            root._currentShape = root.createLinearShape()
-            break
-          case PartitionCanvas.Shape.HORIZONTAL_LINEAR:
-            root._currentShape = root.createHorizontalLinearShape()
-            break
-          case PartitionCanvas.Shape.VERTICAL_LINEAR:
-            root._currentShape = root.createVerticalLinearShape()
-            break
-          case PartitionCanvas.Shape.GRID:
-            root._currentShape = root.createGridShape()
-            break
-          case PartitionCanvas.Shape.STAGGERED_GRID:
-            root._currentShape = root.createStaggeredGridShape()
-            break
-          default:
-            break
-        }
+        root._currentShape = root.createShape(root.currentShapeType)
       }
 
       if (!root._currentShape) {

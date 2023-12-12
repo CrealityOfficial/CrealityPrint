@@ -9,11 +9,10 @@
 #include "interface/selectorinterface.h"
 #include "interface/uiinterface.h"
 #include "cxkernel/interface/iointerface.h"
+#include "cxkernel/data/trimeshutils.h"
+#include "qtuser3d/trimesh2/conv.h"
+#include "msbase/mesh/merge.h"
 
-#include "stringutil/util.h"
-#include "cxbin/save.h"
-#include "mmesh/trimesh/trimeshutil.h"
-#include "qcxutil/trimesh2/conv.h"
 #include "interface/spaceinterface.h"
 
 namespace creative_kernel
@@ -64,9 +63,6 @@ namespace creative_kernel
 
     void SaveAsCommand::handle(const QString& fileName)
     {
-        std::wstring strWname = fileName.toStdWString();
-        std::string strname = stringutil::wstring2string(strWname);
-
         std::vector<trimesh::TriMesh*> meshs;
         QList<ModelN*> models = selectionms();
         size_t size = models.size();
@@ -81,7 +77,7 @@ namespace creative_kernel
                 trimesh::TriMesh* newMesh = new trimesh::TriMesh();
                 *newMesh = *meshTemp;
 
-                trimesh::fxform xf = qcxutil::qMatrix2Xform(matrix);
+                trimesh::fxform xf = qtuser_3d::qMatrix2Xform(matrix);
                 int _size = meshTemp->vertices.size();
                 for (int n = 0; n < _size; ++n)
                 {
@@ -100,9 +96,8 @@ namespace creative_kernel
                 meshs.push_back(newMesh);
             }
 
-            trimesh::TriMesh* newmodel = new trimesh::TriMesh();
-            mmesh::mergeTriMesh(newmodel, meshs);
-            cxbin::save(strname, newmodel, nullptr);
+            trimesh::TriMesh* newmodel = msbase::mergeMeshes(meshs);
+            cxkernel::saveMesh(newmodel, fileName);
         }
 
         qDeleteAll(meshs);

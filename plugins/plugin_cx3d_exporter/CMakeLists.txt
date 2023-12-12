@@ -1,7 +1,7 @@
 file(GLOB QRC_SRC *.qrc)
 qt5_add_resources(RCC_SRC ${QRC_SRC})
 
-file(GLOB SRCS src/*.h src/*.cpp)
-set(LIBS ${QtQmlQ3dLibs} Qt5::Xml trimesh2 ${qtuser} BasicKernel quazip zlib mmesh)
+file(GLOB SRCS *.h *.cpp)
+list(APPEND LIBS quazip_static)
 
-__add_real_target(plugin_cx3d_exporter dll SOURCE ${SRCS} ${RCC_SRC} LIB ${LIBS} FOLDER plugin)
+add_kernel_plugin(cx3d_exporter)

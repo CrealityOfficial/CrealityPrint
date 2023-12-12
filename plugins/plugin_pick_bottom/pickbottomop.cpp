@@ -1,6 +1,4 @@
 #include "pickbottomop.h"
-
-#include "facepickable.h"
 #include <QtCore/QDebug>  
 
 #include "interface/visualsceneinterface.h"
@@ -11,11 +9,8 @@
 #include "interface/appsettinginterface.h"
 #include "interface/spaceinterface.h"
 
-#include "mmesh/trimesh/trimeshutil.h"
 #include "trimesh2/quaternion.h"
-#include "qcxutil/trimesh2/conv.h"
-#include "qhullWrapper/hull/meshconvex.h"
-#include "mmesh/base/HorizontalArrangement.h"
+#include "qtuser3d/trimesh2/conv.h"
 
 PickBottomOp::PickBottomOp(QObject* parent)
 	:SceneOperateMode(parent)
@@ -86,13 +81,14 @@ void PickBottomOp::reGenerateFaces()
 		
 		model->data()->calculateFaces();
 
-		const std::vector<qhullWrapper::HullFace>& faces = model->data()->faces;
+		const std::vector<cxkernel::KernelHullFace>& faces = model->data()->faces;
 		std::vector<PickFace*> pickFaces;
-		for (const qhullWrapper::HullFace& face : faces)
+		for (const cxkernel::KernelHullFace& face : faces)
 		{
-			PickFace* faceEntity = new PickFace(model, face, model->getModelEntity());
+			PickFace* faceEntity = new PickFace(model, face, nullptr);
 			faceEntity->setHoverColor(hoverColor);
 			faceEntity->setColor(noHoverColor);
+			faceEntity->setParent(model->getModelEntity());
 			creative_kernel::tracePickable(faceEntity->pickable());
 			pickFaces.push_back(faceEntity);
 		}
@@ -120,7 +116,7 @@ void PickBottomOp::executeFace(PickFace* face)
 	if (!face)
 		return;
 
-	QVector3D normal = qcxutil::vec2qvector(face->gNormal());
+	QVector3D normal = qtuser_3d::vec2qvector(face->gNormal());
 	creative_kernel::rotateModelNormal2Bottom(face->model(), normal);
 }
 

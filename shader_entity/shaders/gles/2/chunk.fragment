@@ -1,0 +1,12 @@
+/* chunk.fragment */
+
+uniform vec4 color = vec4(1.0, 0.0, 0.0, 1.0);
+varying float flag;
+
+void main( void )
+{
+	if(flag == 0.0)
+		discard;	
+
+	gl_FragColor = color;
+}

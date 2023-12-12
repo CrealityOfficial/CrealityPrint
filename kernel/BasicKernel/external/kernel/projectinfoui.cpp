@@ -1,8 +1,10 @@
 #include "projectinfoui.h"
 #include <QtCore/QSettings>
 #include <QtCore/QFileInfo>
+#include <QtCore/QDir>
 #include <QtQml/QQmlProperty>
 
+#include "qtusercore/string/resourcesfinder.h"
 #include "kernel/kernelui.h"
 #include "interface/modelinterface.h"
 #include "interface/commandinterface.h"
@@ -12,13 +14,19 @@ namespace creative_kernel
 {
     ProjectInfoUI* ProjectInfoUI::m_info=nullptr;
     ProjectInfoUI::ProjectInfoUI(QObject* parent)
-        :QObject(parent)
+        : QObject(parent)
+        , m_callback(nullptr)
     {
-        QSettings setting;
-        //    setting.beginGroup("AutoSave_Path");
-        //    setting.setValue("saveminutes", "5.0");
-        //    setting.endGroup();
+        QString tmpProject = qtuser_core::getOrCreateAppDataLocation("tmpProject");
+        QDir tempDir;
+        if (!tempDir.exists(tmpProject))
+        {
+            tempDir.mkpath(tmpProject);
+        }
+        m_strTempFilePath = qtuser_core::getOrCreateAppDataLocation("tmpProject") + "/default.cxprj";
+        setSettingsData(m_strTempFilePath);
 
+        QSettings setting;
         setting.beginGroup("AutoSave_Path");
         m_fMinutes = setting.value("saveminutes", "10.0").toFloat();
         setting.endGroup();
@@ -26,6 +34,13 @@ namespace creative_kernel
         m_strProjectName = "";
         m_strProjectPath = "";
         m_strMessageText = tr("Do you Want to Save LastProject?");
+
+        QString strFileName = setting.value("filePath", "default").toString();
+        setting.endGroup();
+        if (!strFileName.contains("default"))
+        {
+            m_strTempFilePath = strFileName;
+        }
 
         addUIVisualTracer(this);
     }
@@ -37,6 +52,8 @@ namespace creative_kernel
     ProjectInfoUI* ProjectInfoUI::instance()
     {
         //static ProjectInfoUI info;
+        if (m_info == NULL)
+            createInstance(NULL);
         return m_info;
     }
     ProjectInfoUI* ProjectInfoUI::createInstance(QObject* parent)
@@ -87,6 +104,27 @@ namespace creative_kernel
         m_strProjectPath = strProPath;
     }
 
+    void ProjectInfoUI::deleteTempProjectDirectory()
+    {
+        QString pathDir = qtuser_core::getOrCreateAppDataLocation("") + "/tmpProject";
+        QDir tempDir(pathDir);
+        tempDir.removeRecursively();
+    }
+
+    QString ProjectInfoUI::getAutoProjectPath()
+    {
+        return m_strTempFilePath;
+    }
+
+    void ProjectInfoUI::setSettingsData(QString file)
+    {
+        file = file.replace("file:///", "");
+        QSettings setting;
+        setting.beginGroup("AutoSave_Path");
+        setting.setValue("filePath", file);
+        setting.endGroup();
+    }
+
     void ProjectInfoUI::updateProjectNameUI()
     {
         QObject* obj = getKernelUI()->getUI("footer");    //   getKernelUI()->footer();
@@ -112,10 +150,9 @@ namespace creative_kernel
         removeAllModel(true);
     }
 
-    //default m_bAcceptDialog = false
-    void ProjectInfoUI::requestMenuDialog()
+    void ProjectInfoUI::requestMenuDialog(ProjectOpenCallback* callback)
     {
-        m_bAcceptDialog = false;
+        m_callback = callback;
         requestQmlDialog(this, "messageDlg");
     }
 
@@ -134,16 +171,20 @@ namespace creative_kernel
         m_strMessageText = tr("Do you Want to Save LastProject?");
     }
 
-    //when qml yes ,m_bAcceptDialog = true
     void ProjectInfoUI::accept()
     {
-        emit acceptDialog();
+        if (m_callback)
+            m_callback->accept();
+        m_callback = nullptr;
     }
+    
     void ProjectInfoUI::cancel()
     {
-
-        emit cancelDialog();
+        if (m_callback)
+            m_callback->cancel();
+        m_callback = nullptr;
     }
+
     void ProjectInfoUI::updateFileStateUI()
     {
         QObject* obj = getKernelUI()->getUI("footer");    // getKernelUI()->footer();

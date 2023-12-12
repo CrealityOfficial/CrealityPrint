@@ -40,8 +40,8 @@ protected:
 private:
   using model_ptr_t = creative_kernel::ModelN*;
   using imesh_ptr_t = creative_kernel::TriMeshPtr;
-  using omesh_ptr_t = creative_kernel::TriMeshPtr;
-  using task_cache_t = std::tuple<model_ptr_t, imesh_ptr_t, omesh_ptr_t>;
+  using odata_ptr_t = cxkernel::ModelNDataPtr;
+  using task_cache_t = std::tuple<model_ptr_t, imesh_ptr_t, odata_ptr_t>;
   std::list<task_cache_t> task_cache_list_;
 
   float thickness_;

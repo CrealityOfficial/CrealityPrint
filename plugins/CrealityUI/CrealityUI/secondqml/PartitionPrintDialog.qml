@@ -13,18 +13,20 @@ DockItem {
   id: root
 
   title: "分区打印"
-  width: 700 * screenScaleFactor
-  height: 778 * screenScaleFactor
+  width: 800 * screenScaleFactor
+  height: 878 * screenScaleFactor
 
   onVisibleChanged: {
     if (visible) {
       Qt.callLater(() => {
         rect.printerWidth = kernel_parameter_manager.currentMachineWidth()
         rect.printerLength = kernel_parameter_manager.currentMachinedepth()
+        rect.originAtCenter = kernel_parameter_manager.currentMachineCenterIsZero()
         rect.resetLayout()
 
         cf_slice.reset()
         cf_slice.setSliceType(2) // chengfeiSplit::Type::CONTOUR_PARTITION
+
       })
     } else {
       partition_canvas.clearShape()
@@ -185,6 +187,21 @@ DockItem {
         }
 
         ListElement {
+          model_type: PartitionCanvas.Shape.CIRCLE
+          model_text: "圆形切割"
+        }
+
+        ListElement {
+          model_type: PartitionCanvas.Shape.ELLIPSE
+          model_text: "椭圆形切割"
+        }
+
+        ListElement {
+          model_type: PartitionCanvas.Shape.RECTANGLE
+          model_text: "矩形切割"
+        }
+
+        ListElement {
           model_type: PartitionCanvas.Shape.GRID
           model_text: "网格切割"
         }
@@ -197,141 +214,11 @@ DockItem {
     }
 
     Text {
-      visible: partition_canvas.currentShapeLikeGrid
-
       Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
       Layout.fillHeight: true
       horizontalAlignment: Qt.AlignHCenter
       verticalAlignment: Qt.AlignVCenter
-      text: "宽:"
-      color: Constants.textColor
-      font.family: Constants.labelFontFamily
-      font.pointSize: Constants.labelFontPointSize_9
-    }
-
-    Rectangle {
-      visible: partition_canvas.currentShapeLikeGrid
-
-      Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
-      Layout.fillHeight: true
-      Layout.minimumWidth: 90 * screenScaleFactor
-
-      radius: 5 * screenScaleFactor
-      border.width: 1 * screenScaleFactor
-      border.color: Constants.rectBorderColor
-      color: "transparent"
-
-      TextInput {
-        id: width_input
-
-        readonly property bool vaild: text != "" && Number(text) <= validator.top
-
-        anchors.left: parent.left
-        anchors.right: width_unit.left
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.leftMargin: 10 * screenScaleFactor
-        anchors.rightMargin: 5 * screenScaleFactor
-        text: "200.0"
-        validator: DoubleValidator {
-          notation: DoubleValidator.StandardNotation
-          decimals: 1
-          bottom: 10.0
-          top: 9999.0
-        }
-        color: vaild ? Constants.textColor : "#FF365C"
-        font.family: Constants.labelFontFamily
-        font.pointSize: Constants.labelFontPointSize_9
-
-        onEditingFinished: {
-          partition_canvas.gridLikeShapeWidth = Number(text)
-        }
-      }
-
-      Text {
-        id: width_unit
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.rightMargin: 10 * screenScaleFactor
-        horizontalAlignment: Qt.AlignHCenter
-        verticalAlignment: Qt.AlignVCenter
-        text: "mm"
-        color: Constants.textColor
-        font.family: Constants.labelFontFamily
-        font.pointSize: Constants.labelFontPointSize_9
-      }
-    }
-
-    Text {
-      visible: partition_canvas.currentShapeLikeGrid
-
-      Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
-      Layout.fillHeight: true
-      horizontalAlignment: Qt.AlignHCenter
-      verticalAlignment: Qt.AlignVCenter
-      text: "高:"
-      color: Constants.textColor
-      font.family: Constants.labelFontFamily
-      font.pointSize: Constants.labelFontPointSize_9
-    }
-
-    Rectangle {
-      visible: partition_canvas.currentShapeLikeGrid
-
-      Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
-      Layout.fillHeight: true
-      Layout.minimumWidth: 90 * screenScaleFactor
-
-      radius: 5 * screenScaleFactor
-      border.width: 1 * screenScaleFactor
-      border.color: Constants.rectBorderColor
-      color: "transparent"
-
-      TextInput {
-        id: height_input
-
-        readonly property bool vaild: text != "" && Number(text) <= validator.top
-
-        anchors.left: parent.left
-        anchors.right: height_unit.left
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.leftMargin: 10 * screenScaleFactor
-        anchors.rightMargin: 5 * screenScaleFactor
-        text: "100.0"
-        validator: DoubleValidator {
-          notation: DoubleValidator.StandardNotation
-          decimals: 1
-          bottom: 10.0
-          top: 9999.0
-        }
-        color: vaild ? Constants.textColor : "#FF365C"
-        font.family: Constants.labelFontFamily
-        font.pointSize: Constants.labelFontPointSize_9
-
-        onEditingFinished: {
-          partition_canvas.gridLikeShapeHeight = Number(text)
-        }
-      }
-
-      Text {
-        id: height_unit
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.rightMargin: 10 * screenScaleFactor
-        horizontalAlignment: Qt.AlignHCenter
-        verticalAlignment: Qt.AlignVCenter
-        text: "mm"
-        color: Constants.textColor
-        font.family: Constants.labelFontFamily
-        font.pointSize: Constants.labelFontPointSize_9
-      }
-    }
-
-    Text {
-      Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
-      Layout.fillHeight: true
-      horizontalAlignment: Qt.AlignHCenter
-      verticalAlignment: Qt.AlignVCenter
-      text: "间隙:"
+      text: "切割间隙:"
       color: Constants.textColor
       font.family: Constants.labelFontFamily
       font.pointSize: Constants.labelFontPointSize_9
@@ -387,6 +274,197 @@ DockItem {
       }
     }
 
+    Text {
+      visible: partition_canvas.shapeWidthUsed
+
+      Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+      Layout.fillHeight: true
+      horizontalAlignment: Qt.AlignHCenter
+      verticalAlignment: Qt.AlignVCenter
+      text: "宽:"
+      color: Constants.textColor
+      font.family: Constants.labelFontFamily
+      font.pointSize: Constants.labelFontPointSize_9
+    }
+
+    Rectangle {
+      visible: partition_canvas.shapeWidthUsed
+
+      Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+      Layout.fillHeight: true
+      Layout.minimumWidth: 90 * screenScaleFactor
+
+      radius: 5 * screenScaleFactor
+      border.width: 1 * screenScaleFactor
+      border.color: Constants.rectBorderColor
+      color: "transparent"
+
+      TextInput {
+        id: width_input
+
+        readonly property bool vaild: text != "" && Number(text) <= validator.top
+
+        anchors.left: parent.left
+        anchors.right: width_unit.left
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.leftMargin: 10 * screenScaleFactor
+        anchors.rightMargin: 5 * screenScaleFactor
+        text: "200.0"
+        validator: DoubleValidator {
+          notation: DoubleValidator.StandardNotation
+          decimals: 1
+          bottom: 10.0
+          top: 9999.0
+        }
+        color: vaild ? Constants.textColor : "#FF365C"
+        font.family: Constants.labelFontFamily
+        font.pointSize: Constants.labelFontPointSize_9
+
+        onEditingFinished: {
+          partition_canvas.shapeWidth = Number(text)
+        }
+      }
+
+      Text {
+        id: width_unit
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.rightMargin: 10 * screenScaleFactor
+        horizontalAlignment: Qt.AlignHCenter
+        verticalAlignment: Qt.AlignVCenter
+        text: "mm"
+        color: Constants.textColor
+        font.family: Constants.labelFontFamily
+        font.pointSize: Constants.labelFontPointSize_9
+      }
+    }
+
+    Text {
+      visible: partition_canvas.shapeHeightUsed
+
+      Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+      Layout.fillHeight: true
+      horizontalAlignment: Qt.AlignHCenter
+      verticalAlignment: Qt.AlignVCenter
+      text: "高:"
+      color: Constants.textColor
+      font.family: Constants.labelFontFamily
+      font.pointSize: Constants.labelFontPointSize_9
+    }
+
+    Rectangle {
+      visible: partition_canvas.shapeHeightUsed
+
+      Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+      Layout.fillHeight: true
+      Layout.minimumWidth: 90 * screenScaleFactor
+
+      radius: 5 * screenScaleFactor
+      border.width: 1 * screenScaleFactor
+      border.color: Constants.rectBorderColor
+      color: "transparent"
+
+      TextInput {
+        readonly property bool vaild: text != "" && Number(text) <= validator.top
+
+        anchors.left: parent.left
+        anchors.right: height_unit.left
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.leftMargin: 10 * screenScaleFactor
+        anchors.rightMargin: 5 * screenScaleFactor
+        text: "100.0"
+        validator: DoubleValidator {
+          notation: DoubleValidator.StandardNotation
+          decimals: 1
+          bottom: 10.0
+          top: 9999.0
+        }
+        color: vaild ? Constants.textColor : "#FF365C"
+        font.family: Constants.labelFontFamily
+        font.pointSize: Constants.labelFontPointSize_9
+
+        onEditingFinished: {
+          partition_canvas.shapeHeight = Number(text)
+        }
+      }
+
+      Text {
+        id: height_unit
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.rightMargin: 10 * screenScaleFactor
+        horizontalAlignment: Qt.AlignHCenter
+        verticalAlignment: Qt.AlignVCenter
+        text: "mm"
+        color: Constants.textColor
+        font.family: Constants.labelFontFamily
+        font.pointSize: Constants.labelFontPointSize_9
+      }
+    }
+
+    Text {
+      visible: partition_canvas.shapeRadiusUsed
+
+      Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+      Layout.fillHeight: true
+      horizontalAlignment: Qt.AlignHCenter
+      verticalAlignment: Qt.AlignVCenter
+      text: "半径:"
+      color: Constants.textColor
+      font.family: Constants.labelFontFamily
+      font.pointSize: Constants.labelFontPointSize_9
+    }
+
+    Rectangle {
+      visible: partition_canvas.shapeRadiusUsed
+
+      Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+      Layout.fillHeight: true
+      Layout.minimumWidth: 90 * screenScaleFactor
+
+      radius: 5 * screenScaleFactor
+      border.width: 1 * screenScaleFactor
+      border.color: Constants.rectBorderColor
+      color: "transparent"
+
+      TextInput {
+        readonly property bool vaild: text != "" && Number(text) <= validator.top
+
+        anchors.left: parent.left
+        anchors.right: radius_unit.left
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.leftMargin: 10 * screenScaleFactor
+        anchors.rightMargin: 5 * screenScaleFactor
+        text: "100.0"
+        validator: DoubleValidator {
+          notation: DoubleValidator.StandardNotation
+          decimals: 1
+          bottom: 10.0
+          top: 9999.0
+        }
+        color: vaild ? Constants.textColor : "#FF365C"
+        font.family: Constants.labelFontFamily
+        font.pointSize: Constants.labelFontPointSize_9
+
+        onEditingFinished: {
+          partition_canvas.shapeRadius = Number(text)
+        }
+      }
+
+      Text {
+        id: radius_unit
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.rightMargin: 10 * screenScaleFactor
+        horizontalAlignment: Qt.AlignHCenter
+        verticalAlignment: Qt.AlignVCenter
+        text: "mm"
+        color: Constants.textColor
+        font.family: Constants.labelFontFamily
+        font.pointSize: Constants.labelFontPointSize_9
+      }
+    }
+
     Item {
       Layout.fillWidth: true
     }
@@ -401,7 +479,7 @@ DockItem {
       text: "切片"
 
       onClicked: {
-        cf_slice.setLineList(partition_canvas.makeSegmentList())
+        cf_slice.setLineList(partition_canvas.makeLineList())
         cf_slice.setOrderedPointList(contour_cancas.makeOrderedExamplePointList())
         cf_slice.setInterval(Number(interval_input.text))
         kernel_slice_flow.sliceChengfei()
@@ -422,6 +500,7 @@ DockItem {
       property double printerWidth: 0.0
       property double printerLength: 0.0
       property double scaleFactor: printerWidth / width
+      property bool originAtCenter: false
 
       function resetLayout() {
         if (printerWidth > printerLength) {
@@ -442,6 +521,7 @@ DockItem {
       anchors.fill: rect
 
       scaleFactor: rect.scaleFactor
+      originAtCenter: rect.originAtCenter
       contourListModel: cf_slice.modelContourList
       enableChangeOrder: partition_canvas.currentShapeType == PartitionCanvas.Shape.NONE
     }
@@ -449,19 +529,15 @@ DockItem {
     PartitionCanvas {
       id: partition_canvas
 
-      readonly property bool currentShapeLikeGrid: {
-        return currentShapeType == PartitionCanvas.Shape.GRID
-            || currentShapeType == PartitionCanvas.Shape.STAGGERED_GRID
-      }
-
       anchors.fill: rect
 
       scaleFactor: rect.scaleFactor
+      originAtCenter: rect.originAtCenter
       drawHistoryShape: false
       currentShapeType: shape_combobox.currentModel.model_type
 
       onNewSegmentAdded: {
-        cf_slice.setLineList(partition_canvas.makeSegmentList())
+        cf_slice.setLineList(partition_canvas.makeLineList())
         cf_slice.setInterval(Number(interval_input.text))
         cf_slice.preSlice()
       }

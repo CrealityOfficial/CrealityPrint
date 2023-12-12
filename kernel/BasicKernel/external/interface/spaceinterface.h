@@ -5,7 +5,6 @@
 #include "data/modelspace.h"
 #include "data/modelgroup.h"
 
-class SpaceTracer;
 namespace creative_kernel
 {
 	class FDMSupportGroup;
@@ -23,6 +22,7 @@ namespace creative_kernel
 	BASIC_KERNEL_API int modelNNum();
 	BASIC_KERNEL_API bool haveModelN();
 	BASIC_KERNEL_API bool haveModelsOutPlatform();
+	BASIC_KERNEL_API bool modelOutPlatform(ModelN* amodel);
 
 	BASIC_KERNEL_API QList<FDMSupportGroup*> fdmSuppportGroups();
 	BASIC_KERNEL_API bool spaceHasFDMSupport();

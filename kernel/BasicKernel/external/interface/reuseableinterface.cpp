@@ -8,6 +8,7 @@
 #include "interface/visualsceneinterface.h"
 #include "interface/spaceinterface.h"
 #include "internal/parameter/parametermanager.h"
+#include "entity/worldindicatorentity.h"
 
 namespace creative_kernel
 {
@@ -19,6 +20,7 @@ namespace creative_kernel
 	void cacheReuseable(Qt3DCore::QNode* parent)
 	{
 		getKernel()->reuseableCache()->setParent(parent);
+		getIndicatorEntity()->freshTextures();
 	}
 
 	Qt3DRender::QCamera* getCachedCameraEntity()
@@ -70,7 +72,7 @@ namespace creative_kernel
 	
 	void setModelEffectClipMaxZSceneTop() {
 		qtuser_3d::Box3D box = sceneBoundingBox();
-		setModelEffectClipMaxZ(box.max.z());
+		setModelEffectClipMaxZ(box.max.z() + 0.5f);
 	}
 
 	void setModelZProjectColor(const QVector4D& color)
@@ -83,12 +85,22 @@ namespace creative_kernel
 		getKernel()->reuseableCache()->setModelClearColor(color);
 	}
 
+	void setModelSection(const QVector3D &frontPos, const QVector3D &backPos, const QVector3D &normal)
+	{
+		getKernel()->reuseableCache()->setSection(frontPos, backPos, normal);
+	}
+
+	void resetModelSection()
+	{
+		getKernel()->reuseableCache()->resetSection();
+	}
+
 	void setPrinterVisible(bool visible)
 	{
 		getKernel()->reuseableCache()->setPrinterVisible(visible);
 	}
 
-	cxkernel::WorldIndicatorEntity* getIndicatorEntity()
+	qtuser_3d::WorldIndicatorEntity* getIndicatorEntity()
 	{
 		return getKernel()->reuseableCache()->getIndicatorEntity();
 	}

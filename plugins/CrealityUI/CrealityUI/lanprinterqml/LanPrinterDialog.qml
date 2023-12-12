@@ -7,13 +7,14 @@ import QtGraphicalEffects 1.12
 import "../qml"
 import "../secondqml"
 
-Window {
+BasicDialogV4 {
     id: root
-    color: "transparent"
+    //color: "transparent"
     width: 400 * screenScaleFactor
-    height: 300 * screenScaleFactor
-    modality: Qt.ApplicationModal
-    flags: Qt.FramelessWindowHint | Qt.Dialog
+    height: 320 * screenScaleFactor
+    titleHeight:0
+    //modality: Qt.ApplicationModal
+    //flags: Qt.FramelessWindowHint | Qt.Dialog
 
     property string title: ""
     property string titleSource: ""
@@ -30,36 +31,36 @@ Window {
     property bool extraBtnEnabled: false
 
     property real borderWidth: 1 * screenScaleFactor
-    property real shadowWidth: 5 * screenScaleFactor
-    property real titleHeight: 30 * screenScaleFactor
+    //property real shadowWidth: 5 * screenScaleFactor
+    property real ctitleHeight: 30 * screenScaleFactor
     property real borderRadius: 5 * screenScaleFactor
 
     signal sigExtraBtnClicked()
-    property Component bdContentItem
-    property alias cloader: contentLoader
+    property Component csContentItem
+    //property var cloader: contentLoader
 
-    Rectangle {
+    bdContentItem:Rectangle {
         anchors.fill: parent
-        anchors.margins: shadowWidth
+        //anchors.margins: shadowWidth
 
-        border.width: borderWidth
-        border.color: borderColor
+        //border.width: borderWidth
+        //border.color: borderColor
         color: backgroundColor
-        radius: borderRadius
+        //radius: borderRadius
 
         CusRoundedBg {
             id: cusTitle
-            width: parent.width - 2 * borderWidth
-            height: titleHeight
+            width: parent.width
+            height: ctitleHeight
 
             anchors.top: parent.top
-            anchors.topMargin: borderWidth
+            anchors.topMargin: 0
             anchors.horizontalCenter: parent.horizontalCenter
 
             leftTop: true
             rightTop: true
             color: titleBgColor
-            radius: borderRadius
+            //radius: borderRadius
 
             MouseArea {
                 anchors.fill: parent
@@ -68,9 +69,8 @@ Window {
                 onPressed: clickPos = Qt.point(mouse.x, mouse.y)
 
                 onPositionChanged: {
-                    var cursorPos = WizardUI.cursorGlobalPos()
-                    root.x = cursorPos.x - clickPos.x
-                    root.y = cursorPos.y - clickPos.y
+                        root.x = root.x - clickPos.x + mouse.x;
+                        root.y = root.y - clickPos.y + mouse.y;
                 }
             }
 
@@ -152,8 +152,8 @@ Window {
 
             MouseArea {
                 id: closeBtn
-                width: titleHeight
-                height: titleHeight
+                width: ctitleHeight
+                height: ctitleHeight
 
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -167,7 +167,7 @@ Window {
 
                 hoverEnabled: true
                 cursorShape: containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: root.visible = false
+                onClicked: root.close()
             }
         }
 
@@ -177,7 +177,7 @@ Window {
             height: parent.height - cusTitle.height
             anchors.top: cusTitle.bottom
             anchors.horizontalCenter: parent.horizontalCenter
-            sourceComponent: bdContentItem
+            sourceComponent: root.csContentItem
         }
 
         layer.enabled: true

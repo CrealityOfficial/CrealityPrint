@@ -5,9 +5,6 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QStandardPaths>
 
-#include "fmesh/font/fontoutlinecenter.h"
-#include "fmesh/generate/generator.h"
-#include "fmesh/contour/path.h"
 #include "qtusercore/string/resourcesfinder.h"
 
 namespace creative_kernel
@@ -238,76 +235,5 @@ namespace creative_kernel
 		}
 
 		return 3 * faceNum;
-	}
-
-	ShapeCreator::ShapeCreator(QObject* parent)
-		:QObject(parent)
-	{
-	}
-	ShapeCreator::~ShapeCreator()
-	{
-	}
-
-	void ShapeCreator::createTextMesh(QString text, QString font, float height, float thickness,
-		std::vector<float>& widths, std::vector<trimesh::TriMesh*>& meshs)
-	{
-		fmesh::FontOutlineCenter outline;
-
-		QByteArray cdata = QCoreApplication::applicationDirPath().toLocal8Bit();
-		std::string applicationDirPath(cdata);
-		outline.addSearchPath(applicationDirPath);
-
-		std::string appDataLocationPaht(qtuser_core::getOrCreateAppDataLocation("").toStdString());
-		outline.addSearchPath(appDataLocationPaht);
-
-
-		int index = QCoreApplication::applicationDirPath().lastIndexOf("/");
-		cdata = QCoreApplication::applicationDirPath().left(index).toLocal8Bit();
-		std::string appResourcePaht(cdata);
-		outline.addSearchPath(appResourcePaht + "/Resources");
-
-		fmesh::GeneratorProxy proxy;
-		fmesh::ADParam param;
-		ClipperLibXYZ::IntPoint min, max;
-
-		// text mesh parameters
-		param.extend_width = height * 0.01;
-		param.total_height = thickness;
-		param.bottom_offset = 0.0f;
-
-		param.top_type = fmesh::ADTopType::adtt_close;
-		param.top_height = thickness * 0.25;
-		param.top_extend_width = height * 0.01;
-
-		param.bottom_type = fmesh::ADBottomType::adbt_close;
-		param.bottom_height = thickness * 0.25;
-		param.bottom_extend_width = height * 0.01;
-
-		param.shape_type = fmesh::ADShapeType::adst_none;
-		param.shape_bottom_height = 0.0f;
-		param.shape_top_height = 0.0f;
-		param.shape_middle_width = 0.0f;
-		param.shape_angle = 0.0f;
-
-		for (QChar chr : text.trimmed())
-		{
-			if (iswspace(chr.unicode()))
-			{
-				continue;
-			}
-
-			ClipperLibXYZ::Paths* cur_paths = outline.getPath(/*font.toStdString()*/std::string((const char*)font.toLocal8Bit()), chr.unicode(), height);
-
-			if (cur_paths)
-			{
-				trimesh::TriMesh* cur_mesh = proxy.build(param, cur_paths, nullptr, nullptr, nullptr, true);
-				if (cur_mesh)
-				{
-					fmesh::calculatePathBox(cur_paths, min, max);
-					widths.push_back((max.X - min.X) / 1000.0f);
-					meshs.push_back(cur_mesh);
-				}
-			}
-		}
 	}
 }

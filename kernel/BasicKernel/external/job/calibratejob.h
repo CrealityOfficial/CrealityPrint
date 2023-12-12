@@ -6,7 +6,7 @@
 #include "crslice/crscene.h"
 #include "crslice/crslice.h"
 
-#include "cxgcode/render/gcodeviewentity.h"
+#include "entity/gcodeviewentity.h"
 #include "cxgcode/gcodeloadjob.h"
 #include "cxgcode/sliceattain.h"
 #include "cxkernel/interface/jobsinterface.h"

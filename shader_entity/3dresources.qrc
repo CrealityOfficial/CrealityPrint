@@ -1,0 +1,52 @@
+<RCC>
+    <qresource prefix="/renderhelper">
+		<file>shaders/modelwireframe.fragment</file>
+		<file>shaders/modelwireframe.vert</file>
+		<file>shaders/modelwireframe.geom</file>
+        <file>shaders/support.frag</file>
+        <file>shaders/support.vert</file>
+        <file>shaders/pure.frag</file>
+        <file>shaders/pure.vert</file>
+        <file>shaders/color.frag</file>
+        <file>shaders/color.vert</file>
+        <file>shaders/pickFace_pwd.fragment</file>
+        <file>shaders/pickFace_pwd.geom</file>
+        <file>shaders/pickFace_pwd.vert</file>
+        <file>shaders/pickFaceFlag.frag</file>
+        <file>shaders/pickFaceFlag.vert</file>
+        <file>shaders/gcodepreviewG.vert</file>
+        <file>shaders/gcodepreviewG.frag</file>
+		<file>shaders/gcodepreviewG.geom</file>
+        <file>shaders/printergrid.vert</file>
+        <file>shaders/printergrid.frag</file>
+        <file>shaders/splitplane.frag</file>
+        <file>shaders/splitplane.vert</file>
+        <file>shaders/phong.fragment</file>
+        <file>shaders/phong.vert</file>
+        <file>shaders/supportpos.frag</file>
+        <file>shaders/supportpos.vert</file>
+        <file>shaders/printerbottom.frag</file>
+        <file>shaders/printerbottom.vert</file>
+		<file>shaders/dlpsupportindicator.vert</file>
+		<file>shaders/dlpsupportindicator.fragment</file>
+		<file>shaders/modeldlp.vert</file>
+		<file>shaders/modeldlp.fragment</file>
+        <file>shaders/zproject.vert</file>
+        <file>shaders/zproject.frag</file>
+		<file>shaders/piefade.vert</file>
+		<file>shaders/piefade.frag</file>
+        <file>shaders/overlay.vert</file>
+        <file>shaders/overlay.frag</file>
+        <file>shaders/sceneindicator.vert</file>
+        <file>shaders/sceneindicator.frag</file>
+        <file>shaders/pickindicator.vert</file>
+        <file>shaders/pickindicator.frag</file>
+        <file>shaders/pointInGcode.vert</file>
+        <file>shaders/pointInGcode.frag</file>
+        <file>shaders/manipulate.vert</file>
+        <file>shaders/manipulate.fragment</file>
+        <file>shaders/purePickFace.vert</file>
+        <file>shaders/purePickFace.fragment</file>
+    </qresource>
+    <qresource prefix="/"/>
+</RCC>

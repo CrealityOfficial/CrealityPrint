@@ -1,13 +1,12 @@
 #include "calibratescenecreator.h"
 #include "cxgcode/us/usettings.h"
 
-#include "cxbin/load.h"
-#include "mmesh/trimesh/trimeshutil.h"
-#include "stringutil/util.h"
-
 #include "interface/machineinterface.h"
 #include <QtCore/QCoreApplication>
-#include "splitslot/split.h"
+#include "cxkernel/data/trimeshutils.h"
+
+#include "msbase/utils/cut.h"
+#include "msbase/mesh/tinymodify.h"
 
 #ifdef _DEBUG
 #include "buildinfo.h"
@@ -15,7 +14,7 @@
 
 SettingsPtr convert(const cxgcode::USettings& settings)
 {
-	SettingsPtr ptr(new crcommon::Settings());
+	SettingsPtr ptr(new crslice::Settings());
 	const QHash<QString, cxgcode::USetting*>& ss = settings.settings();
 	for (QHash<QString, cxgcode::USetting*>::ConstIterator it = ss.begin();
 		it != ss.end(); ++it)
@@ -87,7 +86,7 @@ crslice::CrScene* CalibrateSceneCreator::create(ccglobal::Tracer* tracer)
 		extruder_count = 1;
 
 	for (size_t extruder_nr = 0; extruder_nr < extruder_count; extruder_nr++)
-		scene->m_extruders.emplace_back(new crcommon::Settings());
+		scene->m_extruders.emplace_back(new crslice::Settings());
 
 	for (size_t i = 0; i < extruder_count; ++i)
 	{
@@ -104,7 +103,7 @@ crslice::CrScene* CalibrateSceneCreator::create(ccglobal::Tracer* tracer)
 		}
 	}
 	scene->machine_center_is_zero = G.value("machine_center_is_zero")->enabled();
-
+	scene->addSceneParameter("special_object_cancel","false");
 	auto create = [](const QString& fileName)->TriMeshPtr {
 
 #ifdef _DEBUG
@@ -115,15 +114,13 @@ crslice::CrScene* CalibrateSceneCreator::create(ccglobal::Tracer* tracer)
 #else
 		QString name = QCoreApplication::applicationDirPath() + QString("/resources/mesh/calibrate/") + fileName;
 #endif
-		std::wstring strWname = name.toStdWString();
-		std::string strname = stringutil::wstring2string(strWname);
 
-		TriMeshPtr mesh(cxbin::loadAll(strname, nullptr));
+		TriMeshPtr mesh(cxkernel::loadMeshFromName(name, nullptr));
 		if (!mesh)
 			mesh.reset(new trimesh::TriMesh());
 
 		mesh->need_bbox();
-		mmesh::moveTrimesh2Center(mesh.get());
+		msbase::moveTrimesh2Center(mesh.get());
 		return mesh;
 	};
 
@@ -145,7 +142,7 @@ crslice::CrScene* CalibrateSceneCreator::create(ccglobal::Tracer* tracer)
 
 			trimesh::apply_xform(mesh.get(), trimesh::xform::trans(0.0f, 0.0f, (float)i * h));
 			scene->setOjbectMesh(groupID, objectID, mesh);
-			SettingsPtr mPtr(new crcommon::Settings());
+			SettingsPtr mPtr(new crslice::Settings());
 			mPtr->add("calibration_temperature", std::to_string(m_start - i * m_step));
 			mPtr->add("center_object", "true");
 
@@ -196,7 +193,7 @@ crslice::CrScene* CalibrateSceneCreator::create(ccglobal::Tracer* tracer)
 
 			int objectID = scene->addObject2Group(groupID);
 			scene->setOjbectMesh(groupID, objectID, _mesh);
-			SettingsPtr mPtr(new crcommon::Settings());
+			SettingsPtr mPtr(new crslice::Settings());
 			mPtr->add("wall_0_material_flow", std::to_string(flow));
 			mPtr->add("wall_x_material_flow", std::to_string(flow));
 			mPtr->add("skin_material_flow", std::to_string(flow));
@@ -218,21 +215,15 @@ crslice::CrScene* CalibrateSceneCreator::create(ccglobal::Tracer* tracer)
 		int machine_width = GSettings->vvalue("machine_width").toInt();
 		int machine_depth = GSettings->vvalue("machine_depth").toInt();
 		int split_h = (m_end - m_start) / m_step +1.0;
-		splitslot::SplitPlane aplane;
+
+		msbase::CutPlane aplane;
 		aplane.normal = trimesh::vec3(0.0, 0.0, 1.0);
 		aplane.position = trimesh::vec3(machine_width/2, machine_depth/2, split_h);
-		splitslot::SplitSlotParam aparam;
-		aparam.depth = 2.0f;
-		aparam.gap = 2.0f;
-		aparam.haveSlot = false;
-		aparam.redius = 2.0f;
-		aparam.xyOffset = 0.3f;
-		aparam.zOffset = 0.3f;
-		splitslot::splitSlot(mesh.get(), aplane, aparam, meshes);
+		msbase::planeCut(mesh.get(), aplane, meshes);
 
 		int objectID = scene->addObject2Group(groupID);
 		scene->setOjbectMesh(groupID, objectID, TriMeshPtr(meshes[1]));
-		SettingsPtr mPtr(new crcommon::Settings());
+		SettingsPtr mPtr(new crslice::Settings());
 
 		scene->m_settings->add("acceleration_enabled", "false");
 		mPtr->add("pressure_start", std::to_string(m_start));
@@ -250,27 +241,21 @@ crslice::CrScene* CalibrateSceneCreator::create(ccglobal::Tracer* tracer)
 		int machine_width = GSettings->vvalue("machine_width").toInt();
 		int machine_depth = GSettings->vvalue("machine_depth").toInt();
 		int split_h = (m_end - m_start) / m_step + 2.0;
-		splitslot::SplitPlane aplane;
+		msbase::CutPlane aplane;
 		aplane.normal = trimesh::vec3(0.0, 0.0, 1.0);
 		aplane.position = trimesh::vec3(machine_width / 2, machine_depth / 2, split_h);
-		splitslot::SplitSlotParam aparam;
-		aparam.depth = 2.0f;
-		aparam.gap = 2.0f;
-		aparam.haveSlot = false;
-		aparam.redius = 2.0f;
-		aparam.xyOffset = 0.3f;
-		aparam.zOffset = 0.3f;
-		splitslot::splitSlot(mesh.get(), aplane, aparam, meshes);
+		msbase::planeCut(mesh.get(), aplane, meshes);
 
 		int objectID = scene->addObject2Group(groupID);
 		scene->setOjbectMesh(groupID, objectID, TriMeshPtr(meshes[1]));
-		SettingsPtr mPtr(new crcommon::Settings());
+		SettingsPtr mPtr(new crslice::Settings());
 		scene->m_settings->add("layer_height", std::to_string(0.32));
 		scene->m_settings->add("layer_height_0", std::to_string(0.32));
 		scene->m_settings->add("bottom_layers", std::to_string(1));
 		scene->m_settings->add("adhesion_type", "brim");
 		scene->m_settings->add("brim_line_count", std::to_string(5));
 		scene->m_settings->add("magic_spiralize", "true");
+		scene->m_settings->add("initial_bottom_layers", "1");
 		for (SettingsPtr& extrSettings : scene->m_extruders)
 		{
 			extrSettings->add("cool_min_layer_time", std::to_string(1));
@@ -298,21 +283,14 @@ crslice::CrScene* CalibrateSceneCreator::create(ccglobal::Tracer* tracer)
 		int machine_width = GSettings->vvalue("machine_width").toInt();
 		int machine_depth = GSettings->vvalue("machine_depth").toInt();
 		int split_h = ((m_end - m_start) / m_step + 1) *5;
-		splitslot::SplitPlane aplane;
+		msbase::CutPlane aplane;
 		aplane.normal = trimesh::vec3(0.0, 0.0, 1.0);
 		aplane.position = trimesh::vec3(machine_width / 2, machine_depth / 2, split_h);
-		splitslot::SplitSlotParam aparam;
-		aparam.depth = 2.0f;
-		aparam.gap = 2.0f;
-		aparam.haveSlot = false;
-		aparam.redius = 2.0f;
-		aparam.xyOffset = 0.3f;
-		aparam.zOffset = 0.3f;
-		splitslot::splitSlot(mesh.get(), aplane, aparam, meshes);
+		msbase::planeCut(mesh.get(), aplane, meshes);
 
 		int objectID = scene->addObject2Group(groupID);
 		scene->setOjbectMesh(groupID, objectID, TriMeshPtr(meshes[1]));
-		SettingsPtr mPtr(new crcommon::Settings());
+		SettingsPtr mPtr(new crslice::Settings());
 		scene->m_settings->add("layer_height", std::to_string(0.2));
 		scene->m_settings->add("layer_height_0", std::to_string(0.2));
 		scene->m_settings->add("top_layers", std::to_string(0));
@@ -325,7 +303,7 @@ crslice::CrScene* CalibrateSceneCreator::create(ccglobal::Tracer* tracer)
 		scene->m_settings->add("speed_print_layer_0", std::to_string(50));
 		scene->m_settings->add("skirt_brim_speed", std::to_string(50));
 		scene->m_settings->add("speed_travel_layer_0", std::to_string(100));
-
+		scene->m_settings->add("initial_bottom_layers", "1");
 		for (SettingsPtr& extrSettings : scene->m_extruders)
 		{
 			extrSettings->add("material_max_volumetric_speed", std::to_string(200));

@@ -8,6 +8,7 @@
 #include "interface/visualsceneinterface.h"
 #include "kernel/kernel.h"
 #include "qtuser3d/module/pickable.h"
+#include "external/kernel/modelnselector.h"
 
 namespace {
 
@@ -39,6 +40,13 @@ MirrorOperateMode::MirrorOperateMode(QObject* parent)
       { WeakToRaw(entity_->zNegativePickable()), Z_MIRROR_HANDLER },
     }) {
   
+    m_operateTimer.setSingleShot(true);
+    connect(&m_operateTimer, &QTimer::timeout, this, [=]()
+    {
+        m_canOperate = true;
+        creative_kernel::getModelSelect()->setEnabled(true);          
+    });
+
   for (const auto& pair : pickable_callback_map_) {
     creative_kernel::tracePickable(pair.first);
   }
@@ -51,7 +59,17 @@ void MirrorOperateMode::onAttach() {
   creative_kernel::addWheelEventHandler(this);
   creative_kernel::addLeftMouseEventHandler(this);
 
-  onSelectionsChanged();
+  const auto selected_model_list = creative_kernel::selectionms();
+  if (!selected_model_list.empty()) {
+      // the scale factor can only set after the space box is set
+      entity_->setSpaceBox(selected_model_list.last()->globalSpaceBox());
+      entity_->setScaleFactor(CaculateCurrentScaleFactor());
+      creative_kernel::visShow(entity_.get());
+  }
+  else {
+      creative_kernel::visHide(entity_.get());
+  }
+  //onSelectionsChanged();
 }
 
 void MirrorOperateMode::onDettach() {
@@ -74,9 +92,19 @@ void MirrorOperateMode::onWheelEvent(QWheelEvent* event) {
 }
 
 void MirrorOperateMode::onLeftMouseButtonClick(QMouseEvent* event) {
+  if (!m_canOperate)
+    return;
+
   auto iter = pickable_callback_map_.find(creative_kernel::checkPickable(event->pos(), nullptr));
-  if (iter == pickable_callback_map_.cend()) { return; }
+  if (iter == pickable_callback_map_.cend()) 
+  { 
+    return; 
+  }
+
   iter->second();
+  m_canOperate = false;
+  creative_kernel::getModelSelect()->setEnabled(false);
+  m_operateTimer.start(200);
 }
 
 void MirrorOperateMode::onSelectionsChanged() {
@@ -91,7 +119,7 @@ void MirrorOperateMode::onSelectionsChanged() {
     creative_kernel::visHide(entity_.get());
   }
 
-  creative_kernel::requestVisUpdate();
+  creative_kernel::requestVisUpdate(true);
 }
 
 void MirrorOperateMode::selectChanged(qtuser_3d::Pickable* pickable) {

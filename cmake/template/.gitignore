@@ -1,0 +1,9 @@
+/node_modules
+/bin
+/lib
+/build
+/out
+/binary-data/
+/linux-build/
+/ninja-build/
+/win32-build/

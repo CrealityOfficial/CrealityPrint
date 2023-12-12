@@ -1,0 +1,1 @@
+__conan_set_include(lemon INTERFACE_DEF LEMON_ONLY_TEMPLATES)

@@ -59,7 +59,7 @@ Button {
     UserInfoDlg {
         visible: false
         id: idUserInfoDlg
-        context: dock_context
+      //  context: dock_context
         objectName: "UserInfoDlg"
 
         onQuitClicked: {

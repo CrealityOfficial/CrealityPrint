@@ -5,18 +5,17 @@
 #include "qtusercore/module/systemutil.h"
 
 #include "qtuser3d/camera/cameracontroller.h"
+#include "qtuser3d/module/rendercenter.h"
+//#include "qtuser3d/module/glquickitem.h"
 #include "qtusercore/util/undoproxy.h"
 #include "qtusercore/module/jobexecutor.h"
 #include "qtusercore/util/applicationconfiguration.h"
 #include "qtusercore/module/cxopenandsavefilemanager.h"
 #include <qtusercore/string/resourcesfinder.h>
 
-#if USE_CXCLOUD
-#include <cxcloud/net/http_request.h>
 #include <cxcloud/service_center.h>
-#endif
+
 #include "kernel/visualscene.h"
-#include "kernel/rendercenter.h"
 
 #include "data/modelspaceundo.h"
 #include "interface/renderinterface.h"
@@ -29,13 +28,13 @@
 #include "interface/appsettinginterface.h"
 #include "interface/selectorinterface.h"
 #include "cxkernel/interface/iointerface.h"
+#include "cxkernel/wrapper/eventtracking.h"
 #include "interface/machineinterface.h"
 #include "cxkernel/interface/modelninterface.h"
 
 #include "kernel/reuseablecache.h"
 #include "kernel/commandcenter.h"
 #include "kernel/translator.h"
-#include "kernel/sensoranalytics.h"
 #include "kernel/snapshot.h"
 #include "kernel/kernelui.h"
 #include "kernel/capturemodeln.h"
@@ -56,11 +55,13 @@
 #include "utils/namedeclare.h"
 
 #include "slice/sliceflow.h"
+#include "slice/slicepreviewflow.h"
 
 #include "qtusercore/module/creativeplugincenter.h"
-#include "qtuserqml/updater/UpdateManager.h"
-#include "qtuserqml/gl/glquickitem.h"
-#include "qtuserqml/macro.h"
+#include "qtusercore/updater/UpdateManager.h"
+#include "qtusercore/macro.h"
+#include "qtuser3d/module/quickscene3dwrapper.h"
+//#include "qtuserqml/macro.h"
 
 #include <QtQml/QQmlEngine>
 #include <QtQml/QQmlContext>
@@ -86,7 +87,7 @@ namespace creative_kernel
 		return gKernel;
 	}
 
-	qtuser_quick::AppModule* createC3DContext()
+	cxkernel::AppModule* createC3DContext()
 	{
 		return new Kernel();
 	}
@@ -119,7 +120,7 @@ namespace creative_kernel
 		m_modelListModel = new CusModelListModel(this);
 		m_addPrinterModel = new CusAddPrinterModel();
 
-		m_renderCenter = new RenderCenter(this);
+		m_renderCenter = new qtuser_3d::RenderCenter(this);
 
 		m_cameraController = new qtuser_3d::CameraController(this);
 		m_cameraController->setEnableZoomAroundCursor(true);
@@ -140,7 +141,7 @@ namespace creative_kernel
 		m_dumpProxy = new DumpProxy(this);
 
 		m_sliceFlow = new SliceFlow(this);
-		m_sensorAnalytics = new SensorAnalytics(this);
+		m_sensorAnalytics = new cxkernel::EventTracking(this);
 
 		m_phases[0] = m_visualScene;
 		m_phases[1] = m_sliceFlow;
@@ -170,8 +171,6 @@ namespace creative_kernel
 	{
 		qDebug() << "kernel initialize";
 
-#if USE_CXCLOUD
-		cxcloud()->initialize();
 		cxcloud()->setApplicationType(cxcloud::ApplicationType::CREATIVE_PRINT);
 		cxcloud()->setOpenFileHandler(cxkernel::openFileWithName);
 		cxcloud()->setOpenFileListHandler(cxkernel::openFileWithNames);
@@ -204,7 +203,7 @@ namespace creative_kernel
 				.arg(QStringLiteral(PROJECT_NAME)).arg(QStringLiteral("cloud_models")))
 		}.absoluteFilePath());
 		cxcloud()->setMaxDownloadThreadCount(8);
-#endif
+		cxcloud()->initialize();
 
 		m_sliceFlow->initialize();
 		m_dumpProxy->initialize();
@@ -239,6 +238,7 @@ namespace creative_kernel
 
 		m_materialCenter->intialize();
 		m_parameterManager->intialize();
+		m_sensorAnalytics->setPath(ANALYTICS_PATH);
 
 		qDebug() << "kernel initialize over";
 		showSysMemory();
@@ -258,9 +258,7 @@ namespace creative_kernel
 		qDebug() << "kernel uninitialize start";
 		m_renderCenter->uninitialize();
 		m_modelSpace->uninitialize();
-#if USE_CXCLOUD
 		cxcloud()->uninitialize();
-#endif
 
 		renderRenderGraph(nullptr);
 		m_reusableCache->blockRelation();
@@ -271,7 +269,9 @@ namespace creative_kernel
 
 	void Kernel::initializeContext()
 	{
-		CXSW_REG(GLQuickItem);
+		//CXSW_REG(GLQuickItem);
+		using namespace qtuser_3d;
+    	CXSW_REG(QuickScene3DWrapper);
 		CXSW_REG(QMLPlayer);
 		CXSW_REG(QCxChart);
 
@@ -288,6 +288,7 @@ namespace creative_kernel
 		m_context->setContextProperty("kernel_global_const", m_globalConst);
 		m_context->setContextProperty("kernel_command_center", m_commandCenter);
 		m_context->setContextProperty("kernel_render_center", m_renderCenter);
+		// m_context->setContextProperty("kernel_render_center_scene3d", m_renderCenter->scene3DWrapper());
 		m_context->setContextProperty("kernel_reusable_cache", m_reusableCache);
 		m_context->setContextProperty("kernel_modelspace", m_modelSpace);
 		m_context->setContextProperty("kernel_model_selector", m_modelSelector);
@@ -305,11 +306,6 @@ namespace creative_kernel
 
 		m_engine->setObjectOwnership(m_sliceFlow, QQmlEngine::CppOwnership);
 		m_sliceFlow->registerContext();
-
-#if USE_CXCLOUD
-		registerImageProvider(QStringLiteral("login_qrcode_image_provider"),
-			cxcloud()->getAccountService().lock()->getQrcodeImageProvider());
-#endif
 
 		m_kernelUI->loadUserLanguage();
 	}
@@ -336,9 +332,7 @@ namespace creative_kernel
 
 	void Kernel::loadUserSettings()
 	{
-#if USE_CXCLOUD
 		cxcloud()->loadUserSettings();
-#endif
 		setKernelPhase(m_phases[0]);
 	}
 
@@ -361,7 +355,7 @@ namespace creative_kernel
 		return m_reusableCache;
 	}
 
-	RenderCenter* Kernel::renderCenter()
+	qtuser_3d::RenderCenter* Kernel::renderCenter()
 	{
 		return m_renderCenter;
 	}
@@ -391,7 +385,7 @@ namespace creative_kernel
 		return m_commandCenter;
 	}
 
-	SensorAnalytics* Kernel::sensorAnalytics()
+	cxkernel::EventTracking* Kernel::sensorAnalytics()
 	{
 		return m_sensorAnalytics;
 	}
@@ -431,9 +425,14 @@ namespace creative_kernel
 		return true;
 	}
 
-	void Kernel::setGLQuickItem(GLQuickItem* quickItem)
+	/*void Kernel::setGLQuickItem(GLQuickItem* quickItem)
 	{
 		m_renderCenter->setGLQuickItem(quickItem);
+	}*/
+
+	void Kernel::setScene3DWrapper(qtuser_3d::QuickScene3DWrapper* scene3DItem)
+	{
+		m_renderCenter->setScene3DWrapper(scene3DItem);
 	}
 
 	void Kernel::processCommandLine()
@@ -488,6 +487,7 @@ namespace creative_kernel
 			updatePrinterBox(m_parameterManager->currentMachineWidth()
                 , m_parameterManager->currentMachinedepth()
                 , m_parameterManager->currentMachineheight());
+
         }
 	}
 
@@ -549,5 +549,18 @@ namespace creative_kernel
 		renderOneFrame();
 		m_capture->startCapture();
 		//renderOneFrame();
+	}
+
+	void Kernel::setSceneClearColor(const QColor& color)
+	{
+		if (m_visualScene)
+		{
+			m_visualScene->setSceneClearColor(color);
+		}
+
+		if (m_sliceFlow)
+		{
+			m_sliceFlow->slicePreviewFlow()->setSceneClearColor(color);
+		}
 	}
 }

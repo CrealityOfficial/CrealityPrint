@@ -31,7 +31,7 @@ public:
 	void setPlaneNormal(const QVector3D& normal);
 	void setPlaneDir(const QVector3D& rotate);
 
-	void setAcitiveAxis(const QVector3D& axis);
+	void setAcitiveAxis(int axisType);
 	void setOffset(float offset);
 	float getOffset();
 
@@ -76,6 +76,8 @@ protected:
 
 	QVector3D makeWorldPositionFromScreen(const QPoint& pos);
 
+	void setCustomPlanePosition();
+
 protected:
 	qtuser_3d::LineExEntity* m_lineEntity;
 	qtuser_3d::AlonePointEntity* m_pointEntity;
@@ -89,6 +91,8 @@ protected:
 	QVector3D m_rotateAngle;    // rotate euler
 
 	bool m_bShowPop = false;
+	
+    int m_axisType = 2;     // 0 : x ;1 : y ; z:2
 
 	bool m_selectPlaneByCursor;
 	QVector<QVector3D> m_selectedPosition;

@@ -1,8 +1,6 @@
 #include "modelninput.h"
-#include "qcxutil/trimesh2/conv.h"
-#include "mmesh/trimesh/trimeshutil.h"
-#include "mmesh/trimesh/shapecreator.h"
-#include "mmesh/trimesh/filler.h"
+#include "msbase/utils/box2dgrid.h"
+#include "msbase/primitive/primitive.h"
 
 namespace creative_kernel
 {
@@ -14,6 +12,7 @@ namespace creative_kernel
 		trimesh::TriMesh* mmesh = new trimesh::TriMesh();
 		*mmesh = *m_model->globalMesh();
 		m_mesh = TriMeshPtr(mmesh);
+		outline_ObjectExclude = model->getoutline_ObjectExclude();
 	}
 
 	ModelNInput::~ModelNInput()
@@ -50,7 +49,7 @@ namespace creative_kernel
 
 		trimesh::TriMesh* mesh_temp = new trimesh::TriMesh();
 		*mesh_temp = *m_mesh;
-		mmesh::Box2DGrid grid_rot_before;
+		msbase::Box2DGrid grid_rot_before;
 		trimesh::fxform xf = trimesh::fxform::identity();
 		grid_rot_before.build(mesh_temp, xf, false);
 
@@ -62,8 +61,8 @@ namespace creative_kernel
 
 		float supportSize = std::max(box.size().x, box.size().y) / 30.0f;
 
-		std::vector<mmesh::VerticalSeg> supports;
-		mmesh::Box2DGrid grid;
+		std::vector<msbase::VerticalSeg> supports;
+		msbase::Box2DGrid grid;
 		grid.build(mesh_temp, xf, false);
 		grid.buildGlobalProperties();
 		grid.autoSupport(supports, supportSize, support_angle, false);
@@ -75,7 +74,7 @@ namespace creative_kernel
 
 		for (int i = 0; i < size_all; ++i)
 		{
-			mmesh::VerticalSeg& seg = supports.at(i);
+			msbase::VerticalSeg& seg = supports.at(i);
 			seg.t = RotateByVector(seg.t, axis, trimesh::vec3(0, 0, uplift_height), -rotation_angle);
 			seg.b = seg.t - trimesh::vec3(0, 0, seg.t[2]);
 		}
@@ -87,7 +86,7 @@ namespace creative_kernel
 		supportMesh->vertices.resize(vertexNum);
 		for (int i = 0; i < size_all; ++i)
 		{
-			mmesh::VerticalSeg& seg = supports.at(i);
+			msbase::VerticalSeg& seg = supports.at(i);
 			float topSize = supportSize;
 			float bottomSize = supportSize;
 			if (i >= sizeOfFaceSupport)
@@ -100,7 +99,7 @@ namespace creative_kernel
 					bottomSize = topSize;
 			}
 
-			mmesh::fillCylinderSoup(&supportMesh->vertices.at(0) + 36 * i, bottomSize, seg.b,
+			msbase::fillCylinderSoup(&supportMesh->vertices.at(0) + 36 * i, bottomSize, seg.b,
 				topSize, seg.t, 4, -rotation_angle);
 		}
 

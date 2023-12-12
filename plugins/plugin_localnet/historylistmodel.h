@@ -17,7 +17,7 @@ public:
 	Q_INVOKABLE void findHistoryFileList();
 	Q_INVOKABLE void deleteHistoryFile(const QString& ipAddress, const QString& id, int remoteType);
 	Q_INVOKABLE void switchDataSource(const QString& macAddress, RemotePrinerType remoteType, bool init = true);
-	Q_INVOKABLE void downloadGcodeFile(const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType, const QString& historyFileNumb);
+	Q_INVOKABLE void downloadGcodeFile(const QString& macAddress, const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType, const QString& historyFileNumb);
 
 	int printerType() const;
 	void onGetHistoryFileList(const std::string& std_macAddr, const std::string& std_list, RemotePrinerType remoteType);

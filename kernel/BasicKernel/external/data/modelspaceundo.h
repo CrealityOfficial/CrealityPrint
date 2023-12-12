@@ -16,7 +16,6 @@ namespace creative_kernel
 		virtual ~ModelSpaceUndo();
 
 		void modifySpace(const QList<ModelN*>& models, const QList<ModelN*>& removeModels);
-		void replaceModels(const QList<MeshChange>& meshChanges);
 
 		void mix(const QList<NUnionChangedStruct>& mixChange);
 		void mirror(const QList<NMirrorStruct>& mirrors);

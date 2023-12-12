@@ -1,0 +1,10 @@
+#ifndef CREATIVE_KERNEL_PROJECT_INTERFACE_1592732397175_H
+#define CREATIVE_KERNEL_PROJECT_INTERFACE_1592732397175_H
+#include "kernel/projectinfoui.h"
+
+namespace creative_kernel
+{
+	BASIC_KERNEL_API ProjectInfoUI* projectUI();
+}
+
+#endif // CREATIVE_KERNEL_PROJECT_INTERFACE_1592732397175_H

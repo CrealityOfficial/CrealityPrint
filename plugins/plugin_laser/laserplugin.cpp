@@ -7,7 +7,7 @@
 #include "interface/spaceinterface.h"
 
 #include "qtuser3d/camera/cameracontroller.h"
-#include "qtuserqml/property/qmlpropertysetter.h"
+#include "qtusercore/property/qmlpropertysetter.h"
 
 using namespace creative_kernel;
 using namespace qtuser_3d;

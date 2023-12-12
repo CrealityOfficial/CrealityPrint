@@ -1,10 +1,10 @@
 #include "gridcache.h"
 #include "data/modeln.h"
 
-#include "mmesh/trimesh/box2dgrid.h"
-#include "qcxutil/trimesh2/conv.h"
+#include "msbase/utils/box2dgrid.h"
+#include "qtuser3d/trimesh2/conv.h"
 
-using namespace mmesh;
+using namespace msbase;
 namespace creative_kernel
 {
 	GridCache::GridCache(QObject* parent)
@@ -34,7 +34,7 @@ namespace creative_kernel
 	{
 		for (ModelN* m : models)
 		{
-			trimesh::fxform xf = qcxutil::qMatrix2Xform(m->globalMatrix());
+			trimesh::fxform xf = qtuser_3d::qMatrix2Xform(m->globalMatrix());
 			Box2DGrid* grid = new Box2DGrid();
 			grid->build(m->mesh(), xf, m->isFanZhuan());
 

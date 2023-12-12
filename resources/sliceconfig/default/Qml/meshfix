@@ -1,0 +1,11 @@
+meshfix_union_all
+meshfix_union_all_remove_holes
+meshfix_extensive_stitching
+meshfix_keep_open_polygons
+multiple_mesh_overlap
+carve_multiple_volumes
+alternate_carve_order
+remove_empty_first_layers
+meshfix_maximum_resolution
+meshfix_maximum_travel_resolution
+meshfix_maximum_deviation

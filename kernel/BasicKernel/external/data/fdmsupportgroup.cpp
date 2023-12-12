@@ -1,6 +1,6 @@
 #include "fdmsupportgroup.h"
-#include "qtuser3d/entity/supportchunkgroupentity.h"
-#include "qtuser3d/entity/supportchunkentity.h"
+#include "entity/supportchunkgroupentity.h"
+#include "entity/supportchunkentity.h"
 
 #include "data/fdmsupport.h"
 

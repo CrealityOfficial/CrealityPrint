@@ -15,6 +15,8 @@ namespace qtuser_3d
 {
 	class CameraController;
 	class ScreenCamera;
+	class RenderCenter;
+	class QuickScene3DWrapper;
 }
 
 namespace qtuser_core
@@ -24,6 +26,11 @@ namespace qtuser_core
 	class CreativePluginCenter;
 	class ApplicationConfiguration;
 	class CXFileOpenAndSaveManager;
+}
+
+namespace cxkernel
+{
+	class EventTracking;
 }
 
 namespace creative_kernel
@@ -37,12 +44,10 @@ namespace creative_kernel
 	class PrinterNetMng;
 	class ThemeNotifier;
 	class PrinterNotifier;
-	class RenderCenter;
 	class CommandCenter;
 	class DumpProxy;
 	class Translator;
 	class CusModelListModel;
-	class SensorAnalytics;
 	class KernelPhase;
 	class SliceFlow;
 	class RClickMenuList;
@@ -68,7 +73,7 @@ namespace creative_kernel
 		int currentPhase();
 
 		ReuseableCache* reuseableCache();
-		RenderCenter* renderCenter();
+		qtuser_3d::RenderCenter* renderCenter();
 
 		SliceFlow* sliceFlow();
 
@@ -84,7 +89,7 @@ namespace creative_kernel
 
 		GlobalConst* globalConst();
 		CommandCenter* commandCenter();
-		SensorAnalytics* sensorAnalytics();
+		cxkernel::EventTracking* sensorAnalytics();
 
 		qtuser_core::ApplicationConfiguration* appConfiguration();
 		ParameterManager* parameterManager();
@@ -92,11 +97,13 @@ namespace creative_kernel
 		SnapShot* snapShot();
 
 		KernelUI* kernelUI();
+		void setSceneClearColor(const QColor &color);
 
 		Q_INVOKABLE void openFile();
 		Q_INVOKABLE bool checkUnsavedChanges();
 		Q_INVOKABLE void processCommandLine();
-		Q_INVOKABLE void setGLQuickItem(GLQuickItem* quickItem);
+		//Q_INVOKABLE void setGLQuickItem(GLQuickItem* quickItem);
+		Q_INVOKABLE void setScene3DWrapper(qtuser_3d::QuickScene3DWrapper* item);
 
 		Q_INVOKABLE void setKernelPhase(int phase);   //invoke from qml
 		void setKernelPhase(KernelPhaseType phase);   //invoke from c++, maybe not ui thread
@@ -117,7 +124,7 @@ namespace creative_kernel
 		CusModelListModel* m_modelListModel;
 		CusAddPrinterModel* m_addPrinterModel;
 
-		RenderCenter* m_renderCenter;
+		qtuser_3d::RenderCenter* m_renderCenter;
 		GlobalConst* m_globalConst;
 		CommandCenter* m_commandCenter;
 		SliceFlow* m_sliceFlow;
@@ -141,7 +148,7 @@ namespace creative_kernel
 
 		DumpProxy* m_dumpProxy;
 
-		SensorAnalytics* m_sensorAnalytics;
+		cxkernel::EventTracking* m_sensorAnalytics;
 
 		RClickMenuList* m_rclickMenuList;
 		ParameterManager* m_parameterManager;
@@ -154,7 +161,7 @@ namespace creative_kernel
 	};
 
 	BASIC_KERNEL_API Kernel* getKernel();
-	BASIC_KERNEL_API qtuser_quick::AppModule* createC3DContext();
+	BASIC_KERNEL_API cxkernel::AppModule* createC3DContext();
 }
 
 #endif // _CREATIVE_BASE_UI_KERNEL_1589720896794_H

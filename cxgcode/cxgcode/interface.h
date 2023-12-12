@@ -1,0 +1,20 @@
+#pragma once
+
+#ifndef CXGCODE_INTERFACE_HPP_
+#define CXGCODE_INTERFACE_HPP_
+
+#include "ccglobal/export.h"
+
+#if USE_CXGCODE_DLL
+	#define CXGCODE_API CC_DECLARE_IMPORT
+#elif USE_CXGCODE_STATIC
+	#define CXGCODE_API CC_DECLARE_STATIC
+#else
+	#if CXGCODE_DLL
+		#define CXGCODE_API CC_DECLARE_EXPORT
+	#else
+		#define CXGCODE_API CC_DECLARE_STATIC
+	#endif
+#endif
+
+#endif // CXGCODE_INTERFACE_HPP_

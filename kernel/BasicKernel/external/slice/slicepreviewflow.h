@@ -22,6 +22,7 @@
 #include <qtuser3d/event/eventhandlers.h>
 #include <qtuser3d/framegraph/rendergraph.h>
 #include <qtuser3d/framegraph/colorpicker.h>
+#include "qtuser3d/framegraph/surface.h"
 
 #include "external/data/kernelenum.h"
 
@@ -64,9 +65,12 @@ namespace creative_kernel
 		void initialize();
 		SlicePreviewScene* scene();
 
+		void useCachePreview();
 		void requestPreview(qtuser_3d::namedReplyFunc func);
-		void endRequest();
+		void endRequest(const QImage &image);
 		void notifyClipValue();
+
+		void setSceneClearColor(const QColor& color);
 
 		Q_INVOKABLE void setGCodeVisualType(int type);
 		Q_INVOKABLE void setIndicatorVisible(bool visible);
@@ -101,6 +105,7 @@ namespace creative_kernel
 		void clear();
 
 		void setSliceAttain(SliceAttain* attain);
+		void previewSliceAttain(SliceAttain* attain, int layer);
 		SliceAttain* attain();
 		SliceAttain* takeAttain();
 	signals:
@@ -118,7 +123,10 @@ namespace creative_kernel
 
 		void begineRender() override;
 		void endRender() override;
-
+#ifdef ENABLE_DEBUG_OVERLAY
+		bool showDebugOverlay() override;
+		void setShowDebugOverlay(bool showDebugOverlay) override;
+#endif
 	protected:
 
 		void onKeyPress(QKeyEvent* event) override;
@@ -143,6 +151,8 @@ namespace creative_kernel
 		qtuser_3d::Surface* m_surface;
 		qtuser_3d::ColorPicker* m_colorPicker;
 		qtuser_3d::TextureRenderTarget* m_textureRenderTarget;
+
+		QImage m_cachePreview;
 
 		gcode::GCodeVisualType m_visualType;
 		std::unique_ptr<cxgcode::GcodeSpeedListModel> m_speedModel;

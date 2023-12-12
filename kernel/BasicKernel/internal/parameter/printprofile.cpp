@@ -174,7 +174,19 @@ namespace creative_kernel
         {
             m_profileParameterModel->mergeMachineSettings(0);
             m_profileParameterModel->mergeMaterialSettings(0);
+            QStringList old_user_keys;
+            for (auto it = m_user_settings->settings().cbegin(); it != m_user_settings->settings().cend(); ++it)
+            {
+                old_user_keys << it.key();
+            }
             setUserSettings(createUserProfileCoverSettings(m_machineName, m_profileFileName, getCurrentMaterialName()));
+            for (const auto& key : old_user_keys)
+            {
+                if (!m_user_settings->hasKey(key))
+                {
+                    m_profileParameterModel->resetValue(key);
+                }
+            }
         }
         m_profileParameterModel->applyUserSetting(m_user_settings);
             

@@ -1,0 +1,332 @@
+{
+	"layer_height":
+	{
+		"label": "Layer Height",
+		"description": "The height of each layer in mm. Higher values produce faster prints in lower resolution, lower values produce slower prints in higher resolution.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.1",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.04",
+		"maximum_value_warning": "2.0 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"layer_height_0":
+	{
+		"label": "Initial Layer Height",
+		"description": "The height of the initial layer in mm. A thicker initial layer makes adhesion of the build plate easier.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.3",
+		"resolve": "min(extruderValues('layer_height_0'))",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.1",
+		"maximum_value_warning": "2.0 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "2",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"arc_configure_enable": 
+	{
+		"label": "Arc Configure Enable",
+		"description": "Arc Configure Enable",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"parameter_level": "1"
+	},
+	"arc_tolerance": 
+	{
+		"label": "Arc Tolerance",
+		"description": "Arc Tolerance",
+		"type": "float",
+		"default_value": "10",
+		"minimum_value": "0",
+		"minimum_value_warning": "-1",
+		"enabled": "eval(contex.value(\"arc_configure_enable\"))",
+		"parameter_level": "2",
+		"settable_per_mesh": false
+	},
+	"small_hole_max_size":
+	{
+		"label": "Small Hole Max Size",
+		"description": "Holes and part outlines with a diameter smaller than this will be printed using Small Feature Speed.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "3",
+		"default_value": "6",
+		"parameter_level": "-2",
+		"settable_per_mesh": true
+	},
+	"small_feature_max_length":
+	{
+		"label": "Small Feature Max Length",
+		"description": "Feature outlines that are shorter than this length will be printed using Small Feature Speed.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"default_value": "6",
+		"value": "eval(contex.value(\"small_hole_max_size\")) * Math.PI",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"small_feature_speed_factor":
+	{
+		"label": "Small Feature Speed",
+		"description": "Small features will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "50",
+		"parameter_level": "1",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "100",
+		"settable_per_mesh": true
+	},
+	"small_feature_speed_factor_0":
+	{
+		"label": "Small Feature Initial Layer Speed",
+		"description": "Small features on the first layer will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "50",
+		"value": "eval(contex.value(\"small_feature_speed_factor\"))",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "100",
+		"settable_per_mesh": true
+	},
+	"bridge_settings_enabled":
+	{
+		"label": "Enable Bridge Settings",
+		"description": "Detect bridges and modify print speed, flow and fan settings while bridges are printed.",
+		"type": "bool",
+		"default_value": "false",
+		"parameter_level": "1",
+		"settable_per_mesh": true,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": false
+	},
+	"bridge_wall_min_length":
+	{
+		"label": "Minimum Bridge Wall Length",
+		"description": "Unsupported walls shorter than this will be printed using the normal wall settings. Longer unsupported walls will be printed using the bridge wall settings.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"default_value": "2",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"settable_per_mesh": true,
+		"parameter_level": "4",
+		"settable_per_extruder": false
+	},
+	"bridge_skin_support_threshold":
+	{
+		"label": "Bridge Skin Support Threshold",
+		"description": "If a skin region is supported for less than this percentage of its area, print it using the bridge settings. Otherwise it is printed using the normal skin settings.",
+		"unit": "%",
+		"default_value": "50",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_sparse_infill_max_density":
+	{
+		"label": "Bridge Sparse Infill Max Density",
+		"description": "Maximum density of infill considered to be sparse. Skin over sparse infill is considered to be unsupported and therefore may be treated as a bridge skin.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "0",
+		"value": "getEnumValue(\"infill_pattern\") == 'grid' ? 20 :  0",
+		"minimum_value": "0",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_wall_coast":
+	{
+		"label": "Bridge Wall Coasting",
+		"description": "This controls the distance the extruder should coast immediately before a bridge wall begins. Coasting before the bridge starts can reduce the pressure in the nozzle and may produce a flatter bridge.",
+		"unit": "%",
+		"default_value": "100",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "500",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_wall_speed":
+	{
+		"label": "Bridge Wall Speed",
+		"description": "The speed at which the bridge walls are printed.",
+		"unit": "mm/s",
+		"type": "float",
+		"minimum_value": "eval(contex.value(\"cool_min_speed\"))",
+		"maximum_value": "Math.sqrt(Math.pow(eval(contex.value(\"machine_max_feedrate_x\")),2) + Math.pow(eval(contex.value(\"machine_max_feedrate_y\")),2))",
+		"maximum_value_warning": "300",
+		"default_value": "15",
+		"value": "Math.max(eval(contex.value(\"cool_min_speed\")), eval(contex.value(\"speed_wall_0\")) / 2)",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_wall_material_flow":
+	{
+		"label": "Bridge Wall Flow",
+		"description": "When printing bridge walls, the amount of material extruded is multiplied by this value.",
+		"unit": "%",
+		"default_value": "100",
+		"type": "float",
+		"minimum_value": "5",
+		"minimum_value_warning": "50",
+		"maximum_value_warning": "150",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_speed":
+	{
+		"label": "Bridge Skin Speed",
+		"description": "The speed at which bridge skin regions are printed.",
+		"unit": "mm/s",
+		"type": "float",
+		"minimum_value": "eval(contex.value(\"cool_min_speed\"))",
+		"maximum_value": "Math.sqrt(Math.pow(eval(contex.value(\"machine_max_feedrate_x\")),2) + Math.pow(eval(contex.value(\"machine_max_feedrate_y\")),2))",
+		"maximum_value_warning": "300",
+		"default_value": "15",
+		"value": "Math.max(eval(contex.value(\"cool_min_speed\")), eval(contex.value(\"speed_topbottom\")) / 2)",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_material_flow":
+	{
+		"label": "Bridge Skin Flow",
+		"description": "When printing bridge skin regions, the amount of material extruded is multiplied by this value.",
+		"unit": "%",
+		"default_value": "60",
+		"type": "float",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_density":
+	{
+		"label": "Bridge Skin Density",
+		"description": "The density of the bridge skin layer. Values less than 100 will increase the gaps between the skin lines.",
+		"unit": "%",
+		"default_value": "100",
+		"type": "float",
+		"minimum_value": "5",
+		"maximum_value": "100",
+		"minimum_value_warning": "20",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_enable_more_layers":
+	{
+		"label": "Bridge Has Multiple Layers",
+		"description": "If enabled, the second and third layers above the air are printed using the following settings. Otherwise, those layers are printed using the normal settings.",
+		"type": "bool",
+		"default_value": "true",
+		"parameter_level": "2",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_speed_2":
+	{
+		"label": "Bridge Second Skin Speed",
+		"description": "Print speed to use when printing the second bridge skin layer.",
+		"unit": "mm/s",
+		"type": "float",
+		"minimum_value": "eval(contex.value(\"cool_min_speed\"))",
+		"maximum_value": "Math.sqrt(Math.pow(eval(contex.value(\"machine_max_feedrate_x\")),2) + Math.pow(eval(contex.value(\"machine_max_feedrate_y\")),2))",
+		"maximum_value_warning": "300",
+		"default_value": "25",
+		"value": "eval(contex.value(\"bridge_skin_speed\"))",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_material_flow_2":
+	{
+		"label": "Bridge Second Skin Flow",
+		"description": "When printing the second bridge skin layer, the amount of material extruded is multiplied by this value.",
+		"unit": "%",
+		"default_value": "100",
+		"type": "float",
+		"minimum_value": "5",
+		"maximum_value": "500",
+		"minimum_value_warning": "50",
+		"maximum_value_warning": "150",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_density_2":
+	{
+		"label": "Bridge Second Skin Density",
+		"description": "The density of the second bridge skin layer. Values less than 100 will increase the gaps between the skin lines.",
+		"unit": "%",
+		"default_value": "75",
+		"type": "float",
+		"minimum_value": "5",
+		"maximum_value": "100",
+		"minimum_value_warning": "20",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_speed_3":
+	{
+		"label": "Bridge Third Skin Speed",
+		"description": "Print speed to use when printing the third bridge skin layer.",
+		"unit": "mm/s",
+		"type": "float",
+		"minimum_value": "eval(contex.value(\"cool_min_speed\"))",
+		"maximum_value": "Math.sqrt(Math.pow(eval(contex.value(\"machine_max_feedrate_x\")),2) + Math.pow(eval(contex.value(\"machine_max_feedrate_y\")),2))",
+		"maximum_value_warning": "300",
+		"default_value": "15",
+		"value": "eval(contex.value(\"bridge_skin_speed\"))",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_material_flow_3":
+	{
+		"label": "Bridge Third Skin Flow",
+		"description": "When printing the third bridge skin layer, the amount of material extruded is multiplied by this value.",
+		"unit": "%",
+		"default_value": "110",
+		"type": "float",
+		"minimum_value": "5",
+		"maximum_value": "500",
+		"minimum_value_warning": "50",
+		"maximum_value_warning": "150",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_density_3":
+	{
+		"label": "Bridge Third Skin Density",
+		"description": "The density of the third bridge skin layer. Values less than 100 will increase the gaps between the skin lines.",
+		"unit": "%",
+		"default_value": "80",
+		"type": "float",
+		"minimum_value": "5",
+		"maximum_value": "100",
+		"minimum_value_warning": "20",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	}
+}

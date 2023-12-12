@@ -49,8 +49,16 @@ namespace creative_kernel
 	void ParameterBase::exportSetting(const QString& fileName)
 	{
 		us::USettings* settings = m_settings->copy();
+		//å‰”é™¤overide
+		QList<us::USetting*> override_settings = settings->materialParameters("override");
+		Q_FOREACH(us::USetting* us,override_settings)
+		{
+			settings->deleteValueByKey(us->key());
+		}
+
 		if (m_user_settings)
 			settings->merge(m_user_settings);
+
 		settings->saveAsDefault(fileName);
 		delete settings;
 	}
@@ -79,7 +87,7 @@ namespace creative_kernel
 
 	void ParameterBase::saveSetting(const QString& fileName)
 	{
-		//²»±£´æÄ¬ÈÏ¼ÓÔØµÄ£¬ÒòÎª»áÁª¶¯¼ÆËã£¬¼ÆËã´íÎó»áµ¼ÖÂÃ¿´Î¶¼Ê§°Ü
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¬ï¿½Ï¼ï¿½ï¿½ØµÄ£ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ã£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½áµ¼ï¿½ï¿½Ã¿ï¿½Î¶ï¿½Ê§ï¿½ï¿½
 		//if (m_settings)
 		//	m_settings->saveAsDefault(fileName);
 		if(m_user_settings)

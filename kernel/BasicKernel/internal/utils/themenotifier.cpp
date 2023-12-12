@@ -6,7 +6,8 @@
 #include "internal/render/printerentity.h"
 
 #include "data/kernelmacro.h"
-#include "cxkernel/render/worldindicatorentity.h"
+#include "entity/worldindicatorentity.h"
+#include "external/kernel/kernel.h"
 
 namespace creative_kernel
 {
@@ -43,6 +44,8 @@ namespace creative_kernel
 				printerConfig.skirtVerticalBottom = CONFIG_GLOBAL_VEC4(printer_skirt_vertical_bottom_color, model_group);
 
 				clearColor = CONFIG_GLOBAL_VEC4(modeleffect_clearcolor, model_group);
+
+				getKernel()->setSceneClearColor(QColor("#363638"));
 			}
 				break;
 			case creative_kernel::ThemeCategory::tc_light:
@@ -60,6 +63,8 @@ namespace creative_kernel
 				printerConfig.skirtVerticalBottom = CONFIG_GLOBAL_L_VEC4(printer_skirt_vertical_bottom_color, model_group);
 
 				clearColor = CONFIG_GLOBAL_L_VEC4(modeleffect_clearcolor, model_group);
+
+				getKernel()->setSceneClearColor(QColor("#F2F2F5"));
 			}
 				break;
 		}
@@ -67,7 +72,7 @@ namespace creative_kernel
 		entity->updatePrinterColor(printerConfig);
 		setModelClearColor(clearColor);
 
-		cxkernel::WorldIndicatorEntity* indicator = getIndicatorEntity();
+		qtuser_3d::WorldIndicatorEntity* indicator = getIndicatorEntity();
 		indicator->setTheme((int)theme);
 
 		renderOneFrame();
@@ -75,34 +80,30 @@ namespace creative_kernel
 
 	void ThemeNotifier::onLanguageChanged(MultiLanguage language)
 	{
-		cxkernel::WorldIndicatorEntity* indicator = getIndicatorEntity();
+		qtuser_3d::WorldIndicatorEntity* indicator = getIndicatorEntity();
 
 		std::string dark, light, selected;
-		std::string prefix = "qrc:/cxkernel/images/indicator/";
+		std::string prefix = "qrc:/shader_entity/images/indicator/";
 		switch (language)
 		{
 		case creative_kernel::MultiLanguage::eLanguage_ZHCN_TS:
 			dark = prefix + "scene_all_dir_dark_hans.png";
 			light = prefix + "scene_all_dir_light_hans.png";
-			selected = prefix + "scene_all_dir_select_hans.png";
 			break;
 
 		case creative_kernel::MultiLanguage::eLanguage_ZHTW_TS:
 			dark = prefix + "scene_all_dir_dark_hant.png";
 			light = prefix + "scene_all_dir_light_hant.png";
-			selected = prefix + "scene_all_dir_select_hant.png";
 			break;
 
 		case creative_kernel::MultiLanguage::eLanguage_EN_TS:			
 		default:
 			dark = prefix + "scene_all_dir_dark_en.png";
 			light = prefix + "scene_all_dir_light_en.png";
-			selected = prefix + "scene_all_dir_select_en.png";
 			break;
 		}
 		
 		indicator->setupDarkTexture(QUrl(dark.c_str()));
 		indicator->setupLightTexture(QUrl(light.c_str()));
-		indicator->setupSelectTexture(QUrl(selected.c_str()));
 	}
 }

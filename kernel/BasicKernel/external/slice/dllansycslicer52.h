@@ -10,7 +10,7 @@ namespace creative_kernel
 		DLLAnsycSlicer52(QObject* parent = nullptr);
 		virtual ~DLLAnsycSlicer52();
 
-		SliceResultPointer doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer) override;
+		SliceResultPointer doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer, crslice::PathData* _fDebugger = nullptr) override;
 	};
 }
 #endif // _NULLSPACE_DLLANSYCSLICER52_1591781523824_H

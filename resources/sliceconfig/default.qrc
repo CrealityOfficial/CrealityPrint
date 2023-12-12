@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/us">
+        <file>default/fdm.ad.def.json</file>
+        <file>default/fdm.def.json</file>
+        <file>default/fdm_cloud.def.json</file>
+    </qresource>
+    <qresource prefix="/"/>
+</RCC>

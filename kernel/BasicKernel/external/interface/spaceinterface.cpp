@@ -74,6 +74,11 @@ namespace creative_kernel
 		return getKernel()->modelSpace()->haveModelsOutPlatform();
 	}
 
+	BASIC_KERNEL_API bool modelOutPlatform(ModelN* amodel)
+	{
+		return getKernel()->modelSpace()->modelOutPlatform(amodel);
+	}
+
 	QList<FDMSupportGroup*> fdmSuppportGroups()
 	{
 		QList<ModelN*> models = modelns();

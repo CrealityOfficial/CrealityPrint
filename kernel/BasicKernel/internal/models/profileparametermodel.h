@@ -17,8 +17,9 @@ namespace creative_kernel
 		Q_INVOKABLE void setMaterialCategory(const QString& category); // property flow cool temperature gcode
 		Q_INVOKABLE void setExtruderCategory(const QString& category, const bool& professional = false); // basic linewidth retraction
 		Q_INVOKABLE void setMachineCategory(const QString& category, const QString& subCategory); // basic move
-		Q_INVOKABLE void reCalculateSetting(QString key);
+		Q_INVOKABLE void reCalculateSetting(QString key,bool bReset=false);
 		Q_INVOKABLE QString value(QString key) const;
+		Q_INVOKABLE QString defaultValue(QString key) const;
 		Q_INVOKABLE void setValue(QString key,QString value);
 		Q_INVOKABLE void setOverideValue(QString key, QString value);
 		Q_INVOKABLE bool isUserSetting(QString key) const;
@@ -53,6 +54,7 @@ namespace creative_kernel
 		QString fixFloatValue(QString, us::USetting* setting) const;
 		us::USettings* m_global_settings = nullptr;
 		us::USettings* m_userSettings = nullptr;
+		us::USettings* m_defaultSettings = nullptr;
 		QMap<QString, QList<QString> > m_affectedKeys;
 	};
 }

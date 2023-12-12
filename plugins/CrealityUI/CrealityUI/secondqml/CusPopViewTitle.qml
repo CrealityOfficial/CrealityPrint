@@ -41,9 +41,32 @@ CusRoundedBg{
         onPressed: clickPos = Qt.point(mouse.x, mouse.y)
 
         onPositionChanged: {
-            var cursorPos = WizardUI.cursorGlobalPos()
-            moveItem.x = cursorPos.x - clickPos.x
-            moveItem.y = cursorPos.y - clickPos.y
+           // var cursorPos = WizardUI.cursorGlobalPos()
+           
+           var x = moveItem.x - clickPos.x + mouse.x;
+           var y = moveItem.y - clickPos.y + mouse.y;
+           var centerx = moveItem.parent.width;
+           var centery = moveItem.parent.height;
+           if(moveItem.centerToWindow)
+           {
+                centerx = standaloneWindow.width - moveItem.parent.mapToItem(null,0,0).x;
+                centery = standaloneWindow.height - moveItem.parent.mapToItem(null,0,0).y;
+           }
+           if((x+moveItem.width)<=centerx)
+           {
+                moveItem.x = x;
+           
+           }else{
+                moveItem.x =  centerx - moveItem.width ;
+           }
+           if((y+moveItem.height)<=centery)
+           {
+                 moveItem.y = y;
+           }else{
+                moveItem.y = centery - moveItem.height ;
+           }
+            //moveItem.x = cursorPos.x - clickPos.x
+           // moveItem.y = cursorPos.y - clickPos.y
         }
     }
 

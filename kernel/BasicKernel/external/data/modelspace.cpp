@@ -3,11 +3,11 @@
 #include "data/modeln.h"
 #include "data/fdmsupportgroup.h"
 #include "interface/modelinterface.h"
+#include "qtusercore/module/systemutil.h"
 
 #include "internal/render/printerentity.h"
 #include "qtusercore/string/resourcesfinder.h"
 
-#include "stringutil/util.h"
 #include "internal/menu/submenurecentfiles.h"
 
 #include "interface/reuseableinterface.h"
@@ -32,11 +32,16 @@ namespace creative_kernel
 
 	ModelSpace::~ModelSpace()
 	{
+#ifndef Q515
 		delete m_root;
+#endif
 	}
 
 	void ModelSpace::initialize()
 	{
+		QString strPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/RecentSerializeModel/";
+		clearPath(strPath);
+
 		addModelGroup(new ModelGroup());
 	}
 
@@ -204,22 +209,34 @@ namespace creative_kernel
 
 	void ModelSpace::addModel(ModelN* model)
 	{
+		for (SpaceTracer* tracer : m_spaceTracers)
+			tracer->onModelToAdded(model);
+
 		uniformName(model);
 		if (m_currentModelGroup && model)
 		{
 			m_currentModelGroup->addModel(model);
 			emit modelNNumChanged();
 		}
+
+		for (SpaceTracer* tracer : m_spaceTracers)
+			tracer->onModelAdded(model);
 		emit sigAddModel();
 	}
 
 	void ModelSpace::removeModel(ModelN* model)
 	{
+		for (SpaceTracer* tracer : m_spaceTracers)
+			tracer->onModelToRemoved(model);
+
 		if (m_currentModelGroup && model)
 		{
 			m_currentModelGroup->removeModel(model);
 			emit modelNNumChanged();
 		}
+
+		for (SpaceTracer* tracer : m_spaceTracers)
+			tracer->onModelRemoved(model);
 		emit sigRemoveModel();
 	}
 
@@ -243,7 +260,7 @@ namespace creative_kernel
 		QList<ModelN*> models = modelns();
 		ModelN* model = models[0];
 		QFileInfo file(model->objectName());
-		return file.baseName();
+		return file.completeBaseName();
 	}
 
 	int ModelSpace::modelNNum()
@@ -265,26 +282,49 @@ namespace creative_kernel
 		constexpr auto ITEM_NAME_KEY{ "item_name" };
 		constexpr auto ITEM_INDEX_KEY{ "item_index" };
 
-		QString item_name = item->objectName();
-		uint32_t item_index{ 0 };
+		std::function<QString(QString)> getBaseName = [](QString name) 
+		{
+			int suffix_index = name.lastIndexOf(QStringLiteral("."));
+			int id_index = name.lastIndexOf(QStringLiteral("#"));
+			if (id_index != -1 && id_index < suffix_index)
+			{
+				QString suffix = name.mid(suffix_index);
+				QString base_name = name.mid(0, id_index);
+				name = base_name + suffix;
+			}
+			return name;
+		};
 
+		QString item_name = getBaseName(item->objectName());
+
+		QVector<int> occupiedIds;
 		for (const auto& old_item : items) {
-			const auto OLD_ITEM_NAME = old_item->property(ITEM_NAME_KEY).toString();
+			const auto OLD_ITEM_NAME = getBaseName(old_item->property(ITEM_NAME_KEY).toString());
 			const auto OLD_ITEM_INDEX = old_item->property(ITEM_INDEX_KEY).toInt();
 
-			if (OLD_ITEM_NAME == item_name) {
-				item_index = std::max<uint32_t>(OLD_ITEM_INDEX, item_index);
-				item_index++;
+			if (old_item != item && OLD_ITEM_NAME == item_name) {
+				occupiedIds << OLD_ITEM_INDEX;
 			}
 		}
 
-		item->setProperty(ITEM_INDEX_KEY, item_index);
+		std::sort(occupiedIds.begin(), occupiedIds.end());
+
+		int id = 0;
+		for (; id < occupiedIds.size(); id++)
+		{
+			if (occupiedIds[id] != id)
+				break;
+		}
+
+		item->setProperty(ITEM_INDEX_KEY, id);
 		item->setProperty(ITEM_NAME_KEY, item_name);
 
-		if (item_index != 0) {
+		if (id != 0) {
 			const auto INSERT_INDEX = item_name.lastIndexOf(QStringLiteral("."));
-			const auto INDEX_TEXT = QStringLiteral("#%1").arg(QString::number(item_index));
+			const auto INDEX_TEXT = QStringLiteral("#%1").arg(QString::number(id));
 			item->setObjectName(item_name.insert(INSERT_INDEX, INDEX_TEXT));
+		} else {
+			item->setObjectName(item_name);
 		}
 	}
 
@@ -427,6 +467,24 @@ namespace creative_kernel
 		return outPlatform;
 	}
 
+	bool ModelSpace::modelOutPlatform(ModelN* amode)
+	{
+		QVector3D bbOffset(0.1f, 0.1f, 0.1f);
+		Box3D baseBox = baseBoundingBox();
+		baseBox.min = baseBox.min - bbOffset;
+		baseBox.max = baseBox.max + bbOffset;
+
+		qtuser_3d::Box3D LocalBox = amode->globalSpaceBox();
+		LocalBox.min.setZ(0.0);
+		LocalBox.max.setZ(0.0);
+		bool outPlatform = false;
+		if (!baseBox.contains(LocalBox))
+		{
+			outPlatform = true;
+		}
+		return outPlatform;
+	}
+
 	bool ModelSpace::haveSupports(const QList<ModelN*>& models)
 	{
 		for (ModelN* model : models)
@@ -454,5 +512,37 @@ namespace creative_kernel
 				p_support->clearSupports();
 			}
 		}
+	}
+
+	QList<ModelN*> ModelSpace::getModelnsBySerialName(const QStringList& names)
+	{
+		QList<ModelN*> theModels;
+
+		for (QString sName : names)
+		{
+			theModels.append(getModelNBySerialName(sName));
+		}
+
+		return theModels;
+	}
+
+	ModelN* ModelSpace::getModelNBySerialName(const QString& name)
+	{
+		ModelN* model = nullptr;
+		QList<ModelN*> ms = modelns();
+		for (ModelN* m : ms)
+		{
+			if (name == m->getSerialName())
+			{
+				model = m;
+				break;
+			}
+		}
+
+		if (!model)
+		{
+			qDebug() << QString("getModelNBySerialName error. [%1]").arg(name);
+		}
+		return model;
 	}
 }

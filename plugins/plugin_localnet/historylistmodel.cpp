@@ -113,12 +113,12 @@ void HistoryListModel::switchDataSource(const QString& macAddress, RemotePrinerT
 	}
 }
 
-void HistoryListModel::downloadGcodeFile(const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType, const QString& historyFileNumb)
+void HistoryListModel::downloadGcodeFile(const QString& macAddress, const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType, const QString& historyFileNumb)
 {
 	cpr::Session session;
 	std::string url = "http://" + ipAddress.toStdString() + "/downloads/gcode/";
 	url += session.GetCurlHolder()->urlEncode(fileName.toStdString());
-	getRemotePrinterManager()->downloadFile(url, QUrl(localPath).toLocalFile().toStdString(), std::bind(&HistoryListModel::onGetExportProgress, this, ipAddress, historyFileNumb, std::placeholders::_1));
+	getRemotePrinterManager()->downloadFile(url, QUrl(localPath).toLocalFile().toStdString(), std::bind(&HistoryListModel::onGetExportProgress, this, macAddress, historyFileNumb, std::placeholders::_1));
 }
 
 int HistoryListModel::printerType() const

@@ -1,7 +1,7 @@
 #ifndef QTUSER_3D_MODELNENTITY_1595161543232_H
 #define QTUSER_3D_MODELNENTITY_1595161543232_H
 #include "qtuser3d/refactor/xentity.h"
-#include "cxkernel/render/pureentity.h"
+#include "entity/pureentity.h"
 #include "qtuser3d/math/box3d.h"
 #include "trimesh2/Vec.h"
 #include <Qt3DRender/QTexture>
@@ -54,7 +54,7 @@ namespace creative_kernel
 		void setUseVertexColor(bool used);
 	protected:
 		qtuser_3d::BoxEntity* m_boxEntity;
-		cxkernel::PureEntity* m_lineEntity;
+		qtuser_3d::PureEntity* m_lineEntity;
 
 		Qt3DRender::QParameter* m_stateParameter;
 		Qt3DRender::QParameter* m_vertexBaseParameter;

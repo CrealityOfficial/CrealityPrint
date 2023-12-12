@@ -6,6 +6,15 @@
 
 namespace creative_kernel
 {
+    class ProjectOpenCallback
+    {
+    public:
+        virtual ~ProjectOpenCallback() {}
+
+        virtual void accept() = 0;
+        virtual void cancel() = 0;
+    };
+
     class BASIC_KERNEL_API ProjectInfoUI : public QObject
         , public UIVisualTracer
     {
@@ -25,11 +34,16 @@ namespace creative_kernel
 
         QString getProjectPath();
         void setProjectPath(QString strProPath);
+        void deleteTempProjectDirectory();
+
+        void setSettingsData(QString file);
+        QString getAutoProjectPath();
+
         void updateProjectNameUI();
         QString getNameFromPath(QString path);
 
         void clearSecen();
-        void requestMenuDialog();
+        void requestMenuDialog(ProjectOpenCallback* callback);
 
         void updateFileStateUI();
         
@@ -38,8 +52,6 @@ namespace creative_kernel
         Q_INVOKABLE void cancel();
     signals:
         void minutesChanged(float fMinute);
-        void acceptDialog();
-        void cancelDialog();
     protected:
         void onThemeChanged(ThemeCategory category) override;
         void onLanguageChanged(MultiLanguage language) override;
@@ -48,8 +60,11 @@ namespace creative_kernel
         QString m_strProjectPath;
         QString m_strProjectName;
         QString m_strMessageText;
-        bool m_bAcceptDialog = false;
+        QString m_strTempFilePath;
+
         static ProjectInfoUI* m_info;
+
+        ProjectOpenCallback* m_callback;
     };
 }
 

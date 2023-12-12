@@ -20,7 +20,7 @@ public:
 	Q_INVOKABLE void renameGcodeFile(const QString& ipAddress, const QString& filePath, const QString& targetName, int remoteType);
 	Q_INVOKABLE void switchDataSource(const QString& macAddr, RemotePrinerType remoteType, bool init = true);
 	Q_INVOKABLE void importMultiFile(const QString& macAddr, const QString& ipAddress, const QList<QUrl>& fileUrls);
-	Q_INVOKABLE void downloadGcodeFile(const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType);
+	Q_INVOKABLE void downloadGcodeFile(const QString& macAddr, const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType);
 	void onGetExportProgress(const QString& ipAddress, const QString& fileName, const float& progress);
 
 	int printerType() const;

@@ -191,8 +191,8 @@ void CCommandsData::addCommonCommand()
     SelectAllAction* selectAll = new SelectAllAction(this);
     CCommandList::getInstance()->addActionCommad(selectAll);
 
-    ResetAllAction* resetall = new ResetAllAction(this);
-    CCommandList::getInstance()->addActionCommad(resetall);
+    //ResetAllAction* resetall = new ResetAllAction(this);
+    //CCommandList::getInstance()->addActionCommad(resetall);
 
     //view
     ModelShowCommand* lineShow = new ModelShowCommand(ModelVisualMode::mvm_line, this);
@@ -221,9 +221,9 @@ void CCommandsData::addCommonCommand()
     CCommandList::getInstance()->addActionCommad(viewshow);
     //    viewshow->setBSeparator(true);
 
-    ResetActionCommand* resetAll = new ResetActionCommand();
-    resetAll->setParent(this);
-    CCommandList::getInstance()->addActionCommad(resetAll);
+    //ResetActionCommand* resetAll = new ResetActionCommand();
+    //resetAll->setParent(this);
+    //CCommandList::getInstance()->addActionCommad(resetAll);
 
     //MergeModelCommand* mergeModel = new MergeModelCommand();
     //mergeModel->setParent(this);

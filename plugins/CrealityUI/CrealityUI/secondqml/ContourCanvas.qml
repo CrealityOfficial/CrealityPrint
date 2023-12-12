@@ -10,6 +10,7 @@ Canvas {
 
   property double scaleFactor: 1.0
   property bool reverseYAxis: true
+  property bool originAtCenter: false
   property var contourListModel: null
   property bool enableChangeOrder: false
 
@@ -22,21 +23,41 @@ Canvas {
 
   function scalePointToPrinter(point) {
     let scaled_point = Qt.point(point.x, point.y)
+
     if (reverseYAxis) {
       scaled_point.y = -scaled_point.y + height
     }
-    scaled_point.x *= scaleFactor
-    scaled_point.y *= scaleFactor
+
+    if (originAtCenter) {
+      scaled_point.x -= width / 2
+      scaled_point.y -= height / 2
+    }
+
+    if (scaleFactor !== 1.0) {
+      scaled_point.x *= scaleFactor
+      scaled_point.y *= scaleFactor
+    }
+
     return scaled_point
   }
 
   function scalePointFromPrinter(point) {
     let scaled_point = Qt.point(point.x, point.y)
-    scaled_point.x /= scaleFactor
-    scaled_point.y /= scaleFactor
+
+    if (scaleFactor !== 1.0) {
+      scaled_point.x /= scaleFactor
+      scaled_point.y /= scaleFactor
+    }
+
+    if (originAtCenter) {
+      scaled_point.x += width / 2
+      scaled_point.y += height / 2
+    }
+
     if (reverseYAxis) {
       scaled_point.y = -scaled_point.y + height
     }
+
     return scaled_point
   }
 

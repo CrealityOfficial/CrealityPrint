@@ -227,11 +227,11 @@ namespace creative_kernel
             {
                 return getProfileValue(profile, "speed_print", "0.0").toDouble();
             }
-            if (role == speed_inner)
+            if (role == speed_outer)
             {
                 return getProfileValue(profile, "speed_wall_0", "0.0").toDouble();
             }
-            if (role == speed_outer)
+            if (role == speed_inner)
             {
                 return getProfileValue(profile, "speed_wall_x", "0.0").toDouble();
             }

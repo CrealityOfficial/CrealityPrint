@@ -9,8 +9,6 @@
 
 namespace creative_kernel
 {
-	class ModelN;
-
 	struct V3Change
 	{
 		QVector3D start;
@@ -25,7 +23,7 @@ namespace creative_kernel
 
 	struct NUnionChangedStruct
 	{
-		ModelN* model;
+		QString serialName;
 
 		V3Change posChange;
 		bool posActive;
@@ -37,7 +35,6 @@ namespace creative_kernel
 		bool rotateActive;
 
 		NUnionChangedStruct()
-			: model(nullptr)
 		{
 			posActive = false;
 			scaleActive = false;
@@ -47,24 +44,10 @@ namespace creative_kernel
 
 	struct NMirrorStruct
 	{
-		ModelN* model;
+		QString serialName;
 		MirrorOperation operation;
 		QMatrix4x4 start;
 		QMatrix4x4 end;
-	};
-
-	struct MeshChange
-	{
-		ModelN* model;
-		TriMeshPtr start;
-		TriMeshPtr end;
-		QString startName;
-		QString endName;
-
-		MeshChange()
-			: model(nullptr)
-		{
-		}
 	};
 }
 

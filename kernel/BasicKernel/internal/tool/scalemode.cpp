@@ -82,8 +82,10 @@ namespace creative_kernel
             m_op = new ScaleOp(this);
             disconnect(m_op, SIGNAL(scaleChanged()), this, SIGNAL(scaleChanged()));
             disconnect(m_op, SIGNAL(sizeChanged()), this, SIGNAL(sizeChanged()));
+            disconnect(m_op, SIGNAL(checkChanged()), this, SIGNAL(scaleLockChanged()));
             connect(m_op, SIGNAL(scaleChanged()), this, SIGNAL(scaleChanged()));
             connect(m_op, SIGNAL(sizeChanged()), this, SIGNAL(sizeChanged()));
+            connect(m_op, SIGNAL(checkChanged()), this, SIGNAL(checkChanged()));
             connect(m_op, SIGNAL(mouseLeftClicked()), this, SLOT(slotMouseLeftClicked()));
         }
 

@@ -1,0 +1,36 @@
+// Gragh2Print
+digraph {
+	graph [rankdir=LR]
+	glm_0_0_1 [label="glm.0.0.1"]
+	cxlog_0_0_2 [label="cxlog.0.0.2"]
+	trimesh2_0_0_2 [label="trimesh2.0.0.2"]
+	trimesh2_0_0_3 [label="trimesh2.0.0.3"]
+	stringutil_0_0_2 [label="stringutil.0.0.2"]
+	clipper_0_0_2 [label="clipper.0.0.2"]
+	boost_0_0_2 [label="boost.0.0.2"]
+	zlib_0_0_2 [label="zlib.0.0.2"]
+	pcre_0_0_2 [label="pcre.0.0.2"]
+	tinyxml_0_0_2 [label="tinyxml.0.0.2"]
+	osg_0_0_2 [label="osg.0.0.2"]
+	qtadvanceddocking_0_0_2 [label="qtadvanceddocking.0.0.2"]
+	qhullwrapper_0_0_2 [label="qhullwrapper.0.0.2"]
+	eigen_0_0_2 [label="eigen.0.0.2"]
+	cgal_0_0_2 [label="cgal.0.0.2"]
+	zip_0_0_2 -> zlib_0_0_2
+	png_0_0_2 -> zlib_0_0_2
+	minizip_0_0_2 -> zlib_0_0_2
+	libxml_0_0_2 -> zlib_0_0_2
+	msimplify_0_0_2 -> trimesh2_0_0_2
+	msimplify_0_0_3 -> trimesh2_0_0_3
+	lib3mf_0_0_2 -> zip_0_0_2
+	colladadom_0_0_2 -> minizip_0_0_2
+	colladadom_0_0_2 -> libxml_0_0_2
+	colladadom_0_0_2 -> pcre_0_0_2
+	colladadom_0_0_2 -> boost_0_0_2
+	cxbin_0_0_2 -> trimesh2_0_0_2
+	cxbin_0_0_2 -> colladadom_0_0_2
+	cxbin_0_0_2 -> tinyxml_0_0_2
+	cxbin_0_0_2 -> zip_0_0_2
+	cxbin_0_0_2 -> lib3mf_0_0_2
+	cxbin_0_0_2 -> stringutil_0_0_2
+}

@@ -1,15 +1,20 @@
-#include "laserscene.h"
-#include "drawobject.h"
-#include "laserexportfile.h"
 #include <QtQml/QQmlProperty>
 #include <QtDebug>
 #include <QPainter>
 #include <QtCore/QFile>
 #include <QtCore/QTextStream>
 #include <QQmlApplicationEngine>
-
-#include "qtusercore/string/stringtool.h"
 #include <QFileInfo>
+#include <QFontDatabase>
+#include <QSettings>
+#include <QQmlContext>
+#include <math.h>
+#include <QQuickView>
+
+#include "laserscene.h"
+#include "drawobject.h"
+#include "laserexportfile.h"
+#include "qtusercore/string/stringtool.h"
 #include "interface/camerainterface.h"
 #include "interface/selectorinterface.h"
 #include "interface/spaceinterface.h"
@@ -19,24 +24,19 @@
 #include "interface/commandinterface.h"
 #include "cxkernel/interface/iointerface.h"
 #include "interface/machineinterface.h"
-#include "qtuserqml/property/qmlpropertysetter.h"
+#include "qtusercore/property/qmlpropertysetter.h"
 #include "qtusercore/module/systemutil.h"
 #include"c2dlib.h"
 #include"lasergcodework.h"
 #include "cxkernel/interface/jobsinterface.h"
 #include"c2dlib.h"
-#include <QFontDatabase>
 
 #include "kernel/kernel.h"
 #include "data/modelspaceundo.h"
-#include "fmesh/dxf/load.h"
-#include "fmesh/svg/load.h"
 #include "PlotterUndo.h"
 #include "kernel/translator.h"
 #include "kernel/kernelui.h"
-#include <QSettings>
-#include <QQmlContext>
-#include <math.h>
+
 
 #define LASER_IMAGE_PROVIDER "image://laserImgProvider/"
 #define PLOTTER_IMAGE_PROVIDER "image://plotterImgProvider/"
@@ -61,8 +61,10 @@ LaserScene::LaserScene(QObject* parent, SCENETYPE type)
     m_3in1exporter = new CX2DLib();
     m_laserExport = new LaserExportFile();
     m_laserExport->setParentObj(this);
-    QQmlApplicationEngine* engine = getKernelUI()->getQmlEngine();
-    m_rightPanel = engine->rootObjects().first();
+    QQmlEngine* engine = getKernelUI()->getQmlEngine();
+
+    m_rightPanel = getKernelUI()->appWindow();
+    //m_rightPanel = engine->rootObjects().first();
     if(m_type==SCENETYPE::LASER)
     {
         engine->rootContext()->setContextProperty("laserScene", this);
@@ -293,66 +295,6 @@ void LaserScene::createImageObject(const QString &filename)
         if (showFileName.indexOf(".dxf") >= 0 || showFileName.indexOf(".svg") >= 0)
         {
             std::string strname = filename.toLocal8Bit().constData();
-            ClipperLibXYZ::Paths* imgPaths;
-            if (showFileName.indexOf(".dxf") >= 0)
-            {
-                imgPaths = cdrdxf::loadDXFFile(strname.c_str());
-            }
-            else
-            {
-                imgPaths = cdrdxf::loadSVGFile(strname.c_str());
-            }
-            
-            if (imgPaths)
-            {
-                ClipperLibXYZ::Clipper a;
-                a.AddPaths(*imgPaths, ClipperLibXYZ::PolyType::ptClip, true);
-                ClipperLibXYZ::IntRect rect = a.GetBounds();
-                imageW = rect.right - rect.left;
-                imageH = rect.bottom - rect.top;
-                double scalse = imageW > imageH ? imageH / 2000. : imageW / 2000.;
-                int extra_pixels = 50;
-                imageW = imageW / scalse + 0.5 + extra_pixels * 2;
-                imageH = imageH / scalse + 0.5 + extra_pixels * 2;
-
-                imgdata = QImage(imageW, imageH, QImage::Format_ARGB32);
-                imgdata.fill(QColor(Qt::white));
-                QPainter painter;
-                painter.setPen(QPen(Qt::black, 2));
-                painter.begin(&imgdata);
-                painter.setBrush(Qt::NoBrush);
-                bool allClosePolygon = true;
-                QPainterPath pathImg;
-                for (ClipperLibXYZ::Path path : *imgPaths)
-                {
-                    if (path.size() <= 2 || path[0] != path.back())
-                    {
-                        allClosePolygon = false;
-                    }
-
-                    for (int num = 0; num < path.size(); num++)
-                    {
-                        ClipperLibXYZ::IntPoint pt = path[num];
-                        QPoint p1((pt.X - rect.left) / scalse + extra_pixels + 0.5, (pt.Y - rect.top) / scalse + extra_pixels + 0.5);
-                        num == 0 ? pathImg.moveTo(p1): pathImg.lineTo(p1);
-
-                        ClipperLibXYZ::IntPoint pt_next = path[num + 1 < path.size() ? num + 1 : 0];
-                        QPoint p2((pt_next.X - rect.left) / scalse + extra_pixels + 0.5, (pt_next.Y - rect.top) / scalse + extra_pixels + 0.5);
-                        if (pt != pt_next)
-                        {
-                            painter.drawLine(p1, p2);
-                        }
-                    }
-                }
-                if(allClosePolygon)
-                    painter.fillPath(pathImg, Qt::black);
-                painter.end();
-                if (showFileName.indexOf(".dxf") >= 0)
-                {
-                    imgdata = CX2DLib::CXFlipImage(imgdata, true, false);
-                }
-            }
-            else
             {
                 QImage imgload(filename);
                 QRect moduleRect = getModuleRect(&imgload);

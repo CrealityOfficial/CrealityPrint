@@ -16,6 +16,67 @@
 
 namespace creative_kernel
 {
+	SliceAttainTracer::SliceAttainTracer(qtuser_core::Progressor* progressor)
+			: FormatTracer(progressor)
+	{
+	}
+
+	int SliceAttainTracer::indexCount() {
+		return 2;
+	}
+
+	QString SliceAttainTracer::indexStr(int index, va_list vars)
+	{
+		int layer = va_arg(vars, int);
+		QString message = tr("");
+		if (index == 0)
+			message = tr("Start build render %1 layer").arg(layer);
+
+		return message;
+	}
+
+
+	FormatSlice::FormatSlice(qtuser_core::Progressor* progressor)
+	:FormatTracer(progressor)
+	{
+	}
+
+
+	int FormatSlice::indexCount()
+	{
+		return 12;
+	}
+
+	QString FormatSlice::indexStr(int index, va_list vars)
+	{
+		int layer = va_arg(vars, int);
+		QString message = tr("");
+		if (index == 0)
+			message = tr("Start slicing");
+		if (index == 1)
+			message = tr("Model layering in progress");
+		if (index == 2)
+			message = tr("Generating polygons");
+		if (index == 3)
+			message = tr("Generating walls");
+		if (index == 4)
+			message = tr("Generating skin and infill");
+		if (index == 5)
+			message = tr("Checking support necessity");
+		if (index == 6)
+			message = tr("Generating support area");
+		if (index == 7)
+			message = tr("Optimizing ZSeam");
+		if (index == 8)
+			message = tr("Generating gcode %1 layer").arg(layer);
+		if (index == 9)
+			message = tr("Slicing finished");
+		if (index == 11)
+			message = tr("need_support_structure");
+		return message;
+	}
+
+
 	SettingsPointer convert(SettingsPointer setting)
 	{
 		SettingsPointer result(new us::USettings());
@@ -47,6 +108,11 @@ namespace creative_kernel
 	{
 	}
 
+	SliceAttain* AnsycWorker::sliceAttain()
+	{
+		return m_sliceAttain;
+	}
+
 	void AnsycWorker::setRemainAttain(SliceAttain* attain)
 	{
 		m_remainAttain.reset(attain);
@@ -73,14 +139,14 @@ namespace creative_kernel
 		{
 			if (m_remainAttain.data())
 			{
-				emit sliceSuccess(m_remainAttain.take());
+				emit sliceSuccess(m_remainAttain.take(), true);
 			}
 			else
 				emit sliceFailed();
 		}
 		else
 		{
-			emit sliceSuccess(m_sliceAttain);
+			emit sliceSuccess(m_sliceAttain, false);
 			m_sliceAttain = nullptr;
 		}
 
@@ -98,6 +164,52 @@ namespace creative_kernel
 
 		return false;
 	}
+
+#if 1
+	void AnsycWorker::work(qtuser_core::Progressor* progressor)
+	{
+		if (!needReSlice())
+			return;
+
+		//if (modelns().size() == 0)
+		//{
+		//	progressor->failed("nothing to slice.");
+		//	return;
+		//}
+
+		SliceInput input;
+		produceSliceInput(input);
+
+		if (!input.hasModel())
+		{
+			progressor->failed("nothing to slice.");
+			return;
+		}
+
+		if (input.canSlice())
+		{
+			FormatSlice tracer(progressor);
+
+			QScopedPointer<AnsycSlicer> slicer(new DLLAnsycSlicer52());
+			SliceResultPointer result(slicer->doSlice(input, tracer));
+			if (result)
+			{
+				result->setSliceName(generateSceneName().toLocal8Bit().data());
+				//result->G = convert(input.G);
+				//result->ES = convert(input.Es);
+				result->inputBox = input.sceneBox();
+
+				SliceAttainTracer attainTracer(progressor);
+				m_sliceAttain = new SliceAttain(result, SliceAttainType::sat_slice);
+				m_sliceAttain->build(&attainTracer);
+
+				emit sliceBeforeSuccess(m_sliceAttain);
+
+				qDebug() << QString("Slice : SliceAttain build over . [%1]").arg(currentProcessMemory());
+			}
+		}
+	}
+#else // 
 
 	void AnsycWorker::work(qtuser_core::Progressor* progressor)
 	{
@@ -119,20 +231,38 @@ namespace creative_kernel
 				Q_EMIT sliceMessage(QString{ message });
 			}, progressor };
 
+
+			SliceResultPointer result(new gcode::SliceResult());
+			result->setSliceName(generateSceneName().toLocal8Bit().data());
+			result->inputBox = input.sceneBox();
+			m_sliceAttain = new SliceAttain(result, SliceAttainType::sat_slice);
+
+			connect(m_sliceAttain, SIGNAL(layerChanged(int)), this, SIGNAL(gcodeLayerChanged(int)));
+
 			QScopedPointer<AnsycSlicer> slicer(new DLLAnsycSlicer52());
-			SliceResultPointer result(slicer->doSlice(input, tracer));
+		    slicer->doSlice(input, tracer, m_sliceAttain);
 			if (result)
 			{
-				result->setSliceName(generateSceneName().toLocal8Bit().data());
+				//m_sliceAttain = new SliceAttain(result, SliceAttainType::sat_slice);
+				//m_sliceAttain->build(&tracer);		
+
 				//result->G = convert(input.G);
 				//result->ES = convert(input.Es);
-				result->inputBox = input.sceneBox();
+				
 
-				m_sliceAttain = new SliceAttain(result, SliceAttainType::sat_slice);
-				m_sliceAttain->build(&tracer);
+				//load temp gcode
+				QString fileName = QString("%1/temp.gcode").arg(SLICE_PATH);
+				result->load(fileName.toLocal8Bit().data());
+
+				m_sliceAttain->build_preview(&tracer);
+
+				emit sliceBeforeSuccess(m_sliceAttain);
+
+				tracer.resetProgressScope(1.0f, 1.0f);
 
 				qDebug() << QString("Slice : SliceAttain build over . [%1]").arg(currentProcessMemory());
 			}
 		}
 	}
+#endif //
 }

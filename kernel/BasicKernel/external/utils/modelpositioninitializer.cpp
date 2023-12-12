@@ -9,8 +9,8 @@
 #include "interface/modelinterface.h"
 #include "interface/machineinterface.h"
 
-#include <nestplacer/nestplacer.h>
-#include "qcxutil/trimesh2/conv.h"
+#include "qtuser3d/trimesh2/conv.h"
+
 #define FLT_MAX 3.402823466e+38F
 namespace creative_kernel
 {
@@ -68,7 +68,7 @@ namespace creative_kernel
 			ptGrobalCenter.setY((boxCur.min.y() + boxCur.max.y()) / 2);
 			std::vector<trimesh::vec3> lines;
 			pModel->convex(lines);
-			mdlInfor.ptPolygon = qcxutil::vecs2qvectors(lines);
+			mdlInfor.ptPolygon = qtuser_3d::vecs2qvectors(lines);
 			mdlInfor.ptGrobalCenter = ptGrobalCenter;
 
 			qtuser_3d::Box3D baseGrobalBox = pModel->globalSpaceBox();
@@ -99,7 +99,7 @@ namespace creative_kernel
 		S3DPrtPointF ptDst;
 
 		CLayoutAlg layAlg;
-		layAlg.InsertOnePolygon(ptPlatform, plgGroup, modelInsert, ptDst, 10, progressor);
+		layAlg.InsertOnePolygon(ptPlatform, plgGroup, modelInsert, ptDst, 10);
 		qDebug() << "load>>> layout";
 
 		QVector3D ptValid;//
@@ -112,73 +112,6 @@ namespace creative_kernel
 
 		checkModelRange();
 		checkBedRange();
-	}
-
-	std::vector<trimesh::vec3> outLine(ModelN* model, trimesh::vec3& toffset)
-	{
-		QVector3D offset = model->localPosition();	
-		std::vector<trimesh::vec3> lines;
-		model->convex(lines);
-		if (offset == QVector3D())
-		{
-			float max_x = 0, min_x = FLT_MAX, max_y = 0, min_y = FLT_MAX;
-			for (trimesh::vec3& v : lines)
-			{
-				if (max_x < v.x) max_x = v.x;
-				if (min_x > v.x) min_x = v.x;
-				if (max_y < v.y) max_y = v.y;
-				if (min_y > v.y) min_y = v.y;
-			}
-			offset.setX((max_x + min_x) / 2);
-			offset.setY((max_y + min_y) / 2);
-		}
-		toffset = qcxutil::qVector3D2Vec3(offset);
-		for (trimesh::vec3& v : lines)
-			v -= toffset;
-		return lines;
-	}
-
-	bool ModelPositionInitializer::nestLayout(ModelN* model)
-	{
-		qtuser_3d::Box3D box = baseBoundingBox();
-		QVector3D boxMinMax = box.size();
-		QList <ModelN*> oldModels = modelns();
-		bool can_pack = false;
-
-		std::vector < std::vector<trimesh::vec3>> modelsData;
-		std::vector<trimesh::vec3> transData;
-		trimesh::vec3 RTdata;
-		for (int m = 0; m < oldModels.size(); m++)
-		{		
-			std::vector<trimesh::vec3> oItem = outLine(oldModels[m], RTdata);
-			modelsData.push_back(oItem);
-			transData.push_back(RTdata);
-		}
-		std::vector<trimesh::vec3> NewItem = outLine(model, RTdata);
-		trimesh::box3 workspaceBox(trimesh::vec3(box.min.x(), box.min.y(), box.min.z()), trimesh::vec3(box.max.x(), box.max.y(), box.max.z()));
-		trimesh::vec3 offset(0, 0, 0);
-
-		if (currentMachineCenterIsZero())
-		{
-			offset = trimesh::vec3(boxMinMax.x() / 2, boxMinMax.y() / 2, 0);
-		}
-
-		std::function<void(trimesh::vec3)> modelPositionUpdateFunc_nest = [model, offset](trimesh::vec3 newBoxCenter) {
-			QQuaternion dq = QQuaternion::fromAxisAndAngle(QVector3D(0.0f, 0.0f, 1.0f), newBoxCenter.z);
-			QQuaternion q = model->localQuaternion();
-			QVector3D translate = QVector3D(newBoxCenter.x - offset.x, newBoxCenter.y - offset.y, 0.0f);
-			translate.setZ(model->localPosition().z());
-			model->SetInitPosition(translate);
-			model->setLocalPosition(translate);
-			setModelRotation(model, dq * q, true);
-		};
-
-		nestplacer::NestParaFloat para = nestplacer::NestParaFloat(workspaceBox, 10.0f, nestplacer::PlaceType::NULLTYPE, true);
-		can_pack = nestplacer::NestPlacer::layout_new_item(modelsData, transData, NewItem, para, modelPositionUpdateFunc_nest);
-
-		checkModelRange();
-		checkBedRange();
-		return can_pack;
 	}
 
 	void ModelPositionInitializer::layoutBelt(ModelN* model, qtuser_core::Progressor* progressor, bool bAdaption)

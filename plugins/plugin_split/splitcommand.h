@@ -1,6 +1,6 @@
 #ifndef _NULLSPACE_SPLITCOMMAND_1591235079966_H
 #define _NULLSPACE_SPLITCOMMAND_1591235079966_H
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "data/interface.h"
 #include <QtGui/QVector3D>
 
@@ -30,7 +30,7 @@ public:
 
     //Q_INVOKABLE void setQmlPosition(float val, int nXYZFlag);
     //Q_INVOKABLE void setQmlRotate(float val, int nXYZFlag);
-    //// 重置pos 和 rotate
+    //// 脰脴脰脙pos 潞脥 rotate
     //Q_INVOKABLE void resetCmd();
 
     Q_INVOKABLE void changeAxisType(int type);
@@ -48,7 +48,7 @@ protected:
     void onLanguageChanged(creative_kernel::MultiLanguage language) override;
 protected:
 	SplitOp* m_op;
-    int m_AxisType = 2;     //偏移的类型 0 : x ;1 : y ; z:2
+    int m_AxisType = 2;     //脝芦脪脝碌脛脌脿脨脥 0 : x ;1 : y ; z:2
 
     QVector3D position();
     QVector3D dir();

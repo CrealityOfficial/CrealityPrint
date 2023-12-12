@@ -2,7 +2,7 @@
 #include "trimesh2/TriMesh.h"
 
 #include "qtuser3d/camera/cameracontroller.h"
-#include "qtuserqml/property/qmlpropertysetter.h"
+#include "qtusercore/property/qmlpropertysetter.h"
 
 #include "interface/camerainterface.h"
 #include "interface/selectorinterface.h"

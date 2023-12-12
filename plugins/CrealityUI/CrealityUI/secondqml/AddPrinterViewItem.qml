@@ -41,6 +41,8 @@ Rectangle {
 
     property string imageUrl: ""
     property string printerName: ""
+    property bool is_sonic: printerName.startsWith("Fast-")
+    property bool is_nebula: printerName.startsWith("Nebula-")
 
     signal addMachine(var machineName)
 
@@ -55,7 +57,7 @@ Rectangle {
         Canvas {
             width: 72 * screenScaleFactor
             height: 72 * screenScaleFactor
-            visible: printerName.startsWith("Fast-")
+            visible: is_sonic || is_nebula
 
             anchors.top: parent.top
             anchors.left: parent.left
@@ -84,7 +86,7 @@ Rectangle {
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 color: "black"
-                text: qsTr("Sonic")
+                text: is_sonic ? qsTr("Sonic") : qsTr("Nebula")
                 rotation: -45
             }
         }
@@ -128,7 +130,7 @@ Rectangle {
 
         Column {
             anchors.right: parent.right
-            anchors.rightMargin: 25 * screenScaleFactor
+            anchors.rightMargin: 15 * screenScaleFactor
             anchors.verticalCenter: parent.verticalCenter
             spacing: 8 * screenScaleFactor
 

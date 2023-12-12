@@ -1,0 +1,60 @@
+{
+  "name": "creative3d",
+  "version": "3.12.2",
+  "description": "Creality slicer",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "release": "standard-version",
+    "yuque": "node scripts/build/js/md2yuque.js",
+    "genReleaseNote": "node scripts/build/js/genReleaseNote.js",
+    "upload": "node scripts/build/js/uploadFile.js",
+    "installdep": "node scripts/build/js/installdep.js",
+    "update-version": "node ./scripts/build/js/build-pre.js http://172.20.180.14/shared/build/AddVersionForCreative3DRelease/Creative3D-v{VERSION}.0-win64-Alpha.exe",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "package": "scripts\\build\\build-vs2019.bat v1.0.0.0 package"
+  },
+  "husky": {
+    "hooks": {
+      "commit-msg": "commitlint -e $HUSKY_GIT_PARAMS"
+    }
+  },
+  "standard-version": {
+    "scripts": {
+      "postchangelog": "npm run update-version "
+    }
+  },
+  "config": {
+    "commitizen": {
+      "path": "git-cz"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@gitee.com:shenzhen_chuangxiang_3d/Creative3D.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@commitlint/cli": "^9.1.1",
+    "@commitlint/config-conventional": "^9.1.1",
+    "git-cz": "^4.7.0",
+    "husky": "^4.2.5",
+    "commitlint": "^9.1.0",
+    "standard-version": "^8.0.2"
+  },
+  "WinCXDependencies": {
+    "ThirdPartyPackage": "http://172.16.33.10/shared/build/ThirdPartyPackageRelease/ThirdPartyPackage-1.8.3.0-win64.msi",
+    "CoreLibPackage": "http://172.16.33.10/shared/build/CoreLibPackageRelease/CoreLibPackage-1.1.1.7-win64.msi",
+    "BoostPackage": "http://172.16.33.10/shared/build/BoostPackageRelease/BoostPackage-v0.1.2.0-win64.msi",
+    "CGALPackage": "http://172.16.33.10/shared/build/CGALPackageRelease/CGALPackage-v0.1.2.0-win64.msi",
+    "OCCPackage": "http://172.16.33.10/shared/build/OCCPackageRelease/OCCPackage-v0.0.6.0-win64.msi"
+  },
+  "dependencies": {
+    "@yuque/sdk": "^1.1.1",
+    "ali-oss": "^6.10.0",
+    "moment": "^2.27.0"
+  }
+}

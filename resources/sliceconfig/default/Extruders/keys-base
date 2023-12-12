@@ -1,0 +1,10 @@
+machine_nozzle_size
+machine_nozzle_offset_x
+machine_nozzle_offset_y
+machine_extruder_cooling_fan_number
+switch_extruder_retraction_amount
+switch_extruder_retraction_speed
+switch_extruder_prime_speed
+switch_extruder_extra_prime_amount
+machine_extruder_start_code
+machine_extruder_end_code

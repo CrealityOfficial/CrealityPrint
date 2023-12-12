@@ -113,118 +113,124 @@ Item {
                 verticalOffset: 3 * screenScaleFactor
             }
 
-            Row
-            {
-                anchors.left: parent.left
-                anchors.leftMargin: 1 * screenScaleFactor
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 1 * screenScaleFactor
+            ScrollView{
+                anchors.fill: parent
+                clip: true
+                Row
+                {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 1 * screenScaleFactor
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 1 * screenScaleFactor
 
-                //默认的“局域网打印”按钮
-                Button {
-                    id: lanPrinter_list_btn
-                    width: 100 * screenScaleFactor
-                    height: 30 * screenScaleFactor
-                    property bool isSelected: curSelectPrintingIndex < 0
-
-                    background: Rectangle {
-                        radius: 5
-                        border.width: 1
-                        border.color: Constants.lanPrinter_panel_border
-                        color: (lanPrinter_list_btn.isSelected || lanPrinter_list_btn.hovered)
-                               ? Constants.lanPrinter_panel_btn_hovered : Constants.lanPrinter_panel_btn_default
-                    }
-
-                    contentItem: Text {
-                        font.weight: Font.Medium
-                        font.family: Constants.mySystemFont.name
-                        font.pointSize: Constants.labelFontPointSize_9
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        text: qsTr("LAN Printing")
-                        color: (lanPrinter_list_btn.isSelected || lanPrinter_list_btn.hovered)
-                               ? Constants.lanPrinter_panel_weight_txt : Constants.lanPrinter_panel_light_txt
-                    }
-
-                    onClicked: lanPrintingBtnClicked()
-                }
-
-                //可变数量的打印机按钮
-                Repeater {
-                    model: __repeaterModel
-                    delegate: Button {
-                        id: lanPrinter_detail_btn
+                    //默认的“局域网打印”按钮
+                    Button {
+                        id: lanPrinter_list_btn
+                        width: 100 * screenScaleFactor
                         height: 30 * screenScaleFactor
-                        width: detailBtnRow.width + detailBtnRow.spacing * 2
-                        property bool isSelected: (curSelectPrintingIndex === index)
+                        property bool isSelected: curSelectPrintingIndex < 0
 
                         background: Rectangle {
                             radius: 5
                             border.width: 1
                             border.color: Constants.lanPrinter_panel_border
-                            color: (lanPrinter_detail_btn.isSelected || lanPrinter_detail_btn.hovered)
+                            color: (lanPrinter_list_btn.isSelected || lanPrinter_list_btn.hovered)
                                    ? Constants.lanPrinter_panel_btn_hovered : Constants.lanPrinter_panel_btn_default
                         }
 
-                        Row {
-                            spacing: 10 * screenScaleFactor
-                            id: detailBtnRow
-                            height: parent.height
-                            anchors.centerIn: parent
+                        contentItem: Text {
+                            font.weight: Font.Medium
+                            font.family: Constants.mySystemFont.name
+                            font.pointSize: Constants.labelFontPointSize_9
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            text: qsTr("LAN Printing")
+                            color: (lanPrinter_list_btn.isSelected || lanPrinter_list_btn.hovered)
+                                   ? Constants.lanPrinter_panel_weight_txt : Constants.lanPrinter_panel_light_txt
+                        }
 
-                            Text {
-                                height: parent.height
-                                font.weight: Font.Medium
-                                font.family: Constants.mySystemFont.name
-                                font.pointSize: Constants.labelFontPointSize_9
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                                text: Key_PrinterName
+                        onClicked: lanPrintingBtnClicked()
+                    }
+
+
+
+                    //可变数量的打印机按钮
+                    Repeater {
+                        model: __repeaterModel
+                        delegate: Button {
+                            id: lanPrinter_detail_btn
+                            height: 30 * screenScaleFactor
+                            width: detailBtnRow.width + detailBtnRow.spacing * 2
+                            property bool isSelected: (curSelectPrintingIndex === index)
+
+                            background: Rectangle {
+                                radius: 5
+                                border.width: 1
+                                border.color: Constants.lanPrinter_panel_border
                                 color: (lanPrinter_detail_btn.isSelected || lanPrinter_detail_btn.hovered)
-                                       ? Constants.lanPrinter_panel_weight_txt : Constants.lanPrinter_panel_light_txt
+                                       ? Constants.lanPrinter_panel_btn_hovered : Constants.lanPrinter_panel_btn_default
                             }
 
-                            Image {
-                                width: 8 * screenScaleFactor
-                                height: 8 * screenScaleFactor
-                                anchors.verticalCenter: parent.verticalCenter
-                                source: Constants.currentTheme ? "qrc:/UI/photo/lanPrinterSource/closeBtn_light.svg" : "qrc:/UI/photo/lanPrinterSource/closeBtn_dark.svg"
+                            Row {
+                                spacing: 10 * screenScaleFactor
+                                id: detailBtnRow
+                                height: parent.height
+                                anchors.centerIn: parent
 
-                                MouseArea {
-                                    hoverEnabled: true
-                                    anchors.fill: parent
-                                    cursorShape: containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                Text {
+                                    height: parent.height
+                                    font.weight: Font.Medium
+                                    font.family: Constants.mySystemFont.name
+                                    font.pointSize: Constants.labelFontPointSize_9
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: Key_PrinterName
+                                    color: (lanPrinter_detail_btn.isSelected || lanPrinter_detail_btn.hovered)
+                                           ? Constants.lanPrinter_panel_weight_txt : Constants.lanPrinter_panel_light_txt
+                                }
 
-                                    onClicked: {
-                                        delete devicesMap[__testLoad.itemPrinterID]
-                                        curSelectPrintingIndex = -1
-                                        __testLoad.sourceComponent = undefined
-                                        __repeaterModel.remove(index)
+                                Image {
+                                    width: 8 * screenScaleFactor
+                                    height: 8 * screenScaleFactor
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    source: Constants.currentTheme ? "qrc:/UI/photo/lanPrinterSource/closeBtn_light.svg" : "qrc:/UI/photo/lanPrinterSource/closeBtn_dark.svg"
+
+                                    MouseArea {
+                                        hoverEnabled: true
+                                        anchors.fill: parent
+                                        cursorShape: containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor
+
+                                        onClicked: {
+                                            delete devicesMap[__testLoad.itemPrinterID]
+                                            curSelectPrintingIndex = -1
+                                            __testLoad.sourceComponent = undefined
+                                            __repeaterModel.remove(index)
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        onClicked: {
-                            if(isSelected) return
-                            curSelectPrintingIndex = index
+                            onClicked: {
+                                if(isSelected) return
+                                curSelectPrintingIndex = index
 
-                            if(__testLoad.sourceComponent === null)
-                            {
-                                __testLoad.itemPrinterID = Key_PrinterID
-                                __testLoad.itemPrinterType = Key_PrinterType
-                                __testLoad.sourceComponent = __test
-                            }
-                            else {
-                                __testLoad.itemPrinterID = Key_PrinterID
-                                __testLoad.item.deviceID = Key_PrinterID
+                                if(__testLoad.sourceComponent === null)
+                                {
+                                    __testLoad.itemPrinterID = Key_PrinterID
+                                    __testLoad.itemPrinterType = Key_PrinterType
+                                    __testLoad.sourceComponent = __test
+                                }
+                                else {
+                                    __testLoad.itemPrinterID = Key_PrinterID
+                                    __testLoad.item.deviceID = Key_PrinterID
 
-                                __testLoad.itemPrinterType = Key_PrinterType
-                                __testLoad.item.deviceType = Key_PrinterType
+                                    __testLoad.itemPrinterType = Key_PrinterType
+                                    __testLoad.item.deviceType = Key_PrinterType
 
-                                __testLoad.item.stopPlayVideo()
-                                __testLoad.item.updateShowData(devicesMap[Key_PrinterID])
-                                __testLoad.item.startPlayVideo()
+                                    __testLoad.item.stopPlayVideo()
+                                    __testLoad.item.updateShowData(devicesMap[Key_PrinterID])
+                                    __testLoad.item.startPlayVideo()
+                                }
                             }
                         }
                     }

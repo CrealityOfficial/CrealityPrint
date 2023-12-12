@@ -2,7 +2,7 @@
 
 #include <QPointer>
 
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 
 #include "drilloperatemode.h"
 

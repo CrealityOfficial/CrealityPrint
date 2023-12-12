@@ -20,6 +20,13 @@ Rectangle {
     border.width: 1 * screenScaleFactor
     border.color: Constants.dock_border_color
 
+    MouseArea {
+        id: wheelFilter
+        anchors.fill: parent
+        propagateComposedEvents: false
+        onWheel: {}
+    }
+
     Rectangle {
         id: title
 

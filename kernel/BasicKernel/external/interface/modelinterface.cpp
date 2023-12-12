@@ -19,9 +19,9 @@
 #include "interface/uiinterface.h"
 #include "interface/machineinterface.h"
 #include "cxkernel/interface/jobsinterface.h"
-
+#include "internal/undo/modelserialcommand.h"
 #include "job/nest2djob.h"
-
+#include "internal/menu/submenurecentfiles.h"
 namespace creative_kernel
 {
 	void openMeshFile()
@@ -33,14 +33,17 @@ namespace creative_kernel
 	{
 		getModelSpace()->appendResizeModel(model);
 	}
-
+	void setMostRecentFile(QString filename)
+	{
+		SubMenuRecentFiles::getInstance()->setMostRecentFile(filename);
+	}
 	void addModelLayout(ModelN* model)
 	{
 		if (currentMachineIsBelt())
 		{
+			addModel(model, true);
 			ModelPositionInitializer::layoutBelt(model, nullptr);
 			bottomModel(model);
-			addModel(model, true);
 			model->updateMatrix();
 		}
 		else
@@ -70,7 +73,10 @@ namespace creative_kernel
 		if (reversible)
 		{
 			ModelSpaceUndo* stack = getKernel()->modelSpaceUndo();
-			stack->modifySpace(adds, removes);
+			//stack->modifySpace(adds, removes);
+			QList<ModelN*> a = adds;
+			QList<ModelN*> b = removes;
+			stack->push(new ModelSerialCommand(b, a));
 			return;
 		}
 
@@ -92,49 +98,27 @@ namespace creative_kernel
 		modifySpace(removes, adds, reversible);
 	}
 
-	time_t getModelActiveTime()
+	QList<ModelN*> replaceModelsMesh(const QList<ModelN*>& models, const QList<cxkernel::ModelNDataPtr>& datas, bool reversible)
 	{
-		return getKernel()->modelSpaceUndo()->getActiveTime();
+		int count = models.size();
+		assert(count == datas.size());
+		QList<ModelN*> adds;
+		for (int i = 0; i < count; ++i)
+			adds.append(createModelFromData(datas.at(i), models.at(i)));
+
+		modifySpace(models, adds,reversible);
+
+		return adds;
 	}
 
-	void replaceModelsMesh(const QList<MeshChange>& changes, bool reversible)
+	QList<ModelN*> getModelnsBySerialName(const QStringList& names)
 	{
-		if (reversible)
-		{
-			ModelSpaceUndo* stack = getKernel()->modelSpaceUndo();
-			stack->replaceModels(changes);
-			return;
-		}
-
-		_replaceModelsMesh(changes);
+		return getModelSpace()->getModelnsBySerialName(names);
 	}
 
-	void replaceModelsMesh(const QList<ModelN*>& models, const QList<TriMeshPtr>& meshes, const QList<QString>& names, bool reversible)
+	ModelN* getModelNBySerialName(const QString& name)
 	{
-		replaceModelsMesh(generateMeshChanges(models, meshes, names), reversible);
-	}
-
-	QList<MeshChange> generateMeshChanges(const QList<ModelN*>& models, const QList<TriMeshPtr>& meshes, const QList<QString>& names)
-	{
-		QList<MeshChange> changes;
-		int mCount = models.size();
-		int meCount = meshes.size();
-		int nCount = names.size();
-		if ((mCount == meCount) && (mCount == nCount))
-		{
-			for (int i = 0; i < mCount; ++i)
-			{
-				ModelN* model = models.at(i);
-				MeshChange change;
-				change.model = model;
-				change.start = model->meshptr();
-				change.startName = model->objectName();
-				change.end = meshes.at(i);
-				change.endName = names.at(i);
-				changes.append(change);
-			}
-		}
-		return changes;
+		return getModelSpace()->getModelNBySerialName(name);
 	}
 
 	void moveModel(ModelN* model, const QVector3D& start, const QVector3D& end, bool reversible)
@@ -164,7 +148,7 @@ namespace creative_kernel
 			for (int i = 0; i < mCount; ++i)
 			{
 				NUnionChangedStruct change;
-				change.model = models.at(i);
+				change.serialName = models.at(i)->getSerialName();
 				change.posActive = true;
 				change.posChange.start = starts.at(i);
 				change.posChange.end = ends.at(i);
@@ -288,7 +272,7 @@ namespace creative_kernel
 			for (int i = 0; i < mCount; ++i)
 			{
 				NUnionChangedStruct change;
-				change.model = models.at(i);
+				change.serialName = models.at(i)->getSerialName();
 				change.posActive = true;
 				change.posChange.start = tStarts.at(i);
 				change.posChange.end = tEnds.at(i);
@@ -337,7 +321,7 @@ namespace creative_kernel
 			for (int i = 0; i < mCount; ++i)
 			{
 				NUnionChangedStruct change;
-				change.model = models.at(i);
+				change.serialName = models.at(i)->getSerialName();
 				change.posActive = true;
 				change.posChange.start = tStarts.at(i);
 				change.posChange.end = tEnds.at(i);
@@ -446,7 +430,7 @@ namespace creative_kernel
 				change.posActive = true;
 				change.scaleActive = true;
 				change.rotateActive = true;
-				change.model = model;
+				change.serialName = model->getSerialName();
 				change.posChange.start = model->localPosition();
 				change.rotateChange.start = model->localQuaternion();
 				change.scaleChange.start = model->localScale();
@@ -458,12 +442,13 @@ namespace creative_kernel
 			QList<NUnionChangedStruct> _changes;
 			for (const NUnionChangedStruct& change : changes)
 			{
-				if (selections.contains(change.model))
+				ModelN* m = getModelNBySerialName(change.serialName);
+				if (selections.contains(m))
 				{
 					NUnionChangedStruct c = change;
-					c.posChange.end = change.model->localPosition();
-					c.rotateChange.end = change.model->localQuaternion();
-					c.scaleChange.end = change.model->localScale();
+					c.posChange.end = m->localPosition();
+					c.rotateChange.end = m->localQuaternion();
+					c.scaleChange.end = m->localScale();
 					_changes.push_back(c);
 				}
 			}
@@ -569,7 +554,7 @@ namespace creative_kernel
 		for (ModelN* model : models)
 		{
 			NMirrorStruct mirrorStruct;
-			mirrorStruct.model = model;
+			mirrorStruct.serialName = model->getSerialName();
 			mirrorStruct.operation = operation;
 			mirrorStruct.end = QMatrix4x4();
 			mirrorStruct.start = model->mirrorMatrix();
@@ -654,5 +639,27 @@ namespace creative_kernel
 		}
 
 		return model->qConvex(true);
+	}
+
+	ModelN* createModelFromData(cxkernel::ModelNDataPtr data, ModelN* replaceModel)
+	{
+		if (data)
+		{
+			if (data->mesh->colors.size() == 0)
+				data->updateIndexRenderData();
+			else
+				data->updateRenderData();
+		}
+		ModelN* model = new ModelN();
+		model->setData(data);
+		if (replaceModel)
+		{
+			model->setLocalPosition(replaceModel->localPosition());
+			model->setLocalScale(replaceModel->localScale());
+			model->setLocalQuaternion(replaceModel->localQuaternion());
+			model->SetInitPosition(replaceModel->GetInitPosition());
+		}
+
+		return model;
 	}
 }

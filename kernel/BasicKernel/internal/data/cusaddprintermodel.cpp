@@ -109,9 +109,9 @@ namespace creative_kernel
                 }
 
                 PrinterInfo printer_info;
-                if (printer_name.startsWith("Fast-"))
+                if (printer_name.startsWith("Fast-") || printer_name.startsWith("Nebula-"))
                 {
-                    printer_info.image_url = QStringLiteral("qrc:/UI/photo/machineImage/machineImage_%1.png").arg(printer_name.mid(5));
+                    printer_info.image_url = QStringLiteral("qrc:/UI/photo/machineImage/machineImage_%1.png").arg(printer_name.mid(printer_name.indexOf("-")+1));
                 }
                 else
                 {

@@ -3,8 +3,9 @@
 #include "qtuser3d/camera/screencamera.h"
 
 #include "qtuser3d/utils/primitiveshapecache.h"
+#include "renderpass/zprojectrenderpass.h"
 
-#include "cxkernel/render/worldindicatorentity.h"
+#include "entity/worldindicatorentity.h"
 
 #include "interface/renderinterface.h"
 #include "interface/spaceinterface.h"
@@ -43,15 +44,8 @@ namespace creative_kernel
 			m_modelEffect->addRenderPass(pickPass);
 
 
-			qtuser_3d::XRenderPass* shadowPass = new qtuser_3d::XRenderPass("zproject", m_modelEffect);
-			shadowPass->addFilterKeyMask("alpha", 0);
+			qtuser_3d::XRenderPass* shadowPass = new qtuser_3d::ZProjectRenderPass(m_modelEffect);
 			shadowPass->addFilterKeyMask("modelzproject", 0);
-			shadowPass->setPassCullFace(Qt3DRender::QCullFace::Back);
-			shadowPass->setPassBlend();
-			shadowPass->setPassStencilMask(0xFF);
-			shadowPass->setPassStencilOperation(Qt3DRender::QStencilOperationArguments::Keep, Qt3DRender::QStencilOperationArguments::Keep, Qt3DRender::QStencilOperationArguments::Increment);
-			shadowPass->setPassStencilFunction(Qt3DRender::QStencilTestArguments::Equal, 0x0, 0xFF);
-			shadowPass->setPassDepthTest(Qt3DRender::QDepthTest::Less);
 
 			m_modelEffect->addRenderPass(shadowPass);
 
@@ -65,6 +59,11 @@ namespace creative_kernel
 			/*Qt3DRender::QPolygonOffset* st = new Qt3DRender::QPolygonOffset(viewPass);
 			st->setDepthSteps(10.0);
 			viewPass->addRenderState(st);*/
+			viewPass->setParameter("ambient", QVector4D(0.0, 0.0, 0.0, 1.0));
+			viewPass->setParameter("diffuse", QVector4D(1.0, 1.0, 1.0, 1.0));
+			viewPass->setParameter("specular", QVector4D(0.125, 0.125, 0.125, 1.0));
+			viewPass->setParameter("topVisibleHeight", 100000.0);
+			viewPass->setParameter("bottomVisibleHeight", -10000.0);
 			m_supportEffect->addRenderPass(viewPass);
 
 			qtuser_3d::XRenderPass* pickPass = new qtuser_3d::XRenderPass("pickFaceFlag", m_supportEffect);
@@ -77,7 +76,7 @@ namespace creative_kernel
 		m_mainCamera->camera()->setParent(this);
 
 		m_printerEntity = new PrinterEntity(this);
-		m_indicator = new cxkernel::WorldIndicatorEntity(this);
+		m_indicator = new qtuser_3d::WorldIndicatorEntity(this);
 	}
 	
 	ReuseableCache::~ReuseableCache()
@@ -94,7 +93,7 @@ namespace creative_kernel
 		return m_printerEntity;
 	}
 
-	cxkernel::WorldIndicatorEntity* ReuseableCache::getIndicatorEntity()
+	qtuser_3d::WorldIndicatorEntity* ReuseableCache::getIndicatorEntity()
 	{
 		return m_indicator;
 	}
@@ -117,6 +116,7 @@ namespace creative_kernel
 	void ReuseableCache::intialize()
 	{
 		//PRIMITIVEROOT->setParent(this);
+		resetSection();
 
 		QVariantList values = CONFIG_GLOBAL_VARLIST(modeleffect_statecolors, model_group);
 		m_modelEffect->setParameter("stateColors[0]", values);
@@ -129,9 +129,13 @@ namespace creative_kernel
 		m_modelEffect->setParameter("diffuse", diffuse);
 		m_modelEffect->setParameter("specular", specular);
 		setModelZProjectColor(CONFIG_GLOBAL_VEC4(modeleffect_shadowcolor, model_group));
+		setNeedCheckScope(1);
 
 		values = CONFIG_GLOBAL_VARLIST(supporteffect_stateolors, model_group);
 		m_supportEffect->setParameter("stateColors[0]", values);
+		m_supportEffect->setParameter("ambient", ambient);
+		m_supportEffect->setParameter("diffuse", diffuse);
+		m_supportEffect->setParameter("specular", specular);
 
 		tracePickable(m_indicator->pickable());
 		m_indicator->setCameraController(cameraController());
@@ -190,12 +194,26 @@ namespace creative_kernel
 		m_modelEffect->setParameter("checkscope", checkscope);
 	}
 
+	void ReuseableCache::resetSection()
+	{
+		setSection(QVector3D(0.0, 0.0, 100000.0), QVector3D(0.0, 0.0, -10000.0), QVector3D(0.0, 0.0, -1.0));
+	}
+
+	void ReuseableCache::setSection(const QVector3D &frontPos, const QVector3D &backPos, const QVector3D &normal)
+	{
+		m_modelEffect->setParameter("sectionNormal", normal);
+		m_supportEffect->setParameter("sectionNormal", normal);
+		m_modelEffect->setParameter("sectionFrontPos", frontPos);
+		m_supportEffect->setParameter("sectionFrontPos", frontPos);
+		m_modelEffect->setParameter("sectionBackPos", backPos);
+		m_supportEffect->setParameter("sectionBackPos", backPos);
+	}
+
 	void ReuseableCache::setIndicatorScreenPos(const QPoint& p, float length)
 	{
 		m_indicator->setLength(length);
 		m_indicator->setScreenPos(p);
 
-		bool cap = cxkernel::jobExecutorAvaillable();
 		requestVisUpdate(false);
 	}
 

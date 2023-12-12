@@ -223,8 +223,8 @@ BasicDialog
 
                         return
                     }
-                    close()
                     accept()
+                    close()
                 }
             }
 

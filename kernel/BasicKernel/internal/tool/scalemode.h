@@ -1,6 +1,6 @@
 #ifndef SCALEMODE_1589765331924_H
 #define SCALEMODE_1589765331924_H
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "data/interface.h"
 
 class ScaleOp;

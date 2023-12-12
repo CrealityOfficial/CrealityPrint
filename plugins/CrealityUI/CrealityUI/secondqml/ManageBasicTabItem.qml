@@ -29,12 +29,12 @@ CustomTabViewItem {
         parameterContext: idParameterContext
     }
 
-    BasicScrollView{
+    ScrollView{
         id: bsv
         anchors.fill: parent
         padding: 10* screenScaleFactor
-        hpolicyVisible: false
-        vpolicyVisible: contentHeight > height
+//        hpolicyVisible: false
+//        vpolicyVisible: contentHeight > height
         clip: true
 
         ColumnLayout{

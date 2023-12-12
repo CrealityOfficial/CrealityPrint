@@ -2,12 +2,11 @@
 #include "data/modeln.h"
 #include "data/fdmsupportgroup.h"
 
-#include "trimeshinput.h"
 #include "supportinput.h"
 #include "modelninput.h"
 
 #include "qtusercore/module/systemutil.h"
-#include "qcxutil/trimesh2/conv.h"
+#include "qtuser3d/trimesh2/conv.h"
 
 #include "interface/spaceinterface.h"
 #include "interface/machineinterface.h"
@@ -48,6 +47,18 @@ namespace creative_kernel
 		return box;
 	}
 
+	bool SliceInput::hasModel()
+	{
+		for (ModelGroupInput* Group : Groups)
+		{
+			if (!Group->modelInputs.empty())
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	AnsycSlicer::AnsycSlicer(QObject* parent)
 		:QObject(parent)
 	{
@@ -57,7 +68,7 @@ namespace creative_kernel
 	{
 	}
 
-	SliceResultPointer AnsycSlicer::doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer)
+	SliceResultPointer AnsycSlicer::doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer, crslice::PathData* _fDebugger)
 	{
 		return nullptr;
 	}
@@ -78,7 +89,7 @@ namespace creative_kernel
 		{
 			ModelInput* supportInput = new ModelInput();
 
-			trimesh::fxform xf = qcxutil::qMatrix2Xform(model->globalMatrix());
+			trimesh::fxform xf = qtuser_3d::qMatrix2Xform(model->globalMatrix());
 			trimesh::apply_xform(mesh.get(), trimesh::xform(xf));
 
 			supportInput->setPtr(mesh);
@@ -111,7 +122,7 @@ namespace creative_kernel
 				int index = 0;
 				for (ModelN* model : models)
 				{
-					if (!model->isVisible())
+					if (!model->isVisible() || modelOutPlatform(model))
 						continue;
 
 					if (input.G->value("print_sequence", "one_at_a_time") == "one_at_a_time")

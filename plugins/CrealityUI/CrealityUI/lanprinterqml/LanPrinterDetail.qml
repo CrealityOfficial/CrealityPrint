@@ -24,6 +24,15 @@ Rectangle {
     property var deviceType: ""
     property var deviceItem: ""
 
+    property string object_current: "qrc:/UI/photo/lanPrinterSource/object_current.svg"
+    property string object_default: "qrc:/UI/photo/lanPrinterSource/object_default.svg"
+    property string object_delete: "qrc:/UI/photo/lanPrinterSource/object_delete.svg"
+    property string object_hover: "qrc:/UI/photo/lanPrinterSource/object_hover.svg"
+    property string object_title: "qrc:/UI/photo/lanPrinterSource/object_title.svg"
+
+    property string file_sort_default: "qrc:/UI/photo/lanPrinterSource/file_sort_default.svg"
+    property string file_sort_hover: "qrc:/UI/photo/lanPrinterSource/file_sort_hover.svg"
+
     property int errorKey: deviceItem ? deviceItem.errorKey : 0
     property int errorCode: deviceItem ? deviceItem.errorCode : 0
     property int printerState: deviceItem ? deviceItem.pcPrinterState : 0
@@ -45,6 +54,7 @@ Rectangle {
     property bool needLoadModelItem : false // 当前打印的预览图加载完了再加载ModelItem(列表),qml的Image不能多个同时加载，同时加载存在图片混淆的问题，用这个标志位做加载顺序的处理 */
 
     property string ipAddress: deviceItem ? deviceItem.pcIpAddr : ""
+    property string macAddress: deviceItem ? deviceItem.pcPrinterID : ""
     property string curGcodeName: deviceItem ? deviceItem.pcGCodeName : ""
     property string errorMessage: deviceItem ? deviceItem.errorMessage : ""
 //    property string previewImage: (isKlipper_4408 && !isDeviceIdle) ? `http://${ipAddress}:80/downloads/original/current_print_image.png` : `image://preview/icons/${deviceID}`
@@ -52,6 +62,8 @@ Rectangle {
     property string previewImage: root.isDeviceIdle ? "" : `http://${ipAddress}:80/downloads/original/current_print_image.png`
     property string defaultImage: Constants.currentTheme ? "qrc:/UI/images/default_preview_light.svg" : "qrc:/UI/images/default_preview_dark.svg"
     property string modelItemImagePrefix: needLoadModelItem ? "http://" + ipAddress : ""
+
+     property string printObjectName: ""
 
     onDeviceIDChanged: {
         imagePreview_min.init()
@@ -99,7 +111,7 @@ Rectangle {
     }
 
     function updateShowData(initData) {
-        needLoadModelItem = false
+        needLoadModelItem = isDeviceIdle
 
         if(!isKlipper_4408)
             idSwipeview.currentIndex = LanPrinterDetail.ListViewType.GcodeListView
@@ -181,7 +193,8 @@ Rectangle {
         Pause,
         Continue,
         Stop,
-        NotExist
+        NotExist,
+        ObjectDelete
     }
 
     enum ListViewType
@@ -199,6 +212,18 @@ Rectangle {
         FieldInterval,
         FieldFileTime,
         FieldMaterial
+    }
+
+    enum FileOrderType
+    {
+        E_GCodeFileName,
+        E_GCodeFileSize,
+        E_GCodeFileTime,
+        E_GCodeLayerHeight,
+        E_GCodeMaterialLength,
+        E_GCodeThumbnailImage,
+        E_GCodeImportProgress,
+        E_GCodeExportProgress
     }
 
     ListModel {
@@ -434,7 +459,12 @@ Rectangle {
             case LanPrinterDetail.MessageType.NotExist:
                 title = qsTr("Restart printing")
                 curMessageText = qsTr("G-code file has been deleted and cannot be printed")
-                showCancelBtn = false
+                showCancelBtn = true
+                break;
+            case LanPrinterDetail.MessageType.ObjectDelete:
+                title = qsTr("Object deletion")
+                curMessageText = qsTr("Whether to continue deleting the selected object")
+                showCancelBtn = true
                 break;
             default:
                 break;
@@ -462,6 +492,13 @@ Rectangle {
                 if(ipAddress !== "")
                 {
                     printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.PRINT_STOP, " ", deviceType)
+                }
+                break;
+            case LanPrinterDetail.MessageType.ObjectDelete:
+                if(ipAddress !== "")
+                {
+                    printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.CONTROL_CMD_EXCLUDEOBJECTS, printObjectName, deviceType)
+
                 }
                 break;
             default:
@@ -602,14 +639,14 @@ Rectangle {
             border.width: 1
             border.color: sourceTheme.image_popup_border
             color: sourceTheme.image_popup_background
-            radius: 5
+            radius: 5 * screenScaleFactor
 
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: 10 * screenScaleFactor
 
                 color: sourceTheme.imgpreview_color
-                radius: 5
+                radius: 5 * screenScaleFactor
 
                 Row {
                     spacing: 20 * screenScaleFactor
@@ -762,18 +799,18 @@ Rectangle {
         Component.onDestruction: stop()
     }
 
-    BasicScrollView {
+    ScrollView {
         clip: true
         width: root.width
         height: root.height
         anchors.centerIn: parent
-        vpolicyVisible: contentHeight > height
-        vpolicyindicator: Rectangle {
-            color: "#737378"
-            radius: width / 2
-            implicitWidth: 6 * screenScaleFactor
-            implicitHeight: 630 * screenScaleFactor
-        }
+//        vpolicyVisible: contentHeight > height
+//        vpolicyindicator: Rectangle {
+//            color: "#737378"
+//            radius: width / 2
+//            implicitWidth: 6 * screenScaleFactor
+//            implicitHeight: 630 * screenScaleFactor
+//        }
 
         RowLayout {
             spacing: 0
@@ -1067,7 +1104,7 @@ Rectangle {
                                 Button {
                                     Layout.preferredWidth: 73 * screenScaleFactor
                                     Layout.preferredHeight: 24 * screenScaleFactor
-                                    visible: (errorCode >= 101 && errorCode <= 200) || errorLayout.isRepoPlrStatus || errorLayout.isMaterialStatus
+                                    visible: !printerItem.isStopping && ((errorCode >= 101 && errorCode <= 200) || errorLayout.isRepoPlrStatus || errorLayout.isMaterialStatus)
 
                                     background: Rectangle {
                                         border.width: 1
@@ -1104,7 +1141,7 @@ Rectangle {
                                 Button {
                                     Layout.preferredWidth: 73 * screenScaleFactor
                                     Layout.preferredHeight: 24 * screenScaleFactor
-                                    visible: (errorCode >= 101 && errorCode <= 200) || errorLayout.isRepoPlrStatus || errorLayout.isMaterialStatus
+                                    visible:!printerItem.isStopping && ((errorCode >= 101 && errorCode <= 200) || errorLayout.isRepoPlrStatus || errorLayout.isMaterialStatus)
 
                                     background: Rectangle {
                                         border.width: 1
@@ -1121,7 +1158,7 @@ Rectangle {
                                         font.family: Constants.mySystemFont.name
                                         font.pointSize: Constants.labelFontPointSize_9
                                         color: sourceTheme.text_normal_color
-                                        text: qsTr("Cancel")
+                                        text: qsTr("Stop")
                                     }
 
                                     onClicked:
@@ -1981,7 +2018,7 @@ Rectangle {
                                                 font.family: Constants.mySystemFont.name
                                                 font.pointSize: Constants.labelFontPointSize_9
                                                 color: sourceTheme.text_normal_color
-                                                text: "Z+"
+                                                text: "Z"
                                             }
                                         }
 
@@ -1993,11 +2030,27 @@ Rectangle {
 
                                             onClicked: {
                                                 var curUnit = parseFloat(controlItem.currentUnit)
-                                                var targetValue = parseFloat(idZPostion.text) + curUnit
-                                                if(!isKlipper_4408 && targetValue > deviceItem.machineDepth){
+                                                var targetValue
+                                                var targetCmd
+                                                var targetValueLimit
+                                                if(deviceItem && deviceItem.machinePlatformMotionEnable === "true")
+                                                {
+                                                    targetValue  = parseFloat(idZPostion.text) - curUnit
+                                                    targetCmd = `Z-${curUnit} F600`
+                                                    targetValueLimit = targetValue < 0
+
+                                                }else {
+
+                                                    targetValue  =parseFloat(idZPostion.text) + curUnit
+                                                    targetCmd = `Z${curUnit} F600`
+                                                    targetValueLimit = targetValue > deviceItem.machineDepth
+
+                                                }
+
+                                                if(!isKlipper_4408 && targetValueLimit){
                                                     return
                                                 }
-                                                var postion = isKlipper_4408 ? `Z${curUnit} F600` : targetValue
+                                                var postion = isKlipper_4408 ? targetCmd : targetValue
                                                 if(ipAddress !== "") printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.CONTROL_MOVE_Z, postion, deviceType)
                                             }
                                         }
@@ -2265,7 +2318,7 @@ Rectangle {
                                                 font.family: Constants.mySystemFont.name
                                                 font.pointSize: Constants.labelFontPointSize_9
                                                 color: sourceTheme.text_normal_color
-                                                text: "Z-"
+                                                text: "Z"
                                             }
                                         }
 
@@ -2273,15 +2326,29 @@ Rectangle {
                                             id: z_minusArea
                                             hoverEnabled: true
                                             anchors.fill: parent
-                                            cursorShape: containsMouse?Qt.PointingHandCursor:Qt.ArrowCursor
-
+                                            cursorShape: containsMouse?Qt.PointingHandCursor:Qt.ArrowCursor  
                                             onClicked: {
                                                 var curUnit = parseFloat(controlItem.currentUnit)
-                                                var targetValue = parseFloat(idZPostion.text) - curUnit
-                                                if(!isKlipper_4408 && targetValue < 0){
+                                                var targetValue
+                                                var targetCmd
+                                                var targetValueLimit
+                                                if(deviceItem && deviceItem.machinePlatformMotionEnable === "true")
+                                                {
+                                                    targetValue  =parseFloat(idZPostion.text) + curUnit
+                                                    targetCmd = `Z${curUnit} F600`
+                                                    targetValueLimit = targetValue > deviceItem.machineDepth
+
+                                                }else {
+
+                                                    targetValue  = parseFloat(idZPostion.text) - curUnit
+                                                    targetCmd = `Z-${curUnit} F600`
+                                                    targetValueLimit = targetValue < 0
+                                                }
+
+                                                if(!isKlipper_4408 && targetValueLimit){
                                                     return
                                                 }
-                                                var postion = isKlipper_4408 ? `Z-${curUnit} F600` : targetValue
+                                                var postion = isKlipper_4408 ? targetCmd : targetValue
                                                 if(ipAddress !== "") printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.CONTROL_MOVE_Z, postion, deviceType)
                                             }
                                         }
@@ -2689,6 +2756,7 @@ Rectangle {
                                                         var value = checked ? "1" : "0"
                                                         if(ipAddress !== "")
                                                         {
+                                                             console.log(deviceItem.machineChamberFanExist,deviceItem.machineCdsFanExist,deviceItem.machineLEDLightExist,"machineLEDLightExist")
                                                             fanSwitch.delayShow = true
                                                             fanSwitchDelayShow.start()
                                                             printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.CONTROL_CMD_FAN, value, deviceType)
@@ -2817,7 +2885,7 @@ Rectangle {
                                         }
                                     }
                                     Rectangle {
-                                        visible: isKlipper_4408
+                                        visible: deviceItem && deviceItem.machineCdsFanExist === "true"
                                         width: 207 * screenScaleFactor
                                         height: 109 * screenScaleFactor
                                         color: sourceTheme.fan_block_bgColor
@@ -2997,7 +3065,7 @@ Rectangle {
                                         }
                                     }
                                     Rectangle {
-                                        visible: isKlipper_4408
+                                         visible: deviceItem && deviceItem.machineChamberFanExist === "true"
                                         width: 207 * screenScaleFactor
                                         height: 109 * screenScaleFactor
                                         color: sourceTheme.fan_block_bgColor
@@ -3191,6 +3259,7 @@ Rectangle {
                                         radius: 5 * screenScaleFactor
                                         border.width: 1 * screenScaleFactor
                                         border.color: Constants.currentTheme ? sourceTheme.btn_border_color : "transparent"
+                                        visible: deviceItem && deviceItem.machineLEDLightExist === "true"
 
                                         ColumnLayout{
                                             y:15* screenScaleFactor
@@ -3223,6 +3292,8 @@ Rectangle {
 
                                                     Layout.preferredWidth: 50 * screenScaleFactor
                                                     Layout.preferredHeight: 32 * screenScaleFactor
+
+
 
                                                     Binding on checked {
                                                         when: !ledSwitch.delayShow
@@ -3331,10 +3402,11 @@ Rectangle {
                                 checkable: false
                                 property bool isChecked: idSwipeview.currentIndex === LanPrinterDetail.ListViewType.GcodeListView
 
-                                Layout.preferredWidth: 80 * screenScaleFactor
+                                Layout.preferredWidth: file.contentWidth + 20 * screenScaleFactor //80 * screenScaleFactor
                                 Layout.preferredHeight: 32 * screenScaleFactor
 
                                 contentItem: Text {
+                                    id: file
                                     font.weight: Font.Bold
                                     font.family: Constants.mySystemFont.name
                                     font.pointSize: Constants.labelFontPointSize_9
@@ -3360,10 +3432,11 @@ Rectangle {
                                 visible: isKlipper_4408
                                 property bool isChecked: idSwipeview.currentIndex === LanPrinterDetail.ListViewType.HistoryListView
 
-                                Layout.preferredWidth: 80 * screenScaleFactor
+                                Layout.preferredWidth: records.contentWidth +20 * screenScaleFactor //80 * screenScaleFactor
                                 Layout.preferredHeight: 32 * screenScaleFactor
 
                                 contentItem: Text {
+                                    id:records
                                     font.weight: Font.Bold
                                     font.family: Constants.mySystemFont.name
                                     font.pointSize: Constants.labelFontPointSize_9
@@ -3389,10 +3462,11 @@ Rectangle {
                                 visible: isKlipper_4408
                                 property bool isChecked: idSwipeview.currentIndex === LanPrinterDetail.ListViewType.VideoListView
 
-                                Layout.preferredWidth: 80 * screenScaleFactor
+                                Layout.preferredWidth: timelapse.contentWidth + 20 * screenScaleFactor //80 * screenScaleFactor
                                 Layout.preferredHeight: 32 * screenScaleFactor
 
                                 contentItem: Text {
+                                    id: timelapse
                                     font.weight: Font.Bold
                                     font.family: Constants.mySystemFont.name
                                     font.pointSize: Constants.labelFontPointSize_9
@@ -3420,9 +3494,16 @@ Rectangle {
                             RowLayout {
                                 id: importProgress
                                 visible: curImportProgress != 0
-                                spacing: 10 * screenScaleFactor
-
+                                spacing: 10 * screenScaleFactor      
                                 Text {
+                                    // 限制显示长度
+                                    function limitFilename(name){
+                                       let path = deviceItem.sendingFileName
+                                       let idx = path.lastIndexOf("/") + 1
+                                       let fileName = path.substring(idx)
+                                       let result = fileName.length > 10?(fileName.substring(0,7)+"..."):fileName
+                                        return result
+                                    }
                                     id:uploadFileName
                                     Layout.preferredWidth: contentWidth * screenScaleFactor
                                     Layout.preferredHeight: 14 * screenScaleFactor
@@ -3430,7 +3511,7 @@ Rectangle {
                                     font.weight: Font.Medium
                                     font.family: Constants.mySystemFont.name
                                     font.pointSize: Constants.labelFontPointSize_9
-                                    text: deviceItem.sendingFileName //fileDialog.fileName.length >4 ? fileDialog.fileName.slice(0,4)+"..." : fileDialog.fileName // 上传的文件名
+                                    text: limitFilename(deviceItem.sendingFileName)  //deviceItem.sendingFileName
                                     color: sourceTheme.text_normal_color
                                     MouseArea {
                                         id: id_uploadFileNameArea
@@ -3644,23 +3725,68 @@ Rectangle {
                                         color: sourceTheme.popup_background_color
 
                                         Row {
+
+                                            ListModel {
+                                                id:file_table_header
+                                                ListElement{ title:qsTr("File name"); type:0; sort:true}
+                                                ListElement{ title:qsTr("File size"); type:1;sort:true }
+                                                ListElement{ title:qsTr("Layer height"); type:3 }
+                                                ListElement{ title:qsTr("Creation time"); type:2;sort:true }
+                                                ListElement{ title:qsTr("Material length"); type:4 }
+                                            }
+
                                             Repeater {
-                                                model: [qsTr("File name"), qsTr("File size"), qsTr("Layer height"), qsTr("Creation time"), qsTr("Material length")]
+                                                model: file_table_header
                                                 delegate: Rectangle {
+                                                    id: gcodeRootItem
                                                     width: widthProvider(index)
                                                     height: 40 * screenScaleFactor
                                                     color: sourceTheme.popup_background_color
-
-                                                    Text {
+                                                    Row {
+                                                        spacing: 6* screenScaleFactor
                                                         anchors.centerIn: parent
-                                                        verticalAlignment: Text.AlignVCenter
-                                                        horizontalAlignment: Text.AlignHCenter
-                                                        font.weight: Font.Medium
-                                                        font.family: Constants.mySystemFont.name
-                                                        font.pointSize: Constants.labelFontPointSize_9
-                                                        color: sourceTheme.text_normal_color
-                                                        text: modelData
+                                                        Text {
+                                                            width: parent.width - image.width - spacing
+                                                            height:  gcodeRootItem.height
+                                                            verticalAlignment: Text.AlignVCenter
+                                                            horizontalAlignment: Text.AlignLeft
+                                                            font.weight: Font.Medium
+                                                            font.family: Constants.mySystemFont.name
+                                                            font.pointSize: Constants.labelFontPointSize_9
+                                                            color: sourceTheme.text_normal_color
+                                                            text: title
+                                                        }
+
+                                                        Image {
+                                                            property bool isHover: false
+                                                            source: isHover ? file_sort_hover : file_sort_default
+                                                            width: 12 * screenScaleFactor
+                                                            height:  gcodeRootItem.height //12 * screenScaleFactor
+                                                            visible: !!sort
+                                                            verticalAlignment: Image.AlignVCenter
+                                                            horizontalAlignment: Image.AlignRight
+                                                            fillMode: Image.PreserveAspectFit
+
+                                                            MouseArea {
+                                                                anchors.fill: parent
+                                                                hoverEnabled: true
+                                                                onEntered: parent.isHover = true
+                                                                onExited: parent.isHover = false
+                                                                cursorShape: Qt.PointingHandCursor
+                                                                onClicked: {
+                                                                    gcodeFileListModel.setSort(0, model.type)
+
+                                                                }
+                                                            }
+                                                        }
                                                     }
+//                                                    MouseArea {
+//                                                    anchors.fill: parent
+//                                                    acceptedButtons: Qt.LeftButton
+//                                                    onClicked: {
+//                                                        gcodeRootItem.forceActiveFocus()
+//                                                    }
+//                                                    }
                                                 }
                                             }
                                         }
@@ -3687,7 +3813,10 @@ Rectangle {
                                             anchors.fill: parent
                                             enabled: isDeviceOnline && !fatalErrorCode
                                             cursorShape: containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                            onClicked: gcodeFileMenu.opened ? gcodeFileMenu.close() : gcodeFileMenu.openMenu(mouseX, mouseY)
+                                            onClicked: {
+                                                gcodeItem.forceActiveFocus()
+                                                gcodeFileMenu.opened ? gcodeFileMenu.close() : gcodeFileMenu.openMenu(mouseX, mouseY)
+                                            }
                                             onContainsMouseChanged: parent.color = containsMouse ? sourceTheme.item_hovered_color : "transparent"
 
                                             Popup {
@@ -3839,7 +3968,7 @@ Rectangle {
                                                             onAccepted:{
                                                                 if(ipAddress !== "")
                                                                 {
-                                                                    gcodeFileListModel.cSourceModel.downloadGcodeFile(ipAddress, gcodeFileName, saveGcodeDialog.file.toString(), deviceType)
+                                                                    gcodeFileListModel.cSourceModel.downloadGcodeFile(macAddress,ipAddress, gcodeFileName, saveGcodeDialog.file.toString(), deviceType)
                                                                 }
                                                             }
                                                         }
@@ -4305,7 +4434,7 @@ Rectangle {
                                                             onAccepted:{
                                                                 if(ipAddress !== "")
                                                                 {
-                                                                    historyFileListModel.downloadGcodeFile(ipAddress, historyFileName, saveGcodeDialog.file.toString(), deviceType, historyFileNumb)
+                                                                    historyFileListModel.downloadGcodeFile(macAddress,ipAddress, historyFileName, saveGcodeDialog.file.toString(), deviceType, historyFileNumb)
                                                                 }
                                                             }
                                                         }
@@ -4609,6 +4738,7 @@ Rectangle {
                                             Repeater {
                                                 model: [qsTr("Gcode name"), qsTr("Video size"), qsTr("Video name"), qsTr("Start time"), qsTr("Print time")]
                                                 delegate: Rectangle {
+                                                    id: videoRootItem
                                                     width: widthProvider(index)
                                                     height: 40 * screenScaleFactor
                                                     color: sourceTheme.popup_background_color
@@ -4622,6 +4752,14 @@ Rectangle {
                                                         font.pointSize: Constants.labelFontPointSize_9
                                                         color: sourceTheme.text_normal_color
                                                         text: modelData
+                                                    }
+                                                    
+                                                    MouseArea {
+                                                    anchors.fill: parent
+                                                    acceptedButtons: Qt.LeftButton
+                                                    onClicked: {
+                                                        videoRootItem.forceActiveFocus()
+                                                    }
                                                     }
                                                 }
                                             }
@@ -4649,7 +4787,10 @@ Rectangle {
                                             anchors.fill: parent
                                             enabled: isDeviceOnline
                                             cursorShape: containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                            onClicked: videoFileMenu.opened ? videoFileMenu.close() : videoFileMenu.openMenu(mouseX, mouseY)
+                                            onClicked: {
+                                                videoItem.forceActiveFocus()
+                                                videoFileMenu.opened ? videoFileMenu.close() : videoFileMenu.openMenu(mouseX, mouseY)
+                                            }
                                             onContainsMouseChanged: parent.color = containsMouse ? sourceTheme.item_hovered_color : "transparent"
 
                                             Popup {
@@ -4701,7 +4842,7 @@ Rectangle {
                                                             cursorShape: containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor
                                                             onContainsMouseChanged: parent.color = containsMouse ? sourceTheme.right_submenu_selection : sourceTheme.right_submenu_background
 
-                                                            onDoubleClicked:
+                                                            onClicked:
                                                             {
                                                                 editVideoName.forceActiveFocus()
                                                                 videoFileMenu.close()
@@ -4792,7 +4933,7 @@ Rectangle {
                                                             onAccepted:{
                                                                 if(ipAddress !== "")
                                                                 {
-                                                                    videoListModel.downloadVideoFile(ipAddress, videoFileName, saveDialog.file.toString(), deviceType)
+                                                                    videoListModel.downloadVideoFile(macAddress, ipAddress, videoFileName, saveDialog.file.toString(), deviceType)
                                                                 }
                                                             }
                                                         }
@@ -4831,27 +4972,75 @@ Rectangle {
                                                             {
                                                                 copyLinkAction.link = "http://" + ipAddress + ":80/downloads/video/" + videoFileName
                                                                 kernel_ui.copyString2Clipboard(copyLinkAction.link)
-                                                                idMessageDlg.show()
+                                                                idMessageDlg.open()
+                                                                idMessageDlg.visible = true
                                                                 videoFileMenu.close()
                                                             }
                                                         }
 
+                                                            BasicDialogV4 {
+                                                                    id: idMessageDlg
+                                                                    width: 400* screenScaleFactor
+                                                                    height: 200* screenScaleFactor
+                                                                    visible: false
+                                                                    title: qsTr("Warning")
+                                                                    maxBtnVis: false
+                                                                    parent:root
+                                                                    bdContentItem:Rectangle {
+                                                                        color: Constants.lpw_bgColor
+                                                                        ColumnLayout{
+                                                                            anchors.centerIn: parent
+                                                                            spacing: 30* screenScaleFactor
+                                                                            StyledLabel{
+                                                                                color: Constants.textColor
+                                                                                wrapMode: Text.WordWrap
+                                                                                horizontalAlignment: Text.AlignHCenter
+                                                                                Layout.preferredWidth: 250 * screenScaleFactor
+                                                                                text: qsTr("Copy link successfully!")
+                                                                            }
 
-                                                        UploadMessageDlg {
-                                                            id: idMessageDlg
-                                                            visible: false
-                                                            cancelBtnVisible: true
-                                                            ignoreBtnVisible: false
-                                                            okBtnText: qsTr("OK")
-                                                            cancelBtnText: qsTr("Open Browser")
-                                                            msgText: qsTr("Copy link successfully!")
+                                                                            RowLayout{
+                                                                                Layout.alignment: Qt.AlignHCenter
+                                                                                spacing: 20* screenScaleFactor
+                                                                                BasicDialogButton {
+                                                                                    text: qsTr("OK")
+                                                                                    Layout.minimumWidth: 120 * screenScaleFactor
+                                                                                    Layout.fillHeight: true
+                                                                                    btnRadius: height / 2
+                                                                                    btnBorderW: 1 * screenScaleFactor
+                                                                                    btnTextColor: Constants.manager_printer_button_text_color
+                                                                                    borderColor: Constants.manager_printer_button_border_color
+                                                                                    defaultBtnBgColor: Constants.manager_printer_button_default_color
+                                                                                    hoveredBtnBgColor: Constants.manager_printer_button_checked_color
+                                                                                    selectedBtnBgColor: Constants.manager_printer_button_checked_color
 
-                                                            onSigOkButtonClicked: idMessageDlg.close()
-                                                            onSigCancelButtonClicked: {
-                                                                Qt.openUrlExternally(copyLinkAction.link)
-                                                                idMessageDlg.close()
-                                                            }
-                                                        }
+                                                                                    onSigButtonClicked: {
+                                                                                        if(idMessageDlg.visible)
+                                                                                            idMessageDlg.close()
+                                                                                    }
+                                                                                }
+                                                                                BasicDialogButton {
+                                                                                    text: qsTr("Open Browser")
+                                                                                    Layout.minimumWidth: 120 * screenScaleFactor
+                                                                                    Layout.fillHeight: true
+                                                                                    btnRadius: height / 2
+                                                                                    btnBorderW: 1 * screenScaleFactor
+                                                                                    btnTextColor: Constants.manager_printer_button_text_color
+                                                                                    borderColor: Constants.manager_printer_button_border_color
+                                                                                    defaultBtnBgColor: Constants.manager_printer_button_default_color
+                                                                                    hoveredBtnBgColor: Constants.manager_printer_button_checked_color
+                                                                                    selectedBtnBgColor: Constants.manager_printer_button_checked_color
+
+                                                                                    onSigButtonClicked: {
+                                                                                        idMessageDlg.close()
+                                                                                        Qt.openUrlExternally(copyLinkAction.link)
+                                                                                        idMessageDlg.close()
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
 
                                                     }
                                                 }
@@ -5006,6 +5195,303 @@ Rectangle {
                         }
                     }
                 }
+                ColumnLayout{
+                    id: objectDeleteItem
+                    spacing: 0
+                    visible: deviceItem&&!!deviceItem.printObjects
+                    property bool showPopup: true //deviceItem&&!!deviceItem.printObjects
+                    CusRoundedBg {
+                        leftTop: true
+                        rightTop: true
+                        clickedable: false
+                        borderWidth: 1
+                        borderColor: sourceTheme.background_border
+                        color: sourceTheme.title_background_color
+                        radius: 5
+
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 626 * screenScaleFactor
+                        Layout.maximumWidth: 932 * screenScaleFactor
+                        Layout.preferredHeight: 40 * screenScaleFactor
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 20 * screenScaleFactor
+                            anchors.rightMargin: 20 * screenScaleFactor
+                            spacing: 10 * screenScaleFactor
+
+                            Image {
+                                Layout.preferredWidth: 14 * screenScaleFactor
+                                Layout.preferredHeight: 14 * screenScaleFactor
+                                source: object_title
+                            }
+
+                            Text {
+                                Layout.preferredWidth: contentWidth * screenScaleFactor
+                                Layout.preferredHeight: 14 * screenScaleFactor
+
+                                verticalAlignment: Text.AlignVCenter
+                                font.weight: Font.Bold
+                                font.family: Constants.mySystemFont.name
+                                font.pointSize: Constants.labelFontPointSize_9
+                                text: qsTr("Object deletion")
+                                color: sourceTheme.text_normal_color
+                            }
+
+                            Item {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 20 * screenScaleFactor
+                                Layout.preferredHeight: 12 * screenScaleFactor
+
+                                Image {
+                                    anchors.centerIn: parent
+                                    width: 10 * screenScaleFactor
+                                    height: 6 * screenScaleFactor
+                                    source: objectDeleteItem.showPopup ? sourceTheme.img_upArrow : sourceTheme.img_downArrow
+                                }
+
+                                MouseArea {
+                                    hoverEnabled: true
+                                    anchors.fill: parent
+                                    cursorShape: containsMouse?Qt.PointingHandCursor:Qt.ArrowCursor
+
+                                    onClicked: {
+                                        objectDeleteItem.showPopup = !objectDeleteItem.showPopup
+                                        objectDeletePopup.visible = objectDeleteItem.showPopup
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    CusRoundedBg {
+                        id: objectDeletePopup
+                        visible: true //deviceItem&&!!deviceItem.printObjects
+                        leftBottom: true
+                        rightBottom: true
+                        clickedable: false
+                        borderWidth: 1
+                        borderColor: sourceTheme.background_border
+                        color: sourceTheme.popup_background_color
+                        radius: 5
+
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumWidth: 626 * screenScaleFactor
+                        Layout.maximumWidth: 932 * screenScaleFactor
+                        Layout.minimumHeight: 626 * screenScaleFactor
+                        Layout.maximumHeight: 932 * screenScaleFactor
+                       // Layout.preferredHeight: width
+//                        onWidthChanged: {
+//                            height = width
+//                        }
+
+                        Item {
+                            anchors.fill: parent
+                            Item{
+                                id: content_grid
+                                anchors.fill: parent
+                                Canvas{
+                                    id:object_delete_canvas
+                                    width: parent.width
+                                    height: parent.height
+                                    anchors.centerIn: parent
+                                    antialiasing: true
+                                    property int wgrid: 30
+                                    property var printObjects:deviceItem?deviceItem.printObjects: "[]"
+                                    property var excludedObjects: deviceItem?deviceItem.excludedObjects: "[]"
+                                    property var currentObject:  deviceItem?deviceItem.currentObject: ""
+                                    property var objectEnum: {
+                                        CurrentObject:0
+                                        ExcludedObjects:1
+                                        printObjects:2
+                                    }
+
+                                    property var shapes: []
+                                    property var images: []
+                                    property var pointUnit: height/ (wgrid*10)
+                                    function repaintCanvas(){
+                                        if(!object_delete_canvas.printObjects) return
+                                        let canvas = object_delete_canvas
+                                        for (let image of canvas.images) {
+                                            image.destroy();
+                                            delete image;
+                                        }
+                                        canvas.images = []
+                                        canvas.shapes = []
+                                        let printArr = JSON.parse(canvas.printObjects)
+                                        let excludedArr = canvas.excludedObjects || []
+                                        let currentObject = canvas.currentObject
+
+                                        for(let item of printArr){
+                                            let type = 2
+                                            if(excludedArr.includes(item.name)) type = 1
+                                            if(item.name === currentObject)type = 0
+                                            let arr = []
+                                            for(let i of item.polygon){
+                                                arr.push([Math.floor(i[0]*canvas.pointUnit),canvas.height-Math.floor(i[1]*canvas.pointUnit)])
+                                            }
+                                            item.type = type
+                                            item.polygon = arr
+                                            item.center=[Math.floor(item.center[0]*canvas.pointUnit),canvas.height-Math.floor(item.center[1]*canvas.pointUnit)]
+                                            item.rectLong = canvas.calculateShortestDistance(item.center,item.polygon)
+                                            canvas.shapes.push(item)
+                                        }
+                                        canvas.clean();
+                                        canvas.requestPaint();
+                                    }
+
+                                    onExcludedObjectsChanged: repaintCanvas()
+                                    onCurrentObjectChanged: repaintCanvas()
+                                    function clean()
+                                    {
+                                        if(visible){
+                                            getContext("2d").clearRect(0, 0, object_delete_canvas.width, object_delete_canvas.height);
+                                        }
+                                    }
+                                    // 检查点是否在多边形内部
+                                    function isPointInPolygon(x, y, polygon) {
+                                        var isInside = false;
+                                        var j = polygon.length - 1;
+                                        for (var i = 0; i < polygon.length; i++) {
+                                            let checkPoint = (polygon[i][1] > y) != (polygon[j][1] > y) &&
+                                                x < (polygon[j][0] - polygon[i][0]) * (y - polygon[i][1]) /
+                                                (polygon[j][1] - polygon[i][1]) + polygon[i][0]
+                                            if (checkPoint) isInside = !isInside;
+                                            j = i;
+                                        }
+                                        return isInside;
+                                    }
+                                    function isMouseInSquare(mouseX, mouseY, center) {
+                                        var squareSize = 50; // 正方形的边长
+                                        var squareLeft = center[0] - (squareSize / 2);
+                                        var squareTop = center[1] - (squareSize / 2);
+                                        return mouseX >= squareLeft && mouseX <= squareLeft + squareSize &&
+                                                mouseY >= squareTop && mouseY <= squareTop + squareSize
+                                    }
+                                    function calculateShortestDistance(center, polygon) {
+                                        var shortestDistance = Number.MAX_VALUE;
+                                        for (var i = 0; i < polygon.length; i++) {
+                                            var currentVertex = polygon[i];
+                                            var nextVertex = polygon[(i + 1) % polygon.length];
+                                            var edgeVector = [nextVertex[0] - currentVertex[0], nextVertex[1] - currentVertex[1]];
+                                            var centerToEdgeVector = [center[0] - currentVertex[0], center[1] - currentVertex[1]];
+                                            var edgeLengthSquared = Math.pow(edgeVector[0], 2) + Math.pow(edgeVector[1], 2);
+                                            if (edgeLengthSquared === 0)  continue;
+
+                                            var projectionLength = (centerToEdgeVector[0] * edgeVector[0] + centerToEdgeVector[1] * edgeVector[1]) / edgeLengthSquared;
+                                            if (projectionLength < 0 || projectionLength > 1) continue;
+                                            var projectionPoint = [
+                                                        currentVertex[0] + projectionLength * edgeVector[0],
+                                                        currentVertex[1] + projectionLength * edgeVector[1]
+                                                    ];
+                                            var distance = Math.sqrt(Math.pow(center[0] - projectionPoint[0], 2) + Math.pow(center[1] - projectionPoint[1], 2));
+                                            shortestDistance = Math.min(shortestDistance, distance);
+                                        }
+
+                                        return shortestDistance;
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        onClicked: {
+                                            let  canvas = object_delete_canvas
+                                            for (var s = 0; s < canvas.shapes.length; s++) {
+                                                var shape = canvas.shapes[s];
+                                                if (canvas.isPointInPolygon( mouse.x,  mouse.y, shape.polygon)&& shape.type !== 1) {
+                                                    printObjectName = shape.name
+                                                    idMessageDialog.showMessageDialog(LanPrinterDetail.MessageType.ObjectDelete)
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        ctx.clearRect(0, 0, width, height);
+                                        ctx.save()
+                                        var zero = Qt.point(0,height)
+                                        ctx.lineWidth = 0.2756410256410256
+                                        ctx.strokeStyle = '#5a5a5a'
+                                        ctx.lineDashOffset=0
+                                        ctx.beginPath()
+                                        var nrows = width/wgrid;
+                                        ctx.moveTo(zero);
+
+                                        for(var i=1; i<nrows+1; i++)
+                                        {
+                                            var p1 = Qt.point(zero.x+wgrid*i,zero.y)
+                                            var p2 = Qt.point(p1.x,p1.y-height)
+                                            ctx.moveTo(p1.x,p1.y);
+                                            ctx.lineTo(p2.x,p2.y);
+                                        }
+                                        var ncols = height/wgrid
+                                        for(var j=1; j < ncols+1; j++){
+                                            p1 = Qt.point(zero.x,zero.y-wgrid*j)
+                                            p2 = Qt.point(p1.x+width,p1.y)
+                                            ctx.moveTo(p1.x,p1.y);
+                                            ctx.lineTo(p2.x,p2.y);
+                                        }
+
+                                        ctx.stroke();
+
+                                        for (var c = 0; c < object_delete_canvas.shapes.length; c++) {
+                                            ctx.beginPath();
+                                            var icon = object_delete_canvas.shapes[c];
+                                            var image = Qt.createQmlObject('import QtQuick 2.0; Image {}', object_delete_canvas);
+                                            var type = "white"
+                                            image.source = ""
+
+                                            if(icon.type === 1)
+                                            {
+                                                image.source  = root.object_delete;
+                                                type = "gray"
+                                            }
+                                            if(icon.type === 0){
+                                                image.source  = root.object_current;
+                                                type = "white"
+                                            }
+                                            if(icon.type === 2) {
+                                                image.source  = root.object_default;
+                                                type = "blue"
+                                            }
+
+                                            if (icon.polygon.length > 0) {
+                                                var startPoint = icon.polygon[0];
+                                                ctx.moveTo(startPoint[0], startPoint[1]);
+                                                for (var p = 1; p < icon.polygon.length; p++) {
+                                                    var point = icon.polygon[p];
+                                                    ctx.lineTo(point[0], point[1]);
+                                                }
+                                            }
+                                            ctx.closePath()
+                                            ctx.lineWidth = 2;  // 设置边框宽度
+                                            ctx.strokeStyle = "gray";  // 设置边框颜色
+
+                                            image.width = icon.rectLong*2; // 设置图片宽度
+                                            image.height = icon.rectLong*2; // 设置图片高度
+                                            image.x = icon.center[0] - image.width / 2; // 计算图片的左上角x坐标
+                                            image.y =icon.center[1] - image.height / 2; // 计算图片的左上角y坐标
+                                            image.sourceSize.width = image.width; // 设置源图片宽度
+                                            image.sourceSize.height = image.height; // 设置源图片高度
+                                            image.fillMode = Image.PreserveAspectFit; // 设置图片填充模式
+                                            object_delete_canvas.images.push(image);
+                                            ctx.stroke();
+                                        }
+
+                                        ctx.restore();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+
             }
 
             Item {
@@ -5384,7 +5870,7 @@ Rectangle {
                                         Rectangle {
                                             id: __nozzleDstTempBox
                                             property int minValue: 0
-                                            property int maxValue: 300
+                                            property int maxValue: deviceItem?deviceItem.maxNozzleTemp? deviceItem.maxNozzleTemp:300: 300
                                             property var delayShow: false
                                             property var nozzleDstTemp: deviceItem?deviceItem.pcNozzleDstTemp:"undefined"
                                             property alias boxValue: __editNozzleDstTempBox.text
@@ -5447,7 +5933,7 @@ Rectangle {
                                                 anchors.left: parent.left
                                                 anchors.verticalCenter: parent.verticalCenter
 
-                                                validator: RegExpValidator{regExp: new RegExp("[\\d]|[1-9][\\d]|[1-2][\\d][\\d]|300")}
+                                                validator: RegExpValidator{regExp: new RegExp(/^[0-9]*$/)}
                                                 selectByMouse: true
                                                 selectionColor: sourceTheme.textedit_selection_color
                                                 selectedTextColor : color
@@ -5462,12 +5948,15 @@ Rectangle {
                                                 font.family: Constants.mySystemFont.name
                                                 font.pointSize: Constants.labelFontPointSize_9
                                                 background: null
-
+                                                placeholderText:qsTr("Maximum value")+ __nozzleDstTempBox.maxValue
                                                 Keys.onUpPressed: __nozzleDstTempBox.increase()
                                                 Keys.onDownPressed: __nozzleDstTempBox.decrease()
                                                 Keys.onEnterPressed: parent.forceActiveFocus()
                                                 Keys.onReturnPressed: parent.forceActiveFocus()
                                                 onEditingFinished: __nozzleDstTempBox.specifyPcNozzleDstTemp()
+                                                onTextChanged: {
+                                                    if(+text > __nozzleDstTempBox.maxValue) text = __nozzleDstTempBox.maxValue
+                                                }
                                             }
 
                                             Text {
@@ -5560,7 +6049,7 @@ Rectangle {
                                         Rectangle {
                                             id: __nozzle2DstTempBox
                                             property int minValue: 0
-                                            property int maxValue: 300
+                                            property int maxValue: deviceItem?deviceItem.maxNozzleTemp? deviceItem.maxNozzleTemp:300: 300
                                             property var delayShow: false
                                             property var nozzleDstTemp: deviceItem?deviceItem.nozzle2DstTemp:"undefined"
                                             property alias boxValue: __editNozzle2DstTempBox.text
@@ -5618,7 +6107,7 @@ Rectangle {
                                                 anchors.left: parent.left
                                                 anchors.verticalCenter: parent.verticalCenter
 
-                                                validator: RegExpValidator{regExp: new RegExp("[\\d]|[1-9][\\d]|[1-2][\\d][\\d]|300")}
+                                                validator: RegExpValidator{regExp: new RegExp(/^[0-9]*$/)}
                                                 selectByMouse: true
                                                 selectionColor: sourceTheme.textedit_selection_color
                                                 selectedTextColor : color
@@ -5633,12 +6122,15 @@ Rectangle {
                                                 font.family: Constants.mySystemFont.name
                                                 font.pointSize: Constants.labelFontPointSize_9
                                                 background: null
-
+                                                placeholderText:qsTr("Maximum value")+ __nozzle2DstTempBox.maxValue
                                                 Keys.onUpPressed: __nozzle2DstTempBox.increase()
                                                 Keys.onDownPressed: __nozzle2DstTempBox.decrease()
                                                 Keys.onEnterPressed: parent.forceActiveFocus()
                                                 Keys.onReturnPressed: parent.forceActiveFocus()
                                                 onEditingFinished: __nozzle2DstTempBox.specifyPcNozzleDstTemp()
+                                                onTextChanged: {
+                                                    if(+text > __nozzle2DstTempBox.maxValue) text = __nozzle2DstTempBox.maxValue
+                                                }
                                             }
 
                                             Text {
@@ -5731,20 +6223,21 @@ Rectangle {
                                         Rectangle {
                                             id: __bedDstTempBox
                                             property int minValue: 0
-                                            property int maxValue: 200
+                                            property int maxValue: deviceItem?deviceItem.maxBedTemp? deviceItem.maxBedTemp:200: 200
                                             property var delayShow: false
                                             property var bedDstTemp: deviceItem?deviceItem.pcBedDstTemp:"undefined"
                                             property alias boxValue: __editBedDstTempBox.text
 
                                             function decrease() {
-                                                if(boxValue != "" && boxValue > minValue)
+                                                if( !boxValue&&boxValue > minValue)
                                                 {
                                                     var value = parseInt(boxValue) - 1
                                                     boxValue = value
                                                 }
                                             }
                                             function increase() {
-                                                if(boxValue != "" && boxValue < maxValue)
+                                                console.log()
+                                                if(!boxValue&&boxValue < maxValue)
                                                 {
                                                     var value = parseInt(boxValue) + 1
                                                     boxValue = value
@@ -5789,7 +6282,7 @@ Rectangle {
                                                 anchors.left: parent.left
                                                 anchors.verticalCenter: parent.verticalCenter
 
-                                                validator: RegExpValidator{regExp: new RegExp("[\\d]|[1-9][\\d]|[1][\\d][\\d]|200")}
+                                                validator: RegExpValidator{regExp: new RegExp(/^[0-9]*$/)}
                                                 selectByMouse: true
                                                 selectionColor: sourceTheme.textedit_selection_color
                                                 selectedTextColor : color
@@ -5804,12 +6297,15 @@ Rectangle {
                                                 font.family: Constants.mySystemFont.name
                                                 font.pointSize: Constants.labelFontPointSize_9
                                                 background: null
-
+                                                placeholderText:qsTr("Maximum value")+ __bedDstTempBox.maxValue
                                                 Keys.onUpPressed: __bedDstTempBox.increase()
                                                 Keys.onDownPressed: __bedDstTempBox.decrease()
                                                 Keys.onEnterPressed: parent.forceActiveFocus()
                                                 Keys.onReturnPressed: parent.forceActiveFocus()
                                                 onEditingFinished: __bedDstTempBox.specifyPcBedDstTemp()
+                                                onTextChanged: {
+                                                    if(+text > __bedDstTempBox.maxValue) text = __bedDstTempBox.maxValue
+                                                }
                                             }
 
                                             Text {

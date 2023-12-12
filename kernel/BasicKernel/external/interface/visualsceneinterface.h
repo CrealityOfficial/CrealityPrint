@@ -30,5 +30,7 @@ namespace creative_kernel
 
 	BASIC_KERNEL_API void showPrimeTower(float x, float y, float radius);
 	BASIC_KERNEL_API void hidePrimeTower();
+
+	BASIC_KERNEL_API QSize surfaceSize();
 }
 #endif // CREATIVE_KERNEL_VISUALSCENEINTERFACE_1592728018928_H

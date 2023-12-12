@@ -1,4 +1,6 @@
 #include "Klipper4408Interface.h"
+#include "WsClient.h"
+
 #include "rapidjson/writer.h"
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
@@ -19,7 +21,7 @@ namespace creative_kernel
 		m_webSockets.clear();
 	}
 
-	void Klipper4408Interface::addClient(const std::string& strServerIp, int port, std::function<void(const RemotePrinter&)> infoCallback, std::function<void(const std::string&, const std::string&)> fileCallback, std::function<void(std::string, std::string)> historyFileListCb, std::function<void(const std::string&, const std::string&)> videoCallback)
+	void Klipper4408Interface::addClient(const std::string& strServerIp, const std::string& strMac, int port, std::function<void(const RemotePrinter&)> infoCallback, std::function<void(const std::string&, const std::string&)> fileCallback, std::function<void(std::string, std::string)> historyFileListCb, std::function<void(const std::string&, const std::string&)> videoCallback)
 	{
 		if (m_webSockets.find(strServerIp) == m_webSockets.end())
 		{
@@ -27,7 +29,7 @@ namespace creative_kernel
 			{
 				m_ioc = new net::io_context();
 			}
-			auto webSocket = std::make_shared<WsClient>(*m_ioc, strServerIp, port);
+			auto webSocket = std::make_shared<WsClient>(*m_ioc, strServerIp, strMac, port);
 			webSocket->start();
 			webSocket->infoCallback = infoCallback;
 			webSocket->fileCallback = fileCallback;
@@ -53,8 +55,10 @@ namespace creative_kernel
 	{
 		if (m_webSockets.find(strServerIp) != m_webSockets.end())
 		{
-			m_webSockets[strServerIp]->stop();
-			m_webSockets.erase(strServerIp);
+			m_webSockets[strServerIp]->stop([=]() {
+				m_webSockets.erase(strServerIp);
+				}
+			);
 		}
 	}
 
@@ -332,6 +336,16 @@ namespace creative_kernel
 				std::string gcodeCmd = "M106 P2 S" + std::to_string(roundValue);
 				auto paramValue = rapidjson::Value(gcodeCmd.c_str(), allocator);
 				paramObject.AddMember("gcodeCmd", paramValue, allocator);
+				break;
+			}
+			case PrintControlType::CONTROL_CMD_EXCLUDEOBJECTS:
+			{
+				rapidjson::Value arrayValue(rapidjson::kArrayType);
+				auto paramValue = rapidjson::Value(value.c_str(), allocator);
+				arrayValue.PushBack(paramValue, allocator);
+
+				paramObject.AddMember("excludeObjects", arrayValue, allocator);
+				
 				break;
 			}
 			default:

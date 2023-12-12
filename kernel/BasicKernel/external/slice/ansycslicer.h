@@ -4,6 +4,7 @@
 #include "us/usettings.h"
 #include "qtusercore/module/progressor.h"
 #include "qtusercore/module/progressortracer.h"
+#include "crslice/header.h"
 
 namespace creative_kernel
 {
@@ -16,7 +17,7 @@ namespace creative_kernel
 
 		bool canSlice();
 		trimesh::box3 sceneBox();
-
+		bool hasModel();
 		QList<ModelGroupInput*> Groups;
 		SettingsPointer G;
 		QList<SettingsPointer> Es;
@@ -28,7 +29,7 @@ namespace creative_kernel
 		AnsycSlicer(QObject* parent = nullptr);
 		virtual ~AnsycSlicer();
 
-		virtual SliceResultPointer doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer);
+		virtual SliceResultPointer doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer, crslice::PathData* _fDebugger = nullptr);
 
 		virtual void stop();
 	};

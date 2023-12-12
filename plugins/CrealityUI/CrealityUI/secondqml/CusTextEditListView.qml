@@ -1,5 +1,6 @@
-import QtQuick 2.0
-import QtQuick.Controls 2.0
+import QtQuick 2.12
+import QtQuick.Controls 2.12
+import QtQuick.Controls.impl 2.12
 import "../qml"
 Item {
     id: root
@@ -22,7 +23,7 @@ Item {
         color: Constants.tabButtonSelectColor
         border.width: 1
         border.color: Constants.dialogItemRectBgBorderColor
-        BasicScrollView {
+        ScrollView {
             anchors.top: parent.top
             anchors.topMargin: 10 * screenScaleFactor
             anchors.left: parent.left

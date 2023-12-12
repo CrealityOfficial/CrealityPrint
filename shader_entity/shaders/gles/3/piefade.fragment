@@ -1,0 +1,79 @@
+#version 300 es
+/* piefade.fragment */
+precision mediump float;
+
+out vec4 fragColor;
+
+in vec3 normal;
+in vec3 viewDirection;
+in vec3 world_position;
+
+uniform vec4 color;
+
+uniform int rotMode;
+uniform float rotRadians;
+uniform vec3 rotCenter;
+uniform vec3 rotInitDir;
+uniform vec3 rotAxis;
+
+uniform int lightEnable;
+uniform vec3 lightDirection;
+uniform vec4 ambient;
+uniform vec4 diffuse;
+uniform vec4 specular;
+uniform float specularPower;
+
+
+vec4 directLight(vec3 light_dir, vec3 fnormal, vec4 core_color, vec4 ambient_color, vec4 diffuse_color, vec4 specular_color)
+{
+	float NdotL 		  = max(dot(fnormal, light_dir), 0.0);
+	ambient_color 	  	  = ambient_color * core_color;
+
+	vec3 freflection      = reflect(-light_dir, fnormal);
+	vec3 fViewDirection   = normalize(viewDirection);
+	float RdotV           = max(0.0, dot(freflection, fViewDirection)); 
+	
+	diffuse_color		  = NdotL * diffuse_color * core_color;
+	specular_color        = specular_color * pow( RdotV, specularPower) * core_color;
+	
+	return ambient_color + diffuse_color + specular_color;
+}
+
+void main() 
+{
+	if (rotMode > 0)
+	{
+		if (rotRadians == 0.0)
+			discard;
+		else
+		{
+			vec3 curDir = normalize(world_position - rotCenter);
+			float curRadians = acos(dot(curDir, rotInitDir));
+			vec3 curAxis = cross(rotInitDir, curDir);
+			float axisInvertCos = dot(rotAxis, curAxis);
+			if (axisInvertCos < 0.0)
+				curRadians = 2.0 * 3.14159265357 - curRadians;
+		
+			if (rotRadians > 0.0 && curRadians > rotRadians)
+				discard;
+			else if (rotRadians < 0.0 && curRadians - 2.0 * 3.14159265357 < rotRadians)
+				discard;
+		}
+	}
+
+	vec4 coreColor = color;
+
+	if (lightEnable > 0)
+	{
+		vec3 fnormal = normalize(normal);
+		vec4 ambient_color = ambient;
+		vec4 diffuse_color = diffuse;
+		vec4 specular_color = specular;
+
+		vec3 lightDir = normalize(lightDirection);
+		float normalCos = dot(fnormal, lightDir);
+		coreColor = directLight(lightDir, fnormal, coreColor, ambient_color, diffuse_color, specular_color);
+	}
+		
+	fragColor = coreColor;
+}

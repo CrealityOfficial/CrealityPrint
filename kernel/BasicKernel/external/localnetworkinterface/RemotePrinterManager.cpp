@@ -6,6 +6,8 @@
 #include <cpr/api.h>
 #include <external/interface/machineinterface.h>
 
+#include "cxmdns.h"
+
 namespace creative_kernel
 {
 	SINGLETON_IMPL(RemotePrinterManager)
@@ -125,7 +127,7 @@ namespace creative_kernel
 						RemotePrinter printer;
 						printer.type = RemotePrinerType::REMOTE_PRINTER_TYPE_KLIPPER4408;
 						printer.ipAddress = QString::fromStdString(strServerIp);
-						printer.macAddress = QString::fromStdString(strServerIp);
+						printer.macAddress = QString::fromStdString(mac);
 						printer.printerName = QString::fromStdString(model);
 						m_pfnSearchCb(printer);
 					}
@@ -651,6 +653,7 @@ namespace creative_kernel
 			else
 			{
 				printer.type = RemotePrinerType::REMOTE_PRINTER_TYPE_KLIPPER4408;
+				printer.macAddress = doc["mac"].GetString();
 				doAddPrinter(printer);
 			}
 		}
@@ -718,7 +721,7 @@ namespace creative_kernel
 				}
 			};
 
-			m_pKlipper4408Interface->addClient(printer.ipAddress.toStdString(), 9999, infoCallback, fileCallback, historyCallback, videoCallback);
+			m_pKlipper4408Interface->addClient(printer.ipAddress.toStdString(), printer.macAddress.toStdString(), 9999, infoCallback, fileCallback, historyCallback, videoCallback);
 			return;
 		}
 		auto doAddPrinterFunc = [=]() {
@@ -760,7 +763,7 @@ namespace creative_kernel
 	{
 		if (printer.type == RemotePrinerType::REMOTE_PRINTER_TYPE_KLIPPER4408)
 		{
-			m_pKlipper4408Interface->removeClient(printer.macAddress.toStdString());
+			m_pKlipper4408Interface->removeClient(printer.uniqueId.toStdString());
 			return printer.macAddress.toStdString();
 		}
 		std::lock_guard<std::mutex> lock(m_mutex);

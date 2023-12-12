@@ -51,6 +51,7 @@ namespace creative_kernel
 		virtual ~PrintMachine();
 
 		Q_INVOKABLE QString name();
+		Q_INVOKABLE QString baseName();
 		QString uniqueName();
 		QString uniqueBasicName();
 
@@ -177,7 +178,7 @@ namespace creative_kernel
 		void _cacheExtruderMaterialIndex();
 
 		int _caculateLevel(const QString& name);
-
+		void sortMaterials();
 	protected:
 		MachineMeta m_meta;
 		MachineData m_data;

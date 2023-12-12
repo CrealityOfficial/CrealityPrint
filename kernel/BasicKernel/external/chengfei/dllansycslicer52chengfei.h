@@ -11,8 +11,7 @@ namespace creative_kernel
 		DLLAnsycSlicer52CF(const chengfeiSplit& chengfeiSplit,QObject* parent = nullptr);
 		virtual ~DLLAnsycSlicer52CF();
 
-		SliceResultPointer doSlice(SliceInput& input,qtuser_core::ProgressorTracer& tracer) override;
-
+		SliceResultPointer doSlice(SliceInput& input,qtuser_core::ProgressorTracer& tracer, crslice::PathData* _fDebugger = nullptr) override;
 	private:
 		chengfeiSplit m_chengfeiSplit;
 	};

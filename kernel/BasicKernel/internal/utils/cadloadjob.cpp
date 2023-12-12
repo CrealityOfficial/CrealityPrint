@@ -3,8 +3,7 @@
 #include "qtusercore/module/progressortracer.h"
 #include "qtusercore/string/resourcesfinder.h"
 
-#include "stringutil/util.h"
-#include "cxbin/load.h"
+#include "cxkernel/utils/utils.h"
 
 #include "cxkernel/interface/modelninterface.h"
 
@@ -59,9 +58,7 @@ namespace creative_kernel
 	{
 		qtuser_core::ProgressorTracer tracer(progressor);
 		
-		std::wstring strWname = m_fileName.toStdWString();
-		std::string strname = stringutil::wstring2string(strWname);
-		trimesh::TriMesh* ms = Slic3r::load_step(strname.c_str(), &tracer);
+		trimesh::TriMesh* ms = cadcore::load_step(cxkernel::qString2String(m_fileName), &tracer);
 		m_mesh = TriMeshPtr(ms);
 	}
 }

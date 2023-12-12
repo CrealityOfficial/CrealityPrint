@@ -119,12 +119,12 @@ void VideoListModel::switchDataSource(const QString& macAddr, RemotePrinerType r
 	}
 }
 
-void VideoListModel::downloadVideoFile(const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType)
+void VideoListModel::downloadVideoFile(const QString& macAddr, const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType)
 {
 	cpr::Session session;
 	std::string url = "http://" + ipAddress.toStdString() + "/downloads/video/";
 	url += session.GetCurlHolder()->urlEncode(fileName.toStdString());
-	getRemotePrinterManager()->downloadFile(url, QUrl(localPath).toLocalFile().toStdString(), std::bind(&VideoListModel::onGetExportProgress, this, ipAddress, fileName, std::placeholders::_1));
+	getRemotePrinterManager()->downloadFile(url, QUrl(localPath).toLocalFile().toStdString(), std::bind(&VideoListModel::onGetExportProgress, this, macAddr, fileName, std::placeholders::_1));
 }
 
 void VideoListModel::onGetExportProgress(const QString& ipAddress, const QString& fileName, const float& progress)

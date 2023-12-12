@@ -161,10 +161,6 @@ public:
 	std::string CXImage2PlotterGcode(const QImage& img, const tparams* picSetting, QPointF pos, QPointF scope, QString picType = "vector");
 	std::string CXShape2Gcode(const QString& shapeType, const tparams* shapeSetting,QPointF pos, QPointF scope);
 
-	//×Ö·û×ªGcode
-	std::string CXLetter2Gcode(const QString& font, QString& text, double expectLen, const tparams* shapeSetting, QPointF pos, QPointF scope);
-
-
 	//ImageÂÖÀª×ªSVG
 	bool CXImage2Svg(const QImage& src,const QString& outfile, const tparams* svgSetting);
 	void setPos(QPointF pos) { m_pos = pos; }

@@ -1,0 +1,24 @@
+#left
+layer_height
+line_width
+wall_line_count
+infill_sparse_density
+adhesion_type
+support_enable
+support_angle
+support_infill_rate
+small_feature_max_length
+#right
+material_print_temperature
+material_bed_temperature
+speed_print
+speed_infill
+speed_wall
+support_material_flow
+infill_material_flow
+wall_material_flow
+small_feature_speed_factor
+
+#
+support_enable    checkbox
+adhesion_type     combox

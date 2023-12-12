@@ -6,11 +6,13 @@
 #include "data/modeln.h"
 #include <QtQml/QQmlComponent>
 #include "qtuser3d/camera/screencamera.h"
+#include "data/interface.h"
 
 class AbstractMeasureObj;
 
 class DistanceMeasureOp: public qtuser_3d::SceneOperateMode
 	, public qtuser_3d::ScreenCameraObserver
+	, public creative_kernel::SpaceTracer
 {
 	Q_OBJECT
 public:
@@ -31,6 +33,11 @@ protected:
 
 	void onCameraChanged(qtuser_3d::ScreenCamera* camera) override;
 
+	void onBoxChanged(const qtuser_3d::Box3D& box) override {}
+	void onSceneChanged(const qtuser_3d::Box3D& box) override {}
+
+	void onModelToAdded(creative_kernel::ModelN* model) override {}
+	void onModelToRemoved(creative_kernel::ModelN* model) override;
 public:
 	void setMeasureType(int measure_type);
 	int getMeasureType() const;

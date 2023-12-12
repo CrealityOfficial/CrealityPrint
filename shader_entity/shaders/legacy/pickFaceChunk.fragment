@@ -1,0 +1,13 @@
+#version 150 core 
+
+flat in vec4 passColor;
+in float flag;
+
+out vec4 fragColor;
+
+void main()
+{
+	if(flag == 0.0)
+		discard;
+	fragColor = passColor;
+}

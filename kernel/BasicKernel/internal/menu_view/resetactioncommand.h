@@ -1,7 +1,7 @@
 #ifndef _RESETACTIONCOMMAND_H
 #define _RESETACTIONCOMMAND_H
 #include "menu/actioncommand.h"
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "data/interface.h"
 
 namespace creative_kernel

@@ -39,6 +39,7 @@ protected:
   virtual void onDettach() override;
 
 private:
+  void setNoSelectedModelsVisiable(bool visiable);
   void recordModelsVisibility();
   void resetModelsVisibility() const;
 

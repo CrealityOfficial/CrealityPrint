@@ -15,7 +15,7 @@
 #include "interface/camerainterface.h"
 
 #include "internal/utils/visscenehandler.h"
-#include "qtuser3d/entity/rectlineentity.h"
+#include "entity/rectlineentity.h"
 #include "qtuser3d/geometry/basicshapecreatehelper.h"
 
 #include "qtuser3d/scene/sceneoperatemode.h"
@@ -24,6 +24,7 @@
 #include "qtuser3d/refactor/xentity.h"
 #include "qtuser3d/refactor/xrenderpass.h"
 #include "qtuser3d/refactor/xeffect.h"
+#include "renderpass/zprojectrenderpass.h"
 
 namespace creative_kernel
 {
@@ -52,15 +53,7 @@ namespace creative_kernel
 			m_sphereEntity = new qtuser_3d::XEntity();
 			m_sphereEntity->setGeometry(qtuser_3d::BasicShapeCreateHelper::createBall(QVector3D(0, 0, 0), 1.0, 10));
 			
-			qtuser_3d::XRenderPass *renderPass = new qtuser_3d::XRenderPass("zproject", m_sphereEntity);
-			renderPass->addFilterKeyMask("alpha", 0);
-
-			renderPass->setPassCullFace(Qt3DRender::QCullFace::Back);
-			renderPass->setPassBlend();
-			renderPass->setPassStencilMask(0xFF);
-			renderPass->setPassStencilOperation(Qt3DRender::QStencilOperationArguments::Keep, Qt3DRender::QStencilOperationArguments::Keep, Qt3DRender::QStencilOperationArguments::Increment);
-			renderPass->setPassStencilFunction(Qt3DRender::QStencilTestArguments::Equal, 0x0, 0xFF);
-			renderPass->setPassDepthTest(Qt3DRender::QDepthTest::Less);
+			qtuser_3d::XRenderPass *renderPass = new qtuser_3d::ZProjectRenderPass(m_sphereEntity);
 			//m_sphereEntity->setParameter("pcolor", QVector4D(0.2275, 0.2275, 0.2353, 0.5));
 
 			qtuser_3d::XEffect* effect = new qtuser_3d::XEffect(m_sphereEntity);
@@ -89,8 +82,8 @@ namespace creative_kernel
 
 	void VisualScene::initialize()
 	{
-		QColor clearColor = CONFIG_GLOBAL_COLOR(visualscene_surfacecolor, visualscene_group);
-		m_surface->setClearColor(clearColor);
+		//QColor clearColor = CONFIG_GLOBAL_COLOR(visualscene_surfacecolor, visualscene_group);
+		//m_surface->setClearColor(clearColor);
 	}
 
 	void VisualScene::updateRender(bool updatePick)
@@ -264,5 +257,26 @@ namespace creative_kernel
 	Qt3DRender::QFrameGraphNode* VisualScene::getCameraViewportFrameGraphNode()
 	{
 		return m_surface->getCameraViewportFrameGraphNode();
+	}
+	
+	QSize VisualScene::surfaceSize()
+	{
+		return m_surface->externalRenderTargetSize();
+	}
+#ifdef ENABLE_DEBUG_OVERLAY
+	bool VisualScene::showDebugOverlay()
+	{
+		return m_surface->showDebugOverlay();
+	}
+	
+	void VisualScene::setShowDebugOverlay(bool showDebugOverlay)
+	{
+		m_surface->setShowDebugOverlay(showDebugOverlay);
+	}
+#endif
+
+	void VisualScene::setSceneClearColor(const QColor& color)
+	{
+		m_surface->setClearColor(color);
 	}
 }

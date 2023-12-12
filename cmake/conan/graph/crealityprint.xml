@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workspace Version="1.0">
+    <lib name="glm/0.0.1"/>
+	<lib name="clipper2/0.0.1"/>
+	<lib name="trimesh2/0.0.0"/>
+	<lib name="trimesh2/0.0.2"/>
+	<lib name="trimesh2/0.0.3"/>
+    <lib name="clipper/0.0.2"/>
+    <lib name="zlib/0.0.2"/>
+    <lib name="pcre/0.0.2"/>
+    <lib name="tinyxml/0.0.2"/>
+    <lib name="eigen/0.0.2"/>
+	<lib name="eigen/1.0.0"/>
+	<lib name="fmt/0.0.1"/>
+    <lib name="cgal/0.0.2">
+        <sublib name="boost/0.0.2"/>
+    </lib>
+	<lib name="stb/0.0.2"/>
+	<lib name="rapidjson/0.0.2"/>
+	<lib name="rapidjson/1.0.0"/>
+	<lib name="qrlib/0.0.2"/>
+	<lib name="tbb/0.0.2"/>
+	<lib name="qrlib/0.0.2"/>
+	<lib name="clipper3r/0.0.2"/>
+    <lib name="clipper3r/1.0.0">
+		<sublib name="eigen/0.0.2"/>
+	</lib>
+	<lib name="qhull/0.0.2"/>
+	<lib name="openssl/0.0.2"/>
+	<lib name="freetype/0.0.2"/>
+	<lib name="nlopt/0.0.2"/>
+	<lib name="dxflib/0.0.2"/>
+	<lib name="openjpeg/0.0.2"/>
+	<lib name="potrace/0.0.2"/>
+	<lib name="ffmpeglib/0.0.2"/>
+	<lib name="glew/0.0.2"/>
+	<lib name="cereal/0.0.1"/>
+	<lib name="zstd/0.0.1"/>
+	<lib name="gmp/0.0.1"/>
+	<lib name="mpfr/0.0.1"/>
+	<lib name="libqrencode/0.0.1"/>
+	<lib name="polyclipping/0.0.1"/>
+	<lib name="nlohmann/0.0.1"/>
+    <lib name="boost/0.0.2">
+		<sublib name="zlib/0.0.2"/>
+		<sublib name="zstd/0.0.1"/>
+	</lib>
+
+    <lib name="opencascade/0.0.1">
+		<sublib name="tcltk/0.0.1"/>
+		<sublib name="freetype/0.0.2"/>
+		<sublib name="tbb/0.0.2"/>
+	</lib>
+
+    <lib name="opencascade/0.0.2">
+		<sublib name="freetype/0.0.2"/>
+		<sublib name="freeimage/0.0.2"/>
+	</lib>
+    <lib name="opencascade/0.0.3"/>
+	<lib name="ceres/0.0.1">
+		<sublib name="eigen/0.0.2"/>
+		<sublib name="cxsparse/0.0.1"/>
+	</lib>
+
+	<lib name="curl/0.0.2">
+        <sublib name="openssl/0.0.2"/>
+    </lib>
+	<lib name="sensors_analytics_sdk/0.0.1">
+		<sublib name="curl/0.0.2"/>
+		<sublib name="zlib/0.0.2"/>
+	</lib>
+	<lib name="librevenge/0.0.2">
+        <sublib name="boost/0.0.2"/>
+		<sublib name="zlib/0.0.2"/>
+    </lib>
+	<lib name="freeimage/0.0.2">
+        <sublib name="openjpeg/0.0.2"/>
+		<sublib name="png/0.0.2"/>
+    </lib>
+    <lib name="aliyunoss/0.0.2">
+		<sublib name="curl/0.0.2"/>
+    </lib>
+	<lib name="osswrapper/0.0.2">
+		<sublib name="aliyunoss/0.0.2"/>
+    </lib>
+    <lib name="enchase/0.0.2">
+        <sublib name="trimesh2/0.0.2"/>
+    </lib>
+    <lib name="enchase/0.0.3">
+        <sublib name="trimesh2/0.0.3"/>
+    </lib>
+    <lib name="zip/0.0.2">
+        <sublib name="zlib/0.0.2"/>
+    </lib>
+    <lib name="png/0.0.2">
+        <sublib name="zlib/0.0.2"/>
+    </lib>
+    <lib name="minizip/0.0.2">
+        <sublib name="zlib/0.0.2"/>
+    </lib>
+    <lib name="libxml/0.0.2">
+        <sublib name="zlib/0.0.2"/>
+    </lib>
+    <lib name="mmesh/0.0.2">
+        <sublib name="trimesh2/0.0.2"/>
+    </lib>
+    <lib name="mmesh/0.0.3">
+        <sublib name="trimesh2/0.0.3"/>
+    </lib>
+    <lib name="qhullwrapper/0.0.2">
+        <sublib name="mmesh/0.0.2"/>
+    </lib>
+    <lib name="qhullwrapper/0.0.3">
+        <sublib name="mmesh/0.0.3"/>
+    </lib>
+    <lib name="qhullwrapper/0.0.4">
+        <sublib name="mmesh/0.0.3"/>
+    </lib>
+    <lib name="lib3mf/0.0.2">
+        <sublib name="zip/0.0.2"/>
+    </lib>
+    <lib name="quazip/0.0.2">
+        <sublib name="zip/0.0.2"/>
+    </lib>
+	<lib name="cxcloud/0.0.1">
+        <sublib name="qtuser/1.0.0"/>
+		<sublib name="boost/0.0.2"/>
+		<sublib name="libqrencode/0.0.1"/>
+		<sublib name="osswrapper/0.0.2"/>
+		<sublib name="cpr/0.0.1"/>
+		<sublib name="rapidjson/1.0.0"/>
+    </lib>	
+    <lib name="qcxffmpeg/0.0.2">
+        <sublib name="ffmpeglib/0.0.2"/>
+    </lib>
+    <lib name="libnest2d/0.0.2">
+        <sublib name="tbb/0.0.2"/>
+		<sublib name="clipper3r/0.0.2"/>
+		<sublib name="nlopt/0.0.2"/>
+		<sublib name="boost/0.0.2"/>
+    </lib>
+    <lib name="libnest2d/0.0.3">
+        <sublib name="tbb/0.0.2"/>
+		<sublib name="clipper3r/0.0.2"/>
+		<sublib name="nlopt/0.0.2"/>
+		<sublib name="boost/0.0.2"/>
+    </lib>
+    <lib name="nestplacer/0.0.2">
+        <sublib name="libnest2d/0.0.2"/>
+		<sublib name="trimesh2/0.0.2"/>
+    </lib>
+    <lib name="nestplacer/0.0.3">
+        <sublib name="libnest2d/0.0.2"/>
+		<sublib name="trimesh2/0.0.3"/>
+    </lib>
+    <lib name="nestplacer/0.0.4">
+        <sublib name="libnest2d/0.0.3"/>
+		<sublib name="trimesh2/0.0.3"/>
+    </lib>
+    <lib name="admesh/0.0.1">
+	    <sublib name="boost/0.0.2"/>
+		<sublib name="eigen/0.0.2"/>
+    </lib>
+    <lib name="nestplacer/0.0.5">
+        <sublib name="libnest2d/0.0.3"/>
+		<sublib name="trimesh2/0.0.3"/>
+    </lib>
+	<lib name="nestplacer/0.0.6">
+        <sublib name="libnest2d/0.0.3"/>
+		<sublib name="trimesh2/0.0.3"/>
+    </lib>
+    <lib name="colladadom/0.0.2">
+        <sublib name="minizip/0.0.2"/>
+		<sublib name="libxml/0.0.2"/>
+        <sublib name="pcre/0.0.2"/>
+        <sublib name="boost/0.0.2"/>		
+    </lib>
+    <lib name="cxbin/0.0.2">
+        <sublib name="trimesh2/0.0.2"/>
+		<sublib name="colladadom/0.0.2"/>
+        <sublib name="tinyxml/0.0.2"/>
+        <sublib name="zip/0.0.2"/>
+		<sublib name="lib3mf/0.0.2"/>
+		<sublib name="stringutil/0.0.2"/>		
+    </lib>
+    <lib name="cxbin/0.0.3">
+        <sublib name="mmesh/0.0.3"/>
+		<sublib name="colladadom/0.0.2"/>
+        <sublib name="tinyxml/0.0.2"/>
+        <sublib name="zip/0.0.2"/>
+		<sublib name="lib3mf/0.0.2"/>
+		<sublib name="stringutil/0.0.2"/>
+		<sublib name="imageproc/0.0.3"/>
+    </lib>
+	<lib name="thumbnail/0.0.2">
+        <sublib name="png/0.0.2"/>
+		<sublib name="cxbin/0.0.2"/>
+		<sublib name="mmesh/0.0.2"/>
+		<sublib name="glm/0.0.1"/>
+    </lib>
+	<lib name="thumbnail/0.0.3">
+        <sublib name="png/0.0.2"/>
+		<sublib name="cxbin/0.0.3"/>
+		<sublib name="glm/0.0.1"/>
+    </lib>
+    <lib name="cmesh/0.0.2">
+        <sublib name="mmesh/0.0.2"/>
+		<sublib name="eigen/0.0.2"/>
+        <sublib name="cgal/0.0.2"/>
+        <sublib name="clipper/0.0.2"/>
+		<sublib name="boost/0.0.2"/>
+		<sublib name="tbb/0.0.2"/>
+		<sublib name="gmp/0.0.1"/>
+		<sublib name="mpfr/0.0.1"/>
+    </lib>
+    <lib name="cmesh/0.0.3">
+        <sublib name="mmesh/0.0.3"/>
+		<sublib name="eigen/0.0.2"/>
+        <sublib name="cgal/0.0.2"/>
+        <sublib name="clipper/0.0.2"/>
+		<sublib name="boost/0.0.2"/>
+		<sublib name="tbb/0.0.2"/>
+		<sublib name="gmp/0.0.1"/>
+		<sublib name="mpfr/0.0.1"/>
+    </lib>
+    <lib name="fmesh/0.0.2">
+        <sublib name="cmesh/0.0.2"/>
+		<sublib name="freetype/0.0.2"/>
+        <sublib name="dxflib/0.0.2"/>
+        <sublib name="librevenge/0.0.2"/>
+		<sublib name="rapidjson/0.0.2"/>
+		<sublib name="tinyxml/0.0.2"/>
+    </lib>
+    <lib name="fmesh/0.0.3">
+        <sublib name="cmesh/0.0.3"/>
+		<sublib name="freetype/0.0.2"/>
+        <sublib name="dxflib/0.0.2"/>
+        <sublib name="librevenge/0.0.2"/>
+		<sublib name="rapidjson/0.0.2"/>
+		<sublib name="tinyxml/0.0.2"/>
+    </lib>
+    <lib name="fmesh/0.0.4">
+        <sublib name="cmesh/0.0.3"/>
+		<sublib name="freetype/0.0.2"/>
+        <sublib name="dxflib/0.0.2"/>
+        <sublib name="librevenge/0.0.2"/>
+		<sublib name="rapidjson/1.0.0"/>
+		<sublib name="tinyxml/0.0.2"/>
+    </lib>
+    <lib name="ovdbutil/0.0.2">
+        <sublib name="mmesh/0.0.2"/>
+		<sublib name="zlib/0.0.2"/>
+        <sublib name="boost/0.0.2"/>
+        <sublib name="tbb/0.0.2"/>
+    </lib>
+    <lib name="ovdbutil/0.0.3">
+        <sublib name="mmesh/0.0.3"/>
+		<sublib name="zlib/0.0.2"/>
+        <sublib name="boost/0.0.2"/>
+        <sublib name="tbb/0.0.2"/>
+    </lib>
+    <lib name="imageproc/0.0.2">
+        <sublib name="freeimage/0.0.2"/>
+		<sublib name="potrace/0.0.2"/>
+        <sublib name="trimesh2/0.0.2"/>
+    </lib>
+    <lib name="imageproc/0.0.3">
+        <sublib name="freeimage/0.0.2"/>
+		<sublib name="potrace/0.0.2"/>
+        <sublib name="trimesh2/0.0.3"/>
+    </lib>
+    <lib name="splitslot/0.0.2">
+        <sublib name="fmesh/0.0.2"/>
+    </lib>
+    <lib name="splitslot/0.0.3">
+        <sublib name="fmesh/0.0.3"/>
+    </lib>
+    <lib name="splitslot/0.0.4">
+        <sublib name="fmesh/0.0.4"/>
+    </lib>
+    <lib name="cpr/0.0.1">
+        <sublib name="curl/0.0.2"/>
+		<sublib name="zlib/0.0.2"/>
+    </lib>
+</workspace>

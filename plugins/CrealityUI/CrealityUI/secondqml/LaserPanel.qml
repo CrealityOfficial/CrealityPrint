@@ -66,14 +66,14 @@ Rectangle {
             topLineEnabled: true
         }
 
-        BasicScrollView {
+        ScrollView {
             x : 3 * screenScaleFactor
             width: parent.width - x * 2
             height: parent.height - configTitle.height - parent.spacing
             clip : true
 
-            hPolicy: ScrollBar.AlwaysOff
-            vPolicy: ScrollBar.AsNeeded
+//            hPolicy: ScrollBar.AlwaysOff
+//            vPolicy: ScrollBar.AsNeeded
 
             Column {
                 width: parent.width

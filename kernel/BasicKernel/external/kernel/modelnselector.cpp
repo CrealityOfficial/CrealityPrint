@@ -2,7 +2,7 @@
 #include "qtuser3d/module/pickable.h"
 #include "qtuser3d/module/facepicker.h"
 #include "qtuser3d/module/pickableselecttracer.h"
-#include "qtuserqml/plugin/toolcommandcenter.h"
+#include "qtusercore/plugin/toolcommandcenter.h"
 #include "internal/tool/scalemode.h"
 #include "data/modeln.h"
 #include "kernel/kernelui.h"

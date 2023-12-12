@@ -4,44 +4,29 @@ import QtQml 2.13
 import "../qml"
 
 
-BasicScrollView{
+ScrollView{
     property var funcs:[]
     readonly property real maxHeight: 280*screenScaleFactor
-    id: tipsItem
+    id: tipsView
     width: 560*screenScaleFactor
-    height: implicitContentHeight < maxHeight ? implicitContentHeight : maxHeight
-    hpolicyVisible: false
-    vpolicyVisible: contentHeight > height
+    height: 100*screenScaleFactor
+//    hpolicyVisible: false
+//    vpolicyVisible: contentHeight > height
     clip: true
 
     background: Item{
 
     }
 
-    //添加项目
-    function addMsgTip(content1, content2, func){
-        scrollViewModel.append({"content1" : qsTr(content1), "content2" :qsTr(content2), "func" : func})
-        funcs[scrollViewModel.count - 1] = func
-
-        tipsItem.height = implicitContentHeight < maxHeight ? implicitContentHeight : maxHeight
-    }
-
-    //删除项目
-    function delMsgTip(itemIndex){
-        funcs.splice(itemIndex, 1)
-        scrollViewModel.remove(itemIndex)
-
-        if(scrollViewModel.count == 0){
-            tipsItem.visible = false
-            return;
+    onVisibleChanged: {
+        if(!visible){
+            clearData()
         }
-
-        tipsItem.height = implicitContentHeight < maxHeight ? implicitContentHeight : maxHeight
     }
 
     ListModel{
         id: scrollViewModel
-        ListElement{content1: qsTr("The model has not been supported and may fail to print. Do you want to continue adding supports before slicing?");  content2: qsTr("Add Support"); func: ""}
+//        ListElement{content1: qsTr("The model has not been supported and may fail to print. Do you want to continue adding supports before slicing?");  content2: qsTr("Add Support"); func: ""}
     }
 
     Column{
@@ -89,7 +74,6 @@ BasicScrollView{
                     anchors.right: tipsContent.right
                     fontWidth: 200* screenScaleFactor
                     fontWrapMode: Text.WordWrap
-//                    aliasText.textFormat: Text.RichText
                     fontText: `<a href='https://www.example.com'}><font color="#00a3ff" size="1-7">${content2}</font></a>`
                     fontColor: Constants.manager_printer_button_text_color
                     aliasText.onLinkActivated: funcs[index]()
@@ -123,15 +107,41 @@ BasicScrollView{
             }
         }
     }
-    function func1(){
-        console.log("=========== func1")
+
+    //添加项目
+    function addMsgTip(content1, content2, func){
+        scrollViewModel.append({"content1" : qsTr(content1), "content2" :qsTr(content2), "func" : func})
+        funcs[scrollViewModel.count - 1] = func
+
+        tipsView.height = tipsView.height < maxHeight ? tipsView.height : maxHeight
     }
 
-    function func2(){
-        console.log("=========== func2")
+    //临时
+    function addMsgTipTemp(func){
+        scrollViewModel.append({"content1" : qsTr("The model has not been supported and may fail to print. Do you want to continue adding supports before slicing?"),
+                                   "content2" :qsTr("Add Support"), "func" : ""})
+        funcs[scrollViewModel.count - 1] = func
+
+        rep.model = null
+        rep.model = scrollViewModel
+        tipsView.height = tipsView.height < maxHeight ? tipsView.height : maxHeight
     }
 
-    function func3(){
-        console.log("=========== func3")
+    //清空项目
+    function clearData(){
+        scrollViewModel.clear()
+    }
+
+    //删除项目
+    function delMsgTip(itemIndex){
+        funcs.splice(itemIndex, 1)
+        scrollViewModel.remove(itemIndex)
+
+        if(scrollViewModel.count == 0){
+            tipsItem.visible = false
+            return;
+        }
+
+        tipsItem.height = tipsView.height < maxHeight ? tipsView.height : maxHeight
     }
 }

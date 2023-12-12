@@ -43,6 +43,8 @@ namespace creative_kernel
         m_actionModelList->addCommand(command1);
         LanguageCommand* command2 = new LanguageCommand(MultiLanguage::eLanguage_ZHTW_TS, this);
         m_actionModelList->addCommand(command2);
+        LanguageCommand* command3 = new LanguageCommand(MultiLanguage::eLanguage_KO_TS, this);
+        m_actionModelList->addCommand(command3);
     }
 
     void SubMenuLanguage::onThemeChanged(ThemeCategory category)

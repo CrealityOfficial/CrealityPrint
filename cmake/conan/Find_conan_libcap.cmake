@@ -1,0 +1,1 @@
+__conan_import(libcap lib COMPONENT cap)

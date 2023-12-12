@@ -27,11 +27,11 @@ CustomTabViewItem {
         idRetract.update(retract_model,currentExtruder.settingsObject())
     }
 
-    BasicScrollView{
+    ScrollView{
         anchors.fill: parent
         anchors.margins: 10* screenScaleFactor
-        hpolicyVisible: false
-        vpolicyVisible: contentHeight > height
+//        hpolicyVisible: false
+//        vpolicyVisible: contentHeight > height
         clip: true
         Column{
             anchors.horizontalCenter: parent.horizontalCenter

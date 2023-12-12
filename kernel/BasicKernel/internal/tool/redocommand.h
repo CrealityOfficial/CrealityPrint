@@ -1,6 +1,6 @@
 #ifndef _NULLSPACE_REDOCOMMAND_1589703676663_H
 #define _NULLSPACE_REDOCOMMAND_1589703676663_H
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 
 class RedoCommand : public ToolCommand
 {

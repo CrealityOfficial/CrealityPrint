@@ -490,6 +490,29 @@
     </message>
 </context>
 <context>
+    <name>CXComboBox</name>
+    <message>
+        <source>High Quality</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Quality</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Best quality</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fast</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>BasicCombobox_Metarial</name>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicCombobox_Metarial.qml" line="174"/>
@@ -806,6 +829,14 @@
         <source>OK</source>
         <translation>OK</translation>
     </message>
+	<message>
+        <source>Calibration warning</source>
+        <translation  type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The end temperature cannot exceed the start temperature</source>
+        <translation  type="unfinished"></translation>
+    </message>
 </context>
 
 <context>
@@ -940,7 +971,7 @@
 	<message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FlowFineTuningDlg.qml"/>
         <source>Fine tune selection</source>
-        <translation>Fine tune selection</translation>
+        <translation>Flow fine-tuning</translation>
     </message>
 	<message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FlowFineTuningDlg.qml"/>
@@ -2318,7 +2349,7 @@
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="113"/>
-        <source>Print Speed</source>
+        <source>Speed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3145,6 +3176,25 @@
         <source>One-click Printing</source>
         <translation type="unfinished"></translation>
     </message>
+	<message>
+        <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="3540"/>
+        <source>Make sure the print platform is empty before starting to print</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="3540"/>
+        <source>Do not prompt for this message again</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="3540"/>
+        <source>Printer Match</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Copy IP address</source>
+        <translation>Copy IP address</translation>
+    </message>
 </context>
 <context>
     <name>LanPrinterPanel</name>
@@ -3164,6 +3214,11 @@
 </context>
 <context>
     <name>LanPrinterDetail</name>
+	<message>
+        <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="110"/>
+        <source>Maximum value</source>
+        <translation>Max </translation>
+    </message>
 	<message>
         <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="110"/>
         <source>TF Card Printing</source>
@@ -3342,13 +3397,13 @@
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1492"/>
-        <source>Model fan</source>
-        <translation type="unfinished"></translation>
+        <source>Fan switch</source>
+        <translation>Model Fan</translation>
     </message>
 	<message>
         <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1925"/>
-        <source>Back fan</source>
-        <translation type="unfinished"></translation>
+        <source>Cavity fan sw</source>
+        <translation>Back Fan</translation>
     </message>
 	<message>
 		<location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml"/>
@@ -3357,8 +3412,8 @@
     </message>
 	<message>
         <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="2000"/>
-        <source>Side fan</source>
-        <translation type="unfinished"></translation>
+        <source>Auxiliary fan sw</source>
+        <translation>Side Fan</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1562"/>
@@ -3489,6 +3544,14 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="2512"/>
         <source>Nozzle</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Object deletion</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Whether to continue deleting the selected object</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -3756,6 +3819,15 @@
         <translation type="unfinished"></translation>
     </message>
 </context>
+
+<context>
+	<name>PlotterScene</name>
+	  <message>
+        <source>Model out of range, please put &apos;red&apos; model in the printer!</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+
 <context>
     <name>LaserRClickMenu</name>
     <message>
@@ -3784,6 +3856,10 @@
     <message>
         <location filename="../plugins/plugin_laser/laserscene.cpp" line="1118"/>
         <source>Save Gcode failed!</source>
+        <translation type="unfinished"></translation>
+    </message>
+	  <message>
+        <source>Model out of range, please put &apos;red&apos; model in the printer!</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -3982,6 +4058,26 @@
         <source>International</source>
         <translation type="unfinished"></translation>
     </message>
+	<message>
+        <source>Asia-Pascific</source>
+        <translation>Asia-Pascific</translation>
+    </message>
+	 <message>
+        <source>Europe</source>
+        <translation>Europe</translation>
+    </message>
+	 <message>
+        <source>North America</source>
+        <translation>North America</translation>
+    </message>
+	 <message>
+        <source>South America</source>
+        <translation>South America</translation>
+    </message>
+	 <message>
+        <source>Others</source>
+        <translation>Others </translation>
+    </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="130"/>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="867"/>
@@ -3996,7 +4092,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="237"/>
         <source>Server</source>
-        <translation type="unfinished"></translation>
+        <translation>User area</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="328"/>
@@ -8131,6 +8227,11 @@
     </message>
     <message>
         <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="250"/>
+        <source>Letter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="250"/>
         <source>Cancel Lettering</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8142,6 +8243,11 @@
     <message>
         <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="273"/>
         <source>import font</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="75"/>
+        <source>Generate Word</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8162,6 +8268,80 @@
     </message>
     <message>
         <source>Grid</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>LetterConfigPanel</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterConfigPanel.qml" line="28"/>
+        <source>Word</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterConfigPanel.qml" line="61"/>
+        <source>Parameter</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>LetterFontConfigs</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterFontConfigs.qml" line="28"/>
+        <source>Text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterFontConfigs.qml" line="41"/>
+        <source>Please input text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterFontConfigs.qml" line="53"/>
+        <source>Font Family</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterFontConfigs.qml" line="88"/>
+        <source>Font Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>LetterShapeConfigs</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="30"/>
+        <source>Move</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="126"/>
+        <source>Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="224"/>
+        <source>Rotate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="272"/>
+        <source>Thickness</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="321"/>
+        <source>Letter Mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="333"/>
+        <source>Inside</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="343"/>
+        <source>Outside</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

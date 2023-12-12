@@ -1,6 +1,6 @@
 #ifndef _NULLSPACE_UNDOCOMMAND_1589703676681_H
 #define _NULLSPACE_UNDOCOMMAND_1589703676681_H
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 
 class UndoCommand : public ToolCommand
 {

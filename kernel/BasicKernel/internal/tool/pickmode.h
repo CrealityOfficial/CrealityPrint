@@ -1,6 +1,6 @@
 #ifndef _NULLSPACE_PICKMODE_1589765331924_H
 #define _NULLSPACE_PICKMODE_1589765331924_H
-#include "qtuserqml/plugin/toolcommand.h"
+#include "qtusercore/plugin/toolcommand.h"
 #include "operation/pickop.h"
 #include "data/interface.h"
 

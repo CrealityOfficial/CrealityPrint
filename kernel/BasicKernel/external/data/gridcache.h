@@ -4,7 +4,7 @@
 #include "trimesh2/Vec.h"
 #include <QtCore/QMap>
 
-namespace mmesh
+namespace msbase
 {
 	class Box2DGrid;
 }
@@ -24,10 +24,10 @@ namespace creative_kernel
 
 		int size() const;
 
-		mmesh::Box2DGrid* grid(ModelN* model);
+		msbase::Box2DGrid* grid(ModelN* model);
 		ModelN* check(trimesh::vec2 xy);
 	protected:
-		QMap<ModelN*, mmesh::Box2DGrid*> m_grids;
+		QMap<ModelN*, msbase::Box2DGrid*> m_grids;
 	};
 }
 #endif // CREATIVE_KERNEL_GRIDCACHE_1594112048273_H

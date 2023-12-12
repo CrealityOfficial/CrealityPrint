@@ -1,424 +1,512 @@
+import CrealityUIComponent 1.0
 import QtQml 2.0
+import QtQml 2.3
 import QtQuick 2.0
 import QtQuick.Controls 2.12
-import QtQml 2.3
-import CrealityUIComponent 1.0
 import "qrc:/qml/CrealityUIComponent"
 
 MenuBar {
-    id : idMenuBar
-    // property color backgroundColor: "white"
-    implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
-                            contentWidth + leftPadding + rightPadding)
-    implicitHeight: 40 * screenScaleFactor
-    signal barItemTriggered()
+    id: idMenuBar
+
     property bool controlEnabled: true
+
+    signal barItemTriggered()
+
+    function indexOfMenu(menu) {
+        let menu_list = idMenuBar.menus;
+        for (let index = 0; index < menu_list.length; ++index) {
+            if (menu_list[index] === menu)
+                return index;
+
+        }
+        return -1;
+    }
+
+    function excuteOpt(optName) {
+        Qt.callLater(function(opt_name) {
+            actionCommands.getOpt(opt_name).execute();
+        }, optName);
+    }
+
+    // property color backgroundColor: "white"
+    implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset, contentWidth + leftPadding + rightPadding)
+    implicitHeight: 40 * screenScaleFactor
+    Component.onCompleted: {
+    }
 
     CusMenu {
         id: fileMenu
+
         title: qsTr("File(&F)")
-        CusMenuItem{
-            id : __openfile
+
+        CusMenuItem {
+            id: __openfile
+
             actionName: qsTr("Open File")
-            actionShortcut : "Ctrl+O"
-            onTriggered:
-            {
-                excuteOpt("Open File")
+            actionShortcut: "Ctrl+O"
+            onTriggered: {
+                excuteOpt("Open File");
             }
         }
-        CusMenuItem{
-            id : __openProject
+
+        CusMenuItem {
+            id: __openProject
+
             actionName: qsTr("Open Project")
             separatorVisible: true
-            onTriggered:
-            {
-                excuteOpt("Open Project")
+            onTriggered: {
+                excuteOpt("Open Project");
             }
         }
-        CusMenu{
-            id : __fileHistory
-            separator : false
-            title : qsTr("Recently files")
+
+        CusMenu {
+            id: __fileHistory
+
+            separator: false
+            title: qsTr("Recently files")
         }
-        CusMenu{
-            id : __projectHistory
-            title : qsTr("Recently Opened Project")
+
+        CusMenu {
+            id: __projectHistory
+
+            title: qsTr("Recently Opened Project")
         }
-        CusMenuItem{
-            id : __saveSTL
+
+        CusMenuItem {
+            id: __saveSTL
+
             separatorVisible: true
             actionName: qsTr("Save STL")
-            onTriggered:
-            {
-                excuteOpt("Save STL")
+            onTriggered: {
+                excuteOpt("Save STL");
             }
         }
-        CusMenuItem{
-            id : __saveProject
+
+        CusMenuItem {
+            id: __saveProject
+
             separatorVisible: true
             actionName: qsTr("Save As Project")
-            onTriggered:
-            {
-                excuteOpt("Save As Project")
+            onTriggered: {
+                excuteOpt("Save As Project");
             }
         }
-        CusMenu{
-            id : __standardModel
-            title : qsTr("Standard Model")
+
+        CusMenu {
+            id: __standardModel
+
+            title: qsTr("Standard Model")
         }
-        CusMenuItem{
-            id : __closeProject
+
+        CusMenuItem {
+            id: __closeProject
+
             separatorVisible: true
             actionName: qsTr("Close")
-            actionShortcut : "Ctrl+Q"
-            onTriggered:
-            {
-                excuteOpt("Close")
+            actionShortcut: "Ctrl+Q"
+            onTriggered: {
+                excuteOpt("Close");
             }
         }
         // ...
+
     }
+
     CusMenu {
         id: editMenu
+
         title: qsTr("Edit") + "(&E)"
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Undo")
-            actionShortcut : "Ctrl+Z"
+            actionShortcut: "Ctrl+Z"
             onTriggered: {
-                excuteOpt("Undo")
+                excuteOpt("Undo");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Redo")
-            actionShortcut : "Ctrl+Shift+Z"
+            actionShortcut: "Ctrl+Shift+Z"
             onTriggered: {
-                excuteOpt("Redo")
+                excuteOpt("Redo");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Copy")
-            enabled : controlEnabled
-            actionShortcut : "Ctrl+C "
+            enabled: controlEnabled
+            actionShortcut: "Ctrl+C "
             onTriggered: {
-                kernel_ui.onCopy()
+                kernel_ui.onCopy();
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Paste")
-            enabled : controlEnabled
-            actionShortcut : "Ctrl+V "
+            enabled: controlEnabled
+            actionShortcut: "Ctrl+V "
             onTriggered: {
-                kernel_ui.onPaste()
+                kernel_ui.onPaste();
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Delete Model")
-            enabled : controlEnabled
-            actionShortcut : "Ctrl+D"
+            enabled: controlEnabled
+            actionShortcut: "Ctrl+D"
             onTriggered: {
-                excuteOpt("Delete Model")
+                excuteOpt("Delete Model");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Clear All")
-            enabled : controlEnabled
-            actionShortcut : "Ctrl+Shift+D"
+            enabled: controlEnabled
+            actionShortcut: "Ctrl+Shift+D"
             onTriggered: {
-                excuteOpt("Clear All")
+                excuteOpt("Clear All");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Clone Model")
-            enabled : controlEnabled
-            actionShortcut : "Alt+C"
+            enabled: controlEnabled
+            actionShortcut: "Ctrl+Shift+C"
             onTriggered: {
-                excuteOpt("Clone Model")
+                excuteOpt("Clone Model");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Split Model")
-            enabled : controlEnabled
-            actionShortcut : "Alt+S"
+            enabled: controlEnabled
+            actionShortcut: "Alt+S"
             onTriggered: {
-                excuteOpt("Split Model")
+                excuteOpt("Split Model");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Merge Model")
-            enabled : controlEnabled
-            actionShortcut : "Alt+Shift+M"
+            enabled: controlEnabled
+            actionShortcut: "Alt+Shift+M"
             onTriggered: {
-                excuteOpt("Merge Model")
+                excuteOpt("Merge Model");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Merge Model Locations")
-            enabled : true
-            actionShortcut : "Ctrl+M"
+            enabled: true
+            actionShortcut: "Ctrl+M"
             onTriggered: {
-                excuteOpt("Unit As One")
+                excuteOpt("Unit As One");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Select All Model")
-            enabled : controlEnabled
-            actionShortcut : "Ctrl+A"
+            enabled: controlEnabled
+            actionShortcut: "Ctrl+A"
             onTriggered: {
-                excuteOpt("Select All Model")
+                excuteOpt("Select All Model");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Reset All Model")
-            enabled : controlEnabled
-            actionShortcut : "Ctrl+Shift+R"
+            enabled: controlEnabled
+            actionShortcut: "Ctrl+Shift+R"
             onTriggered: {
-                excuteOpt("Reset All Model")
+                excuteOpt("Reset All Model");
             }
         }
+
     }
+
     CusMenu {
         id: viewMenu
+
         title: qsTr("View") + "(&V)"
+
         // ...
-        CusMenuItem{
+        CusMenuItem {
             separatorVisible: true
             actionName: qsTr("ShowModelLine")
-            enabled : controlEnabled
+            enabled: controlEnabled
             onTriggered: {
-                excuteOpt("ShowModelLine")
+                excuteOpt("ShowModelLine");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("ShowModelFace")
-            enabled : controlEnabled
+            enabled: controlEnabled
             onTriggered: {
-                excuteOpt("ShowModelFace")
+                excuteOpt("ShowModelFace");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("ShowModelFaceLine")
-            enabled : true
+            enabled: true
             onTriggered: {
-                excuteOpt("ShowModelFaceLine")
+                excuteOpt("ShowModelFaceLine");
             }
         }
         //        BasicMenuItem{
+
         //            actionName: qsTr("Merge Model Locations")
         //            enabled : true
         //            onTriggered: {
         //                excuteOpt("Unit As One")
         //            }
         //        }
-        Column
-        {
+        Column {
             width: viewMenu.width
-            Repeater
-            {
-                id : idMenuItems
+
+            Repeater {
+                id: idMenuItems
+
                 model: 5
-                delegate:CusMenuItem{
+
+                delegate: CusMenuItem {
                     width: viewMenu.width
                     actionName: index
-                    enabled : true
+                    enabled: true
                     onTriggered: {
-                        actionItem.execute()
-                        viewMenu.close()
+                        actionItem.execute();
+                        viewMenu.close();
                     }
                 }
+
             }
+
         }
+
     }
+
     CusMenu {
         id: toolMenu
+
         title: qsTr("Tool") + "(&T)"
+
         // ...
-        CusMenu{
-            separator : false
-            title : qsTr("Language")
+        CusMenu {
+            separator: false
+            title: qsTr("Language")
         }
-        CusMenu{
-            separator : false
-            title : qsTr("Theme color change")
+
+        CusMenu {
+            separator: false
+            title: qsTr("Theme color change")
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Model Repair")
             onTriggered: {
-                excuteOpt("Model Repair")
+                excuteOpt("Model Repair");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Manage Printer")
             onTriggered: {
-                excuteOpt("Manage Printer")
+                excuteOpt("Manage Printer");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Manage Materials")
             onTriggered: {
                 //                excuteOpt("Manage Material")
-                standaloneWindow.showManageMaterialDialog()
+                standaloneWindow.showManageMaterialDialog();
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Log View")
-            enabled : true
+            enabled: true
             onTriggered: {
-                excuteOpt("Log View")
+                excuteOpt("Log View");
             }
         }
+
         Loader {
+
             sourceComponent: CusMenuItem {
                 actionName: "切片高度设置"
                 onTriggered: {
-                    toolMenu.close()
-                    kernel_ui.requestQmlDialog("slice_height_setting_dialog")
+                    toolMenu.close();
+                    kernel_ui.requestQmlDialog("slice_height_setting_dialog");
                 }
             }
+
         }
+
         Loader {
+
             sourceComponent: CusMenuItem {
                 actionName: "分区打印"
                 onTriggered: {
-                    toolMenu.close()
-                    kernel_ui.requestQmlDialog("partition_print_dialog")
+                    toolMenu.close();
+                    kernel_ui.requestQmlDialog("partition_print_dialog");
                 }
             }
+
         }
+
     }
+
     CusMenu {
         id: modelLibraryMenu
+
         title: qsTr("Models(&M)")
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Models")
             onTriggered: {
-                excuteOpt("Models")
+                excuteOpt("Models");
             }
         }
+
     }
+
     CusMenu {
         id: calibrationMenu
+
         title: qsTr("Calibration(&C)")
+
         // ...
-        CusMenuItem{
+        CusMenuItem {
             actionName: qsTr("Temperature")
             onTriggered: {
-                excuteOpt("Temperature")
+                excuteOpt("Temperature");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Coarse tune")
             onTriggered: {
-			kernel_slice_calibrate.lowflow()
-                excuteOpt("Coarse tune")
+                kernel_slice_calibrate.lowflow();
+                excuteOpt("Coarse tune");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Fine tune")
             onTriggered: {
-            // kernel_slice_calibrate.highflow()
-                excuteOpt("FlowFineTuning")
+                // kernel_slice_calibrate.highflow()
+                excuteOpt("FlowFineTuning");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("PA")
             onTriggered: {
-                excuteOpt("PA")
+                excuteOpt("PA");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Maximum volume flow")
             onTriggered: {
-                excuteOpt("MaxFlowVolume")
+                excuteOpt("MaxFlowVolume");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("VFA")
             onTriggered: {
-                excuteOpt("VFA")
+                excuteOpt("VFA");
             }
         }
-        CusMenuItem{
+
+        CusMenuItem {
             actionName: qsTr("Tutorial")
             onTriggered: {
-                excuteOpt("Tutorial")
+                excuteOpt("Tutorial");
             }
         }
+
     }
+
     CusMenu {
         id: helpMenu
+
         title: qsTr("Help") + "(&H)"
+
         CusMenuItem {
             property string modelData: "About Us"
+
             actionName: qsTr(modelData)
             enabled: true
             onTriggered: {
-                excuteOpt(modelData)
+                excuteOpt(modelData);
             }
         }
+
         Loader {
+
             sourceComponent: CusMenuItem {
                 property string modelData: "Update"
+
                 actionName: qsTr(modelData)
                 enabled: true
                 onTriggered: {
-                    excuteOpt(modelData)
+                    excuteOpt(modelData);
                 }
             }
+
         }
+
         Loader {
+
             sourceComponent: CusMenuItem {
                 property string modelData: "Use Course"
+
                 actionName: qsTr(modelData)
                 enabled: true
                 onTriggered: {
-                    excuteOpt(modelData)
+                    excuteOpt(modelData);
                 }
             }
+
         }
+
         Loader {
+
             sourceComponent: CusMenuItem {
                 property string modelData: "User Feedback"
+
                 actionName: qsTr(modelData)
                 enabled: true
                 onTriggered: {
-                    excuteOpt(modelData)
+                    excuteOpt(modelData);
                 }
             }
+
         }
+
         CusMenuItem {
             actionName: qsTr("Mouse Operation Function")
             enabled: true
             onTriggered: {
-                idAllMenuDialog.mosueInfo.visible = true
+                idAllMenuDialog.mosueInfo.visible = true;
             }
         }
-    }
-    function indexOfMenu(menu) {
-        let menu_list = idMenuBar.menus
-        for (let index = 0; index < menu_list.length; ++index) {
-            if (menu_list[index] === menu) {
-                return index
-            }
-        }
-        return -1
-    }
-    Component.onCompleted: {
+
     }
 
-    function excuteOpt(optName)
-    {
-        Qt.callLater(function(opt_name) {
-            actionCommands.getOpt(opt_name).execute()
-        }, optName)
-    }
 }

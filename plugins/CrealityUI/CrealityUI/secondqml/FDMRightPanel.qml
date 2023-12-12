@@ -55,6 +55,13 @@ Rectangle
         idStepCodeview.lineIndex = index
 	}
 
+	MouseArea {
+		id: wheelFilter
+		anchors.fill: parent
+		propagateComposedEvents: false
+		onWheel: {}
+	}
+	
 	Column {
 		anchors.fill: parent
 		anchors.margins: idFDMRight.marginSpacing

@@ -11,6 +11,11 @@ LeftPanelDialog {
     property var msale
     property var size:msale ? msale.orgSize : ""
     property bool lockCheck: msale ? msale.uniformCheck : true
+
+    onLockCheckChanged: {
+        cusContent.cusCheckBox.checked = lockCheck
+    }
+
     enum XYZType
     {
         X_Type =0,

@@ -196,7 +196,6 @@ void LaserGcodeWorker::work(qtuser_core::Progressor* progressor)
 				QString fontfamily = QQmlProperty::read(obj->qmlObject(), "fontfamily").toString();
 				QString fontstyle = QQmlProperty::read(obj->qmlObject(), "fontstyle").toString();			
 				int fontsize = QQmlProperty::read(obj->qmlObject(), "fontsize").toInt();
-				//m_gcodeBuf += QString(m_3in1exporter->CXLetter2Gcode(fontfamily, text, 50.0f, &params,pos).c_str());
 
 				QFont font;
 				font.setFamily(fontfamily);
@@ -288,7 +287,6 @@ void LaserGcodeWorker::work(qtuser_core::Progressor* progressor)
 				QString fontfamily = QQmlProperty::read(obj->qmlObject(), "fontfamily").toString();
 				QString fontstyle = QQmlProperty::read(obj->qmlObject(), "fontstyle").toString();
 				int fontsize = QQmlProperty::read(obj->qmlObject(), "fontsize").toInt();
-				//m_gcodeBuf += QString(m_3in1exporter->CXLetter2Gcode(fontfamily, text, 50.0f, &params,pos).c_str());
 
 				QFont font;
 				font.setFamily(fontfamily);

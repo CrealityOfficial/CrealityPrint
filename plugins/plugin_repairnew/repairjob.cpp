@@ -1,79 +1,20 @@
 #include "repairjob.h"
 
-#include "data/modeln.h"
-#include "data/modelgroup.h"
 #include "interface/visualsceneinterface.h"
 #include "interface/modelinterface.h"
-#include "utils/convexhullcalculator.h"
-#include "mmesh/trimesh/trimeshutil.h"
-#include "omp.h"  
-#include <QTime>
-#include"kernel/kernelui.h"
-#include "ccglobal/tracer.h"
+#include "qtusercore/module/progressortracer.h"
 
 #include "cmesh/mesh/repair.h"
 #include "cmesh/cgal/subrepairmenu.h"
 
 using namespace creative_kernel;
-using namespace trimesh;
-
-class InnerTracer : public ccglobal::Tracer
-{
-public:
-	InnerTracer(qtuser_core::Progressor* progressor, QObject* receiver)
-		:m_progressor(progressor)
-		, m_receiver(receiver)
-	{
-
-	}
-
-	virtual ~InnerTracer()
-	{
-
-	}
-
-	void progress(float r) override
-	{
-		if (m_progressor)
-			return m_progressor->progress(r);
-	}
-
-	bool interrupt() override
-	{
-		if (m_progressor)
-			return m_progressor->interrupt();
-		return false;
-	}
-
-	void message(const char* msg) override
-	{
-		qDebug() << QString(msg);
-	}
-
-	void failed(const char* msg) override
-	{
-		qWarning() << QString(msg);
-		if (m_progressor)
-			return m_progressor->failed(msg);
-	}
-
-	void success() override
-	{
-
-	}
-
-	qtuser_core::Progressor* m_progressor;
-	QObject* m_receiver;
-};
 
 //using namespace trimesh;
 RepairJob::RepairJob(QObject* parent)
-	:qtuser_core::Job(parent)
+	: qtuser_core::Job(parent)
 	, m_model(nullptr)
-	,progressor(nullptr)
-	,m_receiver(nullptr)
+	, m_receiver(nullptr)
 {
-	m_mesh = NULL;
 }
 
 RepairJob::~RepairJob()
@@ -102,16 +43,28 @@ void RepairJob::setObject(QObject* receiver)
 
 void RepairJob::work(qtuser_core::Progressor* progressor)
 {
-
 	if (!m_model)
 	{
 		qDebug() << "Please choose one model";
 		return;
 	}
+
 	qDebug() << "reapir work";
-	TriMesh* choosedMesh = m_model->mesh();
-	repairMeshObj(choosedMesh,progressor);
-	ConvexHullCalculator::calculate(m_mesh, nullptr);
+	trimesh::TriMesh* choosedMesh = m_model->mesh();
+	TriMeshPtr mesh(repairMeshObj(choosedMesh, progressor));
+
+	if (mesh)
+	{
+		QString name = m_model->objectName().left(m_model->objectName().lastIndexOf("."));
+		QString suffix = m_model->objectName().right(m_model->objectName().length() - m_model->objectName().lastIndexOf("."));
+		if (!name.endsWith("-repair"))
+		{
+			name += "-repair";
+		}
+		name += suffix;
+		m_data = cxkernel::createModelNData(mesh, name, cxkernel::ModelNDataType::mdt_algrithm);
+	}
+
 	progressor->progress(1.0f);
 }
 
@@ -119,47 +72,23 @@ void RepairJob::failed()
 {
 	qDebug() << "repair failed";
 	m_model = nullptr;
-
-	if (m_mesh)
-	{
-		delete m_mesh;
-		m_mesh = NULL;
-	}
-	setVisOperationMode(nullptr);
 }
 
 void RepairJob::successed(qtuser_core::Progressor* progressor)
 {
-	trimesh::TriMesh* restoreMesh = m_mesh;
-	if(restoreMesh !=NULL)
+	if (m_data)
 	{
-		creative_kernel::ModelGroup* group = qobject_cast<creative_kernel::ModelGroup*>(m_model->parent());
-		if (restoreMesh->faces.size() > 0 && restoreMesh->vertices.size() > 0 && group)
-		{
-			QList<ModelN*> models;
-			QList<TriMeshPtr> meshes;
-			QList<TriMeshPtr> meshes_aux;
-			QList<int> aux_pos;
-			QList<QString> names;
+		ModelN* m = createModelFromData(m_data);
 
-			QString name = m_model->objectName().left(m_model->objectName().lastIndexOf("."));
-			QString suffix = m_model->objectName().right(m_model->objectName().length() - m_model->objectName().lastIndexOf("."));
-			if (!name.endsWith("-repair"))
-			{
-				name += "-repair";
-			}
-			name += suffix;
-			m_repaireddMesh.reset(m_mesh);
-				
-			models.push_back(m_model);
-			names.push_back(name);
-			meshes.push_back(m_repaireddMesh);
+		cmesh::ErrorInfo info;
+		cmesh::getErrorInfo(m->mesh(), info);
 
-			replaceModelsMesh(models, meshes, names, true);
-			m_model->needDetectError();
-			m_repaireddMesh->need_bbox();
-			requestVisUpdate(true);
-		}
+		m->setErrorEdges(info.edgeNum);
+		m->setErrorNormals(info.normalNum);
+		m->setErrorHoles(info.holeNum);
+		m->setErrorIntersects(info.intersectNum);
+
+		modifySpace({ m_model }, { m }, true);
 	}
 
 	qDebug() << "repair success";
@@ -172,16 +101,17 @@ trimesh::TriMesh* RepairJob::repairMeshObj(trimesh::TriMesh* choosedMesh, qtuser
 #else
 	
 	//m_mesh = tmeshRepairMeshObj(choosedMesh, progressor);
+	trimesh::TriMesh* result = nullptr;
 
 	try {
-		InnerTracer tracer(progressor, m_receiver);
+		qtuser_core::ProgressorTracer tracer(progressor);
 		//repair::TriMeshRepair repair;
 		//repair.initMesh(choosedMesh);
 		//m_mesh = repair.repair(&tracer);
 
 		//m_mesh = cmesh::repairMenu(choosedMesh, true, &tracer);
 
-        m_mesh = cmesh::subRepairMenu(choosedMesh, &tracer);
+		result = cmesh::subRepairMenu(choosedMesh, &tracer);
 	}
 	catch (...)
 	{
@@ -192,5 +122,5 @@ trimesh::TriMesh* RepairJob::repairMeshObj(trimesh::TriMesh* choosedMesh, qtuser
 
 
 #endif
-	return m_mesh;
+	return result;
 }

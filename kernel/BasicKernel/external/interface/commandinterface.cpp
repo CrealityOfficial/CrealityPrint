@@ -2,14 +2,12 @@
 
 #include "data/modeln.h"
 #include "data/fdmsupportgroup.h"
-#include "trimesh2/TriMesh.h"
 
 #include "utils/modelpositioninitializer.h"
 #include "job/nest2djob.h"
 #include "cxkernel/interface/jobsinterface.h"
 
-#include "mmesh/trimesh/trimeshutil.h"
-#include "qcxutil/trimesh2/conv.h"
+#include "qtuser3d/trimesh2/conv.h"
 
 #include "operation/rotateop.h"
 #include "interface/spaceinterface.h"
@@ -21,12 +19,15 @@
 #include "visualsceneinterface.h"
 
 #include "qtuser3d/math/angles.h"
-#include "kernel/sensoranalytics.h"
+#include "cxkernel/wrapper/eventtracking.h"
 
 #include "kernel/kernel.h"
 #include "kernel/kernelui.h"
 #include "kernel/commandcenter.h"
 #include "kernel/translator.h"
+#include "msbase/mesh/merge.h"
+
+#include "internal/render/modelnentity.h"
 
 namespace creative_kernel
 {
@@ -46,7 +47,7 @@ namespace creative_kernel
                 trimesh::TriMesh* newMesh = new trimesh::TriMesh();
                 *newMesh = *meshTemp;
 
-                trimesh::fxform xf = qcxutil::qMatrix2Xform(matrix);
+                trimesh::fxform xf = qtuser_3d::qMatrix2Xform(matrix);
                 int _size = meshTemp->vertices.size();
                 for (int n = 0; n < _size; ++n)
                 {
@@ -65,8 +66,7 @@ namespace creative_kernel
                 meshs.push_back(newMesh);
             }
 
-            trimesh::TriMesh* newmodel = new trimesh::TriMesh();
-            mmesh::mergeTriMesh(newmodel, meshs);
+            trimesh::TriMesh* newmodel = msbase::mergeMeshes(meshs);
 
             char buff[128];
             QByteArray qbyteTemp = fileName.toLocal8Bit();
@@ -96,7 +96,7 @@ namespace creative_kernel
                 trimesh::TriMesh* newMesh = new trimesh::TriMesh();
                 *newMesh = *meshTemp;
 
-                trimesh::fxform xf = qcxutil::qMatrix2Xform(matrix);
+                trimesh::fxform xf = qtuser_3d::qMatrix2Xform(matrix);
                 int size = meshTemp->vertices.size();
                 for (int n = 0; n < size; ++n)
                 {
@@ -115,8 +115,7 @@ namespace creative_kernel
                 meshs.push_back(newMesh);
             }
 
-            trimesh::TriMesh* newmodel = new trimesh::TriMesh();
-            mmesh::mergeTriMesh(newmodel, meshs);
+            trimesh::TriMesh* newmodel = msbase::mergeMeshes(meshs);
 
             char buff[128];
             QByteArray qbyteTemp = fileName.toLocal8Bit();
@@ -149,7 +148,7 @@ namespace creative_kernel
     int cmdClone(int numb)
     {
         const QList<ModelN*>& selections = selectionms();
-        if (numb <= 0 || numb > 50 || selections.size() == 0)
+        if (numb <= 0 || numb > 100 || selections.size() == 0)
         {
             qDebug() << "clone invalid num.";
             return -1;
@@ -176,13 +175,18 @@ namespace creative_kernel
         for (size_t i = 0; i < selections.size(); i++)
         {
             ModelN* m = selections.at(i);
+            creative_kernel::ModelNEntity* mEntity = qobject_cast<creative_kernel::ModelNEntity*>(m->getModelEntity());
+
             QString objectName = m->objectName();
             objectName.chop(4);
             for (int j = 0; j < num; ++j)
             {
                 creative_kernel::ModelN* model = new creative_kernel::ModelN();
+                model->setRenderData(m->renderData());
+                //model->setData(m->data());
 
-                model->setData(m->data());
+                model->copyNestData(m);
+
                 nameIndex = j;
                 QString name = QString("%1-%2").arg(objectName).arg(nameIndex) + ".stl";
                 //---                
@@ -214,14 +218,16 @@ namespace creative_kernel
                 if (isBelt)
                 {
                     ModelPositionInitializer::layoutBelt(model, nullptr);
+                    addModel(model, true);
                     bottomModel(model);
                 }
                 else
                 {
-                    ModelPositionInitializer::nestLayout(model);
+                    Nest2DJob* job = new Nest2DJob();
+                    job->setInsert(model);
+                    cxkernel::executeJob(qtuser_core::JobPtr(job), true);
                 }
-                //model->needDetectError();
-                addModel(model, true);
+
                 model->updateMatrix();
             }
         }

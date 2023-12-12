@@ -1,10 +1,10 @@
 #ifndef _NULLSPACE_SLICEPREVIEWNODE_1590320779367_H
 #define _NULLSPACE_SLICEPREVIEWNODE_1590320779367_H
-#include "cxgcode/render/gcodeviewentity.h"
+#include "entity/gcodeviewentity.h"
 
 namespace creative_kernel
 {
-	class SlicePreviewNode : public cxgcode::GCodeViewEntity
+	class SlicePreviewNode : public qtuser_3d::GCodeViewEntity
 	{
 	public:
 		SlicePreviewNode(Qt3DCore::QNode* parent = nullptr);

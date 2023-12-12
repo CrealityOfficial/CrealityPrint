@@ -71,14 +71,17 @@ namespace creative_kernel
 	void LayoutToolCommand::layoutByType(int type) const
     {
         Nest2DJob* job = new Nest2DJob();
-        qcxutil::NestPlaceType layoutType = qcxutil::NestPlaceType(type);
+        cxkernel::NestPlaceType layoutType = cxkernel::NestPlaceType(type);
 
         if (!currentMachineIsBelt())
         {
+            if (layoutType == cxkernel::NestPlaceType::CONCAVE_ALL)
+                layoutType = cxkernel::NestPlaceType::CENTER_TO_SIDE;
+
             job->setNestType(layoutType);
         }
         else {
-            job->setNestType(qcxutil::NestPlaceType::ONELINE);
+            job->setNestType(cxkernel::NestPlaceType::ONELINE);
         }
 
         QList<qtuser_core::JobPtr> jobs;

@@ -1,0 +1,15 @@
+prime_tower_enable
+prime_tower_size
+prime_tower_min_volume
+prime_tower_position_x
+prime_tower_position_y
+prime_tower_wipe_enabled
+prime_tower_brim_enable
+ooze_shield_enabled
+ooze_shield_angle
+ooze_shield_dist
+switch_extruder_retraction_amount
+switch_extruder_retraction_speeds
+switch_extruder_extra_prime_amount
+switch_extruder_retraction_speed
+switch_extruder_prime_speed

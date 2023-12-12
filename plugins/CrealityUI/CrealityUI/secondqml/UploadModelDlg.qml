@@ -219,7 +219,7 @@ BasicDialog{
                 verticalAlignment: Qt.AlignVCenter
                 horizontalAlignment: Qt.AlignLeft
             }
-            BasicScrollView {
+            ScrollView {
                 id: idScrollView
                 width: grid_wrapper.width-idGroupNameLabel.width-110
                 height: 56
@@ -457,7 +457,7 @@ BasicDialog{
                 horizontalCenter: parent.horizontalCenter
                 //verticalCenter: parent.verticalCenter
             }
-            text: progressValue + "%1"
+            text: progressValue + "%"
             font.pointSize: Constants.labelFontPointSize_10
         }
         ProgressBar{

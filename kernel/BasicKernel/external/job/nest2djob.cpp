@@ -4,9 +4,7 @@
 #include "interface/modelinterface.h"
 #include "interface/machineinterface.h"
 #include "utils/modelpositioninitializer.h"
-
-#include "qcxutil/trimesh2/conv.h"
-#include "polygonLib/polygonLib.h"
+#include "internal/data/_modelinterface.h"
 
 namespace creative_kernel
 {
@@ -48,7 +46,7 @@ namespace creative_kernel
     }
 
     Nest2DJob::Nest2DJob(QObject* parent)
-        : qcxutil::Nest2DJob(parent)
+        : cxkernel::Nest2DJob(parent)
         , m_object(nullptr)
     {
         qtuser_3d::Box3D bbx = baseBoundingBox();
@@ -82,7 +80,7 @@ namespace creative_kernel
     void Nest2DJob::prepare()
     {
         const QList<ModelN*>& models = modelns();
-        QList<qcxutil::PlaceItem*> items;
+        QList<cxkernel::PlaceItem*> items;
         for (ModelN* model : models)
         {
             LayoutItem* item = new LayoutItem(model, this);
@@ -111,27 +109,32 @@ namespace creative_kernel
 
         QList<ModelN*> models;
 
+        if (m_object)
+        {
+            addModel(m_object->model, true);
+            bottomModel(m_object->model);
+        }
 
         auto f = [&d_ts, &d_qs, &s_ts, &s_qs, &models](LayoutItem* item) {
-            const qcxutil::NestResult& result = item->result;
+            const cxkernel::NestResult& result = item->result;
 
             ModelN* m = item->model;
             QVector3D lt = m->localPosition();
             trimesh::quaternion rotation = m->nestRotation();
             QQuaternion q = QQuaternion(rotation.wp, rotation.xp, rotation.yp, rotation.zp);
 
-            QVector3D t = QVector3D(result.x, result.y, lt.z());
-
+            float z = m->zeroLocation().z();
+            QVector3D t = QVector3D(result.x, result.y, z);
+            
             QQuaternion lq = m->localQuaternion();
-            trimesh::fxform xf = trimesh::inv(trimesh::fromQuaterian(trimesh::quaternion(lq.scalar(), -lq.x(), -lq.y(), -lq.z())));
-            trimesh::vec3 axis = trimesh::normalized(xf * trimesh::vec3(0.0f, 0.0f, 1.0f));
-            QQuaternion dq = QQuaternion::fromAxisAndAngle(QVector3D(axis.x, axis.y, axis.z), -result.r);
+            trimesh::vec3 axis = trimesh::vec3(0.0f, 0.0f, 1.0f);
+            QQuaternion dq = QQuaternion::fromAxisAndAngle(QVector3D(axis.x, axis.y, axis.z), result.r);
             QQuaternion rq = dq * q;
 
             models.push_back(m);
 
             d_ts.push_back(t);
-            d_qs.push_back(QQuaternion(rq.scalar(), -rq.x(), -rq.y(), -rq.z()));
+            d_qs.push_back(rq);
 
             s_ts.push_back(lt);
             s_qs.push_back(q);
@@ -149,13 +152,8 @@ namespace creative_kernel
             }
         }
 
-        mixTRModels(models, s_ts, d_ts, s_qs, d_qs, true);
-
-        if (m_object)
-        {
-            bottomModel(m_object->model);
-            addModel(m_object->model, true);
-        }
+        mixTRModels(models, s_ts, d_ts, s_qs, d_qs, m_object == nullptr);
+        _setModelsInitPosition(models, d_ts);
     }
 
 }

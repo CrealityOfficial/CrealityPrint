@@ -8,7 +8,8 @@
 #include "qtuser3d/module/pickable.h"
 #include "qtuser3d/module/pickableselecttracer.h"
 #include "qtuser3d/scene/sceneoperatemode.h"
-#include "qtuser3d/entity/mirrorentity.h"
+#include "entity/mirrorentity.h"
+#include <QTimer>
 
 class BASIC_KERNEL_API MirrorOperateMode : public qtuser_3d::SceneOperateMode
                                          , public qtuser_3d::SelectorTracer {
@@ -31,6 +32,8 @@ protected:
   virtual void selectChanged(qtuser_3d::Pickable* pickable) override;
 
 private:
+  QTimer m_operateTimer;
+  bool m_canOperate { true };
   std::unique_ptr<qtuser_3d::MirrorEntity> entity_;
   std::map<QPointer<qtuser_3d::Pickable>, std::function<void(void)>> pickable_callback_map_;
 };

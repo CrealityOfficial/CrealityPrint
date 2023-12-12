@@ -1,6 +1,6 @@
 #include "gcodefilepreview.h"
-#include "slice/slicepreviewflow.h"
 #include "slice/sliceattain.h"
+#include "slice/ansycworker.h"
 
 #include "qtusercore/module/systemutil.h"
 #include "qtusercore/module/progressortracer.h"
@@ -20,7 +20,8 @@ namespace creative_kernel
 
 	void GcodeFilePreview::work(qtuser_core::Progressor* progressor)
 	{
-		qtuser_core::ProgressorTracer tracer(progressor);
+		SliceAttainTracer tracer(progressor);
+
 		float stepProgress = 0.8f;
 
 		tracer.resetProgressScope(0.0f, stepProgress);

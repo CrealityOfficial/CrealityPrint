@@ -273,6 +273,24 @@ void ScaleOp::setSelectedModel(creative_kernel::ModelN* model)
 	m_selectedModel = model;
 
 	buildFromSelections();
+
+	m_uniformCheck = true;
+	if (m_selectedModel)
+	{
+		if (m_modelsScaleLock.contains(m_selectedModel))
+		{
+			m_uniformCheck = m_modelsScaleLock[m_selectedModel];
+		}
+		else 
+		{
+			m_modelsScaleLock[m_selectedModel] = true;
+			connect(m_selectedModel, &QObject::destroyed, this, &ScaleOp::onModelDestroyed);
+		}
+		emit checkChanged();
+	}
+	emit scaleChanged();
+	emit sizeChanged();
+
 }
 
 void ScaleOp::buildFromSelections()
@@ -380,7 +398,7 @@ void ScaleOp::setScale(QVector3D scale)
 		mixTSModel(model, oldLocalPosition, newLocalPosition, oldLocalScale, newLocalScale, true);
 
 		//emit scaleChanged();
-	}
+	 }
 	creative_kernel::checkModelRange();
 	creative_kernel::checkBedRange();
 }
@@ -391,13 +409,19 @@ bool ScaleOp::uniformCheck()
 }
 void ScaleOp::setUniformCheck(bool check)
 {
+	QList<creative_kernel::ModelN*> selections = selectionms();
+	if (selections.isEmpty())
+		return;
+		
+	ModelN* m = selections.first();
+	m_modelsScaleLock[m] = check;
 	m_uniformCheck = check;
 
 	if (m_uniformCheck)
 	{
 		m_helperEntity->setRotation(m_selectedModel->localQuaternion());
 	}
-	else
+	/*else
 	{
 		QList<creative_kernel::ModelN*> selections = selectionms();
 		foreach(creative_kernel::ModelN * model, selections)
@@ -416,7 +440,9 @@ void ScaleOp::setUniformCheck(bool check)
 		m_helperEntity->setRotation(QQuaternion());
 
 		buildFromSelections();
-	}
+	}*/
+
+	emit checkChanged();
 }
 
 QVector3D ScaleOp::process(const QPoint& point)
@@ -566,4 +592,10 @@ void ScaleOp::onBoxChanged(const qtuser_3d::Box3D& box)
 void ScaleOp::onSceneChanged(const qtuser_3d::Box3D& box)
 {
 
+}
+
+void ScaleOp::onModelDestroyed()
+{
+	ModelN* destroyedModel = qobject_cast<ModelN*>(sender());
+	m_modelsScaleLock.remove(destroyedModel);
 }

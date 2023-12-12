@@ -12,7 +12,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QByteArray>
 #include <QtCore/QDebug>
-
+#include <QTime>
 namespace creative_kernel
 {
 	typedef std::shared_ptr<trimesh::TriMesh> TriMeshPtr;
@@ -48,7 +48,7 @@ namespace creative_kernel
 		bool isUserDef = false;
 		bool isChecked = false;
 		bool isVisible = true;
-
+		
 		MaterialMeta() {
 			name = QString("");
 			type = QString("PLA");
@@ -69,7 +69,7 @@ namespace creative_kernel
 		float diameter;
 		bool isUserDef = false;
 		bool isChecked = false;
-
+		int time = QDateTime::currentMSecsSinceEpoch();
 		MaterialData() {
 			diameter = 0.4f;
 			isUserDef = false;

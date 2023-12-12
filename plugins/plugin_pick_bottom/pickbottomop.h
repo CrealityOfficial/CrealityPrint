@@ -30,7 +30,7 @@ protected:
 signals:
 	void mouseLeftClicked();
 protected:
-	//std::vector<std::vector<FacePickable*>> m_pickFaces;
+	
 	std::vector<std::vector<PickFace*>> m_pickFaces;
 };
 #endif // _NULLSPACE_PICKBOTTOMOP_1589851340567_H

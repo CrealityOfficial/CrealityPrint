@@ -137,8 +137,8 @@ namespace creative_kernel
             LayoutCommand* layout = new LayoutCommand(this);
             addActionCommad(layout);
 
-            ResetAllAction* resetall = new ResetAllAction(this);
-            addActionCommad(resetall);
+            //ResetAllAction* resetall = new ResetAllAction(this);
+            //addActionCommad(resetall);
 
             ClearAllAction* clearAll = new ClearAllAction(this);
             addActionCommad(clearAll);

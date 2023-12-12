@@ -27,7 +27,7 @@ namespace creative_kernel
         QList<JobPtr> jobs;
         if (currentMachineIsBelt())
         {
-            job->setNestType(qcxutil::NestPlaceType::ONELINE);
+            job->setNestType(cxkernel::NestPlaceType::ONELINE);
         }
         jobs.push_back(JobPtr(job));
         cxkernel::executeJobs(jobs);

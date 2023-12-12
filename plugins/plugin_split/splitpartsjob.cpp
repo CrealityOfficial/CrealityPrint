@@ -6,10 +6,11 @@
 
 #include "data/modeln.h"
 #include "data/modelgroup.h"
-#include "mmesh/trimesh/meshtopo.h"
-#include "qcxutil/trimesh2/conv.h"
 
-#include "mmesh/trimesh/trimeshutil.h"
+#include "msbase/utils/meshtopo.h"
+#include "msbase/mesh/merge.h"
+
+#include "qtuser3d/trimesh2/conv.h"
 
 #include "interface/visualsceneinterface.h"
 #include "interface/modelinterface.h"
@@ -48,7 +49,7 @@ void SplitPartsJob::work(Progressor* progressor)
 	if (!mesh || mesh->faces.size() <= 0)
 		return;
 
-	mmesh::MeshTopo topo;
+	msbase::MeshTopo topo;
 	topo.build(mesh);
 
 	int faceNum = (int)mesh->faces.size();
@@ -109,7 +110,7 @@ void SplitPartsJob::work(Progressor* progressor)
 	{
 		if (parts.at(i).size() > 10)
 		{
-			trimesh::TriMesh* outMesh = mmesh::partMesh(parts.at(i), mesh);
+			trimesh::TriMesh* outMesh = msbase::partMesh(parts.at(i), mesh);
 			if (outMesh) m_meshes.push_back(outMesh);
 		}
 	}
@@ -140,7 +141,7 @@ void SplitPartsJob::successed(Progressor* progressor)
 			creative_kernel::ModelN* m = new creative_kernel::ModelN();
 			QString subName = QString("%1-split-parts-%2").arg(name).arg(id);
 
-			trimesh::fxform xf = qcxutil::qMatrix2Xform(m_model->globalMatrix());
+			trimesh::fxform xf = qtuser_3d::qMatrix2Xform(m_model->globalMatrix());
 			size_t vertexCount = mesh->vertices.size();
 			for (size_t i = 0; i < vertexCount; ++i)
 			{

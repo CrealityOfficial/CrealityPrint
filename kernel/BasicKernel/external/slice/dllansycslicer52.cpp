@@ -34,13 +34,15 @@ namespace creative_kernel
     {
     }
 
-    SliceResultPointer DLLAnsycSlicer52::doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer)
+    SliceResultPointer DLLAnsycSlicer52::doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer, crslice::PathData* _fDebugger)
     {
         float progressStep = 0.8f;
         tracer.resetProgressScope(0.0f, progressStep);
 
         bool failed = false;
         CrScenePtr scene(new crslice::CrScene());
+
+        scene->m_debugger = _fDebugger;
 
         //Global Settings
         const QHash<QString, us::USetting*>& G = input.G->settings();
@@ -65,7 +67,7 @@ namespace creative_kernel
             extruder_count = 1;
 
         for (size_t extruder_nr = 0; extruder_nr < extruder_count; extruder_nr++)
-            scene->m_extruders.emplace_back(new crcommon::Settings());
+            scene->m_extruders.emplace_back(new crslice::Settings());
 
         for (size_t i = 0; i < extruder_count; ++i)
         {
@@ -98,7 +100,7 @@ namespace creative_kernel
 
             int groupID = scene->addOneGroup();
 
-            SettingsPtr settings(new crcommon::Settings());
+            SettingsPtr settings(new crslice::Settings());
             const QHash<QString, us::USetting*>& MG = modelGroupInput->settings->settings();
 
             //Load the settings in the mesh group.
@@ -137,7 +139,7 @@ namespace creative_kernel
                if(offsetXYZ != trimesh::vec3())
                     trimesh::trans(m.get(), offsetXYZ);
 
-                SettingsPtr meshSettings(new crcommon::Settings());
+                SettingsPtr meshSettings(new crslice::Settings());
                 //Load the settings for the mesh.
                 for (QHash<QString, us::USetting*>::const_iterator it = MS.constBegin(); it != MS.constEnd(); ++it)
                 {
@@ -147,6 +149,9 @@ namespace creative_kernel
                 int objectID = scene->addObject2Group(groupID);
                 scene->setObjectSettings(groupID, objectID, meshSettings);
                 scene->setOjbectMesh(groupID, objectID, m);
+                QString fileName = QString("%1/poly").arg(SLICE_PATH);
+                std::string s = fileName.toLocal8Bit().data();
+                scene->setOjbectExclude(groupID, objectID, s + std::to_string(objectID), modelInput->outline_ObjectExclude);
             }
             scene->setGroupOffset(groupID, offsetXYZ);
         }

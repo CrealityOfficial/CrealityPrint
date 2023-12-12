@@ -9,7 +9,7 @@
 #include <QVector3D>
 #include <QPointer>
 #include <QQmlComponent>
-#include "qtuser3d/entity/rotate3dhelperentity.h"
+#include "entity/rotate3dhelperentity.h"
 #include "data/modeln.h"
 #include "data/undochange.h"
 

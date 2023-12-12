@@ -1,4 +1,4 @@
-#include "qtuserquick/main/entry.h"
+#include "cxkernel/kernel/entry.h"
 #include "kernel/kernel.h"
 
 #include <QtWidgets/QAction>
@@ -26,6 +26,6 @@ int main(int argc, char* argv[])
     //}
 
     dumpFunc();
-    qtuser_quick::AppModuleCreateFunc func = creative_kernel::createC3DContext;
-    return qtuser_quick::appMain(argc, argv, func);
+    cxkernel::AppModuleCreateFunc func = creative_kernel::createC3DContext;
+    return cxkernel::appMain(argc, argv, func);
 }

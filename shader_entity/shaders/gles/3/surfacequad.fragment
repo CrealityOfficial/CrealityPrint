@@ -1,0 +1,11 @@
+#version 300 es
+/* surfacequad.fragment */
+precision mediump float; 
+
+out vec4 fragColor;
+uniform vec4 color = vec4(1.0, 0.0, 0.0, 1.0);
+
+void main() 
+{
+	fragColor = color;
+}

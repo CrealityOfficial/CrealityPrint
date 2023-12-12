@@ -1,7 +1,7 @@
 #include "uiinterface.h"
 #include "kernel/kernelui.h"
 #include "kernel/translator.h"
-#include "qtuserqml/plugin/toolcommandcenter.h"
+#include "qtusercore/plugin/toolcommandcenter.h"
 
 namespace creative_kernel
 {
@@ -72,6 +72,11 @@ namespace creative_kernel
 	void requestQmlCloseAction()
 	{
 		getKernelUI()->requestQmlCloseAction();
+	}
+
+	void setCloseHook(CloseHook* hook)
+	{
+		getKernelUI()->setCloseHook(hook);
 	}
 
 	QObject* createQmlObjectFromQrc(const QString& fileName)

@@ -2,8 +2,8 @@
 #define _POINT_POINT_MEASURE_OBJ_H__
 
 #include "AbstractMeasureObj.h"
-#include "qtuser3d/entity/lineexentity.h"
-#include "qtuser3d/entity/purecolorentity.h"
+#include "entity/lineexentity.h"
+#include "entity/purecolorentity.h"
 
 class Point2PointMeasureObj : public AbstractMeasureObj
 {

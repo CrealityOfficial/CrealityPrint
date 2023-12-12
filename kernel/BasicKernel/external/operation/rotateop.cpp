@@ -15,7 +15,7 @@
 
 #include "qtuser3d/math/angles.h"
 #include "qtuser3d/math/space3d.h"
-#include "qtuserqml/property/qmlpropertysetter.h"
+#include "qtusercore/property/qmlpropertysetter.h"
 
 #include "data/fdmsupportgroup.h"
 
@@ -468,7 +468,9 @@ void RotateOp::reset()
 
 		mixTRModel(m_selectedModels[i], oldPosition, newPosition, oldQ, q, true);
 
-		//moveModel(m_selectedModels[i], oldPosition, newPosition, true);
+		//moveModel(m_selectedModels[i], oldPosition, newPosition, true);		
+		m_selectedModels[i]->setProperty(MODEL_INIT_ROT_TAG, QVariant());
+		m_selectedModels[i]->resetNestRotation();
 	}
     m_displayRotate = QVector3D();
 	emit rotateChanged();
@@ -653,7 +655,7 @@ bool RotateOp::shouldMultipleSelect()
 	return true;
 }
 
-//´òÓ¡»ú¿É´òÓ¡ÇøÓò
+//ï¿½ï¿½Ó¡ï¿½ï¿½ï¿½É´ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½
 void RotateOp::onBoxChanged(const qtuser_3d::Box3D& box)
 {
 	const QVector3D size = box.size();

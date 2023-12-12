@@ -113,29 +113,7 @@ void SplitCommand::changeOffset(float off)
 
 void SplitCommand::changeAxisType(int type)
 {
-    m_AxisType = type;
-    if (m_op)
-    {
-        switch (m_AxisType)
-        {
-        case 0:
-            m_op->setAcitiveAxis(QVector3D(1, 0, 0));
-            break;
-        case 1:
-            m_op->setAcitiveAxis(QVector3D(0, 1, 0));
-            break;
-        case 2:
-            m_op->setAcitiveAxis(QVector3D(0, 0, 1));
-            break;
-        case 3:
-            m_op->enableSelectPlaneByCursor(true);
-            break;
-        default:
-            m_op->enableSelectPlaneByCursor(true);
-            break;
-        }
-    }
-    //emit onOffsetChanged();
+    m_op->setAcitiveAxis(type);
 }
 
 float SplitCommand::getOffset()

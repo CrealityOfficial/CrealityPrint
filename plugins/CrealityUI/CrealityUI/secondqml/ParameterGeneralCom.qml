@@ -186,8 +186,15 @@ Item{
         BasicDialogTextField{
             id: proField
             width: 260* screenScaleFactor
-            height: 28* screenScaleFactor
+//            height: if(rowItemModel.key === "acceleration_limit_mess" ||
+//                            rowItemModel.key === "speed_limit_to_height"){
+//                        return 48* screenScaleFactor
+//                    }
+//                    else{
+//                        return 28* screenScaleFactor
+//                    }
             radius: 5* screenScaleFactor
+            wrapMode: TextInput.WordWrap
             visible: {
                 if(rowItemModel)
                 {

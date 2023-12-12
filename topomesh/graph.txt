@@ -1,0 +1,2 @@
+clipper/0.0.2
+eigen/0.0.2

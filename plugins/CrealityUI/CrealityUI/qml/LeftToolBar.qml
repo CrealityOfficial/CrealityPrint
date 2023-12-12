@@ -50,10 +50,7 @@ Rectangle
 
     function switchMoveMode()
     {
-        var item = listView.itemAtIndex(0)
-        if(selectItem === item)return
-        if(!item.bottonSelected)
-            item.clicked()
+        switchMode(0)
     }
 
 
@@ -67,9 +64,7 @@ Rectangle
     //c++调用
     function switchPickMode()
     {
-        var item = listView.itemAtIndex(1)
-        if(selectItem === item) return
-        if(!item.bottonSelected) item.clicked()
+        switchMode(0)
     }
 
     //c++调用
