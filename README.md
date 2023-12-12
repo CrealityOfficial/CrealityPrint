@@ -13,7 +13,7 @@ See the [wiki](http://wiki.creality.com) and the documentation directory for mor
 
 ## Main features
 ### Key features are:
-- Basic slicing features (TThis feature comes from CuraEngine, Thanks Ultimaker)
+- Basic slicing features (This feature comes from CuraEngine, Thanks Ultimaker)
 - Normal/Tree support (This feature comes from CuraEngine, Thanks Ultimaker)
 - Auto-arrange objects (This feature comes from PrusaSlicer, Thanks PrusaSlicer)
 - Auto-orient objects (This feature comes from PrusaSlicer, Thanks PrusaSlicer)
