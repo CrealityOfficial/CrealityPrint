@@ -55,6 +55,6 @@
   "dependencies": {
     "@yuque/sdk": "^1.1.1",
     "ali-oss": "^6.10.0",
-    "moment": "^2.27.0"
+    "moment": "^2.29.4"
   }
 }
