@@ -37,7 +37,12 @@ See the [wiki](http://wiki.creality.com) and the documentation directory for mor
 - Calibration
 
 ## How to compile
-[Running CrealityPrint from Source](https://github.com/CrealityOfficial/CrealityPrint-build)
+```
+windows .\cmake\ci\cmake.py -c -b -e --channel_name=opensource
+linux or mac python3 ./cmake/ci/cmake.py -c -b -e --channel_name=opensource
+```
+
+
 
 
 ## License
