@@ -2,6 +2,7 @@ license: "<GLP>"
 author: "<zenggui> <anoob@sina.cn>"
 url: "<xxxxxx>"
 repository: "http://172.20.180.12:8050/yanfa4/third/jpeg"
+external_repository: "https://github.com/CrealityOfficial/jpeg"
 description: "<jpeg>"
 topics: "<image>,<zlib>,<jpeg>"
 

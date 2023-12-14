@@ -24,11 +24,17 @@ class MainEntry(ConanFile):
         self.url = self.conan_data["url"]
         self.description = self.conan_data["description"]
         self.repository = self.conan_data["repository"]
+        if 'use_external' in self.conan_data and self.conan_data['use_external'] == True and 'external_repository' in self.conan_data:
+            self.repository = self.conan_data['external_repository']
+            
         self.userchannel = self.conan_data["channel"]
+        self.cmake_rep = 'http://172.20.180.12:8050/yanfa4/shared/cmake'
         self.defs = []
             
         if "defs" in self.conan_data:
             self.defs = self.conan_data["defs"].split(" ")
+        if "cmake_rep" in self.conan_data:
+            self.cmake_rep = self.conan_data["cmake_rep"]
             
         self.conan_data
         print("[conan DEBUG] name: " + self.name)
@@ -45,9 +51,9 @@ class MainEntry(ConanFile):
             del self.options.fPIC
 
     def source(self):
-        print("[conan DEBUG] source.")
+        print("[conan DEBUG] source. {0} {1}".format(self.repository, self.version))
 
-        self.run("git clone http://172.20.180.12:8050/yanfa4/shared/cmake")
+        self.run("git clone {0} cmake".format(self.cmake_rep))
         self.run("git clone " + self.repository + " -b version-" + self.version + " " + self.name)
             
     def export_sources(self):

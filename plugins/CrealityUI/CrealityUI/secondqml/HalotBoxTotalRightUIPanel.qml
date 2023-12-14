@@ -540,12 +540,12 @@ Rectangle {
 
                                     id: idExtruder22
 
-                                    property var extruder: extruder0
+                                    property var extruder: extruder1
 
                                     Layout.preferredWidth: 150 * screenScaleFactor
                                     Layout.preferredHeight: 28 * screenScaleFactor
                                     showCount: 20
-                                    currentIndex: extruder0.materialIndex
+                                    currentIndex: extruder1.materialIndex
                                     model: !currentMachine ? null : currentMachine.materialsName
                                     clip: true
                                     onActivated: {

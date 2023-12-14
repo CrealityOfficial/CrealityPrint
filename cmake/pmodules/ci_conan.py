@@ -14,16 +14,22 @@ class Conan():
     xml_file    //store the whole recipes
     whole_libs  //libs dict load from xml_file
     conan_path  //conan directory
+    use_external_rep  //use github repository
     '''
     def __init__(self, cpath):
         self.system = platform.system()
         self.cmake_path = Path(cpath).resolve()   
         self.xml_file = self.cmake_path.joinpath('conan', 'graph', 'libs.xml')
         self.conan_path = self.cmake_path.joinpath('conan')
+        self.external_cmake_rep = 'https://github.com/CrealityOfficial/shared-cmake.git'
+        self.use_external_rep = False
         
         print('conan context : cmake_path {}, xml_file {}, conan_path {}'.format(str(self.cmake_path), str(self.xml_file), str(self.conan_path)))
         self.whole_libs = self._create_whole_libs()
-            
+    
+    def set_use_external_rep(self, use):
+        self.use_external_rep = use
+        
     '''
     load whole libs from conan/graph/libs.xml
     '''    
@@ -146,6 +152,7 @@ class Conan():
     channel 
     '''
     def _create_one_conan_recipe(self, recipe, channel, upload):
+        print('_create_one_conan_recipe : [{0}]'.format(recipe))
         if recipe not in self.whole_libs:
             return
             
@@ -184,7 +191,11 @@ class Conan():
                 
             meta_file.write("version: " + "\"" + version + "\"\n")
             meta_file.write("name: " + "\"" + name + "\"\n")
-            meta_file.write("channel: " + "\"" + user_channel + "\"")
+            meta_file.write("channel: " + "\"" + user_channel + "\"\n")
+            if self.use_external_rep == True:
+                meta_file.write("use_external: true\n")
+                meta_file.write("cmake_rep: \"{0}\"\n".format(self.external_cmake_rep))
+                            
             meta_file.close()
             cmake_script_dest = temp_directory + "/CMakeLists.txt"
             cmake_file = open(cmake_script_dest, "a")

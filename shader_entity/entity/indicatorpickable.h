@@ -23,7 +23,7 @@ namespace qtuser_3d
 		bool hoverPrimitive(int primitiveID) override;
 		void unHoverPrimitive() override;
 
-		void pick(int primitiveID) override;
+		void pick(int primitiveID);
 
 	protected:
 		void onStateChanged(qtuser_3d::ControlState state) override;

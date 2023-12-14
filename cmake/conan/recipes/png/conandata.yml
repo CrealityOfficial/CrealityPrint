@@ -2,6 +2,7 @@ license: "<GLP>"
 author: "<zenggui> <anoob@sina.cn>"
 url: "<xxxxxx>"
 repository: "http://172.20.180.12:8050/yanfa4/thirdparty/png"
+external_repository: "https://github.com/CrealityOfficial/png"
 description: "<png>"
 topics: "<image>,<zlib>,<png>"
 

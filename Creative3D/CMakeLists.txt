@@ -48,8 +48,8 @@ endif()
 
 qt5_add_resources(QT_QRC ${CMAKE_CURRENT_BINARY_DIR}/scence3d.qrc)
 
-find_package(Qt5QuickCompiler)
-qtquick_compiler_add_resources(RESOURCES ${CMAKE_CURRENT_BINARY_DIR}/scence3d.qrc)
+#find_package(Qt5QuickCompiler)
+#qtquick_compiler_add_resources(RESOURCES ${CMAKE_CURRENT_BINARY_DIR}/scence3d.qrc)
 
 if(GEN_TRANSLATIONS_TS)
     message(STATUS "GEN_TRANSLATIONS_TS")

@@ -2,6 +2,7 @@ license: "<GLP>"
 author: "<ffmpeg> <anoob@sina.cn>"
 url: "<xxxxxx>"
 repository: "http://172.20.180.12:8050/yanfa4/corelib/qcxffmpeg"
+external_repository: "https://github.com/CrealityOfficial/qcxffmpeg"
 description: "<qcxffmpeg>"
 topics: "<ffmpeg>,<wrapper>,<>"
 

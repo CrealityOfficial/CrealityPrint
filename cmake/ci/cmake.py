@@ -19,10 +19,11 @@ cmake_args = ""
 install_conan = False
 build_conan = False
 upload_conan = False
+use_external_rep = False
 conan_channel = 'desktop'
 #parse args
 try:
-    opts, args = getopt.getopt(sys.argv[1:], '-c-b-u',['cmake_args=', 'channel_name='])
+    opts, args = getopt.getopt(sys.argv[1:], '-c-b-u-e',['cmake_args=', 'channel_name='])
     print("getopt.getopt -> :" + str(opts))
 except getopt.GetoptError:
     print("_parse_args error.")
@@ -36,6 +37,8 @@ for opt, arg in opts:
         build_conan = True
     if opt == '-u':
         upload_conan = True
+    if opt == '-e':
+        use_external_rep = True
     if opt == '--channel_name':
         conan_channel = arg 
 
@@ -43,6 +46,9 @@ if install_conan == True:
     import ci_conan
     print('cmake install conan channel: {}'.format(conan_channel))
     conan = ci_conan.Conan(cmake.cmake_path)
+    if use_external_rep == True:
+        conan.set_use_external_rep(use_external_rep)
+        
     if build_conan == True:
         conan.create_project_conan(conan_channel, upload_conan, True)
     
