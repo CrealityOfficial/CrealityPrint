@@ -211,7 +211,9 @@
     <lib name="qhullwrapper/0.0.3">
         <sublib name="mmesh/0.0.3"/>
     </lib>
-    <lib name="qhullwrapper/0.0.4"/>
+    <lib name="qhullwrapper/0.0.4">
+		<sublib name="trimesh2/0.0.3"/>
+	</lib>
     <lib name="lib3mf/0.0.2">
         <sublib name="zip/0.0.2"/>
     </lib>

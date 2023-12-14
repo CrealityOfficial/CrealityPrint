@@ -137,6 +137,8 @@ def conan_cmake():
         project_path = emcc_conan_cmake(working_path)
     elif work_type == 'mac':
         project_path = mac_conan_cmake(working_path, 'desktop/mac')
+    elif work_type == 'mac-arm64':
+        project_path = mac_conan_cmake(working_path, 'desktop/mac-arm64')
     elif work_type == 'opensource-mac':
         project_path = mac_conan_cmake(working_path, 'opensource/mac')
     else:

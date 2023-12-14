@@ -122,14 +122,16 @@ def traverse_directory(dir_path, operate_func, parameter):
       
 ##### main #####        
 def exec(project_path = ''):
-    print("shader binarization begin.")
     
     script_path = sys.path[0].replace("\\", "/")
     if project_path == '':
-        print("using default path.")
         project_path = script_path + "/../../win32-build/build"
+        
+    if os.path.exists(project_path + '/shader_entity') == False:
+        return
+        
+    print("shader binarization begin.")
     print("project path: " + project_path)
-    
     base_directory = script_path + "/../../shader_entity/shaders"
     if os.path.exists(base_directory) == False:
         return
