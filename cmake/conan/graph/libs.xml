@@ -278,6 +278,13 @@
 		<sublib name="boost/0.0.2"/>
 		<sublib name="trimesh2/0.0.3"/>
     </lib>
+	<lib name="nestplacer/2.0.0">
+        <sublib name="tbb/0.0.2"/>
+		<sublib name="clipper3r/0.0.2"/>
+		<sublib name="nlopt_static/1.0.0"/>
+		<sublib name="boost/0.0.2"/>
+		<sublib name="msbase/0.0.2"/>
+    </lib>
     <lib name="muparser/0.0.1">
     </lib>
     <lib name="admesh/0.0.1">

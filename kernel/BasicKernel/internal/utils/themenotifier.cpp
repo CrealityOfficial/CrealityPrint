@@ -83,7 +83,7 @@ namespace creative_kernel
 		qtuser_3d::WorldIndicatorEntity* indicator = getIndicatorEntity();
 
 		std::string dark, light, selected;
-		std::string prefix = "qrc:/shader_entity/images/indicator/";
+		std::string prefix = "qrc:/cxkernel/images/indicator/";
 		switch (language)
 		{
 		case creative_kernel::MultiLanguage::eLanguage_ZHCN_TS:

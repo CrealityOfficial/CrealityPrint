@@ -559,12 +559,12 @@ std::string GCodeExport::getFileHeader(const std::vector<bool>& extruder_is_used
 			pathParam.exportFormat = setting->get<std::string>("preview_img_type");//QString exportFormat;
 			pathParam.screenSize = setting->get<std::string>("screen_size");//QString screenSize;
             pathParam.weight = materialDensity * pathParam.materialLenth;
+            prefix << ";Layer height:" << application->currentGroup()->settings.get<double>("layer_height") << new_line;
             prefix << ";Material Diameter:" << extruderSettings->get<std::string>("material_diameter") << new_line;
             prefix << ";Material Density:" << extruderSettings->get<std::string>("material_density") << new_line;
             prefix << ";Filament Cost:" << std::to_string(unitPrice * pathParam.materialLenth * materialDensity) << new_line;
             prefix << ";Filament Weight:" << std::to_string(pathParam.weight) << new_line;
             prefix << ";Filament Length:" << std::to_string(pathParam.materialLenth) << new_line;
-            prefix << ";Layer height:" << application->currentGroup()->settings.get<double>("layer_height") << new_line;
         }
         else
             prefix << ";Layer Height:" << application->currentGroup()->settings.get<double>("layer_height") << new_line;
@@ -1917,12 +1917,12 @@ coord_t GCodeExport::writeTrapezoidalLeft(const Velocity& speed, Point endPoint,
     }
     else if (len < zHopTravelDistance)
     {
-        writeTravel(Point3(endPoint.X, endPoint.Y, currentPosition.z), speed);
+        writeTravel(Point3(endPoint.X, endPoint.Y, current_layer_z + is_z_hopped), speed);
     }
     else
     {
         Point HopTravel = source + Travel * (zHopTravelDistance / len);
-        writeTravel(Point3(HopTravel.X, HopTravel.Y, currentPosition.z), speed);
+        writeTravel(Point3(HopTravel.X, HopTravel.Y, current_layer_z + is_z_hopped), speed);
     }
 
     return is_z_hopped;

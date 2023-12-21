@@ -10,12 +10,8 @@ class MainEntry(ConanFile):
     generators = "cmake"
 
     def init(self):
-        print("[conan DEBUG] conanfile.py init.")
-        print("[conan DEBUG] self.recipe_folder: " + self.recipe_folder)
-        
         self.origin_recipe_folder = self.recipe_folder
         self.conanfile_file = self.recipe_folder + "/requires.txt"
-        print("[conan DEBUG] self.conanfile_file: " + self.conanfile_file)
         
         self.version = self.conan_data["version"]
         self.name = self.conan_data["name"]
@@ -35,18 +31,19 @@ class MainEntry(ConanFile):
             self.defs = self.conan_data["defs"].split(" ")
         if "cmake_rep" in self.conan_data:
             self.cmake_rep = self.conan_data["cmake_rep"]
-            
-        self.conan_data
+                    
+    def config_options(self):
+        print("[conan DEBUG] config_options.")
+        print("[conan DEBUG] conanfile.py init.")
+        print("[conan DEBUG] self.recipe_folder: " + self.recipe_folder)
         print("[conan DEBUG] name: " + self.name)
         print("[conan DEBUG] version: " + self.version)
         print("[conan DEBUG] license: " + self.license)
         print("[conan DEBUG] author: " + self.author)
         print("[conan DEBUG] url: " + self.url)
         print("[conan DEBUG] description: " + self.description)
-        print("[conan DEBUG] defs: " + str(self.defs))
-        
-    def config_options(self):
-        print("[conan DEBUG] config_options.")
+        print("[conan DEBUG] defs: " + str(self.defs))                
+
         if self.settings.os == "Windows":
             del self.options.fPIC
 
@@ -61,8 +58,7 @@ class MainEntry(ConanFile):
         self.copy("requires.txt")
         
     def build(self):
-        print("[conan DEBUG] build.")
-        
+        print("[conan DEBUG] build.")        
         print("[conan DEBUG] self.build_folder: " + self.build_folder)
         conanfile_file = self.build_folder + "/requires.txt"
         conanfile_file_w = self.build_folder + "/conanfile.txt"
@@ -91,8 +87,8 @@ class MainEntry(ConanFile):
         if self.settings.build_type == "Debug":
             cmake.definitions["CMAKE_BUILD_TYPE"] = "Debug"
             
-        if self.settings.os != "Windows":
-            cmake.parallel = False
+        #if self.settings.os != "Windows":
+        #    cmake.parallel = False
             
         for d in self.defs :
             cmake.definitions[d] = "ON"

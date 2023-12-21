@@ -49,7 +49,7 @@ material_pressure_advance=false
 material_advance_length=0.04
 material_flow_dependent_temperature=false
 material_flow_temp_graph=[[5.0,220],[18.0,230]]
-
+speed_slowtofast_slowdown=true
 [speed]
 
 
@@ -61,7 +61,7 @@ retraction_prime_speed=40
 
 [cooling]
 cool_fan_speed=100
-cool_fan_speed_min=50
+cool_fan_speed_min=70
 cool_fan_speed_max=100
 cool_fan_enabled=true
 cool_min_layer_time_fan_speed_max=15
@@ -73,8 +73,8 @@ cool_cds_fan_start_at_height=0.5
 cool_chamber_fan_enable=true
 cool_fan_full_at_height=0.50
 cool_fan_full_layer=3
-cool_min_layer_time=8
-cool_min_speed=20
+cool_min_layer_time=5
+cool_min_speed=50
 [support]
 
 

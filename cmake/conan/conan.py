@@ -8,8 +8,11 @@ sys.path.append(sys.path[0] + '/../python/')
 sys.path.append(sys.path[0] + '/../pmodules/')
 cmake_path = sys.path[0] + '/../'
 
+import log
+logger = log.create_log('conan')
+
 import ci_conan
-conan = ci_conan.Conan(cmake_path)
+conan = ci_conan.Conan(cmake_path, logger)
 
 channel_name = 'desktop'
 
@@ -29,9 +32,9 @@ argv = sys.argv[1:]
 try:
     opts, args = getopt.getopt(argv,"n:t:u:-e")
 except getopt.GetoptError:
-    print("create.py -n <name>")
+    logger.warning("create.py -n <name>")
     sys.exit(2)
-print(opts)
+logger.info('args {}'.format(opts))
 
 for opt, arg in opts:
     if opt in ("-n"):
@@ -61,4 +64,6 @@ if recipe_type.startswith('whole'):
     
 if recipe_type.startswith('project'):
     conan.create_project_conan(channel_name, upload, True)
-    
+
+if recipe_type.startswith('circle'):
+    conan.create_circle_conan(channel_name, upload)

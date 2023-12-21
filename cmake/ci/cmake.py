@@ -11,8 +11,11 @@ sys.path.append(sys.path[0] + '/../python/')
 sys.path.append(sys.path[0] + '/../pmodules/')
 source_path = sys.path[0] + '/../../'
 
+import log
+logger = log.create_log('cmake')
+
 import ci_cmake
-cmake = ci_cmake.CMake(source_path)
+cmake = ci_cmake.CMake(source_path, logger)
 cmake.print()
 
 cmake_args = ""
@@ -20,13 +23,15 @@ install_conan = False
 build_conan = False
 upload_conan = False
 use_external_rep = False
+update_from_remote = False
+use_conandata = True
 conan_channel = 'desktop'
 #parse args
 try:
-    opts, args = getopt.getopt(sys.argv[1:], '-c-b-u-e',['cmake_args=', 'channel_name='])
-    print("getopt.getopt -> :" + str(opts))
+    opts, args = getopt.getopt(sys.argv[1:], '-c-b-u-r-e-p',['cmake_args=', 'channel_name='])
+    logger.info("getopt.getopt -> : {}".format(str(opts)))
 except getopt.GetoptError:
-    print("_parse_args error.")
+    logger.warning("_parse_args error.")
     sys.exit(2)
 for opt, arg in opts:
     if opt == '--cmake_args':
@@ -39,22 +44,29 @@ for opt, arg in opts:
         upload_conan = True
     if opt == '-e':
         use_external_rep = True
+    if opt == '-r':
+        update_from_remote = True
+    if opt == '-p':
+        use_conandata = False
     if opt == '--channel_name':
         conan_channel = arg 
 
 if install_conan == True:
     import ci_conan
-    print('cmake install conan channel: {}'.format(conan_channel))
-    conan = ci_conan.Conan(cmake.cmake_path)
+    logger.info('cmake install conan channel: {}'.format(conan_channel))
+    conan = ci_conan.Conan(cmake.cmake_path, logger)
     if use_external_rep == True:
         conan.set_use_external_rep(use_external_rep)
         
     if build_conan == True:
-        conan.create_project_conan(conan_channel, upload_conan, True)
+        conan.create_circle_conan(conan_channel, upload_conan)
     
-    conan.install(cmake.project_path, cmake.source_path, conan_channel)
+    if use_conandata == True:
+        conan.install_from_conandata_file(cmake.project_path, cmake.source_path, update_from_remote, conan_channel)
+    else:
+        conan.install_from_txt(cmake.project_path, cmake.source_path, update_from_remote, conan_channel)
     
-print("cmake args : {}".format(cmake_args))       
+logger.info("cmake args : {}".format(cmake_args))       
 cmake.build(cmake_args)
 
 import ShaderBinarization

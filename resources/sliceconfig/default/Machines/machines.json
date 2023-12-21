@@ -527,7 +527,7 @@
             "supportExtruderDiameters": "0.4",
             "supportMaterialTypes": "PLA,ABS,PETG,TPU",
             "supportMaterialDiameters": "1.75, 2.85",
-            "supportMaterialNames": "CR-PLA,CR-PETG,HP-TPU,Generic-ABS,Generic-PETG,Generic-TPU,Generic-PLA"
+            "supportMaterialNames": "Hyper PLA,CR-PLA,CR-PETG,HP-TPU"
         },
         {
             "name": "Ender-3 Pro",
@@ -1035,9 +1035,9 @@
             "name": "Ender-3 V3 Plus",
             "extruderCount": 1,
             "supportExtruderDiameters": "0.4",
-            "supportMaterialTypes": "PLA,ABS",
+            "supportMaterialTypes": "PLA,ABS,PETG,TPU",
             "supportMaterialDiameters": "1.75, 2.85",
-            "supportMaterialNames": "Generic-PLA,Hyper PLA,CR-ABS,CR-Carbon,CR-PETG,CR-wood,HP-TPU"
+            "supportMaterialNames": "Hyper PLA,CR-PETG,HP-TPU,CR-ABS,Generic-ABS,Generic-PETG,Generic-TPU,Generic-PLA"
         },
         {
             "name": "Ender-3 V3 KE",
