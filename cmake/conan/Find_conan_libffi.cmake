@@ -1,1 +1,0 @@
-__conan_import(libffi lib COMPONENT ffi)
