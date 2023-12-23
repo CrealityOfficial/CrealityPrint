@@ -75,7 +75,7 @@ add_subdirectory(shader_entity)
 add_subdirectory(qcxffmpeg)
 add_subdirectory(qcxchart)
 
-add_subdirectory(cxcloud)
+#add_subdirectory(cxcloud)
 add_subdirectory(cxgcode)
 add_subdirectory(cxkernel)
 
