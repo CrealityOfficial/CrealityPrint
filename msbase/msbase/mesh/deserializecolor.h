@@ -13,6 +13,9 @@ namespace msbase
 
 	MSBASE_API bool getColorPloygon(trimesh::TriMesh* sourceMesh, const trimesh::xform& _xform, const std::vector<std::string>& color2Facets,
 		const std::string& fileName, int state = 0, ccglobal::Tracer* tracer = nullptr);
+
+	//set default colors
+	MSBASE_API void fill_triangles(std::vector<std::string>& strList,int faceSize, int color);
 }
 
 #endif // MSBASE_DESERIALIZECOLOR_1695441390758_H

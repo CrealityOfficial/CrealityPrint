@@ -3,6 +3,7 @@
 #include "cylindercollide.h"
 #include <assert.h>
 #include <fstream>
+#include <memory>
 
 namespace msbase
 {

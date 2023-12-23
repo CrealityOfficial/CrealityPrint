@@ -809,4 +809,38 @@ namespace msbase
 
 		return true;
 	}
+
+	void fill_triangles(std::vector<std::string>& strList, int faceSize, int color)
+	{
+		if (strList.empty() && faceSize > 0)
+		{
+			strList.resize(faceSize);
+		}
+
+		std::string str = "";
+		char ch;
+		if (color >= 3)
+		{
+			color -= 3;
+			if (color < 10)        //当前数转换成字符放入字符串
+				ch = color + '0';
+			else
+				ch = color - 10 + 'A';
+			str.append(1, ch);
+			str += "C";
+		}
+		else
+		{
+			int _ch = color << 2;
+			ch = _ch + '0';
+			str.append(1, ch);
+		}
+		for (auto& data : strList)
+		{
+			if (data.empty())
+			{
+				data = str;
+			}
+		}
+	}
 }

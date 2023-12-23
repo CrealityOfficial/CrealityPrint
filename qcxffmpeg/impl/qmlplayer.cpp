@@ -114,7 +114,8 @@ void QMLPlayer::stop()
 {
     qDebug() << "QMLPlayer::stop()";
     //m_decoderController->stopplay();
-    m_image = QImage();
+    m_decoderController->stopThread();
+    //m_image = QImage();
 }
 
 void QMLPlayer::onVideoFrameDataReady(QString url, QImage data)

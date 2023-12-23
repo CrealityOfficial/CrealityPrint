@@ -31,7 +31,7 @@ list(APPEND LIBS rapidjson topomesh
 if(CC_BC_WIN)
 	list(APPEND LIBS dbghelp.lib iphlpapi ws2_32 crypt32)
 elseif(CC_BC_LINUX)
-	list(APPEND LIBS stdc++ stdc++fs zlib pthread)
+	list(APPEND LIBS stdc++ stdc++fs zlib_static pthread)
 endif()
 
 set(INCS ${CMAKE_CURRENT_SOURCE_DIR}/external/

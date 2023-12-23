@@ -57,7 +57,7 @@ void ToolCommand::setEnabledIcon(const QString& icon)
 		m_enabledIcon = icon;
 		emit enabledIconChanged();
 	}
-	
+
 }
 
 void ToolCommand::setHoveredIcon(const QString& icon) {
@@ -85,7 +85,10 @@ void ToolCommand::setDisabledIcon(const QString& icon)
 
 void ToolCommand::setName(const QString& name)
 {
-	m_name = name;
+  if (m_name != name) {
+    m_name = name;
+    Q_EMIT nameChanged();
+  }
 }
 
 void ToolCommand::setSource(const QString& source)

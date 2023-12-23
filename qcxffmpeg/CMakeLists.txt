@@ -10,7 +10,8 @@ set(SRCS interface/cxffmpeg/interface.h
 		 impl/VideoDecoder.cpp
 		 )
 		 
-set(DEFS PLAYER_FFMPEG_DLL)	
+set(DEFS PLAYER_FFMPEG_DLL)
+list(APPEND DEFS _GLIBCXX_USE_NANOSLEEP)
 set(INCS ${CMAKE_CURRENT_SOURCE_DIR}/impl/ ${CMAKE_CURRENT_SOURCE_DIR}/interface)
 set(LIBS Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Quick Qt5::Multimedia avutil avcodec avformat swscale swresample)
 

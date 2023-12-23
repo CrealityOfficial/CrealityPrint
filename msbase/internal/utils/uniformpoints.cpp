@@ -195,5 +195,57 @@ namespace msbase
 		return result;
 	}
 
+	bool testNeedfitMesh(trimesh::TriMesh* mesh, float& scale)
+	{
+		if (!mesh)
+			return false;
 
+		mesh->need_bbox();
+		trimesh::vec3 size = mesh->bbox.size();
+
+		bool needScale = false;
+		scale = 1.0f;
+		if (size.max() > 1000.0f)
+		{
+			needScale = true;
+			scale = 100.0f / size.max();
+		}
+		else if (size.min() < 10.0f && size.min() > 0.00001f)
+		{
+			needScale = true;
+			scale = 100.0f / size.min();
+		}
+
+		return needScale;
+	}
+
+	bool testNeedfitMesh(trimesh::TriMesh* mesh, trimesh::xform& xf)
+	{
+		if (!mesh)
+			return false;
+
+		mesh->need_bbox();
+		trimesh::vec3 size = mesh->bbox.size();
+		trimesh::vec3 c = mesh->bbox.center();
+
+		bool needScale = false;
+		float scale = 1.0f;
+		if (size.max() > 1000.0f)
+		{
+			needScale = true;
+			scale = 100.0f / size.max();
+		}
+		else if (size.min() < 10.0f && size.min() > 0.00001f)
+		{
+			needScale = true;
+			scale = 100.0f / size.min();
+		}
+
+		if (needScale)
+		{
+			xf = trimesh::xform::trans(c) * trimesh::xform::scale(scale) * trimesh::xform::trans(-c);
+		}
+
+		return needScale;
+	}
 }

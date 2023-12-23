@@ -1,6 +1,6 @@
 #include "msbase/mesh/dumplicate.h"
 
-#include "trimesh2/TriMesh_algo.h"
+#include "internal/utils/uniformpoints.h"
 
 #include <unordered_map>
 #include <map>
@@ -8,30 +8,6 @@
 
 namespace msbase
 {
-    bool testNeedfitMesh(trimesh::TriMesh* mesh, float& scale)
-    {
-        if (!mesh)
-            return false;
-
-        mesh->need_bbox();
-        trimesh::vec3 size = mesh->bbox.size();
-
-        bool needScale = false;
-        scale = 1.0f;
-        if (size.max() > 1000.0f)
-        {
-            needScale = true;
-            scale = 100.0f / size.max();
-        }
-        else if (size.max() < 1.0f && size.max() > 0.00001f)
-        {
-            needScale = true;
-            scale = 100.0f / size.min();
-        }
-
-        return needScale;
-    }
-
     struct hash_vec3 {
         size_t operator()(const trimesh::vec3& v)const
         {

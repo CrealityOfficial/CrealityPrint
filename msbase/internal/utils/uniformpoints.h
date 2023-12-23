@@ -1,6 +1,9 @@
 #ifndef MMESH_UNIFORMPOINTS_1631469381297_H
 #define MMESH_UNIFORMPOINTS_1631469381297_H
 #include "trimesh2/Vec.h"
+#include "trimesh2/TriMesh.h"
+#include "trimesh2/TriMesh_algo.h"
+
 #include <unordered_map>
 #include <map>
 #include <float.h>
@@ -74,6 +77,9 @@ namespace msbase
 	int findIndex(int n, const std::vector<int>& orderEdgesPoint);
 	int PointInPolygon(trimesh::dvec2 pt, const std::vector<int>& polygon, std::vector<trimesh::dvec2>& d2points);
 	void dealIntersectLine(const std::vector<IndexPolygon>&validIndexPolygons,const std::vector<int>& orderEdgesPoints, std::vector<int>& vertexEdges,std::vector<bool>& isIntersect);
+
+	bool testNeedfitMesh(trimesh::TriMesh* mesh, float& scale);
+	bool testNeedfitMesh(trimesh::TriMesh* mesh, trimesh::xform& xf);
 }
 
 #endif // MMESH_UNIFORMPOINTS_1631469381297_H

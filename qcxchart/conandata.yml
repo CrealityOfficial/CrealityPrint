@@ -1,0 +1,9 @@
+license: GLP
+author: zenggui,anoob@sina.cn
+url: xxxxxx
+repository: http://172.20.180.12:8050/yanfa4/core/qcxchart
+external_repository: http://172.20.180.12:8050/CrealityOfficial/qcxchart
+description: qcxchart
+topics: qcxchart,qcxchart
+build_deps: glew/0.0.2
+search_deps: 

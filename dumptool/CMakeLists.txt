@@ -29,7 +29,7 @@ set(SRCS
 __cc_find(AliyunOss)
 __cc_find(rapidjson)
 __cc_find(quazip_static)
-__conan_import(boost dll COMPONENT boost_filesystem)
+__cc_find(boost_static)
 
 set(LIBS
   Qt5::Core

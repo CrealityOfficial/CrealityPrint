@@ -12,7 +12,7 @@ class QTUSER_CORE_API ToolCommand: public QObject
 	Q_PROPERTY(QString hoveredIcon READ hoveredIcon NOTIFY hoveredIconChanged)
 	Q_PROPERTY(QString pressedIcon READ pressedIcon NOTIFY pressedIconChanged)
 	Q_PROPERTY(QString disabledIcon READ disableIcon NOTIFY disableIconChanged)
-
+	Q_PROPERTY(QString name READ name NOTIFY nameChanged)
 
     Q_PROPERTY(QString source READ source)
 public:
@@ -39,7 +39,7 @@ public:
 	Q_INVOKABLE void execute();
 	Q_INVOKABLE virtual bool isSelectModel();
 	virtual void onExecute();
-	
+
 protected:
 	virtual bool enableImpl();
 
@@ -50,6 +50,7 @@ signals:
 	void hoveredIconChanged();
 	void pressedIconChanged();
 	void disableIconChanged();
+	void nameChanged();
 private:
 	bool m_enabled;
 

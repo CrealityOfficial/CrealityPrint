@@ -374,52 +374,13 @@ trimesh::TriMesh* load_step(const std::string& fileName,  ccglobal::Tracer* trac
     if (tracer)
         tracer->progress(0.01f);
     trimesh::TriMesh* tm = new  trimesh::TriMesh();
-    int aNbTriangles = 0;
-    int aNbTriangles_alltrianles = 0;
+    long long face_all = 0;
     for (size_t i = 0; i < namedSolids.size(); i++) {
-        // BBS: calculate total number of the nodes and triangles
-        BRepMesh_IncrementalMesh mesh(namedSolids[i].solid, STEP_TRANS_CHORD_ERROR, false, STEP_TRANS_ANGLE_RES, true);
-        // BBS: calculate total number of the nodes and triangles
-        //int aNbNodes = 0;
-        int aNbTriangles = 0;
-        for (TopExp_Explorer anExpSF(namedSolids[i].solid, TopAbs_FACE); anExpSF.More(); anExpSF.Next()) {
-            TopLoc_Location aLoc;
-            TopoDS_Face face = TopoDS::Face(anExpSF.Current());
-            Handle(Poly_Triangulation) aTriangulation = BRep_Tool::Triangulation(face, aLoc);
-            if (!aTriangulation.IsNull()) {
-                //aNbNodes += aTriangulation->NbNodes();
-                aNbTriangles += aTriangulation->NbTriangles();
-            }
-        }
-        TopExp_Explorer anExpSF(namedSolids[i].solid, TopAbs_FACE);
-        if (aNbTriangles == 0)
-            // BBS: No triangulation on the shape.
-            continue;
-        Standard_Integer aNbFacesNoTri = 0;
-        // BBS: fill temporary triangulation
-        //Standard_Integer aNodeOffset = 0;
-        Standard_Integer aTriangleOffet = 0;
-        while (anExpSF.More())
+        for (TopExp_Explorer anExpSF(namedSolids[i].solid, TopAbs_FACE); anExpSF.More(); anExpSF.Next())
         {
-            const TopoDS_Shape& aFace = anExpSF.Current();
-
-            TopLoc_Location     aLoc;
-            Handle(Poly_Triangulation) aTriangulation = BRep_Tool::Triangulation(TopoDS::Face(aFace), aLoc);
-            if (!aTriangulation.IsNull())
-            {
-                for (Standard_Integer aTriIter = 1; aTriIter <= aTriangulation->NbTriangles(); ++aTriIter)
-                {
-                    aNbTriangles_alltrianles++;
-                }
-                //aNodeOffset += aTriangulation->NbNodes();
-                aTriangleOffet += aTriangulation->NbTriangles();
-            }
-            anExpSF.Next();
-
+            face_all ++;
         }
     }
-
- 
     //tbb::parallel_for(tbb::blocked_range<size_t>(0, namedSolids.size()), [&](const tbb::blocked_range<size_t> &range) {
     for (size_t i = 0; i < namedSolids.size(); i++) {
         BRepMesh_IncrementalMesh mesh(namedSolids[i].solid, STEP_TRANS_CHORD_ERROR, false, STEP_TRANS_ANGLE_RES, true);
@@ -497,7 +458,7 @@ trimesh::TriMesh* load_step(const std::string& fileName,  ccglobal::Tracer* trac
             
             face_index++;
             if (tracer)
-                tracer->formatMessage("range %d", (int)tm->colors.size()/ aNbTriangles_alltrianles);
+                tracer->formatMessage("range %d", face_index / face_all);
         }
     }
    // });
