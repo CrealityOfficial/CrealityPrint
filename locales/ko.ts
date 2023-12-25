@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="ko_KR">
 <context>
@@ -20,7 +21,7 @@
     </message>
     <message>
         <source>offical_introduction</source>
-        <translation>2014년에 설립된 Shenzhen Creality 3D Technology Co., Ltd.는 중국에서 3D 프린팅 산업에 진출한 최초의 R &amp; D 제조업체이며 광범위한 3D 프린팅 솔루션 구축에 전념하고 있습니다. 사업 분야는 주로 R &amp; D에 중점을 두고 있습니다. D, 3D 프린터 제조 및 판매, 3D 프린팅 액세서리, 3D 프린팅 필라멘트, 3D 교육 커리큘럼 시스템, 3D 프린팅 서비스 등으로 확장. 현재 중국 3D 프린팅 산업의 선도적인 하이테크 기업으로 자리 잡았습니다. R &amp; D의 강점, 생산, 품질 및 서비스가 모두 업계를 선도합니다.</translation>
+        <translation>2014년에 설립된 Shenzhen Creality 3D Technology Co., Ltd.는 중국에서 3D 프린팅 산업에 진출한 최초의 R &amp; D 제조업체이며 광범위한 3D 프린팅 솔루션 구축에 전념하고 있습니다. 사업 분야는 주로 R &amp; D에 중점을 두고 있습니다. 3D 프린터 제조 및 판매, 3D 프린팅 액세서리, 3D 프린팅 필라멘트, 3D 교육 커리큘럼 시스템, 3D 프린팅 서비스 등으로 확장. 현재 중국 3D 프린팅 산업의 선도적인 하이테크 기업으로 자리 잡았습니다. R &amp; D의 강점, 생산, 품질 및 서비스가 모두 업계를 선도합니다.</translation>
     </message>
     <message>
         <source>offical_brief_introduction</source>
@@ -85,6 +86,17 @@
         <location filename="../kernel/BasicKernel/internal/menu_help/aboutuscommand.cpp" line="21"/>
         <source>About Us</source>
         <translation>회사 소개</translation>
+    </message>
+</context>
+<context>
+    <name>ParameterContext</name>
+		<message>
+        <source>Tree</source>
+        <translation>강한 트리</translation>
+    </message>
+    <message>
+        <source>ThomasTree</source>
+        <translation>슬림 트리</translation>
     </message>
 </context>
 <context>
@@ -346,7 +358,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="210"/>
         <source>Fast series</source>
-        <translation>소닉패드</translation>
+        <translation>소닉 패드</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="210"/>
+        <source>Nebula Pad</source>
+        <translation>네뷸라 패드</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="216"/>
@@ -360,6 +377,11 @@
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="87"/>
         <source>Sonic</source>
         <translation>소닉</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="87"/>
+        <source>Nebula</source>
+        <translation>네뷸라</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="95"/>
@@ -496,7 +518,7 @@
     </message>
     <message>
         <source>Retract</source>
-        <translation>리트렉트</translation>
+        <translation>후퇴</translation>
     </message>
     <message>
         <source>Compensate</source>
@@ -597,7 +619,7 @@
     </message>
     <message>
         <source>Within Infill</source>
-        <translation>내부채움</translation>
+        <translation>채우기</translation>
     </message>
     <message>
         <source>Tree</source>
@@ -736,6 +758,10 @@
         <translation>외부에서 내부로</translation>
     </message>
     <message>
+        <source>Flexible Sequence</source>
+        <translation>유연한 시퀀스</translation>
+    </message>
+    <message>
         <source>User Specified</source>
         <translation>사용자지정</translation>
     </message>
@@ -865,7 +891,7 @@
     </message>
     <message>
         <source>Repetier</source>
-        <translation>Repetier</translation>
+        <translation>반복</translation>
     </message>
     <message>
         <source>rectangular</source>
@@ -900,6 +926,29 @@
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicCombobox.qml" line="75"/>
+        <source>Fast</source>
+        <translation>고속</translation>
+    </message>
+</context>
+<context>
+    <name>CXComboBox</name>
+    <message>
+        <source>High Quality</source>
+        <translation>고품질</translation>
+    </message>
+    <message>
+        <source>Quality</source>
+        <translation>품질</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>기본</translation>
+    </message>
+    <message>
+        <source>Best quality</source>
+        <translation>최고품질</translation>
+    </message>
+    <message>
         <source>Fast</source>
         <translation>고속</translation>
     </message>
@@ -1115,6 +1164,11 @@
         <translation>쇼 보기</translation>
     </message>
     <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="182"/>
+        <source>Reset All Model</source>
+        <translation>전체 모델 초기화</translation>
+    </message>
+    <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="189"/>
         <source>Merge Model Locations</source>
         <translation>모델 위치 병합</translation>
@@ -1291,6 +1345,14 @@
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
         <source>OK</source>
         <translation>확인</translation>
+    </message>
+	<message>
+        <source>Calibration warning</source>
+        <translation>보정 경고</translation>
+    </message>
+    <message>
+        <source>The end temperature cannot exceed the start temperature</source>
+        <translation>종료 온도는 시작 온도를 초과할 수 없습니다.</translation>
     </message>
 </context>
 <context>
@@ -2281,7 +2343,7 @@
     <message>
         <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="172"/>
         <source>No device found, try refreshing to get it again.</source>
-        <translation>기기를 찾을수 없습니다. 다시 가져오려면 새로고침해 보세요.</translation>
+        <translation>장치를 찾을수 없습니다. 다시 가져오려면 새로고침해 보세요.</translation>
     </message>
     <message>
         <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="192"/>
@@ -2353,7 +2415,7 @@
     <message>
         <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="70"/>
         <source>No device found, try refreshing to get it again.</source>
-        <translation>기기를 찾을수 없습니다. 다시 가져오려면 새로고침하세요.</translation>
+        <translation>장치를 찾을수 없습니다. 다시 가져오려면 새로고침하세요.</translation>
     </message>
     <message>
         <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="86"/>
@@ -2524,7 +2586,7 @@
     <message>
         <location filename="../plugins/CrealityUITest/DlgTest.qml" line="2066"/>
         <source>The device is offline, please check the device status!!!</source>
-        <translation>기기가 오프라인 상태입니다. 기기 상태를 확인하세요!!!</translation>
+        <translation>장치가 오프라인 상태입니다. 장치 상태를 확인하세요!!!</translation>
     </message>
 </context>
 <context>
@@ -2593,7 +2655,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="391"/>
         <source>Line Width:</source>
-        <translation>선폭:</translation>
+        <translation>선 폭:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="424"/>
@@ -2603,12 +2665,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="460"/>
         <source>Infill Sparse Density:</source>
-        <translation>내부채움 밀도:</translation>
+        <translation>채우기 밀도:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="496"/>
         <source>Adhesion Type:</source>
-        <translation>안착 유형:</translation>
+        <translation>접착 유형:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="527"/>
@@ -2648,7 +2710,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="771"/>
         <source>Infill Speed:</source>
-        <translation>내부채움 속도:</translation>
+        <translation>채우기 속도:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="806"/>
@@ -2663,7 +2725,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="876"/>
         <source>Infill Flow:</source>
-        <translation>내부채움 압출량:</translation>
+        <translation>채우기 압출량:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="911"/>
@@ -3373,7 +3435,7 @@
     </message>
     <message>
         <source>mm),Line Width(</source>
-        <translation>mm),선폭(</translation>
+        <translation>mm),선 폭(</translation>
     </message>
     <message>
         <source>mm),Wall Line Count(</source>
@@ -3381,11 +3443,11 @@
     </message>
     <message>
         <source>mm),Infill Density(</source>
-        <translation>),내부채움 밀도(</translation>
+        <translation>),채우기 밀도(</translation>
     </message>
     <message>
         <source>%),Build Plate Adhesion Type(</source>
-        <translation>%),베드 안착 유형(</translation>
+        <translation>%),베드 접착 유형(</translation>
     </message>
     <message>
         <source>),Printing Temperature(</source>
@@ -3646,7 +3708,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1953"/>
         <source>Device list is empty, you can add devices by scanning or manually.</source>
-        <translation>장치 목록이 비어 있습니다. 스캔하거나 수동으로 장치를 추가할수 있습니다.</translation>
+        <translation>장치 목록이 비어 있습니다. 검색하거나 수동으로 장치를 추가할수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1800"/>
@@ -3805,6 +3867,25 @@
         <source>One-click Printing</source>
         <translation>원클릭 출력</translation>
     </message>
+	 <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="3540"/>
+        <source>Make sure the print platform is empty before starting to print</source>
+        <translation>출력을 시작하기 전에 베드가 비어 있는지 확인하십시오.</translation>
+    </message>
+	 <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="3540"/>
+        <source>Do not prompt for this message again</source>
+        <translation>이 메시지를 다시 표시하지 않음</translation>
+    </message>
+	<message>
+        <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="3540"/>
+        <source>Printer Match</source>
+        <translation>프린터 일치</translation>
+    </message>
+	<message>
+        <source>Copy IP address</source>
+        <translation>IP 주소 복사</translation>
+    </message>
 </context>
 <context>
     <name>LanPrinterPanel</name>
@@ -3824,6 +3905,11 @@
 </context>
 <context>
     <name>LanPrinterDetail</name>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="110"/>
+        <source>Maximum value</source>
+        <translation>최대값</translation>
+    </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="110"/>
         <source>TF Card Printing</source>
@@ -4206,6 +4292,14 @@
         <source>Chamber</source>
         <translation>챔버</translation>
     </message>
+	<message>
+        <source>Object deletion</source>
+        <translation>객체 제외</translation>
+    </message>
+	<message>
+        <source>Whether to continue deleting the selected object</source>
+        <translation>선택한 개체를 계속 제외할지 여부</translation>
+    </message>
 </context>
 <context>
     <name>LanguageCommand</name>
@@ -4477,6 +4571,13 @@
     </message>
 </context>
 <context>
+	<name>PlotterScene</name>
+	 <message>
+        <source>Model out of range, please put &apos;red&apos; model in the printer!</source>
+        <translation>모델 범위를 벗어났습니다. &apos;빨간색&apos; 모델을 프린터에 넣으세요!</translation>
+    </message>
+</context>
+<context>
     <name>LaserRClickMenu</name>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserRClickMenu.qml" line="15"/>
@@ -4505,6 +4606,10 @@
         <location filename="../plugins/plugin_laser/laserscene.cpp" line="1118"/>
         <source>Save Gcode failed!</source>
         <translation>G코드 저장에 실패했습니다!</translation>
+    </message>
+	 <message>
+        <source>Model out of range, please put &apos;red&apos; model in the printer!</source>
+        <translation>모델 범위를 벗어났습니다. &apos;빨간색&apos; 모델을 프린터에 넣으세요!</translation>
     </message>
 </context>
 <context>
@@ -4702,11 +4807,31 @@
         <source>International</source>
         <translation>International</translation>
     </message>
+	<message>
+        <source>Asia-Pascific</source>
+        <translation>아시아-태평양</translation>
+    </message>
+	 <message>
+        <source>Europe</source>
+        <translation>유럽</translation>
+    </message>
+	 <message>
+        <source>North America</source>
+        <translation>북아메리카</translation>
+    </message>
+	 <message>
+        <source>South America</source>
+        <translation>남아메리카</translation>
+    </message>
+	 <message>
+        <source>Others</source>
+        <translation>기타</translation>
+    </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="130"/>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="867"/>
         <source>Get Code</source>
-        <translation>코드 </translation>
+        <translation>코드 받기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="218"/>
@@ -6008,6 +6133,10 @@
         <translation>내보내기</translation>
     </message>
     <message>
+        <source>Save</source>
+        <translation>저장</translation>
+    </message>
+    <message>
         <source>Import</source>
         <translation>가져오기</translation>
     </message>
@@ -6077,7 +6206,7 @@
     </message>
     <message>
         <source>Retract</source>
-        <translation>리트렉트</translation>
+        <translation>후퇴</translation>
     </message>
     <message>
         <source>G-Code</source>
@@ -6089,7 +6218,7 @@
     </message>
     <message>
         <source>Override</source>
-        <translation>무효</translation>
+        <translation>재정의</translation>
     </message>
     <message>
         <source>Enable pressure advance</source>
@@ -6145,7 +6274,7 @@
     </message>
     <message>
         <source>Infill Flow</source>
-        <translation>내부채움 압출량</translation>
+        <translation>채우기 압출량</translation>
     </message>
     <message>
         <source>Skirt/Brim Flow</source>
@@ -6237,27 +6366,27 @@
     </message>
     <message>
         <source>Enable Retraction</source>
-        <translation>리트렉션 활성화</translation>
+        <translation>후퇴 활성화</translation>
     </message>
     <message>
         <source>Retraction Distance</source>
-        <translation>리트렉션 거리</translation>
+        <translation>후퇴 거리</translation>
     </message>
     <message>
         <source>Z Hop When Retracted</source>
-        <translation>리트렉션시 Z 올리기</translation>
+        <translation>후퇴시 Z 올리기</translation>
     </message>
     <message>
         <source>Retraction Speed</source>
-        <translation>리트렉션 속도</translation>
+        <translation>후퇴 속도</translation>
     </message>
     <message>
         <source>Retraction Prime Speed</source>
-        <translation>리트렉션 프라임 속도</translation>
+        <translation>후퇴 프라임 속도</translation>
     </message>
     <message>
         <source>Retraction Extra Prime Amount</source>
-        <translation>리트렉션 추가 프라임값</translation>
+        <translation>후퇴 추가 프라임값</translation>
     </message>
     <message>
         <source>Travel Avoid Distance</source>
@@ -6265,15 +6394,15 @@
     </message>
     <message>
         <source>Retraction at Layer Change</source>
-        <translation>레이어 변경시 리트렉션</translation>
+        <translation>레이어 변경시 후퇴</translation>
     </message>
     <message>
         <source>Retraction Wipe</source>
-        <translation>리트렉션시 닦음</translation>
+        <translation>후퇴시 닦음</translation>
     </message>
     <message>
         <source>Retract at Layer Change</source>
-        <translation>레이어 변경시 리트렉트</translation>
+        <translation>레이어 변경시 후퇴</translation>
     </message>
     <message>
         <source>Enable Cds Cooling Fan</source>
@@ -6297,11 +6426,11 @@
     </message>
     <message>
         <source>Filament end G-code</source>
-        <translation>필라멘트 종료G코드</translation>
+        <translation>필라멘트 종료 G코드</translation>
     </message>
     <message>
         <source>Retraction Retract Speed</source>
-        <translation>리트렉션 리트렉트 속도</translation>
+        <translation>후퇴 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManageMaterialDlg.qml" line="15"/>
@@ -6358,6 +6487,16 @@
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManageMaterialDlg.qml" line="393"/>
         <source>Save</source>
         <translation>저장</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManageMaterialDlg.qml" line="427"/>
+        <source>Reset</source>
+        <translation>리셋</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManageMaterialDlg.qml" line="444"/>
+        <source>Delete</source>
+        <translation>삭제</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManageMaterialDlg.qml" line="488"/>
@@ -6625,6 +6764,16 @@
         <translation>수집 취소</translation>
     </message>
     <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelLibraryInfoDlg.qml" line="1172"/>
+        <source>Collect</source>
+        <translation>수집</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelLibraryInfoDlg.qml" line="1197"/>
+        <source>Share</source>
+        <translation>공유</translation>
+    </message>
+    <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelLibraryInfoDlg.qml" line="1230"/>
         <source>Import Model</source>
         <translation>모델 가져오기</translation>
@@ -6641,7 +6790,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelLibraryInfoDlg.qml" line="1272"/>
         <source>Model List</source>
-        <translation>모델 리시트</translation>
+        <translation>모델 리스트</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelLibraryInfoDlg.qml" line="1315"/>
@@ -6966,7 +7115,7 @@
     <message>
         <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="1380"/>
         <source>The device is offline, please check the device status!!!</source>
-        <translation>기기가 오프라인 상태입니다. 기기 상태를 확인하세요!!!</translation>
+        <translation>장치가 오프라인 상태입니다. 장치 상태를 확인하세요!!!</translation>
     </message>
     <message>
         <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="1648"/>
@@ -7319,7 +7468,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1153"/>
         <source>Device Type:</source>
-        <translation>기기 종류:</translation>
+        <translation>장치 종류:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1185"/>
@@ -7394,7 +7543,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="2157"/>
         <source>The device is offline, please check the device status!!!</source>
-        <translation>기기가 오프라인 상태입니다. 기기 상태를 확인하세요!!!</translation>
+        <translation>장치가 오프라인 상태입니다. 장치 상태를 확인하세요!!!</translation>
     </message>
 </context>
 <context>
@@ -7461,7 +7610,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="974"/>
         <source>Device Type:</source>
-        <translation>기기 종류:</translation>
+        <translation>장치 종류:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="1006"/>
@@ -7536,7 +7685,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="2066"/>
         <source>The device is offline, please check the device status!!!</source>
-        <translation>기기가 오프라인 상태입니다. 기기 상태를 확인하세요!!!</translation>
+        <translation>장치가 오프라인 상태입니다. 장치 상태를 확인하세요!!!</translation>
     </message>
 </context>
 <context>
@@ -7597,7 +7746,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
         <source>mm),Line Width(</source>
-        <translation>mm),선폭(</translation>
+        <translation>mm),선 폭(</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
@@ -7607,12 +7756,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
         <source>mm),Infill Density(</source>
-        <translation>mm),내부채움 밀도(</translation>
+        <translation>mm),채우기 밀도(</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
         <source>%),Build Plate Adhesion Type(</source>
-        <translation>%),베드 안착 유형(</translation>
+        <translation>%),베드 접착 유형(</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
@@ -7736,6 +7885,20 @@
 </source>
         <translation>G0 X%1 Y%2 F6000
 </translation>
+    </message>
+    <message>
+        <location filename="../plugins/plugin_laser/c2dlib.cpp" line="529"/>
+        <location filename="../plugins/plugin_laser/c2dlib.cpp" line="604"/>
+        <location filename="../plugins/plugin_laser/c2dlib.cpp" line="678"/>
+        <location filename="../plugins/plugin_laser/c2dlib.cpp" line="720"/>
+        <location filename="../plugins/plugin_laser/c2dlib.cpp" line="788"/>
+        <location filename="../plugins/plugin_laser/c2dlib.cpp" line="789"/>
+        <location filename="../plugins/plugin_laser/c2dlib.cpp" line="790"/>
+        <location filename="../plugins/plugin_laser/c2dlib.cpp" line="791"/>
+        <location filename="../plugins/plugin_laser/c2dlib.cpp" line="808"/>
+        <source>G1 X%1 Y%2
+</source>
+        <translation>G1 X%1 Y%2</translation>
     </message>
     <message>
         <location filename="../plugins/plugin_laser/c2dlib.cpp" line="568"/>
@@ -7897,7 +8060,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/RepairModelDlg.qml" line="26"/>
         <source>自动修复当前选择的模型？</source>
-        <translation>현재 선택한 모델을 자동으로 복구하시겠습니까?</translation>
+        <translation>현재 선택한 모델을 자동으로 수리하시겠습니까?</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/RepairModelDlg.qml" line="35"/>
@@ -8321,11 +8484,11 @@
     </message>
     <message>
         <source>Infill</source>
-        <translation>내부채움</translation>
+        <translation>채우기</translation>
     </message>
     <message>
         <source>SupportInfill</source>
-        <translation>서포트 내부채움</translation>
+        <translation>서포트 채우기</translation>
     </message>
     <message>
         <source>SupportInterface</source>
@@ -8353,7 +8516,7 @@
     </message>
     <message>
         <source>Retraction</source>
-        <translation>리트렉션</translation>
+        <translation>후퇴</translation>
     </message>
 </context>
 <context>
@@ -8374,7 +8537,7 @@
     <name>LineWidthPanel</name>
     <message>
         <source>Line Width</source>
-        <translation>선폭</translation>
+        <translation>선 폭</translation>
     </message>
 </context>
 <context>
@@ -9392,13 +9555,18 @@
     </message>
     <message>
         <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="250"/>
+        <source>Letter</source>
+        <translation>글자 새기기</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="250"/>
         <source>Cancel Lettering</source>
-        <translation>레터링 취소</translation>
+        <translation>글자 새기기 취소</translation>
     </message>
     <message>
         <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="250"/>
         <source>Start Lettering</source>
-        <translation>레터링 시작</translation>
+        <translation>글자 새기기 시작</translation>
     </message>
     <message>
         <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="273"/>
@@ -9406,16 +9574,21 @@
         <translation>폰트 가져오기</translation>
     </message>
     <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="75"/>
+        <source>Generate Word</source>
+        <translation>택스트 생성</translation>
+    </message>
+    <message>
         <source>Thickness</source>
         <translation>두께</translation>
     </message>
     <message>
         <source>Fill Percentage</source>
-        <translation>내부채움 비율</translation>
+        <translation>채우기 비율</translation>
     </message>
     <message>
         <source>Fill Structure</source>
-        <translation>내부채움 구조</translation>
+        <translation>채우기 구조</translation>
     </message>
     <message>
         <source>None</source>
@@ -9424,6 +9597,80 @@
     <message>
         <source>Grid</source>
         <translation>그리드</translation>
+    </message>
+</context>
+ <context>
+    <name>LetterConfigPanel</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterConfigPanel.qml" line="28"/>
+        <source>Word</source>
+        <translation>택스트</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterConfigPanel.qml" line="61"/>
+        <source>Parameter</source>
+        <translation>매개변수</translation>
+    </message>
+</context>
+<context>
+    <name>LetterFontConfigs</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterFontConfigs.qml" line="28"/>
+        <source>Text</source>
+        <translation>택스트</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterFontConfigs.qml" line="41"/>
+        <source>Please input text</source>
+        <translation>택스트를 입력해주세요</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterFontConfigs.qml" line="53"/>
+        <source>Font Family</source>
+        <translation>폰트 종류</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterFontConfigs.qml" line="88"/>
+        <source>Font Size</source>
+        <translation>폰트 크기</translation>
+    </message>
+</context>
+<context>
+    <name>LetterShapeConfigs</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="30"/>
+        <source>Move</source>
+        <translation>이동</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="126"/>
+        <source>Size</source>
+        <translation>크기</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="224"/>
+        <source>Rotate</source>
+        <translation>회전</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="272"/>
+        <source>Thickness</source>
+        <translation>두께</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="321"/>
+        <source>Letter Mode</source>
+        <translation>텍스트 이동</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="333"/>
+        <source>Inside</source>
+        <translation>내부</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="343"/>
+        <source>Outside</source>
+        <translation>외부</translation>
     </message>
 </context>
 <context>
@@ -9535,7 +9782,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="197"/>
         <source>Line Width:</source>
-        <translation>선폭:</translation>
+        <translation>선 폭:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -9545,7 +9792,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="234"/>
         <source>Infill Sparse Density:</source>
-        <translation>내부채움 희소 밀도:</translation>
+        <translation>드문 채우기 밀도:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="253"/>
@@ -9575,7 +9822,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="361"/>
         <source>Adhesion Type:</source>
-        <translation>안착 유형:</translation>
+        <translation>접착 유형:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="69"/>
@@ -9642,7 +9889,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="483"/>
         <source>Connect Infill Lines:</source>
-        <translation>내부채움 선 연결:</translation>
+        <translation>채우기 선 연결:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="400"/>
@@ -9652,7 +9899,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="442"/>
         <source>Infill Wipe Distance:</source>
-        <translation>내부채움 닦기 거리:</translation>
+        <translation>채우기 닦기 거리:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -9712,12 +9959,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
         <source>Retraction Minimum Travel:</source>
-        <translation>리트렉션 최소 이동:</translation>
+        <translation>후퇴 최소 이동:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
         <source>The minimum distance of travel needed for a retraction to happen at all. This helps to get fewer retractions in a small area.</source>
-        <translation>리트렉션이 발생하는 데 필요한 최소 이동 거리입니다. 이는 작은 영역에서 수축을 줄이는 데 도움이 됩니다.</translation>
+        <translation>후퇴이 발생하는 데 필요한 최소 이동 거리입니다. 이는 작은 영역에서 수축을 줄이는 데 도움이 됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
@@ -9762,7 +10009,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
         <source>Infill Speed:</source>
-        <translation>내부채움 속도:</translation>
+        <translation>채우기 속도:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -9777,7 +10024,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
         <source>Infill Flow:</source>
-        <translation>내부채움 압출량:</translation>
+        <translation>채우기 압출량:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -9797,7 +10044,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
         <source>Flow compensation on infill lines.</source>
-        <translation>내부채움 선의 압출량 보상.</translation>
+        <translation>채우기 선의 압출량 보상.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -9812,7 +10059,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
         <source>The speed at which infill is printed.</source>
-        <translation>내부채움가 출력되는 속도입니다.</translation>
+        <translation>채우기가 출력되는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -9832,12 +10079,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
         <source>If the machine size is a super big,then set retraction min travel Flow</source>
-        <translation>장치 크기가 매우 크면 리트렉션 최소 이동량을 설정하십시오.</translation>
+        <translation>장치 크기가 매우 크면 후퇴 최소 이동량을 설정하십시오.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
         <source>Retraction length flow in advance</source>
-        <translation>사전 이동 리트렉션 길이</translation>
+        <translation>사전 이동 후퇴 길이</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
@@ -9847,12 +10094,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
         <source>Small features will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.</source>
-        <translation>작은 기능은 일반 출력 속도의 이 비율로 출력됩니다. 출력 속도가 느리면 안착력과 정확성이 향상될 수 있습니다.</translation>
+        <translation>작은 기능은 일반 출력 속도의 이 비율로 출력됩니다. 출력 속도가 느리면 접착력과 정확성이 향상될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
         <source>Small features on the first layer will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.</source>
-        <translation>첫번째 레이어의 작은 특징은 일반 출력 속도의 이 비율로 출력됩니다. 출력 속도가 느리면 안착력과 정확성이 향상될 수 있습니다.</translation>
+        <translation>첫번째 레이어의 작은 특징은 일반 출력 속도의 이 비율로 출력됩니다. 출력 속도가 느리면 접착력과 정확성이 향상될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -9872,7 +10119,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
         <source>Adjusts the density of infill of the print.</source>
-        <translation>출력물의 내부채움 밀도를 조정합니다.</translation>
+        <translation>출력물의 채우기 밀도를 조정합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -9892,7 +10139,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
         <source>Different options that help to improve both priming your extrusion and adhesion to the build plate. Brim adds a single layer flat area around the base of your model to prevent warping. Raft adds a thick grid with a roof below the model. Skirt is a line printed around the model, but not connected to the model.</source>
-        <translation>압출 프라이밍과 베드에 대한 안착력을 모두 개선하는 데 도움이 되는 다양한 옵션입니다. 브림은 뒤틀림을 방지하기 위해 모델 베이스 주변에 단일 레이어 평평한 영역을 추가합니다. 라프트는 모델 아래에 지붕이 있는 두꺼운 그리드를 추가합니다. 스커트는 모델 주위에 출력된 선이지만 모델과 연결되지는 않습니다.</translation>
+        <translation>압출 프라이밍과 베드에 대한 접착력을 모두 개선하는 데 도움이 되는 다양한 옵션입니다. 브림은 뒤틀림을 방지하기 위해 모델 베이스 주변에 단일 레이어 평평한 영역을 추가합니다. 라프트는 모델 아래에 지붕이 있는 두꺼운 그리드를 추가합니다. 스커트는 모델 주위에 출력된 선이지만 모델과 연결되지는 않습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -9920,7 +10167,7 @@
     </message>
     <message>
         <source>Minimum Wall Line Width</source>
-        <translation>최소 벽 선폭</translation>
+        <translation>최소 벽 선 폭</translation>
     </message>
     <message>
         <source>Profile</source>
@@ -10344,12 +10591,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Firmware Retraction</source>
-        <translation>펌웨어 리트렉션</translation>
+        <translation>펌웨어 후퇴</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Whether to use firmware retract commands (G10/G11) instead of using the E property in G1 commands to retract the material.</source>
-        <translation>재료를 리트렉션하기 위해 G1 명령에서 E 속성을 사용하는 대신 펌웨어 리트렉션 명령(G10/G11)을 사용할지 여부입니다.</translation>
+        <translation>재료를 후퇴하기 위해 G1 명령에서 E 속성을 사용하는 대신 펌웨어 후퇴 명령(G10/G11)을 사용할지 여부입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10688,12 +10935,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The height of the initial layer in mm. A thicker initial layer makes adhesion of the build plate easier.</source>
-        <translation>초기 레이어의 높이(mm)입니다. 초기 레이어가 두꺼울수록 베드 안착이 더 쉬워집니다.</translation>
+        <translation>초기 레이어의 높이(mm)입니다. 초기 레이어가 두꺼울수록 베드 접착이 더 쉬워집니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Line Width</source>
-        <translation>선폭</translation>
+        <translation>선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10713,7 +10960,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Outer Wall Line Width</source>
-        <translation>외벽 선폭</translation>
+        <translation>외벽 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10723,7 +10970,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Inner Wall(s) Line Width</source>
-        <translation>내벽 선폭</translation>
+        <translation>내벽 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10738,22 +10985,22 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Width of a single top/bottom line.</source>
-        <translation>상/하단 선폭</translation>
+        <translation>상/하단 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Line Width</source>
-        <translation>내부채움 선폭</translation>
+        <translation>채우기 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Width of a single infill line.</source>
-        <translation>단일 내부채움 선의 폭입니다.</translation>
+        <translation>단일 채우기의 선 폭입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Skirt/Brim Line Width</source>
-        <translation>스커트/브림 선폭</translation>
+        <translation>스커트/브림 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10763,7 +11010,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Support Line Width</source>
-        <translation>서포트 선폭</translation>
+        <translation>서포트 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10773,7 +11020,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Support Interface Line Width</source>
-        <translation>서포트 인터페이스 선폭</translation>
+        <translation>서포트 인터페이스 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10793,7 +11040,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Support Floor Line Width</source>
-        <translation>서포트 바닥 선폭</translation>
+        <translation>서포트 바닥 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10803,7 +11050,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Prime Tower Line Width</source>
-        <translation>프라임 타워 선폭</translation>
+        <translation>프라임 타워 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10813,7 +11060,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Initial Layer Line Width</source>
-        <translation>초기 레이어 선폭</translation>
+        <translation>초기 레이어 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10828,7 +11075,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Multiplier of the line width on the first layer. Increasing this could improve bed adhesion.</source>
-        <translation>첫번째 레이어의 선 폭에 대한 배수입니다. 이를 늘리면 침대 안착력이 향상될 수 있습니다.</translation>
+        <translation>첫번째 레이어의 선 폭에 대한 배수입니다. 이를 늘리면 침대 접착력이 향상될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11028,7 +11275,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Connect top/bottom skin paths where they run next to each other. For the concentric pattern enabling this setting greatly reduces the travel time, but since the connections can happen midway over fillinh, this feature can reduce the top surface quality.</source>
-        <translation>서로 옆에 실행되는 상/하단 표면 경로를 연결하십시오. 이 설정을 가능하게 하는 동심원 패턴의 경우 이동 시간이 크게 줄어들지만 내부채움 중간에 연결이 발생할수 있으므로 이 기능은 상단 표면 품질을 저하시킬 수 있습니다.</translation>
+        <translation>서로 옆에 실행되는 상/하단 표면 경로를 연결하십시오. 이 설정을 가능하게 하는 동심원 패턴의 경우 이동 시간이 크게 줄어들지만 채우기 중간에 연결이 발생할수 있으므로 이 기능은 상단 표면 품질을 저하시킬 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11058,7 +11305,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Optimize the order of wall printing to reduce the number of retracements and the distance travelled. Most parts will benefit from enabling this feature, but some may take longer, so compare the estimated printing time with not optimized. The first layer was not optimized when selecting the brim as build plate adhesion type.</source>
-        <translation>벽 출력 순서를 최적화하여 되돌림 횟수와 이동 거리를 줄입니다. 대부분의 부품은 이 기능을 활성화하면 이점을 얻을 수 있지만 일부는 더 오래 걸릴 수 있으므로 예상 프린팅 시간을 최적화되지 않은 것과 비교해 보세요. 베드 안착 유형으로 브림을 선택할 때 첫번째 레이어가 최적화되지 않았습니다.</translation>
+        <translation>벽 출력 순서를 최적화하여 되돌림 횟수와 이동 거리를 줄입니다. 대부분의 부품은 이 기능을 활성화하면 이점을 얻을 수 있지만 일부는 더 오래 걸릴 수 있으므로 예상 프린팅 시간을 최적화되지 않은 것과 비교해 보세요. 베드 접착 유형으로 브림을 선택할 때 첫번째 레이어가 최적화되지 않았습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11143,17 +11390,17 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Prefer Retract</source>
-        <translation>선호 리트렉션</translation>
+        <translation>우선 후퇴</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>If enabled, retraction will be used rather than combing for travel moves that replace walls whose flow is below the minimum flow threshold.</source>
-        <translation>활성화되면 최소 압출량이 임계값보다 낮은 벽의 이동에 빗질하는 대신 리트렉션으로 대체됩니다.</translation>
+        <translation>활성화되면 최소 압출량이 임계값보다 낮은 벽의 이동에 빗질하는 대신 후퇴으로 대체됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Fill Gaps Between Walls</source>
-        <translation>벽 사이의 간격 내부채움</translation>
+        <translation>벽 사이 간격 채우기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11244,6 +11491,36 @@
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Planning the print path.</source>
         <translation>출력 경로를 계획합니다.</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>layer initial deceleration</source>
+        <translation>레이어 시작 위치 감속</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>The start of each layer path is decelerated.</source>
+        <translation>각 레이어 경로의 시작 위치는 출력 속도를 감소시킵니다</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>layer deceleration length</source>
+        <translation>레이어 시작 위치 감속 길이</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>The starting segment of each layer path decelerates the length of the print.</source>
+        <translation>각 레이어 경로의 시작 위치는 출력 길이를 줄입니다.</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>layer deceleration speed</source>
+        <translation>레이어 감속 속도</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>The start of each layer path slows down the printing speed.</source>
+        <translation>각 레이어 경로의 시작으로 인해 출력 속도가 느려집니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11393,7 +11670,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>When there are only a few layers in the model with small vertical gaps, usually there should be a surface layer around the layers in a narrow space. If the vertical gap is very small, enable this setting to not generate a surface layer. This shortens the printing time and slicing time,but technically leaves infill exposed to the air.</source>
-        <translation>모델에 작은 수직 간격이 있는 레이어가 몇 개만 있는 경우 일반적으로 좁은 공간의 레이어 주변에 표면 레이어가 있어야 합니다. 수직 간격이 매우 작은 경우 이 설정을 활성화하면 표면 레이어가 생성되지 않습니다. 이렇게 하면 출력 시간과 슬라이싱 시간이 단축되지만 기술적으로는 충전재가 공기에 노출됩니다.</translation>
+        <translation>모델에 작은 수직 간격이 있는 레이어가 몇 개만 있는 경우 일반적으로 좁은 공간의 레이어 주변에 표면 레이어가 있어야 합니다. 수직 간격이 매우 작은 경우 이 설정을 활성화하면 표면 레이어가 생성되지 않습니다. 이렇게 하면 출력 시간과 슬라이싱 시간이 단축되지만 기술적으로는 채우기가 공기에 노출됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11403,7 +11680,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Replace the outermost part of the top/bottom pattern with multiple concentric lines. Using one or two lines improves roofs that start on infill material.</source>
-        <translation>상/하단 패턴의 가장 바깥쪽 부분을 여러 개의 동심선으로 바꿉니다. 하나 또는 두 개의 선을 사용하면 내부채움 재료에서 시작하는 지붕이 향상됩니다.</translation>
+        <translation>상/하단 패턴의 가장 바깥쪽 부분을 여러 개의 동심선으로 바꿉니다. 하나 또는 두 개의 선을 사용하면 채우기 재료에서 시작하는 지붕이 향상됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11463,7 +11740,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The amount of material, relative to a normal skin line, to extrude during ironing. Keeping the nozzle filled helps filling some of the crevices of the top surface, but too much results in overextrusion and blips on the side of the surface.</source>
-        <translation>다림질하는 동안 정상적인 피부 라인을 기준으로 압출되는 재료의 양입니다. 노즐을 계속 채우면 윗면의 틈새 일부를 채우는 데 도움이 되지만, 너무 많이 채우면 과도한 돌출이 발생하고 표면 측면에 얼룩이 생길 수 있습니다.</translation>
+        <translation>다림질하는 동안 정상적인 스킨 라인을 기준으로 압출되는 재료의 양입니다. 노즐을 계속 채우면 윗면의 틈새 일부를 채우는 데 도움이 되지만, 너무 많이 채우면 과도한 돌출이 발생하고 표면 측면에 얼룩이 생길 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11513,7 +11790,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Adjust the amount of overlap between the walls and (the endpoints of) the skin-centerlines, as a percentage of the line widths of the skin lines and the innermost wall. A slight overlap allows the walls to connect firmly to the skin. Note that, given an equal skin and wall line-width, any percentage over 50% may already cause any skin to go past the wall, because at that point the position of the nozzle of the skin-extruder may already reach past the middle of the wall.</source>
-        <translation>스킨 라인과 가장 안쪽 벽의 선 너비에 대한 백분율로 벽과 스킨 중심선 사이의 겹침 정도를 조정합니다. 약간 겹치면 벽이 피부에 단단히 연결됩니다. 동일한 스킨과 벽 선 폭이 있는 경우 50%를 초과하는 백분율은 이미 스킨이 벽을 지나갈 수 있다는 점에 유의하십시오. 그 지점에서 스킨 익스트루더의 노즐 위치가 이미 벽의 중간을 지나갔을 수 있기 때문입니다. 벽.</translation>
+        <translation>스킨 라인과 가장 안쪽 벽의 선 너비에 대한 백분율로 벽과 스킨 중심선 사이의 겹침 정도를 조정합니다. 약간 겹치면 벽이 스킨에 단단히 연결됩니다. 동일한 스킨과 벽 선 폭이 있는 경우 50%를 초과하는 백분율은 이미 스킨이 벽을 지나갈 수 있다는 점에 유의하십시오. 그 지점에서 스킨 익스트루더의 노즐 위치가 이미 벽의 중간을 지나갔을 수 있기 때문입니다. 벽.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11523,77 +11800,77 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Adjust the amount of overlap between the walls and (the endpoints of) the skin-centerlines. A slight overlap allows the walls to connect firmly to the skin. Note that, given an equal skin and wall line-width, any value over half the width of the wall may already cause any skin to go past the wall, because at that point the position of the nozzle of the skin-extruder may already reach past the middle of the wall.</source>
-        <translation>벽과 스킨 중심선 사이의 겹치는 정도를 조정합니다. 약간 겹치면 벽이 피부에 단단히 연결됩니다. 스킨과 벽 선 폭이 동일할 경우 벽 너비의 절반을 넘는 값을 지정하면 이미 스킨이 벽을 지나갈 수 있습니다. 그 지점에서 스킨 익스트루더의 노즐 위치가 이미 도달했을 수 있기 때문입니다. 벽 중앙을 지나서.</translation>
+        <translation>벽과 스킨 중심선 사이의 겹치는 정도를 조정합니다. 약간 겹치면 벽이 스킨에 단단히 연결됩니다. 스킨과 벽 선 폭이 동일할 경우 벽 너비의 절반을 넘는 값을 지정하면 이미 스킨이 벽을 지나갈 수 있습니다. 그 지점에서 스킨 익스트루더의 노즐 위치가 이미 도달했을 수 있기 때문입니다. 벽 중앙을 지나서.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill</source>
-        <translation>내부채움</translation>
+        <translation>채우기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Extruder</source>
-        <translation>내부채움 익스트루더</translation>
+        <translation>채우기 익스트루더</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The extruder train used for printing infill. This is used in multi-extrusion.</source>
-        <translation>충전재 출력에 사용되는 익스트루더 트레인. 다중 압출에 사용됩니다.</translation>
+        <translation>채우기 출력에 사용되는 익스트루더 트레인. 다중 압출에 사용됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Density</source>
-        <translation>내부채움 밀도</translation>
+        <translation>채우기 밀도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Adjusts the density of infill of the print.</source>
-        <translation>출력물의 내부채움 밀도를 조정합니다.</translation>
+        <translation>출력물의 채우기 밀도를 조정합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Line Distance</source>
-        <translation>내부채움 선 거리</translation>
+        <translation>채우기 선 거리</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Distance between the printed infill lines. This setting is calculated by the infill density and the infill line width.</source>
-        <translation>출력된 내부채움 선 사이의 거리입니다. 이 설정은 내부채움 밀도와 내부채움 선 너비로 계산됩니다.</translation>
+        <translation>출력된 채우기 선 사이의 거리입니다. 이 설정은 채우기 밀도와 채우기 선 너비로 계산됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Pattern</source>
-        <translation>내부채움 패턴</translation>
+        <translation>채우기 패턴</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The pattern of the infill material of the print. The line and zig zag infill swap direction on alternate layers, reducing material cost. The grid, triangle, tri-hexagon, cubic, octet, quarter cubic, cross and concentric patterns are fully printed every layer. Gyroid, cubic, quarter cubic and octet infill change with every layer to provide a more equal distribution of strength over each direction.</source>
-        <translation>출력물의 내부채움 패턴입니다. 라인과 지그재그 내부채움는 대체 레이어에서 방향을 바꿔 재료 비용을 절감합니다. 그리드, 삼각형, 삼육각형, 입방체, 옥텟, 쿼터 큐빅, 십자형 및 동심원 패턴이 모든 레이어에 완전히 출력됩니다. 자이로이드, 입방체, 쿼터 큐빅 및 옥텟 내부채움는 각 레이어마다 변경되어 각 방향에 대해 보다 균등한 강도 분포를 제공합니다.</translation>
+        <translation>출력물의 채우기 패턴입니다. 라인과 지그재그 채우기는 대체 레이어에서 방향을 바꿔 재료 비용을 절감합니다. 그리드, 삼각형, 삼육각형, 입방체, 옥텟, 쿼터 큐빅, 십자형 및 동심원 패턴이 모든 레이어에 완전히 출력됩니다. 자이로이드, 입방체, 쿼터 큐빅 및 옥텟 채우기는 각 레이어마다 변경되어 각 방향에 대해 보다 균등한 강도 분포를 제공합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Connect Infill Lines</source>
-        <translation>내부채움 선 연결</translation>
+        <translation>채우기 선 연결</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Connect the ends where the infill pattern meets the inner wall using a line which follows the shape of the inner wall. Enabling this setting can make the infill adhere to the walls better and reduce the effects of infill on the quality of vertical surfaces. Disabling this setting reduces the amount of material used.</source>
-        <translation>내부 벽의 모양을 따르는 선을 사용하여 내부채움 패턴이 내부 벽과 만나는 끝을 연결합니다. 이 설정을 활성화하면 내부채움가 벽에 더 잘 안착되도록 하고 수직 표면의 품질에 내부채움가 미치는 영향을 줄일 수 있습니다. 이 설정을 비활성화하면 사용되는 재료의 양이 줄어듭니다.</translation>
+        <translation>내부 벽의 모양을 따르는 선을 사용하여 채우기 패턴이 내부 벽과 만나는 끝을 연결합니다. 이 설정을 활성화하면 채우기가 벽에 더 잘 접착되도록 하고 수직 표면의 품질에 채우기가 미치는 영향을 줄일 수 있습니다. 이 설정을 비활성화하면 사용되는 재료의 양이 줄어듭니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Connect Infill Polygons</source>
-        <translation>내부채움 폴리곤 연결</translation>
+        <translation>채우기 폴리곤 연결</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Connect infill paths where they run next to each other. For infill patterns which consist of several closed polygons, enabling this setting greatly reduces the travel time.</source>
-        <translation>서로 옆에 실행되는 내부채움 경로를 연결하십시오. 여러 개의 닫힌 다각형으로 구성된 내부채움 패턴의 경우 이 설정을 활성화하면 이동 시간이 크게 줄어듭니다.</translation>
+        <translation>서로 옆에 실행되는 채우기 경로를 연결하십시오. 여러 개의 닫힌 다각형으로 구성된 채우기 패턴의 경우 이 설정을 활성화하면 이동 시간이 크게 줄어듭니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Line Directions</source>
-        <translation>내부채움 선 방향</translation>
+        <translation>채우기 선 방향</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11603,47 +11880,47 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill X Offset</source>
-        <translation>내부채움 X 옵셋</translation>
+        <translation>채우기 X 옵셋</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The infill pattern is moved this distance along the X axis.</source>
-        <translation>내부채움 패턴은 X축을 따라 이 거리만큼 이동됩니다.</translation>
+        <translation>채우기 패턴은 X축을 따라 이 거리만큼 이동됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Y Offset</source>
-        <translation>내부채움 Y 옵셋</translation>
+        <translation>채우기 Y 옵셋</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The infill pattern is moved this distance along the Y axis.</source>
-        <translation>내부채움 패턴은 Y축을 따라 이 거리만큼 이동됩니다.</translation>
+        <translation>채우기 패턴은 Y축을 따라 이 거리만큼 이동됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Randomize Infill Start</source>
-        <translation>내부채움 시작 무작위화</translation>
+        <translation>채우기 시작 무작위화</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Randomize which infill line is printed first. This prevents one segment becoming the strongest, but it does so at the cost of an additional travel move.</source>
-        <translation>어떤 내부채움 선이 먼저 출력되는지 무작위로 지정합니다. 이렇게 하면 한 세그먼트가 가장 강력해지는 것을 방지할수 있지만 추가 이동이 필요합니다.</translation>
+        <translation>어떤 채우기 선이 먼저 출력되는지 무작위로 지정합니다. 이렇게 하면 한 세그먼트가 가장 강력해지는 것을 방지할수 있지만 추가 이동이 필요합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Line Multiplier</source>
-        <translation>내부채움 선 승수</translation>
+        <translation>채우기 선 승수</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Convert each infill line to this multiple lines. The extra lines do not cross over each other, but avoid each other. This makes the infill stiffer, but increases print time and material usage.</source>
-        <translation>각 내부채움 선을 이 여러 선으로 변환합니다. 여분의 선은 서로 교차하지 않고 서로를 피합니다. 이렇게 하면 충전재가 더 단단해지지만 출력 시간과 재료 사용량이 늘어납니다.</translation>
+        <translation>각 채우기 선을 이 여러 선으로 변환합니다. 여분의 선은 서로 교차하지 않고 서로를 피합니다. 이렇게 하면 채우기가 더 단단해지지만 출력 시간과 재료 사용량이 늘어납니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Extra Infill Wall Count</source>
-        <translation>추가 내부채움 벽 수</translation>
+        <translation>추가 채우기 벽 수</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11658,122 +11935,122 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Overlap Percentage</source>
-        <translation>내부채움 중첩 비율</translation>
+        <translation>채우기 중첩 비율</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The amount of overlap between the infill and the walls as a percentage of the infill line width. A slight overlap allows the walls to connect firmly to the infill.</source>
-        <translation>내부채움 선 너비의 백분율로 표시되는 내부채움와 벽 사이의 겹치는 정도입니다. 약간 겹치면 벽이 내부채움에 단단히 연결될 수 있습니다.</translation>
+        <translation>채우기 선 너비의 백분율로 표시되는 채우기와 벽 사이의 겹치는 정도입니다. 약간 겹치면 벽이 채우기에 단단히 연결될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Overlap</source>
-        <translation>내부채움 겹침</translation>
+        <translation>채우기 겹침</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The amount of overlap between the infill and the walls. A slight overlap allows the walls to connect firmly to the infill.</source>
-        <translation>내부채움과 벽 사이의 겹침 정도입니다. 약간 겹치면 벽이 내부채움에 단단히 연결될 수 있습니다.</translation>
+        <translation>채우기와 벽 사이의 겹침 정도입니다. 약간 겹치면 벽이 채우기에 단단히 연결될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Has Inset</source>
-        <translation>내부채움 삽입</translation>
+        <translation>채우기 삽입</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill And Skin Has Inset</source>
-        <translation>내부채움 및 표면에 삽입물 있음</translation>
+        <translation>채우기 및 표면에 삽입물 있음</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Wipe Distance</source>
-        <translation>내부채움 닦기 거리</translation>
+        <translation>채우기 닦기 거리</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Distance of a travel move inserted after every infill line, to make the infill stick to the walls better. This option is similar to infill overlap, but without extrusion and only on one end of the infill line.</source>
-        <translation>모든 선 뒤에 이동을 삽입하여 내부채움이 벽에 더 잘 붙도록 합니다. 이 옵션은 내부채움 겹침과 유사하지만 돌출이 없고 내부채움 선의 한쪽 끝에만 있습니다.</translation>
+        <translation>모든 선 뒤에 이동을 삽입하여 채우기가 벽에 더 잘 붙도록 합니다. 이 옵션은 채우기 겹침과 유사하지만 돌출이 없고 채우기 선의 한쪽 끝에만 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Layers Combination</source>
-        <translation>내부채움 레이어 조합</translation>
+        <translation>채우기 레이어 조합</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Automatically combine several layers of sparse fill to print together, which can shorten the time. The inner and outer walls still maintain the original layer height printing.</source>
-        <translation>여러 레이어의 희박 내부채움을 자동으로 결합하여 함께 출력하므로 시간이 단축될 수 있습니다. 내/외부 벽은 여전히 원래 레이어 높이 출력를 유지합니다.</translation>
+        <translation>여러 레이어의 드문 채우기를 자동으로 결합하여 함께 출력하므로 시간이 단축될 수 있습니다. 내/외부 벽은 여전히 원래 레이어 높이 출력를 유지합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Layer Thickness</source>
-        <translation>내부채움 레이어 두께</translation>
+        <translation>채우기 레이어 두께</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The thickness per layer of infill material. This value should always be a multiple of the layer height and is otherwise rounded.</source>
-        <translation>내부채움 레이어의 두께입니다. 이 값은 항상 레이어 높이의 배수여야 하며 그렇지 않으면 반올림됩니다.</translation>
+        <translation>채우기 레이어의 두께입니다. 이 값은 항상 레이어 높이의 배수여야 하며 그렇지 않으면 반올림됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Gradual Infill Steps</source>
-        <translation>점진적인 내부채움 단계</translation>
+        <translation>점진적인 채우기 단계</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Number of times to reduce the infill density by half when getting further below top surfaces. Areas which are closer to top surfaces get a higher density, up to the Infill Density.</source>
-        <translation>상단 표면 아래로 더 내려갈 때 내부채움 밀도를 절반으로 줄이는 횟수입니다. 상단 표면에 더 가까운 영역은 내부채움 밀도까지 더 높은 밀도를 얻습니다.</translation>
+        <translation>상단 표면 아래로 더 내려갈 때 채우기 밀도를 절반으로 줄이는 횟수입니다. 상단 표면에 더 가까운 영역은 채우기 밀도까지 더 높은 밀도를 얻습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Gradual Infill Step Height</source>
-        <translation>점진적인 내부채움 단계 높이</translation>
+        <translation>점진적인 채우기 단계 높이</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The height of infill of a given density before switching to half the density.</source>
-        <translation>밀도를 절반으로 전환하기 전 주어진 밀도의 내부채움 높이입니다.</translation>
+        <translation>밀도를 절반으로 전환하기 전 주어진 밀도의 채우기 높이입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Before Walls</source>
-        <translation>벽 전 내부채움</translation>
+        <translation>벽 전 채우기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Print the infill before printing the walls. Printing the walls first may lead to more accurate walls, but overhangs print worse. Printing the infill first leads to sturdier walls, but the infill pattern might sometimes show through the surface.</source>
-        <translation>벽을 출력하기 전에 내부채움를 출력합니다. 벽을 먼저 출력하면 벽이 더 정확해질 수 있지만 돌출부는 출력이 더 나쁩니다. 내부채움를 먼저 출력하면 벽이 더 튼튼해지지만 내부채움 패턴이 표면을 통해 보일 수도 있습니다.</translation>
+        <translation>벽을 출력하기 전에 채우기를 출력합니다. 벽을 먼저 출력하면 벽이 더 정확해질 수 있지만 돌출부는 출력이 더 나쁩니다. 채우기를 먼저 출력하면 벽이 더 튼튼해지지만 채우기 패턴이 표면을 통해 보일 수도 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Minimum Infill Area</source>
-        <translation>최소 내부채움 면적</translation>
+        <translation>최소 채우기 면적</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Don&apos;t generate areas of infill smaller than this (use skin instead).</source>
-        <translation>이보다 작은 내부채움 영역을 생성하지 마십시오(대신 표면을 사용하십시오).</translation>
+        <translation>이보다 작은 채우기 영역을 생성하지 마십시오(대신 표면을 사용하십시오).</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Support</source>
-        <translation>내부채움 서포트</translation>
+        <translation>채우기 서포트</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Print infill structures only where tops of the model should be supported. Enabling this reduces print time and material usage, but leads to ununiform object strength.</source>
-        <translation>모델 상단을 지지해야 하는 경우에만 내부채움 구조를 출력합니다. 이를 활성화하면 프린트 시간과 재료 사용량이 줄어들지만 객체 강도가 균일하지 않게 됩니다.</translation>
+        <translation>모델 상단을 지지해야 하는 경우에만 채우기 구조를 출력합니다. 이를 활성화하면 프린트 시간과 재료 사용량이 줄어들지만 객체 강도가 균일하지 않게 됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Overhang Angle</source>
-        <translation>내부채움 오버행 각도</translation>
+        <translation>채우기 오버행 각도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The minimum angle of internal overhangs for which infill is added. At a value of 0° objects are totally filled with infill, 90° will not provide any infill.</source>
-        <translation>내부채움이 추가되는 내부 돌출부의 최소 각도입니다. 0° 값에서는 객체가 내부채움으로 완전히 채워지고, 90°에서는 내부채움이 제공되지 않습니다.</translation>
+        <translation>채우기가 추가되는 내부 돌출부의 최소 각도입니다. 0° 값에서는 객체가 채우기로 완전히 채워지고, 90°에서는 채우기가 제공되지 않습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11813,7 +12090,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The distance the skins are expanded into the infill. Higher values makes the skin attach better to the infill pattern and makes the walls on neighboring layers adhere better to the skin. Lower values save amount of material used.</source>
-        <translation>표면이 내부채움으로 확장되는 거리입니다. 값이 높을수록 표면이 내부채움 패턴에 더 잘 부착되고 인접한 레이어의 벽이 스킨에 더 잘 부착됩니다. 값이 낮을수록 사용되는 재료의 양이 절약됩니다.</translation>
+        <translation>표면이 채우기로 확장되는 거리입니다. 값이 높을수록 표면이 채우기 패턴에 더 잘 부착되고 인접한 레이어의 벽이 스킨에 더 잘 부착됩니다. 값이 낮을수록 사용되는 재료의 양이 절약됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11823,7 +12100,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The distance the top skins are expanded into the infill. Higher values makes the skin attach better to the infill pattern and makes the walls on the layer above adhere better to the skin. Lower values save amount of material used.</source>
-        <translation>상단 스킨이 내부채움로 확장되는 거리입니다. 값이 높을수록 스킨이 내부채움 패턴에 더 잘 부착되고 위 레이어의 벽이 스킨에 더 잘 부착됩니다. 값이 낮을수록 사용되는 재료의 양이 절약됩니다.</translation>
+        <translation>상단 스킨이 채우기로 확장되는 거리입니다. 값이 높을수록 스킨이 채우기 패턴에 더 잘 부착되고 위 레이어의 벽이 스킨에 더 잘 부착됩니다. 값이 낮을수록 사용되는 재료의 양이 절약됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11833,7 +12110,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The distance the bottom skins are expanded into the infill. Higher values makes the skin attach better to the infill pattern and makes the skin adhere better to the walls on the layer below. Lower values save amount of material used.</source>
-        <translation>바닥 표면이 내부채움으로 확장되는 거리입니다. 값이 높을수록 스킨이 내부채움 패턴에 더 잘 부착되고 아래 레이어의 벽에 스킨이 더 잘 부착됩니다. 값이 낮을수록 사용되는 재료의 양이 절약됩니다.</translation>
+        <translation>바닥 표면이 채우기로 확장되는 거리입니다. 값이 높을수록 스킨이 채우기 패턴에 더 잘 부착되고 아래 레이어의 벽에 스킨이 더 잘 부착됩니다. 값이 낮을수록 사용되는 재료의 양이 절약됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11977,12 +12254,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Adhesion Tendency</source>
-        <translation>안착 경향</translation>
+        <translation>접착 경향</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Surface adhesion tendency.</source>
-        <translation>표면 안착 경향.</translation>
+        <translation>표면 접착 경향.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12057,7 +12334,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Anti-ooze Retraction Speed</source>
-        <translation>누출 방지 리트렉션 속도</translation>
+        <translation>누출 방지 후퇴 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12077,12 +12354,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Break Preparation Retraction Speed</source>
-        <translation>휴식 준비 리트렉션 속도</translation>
+        <translation>휴식 준비 후퇴 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>How fast the filament needs to be retracted just before breaking it off in a retraction.</source>
-        <translation>필라멘트가 리트렉션에서 끊어지기 직전에 리트렉션되어야 하는 속도입니다.</translation>
+        <translation>필라멘트가 후퇴에서 끊어지기 직전에 후퇴되어야 하는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12092,12 +12369,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>How far to retract the filament in order to break it cleanly.</source>
-        <translation>필라멘트를 깔끔하게 끊으려면 얼마나 멀리 리트렉트해야 할까요?</translation>
+        <translation>필라멘트를 깔끔하게 끊으려면 얼마나 멀리 후퇴해야 할까요?</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Break Retraction Speed</source>
-        <translation>브레이크 리트렉션 속도</translation>
+        <translation>브레이크 후퇴 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12177,12 +12454,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Flow</source>
-        <translation>내부채움 압출량</translation>
+        <translation>채우기 압출량</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Flow compensation on infill lines.</source>
-        <translation>내부채움 선 압출량 보상.</translation>
+        <translation>채우기 선 압출량 보상.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12267,27 +12544,27 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Enable Retraction</source>
-        <translation>리트렉션 활성화</translation>
+        <translation>후퇴 활성화</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction Wipe</source>
-        <translation>리트렉션 닦기</translation>
+        <translation>후퇴 닦기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe the nozzle when retraction. </source>
-        <translation>리트렉션시 노즐을 닦으세요.</translation>
+        <translation>후퇴시 노즐을 닦으세요.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe the length of the nozzle when retraction.</source>
-        <translation>리트렉션시 길이만큼 노즐을 닦으세요.</translation>
+        <translation>후퇴시 길이만큼 노즐을 닦으세요.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>before wipe retraction amount percent.</source>
-        <translation>닦기 전 리트렉션양</translation>
+        <translation>닦기 전 후퇴양</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12297,17 +12574,17 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Before Wipe Retraction Amount Percent</source>
-        <translation>닦기 전 리트렉션양</translation>
+        <translation>닦기 전 후퇴양</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction Z Hop Type</source>
-        <translation>리트렉션 Z 올리기 종류</translation>
+        <translation>후퇴 Z 올리기 종류</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Z Hop Type when retraction </source>
-        <translation>리트렉션시 Z 올리기</translation>
+        <translation>후퇴시 Z 올리기</translation>
     </message>
     <message>
         <source>DirectLift</source>
@@ -12329,7 +12606,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction Type</source>
-        <translation>리트렉션 종류</translation>
+        <translation>후퇴 종류</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12354,7 +12631,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retract at Layer Change</source>
-        <translation>레이어가 변경되면 리트렉트</translation>
+        <translation>레이어가 변경되면 후퇴</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12364,47 +12641,47 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction Distance</source>
-        <translation>리트렉션 거리</translation>
+        <translation>후퇴 거리</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The length of material retracted during a retraction move.</source>
-        <translation>리트렉션 이동 중에 리트렉트된 재료의 길이입니다.</translation>
+        <translation>후퇴 이동 중에 후퇴된 재료의 길이입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction Speed</source>
-        <translation>리트렉션 속도</translation>
+        <translation>후퇴 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the filament is retracted and primed during a retraction move.</source>
-        <translation>리트렉션 이동 중에 필라멘트가 리트렉트되고 프라이밍되는 속도입니다.</translation>
+        <translation>후퇴 이동 중에 필라멘트가 후퇴되고 프라이밍되는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction Retract Speed</source>
-        <translation>리트렉션 리트렉트 속도</translation>
+        <translation>후퇴 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the filament is retracted during a retraction move.</source>
-        <translation>리트렉션 이동 중에 필라멘트가 리트렉트되는 속도입니다.</translation>
+        <translation>후퇴 이동 중에 필라멘트가 후퇴되는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction Prime Speed</source>
-        <translation>리트렉션 프라임 속도</translation>
+        <translation>후퇴 프라임 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the filament is primed during a retraction move.</source>
-        <translation>리트렉션 이동 중 필라멘트가 프라이밍되는 속도입니다.</translation>
+        <translation>후퇴 이동 중 필라멘트가 프라이밍되는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction Extra Prime Amount</source>
-        <translation>추가 리트렉션 회수</translation>
+        <translation>추가 후퇴 회수</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12414,22 +12691,22 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction Minimum Travel</source>
-        <translation>리트렉션 최소 이동</translation>
+        <translation>후퇴 최소 이동</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The minimum distance of travel needed for a retraction to happen at all. This helps to get fewer retractions in a small area.</source>
-        <translation>리트렉션이 발생하는 데 필요한 최소 이동 거리입니다. 이는 작은 영역에서 수축을 줄이는 데 도움이 됩니다.</translation>
+        <translation>후퇴이 발생하는 데 필요한 최소 이동 거리입니다. 이는 작은 영역에서 수축을 줄이는 데 도움이 됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Maximum Retraction Count</source>
-        <translation>최대 리트렉션 수</translation>
+        <translation>최대 후퇴 수</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>This setting limits the number of retractions occurring within the minimum extrusion distance window. Further retractions within this window will be ignored. This avoids retracting repeatedly on the same piece of filament, as that can flatten the filament and cause grinding issues.</source>
-        <translation>이 설정은 최소 돌출 거리 창 내에서 발생하는 리트렉션 수를 제한합니다. 이 기간 내의 추가 리트렉션은 무시됩니다. 이렇게 하면 필라멘트가 납작해지고 연삭 문제가 발생할수 있으므로 동일한 필라멘트 조각에서 반복적으로 리트렉션하는 것을 방지할수 있습니다.</translation>
+        <translation>이 설정은 최소 돌출 거리 창 내에서 발생하는 후퇴 수를 제한합니다. 이 기간 내의 추가 후퇴은 무시됩니다. 이렇게 하면 필라멘트가 납작해지고 연삭 문제가 발생할수 있으므로 동일한 필라멘트 조각에서 반복적으로 후퇴하는 것을 방지할수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12439,17 +12716,17 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The window in which the maximum retraction count is enforced. This value should be approximately the same as the retraction distance, so that the number of times a retraction passes the same patch of material can be effectively limited.</source>
-        <translation>최대 리트렉션 횟수가 적용되는 창입니다. 이 값은 리트렉션 거리와 거의 같아야 리트렉션이 동일한 재료 패치를 통과하는 횟수가 효과적으로 제한될 수 있습니다.</translation>
+        <translation>최대 후퇴 횟수가 적용되는 창입니다. 이 값은 후퇴 거리와 거의 같아야 후퇴이 동일한 재료 패치를 통과하는 횟수가 효과적으로 제한될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Limit Support Retractions</source>
-        <translation>서포트 리트렉션 제한</translation>
+        <translation>서포트 후퇴 제한</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Omit retraction when moving from support to support in a straight line. Enabling this setting saves print time, but can lead to excessive stringing within the support structure.</source>
-        <translation>서포트에서 서포트까지 직선으로 이동시 리트렉션를 생략합니다. 이 설정을 활성화하면 출력 시간이 절약되지만 서포트 구조 내에서 과도한 스트링이 발생할수 있습니다.</translation>
+        <translation>서포트에서 서포트까지 직선으로 이동시 후퇴를 생략합니다. 이 설정을 활성화하면 출력 시간이 절약되지만 서포트 구조 내에서 과도한 스트링이 발생할수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12464,32 +12741,32 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Nozzle Switch Retraction Distance</source>
-        <translation>노즐 스위치 리트렉션 거리</translation>
+        <translation>노즐 스위치 후퇴 거리</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The amount of retraction when switching extruders. Set to 0 for no retraction at all. This should generally be the same as the length of the heat zone.</source>
-        <translation>익스트루더를 전환할 때 수축되는 양입니다. 전혀 철회하지 않으려면 0으로 설정합니다. 이는 일반적으로 열 영역의 길이와 동일해야 합니다.</translation>
+        <translation>익스트루더를 전환할 때 수축되는 양입니다. 전혀 후퇴하지 않으려면 0으로 설정합니다. 이는 일반적으로 열 영역의 길이와 동일해야 합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Nozzle Switch Retraction Speed</source>
-        <translation>노즐 스위치 리트렉션 속도</translation>
+        <translation>노즐 스위치 후퇴 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the filament is retracted. A higher retraction speed works better, but a too high retraction speed can lead to filament grinding.</source>
-        <translation>필라멘트가 수축되는 속도입니다. 리트렉트 속도가 높을수록 더 잘 작동하지만, 리트렉트 속도가 너무 높으면 필라멘트 연삭이 발생할수 있습니다.</translation>
+        <translation>필라멘트가 수축되는 속도입니다. 후퇴 속도가 높을수록 더 잘 작동하지만, 후퇴 속도가 너무 높으면 필라멘트 연삭이 발생할수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Nozzle Switch Retract Speed</source>
-        <translation>노즐 전환 리트렉트 속도</translation>
+        <translation>노즐 전환 후퇴 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the filament is retracted during a nozzle switch retract.</source>
-        <translation>노즐 이 전환된 후 필라멘트가 리트렉트하는 속도입니다.</translation>
+        <translation>노즐 이 전환된 후 필라멘트가 후퇴하는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12499,7 +12776,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the filament is pushed back after a nozzle switch retraction.</source>
-        <translation>노즐 이 전환된 후 필라멘트가 리트렉트하는 속도입니다.</translation>
+        <translation>노즐 이 전환된 후 필라멘트가 후퇴하는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12529,12 +12806,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Speed</source>
-        <translation>내부채움 속도</translation>
+        <translation>채우기 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which infill is printed.</source>
-        <translation>내부채움이 출력되는 속도입니다.</translation>
+        <translation>채우기가 출력되는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12564,7 +12841,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which all inner walls are printed. Printing the inner wall faster than the outer wall will reduce printing time. It works well to set this in between the outer wall speed and the infill speed.</source>
-        <translation>모든 내부 벽이 출력되는 속도입니다. 외부 벽보다 내부 벽을 빠르게 출력하면 출력 시간이 단축됩니다. 이를 외부 벽 속도와 내부채움 속도 사이에 설정하는 것이 좋습니다.</translation>
+        <translation>모든 내부 벽이 출력되는 속도입니다. 외부 벽보다 내부 벽을 빠르게 출력하면 출력 시간이 단축됩니다. 이를 외부 벽 속도와 채우기 속도 사이에 설정하는 것이 좋습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12599,12 +12876,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Support Infill Speed</source>
-        <translation>서포트 내부채움 속도</translation>
+        <translation>서포트 채우기 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the infill of support is printed. Printing the infill at lower speeds improves stability.</source>
-        <translation>서포트 내부채움이 출력되는 속도입니다. 낮은 속도로 충전재를 출력하면 안정성이 향상됩니다.</translation>
+        <translation>서포트 채우기가 출력되는 속도입니다. 낮은 속도로 채우기를 출력하면 안정성이 향상됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12634,7 +12911,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the floor of support is printed. Printing it at lower speed can improve adhesion of support on top of your model.</source>
-        <translation>서포트 바닥이 출력되는 속도입니다. 낮은 속도로 출력하면 모델 상단 서포트의 안착력이 향상될 수 있습니다.</translation>
+        <translation>서포트 바닥이 출력되는 속도입니다. 낮은 속도로 출력하면 모델 상단 서포트의 접착력이 향상될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12644,7 +12921,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the prime tower is printed. Printing the prime tower slower can make it more stable when the adhesion between the different filaments is suboptimal.</source>
-        <translation>프라임 타워가 출력되는 속도입니다. 서로 다른 필라멘트 사이의 안착력이 최적이 아닐 때 프라임 타워를 더 느리게 출력하면 더 안정적으로 만들 수 있습니다.</translation>
+        <translation>프라임 타워가 출력되는 속도입니다. 서로 다른 필라멘트 사이의 접착력이 최적이 아닐 때 프라임 타워를 더 느리게 출력하면 더 안정적으로 만들 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12664,7 +12941,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed for the initial layer. A lower value is advised to improve adhesion to the build plate.</source>
-        <translation>초기 레이어의 속도입니다. 베드에 대한 안착력을 향상시키려면 값을 낮추는 것이 좋습니다.</translation>
+        <translation>초기 레이어의 속도입니다. 베드에 대한 접착력을 향상시키려면 값을 낮추는 것이 좋습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12674,7 +12951,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed of printing for the initial layer. A lower value is advised to improve adhesion to the build plate.</source>
-        <translation>초기 레이어의 출력 속도입니다. 베드에 대한 안착력을 향상시키려면 값을 낮추는 것이 좋습니다.</translation>
+        <translation>초기 레이어의 출력 속도입니다. 베드에 대한 접착력을 향상시키려면 값을 낮추는 것이 좋습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12719,7 +12996,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The first few layers are printed slower than the rest of the model, to get better adhesion to the build plate and improve the overall success rate of prints. The speed is gradually increased over these layers.</source>
-        <translation>처음 몇 개의 레이어는 모델의 나머지 부분보다 느리게 프린트되어 베드에 대한 안착력이 향상되고 전반적인 프린트 성공률이 향상됩니다. 이러한 레이어에서는 속도가 점차 증가합니다.</translation>
+        <translation>처음 몇 개의 레이어는 모델의 나머지 부분보다 느리게 프린트되어 베드에 대한 접착력이 향상되고 전반적인 프린트 성공률이 향상됩니다. 이러한 레이어에서는 속도가 점차 증가합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12764,12 +13041,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Acceleration</source>
-        <translation>내부채움 가속도</translation>
+        <translation>채우기 가속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The acceleration with which infill is printed.</source>
-        <translation>내부채움이 출력되는 가속도입니다.</translation>
+        <translation>채우기가 출력되는 가속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12834,12 +13111,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Support Infill Acceleration</source>
-        <translation>서포트 내부채움 가속도</translation>
+        <translation>서포트 채우기 가속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The acceleration with which the infill of support is printed.</source>
-        <translation>서포트 내부채움 출력되는 가속도입니다.</translation>
+        <translation>서포트 채우기 출력되는 가속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12869,7 +13146,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The acceleration with which the floors of support are printed. Printing them at lower acceleration can improve adhesion of support on top of your model.</source>
-        <translation>서포트 바닥이 출력되는 가속도입니다. 낮은 가속도로 출력하면 모델 상단 서포트의 안착력이 향상될 수 있습니다.</translation>
+        <translation>서포트 바닥이 출력되는 가속도입니다. 낮은 가속도로 출력하면 모델 상단 서포트의 접착력이 향상될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12964,12 +13241,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Jerk</source>
-        <translation>내부채움 저크</translation>
+        <translation>채우기 저크</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The maximum instantaneous velocity change with which infill is printed.</source>
-        <translation>내부채움이 출력되는 최대 순간 속도 변화입니다.</translation>
+        <translation>채우기가 출력되는 최대 순간 속도 변화입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13034,12 +13311,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Support Infill Jerk</source>
-        <translation>서포트 내부채움 저크</translation>
+        <translation>서포트 채우기 저크</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The maximum instantaneous velocity change with which the infill of support is printed.</source>
-        <translation>서포트 내부채움이 출력되는 최대 순간 속도 변화입니다.</translation>
+        <translation>서포트 채우기가 출력되는 최대 순간 속도 변화입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13149,37 +13426,37 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Combing keeps the nozzle within already printed areas when traveling. This results in slightly longer travel moves but reduces the need for retractions. If combing is off, the material will retract and the nozzle moves in a straight line to the next point. It is also possible to avoid combing over top/bottom skin areas or to only comb within the infill.</source>
-        <translation>빗질을 하면 이동 시 노즐이 이미 출력된 영역 내에 유지됩니다. 이로 인해 이동이 약간 길어지지만 리트렉트의 필요성은 줄어듭니다. 빗질이 꺼지면 재료가 리트렉트하고 노즐이 직선으로 다음 지점으로 이동합니다. 피부 위/아래 부위를 빗는 것을 피하거나 충전재 내에서만 빗는 것도 가능합니다.</translation>
+        <translation>빗질을 하면 이동 시 노즐이 이미 출력된 영역 내에 유지됩니다. 이로 인해 이동이 약간 길어지지만 후퇴의 필요성은 줄어듭니다. 빗질이 꺼지면 재료가 후퇴하고 노즐이 직선으로 다음 지점으로 이동합니다. 스킨 위/아래 부위를 빗는 것을 피하거나 채우기 내에서만 빗는 것도 가능합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Max Comb Distance With No Retract</source>
-        <translation>리트렉트 없는 최대 빗질 거리</translation>
+        <translation>후퇴 없는 최대 빗질 거리</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>When non-zero, combing travel moves that are longer than this distance will use retraction.</source>
-        <translation>0이 아닌 경우 이 거리보다 긴 빗질 이동은 리트렉션을 사용합니다.</translation>
+        <translation>0이 아닌 경우 이 거리보다 긴 빗질 이동은 후퇴을 사용합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retract Before Outer Wall</source>
-        <translation>외벽 앞에서 리트렉트</translation>
+        <translation>외벽 앞에서 후퇴</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retraction During Traveling</source>
-        <translation>이동하면서 리트렉션</translation>
+        <translation>이동하면서 후퇴</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retract when traveling. </source>
-        <translation>이동하면서 리트렉트</translation>
+        <translation>이동하면서 후퇴</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Always retract when moving to start an outer wall.</source>
-        <translation>외벽을 시작하기 위해 이동시는 항상 리트렉트하세요.</translation>
+        <translation>외벽을 시작하기 위해 이동시는 항상 후퇴하세요.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13234,12 +13511,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Z Hop When Retracted</source>
-        <translation>리트렉션시 Z 올리기</translation>
+        <translation>후퇴시 Z 올리기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Whenever a retraction is done, the build plate is lowered to create clearance between the nozzle and the print. It prevents the nozzle from hitting the print during travel moves, reducing the chance to knock the print from the build plate.</source>
-        <translation>리트렉션이 완료될 때마다 베드가 낮아져 노즐과 출력물 사이에 간격이 생성됩니다. 이는 이동 중에 노즐이 출력물에 닿는 것을 방지하여 베드에서 출력물을 떨어뜨릴 가능성을 줄입니다.</translation>
+        <translation>후퇴이 완료될 때마다 베드가 낮아져 노즐과 출력물 사이에 간격이 생성됩니다. 이는 이동 중에 노즐이 출력물에 닿는 것을 방지하여 베드에서 출력물을 떨어뜨릴 가능성을 줄입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13294,7 +13571,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Enables the print cooling fans while printing. The fans improve print quality on layers with short layer times and bridging / overhangs.</source>
-        <translation>출력하는 동안 출력 냉각 팬을 활성화합니다. 팬은 레이어 시간이 짧고 브리징/돌출부가 있는 레이어의 출력 품질을 향상시킵니다.</translation>
+        <translation>출력하는 동안 출력 냉각 팬을 활성화합니다. 팬은 레이어 시간이 짧고 브릿지/돌출부가 있는 레이어의 출력 품질을 향상시킵니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13339,12 +13616,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Force Cooling for Onerhangs and Bridges</source>
-        <translation>브리지 오버행 및 강제 냉각</translation>
+        <translation>브릿지 오버행 및 강제 냉각</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Automatically optimize fan speed for overhangs/bridges for better cooling.</source>
-        <translation>더 나은 냉각을 위해 오버행/브리지에 대한 팬 속도를 자동으로 최적화합니다.</translation>
+        <translation>더 나은 냉각을 위해 오버행/브릿지에 대한 팬 속도를 자동으로 최적화합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13359,7 +13636,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Fan Speed for overhangs/bridges</source>
-        <translation>오버행/브리지 팬 속도</translation>
+        <translation>오버행/브릿지 팬 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13404,7 +13681,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Speed Slowdown First</source>
-        <translation>내부채움 속도 감속 우선</translation>
+        <translation>채우기 속도 감속 우선</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13484,7 +13761,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the cds cooling fans spin on special zones(bridge,overhand,etc.).</source>
-        <translation>특수 구역(브리지, 오버핸드 등)에서 보조팬이 회전하는 속도입니다.</translation>
+        <translation>특수 구역(브릿지, 오버핸드 등)에서 보조팬이 회전하는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13509,7 +13786,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Regular Cds Fan Speed Up Time</source>
-        <translation>보조 팬 응답 시간</translation>
+        <translation>보조팬 응답 시간</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13524,7 +13801,37 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Whether Chamber Fan Exist in the machine.</source>
-        <translation>장치에 챔버 팬이 있는지 여부.</translation>
+        <translation>장치에 챔버팬이 있는지 여부.</translation>
+    </message>
+	<message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>Cds Fan Exist</source>
+        <translation>보조팬 장착여부</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>Whether Cds Fan Exist in the machine.</source>
+        <translation>장치에 보조팬이 있는지 여부.</translation>
+    </message>
+	<message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>LED Light Exist</source>
+        <translation>LED 라이트 장착여부</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>Whether LED Light Exist in the machine.</source>
+        <translation>장치에 LED 라이트가 있는지 여부.</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>platform Y-axis fix</source>
+        <translation>출력 플랫폼 Y축 고정</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>Whether to fix the printing platform in the Y-axis direction.</source>
+        <translation>출력 플랫폼을 Y축 방향으로 고정할지 여부입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13564,12 +13871,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Support Infill Extruder</source>
-        <translation>서포트 내부채움 익스트루더</translation>
+        <translation>서포트 채우기 익스트루더</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The extruder train to use for printing the infill of the support. This is used in multi-extrusion.</source>
-        <translation>서포트의 충전재를 출력하는데 사용할 익스트루더 트레인입니다. 다중 압출에 사용됩니다.</translation>
+        <translation>서포트의 채우기를 출력하는데 사용할 익스트루더 트레인입니다. 다중 압출에 사용됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13579,7 +13886,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The extruder train to use for printing the first layer of support infill. This is used in multi-extrusion.</source>
-        <translation>서포트 충전재의 첫번째 레이어를 출력하는데 사용할 익스트루더 트레인입니다. 다중 압출에 사용됩니다.</translation>
+        <translation>서포트 채우기의 첫번째 레이어를 출력하는데 사용할 익스트루더 트레인입니다. 다중 압출에 사용됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13659,12 +13966,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The number of walls with which to surround support infill. Adding a wall can make support print more reliably and can support overhangs better, but increases print time and material used.</source>
-        <translation>서포트 내부채움을 둘러싸는 벽의 수입니다. 벽을 추가하면 서포트 구조가 더 안정적으로 이루어지고 돌출부를 더 잘 서포트할수 있지만 출력 시간과 사용되는 재료가 늘어납니다.</translation>
+        <translation>서포트 채우기를 둘러싸는 벽의 수입니다. 벽을 추가하면 서포트 구조가 더 안정적으로 이루어지고 돌출부를 더 잘 서포트할수 있지만 출력 시간과 사용되는 재료가 늘어납니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Connect Support Lines</source>
-        <translation>내부채움 선 연결</translation>
+        <translation>채우기 선 연결</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13714,7 +14021,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Support Infill Line Directions</source>
-        <translation>서포트 내부채움 선 방향</translation>
+        <translation>서포트 채우기 선 방향</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13729,7 +14036,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Generate a brim within the support infill regions of the first layer. This brim is printed underneath the support, not around it. Enabling this setting increases the adhesion of support to the build plate.</source>
-        <translation>첫번째 레이어의 서포트 내부채움 영역 내에 가장자리를 생성합니다. 이 브림은 서포트 주변이 아닌 서포트 아래에 출력되어 있습니다. 이 설정을 활성화하면 베드에 대한 서포트의 안착력이 향상됩니다.</translation>
+        <translation>첫번째 레이어의 서포트 채우기 영역 내에 가장자리를 생성합니다. 이 브림은 서포트 주변이 아닌 서포트 아래에 출력되어 있습니다. 이 설정을 활성화하면 베드에 대한 서포트의 접착력이 향상됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13739,7 +14046,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The width of the brim to print underneath the support. A larger brim enhances adhesion to the build plate, at the cost of some extra material.</source>
-        <translation>서포트 아래에 출력할 브림의 너비입니다. 브림이 클수록 일부 추가 재료를 사용하여 베드에 대한 안착력이 향상됩니다.</translation>
+        <translation>서포트 아래에 출력할 브림의 너비입니다. 브림이 클수록 일부 추가 재료를 사용하여 베드에 대한 접착력이 향상됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13749,7 +14056,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The number of lines used for the support brim. More brim lines enhance adhesion to the build plate, at the cost of some extra material.</source>
-        <translation>서포트 브림에 사용되는 선 수입니다. 브림 라인이 많을수록 추가 재료를 사용하여 베드에 대한 안착력이 향상됩니다.</translation>
+        <translation>서포트 브림에 사용되는 선 수입니다. 브림 라인이 많을수록 추가 재료를 사용하여 베드에 대한 접착력이 향상됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13864,32 +14171,32 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Support Infill Layer Thickness</source>
-        <translation>서포트 내부채움 레이더 두께</translation>
+        <translation>서포트 채우기 레이더 두께</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The thickness per layer of support infill material. This value should always be a multiple of the layer height and is otherwise rounded.</source>
-        <translation>서포트 내부채움의 레이어당 두께입니다. 이 값은 항상 레이어 높이의 배수여야 하며 그렇지 않으면 반올림됩니다.</translation>
+        <translation>서포트 채우기의 레이어당 두께입니다. 이 값은 항상 레이어 높이의 배수여야 하며 그렇지 않으면 반올림됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Gradual Support Infill Steps</source>
-        <translation>점진적 서포트 내부채움 단계</translation>
+        <translation>점진적 서포트 채우기 단계</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Number of times to reduce the support infill density by half when getting further below top surfaces. Areas which are closer to top surfaces get a higher density, up to the Support Infill Density.</source>
-        <translation>상단 표면 아래로 더 내려갈 때 서포트 내부채움 밀도를 절반으로 줄이는 횟수입니다. 상단 표면에 더 가까운 영역은 서포트 내부채움 밀도까지 더 높은 밀도를 얻습니다.</translation>
+        <translation>상단 표면 아래로 더 내려갈 때 서포트 채우기 밀도를 절반으로 줄이는 횟수입니다. 상단 표면에 더 가까운 영역은 서포트 채우기 밀도까지 더 높은 밀도를 얻습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Gradual Support Infill Step Height</source>
-        <translation>점진적 서포트 내부채움 단계 높이</translation>
+        <translation>점진적 서포트 채우기 단계 높이</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The height of support infill of a given density before switching to half the density.</source>
-        <translation>밀도를 절반으로 전환하기 전 주어진 밀도의 서포트 내부채움 높이입니다.</translation>
+        <translation>밀도를 절반으로 전환하기 전 주어진 밀도의 서포트 채우기 높이입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14009,7 +14316,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The density of the floors of the support structure. A higher value results in better adhesion of the support on top of the model.</source>
-        <translation>서포트 구조물의 바닥 밀도. 값이 높을수록 모델 상단 서포트의 안착력이 좋아집니다.</translation>
+        <translation>서포트 구조물의 바닥 밀도. 값이 높을수록 모델 상단 서포트의 접착력이 좋아집니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14204,12 +14511,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Build Plate Adhesion</source>
-        <translation>베드 안착</translation>
+        <translation>베드 접착</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Adhesion</source>
-        <translation>안착</translation>
+        <translation>접착</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14244,12 +14551,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Build Plate Adhesion Type</source>
-        <translation>베드 안착 유형</translation>
+        <translation>베드 접착 유형</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Different options that help to improve both priming your extrusion and adhesion to the build plate. Brim adds a single layer flat area around the base of your model to prevent warping. Raft adds a thick grid with a roof below the model. Skirt is a line printed around the model, but not connected to the model.</source>
-        <translation>압출 프라이밍과 베드에 대한 안착력을 모두 개선하는 데 도움이 되는 다양한 옵션입니다. 브림은 뒤틀림을 방지하기 위해 모델 베이스 주변에 단일 레이어 평평한 영역을 추가합니다. 라프트는 모델 아래에 지붕이 있는 두꺼운 그리드를 추가합니다. 스커트는 모델 주위에 출력된 선이지만 모델과 연결되지는 않습니다.</translation>
+        <translation>압출 프라이밍과 베드에 대한 접착력을 모두 개선하는 데 도움이 되는 다양한 옵션입니다. 브림은 뒤틀림을 방지하기 위해 모델 베이스 주변에 단일 레이어 평평한 영역을 추가합니다. 라프트는 모델 아래에 지붕이 있는 두꺼운 그리드를 추가합니다. 스커트는 모델 주위에 출력된 선이지만 모델과 연결되지는 않습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14269,7 +14576,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Build Plate Adhesion Extruder</source>
-        <translation>베드 안착 익스트루더</translation>
+        <translation>베드 접착 익스트루더</translation>
     </message>
     <message>
         <source>Skirt/Brim Extruder</source>
@@ -14325,7 +14632,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The distance from the model to the outermost brim line. A larger brim enhances adhesion to the build plate, but also reduces the effective print area.</source>
-        <translation>모델에서 가장 바깥쪽 브림 라인까지의 거리입니다. 브림이 클수록 베드에 대한 안착력이 향상되지만 효과적인 출력 영역도 줄어듭니다.</translation>
+        <translation>모델에서 가장 바깥쪽 브림 라인까지의 거리입니다. 브림이 클수록 베드에 대한 접착력이 향상되지만 효과적인 출력 영역도 줄어듭니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14335,7 +14642,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The number of lines used for a brim. More brim lines enhance adhesion to the build plate, but also reduces the effective print area.</source>
-        <translation>브림에 사용되는 줄 수입니다. 브림 라인이 많을수록 베드에 대한 안착력이 향상되지만 효과적인 출력 영역도 줄어듭니다.</translation>
+        <translation>브림에 사용되는 줄 수입니다. 브림 라인이 많을수록 베드에 대한 접착력이 향상되지만 효과적인 출력 영역도 줄어듭니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14355,7 +14662,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Only print the brim on the outside of the model. This reduces the amount of brim you need to remove afterwards, while it doesn&apos;t reduce the bed adhesion unduly.</source>
-        <translation>모델 외부에만 브림을 출력하세요. 이렇게 하면 나중에 제거해야 하는 브림의 양이 줄어들고 베드 안착력이 과도하게 감소하지 않습니다.</translation>
+        <translation>모델 외부에만 브림을 출력하세요. 이렇게 하면 나중에 제거해야 하는 브림의 양이 줄어들고 베드 접착력이 과도하게 감소하지 않습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14365,7 +14672,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>If the raft is enabled, this is the extra raft area around the model which is also given a raft. Increasing this margin will create a stronger raft while using more material and leaving less area for your print.</source>
-        <translation>라프트가 활성화된 경우 이는 래프트가 제공되는 모델 주변의 추가 래프트 영역입니다. 이 여백을 늘리면 더 많은 재료를 사용하고 출력에 더 적은 영역을 남기면서 더 강한 래프트를 만들 수 있습니다.</translation>
+        <translation>라프트가 활성화된 경우 이는 라프트가 제공되는 모델 주변의 추가 라프트 영역입니다. 이 여백을 늘리면 더 많은 재료를 사용하고 출력에 더 적은 영역을 남기면서 더 강한 라프트를 만들 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14380,12 +14687,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Raft Air Gap</source>
-        <translation>라프트 에어 갭</translation>
+        <translation>라프트 에어 간격</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The gap between the final raft layer and the first layer of the model. Only the first layer is raised by this amount to lower the bonding between the raft layer and the model. Makes it easier to peel off the raft.</source>
-        <translation>마지막 라프트 레이어와 모델의 첫번째 레이어 사이의 간격입니다. 라프트 레이어와 모형 사이의 안착력을 낮추기 위해 첫번째 레이어만 이 양만큼 올려집니다. 라프트을 벗기기가 더 쉬워집니다.</translation>
+        <translation>마지막 라프트 레이어와 모델의 첫번째 레이어 사이의 간격입니다. 라프트 레이어와 모형 사이의 접착력을 낮추기 위해 첫번째 레이어만 이 양만큼 올려집니다. 라프트을 벗기기가 더 쉬워집니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14395,7 +14702,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Make the first and second layer of the model overlap in the Z direction to compensate for the filament lost in the airgap. All models above the first model layer will be shifted down by this amount.</source>
-        <translation>에어갭에서 손실된 필라멘트를 보상하기 위해 모델의 첫번째 레이어와 두번째 레이어를 Z 방향으로 겹치도록 만듭니다. 첫번째 모델 레이어 위의 모든 모델은 이 양만큼 아래로 이동됩니다.</translation>
+        <translation>에어 간격에서 손실된 필라멘트를 보상하기 위해 모델의 첫번째 레이어와 두번째 레이어를 Z 방향으로 겹치도록 만듭니다. 첫번째 모델 레이어 위의 모든 모델은 이 양만큼 아래로 이동됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14415,12 +14722,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Layer thickness of the top raft layers.</source>
-        <translation>상단 래프트 레이어의 레이어 두께입니다.</translation>
+        <translation>상단 라프트 레이어의 레이어 두께입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Raft Top Line Width</source>
-        <translation>라프트 상단 선폭</translation>
+        <translation>라프트 상단 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14450,7 +14757,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Raft Middle Line Width</source>
-        <translation>라프트 중간 선폭</translation>
+        <translation>라프트 중간 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14485,7 +14792,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Width of the lines in the base raft layer. These should be thick lines to assist in build plate adhesion.</source>
-        <translation>기본 라프트 레이어의 선 너비입니다. 이는 베드 안착을 돕기 위해 두꺼운 선이어야 합니다.</translation>
+        <translation>기본 라프트 레이어의 선 너비입니다. 이는 베드 접착을 돕기 위해 두꺼운 선이어야 합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14775,7 +15082,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Prime-towers might need the extra adhesion afforded by a brim even if the model doesn&apos;t. Presently can&apos;t be used with the &apos;Raft&apos; adhesion-type.</source>
-        <translation>프라임 타워에는 모델이 그렇지 않더라도 브림이 제공하는 추가 안착력이 필요할수 있습니다. 현재 &apos;라프트&apos; 안착형에는 사용할수 없습니다.</translation>
+        <translation>프라임 타워에는 모델이 그렇지 않더라도 브림이 제공하는 추가 접착력이 필요할수 있습니다. 현재 &apos;라프트&apos; 접착형에는 사용할수 없습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14854,6 +15161,16 @@
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>Keep Open Polygons</source>
+        <translation>열린 다각형 유지</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>Keep open polygons slicing for printers using granular consumables.</source>
+        <translation>세분화된 소모품을 사용하여 프린터용 열린 다각형 슬라이싱을 유지합니다.</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Normally Creality Print tries to stitch up small holes in the mesh and remove parts of a layer with big holes. Enabling this option keeps those parts which cannot be stitched. This option should be used as a last resort option when everything else fails to produce proper g-code.</source>
         <translation>일반적으로 Creality Print는 메쉬에 작은 구멍을 꿰매고 큰 구멍이 있는 레이어 부분을 제거하려고 합니다. 이 옵션을 활성화하면 스티칭할수 없는 부품이 유지됩니다. 이 옵션은 다른 모든 방법이 적절한 G코드를 생성하지 못하는 경우 최후의 수단 옵션으로 사용해야 합니다.</translation>
     </message>
@@ -14920,22 +15237,22 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Mesh</source>
-        <translation>메쉬 내부채움</translation>
+        <translation>메쉬 채우기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Use this mesh to modify the infill of other meshes with which it overlaps. Replaces infill regions of other meshes with regions for this mesh. It&apos;s suggested to only print one Wall and no Top/Bottom Skin for this mesh.</source>
-        <translation>이 메쉬를 사용하여 겹치는 다른 메쉬의 내부채움을 수정합니다. 다른 메쉬의 내부채움 영역을 이 메쉬의 영역으로 바꿉니다. 이 메쉬에는 하나의 벽만 출력하고 상/하단 스킨은 출력하지 않는 것이 좋습니다.</translation>
+        <translation>이 메쉬를 사용하여 겹치는 다른 메쉬의 채우기를 수정합니다. 다른 메쉬의 채우기 영역을 이 메쉬의 영역으로 바꿉니다. 이 메쉬에는 하나의 벽만 출력하고 상/하단 스킨은 출력하지 않는 것이 좋습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Mesh Order</source>
-        <translation>메쉬 내부채움 순서</translation>
+        <translation>메쉬 채우기 순서</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Determines which infill mesh is inside the infill of another infill mesh. An infill mesh with a higher order will modify the infill of infill meshes with lower order and normal meshes.</source>
-        <translation>다른 내부채움 메쉬의 내부채움 내부에 어떤 내부채움 메쉬가 있는지 결정합니다. 차수가 높은 내부채움 메쉬는 차수가 낮은 내부채움 메쉬와 일반 메쉬의 내부채움을 수정합니다.</translation>
+        <translation>다른 채우기 메쉬의 채우기 내부에 어떤 채우기 메쉬가 있는지 결정합니다. 차수가 높은 채우기 메쉬는 차수가 낮은 채우기 메쉬와 일반 메쉬의 채우기를 수정합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15155,7 +15472,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Top Surface Skin Line Width</source>
-        <translation>상단 표면 스킨 선폭</translation>
+        <translation>상단 표면 스킨 선 폭</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15195,12 +15512,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Travel Optimization</source>
-        <translation>내부채움 이동 최적화</translation>
+        <translation>채우기 이동 최적화</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>When enabled, the order in which the infill lines are printed is optimized to reduce the distance travelled. The reduction in travel time achieved largely depends on the model being sliced, infill pattern, density, etc. Note that, for some models that have many small areas of infill, the time to slice the model may be greatly increased.</source>
-        <translation>활성화되면 내부채움 선이 출력되는 순서가 이동 거리를 줄이기 위해 최적화됩니다. 달성되는 이동 시간의 감소는 주로 슬라이스되는 모델, 내부채움 패턴, 밀도 등에 따라 달라집니다. 작은 내부채움 영역이 많은 일부 모델의 경우 모델을 슬라이스하는 시간이 크게 늘어날 수 있습니다.</translation>
+        <translation>활성화되면 채우기 선이 출력되는 순서가 이동 거리를 줄이기 위해 최적화됩니다. 달성되는 이동 시간의 감소는 주로 슬라이스되는 모델, 채우기 패턴, 밀도 등에 따라 달라집니다. 작은 채우기 영역이 많은 일부 모델의 경우 모델을 슬라이스하는 시간이 크게 늘어날 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15270,7 +15587,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Skip some support line connections to make the support structure easier to break away. This setting is applicable to the Zig Zag support infill pattern.</source>
-        <translation>서포트 구조물을 더 쉽게 분리할수 있도록 일부 서포트 선 연결을 건너뜁니다. 이 설정은 지그재그 서포트 내부채움 패턴에 적용 가능합니다.</translation>
+        <translation>서포트 구조물을 더 쉽게 분리할수 있도록 일부 서포트 선 연결을 건너뜁니다. 이 설정은 지그재그 서포트 채우기 패턴에 적용 가능합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15375,7 +15692,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Coasting replaces the last part of an extrusion path with a travel path. The oozed material is used to print the last piece of the extrusion path in order to reduce stringing.</source>
-        <translation>글라이딩은 압출 경로의 마지막 부분을 마른 경로로 대체하며, 브리징을 줄이기 위해 압출 경로의 마지막 부분을 출력하는 데 블리드 재료가 사용됩니다.</translation>
+        <translation>글라이딩은 압출 경로의 마지막 부분을 마른 경로로 대체하며, 브릿지을 줄이기 위해 압출 경로의 마지막 부분을 출력하는 데 블리드 재료가 사용됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15425,7 +15742,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Cross Infill Density Image</source>
-        <translation>십자 내부채움 밀도 이미지</translation>
+        <translation>십자 채우기 밀도 이미지</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15435,7 +15752,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Cross Fill Density Image for Support</source>
-        <translation>십자 내부채움 밀도 이미지</translation>
+        <translation>십자 채우기 밀도 이미지</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15445,37 +15762,37 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Spaghetti Infill</source>
-        <translation>스파게티 내부채움</translation>
+        <translation>스파게티 채우기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Print the infill every so often, so that the filament will curl up chaotically inside the object. This reduces print time, but the behaviour is rather unpredictable.</source>
-        <translation>필라멘트가 객체 내부에서 혼란스럽게 말리도록 내부채움을 자주 출력하십시오. 이렇게 하면 출력 시간이 단축되지만 동작을 예측할수 없습니다.</translation>
+        <translation>필라멘트가 객체 내부에서 혼란스럽게 말리도록 채우기를 자주 출력하십시오. 이렇게 하면 출력 시간이 단축되지만 동작을 예측할수 없습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Spaghetti Infill Stepping</source>
-        <translation>단계별 스파게티 내부채움</translation>
+        <translation>단계별 스파게티 채우기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Whether to print spaghetti infill in steps or extrude all the infill filament at the end of the print.</source>
-        <translation>스파게티 내부채움을 단계별로 출력할지 아니면 출력이 끝날 때 모든 내부채움에 필라멘트를 압출할지 여부입니다.</translation>
+        <translation>스파게티 채우기를 단계별로 출력할지 아니면 출력이 끝날 때 모든 채우기에 필라멘트를 압출할지 여부입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Spaghetti Maximum Infill Angle</source>
-        <translation>스파게티 내부채움 최대 각도</translation>
+        <translation>스파게티 채우기 최대 각도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The maximum angle w.r.t. the Z axis of the inside of the print for areas which are to be filled with spaghetti infill afterwards. Lowering this value causes more angled parts in your model to be filled on each layer.</source>
-        <translation>최대 각도 w.r.t. 나중에 스파게티 충전물로 채워질 영역에 대한 출력물 내부의 Z 축. 이 값을 낮추면 모델의 각진 부분이 각 레이어에 더 많이 채워집니다.</translation>
+        <translation>최대 각도 w.r.t. 나중에 스파게티 채우기로 채워질 영역에 대한 출력물 내부의 Z 축. 이 값을 낮추면 모델의 각진 부분이 각 레이어에 더 많이 채워집니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Spaghetti Infill Maximum Height</source>
-        <translation>스파게티 내부채움 최대 높이</translation>
+        <translation>스파게티 채우기 최대 높이</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15490,7 +15807,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The offset from the walls from where the spaghetti infill will be printed.</source>
-        <translation>스파게티 충전물이 출력될 벽으로부터의 옵셋입니다.</translation>
+        <translation>스파게티 채우기가 출력될 벽으로부터의 옵셋입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15500,12 +15817,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Adjusts the density of the spaghetti infill. Note that the Infill Density only controls the line spacing of the filling pattern, not the amount of extrusion for spaghetti infill.</source>
-        <translation>스파게티 내부채움의 밀도를 조정합니다. 내부채움 밀도는 내부채움 패턴의 줄 간격만 제어하며 스파게티 내부채움 대한 돌출량은 제어하지 않습니다.</translation>
+        <translation>스파게티 채우기의 밀도를 조정합니다. 채우기 밀도는 채우기 패턴의 줄 간격만 제어하며 스파게티 채우기 대한 돌출량은 제어하지 않습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Spaghetti Infill Extra Volume</source>
-        <translation>스파게티 내부채움 추가 볼륨</translation>
+        <translation>스파게티 채우기 추가 볼륨</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15545,7 +15862,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Fuzzy Skin</source>
-        <translation>흐린 스킨</translation>
+        <translation>퍼지 스킨</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15555,7 +15872,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Fuzzy Skin Thickness</source>
-        <translation>흐린 스킨 두께</translation>
+        <translation>퍼지 스킨 두께</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15565,7 +15882,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Fuzzy Skin Density</source>
-        <translation>흐린 스킨 밀도</translation>
+        <translation>퍼지 스킨 밀도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15575,12 +15892,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Fuzzy Skin Point Distance</source>
-        <translation>흐린 스킨 포인트 거리</translation>
+        <translation>퍼지 스킨 포인트 거리</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The average distance between the random points introduced on each line segment. Note that the original points of the polygon are discarded, so a high smoothness results in a reduction of the resolution. This value must be higher than half the Fuzzy Skin Thickness.</source>
-        <translation>각 선분에 도입된 임의의 점 사이의 평균 거리입니다. 다각형의 원래 점은 버려지므로 매끄러움이 높으면 해상도가 감소합니다. 이 값은 흐린 스킨 두께의 절반보다 커야 합니다.</translation>
+        <translation>각 선분에 도입된 임의의 점 사이의 평균 거리입니다. 다각형의 원래 점은 버려지므로 매끄러움이 높으면 해상도가 감소합니다. 이 값은 퍼지 스킨 두께의 절반보다 커야 합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15610,7 +15927,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Print only the outside surface with a sparse webbed structure, printing &apos;in thin air&apos;. This is realized by horizontally printing the contours of the model at given Z intervals which are connected via upward and diagonally downward lines.</source>
-        <translation>희박한 웹 구조로 외부 표면만 출력하여 &apos;허공에&apos; 출력합니다. 이는 위쪽 및 대각선 아래쪽 선을 통해 연결된 주어진 Z 간격으로 모델의 윤곽을 수평으로 출력하여 실현됩니다.</translation>
+        <translation>드문 웹 구조로 외부 표면만 출력하여 &apos;허공에&apos; 출력합니다. 이는 위쪽 및 대각선 아래쪽 선을 통해 연결된 주어진 Z 간격으로 모델의 윤곽을 수평으로 출력하여 실현됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15740,7 +16057,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Delay time between two horizontal segments. Introducing such a delay can cause better adhesion to previous layers at the connection points, while too long delays cause sagging. Only applies to Wire Printing.</source>
-        <translation>두 수평 세그먼트 사이의 지연 시간입니다. 이러한 지연을 도입하면 연결 지점에서 이전 레이어에 대한 안착력이 향상될 수 있지만 지연이 너무 길면 처짐이 발생할수 있습니다. 와이어 출력에만 적용됩니다.</translation>
+        <translation>두 수평 세그먼트 사이의 지연 시간입니다. 이러한 지연을 도입하면 연결 지점에서 이전 레이어에 대한 접착력이 향상될 수 있지만 지연이 너무 길면 처짐이 발생할수 있습니다. 와이어 출력에만 적용됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15800,7 +16117,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retract</source>
-        <translation>리트렉트</translation>
+        <translation>후퇴</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15894,6 +16211,16 @@
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>Overhang wall Angle when using flexible printing sequence</source>
+        <translation>유연한 인쇄 순서를 사용할 때 돌출 벽 각도</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
+        <source>Walls that overhang beyond this Angle will use the printing sequence of inner wall first then outer wall, otherwise use outer wall first then inner wall.</source>
+        <translation>이 각도를 넘어서 돌출된 벽은 내부 벽, 그 다음 외부 벽의 인쇄 순서를 사용하고, 그렇지 않으면 외부 벽을 먼저 사용한 다음 내부 벽을 사용합니다.</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Overhanging Wall Speed</source>
         <translation>오버행 벽 속도</translation>
     </message>
@@ -15930,107 +16257,107 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Enable Bridge Settings</source>
-        <translation>브리지 설정 활성화</translation>
+        <translation>브릿지 설정 활성화</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Detect bridges and modify print speed, flow and fan settings while bridges are printed.</source>
-        <translation>브리지가 출력되는 동안 브리지를 감지하고 출력 속도, 압출량 및 팬 설정을 수정합니다.</translation>
+        <translation>브릿지가 출력되는 동안 브릿지를 감지하고 출력 속도, 압출량 및 팬 설정을 수정합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Minimum Bridge Wall Length</source>
-        <translation>최소 브리지 벽 길이</translation>
+        <translation>최소 브릿지 벽 길이</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Unsupported walls shorter than this will be printed using the normal wall settings. Longer unsupported walls will be printed using the bridge wall settings.</source>
-        <translation>이 길이보다 짧고 서포트가 없는 벽은 일반 벽 설정을 사용하여 프린트되고, 이 길이보다 길고 서포트가 없는 벽은 브리지 벽 설정을 사용하여 프린트됩니다.</translation>
+        <translation>이 길이보다 짧고 서포트가 없는 벽은 일반 벽 설정을 사용하여 프린트되고, 이 길이보다 길고 서포트가 없는 벽은 브릿지 벽 설정을 사용하여 프린트됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Skin Support Threshold</source>
-        <translation>브리지 스킨 서포트 임계값</translation>
+        <translation>브릿지 스킨 서포트 임계값</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>If a skin region is supported for less than this percentage of its area, print it using the bridge settings. Otherwise it is printed using the normal skin settings.</source>
-        <translation>스킨 영역이 해당 영역의 이 비율 미만으로 서포트되는 경우 브리지 설정을 사용하여 출력하십시오. 그렇지 않으면 일반 스킨 설정을 사용하여 출력됩니다.</translation>
+        <translation>스킨 영역이 해당 영역의 이 비율 미만으로 서포트되는 경우 브릿지 설정을 사용하여 출력하십시오. 그렇지 않으면 일반 스킨 설정을 사용하여 출력됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Wall Coasting</source>
-        <translation>브리지 벽 글라이드</translation>
+        <translation>브릿지 벽 글라이드</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>This controls the distance the extruder should coast immediately before a bridge wall begins. Coasting before the bridge starts can reduce the pressure in the nozzle and may produce a flatter bridge.</source>
-        <translation>이는 브리지 벽이 시작되기 직전에 익스트루더가 이동해야 하는 거리를 제어합니다. 브리지가 시작되기 전에 코스팅하면 노즐의 압력이 줄어들고 더 평평한 브리지가 생성될 수 있습니다.</translation>
+        <translation>이는 브릿지 벽이 시작되기 직전에 익스트루더가 이동해야 하는 거리를 제어합니다. 브릿지가 시작되기 전에 코스팅하면 노즐의 압력이 줄어들고 더 평평한 브릿지가 생성될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Wall Speed</source>
-        <translation>브리지 벽 속도</translation>
+        <translation>브릿지 벽 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the bridge walls are printed.</source>
-        <translation>브리지 벽이 출력되는 속도입니다.</translation>
+        <translation>브릿지 벽이 출력되는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Wall Flow</source>
-        <translation>브리지 벽 압출량</translation>
+        <translation>브릿지 벽 압출량</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>When printing bridge walls, the amount of material extruded is multiplied by this value.</source>
-        <translation>브리지 벽을 출력할 때 압출된 재료의 양에 이 값을 곱합니다.</translation>
+        <translation>브릿지 벽을 출력할 때 압출된 재료의 양에 이 값을 곱합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Skin Speed</source>
-        <translation>브리지 스킨 속도</translation>
+        <translation>브릿지 스킨 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which bridge skin regions are printed.</source>
-        <translation>브리지 스킨 영역이 출력되는 속도입니다.</translation>
+        <translation>브릿지 스킨 영역이 출력되는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Skin Flow</source>
-        <translation>브리지 스킨 압출량</translation>
+        <translation>브릿지 스킨 압출량</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>When printing bridge skin regions, the amount of material extruded is multiplied by this value.</source>
-        <translation>브리지 스킨 영역을 프린팅할 때 압출되는 재료의 양에 이 값을 곱합니다.</translation>
+        <translation>브릿지 스킨 영역을 프린팅할 때 압출되는 재료의 양에 이 값을 곱합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Skin Density</source>
-        <translation>브리지 스킨 밀도</translation>
+        <translation>브릿지 스킨 밀도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The density of the bridge skin layer. Values less than 100 will increase the gaps between the skin lines.</source>
-        <translation>브리지 스킨층의 밀도입니다. 100보다 작은 값은 스킨 선 사이의 간격을 증가시킵니다.</translation>
+        <translation>브릿지 스킨층의 밀도입니다. 100보다 작은 값은 스킨 선 사이의 간격을 증가시킵니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Fan Speed</source>
-        <translation>브리지 팬 속도</translation>
+        <translation>브릿지 팬 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Percentage fan speed to use when printing bridge walls and skin.</source>
-        <translation>브리지 벽과 스킨을 프린팅할 때 사용할 팬 속도(%)입니다.</translation>
+        <translation>브릿지 벽과 스킨을 프린팅할 때 사용할 팬 속도(%)입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Has Multiple Layers</source>
-        <translation>브리지에는 여러 레이어가 있습니다</translation>
+        <translation>브릿지에는 여러 레이어가 있습니다</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16040,82 +16367,82 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Second Skin Speed</source>
-        <translation>두번째 브리지 스킨 속도</translation>
+        <translation>두번째 브릿지 스킨 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Print speed to use when printing the second bridge skin layer.</source>
-        <translation>두번째 브리지 스킨 레이어를 출력할 때 사용할 출력 속도입니다.</translation>
+        <translation>두번째 브릿지 스킨 레이어를 출력할 때 사용할 출력 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Second Skin Flow</source>
-        <translation>두번째 브리지 스킨 압출량</translation>
+        <translation>두번째 브릿지 스킨 압출량</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>When printing the second bridge skin layer, the amount of material extruded is multiplied by this value.</source>
-        <translation>두번째 브리지 스킨 레이어를 출력할 때 압출되는 재료의 양에 이 값을 곱합니다.</translation>
+        <translation>두번째 브릿지 스킨 레이어를 출력할 때 압출되는 재료의 양에 이 값을 곱합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Second Skin Density</source>
-        <translation>두번째 브리지 스킨 밀도</translation>
+        <translation>두번째 브릿지 스킨 밀도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The density of the second bridge skin layer. Values less than 100 will increase the gaps between the skin lines.</source>
-        <translation>두번째 브리지 스킨층의 밀도입니다. 100보다 작은 값은 스킨 선 사이의 간격을 증가시킵니다.</translation>
+        <translation>두번째 브릿지 스킨층의 밀도입니다. 100보다 작은 값은 스킨 선 사이의 간격을 증가시킵니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Second Skin Fan Speed</source>
-        <translation>두번째 브리지 스킨 팬 속도</translation>
+        <translation>두번째 브릿지 스킨 팬 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Percentage fan speed to use when printing the second bridge skin layer.</source>
-        <translation>두번째 브리지 스킨 레이어를 출력할 때 사용할 팬 속도(%)입니다.</translation>
+        <translation>두번째 브릿지 스킨 레이어를 출력할 때 사용할 팬 속도(%)입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Third Skin Speed</source>
-        <translation>세번째 브리지 스킨 속도</translation>
+        <translation>세번째 브릿지 스킨 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Print speed to use when printing the third bridge skin layer.</source>
-        <translation>세번째 브리지 스킨 레이어를 출력할 때 사용할 출력 속도입니다.</translation>
+        <translation>세번째 브릿지 스킨 레이어를 출력할 때 사용할 출력 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Third Skin Flow</source>
-        <translation>세번째 브리지 스킨 압출량</translation>
+        <translation>세번째 브릿지 스킨 압출량</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>When printing the third bridge skin layer, the amount of material extruded is multiplied by this value.</source>
-        <translation>세번째 브리지 스킨 레이어를 출력할 때 압출되는 재료의 양에 이 값을 곱합니다.</translation>
+        <translation>세번째 브릿지 스킨 레이어를 출력할 때 압출되는 재료의 양에 이 값을 곱합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Third Skin Density</source>
-        <translation>세번째 브리지 스킨 밀도</translation>
+        <translation>세번째 브릿지 스킨 밀도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The density of the third bridge skin layer. Values less than 100 will increase the gaps between the skin lines.</source>
-        <translation>세번째 브리지 스킨층의 밀도입니다. 100보다 작은 값은 스킨 선 사이의 간격을 증가시킵니다.</translation>
+        <translation>세번째 브릿지 스킨층의 밀도입니다. 100보다 작은 값은 스킨 선 사이의 간격을 증가시킵니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Third Skin Fan Speed</source>
-        <translation>세번째 브리지 스킨 팬 속도</translation>
+        <translation>세번째 브릿지 스킨 팬 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Percentage fan speed to use when printing the third bridge skin layer.</source>
-        <translation>세번째 브리지 스킨 레이어를 출력할 때 사용할 팬 속도(%)입니다.</translation>
+        <translation>세번째 브릿지 스킨 레이어를 출력할 때 사용할 팬 속도(%)입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16135,27 +16462,27 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Retraction Enable</source>
-        <translation>닦기 리트렉션 활성화</translation>
+        <translation>닦기 후퇴 활성화</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Retract the filament when the nozzle is moving over a non-printed area.</source>
-        <translation>노즐이 출력되지 않은 영역 위로 이동시 필라멘트를 리트렉션 합니다.</translation>
+        <translation>노즐이 출력되지 않은 영역 위로 이동시 필라멘트를 후퇴 합니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Retraction Distance</source>
-        <translation>닦기 리트렉션 거리</translation>
+        <translation>닦기 후퇴 거리</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Amount to retract the filament so it does not ooze during the wipe sequence.</source>
-        <translation>닦는 과정 중에 필라멘트가 흘러나오지 않도록 필라멘트가 리트렉트되는 양입니다.</translation>
+        <translation>닦는 과정 중에 필라멘트가 흘러나오지 않도록 필라멘트가 후퇴되는 양입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Retraction Extra Prime Amount</source>
-        <translation>추가 리트렉션값 지우기</translation>
+        <translation>추가 후퇴값 지우기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16165,27 +16492,27 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Retraction Speed</source>
-        <translation>닦기 리트렉션 속도</translation>
+        <translation>닦기 후퇴 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the filament is retracted and primed during a wipe retraction move.</source>
-        <translation>닦기 리트렉트 이동 중에 필라멘트가 리트렉트되고 프라이밍되는 속도입니다.</translation>
+        <translation>닦기 후퇴 이동 중에 필라멘트가 후퇴되고 프라이밍되는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Retraction Retract Speed</source>
-        <translation>리트렉션중 리트렉트 속도 지우기</translation>
+        <translation>후퇴중 후퇴 속도 지우기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the filament is retracted during a wipe retraction move.</source>
-        <translation>닦기 리트렉션 이동 중에 필라멘트가 리트렉트하는 속도입니다.</translation>
+        <translation>닦기 후퇴 이동 중에 필라멘트가 후퇴하는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The speed at which the filament is primed during a wipe retraction move.</source>
-        <translation>닦기 리트렉션 이동 중 필라멘트가 프라임되는 속도입니다.</translation>
+        <translation>닦기 후퇴 이동 중 필라멘트가 프라임되는 속도입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16200,7 +16527,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Z Hop When Retracted</source>
-        <translation>리트렉션 상태에서 닦기 Z 올리기</translation>
+        <translation>후퇴 상태에서 닦기 Z 올리기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16355,7 +16682,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Small features will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.</source>
-        <translation>작은 기능은 일반 출력 속도의 이 비율로 출력됩니다. 출력 속도가 느리면 안착력과 정확성이 향상될 수 있습니다.</translation>
+        <translation>작은 기능은 일반 출력 속도의 이 비율로 출력됩니다. 출력 속도가 느리면 접착력과 정확성이 향상될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16475,12 +16802,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Bridge Sparse Infill Max Density</source>
-        <translation>브리지 스페어 내부채움 최대 밀도</translation>
+        <translation>브릿지 스페어 채우기 최대 밀도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Maximum density of infill considered to be sparse. Skin over sparse infill is considered to be unsupported and therefore may be treated as a bridge skin.</source>
-        <translation>희박한 것으로 간주되는 충전재의 최대 밀도 희박한 충전재 위의 스킨은 지지되지 않는 것으로 간주되므로 브리징 표면으로 간주될 수 있습니다.</translation>
+        <translation>드문 것으로 간주되는 채우기의 최대 밀도.드문 채우기 위의 스킨은 지지되지 않는 것으로 간주되므로 브릿지 표면으로 간주될 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16520,7 +16847,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Small features on the first layer will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.</source>
-        <translation>첫번째 레이어의 작은 부분은 일반 출력 속도의 이 비율로 출력됩니다. 출력 속도가 느리면 안착력과 정확성이 향상됩니다.</translation>
+        <translation>첫번째 레이어의 작은 부분은 일반 출력 속도의 이 비율로 출력됩니다. 출력 속도가 느리면 접착력과 정확성이 향상됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16535,7 +16862,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Wipe Retraction Prime Speed</source>
-        <translation>닦기 리트렉션 프라임 속도</translation>
+        <translation>닦기 후퇴 프라임 속도</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16585,12 +16912,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Infill Step Layers</source>
-        <translation>내부채움 단계별 레이어</translation>
+        <translation>채우기 단계별 레이어</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The step of the infill</source>
-        <translation>단계별로 내부채움</translation>
+        <translation>단계별로 채우기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16600,7 +16927,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The thickness of the extra infill that supports skin edges.</source>
-        <translation>스킨 가장자리를 서포트하는 추가 내부채움의 두께입니다.</translation>
+        <translation>스킨 가장자리를 서포트하는 추가 채우기의 두께입니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16610,7 +16937,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>The number of infill layers that supports skin edges.</source>
-        <translation>스킨 가장자리의 서포트 내부채움 레이어 수</translation>
+        <translation>스킨 가장자리의 서포트 채우기 레이어 수</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16740,7 +17067,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
         <source>Whether to include nozzle wipe G-Code between layers (maximum 1 per layer). Enabling this setting could influence behavior of retract at layer change. Please use Wipe Retraction settings to control retraction at layers where the wipe script will be working.</source>
-        <translation>레이어 전환 후 노즐에 대한 닦기 G코드를 포함할지 여부(레이어당 최대 1개) 이 설정을 활성화하면 레이어 변경 시 리트렉트에 영향을 미칠 수 있습니다. 닦기 스크립트가 작동할 위치를 제어하려면 &quot;닦기 리트렉션&quot; 설정을 사용하십시오. 레이어는 다음과 같습니다.</translation>
+        <translation>레이어 전환 후 노즐에 대한 닦기 G코드를 포함할지 여부(레이어당 최대 1개) 이 설정을 활성화하면 레이어 변경 시 후퇴에 영향을 미칠 수 있습니다. 닦기 스크립트가 작동할 위치를 제어하려면 &quot;닦기 후퇴&quot; 설정을 사용하십시오. 레이어는 다음과 같습니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
@@ -16750,7 +17077,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
         <source>Distance of an upward move which is extruded with half speed.This can cause better adhesion to previous layers, while not heating the material in those layers too much. Only applies to Wire Printing.</source>
-        <translation>절반 속도로 압출되는 위쪽 이동 거리. 이렇게 하면 해당 레이어의 재료를 너무 많이 가열하지 않으면서 이전 레이어에 대한 안착력이 향상될 수 있습니다. 와이어 출력에만 적용됩니다.</translation>
+        <translation>절반 속도로 압출되는 위쪽 이동 거리. 이렇게 하면 해당 레이어의 재료를 너무 많이 가열하지 않으면서 이전 레이어에 대한 접착력이 향상될 수 있습니다. 와이어 출력에만 적용됩니다.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
@@ -16760,7 +17087,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
         <source>Add extra walls around the infill area. Such walls can make top/bottom skin lines sag down less which means you need less top/bottom skin layers for the same quality at the cost of some extra material.This feature can combine with the Connect Infill Polygons to connect all the infill into a single extrusion path without the need for travels or retractions if configured right.</source>
-        <translation>내부채움 영역 주위에 추가 벽을 추가합니다. 이러한 벽은 상/하단 스킨 라인을 덜 처지게 만들 수 있으며, 이는 추가 재료를 사용하여 동일한 품질을 위해 더 적은 상/하단 스킨 레이어가 필요하다는 것을 의미합니다. 이 기능은 내부채움 폴리곤 연결과 결합하여 모든 충전재를 하나의 내부채움으로 연결할수 있습니다. 올바르게 구성된 경우 이동이나 리트렉트가 필요 없는 단일 압출 경로.</translation>
+        <translation>채우기 영역 주위에 추가 벽을 추가합니다. 이러한 벽은 상/하단 스킨 라인을 덜 처지게 만들 수 있으며, 이는 추가 재료를 사용하여 동일한 품질을 위해 더 적은 상/하단 스킨 레이어가 필요하다는 것을 의미합니다. 이 기능은 채우기 폴리곤 연결과 결합하여 모든 채우기를 하나의 채우기로 연결할수 있습니다. 올바르게 구성된 경우 이동이나 후퇴가 필요 없는 단일 압출 경로.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="99"/>
@@ -16770,12 +17097,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="176"/>
         <source>Retraction length flow in advance</source>
-        <translation>사전 리트렉션 길이</translation>
+        <translation>사전 후퇴 길이</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="176"/>
         <source>If the machine size is a super big,then set retraction min travel Flow</source>
-        <translation>장치 크기가 매우 크면 리트렉션 최소 이동을 설정하십시오.</translation>
+        <translation>장치 크기가 매우 크면 후퇴 최소 이동을 설정하십시오.</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
@@ -16800,7 +17127,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
         <source>Turn-off Retraction</source>
-        <translation>리트렉션 끄기</translation>
+        <translation>후퇴 끄기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
@@ -16810,17 +17137,17 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
         <source>Turn-off Retraction Flow</source>
-        <translation>리트렉션 압출량 끄기</translation>
+        <translation>후퇴 압출량 끄기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
         <source>Turn-off Retraction Length</source>
-        <translation>리트렉션 거리 끄기</translation>
+        <translation>후퇴 거리 끄기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
         <source>retraction length for travel flow</source>
-        <translation>압출량 리트렉션 길이</translation>
+        <translation>압출량 후퇴 길이</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
@@ -16905,7 +17232,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
         <source>Narrow Area Concentric Infill</source>
-        <translation>좁은 면적 동심원 내부채움</translation>
+        <translation>좁은 면적 동심원 채우기</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
@@ -16995,12 +17322,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
         <source>Mold Infill Support X Numbers</source>
-        <translation>금형 내부채움 서포트 X 번호</translation>
+        <translation>금형 채우기 서포트 X 번호</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
         <source>Mold Infill Support Y Numbers</source>
-        <translation>금형 내부채움 서포트 Y 번호</translation>
+        <translation>금형 채우기 서포트 Y 번호</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
@@ -17046,11 +17373,11 @@
     </message>
     <message>
         <source>Minimum Even Wall Line Width</source>
-        <translation>최소 짝수 벽 선폭</translation>
+        <translation>최소 짝수 벽 선 폭</translation>
     </message>
     <message>
         <source>Minimum Odd Wall Line Width</source>
-        <translation>최소 홀수 벽 선폭</translation>
+        <translation>최소 홀수 벽 선 폭</translation>
     </message>
     <message>
         <source>For thin structures around once or twice the nozzle size, the line widths need to be altered to adhere to the thickness of the model. This setting controls the minimum line width allowed for the walls. The minimum line widths inherently also determine the maximum line widths, since we transition from N to N+1 walls at some geometry thickness where the N walls are wide and the N+1 walls are narrow. The widest possible wall line is twice the Minimum Wall Line Width.</source>
@@ -17058,11 +17385,11 @@
     </message>
     <message>
         <source>The minimum line width for normal polygonal walls. This setting determines at which model thickness we switch from printing a single thin wall line, to printing two wall lines. A higher Minimum Even Wall Line Width leads to a higher maximum odd wall line width. The maximum even wall line width is calculated as Outer Wall Line Width + 0.5 * Minimum Odd Wall Line Width.</source>
-        <translation>일반 다각형 벽의 최소 선 폭입니다. 이 설정은 단일 얇은 벽 선 출력에서 두 개의 벽 선 출력로 전환하는 모델 두께를 결정합니다. 최소 짝수 벽 선 폭이 높을수록 최대 홀수 벽 선 폭도 높아집니다. 최대 짝수 벽 선 폭은 외벽 선폭 + 0.5 최소 홀수 벽 선 폭로 계산됩니다.</translation>
+        <translation>일반 다각형 벽의 최소 선 폭입니다. 이 설정은 단일 얇은 벽 선 출력에서 두 개의 벽 선 출력로 전환하는 모델 두께를 결정합니다. 최소 짝수 벽 선 폭이 높을수록 최대 홀수 벽 선 폭도 높아집니다. 최대 짝수 벽 선 폭은 외벽 선 폭 + 0.5 최소 홀수 벽 선 폭로 계산됩니다.</translation>
     </message>
     <message>
         <source>The minimum line width for middle line gap filler polyline walls. This setting determines at which model thickness we switch from printing two wall lines, to printing two outer walls and a single central wall in the middle. A higher Minimum Odd Wall Line Width leads to a higher maximum even wall line width. The maximum odd wall line width is calculated as 2 * Minimum Even Wall Line Width.</source>
-        <translation>중간선 간격 내부채움 폴리 벽 선 최소 선 폭입니다. 이 설정은 두 개의 벽 선 출력에서 두 개의 외부 벽과 중앙의 단일 중앙 벽 출력로 전환하는 모델 두께를 결정합니다. 최소 홀수 벽 선 폭이 높을수록 최대 짝수 벽 선 폭도 높아집니다. 최대 홀수 벽 선 폭은 2 최소 짝수 벽 선 폭로 계산됩니다.</translation>
+        <translation>중간선 간격 채우기 폴리 벽 선 최소 선 폭입니다. 이 설정은 두 개의 벽 선 출력에서 두 개의 외부 벽과 중앙의 단일 중앙 벽 출력로 전환하는 모델 두께를 결정합니다. 최소 홀수 벽 선 폭이 높을수록 최대 짝수 벽 선 폭도 높아집니다. 최대 홀수 벽 선 폭은 2 최소 짝수 벽 선 폭로 계산됩니다.</translation>
     </message>
     <message>
         <source>Chooses between the techniques available to generate support. &quot;Normal&quot; support creates a support structure directly below the overhanging parts and drops those areas straight down. &quot;Tree&quot; support creates branches towards the overhanging areas that support the model on the tips of those branches, and allows the branches to crawl around the model to support it from the build plate as much as possible.</source>
@@ -17221,7 +17548,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="391"/>
         <source>Line Width:</source>
-        <translation>선폭:</translation>
+        <translation>선 폭:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="424"/>
@@ -17231,12 +17558,12 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="460"/>
         <source>Infill Sparse Density:</source>
-        <translation>내부채움 희소 밀도:</translation>
+        <translation>드문 채우기 밀도:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="496"/>
         <source>Adhesion Type:</source>
-        <translation>안착 유형:</translation>
+        <translation>접착 유형:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="527"/>
@@ -17276,7 +17603,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="771"/>
         <source>Infill Speed:</source>
-        <translation>내부채움 속도:</translation>
+        <translation>채우기 속도:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="806"/>
@@ -17291,7 +17618,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="876"/>
         <source>Infill Flow:</source>
-        <translation>내부채움 압출량:</translation>
+        <translation>채우기 압출량:</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="911"/>
@@ -17695,11 +18022,11 @@
     </message>
     <message>
         <source>Retract</source>
-        <translation>리트렉트</translation>
+        <translation>후퇴</translation>
     </message>
     <message>
         <source>Line Width</source>
-        <translation>선폭</translation>
+        <translation>선 폭</translation>
     </message>
 </context>
 <context>
@@ -17917,7 +18244,7 @@ OpenGL:
     </message>
     <message>
         <source>Broken material</source>
-        <translation>필라멘트 부족으로 출력이 일시 중지되었습니다. 다시 채워주세요.</translation>
+        <translation>필라멘트가 부족하여 출력이 일시 중지되었습니다. 다시 채워주세요.</translation>
     </message>
 </context>
 </TS>
