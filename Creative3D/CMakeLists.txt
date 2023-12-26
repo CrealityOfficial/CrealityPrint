@@ -27,6 +27,20 @@ if(NOT TS_FILES)
 	../locales/zh_CN.ts
 	../locales/zh_TW.ts
 	../locales/ko.ts
+	../locales/jp.ts
+	../locales/de.ts
+	../locales/es.ts
+	../locales/fr.ts
+	../locales/it.ts
+	../locales/pt.ts
+	../locales/ru.ts
+	../locales/tr.ts
+	../locales/pl.ts
+	../locales/nl.ts
+	../locales/cz.ts
+	../locales/hu.ts
+	../locales/se.ts
+	../locales/ua.ts
 	)
 endif()
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/res/)

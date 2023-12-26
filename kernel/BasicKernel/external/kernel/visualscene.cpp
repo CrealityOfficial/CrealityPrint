@@ -5,6 +5,7 @@
 #include "interface/eventinterface.h"
 #include "interface/spaceinterface.h"
 #include "interface/reuseableinterface.h"
+#include "interface/selectorinterface.h"
 
 #include "qtuser3d/framegraph/colorpicker.h"
 #include "qtuser3d/framegraph/surface.h"
@@ -33,6 +34,7 @@ namespace creative_kernel
 		, m_handlerEnabled(true)
 	{
 		m_rootEntity = new Qt3DCore::QEntity(this);
+		m_customRootEntity = new Qt3DCore::QEntity(this);
 
 		m_surface = new qtuser_3d::Surface(this);
 
@@ -46,11 +48,11 @@ namespace creative_kernel
 
 		m_handler = new VisSceneHandler(this);
 
-		m_rectLine = new qtuser_3d::RectLineEntity();
+		m_rectLine = new qtuser_3d::RectLineEntity(m_rootEntity);
 		m_rectLine->setColor(QVector4D(1.0f, 0.7530f, 0.0f, 1.0f));
 
 		{
-			m_sphereEntity = new qtuser_3d::XEntity();
+			m_sphereEntity = new qtuser_3d::XEntity(m_rootEntity);
 			m_sphereEntity->setGeometry(qtuser_3d::BasicShapeCreateHelper::createBall(QVector3D(0, 0, 0), 1.0, 10));
 			
 			qtuser_3d::XRenderPass *renderPass = new qtuser_3d::ZProjectRenderPass(m_sphereEntity);
@@ -75,6 +77,46 @@ namespace creative_kernel
 	{
 	}
 
+	bool VisualScene::isDefaultScene()
+	{
+		return m_rootEntity->isEnabled();
+	}
+
+	void VisualScene::useDefaultScene()
+	{
+		m_rootEntity->setEnabled(true);
+		m_customRootEntity->setEnabled(false);
+		emit sceneChanged();
+	}
+
+	void VisualScene::useCustomScene()
+	{
+		m_rootEntity->setEnabled(false);
+		m_customRootEntity->setEnabled(true);
+		emit sceneChanged();
+	}
+
+	void VisualScene::showCustom(Qt3DCore::QEntity* entity)
+	{
+		if (!entity)
+			return;
+
+		if (entity->parent() != m_customRootEntity)
+			entity->setParent(m_customRootEntity);
+
+		if (!entity->isEnabled())
+			entity->setEnabled(true);
+	}
+
+	void VisualScene::hideCustom(Qt3DCore::QEntity* entity)
+	{
+		if (entity->parent() != m_customRootEntity)
+			entity->setParent(m_customRootEntity);
+
+		if (entity->isEnabled())
+			entity->setEnabled(false);
+	}
+
 	qtuser_3d::FacePicker* VisualScene::facePicker()
 	{
 		return m_colorPicker;
@@ -82,16 +124,26 @@ namespace creative_kernel
 
 	void VisualScene::initialize()
 	{
+		useDefaultScene();
 		//QColor clearColor = CONFIG_GLOBAL_COLOR(visualscene_surfacecolor, visualscene_group);
 		//m_surface->setClearColor(clearColor);
 	}
 
 	void VisualScene::updateRender(bool updatePick)
 	{
+		qDebug() << "update capture";
 		if (updatePick)
 			m_colorPicker->requestCapture();
 		
 		emit signalUpdate();
+	}
+
+	void VisualScene::updatePick(bool sync)
+	{
+		if (sync)
+			m_colorPicker->requestSyncCapture();
+		else 
+			m_colorPicker->requestCapture();
 	}
 
 	void VisualScene::show(Qt3DCore::QEntity* entity)
@@ -123,12 +175,14 @@ namespace creative_kernel
 		m_handlerEnabled = enable;
 		if (m_handlerEnabled)
 		{
+			addSelectTracer(m_handler);
 			addKeyEventHandler(m_handler);
 			addHoverEventHandler(m_handler);
 			addLeftMouseEventHandler(m_handler);
-		}
+		} 
 		else
 		{
+			removeSelectorTracer(m_handler);
 			removeKeyEventHandler(m_handler);
 			removeHoverEventHandler(m_handler);
 			removeLeftMouseEventHandler(m_handler);
@@ -150,6 +204,7 @@ namespace creative_kernel
 
 		show(spaceEntity());
 
+		addSelectTracer(m_handler);
 		addKeyEventHandler(m_handler);
 		addHoverEventHandler(m_handler);
 		addLeftMouseEventHandler(m_handler);
@@ -173,6 +228,7 @@ namespace creative_kernel
 			m_operateMode->onDettach();
 		}
 
+		removeSelectorTracer(m_handler);
 		removeKeyEventHandler(m_handler);
 		removeHoverEventHandler(m_handler);
 		removeLeftMouseEventHandler(m_handler);

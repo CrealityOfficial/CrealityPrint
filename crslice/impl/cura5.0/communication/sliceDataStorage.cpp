@@ -374,7 +374,7 @@ std::vector<bool> SliceDataStorage::getExtrudersUsed() const
     std::vector<bool> ret;
     ret.resize(application->extruderCount(), false);
 
-    const EPlatformAdhesion adhesion_type = settings.get<EPlatformAdhesion>("adhesion_type");
+    const EPlatformAdhesion adhesion_type = application->get_adhesion_type();
     if (adhesion_type == EPlatformAdhesion::SKIRT || adhesion_type == EPlatformAdhesion::BRIM)
     {
         for (size_t extruder_nr = 0; extruder_nr < application->extruderCount(); extruder_nr++)
@@ -444,7 +444,7 @@ std::vector<bool> SliceDataStorage::getExtrudersUsed(const LayerIndex layer_nr) 
 	std::vector<bool> ret;
 	ret.resize(extruders.size(), false);
 
-    const EPlatformAdhesion adhesion_type = settings.get<EPlatformAdhesion>("adhesion_type");
+    const EPlatformAdhesion adhesion_type = application->get_adhesion_type();
 
     bool include_adhesion = true;
     bool include_helper_parts = true;
@@ -715,7 +715,9 @@ Polygon SliceDataStorage::getMachineBorder(bool adhesion_offset) const
         const ExtruderTrain& other_extruder = application->extruders()[extruder_nr];
         extra_skirt_line_width += other_extruder.settings.get<coord_t>("skirt_brim_line_width") * other_extruder.settings.get<Ratio>("initial_layer_line_width_factor");
     }
-    switch (settings.get<EPlatformAdhesion>("adhesion_type"))
+
+    EPlatformAdhesion adhesion_type = application->get_adhesion_type();
+    switch (adhesion_type)
     {
     case EPlatformAdhesion::BRIM:
         adhesion_size =

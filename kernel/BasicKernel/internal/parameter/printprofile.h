@@ -23,6 +23,9 @@ namespace creative_kernel
 		Q_INVOKABLE QAbstractListModel* profileCategoryModel(const bool& isSingleExtruder);
 		Q_INVOKABLE QAbstractListModel* profileParameterModel(const bool& isSingleExtruder);
 
+		Q_INVOKABLE void setparameterValue(QString key, QString value);
+		Q_INVOKABLE QVariantList parameterList(const QString key);
+
 		Q_INVOKABLE QString profileFileName();
 		bool isDefault();
 		void setPrintMachine(ParameterBase* base) { m_curPrintMachine = base; }

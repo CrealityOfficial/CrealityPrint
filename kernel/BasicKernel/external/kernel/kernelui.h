@@ -35,11 +35,13 @@ namespace qtuser_qml
         PICK_BUTTON      = 6 ,
         SPLIT            = 7 , // other panel
         LAYOUT           = 8 ,
-        SUPPORT          = 9 ,
+        SUPPORT_PAINTING = 9 ,
         MIRROR           = 10, // other panel
         DRILL            = 11, // other panel
         DISTANCE_MEASURE = 12, // other panel
         HALLOW           = 13, // other panel
+        SEAM_PAINTING    = 14, // other panel
+        MODEL_EFFECT     = 15,
     };
 }
 

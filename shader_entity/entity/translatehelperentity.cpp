@@ -147,6 +147,12 @@ namespace qtuser_3d
 		}
 	}
 
+	void TranslateHelperEntity::setZArrowEntityPickable(bool enablePick)
+	{
+		if (m_pZArrowEntity)
+			m_pZArrowEntity->setPickable(enablePick);
+	}
+
 	void TranslateHelperEntity::initAxis(int helperType , IndicatorType shapeType)
 	{
 		Qt3DRender::QGeometry* geometry = nullptr;

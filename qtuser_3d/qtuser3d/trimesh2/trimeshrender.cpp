@@ -117,4 +117,66 @@ namespace qtuser_3d
 		lines.push_back(trimesh::vec3(v0.x, v1.y, 0.0f));
 		lines.push_back(trimesh::vec3(v0.x, v0.y, 0.0f));
 	}
+
+	void box3esLines(const std::vector<trimesh::box3>& boxes, std::vector<trimesh::vec3>& lines)
+	{
+		lines.clear();
+		int size = (int)boxes.size();
+		if (size > 0)
+		{
+			lines.resize(12 * 2 * size);
+			for (int i = 0; i < size; ++i)
+				box3Lines(boxes.at(i), lines.begin() + i * 24);
+		}
+	}
+
+	void box3Lines(const trimesh::box3& box, std::vector<trimesh::vec3>::iterator begin)
+	{
+		trimesh::vec3 v[8];
+		v[0] = box.min;
+		v[6] = box.max;
+
+		v[1] = trimesh::vec3(v[0].x, v[0].y, v[6].z);
+		v[2] = trimesh::vec3(v[6].x, v[0].y, v[6].z);
+		v[3] = trimesh::vec3(v[6].x, v[0].y, v[0].z);
+		v[4] = trimesh::vec3(v[0].x, v[6].y, v[0].z);
+		v[5] = trimesh::vec3(v[0].x, v[6].y, v[6].z);
+		v[7] = trimesh::vec3(v[6].x, v[6].y, v[0].z);
+
+		auto add = [&box, &begin, &v](int i0, int i1) {
+			*begin++ = v[i0];
+			*begin++ = v[i1];
+		};
+
+		int idx = 0;
+		add(idx, idx + 1);
+		// edge 2
+		add(idx + 1, idx + 2);
+		// edge 3
+		add(idx + 2, idx + 3);
+		// edge 4
+		add(idx + 3, idx);
+		// edge 5
+		add(idx + 4, idx + 5);
+		// edge 6
+		add(idx + 5, idx + 6);
+		// edge 7
+		add(idx + 6, idx + 7);
+		// edge 8
+		add(idx + 7, idx + 4);
+		// edge 9
+		add(idx, idx + 4);
+		// edge 10
+		add(idx + 1, idx + 5);
+		// edge 11
+		add(idx + 2, idx + 6);
+		// edge 12
+		add(idx + 3, idx + 7);
+	}
+
+	void box3Lines(const trimesh::box3& box, std::vector<trimesh::vec3>& lines)
+	{
+		lines.resize(12 * 2);
+		box3Lines(box, lines.begin());
+	}
 }

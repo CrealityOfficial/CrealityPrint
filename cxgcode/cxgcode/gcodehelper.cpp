@@ -6,7 +6,7 @@
 #include <QtCore/QFileInfo>
 #include <QtGui/QPainter>
 
-#include "gcode/thumbnail.h"
+#include "crslice/gcode/thumbnail.h"
 #include <fstream>
 
 namespace cxsw

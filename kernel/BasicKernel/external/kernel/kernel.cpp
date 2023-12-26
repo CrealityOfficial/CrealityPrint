@@ -124,6 +124,7 @@ namespace creative_kernel
 
 		m_cameraController = new qtuser_3d::CameraController(this);
 		m_cameraController->setEnableZoomAroundCursor(true);
+		m_cameraController->setNeedAroundRotate(true);
 
 		m_kernelUI = new KernelUI(this);
 		m_visualScene = new VisualScene();
@@ -231,6 +232,7 @@ namespace creative_kernel
 		m_cameraController->home(baseBox, 1);
 
 		m_visualScene->initialize();
+		connect(m_visualScene, &VisualScene::sceneChanged, this, &Kernel::visSceneChanged);
 
 		m_addPrinterModel->initialize();
 		registerRenderGraph(m_visualScene);
@@ -348,6 +350,11 @@ namespace creative_kernel
 			}
 		}
 		return index;
+	}
+
+	bool Kernel::isDefaultVisScene()
+	{
+		return m_visualScene->isDefaultScene();
 	}
 
 	ReuseableCache* Kernel::reuseableCache()

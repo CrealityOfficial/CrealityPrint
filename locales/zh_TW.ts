@@ -4,78 +4,78 @@
 <context>
     <name>global_const</name>
     <message>
-        <source>aboutusdialog_webside</source>
+        <source>Website</source>
         <translation>網址</translation>
     </message>
     <message>
-        <source>aboutusdialog_email</source>
+        <source>E-mail</source>
         <translation>郵箱</translation>
     </message>
     <message>
-        <source>aboutusdialog_telephone</source>
+        <source>Telephone</source>
         <translation>電話</translation>
     </message>
     <message>
-        <source>sofrware_copyright</source>
+        <source>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved</source>
         <translation>©2014 深圳市創想三維科技股份有限公司版權所有。保留所有權利。</translation>
     </message>
     <message>
-        <source>offical_introduction</source>
+        <source>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China&apos;s 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</source>
         <translation>深圳市創想三維科技股份有限公司成立於2014年，是中國率先進入3D打印行業的研發製造商，致力於建設全方面的3D打印解決方案，業務領域以3D打印機的研發、製造、銷售為主，延伸到3D打印配件、3D打印耗材、3D教育課程體系、3D打印服務等。目前已成為中國3D打印行業銷量領先的高新技術企業，研發實力、生產及品質保證、服務保障等多方面均處於業界領先水平。</translation>
     </message>
     <message>
-        <source>offical_brief_introduction</source>
+        <source>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</source>
         <translation>深圳市創想三維科技股份有限公司是全球消費級3D打印行業領導品牌，專注於3D打印機的研發和生產。</translation>
     </message>
     <message>
-        <source>offical_webside</source>
+        <source>https://www.creality.com/</source>
         <translation>https://www.creality.cn/</translation>
     </message>
     <message>
-        <source>offical_email</source>
+        <source>crealityprint@creality.com</source>
         <translation>crealityprint@creality.com</translation>
     </message>
     <message>
-        <source>offical_telephone</source>
+        <source>+86 755-8523 4565</source>
         <translation>+86 755-8523 4565</translation>
     </message>
 </context>
 <context>
     <name>global_const_Piocreat</name>
     <message>
-        <source>aboutusdialog_webside</source>
+        <source>Website</source>
         <translation>網址</translation>
     </message>
     <message>
-        <source>aboutusdialog_email</source>
+        <source>E-mail</source>
         <translation>郵箱</translation>
     </message>
     <message>
-        <source>aboutusdialog_telephone</source>
+        <source>Telephone</source>
         <translation>電話</translation>
     </message>
     <message>
-        <source>sofrware_copyright</source>
+        <source>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved.</source>
         <translation>©2021 深圳市創想三帝科技股份有限公司版權所有。保留所有權利。</translation>
     </message>
     <message>
-        <source>offical_introduction</source>
+        <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China</source>
         <translation>深圳創想三帝科技是全球工業級3D打印機和材料領域的領軍企業,致力於展示中國製造的卓越實力。</translation>
     </message>
     <message>
-        <source>offical_brief_introduction</source>
+        <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China.</source>
         <translation>深圳創想三帝科技是全球工業級3D打印機和材料領域的領軍企業,致力於展示中國製造的卓越實力。</translation>
     </message>
     <message>
-        <source>offical_webside</source>
+        <source>https://www.szcx3d.com/</source>
         <translation>https://www.szcx3d.com/</translation>
     </message>
     <message>
-        <source>offical_email</source>
+        <source>after@piocreat3d.com</source>
         <translation>after@piocreat3d.com</translation>
     </message>
     <message>
-        <source>offical_telephone</source>
+        <source>+86 755-2103 9743</source>
         <translation>+86 755-2103 9743</translation>
     </message>
 </context>
@@ -111,6 +111,7 @@
         <source>About Us</source>
         <translation>關於我們</translation>
     </message>
+	
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AboutUsDlg.qml" line="177"/>
         <source>Portions Copyright</source>
@@ -233,13 +234,21 @@
         <source>Within Infill</source>
         <translation type="unfinished">在填充物內</translation>
     </message>
-	<message>
-        <source>Tree</source>
-        <translation type="unfinished">粗壯樹</translation>
+    <message>
+        <source>Normal Auto</source>
+        <translation type="unfinished">正常 自動</translation>
     </message>
     <message>
-        <source>ThomasTree</source>
-        <translation type="unfinished">苗條樹</translation>
+        <source>ThomasTree Auto</source>
+        <translation type="unfinished">苗條樹 自動</translation>
+    </message>
+    <message>
+        <source>Normal manual</source>
+        <translation type="unfinished">正常 手動</translation>
+    </message>
+    <message>
+        <source>ThomasTree manual</source>
+        <translation type="unfinished">苗條樹 手動</translation>
     </message>
 	<message>
         <source>Support Everywhere</source>
@@ -6180,6 +6189,33 @@
     </message>
 </context>
 <context>
+ <name>TestModel</name>
+	<message>
+        <source>Block20XY</source>
+        <translation>方塊20XY</translation>
+    </message>
+	<message>
+        <source>Boat</source>
+        <translation>船綜合測試</translation>
+    </message>
+	<message>
+        <source>Complex</source>
+        <translation>綜合性能模型</translation>
+    </message>
+	<message>
+        <source>Overhang</source>
+        <translation>懸垂測試模型</translation>
+    </message>
+	<message>
+        <source>Square columns Z axis</source>
+        <translation>Z軸測試模型（方柱）</translation>
+    </message>
+	<message>
+        <source>Square prism Z axis</source>
+        <translation>Z軸測試模型（四角錐）</translation>
+    </message>
+</context>
+<context>
     <name>ManageMaterialDlg</name>
 		<message>
         <source>Do you want to delete the selected filament?</source>
@@ -9513,6 +9549,324 @@
     </message>
 </context>
 <context>
+    <name>SupportPaintingPlugin</name>
+    <message>
+        <location filename="../plugins/plugin_support_painting/supportpaintingplugin.cpp" line="13"/>
+        <source>Support Painting</source>
+        <translation>塗抹支撐</translation>
+    </message>
+</context>
+<context>
+    <name>SeamPaintingPlugin</name>
+    <message>
+        <location filename="../plugins/plugin_seam_painting/seampaintingplugin.cpp" line="13"/>
+        <source>Seam Painting</source>
+        <translation>Z縫繪製</translation>
+    </message>
+</context>
+<context>
+    <name>ColorPanel</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="13"/>
+        <source>Color</source>
+        <translation>塗色</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="46"/>
+        <source>Pen Size</source>
+        <translation>畫筆大小</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="55"/>
+        <source>Section</source>
+        <translation>剖面視圖</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="92"/>
+        <source>Reset Direction</source>
+        <translation>重置方向</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="49"/>
+        <source>Left Button</source>
+        <translation>鼠標左鍵</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="50"/>
+        <source>paint</source>
+        <translation>繪製</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="51"/>
+        <source>Shift+Left Button</source>
+        <translation>Shift+鼠標左鍵</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="52"/>
+        <source>erase</source>
+        <translation>擦除</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="53"/>
+        <source>Ctrl+Wheel</source>
+        <translation>Ctrl+鼠標滾輪</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="54"/>
+        <source>pen size</source>
+        <translation>畫筆尺寸</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="55"/>
+        <source>Alt+Wheel</source>
+        <translation>Shift+鼠標滾輪</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="56"/>
+        <source>section view</source>
+        <translation>剖面視圖</translation>
+    </message>
+</context>
+<context>
+    <name>SeamPaintingPanel</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="13"/>
+        <source>Seam Painting</source>
+        <translation>Z縫繪製</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="46"/>
+        <source>Pen Size</source>
+        <translation>畫筆大小</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="55"/>
+        <source>Section</source>
+        <translation>剖面視圖</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="92"/>
+        <source>Reset Direction</source>
+        <translation>重置方向</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="49"/>
+        <source>Left mouse button</source>
+        <translation>鼠標左鍵</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="50"/>
+        <source>Enforce seam</source>
+        <translation>添加Z縫</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="49"/>
+        <source>Right mouse button</source>
+        <translation>鼠標右鍵</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="50"/>
+        <source>Block seam</source>
+        <translation>屏蔽Z縫</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="51"/>
+        <source>Shift + Left mouse button</source>
+        <translation>Shift+鼠標左鍵</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="52"/>
+        <source>Erase</source>
+        <translation>擦除</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="53"/>
+        <source>Ctrl + Wheel</source>
+        <translation>Ctrl+鼠標滾輪</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="54"/>
+        <source>Pen size</source>
+        <translation>畫筆大小</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="55"/>
+        <source>Alt + Wheel</source>
+        <translation>Shift+鼠標滾輪</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="56"/>
+        <source>Section view</source>
+        <translation>剖面視圖</translation>
+    </message>
+</context>
+<context>
+    <name>SupportPaintingPanel</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
+        <source>Enable Support</source>
+        <translation>啓用支撐</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
+        <source>Support Type</source>
+        <translation>支撐結構</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
+        <source>normal(auto)</source>
+        <translation>正常支撐(自動)</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
+        <source>tree(auto)</source>
+        <translation>樹狀支撐(自動)</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
+        <source>normal(manual)</source>
+        <translation>正常支撐(手動)</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
+        <source>tree(manual)</source>
+        <translation>樹狀支撐(手動)</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
+        <source>Support Painting</source>
+        <translation>塗抹支撐</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="46"/>
+        <source>Pen Size</source>
+        <translation>畫筆大小</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="55"/>
+        <source>Section</source>
+        <translation>剖面視圖</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="55"/>
+        <source>On overhangs only</source>
+        <translation>僅對懸空區生效</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="55"/>
+        <source>Drawing only takes effect on the selected faces in the highlighted and suspended area</source>
+        <translation>繪製僅對由高亮懸空區域選中的片面生效</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="55"/>
+        <source>Highlight overhangs</source>
+        <translation>懸空區對比度</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="92"/>
+        <source>Reset Direction</source>
+        <translation>重置方向</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="49"/>
+        <source>Left mouse button</source>
+        <translation>鼠標左鍵</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="50"/>
+        <source>Enforce supports</source>
+        <translation>繪製支撐</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="49"/>
+        <source>Right mouse button</source>
+        <translation>鼠標右鍵</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="50"/>
+        <source>Block supports</source>
+        <translation>屏蔽支撐</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="51"/>
+        <source>Shift + Left mouse button</source>
+        <translation>Shift+鼠標左鍵</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="52"/>
+        <source>erase</source>
+        <translation>擦除</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="53"/>
+        <source>Ctrl + Wheel</source>
+        <translation>Ctrl+鼠標滾輪</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="54"/>
+        <source>Pen size</source>
+        <translation>畫筆大小</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="55"/>
+        <source>Alt + Wheel</source>
+        <translation>Shift+鼠標滾輪</translation>
+    </message>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="56"/>
+        <source>Section view</source>
+        <translation>剖面視圖</translation>
+    </message>
+</context>
+<context>
+    <name>ColorPanelBottom</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanelBottom.qml" line="93"/>
+        <source>Erase All Paintings</source>
+        <translation>擦除所有繪製</translation>
+    </message>
+</context>
+<context>
+    <name>ColorSeletor</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ColorSeletor.qml" line="17"/>
+        <source>Choose color consumables</source>
+        <translation>選擇顔色耗材</translation>
+    </message>
+</context>
+<context>
+    <name>ToolSeletor</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ToolSeletor.qml" line="13"/>
+        <source>Select Tools</source>
+        <translation>選擇工具</translation>
+    </message>
+</context>
+<context>
+    <name>ToolSeletor</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ToolSeletor.qml" line="40"/>
+        <source>Triangle</source>
+        <translation>三角面</translation>
+    </message>
+</context>
+<context>
+    <name>ToolSeletor</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ToolSeletor.qml" line="46"/>
+        <source>Circle</source>
+        <translation>圓形</translation>
+    </message>
+</context>
+<context>
+    <name>ToolSeletor</name>
+    <message>
+        <location filename="../kernel/BasicKernel/res/plugin/paint/ToolSeletor.qml" line="52"/>
+        <source>Fill</source>
+        <translation>填充</translation>
+    </message>
+</context>
+<context>
     <name>main</name>
     <message>
         <location filename="../plugins/CrealityUITest/main.qml" line="12"/>
@@ -11485,7 +11839,7 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
         <source>Z Seam Min Angle Diff</source>
-        <translation type="unfinished">最大角差</translation>
+        <translation type="unfinished">最小角差</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -17605,11 +17959,11 @@
         <translation>保存失敗</translation>
     </message>
     <message>
-        <source>save_successed_tip</source>
+        <source>Save successed, do you want open the folder now?</source>
         <translation>保存成功，是否立即打開文件夾？</translation>
     </message>
     <message>
-        <source>save_failed_tip</source>
+        <source>Save failed, please try again.</source>
         <translation>保存失敗，請重試。</translation>
     </message>
     <message>
@@ -17690,15 +18044,22 @@
         <translation>錯誤報告</translation>
     </message>
     <message>
-        <source>dump_tip_format_0</source>
+        <source>A serious error has occurred in %1. Please send this error report to us to fix the problem.</source>
         <translation>%1 發生了嚴重錯誤，請將這份錯誤報告發送給我們以便修復問題。</translation>
     </message>
     <message>
-        <source>dump_tip_format_1</source>
+        <source>Please click the 'Send Report' button to automatically publish the error report to our server.</source>
         <translation>請點擊“發送報告”按鈕，將錯誤報告自動發佈到我們的服務器。</translation>
     </message>
     <message>
-        <source>dump_info_format</source>
+        <source>%1 version: %2
+%3 langauge: %4
+Operating System: %5
+Graphics card: %6
+OpenGL:
+  - OpenGL version: %7
+  - OpenGL vendor: %8
+  - OpenGL renderer: %9</source>
         <translation>%1 版本: %2
 %3 語言: %4
 作業系統: %5

@@ -102,10 +102,21 @@ namespace creative_kernel
                 if (printer.contains("showLevel") && printer.value(QStringLiteral("showLevel")).isString())
                 {
                     auto showLevel = printer.value(QStringLiteral("showLevel")).toString();
-                    if (!showLevel.contains(PROJECT_VERSION_EXTRA))
+                    QStringList levels = showLevel.split(" ");
+                    bool bShow = false;
+                    Q_FOREACH(auto level, levels)
+                    {
+                        if (QString(PROJECT_VERSION_EXTRA).contains(level))
+                        {
+                            bShow = true;
+                            break;
+                        }
+                    }
+                    if(!bShow)
                     {
                         continue;
                     }
+                    
                 }
 
                 PrinterInfo printer_info;

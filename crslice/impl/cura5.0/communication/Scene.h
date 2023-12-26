@@ -7,7 +7,7 @@
 #include "ExtruderTrain.h" //To store the extruders in the scene.
 #include "MeshGroup.h" //To store the mesh groups in the scene.
 #include "settings/Settings.h" //To store the global settings.
-#include "crslice/header.h"
+#include "crslice/gcode/header.h"
 
 namespace cura52
 {
@@ -23,7 +23,7 @@ namespace cura52
          */
         Settings settings;
 
-        crslice::FDMDebugger* fDebugger = nullptr;
+        gcode::GcodeTracer* fDebugger = nullptr;
         std::string gcodeFile;
         std::string ploygonFile;
         std::string supportFile;

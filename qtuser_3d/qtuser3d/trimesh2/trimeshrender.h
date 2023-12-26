@@ -15,6 +15,9 @@ namespace qtuser_3d
 	QTUSER_3D_API void traitLines(trimesh::TriMesh* mesh, const std::vector<int>& indices, std::vector<trimesh::vec3>& lines);
 
 	QTUSER_3D_API void box2Lines(const trimesh::box2& box, std::vector<trimesh::vec3>& lines);
+	QTUSER_3D_API void box3esLines(const std::vector<trimesh::box3>& boxes, std::vector<trimesh::vec3>& lines);
+	QTUSER_3D_API void box3Lines(const trimesh::box3& box, std::vector<trimesh::vec3>::iterator begin);  //reserved
+	QTUSER_3D_API void box3Lines(const trimesh::box3& box, std::vector<trimesh::vec3>& lines);
 }
 
 #endif // QTUSER_3D_MMESH_TRIMESHRENDER_1688522129048_H

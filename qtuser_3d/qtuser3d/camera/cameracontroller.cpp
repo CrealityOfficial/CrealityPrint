@@ -54,6 +54,18 @@ namespace qtuser_3d
 		m_cameraManipulator->setNeed360Rotate(is_need);
 	}
 
+	void CameraController::setNeedAroundRotate(bool is_need)
+	{
+		if (m_cameraManipulator)
+			m_cameraManipulator->setNeedAroundRotate(is_need);
+	}
+
+	void CameraController::setRotateSpeedDelta(float hDelta, float vDelta)
+	{
+		if (m_cameraManipulator)
+			m_cameraManipulator->setRotateSpeedDelta(hDelta, vDelta);
+	}
+
 	void CameraController::setRotateCenter(const QVector3D& rotateCenter)
 	{
 		if (m_cameraManipulator)
@@ -205,6 +217,8 @@ namespace qtuser_3d
 			return;
 
 		m_cameraManipulator->onRightMouseButtonPress(event);
+		
+		emit signalRightMousePressed(true);
 	}
 
 	void CameraController::onRightMouseButtonMove(QMouseEvent* event)
@@ -228,6 +242,7 @@ namespace qtuser_3d
 			return;
 
 		emit signalViewChanged(true);
+		emit signalRightMousePressed(false);
 	}
 
 	void CameraController::onRightMouseButtonClick(QMouseEvent* event)
@@ -242,6 +257,7 @@ namespace qtuser_3d
 			return;
 
 		m_cameraManipulator->onMidMouseButtonPress(event);
+		emit signalMidMousePressed(true);
 	}
 
 	void CameraController::onMidMouseButtonMove(QMouseEvent* event)
@@ -259,6 +275,7 @@ namespace qtuser_3d
 			return;
 
 		emit signalViewChanged(true);
+		emit signalMidMousePressed(false);
 	}
 
 	void CameraController::onMidMouseButtonClick(QMouseEvent* event)
@@ -513,6 +530,15 @@ if (m_enableZoomAroundCursor) {
 		if (m_screenCamera)
 		{
 			m_screenCamera->viewFrom(dir, right, specificCenter);
+			emit signalViewChanged(true);
+		}
+	}
+
+	void CameraController::viewEx(const QVector3D& newDir, const QVector3D& newUp, const QVector3D& homePosition, const QVector3D& homeViewCenter, const QVector3D& newCenter)
+	{
+		if (m_screenCamera)
+		{
+			m_screenCamera->viewFromEx(newDir, newUp, homePosition, homeViewCenter, newCenter);
 			emit signalViewChanged(true);
 		}
 	}

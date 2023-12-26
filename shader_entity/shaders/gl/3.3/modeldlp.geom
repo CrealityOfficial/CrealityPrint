@@ -15,6 +15,7 @@ out vec3 viewDirection;
 out vec3 vertexnormal;
 out vec3 worldPosition;
 out vec3 gnormal;
+out vec3 barycentric;
 
 void main()
 {
@@ -29,15 +30,18 @@ vec3 tmpCross = cross(a, b);
 vertexnormal = normalize(mat3(viewMatrix) * mat3(modelMatrix) * tmpCross);
 gnormal = normalize(mat3(modelMatrix) * tmpCross);
 
+barycentric = vec3(1.0, 0.0, 0.0);
 gl_Position = projectionMatrix * tworldPosition0;
 EmitVertex();
 
+barycentric = vec3(0.0, 1.0, 0.0);
 worldPosition = vec3(modelMatrix * vec4(gs_in[1].vert, 1.0));
 vec4 tworldPosition1 = modelViewMatrix * vec4(gs_in[1].vert, 1.0);
 viewDirection = normalize(vec3(-tworldPosition1));
 gl_Position = projectionMatrix * tworldPosition1;
 EmitVertex();
 
+barycentric = vec3(0.0, 0.0, 1.0);
 worldPosition = vec3(modelMatrix * vec4(gs_in[2].vert, 1.0));
 vec4 tworldPosition2 = modelViewMatrix * vec4(gs_in[2].vert, 1.0);
 viewDirection = normalize(vec3(-tworldPosition2));

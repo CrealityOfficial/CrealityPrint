@@ -27,6 +27,9 @@ namespace qtuser_3d
 		void onMidMouseButtonMove(QMouseEvent* event) override;
 
 		void performTranslate(const QPoint& pos);
+
+		QMatrix4x4 makeRotateWithDelta(const QPoint& delta);
+
 	protected:
 		bool m_RightHorizontal;
 	};

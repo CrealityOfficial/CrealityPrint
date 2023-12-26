@@ -103,6 +103,9 @@ namespace creative_kernel
 
 	void produceSliceInput(SliceInput& input)
 	{
+		//Çå¿Õ»º´æ
+		clearPath(SLICE_PATH);
+
 		input.G = createCurrentGlobalSettings();
 		input.G->add("software_version", version(), true);
 
@@ -192,7 +195,7 @@ namespace creative_kernel
 		}
 
 #if 1 // _DEBUG
-		clearPath(SLICE_PATH);
+		//clearPath(SLICE_PATH);
 		QString globalFile = QString("%1/global").arg(SLICE_PATH);
 		input.G->saveAsDefault(globalFile);
 		for (int i = 0; i < input.Es.count(); ++i)

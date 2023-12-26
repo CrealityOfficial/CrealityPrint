@@ -60,6 +60,8 @@ namespace creative_kernel
 	{
 		Q_OBJECT
 		Q_PROPERTY(int currentPhase READ currentPhase NOTIFY currentPhaseChanged)
+		Q_PROPERTY(bool isDefaultVisScene READ isDefaultVisScene NOTIFY visSceneChanged)
+
 	public:
 		Kernel(QObject* parent = nullptr);
 		virtual ~Kernel();
@@ -71,6 +73,7 @@ namespace creative_kernel
 		void loadUserSettings();
 
 		int currentPhase();
+		bool isDefaultVisScene();
 
 		ReuseableCache* reuseableCache();
 		qtuser_3d::RenderCenter* renderCenter();
@@ -118,6 +121,8 @@ namespace creative_kernel
 
 	signals:
 		void currentPhaseChanged();
+		void visSceneChanged();
+
 	protected:
 		ReuseableCache* m_reusableCache;
 		ModelSpace* m_modelSpace;

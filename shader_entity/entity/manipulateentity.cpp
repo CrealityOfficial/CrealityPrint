@@ -32,14 +32,14 @@ namespace qtuser_3d
 			showPass->setPassBlend();
 		}
 
-		XRenderPass* pickPass = new XRenderPass("pickFace_pwd", this);
-		pickPass->addFilterKeyMask("pick2nd", 0);
-		pickPass->setPassCullFace(Qt3DRender::QCullFace::CullingMode::NoCulling);
-		pickPass->setPassDepthTest(Qt3DRender::QDepthTest::Always);
-		pickPass->setEnabled(flags & Pickable);
+		m_pickPass = new XRenderPass("pickFace_pwd", this);
+		m_pickPass->addFilterKeyMask("pick2nd", 0);
+		m_pickPass->setPassCullFace(Qt3DRender::QCullFace::CullingMode::NoCulling);
+		m_pickPass->setPassDepthTest(flags & PickDepthTest ? Qt3DRender::QDepthTest::Less : Qt3DRender::QDepthTest::Always);
+		m_pickPass->setEnabled(flags & Pickable);
 		XEffect* effect = new XEffect(this);
 		effect->addRenderPass(showPass);
-		effect->addRenderPass(pickPass);
+		effect->addRenderPass(m_pickPass);
 		setEffect(effect);
 
 		m_color = QVector4D(1.0f, 1.0f, 1.0f, 1.0f);
@@ -68,6 +68,14 @@ namespace qtuser_3d
 	void ManipulateEntity::setTriggerible(bool enable)
 	{
 		m_isTriggerible = enable;
+	}
+
+	void ManipulateEntity::setPickable(bool enablePick)
+	{
+		if (m_pickPass)
+		{
+			m_pickPass->setEnabled(enablePick);
+		}
 	}
 
 	void ManipulateEntity::setVisualState(ControlState state)

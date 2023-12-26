@@ -88,6 +88,7 @@ namespace creative_kernel
 
 	BASIC_KERNEL_API QList<QVector3D> getModelHorizontalContour(ModelN* model);
 
+	BASIC_KERNEL_API void setMaxFaceBottom();
 	BASIC_KERNEL_API ModelN* createModelFromData(cxkernel::ModelNDataPtr data, ModelN* replaceModel = nullptr);
 	BASIC_KERNEL_API void setMostRecentFile(QString filename);
 }

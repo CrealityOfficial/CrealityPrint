@@ -18,8 +18,8 @@ Window {
     //property alias versionText: idVersion.text
 
     readonly property string context: cxkernel_const.translateContext
-    readonly property string introduction: qsTranslate(context, "offical_brief_introduction")
-    readonly property bool introductionVisible: introduction !== "offical_brief_introduction"
+    readonly property string introduction: qsTranslate(context, "Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R & D and production of 3D printers.")
+    readonly property bool introductionVisible: introduction !== "Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R & D and production of 3D printers."
 
     Rectangle{
         id: mainWindowRext

@@ -16,6 +16,7 @@ namespace qtuser_3d
 
 		void setCamera(ScreenCamera* screenCamera);
 		void setRotateCenter(const QVector3D& rotateCenter);
+		void setRotateSpeedDelta(float hDelta, float vDelta);
 
 		void onRightMouseButtonPress(QMouseEvent* event) override;
 		void onRightMouseButtonRelease(QMouseEvent* event) override;
@@ -28,6 +29,8 @@ namespace qtuser_3d
 		void onMidMouseButtonClick(QMouseEvent* event) override;
 
 		virtual void setNeed360Rotate(bool is_need);
+
+		virtual void setNeedAroundRotate(bool is_need);
 
 	protected:
 		virtual void onCameraChanged();
@@ -44,6 +47,8 @@ namespace qtuser_3d
 		QVector3D m_savePosition;
 
 		QVector3D m_rotateCenter;
+		float m_hangleDelta;
+		float m_vangleDelta;
 	};
 }
 #endif // _QTUSER_3D_CAMERAMOUSEMANIPULATOR_1590801985759_H

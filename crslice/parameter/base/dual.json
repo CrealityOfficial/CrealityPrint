@@ -223,5 +223,17 @@
 		"enabled": "eval(contex.value(\"retraction_enable\")) && eval(contex.value(\"extruders_enabled_count\")) > 1",
 		"settable_per_mesh": "false",
 		"settable_per_extruder": "true"
+	},
+	"asm_material_count":
+	{
+		"label": "ASM Material Count",
+		"description": "ASM Material Count",
+		"type": "int",
+		"default_value": "1",
+		"minimum_value": "1",
+		"maximum_value": "18",
+		"enabled": "false",
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "true"
 	}
 }

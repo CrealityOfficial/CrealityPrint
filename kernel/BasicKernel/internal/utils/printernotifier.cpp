@@ -8,6 +8,8 @@
 
 #include "internal/render/printerentity.h"
 
+#include "qtuser3d/camera/cameracontroller.h"
+
 namespace creative_kernel
 {
 	PrinterNotifier::PrinterNotifier(QObject* parent)
@@ -22,6 +24,8 @@ namespace creative_kernel
 	void PrinterNotifier::onBoxChanged(const qtuser_3d::Box3D& box)
 	{
 		visCamera()->fittingBoundingBox(box);
+
+		cameraController()->setRotateCenter(visCamera()->orignCenter());
 
 		QVector3D machineCube = box.size();
 
@@ -56,8 +60,6 @@ namespace creative_kernel
 			{
 				visible = (qAbs(cameraPosition.z() - bbox.min.z()) < 250.0f) || ((cameraPosition - viewCenter).length() < 100.0f);
 			}
-
-			entity->visibleSubGrid(true);
 		}
 
 		if (camera)

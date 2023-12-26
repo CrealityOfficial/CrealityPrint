@@ -20,7 +20,7 @@
 #include "hollowjob.h"
 
 HollowOperateMode::HollowOperateMode(QObject* parent)
-    : SceneOperateMode(parent)
+    : MoveOperateMode(parent)
     , unvisible_height_percent_(1.0f)
     , model_max_height_(0.0f)
     , fill_ratio_(0.5f)
@@ -35,6 +35,8 @@ HollowOperateMode::~HollowOperateMode() {
 }
 
 void HollowOperateMode::onAttach() {
+  MoveOperateMode::onAttach();
+
   bool has_support{ false };
   for (auto* model : creative_kernel::selectionms()) {
     if (model->hasFDMSupport()) {
@@ -52,6 +54,7 @@ void HollowOperateMode::onAttach() {
 }
 
 void HollowOperateMode::onDettach() {
+  MoveOperateMode::onDettach(); 
   timer_.stop();
   creative_kernel::setModelEffectClipMaxZSceneTop();
   popup_visible_ = false;

@@ -15,7 +15,7 @@
 #define modeleffect_shadowcolor "modeleffect_shadowcolor"
 #define modeleffect_clearcolor "modeleffect_clearcolor"
 
-#define modeleffect_statecolors "modeleffect_statecolors"   // "unclicked|hover|none1|clicked|outPlatform|none2|inside"
+#define modeleffect_statecolors "modeleffect_statecolors"   // "unclicked|hover|clicked|preview"
 #define supporteffect_stateolors "supporteffect_stateolors"  // "unclicked|hover|none1|clicked"
 
 #define printer_skirt_color "printer_skirt_color"

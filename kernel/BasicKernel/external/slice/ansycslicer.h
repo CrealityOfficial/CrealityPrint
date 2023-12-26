@@ -1,6 +1,6 @@
 #ifndef _NULLSPACE_ANSYCSLICER_1591673316708_H
 #define _NULLSPACE_ANSYCSLICER_1591673316708_H
-#include "gcode/sliceresult.h"
+#include "crslice/gcode/sliceresult.h"
 #include "us/usettings.h"
 #include "qtusercore/module/progressor.h"
 #include "qtusercore/module/progressortracer.h"

@@ -22,7 +22,7 @@ namespace qtuser_3d
 		virtual int primitiveNum();   // 0
 		virtual int chunk(int primitiveID);
 
-		virtual void pick(int primitiveID);
+		virtual void click(int primitiveID);
 
 		///////////////////////
 		ControlState state();
@@ -53,6 +53,7 @@ namespace qtuser_3d
 	signals:
 		void signalStateChanged(ControlState state);
 		void signalFaceBaseChanged(int faceBase);
+		void signalClick(int primitiveID);
 	protected:
 		bool m_visible;
 

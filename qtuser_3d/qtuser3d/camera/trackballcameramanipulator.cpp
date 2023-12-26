@@ -11,7 +11,7 @@ namespace qtuser_3d
 		:CameraMouseManipulator(parent)
 		, m_RightHorizontal(true)
 	{
-
+		m_revertY = false;
 	}
 
 	TrackballCameraManipulator::~TrackballCameraManipulator()
@@ -39,8 +39,7 @@ namespace qtuser_3d
 	{
 		if (m_screenCamera)
 		{
-			QPoint pos = m_screenCamera->flipY(event->pos());
-			performRotate(pos);
+			performRotate(event->pos());
 		}
 	}
 
@@ -52,7 +51,9 @@ namespace qtuser_3d
 	void TrackballCameraManipulator::onMidMouseButtonPress(QMouseEvent* event)
 	{
 		m_savePoint = event->pos();
-		CameraMouseManipulator::onRightMouseButtonPress(event);
+		CameraMouseManipulator::onMidMouseButtonPress(event);
+
+		//qDebug() << QString("onMidMouseButtonPress %1 %2").arg(m_savePoint.x()).arg(m_savePoint.y());
 	}
 
 	void TrackballCameraManipulator::onMidMouseButtonMove(QMouseEvent* event)
@@ -69,6 +70,7 @@ namespace qtuser_3d
 			return;
 		}
 
+		//qDebug() << QString("onMidMouseButtonMove %1 %2").arg(p.x()).arg(p.y());
 		performTranslate(p);
 
 		m_savePoint = p;
@@ -106,6 +108,61 @@ namespace qtuser_3d
 	void TrackballCameraManipulator::setRightHorizontal(bool horizontal)
 	{
 		m_RightHorizontal = horizontal;
+	}
+	
+	QMatrix4x4 TrackballCameraManipulator::makeRotateWithDelta(const QPoint& delta)
+	{
+		QVector3D viewCenter = m_camera->viewCenter();
+		QVector3D position = m_camera->position();
+		QVector3D horizontal = m_screenCamera->horizontal();
+
+		//QPoint delta = pos - m_savePoint;
+
+		float hangle = -0.1f * (float)delta.x();
+		QQuaternion hq = QQuaternion::fromAxisAndAngle(QVector3D(0.0f, 0.0f, 1.0f), hangle);
+		QVector3D h = hq * horizontal;
+		h.normalize();
+
+		float vangle = m_screenCamera->verticalAngle() + 0.003f * (float)delta.y();
+		if (vangle < 0.0f) vangle = 0.0f;
+		if (vangle > M_PI) vangle = (float)M_PI;
+
+		QVector3D dir;
+		QVector3D right = h;
+		if (vangle > 0.0f && vangle < M_PI)
+		{
+			dir = QVector3D(-h.y(), h.x(), 0.0f);
+			float z = dir.length() / (tanf(vangle));
+			dir.setZ(z);
+			dir.normalize();
+		}
+		else if (vangle <= 0.0f)
+		{
+			dir = QVector3D(0.0f, 0.0f, 1.0f);
+		}
+		else if (vangle >= M_PI)
+		{
+			dir = QVector3D(0.0f, 0.0f, -1.0f);
+		}
+
+		QVector3D saveDir = viewCenter - position;
+		float distance = saveDir.length();
+
+		QVector3D newPosition = viewCenter - dir * distance;
+		QVector3D up = QVector3D::crossProduct(right, dir);
+
+		/*m_camera->setUpVector(up);
+		m_camera->setPosition(newPosition);
+
+		if (up.x() == 0.0f && up.y() == 0.0f && up.z() == 0.0f)
+		{
+			qDebug() << "error";
+		}
+
+		m_screenCamera->updateNearFar();*/
+		QMatrix4x4 rot;
+		rot.lookAt(newPosition, viewCenter, up);
+		return rot;
 	}
 
 	void TrackballCameraManipulator::performRotate(const QPoint& p)
@@ -180,5 +237,7 @@ namespace qtuser_3d
 		m_camera->setViewCenter(newViewCenter);
 		m_camera->setUpVector(newUp);
 		m_camera->setPosition(newPosition);
+		
+		m_screenCamera->updateNearFar();
 	}
 }

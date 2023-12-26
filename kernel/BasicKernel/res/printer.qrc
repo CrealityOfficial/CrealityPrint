@@ -1,0 +1,40 @@
+<RCC>
+    <qresource prefix="/kernel">
+        <file>printer/dark/thick_line.png</file>
+        <file>printer/dark/thin_line.png</file>
+        <file>printer/dark/close_hover.png</file>
+        <file>printer/dark/close_none.png</file>
+        <file>printer/dark/autolayout_none.png</file>
+        <file>printer/dark/autolayout_hover.png</file>
+        <file>printer/dark/pickbottom_none.png</file>
+        <file>printer/dark/pickbottom_hover.png</file>
+        <file>printer/dark/lock.png</file>
+        <file>printer/dark/unlock.png</file>
+        <file>printer/dark/setting_none.png</file>
+        <file>printer/dark/setting_hover.png</file>
+        <file>printer/dark/left_hand.png</file>
+        <file>printer/dark/right_hand.png</file>
+        <file>printer/dark/link.png</file>
+        <file>printer/dark/edit_none.png</file>
+        <file>printer/dark/edit_hover.png</file>
+
+        <file>printer/light/thick_line.png</file>
+        <file>printer/light/thin_line.png</file>
+        <file>printer/light/close_hover.png</file>
+        <file>printer/light/close_none.png</file>
+        <file>printer/light/autolayout_none.png</file>
+        <file>printer/light/autolayout_hover.png</file>
+        <file>printer/light/pickbottom_none.png</file>
+        <file>printer/light/pickbottom_hover.png</file>
+        <file>printer/light/lock.png</file>
+        <file>printer/light/unlock.png</file>
+        <file>printer/light/setting_none.png</file>
+        <file>printer/light/setting_hover.png</file>
+        <file>printer/light/left_hand.png</file>
+        <file>printer/light/right_hand.png</file>
+        <file>printer/light/link.png</file>
+        <file>printer/light/edit_none.png</file>
+        <file>printer/light/edit_hover.png</file>
+
+    </qresource>
+</RCC>

@@ -371,6 +371,11 @@
                 "name": "Nebula-Ender-3",
                 "level": 1,
                 "showLevel": "Alpha Beta Release"
+            },
+            {
+                "name": "Nebula-Ender-3 V3 SE",
+                "level": 1,
+                "showLevel": "Alpha Beta Release"
             }
         ]
     },
@@ -378,6 +383,46 @@
         "name": "Fast series",
         "level": 0,
         "subnodes": [
+            {
+                "name": "Fast-CR-6 Max",
+                "level": 1,
+                "showLevel": "Alpha Beta Release"
+            },
+            {
+                "name": "Fast-CR-10 S4",
+                "level": 1,
+                "showLevel": "Alpha Beta Release"
+            },
+            {
+                "name": "Fast-CR-10 S5",
+                "level": 1,
+                "showLevel": "Alpha Beta Release"
+            },
+            {
+                "name": "Fast-CR-10 V3",
+                "level": 1,
+                "showLevel": "Alpha Beta Release"
+            },
+            {
+                "name": "Fast-CR-M4",
+                "level": 1,
+                "showLevel": "Alpha Beta Release"
+            },
+            {
+                "name": "Fast-Ender-3 Max Neo",
+                "level": 1,
+                "showLevel": "Alpha Beta Release"
+            },
+            {
+                "name": "Fast-Ender-3 V3 SE",
+                "level": 1,
+                "showLevel": "Alpha Beta Release"
+            },
+            {
+                "name": "Fast-Ender-5 Plus",
+                "level": 1,
+                "showLevel": "Alpha Beta Release"
+            },
             {
                 "name": "Fast-Ender-3 S1",
                 "level": 1,

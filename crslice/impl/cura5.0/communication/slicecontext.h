@@ -6,6 +6,11 @@
 
 #include "MeshGroup.h"
 #include "ExtruderTrain.h"
+
+#include "settings/wrapper.h"
+#include "settings/gwrapper.h"
+#include "settings/ewrapper.h"
+
 #include "progress/Progress.h"
 #include "types/header.h"
 #include "tools/Cache.h"
@@ -13,9 +18,9 @@
 #include <stdarg.h>
 #include "ccglobal/log.h"
 
-namespace crslice
+namespace gcode
 {
-    class FDMDebugger;
+    class GcodeTracer;
 }
 
 namespace cura52
@@ -47,7 +52,9 @@ namespace cura52
      * communicating instructions from and to CuraEngine.
      */
     class ThreadPool;
-    class SliceContext
+    class SliceContext : public SceneParamWrapper
+        , public GroupParamWrapper
+        , public ExtruderParamWrapper
     {
     public:
         /*
@@ -59,7 +66,10 @@ namespace cura52
         virtual const std::vector<ExtruderTrain>& extruders() const = 0;
         virtual std::vector<ExtruderTrain>& extruders() = 0;
 
+        virtual const Settings& extruderSettings(int index) = 0;
+        virtual const Settings& currentGroupSettings() = 0;
         virtual const Settings& sceneSettings() = 0;
+
         virtual bool isCenterZero() = 0;
         virtual std::string polygonFile() = 0;
 
@@ -79,7 +89,7 @@ namespace cura52
         virtual void tick(const std::string& tag) = 0;
         virtual void message(const char* msg) = 0;
         virtual ccglobal::Tracer* getTracer() = 0;
-        virtual crslice::FDMDebugger* debugger() = 0;
+        virtual gcode::GcodeTracer* debugger() = 0;
         virtual Cache* cache() = 0;
 
         void formatMessage(const char* format, ...)

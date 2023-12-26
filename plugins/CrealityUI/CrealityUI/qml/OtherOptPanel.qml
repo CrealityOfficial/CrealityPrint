@@ -14,8 +14,8 @@ LeftPanelDialog {
 
     id:control
 
-    width: 296 *screenScaleFactor
-    height: 190 *screenScaleFactor
+    width: 332 *screenScaleFactor 
+    height: 180 *screenScaleFactor
     title : qsTr("Others")
 
     onCloseButtonClicked: {
@@ -49,14 +49,14 @@ LeftPanelDialog {
     Flow {
         anchors.fill: control.panelArea
         anchors.margins: 20 * screenScaleFactor
-        spacing: 20 * screenScaleFactor
+        spacing: 10 * screenScaleFactor
         Repeater{
             id:repeaterItem
             delegate: CusImglButton{
                 id:otherBtn
                 
-                width: 48*screenScaleFactor
-                height: 48*screenScaleFactor
+                width: 50*screenScaleFactor
+                height: 50*screenScaleFactor
                 imgWidth : 24*screenScaleFactor
                 imgHeight : 24*screenScaleFactor
 

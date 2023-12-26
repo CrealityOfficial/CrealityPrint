@@ -4,6 +4,8 @@
 #include <QVector3D>
 #include "cxkernel/wrapper/lettermodel.h"
 
+class MoveOperateMode;
+
 class LetterCommand : public ToolCommand
 {
 	Q_OBJECT
@@ -28,6 +30,7 @@ protected:
 
 	cxkernel::LetterModel *m_model;
 	QStringList m_listFonts;
+	MoveOperateMode* m_mode { NULL };
 
 signals:
 	void onFontListChanged();

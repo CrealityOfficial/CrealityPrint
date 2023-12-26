@@ -37,6 +37,7 @@ namespace creative_kernel
         Q_PROPERTY(QStringList userMaterialsName READ userMaterialsName NOTIFY userMaterialsNameChanged)
 		Q_PROPERTY(int curProfileIndex READ curProfileIndex NOTIFY curProfileIndexChanged)
 		Q_PROPERTY(bool isCurrentProfileDefault READ isCurrentProfileDefault NOTIFY isCurrentProfileDefaultChanged)
+		Q_PROPERTY(QObject* currentProfileObj READ currentProfileObject NOTIFY curProfileIndexChanged)
 
     public:
 		enum PrintType

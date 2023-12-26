@@ -43,8 +43,6 @@ Item {
     }
 
     onRootXChanged: {
-        console.log("------------x = ", rootX)
-
         let global_pos = root.mapToGlobal(0, 0)
         let window_pos = Qt.point(global_pos.x - kernel_ui.appWindow.x,
                                   global_pos.y - kernel_ui.appWindow.y)

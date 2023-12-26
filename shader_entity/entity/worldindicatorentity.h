@@ -24,6 +24,7 @@ namespace qtuser_3d
 	{
 		Q_OBJECT
 			Q_PROPERTY(float lambda READ lambda WRITE setLambda NOTIFY lambdaChanged)
+			Q_PROPERTY(float lambdax READ lambdax WRITE setLambdax NOTIFY lambdaxChanged)
 	public:
 		WorldIndicatorEntity(Qt3DCore::QNode* parent = nullptr);
 
@@ -49,8 +50,11 @@ namespace qtuser_3d
 
 		void freshTextures();
 
+		void resetHomeCamera(const QVector3D& homeDir, const QVector3D& homeUp, const QVector3D& homePosition, const QVector3D& homeViewCenter);
+
 	signals:
 		void lambdaChanged();
+		void lambdaxChanged();
 
 	protected:
 		void onCameraChanged(qtuser_3d::ScreenCamera* camera) override;
@@ -67,6 +71,9 @@ namespace qtuser_3d
 		void setLambda(float lambda);
 		float lambda() const;
 
+		void setLambdax(float lambdax);
+		float lambdax() const;
+
 		void updateBasicTexture();
 
 	private:
@@ -77,6 +84,7 @@ namespace qtuser_3d
 		// for animate
 		QSharedPointer<QPropertyAnimation> m_animation;
 		float m_lambda;
+		float m_lambdax;
 		QVector3D m_startDir;
 		QVector3D m_startUp;
 		QVector3D m_endDir;
@@ -91,6 +99,9 @@ namespace qtuser_3d
 		QUrl m_lightTextureUrl;
 		QUrl m_darkTextureUrl;
 		QUrl m_selectTextureUrl;
+
+		QVector3D m_homePosition;
+		QVector3D m_homeViewCenter;
 	};
 }
 #endif // CXKERNEL_WORLDINDICATORGEOMETRY_H

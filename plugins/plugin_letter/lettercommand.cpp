@@ -14,6 +14,7 @@
 #include "interface/commandinterface.h"
 #include "letterjob.h"
 #include "cxkernel/interface/jobsinterface.h"
+#include "operation/moveoperatemode.h"
 
 LetterCommand::LetterCommand(QObject* parent) : ToolCommand(parent)
 {
@@ -53,7 +54,10 @@ void LetterCommand::execute()
 	}
 	m_listFonts = m_listFonts.toSet().toList();
 
-	creative_kernel::setVisOperationMode(nullptr);
+	if (m_mode == NULL)
+		m_mode = new MoveOperateMode(this);
+
+	creative_kernel::setVisOperationMode(m_mode);
 	creative_kernel::sensorAnlyticsTrace("Model Editing & Layout", "Letter");
 }
 

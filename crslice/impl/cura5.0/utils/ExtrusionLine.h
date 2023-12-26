@@ -223,6 +223,31 @@ namespace cura52
             return ret;
         }
 
+
+		Polygon toRealPolygon() const
+		{
+			Polygon ret;
+
+            for (const ExtrusionJunction& j : junctions)
+            {
+                if (j.flag!=ExtrusionJunction::INTERCEPT)
+                {
+                    ret.add(j.p);
+                }
+            }
+			return ret;
+		}
+
+        std::vector<ExtrusionJunction::paintFlag> toFlag() const
+        {
+            std::vector<ExtrusionJunction::paintFlag> vctflag;
+			for (const ExtrusionJunction& j : junctions)
+			{
+                vctflag.push_back(j.flag);
+			}
+            return vctflag;
+        }
+
         /*!
          * Get the minimal width of this path
          */

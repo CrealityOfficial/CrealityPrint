@@ -15,14 +15,13 @@ namespace creative_kernel
 		m_lineEntity->setColor(QVector4D(1.0f, 0.0f, 0.0f, 1.0f));
 		m_lineEntity->addPassFilter(0, "view");
 
-		m_stateParameter = setParameter("state", 0.0f);
+		m_stateParameter = setParameter("state", 0);
+
 		m_vertexBaseParameter = setParameter("vertexBase", QPoint(0, 0));
-		m_errorParameter = setParameter("error", 0.0f);
+		
 		m_supportCosParameter = setParameter("supportCos", 0.5);
 		m_hoverParameter = setParameter("hoverState", 0);
-		m_fanzhuanParameter = setParameter("fanzhuan", 0);
-
-		m_customColorParameter = setParameter("customColor", QVector4D(0.0f, 0.0f, 0.0f, 1.0f));
+		
 		m_transparencyParameter = setParameter("transparency", 1.0f);
 		m_lightingFlagParameter = setParameter("lightingEnable", 1);
 
@@ -35,7 +34,6 @@ namespace creative_kernel
 		m_textureSpecular = setParameter("textureSpecular", QVariant::fromValue(0));
 		m_textureNormal = setParameter("textureNormal", QVariant::fromValue(0));
 
-		m_useVertexColor = setParameter("useVertexColor", QVariant::fromValue(0));
 	}
 	
 	ModelNEntity::~ModelNEntity()
@@ -82,17 +80,17 @@ namespace creative_kernel
 		m_hoverParameter->setValue(0);
 	}
 
-	void ModelNEntity::setState(float state)
+	void ModelNEntity::setState(int state)
 	{
 		m_stateParameter->setValue(state);
 	}
 
-	float ModelNEntity::getState()
+	int ModelNEntity::getState()
 	{
-		return m_stateParameter->value().toFloat();
+		return m_stateParameter->value().toInt();
 	}
 
-	void ModelNEntity::setNozzle(float nozzle)
+	void ModelNEntity::setNozzle(int nozzle)
 	{
 		m_nozzleParameter->setValue(nozzle);
 	}
@@ -102,17 +100,17 @@ namespace creative_kernel
 		m_vertexBaseParameter->setValue(vertexBase);
 	}
 
-	void ModelNEntity::setErrorState(bool error)
+	/*void ModelNEntity::setErrorState(bool error)
 	{
 		m_errorParameter->setValue(error ? 1.0f : 0.0f);
-	}
+	}*/
 
 	void ModelNEntity::setSupportCos(float supportCos)
 	{
 		m_supportCosParameter->setValue(supportCos);
 	}
 
-	void ModelNEntity::setFanZhuan(int fz)
+	/*void ModelNEntity::setFanZhuan(int fz)
 	{
 		m_fanzhuanParameter->setValue(fz);
 	}
@@ -125,7 +123,7 @@ namespace creative_kernel
 	QColor ModelNEntity::getCustomColor()
 	{
 		return m_customColorParameter->value().value<QColor>();
-	}
+	}*/
 
 	void ModelNEntity::setTransparency(float alpha)
 	{
@@ -140,6 +138,11 @@ namespace creative_kernel
 	void ModelNEntity::setRenderMode(int mode)
 	{
 		m_renderModeParameter->setValue(mode);
+	}
+
+	int ModelNEntity::getRenderMode()
+	{
+		return m_renderModeParameter->value().toInt();;
 	}
 
 	void ModelNEntity::setTDiffuse(Qt3DRender::QTexture2D* aDiffuse)
@@ -160,10 +163,5 @@ namespace creative_kernel
 	void ModelNEntity::setTNormal(Qt3DRender::QTexture2D* aNormal)
 	{
 		m_textureNormal->setValue(QVariant::fromValue(aNormal));
-	}
-
-	void ModelNEntity::setUseVertexColor(bool used)
-	{
-		m_useVertexColor->setValue(QVariant::fromValue(used));
 	}
 }

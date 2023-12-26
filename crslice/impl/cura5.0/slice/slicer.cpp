@@ -13,6 +13,7 @@
 
 #include <fstream>
 #include "communication/slicecontext.h"
+#include "utils/paintdata.h"
 
 namespace cura52
 {
@@ -134,7 +135,9 @@ void SlicerLayer::stitch(Polygons& open_polylines)
     bool allow_reverse = true;
 	//先正向缝合，剩余的再参与反向缝合
 	connectOpenPolylinesImpl(open_polylines, max_stitch1, max_stitch1, false);
+#ifndef CUSTOM_KEY
     connectOpenPolylinesImpl(open_polylines, max_stitch2, max_stitch2, allow_reverse);
+#endif
 }
 
 const SlicerLayer::Terminus SlicerLayer::Terminus::INVALID_TERMINUS{ ~static_cast<Index>(0U) };
@@ -733,6 +736,18 @@ void SlicerLayer::makePolygons(const Mesh* mesh)
 
     connectOpenPolylines(open_polylines);
 
+    if (mesh->settings.get<bool>("support_paint_enable") && mesh->settings.get<bool>("anti_overhang_mesh"))
+    {
+        for (PolygonRef polyline : open_polylines)
+        {
+            if (polyline.size() > 0)
+            {
+                openPolylines.add(polyline);
+            }
+        }
+        return;
+    }
+
     // TODO: (?) for mesh surface mode: connect open polygons. Maybe the above algorithm can create two open polygons which are actually connected when the starting segment is in the middle between the two open polygons.
 
     if (mesh->settings.get<ESurfaceMode>("magic_mesh_surface_mode") == ESurfaceMode::NORMAL)
@@ -764,8 +779,8 @@ void SlicerLayer::makePolygons(const Mesh* mesh)
 
     // Remove all the tiny polygons, or polygons that are not closed. As they do not contribute to the actual print.
     const coord_t snap_distance = std::max(mesh->settings.get<coord_t>("minimum_polygon_circumference"), static_cast<coord_t>(1));
-    auto it = std::remove_if(polygons.begin(), polygons.end(), [snap_distance](PolygonRef poly) { return poly.shorterThan(snap_distance); });
-    polygons.erase(it, polygons.end());
+	auto it = std::remove_if(polygons.begin(), polygons.end(), [snap_distance](PolygonRef poly) { return poly.shorterThan(snap_distance); });
+	polygons.erase(it, polygons.end());
 
     // Finally optimize all the polygons. Every point removed saves time in the long run.
     polygons = simplifyPolygon(polygons, mesh->settings);
@@ -784,7 +799,7 @@ Slicer::Slicer(SliceContext* _application, Mesh* i_mesh, const coord_t thickness
     , application(_application)
 {
     const SlicingTolerance slicing_tolerance = mesh->settings.get<SlicingTolerance>("slicing_tolerance");
-    const coord_t initial_layer_thickness = application->currentGroup()->settings.get<coord_t>("layer_height_0");
+    const coord_t initial_layer_thickness = application->get_layer_height_0();
 
     assert(slice_layer_count > 0);
 
@@ -809,26 +824,8 @@ Slicer::Slicer(SliceContext* _application, Mesh* i_mesh, const coord_t thickness
     LOGI("Make polygons took { %f } seconds", slice_timer.restart());
 
 	
-    const bool keep_open_polygons = mesh->settings.get<bool>("keep_open_polygons");
-    if (keep_open_polygons)
-    {
-		coord_t c_gap = 200;
-        if (!mesh->settings.get<bool>("support_paint_enable"))
-            c_gap = mesh->settings.get<coord_t>("support_line_width");
-
-		auto getPloygons = [&c_gap](Polygons& ploygon)
-		{
-			ClipperLib::ClipperOffset clipper;
-			clipper.AddPaths(ploygon.paths, ClipperLib::JoinType::jtSquare, ClipperLib::etOpenSquare);
-			clipper.Execute(ploygon.paths, c_gap);
-		};
-		for (SlicerLayer& alayer : layers)
-		{
-			getPloygons(alayer.openPolylines);
-			alayer.polygons.add(alayer.openPolylines);
-			alayer.openPolylines.clear();
-		}
-    }
+    if (mesh->settings.get<bool>("keep_open_polygons"))
+        mergeOpenPloygons(mesh, layers);
 }
 
 void Slicer::buildSegments(SliceContext* application, const Mesh& mesh, const std::vector<std::pair<int32_t, int32_t>>& zbbox, const SlicingTolerance& slicing_tolerance, std::vector<SlicerLayer>& layers)
@@ -1161,7 +1158,7 @@ void Slicer::makePolygons(SliceContext* application, Mesh& mesh, SlicingToleranc
         layer_apply_initial_xy_offset = 1;
     }
 
-    if (mesh.settings.get<bool>("support_mesh_drop_down") || mesh.settings.get<bool>("anti_overhang_mesh"))
+    if (mesh.settings.get<bool>("support_paint_enable"))
         return;
 
     const coord_t xy_offset = mesh.settings.get<coord_t>("xy_offset");

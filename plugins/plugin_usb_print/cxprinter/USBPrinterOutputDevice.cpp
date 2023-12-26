@@ -4,7 +4,6 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include <thread>
 #include "USBPrinterOutputDevice.h"
 #include "GenericOutputController.h"
 

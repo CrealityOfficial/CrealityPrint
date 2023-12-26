@@ -3,78 +3,78 @@
 <context>
     <name>global_const</name>
     <message>
-        <source>aboutusdialog_webside</source>
+        <source>Website</source>
         <translation>웹사이트</translation>
     </message>
     <message>
-        <source>aboutusdialog_email</source>
+        <source>E-mail</source>
         <translation>이메일</translation>
     </message>
     <message>
-        <source>aboutusdialog_telephone</source>
+        <source>Telephone</source>
         <translation>전화</translation>
     </message>
     <message>
-        <source>sofrware_copyright</source>
+        <source>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved</source>
         <translation>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved.</translation>
     </message>
     <message>
-        <source>offical_introduction</source>
+        <source>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China&apos;s 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</source>
         <translation>2014년에 설립된 Shenzhen Creality 3D Technology Co., Ltd.는 중국에서 3D 프린팅 산업에 진출한 최초의 R &amp; D 제조업체이며 광범위한 3D 프린팅 솔루션 구축에 전념하고 있습니다. 사업 분야는 주로 R &amp; D에 중점을 두고 있습니다. D, 3D 프린터 제조 및 판매, 3D 프린팅 액세서리, 3D 프린팅 필라멘트, 3D 교육 커리큘럼 시스템, 3D 프린팅 서비스 등으로 확장. 현재 중국 3D 프린팅 산업의 선도적인 하이테크 기업으로 자리 잡았습니다. R &amp; D의 강점, 생산, 품질 및 서비스가 모두 업계를 선도합니다.</translation>
     </message>
     <message>
-        <source>offical_brief_introduction</source>
+        <source>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</source>
         <translation>Shenzhen Creality 3D Technology Co., Ltd.는 국제적으로 유명한 3D 프린터 제조업체로 3D 프린터의 R &amp; D 및 생산에 중점을 두고 있습니다.</translation>
     </message>
     <message>
-        <source>offical_webside</source>
+        <source>https://www.creality.com/</source>
         <translation>https://www.creality.com/</translation>
     </message>
     <message>
-        <source>offical_email</source>
+        <source>crealityprint@creality.com</source>
         <translation>crealityprint@creality.com</translation>
     </message>
     <message>
-        <source>offical_telephone</source>
+        <source>+86 755-8523 4565</source>
         <translation>+86 755-8523 4565</translation>
     </message>
 </context>
 <context>
     <name>global_const_Piocreat</name>
     <message>
-        <source>aboutusdialog_webside</source>
+        <source>Website</source>
         <translation>웹사이트</translation>
     </message>
     <message>
-        <source>aboutusdialog_email</source>
+        <source>E-mail</source>
         <translation>이메일</translation>
     </message>
     <message>
-        <source>aboutusdialog_telephone</source>
+        <source>Telephone</source>
         <translation>전화</translation>
     </message>
     <message>
-        <source>sofrware_copyright</source>
+        <source>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved.</source>
         <translation>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved.</translation>
     </message>
     <message>
-        <source>offical_introduction</source>
+        <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China</source>
         <translation>Shenzhen Piocreat 3D Technology Co., Ltd.는 산업용 등급 3D 프린터 및 재료 분야의 선두 기업입니다. Piocreat는 Made-in-China의 뛰어난 성능을 보여주는 데 전념하고 있습니다.</translation>
     </message>
     <message>
-        <source>offical_brief_introduction</source>
+        <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China.</source>
         <translation>Shenzhen Piocreat 3D Technology Co., Ltd.는 산업용 등급 3D 프린터 및 재료 분야의 선두 기업입니다. Piocreat는 Made-in-China의 뛰어난 성능을 보여주는 데 전념하고 있습니다.</translation>
     </message>
     <message>
-        <source>offical_webside</source>
+        <source>https://www.piocreat3d.com/</source>
         <translation>https://www.piocreat3d.com/</translation>
     </message>
     <message>
-        <source>offical_email</source>
+        <source>after@piocreat3d.com</source>
         <translation>after@piocreat3d.com</translation>
     </message>
     <message>
-        <source>offical_telephone</source>
+        <source>+86 755-2103 9743</source>
         <translation>+86 755-2103 9743</translation>
     </message>
 </context>
@@ -17562,11 +17562,11 @@
         <translation>저장 실패</translation>
     </message>
     <message>
-        <source>save_successed_tip</source>
+        <source>Save successed, do you want open the folder now?</source>
         <translation>저장이 완료되었습니다. 지금 폴더를 열어볼까요?</translation>
     </message>
     <message>
-        <source>save_failed_tip</source>
+        <source>Save failed, please try again.</source>
         <translation>저장하지 못했습니다. 재시도해 주세요.</translation>
     </message>
     <message>
@@ -17731,15 +17731,22 @@
         <translation>오류보고</translation>
     </message>
     <message>
-        <source>dump_tip_format_0</source>
+        <source>A serious error has occurred in %1. Please send this error report to us to fix the problem.</source>
         <translation>%1에 심각한 오류가 발생했습니다. 문제를 해결하려면 이 오류 보고서를 당사에 보내주십시오.</translation>
     </message>
     <message>
-        <source>dump_tip_format_1</source>
+        <source>Please click the 'Send Report' button to automatically publish the error report to our server.</source>
         <translation>오류 보고서를 당사 서버에 자동으로 게시하려면 &quot;보고서 보내기&quot; 버튼을 클릭하십시오.</translation>
     </message>
     <message>
-        <source>dump_info_format</source>
+        <source>%1 version: %2
+%3 langauge: %4
+Operating System: %5
+Graphics card: %6
+OpenGL:
+  - OpenGL version: %7
+  - OpenGL vendor: %8
+  - OpenGL renderer: %9</source>
         <translation>%1 version: %2
 %3 langauge: %4
 Operating System: %5

@@ -32,6 +32,8 @@ namespace qtuser_3d
 		{
 			disconnect(m_pickable, SIGNAL(signalStateChanged(ControlState)), this, SLOT(slotStateChanged(ControlState)));
 			disconnect(m_pickable, SIGNAL(signalFaceBaseChanged(int)), this, SLOT(slotFaceBaseChanged(int)));
+			disconnect(m_pickable, SIGNAL(signalClick(int)), this, SLOT(slotClick(int)));
+
 			delete m_pickable;
 		}
 
@@ -40,6 +42,7 @@ namespace qtuser_3d
 		{
 			connect(m_pickable, SIGNAL(signalStateChanged(ControlState)), this, SLOT(slotStateChanged(ControlState)));
 			connect(m_pickable, SIGNAL(signalFaceBaseChanged(int)), this, SLOT(slotFaceBaseChanged(int)));
+			connect(m_pickable, SIGNAL(signalClick(int)), this, SLOT(slotClick(int)));
 
 			m_pickable->signalStateChanged(m_pickable->state());
 			m_pickable->signalFaceBaseChanged(m_pickable->faceBase());
@@ -72,5 +75,15 @@ namespace qtuser_3d
 		vertexBase.setX(faceBase * 3);
 		vertexBase.setY(m_pickable->noPrimitive() ? 1 : 0);
 		m_vertexBaseParameter->setValue(vertexBase);
+	}
+
+	void PickXEntity::slotClick(int primitiveID)
+	{
+		onClick(primitiveID);
+	}
+
+	void PickXEntity::onClick(int primitiveID)
+	{
+		
 	}
 }

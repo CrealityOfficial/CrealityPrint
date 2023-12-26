@@ -274,6 +274,9 @@ namespace creative_kernel
 
 		m_slicePreviewNode->setLayerHeight(height);
 
+		m_retractionPoints->setParameter("layerHeight", height);
+		m_zSeamsPoints->setParameter("layerHeight", height);
+
 		updatePointEntitySize();
 	}
 
@@ -282,6 +285,8 @@ namespace creative_kernel
 		m_lineWidth = width;
 
 		//m_slicePreviewNode->setLineWidth(width);
+		m_retractionPoints->setParameter("lineWidth", width);
+		m_zSeamsPoints->setParameter("lineWidth", width);
 
 		updatePointEntitySize();
 	}

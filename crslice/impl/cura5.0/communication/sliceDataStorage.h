@@ -45,6 +45,7 @@ namespace cura52
         std::vector<VariableWidthLines> inset_paths;       //!< The insets represented as variable line-width paths. The insets are also known as perimeters or the walls. Binned by inset_idx.
         Polygons skin_fill; //!< The part of the skin which is not roofing.
         Polygons roofing_fill; //!< The inner infill which has air directly above
+        Polygons below_fill;
         Polygons top_most_surface_fill; //!< The inner infill of the uppermost top layer which has air directly above.
         Polygons bottom_most_surface_fill; //!< The inner infill of the bottommost bottom layer which has air directly below.
     };
@@ -322,6 +323,7 @@ namespace cura52
 
         SupportStorage support;
         std::vector<ZseamDrawlayer> zSeamPoints;
+        std::vector<ZseamDrawlayer> interceptSeamPoints;
 
         Polygons skirt_brim[MAX_EXTRUDERS]; //!< Skirt and brim polygons per extruder, ordered from inner to outer polygons.
         size_t skirt_brim_max_locked_part_order[MAX_EXTRUDERS]; //!< Some parts (like skirt) always need to be printed before parts like support-brim, so lock 0..n for each extruder, where n is the value saved in this array.

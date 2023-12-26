@@ -60,6 +60,25 @@ namespace cura52
         return  static_cast<T>(M_PI) / mul;
     }
 
+    inline double math_f(double t)
+    {
+        return t - sin(t);
+    }
+
+    inline double math_solvef(double y, double x0, double x1)
+    {
+        //x - sin(x) - y = 0;
+        //x0 <= x <= x1;
+        double a = x0, b = x1;
+        while (true)
+        {
+            if (abs(b - a) < 0.00001) { break; }
+            double c = 0.5 * (a + b);
+            if (math_f(c) < y) { a = c; }
+            else { b = c; }
+        }
+        return 0.5 * (a + b);
+    }
 }//namespace cura52
 #endif // UTILS_MATH_H
 

@@ -27,23 +27,23 @@ DockItem {
                                               .arg(cxkernel_const.versionExtra)
   readonly property bool versionVisible: true
 
-  readonly property string copyright: qsTranslate(context, "sofrware_copyright")
-  readonly property bool copyrightVisible: copyright !== "sofrware_copyright"
+  readonly property string copyright: qsTranslate(context, "Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved")
+  readonly property bool copyrightVisible: copyright !== "Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved"
 
-  readonly property string introduction: qsTranslate(context, "offical_introduction")
-  readonly property bool introductionVisible: introduction !== "offical_introduction"
+  readonly property string introduction: qsTranslate(context, "Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R & D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R & D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China's 3D printing industry, with its R & D strength, production, quality and services all leading the industry.")
+  readonly property bool introductionVisible: introduction !== "Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China&apos;s 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry."
 
-  readonly property string websiteTitle: qsTranslate(context, "aboutusdialog_webside")
-  readonly property string website: qsTranslate(context, "offical_webside")
-  readonly property bool websiteVisible: website !== "offical_webside"
+  readonly property string websiteTitle: qsTranslate(context, "Website")
+  readonly property string website: qsTranslate(context, "https://www.creality.cn/")
+  readonly property bool websiteVisible: website !== "https://www.creality.cn/"
 
-  readonly property string emailTitle: qsTranslate(context, "aboutusdialog_email")
-  readonly property string email: qsTranslate(context, "offical_email")
-  readonly property bool emailVisible: email !== "offical_email"
+  readonly property string emailTitle: qsTranslate(context, "E-mail")
+  readonly property string email: qsTranslate(context, "crealityprint@creality.com")
+  readonly property bool emailVisible: email !== "crealityprint@creality.com"
 
-  readonly property string telephoneTitle: qsTranslate(context, "aboutusdialog_telephone")
-  readonly property string telephone: qsTranslate(context, "offical_telephone")
-  readonly property bool telephoneVisible: telephone !== "offical_telephone"
+  readonly property string telephoneTitle: qsTranslate(context, "Telephone")
+  readonly property string telephone: qsTranslate(context, "+86 755-8523 4565")
+  readonly property bool telephoneVisible: telephone !== "+86 755-8523 4565"
 
   CopyRightDlg {
     id: copyright_dialog
@@ -107,7 +107,7 @@ DockItem {
       height: contentHeight
       Layout.bottomMargin: parent.spacing
 
-      visible: root.introductionVisible
+//      visible: root.introductionVisible
 
       padding: 0
 
@@ -148,7 +148,7 @@ DockItem {
 
       Layout.fillWidth: true
 
-      visible: root.copyrightVisible
+//      visible: root.copyrightVisible
 
       horizontalAlignment: Text.AlignLeft
       verticalAlignment: Text.AlignTop
@@ -167,7 +167,7 @@ DockItem {
 
       Layout.fillWidth: true
 
-      visible: root.websiteVisible
+   //   visible: root.websiteVisible
 
       horizontalAlignment: Text.AlignLeft
       verticalAlignment: Text.AlignTop
@@ -220,7 +220,7 @@ DockItem {
       Layout.fillWidth: true
       Layout.fillHeight: true
 
-      visible: root.telephoneVisible
+//      visible: root.telephoneVisible
 
       horizontalAlignment: Text.AlignLeft
       verticalAlignment: Text.AlignTop

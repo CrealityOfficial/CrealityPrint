@@ -12,6 +12,8 @@ namespace qtuser_3d
 
 		void setNeed360Rotate(bool is_need) override;
 
+		void setNeedAroundRotate(bool is_need) override;
+
 	protected:
 		void onRightMouseButtonPress(QMouseEvent* event) override;
 		void onRightMouseButtonMove(QMouseEvent* event) override;
@@ -22,8 +24,12 @@ namespace qtuser_3d
 		void performTranslate(const QPoint& pos);
 		void performRotate(const QPoint& pos);
 		void performRotate360(const QPoint& pos);
+
+		void performAynRotate(const QPoint& pos);
+		QMatrix4x4 rotMatrix(const QPoint& pos);
 	protected:
 		bool m_need360Rotate;
+		bool m_needAroundRotate;
 	};
 }
 #endif // _QTUSER_3D_EULARMOUSEMANIPULATOR_1590807908153_H

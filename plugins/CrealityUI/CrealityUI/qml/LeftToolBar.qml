@@ -187,16 +187,12 @@ Rectangle
                             //2.初始化item
                             item.execute()
 
-                            //3.模型变量赋值
+                            content.source = source
+                            content.item.com = item
+
                             if(model.index === 5)
-                            {
-                                //支撑按钮
-                                supportUICpp.execute()
-                                content.sourceComponent = supportCom
-                            }
-                            else {
-                                content.source = source
-                                content.item.com = item
+                            {   // 支撑
+                                content.item.execute()
                             }
                         }
                     }
@@ -314,12 +310,6 @@ Rectangle
     function clickFunction(enabledIcon, source, item, index, thisItem)
     {
         Constants.leftShowType = 0
-        //支撑按钮
-        if(index === (9-3))
-        {
-            supportUICpp.execute()
-            content.sourceComponent = supportCom
-        }
 
         item.execute()
         if(selectItem) selectItem.bottonSelected = false

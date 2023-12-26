@@ -8,7 +8,7 @@
 #include <QtCore/QTimer>
 #include <Qt3DRender/QCamera>
 
-#include <gcode/define.h>
+#include <crslice/gcode/define.h>
 #include <cxgcode/model/gcodeextruderlistmodel.h>
 #include <cxgcode/model/gcodefanspeedlistmodel.h>
 #include <cxgcode/model/gcodeflowlistmodel.h>

@@ -7,39 +7,6 @@
 
 namespace cxkernel
 {
-	void generateGeometryColorDataFromMesh(trimesh::TriMesh* mesh, cxkernel::GeometryData& data)
-	{
-		if (!mesh || (mesh->faces.size() == 0) || (mesh->vertices.size() == 0))
-			return;
-
-		int fcount = (int)mesh->faces.size();
-		int count = fcount * 3;
-
-		data.fcount = fcount;
-		data.vcount = count;
-		data.indiceCount = 0;
-
-		bool hasColor = mesh->colors.size() > 0;
-		if (!hasColor)
-			return;
-
-		QByteArray& colorArray = data.color;
-		colorArray.resize(count * 3 * sizeof(float));
-
-		trimesh::vec3* colorData = (trimesh::vec3*)colorArray.data();
-		for (int i = 0; i < fcount; ++i)
-		{
-			if (hasColor)
-			{
-				trimesh::Color c = mesh->colors.at(i);
-				for (int j = 0; j < 3; ++j)
-				{
-					colorData[i * 3 + j] = c;
-				}
-			}
-		}
-	}
-
 	void generateGeometryDataFromMesh(trimesh::TriMesh* mesh, cxkernel::GeometryData& data)
 	{
 		if (!mesh || (mesh->faces.size() == 0) || (mesh->vertices.size() == 0))
@@ -69,6 +36,8 @@ namespace cxkernel
 			texcoordArray.resize(count * 2 * sizeof(float));
 
 		bool hasColor = mesh->colors.size() > 0;
+		bool vertexColor = mesh->colors.size() == mesh->vertices.size();
+
 		//if (hasColor)  //为了兼容特定AMD显卡，每次都生成顶点颜色属性
 		{
 			colorArray.resize(count * 3 * sizeof(float));
@@ -93,19 +62,33 @@ namespace cxkernel
 
 			for (int i = 0; i < fcount; ++i)
 			{
-				if (hasColor)
+				for (int j = 0; j < 3; ++j)
 				{
-					const trimesh::Color& c = mesh->colors.at(i);
-					for (int j = 0; j < 3; ++j)
+					if (hasColor)
 					{
-						colorData[i * 3 + j] = c;
+						if (!vertexColor)
+						{
+							//面颜色
+							const trimesh::Color& c = mesh->colors.at(i);
+							colorData[i * 3 + j] = c;
+						}
+					}
+					else {
+						colorData[i * 3 + j] = trimesh::vec3(1.0f);
 					}
 				}
 
 				trimesh::TriMesh::Face& f = mesh->faces.at(i);
 				for (int j = 0; j < 3; ++j)
 				{
-					vertexData[i * 3 + j] = mesh->vertices.at(f[j]);
+					int idx = f[j];
+					vertexData[i * 3 + j] = mesh->vertices.at(idx);
+
+					if (hasColor && vertexColor)
+					{
+						//逐顶点颜色，使用第一个顶点的上的颜色
+						colorData[i * 3 + j] = mesh->colors.at(idx - (idx%3));
+					}
 				}
 
 				if (needNormal)
@@ -195,7 +178,13 @@ namespace cxkernel
 		QByteArray& colorArray = data.color;
 
 		colorArray.resize(vcount * 3 * sizeof(float));
-		memset(colorArray.data(), 0x0, vcount * 3 * sizeof(float));
+		//memset(colorArray.data(), 0x0, vcount * 3 * sizeof(float));
+		float* colorPtr = (float*)colorArray.data();
+		for (size_t i = 0; i < vcount * 3; i++)
+		{
+			//默认白色
+			colorPtr[i] = 1.0f;
+		}
 
 		positionByteArray.resize(vcount * 3 * sizeof(float));
 

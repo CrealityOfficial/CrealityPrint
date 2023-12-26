@@ -263,6 +263,11 @@ namespace qtuser_3d
 
 	}
 
+	bool ColorPicker::isPrepared()
+	{
+		return !m_capturing;
+	}
+	
 	bool ColorPicker::pick(const QPoint& point, int* faceID)
 	{
 		if (m_capturing)
@@ -381,4 +386,5 @@ namespace qtuser_3d
 		m_filterKey->setName("-ignore-ColorPicker-");
 		m_filterKey->setValue(0);
 	}
+
 }

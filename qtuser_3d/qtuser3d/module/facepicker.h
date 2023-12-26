@@ -9,6 +9,7 @@ namespace qtuser_3d
 	public:
 		virtual ~FacePicker() {}
 
+		virtual bool isPrepared() = 0;
 		virtual bool pick(int x, int y, int* faceID) = 0;
 		virtual bool pick(const QPoint& point, int* faceID) = 0;
 		virtual void sourceMayChanged() = 0;

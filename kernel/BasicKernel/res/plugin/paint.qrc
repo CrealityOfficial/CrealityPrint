@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/paint">
+        <file>paint/SeamPaintingPanel.qml</file>
+        <file>paint/SupportPaintingPanel.qml</file>
+        <file>paint/components/ColorSeletor.qml</file>
+        <file>paint/components/ToolSeletor.qml</file>
+        <file>paint/components/SliderWithSpinBox.qml</file>
+        <file>paint/components/ColorPanelBottom.qml</file>
+        <file>paint/components/ColorCanvas.qml</file>
+    </qresource>
+</RCC> 

@@ -490,7 +490,7 @@ namespace cura52
         , application(gcode.application)
     {
         const Settings& scene_settings = application->sceneSettings();
-        initial_layer_thickness = scene_settings.get<coord_t>("layer_height_0");
+        initial_layer_thickness = application->get_layer_height_0();
         connectionHeight = scene_settings.get<coord_t>("wireframe_height");
         roof_inset = scene_settings.get<coord_t>("wireframe_roof_inset");
 

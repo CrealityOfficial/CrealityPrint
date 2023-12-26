@@ -21,7 +21,10 @@
 #include "cxkernel/interface/jobsinterface.h"
 #include "internal/undo/modelserialcommand.h"
 #include "job/nest2djob.h"
+
+#include "qtuser3d/trimesh2/conv.h"
 #include "internal/menu/submenurecentfiles.h"
+
 namespace creative_kernel
 {
 	void openMeshFile()
@@ -661,5 +664,29 @@ namespace creative_kernel
 		}
 
 		return model;
+	}
+
+	void setMaxFaceBottom()
+	{
+		QList<creative_kernel::ModelN*> selections = creative_kernel::selectionms();
+		if (selections.size() < 1)
+			return;
+
+		for (creative_kernel::ModelN* model : selections)
+		{
+			model->data()->calculateFaces();
+
+			const std::vector<cxkernel::KernelHullFace>& faces = model->data()->faces;
+			if (faces.size() > 0)
+			{
+				const cxkernel::KernelHullFace& face = faces.at(0);
+
+				trimesh::fxform xf = qtuser_3d::qMatrix2Xform(model->globalMatrix());
+				trimesh::vec n = trimesh::norm_xf(xf) * face.normal;
+				QVector3D normal = qtuser_3d::vec2qvector(trimesh::normalized(n));
+
+				creative_kernel::rotateModelNormal2Bottom(model, normal);
+			}
+		}		
 	}
 }

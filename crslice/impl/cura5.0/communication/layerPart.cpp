@@ -142,17 +142,21 @@ namespace cura52 {
         {
             SupportLayer& support_layer = storage.support.supportLayers[layer_nr];
             const SlicedLayer& slicer_layer = data->layers[layer_nr];
-            switch (modifier_type)
+
+            if (!slicer_layer.polygons.empty())
             {
-            case ANTI_OVERHANG:
-                support_layer.anti_overhang.add(slicer_layer.polygons);
-                break;
-            case SUPPORT_DROP_DOWN:
-                support_layer.support_mesh_drop_down.add(slicer_layer.polygons);
-                break;
-            case SUPPORT_VANILLA:
-                support_layer.support_mesh.add(slicer_layer.polygons);
-                break;
+                switch (modifier_type)
+                {
+                case ANTI_OVERHANG:
+                    support_layer.anti_overhang.add(slicer_layer.polygons);
+                    break;
+                case SUPPORT_DROP_DOWN:
+                    support_layer.support_mesh_drop_down.add(slicer_layer.polygons);
+                    break;
+                case SUPPORT_VANILLA:
+                    support_layer.support_mesh.add(slicer_layer.polygons);
+                    break;
+                }
             }
         }
     }

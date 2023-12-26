@@ -5,5 +5,5 @@ repository: http://172.20.180.12:8050/yanfa4/alg/topomesh
 external_repository: http://172.20.180.12:8050/CrealityOfficial/topomesh
 description: topomesh
 topics: topomesh,model
-build_deps: trimesh2/0.0.3,clipper/0.0.2,eigen/0.0.2
+build_deps: msbase/0.0.2,clipper/0.0.2,eigen/0.0.2
 search_deps: trimesh2/0.0.3

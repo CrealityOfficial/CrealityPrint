@@ -119,7 +119,16 @@ namespace creative_kernel
 		resetSection();
 
 		QVariantList values = CONFIG_GLOBAL_VARLIST(modeleffect_statecolors, model_group);
-		m_modelEffect->setParameter("stateColors[0]", values);
+		m_modelEffect->setParameter("stateGain[0]", values);
+		m_modelEffect->setParameter("outPlatformGain", QVector4D(1.0, 0.50, 0.50, 1.0));
+		m_modelEffect->setParameter("insideGain", QVector4D(0.50, 1.0, 0.50, 1.0));
+
+		QVariantList weights;
+		for (size_t i = 0; i < 16; i++)
+		{
+			weights << QVector4D(1.0, 1.0, 1.0, 1.0);
+		}
+		m_modelEffect->setParameter("nozzleGain[0]", weights);
 
 		QVector4D ambient = CONFIG_GLOBAL_VEC4(modeleffect_ambient, model_group);
 		QVector4D diffuse = CONFIG_GLOBAL_VEC4(modeleffect_diffuse, model_group);

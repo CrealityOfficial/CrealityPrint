@@ -43,6 +43,20 @@ namespace creative_kernel
 		eLanguage_ZHCN_TS,
 		eLanguage_ZHTW_TS,
 		eLanguage_KO_TS,
+		eLanguage_JP_TS,
+		eLanguage_DE_TS,
+		eLanguage_ES_TS,
+		eLanguage_FR_TS,
+		eLanguage_IT_TS,
+		eLanguage_PT_TS,
+		eLanguage_RU_TS,
+		eLanguage_TR_TS,
+		eLanguage_PL_TS,
+		eLanguage_NL_TS,
+		eLanguage_CZ_TS,
+		eLanguage_HU_TS,
+		eLanguage_SE_TS,
+		eLanguage_UA_TS,
 		eLanguage_NUM
 	};
 

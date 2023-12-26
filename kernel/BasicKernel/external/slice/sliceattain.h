@@ -4,7 +4,7 @@
 #include <QtCore/QUrl>
 #include "data/kernelenum.h"
 
-#include "gcode/sliceresult.h"
+#include "crslice/gcode/sliceresult.h"
 #include "cxgcode/simplegcodebuilder.h"
 
 #include <Qt3DRender/QGeometry>
@@ -16,7 +16,7 @@
 #include "trimesh2/Vec.h"
 #include "trimesh2/TriMesh.h"
 
-#include <gcode/define.h>
+#include <crslice/gcode/define.h>
 #include "crslice/header.h"
 
 namespace creative_kernel
@@ -111,7 +111,7 @@ namespace creative_kernel
 
 		void getPathData(const trimesh::vec3 point, float e, int type)override;
 		void getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type, bool isG2 = true) override;
-		void setParam(crslice::PathParam pathParam)override;
+		void setParam(gcode::GCodeParseInfo& pathParam)override;
 		void setLayer(int layer)override;
 		void setLayers(int layer)override;
 		void setSpeed(float s)override;

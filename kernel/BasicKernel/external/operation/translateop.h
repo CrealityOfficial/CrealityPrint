@@ -10,6 +10,7 @@
 #include "data/modeln.h"
 #include "../utils/operationutil.h"
 #include "interface/spaceinterface.h"
+#include "moveoperatemode.h"
 
 #define PosMax 1000
 
@@ -18,7 +19,7 @@ namespace creative_kernel
 	class Kernel;
 }
 
-class BASIC_KERNEL_API TranslateOp : public qtuser_3d::SceneOperateMode
+class BASIC_KERNEL_API TranslateOp : public MoveOperateMode
 	, public qtuser_3d::SelectorTracer , public creative_kernel::SpaceTracer
 {
 	Q_OBJECT
@@ -56,9 +57,6 @@ protected:
 	void setSelectedModel(QList<creative_kernel::ModelN*> models);
 
 	void buildFromSelections();
-	QVector3D process(const QPoint& point);
-	void getProperPlane(QVector3D& planeCenter, QVector3D& planeDir, qtuser_3d::Ray& ray);
-	QVector3D clip(const QVector3D& delta);
 
 	void updateHelperEntity();
 
@@ -70,17 +68,6 @@ protected:
 
 private:
 	qtuser_3d::TranslateHelperEntity* m_helperEntity;
-
-	QVector3D m_spacePoint;
-
-	TMode m_mode;
-
-	QVector3D m_saveLocalPosition;
-	QList<QVector3D> m_saveLocalPositions;
-
-	creative_kernel::ModelN* m_selectedModel;
-	QList<creative_kernel::ModelN*> m_selectedModels;
-	bool moveEnable;
 	double m_originFovy;
 };
 #endif // _NULLSPACE_TRANSLATEOP_1589770383921_H

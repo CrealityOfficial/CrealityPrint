@@ -43,24 +43,20 @@ namespace creative_kernel
 		us::USettings* setting();
 		void setsetting(us::USettings* modelsetting);
 
-		void setState(float state);
-		float getState();
-		void setErrorState(bool error);
+		void setState(int state);
+		int getState();
+		
 		void setBoxState(int state);  // 0 hide,  1 show as select state
 		void setVisibility(bool visibility);
 		bool isVisible();
 		Qt3DCore::QEntity* getModelEntity();
-
-		// 自定义颜色，当 state 值大于 5 时生效
-		void setCustomColor(QColor color);
-		QColor getCustomColor();
 
 		void setNozzle(int nozzle);
 		int nozzle();
 
         void buildFDMSupport();
 		void setVisualMode(ModelVisualMode mode);
-
+		int getVisualMode();
 		void enterSupportStatus();
 		void leaveSupportStatus();
 		void setSupportCos(float cos);
@@ -87,7 +83,7 @@ namespace creative_kernel
 
 		trimesh::TriMesh* mesh();
 		TriMeshPtr meshptr();
-		TriMeshPtr globalMesh();
+		TriMeshPtr globalMesh(bool needMergeColorMesh = true);
 
 		int getErrorEdges();
         int getErrorNormals();
@@ -130,7 +126,6 @@ namespace creative_kernel
 		void copyNestData(ModelN* model);
 		cxkernel::ModelNDataPtr modelNData();
 
-
 		void adaptBox(const qtuser_3d::Box3D& box);
 		void adaptSmallBox(const qtuser_3d::Box3D& box);//适配以m为单位创建的模型
 		QVector3D zeroLocation();
@@ -147,6 +142,49 @@ namespace creative_kernel
 		QString getSerialName();
 		void setLocalData(const trimesh::vec3& position, const QQuaternion& q, const trimesh::vec3& scale);
 		std::vector<trimesh::vec3> getoutline_ObjectExclude();
+
+		/* 涂色相关 */
+		void setPose(const QMatrix4x4& pose);
+		QMatrix4x4 pose();
+
+		void setColors2Facets(int index, const std::string& data);
+		std::string getColors2Facets(int index);
+		void setColors2Facets(const std::vector<std::string>& data);
+		std::vector<std::string> getColors2Facets();
+		bool hasColors();
+		void resizeColors2Facet(int size);
+
+		void setFacet2Facets(const std::vector<int>& facet2Facets);
+		int getFacet2Facets(int faceId);
+
+		//paint seam
+		void setSeam2Facets(int index, const std::string& data);
+		std::string getSeam2Facets(int index);
+		void setSeam2Facets(const std::vector<std::string>& data);
+		std::vector<std::string> getSeam2Facets();
+
+		//paint support
+		void setSupport2Facets(int index, const std::string& data);
+		std::string getSupport2Facets(int index);
+		void setSupport2Facets(const std::vector<std::string>& data);
+		std::vector<std::string> getSupport2Facets();
+
+		//slice paint support
+		void mergePaintSupport();
+		void mergePaintSupport_anti_overhang();
+		void mergePaintSeam();
+		void mergePaintSeam_anti();
+
+		void updateRenderByMeshSpreadData(const std::vector<std::string>& data);
+		void updateRender();
+
+	private:
+		std::vector<std::string> m_colors2Facets; //序列化数据
+		std::vector<int> m_facet2Facets;//原始面与细分数据映射表
+		int m_spreadFaceCount {0};
+
+		std::vector<std::string> m_seam2Facets; //涂抹Z缝
+		std::vector<std::string> m_support2Facets; //涂抹支撑
 	protected:
 		void onGlobalMatrixChanged(const QMatrix4x4& globalMatrix) override;
 		void onStateChanged(qtuser_3d::ControlState state) override;
@@ -154,8 +192,7 @@ namespace creative_kernel
 		void faceBaseChanged(int faceBase) override;
 
 		void setSupportsVisibility(bool visibility);
-		void mirror(const QMatrix4x4& matrix, bool apply = true) override;
-		
+		Qt3DRender::QGeometry* createGeometry();
 	protected:
 		cxkernel::ModelNDataPtr m_data;
 		ModelNRenderDataPtr m_renderData;

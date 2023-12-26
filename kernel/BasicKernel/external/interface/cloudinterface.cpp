@@ -10,10 +10,6 @@ QPointer<cxcloud::ServiceCenter> CloudService() {
 	return getKernel()->cxcloud();
 }
 
-QString GetCloudUrl() {
-  return CloudService()->getUrl();
-}
-
 QString LoadCloudModelGroupUrl(const QString& group_id) {
   return CloudService()->loadModelGroupUrl(group_id);
 }

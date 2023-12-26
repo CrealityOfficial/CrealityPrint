@@ -2,6 +2,7 @@ import QtQuick 2.0
 
 import QtQuick.Controls 2.5
 import QtQuick.Controls.Styles 1.4
+import "../secondqml"
 CheckBox {
     id:control
     property color textColor : Constants.textColor
@@ -22,11 +23,14 @@ CheckBox {
 
     property int indicatorWidth: 16* screenScaleFactor
     property int indicatorHeight: 16* screenScaleFactor
+
+    hoverEnabled: true
+
     signal styleCheckChanged(var key, var item)
 
-    ToolTip {
+    BasicTooltip {
         id: tipCtrl
-        visible: hovered&&strToolTip ? true : false
+        visible: control.hovered && (control.strToolTip != '')
         //timeout: 2000
         delay: 100
         width: 400

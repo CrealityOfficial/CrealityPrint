@@ -115,7 +115,7 @@ namespace cura52
         const coord_t airgap = std::max(coord_t(0), train.settings.get<coord_t>("raft_airgap"));
         const coord_t layer_0_overlap = mesh_group_settings.get<coord_t>("layer_0_z_overlap");
 
-        const coord_t layer_height_0 = mesh_group_settings.get<coord_t>("layer_height_0");
+        const coord_t layer_height_0 = application->get_layer_height_0();
 
         const coord_t z_diff_raft_to_bottom_of_layer_1 = std::max(coord_t(0), airgap + layer_height_0 - layer_0_overlap);
         return z_diff_raft_to_bottom_of_layer_1;

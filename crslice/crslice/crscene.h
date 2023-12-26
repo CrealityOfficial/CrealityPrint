@@ -63,7 +63,7 @@ namespace crslice
 		std::string m_tempDirectory;
 		std::vector<std::string> m_Object_Exclude_FileName;
 
-		FDMDebugger* m_debugger;
+		gcode::GcodeTracer* m_debugger;
 	};
 
 	class SceneCreator

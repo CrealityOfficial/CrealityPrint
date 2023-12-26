@@ -10,6 +10,10 @@
 #include <boost/filesystem.hpp>
 
 #include "communication/scenefactory.h"
+#include "crslice/gcode/sliceresult.h"
+
+#include "crslice/gcode/gcodedata.h"
+#include "crslice/gcode/pressureEquity.h"
 #include "utils/Coord_t.h"
 
 namespace cura52
@@ -77,7 +81,7 @@ namespace cura52
         return tracer;
     }
 
-    crslice::FDMDebugger* Application::debugger()
+    gcode::GcodeTracer* Application::debugger()
     {
         return scene->fDebugger;
     }
@@ -102,13 +106,33 @@ namespace cura52
                 tick("slice 0");
                 initCache();
 
-                gcode_writer.setTargetFile(scene->gcodeFile.c_str());
+                gcode_writer.gcode.setTargetFile(scene->gcodeFile.c_str());
 
                 compute();
                 // Finalize the processor. This adds the end g-code and reports statistics.
-                gcode_writer.finalize();
-                gcode_writer.closeGcodeWriterFile();
+                gcode_writer.gcode.finalize();
 
+                //bool is_pe = scene.get()->settings.get<bool>("pressure_equity");
+                bool is_pe = false;
+                if (is_pe)
+                {
+                    gcode::SliceResult sr;
+                    bool readable = sr.load_pressureEquity(scene->gcodeFile.c_str(), tracer);
+                    if (!readable)
+                        tick("pressure equalizer read gcode faliure");
+                    std::vector<std::string> inputGcodes = sr.layerCode();
+                    std::vector<std::string> outputGcode;
+                    std::vector<std::string> outputGcodes;
+                    double filament_diameter = 1.75;
+                    float extrusion_rate = 100;
+                    float segment_length = 1;
+                    bool relative_e_distances = false;
+  
+                    crslice::pressureE(inputGcodes, outputGcodes, filament_diameter, extrusion_rate, segment_length, relative_e_distances);
+
+                    std::string previewImageString = "";
+                    gcode::_SaveGCode(scene->gcodeFile.c_str(), previewImageString, outputGcodes, sr.prefixCode(), sr.tailCode());
+                }
                 tick("slice 1");
 
                 if (tracer)
@@ -132,6 +156,18 @@ namespace cura52
     std::vector<ExtruderTrain>& Application::extruders()
     {
         return scene->extruders;
+    }
+
+    const Settings& Application::extruderSettings(int index)
+    {
+        if (index >= 0 && index < extruderCount())
+            return scene->extruders.at(index).settings;
+        return scene->extruders.at(0).settings;
+    }
+
+    const Settings& Application::currentGroupSettings()
+    {
+        return scene->current_mesh_group->settings;
     }
 
     const Settings& Application::sceneSettings()
@@ -236,6 +272,8 @@ namespace cura52
             train.settings.add("extruder_nr", std::to_string(i));
         }
 
+        wrapperSceneSettings();
+
         for (MeshGroup& meshGroup : scene->mesh_groups)
         {
             meshGroup.settings.application = this;
@@ -288,6 +326,8 @@ namespace cura52
                 extruder.settings.setParent(&scene->current_mesh_group->settings);
             }
 
+            wrapperOtherSettings();
+
             {
                 progressor.restartTime();
                 if (tracer)
@@ -311,7 +351,7 @@ namespace cura52
                     return;
                 }
 
-                if (mesh_group->settings.get<bool>("wireframe_enabled"))
+                if (wireframe_enabled)
                 {
                     LOGI("Starting Neith Weaver...");
 
@@ -373,5 +413,15 @@ namespace cura52
                 }
             }
         }
+    }
+
+    void Application::wrapperSceneSettings()
+    {
+        SceneParamWrapper::initialize(&scene->settings);
+    }
+
+    void Application::wrapperOtherSettings()
+    {
+        GroupParamWrapper::initialize(&scene->current_mesh_group->settings);
     }
 } // namespace cura52

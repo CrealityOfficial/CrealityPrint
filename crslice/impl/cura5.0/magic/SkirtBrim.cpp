@@ -680,7 +680,7 @@ namespace cura52
 
 		//add LACE
 		coord_t offset_distance = 0;
-		if (storage.application->currentGroup()->settings.get<std::string>("adhesion_type") == "lace")
+		if (storage.application->get_adhesion_type() == EPlatformAdhesion::LACE)
 		{
 			skirt_brim_primary_extruder.add(first_layer_outline);
 		}

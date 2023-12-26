@@ -59,13 +59,15 @@ __enable_spdlog()
 
 option(GEN_TRANSLATIONS_TS "create TS file" OFF)
 
+add_subdirectory(expat)
 add_subdirectory(msbase)
 
-add_subdirectory(gcode)
+#add_subdirectory(gcode)
 add_subdirectory(crslice)
 add_subdirectory(topomesh)
 
 add_subdirectory(cadcore)
+add_subdirectory(spread)
 
 __enable_qt5()
 add_subdirectory(qtuser)
@@ -96,6 +98,9 @@ set(Creative3D_plugins  CrealityUI
 						plugin_hollow
 						plugin_drill
 						plugin_distance_measure
+						plugin_seam_painting
+						plugin_support_painting
+						plugin_model_effect
 						)
 
 add_subdirectory(plugins)

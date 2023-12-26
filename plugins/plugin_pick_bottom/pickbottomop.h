@@ -3,8 +3,9 @@
 #include "qtuser3d/scene/sceneoperatemode.h"
 #include "qtuser3d/module/pickableselecttracer.h"
 #include "pickface.h"
+#include "operation/moveoperatemode.h"
 
-class PickBottomOp: public qtuser_3d::SceneOperateMode
+class PickBottomOp: public MoveOperateMode
 	, public qtuser_3d::SelectorTracer
 {
 	Q_OBJECT

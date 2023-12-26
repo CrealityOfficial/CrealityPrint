@@ -48,7 +48,9 @@ ThomasTreeSupport::ThomasTreeSupport(const SliceDataStorage& storage)
         SliceMeshStorage mesh = storage.meshes[mesh_idx];
 
         const bool non_supportable_mesh = mesh.settings.get<bool>("infill_mesh") || mesh.settings.get<bool>("anti_overhang_mesh") || storage.meshes[mesh_idx].settings.get<bool>("support_mesh");
-        if (storage.meshes[mesh_idx].settings.get<ESupportStructure>("support_structure") != ESupportStructure::THOMASTREE || !storage.meshes[mesh_idx].settings.get<bool>("support_enable") || non_supportable_mesh)
+        if ((storage.meshes[mesh_idx].settings.get<ESupportStructure>("support_structure") != ESupportStructure::THOMASTREE 
+            && storage.meshes[mesh_idx].settings.get<ESupportStructure>("support_structure") == ESupportStructure::THOMASTREE_MANUAL) 
+            || !storage.meshes[mesh_idx].settings.get<bool>("support_enable") || non_supportable_mesh)
         {
             continue;
         }

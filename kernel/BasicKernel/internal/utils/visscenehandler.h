@@ -2,6 +2,11 @@
 #define CREATIVE_KERNEL_VISSCENEHOVERHANDLER_1594483094926_H
 #include "basickernelexport.h"
 #include "qtuser3d/event/eventhandlers.h"
+#include "external/interface/selectorinterface.h"
+#include "qtuser3d/module/pickableselecttracer.h"
+#include <QPixmap>
+#include <QCursor>
+#include "external/data/interface.h"
 
 namespace creative_kernel
 {
@@ -9,13 +14,24 @@ namespace creative_kernel
 		, public qtuser_3d::HoverEventHandler
 		, public qtuser_3d::KeyEventHandler
 		, public qtuser_3d::LeftMouseEventHandler
+		, public qtuser_3d::SelectorTracer
+    	, public UIVisualTracer
 	{
 		Q_OBJECT
 	public:
 		VisSceneHandler(QObject* parent = nullptr);
 		virtual ~VisSceneHandler();
 
+	private:
+		void updateCameraCenter();
+
 	protected:
+		void onThemeChanged(ThemeCategory category);
+		void onLanguageChanged(MultiLanguage language);
+
+		void onSelectionsChanged();
+		void selectChanged(qtuser_3d::Pickable* pickable);
+
 		void onHoverEnter(QHoverEvent* event) override;
 		void onHoverLeave(QHoverEvent* event) override;
 		void onHoverMove(QHoverEvent* event) override;
@@ -31,6 +47,11 @@ namespace creative_kernel
 	private:
 		QPoint m_posOfLeftMousePress;
 		bool m_didSelectModelAtPress;
+
+		bool m_selecting{ false };
+		QPixmap m_selectPixmap;
+		QPixmap m_movePixmap;
+		QPixmap m_rotatePixmap;
 
 	};
 }

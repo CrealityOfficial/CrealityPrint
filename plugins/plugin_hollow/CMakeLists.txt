@@ -9,5 +9,5 @@ __cc_find(ovdbutil)
 __assert_target(ovdbutil)
 
 list(APPEND LIBS ovdbutil)
-
+list(APPEND LIBS BasicKernel)
 add_kernel_plugin(hollow)

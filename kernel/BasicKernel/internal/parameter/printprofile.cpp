@@ -192,4 +192,33 @@ namespace creative_kernel
             
         return m_profileParameterModel;
     }
+
+    void PrintProfile::setparameterValue(QString key, QString value)
+    {
+        m_settings->findSetting(QString(key));
+        if (m_settings->hasKey(key))
+        {
+            m_settings->findSetting(key)->setValue(value);
+        }
+        else
+        {
+            m_settings->add(key, value);
+        }
+    }
+
+    QVariantList PrintProfile::parameterList(const QString key)
+    {
+        us::USetting* _setting = m_settings->findSetting(key);
+        QVariantList list;
+        if (_setting)
+        {
+            QMap<QString, QString> _options = _setting->def()->options;
+
+            for (const auto& key : _options.keys())
+            {
+                list.append(_options.value(key));
+            }
+        }
+        return list;
+    }
 }

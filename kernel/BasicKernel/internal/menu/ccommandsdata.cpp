@@ -29,9 +29,12 @@
 
 
 #include "submenustandardmodel.h"
+#include "submenutestmodel.h"
 #include "../menu_view/modelshowcommand.h"
 #include "../menu_view/mirroractioncommand.h"
 #include "../menu/saveascommand.h"
+#include "../project_3mf/save3mf.h"
+#include "../project_3mf/load3mf.h"
 #include "../menu_tool/submenulanguage.h"
 #include "../menu_view/submenuviewsshow.h"
 #include "../menu_view/resetactioncommand.h"
@@ -152,6 +155,16 @@ void CCommandsData::addCommonCommand()
     CCommandList::getInstance()->addActionCommad(rectfile);
     rectfile->setNumOfRecentFiles(10);
 
+    Save3MFCommand* save3MF = new Save3MFCommand();
+    save3MF->setParent(this);
+    save3MF->setBSeparator(true);
+    CCommandList::getInstance()->addActionCommad(save3MF);
+
+    Load3MFCommand* load3MF = new Load3MFCommand();
+    load3MF->setParent(this);
+    load3MF->setBSeparator(true);
+    CCommandList::getInstance()->addActionCommad(load3MF);
+
     SaveAsCommand* saveAs = new SaveAsCommand();
     saveAs->setParent(this);
     saveAs->setBSeparator(true);
@@ -161,6 +174,11 @@ void CCommandsData::addCommonCommand()
     ssm->setParent(this);
     ssm->setBSeparator(true);
     CCommandList::getInstance()->addActionCommad(ssm);
+
+    SubMenuTestModel* stm = new SubMenuTestModel();
+    stm->setParent(this);
+    stm->setBSeparator(true);
+    CCommandList::getInstance()->addActionCommad(stm);
     //edit
     UndoActionCmd* undo = new UndoActionCmd();
     undo->setParent(this);

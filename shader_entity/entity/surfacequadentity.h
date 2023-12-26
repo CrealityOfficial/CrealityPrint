@@ -7,6 +7,7 @@ namespace qtuser_3d
 {
 	class SHADER_ENTITY_API SurfaceQuadEntity : public qtuser_3d::XEntity
 	{
+		Q_OBJECT
 	public:
 		SurfaceQuadEntity(Qt3DCore::QNode* parent = nullptr);
 		virtual ~SurfaceQuadEntity();

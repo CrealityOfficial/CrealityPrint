@@ -3,16 +3,96 @@
 #include "interface/selectorinterface.h"
 #include "interface/visualsceneinterface.h"
 #include "interface/modelinterface.h"
+#include "interface/camerainterface.h"
+#include "interface/spaceinterface.h"
+#include "qtuser3d/camera/cameracontroller.h"
+#include "qtuser3d/camera/screencamera.h"
+#include "interface/commandinterface.h"
+
+#include "external/data/modeln.h"
+
+#include <QApplication>
+#include <QTimer>
 
 namespace creative_kernel
 {
 	VisSceneHandler::VisSceneHandler(QObject* parent)
 		:QObject(parent)
 	{
-	}
-	
+		addUIVisualTracer(this);
+
+		connect(cameraController(), &qtuser_3d::CameraController::signalRightMousePressed, this, [=](bool pressed)
+		{
+			if (pressed) 
+				QApplication::setOverrideCursor(QCursor(m_rotatePixmap));
+			else
+				QApplication::setOverrideCursor(QCursor(Qt::ArrowCursor));
+
+		});
+		connect(cameraController(), &qtuser_3d::CameraController::signalMidMousePressed, this, [=](bool pressed)
+		{
+			if (pressed)
+				QApplication::setOverrideCursor(QCursor(m_movePixmap));
+			else
+				QApplication::setOverrideCursor(QCursor(Qt::ArrowCursor));
+		});
+	}	
+
 	VisSceneHandler::~VisSceneHandler()
 	{
+	}
+
+	void VisSceneHandler::updateCameraCenter()
+	{
+		QList<ModelN*> models = creative_kernel::selectionms();
+		if (models.empty())
+		{
+			cameraController()->setRotateCenter(visCamera()->orignCenter());
+		}
+		else
+		{
+			QTimer::singleShot(100, [=]()
+				{
+					QVector3D allCenter;
+					for (auto m : models)
+					{
+						allCenter += m->boxWithSup().center();
+					}
+					allCenter /= models.count();
+					cameraController()->setRotateCenter(allCenter);
+				});
+		}
+	}
+
+	void VisSceneHandler::onThemeChanged(ThemeCategory category)
+	{
+		if (category == ThemeCategory::tc_dark)
+		{
+			m_selectPixmap = QPixmap(":/UI/photo/select_dark.png"); 
+			m_movePixmap = QPixmap(":/UI/photo/move_dark.png"); 
+			m_rotatePixmap = QPixmap(":/UI/photo/rotate_dark.png"); 
+		}
+		else if (category == ThemeCategory::tc_light)
+		{
+			m_selectPixmap = QPixmap(":/UI/photo/select_light.png");
+			m_movePixmap = QPixmap(":/UI/photo/move_light.png"); 
+			m_rotatePixmap = QPixmap(":/UI/photo/rotate_light.png"); 
+		}
+	}
+
+	void VisSceneHandler::onLanguageChanged(MultiLanguage language)
+	{
+
+	}
+
+	void VisSceneHandler::onSelectionsChanged()
+	{
+		updateCameraCenter();
+	}
+
+	void VisSceneHandler::selectChanged(qtuser_3d::Pickable* pickable)
+	{
+
 	}
 
 	void VisSceneHandler::onHoverEnter(QHoverEvent* event)
@@ -37,19 +117,19 @@ namespace creative_kernel
 
 	void VisSceneHandler::onKeyPress(QKeyEvent* event)
 	{
-		if (event->key() == Qt::Key_Delete)//ÓÃ»§ÔÚ¼üÅÌÉÏ°´ÏÂDelete¼üÊ±
+		if (event->key() == Qt::Key_Delete)//ï¿½Ã»ï¿½ï¿½Ú¼ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ï¿½ï¿½Deleteï¿½ï¿½Ê±
 		{
 			qDebug() << "VisSceneKeyHandler::onKeyPress: delete";
 			removeSelectionModels(true);
 		}
 
-		if (event->modifiers() == Qt::ControlModifier && (event->key() == Qt::Key_Delete))//Ctrl+Delete É¾³ýËùÓÐ
+		if (event->modifiers() == Qt::ControlModifier && (event->key() == Qt::Key_Delete))//Ctrl+Delete É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
 			qDebug() << "VisSceneKeyHandler::onKeyPress: ctrl + delete";
 			removeAllModel(true);
 		}
 
-		if (event->modifiers() == Qt::ControlModifier && (event->key() == Qt::Key_A))//µ±ÓÃ»§°´ÏÂCtrl+A¼üÊ±
+		if (event->modifiers() == Qt::ControlModifier && (event->key() == Qt::Key_A))//ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½Ctrl+Aï¿½ï¿½Ê±
 		{
 			qDebug() << "VisSceneKeyHandler::onKeyPress: ctrl + A";
 			selectAll();
@@ -67,11 +147,23 @@ namespace creative_kernel
 
 	void VisSceneHandler::onLeftMouseButtonPress(QMouseEvent* event)
 	{
-		if (shouldMultipleSelect())
+		qtuser_3d::Pickable* pickable = checkPickable(event->pos(), nullptr);
+		if (pickable == NULL)
 		{
-			QPoint p = event->pos();
-			m_posOfLeftMousePress = p;
-			m_didSelectModelAtPress = didSelectAnyEntity(p);
+			if (shouldMultipleSelect())
+			{
+				QPoint p = event->pos();
+				m_posOfLeftMousePress = p;
+				m_didSelectModelAtPress = didSelectAnyEntity(p);
+			} 
+
+			requestVisUpdate();
+		}
+		else 
+		{
+			m_didSelectModelAtPress = true;
+			if (!selectionms().contains((ModelN*)pickable))
+				selectVis(event->pos(), event->modifiers() == Qt::KeyboardModifier::ControlModifier);
 		}
 	}
 
@@ -79,8 +171,9 @@ namespace creative_kernel
 	{
 		if (shouldMultipleSelect() && m_didSelectModelAtPress == false)
 		{
+			QApplication::setOverrideCursor(QCursor(Qt::ArrowCursor));
 			dismissRectangleSelector();
-			//¿òÑ¡
+
 			QRect rect = QRect(m_posOfLeftMousePress, event->pos());
 			if (rect.size().isNull()) return;
 			int width = abs(rect.width()), height = abs(rect.height());
@@ -88,14 +181,18 @@ namespace creative_kernel
 
 			selectArea(rect);
 			requestVisUpdate();
+			// updateCameraCenter();
 		}
+
 	}
 
 	void VisSceneHandler::onLeftMouseButtonMove(QMouseEvent* event)
 	{
 		if (shouldMultipleSelect() && m_didSelectModelAtPress == false)
 		{
-			//»æÖÆÑ¡Ôñ¿ò
+			if (!QApplication::overrideCursor() || QApplication::overrideCursor()->shape() == Qt::ArrowCursor)
+				QApplication::setOverrideCursor(QCursor(m_selectPixmap));
+
 			QRect rect = QRect(m_posOfLeftMousePress, event->pos());
 			if (rect.size().isNull()) return;
 			int width = abs(rect.width()), height = abs(rect.height());
@@ -104,12 +201,16 @@ namespace creative_kernel
 			showRectangleSelector(rect);
 			requestVisUpdate();
 		}
-		
 	}
 
 	void VisSceneHandler::onLeftMouseButtonClick(QMouseEvent* event)
 	{
-		selectVis(event->pos(), event->modifiers() == Qt::KeyboardModifier::ControlModifier);
-		requestVisUpdate();
+		QApplication::setOverrideCursor(QCursor(Qt::ArrowCursor));
+
+		/* cancel select by click empty space */
+		qtuser_3d::Pickable* pickable = checkPickable(event->pos(), nullptr);
+		if (pickable == NULL)	
+			selectVis(event->pos(), event->modifiers() == Qt::KeyboardModifier::ControlModifier);
 	}
+
 }

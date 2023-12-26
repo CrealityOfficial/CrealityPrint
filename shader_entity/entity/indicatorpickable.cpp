@@ -84,7 +84,7 @@ namespace qtuser_3d
 		return true;
 	}
 
-	void IndicatorPickable::pick(int primitiveID)
+	void IndicatorPickable::click(int primitiveID)
 	{
 		//qDebug() << QString("IndicatorPickable::pick [%1]").arg(primitiveID);
 		if (!m_pickableEntity)

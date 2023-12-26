@@ -23,7 +23,7 @@
 
 using namespace creative_kernel;
 RotateOp::RotateOp(QObject* parent)
-	: SceneOperateMode(parent)
+	: MoveOperateMode(parent)
 	, m_mode(TMode::null)
 	, m_saveAngle(0.0f)
 	, tip_component_(nullptr)
@@ -44,6 +44,13 @@ RotateOp::RotateOp(QObject* parent)
 		qtuser_qml::writeObjectProperty(tip_object_, QStringLiteral("parent"), ui_parent);
 	}
 	traceSpace(this);
+
+	connect(this, &MoveOperateMode::positionChanged, this, [=]()
+		{
+			m_isMoving = true;
+			updateHelperEntity();
+			m_isMoving = false;
+		});
 }
 
 RotateOp::~RotateOp()
@@ -148,6 +155,8 @@ void RotateOp::onDettach()
 
 void RotateOp::onLeftMouseButtonPress(QMouseEvent* event)
 {
+	MoveOperateMode::onLeftMouseButtonPress(event);
+
 	m_mode = TMode::null;
 	m_spacePoints.clear();
 	for (size_t i = 0; i < m_selectedModels.size(); i++)
@@ -197,6 +206,7 @@ void RotateOp::perform(const QPoint& point, bool reversible, bool needcheck)
 
 void RotateOp::onLeftMouseButtonRelease(QMouseEvent* event)
 {
+	MoveOperateMode::onLeftMouseButtonRelease(event);
 	m_isRoate = false;
 	if (m_selectedModels.size() && (m_mode != TMode::null))
 	{
@@ -248,6 +258,7 @@ void RotateOp::rotateByAxis(QVector3D& axis,float & angle)
 
 void RotateOp::onLeftMouseButtonMove(QMouseEvent* event)
 {
+	MoveOperateMode::onLeftMouseButtonMove(event);
 	if (m_selectedModels.size() && (m_mode != TMode::null))
 	{
 		perform(event->pos(), true, false);
@@ -446,7 +457,7 @@ void RotateOp::buildFromSelections()
 		visHide(m_helperEntity);
 	}
 
-	requestVisUpdate(true);
+	requestVisPickUpdate(true);
 	emit rotateChanged();
 }
 
@@ -634,7 +645,7 @@ void RotateOp::getProperPlane(QVector3D& planeCenter, QVector3D& planeDir, qtuse
 
 void RotateOp::updateHelperEntity()
 {
-	if (m_selectedModels.size() && !m_isRoate)
+	if (m_selectedModels.size() && (!m_isRoate || m_isMoving))
 	{
 		qtuser_3d::Box3D box = m_selectedModels[m_selectedModels.size() - 1]->globalSpaceBox();
 		m_helperEntity->onBoxChanged(box);

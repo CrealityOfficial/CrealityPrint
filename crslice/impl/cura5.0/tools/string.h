@@ -233,6 +233,10 @@ namespace cura52
         }
     };
 
+
+    bool SplitString(const std::string& Src, std::vector<std::string>& Vctdest, const std::string& c);
+
+    std::string transliterate(const std::string& text);
 } // namespace cura52
 
 #endif // UTILS_STRING_H

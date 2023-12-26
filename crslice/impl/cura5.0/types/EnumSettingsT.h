@@ -74,8 +74,10 @@ namespace cura54
     enum class ESupportStructure
     {
         NORMAL,
-        TREE,
-        THOMASTREE
+        THOMASTREE,
+        NORMAL_MANUAL,
+        THOMASTREE_MANUAL,
+        TREE
     };
 
     enum class EZSeamType

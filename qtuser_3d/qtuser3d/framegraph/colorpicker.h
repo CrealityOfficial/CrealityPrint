@@ -54,6 +54,7 @@ namespace qtuser_3d
 
 		void setAllFilterKey(const QString& name, int value);
 
+		bool isPrepared();
 		bool pick(int x, int y, int* faceID) override;
 		bool pick(const QPoint& point, int* faceID) override;
 		void sourceMayChanged() override;

@@ -1,14 +1,1 @@
 cxlog/0.0.2
-osswrapper/0.0.2
-ffmpeglib/0.0.2
-libqrencode/0.0.1
-cpr/0.0.2
-qrlib/0.0.2
-ovdbutil/0.0.3
-aliyunoss/0.0.2
-tbb/0.0.2
-rapidjson/1.0.0
-quazip_static/1.0.0
-topomesh/0.0.2
-cserialport/0.0.1
-cmesh_noigl/1.0.0

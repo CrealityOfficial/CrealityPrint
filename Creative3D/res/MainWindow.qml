@@ -890,9 +890,9 @@ QQC2.ApplicationWindow {
             anchors.verticalCenter: idFDMPreview.verticalCenter
             anchors.verticalCenterOffset: 35 * screenScaleFactor
             orientation: Qt.Vertical
-            visible: currentPhase != 2 && kernel_parameter_manager.functionType == 0
+            visible: kernel_kernel.isDefaultVisScene && currentPhase != 2 && kernel_parameter_manager.functionType == 0
             enabled: currentPhase == 0 ? kernel_modelspace.modelNNum > 0 : true
-            from: (currentPhase == 0 && currentPhase != 2)  ? 0 : 1
+            from: (currentPhase == 0 && currentPhase != 2) ? 0 : 1
             to: (currentPhase == 0 && currentPhase != 2) ? (plugin_info_sliderinfo.maxLayer + 0.01) : (kernel_slice_model.layers)
             stepSize: currentPhase == 0 ? 0.1 : 1
             first.value: from
@@ -901,10 +901,10 @@ QQC2.ApplicationWindow {
             firstControl: currentPhase == 0
             firstLabelText: labelTextBegin + first.value.toFixed(labelDecimal)
             secondLabelText: labelTextBegin + second.value.toFixed(labelDecimal)
-
             first.onValueChanged: {
-                if (currentPhase == 0) 
+                if (currentPhase == 0)
                     plugin_info_sliderinfo.setBottomCurrentLayer(first.value);
+
             }
             second.onValueChanged: {
                 if (currentPhase == 0) {

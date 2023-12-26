@@ -19,5 +19,4 @@ machine_chamber_fan_exist
 machine_cds_fan_exist
 machine_LED_light_exist
 have_band
-material_heater_band
 machine_platform_motion_enable

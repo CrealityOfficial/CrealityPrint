@@ -12,14 +12,21 @@ namespace qtuser_3d
 
 namespace creative_kernel
 {
+	BASIC_KERNEL_API bool isUsingDefaultScene();
+	BASIC_KERNEL_API void useCustomScene();
+	BASIC_KERNEL_API void useDefaultScene();
+
 	BASIC_KERNEL_API void setVisOperationMode(qtuser_3d::SceneOperateMode* operateMode);
 	BASIC_KERNEL_API qtuser_3d::SceneOperateMode* visOperationMode();
+	BASIC_KERNEL_API void visShowCustom(Qt3DCore::QEntity* entity);
+	BASIC_KERNEL_API void visHideCustom(Qt3DCore::QEntity* entity);
 	BASIC_KERNEL_API void visShow(Qt3DCore::QEntity* entity);
 	BASIC_KERNEL_API void visHide(Qt3DCore::QEntity* entity);
 	BASIC_KERNEL_API void enableVisHandlers(bool enabled);
 
 	BASIC_KERNEL_API void delayCapture(int msec);
 	BASIC_KERNEL_API void requestVisUpdate(bool capture = false);
+	BASIC_KERNEL_API void requestVisPickUpdate(bool sync);
 	BASIC_KERNEL_API qtuser_3d::FacePicker* visPickSource();
 	BASIC_KERNEL_API bool visPick(const QPoint& point, int* faceID);
 

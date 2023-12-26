@@ -26,7 +26,7 @@ set(SRCS
   ../plugins/CrealityUI/qml.qrc
 )
 
-__cc_find(AliyunOss)
+__cc_find(aliyunoss_static)
 __cc_find(rapidjson)
 __cc_find(quazip_static)
 __cc_find(boost_static)
@@ -36,10 +36,11 @@ set(LIBS
   Qt5::Quick
   Qt5::Qml
   Qt5::OpenGL
-  AliyunOss
+  aliyunoss_static
   rapidjson
   quazip_static
   boost_filesystem
+  qtuser_core
 )
 
 set(DEFS

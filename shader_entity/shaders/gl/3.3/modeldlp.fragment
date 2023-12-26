@@ -5,6 +5,7 @@ in vec3 viewDirection;
 in vec3 vertexnormal;
 in vec3 worldPosition;
 in vec3 gnormal;
+in vec3 barycentric;
 
 uniform int state;
 uniform float error;
@@ -19,6 +20,7 @@ uniform vec4 clipPlane1;
 uniform vec4 clipPlane2;
 
 uniform int checkScope = 1;
+uniform int renderMode = 1;
 
 uniform vec3 minSpace;
 uniform vec3 maxSpace;
@@ -29,6 +31,8 @@ uniform int hoverState = 0;
 uniform int waterState = 0;
 
 const float zcha = 0.1;
+const vec3 wireframeColor = vec3(0.1);
+const vec3 clearColor = vec3(0.27);
 
 uniform vec4 stateColors[6];
 uniform vec3 water;
@@ -106,6 +110,24 @@ void main( void )
 			{
 				coreColor = vec4(0.1, 0.1, 0.1, 1.0);
 			}
+		}
+	}
+	
+	if (renderMode != 1) {
+		vec3 baryDelta = fwidth(barycentric);
+			
+		vec3 edgeFactor = smoothstep(vec3(0.0), baryDelta * 1.0, barycentric);
+		float minEdgeFactor = min(min(edgeFactor.x, edgeFactor.y), edgeFactor.z);
+
+		if (renderMode == 2) {
+			
+			if (minEdgeFactor >= 1.0) {
+                discard;
+            }
+            coreColor.rgb = mix(wireframeColor, clearColor, minEdgeFactor);
+
+		} else if (renderMode == 3) {
+			coreColor.rgb = mix(wireframeColor, coreColor.rgb, minEdgeFactor);
 		}
 	}
 	

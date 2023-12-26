@@ -151,7 +151,7 @@ namespace cura52
                 //float layer_widthTest = 0.449999392f;
             }
             std::vector<Slic3r::ExtendedPoint> extended_point =
-                Slic3r::estimate_points_properties<true, true, true, true>(points, extrusion_quality_estimator.prev_layer_boundaries[0], layer_width / 1000.0, 2.0f);
+                Slic3r::estimate_points_properties<true, true, true, true>(points, extrusion_quality_estimator.prev_layer_boundaries[0], layer_width / 1000.0, -2.0f);
             for (Slic3r::ExtendedPoint& pt : extended_point)
             {
                 pt.position *= 1000;
@@ -194,6 +194,26 @@ namespace cura52
                 {
                     line.start_idx = line.junctions.size() - 1;
                 }
+
+                //À¹½Øz ·ìflag
+                std::vector<Point> vctIntercept;
+                for (ExtrusionJunction& J:line.junctions)
+                {
+                    if (J.flag == ExtrusionJunction::INTERCEPT)
+                    {
+                        vctIntercept.push_back(J.p);
+                    }
+                }
+				//Í¿Ä¨z ·ìflag
+				std::vector<Point> vctPaint;
+				for (ExtrusionJunction& J : line.junctions)
+				{
+					if (J.flag == ExtrusionJunction::PAINT)
+					{
+                        vctPaint.push_back(J.p);
+					}
+				}
+
                 Point pt_z_seam = (line.start_idx > -1 && line.start_idx < junctions.size()) ? junctions[line.start_idx].p : Point();
                 int junctions_idx = 0;
                 for (int i = 0; i < extendedPoints[extendedPoints_idx].size(); i++)
@@ -202,11 +222,26 @@ namespace cura52
                     if (junctions_idx < junctions.size())
                     {
                         ExtrusionJunction new_pt = ExtrusionJunction(pt, junctions[junctions_idx].w, junctions[junctions_idx].perimeter_index, extendedPoints[extendedPoints_idx][i].distance);
+                        for (Point& apoint: vctIntercept)
+                        {
+                            if (bSamePoint(new_pt.p,apoint))
+                            {
+                                new_pt.flag = ExtrusionJunction::INTERCEPT;
+                            }
+                        }
+						for (Point& apoint : vctPaint)
+						{
+							if (bSamePoint(new_pt.p, apoint))
+							{
+								new_pt.flag = ExtrusionJunction::PAINT;
+							}
+						}
                         new_junctions.push_back(new_pt);
                         if (bSamePoint(pt, pt_z_seam) && line.start_idx > -1)
                             line.start_idx = i;
                         if (bSamePoint(pt, junctions[junctions_idx].p))
                             junctions_idx++;
+
                     }
                 }
                 line.junctions.swap(new_junctions);

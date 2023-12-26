@@ -244,8 +244,8 @@ namespace qtuser_3d
 
 	void Selector::select(const QPoint& p, bool sGroup)
 	{
-		if (!m_enabled)
-			return;
+		if (!m_enabled || !m_pickSource->isPrepared())
+			return;			
 
 		if (selectNotifying)
 			return;
@@ -254,7 +254,7 @@ namespace qtuser_3d
 
 		if (pickable)
 		{
-			pickable->pick(primitiveID);
+			pickable->click(primitiveID);
 		}
 
 		if (pickable && pickable->enableSelect() == false)

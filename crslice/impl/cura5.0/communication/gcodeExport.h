@@ -6,11 +6,14 @@
 
 #include <deque> // for extrusionAmountAtPreviousRetractions
 #include <sstream> // for stream.str()
+#include <fstream>
 #include <stdio.h>
 #include <memory>
 
 #include "utils/AABB3D.h" //To track the used build volume for the Griffin header.
 #include "settings/Settings.h" //For MAX_EXTRUDERS.
+#include "settings/wrapper.h"
+
 #include "types/LayerIndex.h"
 
 #include "types/header.h"
@@ -27,95 +30,73 @@ namespace cura52
     struct SliceResult;
     class TimeEstimateCalculator;
 
+    struct ExtruderTrainAttributes
+    {
+        bool is_primed; //!< Whether this extruder has currently already been primed in this print
+
+        bool is_used; //!< Whether this extruder train is actually used during the printing of all meshgroups
+        char extruderCharacter;
+
+        double filament_area; //!< in mm^2 for non-volumetric, cylindrical filament
+        Velocity max_volumetric_spped;
+
+        double totalFilament; //!< total filament used per extruder in mm^3
+        Temperature currentTemperature;
+        bool waited_for_temperature; //!< Whether the most recent temperature command has been a heat-and-wait command (M109) or not (M104).
+        Temperature initial_temp; //!< Temperature this nozzle needs to be at the start of the print.
+
+        double retraction_e_amount_current; //!< The current retracted amount (in mm or mm^3), or zero(i.e. false) if it is not currently retracted (positive values mean retracted amount, so negative impact on E values)
+        double retraction_e_amount_at_e_start; //!< The ExtruderTrainAttributes::retraction_amount_current value at E0, i.e. the offset (in mm or mm^3) from E0 to the situation where the filament is at the tip of the nozzle.
+
+        double prime_volume; //!< Amount of material (in mm^3) to be primed after an unretration (due to oozing and/or coasting)
+        Velocity last_retraction_prime_speed; //!< The last prime speed (in mm/s) of the to-be-primed amount
+
+        double last_e_value_after_wipe; //!< The current material amount extruded since last wipe
+
+        unsigned fan_number; // nozzle print cooling fan number
+
+        std::deque<double> extruded_volume_at_previous_n_retractions; // in mm^3
+
+        ExtruderTrainAttributes()
+            : is_primed(false)
+            , is_used(false)
+            , extruderCharacter(0)
+            , filament_area(0)
+            , totalFilament(0)
+            , currentTemperature(0)
+            , waited_for_temperature(false)
+            , initial_temp(0)
+            , retraction_e_amount_current(0.0)
+            , retraction_e_amount_at_e_start(0.0)
+            , prime_volume(0.0)
+            , last_retraction_prime_speed(0.0)
+            , fan_number(0)
+            , last_e_value_after_wipe(0.0)
+        {
+        }
+    };
+
     //The GCodeExport class writes the actual GCode. This is the only class that knows how GCode looks and feels.
     //Any customizations on GCodes flavors are done in this class.
     class GCodeExport
     {
-#ifdef BUILD_TESTS
-        friend class GCodeExportTest;
-        friend class GriffinHeaderTest;
-        FRIEND_TEST(GCodeExportTest, CommentEmpty);
-        FRIEND_TEST(GCodeExportTest, CommentSimple);
-        FRIEND_TEST(GCodeExportTest, CommentMultiLine);
-        FRIEND_TEST(GCodeExportTest, CommentMultiple);
-        FRIEND_TEST(GCodeExportTest, CommentTimeZero);
-        FRIEND_TEST(GCodeExportTest, CommentTimeInteger);
-        FRIEND_TEST(GCodeExportTest, CommentTimeFloatRoundingError);
-        FRIEND_TEST(GCodeExportTest, CommentTypeAllTypesCovered);
-        FRIEND_TEST(GCodeExportTest, CommentLayer);
-        FRIEND_TEST(GCodeExportTest, CommentLayerNegative);
-        FRIEND_TEST(GCodeExportTest, CommentLayerCount);
-        FRIEND_TEST(GriffinHeaderTest, HeaderGriffinFormat);
-        FRIEND_TEST(GCodeExportTest, HeaderUltiGCode);
-        FRIEND_TEST(GCodeExportTest, HeaderRepRap);
-        FRIEND_TEST(GCodeExportTest, HeaderMarlin);
-        FRIEND_TEST(GCodeExportTest, HeaderMarlinVolumetric);
-        FRIEND_TEST(GCodeExportTest, EVsMmVolumetric);
-        FRIEND_TEST(GCodeExportTest, EVsMmLinear);
-        FRIEND_TEST(GCodeExportTest, WriteZHopStartDefaultSpeed);
-        FRIEND_TEST(GCodeExportTest, WriteZHopStartCustomSpeed);
-        FRIEND_TEST(GCodeExportTest, WriteZHopEndZero);
-        FRIEND_TEST(GCodeExportTest, WriteZHopEndDefaultSpeed);
-        FRIEND_TEST(GCodeExportTest, WriteZHopEndCustomSpeed);
-        FRIEND_TEST(GCodeExportTest, insertWipeScriptSingleMove);
-        FRIEND_TEST(GCodeExportTest, insertWipeScriptMultipleMoves);
-        FRIEND_TEST(GCodeExportTest, insertWipeScriptOptionalDelay);
-        FRIEND_TEST(GCodeExportTest, insertWipeScriptRetractionEnable);
-        FRIEND_TEST(GCodeExportTest, insertWipeScriptHopEnable);
-#endif
     private:
-        struct ExtruderTrainAttributes
-        {
-            bool is_primed; //!< Whether this extruder has currently already been primed in this print
+        /*!
+        * The gcode file to write to when using CuraEngine as command line tool.
+        */
+        std::ofstream output_file;
+        std::ostream* output_stream;
+        
+        EGCodeFlavor flavor;
+        std::string new_line;
+        bool is_volumetric;
 
-            bool is_used; //!< Whether this extruder train is actually used during the printing of all meshgroups
-            char extruderCharacter;
+        //time
+        std::shared_ptr<TimeEstimateCalculator> estimateCalculator;
 
-            double filament_area; //!< in mm^2 for non-volumetric, cylindrical filament
-            Velocity max_volumetric_spped;
 
-            double totalFilament; //!< total filament used per extruder in mm^3
-            Temperature currentTemperature;
-            bool waited_for_temperature; //!< Whether the most recent temperature command has been a heat-and-wait command (M109) or not (M104).
-            Temperature initial_temp; //!< Temperature this nozzle needs to be at the start of the print.
-
-            double retraction_e_amount_current; //!< The current retracted amount (in mm or mm^3), or zero(i.e. false) if it is not currently retracted (positive values mean retracted amount, so negative impact on E values)
-            double retraction_e_amount_at_e_start; //!< The ExtruderTrainAttributes::retraction_amount_current value at E0, i.e. the offset (in mm or mm^3) from E0 to the situation where the filament is at the tip of the nozzle.
-
-            double prime_volume; //!< Amount of material (in mm^3) to be primed after an unretration (due to oozing and/or coasting)
-            Velocity last_retraction_prime_speed; //!< The last prime speed (in mm/s) of the to-be-primed amount
-
-            double last_e_value_after_wipe; //!< The current material amount extruded since last wipe
-
-            unsigned fan_number; // nozzle print cooling fan number
-
-            std::deque<double> extruded_volume_at_previous_n_retractions; // in mm^3
-
-            ExtruderTrainAttributes()
-                : is_primed(false)
-                , is_used(false)
-                , extruderCharacter(0)
-                , filament_area(0)
-                , totalFilament(0)
-                , currentTemperature(0)
-                , waited_for_temperature(false)
-                , initial_temp(0)
-                , retraction_e_amount_current(0.0)
-                , retraction_e_amount_at_e_start(0.0)
-                , prime_volume(0.0)
-                , last_retraction_prime_speed(0.0)
-                , fan_number(0)
-            {
-            }
-        };
 
         ExtruderTrainAttributes extruder_attr[MAX_EXTRUDERS];
-        bool use_extruder_offset_to_offset_coords;
-        std::string machine_name;
-        std::string slice_uuid_; //!< The UUID of the current slice.
-
-        std::ostream* output_stream;
-        std::string new_line;
 
         double current_e_value; //!< The last E value written to gcode (in mm or mm^3)
         double e_value_cleaned; //E celaned
@@ -151,21 +132,12 @@ namespace cura52
         double current_fan_speed;
         double current_chamber_fan_speed;
         unsigned fan_number; // current print cooling fan number
-        EGCodeFlavor flavor;
 
         std::vector<Duration> total_print_times; //!< The total estimated print time in seconds for each feature
-        std::shared_ptr<TimeEstimateCalculator> estimateCalculator;
-
         unsigned int layer_nr; //!< for sending travel data
-
-        bool is_volumetric;
-        bool relative_extrusion; //!< whether to use relative extrusion distances rather than absolute
-        bool always_write_active_tool; //!< whether to write the active tool after sending commands to inactive tool
 
         Temperature initial_bed_temp; //!< bed temperature at the beginning of the print.
         Temperature bed_temperature; //!< Current build plate temperature.
-        Temperature build_volume_temperature;  //!< build volume temperature
-        bool machine_heated_build_volume;  //!< does the machine have the ability to control/stabilize build-volume-temperature
         size_t m_preFixLen;
     protected:
         /*!
@@ -219,13 +191,15 @@ namespace cura52
         GCodeExport();
         ~GCodeExport();
 
-        /*
-         * \brief Converts the g-code flavor to a string as it must be printed in
-         * the g-code.
-         * \param flavor The g-code flavor to print.
-         * \return A serialized form of this flavor.
-         */
-        const std::string flavorToString(const EGCodeFlavor& flavor) const;
+        /*!
+        * Set the target to write gcode to: to a file.
+        *
+        * Used when CuraEngine is used as command line tool.
+        *
+        * \param filename The filename of the file to which to write the gcode.
+        */
+        bool setTargetFile(const char* filename);
+        void setOutputStream(std::ostream* stream);
 
         /*!
          * Get the gcode file header (e.g. ";FLAVOR:UltiGCode\n")
@@ -247,11 +221,7 @@ namespace cura52
             const std::vector<double>& filament_used = std::vector<double>(),
             const std::vector<std::string>& mat_ids = std::vector<std::string>());
 
-        void setSliceUUID(const std::string& slice_uuid);
-
         void setLayerNr(unsigned int layer_nr);
-
-        void setOutputStream(std::ostream* stream);
 
         int getExtruderNum();
         bool getExtruderIsUsed(const int extruder_nr) const; //!< return whether the extruder has been used throughout printing all meshgroup up till now
@@ -617,7 +587,8 @@ namespace cura52
          *
          * \param endCode The end gcode to be appended at the very end.
          */
-        void finalize(const std::string& endCode);
+        void finalize(const std::string& end_gcode);
+        void finalize();
 
         /*!
          * Get amount of material extruded since last wipe script was inserted.

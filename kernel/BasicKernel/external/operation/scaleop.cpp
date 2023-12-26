@@ -17,7 +17,7 @@
 
 using namespace creative_kernel;
 ScaleOp::ScaleOp(QObject* parent)
-	:SceneOperateMode(parent)
+	:MoveOperateMode(parent)
 	, m_mode(TMode::null)
 	, m_selectedModel(nullptr)
 {
@@ -135,6 +135,8 @@ void ScaleOp::onDettach()
 
 void ScaleOp::onLeftMouseButtonPress(QMouseEvent* event)
 {
+	MoveOperateMode::onLeftMouseButtonPress(event);
+
 	m_mode = TMode::null;
 
 	if (m_selectedModel)
@@ -186,6 +188,7 @@ void ScaleOp::perform(const QPoint& point, bool reversible)
 
 void ScaleOp::onLeftMouseButtonRelease(QMouseEvent* event)
 {
+	MoveOperateMode::onLeftMouseButtonRelease(event);
 	setNeedCheckScope(1);
 
 	if (m_selectedModel && m_mode != TMode::null && m_mode != TMode::sp)
@@ -225,6 +228,7 @@ void ScaleOp::onLeftMouseButtonRelease(QMouseEvent* event)
 
 void ScaleOp::onLeftMouseButtonMove(QMouseEvent* event)
 {
+	MoveOperateMode::onLeftMouseButtonMove(event);
 	if (m_selectedModel && m_mode != TMode::null && m_mode != TMode::sp)
 	{
 		perform(event->pos(), false);
@@ -305,7 +309,7 @@ void ScaleOp::buildFromSelections()
 		visHide(m_helperEntity);
 	}
 
-	requestVisUpdate(true);
+	requestVisPickUpdate(true);
 	emit scaleChanged();
 	emit sizeChanged();
 }

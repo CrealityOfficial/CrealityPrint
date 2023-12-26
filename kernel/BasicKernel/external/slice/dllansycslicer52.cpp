@@ -173,6 +173,16 @@ namespace creative_kernel
         QString fileName = generateTempGCodeFileName();
         scene->setOutputGCodeFileName(fileName.toLocal8Bit().data());
 
+        QString supportFile = QString("%1/paint_support").arg(SLICE_PATH);
+        scene->setSupportFileName(supportFile.toLocal8Bit().data());
+        QString paint_anti_support = QString("%1/paint_anti_support").arg(SLICE_PATH);
+        scene->setAntiSupportFileName(paint_anti_support.toLocal8Bit().data());
+        QString paint_seam = QString("%1/paint_seam").arg(SLICE_PATH);
+        scene->setSeamFileName(paint_seam.toLocal8Bit().data());
+        QString paint_anti_seam = QString("%1/paint_anti_seam").arg(SLICE_PATH);
+        scene->setAntiSeamFileName(paint_anti_seam.toLocal8Bit().data());
+
+
         qDebug() << QString("Slice : DLLAnsycSlicer52 construct scene . [%1]").arg(currentProcessMemory());
         crslice::CrSlice slice;
         slice.sliceFromScene(scene, &tracer);

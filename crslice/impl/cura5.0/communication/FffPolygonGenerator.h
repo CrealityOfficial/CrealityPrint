@@ -167,13 +167,6 @@ namespace cura52
          * \param[in,out] mesh where the outer wall is retrieved and stored in.
          */
         void processFuzzyWalls(SliceMeshStorage& mesh);
-
-        //
-        void getPaintSupport(SliceDataStorage& storage,const int layer_thickness, const int slice_layer_count, const bool use_variable_layer_heights);
-
-        void getBinaryData(std::string fileName, std::vector<Mesh>& meshs);
-
-        void getZseamLine(SliceDataStorage& storage, const int layer_thickness, const int slice_layer_count, const bool use_variable_layer_heights);
     };
 
 }//namespace cura52

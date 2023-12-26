@@ -286,7 +286,7 @@ namespace qtuser_3d
 // ResizeEventHandler
 	void EventSubdivide::prependResizeEventHandler(ResizeEventHandler* handler)
 	{
-		if (handler)
+		if (handler && m_resizeEventHandlers.indexOf(handler) == -1)
 		{
 			handler->onResize(m_size);
 			m_resizeEventHandlers.prepend(handler);
@@ -295,7 +295,7 @@ namespace qtuser_3d
 
 	void EventSubdivide::addResizeEventHandler(ResizeEventHandler* handler)
 	{
-		if (handler)
+		if (handler && m_resizeEventHandlers.indexOf(handler) == -1)
 		{
 			handler->onResize(m_size);
 			m_resizeEventHandlers.push_back(handler);
@@ -315,12 +315,12 @@ namespace qtuser_3d
 // HoverEventHandler
 	void EventSubdivide::prependHoverEventHandler(HoverEventHandler* handler)
 	{
-		if (handler) m_hoverEventHandlers.prepend(handler);
+		if (handler && m_hoverEventHandlers.indexOf(handler) == -1) m_hoverEventHandlers.prepend(handler);
 	}
 
 	void EventSubdivide::addHoverEventHandler(HoverEventHandler* handler)
 	{
-		if (handler) m_hoverEventHandlers.push_back(handler);
+		if (handler && m_hoverEventHandlers.indexOf(handler) == -1) m_hoverEventHandlers.push_back(handler);
 	}
 
 	void EventSubdivide::removeHoverEventHandler(HoverEventHandler* handler)
@@ -336,12 +336,12 @@ namespace qtuser_3d
 // WheelEventHandler
 	void EventSubdivide::prependWheelEventHandler(WheelEventHandler* handler)
 	{
-		if (handler) m_wheelEventHandlers.prepend(handler);
+		if (handler && m_wheelEventHandlers.indexOf(handler) == -1) m_wheelEventHandlers.prepend(handler);
 	}
 
 	void EventSubdivide::addWheelEventHandler(WheelEventHandler* handler)
 	{
-		if (handler) m_wheelEventHandlers.push_back(handler);
+		if (handler && m_wheelEventHandlers.indexOf(handler) == -1) m_wheelEventHandlers.push_back(handler);
 	}
 
 	void EventSubdivide::removeWheelEventHandler(WheelEventHandler* handler)
@@ -357,12 +357,12 @@ namespace qtuser_3d
 // RightMouseEventHandler
 	void EventSubdivide::prependRightMouseEventHandler(RightMouseEventHandler* handler)
 	{
-		if (handler) m_rightMouseEventHandlers.prepend(handler);
+		if (handler && m_rightMouseEventHandlers.indexOf(handler) == -1) m_rightMouseEventHandlers.prepend(handler);
 	}
 
 	void EventSubdivide::addRightMouseEventHandler(RightMouseEventHandler* handler)
 	{
-		if (handler) m_rightMouseEventHandlers.push_back(handler);
+		if (handler && m_rightMouseEventHandlers.indexOf(handler) == -1) m_rightMouseEventHandlers.push_back(handler);
 	}
 
 	void EventSubdivide::removeRightMouseEventHandler(RightMouseEventHandler* handler)
@@ -378,12 +378,12 @@ namespace qtuser_3d
 // MidMouseEventHandler
 	void EventSubdivide::prependMidMouseEventHandler(MidMouseEventHandler* handler)
 	{
-		if (handler) m_midMouseEventHandlers.prepend(handler);
+		if (handler && m_midMouseEventHandlers.indexOf(handler) == -1) m_midMouseEventHandlers.prepend(handler);
 	}
 
 	void EventSubdivide::addMidMouseEventHandler(MidMouseEventHandler* handler)
 	{
-		if (handler) m_midMouseEventHandlers.push_back(handler);
+		if (handler && m_midMouseEventHandlers.indexOf(handler) == -1) m_midMouseEventHandlers.push_back(handler);
 	}
 
 	void EventSubdivide::removeMidMouseEventHandler(MidMouseEventHandler* handler)
@@ -399,12 +399,12 @@ namespace qtuser_3d
 // LeftMouseEventHandler
 	void EventSubdivide::prependLeftMouseEventHandler(LeftMouseEventHandler* handler)
 	{
-		if (handler) m_leftMouseEventHandlers.prepend(handler);
+		if (handler && m_leftMouseEventHandlers.indexOf(handler) == -1) m_leftMouseEventHandlers.prepend(handler);
 	}
 
 	void EventSubdivide::addLeftMouseEventHandler(LeftMouseEventHandler* handler)
 	{
-		if (handler) m_leftMouseEventHandlers.push_back(handler);
+		if (handler && m_leftMouseEventHandlers.indexOf(handler) == -1) m_leftMouseEventHandlers.push_back(handler);
 	}
 
 	void EventSubdivide::removeLeftMouseEventHandler(LeftMouseEventHandler* handler)
@@ -420,12 +420,12 @@ namespace qtuser_3d
 // KeyEventHandler
 	void EventSubdivide::prependKeyEventHandler(KeyEventHandler* handler)
 	{
-		if (handler) m_KeyEventHandlers.prepend(handler);
+		if (handler && m_KeyEventHandlers.indexOf(handler) == -1) m_KeyEventHandlers.prepend(handler);
 	}
 
 	void EventSubdivide::addKeyEventHandler(KeyEventHandler* handler)
 	{
-		if (handler) m_KeyEventHandlers.push_back(handler);
+		if (handler && m_KeyEventHandlers.indexOf(handler) == -1) m_KeyEventHandlers.push_back(handler);
 	}
 
 	void EventSubdivide::removeKeyEventHandler(KeyEventHandler* handler)

@@ -2,9 +2,9 @@
 #define CREATIVE_KERNEL_GCODEBUILDER_1677068549648_H
 
 #include "cxgcode/interface.h"
-#include "gcode/define.h"
-#include "gcode/sliceresult.h"
-#include "gcode/slicemodelbuilder.h"
+#include "crslice/gcode/define.h"
+#include "crslice/gcode/sliceresult.h"
+#include "crslice/gcode/slicemodelbuilder.h"
 #include "qtuser3d/geometry/attribute.h"
 #include "trimesh2/Box.h"
 

@@ -72,10 +72,11 @@ public:
      */
     ZSeamConfig seam_config;
 
-    std::vector<int> last_layer_start_idx;
+    std::vector<int> last_layer_start_idx;//距离上层轮廓起始点 最近的当前轮廓索引
     std::vector<bool> bFound;
     AngleDegrees z_seam_min_angle_diff;
     AngleDegrees z_seam_max_angle;
+    std::vector<std::vector<ExtrusionJunction::paintFlag>> vvctpaintFlag;
 
     /*!
      * Construct a new optimizer.
@@ -184,14 +185,17 @@ public:
         const bool precompute_start = seam_config.type == EZSeamType::RANDOM || seam_config.type == EZSeamType::USER_SPECIFIED || seam_config.type == EZSeamType::SHARPEST_CORNER;
         if(precompute_start)
         {
+            int flag_idx = 0;
             for(PathOrderPath<PathType>& path : paths)
             {
                 if(!path.is_closed)
                 {
+                    flag_idx++;
                     continue; //Can't pre-compute the seam for open polylines since they're at the endpoint nearest to the current position.
                 }
                 if(path.converted->empty())
                 {
+                    flag_idx++;
                     continue;
                 }
 
@@ -202,12 +206,13 @@ public:
 						&& startIdx > -1)
 						path.start_vertex = startIdx;
 					else
-						path.start_vertex = findStartLocation(path, seam_config.pos);
+						path.start_vertex = findStartLocation(path, seam_config.pos, -1, flag_idx);
 				}
 				else
 				{
-					path.start_vertex = findStartLocation(path, seam_config.pos);
+					path.start_vertex = findStartLocation(path, seam_config.pos, -1, flag_idx);
 				}
+                flag_idx++;
             }
         }
         
@@ -275,12 +280,19 @@ public:
                     continue;
                 }
 
-                if(!path.is_closed || !precompute_start) //Find the start location unless we've already precomputed it.
+                if((!path.is_closed || !precompute_start)) //Find the start location unless we've already precomputed it.
                 {
-                    path.start_vertex = findStartLocation(path, current_position);
-                    if(!path.is_closed) //Open polylines start at vertex 0 or vertex N-1. Indicate that they should be reversed if they start at N-1.
+                    if (path.hasZseamPait())
                     {
-                        path.backwards = path.start_vertex > 0;
+                        ;
+                    }
+                    else
+                    {
+                        path.start_vertex = findStartLocation(path, current_position, -1, candidate_path_index);
+						if (!path.is_closed) //Open polylines start at vertex 0 or vertex N-1. Indicate that they should be reversed if they start at N-1.
+						{
+							path.backwards = path.start_vertex > 0;
+						}
                     }
                 }
                 const Point candidate_position = (*path.converted)[path.start_vertex];
@@ -373,7 +385,7 @@ public:
                 {
                     continue;
                 }
-                path.start_vertex = findStartLocation(path, seam_config.pos, path_idx);
+                path.start_vertex = findStartLocation(path, seam_config.pos, path_idx, path_idx);
                 start_idx.push_back(static_cast<int>(path.start_vertex));
                 path_idx++;
             }
@@ -444,7 +456,7 @@ protected:
      * endpoints rather than 
      * \return An index to a vertex in that path where printing must start.
      */
-    size_t findStartLocation(const PathOrderPath<PathType>& path, const Point& target_pos, const int& path_idx = -1)
+    size_t findStartLocation(const PathOrderPath<PathType>& path, const Point& target_pos, const int& path_idx = -1, const int& flag_idx=-1)
     {
         constexpr float _epsilon = 25.0;
         if(!path.is_closed)
@@ -467,7 +479,7 @@ protected:
 
         if(seam_config.type == EZSeamType::RANDOM)
         {
-            size_t vert = getRandomPointInPolygon(*path.converted);
+            size_t vert = getRandomPointInPolygon(*path.converted, flag_idx);
             return vert;
         } 
 
@@ -664,6 +676,11 @@ protected:
         coord_t closest_dist2 = std::numeric_limits<coord_t>::max();
         for (size_t i = 0; i < path.converted->size(); ++i)
         {
+            if (flag_idx != -1 && vvctpaintFlag.size()> flag_idx && vvctpaintFlag[flag_idx][i] == ExtrusionJunction::paintFlag::INTERCEPT)
+            {
+                continue;
+            }
+
             const Point& here = (*path.converted)[i];
             const coord_t dist2 = vSize2(best_point - here);
             if (dist2 < closest_dist2)
@@ -739,9 +756,26 @@ protected:
      * \param polygon A polygon to get a random vertex of.
      * \return A random index in that polygon.
      */
-    size_t getRandomPointInPolygon(ConstPolygonRef const& polygon) const
+    size_t getRandomPointInPolygon(ConstPolygonRef const& polygon,int flag_idx) const
     {
-        return rand() % polygon.size();
+        if (flag_idx==-1)
+        {
+            return rand() % polygon.size();
+        } 
+        else
+        {
+            int loopCount = polygon.size();
+            while (loopCount--)
+            {
+                int idx = rand() % polygon.size();
+                if (vvctpaintFlag.size() > flag_idx && vvctpaintFlag[flag_idx][idx] != ExtrusionJunction::paintFlag::INTERCEPT)
+                {
+                    return idx;
+                }
+            }
+            
+        }
+
     }
 
     bool isLoopingPolyline(const PathOrderPath<PathType>& path)

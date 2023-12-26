@@ -8,8 +8,8 @@ namespace creative_kernel
 	class SimpleSupportPlugin : public QObject, public CreativeInterface
 	{
 		Q_OBJECT
-			Q_PLUGIN_METADATA(IID "creative.SimpleSupportPlugin")
-			Q_INTERFACES(CreativeInterface)
+			//Q_PLUGIN_METADATA(IID "creative.SimpleSupportPlugin")
+			//Q_INTERFACES(CreativeInterface)
 	public:
 		SimpleSupportPlugin(QObject* parent = nullptr);
 		virtual ~SimpleSupportPlugin();

@@ -1,0 +1,2 @@
+rapidjson/1.0.0
+trimesh2/0.0.3

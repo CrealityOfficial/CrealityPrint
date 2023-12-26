@@ -3,22 +3,22 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-__cc_find(AliyunOss)
-__cc_find(cpr)
-__cc_find(curl)
+__cc_find(aliyunoss_static)
+__cc_find(cpr_static)
 __cc_find(libqrencode_static)
-__cc_find(OssWrapper)
-__cc_find(RapidJson)
+__cc_find(osswrapper_static)
+__cc_find(rapidjson)
 __cc_find(boost_static)
 __cc_find(qtuser)
 
 __assert_target(qtuser_core)
-__assert_target(cpr)
+__assert_target(cpr_static)
 
 file(GLOB_RECURSE SRCS
   cxcloud/*.h
   cxcloud/*.hpp
   cxcloud/*.cpp
+  cxcloud/*.inl
 )
 
 set(LIBS
@@ -26,10 +26,11 @@ set(LIBS
   Qt5::Network
   Qt5::Quick
 
-  AliyunOss
+  aliyunoss_static
   boost_filesystem
+  cpr_static
   libqrencode_static
-  ossWrapper
+  osswrapper_static
   rapidjson
 
   qtuser_core
@@ -38,13 +39,11 @@ set(LIBS
 set(ILIBS
   Qt5::Core
   
-  cpr
-  curl
+  cpr_static
 )
 
 set(DEFS
   BOOST_ALL_NO_LIB
-  BOOST_ALL_DYN_LINK
 )
 
 set(INTERFACE_DEFS USE_CXCLOUD)

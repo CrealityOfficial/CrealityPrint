@@ -1,4 +1,5 @@
 material_print_temperature
+material_heater_band
 material_initial_print_temperature
 material_final_print_temperature
 material_bed_temperature

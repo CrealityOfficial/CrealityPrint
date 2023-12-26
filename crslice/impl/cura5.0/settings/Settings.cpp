@@ -51,7 +51,7 @@ namespace cura52
         }
 
         LOGE("Trying to retrieve setting with no value given: %s", key.c_str());
-        std::exit(2);
+        return "";
     }
 
     template<>
@@ -497,6 +497,14 @@ namespace cura52
         else if (value == "thomastree")
         {
             return ESupportStructure::THOMASTREE;
+        }
+        else if (value == "normal_manual")
+        {
+            return ESupportStructure::NORMAL_MANUAL;
+        }
+        else if (value == "thomastree_manual")
+        {
+            return ESupportStructure::THOMASTREE_MANUAL;
         }
         else // Default.
         {

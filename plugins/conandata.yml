@@ -1,0 +1,9 @@
+license: GLP
+author: zenggui,anoob@sina.cn
+url: xxxxxx
+repository: http://172.20.180.12:8050/yanfa4/corelib/cmesh
+external_repository: https://github.com/CrealityOfficial/cmesh
+description: plugins
+topics: plugins
+build_deps: cmesh_noigl/2.0.0,cserialport/0.0.1,spread/0.0.1,ovdbutil/0.0.3
+search_deps: 

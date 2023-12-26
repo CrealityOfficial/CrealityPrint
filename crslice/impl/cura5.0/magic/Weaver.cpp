@@ -21,7 +21,7 @@ namespace cura52
         const coord_t maxz = meshgroup->max().z;
 
         const Settings& mesh_group_settings = application->currentGroup()->settings;
-        const coord_t initial_layer_thickness = mesh_group_settings.get<coord_t>("layer_height_0");
+        const coord_t initial_layer_thickness = application->get_layer_height_0();
         const coord_t connection_height = mesh_group_settings.get<coord_t>("wireframe_height");
         const size_t layer_count = (maxz - initial_layer_thickness) / connection_height + 1;
         std::vector<AdaptiveLayer> layer_thicknesses;

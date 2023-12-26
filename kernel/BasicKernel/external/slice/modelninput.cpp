@@ -11,6 +11,12 @@ namespace creative_kernel
 		settings->merge(m_model->setting());
 		trimesh::TriMesh* mmesh = new trimesh::TriMesh();
 		*mmesh = *m_model->globalMesh();
+
+		m_model->mergePaintSupport();
+		m_model->mergePaintSupport_anti_overhang();
+		m_model->mergePaintSeam();
+		m_model->mergePaintSeam_anti();
+
 		m_mesh = TriMeshPtr(mmesh);
 		outline_ObjectExclude = model->getoutline_ObjectExclude();
 	}
@@ -21,7 +27,7 @@ namespace creative_kernel
 
 	TriMeshPtr ModelNInput::ptr()
 	{
-		return m_model->globalMesh();
+		return m_model->globalMesh(false);
 	}
 
 	void ModelNInput::tiltSliceSet(trimesh::vec axis, float angle)

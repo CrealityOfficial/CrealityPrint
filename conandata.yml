@@ -1,9 +1,9 @@
 license: GLP
 author: zenggui,anoob@sina.cn
 url: xxxxxx
-repository: http://172.20.180.12:8050/yanfa4/c3d/c3d
-external_repository: http://172.20.180.12:8050/CrealityOfficial/c3d
-description: c3d
-topics: c3d,model
-build_deps: cmesh_noigl/1.0.0,cserialport/0.0.1,ovdbutil/0.0.3
+repository: http://172.20.180.12:8050/yanfa4/c3d/c3d 
+external_repository: http://172.20.180.12:8050/CrealityOfficial/CrealityPrint
+description: CrealityPrint
+topics: CrealityPrint,CrealityPrint
+build_deps: 
 search_deps: 

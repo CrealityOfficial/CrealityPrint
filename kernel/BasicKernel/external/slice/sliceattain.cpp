@@ -1,6 +1,6 @@
 ﻿#include "sliceattain.h"
 #include "cxgcode/gcodehelper.h"
-#include "gcode/gcodedata.h"
+#include "crslice/gcode/gcodedata.h"
 #include "data/kernelmacro.h"
 
 #include "interface/machineinterface.h"
@@ -434,7 +434,7 @@ namespace creative_kernel
 			//cxsw::getImageStr(imageStr, getImageFromGcode(), builder.baseInfo.layers, exportFormat, layerHeight, false, SLICE_PATH);
 		}
 
-		cxsw::_SaveGCode(fileName.toLocal8Bit().data(), imageStr.toLocal8Bit().data(), m_result->layerCode(), m_result->prefixCode(), m_result->tailCode());
+		gcode::_SaveGCode(fileName.toLocal8Bit().data(), imageStr.toLocal8Bit().data(), m_result->layerCode(), m_result->prefixCode(), m_result->tailCode());
 	}
 
 	void SliceAttain::saveTempGCode()
@@ -478,42 +478,12 @@ namespace creative_kernel
 	{
 		builder.getPathDataG2G3(point,i,j,e,type,isG2);
 	}
-	void SliceAttain::setParam(crslice::PathParam pathParam)
+
+	void SliceAttain::setParam(gcode::GCodeParseInfo& pathParam)
 	{
-		gcode::GCodeParseInfo gcodeParaseInfo;
-		gcodeParaseInfo.machine_height = pathParam.machine_height;
-		gcodeParaseInfo.machine_width = pathParam.machine_width;
-		gcodeParaseInfo.machine_depth = pathParam.machine_depth;
-		gcodeParaseInfo.printTime = pathParam.printTime;
-		gcodeParaseInfo.materialLenth = pathParam.materialLenth;
-		gcodeParaseInfo.material_diameter = pathParam.material_diameter = { 1.75 }; //材料直径
-		gcodeParaseInfo.material_density = pathParam.material_density = { 1.24 };  //材料密度
-		gcodeParaseInfo.lineWidth = pathParam.lineWidth;
-		gcodeParaseInfo.layerHeight = pathParam.layerHeight;
-		gcodeParaseInfo.spiralMode = pathParam.spiralMode;
-		gcodeParaseInfo.exportFormat = pathParam.exportFormat;//QString exportFormat;
-		gcodeParaseInfo.screenSize = pathParam.screenSize;//QString screenSize;
-
-		gcodeParaseInfo.timeParts = {
-		pathParam.timeParts.OuterWall,
-		pathParam.timeParts.InnerWall,
-		pathParam.timeParts.Skin,
-		pathParam.timeParts.Support,
-		pathParam.timeParts.SkirtBrim,
-		pathParam.timeParts.Infill,
-		pathParam.timeParts.SupportInfill,
-		pathParam.timeParts.MoveCombing,
-		pathParam.timeParts.MoveRetraction,
-		pathParam.timeParts.PrimeTower };
-
-		gcodeParaseInfo.beltType = pathParam.beltType;  // 1 creality print belt  2 creality slicer belt
-		gcodeParaseInfo.beltOffset = pathParam.beltOffset;
-		gcodeParaseInfo.beltOffsetY = pathParam.beltOffsetY;
-		gcodeParaseInfo.xf4 = pathParam.xf4;//cr30 fxform
-
-		gcodeParaseInfo.relativeExtrude = pathParam.relativeExtrude;
-		builder.setParam(gcodeParaseInfo);
+		builder.setParam(pathParam);
 	}
+
 	void SliceAttain::setLayer(int layer)
 	{
 		builder.setLayer(layer);

@@ -6,6 +6,7 @@
 #include "qtuser3d/module/manipulatecallback.h"
 #include "qtuser3d/math/plane.h"
 #include "data/modeln.h"
+#include "operation/moveoperatemode.h"
 
 namespace qtuser_3d
 {
@@ -14,7 +15,7 @@ namespace qtuser_3d
 }
 
 class SplitPlane;
-class SplitOp: public qtuser_3d::SceneOperateMode
+class SplitOp: public MoveOperateMode
 	, public qtuser_3d::SelectorTracer
 	, public qtuser_3d::RotateCallback
 {
@@ -46,13 +47,13 @@ public:
 protected:
 	void onAttach() override;
 	void onDettach() override;
-	void onLeftMouseButtonClick(QMouseEvent* event) override;
 	void onKeyPress(QKeyEvent* event) override;
 	void onHoverMove(QHoverEvent* event) override;
 
 	void onLeftMouseButtonPress(QMouseEvent* event) override;
 	void onLeftMouseButtonMove(QMouseEvent* event) override;
 	void onLeftMouseButtonRelease(QMouseEvent* event) override;
+	void onLeftMouseButtonClick(QMouseEvent* event) override;
 
 	void setRotateAngle(QVector3D axis, float angle) override;
 

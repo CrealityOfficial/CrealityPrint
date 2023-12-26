@@ -105,7 +105,7 @@ void KernelUI::initialize()
         addToolCommand(new ScaleMode        , group_t::LEFT_TOOLBAR_MAIN , command_t::SCALE    );
         addToolCommand(new RotateMode       , group_t::LEFT_TOOLBAR_MAIN , command_t::ROTATE   );
         addToolCommand(new LayoutToolCommand, group_t::LEFT_TOOLBAR_MAIN , command_t::LAYOUT   );
-        addToolCommand(new SupportCommand   , group_t::LEFT_TOOLBAR_MAIN , command_t::SUPPORT  );
+        // addToolCommand(new SupportCommand   , group_t::LEFT_TOOLBAR_MAIN , command_t::SUPPORT  );
 
         addToolCommand(new CloneCommand     , group_t::LEFT_TOOLBAR_OTHER, command_t::CLONE    );
         addToolCommand(new MirrorCommand    , group_t::LEFT_TOOLBAR_OTHER, command_t::MIRROR   );

@@ -20,9 +20,11 @@ namespace qtuser_3d
 	protected slots:
 		void slotStateChanged(ControlState state);
 		void slotFaceBaseChanged(int faceBase);
+		void slotClick(int primitiveID);
+
 	protected:
 		virtual void onStateChanged(ControlState state);
-
+		virtual void onClick(int primitiveID);
 	protected:
 		Pickable* m_pickable;
 		Qt3DRender::QParameter* m_vertexBaseParameter;

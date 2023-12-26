@@ -25,5 +25,7 @@ namespace creative_kernel
 	private:
         PickOp* m_pickOp = nullptr;
     };
+
+    void layoutByType(int type);
 }
 #endif // _NULLSPACE_LAYOUTTOOLCOMMAND_1589427153657_H

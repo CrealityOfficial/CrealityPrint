@@ -43,6 +43,7 @@
 #include "utils/algorithm.h"
 #include "utils/math.h"
 #include "utils/Simplify.h"
+#include "utils/paintdata.h"
 
 #include "slice/slicestep.h"
 #include "poly/polystep.h"
@@ -86,7 +87,7 @@ size_t FffPolygonGenerator::getDraftShieldLayerCount(const size_t total_layers) 
     case DraftShieldHeightLimitation::FULL:
         return total_layers;
     case DraftShieldHeightLimitation::LIMITED:
-        return std::max((coord_t)0, (mesh_group_settings.get<coord_t>("draft_shield_height") - mesh_group_settings.get<coord_t>("layer_height_0")) / mesh_group_settings.get<coord_t>("layer_height") + 1);
+        return std::max((coord_t)0, (mesh_group_settings.get<coord_t>("draft_shield_height") - application->get_layer_height_0()) / application->get_layer_height() + 1);
     default:
         LOGW("A draft shield height limitation option was added without implementing the new option in getDraftShieldLayerCount.");
         return total_layers;
@@ -109,7 +110,7 @@ bool FffPolygonGenerator::sliceModel(MeshGroup* meshgroup, SliceDataStorage& sto
     int slice_layer_count = 0; // Use signed int because we need to subtract the initial layer in a calculation temporarily.
 
     // Initial layer height of 0 is not allowed. Negative layer height is nonsense.
-    coord_t initial_layer_thickness = mesh_group_settings.get<coord_t>("layer_height_0");
+    coord_t initial_layer_thickness = application->get_layer_height_0();
     if (initial_layer_thickness <= 0)
     {
         LOGE("Initial layer height { %f } is disallowed.", initial_layer_thickness);
@@ -117,7 +118,7 @@ bool FffPolygonGenerator::sliceModel(MeshGroup* meshgroup, SliceDataStorage& sto
     }
 
     // Layer height of 0 is not allowed. Negative layer height is nonsense.
-    const coord_t layer_thickness = mesh_group_settings.get<coord_t>("layer_height");
+    const coord_t layer_thickness = application->get_layer_height();
     if (layer_thickness <= 0)
     {
         LOGE("Layer height { %f } is disallowed.\n", layer_thickness);
@@ -252,11 +253,17 @@ bool FffPolygonGenerator::sliceModel(MeshGroup* meshgroup, SliceDataStorage& sto
     storage.support.supportLayers.resize(storage.print_layer_count);
 
     //get paint_support
-    if(meshgroup->settings.get<bool>("support_enable"))
-        getPaintSupport(storage, layer_thickness, slice_layer_count, use_variable_layer_heights);
-
+    if (meshgroup->settings.get<bool>("support_enable"))
+    {
+        getPaintSupport(storage, application, layer_thickness, slice_layer_count, use_variable_layer_heights);
+        getPaintSupport_anti(storage, application, layer_thickness, slice_layer_count, use_variable_layer_heights);
+    }
+        
     //get Zseam line;
-    getZseamLine(storage, layer_thickness, slice_layer_count, use_variable_layer_heights);
+    {
+        getZseamLine(storage, application, layer_thickness, slice_layer_count, use_variable_layer_heights);
+        getZseamLine_anti(storage, application, layer_thickness, slice_layer_count, use_variable_layer_heights);
+    }
 
     storage.meshes.reserve(meshCount); // causes there to be no resize in meshes so that the pointers in sliceMeshStorage._config to retraction_config don't get invalidated.
     for (int meshIdx = 0; meshIdx < meshCount; meshIdx++)
@@ -293,8 +300,9 @@ bool FffPolygonGenerator::sliceModel(MeshGroup* meshgroup, SliceDataStorage& sto
         }
 
         // check one if raft offset is needed
-        const bool has_raft = mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::RAFT;
-        const bool has_simple_raft = mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::SIMPLERAFT;
+        EPlatformAdhesion adhesion_type = application->get_adhesion_type();
+        const bool has_raft = adhesion_type == EPlatformAdhesion::RAFT;
+        const bool has_simple_raft = adhesion_type == EPlatformAdhesion::SIMPLERAFT;
 
         // calculate the height at which each layer is actually printed (printZ)
         for (unsigned int layer_nr = 0; layer_nr < meshStorage.layers.size(); layer_nr++)
@@ -434,19 +442,20 @@ void FffPolygonGenerator::slices2polygons(SliceDataStorage& storage)
     AreaSupport::generateSupportAreas(storage);
 
     INTERRUPT_RETURN("FffPolygonGenerator::slices2polygons");
-
-    if (application->sceneSettings().get<ESupportStructure>("support_structure") == ESupportStructure::THOMASTREE)
+    mergePaintSupport(storage);
+    if (application->sceneSettings().get<ESupportStructure>("support_structure") == ESupportStructure::THOMASTREE
+        || application->sceneSettings().get<ESupportStructure>("support_structure") == ESupportStructure::THOMASTREE_MANUAL)
     {
         //ThomasTreeSupport thomas_tree_support_generator(storage);
         //thomas_tree_support_generator.generateSupportAreas(storage);
         cura54::TreeSupportT tree_support_generator(storage);
         tree_support_generator.generateSupportAreas(storage);
     }
-    else if(application->sceneSettings().get<ESupportStructure>("support_structure") == ESupportStructure::TREE)
-    {
-        TreeSupport tree_support_generator(storage);
-        tree_support_generator.generateSupportAreas(storage);
-    }
+    //else if(application->sceneSettings().get<ESupportStructure>("support_structure") == ESupportStructure::TREE)
+    //{
+    //    TreeSupport tree_support_generator(storage);
+    //    tree_support_generator.generateSupportAreas(storage);
+    //}
 
     AreaSupport::generateSharpTailSupport(storage);
 
@@ -871,7 +880,7 @@ void FffPolygonGenerator::removeEmptyFirstLayers(SliceDataStorage& storage, size
     if (n_empty_first_layers > 0)
     {
         LOGI("Removing {} layers because they are empty", n_empty_first_layers);
-        const coord_t layer_height = application->currentGroup()->settings.get<coord_t>("layer_height");
+        const coord_t layer_height = application->get_layer_height();
 
         //belt ����ֵ
         //QString str = QString::number(-minZ.y, 'f', 2);
@@ -969,7 +978,7 @@ void FffPolygonGenerator::computePrintHeightStatistics(SliceDataStorage& storage
         max_print_height_per_extruder[support_bottom_extruder_nr] = std::max(max_print_height_per_extruder[support_bottom_extruder_nr], storage.support.layer_nr_max_filled_layer);
 
         // Height of where the platform adhesion reaches.
-        const EPlatformAdhesion adhesion_type = mesh_group_settings.get<EPlatformAdhesion>("adhesion_type");
+        const EPlatformAdhesion adhesion_type = application->get_adhesion_type();
         switch (adhesion_type)
         {
         case EPlatformAdhesion::SKIRT:
@@ -1030,7 +1039,7 @@ void FffPolygonGenerator::processOozeShield(SliceDataStorage& storage)
     const AngleDegrees angle = mesh_group_settings.get<AngleDegrees>("ooze_shield_angle");
     if (angle <= 89)
     {
-        const coord_t allowed_angle_offset = tan(mesh_group_settings.get<AngleRadians>("ooze_shield_angle")) * mesh_group_settings.get<coord_t>("layer_height"); // Allow for a 60deg angle in the oozeShield.
+        const coord_t allowed_angle_offset = tan(mesh_group_settings.get<AngleRadians>("ooze_shield_angle")) * application->get_layer_height(); // Allow for a 60deg angle in the oozeShield.
         for (LayerIndex layer_nr = 1; layer_nr <= storage.max_print_height_second_to_last_extruder; layer_nr++)
         {
             storage.oozeShield[layer_nr] = storage.oozeShield[layer_nr].unionPolygons(storage.oozeShield[layer_nr - 1].offset(-allowed_angle_offset));
@@ -1056,7 +1065,7 @@ void FffPolygonGenerator::processDraftShield(SliceDataStorage& storage)
         return;
     }
     const Settings& mesh_group_settings = application->currentGroup()->settings;
-    const coord_t layer_height = mesh_group_settings.get<coord_t>("layer_height");
+    const coord_t layer_height = application->get_layer_height();
 
     const unsigned int layer_skip = 500 / layer_height + 1;
 
@@ -1090,7 +1099,7 @@ void FffPolygonGenerator::processPlatformAdhesion(SliceDataStorage& storage)
     Polygons first_layer_outline;
     coord_t primary_line_count;
 
-    EPlatformAdhesion adhesion_type = mesh_group_settings.get<EPlatformAdhesion>("adhesion_type");
+    EPlatformAdhesion adhesion_type = application->get_adhesion_type();
 
     if (adhesion_type == EPlatformAdhesion::SKIRT)
     {
@@ -1200,7 +1209,7 @@ void FffPolygonGenerator::processFuzzyWalls(SliceMeshStorage& mesh)
     const coord_t avg_dist_between_points = mesh.settings.get<coord_t>("magic_fuzzy_skin_point_dist");
     const coord_t min_dist_between_points = avg_dist_between_points * 3 / 4; // hardcoded: the point distance may vary between 3/4 and 5/4 the supplied value
     const coord_t range_random_point_dist = avg_dist_between_points / 2;
-    unsigned int start_layer_nr = (mesh.settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::BRIM) ? 1 : 0; // don't make fuzzy skin on first layer if there's a brim
+    unsigned int start_layer_nr = (application->get_adhesion_type() == EPlatformAdhesion::BRIM) ? 1 : 0; // don't make fuzzy skin on first layer if there's a brim
 
     auto hole_area = Polygons();
     std::function<bool(const bool&, const ExtrusionJunction&)> accumulate_is_in_hole = [](const bool& prev_result, const ExtrusionJunction& junction) { return false; };
@@ -1305,117 +1314,5 @@ void FffPolygonGenerator::processFuzzyWalls(SliceMeshStorage& mesh)
     }
 }
 
-void FffPolygonGenerator::getPaintSupport(SliceDataStorage& storage,const int layer_thickness,const int slice_layer_count, const bool use_variable_layer_heights)
-{
-    std::vector<cura52::Mesh> supportMesh;
-    getBinaryData(application->supportFile(),supportMesh);
-    if (!supportMesh.empty())
-    {
-        for (Mesh& mesh : supportMesh)
-        {
-            SlicedData slicedData;
-            mesh.settings.add("support_paint_enable", "true");
-            mesh.settings.add("keep_open_polygons", "true");
-            mesh.settings.add("minimum_polygon_circumference", "0.05");//长度小于此值会被移除
-            sliceMesh(application, &mesh, layer_thickness, slice_layer_count, use_variable_layer_heights, nullptr, slicedData);
-            handleSupportModifierMesh(storage, mesh.settings, &slicedData);
-        }
-    }
-
-    std::vector<cura52::Mesh> antiMesh;
-    getBinaryData(application->antiSupportFile(), antiMesh);
-    if (!antiMesh.empty())
-    {
-        for (Mesh& mesh : antiMesh)
-        {
-            SlicedData slicedData;
-            mesh.settings.add("support_paint_enable", "true"); 
-            mesh.settings.add("keep_open_polygons", "true");
-            mesh.settings.add("minimum_polygon_circumference", "0.05");//长度小于此值会被移除
-            mesh.settings.add("anti_overhang_mesh", "true");
-            sliceMesh(application, &mesh, layer_thickness, slice_layer_count, use_variable_layer_heights, nullptr, slicedData);
-            handleSupportModifierMesh(storage, mesh.settings, &slicedData);
-        }
-    }
-}
-
-void FffPolygonGenerator::getZseamLine(SliceDataStorage& storage, const int layer_thickness, const int slice_layer_count, const bool use_variable_layer_heights)
-{
-    std::vector<cura52::Mesh> ZseamMesh;
-    getBinaryData(application->seamFile(), ZseamMesh);
-    if (!ZseamMesh.empty())
-    {
-        storage.zSeamPoints.resize(slice_layer_count);
-        for (Mesh& mesh : ZseamMesh)
-        {
-            SlicedData slicedData;
-            std::vector<SlicerLayer> Zseamlineslayers;
-
-            mesh.settings.add("zseam_paint_enable", "true");
-            sliceMesh(application, &mesh, layer_thickness, slice_layer_count, use_variable_layer_heights, nullptr, Zseamlineslayers);
-            for (unsigned int layer_nr = 0; layer_nr < Zseamlineslayers.size(); layer_nr++)
-            {
-                for (size_t i = 0; i < Zseamlineslayers[layer_nr].segments.size(); i++)
-                {
-                    storage.zSeamPoints[layer_nr].ZseamLayers.push_back(ZseamDrawPoint(Zseamlineslayers[layer_nr].segments[i].start));
-                }
-            }
-        }
-    }
-}
-
-void FffPolygonGenerator::getBinaryData(std::string fileName, std::vector<Mesh>& meshs)
-{
-    std::fstream in(fileName, std::ios::in | std::ios::binary);
-    if (in.is_open())
-    {
-        while (1)
-        {
-            int pNum = 0;
-            in.read((char*)&pNum, sizeof(int));
-            if (pNum > 0)
-            {
-                meshs.push_back(Mesh(application->currentGroup()->settings));
-                meshs.back().faces.resize(pNum);
-                for (int i = 0; i < pNum; ++i)
-                {
-                    int num = 0;
-                    in.read((char*)&num, sizeof(int));
-                    if (num == 3)
-                    {
-                        for (int j = 0; j < num; j++)
-                        {
-                            in.read((char*)&meshs.back().faces[i].vertex_index[j], sizeof(int));
-                        }
-                    }
-                }
-            }
-            else
-                break;
-
-            pNum = 0;
-            in.read((char*)&pNum, sizeof(int));
-            if (pNum > 0)
-            {
-                for (int i = 0; i < pNum; ++i)
-                {
-                    int num = 0;
-                    in.read((char*)&num, sizeof(int));
-                    if (num == 3)
-                    {
-                        std::vector<float> v(3);
-                        for (int j = 0; j < num; j++)
-                        {
-                            in.read((char*)&v[j], sizeof(float));
-                        }
-                        meshs.back().vertices.push_back(MeshVertex(Point3(MM2INT(v[0]), MM2INT(v[1]), MM2INT(v[02]))));
-                    }
-                }
-            }
-            meshs.back().finish();
-        }
-    }
-    in.close();
-}
 
 } // namespace cura52

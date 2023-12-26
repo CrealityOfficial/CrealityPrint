@@ -19,6 +19,7 @@ namespace qtuser_3d {
 		m_cameraController(nullptr),
 		m_animation(nullptr),
 		m_lambda(0.0f),
+        m_lambdax(0.0f),
 		m_theme(-1),
         m_length(100)
 	{
@@ -293,6 +294,38 @@ namespace qtuser_3d {
         return m_lambda;
     }
 
+    void WorldIndicatorEntity::setLambdax(float lambdax)
+    {
+        m_lambdax = lambdax;
+        qDebug() << "setLambdax:" << lambdax;
+
+        if (!m_cameraController)
+            return;
+
+        QVector3D up(0.0f, 0.0f, 1.0f);
+        QQuaternion q1up = QQuaternion::rotationTo(up, m_startUp);
+        QQuaternion q2up = QQuaternion::rotationTo(up, m_endUp);
+        QQuaternion qup = QQuaternion::slerp(q1up, q2up, lambdax);
+        QVector3D newUp = qup * up;
+
+        QVector3D dir(0.0f, 1.0f, 0.0f);
+        QQuaternion q1dir = QQuaternion::rotationTo(dir, m_startDir);
+        QQuaternion q2dir = QQuaternion::rotationTo(dir, m_endDir);
+        QQuaternion qdir = QQuaternion::slerp(q1dir, q2dir, lambdax);
+        QVector3D newDir = qdir * dir;
+
+        QVector3D newCenter = (m_endCenter - m_startCenter) * lambdax + m_startCenter;
+
+        m_cameraController->viewEx(newDir, newUp, m_homePosition, m_homeViewCenter, newCenter);
+
+        onCameraChanged(m_cameraController->screenCamera());
+    }
+
+    float WorldIndicatorEntity::lambdax() const
+    {
+        return m_lambdax;
+    }
+
     void WorldIndicatorEntity::aspectRatioChanged(float aspectRatio)
     {
         onCameraChanged(m_cameraController->screenCamera());
@@ -368,6 +401,44 @@ namespace qtuser_3d {
 #ifdef Q515
         setTheme(m_theme);
 #endif
+    }
+
+    void WorldIndicatorEntity::resetHomeCamera(const QVector3D& homeDir, const QVector3D& homeUp, const QVector3D& homePosition, const QVector3D& homeViewCenter)
+    {
+        if (!m_cameraController)
+            return;
+
+        m_homePosition = homePosition;
+        m_homeViewCenter = homeViewCenter;
+
+        qtuser_3d::ScreenCamera* sc = m_cameraController->screenCamera();
+        Qt3DRender::QCamera* camera = sc->camera();
+
+        m_startDir = camera->viewVector();
+        m_startUp = camera->upVector();
+
+        m_endDir = homeDir;
+        m_endUp = homeUp;
+
+        /* 把相机中心点设为箱体的底部中心，即返回初始位置 */
+        qtuser_3d::Box3D box = sc->box();
+        m_startCenter = m_cameraController->getviewCenter();
+        m_endCenter = box.center();
+
+        if (m_animation == nullptr)
+        {
+            QPropertyAnimation* animation = new QPropertyAnimation(this);
+            animation->setTargetObject(this);
+            animation->setEasingCurve(QEasingCurve::InOutQuad);
+            animation->setPropertyName("lambdax");
+            animation->setStartValue(QVariant::fromValue(0.0f));
+            animation->setEndValue(QVariant::fromValue(1.0f));
+            animation->setDuration(500);
+            animation->setLoopCount(1);
+
+            m_animation.reset(animation);
+        }
+        m_animation->start();
     }
 
 }

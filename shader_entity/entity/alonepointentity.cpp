@@ -62,4 +62,13 @@ namespace qtuser_3d
 		if (program)
 			m_pass->setShaderProgram(program);
 	}
+
+	void AlonePointEntity::setFilterType(const QString& filterType)
+	{
+		if (m_pass)
+		{
+			m_pass->addFilterKeyMask(filterType, 0);
+		}
+		
+	}
 }

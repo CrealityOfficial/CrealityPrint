@@ -1,8 +1,8 @@
 #ifndef CXGCODE_KERNEL_SIMPLEGCODEBUILDER_1677118729997_H
 #define CXGCODE_KERNEL_SIMPLEGCODEBUILDER_1677118729997_H
 #include "cxgcode/gcodebuilder.h"
-#include "gcode/slicemodelbuilder.h"
-#include "gcode/define.h"
+#include "crslice/gcode/slicemodelbuilder.h"
+#include "crslice/gcode/define.h"
 
 #include <Qt3DRender/QGeometryRenderer>
 

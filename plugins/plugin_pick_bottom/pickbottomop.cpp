@@ -13,7 +13,7 @@
 #include "qtuser3d/trimesh2/conv.h"
 
 PickBottomOp::PickBottomOp(QObject* parent)
-	:SceneOperateMode(parent)
+	:MoveOperateMode(parent)
 {
 }
 

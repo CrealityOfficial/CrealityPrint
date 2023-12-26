@@ -663,6 +663,70 @@
             "supportMaterialNames": "Hyper PLA,Generic-PLA,CR-ABS,CR-Carbon,CR-PETG,CR-wood,HP-TPU,Generic-ABS,Generic-PETG"
         },
         {
+            "name": "Fast-CR-6 Max",
+            "extruderCount": 1,
+            "supportExtruderDiameters": "0.4",
+            "supportMaterialTypes": "PLA,ABS,PETG",
+            "supportMaterialDiameters": "1.75, 2.85",
+            "supportMaterialNames": "Generic-PLA,Generic-ABS,Generic-PETG"
+        },
+        {
+            "name": "Fast-CR-10 S4",
+            "extruderCount": 1,
+            "supportExtruderDiameters": "0.4",
+            "supportMaterialTypes": "PLA,ABS,PETG",
+            "supportMaterialDiameters": "1.75, 2.85",
+            "supportMaterialNames": "Generic-PLA,Generic-ABS,Generic-PETG"
+        },
+        {
+            "name": "Fast-CR-10 S5",
+            "extruderCount": 1,
+            "supportExtruderDiameters": "0.4",
+            "supportMaterialTypes": "PLA,ABS,PETG",
+            "supportMaterialDiameters": "1.75, 2.85",
+            "supportMaterialNames": "Generic-PLA,Generic-ABS,Generic-PETG"
+        },
+        {
+            "name": "Fast-CR-10 V3",
+            "extruderCount": 1,
+            "supportExtruderDiameters": "0.4",
+            "supportMaterialTypes": "PLA,ABS,PETG",
+            "supportMaterialDiameters": "1.75, 2.85",
+            "supportMaterialNames": "Generic-PLA,Generic-ABS,Generic-PETG"
+        },
+        {
+            "name": "Fast-CR-M4",
+            "extruderCount": 1,
+            "supportExtruderDiameters": "0.4",
+            "supportMaterialTypes": "PLA,ABS,PETG",
+            "supportMaterialDiameters": "1.75, 2.85",
+            "supportMaterialNames": "Generic-PLA,Generic-ABS,Generic-PETG"
+        },
+        {
+            "name": "Fast-Ender-3 Max Neo",
+            "extruderCount": 1,
+            "supportExtruderDiameters": "0.4",
+            "supportMaterialTypes": "PLA,ABS,PETG",
+            "supportMaterialDiameters": "1.75, 2.85",
+            "supportMaterialNames": "Generic-PLA,Generic-ABS,Generic-PETG"
+        },
+        {
+            "name": "Fast-Ender-3 V3 SE",
+            "extruderCount": 1,
+            "supportExtruderDiameters": "0.4",
+            "supportMaterialTypes": "PLA,ABS,PETG",
+            "supportMaterialDiameters": "1.75, 2.85",
+            "supportMaterialNames": "Generic-PLA,Generic-ABS,Generic-PETG"
+        },
+        {
+            "name": "Fast-Ender-5 Plus",
+            "extruderCount": 1,
+            "supportExtruderDiameters": "0.4",
+            "supportMaterialTypes": "PLA,ABS,PETG",
+            "supportMaterialDiameters": "1.75, 2.85",
+            "supportMaterialNames": "Generic-PLA,Generic-ABS,Generic-PETG"
+        },
+        {
             "name": "Fast-Ender-3 S1 Pro",
             "extruderCount": 1,
             "supportExtruderDiameters": "0.4",
@@ -1073,6 +1137,14 @@
         },
         {
             "name": "Nebula-Ender-3 Pro",
+            "extruderCount": 1,
+            "supportExtruderDiameters": "0.4",
+            "supportMaterialTypes": "PLA,ABS,PETG",
+            "supportMaterialDiameters": "1.75, 2.85",
+            "supportMaterialNames": "Generic-PLA,Generic-ABS,Generic-PETG"
+        },
+        {
+            "name": "Nebula-Ender-3 V3 SE",
             "extruderCount": 1,
             "supportExtruderDiameters": "0.4",
             "supportMaterialTypes": "PLA,ABS,PETG",

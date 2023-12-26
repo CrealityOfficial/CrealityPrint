@@ -48,6 +48,8 @@ MenuBar {
     }
 
     BasicMenu {
+        // ...
+
         id: fileMenu
 
         title: qsTr("File(&F)")
@@ -123,6 +125,13 @@ MenuBar {
             mymodel: actionCommands.getOpt("Standard Model").subMenuActionmodel
         }
 
+        BasicSubMenu {
+            id: __testdModel
+
+            title: qsTr("Test Model")
+            mymodel: actionCommands.getOpt("Test Model").subMenuActionmodel
+        }
+
         BasicMenuItem {
             id: __closeProject
 
@@ -133,7 +142,28 @@ MenuBar {
                 excuteOpt("Close");
             }
         }
-        // ...
+
+        BasicMenuItem {
+            id: __load3MF
+
+            separatorVisible: true
+            actionName: qsTr("Load 3MF")
+            //                enabled : HalotContext.obj("ModelSelector").nocxbinSelectionNum > 0
+            onTriggered: {
+                excuteOpt("Load 3MF");
+            }
+        }
+
+        BasicMenuItem {
+            id: __save3MF
+
+            separatorVisible: true
+            actionName: qsTr("Save 3MF")
+            //                enabled : HalotContext.obj("ModelSelector").nocxbinSelectionNum > 0
+            onTriggered: {
+                excuteOpt("Save 3MF");
+            }
+        }
 
     }
 

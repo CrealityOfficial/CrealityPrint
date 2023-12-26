@@ -1,7 +1,7 @@
 #ifndef _NULLSPACE_SLICEPREVIEWSCENE_1589876502240_H
 #define _NULLSPACE_SLICEPREVIEWSCENE_1589876502240_H
 #include "data/kernelenum.h"
-#include "gcode/define.h"
+#include "crslice/gcode/header.h"
 #include <Qt3DCore/QEntity>
 #include <Qt3DRender/QGeometry>
 #include <Qt3DRender/QGeometryRenderer>

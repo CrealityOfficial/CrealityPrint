@@ -29,6 +29,11 @@ namespace qtuser_3d
 		void setFovyLimit(float maxFovy = 50.0f, float minFovy = 0.1f);
 
 		void fittingBoundingBox(const qtuser_3d::Box3D& box);
+
+		// for halotBox
+		void fittingBoundingBoxEx(const qtuser_3d::Box3D& box, const QVector3D& homeDir, const QVector3D& homeUp, const QVector3D& homePosition, const QVector3D& homeViewCenter);
+		void viewFromEx(const QVector3D& newDir, const QVector3D& newUp, const QVector3D& homePosition, const QVector3D& homeViewCenter, const QVector3D& newCenter);
+
 		void updateNearFar(const qtuser_3d::Box3D& box);
 		void updateNearFar();
 

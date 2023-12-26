@@ -6,12 +6,11 @@
 #include <list>
 #include <optional>
 
-#include <boost/uuid/random_generator.hpp> //For generating a UUID.
-#include <boost/uuid/uuid_io.hpp> //For generating a UUID.
 #include "FffGcodeWriter.h"
 
 #include "pathPlanning/InsetOrderOptimizer.h"
 #include "pathPlanning/LayerPlan.h"
+#include "settings/parse.h"
 
 #include "infill/infill.h"
 
@@ -23,6 +22,7 @@
 #include "utils/math.h"
 #include "utils/orderOptimizer.h"
 #include "utils/SettingsWrapper.h"
+#include "utils/paintzseam.h"
 #include "poly/getlayerdata.h"
 
 #include "communication/slicecontext.h"
@@ -38,7 +38,6 @@ namespace cura52
 FffGcodeWriter::FffGcodeWriter() 
     : max_object_height(0)
     , layer_plan_buffer(gcode)
-    , slice_uuid(boost::uuids::to_string(boost::uuids::random_generator()()))
 {
     for (unsigned int extruder_nr = 0; extruder_nr < MAX_EXTRUDERS; extruder_nr++)
     { // initialize all as max layer_nr, so that they get updated to the lowest layer on which they are used.
@@ -46,37 +45,10 @@ FffGcodeWriter::FffGcodeWriter()
     }
 }
 
-void FffGcodeWriter::setTargetStream(std::ostream* stream)
-{
-    gcode.setOutputStream(stream);
-}
-
-double FffGcodeWriter::getTotalFilamentUsed(int extruder_nr)
-{
-    return gcode.getTotalFilamentUsed(extruder_nr);
-}
-
-std::vector<Duration> FffGcodeWriter::getTotalPrintTimePerFeature()
-{
-    return gcode.getTotalPrintTimePerFeature();
-}
-
-bool FffGcodeWriter::setTargetFile(const char* filename)
-{
-    output_file.open(filename);
-    if (output_file.is_open())
-    {
-        gcode.setOutputStream(&output_file);
-        return true;
-    }
-    return false;
-}
-
 void FffGcodeWriter::writeGCode(SliceDataStorage& storage)
 {
     const size_t start_extruder_nr = getStartExtruder(storage);
     gcode.preSetup(start_extruder_nr);
-    gcode.setSliceUUID(slice_uuid);
 
     MeshGroup* mesh_group = application->currentGroup();
     if (application->isFirstGroup()) // First mesh group.
@@ -142,8 +114,9 @@ void FffGcodeWriter::writeGCode(SliceDataStorage& storage)
     INTERRUPT_RETURN("FffGcodeWriter::writeGCode");
 
     int process_layer_starting_layer_nr = 0;
-    const bool has_raft = mesh_group->settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::RAFT;
-    const bool has_simple_raft = mesh_group->settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::SIMPLERAFT;
+    EPlatformAdhesion adhesion_type = application->get_adhesion_type();
+    const bool has_raft = adhesion_type == EPlatformAdhesion::RAFT;
+    const bool has_simple_raft = adhesion_type == EPlatformAdhesion::SIMPLERAFT;
     if (has_raft)
     {
         processRaft(storage);
@@ -173,15 +146,24 @@ void FffGcodeWriter::writeGCode(SliceDataStorage& storage)
         }
     }
 
-
+    paintzseam apaintzseam(&storage, total_layers);
+	if (!storage.interceptSeamPoints.empty())
+	{
+		apaintzseam.intercept();
+	}
     if (!mesh_group->settings.get<bool>("magic_spiralize") && mesh_group->settings.get<EZSeamType>("z_seam_type") == EZSeamType::SHARPEST_CORNER)
     {
         SAFE_MESSAGE(7, 0);
-        processZSeam(storage, total_layers);
+		MeshGroup* mesh_group = application->currentGroup();
+		AngleDegrees z_seam_min_angle_diff = mesh_group->settings.get<AngleDegrees>("z_seam_min_angle_diff");
+		AngleDegrees z_seam_max_angle = mesh_group->settings.get<AngleDegrees>("z_seam_max_angle");
+		coord_t wall_line_width_0 = mesh_group->settings.get<coord_t>("wall_line_width_0");
+		coord_t wall_line_count = mesh_group->settings.get<coord_t>("wall_line_count");
+        apaintzseam.processZSeam(mesh_group, z_seam_min_angle_diff, z_seam_max_angle, wall_line_width_0, wall_line_count);
     }
     if (!storage.zSeamPoints.empty())
     {
-        drawZSeam(storage, total_layers);
+        apaintzseam.paint();
     }
 
     INTERRUPT_RETURN("FffGcodeWriter::writeGCode");
@@ -440,7 +422,7 @@ void FffGcodeWriter::setConfigWipe(SliceDataStorage& storage)
 size_t FffGcodeWriter::getStartExtruder(const SliceDataStorage& storage)
 {
     const Settings& mesh_group_settings = application->currentGroup()->settings;
-    const EPlatformAdhesion adhesion_type = mesh_group_settings.get<EPlatformAdhesion>("adhesion_type");
+    const EPlatformAdhesion adhesion_type = application->get_adhesion_type();
     const ExtruderTrain& skirt_brim_extruder = mesh_group_settings.get<ExtruderTrain&>("skirt_brim_extruder_nr");
 
     size_t start_extruder_nr = 0;
@@ -531,6 +513,7 @@ void FffGcodeWriter::setInfillAndSkinAngles(SliceMeshStorage& mesh)
 void FffGcodeWriter::setSupportAngles(SliceDataStorage& storage)
 {
     const Settings& mesh_group_settings = application->currentGroup()->settings;
+
     const ExtruderTrain& support_infill_extruder = mesh_group_settings.get<ExtruderTrain&>("support_infill_extruder_nr");
     storage.support.support_infill_angles = support_infill_extruder.settings.get<std::vector<AngleDegrees>>("support_infill_angles");
     if (storage.support.support_infill_angles.empty())
@@ -545,14 +528,10 @@ void FffGcodeWriter::setSupportAngles(SliceDataStorage& storage)
         storage.support.support_infill_angles_layer_0.push_back(0);
     }
 
-    if (mesh_group_settings.get<coord_t>("special_slope_slice_angle") != 0)
+    if (application->get_special_slope_slice_angle() != 0.0)
     {
         std::vector<AngleDegrees> support_infill_angles;
-        std::string Axis = mesh_group_settings.get<std::string>("special_slope_slice_axis");
-        if (Axis == "X")
-            support_infill_angles.push_back(0);
-        else
-            support_infill_angles.push_back(90);
+        support_infill_angles.push_back(parse_special_slope_slice_axis_degree(application->get_special_slope_slice_axis()));
         storage.support.support_infill_angles = support_infill_angles;
         storage.support.support_infill_angles_layer_0 = support_infill_angles;
     }
@@ -574,7 +553,7 @@ void FffGcodeWriter::setSupportAngles(SliceDataStorage& storage)
             {
                 for (const SliceMeshStorage& mesh : storage.meshes)
                 {
-                    if (mesh.settings.get<coord_t>(interface_height_setting) >= 2 * application->currentGroup()->settings.get<coord_t>("layer_height"))
+                    if (mesh.settings.get<coord_t>(interface_height_setting) >= 2 * application->get_layer_height())
                     {
                         // Some roofs are quite thick.
                         // Alternate between the two kinds of diagonal: / and \ .
@@ -733,7 +712,7 @@ void FffGcodeWriter::processStartingCode(const SliceDataStorage& storage, const 
     }
 
     gcode.writeExtrusionMode(false); // ensure absolute extrusion mode is set before the start gcode
-    if (application->sceneSettings().get<bool>("special_object_cancel"))
+    if (application->sceneSettings().get<bool>("special_object_cancel") && !storage.m_Object_Exclude_FileName.empty())
     {
         std::ostringstream tmp ;
         tmp << "; Pre-Processed for Cancel-Object support by preprocess_cancellation v0.2.0" ;
@@ -825,7 +804,7 @@ void FffGcodeWriter::processStartingCode(const SliceDataStorage& storage, const 
     }
 
 
-    if (mesh_group_settings.get<bool>("machine_heated_build_volume"))
+    if (application->get_machine_heated_build_volume())
     {
 		Temperature max_build_volume_temperature;
 		for (const ExtruderTrain& _train : application->extruders())
@@ -857,7 +836,7 @@ void FffGcodeWriter::processStartingCode(const SliceDataStorage& storage, const 
         const RetractionConfig& retraction_config = storage.retraction_config_per_extruder[start_extruder_nr];
         gcode.writeRetraction(retraction_config);
     }
-    if (mesh_group_settings.get<bool>("relative_extrusion"))
+    if (application->get_relative_extrusion())
     {
         gcode.writeExtrusionMode(true);
     }
@@ -1520,553 +1499,20 @@ void FffGcodeWriter::processSimpleRaft(const SliceDataStorage& storage)
     }
 }
 
-void FffGcodeWriter::processZSeam(SliceDataStorage& storage, const size_t total_layers)
-{
-    auto getProjection = [](const Point& p, const Point& a, const Point& b, Point& result)
-    {
-        Point base = b - a;
-        if (vSize2(base) == 0)
-        {
-            return false;
-        }
-        float pab = LinearAlg2D::getAngleLeft(p, a, b);
-        float pba = LinearAlg2D::getAngleLeft(p, b, a);
-        if (pab > M_PI / 2 && pab < 3 * M_PI / 2) {
-            return false;
-        }
-        else if (pba > M_PI / 2 && pba < 3 * M_PI / 2) {
-            return false;
-        }
-        else {
-            double r = dot(p - a, base) / (float)vSize2(base);
-            result = a + base * r;
-            if(vSize2(result - a) > MM2_2INT(3.0))
-                return false;
-        }
-        return true;
-    };
-
-    auto getDistFromSeg = [](const Point& p, const Point& a, const Point& b)
-    {
-        float pab = LinearAlg2D::getAngleLeft(p, a, b);
-        float pba = LinearAlg2D::getAngleLeft(p, b, a);
-        if (pab > M_PI / 2 && pab < 3 * M_PI / 2){
-            return vSize(p - a);
-        } else if (pba > M_PI / 2 && pba < 3 * M_PI / 2){
-            return vSize(p - b);
-        } else{
-            return LinearAlg2D::getDistFromLine(p, a, b);
-        }
-    };
-    auto closestPointToIdx = [&](Polygon path, Point p, coord_t& bestDist)
-    {
-        int ret = -1;
-        bestDist = std::numeric_limits<coord_t>::max();
-        int size = (int)path.size();
-        for (int n = 0; n < size; n++)
-        {
-            Point cur_position = (*path)[n];
-            Point next_position = (*path)[(n + 1 + size) % size];
-            coord_t v_ab_dis = getDistFromSeg(p, cur_position, next_position);
-            if (v_ab_dis < bestDist)
-            {
-                ret = n;
-                bestDist = v_ab_dis;
-            }
-        }      
-        return vSize2((*path)[ret] - p) < vSize2((*path)[(ret + 1 + size) % size] - p) ? ret : (ret + 1 + size) % size;
-    };
-    auto closestPtIdx = [&](Polygon path, std::vector<Point> pts, Point& nearest_pt, coord_t dist_limit)
-    {
-        coord_t dis_min = std::numeric_limits<coord_t>::max();
-        int closestPtIdx = -1;
-        for (const Point& pt : pts)
-        {
-            coord_t dis = std::numeric_limits<coord_t>::max();
-            int idx = closestPointToIdx(path, pt, dis);
-            if (dis < dis_min && dis < dist_limit)
-            {
-                dis_min = dis;
-                closestPtIdx = idx;
-                nearest_pt = pt;
-            }
-        }
-        return  closestPtIdx;
-    };
-
-    auto getSupportedVertex = [](Polygons below_outline, ExtrusionLine wall, int start_idx)
-    {
-        if (below_outline.empty() || start_idx < 0)
-        {
-            return start_idx;
-        }
-
-        int curr_idx = start_idx;
-
-        while (true)
-        {
-            const Point& vertex = cura52::make_point(wall[curr_idx]);
-            if (below_outline.inside(vertex, true))
-            {
-                // vertex isn't above air so it's OK to use
-                return curr_idx;
-            }
-
-            if (++curr_idx >= wall.size())
-            {
-                curr_idx = 0;
-            }
-
-            if (curr_idx == start_idx)
-            {
-                // no vertices are supported so just return the original index
-                return start_idx;
-            }
-        }
-    };
-
-    auto findClosestPointToIdx = [&](Polygon path, Point p, coord_t dist_limit, coord_t dist_limit_max )
-    {
-        int ret = -1;
-        int size = (int)path.size();
-        for (int n = 0; n < size; n++)
-        {
-            Point cur_position = (*path)[n];
-            Point next_position = (*path)[(n + 1 + size) % size];
-            coord_t v_ab_dis = getDistFromSeg(p, cur_position, next_position);
-            if (v_ab_dis < dist_limit_max && v_ab_dis > dist_limit)
-            {
-                ret = n;
-            }
-        }
-        if (ret < 0)
-        {
-            return ret;
-        }
-        return vSize2((*path)[ret] - p) < vSize2((*path)[(ret + 1 + size) % size] - p) ? ret : (ret + 1 + size) % size;
-    };
-    auto findClosest = [&](Polygon path, std::vector<Point> pts, Point& nearest_pt, coord_t dist_limit, coord_t dist_limit_max)
-    {
-        int closestPtIdx = -1;
-        for (const Point& pt : pts)
-        {
-            return  findClosestPointToIdx(path, pt, dist_limit, dist_limit_max);
-        }
-        return  closestPtIdx;
-    };
-
-    auto minLength = [&](std::vector<Point>& pts, ExtrusionLine& line, Point& nearest_pt,int index, coord_t dist_limit, coord_t dist_limit_max)
-    {
-        int closestIdx = -1;
-        for (const Point& pt : pts)
-        {
-            coord_t length = vSize(pt - nearest_pt);
-            if (length <= dist_limit)
-            {
-                return findClosest(line.toPolygon(), pts, nearest_pt, dist_limit,dist_limit_max);
-            }
-        }
-        return  closestIdx;
-    };
-
-    MeshGroup* mesh_group = application->currentGroup();
-    AngleDegrees z_seam_min_angle_diff = mesh_group->settings.get<AngleDegrees>("z_seam_min_angle_diff");
-    AngleDegrees z_seam_max_angle = mesh_group->settings.get<AngleDegrees>("z_seam_max_angle");
-    coord_t wall_line_width_0 = mesh_group->settings.get<coord_t>("wall_line_width_0");
-    coord_t wall_line_count = mesh_group->settings.get<coord_t>("wall_line_count");
-    
-    std::vector<Point> last_layer_start_pt;
-    for (int layer_nr = 0; layer_nr < total_layers; layer_nr++)
-    {
-        std::vector<Point> current_layer_start_pt;
-        Polygons mesh_last_layer_outline;
-        for (SliceMeshStorage& mesh : storage.meshes)
-        {
-            if (layer_nr > 0)
-            {
-                for (SliceLayerPart part : mesh.layers[layer_nr - 1].parts)
-                {
-                    mesh_last_layer_outline.add(part.outline);
-                }
-                //计算非悬空区域
-                mesh_last_layer_outline = mesh_last_layer_outline.offset(0.5 * wall_line_width_0);
-            }
-            ZSeamConfig z_seam_config;
-            if (mesh.isPrinted()) //"normal" meshes with walls, skin, infill, etc. get the traditional part ordering based on the z-seam settings.
-            {
-                z_seam_config = ZSeamConfig(mesh.settings.get<EZSeamType>("z_seam_type"), mesh.getZSeamHint(), mesh.settings.get<EZSeamCornerPrefType>("z_seam_corner"), wall_line_width_0 * 2);
-            }
-            for (SliceLayerPart& part : mesh.layers[layer_nr].parts)
-            {
-                for (VariableWidthLines& path : part.wall_toolpaths)
-                {
-                    PathOrderOptimizer<const ExtrusionLine*> part_order_optimizer(Point(), z_seam_config);
-                    std::vector<Point> matchZSeam;
-                    for (const ExtrusionLine& line : path)
-                    {
-                        if (line.inset_idx == 0 && line.is_closed)
-                        {
-                            part_order_optimizer.addPolygon(&line);
-                            Point nearest_pt;
-                            part_order_optimizer.last_layer_start_idx.push_back(closestPtIdx(line.toPolygon(), last_layer_start_pt, nearest_pt, MM2INT(5.0)));
-                            matchZSeam.push_back(nearest_pt);
-                        }
-                    }
-                    part_order_optimizer.bFound = std::vector(part_order_optimizer.last_layer_start_idx.size(), true);
-                    part_order_optimizer.z_seam_max_angle = z_seam_max_angle * M_PI / 180;
-                    part_order_optimizer.z_seam_min_angle_diff = z_seam_min_angle_diff * M_PI / 180;
-
-                    std::vector<int> start_idx;
-                    part_order_optimizer.findZSeam(start_idx);
-                    int idx = 0;
-                    for (ExtrusionLine& line : path)
-                    {
-                        if (line.inset_idx == 0 && line.is_closed)
-                        {
-                            if (line.start_idx!=-1)
-                            {
-                                continue;
-                            }
-
-                            line.start_idx = getSupportedVertex(mesh_last_layer_outline, line, start_idx[idx]);
-                            if (line.start_idx != -1 && !part_order_optimizer.bFound[idx])
-                            {
-                                Polygon _path = line.toPolygon();
-                                Point lastLayerNearestZSeam = matchZSeam[idx];
-                                Point pre_pt = _path[(line.start_idx - 1 + _path.size())% _path.size()];
-                                Point cur_pt = _path[line.start_idx];
-                                Point next_pt = _path[(line.start_idx + 1) % _path.size()];
-                                Point result;
-                                if (getProjection(lastLayerNearestZSeam, cur_pt, pre_pt, result))
-                                {
-                                    ExtrusionJunction new_pt = ExtrusionJunction(result, line.junctions[line.start_idx].w, line.junctions[line.start_idx].perimeter_index, line.junctions[line.start_idx].overhang_distance);
-                                    line.junctions.insert(line.junctions.begin() + line.start_idx, new_pt);
-                                }
-                                else if(getProjection(lastLayerNearestZSeam, cur_pt, next_pt, result))
-                                {
-                                    ExtrusionJunction new_pt = ExtrusionJunction(result, line.junctions[line.start_idx].w, line.junctions[line.start_idx].perimeter_index, line.junctions[line.start_idx].overhang_distance);
-                                    line.junctions.insert(line.junctions.begin() + line.start_idx + 1, new_pt);
-                                    line.start_idx++;
-                                }
-                            }
-                            int index = minLength(current_layer_start_pt, line, line.junctions[line.start_idx].p, line.start_idx, wall_line_width_0*3, wall_line_width_0 * (wall_line_count + 1));
-                            if (index >=0 && index < line.junctions.size())
-                            {
-                                line.start_idx = index;
-                            }
-                            current_layer_start_pt.push_back(line.junctions[line.start_idx].p);
-                            idx++;
-                        }
-                        else
-                        {
-                            Point nearest_pt;
-                            line.start_idx = closestPtIdx(line.toPolygon(), current_layer_start_pt, nearest_pt, wall_line_width_0 * (wall_line_count + 1));
-                        }
-                    }
-                }
-            }
-        }
-        last_layer_start_pt.swap(current_layer_start_pt);
-    }
-}
-
-void FffGcodeWriter::drawZSeam(SliceDataStorage& storage, const size_t total_layers)
-{
-    auto getDistFromSeg = [](const Point& p, const Point& a, const Point& b)
-    {
-        float pab = LinearAlg2D::getAngleLeft(p, a, b);
-        float pba = LinearAlg2D::getAngleLeft(p, b, a);
-        if (pab > M_PI / 2 && pab < 3 * M_PI / 2) {
-            return vSize(p - a);
-        }
-        else if (pba > M_PI / 2 && pba < 3 * M_PI / 2) {
-            return vSize(p - b);
-        }
-        else {
-            return LinearAlg2D::getDistFromLine(p, a, b);
-        }
-    };
-
-    //判断点是否在线段上
-    auto PointIsOnSegment = [](Point p, Point Segment_a, Point Segment_b)
-    {
-        if (p.X >= std::min(Segment_a.X, Segment_b.X) && p.X <= std::max(Segment_a.X, Segment_b.X) && p.Y >= std::min(Segment_a.Y, Segment_b.Y) && p.Y <= std::max(Segment_a.Y, Segment_b.Y))
-        {
-            if ((Segment_b.X - Segment_a.X) * (p.Y - Segment_a.Y) == (p.X - Segment_a.X) * (Segment_b.Y - Segment_a.Y))
-            {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    auto getShortestPoint = [&](Point& apoint, Point& start, Point& end)
-    {
-        double A = end.Y - start.Y;     //y2-y1
-        double B = start.X - end.X;     //x1-x2;
-        double C = end.X * start.Y - start.X * end.Y;     //x2*y1-x1*y2
-        if (A * A + B * B < 1e-13) {
-            return start;   //start与end重叠
-        }
-        else if (std::abs(A * apoint.X + B * apoint.Y + C) < 1e-13) {
-            return apoint;   //point在直线上(start_end)
-        }
-        else {
-            double x = (B * B * apoint.X - A * B * apoint.Y - A * C) / (A * A + B * B);
-            double y = (-A * B * apoint.X + A * A * apoint.Y - B * C) / (A * A + B * B);
-            Point fpoint = Point();
-            fpoint.X = x;
-            fpoint.Y = y;
-
-            if (PointIsOnSegment(fpoint, start, end))
-            {
-                return fpoint;
-            }
-           
-            if (vSize(Point(start.X - apoint.X, start.Y - apoint.Y)) < vSize(Point(end.X - apoint.X, end.Y - apoint.Y)))
-            {
-                return start;
-            }
-            else
-            {
-                return end;
-            }
-        }
-    };
-
-    auto getAngleLeft = [&](const Point& a, const Point& b, const Point& c)
-    {
-        float angle = LinearAlg2D::getAngleLeft(a, b, c);
-        if (angle > M_PI)
-        {
-            angle = 2 * M_PI - angle;
-        }
-        return angle;
-    };
-
-
-    for (int layer_nr = 0; layer_nr < total_layers; layer_nr++)
-    {
-        int icount = 0;
-        for (SliceMeshStorage& mesh : storage.meshes)
-        {
-            for (SliceLayerPart& part : mesh.layers[layer_nr].parts)
-            {
-                for (VariableWidthLines& path : part.wall_toolpaths)
-                {
-                    for (ExtrusionLine& line : path)
-                    {
-                        if (line.inset_idx == 0 && line.is_closed)
-                        {
-                            for (ZseamDrawPoint& aPoint : storage.zSeamPoints[layer_nr].ZseamLayers)
-                            {
-                                if (aPoint.flag)
-                                {
-                                    continue;
-                                }
-                                coord_t minPPdis = std::numeric_limits<coord_t>::max();
-                                int minPPidex = -1;
-                                for (int n = 0; n < line.junctions.size()-1; n++)
-                                {
-                                    coord_t ppdis = vSize(line.junctions[n].p - aPoint.start);
-                                    if (minPPdis > ppdis)
-                                    {
-                                        minPPdis = ppdis;
-                                        minPPidex = n;
-                                    }
-                                }
-                                if (minPPdis < 500)//线段点到轮廓点的最短距离
-                                {   
-                                    line.junctions[minPPidex].isZSeamDrow = true;
-                                    aPoint.flag = true;
-                                }
-                                else
-                                {
-                                    int preIdx = (minPPidex + line.junctions.size() - 2) % (line.junctions.size() - 1);
-                                    int nextIdx = (minPPidex + 1) % (line.junctions.size() - 1);
-
-                                    coord_t pre_dis = getDistFromSeg(aPoint.start, line.junctions[minPPidex].p, line.junctions[preIdx].p);
-                                    coord_t next_dis = getDistFromSeg(aPoint.start, line.junctions[minPPidex].p, line.junctions[nextIdx].p);
-                                    if (pre_dis > 500 && next_dis >500)
-                                    {
-                                        continue;
-                                    }
-
-                                    coord_t real_Idex = pre_dis < next_dis ? preIdx : nextIdx;
-                                    if (pre_dis < next_dis)
-                                    {
-                                        Point addPoint = getShortestPoint(aPoint.start, line.junctions[minPPidex].p, line.junctions[preIdx].p);
-                                        if (std::abs(addPoint.X - line.junctions[minPPidex].p.X)<10 && std::abs(addPoint.Y - line.junctions[minPPidex].p.Y)<10)
-                                        {
-                                            line.junctions[minPPidex].isZSeamDrow = true;
-                                            aPoint.flag = true;
-                                            continue;
-                                        }
-                                        ExtrusionJunction addEJ = line.junctions.at(preIdx);
-                                        addEJ.p = addPoint;
-                                        addEJ.isZSeamDrow = true;
-                                        aPoint.flag = true;
-                                        if (minPPidex==0)
-                                        {
-                                            minPPidex = preIdx + 1;
-                                        }
-                                        line.junctions.insert(line.junctions.begin() + minPPidex, addEJ);
-                                    }
-                                    else
-                                    {
-                                        Point addPoint = getShortestPoint(aPoint.start, line.junctions[minPPidex].p, line.junctions[nextIdx].p);
-                                        if (std::abs(addPoint.X - line.junctions[minPPidex].p.X)<10 && std::abs(addPoint.Y - line.junctions[minPPidex].p.Y)<10)
-                                        {
-                                            line.junctions[minPPidex].isZSeamDrow = true;
-                                            aPoint.flag = true;
-                                            continue;
-                                        }
-                                        ExtrusionJunction addEJ = line.junctions.at(nextIdx);
-                                        addEJ.p = addPoint;
-                                        addEJ.isZSeamDrow = true;
-                                        aPoint.flag = true;
-                                        if (nextIdx == 0)
-                                        {
-                                            nextIdx = minPPidex + 1;
-                                        }
-                                        line.junctions.insert(line.junctions.begin() + nextIdx, addEJ);
-                                    }
-
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    std::vector<Point> PreZseamPoints;
-    std::vector<Point> curZseamPoints;
-    for (int layer_nr = 0; layer_nr < total_layers; layer_nr++)
-    {
-        for (SliceMeshStorage& mesh : storage.meshes)
-        {
-            for (SliceLayerPart& part : mesh.layers[layer_nr].parts)
-            {
-                for (VariableWidthLines& path : part.wall_toolpaths)
-                {
-                    for (ExtrusionLine& line : path)
-                    {
-                        if (line.inset_idx == 0 && line.is_closed)
-                        {
-                            if (layer_nr ==0)
-                            {
-                                float minAngle = M_PI;
-                                int start_idx = -1;
-                                for (int n = 0; n < line.junctions.size()-1; n++)
-                                {
-                                    if (line.junctions[n].isZSeamDrow)
-                                    {
-                                        //int preIdx = (n - 1 + line.junctions.size()) % line.junctions.size();
-                                        //int nextIdx = (n + 1) % line.junctions.size();
-                                        int preIdx = (n + line.junctions.size() - 2) % (line.junctions.size() - 1);
-                                        int nextIdx = (n + 1) % (line.junctions.size() - 1);
-                                        float pab = getAngleLeft(line.junctions[preIdx].p, line.junctions[n].p, line.junctions[nextIdx].p);
-                                        if (minAngle >= pab)
-                                        {
-                                            minAngle = pab;
-                                            start_idx = n;
-                                        }
-                                    }
-                                }
-                                
-                                if (start_idx!=-1)
-                                {
-                                    line.start_idx = start_idx;
-                                    curZseamPoints.push_back(line.junctions[start_idx].p);
-                                }
-                            }
-                            else
-                            {
-                                coord_t minPPdis = std::numeric_limits<coord_t>::max();
-                                int ZseamPointIdx=-1;
-                                for (int n = 0; n < line.junctions.size()-1; n++)
-                                {
-                                    if (line.junctions[n].isZSeamDrow)
-                                    {
-                                        for (Point& apoint:PreZseamPoints)
-                                        {
-                                            coord_t ppdis = vSize(line.junctions[n].p - apoint);
-                                            if (minPPdis > ppdis && ppdis<1000)
-                                            {
-                                                minPPdis = ppdis;
-                                                ZseamPointIdx = n;//最短距离
-                                            }
-                                        }
-                                    }
-                                }
-
-                                float minAngle = M_PI;
-                                float shortestAngle= M_PI;
-                                int sharpCorner_idx = -1;
-                                for (int n = 0; n < line.junctions.size()-1; n++)
-                                {
-                                    if (line.junctions[n].isZSeamDrow)
-                                    {
-                                        //int preIdx = (n - 1 + line.junctions.size()) % line.junctions.size();
-                                        //int nextIdx = (n + 1) % line.junctions.size();
-                                        int preIdx = (n + line.junctions.size() - 2) % (line.junctions.size() - 1);
-                                        int nextIdx = (n + 1) % (line.junctions.size() - 1);
-                                        float pab = getAngleLeft(line.junctions[preIdx].p, line.junctions[n].p, line.junctions[nextIdx].p);
-                                        if (minAngle >= pab)//最尖角
-                                        {
-                                            minAngle = pab;
-                                            sharpCorner_idx = n;
-                                        }
-                                        if (ZseamPointIdx == n)
-                                        {
-                                            shortestAngle = pab;
-                                        }
-                                    }
-                                }
-
-                                if ((std::abs(shortestAngle - minAngle) < (M_PI / 6) || minAngle > (M_PI * 3 / 4)) && ZseamPointIdx >=0)
-                                {
-                                    line.start_idx = ZseamPointIdx;  
-                                    curZseamPoints.push_back(line.junctions[ZseamPointIdx].p);
-                                }
-                                else
-                                {
-                                    if (sharpCorner_idx != -1)
-                                    {
-                                        line.start_idx = sharpCorner_idx;
-                                        curZseamPoints.push_back(line.junctions[sharpCorner_idx].p);
-                                    }
-                                }
-
-                            }
-                        }
-
-                    }
-
-                }
-
-            }
-
-        }
-        PreZseamPoints = curZseamPoints;
-        curZseamPoints.clear();
-    }
-}
-
 
 LayerPlan& FffGcodeWriter::processLayer(const SliceDataStorage& storage, LayerIndex layer_nr, const size_t total_layers, std::optional<Point> last_position) const
 {
     //LOGD("GcodeWriter processing layer {} of {}", layer_nr, total_layers);
     const Settings& mesh_group_settings = application->currentGroup()->settings;
-    coord_t layer_thickness = mesh_group_settings.get<coord_t>("layer_height");
+    coord_t layer_thickness = application->get_layer_height();
     coord_t z;
     bool include_helper_parts = true;
+
+    EPlatformAdhesion adhesion_type = application->get_adhesion_type();
     if (layer_nr < 0)
     {
 #ifdef DEBUG
-        assert(mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::RAFT && "negative layer_number means post-raft, pre-model layer!");
+        assert(adhesion_type == EPlatformAdhesion::RAFT && "negative layer_number means post-raft, pre-model layer!");
 #endif // DEBUG
         const int filler_layer_count = Raft::getFillerLayerCount(storage.application);
         layer_thickness = Raft::getFillerLayerHeight(storage.application);
@@ -2090,7 +1536,7 @@ LayerPlan& FffGcodeWriter::processLayer(const SliceDataStorage& storage, LayerIn
 
         if (layer_nr == 0)
         {
-            if (mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::RAFT || mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::SIMPLERAFT)
+            if (adhesion_type == EPlatformAdhesion::RAFT || adhesion_type == EPlatformAdhesion::SIMPLERAFT)
             {
                 include_helper_parts = false;
             }
@@ -2321,7 +1767,8 @@ void FffGcodeWriter::processSkirtBrim(const SliceDataStorage& storage, LayerPlan
     }
     // Start brim close to the prime location
     const ExtruderTrain& train = application->extruders()[extruder_nr];
-    gcode_layer.need_smart_brim = train.settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::BRIM || train.settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::AUTOBRIM;
+    EPlatformAdhesion adhesion_type = application->get_adhesion_type();
+    gcode_layer.need_smart_brim = adhesion_type == EPlatformAdhesion::BRIM || adhesion_type == EPlatformAdhesion::AUTOBRIM;
     Point start_close_to;
     if (train.settings.get<bool>("prime_blob_enable"))
     {
@@ -2405,7 +1852,7 @@ void FffGcodeWriter::processSkirtBrim(const SliceDataStorage& storage, LayerPlan
 void FffGcodeWriter::processOozeShield(const SliceDataStorage& storage, LayerPlan& gcode_layer) const
 {
     unsigned int layer_nr = std::max(0, gcode_layer.getLayerNr());
-    if (layer_nr == 0 && application->currentGroup()->settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::BRIM)
+    if (layer_nr == 0 && application->get_adhesion_type() == EPlatformAdhesion::BRIM)
     {
         return; // ooze shield already generated by brim
     }
@@ -2427,7 +1874,7 @@ void FffGcodeWriter::processDraftShield(const SliceDataStorage& storage, LayerPl
     {
         return;
     }
-    if (layer_nr == 0 && mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::BRIM)
+    if (layer_nr == 0 && application->get_adhesion_type() == EPlatformAdhesion::BRIM)
     {
         return; // draft shield already generated by brim
     }
@@ -2435,8 +1882,8 @@ void FffGcodeWriter::processDraftShield(const SliceDataStorage& storage, LayerPl
     if (mesh_group_settings.get<DraftShieldHeightLimitation>("draft_shield_height_limitation") == DraftShieldHeightLimitation::LIMITED)
     {
         const coord_t draft_shield_height = mesh_group_settings.get<coord_t>("draft_shield_height");
-        const coord_t layer_height_0 = mesh_group_settings.get<coord_t>("layer_height_0");
-        const coord_t layer_height = mesh_group_settings.get<coord_t>("layer_height");
+        const coord_t layer_height_0 = application->get_layer_height_0();
+        const coord_t layer_height = application->get_layer_height();
         const LayerIndex max_screen_layer = (draft_shield_height - layer_height_0) / layer_height + 1;
         if (layer_nr > max_screen_layer)
         {
@@ -2497,9 +1944,10 @@ std::vector<size_t> FffGcodeWriter::getUsedExtrudersOnLayerExcludingStartingExtr
         extruder_is_used_on_this_layer[storage.primeTower.extruder_order[0]] = true;
     }
 
+    EPlatformAdhesion adhesion_type = application->get_adhesion_type();
     // check if we are on the first layer
-    if (((mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::RAFT || mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::SIMPLERAFT) && layer_nr == -static_cast<LayerIndex>(Raft::getTotalExtraLayers(storage.application)))
-        || ((mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") != EPlatformAdhesion::RAFT && mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") != EPlatformAdhesion::SIMPLERAFT) && layer_nr == 0))
+    if (((adhesion_type == EPlatformAdhesion::RAFT || adhesion_type == EPlatformAdhesion::SIMPLERAFT) && layer_nr == -static_cast<LayerIndex>(Raft::getTotalExtraLayers(storage.application)))
+        || ((adhesion_type != EPlatformAdhesion::RAFT && adhesion_type != EPlatformAdhesion::SIMPLERAFT) && layer_nr == 0))
     {
         // check if we need prime blob on the first layer
         for (size_t used_idx = 0; used_idx < extruder_is_used_on_this_layer.size(); used_idx++)
@@ -2777,7 +2225,7 @@ bool FffGcodeWriter::processMultiLayerInfill(const SliceDataStorage& storage, La
     AngleDegrees infill_angle = 45; // Original default. This will get updated to an element from mesh->infill_angles.
     if (! mesh.infill_angles.empty())
     {
-        const size_t combined_infill_layers = std::max(uint64_t(1), round_divide(mesh.settings.get<coord_t>("infill_sparse_thickness"), std::max(mesh.settings.get<coord_t>("layer_height"), coord_t(1))));
+        const size_t combined_infill_layers = std::max(uint64_t(1), round_divide(mesh.settings.get<coord_t>("infill_sparse_thickness"), std::max(application->get_layer_height(), coord_t(1))));
         infill_angle = mesh.infill_angles.at((gcode_layer.getLayerNr() / combined_infill_layers) % mesh.infill_angles.size());
     }
     const Point3 mesh_middle = mesh.bounding_box.getMiddle();
@@ -2917,7 +2365,7 @@ bool FffGcodeWriter::processSingleLayerInfill(const SliceDataStorage& storage,
     AngleDegrees infill_angle = 45; // Original default. This will get updated to an element from mesh->infill_angles.
     if (! mesh.infill_angles.empty())
     {
-        const size_t combined_infill_layers = std::max(uint64_t(1), round_divide(mesh.settings.get<coord_t>("infill_sparse_thickness"), std::max(mesh.settings.get<coord_t>("layer_height"), coord_t(1))));
+        const size_t combined_infill_layers = std::max(uint64_t(1), round_divide(mesh.settings.get<coord_t>("infill_sparse_thickness"), std::max(application->get_layer_height(), coord_t(1))));
         infill_angle = mesh.infill_angles.at((static_cast<size_t>(gcode_layer.getLayerNr()) / combined_infill_layers) % mesh.infill_angles.size());
     }
     const Point3 mesh_middle = mesh.bounding_box.getMiddle();
@@ -3639,6 +3087,7 @@ bool FffGcodeWriter::processSkinPart(const SliceDataStorage& storage, LayerPlan&
     gcode_layer.mode_skip_agressive_merge = true;
 
     processRoofing(storage, gcode_layer, mesh, extruder_nr, mesh_config, skin_part, added_something);
+    processBelow(storage, gcode_layer, mesh, extruder_nr, mesh_config, skin_part, added_something);
     processTopBottom(storage, gcode_layer, mesh, extruder_nr, mesh_config, skin_part, added_something);
 
     gcode_layer.mode_skip_agressive_merge = false;
@@ -3670,6 +3119,27 @@ void FffGcodeWriter::processRoofing(const SliceDataStorage& storage,
     const coord_t skin_overlap = 0; // skinfill already expanded over the roofing areas; don't overlap with perimeters
     const bool monotonic = mesh.settings.get<bool>("roofing_monotonic");
     processSkinPrintFeature(storage, gcode_layer, mesh, mesh_config, extruder_nr, skin_part.roofing_fill, mesh_config.roofing_config, pattern, roofing_angle, skin_overlap, skin_density, monotonic, added_something, GCodePathConfig::FAN_SPEED_DEFAULT, true);
+}
+
+void FffGcodeWriter::processBelow(const SliceDataStorage& storage, LayerPlan& gcode_layer, const SliceMeshStorage& mesh, const size_t extruder_nr, const PathConfigStorage::MeshPathConfigs& mesh_config, const SkinPart& skin_part, bool& added_something) const
+{
+	const size_t roofing_extruder_nr = mesh.settings.get<ExtruderTrain&>("roofing_extruder_nr").extruder_nr;
+	if (extruder_nr != roofing_extruder_nr)
+	{
+		return;
+	}
+
+	AngleDegrees roofing_angle = 45;
+	if (mesh.roofing_angles.size() > 0)
+	{
+		roofing_angle = mesh.roofing_angles.at(gcode_layer.getLayerNr() % mesh.roofing_angles.size());
+	}
+
+	const Ratio skin_density = 1.0;
+	const coord_t skin_overlap = 0; // skinfill already expanded over the roofing areas; don't overlap with perimeters
+	const bool monotonic = mesh.settings.get<bool>("roofing_monotonic");
+
+	processSkinPrintFeature(storage, gcode_layer, mesh, mesh_config, extruder_nr, skin_part.below_fill, mesh_config.roofing_config, EFillMethod::CONCENTRIC, roofing_angle, skin_overlap, skin_density, monotonic, added_something, GCodePathConfig::FAN_SPEED_DEFAULT);
 }
 
 void FffGcodeWriter::processTopBottom(const SliceDataStorage& storage,
@@ -3912,7 +3382,7 @@ void FffGcodeWriter::processSkinPrintFeature(const SliceDataStorage& storage,
     constexpr coord_t pocket_size = 0;
 
     coord_t line_distance = config.getLineWidth();
-    const coord_t layer_thickness = mesh.settings.get<coord_t>("layer_height");
+    const coord_t layer_thickness = application->get_layer_height();
     if (mesh.settings.get<bool>("special_exact_flow_enable"))
     {
         line_distance = line_distance - layer_thickness * float(1. - 0.25 * M_PI);
@@ -4130,7 +3600,8 @@ bool FffGcodeWriter::processSupportInfill(const SliceDataStorage& storage, Layer
     const coord_t max_resolution = infill_extruder.settings.get<coord_t>("meshfix_maximum_resolution");
     const coord_t max_deviation = infill_extruder.settings.get<coord_t>("meshfix_maximum_deviation");
     coord_t default_support_line_width = infill_extruder.settings.get<coord_t>("support_line_width");
-    if (gcode_layer.getLayerNr() == 0 && (mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") != EPlatformAdhesion::RAFT && mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") != EPlatformAdhesion::SIMPLERAFT))
+    EPlatformAdhesion adhesion_type = application->get_adhesion_type();
+    if (gcode_layer.getLayerNr() == 0 && (adhesion_type != EPlatformAdhesion::RAFT && adhesion_type != EPlatformAdhesion::SIMPLERAFT))
     {
         default_support_line_width *= infill_extruder.settings.get<Ratio>("initial_layer_line_width_factor");
     }
@@ -4192,7 +3663,7 @@ bool FffGcodeWriter::processSupportInfill(const SliceDataStorage& storage, Layer
         if (! wall_toolpaths.empty())
         {
 			const size_t combine_layers_amount = std::max(uint64_t(1), round_divide(storage.application->sceneSettings().get<coord_t>("support_infill_sparse_thickness"), 
-												 std::max(storage.application->sceneSettings().get<coord_t>("layer_height"), coord_t(1))));
+												 std::max(application->get_layer_height(), coord_t(1))));
             const GCodePathConfig& config = gcode_layer.configs_storage.support_infill_config[combine_layers_amount];
             constexpr bool retract_before_outer_wall = false;
             constexpr coord_t wipe_dist = 0;
@@ -4202,7 +3673,7 @@ bool FffGcodeWriter::processSupportInfill(const SliceDataStorage& storage, Layer
             added_something |= wall_orderer.addToLayer();
         }
 
-        if ((default_support_line_distance <= 0 && support_structure != ESupportStructure::TREE && support_structure != ESupportStructure::THOMASTREE) || part.infill_area_per_combine_per_density.empty())
+        if ((default_support_line_distance <= 0 && support_structure != ESupportStructure::THOMASTREE_MANUAL && support_structure != ESupportStructure::THOMASTREE) || part.infill_area_per_combine_per_density.empty())
         {
             continue;
         }
@@ -4625,81 +4096,4 @@ void FffGcodeWriter::addPrimeTower(const SliceDataStorage& storage, LayerPlan& g
 
     storage.primeTower.addToGcode(storage, gcode_layer, prev_extruder, gcode_layer.getExtruder());
 }
-
-void FffGcodeWriter::finalize()
-{
-    const Settings& mesh_group_settings = application->currentGroup()->settings;
-    if (mesh_group_settings.get<bool>("machine_heated_bed"))
-    {
-        gcode.writeBedTemperatureCommand(0); // Cool down the bed (M140).
-        // Nozzles are cooled down automatically after the last time they are used (which might be earlier than the end of the print).
-    }
-    if (mesh_group_settings.get<bool>("machine_heated_build_volume") && mesh_group_settings.get<Temperature>("build_volume_temperature") != 0)
-    {
-        gcode.writeBuildVolumeTemperatureCommand(0); // Cool down the build volume.
-    }
-
-    const Duration print_time = gcode.getSumTotalPrintTimes();
-    std::vector<double> filament_used;
-    std::vector<std::string> material_ids;
-    std::vector<bool> extruder_is_used;
-    for (size_t extruder_nr = 0; extruder_nr < (size_t)application->extruderCount(); extruder_nr++)
-    {
-        filament_used.emplace_back(gcode.getTotalFilamentUsed(extruder_nr));
-        material_ids.emplace_back(application->extruders()[extruder_nr].settings.get<std::string>("material_guid"));
-        extruder_is_used.push_back(gcode.getExtruderIsUsed(extruder_nr));
-    }
-
-    std::string prefix = gcode.getFileHeader(extruder_is_used, &print_time, filament_used, material_ids);
-    
-    //get cloud result
-    SliceResult result = gcode.getFileHeaderC(extruder_is_used, &print_time, filament_used, material_ids);
-    application->setResult(result);
-
-    {
-        LOGI("Gcode header after slicing: { %s }", prefix.c_str());
-        gcode.reWritePreFixStr(prefix);
-    }
-    if (mesh_group_settings.get<bool>("acceleration_enabled"))
-    {
-        const bool breakAccEnable = mesh_group_settings.get<bool>("acceleration_breaking_enable");
-        const Acceleration breakAccPercent = mesh_group_settings.get<Acceleration>("acceleration_breaking");
-        gcode.writePrintAcceleration(mesh_group_settings.get<Acceleration>("machine_acceleration"), breakAccEnable, breakAccPercent);
-        gcode.writeTravelAcceleration(mesh_group_settings.get<Acceleration>("machine_acceleration"), breakAccEnable, breakAccPercent);
-    }
-    if (mesh_group_settings.get<bool>("jerk_enabled"))
-    {
-        gcode.writeJerk(mesh_group_settings.get<Velocity>("machine_max_jerk_xy"));
-    }
-
-    const std::string end_gcode = mesh_group_settings.get<std::string>("machine_end_gcode");
-
-    if (end_gcode.length() > 0 && mesh_group_settings.get<bool>("relative_extrusion"))
-    {
-        gcode.writeExtrusionMode(false); // ensure absolute extrusion mode is set before the end gcode
-    }
-
-    gcode.finalize(end_gcode);
-
-    // set extrusion mode back to "normal"
-    const bool set_relative_extrusion_mode = (gcode.getFlavor() == EGCodeFlavor::REPRAP);
-    gcode.writeExtrusionMode(set_relative_extrusion_mode);
-    for (size_t e = 0; e < (size_t)application->extruderCount(); e++)
-    {
-        gcode.writeTemperatureCommand(e, 0, false);
-        gcode.initExtruderAttr(e);
-    }
-
-    gcode.writeComment("End of Gcode");
-}
-bool FffGcodeWriter::closeGcodeWriterFile()
-{
-    if (output_file.is_open())
-    {
-        output_file.close();
-        return true;
-    }
-    return false;
-}
-
 } // namespace cura52

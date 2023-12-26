@@ -9,14 +9,14 @@ __cc_find(boost_static)
 __cc_find(eigen)
 __cc_find(cereal)
 __cc_find(admesh)
-__cc_find(tbb)
+__cc_find(tbb_static)
 __cc_find(clipper2)
 
 __assert_target(clipper2)
 __assert_target(cereal)
 __assert_target(eigen)
 __assert_target(admesh)
-__assert_target(tbb)
+__assert_target(tbb_static)
 
 set(items
 	#libslic3r_version.h
@@ -408,9 +408,9 @@ list(APPEND LIBS eigen clipper2 admesh boost_filesystem boost_nowide cereal)
 list(APPEND DEFS BOOST_ALL_NO_LIB TBB_USE_CAPTURED_EXCEPTION=0
 	_CRT_SECURE_NO_WARNINGS _USE_MATH_DEFINES NOMINMAX)
 
-if(TARGET tbb)
+if(TARGET tbb_static)
 	list(APPEND DEFS SLICE3R_USE_TBB)
-	list(APPEND LIBS tbb)
+	list(APPEND LIBS tbb_static)
 endif()
 
 

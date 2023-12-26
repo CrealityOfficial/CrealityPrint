@@ -160,10 +160,12 @@ namespace cura52
             if (line->is_closed)
             {
                 order_optimizer.addPolygon(line);
+                order_optimizer.vvctpaintFlag.push_back(line->toFlag());
             }
             else
             {
                 order_optimizer.addPolyline(line);
+                order_optimizer.vvctpaintFlag.push_back(line->toFlag());
             }
         }
 

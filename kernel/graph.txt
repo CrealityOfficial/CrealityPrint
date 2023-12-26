@@ -1,0 +1,3 @@
+boost_static/1.0.0
+expat/0.0.1
+topomesh/0.0.4

@@ -922,7 +922,7 @@ void CusListModel::addLocalDevice()
 		printer.macAddress = macAddress;
 		printer.moonrakerPort = deviceInfo.m_moonrakerPort;
 		printer.type = (RemotePrinerType)deviceInfo.m_connectType;
-		
+		sigGetInfoSuccess(printer);
 		if (printer.type == RemotePrinerType::REMOTE_PRINTER_TYPE_KLIPPER4408)
 		{
 			getRemotePrinterManager()->addPrinter(printer);

@@ -24,9 +24,18 @@ namespace creative_kernel
 		, public KernelPhase
 	{
 		Q_OBJECT
+	signals:
+		void sceneChanged();
+
 	public:
 		VisualScene(Qt3DCore::QNode* parent = nullptr);
 		virtual ~VisualScene();
+
+		bool isDefaultScene();
+		void useDefaultScene();
+		void useCustomScene();
+		void showCustom(Qt3DCore::QEntity* entity);
+		void hideCustom(Qt3DCore::QEntity* entity);
 
 		void show(Qt3DCore::QEntity* entity);
 		void hide(Qt3DCore::QEntity* entity);
@@ -51,6 +60,8 @@ namespace creative_kernel
 
 		void setSceneClearColor(const QColor& color);
 
+		void updatePick(bool sync);
+
 	public slots:
 		void updateRender(bool updatePick = false);
 	public:
@@ -74,6 +85,7 @@ namespace creative_kernel
 		qtuser_3d::XEntity* m_sphereEntity;
 
 		Qt3DCore::QEntity* m_rootEntity;
+		Qt3DCore::QEntity* m_customRootEntity;
 
 		VisSceneHandler* m_handler;
 

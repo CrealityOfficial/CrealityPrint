@@ -26,7 +26,7 @@ namespace cura52
     {
         MeshGroup* mesh_group = application->currentGroup();
         {
-            EPlatformAdhesion adhesion_type = mesh_group->settings.get<EPlatformAdhesion>("adhesion_type");
+            EPlatformAdhesion adhesion_type = application->get_adhesion_type();
 
             //When we have multiple extruders sharing the same heater/nozzle, we expect that all the extruders have been
             //'primed' by the print-start gcode script, but we don't know which one has been left at the tip of the nozzle
@@ -72,7 +72,8 @@ namespace cura52
         const Settings& brim_extruder_settings = mesh_group_settings.get<ExtruderTrain&>("skirt_brim_extruder_nr").settings;
         (void)brim_extruder_settings;
 
-        const bool has_raft = (mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::RAFT || mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") == EPlatformAdhesion::SIMPLERAFT);
+        EPlatformAdhesion adhesion_type = application->get_adhesion_type();
+        const bool has_raft = (adhesion_type == EPlatformAdhesion::RAFT || adhesion_type == EPlatformAdhesion::SIMPLERAFT);
         const bool has_prime_brim = mesh_group_settings.get<bool>("prime_tower_brim_enable");
         //const coord_t offset = (has_raft || ! has_prime_brim) ? 0 :
         //    brim_extruder_settings.get<size_t>("brim_line_count") *

@@ -9,7 +9,6 @@ has_preview_img=false
 preview_img_type=png
 machine_extruder_count=1
 have_band=true
-material_heater_band=180
 machine_head_with_fans_polygon=[[-20,10],[10,10],[10,-10],[-20,-10]]
 machine_gcode_flavor=RepRap (Marlin/Sprinter)
 machine_extruder_type=Distal

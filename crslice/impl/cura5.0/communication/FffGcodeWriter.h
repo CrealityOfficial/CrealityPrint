@@ -37,9 +37,6 @@ namespace cura52
     {
         friend class Scene; // cause WireFrame2Gcode uses the member [gcode] (TODO)
         friend class FffProcessor; //Because FffProcessor exposes finalize (TODO)
-    private:
-        coord_t max_object_height; //!< The maximal height of all previously sliced meshgroups, used to avoid collision when moving to the next meshgroup to print.
-
     public:
 
         /*
@@ -56,10 +53,7 @@ namespace cura52
          */
         GCodeExport gcode;
     private:
-        /*!
-         * The gcode file to write to when using CuraEngine as command line tool.
-         */
-        std::ofstream output_file;
+        coord_t max_object_height; //!< The maximal height of all previously sliced meshgroups, used to avoid collision when moving to the next meshgroup to print.
 
         /*!
          * For each raft/filler layer, the extruders to be used in that layer in the order in which they are going to be used.
@@ -83,8 +77,6 @@ namespace cura52
 
         std::vector<FanSpeedLayerTimeSettings> fan_speed_layer_time_settings_per_extruder; //!< The settings used relating to minimal layer time
                                                                                            //!< and fan speeds. Configured for each extruder.
-
-        std::string slice_uuid; //!< The UUID of the current slice.
     public:
 
         SliceContext* application = nullptr;
@@ -95,41 +87,6 @@ namespace cura52
          * it's ready for writing.
          */
         FffGcodeWriter();
-
-        /*!
-         * Set the target to write gcode to: to a file.
-         *
-         * Used when CuraEngine is used as command line tool.
-         *
-         * \param filename The filename of the file to which to write the gcode.
-         */
-        bool setTargetFile(const char* filename);
-
-        /*!
-         * Set the target to write gcode to: an output stream.
-         *
-         * Used when CuraEngine is NOT used as command line tool.
-         *
-         * \param stream The stream to write gcode to.
-         */
-        void setTargetStream(std::ostream* stream);
-
-        /*!
-         * Get the total extruded volume for a specific extruder in mm^3
-         *
-         * Retractions and unretractions don't contribute to this.
-         *
-         * \param extruder_nr The extruder number for which to get the total netto extruded volume
-         * \return total filament printed in mm^3
-         */
-        double getTotalFilamentUsed(int extruder_nr);
-
-        /*!
-         * Get the total estimated print time in seconds for each feature
-         *
-         * \return total print time in seconds for each feature
-         */
-        std::vector<Duration> getTotalPrintTimePerFeature();
 
         /*!
          * Write all the gcode for the current meshgroup.
@@ -233,9 +190,6 @@ namespace cura52
          */
         void processRaft(const SliceDataStorage& storage);
         void processSimpleRaft(const SliceDataStorage& storage);
-        void processZSeam(SliceDataStorage& storage, const size_t total_layers);
-
-        void drawZSeam(SliceDataStorage& storage, const size_t total_layers);
 
         /*!
          * Convert the polygon data of a layer into a layer plan on the FffGcodeWriter::layer_plan_buffer
@@ -503,6 +457,7 @@ namespace cura52
          */
         void processRoofing(const SliceDataStorage& storage, LayerPlan& gcode_layer, const SliceMeshStorage& mesh, const size_t extruder_nr, const PathConfigStorage::MeshPathConfigs& mesh_config, const SkinPart& skin_part, bool& added_something) const;
 
+        void processBelow(const SliceDataStorage& storage, LayerPlan& gcode_layer, const SliceMeshStorage& mesh, const size_t extruder_nr, const PathConfigStorage::MeshPathConfigs& mesh_config, const SkinPart& skin_part, bool& added_something) const;
         /*!
          * Add the normal skinfill which is the area inside the innermost skin inset
          * which doesn't have air directly above it if we're printing roofing
@@ -670,13 +625,6 @@ namespace cura52
          * \return true if there needs to be a skin edge support wall in this layer, otherwise false
          */
         static bool partitionInfillBySkinAbove(Polygons& infill_below_skin, Polygons& infill_not_below_skin, const LayerPlan& gcode_layer, const SliceMeshStorage& mesh, const SliceLayerPart& part, coord_t infill_line_width);
-
-    public:
-        /*!
-         * Add the end gcode and set all temperatures to zero.
-         */
-        void finalize();
-        bool closeGcodeWriterFile();
     };
 }//namespace cura52
 

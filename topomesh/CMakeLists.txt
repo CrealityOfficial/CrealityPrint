@@ -13,6 +13,7 @@ list(APPEND SRCS ${Inters})
 set(ILIBS trimesh2)
 set(LIBS clipper eigen)
 
+__cc_find(msbase)
 __assert_target(msbase)
 list(APPEND LIBS msbase)
 

@@ -46,7 +46,7 @@ support_material_flow=80
 prime_tower_flow=100
 material_flow_layer_0=100
 material_pressure_advance=true
-material_advance_length=0.03
+material_advance_length=0.04
 material_flow_dependent_temperature=false
 material_flow_temp_graph=[[3.0,230],[9.0,240],[18.0,250]]
 [speed]
@@ -73,7 +73,7 @@ cool_special_cds_fan_speed=80
 cool_cds_fan_start_at_height=0.5
 cool_fan_full_at_height=0.50
 cool_fan_full_layer=3
-cool_min_layer_time=8
+cool_min_layer_time=5
 cool_min_speed=20
 cool_lift_head=false
 bridge_fan_speed=100
@@ -102,3 +102,4 @@ material_type=PLA
 
 
 [special]
+[,[150,200,200,4000],[200,250,200,2000]]

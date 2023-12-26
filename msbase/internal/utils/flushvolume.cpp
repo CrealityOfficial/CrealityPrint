@@ -140,10 +140,9 @@ namespace msbase
                             flushing_volume = std::max(g_min_flush_volume_from_support, flushing_volume);
                         }
                     }
-
-                    m_matrix[_size * from_idx + to_idx] = flushing_volume;
                     flushing_volume = int(flushing_volume * flush_multiplier);
-                    //edit_boxes[to_idx][from_idx]->SetValue(std::to_string(flushing_volume));
+                    m_matrix[_size * from_idx + to_idx] = flushing_volume;
+
                 }
             }
         }

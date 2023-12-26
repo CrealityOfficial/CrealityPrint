@@ -289,8 +289,8 @@ DockItem {
     title: successed ? qsTranslate("DownloadManage", "Save Successed")
                      : qsTranslate("DownloadManage", "Save Failed")
 
-    messageText: successed ? qsTranslate("DownloadManage", "save_successed_tip")
-                           : qsTranslate("DownloadManage", "save_failed_tip")
+    messageText: successed ? qsTranslate("DownloadManage", "Save successed, do you want open the folder now?")
+                           : qsTranslate("DownloadManage", "Save failed, please try again.")
 
     yesBtnText: successed ? qsTranslate("DownloadManage", "Yes")
                           : qsTranslate("DownloadManage", "Ok")

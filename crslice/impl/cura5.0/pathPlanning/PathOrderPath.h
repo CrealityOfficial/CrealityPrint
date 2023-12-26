@@ -91,6 +91,7 @@ namespace cura52
         ConstPolygonRef getVertexData();
 
         int startIdx();
+        bool hasZseamPait();
 
     protected:
         /*!

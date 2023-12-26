@@ -39,85 +39,20 @@ set(INCS ${CMAKE_CURRENT_SOURCE_DIR}
 set(DEFS BOOST_ALL_NO_LIB)
 set(INTERFACES ${CMAKE_CURRENT_SOURCE_DIR})
 
+include(gcode/gcode.cmake)
 include(impl/cura5.0/cura.cmake)
 include(Slice3rBase.cmake)
 
 #binary
+set(BINARY_JSONS)
+set(BINARY_PARAMETERS)
 if(Python3_FOUND)
-	set(Script ${PYTHON_MODULES}/textlizer.py)
-	
-	set(JSONS base.json
-			  blackmagic.json
-			  command_line_settings.json
-			  cooling.json
-			  dual.json
-			  experimental.json
-			  infill.json
-			  machine.json
-			  material.json
-			  meshfix.json
-			  platform_adhesion.json
-			  resolution.json
-			  shell.json
-			  special.json
-			  speed.json
-			  support.json
-			  travel.json
-			  )
-	
-	set(BINARY_JSONS)
-	foreach(json ${JSONS})
-		set(binary_json ${json}.h)
-		
-		add_custom_command(
-			OUTPUT
-				${CMAKE_CURRENT_BINARY_DIR}/${binary_json}
-			COMMAND
-				"${Python3_EXECUTABLE}" ${Script}
-				${CMAKE_CURRENT_SOURCE_DIR}/parameter/base/${json}
-				${CMAKE_CURRENT_BINARY_DIR}/${binary_json}
-			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/parameter/base/${json}
-		)
-	
-		set_source_files_properties(
-			${CMAKE_CURRENT_BINARY_DIR}/${binary_json}
-			PROPERTIES GENERATED TRUE
-			)
-			
-		list(APPEND BINARY_JSONS ${CMAKE_CURRENT_BINARY_DIR}/${binary_json})
-	endforeach()
-		
-	set(KEY_JSONS extruder_keys.json
-				  machine_keys.json
-				  material_keys.json
-				  profile_keys.json
-			  )	
-	foreach(json ${KEY_JSONS})
-		set(binary_json ${json}.h)
-		
-		add_custom_command(
-			OUTPUT
-				${CMAKE_CURRENT_BINARY_DIR}/${binary_json}
-			COMMAND
-				"${Python3_EXECUTABLE}" ${Script}
-				${CMAKE_CURRENT_SOURCE_DIR}/parameter/keys/${json}
-				${CMAKE_CURRENT_BINARY_DIR}/${binary_json}
-			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/parameter/keys/${json}
-		)
-	
-		set_source_files_properties(
-			${CMAKE_CURRENT_BINARY_DIR}/${binary_json}
-			PROPERTIES GENERATED TRUE
-			)
-			
-		list(APPEND BINARY_JSONS ${CMAKE_CURRENT_BINARY_DIR}/${binary_json})
-	endforeach()
-	
-	list(APPEND DEFS USE_BINARY_JSON)
+	include(parameter/binary.cmake)
+	include(parameter/parameter.cmake)
 endif()
 
 __add_common_library(crslice FOLDER slice OPENMP
-							 GENERATED_SOURCE ${BINARY_JSONS}
+							 GENERATED_SOURCE ${BINARY_JSONS} ${BINARY_PARAMETERS}
 							 )
 
 use_threads(crslice)

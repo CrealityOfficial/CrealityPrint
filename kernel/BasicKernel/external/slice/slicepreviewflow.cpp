@@ -150,15 +150,12 @@ namespace creative_kernel
 		spaceEntity()->setEnabled(true);
 
 		// 改变场景模型颜色
-		QColor previewColor = QColor(162, 162, 162, 255);
+		//QColor previewColor = QColor(162, 162, 162, 255);
 		QList<creative_kernel::ModelN*> modelns = getModelSpace()->modelns();
 		for (creative_kernel::ModelN* model : modelns)
 		{
 			model->setProperty("statecache", model->getState());
-			model->setProperty("customcolorcache", model->getCustomColor());
-
-			model->setState(6);
-			model->setCustomColor(previewColor);
+			model->setState(3);
 		}
 
 		// 刷新场景，以便后续生成预览图
@@ -186,8 +183,7 @@ namespace creative_kernel
 		for (int i = 0; i < modelns.size(); i++)
 		{
 			creative_kernel::ModelN* model = modelns[i];
-			model->setState(model->property("statecache").toFloat());
-			model->setCustomColor(model->property("customcolorcache").value<QColor>());
+			model->setState(model->property("statecache").toInt());
 		}
 
 		// 还原colorpick原本的设置

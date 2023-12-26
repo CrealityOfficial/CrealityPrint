@@ -12,18 +12,18 @@
 #include "entity/rotate3dhelperentity.h"
 #include "data/modeln.h"
 #include "data/undochange.h"
+#include "moveoperatemode.h"
 
-
-class BASIC_KERNEL_API RotateOp : public qtuser_3d::SceneOperateMode
+class BASIC_KERNEL_API RotateOp : public MoveOperateMode
 	, public qtuser_3d::SelectorTracer, public qtuser_3d::RotateCallback, public creative_kernel::SpaceTracer
 {
-	enum class TMode
-	{
-		null,
-		x,
-		y,
-		z,
-	};
+	// enum class TMode
+	// {
+	// 	null,
+	// 	x,
+	// 	y,
+	// 	z,
+	// };
 
 	Q_OBJECT
 public:
@@ -89,6 +89,7 @@ private:
 	float m_saveAngle;
 
 	bool m_isRoate;
+	bool m_isMoving{ false };
 
 	QList<creative_kernel::ModelN*> m_selectedModels;
     QVector3D m_displayRotate;

@@ -343,6 +343,24 @@
         <file>photo/undo_normal.svg</file>
         <file>photo/userImg_hover.svg</file>
         <file>photo/userImg_normal.svg</file>
+        <file>photo/triangle_n.png</file>
+        <file>photo/triangle_p.png</file>
+        <file>photo/ring_n.png</file>
+        <file>photo/ring_p.png</file>
+        <file>photo/fill_n.png</file>
+        <file>photo/fill_p.png</file>
+        <file>photo/leftBar/seam_painting_p.svg</file>
+        <file>photo/leftBar/seam_painting_n.svg</file>
+        <file>photo/leftBar/support_painting_p.svg</file>
+        <file>photo/leftBar/support_painting_n.svg</file>
+        <file>photo/control_p.png</file>
+        <file>photo/control_n.png</file>
+        <file>photo/select_light.png</file>
+        <file>photo/select_dark.png</file>
+        <file>photo/rotate_light.png</file>
+        <file>photo/rotate_dark.png</file>
+        <file>photo/move_light.png</file>
+        <file>photo/move_dark.png</file>
         <file>photo/rightDrawer/drawerBg.svg</file>
         <file>photo/rightDrawer/out_hover.svg</file>
         <file>photo/rightDrawer/out_normal.svg</file>
@@ -350,6 +368,8 @@
         <file>photo/rightDrawer/in_normal.svg</file>
         <file>photo/rightDrawer/drawerBg_light.svg</file>
         <file>photo/rightDrawer/rightPanelDown.svg</file>
+        <file>photo/leftBar/support_painting_light_n.svg</file>
+        <file>photo/leftBar/seam_painting_light_n.svg</file>
         <file>photo/leftBar/horizontalDragBtn.svg</file>
         <file>photo/leftBar/recommand_dark.svg</file>
         <file>photo/leftBar/recommand_lite.svg</file>
@@ -730,6 +750,12 @@
         <file>photo/lanPrinterSource/object_default.svg</file>
         <file>photo/lanPrinterSource/object_delete.svg</file>
         <file>photo/machineImage/machineImage_CR-1000S.png</file>
+        <file>photo/menuImg/Block20XY.png</file>
+        <file>photo/menuImg/Boat.png</file>
+        <file>photo/menuImg/Complex.png</file>
+        <file>photo/menuImg/Overhang.png</file>
+        <file>photo/menuImg/Square columns Z axis.png</file>
+        <file>photo/menuImg/Square prism Z axis.png</file>
         <file>photo/machineImage/machineImage_K1C.png</file>
         <file>photo/machineImage/machineImage_CT-300D.png</file>
         <file>photo/machineImage/machineImage_GS-01.png</file>

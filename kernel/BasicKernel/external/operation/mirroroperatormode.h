@@ -10,14 +10,18 @@
 #include "qtuser3d/scene/sceneoperatemode.h"
 #include "entity/mirrorentity.h"
 #include <QTimer>
+#include "operation/moveoperatemode.h"
 
-class BASIC_KERNEL_API MirrorOperateMode : public qtuser_3d::SceneOperateMode
+class BASIC_KERNEL_API MirrorOperateMode : public MoveOperateMode
                                          , public qtuser_3d::SelectorTracer {
   Q_OBJECT;
 
 public:
   explicit MirrorOperateMode(QObject* parent = nullptr);
 	virtual ~MirrorOperateMode() = default;
+
+private:
+  void updateEntity();
 
 protected:
   virtual void onAttach() override;

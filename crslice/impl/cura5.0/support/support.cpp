@@ -57,10 +57,12 @@ void AreaSupport::splitGlobalSupportAreasIntoSupportInfillParts(SliceDataStorage
         }
 
         std::vector<PolygonsPart> support_islands = global_support_areas.splitIntoParts();
+
+        EPlatformAdhesion adhesion_type = storage.application->get_adhesion_type();
         for (const PolygonsPart& island_outline : support_islands)
         {
             coord_t support_line_width_here = support_line_width;
-            if (layer_nr == 0 && mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") != EPlatformAdhesion::RAFT && mesh_group_settings.get<EPlatformAdhesion>("adhesion_type") != EPlatformAdhesion::SIMPLERAFT)
+            if (layer_nr == 0 && adhesion_type != EPlatformAdhesion::RAFT && adhesion_type != EPlatformAdhesion::SIMPLERAFT)
             {
                 support_line_width_here *= infill_extruder.settings.get<Ratio>("initial_layer_line_width_factor");
             }
@@ -171,7 +173,8 @@ void AreaSupport::generateGradualSupport(SliceDataStorage& storage)
             }
             // NOTE: This both generates the walls _and_ returns the _actual_ infill area (the one _without_ walls) for use in the rest of the method.
             Polygons infill_area;
-            if (support_structure == ESupportStructure::THOMASTREE)
+            if (support_structure == ESupportStructure::THOMASTREE
+                || support_structure == ESupportStructure::THOMASTREE_MANUAL)
             {
                 Polygons smaller_area, larger_area;
                 for (auto path : original_area)
@@ -496,7 +499,7 @@ Polygons AreaSupport::join(const SliceDataStorage& storage, const Polygons& supp
             const ExtruderTrain& other_extruder = storage.application->extruders()[extruder_nr];
             extra_skirt_line_width += other_extruder.settings.get<coord_t>("skirt_brim_line_width") * other_extruder.settings.get<Ratio>("initial_layer_line_width_factor");
         }
-        switch (mesh_group_settings.get<EPlatformAdhesion>("adhesion_type"))
+        switch (storage.application->get_adhesion_type())
         {
         case EPlatformAdhesion::BRIM:
             adhesion_size = skirt_brim_extruder.settings.get<coord_t>("brim_width")
@@ -667,7 +670,8 @@ void AreaSupport::generateOverhangAreas(SliceDataStorage& storage)
     const coord_t branch_diameter = mesh_group_settings.get<coord_t>("support_tree_branch_diameter");
     const coord_t min_area_expand = std::max(MM2INT(std::sqrt(minimum_support_area / M_PI)), branch_diameter / 3);
     const coord_t actual_expand = std::max(min_area_expand, MM2INT(3.0));
-    const int add_support_layer = MM2INT(support_structure == ESupportStructure::THOMASTREE ? 4.0 : 3.0) / layer_height;
+    const int add_support_layer = MM2INT((support_structure == ESupportStructure::THOMASTREE || support_structure == ESupportStructure::THOMASTREE_MANUAL) ? 4.0 : 3.0) / layer_height;    //add type
+
     auto bSharpTail = [&](std::vector<Polygons>& upperMeshOutline, const Polygon& miniSupport, int layerIdx)
     {
         Polygons spPolygons;
@@ -750,7 +754,8 @@ void AreaSupport::generateOverhangAreas(SliceDataStorage& storage)
                         }
                     }
                 }
-                if (!full_overhang_areas_add[layer_idx].empty() && support_structure == ESupportStructure::NORMAL)
+                if (!full_overhang_areas_add[layer_idx].empty() 
+                    && (support_structure == ESupportStructure::NORMAL || support_structure == ESupportStructure::NORMAL_MANUAL))
                     overhang_areas[layer_idx] = overhang_areas[layer_idx].unionPolygons(full_overhang_areas_add[layer_idx]);
             }
             for (Polygons& overhang_area_add : full_overhang_areas_add)
@@ -770,7 +775,7 @@ void AreaSupport::generateOverhangAreas(SliceDataStorage& storage)
         // it actually also initializes some buffers that are needed in generateSupport
         generateOverhangAreasForMesh(storage, mesh);
 
-        if (support_structure == ESupportStructure::NORMAL)
+        if (support_structure == ESupportStructure::NORMAL || support_structure == ESupportStructure::NORMAL_MANUAL)
         {
             scaleSharpTailOverhang(mesh.full_overhang_areas, mesh.sharp_tail_areas);
         }
@@ -894,7 +899,8 @@ void AreaSupport::generateSharpTailSupport(SliceDataStorage& storage)
 {
     //sharp_tail_areas join into support roof 
     const Settings& group_settings = storage.application->currentGroup()->settings;
-    const bool global_use_tree_support = group_settings.get<bool>("support_enable") && group_settings.get<ESupportStructure>("support_structure") != ESupportStructure::NORMAL;
+    const bool global_use_tree_support = group_settings.get<bool>("support_enable") 
+        && (group_settings.get<ESupportStructure>("support_structure") != ESupportStructure::NORMAL|| group_settings.get<ESupportStructure>("support_structure") != ESupportStructure::NORMAL_MANUAL);
     if (!global_use_tree_support)
         return;
     for (unsigned int mesh_idx = 0; mesh_idx < storage.meshes.size(); mesh_idx++)
@@ -1044,7 +1050,7 @@ void AreaSupport::generateSupportAreasForMesh(SliceDataStorage& storage,
 
     const ESupportStructure support_structure = mesh.settings.get<ESupportStructure>("support_structure");
     const bool is_support_mesh_place_holder = mesh.settings.get<bool>("support_mesh"); // whether this mesh has empty SliceMeshStorage and this function is now called to only generate support for all support meshes
-    if ((! mesh.settings.get<bool>("support_enable") || support_structure != ESupportStructure::NORMAL) && ! is_support_mesh_place_holder)
+    if ((! mesh.settings.get<bool>("support_enable") || (support_structure != ESupportStructure::NORMAL && support_structure != ESupportStructure::NORMAL_MANUAL)) && ! is_support_mesh_place_holder)
     {
         return;
     }
@@ -1486,7 +1492,13 @@ std::pair<Polygons, Polygons> AreaSupport::computeBasicAndFullOverhang(const Sli
     Polygons supportLayer_supporter = storage.getLayerOutlines(layer_idx - 1, no_support, no_prime_tower);
 
     const coord_t layer_height = mesh.settings.get<coord_t>("layer_height");
-    const AngleRadians support_angle = mesh.settings.get<AngleRadians>("support_angle");
+    AngleRadians support_angle = mesh.settings.get<AngleRadians>("support_angle");
+    const ESupportStructure support_structure = mesh.settings.get<ESupportStructure>("support_structure");
+    if (support_structure == ESupportStructure::NORMAL_MANUAL || support_structure == ESupportStructure::THOMASTREE_MANUAL)
+    {
+        support_angle = 90 * M_PI / 180;
+    }
+
     const double tan_angle = tan(support_angle) - 0.01; // The X/Y component of the support angle. 0.01 to make 90 degrees work too.
     const coord_t max_dist_from_lower_layer = tan_angle * layer_height; // Maximum horizontal distance that can be bridged.
     Polygons supportLayer_supported = supportLayer_supporter.offset(max_dist_from_lower_layer);
@@ -1511,6 +1523,7 @@ std::pair<Polygons, Polygons> AreaSupport::computeBasicAndFullOverhang(const Sli
 
     Polygons overhang_extented = basic_overhang.offset(max_dist_from_lower_layer + MM2INT(0.1)); // +0.1mm for easier joining with support from layer above
     Polygons full_overhang = overhang_extented.intersection(supportLayer_supportee);
+    full_overhang = full_overhang.difference(support_layer.anti_overhang);
     return std::make_pair(basic_overhang, full_overhang);
 }
 

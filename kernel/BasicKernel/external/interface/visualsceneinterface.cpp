@@ -2,17 +2,48 @@
 #include "external/kernel/kernel.h"
 #include "external/kernel/visualscene.h"
 #include "qtuser3d/module/facepicker.h"
+#include "external/kernel/kernelui.h"
+#include "operation/moveoperatemode.h"
 
 namespace creative_kernel
 {
+	bool isUsingDefaultScene()
+	{
+		return getKernel()->visScene()->isDefaultScene();
+	}
+
+	void useCustomScene()
+	{
+		getKernel()->visScene()->useCustomScene();
+	}
+
+	void useDefaultScene()
+	{
+		getKernel()->visScene()->useDefaultScene();
+	}
+
 	void setVisOperationMode(qtuser_3d::SceneOperateMode* operateMode)
 	{
-		getKernel()->visScene()->setOperateMode(operateMode);
+		static MoveOperateMode* defaultOperateMode = new MoveOperateMode;
+		if (operateMode == NULL)
+			getKernel()->visScene()->setOperateMode(defaultOperateMode);
+		else 
+			getKernel()->visScene()->setOperateMode(operateMode);
 	}
 
 	qtuser_3d::SceneOperateMode* visOperationMode()
 	{
 		return getKernel()->visScene()->operateMode();
+	}
+
+	void visShowCustom(Qt3DCore::QEntity* entity)
+	{
+		getKernel()->visScene()->showCustom(entity);
+	}
+
+	void visHideCustom(Qt3DCore::QEntity* entity)
+	{
+		getKernel()->visScene()->hideCustom(entity);
 	}
 
 	void visShow(Qt3DCore::QEntity* entity)
@@ -39,6 +70,12 @@ namespace creative_kernel
 	{
 		VisualScene* visScene = getKernel()->visScene();
 		visScene->updateRender(capture);
+	}
+
+	void requestVisPickUpdate(bool sync)
+	{
+		VisualScene* visScene = getKernel()->visScene();
+		visScene->updatePick(sync);
 	}
 
 	qtuser_3d::FacePicker* visPickSource()

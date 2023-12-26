@@ -1,6 +1,6 @@
 #include "gcodeloadjob.h"
 
-#include "gcode/sliceresult.h"
+#include "crslice/gcode/sliceresult.h"
 #include "cxgcode/sliceattain.h"
 
 #include "qtusercore/module/systemutil.h"

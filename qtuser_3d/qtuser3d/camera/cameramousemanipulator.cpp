@@ -12,6 +12,8 @@ namespace qtuser_3d
 		, m_savePoint(QPoint(-1, -1))
 		, m_revertY(true)
 		, m_rotateCenter(0.0f, 0.0f, 0.0f)
+		, m_hangleDelta(0.1f)
+		, m_vangleDelta(0.1f)
 	{
 	}
 
@@ -22,6 +24,10 @@ namespace qtuser_3d
 	void CameraMouseManipulator::setNeed360Rotate(bool is_need)
 	{
 		//
+	}
+
+	void CameraMouseManipulator::setNeedAroundRotate(bool is_need)
+	{
 	}
 
 	void CameraMouseManipulator::setCamera(ScreenCamera* screenCamera)
@@ -38,6 +44,12 @@ namespace qtuser_3d
 	void CameraMouseManipulator::setRotateCenter(const QVector3D& rotateCenter)
 	{
 		m_rotateCenter = rotateCenter;
+	}
+
+	void CameraMouseManipulator::setRotateSpeedDelta(float hDelta, float vDelta)
+	{
+		m_hangleDelta = hDelta;
+		m_vangleDelta = vDelta;
 	}
 	
 	void CameraMouseManipulator::onRightMouseButtonPress(QMouseEvent* event)

@@ -32,6 +32,14 @@
 		"default_value": "false",
 		"settable_per_mesh": "true"
 	},
+	"keep_open_polygons":
+	{
+		"label": "Keep Open Polygons",
+		"description": "Keep open polygons slicing for printers using granular consumables.   ",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": true
+	},
 	"multiple_mesh_overlap":
 	{
 		"label": "Merged Meshes Overlap",

@@ -2,7 +2,7 @@
 #define CXGCODE_GCODEVIEWENTITY_1683805686175_H
 #include "cxgcode/interface.h"
 #include "qtuser3d/refactor/xentity.h"
-#include "gcode/define.h"
+#include "crslice/gcode/header.h"
 
 #include <QtGui/QVector4D>
 #include <QtGui/QVector2D>

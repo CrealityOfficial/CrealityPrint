@@ -27,6 +27,7 @@
 #include <QColor>
 #include <Qt3DRender/QAttribute>
 #include <Qt3DRender/QBuffer>
+#include "msbase/mesh/deserializecolor.h" 
 #include "qtuser3d/refactor/xeffect.h"
 
 namespace creative_kernel
@@ -73,7 +74,7 @@ namespace creative_kernel
 
 	void ModelN::onStateChanged(qtuser_3d::ControlState state)
 	{
-		setState((float)state);
+		setState((int)state);
 		m_entity->setBoxVisibility(selected() ? true : false);
 	}
 
@@ -159,6 +160,11 @@ namespace creative_kernel
 		m_entity->setRenderMode((int)mode); 
 	}
 
+	int ModelN::getVisualMode()
+	{
+		return m_entity->getRenderMode(); 
+	}
+
 	void ModelN::setVisibility(bool visibility)
 	{
 		dirtyModelSpace();
@@ -180,7 +186,7 @@ namespace creative_kernel
 		return m_entity;
 	}
 
-	void ModelN::setCustomColor(QColor color)
+	/*void ModelN::setCustomColor(QColor color)
 	{
 		m_entity->setCustomColor(color);
 	}
@@ -188,14 +194,14 @@ namespace creative_kernel
 	QColor ModelN::getCustomColor()
 	{
 		return m_entity->getCustomColor();
-	}
+	}*/
 
-	void ModelN::mirror(const QMatrix4x4& matrix, bool apply)
+	/*void ModelN::mirror(const QMatrix4x4& matrix, bool apply)
 	{
 		Node3D::mirror(matrix, apply);
 		bool fanzhuan = isFanZhuan();
 		m_entity->setFanZhuan((int)fanzhuan);
-	}
+	}*/
 
 	
 
@@ -266,20 +272,20 @@ namespace creative_kernel
 	}
 
 
-	void ModelN::setState(float state)
+	void ModelN::setState(int state)
 	{
 		m_entity->setState(state);
 	}
 
-	float ModelN::getState()
+	int ModelN::getState()
 	{
 		return m_entity->getState();
 	}
 
-	void ModelN::setErrorState(bool error)
+	/*void ModelN::setErrorState(bool error)
 	{
 		m_entity->setErrorState(error);
-	}
+	}*/
 
 	void ModelN::setBoxState(int state)
 	{
@@ -360,11 +366,22 @@ namespace creative_kernel
 		return m_data ? m_data->mesh : nullptr;
 	}
 
-	TriMeshPtr ModelN::globalMesh()
+	TriMeshPtr ModelN::globalMesh(bool needMergeColorMesh)
 	{
-		trimesh::TriMesh* mesh = new trimesh::TriMesh();
-
+		trimesh::TriMesh* mesh = nullptr;
+		//������ɫ
+		if (needMergeColorMesh && hasColors())
+		{
+			std::vector<int> facet2Facets;
+			mesh = msbase::mergeColorMeshes(m_data->mesh.get(), m_seam2Facets, facet2Facets);
+			mesh->need_normals();
+		}
+		else
+		{
+			mesh = new trimesh::TriMesh();
 		*mesh = *m_data->mesh;
+		}
+
 		trimesh::apply_xform(mesh, trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())));
 		return TriMeshPtr(mesh);
 	}
@@ -476,14 +493,21 @@ namespace creative_kernel
 		m_data = renderData->data();
 		m_renderData = renderData;
 
+		//m_colors2Facets = data->colors;
+		//m_seam2Facets = data->seams;
+		//m_support2Facets = data->supports;
+		//data->colors.clear();
+		//data->seams.clear();
+		//data->supports.clear();
+
 		if (m_renderData)
 		{
 			setObjectName(m_renderData->data()->input.name);
 
 			m_entity->setGeometry(m_renderData->geometry());
 
-			bool use = (m_data && m_data->mesh->colors.size() > 0);
-			m_entity->setUseVertexColor(use);
+			//bool use = (m_data && m_data->mesh->colors.size() > 0);
+			//m_entity->setUseVertexColor(use);
 
 			m_localBox = qtuser_3d::Box3D(QVector3D());
 			if (m_data->mesh)
@@ -607,6 +631,220 @@ namespace creative_kernel
 	ModelN::UnitType ModelN::unitType()
 	{
 		return m_ut;
+
+	}
+
+	void ModelN::setPose(const QMatrix4x4& pose)
+	{
+		m_entity->setPose(pose);
+	}
+
+	QMatrix4x4 ModelN::pose()
+	{
+		return m_entity->pose();
+	}
+
+	void ModelN::setColors2Facets(int index, const std::string& data)
+	{
+		if (m_colors2Facets.empty())
+		{
+			if (m_data && m_data->mesh)
+			{
+				int num = m_data->mesh->faces.size();
+				if (num)
+				{
+					m_colors2Facets.resize(num);
+				}
+			}
+		}
+
+		if (m_colors2Facets.size() > index && m_colors2Facets.size()>0)
+		{
+			m_colors2Facets[index] = data;
+		}
+	}
+
+	std::string ModelN::getColors2Facets(int index)
+	{
+		if (m_colors2Facets.size() > index && m_colors2Facets.size() > 0)
+		{
+			return m_colors2Facets[index];
+		}
+		return "";
+	}
+
+	//paint seam
+	void ModelN::setSeam2Facets(int index, const std::string& data)
+	{
+		if (m_seam2Facets.empty())
+		{
+			if (m_data && m_data->mesh)
+			{
+				int num = m_data->mesh->faces.size();
+				if (m_data->mesh->faces.size())
+				{
+					m_seam2Facets.resize(num);
+				}
+			}
+		}
+
+		if (m_seam2Facets.size() > index && m_seam2Facets.size() > 0)
+		{
+			m_seam2Facets[index] = data;
+		}
+	}
+	std::string ModelN::getSeam2Facets(int index)
+	{
+		if (m_seam2Facets.size() > index && m_seam2Facets.size() > 0)
+		{
+			return m_seam2Facets[index];
+		}
+		return "";
+	}
+
+	void ModelN::setSeam2Facets(const std::vector<std::string>& data)
+	{
+		m_seam2Facets = data;
+	}
+	
+	std::vector<std::string> ModelN::getSeam2Facets()
+	{
+		if (m_seam2Facets.empty() && m_data)
+		{
+			int facetsCount = mesh()->faces.size();
+			for (int i = 0; i < facetsCount; ++i)
+				m_seam2Facets.push_back(std::string());
+		}
+		return m_seam2Facets;
+	}
+
+	//paint support
+	void ModelN::setSupport2Facets(int index, const std::string& data)
+	{
+		if (m_support2Facets.empty())
+		{
+			if (m_data && m_data->mesh)
+			{
+				int num = m_data->mesh->faces.size();
+				if (num)
+				{
+					m_support2Facets.resize(num);
+				}
+			}
+		}
+
+		if (m_support2Facets.size() > index && m_support2Facets.size() > 0)
+		{
+			m_support2Facets[index] = data;
+		}
+	}
+	std::string ModelN::getSupport2Facets(int index)
+	{
+		if (m_support2Facets.size() > index && m_support2Facets.size() > 0)
+		{
+			return m_support2Facets[index];
+		}
+		return "";
+	}
+
+	void ModelN::setSupport2Facets(const std::vector<std::string>& data)
+	{
+		m_support2Facets = data;
+	}
+	
+	std::vector<std::string> ModelN::getSupport2Facets()
+	{
+		if (m_support2Facets.empty() && m_data)
+		{
+			int facetsCount = mesh()->faces.size();
+			for (int i = 0; i < facetsCount; ++i)
+				m_support2Facets.push_back(std::string());
+		}
+		return m_support2Facets;
+	}
+
+	void ModelN::mergePaintSupport()
+	{
+		QString fileName = QString("%1/paint_support").arg(SLICE_PATH);
+		std::string _file = fileName.toLocal8Bit().data();
+		const int color_state = 2;
+		msbase::getColorPloygon(m_data->mesh.get(), trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())), m_support2Facets, _file, color_state);
+	}
+
+	void ModelN::mergePaintSupport_anti_overhang()
+	{
+		QString fileName = QString("%1/paint_anti_support").arg(SLICE_PATH);
+		std::string _file = fileName.toLocal8Bit().data();
+		const int color_state = 3;
+		msbase::getColorPloygon(m_data->mesh.get(), trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())), m_support2Facets, _file, color_state);
+	}
+	void ModelN::mergePaintSeam()
+	{
+		QString fileName = QString("%1/paint_seam").arg(SLICE_PATH);
+		std::string _file = fileName.toLocal8Bit().data();
+		const int color_state = 2;
+		msbase::getColorPloygon(m_data->mesh.get(), trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())), m_seam2Facets, _file, color_state);
+	}
+
+	void ModelN::mergePaintSeam_anti()
+	{
+		QString fileName = QString("%1/paint_anti_seam").arg(SLICE_PATH);
+		std::string _file = fileName.toLocal8Bit().data();
+		const int color_state = 3;
+		msbase::getColorPloygon(m_data->mesh.get(), trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())), m_seam2Facets, _file, color_state);
+	}
+
+	void ModelN::setColors2Facets(const std::vector<std::string>& data)
+	{
+		m_colors2Facets = data;
+	}
+
+	std::vector<std::string> ModelN::getColors2Facets()
+	{
+		if (m_colors2Facets.empty() && m_data)
+		{
+			int facetsCount = mesh()->faces.size();
+			for (int i = 0; i < facetsCount; ++i)
+				m_colors2Facets.push_back(std::string());
+		}
+		return m_colors2Facets;
+	}
+
+	void ModelN::resizeColors2Facet(int size)
+	{
+		m_colors2Facets.clear();
+		m_colors2Facets.resize(size);
+		for (int i = 0; i < size; i++)
+		{
+			m_colors2Facets[i] = "";
+		}
+	}
+
+	void ModelN::setFacet2Facets(const std::vector<int>& facet2Facets)
+	{
+		m_facet2Facets.clear();
+		m_facet2Facets = facet2Facets;
+	}
+	int ModelN::getFacet2Facets(int faceId)
+	{
+		if (!m_facet2Facets.empty() && faceId > 0 && faceId < m_facet2Facets.size())
+		{
+			return m_facet2Facets[faceId];
+		}
+
+		return faceId;
+	}
+
+	bool ModelN::hasColors()
+	{
+		for (auto& color: m_colors2Facets)
+		{
+			if (!color.empty())
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	qtuser_3d::Box3D ModelN::calculateGlobalSpaceBox()

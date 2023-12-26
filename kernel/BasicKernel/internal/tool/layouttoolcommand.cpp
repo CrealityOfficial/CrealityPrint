@@ -70,6 +70,24 @@ namespace creative_kernel
 
 	void LayoutToolCommand::layoutByType(int type) const
     {
+        creative_kernel::layoutByType(type);
+    }
+
+	void LayoutToolCommand::onThemeChanged(ThemeCategory category)
+	{
+        setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/layout_dark.svg" : "qrc:/UI/photo/leftBar/layout_lite.svg");
+		setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/layout_dark.svg" : "qrc:/UI/photo/leftBar/layout_lite.svg");
+		setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/layout_pressed.svg" : "qrc:/UI/photo/leftBar/layout_lite.svg");
+		setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/layout_pressed.svg" : "qrc:/UI/photo/leftBar/layout_pressed.svg");
+	}
+
+	void LayoutToolCommand::onLanguageChanged(MultiLanguage language)
+	{
+		m_name = tr("Layout") + ": L";
+	}
+
+    void layoutByType(int type)
+    {
         Nest2DJob* job = new Nest2DJob();
         cxkernel::NestPlaceType layoutType = cxkernel::NestPlaceType(type);
 
@@ -88,17 +106,4 @@ namespace creative_kernel
         jobs.push_back(qtuser_core::JobPtr(job));
         cxkernel::executeJobs(jobs);
     }
-
-	void LayoutToolCommand::onThemeChanged(ThemeCategory category)
-	{
-        setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/layout_dark.svg" : "qrc:/UI/photo/leftBar/layout_lite.svg");
-		setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/layout_dark.svg" : "qrc:/UI/photo/leftBar/layout_lite.svg");
-		setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/layout_pressed.svg" : "qrc:/UI/photo/leftBar/layout_lite.svg");
-		setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/layout_pressed.svg" : "qrc:/UI/photo/leftBar/layout_pressed.svg");
-	}
-
-	void LayoutToolCommand::onLanguageChanged(MultiLanguage language)
-	{
-		m_name = tr("Layout") + ": L";
-	}
 }

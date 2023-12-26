@@ -1,0 +1,9 @@
+license: GLP
+author: zenggui,anoob@sina.cn
+url: xxxxxx
+repository: http://172.20.180.12:8050/yanfa4/core/spread
+external_repository: https://github.com/CrealityOfficial/spread
+description: spread
+topics: spread,spread,spread
+build_deps: msbase/0.0.2,boost_static/1.0.0,rapidjson/1.0.0,stb/0.0.2,polyclipping/0.0.1,clipper2/0.0.1,admesh/0.0.1,tbb_static/2.0.0,cereal/0.0.1
+search_deps: trimesh2/0.0.3

@@ -4,78 +4,78 @@
 <context>
     <name>global_const</name>
     <message>
-        <source>aboutusdialog_webside</source>
+        <source>Website</source>
         <translation>Website</translation>
     </message>
     <message>
-        <source>aboutusdialog_email</source>
+        <source>E-mail</source>
         <translation>E-mail</translation>
     </message>
     <message>
-        <source>aboutusdialog_telephone</source>
+        <source>Telephone</source>
         <translation>Telephone</translation>
     </message>
     <message>
-        <source>sofrware_copyright</source>
+        <source>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved</source>
         <translation>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved.</translation>
     </message>
     <message>
-        <source>offical_introduction</source>
+        <source>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China&apos;s 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</source>
         <translation>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China&apos;s 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</translation>
     </message>
     <message>
-        <source>offical_brief_introduction</source>
+        <source>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</source>
         <translation>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</translation>
     </message>
     <message>
-        <source>offical_webside</source>
+        <source>https://www.creality.com/</source>
         <translation>https://www.creality.com/</translation>
     </message>
     <message>
-        <source>offical_email</source>
+        <source>crealityprint@creality.com</source>
         <translation>crealityprint@creality.com</translation>
     </message>
     <message>
-        <source>offical_telephone</source>
+        <source>+86 755-8523 4565</source>
         <translation>+86 755-8523 4565</translation>
     </message>
 </context>
 <context>
     <name>global_const_Piocreat</name>
     <message>
-        <source>aboutusdialog_webside</source>
+        <source>Website</source>
         <translation>Website</translation>
     </message>
     <message>
-        <source>aboutusdialog_email</source>
+        <source>E-mail</source>
         <translation>E-mail</translation>
     </message>
     <message>
-        <source>aboutusdialog_telephone</source>
+        <source>Telephone</source>
         <translation>Telephone</translation>
     </message>
     <message>
-        <source>sofrware_copyright</source>
+        <source>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved</source>
         <translation>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved.</translation>
     </message>
     <message>
-        <source>offical_introduction</source>
+        <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China</source>
         <translation>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China</translation>
     </message>
     <message>
-        <source>offical_brief_introduction</source>
+        <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China.</source>
         <translation>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China.</translation>
     </message>
     <message>
-        <source>offical_webside</source>
+        <source>https://www.piocreat3d.com/</source>
         <translation>https://www.piocreat3d.com/</translation>
     </message>
     <message>
-        <source>offical_email</source>
+        <source>after@piocreat3d.com</source>
         <translation>after@piocreat3d.com</translation>
     </message>
     <message>
-        <source>offical_telephone</source>
+        <source>+86 755-2103 9743</source>
         <translation>+86 755-2103 9743</translation>
     </message>
 </context>
@@ -122,16 +122,7 @@
         <source>About Us</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AboutUsDlg.qml" line="61"/>
-        <source>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China&apos;s 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AboutUsDlg.qml" line="92"/>
-        <source>Copyright©2014-2024 Shenzhen Creality 3D technology company, LTD. All rights reserved.</source>
-        <translation type="unfinished"></translation>
-    </message>
+   
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AboutUsDlg.qml" line="104"/>
         <source>Website:</source>
@@ -790,8 +781,39 @@
         <source>Tutorial</source>
         <translation>Tutorial</translation>
     </message>
+	<message>
+        <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
+        <source>Test Model</source>
+        <translation>Test Model</translation>
+    </message>
 </context>
-
+<context>
+ <name>TestModel</name>
+	<message>
+        <source>Block20XY</source>
+        <translation>Block20XY</translation>
+    </message>
+	<message>
+        <source>Boat</source>
+        <translation>Boat</translation>
+    </message>
+	<message>
+        <source>Complex</source>
+        <translation>Complex</translation>
+    </message>
+	<message>
+        <source>Overhang</source>
+        <translation>Complex</translation>
+    </message>
+	<message>
+        <source>Square columns Z axis</source>
+        <translation>Square columns Z axis</translation>
+    </message>
+	<message>
+        <source>Square prism Z axis</source>
+        <translation>Square prism Z axis</translation>
+    </message>
+</context>
 <context>
 	<name>TemperatureDlg</name>
 	<message>
@@ -8425,11 +8447,11 @@
         <translation>Save Failed</translation>
     </message>
     <message>
-        <source>save_successed_tip</source>
+        <source>Save successed, do you want open the folder now?</source>
         <translation>Save successed, do you want open the folder now?</translation>
     </message>
     <message>
-        <source>save_failed_tip</source>
+        <source>Save failed, please try again.</source>
         <translation>Save failed, please try again.</translation>
     </message>
     <message>
@@ -8495,15 +8517,22 @@
         <translation>Error Report</translation>
     </message>
     <message>
-        <source>dump_tip_format_0</source>
+        <source>A serious error has occurred in %1. Please send this error report to us to fix the problem.</source>
         <translation>A serious error has occurred in %1. Please send this error report to us to fix the problem.</translation>
     </message>
     <message>
-        <source>dump_tip_format_1</source>
+        <source>Please click the 'Send Report' button to automatically publish the error report to our server.</source>
         <translation>Please click the "Send Report" button to automatically publish the error report to our server.</translation>
     </message>
     <message>
-        <source>dump_info_format</source>
+        <source>%1 version: %2
+%3 langauge: %4
+Operating System: %5
+Graphics card: %6
+OpenGL:
+  - OpenGL version: %7
+  - OpenGL vendor: %8
+  - OpenGL renderer: %9</source>
         <translation>%1 version: %2
 %3 langauge: %4
 Operating System: %5

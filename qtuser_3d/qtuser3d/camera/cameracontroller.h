@@ -29,6 +29,8 @@ namespace qtuser_3d
 		qtuser_3d::ScreenCamera* screenCamera();
 
 		void setNeed360Rotate(bool is_need);
+		void setNeedAroundRotate(bool is_need);
+		void setRotateSpeedDelta(float hDelta, float vDelta);
 
 		void setEnableZoomAroundCursor(bool enable);
 
@@ -41,6 +43,9 @@ namespace qtuser_3d
 		Q_INVOKABLE void viewFromUserSetting(QVector3D posion, QVector3D viewCenter, QVector3D upVector, QVector3D* specificCenter = nullptr);
 
 		void view(const QVector3D& dir, const QVector3D& right, QVector3D* specificCenter = nullptr);
+
+		void viewEx(const QVector3D& newDir, const QVector3D& newUp, const QVector3D& homePosition, const QVector3D& homeViewCenter, const QVector3D& newCenter);
+
 		// 切换正交与透视视图
 		Q_INVOKABLE void viewSwitch();
 
@@ -89,6 +94,8 @@ namespace qtuser_3d
 	signals:
 		void signalViewChanged(bool capture);
 		void signalCameraChaged(QVector3D position, const QVector3D upVector);
+		void signalMidMousePressed(bool bPressed);
+		void signalRightMousePressed(bool bPressed);
 	protected:
 		qtuser_3d::CameraMouseManipulator* m_cameraManipulator;
 		qtuser_3d::ScreenCamera* m_screenCamera;

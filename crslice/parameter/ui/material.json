@@ -9,7 +9,7 @@
                     "label": "Base information",
                     "children": [
                         "material_name",
-                        "material_type",
+                        "filament_material_type",
                         "material_brand",
                         "material_color",
                         "material_shrinkage_percentage",

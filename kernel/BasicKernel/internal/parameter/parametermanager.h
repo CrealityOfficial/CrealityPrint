@@ -15,6 +15,7 @@ namespace creative_kernel
         Q_PROPERTY(int machinesCount READ machinesCount NOTIFY machinesCountChanged)
         Q_PROPERTY(int functionType READ functionType NOTIFY functionTypeChanged)
         Q_PROPERTY(QStringList machineNameList READ machineNameList NOTIFY machineNameListChanged)
+        Q_PROPERTY(QObject* currentMachineObj READ currentMachineObject NOTIFY curMachineIndexChanged)
 
     public:
         ParameterManager(QObject* parent = nullptr);

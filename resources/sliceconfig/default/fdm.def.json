@@ -4155,6 +4155,22 @@
                             "parameter_level": "2",
                             "enabled": "eval(contex.value(\"roofing_layer_count\")) > 0 && eval(contex.value(\"top_layers\")) > 0"
                         },
+                        "speed_below":
+                        {
+                            "label": "Bottom Surface Skin Speed",
+                            "description": "The speed at which bottom surface skin layers are printed.",
+                            "unit": "mm/s",
+                            "type": "float",
+                            "minimum_value": "0.1",
+                            "maximum_value": "2000",
+                            "maximum_value_warning": "800",
+                            "default_value": "60",
+                            "value": "eval(contex.value(\"speed_topbottom\"))",
+                            "limit_to_extruder": "roofing_extruder_nr",
+                            "settable_per_mesh": true,
+                            "parameter_level": "2",
+                            "enabled": "eval(contex.value(\"bottom_layers\")) > 0"
+                        },
                         "speed_topbottom":
                         {
                             "label": "Top/Bottom Speed",
@@ -6142,7 +6158,7 @@
                     "description": "Generate a tree-like support with branches that support your print. This may reduce material usage and print time, but greatly increases slicing time.",
                     "type": "bool",
                     "default_value": "false",
-                    "value": "eval(contex.value(\"support_structure\") == 'tree') || eval(contex.value(\"support_structure\") == 'thomastree')",
+                    "value": "getEnumValue(\"support_structure\") == 'tree' || getEnumValue(\"support_structure\") == 'thomastree'",
 					"enabled": "false",
                     "settable_per_mesh": true,
                     "settable_per_extruder": false
@@ -6154,9 +6170,10 @@
                     "type": "enum",
                     "options":
                     {
-                        "normal": "Normal",
-                        "tree": "Tree",
-                        "thomastree":"ThomasTree"
+                        "normal": "Normal Auto",
+                        "thomastree":"ThomasTree Auto",
+                        "normal_manual": "Normal manual",
+                        "thomastree_manual":"ThomasTree manual"
                     },
                     "enabled": "eval(contex.value(\"support_enable\"))",
                     "default_value": "normal",
@@ -6443,7 +6460,7 @@
                     "minimum_value": "0",
                     "maximum_value_warning": "100",
                     "default_value": "30",
-                    "value": "eval(contex.value(\"support_tree_enable\")) == true ？0 : 30",
+                    "value": "eval(contex.value(\"support_tree_enable\")) == true ? 0 : 30",
 					"parameter_level": "1",
                     "enabled": "eval(contex.value(\"support_enable\"))",
                     "limit_to_extruder": "support_infill_extruder_nr",

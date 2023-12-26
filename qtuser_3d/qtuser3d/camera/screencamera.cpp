@@ -98,6 +98,47 @@ namespace qtuser_3d
 		_updateNearFar(m_box);
 	}
 
+	void ScreenCamera::fittingBoundingBoxEx(const qtuser_3d::Box3D& box, const QVector3D& homeDir, const QVector3D& homeUp, const QVector3D& homePosition, const QVector3D& homeViewCenter)
+	{
+		QVector3D bsize = box.size();
+		float len = qMax(bsize.x(), qMax(bsize.y(), bsize.z()));
+		QVector3D center = box.center();
+
+		QVector3D newUp = homeUp;
+		newUp.normalize();
+
+		float d = (homeViewCenter - homePosition).length() * (len / 8.0f);
+		QVector3D newPosition = center - homeDir.normalized() * d;
+
+		m_camera->setViewCenter(center);
+		m_camera->setUpVector(newUp);
+		m_camera->setPosition(newPosition);
+
+		m_orignCenter = center;
+
+		m_box = box;
+		float dmax = viewAllLen(m_box.size().length() / 2.0f) * 1.5;
+		setMaxLimitDistance(dmax);
+
+		_updateNearFar(m_box);
+	}
+
+	void ScreenCamera::viewFromEx(const QVector3D& newDir, const QVector3D& newUp, const QVector3D& homePosition, const QVector3D& homeViewCenter, const QVector3D& newCenter)
+	{
+		QVector3D bsize = m_box.size();
+		float len = qMax(bsize.x(), qMax(bsize.y(), bsize.z()));
+
+		float d = (homeViewCenter - homePosition).length() * (len / 8.0f);
+		QVector3D newPosition = newCenter - newDir.normalized() * d;
+
+		QVector3D up = newUp;
+		up.normalize();
+
+		m_camera->setViewCenter(newCenter);
+		m_camera->setUpVector(up);
+		m_camera->setPosition(newPosition);
+	}
+
 	void ScreenCamera::updateNearFar(const qtuser_3d::Box3D& box)
 	{
 		m_box = box;

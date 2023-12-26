@@ -23,7 +23,7 @@
 using namespace creative_kernel;
 using namespace qtuser_3d;
 SplitOp::SplitOp(QObject* parent)
-	:SceneOperateMode(parent)
+	:MoveOperateMode(parent)
 	, m_rotateAngle(0, 0, 0)
 	, m_lineEntity(nullptr)
 	, m_pointEntity(nullptr)
@@ -61,7 +61,7 @@ void SplitOp::onAttach()
     }
 	visShow(m_splitPlane);
 
-	addLeftMouseEventHandler(this);
+	prependLeftMouseEventHandler(this);
 	addHoverEventHandler(this);
 	addKeyEventHandler(this);
 
@@ -80,8 +80,8 @@ void SplitOp::onDettach()
 	enableSelectPlaneByCursor(false);
 
 	visHide(m_splitPlane);
-	visHide(m_pointEntity);
 	visHide(m_lineEntity);
+	visHide(m_pointEntity);
 
 	removeLeftMouseEventHandler(this);
 	removeHoverEventHandler(this);
@@ -200,7 +200,7 @@ void SplitOp::setSelectedModel(creative_kernel::ModelN* model)
 
 	m_splitPlane->setTargetModel(model);
 
-	requestVisUpdate(true);
+	requestVisPickUpdate(true);
 }
 
 void SplitOp::onLeftMouseButtonClick(QMouseEvent* event)
@@ -229,7 +229,8 @@ void SplitOp::onHoverMove(QHoverEvent* event)
 #ifdef _DEBUG
 	// printf("%s\n", __func__);
 #endif
-	processCursorMoveEvent(event->pos());
+	if (m_selectPlaneByCursor)
+		processCursorMoveEvent(event->pos());
 }
 
 void SplitOp::split()
@@ -353,13 +354,20 @@ void SplitOp::setMessage(bool isRemove)
 
 void SplitOp::onLeftMouseButtonPress(QMouseEvent* event)
 {
+
 #ifdef _DEBUG
 	printf("%s\n", __func__);
 #endif
 
+	m_leftPressStatus = false;
 	if (m_selectPlaneByCursor)
 	{
 		tryCollectMouseClickEvent(event);
+	}
+	else
+	{
+		selectVis(event->pos());
+		MoveOperateMode::onLeftMouseButtonPress(event);
 	}
 }
 
@@ -368,11 +376,15 @@ void SplitOp::onLeftMouseButtonMove(QMouseEvent* event)
 #ifdef _DEBUG
 	printf("%s\n", __func__);
 #endif
-	processCursorMoveEvent(event->pos());
+	if (m_selectPlaneByCursor)
+		processCursorMoveEvent(event->pos());
+	else
+		MoveOperateMode::onLeftMouseButtonMove(event);
 }
 
 void SplitOp::onLeftMouseButtonRelease(QMouseEvent* event)
 {
+	MoveOperateMode::onLeftMouseButtonRelease(event);
 #ifdef _DEBUG
 	printf("%s\n", __func__);
 #endif
@@ -403,6 +415,11 @@ void SplitOp::onLeftMouseButtonRelease(QMouseEvent* event)
 	else
 	{
 		m_selectedPosition.clear();
+
+		if (m_selectPlaneByCursor)
+		{	/* select */
+			selectVis(event->pos());
+		}
 	}
 }
 
@@ -463,32 +480,6 @@ void SplitOp::tryCollectMouseClickEvent(QMouseEvent* event)
 	if (!m_selectPlaneByCursor)
 		return;
 
-#if 0
-	QVector3D position, normal;
-	ModelN* model = checkPickModel(event->pos(), position, normal);
-	if (model && selections.contains(model))
-	{
-		m_selectedPosition.push_back(position);
-	}
-	else
-	{
-		/*printf("click on blank\n");
-
-		int x = pos.x();
-		int y = pos.y();
-
-		qtuser_3d::ScreenCamera* screenCamera = gContext->reusableCache->mainScreenCamera();
-		Qt3DRender::QCamera* camera = screenCamera->camera();
-		QSize size = screenCamera->size();
-
-		float X = float(x) / size.width() * 2.0 - 1.0;
-		float Y = (1.0 - float(y) / size.height()) * 2.0 - 1.0;
-
-		m_selectedPosition.push_back(trimesh::vec3(X, Y, 0.0));*/
-
-	}
-#endif // 0
-
 	if (m_selectedPosition.size() >= 2)
 	{
 		m_selectedPosition.clear();
@@ -515,41 +506,14 @@ bool SplitOp::processCursorMoveEvent(const QPoint& pos)
 	if (selections.size() < 1)
 		return false;
 
-	if (!m_selectPlaneByCursor)
-		return false;
-
 	QVector3D ve3d_position = makeWorldPositionFromScreen(pos);
-	//QVector3D ve3d_position, normal;
-	//ModelN* model = checkPickModel(pos, ve3d_position, normal);
-	//if (model && selections.contains(model))
 	{
-		/*QVector3D scale(1.0f, 1.0f, 1.0f);
-		ve3d_normal.normalize();
-		QMatrix4x4 matrix = layArrowMatrix(qcxutil::vec2qvector(position), qcxutil::vec2qvector(normal), scale);
-		m_debugEntity->setPose(matrix);
-		visShow(m_debugEntity);*/
-
-		//QMatrix4x4 t;
-		//t.translate(ve3d_position);
-		//QMatrix4x4 xMatrix = m_debugEntity->pose();
-		//xMatrix.scale(scale);
-		//xMatrix = t * xMatrix;
-		//m_debugEntity->setPose(xMatrix);
-
 		size_t size = m_selectedPosition.size();
 		switch (size)
 		{
 		case 0:
 		case 2:
 		{
-#if 0
-			if (m_pointEntity == nullptr) {
-				m_pointEntity = new PureColorEntity();
-				m_pointEntity->setGeometry(qtuser_3d::BasicShapeCreateHelper::createBall(QVector3D(0, 0, 0), 0.5, 30));
-				m_pointEntity->setColor(QVector4D(1.0f, 0.7529f, 0.0f, 1.0));
-				//m_pointEntity->setDepthTest(false);
-			}
-#endif // 0
 			QMatrix4x4 matrix;
 			matrix.setToIdentity();
 			matrix.translate(ve3d_position);
@@ -562,19 +526,6 @@ bool SplitOp::processCursorMoveEvent(const QPoint& pos)
 
 		case 1:
 		{
-#if 0
-			if (m_lineEntity == nullptr)
-			{
-				m_lineEntity = new LineExEntity();
-				m_lineEntity->setShader("overlay");
-				m_lineEntity->setLineWidth(4);
-				m_lineEntity->setColor(QVector4D(1.0f, 0.7529f, 0.0f, 1.0));
-				m_lineEntity->setDepthTest(false);
-				//m_lineEntity->changeLineStype(LineExEntity::LINE_TYPE::PIN_ARROW_LINE);
-				//m_lineEntity->setPassDepthTest("pure", Qt3DRender::QDepthTest::Always);
-			}
-#endif // 0
-
 			QVector<QVector3D> positions;
 			positions.push_back(m_selectedPosition.at(0));
 			positions.push_back(ve3d_position);

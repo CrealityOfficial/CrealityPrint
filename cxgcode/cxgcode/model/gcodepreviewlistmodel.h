@@ -7,7 +7,7 @@
 #include <QtCore/QList>
 #include <QtGui/QColor>
 
-#include "gcode/define.h"
+#include "crslice/gcode/header.h"
 #include "cxgcode/interface.h"
 
 namespace cxgcode {

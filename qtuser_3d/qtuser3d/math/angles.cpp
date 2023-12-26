@@ -1,6 +1,5 @@
 #include "qtuser3d/math/angles.h"
 #include "qtuser3d/math/const.h"
-
 namespace qtuser_3d
 {
 	float angleOfVector3D2(const QVector3D& v1, const QVector3D& v2)

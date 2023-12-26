@@ -182,8 +182,8 @@ namespace qtuser_3d
 		return check;
 	}
 
-	void Pickable::pick(int primitiveID)
+	void Pickable::click(int primitiveID)
 	{
-
+		emit signalClick(primitiveID);
 	}
 }

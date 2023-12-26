@@ -68,7 +68,7 @@ DockItem {
           font.family: Constants.panelFontFamily
           font.pointSize: Constants.labelFontPointSize_11
 
-          text: qsTr("dump_tip_format_0")
+          text: qsTr("A serious error has occurred in %1. Please send this error report to us to fix the problem.")
                 .arg(dumpTool.getApplicationName())
 
           onContentWidthChanged: {
@@ -83,7 +83,7 @@ DockItem {
           font.family: Constants.panelFontFamily
           font.pointSize: Constants.labelFontPointSize_9
 
-          text: qsTr("dump_tip_format_1")
+          text: qsTr("Please click the 'Send Report' button to automatically publish the error report to our server.")
 
           onContentWidthChanged: {
             root.resetWidth(this.contentWidth + tip_image.width + 60 * screenScaleFactor)
@@ -113,7 +113,14 @@ DockItem {
         font.family: Constants.panelFontFamily
         font.pointSize: Constants.labelFontPointSize_9
 
-        text: qsTr("dump_info_format")
+        text: qsTr("%1 version: %2
+%3 langauge: %4
+Operating System: %5
+Graphics card: %6
+OpenGL:
+  - OpenGL version: %7
+  - OpenGL vendor: %8
+  - OpenGL renderer: %9")
               .arg(dumpTool.getApplicationName())
               .arg(dumpTool.getApplicationVersion())
               .arg(dumpTool.getApplicationName())

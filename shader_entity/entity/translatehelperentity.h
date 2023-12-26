@@ -63,6 +63,7 @@ namespace qtuser_3d
 		void setFixSize(int fixSize);
 		QVector3D center();
 		void setDirColor(QVector4D v4, int nDir);
+		void setZArrowEntityPickable(bool enablePick);
 
 	public slots:
 		void slotCameraChanged(QVector3D position, const QVector3D upVector);

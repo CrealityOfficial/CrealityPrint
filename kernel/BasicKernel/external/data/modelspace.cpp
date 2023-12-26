@@ -126,7 +126,7 @@ namespace creative_kernel
 		{
 			ModelN* model = models.at(i);
 			qtuser_3d::Box3D LocalBox = model->globalSpaceBox();
-			if (LocalBox.min.x() < basebox.min.x() ||
+			/*if (LocalBox.min.x() < basebox.min.x() ||
 				LocalBox.min.y() < basebox.min.y() ||
 				LocalBox.min.z() + 0.01 < basebox.min.z() ||
 				LocalBox.max.x() > basebox.max.x() ||
@@ -138,7 +138,7 @@ namespace creative_kernel
 			else
 			{
 				model->setErrorState(false);
-			}
+			}*/
 
 			//œ‘ æ√Ê
 			if (LocalBox.min.x() < basebox.min.x())

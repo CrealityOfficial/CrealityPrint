@@ -317,7 +317,7 @@
 	{
 		"description": "",
 		"type": "str",
-		"default_value": "cxsw",
+		"default_value": "creality",
 		"enabled": "false"
 	},
 	"machine_support_slicer_type": 

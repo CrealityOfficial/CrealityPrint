@@ -18,6 +18,7 @@ namespace qtuser_3d
 		void setColor(const QVector4D& color);
 		void setPointSize(float size);	
 		void setShader(const QString& name);
+		void setFilterType(const QString& filterType);
 	
 	protected:
 		XRenderPass* m_pass;

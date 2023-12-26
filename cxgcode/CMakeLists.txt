@@ -5,7 +5,7 @@ set(LIBS rapidjson)
 set(ILIBS
 	qtuser_core
 	qtuser_3d
-	gcode
+	crslice
 	trimesh2
 )
 

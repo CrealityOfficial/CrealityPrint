@@ -80,4 +80,49 @@ namespace cura52
     {
         return vertices->start_idx;
     }
+
+
+	template<>
+	bool PathOrderPath<ConstPolygonPointer>::hasZseamPait()
+	{
+		return false;
+	}
+
+	template<>
+    bool PathOrderPath<PolygonPointer>::hasZseamPait()
+	{
+		return false;
+	}
+
+	template<>
+    bool PathOrderPath<const SkinPart*>::hasZseamPait()
+	{
+		return false;
+	}
+
+	template<>
+    bool PathOrderPath<const SliceLayerPart*>::hasZseamPait()
+	{
+		return false;
+	}
+
+	template<>
+    bool PathOrderPath<const SupportInfillPart*>::hasZseamPait()
+	{
+		return false;
+	}
+
+	template<>
+	bool PathOrderPath<const ExtrusionLine*>::hasZseamPait()
+	{
+        for (const ExtrusionJunction& J: vertices->junctions)
+        {
+            if (J.flag == ExtrusionJunction::paintFlag::PAINT)
+            {
+                return true;
+            }
+        }
+		return false;
+	}
+
 }

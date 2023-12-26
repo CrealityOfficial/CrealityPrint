@@ -7,8 +7,9 @@
 
 #include "qtuser3d/scene/sceneoperatemode.h"
 #include "data/modeln.h"
+#include "operation/moveoperatemode.h"
 
-class HollowOperateMode : public qtuser_3d::SceneOperateMode {
+class HollowOperateMode : public MoveOperateMode {
   Q_OBJECT;
 
 public:

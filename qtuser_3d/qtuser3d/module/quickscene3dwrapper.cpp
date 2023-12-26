@@ -66,7 +66,9 @@ namespace qtuser_3d
 		if (m_scene3D)
 		{
 			QMetaObject::invokeMethod(m_scene3D, "setEntity", Qt::AutoConnection, Q_ARG(Qt3DCore::QEntity*, m_root));
-			window()->installEventFilter(this);
+			QQuickWindow* w = window();
+			if(w)
+				w->installEventFilter(this);
 		}
 	}
 

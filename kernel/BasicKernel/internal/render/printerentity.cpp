@@ -7,7 +7,7 @@ namespace creative_kernel
 		, m_printerText(nullptr)
 	{
 		QVector4D greyColor = QVector4D(0.309804f, 0.313725f, 0.325490f, 1.0f);
-		m_boxEntity = new qtuser_3d::BoxEntity(this);
+		m_boxEntity = new qtuser_3d::BoxEntity(nullptr);
 		m_boxEntity->setColor(greyColor);
 
 		m_axisEntity = new qtuser_3d::AxisEntity(this, 0);
@@ -18,20 +18,23 @@ namespace creative_kernel
 		m_axisEntity->setYAxisColor(QVector4D(0.247f, 0.933f, 0.1098f, 1.0f));
 		m_axisEntity->setZAxisColor(QVector4D(0.4117f, 0.243f, 1.0f, 1.0f));
 
-		m_printerSkirt = new qtuser_3d::PrinterSkirtEntity(this);
+		//m_printerSkirt = new qtuser_3d::PrinterSkirtEntity(nullptr);
 		m1.setToIdentity();
-		m_printerSkirt->setPose(m1);
+		//m_printerSkirt->setPose(m1);
 
 		//m_printerText = new PrinterText(this);
-		m_printerGrid = new qtuser_3d::PrinterGrid(this);
+		/*m_printerGrid = new qtuser_3d::PrinterGrid(this);
 		m_printerGrid->setLineColor(greyColor);
 		m1.translate(0.0f, 0.0f, -0.05f);
-		m_printerGrid->setPose(m1);
+		m_printerGrid->setPose(m1);*/
 		
-		m_bottom = new qtuser_3d::TexFaces(this);
+		m_bottom = new qtuser_3d::TexFaces(nullptr);
 		m1.translate(0.0f, 0.0f, -0.05f);
 		m_bottom->setPose(m1);
 		
+		m_plateEntity = new PlateEntity(this);
+		
+		//前后左右上
 		m_faceEntity = new qtuser_3d::FaceEntity(this);
 		
 		m_hotbed = new qtuser_3d::HotbedEntity(nullptr);
@@ -47,13 +50,16 @@ namespace creative_kernel
 	{
 		qtuser_3d::Box3D globalBox = box;
 		m_boxEntity->updateGlobal(globalBox, false);
-		m_printerSkirt->updateBoundingBox(globalBox);
-		m_printerGrid->updateBounding(globalBox, 1);
+		//m_printerSkirt->updateBoundingBox(globalBox);
+		//m_printerGrid->updateBounding(globalBox, 1);
 		//m_printerText->updateLen(globalBox, 10.0f, 4);
 		//m_faceEntity->drawFace(globalBox);
 
 		//m_imageEntity->updateGlobal(globalBox);
 		m_bottom->updateBox(box);
+
+		m_plateEntity->setSize(QSizeF(box.size().x(), box.size().y()));	
+		m_plateEntity->updateBounding(globalBox);
 	}
 
 	void PrinterEntity::onModelChanged(qtuser_3d::Box3D basebox, bool hasModel, 
@@ -116,18 +122,14 @@ namespace creative_kernel
 
 	void PrinterEntity::enableSkirt(bool enable)
 	{
-		if(m_bShowEntity)
-			m_printerSkirt->setEnabled(enable);
+		/*if(m_bShowEntity)
+			m_printerSkirt->setEnabled(enable);*/
 	}
 
 	void PrinterEntity::setSkirtHighlight(bool highlight)
 	{
-		m_printerSkirt->setHighlight(highlight);
-	}
-
-	void PrinterEntity::visibleSubGrid(bool visible)
-	{
-
+		//m_printerSkirt->setHighlight(highlight);
+		m_plateEntity->setHighlight(highlight);
 	}
 
 	void PrinterEntity::updateFace(qtuser_3d::Box3D& box, qtuser_3d::faceType type)
@@ -164,22 +166,30 @@ namespace creative_kernel
 	{
 		m_bShowEntity = isShow;
 		m_boxEntity->setEnabled(isShow);//蓝色边框
-		m_printerSkirt->setEnabled(isShow);//灰色边线
+		//m_printerSkirt->setEnabled(isShow);//灰色边线
 		//m_printerText->setEnabled(isShow);//刻度
-		m_printerGrid->setEnabled(isShow);//网格线
+		//m_printerGrid->setEnabled(isShow);//网格线
 		m_axisEntity->setEnabled(false);//坐标指示
 		//m_imageEntity->setEnabled(isShow);//logo
 		m_bottom->setEnabled(isShow);
+		m_plateEntity->setEnabled(isShow);
 	}
 
 	void PrinterEntity::updatePrinterColor(const PrinterColorConfig& config)
 	{
-		m_printerSkirt->setInnerColor(config.skirtInner);
+		/*m_printerSkirt->setInnerColor(config.skirtInner);
 		m_printerSkirt->setOuterColor(config.skirtOuter);
-		m_printerSkirt->setVerticalBottomColor(config.skirtVerticalBottom);
+		m_printerSkirt->setVerticalBottomColor(config.skirtVerticalBottom);*/
 
 		m_bottom->setColor(config.bottom);
-		m_printerGrid->setLineColor(config.gridLine);
+		
 		m_boxEntity->setColor(config.box);
+
+		m_plateEntity->setGridColor(config.gridLine);
+	}
+
+	void PrinterEntity::setTheme(int theme)
+	{
+		m_plateEntity->setTheme(theme);
 	}
 }

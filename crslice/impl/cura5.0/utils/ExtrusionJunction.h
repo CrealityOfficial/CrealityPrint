@@ -32,7 +32,15 @@ namespace cura52
         /*!
          * The ZSeam draw Point.
          */
-        bool isZSeamDrow = false;
+        enum paintFlag
+        {
+            NONE,
+            PAINT,
+            INTERCEPT
+        };
+
+        //bool isZSeamDrow = false;
+        paintFlag flag = NONE;
 
         /*!
          * Which perimeter this junction is part of.

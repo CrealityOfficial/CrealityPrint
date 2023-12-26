@@ -12,6 +12,7 @@ namespace qtuser_3d
 		m_revertY = false;
 
 		m_need360Rotate = false;
+		m_needAroundRotate = false;
 	}
 
 	EularMouseManipulator::~EularMouseManipulator()
@@ -21,6 +22,11 @@ namespace qtuser_3d
 	void EularMouseManipulator::setNeed360Rotate(bool is_need)
 	{
 		m_need360Rotate = is_need;
+	}
+
+	void EularMouseManipulator::setNeedAroundRotate(bool is_need)
+	{
+		m_needAroundRotate = is_need;
 	}
 
 	void EularMouseManipulator::onRightMouseButtonPress(QMouseEvent* event)
@@ -43,20 +49,17 @@ namespace qtuser_3d
 			return;
 		}
 
-		//if (event->modifiers() == Qt::ControlModifier)
-		//{
-		//	performTranslate(p);
-		//}
-		//else
+		if (m_needAroundRotate)
 		{
-			if (m_need360Rotate)
-			{
-				performRotate360(p);
-			}
-			else
-			{
-				performRotate(p);
-			}
+			performAynRotate(p);
+		}
+		else if (m_need360Rotate)
+		{
+			performRotate360(p);
+		}
+		else
+		{
+			performRotate(p);
 		}
 
 		m_savePoint = p;
@@ -169,6 +172,65 @@ namespace qtuser_3d
 
 		m_screenCamera->updateNearFar();
 	}
+
+	QMatrix4x4 EularMouseManipulator::rotMatrix(const QPoint& pos)
+	{
+		QVector3D viewCenter = m_camera->viewCenter();
+		QVector3D position = m_camera->position();
+		QVector3D up = m_camera->upVector();
+
+		QPoint delta = pos - m_savePoint;
+		float hangle = - m_hangleDelta * (float)delta.x();
+		QQuaternion hq = QQuaternion::fromAxisAndAngle(QVector3D(0.0f, 0.0f, 1.0f), hangle);
+		
+		float vangle = -m_vangleDelta * (float)delta.y();
+		QVector3D dir = viewCenter - position;
+		dir.normalize();
+		QVector3D h = QVector3D::crossProduct(dir, up);
+		h.setZ(0.0f);
+		h.normalize();
+		QQuaternion vq = QQuaternion::fromAxisAndAngle(h, vangle);
+
+		QMatrix4x4 m;
+		m.setToIdentity();
+		m.rotate(hq * vq);
+		return m;
+	}
+
+	void EularMouseManipulator::performAynRotate(const QPoint& pos)
+	{
+		QMatrix4x4 rot = rotMatrix(pos);
+
+		QVector3D viewCenter = m_camera->viewCenter();
+		QVector3D position = m_camera->position();
+		QVector3D up = m_camera->upVector();
+
+		QVector3D newUp = rot * up;
+		newUp.normalize();
+
+		QVector3D delta = viewCenter - m_rotateCenter;
+		float D = delta.length();
+		delta.normalize();
+		delta = rot * delta;
+		delta.normalize();
+
+		QVector3D saveDir = viewCenter - position;
+		float distance = saveDir.length();
+
+		saveDir.normalize();
+		QVector3D newDir = rot * saveDir;
+		newDir.normalize();
+		QVector3D newPosition = m_rotateCenter - newDir * distance + delta * D;
+
+		QVector3D newViewCenter = m_rotateCenter + delta * D;
+
+		m_camera->setViewCenter(newViewCenter);
+		m_camera->setUpVector(newUp);
+		m_camera->setPosition(newPosition);
+
+		m_screenCamera->updateNearFar();
+	}
+
 	void EularMouseManipulator::performRotate360(const QPoint& pos)
 	{
 		QVector3D viewCenter = m_camera->viewCenter();

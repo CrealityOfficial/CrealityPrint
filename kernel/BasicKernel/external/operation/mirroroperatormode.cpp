@@ -29,7 +29,7 @@ const auto Z_MIRROR_HANDLER = std::bind(creative_kernel::mirrorZSelections, true
 } // namespace
 
 MirrorOperateMode::MirrorOperateMode(QObject* parent)
-    : qtuser_3d::SceneOperateMode(parent)
+    : MoveOperateMode(parent)
     , entity_(std::make_unique<qtuser_3d::MirrorEntity>(creative_kernel::cameraController()))
     , pickable_callback_map_({
       { WeakToRaw(entity_->xPositivePickable()), X_MIRROR_HANDLER },
@@ -50,6 +50,24 @@ MirrorOperateMode::MirrorOperateMode(QObject* parent)
   for (const auto& pair : pickable_callback_map_) {
     creative_kernel::tracePickable(pair.first);
   }
+
+  connect(this, &MoveOperateMode::positionChanged, this, [=] ()
+  {
+    updateEntity();
+  });
+}
+
+void MirrorOperateMode::updateEntity()
+{
+  const auto selected_model_list = creative_kernel::selectionms();
+  if (!selected_model_list.empty()) {
+      entity_->setSpaceBox(selected_model_list.last()->globalSpaceBox());
+      entity_->setScaleFactor(CaculateCurrentScaleFactor());
+      creative_kernel::visShow(entity_.get());
+  }
+  else {
+      creative_kernel::visHide(entity_.get());
+  }
 }
 
 void MirrorOperateMode::onAttach() {
@@ -59,17 +77,7 @@ void MirrorOperateMode::onAttach() {
   creative_kernel::addWheelEventHandler(this);
   creative_kernel::addLeftMouseEventHandler(this);
 
-  const auto selected_model_list = creative_kernel::selectionms();
-  if (!selected_model_list.empty()) {
-      // the scale factor can only set after the space box is set
-      entity_->setSpaceBox(selected_model_list.last()->globalSpaceBox());
-      entity_->setScaleFactor(CaculateCurrentScaleFactor());
-      creative_kernel::visShow(entity_.get());
-  }
-  else {
-      creative_kernel::visHide(entity_.get());
-  }
-  //onSelectionsChanged();
+  updateEntity();
 }
 
 void MirrorOperateMode::onDettach() {
@@ -102,24 +110,15 @@ void MirrorOperateMode::onLeftMouseButtonClick(QMouseEvent* event) {
   }
 
   iter->second();
+
   m_canOperate = false;
   creative_kernel::getModelSelect()->setEnabled(false);
   m_operateTimer.start(200);
 }
 
 void MirrorOperateMode::onSelectionsChanged() {
-  const auto selected_model_list = creative_kernel::selectionms();
-
-  if (!selected_model_list.empty()) {
-    // the scale factor can only set after the space box is set
-    entity_->setSpaceBox(selected_model_list.last()->globalSpaceBox());
-		entity_->setScaleFactor(CaculateCurrentScaleFactor());
-    creative_kernel::visShow(entity_.get());
-  } else {
-    creative_kernel::visHide(entity_.get());
-  }
-
-  creative_kernel::requestVisUpdate(true);
+  updateEntity();
+  creative_kernel::requestVisPickUpdate(true);
 }
 
 void MirrorOperateMode::selectChanged(qtuser_3d::Pickable* pickable) {

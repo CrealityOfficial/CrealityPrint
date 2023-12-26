@@ -6,7 +6,6 @@
 
 namespace cxkernel
 {
-	CXKERNEL_API void generateGeometryColorDataFromMesh(trimesh::TriMesh* mesh, cxkernel::GeometryData& data);
 	CXKERNEL_API void generateGeometryDataFromMesh(trimesh::TriMesh* mesh, cxkernel::GeometryData& data);
 	CXKERNEL_API void generateIndexGeometryDataFromMesh(trimesh::TriMesh* mesh, cxkernel::GeometryData& data);
 

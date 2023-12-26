@@ -35,12 +35,40 @@ namespace creative_kernel {
           QStringLiteral("zh_CN.ts"),
           QStringLiteral("zh_TW.ts"),
           QStringLiteral("ko.ts"),
+		      QStringLiteral("jp.ts"),
+          QStringLiteral("de.ts"),
+          QStringLiteral("es.ts"),
+          QStringLiteral("fr.ts"),
+          QStringLiteral("it.ts"),
+          QStringLiteral("pt.ts"),
+          QStringLiteral("ru.ts"),
+          QStringLiteral("tr.ts"),
+          QStringLiteral("pl.ts"),
+          QStringLiteral("nl.ts"),
+          QStringLiteral("cz.ts"),
+          QStringLiteral("hu.ts"),
+          QStringLiteral("se.ts"),
+          QStringLiteral("ua.ts"),
         }
       , m_lanNames{
           QStringLiteral("English"),
           QStringLiteral("简体中文"),
           QStringLiteral("繁體中文"),
-          QStringLiteral("한국어/Korean")
+          QStringLiteral("한국어/Korean"),
+		      QStringLiteral("日本語/Japanese"),
+          QStringLiteral("Deutsch/German"),
+          QStringLiteral("España/Spain"),
+          QStringLiteral("Français/French"),
+          QStringLiteral("Italiano/Italian"),
+          QStringLiteral("Portugal/Portugal"),
+          QStringLiteral("Pусский язык/Russian"),
+          QStringLiteral("Türkçe/Turkish"),
+          QStringLiteral("Polska/Poland"),
+          QStringLiteral("Nederland/Netherlands"),
+          QStringLiteral("Česká republika/Czech Republic"),
+          QStringLiteral("Magyarország/Hungary"),
+          QStringLiteral("Sverige/Sweden"),
+          QStringLiteral("Україна/Ukraine"),
         } {
     QCoreApplication::setOrganizationName(QStringLiteral(ORGANIZATION));
     QCoreApplication::setOrganizationDomain(QStringLiteral("FDM"));
@@ -232,14 +260,14 @@ namespace creative_kernel {
     setting.endGroup();
     QString version = PROJECT_VERSION_EXTRA;
     if (strStartType == "0") {
-      if (version == "Release") {
+      if (version != "Alpha") {
         website += "serverEnv=1";
       } else {
         website += "serverEnv=5";
       }
       website += "&templateId=6638105";
     } else {
-      if (version == "Release") {
+      if (version != "Alpha") {
         website += "serverEnv=2";
       } else {
         website += "serverEnv=4";

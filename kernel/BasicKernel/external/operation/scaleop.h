@@ -11,13 +11,14 @@
 
 #include "../utils/operationutil.h"
 #include "interface/spaceinterface.h"
+#include "moveoperatemode.h"
 
 namespace creative_kernel
 {
 	class Kernel;
 }
 
-class BASIC_KERNEL_API ScaleOp : public qtuser_3d::SceneOperateMode
+class BASIC_KERNEL_API ScaleOp : public MoveOperateMode
 	, public qtuser_3d::SelectorTracer , public creative_kernel::SpaceTracer
 {
 public:
