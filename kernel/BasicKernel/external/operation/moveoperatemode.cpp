@@ -62,6 +62,15 @@ void MoveOperateMode::onLeftMouseButtonRelease(QMouseEvent* event)
 	if (models.isEmpty())
 		return;
 
+	if (!m_tempLocal.isNull())
+	{
+		for (auto m : models)
+		{
+			QVector3D originLocalPosition = m->localPosition() - m_tempLocal;
+			moveModel(m, originLocalPosition, m->localPosition(), true);
+		}
+	}
+
 	m_mode = TMode::null;
 }
 
@@ -82,10 +91,10 @@ void MoveOperateMode::onLeftMouseButtonMove(QMouseEvent* event)
 	for (auto m : models)
 	{
 		QVector3D newLocalPosition = m->localPosition() + moveDelta;
-		moveModel(m, m->localPosition(), newLocalPosition, true);
+		moveModel(m, m->localPosition(), newLocalPosition, false);
 	}
 	requestVisUpdate(true);
-	emit positionChanged();
+	emit moving();
 }
 
 void MoveOperateMode::onLeftMouseButtonClick(QMouseEvent* event)

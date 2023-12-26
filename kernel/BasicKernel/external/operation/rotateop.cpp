@@ -45,7 +45,7 @@ RotateOp::RotateOp(QObject* parent)
 	}
 	traceSpace(this);
 
-	connect(this, &MoveOperateMode::positionChanged, this, [=]()
+	connect(this, &MoveOperateMode::moving, this, [=]()
 		{
 			m_isMoving = true;
 			updateHelperEntity();

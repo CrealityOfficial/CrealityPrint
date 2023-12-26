@@ -25,6 +25,7 @@ public:
 	MoveOperateMode(QObject* parent = nullptr);
 	virtual ~MoveOperateMode();
 signals:
+	void moving();
 	void positionChanged();
 	void mouseLeftClicked();
 

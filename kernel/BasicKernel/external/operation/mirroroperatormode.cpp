@@ -51,7 +51,7 @@ MirrorOperateMode::MirrorOperateMode(QObject* parent)
     creative_kernel::tracePickable(pair.first);
   }
 
-  connect(this, &MoveOperateMode::positionChanged, this, [=] ()
+  connect(this, &MoveOperateMode::moving, this, [=] ()
   {
     updateEntity();
   });
