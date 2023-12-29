@@ -17,15 +17,15 @@
         </message>
         <message>
             <source>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved</source>
-            <translation>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved</translation>
+            <translation>Copyright©2014 Société de technologie Shenzhen Creality 3D, LTD. Tous droits réservés</translation>
         </message>
         <message>
             <source>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China's 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</source>
-            <translation>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China's 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</translation>
+            <translation>Fondée en 2014, Shenzhen Creality 3D Technology Co., Ltd. est la première entreprise de R&amp; D en Chine pour entrer dans l'industrie de l'impression 3D et s'engage à construire une gamme complète de solutions d'impression 3D, dont le domaine d'activité se concentre principalement sur la R&amp; D, fabrication et vente d'imprimantes 3D, s'étendant aux accessoires d'impression 3D, au filament d'impression 3D, au système de programmes d'éducation 3D, aux services d'impression 3D, etc. À l'heure actuelle, elle est devenue une entreprise de haute technologie leader dans l'industrie de l'impression 3D en Chine, avec son Rampe; D force, production, qualité et services tous à la pointe de l'industrie.</translation>
         </message>
         <message>
             <source>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</source>
-            <translation>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</translation>
+            <translation>Shenzhen Creality 3D Technology Co., Ltd. est un fabricant d'imprimantes 3D de renommée internationale, qui se concentre sur la R&amp; D et production d'imprimantes 3D.</translation>
         </message>
         <message>
             <source>https://www.creality.cn/</source>
@@ -56,15 +56,15 @@
         </message>
         <message>
             <source>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved.</source>
-            <translation>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved.</translation>
+            <translation>Copyright©2021 Société de technologie 3D Shenzhen Piocreat, LTD. Tous droits réservés.</translation>
         </message>
         <message>
             <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China</source>
-            <translation>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China</translation>
+            <translation>Shenzhen Piocreat 3D Technology Co., Ltd. est une entreprise leader d'imprimantes et de matériaux 3D de qualité industrielle, Piocreat se consacre à mettre en valeur la puissance exceptionnelle du fabriqué en Chine</translation>
         </message>
         <message>
             <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China.</source>
-            <translation>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China.</translation>
+            <translation>Shenzhen Piocreat 3D Technology Co., Ltd. est une entreprise leader dans le domaine des imprimantes et des matériaux 3D de qualité industrielle, Piocreat se consacre à mettre en valeur la puissance exceptionnelle du Made in China.</translation>
         </message>
         <message>
             <source>https://www.szcx3d.com/</source>
@@ -108,31 +108,31 @@
         <name>AddMaterialDlg</name>
         <message>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <source>Add Material</source>
-            <translation>Ajouter du matériel</translation>
+            <translation>Ajouter un matériau</translation>
         </message>
         <message>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <source>MaterialType</source>
-            <translation>MaterialType</translation>
+            <translation>Type de matériau</translation>
         </message>
         <message>
             <source>Default Materials</source>
-            <translation>Matériaux par défaut</translation>
+            <translation>matériau par défaut</translation>
         </message>
         <message>
             <source>User Materials</source>
-            <translation>Matériel utilisateur</translation>
+            <translation>matériau utilisateur</translation>
         </message>
         <message>
             <source>Check All</source>
-            <translation>Vérifie tout</translation>
+            <translation>tout vérifier</translation>
         </message>
     </context>
     <context>
@@ -163,27 +163,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="175"/>
             <source>Name repeater, please rename!</source>
-            <translation>Name repeater, please rename!</translation>
+            <translation> nom déja utiliser, veuillez renommer! </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="16"/>
             <source>new</source>
-            <translation>nouveau</translation>
+            <translation>Nouveau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="78"/>
             <source>New Profile</source>
-            <translation>Nouveau profile</translation>
+            <translation>Nouveau profil</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="98"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="119"/>
             <source>Material</source>
-            <translation>Matériel</translation>
+            <translation>Matériau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="139"/>
@@ -226,17 +226,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="54"/>
             <source>Ip Address:</source>
-            <translation>Ip Address:</translation>
+            <translation>Addresse IP:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="74"/>
             <source>Mac Address:</source>
-            <translation>Mac Address:</translation>
+            <translation>Address MAC:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="91"/>
             <source>input can not empty</source>
-            <translation>l'entrée ne peut pas être vide</translation>
+            <translation>L'entrée ne peut pas être vide</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="104"/>
@@ -259,7 +259,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddNewProjectDlg.qml" line="21"/>
             <source>Project Name:</source>
-            <translation>Nom du projet:</translation>
+            <translation>titre du projet:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddNewProjectDlg.qml" line="59"/>
@@ -299,19 +299,19 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="22"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="282"/>
             <source>Update Failed!</source>
-            <translation>Mise à jour a échoué!</translation>
+            <translation>Echec de la mise a jour</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="27"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="287"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="295"/>
             <source>Printer information has been updated, please restart the software!</source>
-            <translation>Printer information has been updated, please restart the software!</translation>
+            <translation>Les informations sur l'imprimante ont été mises à jour, veuillez redémarrer le logiciel !</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="63"/>
             <source>Printer Update</source>
-            <translation>Printer Update</translation>
+            <translation>Mise à jour de l'imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="82"/>
@@ -322,7 +322,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="139"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="153"/>
@@ -352,7 +352,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="210"/>
             <source>Nebula Pad</source>
-            <translation>Coussin nébuleuse</translation>
+            <translation>Nebula Pad</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="216"/>
@@ -365,12 +365,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="87"/>
             <source>Sonic</source>
-            <translation>Sonique</translation>
+            <translation>Sonic</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="87"/>
             <source>Nebula</source>
-            <translation>Nébuleuse</translation>
+            <translation>Nébula</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="95"/>
@@ -416,7 +416,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="46"/>
             <source>Exit</source>
-            <translation>Sortie</translation>
+            <translation>Fermer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="47"/>
@@ -432,7 +432,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="87"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="403"/>
             <source>Delete model</source>
-            <translation>Delete model</translation>
+            <translation>Supprimer le modèle</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="88"/>
@@ -447,17 +447,17 @@
         </message>
         <message>
             <source>Model's size too small and mabye in inches or meters measurement, do you want to scale to millimeters?</source>
-            <translation>La taille du modèle est trop petite et peut être mesurée en pouces ou en mètres. Voulez-vous l'adapter en millimètres ?</translation>
+            <translation>La taille du modèle est trop petite est peut être mesurée en pouces ou en mètres. Voulez-vous l'adapter en millimètres ?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="99"/>
             <source>There are exceptions or errors in the model. What should be done?</source>
-            <translation>Il existe des exceptions ou des erreurs dans le modèle. Qu'est-ce qui devrait être fait?</translation>
+            <translation>Il existe des exceptions ou des erreurs dans le modèle. Qu'elles modifications peuvent ètres faites?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="116"/>
             <source>Whether to remove  all supports</source>
-            <translation>Whether to remove  all supports</translation>
+            <translation>Supprimer tous les supports</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="207"/>
@@ -482,7 +482,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="289"/>
             <source>The software closes abnormally, whether to open the saved temporary file?</source>
-            <translation>Le logiciel se ferme anormalement, faut-il ouvrir le fichier temporaire enregistré ?</translation>
+            <translation>Le logiciel a fermé anormalement, faut-il ouvrir le fichier temporaire enregistré ?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="305"/>
@@ -507,7 +507,7 @@
         </message>
         <message>
             <source>Retract</source>
-            <translation>Se rétracter</translation>
+            <translation>rétracter</translation>
         </message>
         <message>
             <source>Compensate</source>
@@ -519,7 +519,7 @@
         </message>
         <message>
             <source>Limited</source>
-            <translation>Limité</translation>
+            <translation>Limites</translation>
         </message>
         <message>
             <source>Back Left</source>
@@ -527,7 +527,7 @@
         </message>
         <message>
             <source>Back</source>
-            <translation>Dos</translation>
+            <translation>Arrière</translation>
         </message>
         <message>
             <source>Back Right</source>
@@ -555,15 +555,15 @@
         </message>
         <message>
             <source>DirectLift</source>
-            <translation>DirectLift</translation>
+            <translation>DirectLift</translation>                                                                             
         </message>
         <message>
             <source>SpiralLift</source>
-            <translation>SpiralLift</translation>
+            <translation>spiralLift</translation>
         </message>
         <message>
             <source>TrapezoidalLeft</source>
-            <translation>TrapézoïdaleGauche</translation>
+            <translation>Trapézoïdale Gauche</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -572,23 +572,23 @@
         </message>
         <message>
             <source>Two-Color Printing</source>
-            <translation>Two-Color Printing</translation>
+            <translation>deux couleurs d'impression</translation>
         </message>
         <message>
             <source>Three-Color Printing</source>
-            <translation>Three-Color Printing</translation>
+            <translation>trois couleurs d'impression</translation>
         </message>
         <message>
             <source>Four-Color Printing</source>
-            <translation>Four-Color Printing</translation>
+            <translation>quatres couleurs d'impression</translation>
         </message>
         <message>
             <source>Five-Color Printing</source>
-            <translation>Five-Color Printing</translation>
+            <translation>cinq couleurs d'impression</translation>
         </message>
         <message>
             <source>First Change Color</source>
-            <translation>First Change Color</translation>
+            <translation>premier changement de couleur</translation>
         </message>
         <message>
             <source>Off</source>
@@ -600,7 +600,7 @@
         </message>
         <message>
             <source>Not in Skin</source>
-            <translation>Pas dans la peau</translation>
+            <translation>pas sur la surface</translation>
         </message>
         <message>
             <source>Reduce Cross Outer Surfaces</source>
@@ -616,19 +616,19 @@
         </message>
         <message>
             <source>ThomasTree Auto</source>
-            <translation>ThomasTree Auto</translation>
+            <translation>supports Automatique</translation>
         </message>
         <message>
             <source>Normal manual</source>
-            <translation>Normal manual</translation>
+            <translation>Normal manuel</translation>
         </message>
         <message>
             <source>ThomasTree manual</source>
-            <translation>ThomasTree manual</translation>
+            <translation>support manuel</translation>
         </message>
         <message>
             <source>Support Everywhere</source>
-            <translation>Du soutien partout</translation>
+            <translation>supports partout</translation>
         </message>
         <message>
             <source>X/Y overrides Z</source>
@@ -644,11 +644,11 @@
         </message>
         <message>
             <source>Normal</source>
-            <translation>Normale</translation>
+            <translation>Normal</translation>
         </message>
         <message>
             <source>Single</source>
-            <translation>Célibataire</translation>
+            <translation>simple</translation>
         </message>
         <message>
             <source>Surface</source>
@@ -660,11 +660,11 @@
         </message>
         <message>
             <source>All At Once</source>
-            <translation>Tout à la fois</translation>
+            <translation>l'ensemble</translation>
         </message>
         <message>
             <source>One At A Time</source>
-            <translation>One At A Time</translation>
+            <translation>unitaire</translation>
         </message>
         <message>
             <source>Middle</source>
@@ -672,11 +672,11 @@
         </message>
         <message>
             <source>Exclusive</source>
-            <translation>Exclusif</translation>
+            <translation>Unique</translation>
         </message>
         <message>
             <source>Inclusive</source>
-            <translation>Compris</translation>
+            <translation>inclure</translation>
         </message>
         <message>
             <source>none</source>
@@ -684,7 +684,7 @@
         </message>
         <message>
             <source>to and fro</source>
-            <translation>aller et venir</translation>
+            <translation>aller et retour</translation>
         </message>
         <message>
             <source>Not overridden</source>
@@ -724,7 +724,7 @@
         </message>
         <message>
             <source>simpleraft</source>
-            <translation>simpleraft</translation>
+            <translation>radeau</translation>
         </message>
         <message>
             <source>None</source>
@@ -776,11 +776,11 @@
         </message>
         <message>
             <source>Nowhere</source>
-            <translation>Nulle part</translation>
+            <translation>nulle part vide</translation>
         </message>
         <message>
             <source>Everywhere</source>
-            <translation>Partout</translation>
+            <translation>partout complet</translation>
         </message>
         <message>
             <source>Aligned Rectilinear</source>
@@ -788,11 +788,11 @@
         </message>
         <message>
             <source>Honeycomb</source>
-            <translation>Rayon de miel</translation>
+            <translation>Alvéolaire</translation>
         </message>
         <message>
             <source>Lightning</source>
-            <translation>Foudre</translation>
+            <translation>Eclair</translation>
         </message>
         <message>
             <source>Concentric</source>
@@ -836,7 +836,7 @@
         </message>
         <message>
             <source>Octet</source>
-            <translation>Octuor</translation>
+            <translation>Octet</translation>
         </message>
         <message>
             <source>Quarter Cubic</source>
@@ -892,7 +892,7 @@
         </message>
         <message>
             <source>rectangular</source>
-            <translation>rectangular</translation>
+            <translation>rectangulaire</translation>
         </message>
         <message>
             <source>elliptic</source>
@@ -919,7 +919,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicCombobox.qml" line="74"/>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>bonne qualité</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicCombobox.qml" line="75"/>
@@ -943,7 +943,7 @@
         </message>
         <message>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>Bonne qualité</translation>
         </message>
         <message>
             <source>Fast</source>
@@ -1003,11 +1003,11 @@
         <name>BasicMenuBarStyle</name>
         <message>
             <source>Mouse Operation Function</source>
-            <translation>Fonction de fonctionnement de la souris</translation>
+            <translation>Fonction de la souris</translation>
         </message>
         <message>
             <source>File</source>
-            <translation>Déposer</translation>
+            <translation>fichier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="30"/>
@@ -1017,7 +1017,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="30"/>
             <source>File</source>
-            <translation>Déposer</translation>
+            <translation>fichier</translation>
         </message>
         <message>
             <source>Other(&amp;O)</source>
@@ -1029,37 +1029,37 @@
         </message>
         <message>
             <source>Test Model</source>
-            <translation>Test Model</translation>
+            <translation>Modele test</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="34"/>
             <source>Open File</source>
-            <translation>Fichier ouvert</translation>
+            <translation>Ouvrir fichier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="44"/>
             <source>Open Project</source>
-            <translation>Projet ouvert</translation>
+            <translation>Ouvrir dossier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="55"/>
             <source>Recently files</source>
-            <translation>Fichiers récemment</translation>
+            <translation>Fichier récents</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="60"/>
             <source>Recently Opened Project</source>
-            <translation>Projet récemment ouvert</translation>
+            <translation>Fichiers récemment ouvert</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="66"/>
             <source>Save STL</source>
-            <translation>Enregistrer STL</translation>
+            <translation>Enregistrer fichier .STL</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="76"/>
             <source>Save As Project</source>
-            <translation>Enregistrer sous projet</translation>
+            <translation>Enregistrer le projet</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="88"/>
@@ -1074,17 +1074,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="103"/>
             <source>Undo</source>
-            <translation>annuler</translation>
+            <translation>Annuler</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="112"/>
             <source>Copy</source>
-            <translation>Copie</translation>
+            <translation>Copier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="112"/>
             <source>Paste</source>
-            <translation>Pâte</translation>
+            <translation>Coller</translation>
         </message>
         <message>
             <source>Delete Model</source>
@@ -1096,48 +1096,48 @@
         </message>
         <message>
             <source>Clone Model</source>
-            <translation>Modèle clone</translation>
+            <translation>dupliquer/cloner le modèle</translation>
         </message>
         <message>
             <source>Split Model</source>
-            <translation>Modèle divisé</translation>
-        </message>
+            <translation>divisé le modèle</translation>
+            </message>
         <message>
             <source>Merge Model</source>
             <translation>Fusionner le modèle</translation>
         </message>
         <message>
             <source>Select All Model</source>
-            <translation>Sélectionner tout le modèle</translation>
+            <translation>Sélectionner tout</translation>
         </message>
         <message>
             <source>Reset All Model</source>
-            <translation>Réinitialiser tout le modèle</translation>
+            <translation>Réinitialiser tout</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="112"/>
             <source>Redo</source>
-            <translation>Refaire</translation>
+            <translation>Restaurer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="123"/>
             <source>View</source>
-            <translation>Voir</translation>
+            <translation>vue</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="127"/>
             <source>ShowModelLine</source>
-            <translation>AfficherModèleLigne</translation>
+            <translation>Afficher le maillage de structure </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="134"/>
             <source>ShowModelFace</source>
-            <translation>AfficherModèleVisage</translation>
+            <translation>Afficher la surface pleine </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="142"/>
             <source>ShowModelFaceLine</source>
-            <translation>AfficherModèleFaceLine</translation>
+            <translation>Afficher maillage de surface</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="149"/>
@@ -1162,7 +1162,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="178"/>
             <source>View Show</source>
-            <translation>Voir le spectacle</translation>
+            <translation>Aperçu de l'impression </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="189"/>
@@ -1172,20 +1172,20 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="199"/>
             <source>Tool</source>
-            <translation>Outil</translation>
+            <translation>Outils</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="203"/>
             <source>Language</source>
-            <translation>Langue</translation>
+            <translation>Langues</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="208"/>
             <source>Model Repair</source>
-            <translation>Réparation de modèle</translation>
+            <translation>Réparation du modèle</translation>
         </message>
         <message>
-            <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="216"/>
+            <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="216"/>         
             <source>Manage Materials</source>
             <translation>Gérer les matériaux</translation>
         </message>
@@ -1197,7 +1197,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="233"/>
             <source>Theme color change</source>
-            <translation>Changement de couleur du thème</translation>
+            <translation>couleur du thème</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="238"/>
@@ -1212,22 +1212,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="251"/>
             <source>Models</source>
-            <translation>Des modèles</translation>
+            <translation>bibliothèque</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="261"/>
             <source>PrinterControl</source>
-            <translation>PrinterControl</translation>
+            <translation>paramètres imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="264"/>
             <source>Creality Cloud Printing</source>
-            <translation>Impression Creality Cloud</translation>
+            <translation>Impression via Creality Cloud</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="271"/>
             <source>USB Printing</source>
-            <translation>USB Printing</translation>
+            <translation>impression via USB </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="290"/>
@@ -1247,7 +1247,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="309"/>
             <source>Use Course</source>
-            <translation>Utiliser le cours</translation>
+            <translation>Utiliser le manuel</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="318"/>
@@ -1267,7 +1267,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>PA</source>
-            <translation>Pennsylvanie</translation>
+            <translation>étalonnage</translation>                                                                         
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
@@ -1277,12 +1277,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Coarse tune</source>
-            <translation>Coarse tune</translation>
+            <translation>réglage grossier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Fine tune</source>
-            <translation>Fine tune</translation>
+            <translation>réglage affiné</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
@@ -1310,12 +1310,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Temperature calibration</source>
-            <translation>Temperature calibration</translation>
+            <translation>calibration de température</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Material type</source>
-            <translation>Material type</translation>
+            <translation>type de matériau/translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
@@ -1325,7 +1325,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Starting temperature:</source>
-            <translation>Starting temperature:</translation>
+            <translation>température de départ:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
@@ -1335,12 +1335,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Temperature step:</source>
-            <translation>Temperature step:</translation>
+            <translation>étape de température:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <source>Calibration warning</source>
@@ -1352,7 +1352,7 @@
         </message>
     </context>
     <context>
-        <name>PADlg</name>
+        <name>PADlg</name>                                                                                                      stop.......
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>PA calibration</source>
@@ -1416,7 +1416,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
     </context>
     <context>
@@ -1457,7 +1457,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
             <source>Starting speed</source>
-            <translation>Starting speed</translation>
+            <translation>Vitesse de démarrage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
@@ -1467,12 +1467,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
             <source>Flow step</source>
-            <translation>Flow step</translation>
+            <translation> étapes du processus</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
     </context>
     <context>
@@ -1490,7 +1490,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FlowFineTuningDlg.qml"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FlowFineTuningDlg.qml"/>
@@ -1513,7 +1513,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="131"/>
             <source>Next time it will not pop up, remember that?</source>
-            <translation>La prochaine fois, il n'apparaîtra pas, vous vous en souvenez ?</translation>
+            <translation>ne pas voir cette fenètre plus tard ,me rappeler?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="143"/>
@@ -1536,17 +1536,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="151"/>
             <source>Import Gcode</source>
-            <translation>Import Gcode</translation>
+            <translation>Importer Gcode</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="151"/>
             <source>Download Model</source>
-            <translation>Download Model</translation>
+            <translation>Charger le Modèle</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="178"/>
             <source>Share The Model Group(Copy Link)</source>
-            <translation>Partager le groupe modèle (copier le lien)</translation>
+            <translation>Partager le modèle (copier le lien)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="201"/>
@@ -1556,7 +1556,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="224"/>
             <source>UnCollect</source>
-            <translation>UnCollect</translation>
+            <translation>anulée la collecte</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="224"/>
@@ -1573,9 +1573,9 @@
         <name>BasicVideoItem</name>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="113"/>
-            <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="313"/>
+            <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="313"/>     
             <source>No camera detected, unable to use this function</source>
-            <translation>No camera detected, unable to use this function</translation>
+            <translation>  Aucune caméra détectée, impossible d'utiliser cette fonction</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="129"/>
@@ -1639,7 +1639,7 @@
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/ccommandsdata.cpp" line="71"/>
             <source>PrinterControl(&amp;C)</source>
-            <translation>PrinterControl(&amp;C)</translation>
+            <translation>Contrôle d'imprimante(&amp;C)</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/ccommandsdata.cpp" line="72"/>
@@ -1653,12 +1653,12 @@
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dexportercommand.cpp" line="18"/>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dexportercommand.cpp" line="62"/>
             <source>Save As Project</source>
-            <translation>Enregistrer sous projet</translation>
+            <translation>Enregistrer le projet</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dexportercommand.cpp" line="53"/>
             <source>Save Finished, Open Local Folder</source>
-            <translation>Enregistrer terminé, ouvrir le dossier local</translation>
+            <translation>Enregistrement terminé, ouvrir le dossier local</translation>
         </message>
     </context>
     <context>
@@ -1666,7 +1666,7 @@
         <message>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dexportjob.cpp" line="18"/>
             <source>No matching printer found, cannot import project file</source>
-            <translation>No matching printer found, cannot import project file</translation>
+            <translation>Aucune imprimante correspondante trouvée, impossible d'importer le fichier de projet</translation>
         </message>
     </context>
     <context>
@@ -1698,7 +1698,7 @@
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/clearrecentfilecommand.cpp" line="26"/>
             <source>Clear</source>
-            <translation>Clair</translation>
+            <translation>Nettoyer</translation>
         </message>
     </context>
     <context>
@@ -1706,7 +1706,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/qml/Clone.qml" line="33"/>
             <source>The document has been modified.</source>
-            <translation>The document has been modified.</translation>
+            <translation>Le document a été modifié.</translation>
         </message>
     </context>
     <context>
@@ -1715,7 +1715,7 @@
             <location filename="../kernel/BasicKernel/internal/rclick_menu/cloneaction.cpp" line="13"/>
             <location filename="../kernel/BasicKernel/internal/rclick_menu/cloneaction.cpp" line="29"/>
             <source>Clone Model</source>
-            <translation>Modèle clone</translation>
+            <translation>Dupliquer le modèle</translation>
         </message>
     </context>
     <context>
@@ -1724,7 +1724,7 @@
             <location filename="../kernel/BasicKernel/internal/tool/clonecommand.cpp" line="24"/>
             <location filename="../kernel/BasicKernel/internal/tool/clonecommand.cpp" line="48"/>
             <source>Clone</source>
-            <translation>Cloner</translation>
+            <translation>Dupliquer/cloner</translation>
         </message>
     </context>
     <context>
@@ -1737,7 +1737,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloneNumDlg.qml" line="20"/>
             <source>Clone Number:</source>
-            <translation>Numéro de clone :</translation>
+            <translation>Numéro du clone :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloneNumDlg.qml" line="57"/>
@@ -1755,12 +1755,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ClonePanel.qml" line="13"/>
             <source>Clone</source>
-            <translation>Cloner</translation>
+            <translation>Dupliquer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ClonePanel.qml" line="48"/>
             <source>Clone Number:</source>
-            <translation>Numéro de clone :</translation>
+            <translation>Numéro de copie :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ClonePanel.qml" line="99"/>
@@ -1793,7 +1793,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloseProFileDlg.qml" line="79"/>
             <source>Exit</source>
-            <translation>Sortie</translation>
+            <translation>quitter</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloseProFileDlg.qml" line="93"/>
@@ -1806,7 +1806,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="11"/>
             <source>Print Select</source>
-            <translation>Imprimer Sélectionner</translation>
+            <translation>Imprimer la sélection</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="42"/>
@@ -1821,7 +1821,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="73"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="87"/>
@@ -1839,7 +1839,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="10"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="43"/>
@@ -1859,7 +1859,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="96"/>
             <source>zip</source>
-            <translation>fermeture éclair</translation>
+            <translation>zip</translation>
         </message>
     </context>
     <context>
@@ -1932,7 +1932,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="27"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="27"/>
@@ -1952,7 +1952,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="28"/>
             <source>Progress</source>
-            <translation>Progrès</translation>
+            <translation>Progression</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="28"/>
@@ -1975,7 +1975,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="392"/>
             <source>Free</source>
-            <translation>Gratuit</translation>
+            <translation>libre</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="411"/>
@@ -1990,7 +1990,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="426"/>
             <source>Printing Stopped</source>
-            <translation>Impression arrêtée</translation>
+            <translation>Impression arrèté</translation>
         </message>
     </context>
     <context>
@@ -2003,7 +2003,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/usbControlQml/CusExtruderBox.qml" line="89"/>
             <source>Warm Up</source>
-            <translation>Réchauffer</translation>
+            <translation>Chauffer</translation>
         </message>
     </context>
     <context>
@@ -2016,7 +2016,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/usbControlQml/CusHeatBedBox.qml" line="81"/>
             <source>Warm Up</source>
-            <translation>Réchauffer</translation>
+            <translation>Chauffer</translation>
         </message>
     </context>
     <context>
@@ -2032,7 +2032,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="27"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="27"/>
@@ -2052,7 +2052,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="28"/>
             <source>Progress</source>
-            <translation>Progrès</translation>
+            <translation>Progrèssion</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="28"/>
@@ -2062,7 +2062,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="173"/>
             <source>Some connect error</source>
-            <translation>Some connect error</translation>
+            <translation>Erreur de connection</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="272"/>
@@ -2085,7 +2085,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="26"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="26"/>
@@ -2115,7 +2115,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="151"/>
             <source>Some connect error</source>
-            <translation>Some connect error</translation>
+            <translation>Erreur de connection</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="249"/>
@@ -2146,12 +2146,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="1733"/>
             <source>Do you want to clear existing  supports before create new supports?</source>
-            <translation>Do you want to clear existing  supports before create new supports?</translation>
+            <translation>Voulez-vous effacer les supports existants avant de créer de nouveaux supports ?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="11"/>
             <source>Support</source>
-            <translation>Soutien</translation>
+            <translation>Support</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="45"/>
@@ -2186,18 +2186,18 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="157"/>
             <source>Only add support to the hot bed</source>
-            <translation>Ajoutez uniquement un support au lit chaud</translation>
+            <translation>Ajoutez uniquement les supports sur la table de construction</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="182"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="197"/>
             <source>Automatic Support</source>
-            <translation>Prise en charge automatique</translation>
+            <translation>Prise en charge des supports automatique</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="238"/>
             <source>Custom Support</source>
-            <translation>Assistance personnalisée</translation>
+            <translation>Supports avec Assistance personnalisée</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="253"/>
@@ -2258,7 +2258,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusTransFileMessageDlg.qml" line="62"/>
             <source>Translate Finished</source>
-            <translation>Traduire terminé</translation>
+            <translation>Traduction terminé</translation>
         </message>
     </context>
     <context>
@@ -2266,7 +2266,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusWizard.qml" line="10"/>
             <source>Click any area to show next</source>
-            <translation>Cliquez sur n'importe quelle zone pour afficher ensuite</translation>
+            <translation>Cliquez sur n'importe quelle zone pour afficher la suite</translation>
         </message>
     </context>
     <context>
@@ -2283,7 +2283,7 @@
         <message>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dclearprojectcommand.cpp" line="9"/>
             <source>Clear</source>
-            <translation>Clair</translation>
+            <translation>effacer</translation>
         </message>
     </context>
     <context>
@@ -2339,7 +2339,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="172"/>
             <source>No device found, try refreshing to get it again.</source>
-            <translation>No device found, try refreshing to get it again.</translation>
+            <translation>Aucun appareil trouvé. Essayez d'actualiser pour le récupérer l'appareil</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="192"/>
@@ -2360,7 +2360,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="241"/>
             <source>connecting</source>
-            <translation>connecting</translation>
+            <translation>connection</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="251"/>
@@ -2388,12 +2388,12 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="335"/>
             <source>connect success</source>
-            <translation>connect success</translation>
+            <translation>connecté</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="340"/>
             <source>connect failed</source>
-            <translation>connect failed</translation>
+            <translation>erreur de connection</translation>
         </message>
     </context>
     <context>
@@ -2411,12 +2411,12 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="70"/>
             <source>No device found, try refreshing to get it again.</source>
-            <translation>No device found, try refreshing to get it again.</translation>
+            <translation>Aucun appareil trouvé, essayez d'actualiser pour récupérer l'appareil.</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="86"/>
             <source>Transferred file : </source>
-            <translation type="unfinished"/>
+            <translation>transfert de fichier</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="104"/>
@@ -2426,7 +2426,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="124"/>
             <source>Send Gcode</source>
-            <translation>Send Gcode</translation>
+            <translation>Envoyer Gcode</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="184"/>
@@ -2477,12 +2477,12 @@
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="608"/>
             <source> No idle printer</source>
-            <translation type="unfinished"/>
+            <translation>Pas d'imprimante active</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="610"/>
             <source> Please select a print file</source>
-            <translation type="unfinished"/>
+            <translation>Veuillez sélectionner un fichier à imprimer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="782"/>
@@ -2507,12 +2507,12 @@
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="932"/>
             <source>Printing File:</source>
-            <translation>Printing File:</translation>
+            <translation>Fichier d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="974"/>
             <source>Device Type:</source>
-            <translation>Device Type:</translation>
+            <translation>Type d'appareil:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="1006"/>
@@ -2537,7 +2537,7 @@
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="1219"/>
             <source>Printing Time:</source>
-            <translation>Printing Time:</translation>
+            <translation>Temps d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="1244"/>
@@ -2567,12 +2567,12 @@
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="2012"/>
             <source>Please make sure that the device type you chose while slicing must match with the printing device, or it may lead you to a printing failure or even cause an irreversible printer damage. Do you want to start printing?</source>
-            <translation>Please make sure that the device type you chose while slicing must match with the printing device, or it may lead you to a printing failure or even cause an irreversible printer damage. Do you want to start printing?</translation>
+            <translation>Veuillez vous assurer que le type de périphérique que vous avez choisi lors du découpage doit correspondre au périphérique d'impression, sinon cela pourrait entraîner un échec d'impression ou même causer des dommages irréversibles à l'imprimante. Voulez-vous commencer à imprimer?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="2024"/>
             <source>Please make sure to clear the HotBed before printing.( Or it wil causes irritrievable damage to the printer if there still has something on the HotBed)</source>
-            <translation>Please make sure to clear the HotBed before printing.( Or it wil causes irritrievable damage to the printer if there still has something on the HotBed)</translation>
+            <translation>Veuillez vous assurer de nettoyer le HotBed avant d'imprimer. (Sinon, cela causera des dommages irritables à l'imprimante s'il y a encore quelque chose sur le HotBed)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="2046"/>
@@ -2626,7 +2626,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="72"/>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>Bonne qualité</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="73"/>
@@ -2636,12 +2636,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="260"/>
             <source>Profile:</source>
-            <translation>Profile:</translation>
+            <translation>Profil:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="276"/>
             <source>Material:</source>
-            <translation>Material:</translation>
+            <translation>Materiel:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="354"/>
@@ -2671,7 +2671,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="527"/>
             <source>Generate Support:</source>
-            <translation>Generate Support:</translation>
+            <translation>Générer Support:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="549"/>
@@ -2681,12 +2681,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="586"/>
             <source>Support Density:</source>
-            <translation>Support Density:</translation>
+            <translation>densité support:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="622"/>
             <source>Small Feature Max Length:</source>
-            <translation>Small Feature Max Length:</translation>
+            <translation>Longueur maximale des petites lignes:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="666"/>
@@ -2701,22 +2701,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="736"/>
             <source>Print Speed:</source>
-            <translation>Print Speed:</translation>
+            <translation>Vitesse d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="771"/>
             <source>Infill Speed:</source>
-            <translation>Infill Speed:</translation>
+            <translation>Vitesse de remplissage:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="806"/>
             <source>Wall Speed:</source>
-            <translation>Wall Speed:</translation>
+            <translation>Vitesse de la paroi:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="841"/>
             <source>Support Flow:</source>
-            <translation>Support Flow:</translation>
+            <translation>Support Flow</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="876"/>
@@ -2779,7 +2779,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="79"/>
             <source>Suspend</source>
-            <translation>Suspend</translation>
+            <translation>interrompu</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="79"/>
@@ -2842,7 +2842,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMPreviewPanel.qml" line="146"/>
             <source>USB Printing</source>
-            <translation>USB Printing</translation>
+            <translation>impression via USB </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMPreviewPanel.qml" line="186"/>
@@ -2888,7 +2888,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="178"/>
             <source>Show in Preview</source>
-            <translation>Show in Preview</translation>
+            <translation>Afficher aperçu</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="192"/>
@@ -2915,7 +2915,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="233"/>
             <source>Waiting</source>
-            <translation>En attendant</translation>
+            <translation>patienter</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="237"/>
@@ -2936,7 +2936,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="362"/>
             <source>Remain Time</source>
-            <translation>Remain Time</translation>
+            <translationTemps restant</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="389"/>
@@ -2946,7 +2946,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="499"/>
             <source>View</source>
-            <translation>Voir</translation>
+            <translation>Aperçu</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="516"/>
@@ -2984,7 +2984,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintDeviceItem.qml" line="43"/>
             <source>The slice type is unknown and cannot be checked. Redefine slice type?</source>
-            <translation>The slice type is unknown and cannot be checked. Redefine slice type?</translation>
+            <translation>Le type de tranche est inconnu et ne peut pas être vérifié. Redéfinir le type de tranche ?</translation>
         </message>
     </context>
     <context>
@@ -3019,13 +3019,13 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="490"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="493"/>
-            <source>Allocating</source>
-            <translation>Allocation</translation>
+            <source>Allocation</source>
+            <translation>Attribuer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="514"/>
             <source>Print Monitoring</source>
-            <translation>Print Monitoring</translation>
+            <translation>Surveillance de l'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="532"/>
@@ -3036,7 +3036,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="550"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="700"/>
             <source>Print Report</source>
-            <translation>Print Report</translation>
+            <translation>Imprimer le rapport</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="745"/>
@@ -3074,12 +3074,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskFoldingPanel.qml" line="347"/>
             <source>Waiting</source>
-            <translation>En attendant</translation>
+            <translation>Patienter</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskFoldingPanel.qml" line="367"/>
             <source>Allocating</source>
-            <translation>Allocation</translation>
+            <translation>Attribuer</translation>
         </message>
     </context>
     <context>
@@ -17957,7 +17957,7 @@
         </message>
         <message>
             <source>Open folder</source>
-            <translation>Open folder</translation>
+            <translation>Ouvrir dossier</translation>
         </message>
     </context>
     <context>
@@ -18258,7 +18258,7 @@ OpenGL:&#xd;
         </message>
         <message>
             <source>Machine in preparation</source>
-            <translation>Machine in preparation</translation>
+            <translation>Machine en préparation</translation>
         </message>
         <message>
             <source>Continue printing after power failure</source>
