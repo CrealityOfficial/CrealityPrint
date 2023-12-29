@@ -132,7 +132,7 @@
         </message>
         <message>
             <source>Check All</source>
-            <translation>tout vérifier</translation>
+            <translation>Tout vérifier</translation>
         </message>
     </context>
     <context>
@@ -1272,7 +1272,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Flow</source>
-            <translation>Couler</translation>
+            <translation>Flow</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
@@ -1292,7 +1292,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Maximum volume flow</source>
-            <translation>Débit volumétrique maximal</translation>
+            <translation>Débit volumétrique maximal(volume flow)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
@@ -1325,7 +1325,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Starting temperature:</source>
-            <translation>température de départ:</translation>
+            <translation>Température de départ:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
@@ -1335,7 +1335,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Temperature step:</source>
-            <translation>étape de température:</translation>
+            <translation>Etape de température:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
@@ -1513,7 +1513,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="131"/>
             <source>Next time it will not pop up, remember that?</source>
-            <translation>ne pas voir cette fenètre plus tard ,me rappeler?</translation>
+            <translation>ne pas afficher cette fenètre plus tard ,me rappeler?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="143"/>
@@ -1556,7 +1556,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="224"/>
             <source>UnCollect</source>
-            <translation>anulée la collecte</translation>
+            <translation>Annulée la collecte</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="224"/>
@@ -1596,7 +1596,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="371"/>
             <source>video loading ...</source>
-            <translation>chargement de la vidéo...</translation>
+            <translation>Chargement de la vidéo...</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="382"/>
@@ -1675,7 +1675,7 @@
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dimportercommand.cpp" line="19"/>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dimportercommand.cpp" line="99"/>
             <source>Open Project</source>
-            <translation>Projet ouvert</translation>
+            <translation>Ouvrir Projet</translation>
         </message>
     </context>
     <context>
@@ -17355,7 +17355,7 @@
         </message>
         <message>
             <source>The number of the print cooling fan associated with this extruder. Only change this from the default value of 0 when you have a different print cooling fan for each extruder.</source>
-            <translation>Le numéro du ventilateur de refroidissement d'impression associé à cette extrudeuse. Modifiez cette valeur par défaut de 0 uniquement lorsque vous disposez d'un ventilateur de refroidissement d'impression différent pour chaque extrudeuse.</translation>
+            <translation>Le numéro du ventilateur de refroidissement d'impression associé à cette extrudeuse. Modifiez cette valeur par défaut de 0 uniquement lorsque vous disposez d'un ventilateur de refroidissemet d'impression différent pour chaque extrudeuse.</translation>
         </message>
         <message>
             <source>The x-coordinate of the offset of the nozzle.</source>
@@ -17367,7 +17367,7 @@
         </message>
         <message>
             <source>First Change Color</source>
-            <translation>premier changemenr de couleur</translation>
+            <translation>Premier changemenr de couleur</translation>
         </message>
         <message>
             <source>layer</source>
@@ -17547,7 +17547,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="21"/>
             <source>new</source>
-            <translation>nouveau</translation>
+            <translation>Nouveau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="276"/>
@@ -17632,7 +17632,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="876"/>
             <source>Infill Flow:</source>
-            <translation>Débit de remplissage:</translation>
+            <translation>Débit de remplissage(Infill Flow):</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="911"/>
@@ -17724,7 +17724,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="80"/>
             <source>Basic Parameters</source>
-            <translation>Parametre de base</translation>
+            <translation>Paramètres de base</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="138"/>
@@ -17754,17 +17754,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="260"/>
             <source>Number of Extruders:</source>
-            <translation>quantité d"extrudeur:</translation>
+            <translation>Nombre d'extrudeur:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="272"/>
             <source>please input 1-2</source>
-            <translation>veuillez saisir 1-2</translation>
+            <translation>Veuillez saisir 1-2</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="299"/>
             <source>Nozzle Diameter:</source>
-            <translation>diamètre de la buse:</translation>
+            <translation>Diamètre de la buse:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="327"/>
@@ -17789,7 +17789,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="417"/>
             <source>Is Center Origin</source>
-            <translation>origine du centre</translation>
+            <translation>Origine du centre</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="417"/>
@@ -17809,7 +17809,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="417"/>
             <source>Proximal</source>
-            <translation>Proximité</translation>
+            <translation>Proximité (Proximal)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="155"/>
@@ -17826,7 +17826,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="474"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="522"/>
             <source>End of G-code:</source>
-            <translation>fin du G-code:</translation>
+            <translation>Fin du G-code:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="474"/>
@@ -17844,7 +17844,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RepairPanelDlg.qml" line="12"/>
             <source>Damaged Plane</source>
-            <translation>surface endommagée</translation>
+            <translation>Surface endommagée</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RepairPanelDlg.qml" line="12"/>
@@ -17854,7 +17854,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RepairPanelDlg.qml" line="12"/>
             <source>Redundant Shell</source>
-            <translation>Coque redondante</translation>
+            <translation>Coque redondante (Redundant Shell)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RepairPanelDlg.qml" line="12"/>
@@ -17908,7 +17908,7 @@
         </message>
         <message>
             <source>Save failed, please try again.</source>
-            <translation>echec de l'enregistrement,veuillez réessayer svp.</translation>
+            <translation>Echec de l'enregistrement,veuillez réessayer svp.</translation>
         </message>
         <message>
             <source>Yes</source>
@@ -18036,7 +18036,7 @@
         </message>
         <message>
             <source>Retract</source>
-            <translation>Se rétracter</translation>
+            <translation>Rétracter</translation>
         </message>
         <message>
             <source>Line Width</source>
@@ -18069,15 +18069,15 @@
         <name>DumpWindow</name>
         <message>
             <source>title</source>
-            <translation>titre</translation>
+            <translation>Titre</translation>
         </message>
         <message>
             <source>A serious error has occurred in %1. Please send this error report to us to fix the problem.</source>
-            <translation>A serious error has occurred in %1. Please send this error report to us to fix the problem.</translation>
+            <translation>Une erreur grave s'est produite dans %1. Veuillez nous envoyer ce rapport d'erreur pour résoudre le problème.</translation>
         </message>
         <message>
             <source>Please click the 'Send Report' button to automatically publish the error report to our server.</source>
-            <translation>Please click the 'Send Report' button to automatically publish the error report to our server.</translation>
+            <translation>Veuillez cliquer sur le bouton « Envoyer le rapport » pour publier automatiquement le rapport d'erreur sur notre serveur..</translation>
         </message>
         <message>
             <source>%1 version: %2&#xd;
@@ -18099,7 +18099,7 @@ OpenGL:&#xd;
         </message>
         <message>
             <source>accept</source>
-            <translation>accepter</translation>
+            <translation>Accepter</translation>
         </message>
         <message>
             <source>cancel</source>
@@ -18170,7 +18170,7 @@ OpenGL:&#xd;
         </message>
         <message>
             <source>Request cancelled</source>
-            <translation>demande annulée</translation>
+            <translation>Demande annulée</translation>
         </message>
         <message>
             <source>Too many redirects</source>
@@ -18193,7 +18193,7 @@ OpenGL:&#xd;
         </message>
         <message>
             <source>Communication abnormality</source>
-            <translation>Communication abnormality</translation>
+            <translation>Communication anormale</translation>
         </message>
         <message>
             <source>The temperature of the hot bed is abnormal</source>
