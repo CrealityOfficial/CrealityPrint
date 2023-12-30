@@ -812,7 +812,7 @@
         </message>
         <message>
             <source>Onewall</source>
-            <translation>Un mur</translation>
+            <translation>Une paroi</translation>
         </message>
         <message>
             <source>Grid</source>
@@ -1059,7 +1059,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="76"/>
             <source>Save As Project</source>
-            <translation>Enregistrer le projet</translation>
+            <translation>Enregistrer projet</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="88"/>
@@ -1096,7 +1096,7 @@
         </message>
         <message>
             <source>Clone Model</source>
-            <translation>Dupliquer/cloner le modèle</translation>
+            <translation>Dupliquer le modèle</translation>
         </message>
         <message>
             <source>Split Model</source>
@@ -1444,7 +1444,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MaxFlowVolumeDlg.qml"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
     </context>
     <context>
@@ -1826,7 +1826,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="87"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="100"/>
@@ -1882,7 +1882,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComPrinterSelectDlg.qml" line="92"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComPrinterSelectDlg.qml" line="106"/>
@@ -2656,7 +2656,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="424"/>
             <source>Wall Line Count:</source>
-            <translation>Nombre ligne de mur:</translation>
+            <translation>Nombre ligne de paroi:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="460"/>
@@ -2789,7 +2789,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="113"/>
             <source>Print Speed</source>
-            <translation>Vitesse d'impression</translation>
+            <translation>Vitesse</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="211"/>
@@ -2814,7 +2814,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="263"/>
             <source>Only Show</source>
-            <translation>Montre seulement</translation>
+            <translation>tout voir</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="346"/>
@@ -2863,7 +2863,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="104"/>
             <source>G-code Preview</source>
-            <translation>Aperçu du code G</translation>
+            <translation>besoin</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="119"/>
@@ -2873,7 +2873,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="129"/>
             <source>Material Length</source>
-            <translation>Longueur du matériau</translation>
+            <translation>Longueur matériau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="139"/>
@@ -2887,18 +2887,18 @@
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="178"/>
-            <source>Show in Preview</source>
-            <translation>Afficher aperçu</translation>
+            <source>Show in Preview/source>
+            <translation>Informations globales</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="192"/>
             <source>Printing Platform</source>
-            <translation>Plateforme d'impression</translation>
+            <translation>Table d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="267"/>
             <source>Color Show</source>
-            <translation>Spectacle de couleurs</translation>
+            <translation>Légende</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="279"/>
@@ -3341,7 +3341,7 @@
         </message>
         <message>
             <source>mm),Wall Line Count(</source>
-            <translation>mm), nombre de lignes de mur (</translation>
+            <translation>mm), nombre de lignes de paroi (</translation>
         </message>
         <message>
             <source>mm),Infill Density(</source>
@@ -3590,7 +3590,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="733"/>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="791"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="772"/>
@@ -4062,7 +4062,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="4665"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="4667"/>
@@ -6073,7 +6073,7 @@
         </message>
         <message>
             <source>Flow</source>
-            <translation>Couler</translation>
+            <translation>débit</translation>
         </message>
         <message>
             <source>Cooling</source>
@@ -6133,11 +6133,11 @@
         </message>
         <message>
             <source>Outer Wall Flow</source>
-            <translation>Flux du mur extérieur</translation>
+            <translation>Flux paroi extérieur</translation>
         </message>
         <message>
             <source>Inner Wall(s) Flow</source>
-            <translation>Débit des parois intérieures</translation>
+            <translation>Débit parois intérieures</translation>
         </message>
         <message>
             <source>Top/Bottom Flow</source>
@@ -6273,7 +6273,7 @@
         </message>
         <message>
             <source>Retraction Wipe</source>
-            <translation>Lingette de rétraction</translation>
+            <translation>rétraction d'essuyage</translation>
         </message>
         <message>
             <source>Retract at Layer Change</source>
@@ -6289,7 +6289,7 @@
         </message>
         <message>
             <source>Wipe length</source>
-            <translation>Longueur de lingette(Wipe length)</translation>
+            <translation>Longueur d'essuyage(Wipe length)</translation>
         </message>
         <message>
             <source>Before Wipe Retraction Amount Percent</source>
@@ -7966,7 +7966,7 @@
         </message>
         <message>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <source>You are unlocking the uniform ratio, which means the model will not return to its original size. Do you want to proceed?</source>
@@ -8153,11 +8153,11 @@
         </message>
         <message>
             <source>Outer Perimeter</source>
-            <translation>Périmètre extérieur</translation>
+            <translation>Paroi externe</translation>
         </message>
         <message>
             <source>Inner Perimeter</source>
-            <translation>Périmètre intérieur</translation>
+            <translation>Paroi interne</translation>
         </message>
         <message>
             <source>Skin</source>
@@ -8177,7 +8177,7 @@
         </message>
         <message>
             <source>SupportInfill</source>
-            <translation>SupportRemplissage</translation>
+            <translation>rempli.support</translation>
         </message>
         <message>
             <source>SupportInterface</source>
@@ -8348,7 +8348,7 @@
             <location filename="../kernel/BasicKernel/internal/menu_tool/submenuThemeColor.cpp" line="7"/>
             <location filename="../kernel/BasicKernel/internal/menu_tool/submenuThemeColor.cpp" line="20"/>
             <source>Theme color change</source>
-            <translation>Changement de couleur du thème</translation>
+            <translation>couleur du thème</translation>
         </message>
     </context>
     <context>
@@ -9791,7 +9791,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
             <source>Wall Line Count:</source>
-            <translation>Nombre de lignes de mur:</translation>
+            <translation>Nombre de lignes de paroi:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="234"/>
@@ -10018,7 +10018,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Wall Speed:</source>
-            <translation>Vitesse du mur</translation>
+            <translation>Vitesse de la paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -10033,7 +10033,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Wall Flow:</source>
-            <translation>Flow remplissage du mur:</translation>
+            <translation>Flow remplissage de la paroi:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -10043,7 +10043,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Flow compensation on wall lines.</source>
-            <translation>Flow Compensation de débit sur les lignes murales.</translation>
+            <translation>Flow Compensation de débit sur les lignes de paroi.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -10058,7 +10058,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>The speed at which the walls are printed.</source>
-            <translation>La vitesse à laquelle les murs sont imprimés.</translation>
+            <translation>La vitesse à laquelle les parois sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -10118,7 +10118,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
             <source>The number of walls. When calculated by the wall thickness, this value is rounded to a whole number.</source>
-            <translation>Le nombre de murs. Lorsqu'elle est calculée en fonction de l'épaisseur de la paroi, cette valeur est arrondie à un nombre entier.</translation>
+            <translation>Le nombre de parois. Lorsqu'elle est calculée en fonction de l'épaisseur de la paroi, cette valeur est arrondie à un nombre entier.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -10171,7 +10171,7 @@
         </message>
         <message>
             <source>Minimum Wall Line Width</source>
-            <translation>Largeur minimale de la ligne de mur</translation>
+            <translation>Largeur minimale de la ligne de paroi</translation>
         </message>
         <message>
             <source>Profile</source>
@@ -10954,32 +10954,32 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Line Width</source>
-            <translation>Largeur de la ligne du mur</translation>
+            <translation>Largeur de la ligne du paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Width of a single wall line.</source>
-            <translation>Largeur d'une seule ligne de mur.</translation>
+            <translation>Largeur d'une seule ligne de paroi.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Line Width</source>
-            <translation>Largeur de la ligne du mur extérieur</translation>
+            <translation>Largeur de la ligne du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Width of the outermost wall line. By lowering this value, higher levels of detail can be printed.</source>
-            <translation>Largeur de la ligne de mur la plus extérieure. En réduisant cette valeur, des niveaux de détails plus élevés peuvent être imprimés.</translation>
+            <translation>Largeur de la ligne de paroi la plus extérieure. En réduisant cette valeur, des niveaux de détails plus élevés peuvent être imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Inner Wall(s) Line Width</source>
-            <translation>Largeur de ligne des murs intérieurs</translation>
+            <translation>Largeur de ligne des parois intérieurs</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Width of a single wall line for all wall lines except the outermost one.</source>
-            <translation>Largeur d'une seule ligne de mur pour toutes les lignes de mur sauf celle la plus extérieure.</translation>
+            <translation>Largeur d'une seule ligne de paroi pour toutes les lignes de paroi sauf celle la plus extérieure.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11089,12 +11089,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Extruder</source>
-            <translation>Extrudeuse murale</translation>
+            <translation>Extrudeuse paroiale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The extruder train used for printing the walls. This is used in multi-extrusion.</source>
-            <translation>Le train d'extrudeuse utilisé pour imprimer les murs. Ceci est utilisé en multi-extrusion.</translation>
+            <translation>Le train d'extrudeuse utilisé pour imprimer les parois. Ceci est utilisé en multi-extrusion.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11119,42 +11119,42 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Thickness</source>
-            <translation>Épaisseur du mur</translation>
+            <translation>Épaisseur du paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The thickness of the walls in the horizontal direction. This value divided by the wall line width defines the number of walls.</source>
-            <translation>L'épaisseur des murs dans le sens horizontal. Cette valeur divisée par la largeur de la ligne du mur définit le nombre de murs.</translation>
+            <translation>L'épaisseur des parois dans le sens horizontal. Cette valeur divisée par la largeur de la ligne du paroi définit le nombre de parois.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Line Count</source>
-            <translation>Nombre de lignes de mur</translation>
+            <translation>Nombre de lignes de paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The number of walls. When calculated by the wall thickness, this value is rounded to a whole number.</source>
-            <translation>Le nombre de murs. Lorsqu'elle est calculée en fonction de l'épaisseur de la paroi, cette valeur est arrondie à un nombre entier.</translation>
+            <translation>Le nombre de parois. Lorsqu'elle est calculée en fonction de l'épaisseur de la paroi, cette valeur est arrondie à un nombre entier.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Only One Wall for Roofing</source>
-            <translation>Un seul mur pour la toiture</translation>
+            <translation>Un seul paroi pour la toiture</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Only a single wall is used for the top surface, so that more space can be used for the roofing pattern.</source>
-            <translation>Un seul mur est utilisé pour la surface supérieure, de sorte que plus d'espace puisse être utilisé pour le motif de la toiture.</translation>
+            <translation>Un seul paroi est utilisé pour la surface supérieure, de sorte que plus d'espace puisse être utilisé pour le motif de la toiture.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Wipe Distance</source>
-            <translation>Distance d'essuyage du mur extérieur</translation>
+            <translation>Distance d'essuyage du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Distance of a travel move inserted after the outer wall, to hide the Z seam better.</source>
-            <translation>Distance d'un mouvement de déplacement inséré après le mur extérieur, pour mieux cacher la couture Z.</translation>
+            <translation>Distance d'un mouvement de déplacement inséré après le paroi extérieur, pour mieux cacher la couture Z.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11294,57 +11294,57 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Inset</source>
-            <translation>Encart de mur extérieur</translation>
+            <translation>Encart de paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Inset applied to the path of the outer wall. If the outer wall is smaller than the nozzle, and printed after the inner walls, use this offset to get the hole in the nozzle to overlap with the inner walls instead of the outside of the model.</source>
-            <translation>Encart appliqué sur le tracé du mur extérieur. Si la paroi extérieure est plus petite que la buse et imprimée après les parois intérieures, utilisez ce décalage pour que le trou de la buse chevauche les parois intérieures au lieu de l'extérieur du modèle.</translation>
+            <translation>Encart appliqué sur le tracé du paroi extérieur. Si la paroi extérieure est plus petite que la buse et imprimée après les parois intérieures, utilisez ce décalage pour que le trou de la buse chevauche les parois intérieures au lieu de l'extérieur du modèle.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Optimize Wall Printing Order</source>
-            <translation>Optimiser l'ordre d'impression des murs</translation>
+            <translation>Optimiser l'ordre d'impression des parois</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Optimize the order of wall printing to reduce the number of retracements and the distance travelled. Most parts will benefit from enabling this feature, but some may take longer, so compare the estimated printing time with not optimized. The first layer was not optimized when selecting the brim as build plate adhesion type.</source>
-            <translation>Optimisez l’ordre d’impression des murs pour réduire le nombre de retracements et la distance parcourue. La plupart des pièces bénéficieront de l'activation de cette fonctionnalité, mais certaines peuvent prendre plus de temps, alors comparez le temps d'impression estimé avec celui non optimisé. La première couche n'a pas été optimisée lors de la sélection du bord comme type d'adhésion de la plaque de construction.</translation>
+            <translation>Optimisez l’ordre d’impression des parois pour réduire le nombre de retracements et la distance parcourue. La plupart des pièces bénéficieront de l'activation de cette fonctionnalité, mais certaines peuvent prendre plus de temps, alors comparez le temps d'impression estimé avec celui non optimisé. La première couche n'a pas été optimisée lors de la sélection du bord comme type d'adhésion de la plaque de construction.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall First, Inner Wall Second</source>
-            <translation>Mur extérieur en premier, mur intérieur en second</translation>
+            <translation>paroi extérieur en premier, paroi intérieur en second</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Ordering</source>
-            <translation>Commande murale</translation>
+            <translation>Commande paroiale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Determines the order in which walls are printed. Printing outer walls earlier helps with dimensional accuracy, as faults from inner walls cannot propagate to the outside. However printing them later allows them to stack better when overhangs are printed. When there is an uneven amount of total innner walls, the 'center last line' is always printed last.</source>
-            <translation>Détermine l'ordre dans lequel les murs sont imprimés. L'impression précoce des murs extérieurs contribue à la précision dimensionnelle, car les défauts des murs intérieurs ne peuvent pas se propager vers l'extérieur. Cependant, les imprimer plus tard permet de mieux les empiler lorsque les surplombs sont imprimés. Lorsqu'il y a une quantité inégale de murs intérieurs totaux, la « dernière ligne centrale » est toujours imprimée en dernier.</translation>
+            <translation>Détermine l'ordre dans lequel les parois sont imprimés. L'impression précoce des parois extérieurs contribue à la précision dimensionnelle, car les défauts des parois intérieurs ne peuvent pas se propager vers l'extérieur. Cependant, les imprimer plus tard permet de mieux les empiler lorsque les surplombs sont imprimés. Lorsqu'il y a une quantité inégale de parois intérieurs totaux, la « dernière ligne centrale » est toujours imprimée en dernier.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Prints walls in order of outside to inside when enabled. This can help improve the dimensional accuracy of X and Y when using a high viscosity plastic like ABS; however it may reduce outer surface print quality, especially on overhangs.</source>
-            <translation>Imprime les murs de l'extérieur vers l'intérieur lorsqu'il est activé. Cela peut aider à améliorer la précision dimensionnelle de X et Y lors de l’utilisation d’un plastique à haute viscosité comme l’ABS ; cependant, cela peut réduire la qualité d'impression de la surface extérieure, en particulier sur les surplombs.</translation>
+            <translation>Imprime les parois de l'extérieur vers l'intérieur lorsqu'il est activé. Cela peut aider à améliorer la précision dimensionnelle de X et Y lors de l’utilisation d’un plastique à haute viscosité comme l’ABS ; cependant, cela peut réduire la qualité d'impression de la surface extérieure, en particulier sur les surplombs.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Alternate Extra Wall</source>
-            <translation>Mur supplémentaire alternatif</translation>
+            <translation>paroi supplémentaire alternatif</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Print an extra wall every other layer. In this way, the filler will get stuck between these extra walls, resulting in stronger print quality.</source>
-            <translation>Imprimez un mur supplémentaire tous les deux calques. De cette façon, le matériau de remplissage restera coincé entre ces parois supplémentaires, ce qui entraînera une meilleure qualité d'impression.</translation>
+            <translation>Imprimez un paroi supplémentaire tous les deux calques. De cette façon, le matériau de remplissage restera coincé entre ces parois supplémentaires, ce qui entraînera une meilleure qualité d'impression.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Unify Walls Print Drection</source>
-            <translation>Unifier la direction d'impression des murs</translation>
+            <translation>Unifier la direction d'impression des parois</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11354,32 +11354,32 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate Wall Overlaps</source>
-            <translation>Compenser les chevauchements de murs</translation>
+            <translation>Compenser les chevauchements de parois</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate the flow for parts of a wall being printed where there is already a wall in place.</source>
-            <translation>Compensez le flux pour les parties d'un mur en cours d'impression là où un mur est déjà en place.</translation>
+            <translation>Compensez le flux pour les parties d'un paroi en cours d'impression là où un paroi est déjà en place.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate Outer Wall Overlaps</source>
-            <translation>Compenser les chevauchements des murs extérieurs</translation>
+            <translation>Compenser les chevauchements des parois extérieurs</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate the flow for parts of an outer wall being printed where there is already a wall in place.</source>
-            <translation>Compensez le flux pour les parties d'un mur extérieur en cours d'impression là où un mur est déjà en place.</translation>
+            <translation>Compensez le flux pour les parties d'un paroi extérieur en cours d'impression là où un paroi est déjà en place.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate Inner Wall Overlaps</source>
-            <translation>Compenser les chevauchements des murs intérieurs</translation>
+            <translation>Compenser les chevauchements des parois intérieurs</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate the flow for parts of an inner wall being printed where there is already a wall in place.</source>
-            <translation>Compensez le flux pour les parties d'un mur intérieur en cours d'impression là où un mur est déjà en place.</translation>
+            <translation>Compensez le flux pour les parties d'un paroi intérieur en cours d'impression là où un paroi est déjà en place.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11389,7 +11389,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The minimum percentage flow rate allowed by the wall line. When a wall is close to an existing wall, wall overlap compensation can reduce its flow. Walls with a flow rate less than this value will be replaced by travel moves. When using this setting, you must enable wall overlap compensation and print the outer wall before printing the inner wall.</source>
-            <translation>Le pourcentage de débit minimum autorisé par la ligne murale. Lorsqu'un mur est proche d'un mur existant, la compensation du chevauchement du mur peut réduire son écoulement. Les murs ayant un débit inférieur à cette valeur seront remplacés par des déplacements. Lorsque vous utilisez ce paramètre, vous devez activer la compensation de chevauchement des murs et imprimer le mur extérieur avant d'imprimer le mur intérieur.</translation>
+            <translation>Le pourcentage de débit minimum autorisé par la ligne paroiale. Lorsqu'un paroi est proche d'un paroi existant, la compensation du chevauchement du paroi peut réduire son écoulement. Les parois ayant un débit inférieur à cette valeur seront remplacés par des déplacements. Lorsque vous utilisez ce paramètre, vous devez activer la compensation de chevauchement des parois et imprimer le paroi extérieur avant d'imprimer le paroi intérieur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11404,12 +11404,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Fill Gaps Between Walls</source>
-            <translation>Combler les espaces entre les murs</translation>
+            <translation>Combler les espaces entre les parois</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Fills the gaps between walls where no walls fit.</source>
-            <translation>Remplit les espaces entre les murs là où aucun mur ne rentre.</translation>
+            <translation>Remplit les espaces entre les parois là où aucun paroi ne rentre.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11434,17 +11434,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Print Thin Walls</source>
-            <translation>Imprimer des murs fins</translation>
+            <translation>Imprimer des parois fins</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Single Extrusion Walls</source>
-            <translation>Murs à extrusion unique</translation>
+            <translation>parois à extrusion unique</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Enable single extrusion walls.</source>
-            <translation>Activer les murs à extrusion unique.</translation>
+            <translation>Activer les parois à extrusion unique.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11679,7 +11679,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Extra Skin Wall Count</source>
-            <translation>Nombre supplémentaire de murs de peau</translation>
+            <translation>Nombre supplémentaire de parois de peau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11794,7 +11794,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Adjust the amount of overlap between the walls and (the endpoints of) the skin-centerlines, as a percentage of the line widths of the skin lines and the innermost wall. A slight overlap allows the walls to connect firmly to the skin. Note that, given an equal skin and wall line-width, any percentage over 50% may already cause any skin to go past the wall, because at that point the position of the nozzle of the skin-extruder may already reach past the middle of the wall.</source>
-            <translation>Ajustez le degré de chevauchement entre les murs et (les extrémités des) lignes centrales de la peau, en pourcentage de la largeur des lignes de peau et du mur le plus intérieur. Un léger chevauchement permet aux murs de se lier fermement à la peau. Notez que, pour une largeur de ligne de peau et de paroi égale, tout pourcentage supérieur à 50 % peut déjà faire passer la peau au-delà de la paroi, car à ce stade, la position de la buse de l'extrudeuse de peau peut déjà dépasser le milieu de la paroi. le mur.</translation>
+            <translation>Ajustez le degré de chevauchement entre les parois et (les extrémités des) lignes centrales de la peau, en pourcentage de la largeur des lignes de peau et du paroi le plus intérieur. Un léger chevauchement permet aux parois de se lier fermement à la peau. Notez que, pour une largeur de ligne de peau et de paroi égale, tout pourcentage supérieur à 50 % peut déjà faire passer la peau au-delà de la paroi, car à ce stade, la position de la buse de l'extrudeuse de peau peut déjà dépasser le milieu de la paroi. le paroi.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11804,7 +11804,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Adjust the amount of overlap between the walls and (the endpoints of) the skin-centerlines. A slight overlap allows the walls to connect firmly to the skin. Note that, given an equal skin and wall line-width, any value over half the width of the wall may already cause any skin to go past the wall, because at that point the position of the nozzle of the skin-extruder may already reach past the middle of the wall.</source>
-            <translation>Ajustez le degré de chevauchement entre les murs et (les extrémités des) lignes médianes de la peau. Un léger chevauchement permet aux murs de se lier fermement à la peau. Notez que, pour une largeur de ligne de peau et de mur égale, toute valeur supérieure à la moitié de la largeur du mur peut déjà faire dépasser la peau du mur, car à ce stade, la position de la buse de l'extrudeuse de peau peut déjà atteindre passé le milieu du mur.</translation>
+            <translation>Ajustez le degré de chevauchement entre les parois et (les extrémités des) lignes médianes de la peau. Un léger chevauchement permet aux parois de se lier fermement à la peau. Notez que, pour une largeur de ligne de peau et de paroi égale, toute valeur supérieure à la moitié de la largeur du paroi peut déjà faire dépasser la peau du paroi, car à ce stade, la position de la buse de l'extrudeuse de peau peut déjà atteindre passé le milieu du paroi.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11859,7 +11859,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Connect the ends where the infill pattern meets the inner wall using a line which follows the shape of the inner wall. Enabling this setting can make the infill adhere to the walls better and reduce the effects of infill on the quality of vertical surfaces. Disabling this setting reduces the amount of material used.</source>
-            <translation>Reliez les extrémités où le motif de remplissage rencontre la paroi intérieure à l'aide d'une ligne qui suit la forme de la paroi intérieure. L'activation de ce paramètre peut permettre au remplissage de mieux adhérer aux murs et de réduire les effets du remplissage sur la qualité des surfaces verticales. La désactivation de ce paramètre réduit la quantité de matériau utilisé.</translation>
+            <translation>Reliez les extrémités où le motif de remplissage rencontre la paroi intérieure à l'aide d'une ligne qui suit la forme de la paroi intérieure. L'activation de ce paramètre peut permettre au remplissage de mieux adhérer aux parois et de réduire les effets du remplissage sur la qualité des surfaces verticales. La désactivation de ce paramètre réduit la quantité de matériau utilisé.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11924,7 +11924,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Extra Infill Wall Count</source>
-            <translation>Nombre de murs de remplissage supplémentaire</translation>
+            <translation>Nombre de parois de remplissage supplémentaire</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11944,7 +11944,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The amount of overlap between the infill and the walls as a percentage of the infill line width. A slight overlap allows the walls to connect firmly to the infill.</source>
-            <translation>Quantité de chevauchement entre le remplissage et les murs en pourcentage de la largeur de la ligne de remplissage. Un léger chevauchement permet aux murs de se relier fermement au remplissage.</translation>
+            <translation>Quantité de chevauchement entre le remplissage et les parois en pourcentage de la largeur de la ligne de remplissage. Un léger chevauchement permet aux parois de se relier fermement au remplissage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11954,7 +11954,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The amount of overlap between the infill and the walls. A slight overlap allows the walls to connect firmly to the infill.</source>
-            <translation>Le degré de chevauchement entre le remplissage et les murs. Un léger chevauchement permet aux murs de se relier fermement au remplissage.</translation>
+            <translation>Le degré de chevauchement entre le remplissage et les parois. Un léger chevauchement permet aux parois de se relier fermement au remplissage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11974,7 +11974,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Distance of a travel move inserted after every infill line, to make the infill stick to the walls better. This option is similar to infill overlap, but without extrusion and only on one end of the infill line.</source>
-            <translation>Distance d'un déplacement inséré après chaque ligne de remplissage, pour que le remplissage adhère mieux aux murs. Cette option est similaire au chevauchement de remplissage, mais sans extrusion et uniquement à une extrémité de la ligne de remplissage.</translation>
+            <translation>Distance d'un déplacement inséré après chaque ligne de remplissage, pour que le remplissage adhère mieux aux parois. Cette option est similaire au chevauchement de remplissage, mais sans extrusion et uniquement à une extrémité de la ligne de remplissage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12019,12 +12019,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Infill Before Walls</source>
-            <translation>Remplissage avant les murs</translation>
+            <translation>Remplissage avant les parois</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Print the infill before printing the walls. Printing the walls first may lead to more accurate walls, but overhangs print worse. Printing the infill first leads to sturdier walls, but the infill pattern might sometimes show through the surface.</source>
-            <translation>Imprimez le remplissage avant d'imprimer les murs. Imprimer les murs en premier peut conduire à des murs plus précis, mais les surplombs s'impriment moins bien. L'impression du remplissage conduit d'abord à des murs plus solides, mais le motif de remplissage peut parfois apparaître à travers la surface.</translation>
+            <translation>Imprimez le remplissage avant d'imprimer les parois. Imprimer les parois en premier peut conduire à des parois plus précis, mais les surplombs s'impriment moins bien. L'impression du remplissage conduit d'abord à des parois plus solides, mais le motif de remplissage peut parfois apparaître à travers la surface.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12418,22 +12418,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Flow</source>
-            <translation>Flow Flux mural</translation>
+            <translation>Flow Flux paroial</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on wall lines.</source>
-            <translation>Flow Compensation de débit sur les lignes murales.</translation>
+            <translation>Flow Compensation de débit sur les lignes paroiales.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Flow</source>
-            <translation>Flow Flux du mur extérieur</translation>
+            <translation>Flow Flux du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on the outermost wall line.</source>
-            <translation>Flow Compensation de débit sur la ligne de mur la plus extérieure.</translation>
+            <translation>Flow Compensation de débit sur la ligne de paroi la plus extérieure.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12443,7 +12443,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on wall lines for all wall lines except the outermost one.</source>
-            <translation>Flow Compensation de débit sur les lignes murales pour toutes les lignes murales sauf celle la plus extérieure.</translation>
+            <translation>Flow Compensation de débit sur les lignes paroiales pour toutes les lignes paroiales sauf celle la plus extérieure.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12563,7 +12563,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Retraction Wipe</source>
-            <translation>Lingette de rétraction</translation>
+            <translation>rétraction d"essuyage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12583,12 +12583,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe length</source>
-            <translation>Longueur de lingette</translation>
+            <translation>Longueur d'essuyage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Before Wipe Retraction Amount Percent</source>
-            <translation>Avant pourcentage de retrait du linge</translation>
+            <translation>Avant pourcentage de retrait d'essuyage<</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12830,22 +12830,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Speed</source>
-            <translation>Vitesse du mur</translation>
+            <translation>Vitesse du paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the walls are printed.</source>
-            <translation>La vitesse à laquelle les murs sont imprimés.</translation>
+            <translation>La vitesse à laquelle les parois sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Speed</source>
-            <translation>Vitesse du mur extérieur</translation>
+            <translation>Vitesse du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the outermost walls are printed. Printing the outer wall at a lower speed improves the final skin quality. However, having a large difference between the inner wall speed and the outer wall speed will affect quality in a negative way.</source>
-            <translation>Vitesse à laquelle les murs les plus extérieurs sont imprimés. L'impression de la paroi extérieure à une vitesse inférieure améliore la qualité finale de la peau. Cependant, une grande différence entre la vitesse de la paroi intérieure et la vitesse de la paroi extérieure affectera la qualité de manière négative.</translation>
+            <translation>Vitesse à laquelle les parois les plus extérieurs sont imprimés. L'impression de la paroi extérieure à une vitesse inférieure améliore la qualité finale de la peau. Cependant, une grande différence entre la vitesse de la paroi intérieure et la vitesse de la paroi extérieure affectera la qualité de manière négative.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12855,7 +12855,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which all inner walls are printed. Printing the inner wall faster than the outer wall will reduce printing time. It works well to set this in between the outer wall speed and the infill speed.</source>
-            <translation>La vitesse à laquelle toutes les parois intérieures sont imprimées. Imprimer la paroi intérieure plus rapidement que la paroi extérieure réduira le temps d'impression. Cela fonctionne bien de régler cela entre la vitesse du mur extérieur et la vitesse de remplissage.</translation>
+            <translation>La vitesse à laquelle toutes les parois intérieures sont imprimées. Imprimer la paroi intérieure plus rapidement que la paroi extérieure réduira le temps d'impression. Cela fonctionne bien de régler cela entre la vitesse du paroi extérieur et la vitesse de remplissage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13065,22 +13065,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Acceleration</source>
-            <translation>Accélération du mur</translation>
+            <translation>Accélération du paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The acceleration with which the walls are printed.</source>
-            <translation>L'accélération avec laquelle les murs sont imprimés.</translation>
+            <translation>L'accélération avec laquelle les parois sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Acceleration</source>
-            <translation>Accélération du mur extérieur</translation>
+            <translation>Accélération du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The acceleration with which the outermost walls are printed.</source>
-            <translation>L'accélération avec laquelle les murs les plus extérieurs sont imprimés.</translation>
+            <translation>L'accélération avec laquelle les parois les plus extérieurs sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13265,27 +13265,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Jerk</source>
-            <translation>Secousse de mur</translation>
+            <translation>Secousse de paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The maximum instantaneous velocity change with which the walls are printed.</source>
-            <translation>Le changement de vitesse instantané maximum avec lequel les murs sont imprimés.</translation>
+            <translation>Le changement de vitesse instantané maximum avec lequel les parois sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Jerk</source>
-            <translation>Secousse du mur extérieur</translation>
+            <translation>Secousse du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The maximum instantaneous velocity change with which the outermost walls are printed.</source>
-            <translation>Changement de vitesse instantané maximum avec lequel les murs les plus extérieurs sont imprimés.</translation>
+            <translation>Changement de vitesse instantané maximum avec lequel les parois les plus extérieurs sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Inner Wall Jerk</source>
-            <translation>Secousse du mur intérieur</translation>
+            <translation>Secousse du paroi intérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13455,7 +13455,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Retract Before Outer Wall</source>
-            <translation>Rétracter avant le mur extérieur</translation>
+            <translation>Rétracter avant le paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13470,7 +13470,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Always retract when moving to start an outer wall.</source>
-            <translation>Rétractez-vous toujours lorsque vous vous déplacez pour démarrer un mur extérieur.</translation>
+            <translation>Rétractez-vous toujours lorsque vous vous déplacez pour démarrer un paroi extérieur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13645,7 +13645,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>When the degree of overhang exceeds this value, the cooling fan is forced to a certain speed. 0% means that cooling is forced on all outer walls regardless of the degree of overhang.</source>
-            <translation>Lorsque le degré de porte-à-faux dépasse cette valeur, le ventilateur de refroidissement est forcé à une certaine vitesse. 0 % signifie que le refroidissement est forcé sur tous les murs extérieurs, quel que soit le degré de surplomb.</translation>
+            <translation>Lorsque le degré de porte-à-faux dépasse cette valeur, le ventilateur de refroidissement est forcé à une certaine vitesse. 0 % signifie que le refroidissement est forcé sur tous les parois extérieurs, quel que soit le degré de surplomb.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13975,12 +13975,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Support Wall Line Count</source>
-            <translation>Nombre de lignes de mur de support</translation>
+            <translation>Nombre de lignes de paroi de support</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The number of walls with which to surround support infill. Adding a wall can make support print more reliably and can support overhangs better, but increases print time and material used.</source>
-            <translation>Le nombre de murs avec lesquels entourer le remplissage du support. L'ajout d'un mur peut rendre l'impression du support plus fiable et mieux supporter les surplombs, mais augmente le temps d'impression et le matériau utilisé.</translation>
+            <translation>Le nombre de parois avec lesquels entourer le remplissage du support. L'ajout d'un paroi peut rendre l'impression du support plus fiable et mieux supporter les surplombs, mais augmente le temps d'impression et le matériau utilisé.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15256,7 +15256,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Use this mesh to modify the infill of other meshes with which it overlaps. Replaces infill regions of other meshes with regions for this mesh. It's suggested to only print one Wall and no Top/Bottom Skin for this mesh.</source>
-            <translation>Utilisez ce maillage pour modifier le remplissage des autres maillages avec lesquels il se superpose. Remplace les régions de remplissage d'autres maillages par des régions pour ce maillage. Il est suggéré de n'imprimer qu'un seul mur et aucune peau supérieure/inférieure pour ce maillage.</translation>
+            <translation>Utilisez ce maillage pour modifier le remplissage des autres maillages avec lesquels il se superpose. Remplace les régions de remplissage d'autres maillages par des régions pour ce maillage. Il est suggéré de n'imprimer qu'un seul paroi et aucune peau supérieure/inférieure pour ce maillage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15631,7 +15631,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>This will create a wall around the model, which traps (hot) air and shields against exterior airflow. Especially useful for materials which warp easily.</source>
-            <translation>Cela créera un mur autour du modèle, qui emprisonnera l'air (chaud) et protégera contre le flux d'air extérieur. Particulièrement utile pour les matériaux qui se déforment facilement.</translation>
+            <translation>Cela créera un paroi autour du modèle, qui emprisonnera l'air (chaud) et protégera contre le flux d'air extérieur. Particulièrement utile pour les matériaux qui se déforment facilement.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15821,7 +15821,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The offset from the walls from where the spaghetti infill will be printed.</source>
-            <translation>Le décalage par rapport aux murs à partir desquels le remplissage spaghetti sera imprimé.</translation>
+            <translation>Le décalage par rapport aux parois à partir desquels le remplissage spaghetti sera imprimé.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15891,7 +15891,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The width within which to jitter. It's advised to keep this below the outer wall width, since the inner walls are unaltered.</source>
-            <translation>La largeur dans laquelle jitter. Il est conseillé de la maintenir en dessous de la largeur du mur extérieur, car les murs intérieurs ne sont pas modifiés.</translation>
+            <translation>La largeur dans laquelle jitter. Il est conseillé de la maintenir en dessous de la largeur du paroi extérieur, car les parois intérieurs ne sont pas modifiés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16216,52 +16216,52 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Overhanging Wall Angle</source>
-            <translation>Angle de mur en surplomb</translation>
+            <translation>Angle de paroi en surplomb</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Walls that overhang more than this angle will be printed using overhanging wall settings. When the value is 90, no walls will be treated as overhanging. Overhang that gets supported by support will not be treated as overhang either.</source>
-            <translation>Les murs qui dépassent plus que cet angle seront imprimés en utilisant les paramètres de mur en surplomb. Lorsque la valeur est de 90, aucun mur ne sera traité comme en surplomb. Le surplomb supporté par le support ne sera pas non plus traité comme un surplomb.</translation>
+            <translation>Les parois qui dépassent plus que cet angle seront imprimés en utilisant les paramètres de paroi en surplomb. Lorsque la valeur est de 90, aucun paroi ne sera traité comme en surplomb. Le surplomb supporté par le support ne sera pas non plus traité comme un surplomb.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Overhang wall Angle when using flexible printing sequence</source>
-            <translation>Angle du mur en surplomb lors de l'utilisation d'une séquence d'impression flexible</translation>
+            <translation>Angle du paroi en surplomb lors de l'utilisation d'une séquence d'impression flexible</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Walls that overhang beyond this Angle will use the printing sequence of inner wall first then outer wall, otherwise use outer wall first then inner wall.</source>
-            <translation>Les murs qui dépassent au-delà de cet angle utiliseront d'abord la séquence d'impression du mur intérieur puis du mur extérieur, sinon, utiliseront d'abord le mur extérieur puis le mur intérieur.</translation>
+            <translation>Les parois qui dépassent au-delà de cet angle utiliseront d'abord la séquence d'impression du paroi intérieur puis du paroi extérieur, sinon, utiliseront d'abord le paroi extérieur puis le paroi intérieur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Overhanging Wall Speed</source>
-            <translation>Vitesse du mur en surplomb</translation>
+            <translation>Vitesse du paroi en surplomb</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Overhanging walls will be printed at this percentage of their normal print speed.</source>
-            <translation>Les murs en surplomb seront imprimés à ce pourcentage de leur vitesse d’impression normale.</translation>
+            <translation>Les parois en surplomb seront imprimés à ce pourcentage de leur vitesse d’impression normale.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Set Overhanging Wall Speed Grading</source>
-            <translation>Définir le classement de vitesse du mur en surplomb</translation>
+            <translation>Définir le classement de vitesse du paroi en surplomb</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Whether To Set Graded Treatment Of Overhanging Wall Speed.</source>
-            <translation>S'il faut définir un traitement progressif de la vitesse du mur en surplomb.</translation>
+            <translation>S'il faut définir un traitement progressif de la vitesse du paroi en surplomb.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Overhanging walls of this angle range will be printed at this speed.</source>
-            <translation>Les murs en surplomb de cette plage d’angle seront imprimés à cette vitesse.</translation>
+            <translation>Les parois en surplomb de cette plage d’angle seront imprimés à cette vitesse.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Hole Wall Speed</source>
-            <translation>Vitesse du mur de trou</translation>
+            <translation>Vitesse du paroi de trou</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16281,12 +16281,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Minimum Bridge Wall Length</source>
-            <translation>Longueur minimale du mur du pont</translation>
+            <translation>Longueur minimale du paroi du pont</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Unsupported walls shorter than this will be printed using the normal wall settings. Longer unsupported walls will be printed using the bridge wall settings.</source>
-            <translation>Les murs non supportés plus courts que cela seront imprimés en utilisant les paramètres de mur normaux. Les murs non supportés plus longs seront imprimés en utilisant les paramètres du mur de pont.</translation>
+            <translation>Les parois non supportés plus courts que cela seront imprimés en utilisant les paramètres de paroi normaux. Les parois non supportés plus longs seront imprimés en utilisant les paramètres du paroi de pont.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16301,32 +16301,32 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Bridge Wall Coasting</source>
-            <translation>Roulement des murs du pont</translation>
+            <translation>Roulement des parois du pont</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>This controls the distance the extruder should coast immediately before a bridge wall begins. Coasting before the bridge starts can reduce the pressure in the nozzle and may produce a flatter bridge.</source>
-            <translation>Cela contrôle la distance sur laquelle l'extrudeuse doit rouler immédiatement avant le début d'un mur de pont. La marche en roue libre avant le début du pont peut réduire la pression dans la buse et produire un pont plus plat.</translation>
+            <translation>Cela contrôle la distance sur laquelle l'extrudeuse doit rouler immédiatement avant le début d'un paroi de pont. La marche en roue libre avant le début du pont peut réduire la pression dans la buse et produire un pont plus plat.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Bridge Wall Speed</source>
-            <translation>Vitesse du mur du pont</translation>
+            <translation>Vitesse du paroi du pont</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the bridge walls are printed.</source>
-            <translation>La vitesse à laquelle les murs du pont sont imprimés.</translation>
+            <translation>La vitesse à laquelle les parois du pont sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Bridge Wall Flow</source>
-            <translation>Flux de mur de pont</translation>
+            <translation>Flux de paroi de pont</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>When printing bridge walls, the amount of material extruded is multiplied by this value.</source>
-            <translation>Lors de l'impression de murs de pont, la quantité de matériau extrudé est multipliée par cette valeur.</translation>
+            <translation>Lors de l'impression de parois de pont, la quantité de matériau extrudé est multipliée par cette valeur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16466,7 +16466,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Material Volume Between Wipes</source>
-            <translation>Volume de matériau entre les lingettes</translation>
+            <translation>Volume de matériau entre les essuyages</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16486,7 +16486,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe Retraction Distance</source>
-            <translation>Distance de rétraction des lingettes</translation>
+            <translation>Distance de rétraction d'essuyage<</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16496,7 +16496,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe Retraction Extra Prime Amount</source>
-            <translation>Montant supplémentaire de rétraction des lingettes</translation>
+            <translation>Montant supplémentaire de rétraction < </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16506,27 +16506,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe Retraction Speed</source>
-            <translation>Vitesse de rétraction des lingettes</translation>
+            <translation>Vitesse de rétraction d'essuyage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the filament is retracted and primed during a wipe retraction move.</source>
-            <translation>Vitesse à laquelle le filament est rétracté et amorcé lors d'un mouvement de rétraction de lingette.</translation>
+            <translation>Vitesse à laquelle le filament est rétracté et amorcé lors d'un mouvement de rétraction d'essuyage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe Retraction Retract Speed</source>
-            <translation>Vitesse de rétraction des lingettes</translation>
+            <translation>Vitesse de rétraction d'essuyage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the filament is retracted during a wipe retraction move.</source>
-            <translation>Vitesse à laquelle le filament est rétracté lors d'un mouvement de rétraction de lingette.</translation>
+            <translation>Vitesse à laquelle le filament est rétracté lors d'un mouvement de rétraction dd'essuyage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the filament is primed during a wipe retraction move.</source>
-            <translation>La vitesse à laquelle le filament est amorcé lors d'un mouvement de rétraction de lingette.</translation>
+            <translation>La vitesse à laquelle le filament est amorcé lors d'un mouvement de rétraction dd'essuyage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16876,7 +16876,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe Retraction Prime Speed</source>
-            <translation>Vitesse d'amorçage de rétraction des lingettes</translation>
+            <translation>Vitesse d'amorçage de rétraction d'essuyage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -17086,7 +17086,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
             <source>Maximum material that can be extruded before another nozzle wipe is initiated. If this value is less than the volume of material required in a layer, the setting has no effect in this layer, i.e. it is limited to one wipe per layer.</source>
-            <translation>Matériau maximum pouvant être extrudé avant qu'un autre nettoyage de la buse ne soit lancé. Si cette valeur est inférieure au volume de matière nécessaire dans une couche, le réglage n'a aucun effet dans cette couche, c'est à dire qu'il est limité à une lingette par couche.</translation>
+            <translation>Matériau maximum pouvant être extrudé avant qu'un autre nettoyage de la buse ne soit lancé. Si cette valeur est inférieure au volume de matière nécessaire dans une couche, le réglage n'a aucun effet dans cette couche, c'est à dire qu'il est limité à un essuyage par couche.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
@@ -17101,7 +17101,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
             <source>Add extra walls around the infill area. Such walls can make top/bottom skin lines sag down less which means you need less top/bottom skin layers for the same quality at the cost of some extra material.This feature can combine with the Connect Infill Polygons to connect all the infill into a single extrusion path without the need for travels or retractions if configured right.</source>
-            <translation>Ajoutez des murs supplémentaires autour de la zone de remplissage. De tels murs peuvent réduire l'affaissement des lignes de peau supérieure/inférieure, ce qui signifie que vous avez besoin de moins de couches de peau supérieure/inférieure pour la même qualité au prix d'un matériau supplémentaire. Cette fonctionnalité peut être combinée avec les polygones de remplissage Connect pour connecter tout le remplissage dans un chemin d'extrusion unique sans besoin de déplacements ou de rétractions s'il est correctement configuré.</translation>
+            <translation>Ajoutez des parois supplémentaires autour de la zone de remplissage. De tels parois peuvent réduire l'affaissement des lignes de peau supérieure/inférieure, ce qui signifie que vous avez besoin de moins de couches de peau supérieure/inférieure pour la même qualité au prix d'un matériau supplémentaire. Cette fonctionnalité peut être combinée avec les polygones de remplissage Connect pour connecter tout le remplissage dans un chemin d'extrusion unique sans besoin de déplacements ou de rétractions s'il est correctement configuré.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="99"/>
@@ -17387,23 +17387,23 @@
         </message>
         <message>
             <source>Minimum Even Wall Line Width</source>
-            <translation>Largeur minimale de ligne de mur uniforme</translation>
+            <translation>Largeur minimale de ligne de paroi uniforme</translation>
         </message>
         <message>
             <source>Minimum Odd Wall Line Width</source>
-            <translation>Largeur minimale de la ligne de mur impair</translation>
+            <translation>Largeur minimale de la ligne de paroi impair</translation>
         </message>
         <message>
             <source>For thin structures around once or twice the nozzle size, the line widths need to be altered to adhere to the thickness of the model. This setting controls the minimum line width allowed for the walls. The minimum line widths inherently also determine the maximum line widths, since we transition from N to N+1 walls at some geometry thickness where the N walls are wide and the N+1 walls are narrow. The widest possible wall line is twice the Minimum Wall Line Width.</source>
-            <translation>Pour les structures fines d’une taille d’environ une ou deux fois la taille de la buse, les largeurs de lignes doivent être modifiées pour adhérer à l’épaisseur du modèle. Ce paramètre contrôle la largeur de ligne minimale autorisée pour les murs. Les largeurs de ligne minimales déterminent également par nature les largeurs de ligne maximales, puisque nous passons de murs N à N+1 à une certaine épaisseur géométrique où les murs N sont larges et les murs N+1 sont étroits. La ligne de mur la plus large possible est le double de la largeur minimale de la ligne de mur.</translation>
+            <translation>Pour les structures fines d’une taille d’environ une ou deux fois la taille de la buse, les largeurs de lignes doivent être modifiées pour adhérer à l’épaisseur du modèle. Ce paramètre contrôle la largeur de ligne minimale autorisée pour les parois. Les largeurs de ligne minimales déterminent également par nature les largeurs de ligne maximales, puisque nous passons de parois N à N+1 à une certaine épaisseur géométrique où les parois N sont larges et les parois N+1 sont étroits. La ligne de paroi la plus large possible est le double de la largeur minimale de la ligne de paroi.</translation>
         </message>
         <message>
             <source>The minimum line width for normal polygonal walls. This setting determines at which model thickness we switch from printing a single thin wall line, to printing two wall lines. A higher Minimum Even Wall Line Width leads to a higher maximum odd wall line width. The maximum even wall line width is calculated as Outer Wall Line Width + 0.5 * Minimum Odd Wall Line Width.</source>
-            <translation>La largeur de ligne minimale pour les murs polygonaux normaux. Ce paramètre détermine à quelle épaisseur de modèle nous passons de l’impression d’une seule ligne de paroi fine à l’impression de deux lignes de paroi. Une largeur minimale de ligne de mur pair plus élevée entraîne une largeur de ligne de mur impaire maximale plus élevée. La largeur maximale de la ligne de mur pair est calculée comme la largeur de la ligne du mur extérieur + 0,5 * la largeur minimale de la ligne du mur impair.</translation>
+            <translation>La largeur de ligne minimale pour les parois polygonaux normaux. Ce paramètre détermine à quelle épaisseur de modèle nous passons de l’impression d’une seule ligne de paroi fine à l’impression de deux lignes de paroi. Une largeur minimale de ligne de paroi pair plus élevée entraîne une largeur de ligne de paroi impaire maximale plus élevée. La largeur maximale de la ligne de paroi pair est calculée comme la largeur de la ligne du paroi extérieur + 0,5 * la largeur minimale de la ligne du paroi impair.</translation>
         </message>
         <message>
             <source>The minimum line width for middle line gap filler polyline walls. This setting determines at which model thickness we switch from printing two wall lines, to printing two outer walls and a single central wall in the middle. A higher Minimum Odd Wall Line Width leads to a higher maximum even wall line width. The maximum odd wall line width is calculated as 2 * Minimum Even Wall Line Width.</source>
-            <translation>La largeur de ligne minimale pour les murs polylignes de remplissage d'espace de ligne médiane. Ce paramètre détermine à quelle épaisseur de modèle nous passons de l'impression de deux lignes de paroi à l'impression de deux parois extérieures et d'une seule paroi centrale au milieu. Une largeur minimale de ligne de mur impair plus élevée entraîne une largeur maximale de ligne de mur uniforme plus élevée. La largeur maximale de la ligne de mur impaire est calculée comme suit : 2 * largeur minimale de la ligne de mur paire.</translation>
+            <translation>La largeur de ligne minimale pour les parois polylignes de remplissage d'espace de ligne médiane. Ce paramètre détermine à quelle épaisseur de modèle nous passons de l'impression de deux lignes de paroi à l'impression de deux parois extérieures et d'une seule paroi centrale au milieu. Une largeur minimale de ligne de paroi impair plus élevée entraîne une largeur maximale de ligne de paroi uniforme plus élevée. La largeur maximale de la ligne de paroi impaire est calculée comme suit : 2 * largeur minimale de la ligne de paroi paire.</translation>
         </message>
         <message>
             <source>Chooses between the techniques available to generate support. "Normal" support creates a support structure directly below the overhanging parts and drops those areas straight down. "Tree" support creates branches towards the overhanging areas that support the model on the tips of those branches, and allows the branches to crawl around the model to support it from the build plate as much as possible.</source>
@@ -17567,7 +17567,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="424"/>
             <source>Wall Line Count:</source>
-            <translation>Nombre de lignes de mur:</translation>
+            <translation>Nombre de lignes de paroi:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="460"/>
@@ -17622,7 +17622,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="806"/>
             <source>Wall Speed:</source>
-            <translation>vitesse des murs:</translation>
+            <translation>vitesse des parois:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="841"/>
