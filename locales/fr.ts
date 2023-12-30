@@ -124,7 +124,7 @@
         </message>
         <message>
             <source>Default Materials</source>
-            <translation>mMtériau par défaut</translation>
+            <translation>Matériau par défaut</translation>
         </message>
         <message>
             <source>User Materials</source>
@@ -132,7 +132,7 @@
         </message>
         <message>
             <source>Check All</source>
-            <translation>Tout vérifier</translation>
+            <translation>Afficher tout</translation>
         </message>
     </context>
     <context>
@@ -9576,17 +9576,17 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="92"/>
             <source>Reset Direction</source>
-            <translation>Reset Direction</translation>
+            <translation>changer direction</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="49"/>
             <source>Left mouse button</source>
-            <translation>Left mouse button</translation>
+            <translation>Bouton gauche de la souris</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="50"/>
             <source>Enforce supports</source>
-            <translation>appliquer supports</translation>
+            <translation>Appliquer supports</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="49"/>
@@ -9606,7 +9606,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="52"/>
             <source>erase</source>
-            <translation>effacer</translation>
+            <translation>Effacer</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="53"/>
@@ -9634,7 +9634,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanelBottom.qml" line="93"/>
             <source>Erase All Paintings</source>
-            <translation>Effacer toutes les peintures</translation>
+            <translation>Effacer l'esquisse</translation>
         </message>
     </context>
     <context>
@@ -9723,7 +9723,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/slice/slice_preview.qml" line="41"/>
             <source>UnPreview</source>
-            <translation>UnPreview</translation>
+            <translation>Annuler l'aperçu</translation>
         </message>
     </context>
     <context>
@@ -9746,7 +9746,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="36"/>
             <source>Best quality</source>
-            <translation>bonne quality</translation>
+            <translation>bonne qualité</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="36"/>
@@ -9786,7 +9786,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="197"/>
             <source>Line Width:</source>
-            <translation>largeur de ligne:</translation>
+            <translation>largeur de ligne(layer):</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -9883,7 +9883,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="554"/>
             <source>Advance Setting</source>
-            <translation>Réglage avancé</translation>
+            <translation>Réglages avancé</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="568"/>
@@ -9918,17 +9918,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Machine Size Type:</source>
-            <translation>Machine Size Type:</translation>
+            <translation>Taille de la machine:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Length Flow In Advance:</source>
-            <translation>Length Flow In Advance:</translation>
+            <translation>Flow Longueur Débit en avance:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Travel Slow Flow:</source>
-            <translation>Déplacement à débit lent :</translation>
+            <translation>Flow Déplacement à débit lent :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
@@ -9938,22 +9938,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Angle of Slope Slice:</source>
-            <translation>Angle de tranche de pente :</translation>
+            <translation>Angle d'inclinaison Tranche :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Angle of Slope Slice</source>
-            <translation>Angle de tranche de pente</translation>
+            <translation>Angle d'inclinaison Tranche</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Zoffset After Slope Slice:</source>
-            <translation>Zoffset après tranche de pente :</translation>
+            <translation>Zoffset après tranche d'inclinaison :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Zoffset After Slope Slice</source>
-            <translation>Zoffset après tranche de pente</translation>
+            <translation>Zoffset après tranche d'inclinaison</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
@@ -9973,7 +9973,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Slope Slice To X Dir</source>
-            <translation>Pente à X Dir</translation>
+            <translation> Inclinaisonà X Dir</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
@@ -9988,12 +9988,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Extrusion flow ratio:</source>
-            <translation>Ratio de débit d'extrusion:</translation>
+            <translation>Flow Ratio de débit d'extrusion:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Extrusion flow ratio</source>
-            <translation>Extrusion flow ratio</translation>
+            <translation> Flow ratio de débit d'extrusion</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -10023,7 +10023,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Support Flow:</source>
-            <translation>Débit des supports(Support Flow):</translation>
+            <translation> Flow Débit des supports(Support Flow):</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -10360,7 +10360,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Rectangular</source>
-            <translation>Rectangular</translation>
+            <translation>Rectangulaire</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
