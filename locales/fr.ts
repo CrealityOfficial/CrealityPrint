@@ -17,15 +17,15 @@
         </message>
         <message>
             <source>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved</source>
-            <translation>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved</translation>
+            <translation>Copyright©2014 Société de technologie Shenzhen Creality 3D, LTD. Tous droits réservés</translation>
         </message>
         <message>
             <source>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China's 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</source>
-            <translation>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China's 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</translation>
+            <translation>Fondée en 2014, Shenzhen Creality 3D Technology Co., Ltd. est la première entreprise de R&amp; D en Chine pour entrer dans l'industrie de l'impression 3D et s'engage à construire une gamme complète de solutions d'impression 3D, dont le domaine d'activité se concentre principalement sur la R&amp; D, fabrication et vente d'imprimantes 3D, s'étendant aux accessoires d'impression 3D, au filament d'impression 3D, au système de programmes d'éducation 3D, aux services d'impression 3D, etc. À l'heure actuelle, elle est devenue une entreprise de haute technologie leader dans l'industrie de l'impression 3D en Chine, avec son Rampe; D force, production, qualité et services tous à la pointe de l'industrie.</translation>
         </message>
         <message>
             <source>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</source>
-            <translation>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</translation>
+            <translation>Shenzhen Creality 3D Technology Co., Ltd. est un fabricant d'imprimantes 3D de renommée internationale, qui se concentre sur la R&amp; D et production d'imprimantes 3D.</translation>
         </message>
         <message>
             <source>https://www.creality.cn/</source>
@@ -56,15 +56,15 @@
         </message>
         <message>
             <source>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved.</source>
-            <translation>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved.</translation>
+            <translation>Copyright©2021 Société de technologie 3D Shenzhen Piocreat, LTD. Tous droits réservés.</translation>
         </message>
         <message>
             <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China</source>
-            <translation>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China</translation>
+            <translation>Shenzhen Piocreat 3D Technology Co., Ltd. est une entreprise leader d'imprimantes et de matériaux 3D de qualité industrielle, Piocreat se consacre à mettre en valeur la puissance exceptionnelle du fabriqué en Chine</translation>
         </message>
         <message>
             <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China.</source>
-            <translation>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China.</translation>
+            <translation>Shenzhen Piocreat 3D Technology Co., Ltd. est une entreprise leader dans le domaine des imprimantes et des matériaux 3D de qualité industrielle, Piocreat se consacre à mettre en valeur la puissance exceptionnelle du Made in China.</translation>
         </message>
         <message>
             <source>https://www.szcx3d.com/</source>
@@ -108,31 +108,31 @@
         <name>AddMaterialDlg</name>
         <message>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <source>Add Material</source>
-            <translation>Ajouter du matériel</translation>
+            <translation>Ajouter un matériau</translation>
         </message>
         <message>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <source>MaterialType</source>
-            <translation>MaterialType</translation>
+            <translation>Type de matériau</translation>
         </message>
         <message>
             <source>Default Materials</source>
-            <translation>Matériaux par défaut</translation>
+            <translation>Matériau par défaut</translation>
         </message>
         <message>
             <source>User Materials</source>
-            <translation>Matériel utilisateur</translation>
+            <translation>Matériau utilisateur</translation>
         </message>
         <message>
             <source>Check All</source>
-            <translation>Vérifie tout</translation>
+            <translation>Afficher tout</translation>
         </message>
     </context>
     <context>
@@ -163,27 +163,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="175"/>
             <source>Name repeater, please rename!</source>
-            <translation>Name repeater, please rename!</translation>
+            <translation> nom déja utiliser, veuillez renommer! </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="16"/>
             <source>new</source>
-            <translation>nouveau</translation>
+            <translation>Nouveau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="78"/>
             <source>New Profile</source>
-            <translation>Nouveau profile</translation>
+            <translation>Nouveau profil</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="98"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="119"/>
             <source>Material</source>
-            <translation>Matériel</translation>
+            <translation>Matériau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="139"/>
@@ -208,7 +208,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="238"/>
             <source>The input can't be empty!!</source>
-            <translation>L'entrée ne peut pas être vide !!</translation>
+            <translation>L'entrée ne peut pas être vide!</translation>
         </message>
     </context>
     <context>
@@ -226,17 +226,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="54"/>
             <source>Ip Address:</source>
-            <translation>Ip Address:</translation>
+            <translation>Addresse IP:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="74"/>
             <source>Mac Address:</source>
-            <translation>Mac Address:</translation>
+            <translation>Address MAC:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="91"/>
             <source>input can not empty</source>
-            <translation>l'entrée ne peut pas être vide</translation>
+            <translation>L'entrée ne peut pas être vide!</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="104"/>
@@ -259,7 +259,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddNewProjectDlg.qml" line="21"/>
             <source>Project Name:</source>
-            <translation>Nom du projet:</translation>
+            <translation>titre du projet:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddNewProjectDlg.qml" line="59"/>
@@ -299,19 +299,19 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="22"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="282"/>
             <source>Update Failed!</source>
-            <translation>Mise à jour a échoué!</translation>
+            <translation>Echec de la mise a jour</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="27"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="287"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="295"/>
             <source>Printer information has been updated, please restart the software!</source>
-            <translation>Printer information has been updated, please restart the software!</translation>
+            <translation>Les informations sur l'imprimante ont été mises à jour, veuillez redémarrer le logiciel !</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="63"/>
             <source>Printer Update</source>
-            <translation>Printer Update</translation>
+            <translation>Mise à jour de l'imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="82"/>
@@ -322,7 +322,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="139"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="153"/>
@@ -352,7 +352,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="210"/>
             <source>Nebula Pad</source>
-            <translation>Coussin nébuleuse</translation>
+            <translation>Nebula Pad</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="216"/>
@@ -365,12 +365,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="87"/>
             <source>Sonic</source>
-            <translation>Sonique</translation>
+            <translation>Sonic</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="87"/>
             <source>Nebula</source>
-            <translation>Nébuleuse</translation>
+            <translation>Nébula</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="95"/>
@@ -416,7 +416,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="46"/>
             <source>Exit</source>
-            <translation>Sortie</translation>
+            <translation>Fermer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="47"/>
@@ -432,7 +432,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="87"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="403"/>
             <source>Delete model</source>
-            <translation>Delete model</translation>
+            <translation>Supprimer le modèle</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="88"/>
@@ -447,17 +447,17 @@
         </message>
         <message>
             <source>Model's size too small and mabye in inches or meters measurement, do you want to scale to millimeters?</source>
-            <translation>La taille du modèle est trop petite et peut être mesurée en pouces ou en mètres. Voulez-vous l'adapter en millimètres ?</translation>
+            <translation>La taille du modèle est trop petite est peut être mesurée en pouces ou en mètres. Voulez-vous l'adapter en millimètres ?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="99"/>
             <source>There are exceptions or errors in the model. What should be done?</source>
-            <translation>Il existe des exceptions ou des erreurs dans le modèle. Qu'est-ce qui devrait être fait?</translation>
+            <translation>Il existe des exceptions ou des erreurs dans le modèle. Qu'elles modifications peuvent ètres faites?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="116"/>
             <source>Whether to remove  all supports</source>
-            <translation>Whether to remove  all supports</translation>
+            <translation>Supprimer tous les supports</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="207"/>
@@ -482,7 +482,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="289"/>
             <source>The software closes abnormally, whether to open the saved temporary file?</source>
-            <translation>Le logiciel se ferme anormalement, faut-il ouvrir le fichier temporaire enregistré ?</translation>
+            <translation>Le logiciel a fermé anormalement, faut-il ouvrir le fichier temporaire enregistré ?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="305"/>
@@ -507,7 +507,7 @@
         </message>
         <message>
             <source>Retract</source>
-            <translation>Se rétracter</translation>
+            <translation>rétracter</translation>
         </message>
         <message>
             <source>Compensate</source>
@@ -519,7 +519,7 @@
         </message>
         <message>
             <source>Limited</source>
-            <translation>Limité</translation>
+            <translation>Limites</translation>
         </message>
         <message>
             <source>Back Left</source>
@@ -527,7 +527,7 @@
         </message>
         <message>
             <source>Back</source>
-            <translation>Dos</translation>
+            <translation>Arrière</translation>
         </message>
         <message>
             <source>Back Right</source>
@@ -555,15 +555,15 @@
         </message>
         <message>
             <source>DirectLift</source>
-            <translation>DirectLift</translation>
+            <translation>DirectLift</translation>                                                                             
         </message>
         <message>
             <source>SpiralLift</source>
-            <translation>SpiralLift</translation>
+            <translation>spiralLift</translation>
         </message>
         <message>
             <source>TrapezoidalLeft</source>
-            <translation>TrapézoïdaleGauche</translation>
+            <translation>Trapézoïdale Gauche</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -572,23 +572,23 @@
         </message>
         <message>
             <source>Two-Color Printing</source>
-            <translation>Two-Color Printing</translation>
+            <translation>deux couleurs d'impression</translation>
         </message>
         <message>
             <source>Three-Color Printing</source>
-            <translation>Three-Color Printing</translation>
+            <translation>trois couleurs d'impression</translation>
         </message>
         <message>
             <source>Four-Color Printing</source>
-            <translation>Four-Color Printing</translation>
+            <translation>quatres couleurs d'impression</translation>
         </message>
         <message>
             <source>Five-Color Printing</source>
-            <translation>Five-Color Printing</translation>
+            <translation>cinq couleurs d'impression</translation>
         </message>
         <message>
             <source>First Change Color</source>
-            <translation>First Change Color</translation>
+            <translation>Premier changement de couleur</translation>
         </message>
         <message>
             <source>Off</source>
@@ -600,7 +600,7 @@
         </message>
         <message>
             <source>Not in Skin</source>
-            <translation>Pas dans la peau</translation>
+            <translation>Pas sur la surface</translation>
         </message>
         <message>
             <source>Reduce Cross Outer Surfaces</source>
@@ -616,19 +616,19 @@
         </message>
         <message>
             <source>ThomasTree Auto</source>
-            <translation>ThomasTree Auto</translation>
+            <translation>Supports Automatique</translation>
         </message>
         <message>
             <source>Normal manual</source>
-            <translation>Normal manual</translation>
+            <translation>Normal manuel</translation>
         </message>
         <message>
             <source>ThomasTree manual</source>
-            <translation>ThomasTree manual</translation>
+            <translation>Support manuel</translation>
         </message>
         <message>
             <source>Support Everywhere</source>
-            <translation>Du soutien partout</translation>
+            <translation>Supports partout</translation>
         </message>
         <message>
             <source>X/Y overrides Z</source>
@@ -644,11 +644,11 @@
         </message>
         <message>
             <source>Normal</source>
-            <translation>Normale</translation>
+            <translation>Normal</translation>
         </message>
         <message>
             <source>Single</source>
-            <translation>Célibataire</translation>
+            <translation>Simple</translation>
         </message>
         <message>
             <source>Surface</source>
@@ -660,11 +660,11 @@
         </message>
         <message>
             <source>All At Once</source>
-            <translation>Tout à la fois</translation>
+            <translation>l'ensemble</translation>
         </message>
         <message>
             <source>One At A Time</source>
-            <translation>One At A Time</translation>
+            <translation>Unitaire</translation>
         </message>
         <message>
             <source>Middle</source>
@@ -672,11 +672,11 @@
         </message>
         <message>
             <source>Exclusive</source>
-            <translation>Exclusif</translation>
+            <translation>Unique</translation>
         </message>
         <message>
             <source>Inclusive</source>
-            <translation>Compris</translation>
+            <translation>Inclure</translation>
         </message>
         <message>
             <source>none</source>
@@ -684,7 +684,7 @@
         </message>
         <message>
             <source>to and fro</source>
-            <translation>aller et venir</translation>
+            <translation>Aller et retour</translation>
         </message>
         <message>
             <source>Not overridden</source>
@@ -704,7 +704,7 @@
         </message>
         <message>
             <source>skirt</source>
-            <translation>jupe</translation>
+            <translation>Jupe</translation>
         </message>
         <message>
             <source>Lace</source>
@@ -712,19 +712,19 @@
         </message>
         <message>
             <source>brim</source>
-            <translation>bord</translation>
+            <translation>Bord</translation>
         </message>
         <message>
             <source>autobrim</source>
-            <translation>bord automatique</translation>
+            <translation>Bord automatique</translation>
         </message>
         <message>
             <source>raft</source>
-            <translation>radeau</translation>
+            <translation>Radeau</translation>
         </message>
         <message>
             <source>simpleraft</source>
-            <translation>simpleraft</translation>
+            <translation>Radeau</translation>
         </message>
         <message>
             <source>None</source>
@@ -776,11 +776,11 @@
         </message>
         <message>
             <source>Nowhere</source>
-            <translation>Nulle part</translation>
+            <translation>Nulle part vide</translation>
         </message>
         <message>
             <source>Everywhere</source>
-            <translation>Partout</translation>
+            <translation>Partout complet</translation>
         </message>
         <message>
             <source>Aligned Rectilinear</source>
@@ -788,11 +788,11 @@
         </message>
         <message>
             <source>Honeycomb</source>
-            <translation>Rayon de miel</translation>
+            <translation>Alvéolaire</translation>
         </message>
         <message>
             <source>Lightning</source>
-            <translation>Foudre</translation>
+            <translation>Foudre/éclair</translation>
         </message>
         <message>
             <source>Concentric</source>
@@ -812,7 +812,7 @@
         </message>
         <message>
             <source>Onewall</source>
-            <translation>Un mur</translation>
+            <translation>Une paroi</translation>
         </message>
         <message>
             <source>Grid</source>
@@ -836,7 +836,7 @@
         </message>
         <message>
             <source>Octet</source>
-            <translation>Octuor</translation>
+            <translation>Octet</translation>
         </message>
         <message>
             <source>Quarter Cubic</source>
@@ -892,11 +892,11 @@
         </message>
         <message>
             <source>rectangular</source>
-            <translation>rectangular</translation>
+            <translation>Rectangulaire</translation>
         </message>
         <message>
             <source>elliptic</source>
-            <translation>elliptique</translation>
+            <translation>Elliptique</translation>
         </message>
     </context>
     <context>
@@ -919,7 +919,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicCombobox.qml" line="74"/>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>bonne qualité</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicCombobox.qml" line="75"/>
@@ -943,7 +943,7 @@
         </message>
         <message>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>Bonne qualité</translation>
         </message>
         <message>
             <source>Fast</source>
@@ -1003,11 +1003,11 @@
         <name>BasicMenuBarStyle</name>
         <message>
             <source>Mouse Operation Function</source>
-            <translation>Fonction de fonctionnement de la souris</translation>
+            <translation>Fonction de la souris</translation>
         </message>
         <message>
             <source>File</source>
-            <translation>Déposer</translation>
+            <translation>fichier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="30"/>
@@ -1017,7 +1017,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="30"/>
             <source>File</source>
-            <translation>Déposer</translation>
+            <translation>fichier</translation>
         </message>
         <message>
             <source>Other(&amp;O)</source>
@@ -1029,37 +1029,37 @@
         </message>
         <message>
             <source>Test Model</source>
-            <translation>Test Model</translation>
+            <translation>Modele test</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="34"/>
             <source>Open File</source>
-            <translation>Fichier ouvert</translation>
+            <translation>Ouvrir fichier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="44"/>
             <source>Open Project</source>
-            <translation>Projet ouvert</translation>
+            <translation>Ouvrir dossier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="55"/>
             <source>Recently files</source>
-            <translation>Fichiers récemment</translation>
+            <translation>Fichier récents</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="60"/>
             <source>Recently Opened Project</source>
-            <translation>Projet récemment ouvert</translation>
+            <translation>Fichiers récemment ouvert</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="66"/>
             <source>Save STL</source>
-            <translation>Enregistrer STL</translation>
+            <translation>Enregistrer fichier .STL</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="76"/>
             <source>Save As Project</source>
-            <translation>Enregistrer sous projet</translation>
+            <translation>Enregistrer projet</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="88"/>
@@ -1074,17 +1074,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="103"/>
             <source>Undo</source>
-            <translation>annuler</translation>
+            <translation>Annuler</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="112"/>
             <source>Copy</source>
-            <translation>Copie</translation>
+            <translation>Copier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="112"/>
             <source>Paste</source>
-            <translation>Pâte</translation>
+            <translation>Coller</translation>
         </message>
         <message>
             <source>Delete Model</source>
@@ -1096,48 +1096,48 @@
         </message>
         <message>
             <source>Clone Model</source>
-            <translation>Modèle clone</translation>
+            <translation>Dupliquer le modèle</translation>
         </message>
         <message>
             <source>Split Model</source>
-            <translation>Modèle divisé</translation>
-        </message>
+            <translation>Divisé le modèle</translation>
+            </message>
         <message>
             <source>Merge Model</source>
             <translation>Fusionner le modèle</translation>
         </message>
         <message>
             <source>Select All Model</source>
-            <translation>Sélectionner tout le modèle</translation>
+            <translation>Sélectionner tout</translation>
         </message>
         <message>
             <source>Reset All Model</source>
-            <translation>Réinitialiser tout le modèle</translation>
+            <translation>Réinitialiser tout</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="112"/>
             <source>Redo</source>
-            <translation>Refaire</translation>
+            <translation>Restaurer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="123"/>
             <source>View</source>
-            <translation>Voir</translation>
+            <translation>Vue</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="127"/>
             <source>ShowModelLine</source>
-            <translation>AfficherModèleLigne</translation>
+            <translation>Afficher le maillage structurel </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="134"/>
             <source>ShowModelFace</source>
-            <translation>AfficherModèleVisage</translation>
+            <translation>Afficher la surface pleine </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="142"/>
             <source>ShowModelFaceLine</source>
-            <translation>AfficherModèleFaceLine</translation>
+            <translation>Afficher maillage de surface</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="149"/>
@@ -1162,7 +1162,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="178"/>
             <source>View Show</source>
-            <translation>Voir le spectacle</translation>
+            <translation>Aperçu de l'impression </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="189"/>
@@ -1172,20 +1172,20 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="199"/>
             <source>Tool</source>
-            <translation>Outil</translation>
+            <translation>Outils</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="203"/>
             <source>Language</source>
-            <translation>Langue</translation>
+            <translation>Langues</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="208"/>
             <source>Model Repair</source>
-            <translation>Réparation de modèle</translation>
+            <translation>Réparation du modèle</translation>
         </message>
         <message>
-            <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="216"/>
+            <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="216"/>         
             <source>Manage Materials</source>
             <translation>Gérer les matériaux</translation>
         </message>
@@ -1197,7 +1197,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="233"/>
             <source>Theme color change</source>
-            <translation>Changement de couleur du thème</translation>
+            <translation>Couleur du thème</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="238"/>
@@ -1212,22 +1212,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="251"/>
             <source>Models</source>
-            <translation>Des modèles</translation>
+            <translation>Bibliothèque</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="261"/>
             <source>PrinterControl</source>
-            <translation>PrinterControl</translation>
+            <translation>Paramètres imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="264"/>
             <source>Creality Cloud Printing</source>
-            <translation>Impression Creality Cloud</translation>
+            <translation>Impression via Creality Cloud</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="271"/>
             <source>USB Printing</source>
-            <translation>USB Printing</translation>
+            <translation>Impression via USB </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="290"/>
@@ -1247,7 +1247,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="309"/>
             <source>Use Course</source>
-            <translation>Utiliser le cours</translation>
+            <translation>Utiliser le manuel</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="318"/>
@@ -1267,22 +1267,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>PA</source>
-            <translation>Pennsylvanie</translation>
+            <translation>Etalonnage</translation>                                                                         
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Flow</source>
-            <translation>Couler</translation>
+            <translation>Flow</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Coarse tune</source>
-            <translation>Coarse tune</translation>
+            <translation>Réglage grossier(Coarse tune)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Fine tune</source>
-            <translation>Fine tune</translation>
+            <translation>Réglage affiné</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
@@ -1292,7 +1292,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Maximum volume flow</source>
-            <translation>Débit volumétrique maximal</translation>
+            <translation>Débit volumétrique maximal(volume flow)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
@@ -1309,13 +1309,13 @@
         <name>TemperatureDlg</name>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
-            <source>Temperature calibration</source>
-            <translation>Temperature calibration</translation>
+            <source>Temprature calibration</source>
+            <translation>Calibration de température</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Material type</source>
-            <translation>Material type</translation>
+            <translation>type de matériau/translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
@@ -1325,7 +1325,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Starting temperature:</source>
-            <translation>Starting temperature:</translation>
+            <translation>Température de départ:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
@@ -1335,12 +1335,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Temperature step:</source>
-            <translation>Temperature step:</translation>
+            <translation>Etapes de température:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <source>Calibration warning</source>
@@ -1352,7 +1352,7 @@
         </message>
     </context>
     <context>
-        <name>PADlg</name>
+        <name>PADlg</name>                                                                                                      stop.......
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>PA calibration</source>
@@ -1381,7 +1381,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>PA tower</source>
-            <translation>PA tower</translation>
+            <translation>PA tour</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
@@ -1396,12 +1396,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>Initial PA value</source>
-            <translation>Initial PA value</translation>
+            <translation>Valeur initiale PA</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>End PA value</source>
-            <translation>Valeur PA de fin</translation>
+            <translation>Valeur de fin PA</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
@@ -1416,7 +1416,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
     </context>
     <context>
@@ -1439,12 +1439,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MaxFlowVolumeDlg.qml"/>
             <source>Flow step</source>
-            <translation>Flow step</translation>
+            <translation>étape de flux (Flow step)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MaxFlowVolumeDlg.qml"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
     </context>
     <context>
@@ -1457,7 +1457,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
             <source>Starting speed</source>
-            <translation>Starting speed</translation>
+            <translation>Vitesse de démarrage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
@@ -1467,12 +1467,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
             <source>Flow step</source>
-            <translation>Flow step</translation>
+            <translation> étapes du processus</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
     </context>
     <context>
@@ -1490,7 +1490,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FlowFineTuningDlg.qml"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FlowFineTuningDlg.qml"/>
@@ -1513,7 +1513,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="131"/>
             <source>Next time it will not pop up, remember that?</source>
-            <translation>La prochaine fois, il n'apparaîtra pas, vous vous en souvenez ?</translation>
+            <translation>ne pas afficher cette fenètre plus tard ,me rappeler?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="143"/>
@@ -1536,17 +1536,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="151"/>
             <source>Import Gcode</source>
-            <translation>Import Gcode</translation>
+            <translation>Importer Gcode</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="151"/>
             <source>Download Model</source>
-            <translation>Download Model</translation>
+            <translation>Charger le Modèle</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="178"/>
             <source>Share The Model Group(Copy Link)</source>
-            <translation>Partager le groupe modèle (copier le lien)</translation>
+            <translation>Partager le modèle (copier le lien)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="201"/>
@@ -1556,7 +1556,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="224"/>
             <source>UnCollect</source>
-            <translation>UnCollect</translation>
+            <translation>Annulée la collecte</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="224"/>
@@ -1573,9 +1573,9 @@
         <name>BasicVideoItem</name>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="113"/>
-            <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="313"/>
+            <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="313"/>     
             <source>No camera detected, unable to use this function</source>
-            <translation>No camera detected, unable to use this function</translation>
+            <translation>  Aucune caméra détectée, impossible d'utiliser cette fonction</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="129"/>
@@ -1596,7 +1596,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="371"/>
             <source>video loading ...</source>
-            <translation>chargement de la vidéo...</translation>
+            <translation>Chargement de la vidéo...</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="382"/>
@@ -1639,7 +1639,7 @@
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/ccommandsdata.cpp" line="71"/>
             <source>PrinterControl(&amp;C)</source>
-            <translation>PrinterControl(&amp;C)</translation>
+            <translation>Contrôle d'imprimante(&amp;C)</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/ccommandsdata.cpp" line="72"/>
@@ -1653,12 +1653,12 @@
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dexportercommand.cpp" line="18"/>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dexportercommand.cpp" line="62"/>
             <source>Save As Project</source>
-            <translation>Enregistrer sous projet</translation>
+            <translation>Enregistrer le projet</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dexportercommand.cpp" line="53"/>
             <source>Save Finished, Open Local Folder</source>
-            <translation>Enregistrer terminé, ouvrir le dossier local</translation>
+            <translation>Enregistrement terminé, ouvrir le dossier local</translation>
         </message>
     </context>
     <context>
@@ -1666,7 +1666,7 @@
         <message>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dexportjob.cpp" line="18"/>
             <source>No matching printer found, cannot import project file</source>
-            <translation>No matching printer found, cannot import project file</translation>
+            <translation>Aucune imprimante correspondante trouvée, impossible d'importer le fichier de projet</translation>
         </message>
     </context>
     <context>
@@ -1675,7 +1675,7 @@
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dimportercommand.cpp" line="19"/>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dimportercommand.cpp" line="99"/>
             <source>Open Project</source>
-            <translation>Projet ouvert</translation>
+            <translation>Ouvrir Projet</translation>
         </message>
     </context>
     <context>
@@ -1698,7 +1698,7 @@
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/clearrecentfilecommand.cpp" line="26"/>
             <source>Clear</source>
-            <translation>Clair</translation>
+            <translation>Nettoyer</translation>
         </message>
     </context>
     <context>
@@ -1706,7 +1706,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/qml/Clone.qml" line="33"/>
             <source>The document has been modified.</source>
-            <translation>The document has been modified.</translation>
+            <translation>Le document a été modifié.</translation>
         </message>
     </context>
     <context>
@@ -1715,7 +1715,7 @@
             <location filename="../kernel/BasicKernel/internal/rclick_menu/cloneaction.cpp" line="13"/>
             <location filename="../kernel/BasicKernel/internal/rclick_menu/cloneaction.cpp" line="29"/>
             <source>Clone Model</source>
-            <translation>Modèle clone</translation>
+            <translation>Dupliquer le modèle</translation>
         </message>
     </context>
     <context>
@@ -1724,7 +1724,7 @@
             <location filename="../kernel/BasicKernel/internal/tool/clonecommand.cpp" line="24"/>
             <location filename="../kernel/BasicKernel/internal/tool/clonecommand.cpp" line="48"/>
             <source>Clone</source>
-            <translation>Cloner</translation>
+            <translation>Dupliquer/cloner</translation>
         </message>
     </context>
     <context>
@@ -1737,7 +1737,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloneNumDlg.qml" line="20"/>
             <source>Clone Number:</source>
-            <translation>Numéro de clone :</translation>
+            <translation>Numéro du clone :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloneNumDlg.qml" line="57"/>
@@ -1755,12 +1755,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ClonePanel.qml" line="13"/>
             <source>Clone</source>
-            <translation>Cloner</translation>
+            <translation>Dupliquer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ClonePanel.qml" line="48"/>
             <source>Clone Number:</source>
-            <translation>Numéro de clone :</translation>
+            <translation>Numéro de copie :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ClonePanel.qml" line="99"/>
@@ -1793,7 +1793,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloseProFileDlg.qml" line="79"/>
             <source>Exit</source>
-            <translation>Sortie</translation>
+            <translation>quitter</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloseProFileDlg.qml" line="93"/>
@@ -1806,7 +1806,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="11"/>
             <source>Print Select</source>
-            <translation>Imprimer Sélectionner</translation>
+            <translation>Imprimer la sélection</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="42"/>
@@ -1821,12 +1821,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="73"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="87"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="100"/>
@@ -1839,7 +1839,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="10"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="43"/>
@@ -1859,7 +1859,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="96"/>
             <source>zip</source>
-            <translation>fermeture éclair</translation>
+            <translation>zip</translation>
         </message>
     </context>
     <context>
@@ -1882,7 +1882,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComPrinterSelectDlg.qml" line="92"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComPrinterSelectDlg.qml" line="106"/>
@@ -1932,7 +1932,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="27"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="27"/>
@@ -1952,7 +1952,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="28"/>
             <source>Progress</source>
-            <translation>Progrès</translation>
+            <translation>Progression</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="28"/>
@@ -1975,7 +1975,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="392"/>
             <source>Free</source>
-            <translation>Gratuit</translation>
+            <translation>libre</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="411"/>
@@ -1990,7 +1990,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="426"/>
             <source>Printing Stopped</source>
-            <translation>Impression arrêtée</translation>
+            <translation>Impression arrèté</translation>
         </message>
     </context>
     <context>
@@ -2003,7 +2003,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/usbControlQml/CusExtruderBox.qml" line="89"/>
             <source>Warm Up</source>
-            <translation>Réchauffer</translation>
+            <translation>Chauffer</translation>
         </message>
     </context>
     <context>
@@ -2016,7 +2016,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/usbControlQml/CusHeatBedBox.qml" line="81"/>
             <source>Warm Up</source>
-            <translation>Réchauffer</translation>
+            <translation>Chauffer</translation>
         </message>
     </context>
     <context>
@@ -2032,7 +2032,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="27"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="27"/>
@@ -2052,7 +2052,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="28"/>
             <source>Progress</source>
-            <translation>Progrès</translation>
+            <translation>Progression</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="28"/>
@@ -2062,7 +2062,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="173"/>
             <source>Some connect error</source>
-            <translation>Some connect error</translation>
+            <translation>Erreur de connection</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="272"/>
@@ -2085,7 +2085,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="26"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="26"/>
@@ -2115,7 +2115,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="151"/>
             <source>Some connect error</source>
-            <translation>Some connect error</translation>
+            <translation>Erreur de connection</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="249"/>
@@ -2146,12 +2146,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="1733"/>
             <source>Do you want to clear existing  supports before create new supports?</source>
-            <translation>Do you want to clear existing  supports before create new supports?</translation>
+            <translation>Voulez-vous effacer les supports existants avant de créer de nouveaux supports ?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="11"/>
             <source>Support</source>
-            <translation>Soutien</translation>
+            <translation>Support</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="45"/>
@@ -2186,18 +2186,18 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="157"/>
             <source>Only add support to the hot bed</source>
-            <translation>Ajoutez uniquement un support au lit chaud</translation>
+            <translation>Ajoutez uniquement les supports sur la table de construction</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="182"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="197"/>
             <source>Automatic Support</source>
-            <translation>Prise en charge automatique</translation>
+            <translation>Prise en charge des supports automatique</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="238"/>
             <source>Custom Support</source>
-            <translation>Assistance personnalisée</translation>
+            <translation>Supports avec Assistance personnalisée</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="253"/>
@@ -2258,7 +2258,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusTransFileMessageDlg.qml" line="62"/>
             <source>Translate Finished</source>
-            <translation>Traduire terminé</translation>
+            <translation>Traduction terminé</translation>
         </message>
     </context>
     <context>
@@ -2266,7 +2266,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusWizard.qml" line="10"/>
             <source>Click any area to show next</source>
-            <translation>Cliquez sur n'importe quelle zone pour afficher ensuite</translation>
+            <translation>Cliquez sur n'importe quelle zone pour afficher la suite</translation>
         </message>
     </context>
     <context>
@@ -2283,7 +2283,7 @@
         <message>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dclearprojectcommand.cpp" line="9"/>
             <source>Clear</source>
-            <translation>Clair</translation>
+            <translation>effacer</translation>
         </message>
     </context>
     <context>
@@ -2339,7 +2339,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="172"/>
             <source>No device found, try refreshing to get it again.</source>
-            <translation>No device found, try refreshing to get it again.</translation>
+            <translation>Aucun appareil trouvé. Essayez d'actualiser pour le récupérer l'appareil</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="192"/>
@@ -2360,7 +2360,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="241"/>
             <source>connecting</source>
-            <translation>connecting</translation>
+            <translation>Connection</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="251"/>
@@ -2388,12 +2388,12 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="335"/>
             <source>connect success</source>
-            <translation>connect success</translation>
+            <translation>connecté</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="340"/>
             <source>connect failed</source>
-            <translation>connect failed</translation>
+            <translation>Erreur de connection</translation>
         </message>
     </context>
     <context>
@@ -2406,17 +2406,17 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="35"/>
             <source>Edit Group1</source>
-            <translation>Modifier le groupe1</translation>
+            <translation>Modifier le groupe 1</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="70"/>
             <source>No device found, try refreshing to get it again.</source>
-            <translation>No device found, try refreshing to get it again.</translation>
+            <translation>Aucun appareil trouvé, essayez d'actualiser pour récupérer l'appareil.</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="86"/>
             <source>Transferred file : </source>
-            <translation type="unfinished"/>
+            <translation>Transfert de fichier</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="104"/>
@@ -2426,7 +2426,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="124"/>
             <source>Send Gcode</source>
-            <translation>Send Gcode</translation>
+            <translation>Envoyer Gcode</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="184"/>
@@ -2454,7 +2454,7 @@
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="184"/>
             <source>Please select a print file</source>
-            <translation>Please select a print file</translation>
+            <translation>Veuillez sélectionner un fichier d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="376"/>
@@ -2477,12 +2477,12 @@
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="608"/>
             <source> No idle printer</source>
-            <translation type="unfinished"/>
+            <translation>Pas d'imprimante active</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="610"/>
             <source> Please select a print file</source>
-            <translation type="unfinished"/>
+            <translation>Veuillez sélectionner un fichier à imprimer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="782"/>
@@ -2507,12 +2507,12 @@
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="932"/>
             <source>Printing File:</source>
-            <translation>Printing File:</translation>
+            <translation>Fichier d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="974"/>
             <source>Device Type:</source>
-            <translation>Device Type:</translation>
+            <translation>Type d'appareil:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="1006"/>
@@ -2522,7 +2522,7 @@
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="1050"/>
             <source>Hot Bed Temperature:</source>
-            <translation>Température du lit chaud :</translation>
+            <translation>Température table :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="1094"/>
@@ -2537,7 +2537,7 @@
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="1219"/>
             <source>Printing Time:</source>
-            <translation>Printing Time:</translation>
+            <translation>Temps d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="1244"/>
@@ -2567,12 +2567,12 @@
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="2012"/>
             <source>Please make sure that the device type you chose while slicing must match with the printing device, or it may lead you to a printing failure or even cause an irreversible printer damage. Do you want to start printing?</source>
-            <translation>Please make sure that the device type you chose while slicing must match with the printing device, or it may lead you to a printing failure or even cause an irreversible printer damage. Do you want to start printing?</translation>
+            <translation>Veuillez vous assurer que le type de périphérique que vous avez choisi lors du découpage doit correspondre au périphérique d'impression, sinon cela pourrait entraîner un échec d'impression ou même causer des dommages irréversibles à l'imprimante. Voulez-vous commencer à imprimer?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="2024"/>
             <source>Please make sure to clear the HotBed before printing.( Or it wil causes irritrievable damage to the printer if there still has something on the HotBed)</source>
-            <translation>Please make sure to clear the HotBed before printing.( Or it wil causes irritrievable damage to the printer if there still has something on the HotBed)</translation>
+            <translation>Veuillez vous assurer de nettoyer! le HotBed avant d'imprimer! (Sinon, cela causera des dommages irritables à l'imprimante s'il y a encore quelque chose sur le HotBed)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/DlgTest.qml" line="2046"/>
@@ -2606,7 +2606,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="21"/>
             <source>new</source>
-            <translation>nouveau</translation>
+            <translation>Nouveau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="69"/>
@@ -2626,7 +2626,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="72"/>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>Bonne qualité</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="73"/>
@@ -2636,32 +2636,32 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="260"/>
             <source>Profile:</source>
-            <translation>Profile:</translation>
+            <translation>Profil:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="276"/>
             <source>Material:</source>
-            <translation>Material:</translation>
+            <translation>Matériau:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="354"/>
             <source>Layer Height:</source>
-            <translation>Layer Height:</translation>
+            <translation>Hauteur de couche:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="391"/>
             <source>Line Width:</source>
-            <translation>Line Width:</translation>
+            <translation>Largeur de ligne:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="424"/>
             <source>Wall Line Count:</source>
-            <translation>Wall Line Count:</translation>
+            <translation>Nombre ligne de paroi:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="460"/>
             <source>Infill Sparse Density:</source>
-            <translation>Densité clairsemée de remplissage :</translation>
+            <translation>Infill Sparse Density:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="496"/>
@@ -2671,7 +2671,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="527"/>
             <source>Generate Support:</source>
-            <translation>Generate Support:</translation>
+            <translation>Générer Support:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="549"/>
@@ -2681,12 +2681,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="586"/>
             <source>Support Density:</source>
-            <translation>Support Density:</translation>
+            <translation>densité support:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="622"/>
             <source>Small Feature Max Length:</source>
-            <translation>Small Feature Max Length:</translation>
+            <translation>Longueur maximale des petites lignes:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="666"/>
@@ -2701,22 +2701,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="736"/>
             <source>Print Speed:</source>
-            <translation>Print Speed:</translation>
+            <translation>Vitesse d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="771"/>
             <source>Infill Speed:</source>
-            <translation>Infill Speed:</translation>
+            <translation>Vitesse de remplissage:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="806"/>
             <source>Wall Speed:</source>
-            <translation>Wall Speed:</translation>
+            <translation>Vitesse de la paroi:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="841"/>
             <source>Support Flow:</source>
-            <translation>Support Flow:</translation>
+            <translation>Support Flow :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="876"/>
@@ -2726,7 +2726,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="911"/>
             <source>Wall Flow:</source>
-            <translation>Wall Flow:</translation>
+            <translation>Wall Flow: </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="946"/>
@@ -2779,7 +2779,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="79"/>
             <source>Suspend</source>
-            <translation>Suspend</translation>
+            <translation>Interrompu</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="79"/>
@@ -2789,7 +2789,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="113"/>
             <source>Print Speed</source>
-            <translation>Vitesse d'impression</translation>
+            <translation>Vitesse</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="211"/>
@@ -2814,7 +2814,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="263"/>
             <source>Only Show</source>
-            <translation>Montre seulement</translation>
+            <translation>tout voir</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="346"/>
@@ -2842,7 +2842,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMPreviewPanel.qml" line="146"/>
             <source>USB Printing</source>
-            <translation>USB Printing</translation>
+            <translation>impression via USB </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMPreviewPanel.qml" line="186"/>
@@ -2863,7 +2863,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="104"/>
             <source>G-code Preview</source>
-            <translation>Aperçu du code G</translation>
+            <translation>besoin</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="119"/>
@@ -2873,7 +2873,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="129"/>
             <source>Material Length</source>
-            <translation>Longueur du matériau</translation>
+            <translation>Longueur matériau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="139"/>
@@ -2887,18 +2887,18 @@
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="178"/>
-            <source>Show in Preview</source>
-            <translation>Show in Preview</translation>
+            <source>Show in Preview/source>
+            <translation>Informations globales</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="192"/>
             <source>Printing Platform</source>
-            <translation>Plateforme d'impression</translation>
+            <translation>Table d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="267"/>
             <source>Color Show</source>
-            <translation>Spectacle de couleurs</translation>
+            <translation>Légende</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMRightPanel.qml" line="279"/>
@@ -2915,7 +2915,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="233"/>
             <source>Waiting</source>
-            <translation>En attendant</translation>
+            <translation>Patienter</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="237"/>
@@ -2936,7 +2936,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="362"/>
             <source>Remain Time</source>
-            <translation>Remain Time</translation>
+            <translationTemps restant</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="389"/>
@@ -2946,7 +2946,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="499"/>
             <source>View</source>
-            <translation>Voir</translation>
+            <translation>Aperçu</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="516"/>
@@ -2971,7 +2971,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="606"/>
             <source>Completed</source>
-            <translation>Complété</translation>
+            <translation>Complet</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintChildTaskItem.qml" line="624"/>
@@ -2984,7 +2984,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintDeviceItem.qml" line="43"/>
             <source>The slice type is unknown and cannot be checked. Redefine slice type?</source>
-            <translation>The slice type is unknown and cannot be checked. Redefine slice type?</translation>
+            <translation>Le type de tranche est inconnu et ne peut pas être vérifié. Redéfinir le type de tranche ?</translation>
         </message>
     </context>
     <context>
@@ -3019,13 +3019,13 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="490"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="493"/>
-            <source>Allocating</source>
-            <translation>Allocation</translation>
+            <source>Allocation</source>
+            <translation>Attribuer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="514"/>
             <source>Print Monitoring</source>
-            <translation>Print Monitoring</translation>
+            <translation>Surveillance de l'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="532"/>
@@ -3036,7 +3036,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="550"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="700"/>
             <source>Print Report</source>
-            <translation>Print Report</translation>
+            <translation>Imprimer le rapport</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="745"/>
@@ -3074,12 +3074,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskFoldingPanel.qml" line="347"/>
             <source>Waiting</source>
-            <translation>En attendant</translation>
+            <translation>Patienter</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskFoldingPanel.qml" line="367"/>
             <source>Allocating</source>
-            <translation>Allocation</translation>
+            <translation>Attribuer</translation>
         </message>
     </context>
     <context>
@@ -3097,7 +3097,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskListInfo.qml" line="191"/>
             <source>+Create more tasks</source>
-            <translation>+Create more tasks</translation>
+            <translation>+Créer des tâches supplémentaires</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskListInfo.qml" line="217"/>
@@ -3117,12 +3117,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskListInfo.qml" line="255"/>
             <source>Number of files you printed</source>
-            <translation>Nombre de fichiers que vous avez imprimés</translation>
+            <translation>Nombres de fichiers que vous avez imprimés</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskListInfo.qml" line="271"/>
             <source>+Add more print files</source>
-            <translation>+Add more print files</translation>
+            <translation>+Ajouter d'autres fichiers d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskListInfo.qml" line="297"/>
@@ -3132,7 +3132,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskListInfo.qml" line="299"/>
             <source>Waiting</source>
-            <translation>En attendant</translation>
+            <translation>Patienter</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintTaskListInfo.qml" line="317"/>
@@ -3191,7 +3191,7 @@
         </message>
         <message>
             <source>Discard changes</source>
-            <translation>Discard changes</translation>
+            <translation>Abandonner les modifications</translation>
         </message>
         <message>
             <source>Do you want to delete the selected slice configuration parameters?</source>
@@ -3199,27 +3199,27 @@
         </message>
         <message>
             <source>skirt</source>
-            <translation>jupe</translation>
+            <translation>Jupe</translation>
         </message>
         <message>
             <source>lace</source>
-            <translation>dentelle</translation>
+            <translation>Dentelle</translation>
         </message>
         <message>
             <source>brim</source>
-            <translation>bord</translation>
+            <translation>Bord</translation>
         </message>
         <message>
             <source>autobrim</source>
-            <translation>bord automatique</translation>
+            <translation>Bord automatique</translation>
         </message>
         <message>
             <source>raft</source>
-            <translation>radeau</translation>
+            <translation>Radeau</translation>
         </message>
         <message>
             <source>none</source>
-            <translation>aucun</translation>
+            <translation>Aucun</translation>
         </message>
         <message>
             <source>Export</source>
@@ -3263,7 +3263,7 @@
         <message>
             <location filename="../UserSettings/us/profilelistmodel.cpp" line="117"/>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>Bonne qualité</translation>
         </message>
         <message>
             <location filename="../UserSettings/us/profilelistmodel.cpp" line="117"/>
@@ -3280,7 +3280,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="107"/>
             <location filename="../plugins/CrealityUITest/HalotBoxTotalRightUIPanel.qml" line="110"/>
             <source>Parameter config</source>
-            <translation>Parameter config</translation>
+            <translation>Configuration paramètres</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="223"/>
@@ -3341,7 +3341,7 @@
         </message>
         <message>
             <source>mm),Wall Line Count(</source>
-            <translation>mm), nombre de lignes de mur (</translation>
+            <translation>mm), nombre de lignes de paroi (</translation>
         </message>
         <message>
             <source>mm),Infill Density(</source>
@@ -3453,7 +3453,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/InfoPanel.qml" line="41"/>
             <source>size:</source>
-            <translation>taille:</translation>
+            <translation>Taille:</translation>
         </message>
     </context>
     <context>
@@ -3474,7 +3474,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="280"/>
             <source>New group</source>
-            <translation>New group</translation>
+            <translation>Nouveau groupe</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="295"/>
@@ -3509,7 +3509,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="823"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="484"/>
@@ -3559,12 +3559,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1258"/>
             <source>Paste</source>
-            <translation>Pâte</translation>
+            <translation>Coller</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1230"/>
             <source>How to discover the IP address</source>
-            <translation>Comment découvrir l'adresse IP</translation>
+            <translation>Comment trouver l'adresse IP</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="639"/>
@@ -3579,7 +3579,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="689"/>
             <source>Connecting</source>
-            <translation>De liaison</translation>
+            <translation>Connexion</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="714"/>
@@ -3590,7 +3590,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="733"/>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="791"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="772"/>
@@ -3600,7 +3600,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1500"/>
             <source>Scan Add</source>
-            <translation>Scanner Ajouter</translation>
+            <translation>Scanner et Ajouter</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1539"/>
@@ -3675,7 +3675,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="2113"/>
             <source>Remove device</source>
-            <translation>Enlevez l'appareil</translation>
+            <translation>Supprimer l'appareil</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1136"/>
@@ -3697,7 +3697,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="480"/>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1905"/>
             <source>Ip address</source>
-            <translation>Ip address</translation>
+            <translation>adresse IP</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="2003"/>
@@ -3707,7 +3707,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="2017"/>
             <source>File:</source>
-            <translation>File:</translation>
+            <translation>Fichier:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="2076"/>
@@ -3717,12 +3717,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="2981"/>
             <source>Print calibration</source>
-            <translation>Print calibration</translation>
+            <translation>calibration imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1395"/>
             <source>Print time</source>
-            <translation>Print time</translation>
+            <translation>temps d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1416"/>
@@ -3732,7 +3732,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1433"/>
             <source>Print progress</source>
-            <translation>Print progress</translation>
+            <translation>progression d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1514"/>
@@ -3742,12 +3742,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1668"/>
             <source>Hot bed temp</source>
-            <translation>Hot bed temp</translation>
+            <translation>température de la table</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="1827"/>
             <source>Nozzle temp</source>
-            <translation>Nozzle temp</translation>
+            <translation>température buse</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="2007"/>
@@ -3841,7 +3841,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="282"/>
             <source>Stop printing</source>
-            <translation>Stop printing</translation>
+            <translation>Arrèter l'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="283"/>
@@ -3922,7 +3922,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="310"/>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1672"/>
             <source>File</source>
-            <translation>Déposer</translation>
+            <translation>fichier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="346"/>
@@ -3932,7 +3932,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="416"/>
             <source>Print time</source>
-            <translation>Print time</translation>
+            <translation>Temps d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="439"/>
@@ -3952,12 +3952,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1178"/>
             <source>Hot Bed temp</source>
-            <translation>Hot Bed temp</translation>
+            <translation>température de la table</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1335"/>
             <source>Nozzle temp</source>
-            <translation>Nozzle temp</translation>
+            <translation>Température de la buse</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1492"/>
@@ -3987,7 +3987,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1702"/>
             <source>Records</source>
-            <translation>Records</translation>
+            <translation>Enregistrer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1727"/>
@@ -4002,27 +4002,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1750"/>
             <source>Open File</source>
-            <translation>Fichier ouvert</translation>
+            <translation>Ouvrir fichier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1917"/>
             <source>File name</source>
-            <translation>File name</translation>
+            <translation>Nom du fichier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1917"/>
             <source>File size</source>
-            <translation>File size</translation>
+            <translation>Taille du fichier</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1917"/>
             <source>Layer height</source>
-            <translation>Layer height</translation>
+            <translation>Hauteur de la couche</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1918"/>
             <source>Start time</source>
-            <translation>Start time</translation>
+            <translation>Heure de départ</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1918"/>
@@ -4062,12 +4062,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="4665"/>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="4667"/>
             <source>Copy link successfully!</source>
-            <translation>Copiez le lien avec succès !</translation>
+            <translation>Copie du lien succès !</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="4666"/>
@@ -4087,7 +4087,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1917"/>
             <source>Material length</source>
-            <translation>Material length</translation>
+            <translation>Longueur du matériau </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1918"/>
@@ -4097,12 +4097,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="1907"/>
             <source>Start printing</source>
-            <translation>Start printing</translation>
+            <translation>Commencer impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="3367"/>
             <source>Restart printing</source>
-            <translation>Restart printing</translation>
+            <translation>Redémarrer printing </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="3135"/>
@@ -4127,7 +4127,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="3044"/>
             <source>Rejected our connection request.</source>
-            <translation>Rejeté notre demande de connexion.</translation>
+            <translation>Rejet de notre demande de connexion.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterDetail.qml" line="2245"/>
@@ -4167,11 +4167,11 @@
         </message>
         <message>
             <source>Object deletion</source>
-            <translation>Object deletion</translation>
+            <translation>Suppression de l'objet</translation>
         </message>
         <message>
             <source>Whether to continue deleting the selected object</source>
-            <translation>S'il faut continuer la suppression de l'objet sélectionné</translation>
+            <translation>continuer la suppression de l'objet sélectionné</translation>
         </message>
     </context>
     <context>
@@ -4179,7 +4179,7 @@
         <message>
             <location filename="../kernel/BasicKernel/internal/menu_tool/languagecommand.cpp" line="14"/>
             <source>Language</source>
-            <translation>Langue</translation>
+            <translation>Langues</translation>
         </message>
     </context>
     <context>
@@ -4197,7 +4197,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LanguagePreferDlg.qml" line="115"/>
             <source>Save Project Time Interval</source>
-            <translation>Save Project Time Interval</translation>
+            <translation>Sauvegarder l'intervalle de temps du projet</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LanguagePreferDlg.qml" line="147"/>
@@ -4208,12 +4208,12 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LanguagePreferDlg.qml" line="157"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LanguagePreferDlg.qml" line="206"/>
             <source>Save Project Time Interval can not be empty</source>
-            <translation>Save Project Time Interval can not be empty</translation>
+            <translation>L'intervalle de temps pour l'enregistrement du projet ne peut pas être vide</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LanguagePreferDlg.qml" line="163"/>
             <source>Save Project Time Interval can not be 0</source>
-            <translation>Save Project Time Interval can not be 0</translation>
+            <translation>L'intervalle de temps de sauvegarde du projet ne peut pas être égal à 0</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LanguagePreferDlg.qml" line="176"/>
@@ -4231,7 +4231,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LanguageSelectDlg.qml" line="13"/>
             <source>请选择语言种类：（Please select the language:）</source>
-            <translation>请选择语言种类：（Please select the language:）</translation>
+            <translation>Veuillez sélectionner la langue</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LanguageSelectDlg.qml" line="29"/>
@@ -4264,7 +4264,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserFontSettings.qml" line="47"/>
             <source>Font Family</source>
-            <translation>Font Family</translation>
+            <translation>type de police</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserFontSettings.qml" line="69"/>
@@ -4370,7 +4370,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserPanel.qml" line="214"/>
             <source>all</source>
-            <translation>tous</translation>
+            <translation>Tous</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserPanel.qml" line="334"/>
@@ -4420,7 +4420,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserPanel.qml" line="631"/>
             <source>Travel Speed</source>
-            <translation>Vitesse de voyage</translation>
+            <translation>Vitesse de déplacement</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserPanel.qml" line="661"/>
@@ -4435,7 +4435,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserPanel.qml" line="746"/>
             <source>Model out of range, please put 'red' model in the printer!</source>
-            <translation>Modèle hors de portée, veuillez mettre le modèle « rouge » dans l'imprimante !</translation>
+            <translation>Modèle hors zone, veuillez mettre le modèle « rouge » dans l'imprimante !</translation>
         </message>
     </context>
     <context>
@@ -4461,7 +4461,7 @@
         <message>
             <location filename="../plugins/plugin_laser/laserscene.cpp" line="1113"/>
             <source>Save Finished, Open Local Folder</source>
-            <translation>Enregistrer terminé, ouvrir le dossier local</translation>
+            <translation>Enregistrer les données terminées, ouvrir le dossier local</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_laser/laserscene.cpp" line="1118"/>
@@ -4497,7 +4497,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LaserSliceSettings.qml" line="427"/>
             <source>Generate GCode</source>
-            <translation>Generate GCode</translation>
+            <translation>Génération du GCode</translation>
         </message>
     </context>
     <context>
@@ -4534,7 +4534,7 @@
             <location filename="../kernel/BasicKernel/internal/rclick_menu/layoutcommand.cpp" line="13"/>
             <location filename="../kernel/BasicKernel/internal/rclick_menu/layoutcommand.cpp" line="42"/>
             <source>Auto arrange</source>
-            <translation>Auto arrange</translation>
+            <translation>rangement automatique</translation>
         </message>
     </context>
     <context>
@@ -4616,17 +4616,17 @@
         <message>
             <location filename="../plugins/plugin_localnet/localnetcommand.cpp" line="26"/>
             <source>Single Control Printing</source>
-            <translation>Single Control Printing</translation>
+            <translation>Contrôle de l'impression</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/localnetcommand.cpp" line="29"/>
             <source>Group Control Printing</source>
-            <translation>Group Control Printing</translation>
+            <translation>Contrôle de groupe Impression</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/localnetcommand.cpp" line="38"/>
             <source>WIFI Online Printing</source>
-            <translation>WIFI Online Printing</translation>
+            <translation>impression en ligne via WIFI</translation>
         </message>
     </context>
     <context>
@@ -4642,7 +4642,7 @@
         <name>LoginDlg</name>
         <message>
             <source>HOST_RESOLUTION_FAILURE</source>
-            <translation>HOST_RESOLUTION_FAILURE</translation>
+            <translation>ÉCHEC DE LA RÉSOLUTION DE L'HÔTE (HOST_RESOLUTION_FAILURE)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="12"/>
@@ -4693,7 +4693,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="218"/>
             <source>Creality Cloud</source>
-            <translation>Créalité Nuage</translation>
+            <translation>Créalité Cloud</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="237"/>
@@ -4718,7 +4718,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="547"/>
             <source>Me section in app > Scan icon on top</source>
-            <translation>Section Moi dans l'application > Icône de numérisation en haut</translation>
+            <translation>Ma section dans l'application > Icône de numérisation en haut</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="990"/>
@@ -4756,7 +4756,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="991"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="1003"/>
             <source>to scan the QR code</source>
-            <translation>pour scanner le code QR</translation>
+            <translation>Pour scanner le code QR</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="1011"/>
@@ -5966,7 +5966,7 @@
         </message>
         <message>
             <source>Boat</source>
-            <translation>Boat</translation>
+            <translation>Bateau</translation>
         </message>
         <message>
             <source>Complex</source>
@@ -5997,7 +5997,7 @@
         </message>
         <message>
             <source>Duplicate name</source>
-            <translation>Nom en double</translation>
+            <translation>Duplicata du nom</translation>
         </message>
         <message>
             <source>Import Material</source>
@@ -6045,7 +6045,7 @@
         </message>
         <message>
             <source>Manage Material</source>
-            <translation>Manage Material</translation>
+            <translation>Gérer le matériau</translation>
         </message>
         <message>
             <source>Material Name</source>
@@ -6057,7 +6057,7 @@
         </message>
         <message>
             <source>Material Type</source>
-            <translation>type de materiau</translation>
+            <translation>type de matériau</translation>
         </message>
         <message>
             <source>Color</source>
@@ -6073,7 +6073,7 @@
         </message>
         <message>
             <source>Flow</source>
-            <translation>Couler</translation>
+            <translation>débit</translation>
         </message>
         <message>
             <source>Cooling</source>
@@ -6097,7 +6097,7 @@
         </message>
         <message>
             <source>Enable pressure advance</source>
-            <translation>Enable pressure advance</translation>
+            <translation>Activer l'avance de pression (Enable pressure advance)</translation>
         </message>
         <message>
             <source>Printing Temperature</source>
@@ -6133,11 +6133,11 @@
         </message>
         <message>
             <source>Outer Wall Flow</source>
-            <translation>Flux du mur extérieur</translation>
+            <translation>Flux paroi extérieur</translation>
         </message>
         <message>
             <source>Inner Wall(s) Flow</source>
-            <translation>Débit des parois intérieures</translation>
+            <translation>Débit parois intérieures</translation>
         </message>
         <message>
             <source>Top/Bottom Flow</source>
@@ -6173,19 +6173,19 @@
         </message>
         <message>
             <source>Support Floor Flow</source>
-            <translation>Flux de plancher de support</translation>
+            <translation>Flux de plancher de support(Support Floor Flow)</translation>
         </message>
         <message>
             <source>Prime Tower Flow</source>
-            <translation>Flux de la tour principale</translation>
+            <translation>Flux de la tour principale(Prime Tower Flow)</translation>
         </message>
         <message>
             <source>Initial Layer Flow</source>
-            <translation>Flux de couche initial</translation>
+            <translation>Flux de couche initial(Initial Layer Flow)</translation>
         </message>
         <message>
             <source>Support Roof Flow</source>
-            <translation>Soutenir le flux du toit</translation>
+            <translation>Soutenir le flux du toit(Support Roof Flow)</translation>
         </message>
         <message>
             <source>Enable Print Cooling</source>
@@ -6273,7 +6273,7 @@
         </message>
         <message>
             <source>Retraction Wipe</source>
-            <translation>Lingette de rétraction</translation>
+            <translation>rétraction d'essuyage</translation>
         </message>
         <message>
             <source>Retract at Layer Change</source>
@@ -6289,11 +6289,11 @@
         </message>
         <message>
             <source>Wipe length</source>
-            <translation>Longueur de lingette</translation>
+            <translation>Longueur d'essuyage(Wipe length)</translation>
         </message>
         <message>
             <source>Before Wipe Retraction Amount Percent</source>
-            <translation>Avant pourcentage de retrait du linge</translation>
+            <translation>Before Wipe Retraction Amount Percent</translation>
         </message>
         <message>
             <source>Filament start G-code</source>
@@ -6353,7 +6353,7 @@
         </message>
         <message>
             <source>Printer Name</source>
-            <translation>Printer Name</translation>
+            <translation>Nom de l'imprimante</translation>
         </message>
         <message>
             <source>Nozzle Diameter</source>
@@ -6451,7 +6451,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MessageDiagbasic.qml" line="68"/>
             <source>Cancle</source>
-            <translation>Cancle</translation>
+            <translation>Annuler(Cancle)</translation>
         </message>
     </context>
     <context>
@@ -6474,7 +6474,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelAlwaysShowPopupDlg.qml" line="118"/>
             <source>Models</source>
-            <translation>Des modèles</translation>
+            <translation>Modèles</translation>
         </message>
     </context>
     <context>
@@ -6495,7 +6495,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelLibraryShareDialog.qml" line="47"/>
             <source>Link: </source>
-            <translation>链接：</translation>
+            <translation>Lien：</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelLibraryShareDialog.qml" line="74"/>
@@ -6512,11 +6512,11 @@
         <name>ModelLibraryInfoDlg</name>
         <message>
             <source>History</source>
-            <translation>Histoire</translation>
+            <translation>Historique</translation>
         </message>
         <message>
             <source>Back</source>
-            <translation>Dos</translation>
+            <translation>Retour</translation>
         </message>
         <message>
             <source>Collect</source>
@@ -6560,7 +6560,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelLibraryInfoDlg.qml" line="1170"/>
             <source>UnCollect</source>
-            <translation>UnCollect</translation>
+            <translation>Annuler la recherche</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelLibraryInfoDlg.qml" line="1230"/>
@@ -6629,7 +6629,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelList.qml" line="213"/>
             <source>Auto arrange</source>
-            <translation>Auto arrange</translation>
+            <translation>Auto arranger</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelList.qml" line="241"/>
@@ -6708,7 +6708,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MouseCombo.qml" line="65"/>
             <source>Move  operation: press and hold the middle mouse button</source>
-            <translation>Move  operation: press and hold the middle mouse button</translation>
+            <translation>Opération de déplacement : appuyez sur le bouton du milieu de la souris et maintenez-le enfoncé</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MouseCombo.qml" line="66"/>
@@ -6764,7 +6764,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="68"/>
             <source>Print Control</source>
-            <translation>Print Control</translation>
+            <translation>Commande d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="94"/>
@@ -6794,7 +6794,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="262"/>
             <source>Device Name:</source>
-            <translation>Device Name:</translation>
+            <translation>Nom de l'appareil:</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="286"/>
@@ -6804,12 +6804,12 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="317"/>
             <source>Printing File:</source>
-            <translation>Printing File:</translation>
+            <translation>fichier d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="350"/>
             <source>Device Type:</source>
-            <translation>Device Type:</translation>
+            <translation>Type d'appareil:</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="382"/>
@@ -6819,7 +6819,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="425"/>
             <source>Hot Bed Temperature:</source>
-            <translation>Température du lit chaud :</translation>
+            <translation>Température de la table :</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="468"/>
@@ -6869,12 +6869,12 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="1326"/>
             <source>Please make sure that the device type you chose while slicing must match with the printing device, or it may lead you to a printing failure or even cause an irreversible printer damage. Do you want to start printing?</source>
-            <translation>Please make sure that the device type you chose while slicing must match with the printing device, or it may lead you to a printing failure or even cause an irreversible printer damage. Do you want to start printing?</translation>
+            <translation>Veillez à ce que le type de périphérique choisi lors du découpage corresponde au périphérique d'impression, sous peine de provoquer un échec de l'impression, voire d'endommager irrémédiablement l'imprimante. Voulez-vous lancer l'impression ?</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="1338"/>
             <source>Please make sure to clear the HotBed before printing.( Or it wil causes irritrievable damage to the printer if there still has something on the HotBed)</source>
-            <translation>Please make sure to clear the HotBed before printing.( Or it wil causes irritrievable damage to the printer if there still has something on the HotBed)</translation>
+            <translation>Veillez à vider le HotBed avant d'imprimer (sinon l'imprimante risque d'être endommagée s'il reste quelque chose sur le HotBed).</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="1360"/>
@@ -6889,7 +6889,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/MyPrintControlDlg.qml" line="1648"/>
             <source>Please select a print file</source>
-            <translation>Please select a print file</translation>
+            <translation>Sélectionnez un fichier d'impression</translation>
         </message>
     </context>
     <context>
@@ -6907,7 +6907,7 @@
             <location filename="../kernel/BasicKernel/internal/rclick_menu/nozzleaction.cpp" line="13"/>
             <location filename="../kernel/BasicKernel/internal/rclick_menu/nozzleaction.cpp" line="50"/>
             <source>Nozzle </source>
-            <translation>喷嘴 </translation>
+            <translation>buse</translation>
         </message>
     </context>
     <context>
@@ -6916,7 +6916,7 @@
             <location filename="../kernel/BasicKernel/internal/rclick_menu/onesideasbottomface.cpp" line="12"/>
             <location filename="../kernel/BasicKernel/internal/rclick_menu/onesideasbottomface.cpp" line="40"/>
             <source>OneSide As Bottomface</source>
-            <translation>OneSide As Bottomface</translation>
+            <translation>D'un côté comme de l'autre</translation>
         </message>
     </context>
     <context>
@@ -6933,7 +6933,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/PartPanel.qml" line="109"/>
             <source>Split</source>
-            <translation>Diviser</translation>
+            <translation>diviser</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/PartPanel.qml" line="127"/>
@@ -6943,7 +6943,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/PartPanel.qml" line="288"/>
             <source>Rotate:</source>
-            <translation>Rotate:</translation>
+            <translation>Rotation:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/PartPanel.qml" line="330"/>
@@ -7071,7 +7071,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PlotterPanel.qml" line="490"/>
             <source>Generate GCode</source>
-            <translation>Generate GCode</translation>
+            <translation>Génération du GCode</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PlotterPanel.qml" line="519"/>
@@ -7172,19 +7172,19 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="114"/>
             <source> Please select a printer</source>
-            <translation type="unfinished"/>
+            <translation>Sélectionnez une imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="117"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="267"/>
             <source> No idle printer</source>
-            <translation type="unfinished"/>
+            <translation>Pas d'imprimante en attente</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="269"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="388"/>
             <source>Please select a print file</source>
-            <translation>Please select a print file</translation>
+            <translation>Sélectionnez un fichier d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="792"/>
@@ -7222,7 +7222,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1027"/>
             <source>Device Name:</source>
-            <translation>Device Name:</translation>
+            <translation>Nom de l'appareil:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1083"/>
@@ -7232,12 +7232,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1114"/>
             <source>Printing File:</source>
-            <translation>Printing File:</translation>
+            <translation>fichier d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1153"/>
             <source>Device Type:</source>
-            <translation>Device Type:</translation>
+            <translation>type d'appareil:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1185"/>
@@ -7247,7 +7247,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1229"/>
             <source>Hot Bed Temperature:</source>
-            <translation>Température du lit chaud :</translation>
+            <translation>Température de la table :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1273"/>
@@ -7262,7 +7262,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1398"/>
             <source>Printing Time:</source>
-            <translation>Printing Time:</translation>
+            <translation>Temps d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="1423"/>
@@ -7297,12 +7297,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="2110"/>
             <source>Please make sure that the device type you chose while slicing must match with the printing device, or it may lead you to a printing failure or even cause an irreversible printer damage. Do you want to start printing?</source>
-            <translation>Please make sure that the device type you chose while slicing must match with the printing device, or it may lead you to a printing failure or even cause an irreversible printer damage. Do you want to start printing?</translation>
+            <translation>Veillez à ce que le type de périphérique choisi lors du découpage corresponde au périphérique d'impression, sous peine de provoquer un échec de l'impression, voire d'endommager irrémédiablement l'imprimante. Voulez-vous lancer l'impression ?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="2122"/>
             <source>Please make sure to clear the HotBed before printing.( Or it wil causes irritrievable damage to the printer if there still has something on the HotBed)</source>
-            <translation>Please make sure to clear the HotBed before printing.( Or it wil causes irritrievable damage to the printer if there still has something on the HotBed)</translation>
+            <translation>Veillez à vider le HotBed avant d'imprimer (sinon l'imprimante risque d'être endommagée s'il reste quelque chose sur le HotBed).</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintControlInfoDlg.qml" line="2140"/>
@@ -7320,13 +7320,13 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="12"/>
             <source>Print Control</source>
-            <translation>Print Control</translation>
+            <translation>Contrôle d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="184"/>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="610"/>
             <source>Please select a print file</source>
-            <translation>Please select a print file</translation>
+            <translation>Sélectionnez un fichier d'impression</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="376"/>
@@ -7349,7 +7349,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="608"/>
             <source> No idle printer</source>
-            <translation type="unfinished"/>
+            <translation>Pas d'imprimante en attente</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="782"/>
@@ -7364,7 +7364,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="872"/>
             <source>Device Name:</source>
-            <translation>Device Name:</translation>
+            <translation>Nom de l'appareil:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="901"/>
@@ -7374,12 +7374,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="932"/>
             <source>Printing File:</source>
-            <translation>Printing File:</translation>
+            <translation>fichier d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="974"/>
             <source>Device Type:</source>
-            <translation>Device Type:</translation>
+            <translation>type d'appareil:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="1006"/>
@@ -7389,7 +7389,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="1050"/>
             <source>Hot Bed Temperature:</source>
-            <translation>Température du lit chaud :</translation>
+            <translation>Température du plateau chauffant :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="1094"/>
@@ -7404,7 +7404,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="1219"/>
             <source>Printing Time:</source>
-            <translation>Printing Time:</translation>
+            <translation>Temps d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="1244"/>
@@ -7439,12 +7439,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="2012"/>
             <source>Please make sure that the device type you chose while slicing must match with the printing device, or it may lead you to a printing failure or even cause an irreversible printer damage. Do you want to start printing?</source>
-            <translation>Please make sure that the device type you chose while slicing must match with the printing device, or it may lead you to a printing failure or even cause an irreversible printer damage. Do you want to start printing?</translation>
+            <translation>Veuillez à vider la table avant d'imprimer (sinon l'imprimante risque d'être endommagée s'il reste quelque chose sur le HotBed).</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="2024"/>
             <source>Please make sure to clear the HotBed before printing.( Or it wil causes irritrievable damage to the printer if there still has something on the HotBed)</source>
-            <translation>Please make sure to clear the HotBed before printing.( Or it wil causes irritrievable damage to the printer if there still has something on the HotBed)</translation>
+            <translation>Veillez à vider le HotBed avant d'imprimer (sinon l'imprimante risque d'être endommagée s'il reste quelque chose sur le HotBed).</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/controlQml/PrintControlInfoDlg_Local.qml" line="2046"/>
@@ -7471,18 +7471,18 @@
         </message>
     </context>
     <context>
-        <name>PrinterConrtolCommand</name>
+        <name>PrinterControlCommand</name>
         <message>
             <location filename="../kernel/BasicKernel/internal/menu_printer_control/printercontrolcommand.cpp" line="23"/>
             <location filename="../kernel/BasicKernel/internal/menu_printer_control/printercontrolcommand.cpp" line="38"/>
             <source>Single Control Printing</source>
-            <translation>Single Control Printing</translation>
+            <translation>Impression d'un seul contrôle</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/internal/menu_printer_control/printercontrolcommand.cpp" line="26"/>
             <location filename="../kernel/BasicKernel/internal/menu_printer_control/printercontrolcommand.cpp" line="41"/>
             <source>Group Control Printing</source>
-            <translation>Group Control Printing</translation>
+            <translation>Contrôle de groupe Impression</translation>
         </message>
     </context>
     <context>
@@ -7518,7 +7518,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintingControlItem.qml" line="95"/>
             <source>View Print</source>
-            <translation>View Print</translation>
+            <translation>Vue imprimante</translation>
         </message>
     </context>
     <context>
@@ -7527,7 +7527,7 @@
             <location filename="../kernel/BasicKernel/external/kernel/projectinfoui.cpp" line="28"/>
             <location filename="../kernel/BasicKernel/external/kernel/projectinfoui.cpp" line="117"/>
             <source>Do you Want to Save LastProject?</source>
-            <translation>Voulez-vous enregistrer LastProject ?</translation>
+            <translation>Voulez-vous enregistrer le dernier projet ?</translation>
         </message>
     </context>
     <context>
@@ -7697,12 +7697,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ReleaseNote.qml" line="48"/>
             <source>Detected a new verion of </source>
-            <translation type="unfinished">检测到新版本</translation>
+            <translation type="unfinished">Détection d'une nouvelle version </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ReleaseNote.qml" line="48"/>
             <source>, Is it updated immediately?</source>
-            <translation>, Est-il mis à jour immédiatement ?</translation>
+            <translation>, Mettre a jour maintenant?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ReleaseNote.qml" line="73"/>
@@ -7743,7 +7743,7 @@
         <message>
             <location filename="../plugins/plugin_repairnew/repaircommand.cpp" line="96"/>
             <source>Repair Model Finish!!!</source>
-            <translation>Finition du modèle de réparation !!!</translation>
+            <translation>Fin de la réparation du modèle !</translation>
         </message>
     </context>
     <context>
@@ -7751,17 +7751,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/RepairModelDlg.qml" line="26"/>
             <source>自动修复当前选择的模型？</source>
-            <translation>自动修复当前选择的模型？</translation>
+            <translation>自动修复当前选择的模型   réparation du modèle</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/RepairModelDlg.qml" line="35"/>
             <source>确定</source>
-            <translation>确定</translation>
+            <translation>确定 confirmer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/RepairModelDlg.qml" line="47"/>
             <source>取消</source>
-            <translation>取消</translation>
+            <translation>annuler</translation>
         </message>
     </context>
     <context>
@@ -7793,7 +7793,7 @@
         <message>
             <location filename="../kernel/BasicKernel/internal/tool/resetcommand.cpp" line="12"/>
             <source>ResetModel</source>
-            <translation>ResetModel</translation>
+            <translation>Réinitialiser le modèle</translation>
         </message>
     </context>
     <context>
@@ -7801,12 +7801,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RightInfoPanel.qml" line="170"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RightInfoPanel.qml" line="188"/>
             <source>Model</source>
-            <translation>Model</translation>
+            <translation>Modèle</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RightInfoPanel.qml" line="213"/>
@@ -7826,7 +7826,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RightInfoPanel.qml" line="313"/>
             <source>Start Slice</source>
-            <translation>Démarrer la tranche</translation>
+            <translation>Démarrer la tranchage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RightInfoPanel.qml" line="357"/>
@@ -7835,9 +7835,8 @@
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RightInfoPanel.qml" line="368"/>
-            <source>Manual supports have been added but support option is disabledin the template,&#xd;
- do you want to add support structures?</source>
-            <translation>模型已经添加手动支撑，但打印模板中已经关闭了支撑选项，是否要启用支撑？</translation>
+            <source>Manual supports have been added but support option is disabledin the template,do you want to add support structures?</source>
+            <translation>Des supports manuels ont été ajoutés mais l'option de support est désactivée dans le modèle,voulez-vous ajouter des structures de soutien ?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RightInfoPanel.qml" line="496"/>
@@ -7864,7 +7863,7 @@
             <location filename="../kernel/BasicKernel/internal/tool/rotatemode.cpp" line="15"/>
             <location filename="../kernel/BasicKernel/internal/tool/rotatemode.cpp" line="41"/>
             <source>Rotate</source>
-            <translation>Tourner</translation>
+            <translation>Rotation</translation>
         </message>
     </context>
     <context>
@@ -7872,7 +7871,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/RotatePanel.qml" line="91"/>
             <source>Rotate</source>
-            <translation>Tourner</translation>
+            <translation>Rotation</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/RotatePanel.qml" line="114"/>
@@ -7938,7 +7937,7 @@
             <location filename="../kernel/BasicKernel/internal/menu_file/saveascommand.cpp" line="23"/>
             <location filename="../kernel/BasicKernel/internal/menu_file/saveascommand.cpp" line="64"/>
             <source>Save STL</source>
-            <translation>Enregistrer STL</translation>
+            <translation>Enregistrer .STL</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/internal/menu_file/saveascommand.cpp" line="55"/>
@@ -7967,7 +7966,7 @@
         </message>
         <message>
             <source>OK</source>
-            <translation>D'ACCORD</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <source>You are unlocking the uniform ratio, which means the model will not return to its original size. Do you want to proceed?</source>
@@ -8008,7 +8007,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/SelectPrinter.qml" line="62"/>
             <source>Manage printer</source>
-            <translation>Manage printer</translation>
+            <translation>Réglage imprimante</translation>
         </message>
     </context>
     <context>
@@ -8049,7 +8048,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ServerSelectDlg.qml" line="20"/>
             <source>Server Setting</source>
-            <translation>Server Setting</translation>
+            <translation>Paramètre du serveur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ServerSelectDlg.qml" line="28"/>
@@ -8068,7 +8067,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ServerSelectDlg.qml" line="76"/>
             <source>Back</source>
-            <translation>Dos</translation>
+            <translation>Retour</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ServerSelectDlg.qml" line="95"/>
@@ -8120,7 +8119,7 @@
             <location filename="../kernel/BasicKernel/internal/rclick_menu/splitmodelaction.cpp" line="16"/>
             <location filename="../kernel/BasicKernel/internal/rclick_menu/splitmodelaction.cpp" line="47"/>
             <source>Split Model</source>
-            <translation>Modèle divisé</translation>
+            <translation>Modèle fractionner</translation>
         </message>
     </context>
     <context>
@@ -8142,7 +8141,7 @@
         </message>
         <message>
             <source>Type</source>
-            <translation>Taper</translation>
+            <translation>Taper(Type)</translation>
         </message>
         <message>
             <source>Time</source>
@@ -8150,15 +8149,15 @@
         </message>
         <message>
             <source>Percent</source>
-            <translation>Pour cent</translation>
+            <translation>Pour cent(Percent)</translation>
         </message>
         <message>
             <source>Outer Perimeter</source>
-            <translation>Périmètre extérieur</translation>
+            <translation>Paroi externe</translation>
         </message>
         <message>
             <source>Inner Perimeter</source>
-            <translation>Périmètre intérieur</translation>
+            <translation>Paroi interne</translation>
         </message>
         <message>
             <source>Skin</source>
@@ -8166,11 +8165,11 @@
         </message>
         <message>
             <source>Support</source>
-            <translation>Soutien</translation>
+            <translation>Support</translation>
         </message>
         <message>
             <source>SkirtBrim</source>
-            <translation>JupeBrim</translation>
+            <translation>JupeBrim(SkirtBrim)</translation>
         </message>
         <message>
             <source>Infill</source>
@@ -8178,7 +8177,7 @@
         </message>
         <message>
             <source>SupportInfill</source>
-            <translation>SupportRemplissage</translation>
+            <translation>rempli.support</translation>
         </message>
         <message>
             <source>SupportInterface</source>
@@ -8220,7 +8219,7 @@
         <name>LayerHightPanel</name>
         <message>
             <source>Layer Hight</source>
-            <translation>Layer Hight</translation>
+            <translation>hauteur couche</translation>
         </message>
     </context>
     <context>
@@ -8234,7 +8233,7 @@
         <name>FlowPanel</name>
         <message>
             <source>Flow</source>
-            <translation>Couler</translation>
+            <translation>flow</translation>
         </message>
     </context>
     <context>
@@ -8302,7 +8301,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/StyledStatusBar.qml" line="114"/>
             <source>Save Finish</source>
-            <translation>Enregistrer Terminer</translation>
+            <translation>Terminer Enregistrer</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/StyledStatusBar.qml" line="123"/>
@@ -8340,7 +8339,7 @@
             <location filename="../kernel/BasicKernel/internal/menu/submenurecentfiles.cpp" line="18"/>
             <location filename="../kernel/BasicKernel/internal/menu/submenurecentfiles.cpp" line="46"/>
             <source>Recently files</source>
-            <translation>Fichiers récemment</translation>
+            <translation>Fichiers récents</translation>
         </message>
     </context>
     <context>
@@ -8349,7 +8348,7 @@
             <location filename="../kernel/BasicKernel/internal/menu_tool/submenuThemeColor.cpp" line="7"/>
             <location filename="../kernel/BasicKernel/internal/menu_tool/submenuThemeColor.cpp" line="20"/>
             <source>Theme color change</source>
-            <translation>Changement de couleur du thème</translation>
+            <translation>couleur du thème</translation>
         </message>
     </context>
     <context>
@@ -8358,7 +8357,7 @@
             <location filename="../kernel/BasicKernel/internal/menu_view/submenuviewsshow.cpp" line="17"/>
             <location filename="../kernel/BasicKernel/internal/menu_view/submenuviewsshow.cpp" line="36"/>
             <source>View Show</source>
-            <translation>Voir le spectacle</translation>
+            <translation>voir l'impression</translation>
         </message>
     </context>
     <context>
@@ -8367,7 +8366,7 @@
             <location filename="../kernel/BasicKernel/internal/tool/supportcommand.cpp" line="24"/>
             <location filename="../kernel/BasicKernel/internal/tool/supportcommand.cpp" line="40"/>
             <source>Support</source>
-            <translation>Soutien</translation>
+            <translation>Support</translation>
         </message>
     </context>
     <context>
@@ -8375,7 +8374,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/SupportPanel.qml" line="25"/>
             <source>Support</source>
-            <translation>Soutien</translation>
+            <translation>support</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/SupportPanel.qml" line="44"/>
@@ -8504,17 +8503,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/SupportTabPanel.qml" line="305"/>
             <source>Back to Printer Config</source>
-            <translation>Back to Printer Config</translation>
+            <translation>Retour à la configuration de l'imprimante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/SupportTabPanel.qml" line="347"/>
             <source>Start Slice</source>
-            <translation>Démarrer la tranche</translation>
+            <translation>Démarrer le tranchage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/SupportTabPanel.qml" line="371"/>
             <source>Do you want to clear existing  supports before create new supports?</source>
-            <translation>Do you want to clear existing  supports before create new supports?</translation>
+            <translation>Voulez-vous supprimer les supports existants avant d'en créer de nouveaux ?</translation>
         </message>
     </context>
     <context>
@@ -8532,7 +8531,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/SwitchModel.qml" line="137"/>
             <source>Plotter</source>
-            <translation>Plotter</translation>
+            <translation>Traçeur</translation>
         </message>
     </context>
     <context>
@@ -8590,12 +8589,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadGcodeDlg.qml" line="211"/>
             <source>Creality Cloud</source>
-            <translation>Créalité Nuage</translation>
+            <translation>Créalité cloud</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadGcodeDlg.qml" line="211"/>
             <source>Local Area Network</source>
-            <translation>Local Area Network</translation>
+            <translation>Réseau local</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadGcodeDlg.qml" line="136"/>
@@ -8625,7 +8624,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadGcodeDlg.qml" line="289"/>
             <source>Cloud Printing</source>
-            <translation>Impression en nuage</translation>
+            <translation>Impression en ligne</translation>
         </message>
     </context>
     <context>
@@ -8703,12 +8702,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadModelDlg.qml" line="125"/>
             <source>Creality Cloud</source>
-            <translation>Créalité Nuage</translation>
+            <translation>Créalité Cloud</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadModelDlg.qml" line="175"/>
             <source>Group Name:</source>
-            <translation>Group Name:</translation>
+            <translation>non du groupe:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadModelDlg.qml" line="183"/>
@@ -8728,7 +8727,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadModelDlg.qml" line="230"/>
             <source>Group Type:</source>
-            <translation>Group Type:</translation>
+            <translation>type de groupe:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadModelDlg.qml" line="252"/>
@@ -8781,12 +8780,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/usbControlQml/UsbControlDlg.qml" line="32"/>
             <source>USB Printing</source>
-            <translation>USB Printing</translation>
+            <translation>impression Via USB</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/usbControlQml/UsbControlDlg.qml" line="69"/>
             <source>Deveice</source>
-            <translation>Deveice</translation>
+            <translation>appareil</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/usbControlQml/UsbControlDlg.qml" line="88"/>
@@ -8847,7 +8846,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/usbControlQml/UsbControlDlg.qml" line="375"/>
             <source>Complete</source>
-            <translation>Complete</translation>
+            <translation>Complet</translation>
         </message>
     </context>
     <context>
@@ -8856,7 +8855,7 @@
             <location filename="../plugins/plugin_slice_fdm/main/usbprintcommand.cpp" line="9"/>
             <location filename="../plugins/plugin_slice_fdm/main/usbprintcommand.cpp" line="24"/>
             <source>USB Printing</source>
-            <translation>USB Printing</translation>
+            <translation>impression via USB</translation>
         </message>
     </context>
     <context>
@@ -8918,7 +8917,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicPrinterItem.qml" line="90"/>
             <source>No Card Inserted</source>
-            <translation>No Card Inserted</translation>
+            <translation>Pas de carte insérée</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicPrinterItem.qml" line="91"/>
@@ -8945,7 +8944,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="111"/>
             <source>Copy link successfully!</source>
-            <translation>Copiez le lien avec succès !</translation>
+            <translation>succès de copie du lien !</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="435"/>
@@ -9001,7 +9000,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1331"/>
             <source>My Slices</source>
-            <translation>Mes tranches</translation>
+            <translation>Mes découpes/slices</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1361"/>
@@ -9012,7 +9011,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1386"/>
             <source>Cloud Slicing</source>
-            <translation>Découpage des nuages</translation>
+            <translation>Découpape en ligne </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1408"/>
@@ -9132,7 +9131,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/cx3d_exporter/import.qml" line="21"/>
             <source>Open Projects</source>
-            <translation>Open Projects</translation>
+            <translation>ouvir fichier</translation>
         </message>
     </context>
     <context>
@@ -9203,7 +9202,7 @@
             <location filename="../kernel/BasicKernel/res/plugin/hollow/info.qml" line="65"/>
             <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="163"/>
             <source>Thickness:</source>
-            <translation>Thickness:</translation>
+            <translation>Épaisseur:</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="56"/>
@@ -9258,7 +9257,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/letter/info.qml" line="75"/>
             <source>Generate Word</source>
-            <translation>Generate Word</translation>
+            <translation>Générer le mot</translation>
         </message>
         <message>
             <source>Thickness</source>
@@ -9309,7 +9308,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/letter/LetterFontConfigs.qml" line="53"/>
             <source>Font Family</source>
-            <translation>Font Family</translation>
+            <translation>style de polices</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/letter/LetterFontConfigs.qml" line="88"/>
@@ -9332,7 +9331,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="224"/>
             <source>Rotate</source>
-            <translation>Tourner</translation>
+            <translation>Rotation</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="272"/>
@@ -9342,7 +9341,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="321"/>
             <source>Letter Mode</source>
-            <translation>Letter Mode</translation>
+            <translation>Lettrage</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="333"/>
@@ -9352,7 +9351,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/letter/LetterShapeConfigs.qml" line="343"/>
             <source>Outside</source>
-            <translation>Dehors</translation>
+            <translation>hors zone</translation>
         </message>
     </context>
     <context>
@@ -9360,7 +9359,7 @@
         <message>
             <location filename="../plugins/plugin_support_painting/supportpaintingplugin.cpp" line="13"/>
             <source>Support Painting</source>
-            <translation>Support Painting</translation>
+            <translation>Gestion de support</translation>
         </message>
     </context>
     <context>
@@ -9381,57 +9380,57 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="46"/>
             <source>Pen Size</source>
-            <translation>Pen Size</translation>
+            <translation>taille crayon</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="55"/>
             <source>Section</source>
-            <translation>Section</translation>
+            <translation>Section/coupe</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="92"/>
             <source>Reset Direction</source>
-            <translation>Reset Direction</translation>
+            <translation>Effaçer</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="49"/>
             <source>Left Button</source>
-            <translation>Left Button</translation>
+            <translation>Boutton gauche</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="50"/>
             <source>paint</source>
-            <translation>paint</translation>
+            <translation>dessiner</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="51"/>
             <source>Shift+Left Button</source>
-            <translation>Shift+Left Button</translation>
+            <translation>Shift+bouton gauche souris</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="52"/>
             <source>erase</source>
-            <translation>erase</translation>
+            <translation>gommer/effacer</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="53"/>
             <source>Ctrl+Wheel</source>
-            <translation>Ctrl+Wheel</translation>
+            <translation>Ctrl+molette</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="54"/>
             <source>pen size</source>
-            <translation>pen size</translation>
+            <translation>taille crayon</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="55"/>
             <source>Alt+Wheel</source>
-            <translation>Alt+Wheel</translation>
+            <translation>Alt+molette</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanel.qml" line="56"/>
             <source>section view</source>
-            <translation>section view</translation>
+            <translation>Vue section/coupe</translation>
         </message>
     </context>
     <context>
@@ -9439,72 +9438,72 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="13"/>
             <source>Seam Painting</source>
-            <translation>Seam Painting</translation>
+            <translation>appliquer</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="46"/>
             <source>Pen Size</source>
-            <translation>Pen Size</translation>
+            <translation>taille crayon</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="55"/>
             <source>Section</source>
-            <translation>Section</translation>
+            <translation>Section/coupe</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="92"/>
             <source>Reset Direction</source>
-            <translation>Reset Direction</translation>
+            <translation>Autre direction</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="49"/>
             <source>Left mouse button</source>
-            <translation>Left mouse button</translation>
+            <translation>bouton gauche souris</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="50"/>
             <source>Enforce seam</source>
-            <translation>Enforce seam</translation>
+            <translation>appliquer</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="49"/>
             <source>Right mouse button</source>
-            <translation>Right mouse button</translation>
+            <translation>bouton droit souris</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="50"/>
             <source>Block seam</source>
-            <translation>Block seam</translation>
+            <translation>Gommer/effacer</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="51"/>
             <source>Shift + Left mouse button</source>
-            <translation>Shift + Left mouse button</translation>
+            <translation>Shift + bouton gauche souris</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="52"/>
             <source>Erase</source>
-            <translation>Erase</translation>
+            <translation>Effacer</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="53"/>
             <source>Ctrl + Wheel</source>
-            <translation>Ctrl + Wheel</translation>
+            <translation>Ctrl + molette</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="54"/>
             <source>Pen size</source>
-            <translation>Pen size</translation>
+            <translation>taille crayon</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="55"/>
             <source>Alt + Wheel</source>
-            <translation>Alt + Wheel</translation>
+            <translation>Alt + Molette</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SeamPaintingPanel.qml" line="56"/>
             <source>Section view</source>
-            <translation>Section view</translation>
+            <translation>vue section/coupe</translation>
         </message>
     </context>
     <context>
@@ -9512,12 +9511,12 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
             <source>Enable Support</source>
-            <translation>Enable Support</translation>
+            <translation>activé support</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
             <source>Support Type</source>
-            <translation>Support Type</translation>
+            <translation>type de support</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
@@ -9527,7 +9526,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
             <source>tree(auto)</source>
-            <translation>tree(auto)</translation>
+            <translation>arbre(auto)</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
@@ -9537,62 +9536,62 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
             <source>tree(manual)</source>
-            <translation>tree(manual)</translation>
+            <translation>arbre(manual)</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
             <source>Support Painting</source>
-            <translation>Support Painting</translation>
+            <translation>gestion des supports</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="13"/>
             <source>Support Painting</source>
-            <translation>Support Painting</translation>
+            <translation>Gestion des supports</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="46"/>
             <source>Pen Size</source>
-            <translation>Pen Size</translation>
+            <translation>Taille crayon</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="55"/>
             <source>Section</source>
-            <translation>Section</translation>
+            <translation>Taille</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="55"/>
             <source>On overhangs only</source>
-            <translation>On overhangs only</translation>
+            <translation>Sur les surplombs uniquement</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="55"/>
             <source>Drawing only takes effect on the selected faces in the highlighted and suspended area</source>
-            <translation>Drawing only takes effect on the selected faces in the highlighted and suspended area</translation>
+            <translation>Le dessin ne prend effet que sur les faces sélectionnées dans la zone mise en évidence et suspendue.</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="55"/>
             <source>Highlight overhangs</source>
-            <translation>Highlight overhangs</translation>
+            <translation>Souligner les surplombs</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="92"/>
             <source>Reset Direction</source>
-            <translation>Reset Direction</translation>
+            <translation>changer direction</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="49"/>
             <source>Left mouse button</source>
-            <translation>Left mouse button</translation>
+            <translation>Bouton gauche de la souris</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="50"/>
             <source>Enforce supports</source>
-            <translation>Enforce supports</translation>
+            <translation>Appliquer supports</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="49"/>
             <source>Right mouse button</source>
-            <translation>Right mouse button</translation>
+            <translation>bouton droit</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="50"/>
@@ -9602,32 +9601,32 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="51"/>
             <source>Shift + Left mouse button</source>
-            <translation>Shift + Left mouse button</translation>
+            <translation>Shift + bouton gauche</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="52"/>
             <source>erase</source>
-            <translation>erase</translation>
+            <translation>Effacer</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="53"/>
             <source>Ctrl + Wheel</source>
-            <translation>Ctrl + Wheel</translation>
+            <translation>Ctrl + molette</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="54"/>
             <source>Pen size</source>
-            <translation>Pen size</translation>
+            <translation>Taille du stylo</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="55"/>
-            <source>Alt + Wheel</source>
-            <translation>Alt + Wheel</translation>
+            <source>Alt + whell</source>
+            <translation>Alt + molette</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/SupportPaintingPanel.qml" line="56"/>
             <source>Section view</source>
-            <translation>Section view</translation>
+            <translation>Vue en coupe</translation>
         </message>
     </context>
     <context>
@@ -9635,7 +9634,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorPanelBottom.qml" line="93"/>
             <source>Erase All Paintings</source>
-            <translation>Erase All Paintings</translation>
+            <translation>Effacer l'esquisse</translation>
         </message>
     </context>
     <context>
@@ -9643,7 +9642,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ColorSeletor.qml" line="17"/>
             <source>Choose color consumables</source>
-            <translation>Choose color consumables</translation>
+            <translation>Choisir des consommables de couleur</translation>
         </message>
     </context>
     <context>
@@ -9651,7 +9650,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ToolSeletor.qml" line="13"/>
             <source>Select Tools</source>
-            <translation>Select Tools</translation>
+            <translation>Choisir outils</translation>
         </message>
     </context>
     <context>
@@ -9675,7 +9674,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/paint/ToolSeletor.qml" line="52"/>
             <source>Fill</source>
-            <translation>Fill</translation>
+            <translation>remplir/compléter</translation>
         </message>
     </context>
     <context>
@@ -9683,7 +9682,7 @@
         <message>
             <location filename="../plugins/CrealityUITest/main.qml" line="12"/>
             <source>Creality Slicer UI Test Project!</source>
-            <translation>Creality Slicer UI Test Project!</translation>
+            <translation>Projet de test de l'interface utilisateur de Creality Slicer !</translation>
         </message>
     </context>
     <context>
@@ -9696,12 +9695,12 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/preventwarpe/preventwarpe.qml" line="66"/>
             <source>Size:</source>
-            <translation>Size:</translation>
+            <translation>taille:</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/preventwarpe/preventwarpe.qml" line="123"/>
             <source>Layer:</source>
-            <translation>Layer:</translation>
+            <translation>couche/layer:</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/preventwarpe/preventwarpe.qml" line="151"/>
@@ -9711,7 +9710,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/plugin/preventwarpe/preventwarpe.qml" line="151"/>
             <source>Start PreventWarpe</source>
-            <translation>Démarrer PreventWarpe</translation>
+            <translation>Démarrer  la prévention de déformation</translation>
         </message>
     </context>
     <context>
@@ -9724,7 +9723,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/slice/slice_preview.qml" line="41"/>
             <source>UnPreview</source>
-            <translation>UnPreview</translation>
+            <translation>Annuler l'aperçu</translation>
         </message>
     </context>
     <context>
@@ -9747,7 +9746,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="36"/>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>bonne qualité</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="36"/>
@@ -9772,27 +9771,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="130"/>
             <source>Profile:</source>
-            <translation>Profile:</translation>
+            <translation>Profil:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="130"/>
             <source>Material:</source>
-            <translation>Material:</translation>
+            <translation>Materiau:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Layer Height:</source>
-            <translation>Layer Height:</translation>
+            <translation>hauteur de couche:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="197"/>
             <source>Line Width:</source>
-            <translation>Line Width:</translation>
+            <translation>largeur de ligne(layer):</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
             <source>Wall Line Count:</source>
-            <translation>Wall Line Count:</translation>
+            <translation>Nombre de lignes de paroi:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="234"/>
@@ -9812,7 +9811,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="291"/>
             <source>Generate Support:</source>
-            <translation>Generate Support:</translation>
+            <translation>Générer Support:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="340"/>
@@ -9833,7 +9832,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="69"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="373"/>
             <source>skirt</source>
-            <translation>jupe</translation>
+            <translation>Jupe</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="69"/>
@@ -9845,31 +9844,31 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="70"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="374"/>
             <source>brim</source>
-            <translation>bord</translation>
+            <translation>Bord</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="70"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="374"/>
             <source>autobrim</source>
-            <translation>bord automatique</translation>
+            <translation>Bord automatique</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="71"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="375"/>
             <source>raft</source>
-            <translation>radeau</translation>
+            <translation>Radeau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="71"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="375"/>
             <source>simpleraft</source>
-            <translation>simpleraft</translation>
+            <translation>Simpleraft</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="72"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="376"/>
             <source>none</source>
-            <translation>aucun</translation>
+            <translation>Aucun</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="528"/>
@@ -9884,7 +9883,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="554"/>
             <source>Advance Setting</source>
-            <translation>Réglage avancé</translation>
+            <translation>Réglages avancé</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="568"/>
@@ -9904,7 +9903,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="442"/>
             <source>Infill Wipe Distance:</source>
-            <translation>Infill Wipe Distance:</translation>
+            <translation>Distance entre les lignes de remplissage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -9919,17 +9918,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Machine Size Type:</source>
-            <translation>Machine Size Type:</translation>
+            <translation>Taille de la machine:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Length Flow In Advance:</source>
-            <translation>Length Flow In Advance:</translation>
+            <translation>Flow Longueur Débit en avance:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Travel Slow Flow:</source>
-            <translation>Déplacement à débit lent :</translation>
+            <translation>Flow Déplacement à débit lent :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
@@ -9939,22 +9938,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Angle of Slope Slice:</source>
-            <translation>Angle de tranche de pente :</translation>
+            <translation>Angle d'inclinaison Tranche :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Angle of Slope Slice</source>
-            <translation>Angle de tranche de pente</translation>
+            <translation>Angle d'inclinaison Tranche</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Zoffset After Slope Slice:</source>
-            <translation>Zoffset après tranche de pente :</translation>
+            <translation>Zoffset après tranche d'inclinaison :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Zoffset After Slope Slice</source>
-            <translation>Zoffset après tranche de pente</translation>
+            <translation>Zoffset après tranche d'inclinaison</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
@@ -9974,12 +9973,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Slope Slice To X Dir</source>
-            <translation>Slope Slice To X Dir</translation>
+            <translation> Inclinaisonà X Dir</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Outward Expand:</source>
-            <translation>Outward Expand:</translation>
+            <translation>Expansion vers l'extérieur:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
@@ -9989,77 +9988,77 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Extrusion flow ratio:</source>
-            <translation>Extrusion flow ratio:</translation>
+            <translation>Flow Ratio de débit d'extrusion:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="176"/>
             <source>Extrusion flow ratio</source>
-            <translation>Extrusion flow ratio</translation>
+            <translation> Flow ratio de débit d'extrusion</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Small Feature Max Length:</source>
-            <translation>Small Feature Max Length:</translation>
+            <translation>Petit élément Longueur maximale:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="188"/>
             <source>Support Density:</source>
-            <translation>Support Density:</translation>
+            <translation>Densité de support:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Print Speed:</source>
-            <translation>Print Speed:</translation>
+            <translation>Vitesse d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Infill Speed:</source>
-            <translation>Infill Speed:</translation>
+            <translation>vitesse de remplissage:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Wall Speed:</source>
-            <translation>Wall Speed:</translation>
+            <translation>Vitesse de la paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Support Flow:</source>
-            <translation>Support Flow:</translation>
+            <translation> Flow Débit des supports(Support Flow):</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Infill Flow:</source>
-            <translation>Débit de remplissage :</translation>
+            <translation>Flow Débit de remplissage:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Wall Flow:</source>
-            <translation>Wall Flow:</translation>
+            <translation>Flow remplissage de la paroi:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Small Feature Speed:</source>
-            <translation>Small Feature Speed:</translation>
+            <translation>Vitesse des petite fonctionnalité :</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Flow compensation on wall lines.</source>
-            <translation>Compensation de débit sur les lignes murales.</translation>
+            <translation>Flow Compensation de débit sur les lignes de paroi.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Flow compensation on infill lines.</source>
-            <translation>Compensation de débit sur les lignes de remplissage.</translation>
+            <translation>flow Compensation de débit sur les lignes de remplissage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>Flow compensation on support structure lines.</source>
-            <translation>Compensation de débit sur les lignes des structures porteuses.</translation>
+            <translation>flow Compensation de débit sur les lignes des structures porteuses.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
             <source>The speed at which the walls are printed.</source>
-            <translation>La vitesse à laquelle les murs sont imprimés.</translation>
+            <translation>La vitesse à laquelle les parois sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="155"/>
@@ -10119,7 +10118,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
             <source>The number of walls. When calculated by the wall thickness, this value is rounded to a whole number.</source>
-            <translation>Le nombre de murs. Lorsqu'elle est calculée en fonction de l'épaisseur de la paroi, cette valeur est arrondie à un nombre entier.</translation>
+            <translation>Le nombre de parois. Lorsqu'elle est calculée en fonction de l'épaisseur de la paroi, cette valeur est arrondie à un nombre entier.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -10172,7 +10171,7 @@
         </message>
         <message>
             <source>Minimum Wall Line Width</source>
-            <translation>Largeur minimale de la ligne de mur</translation>
+            <translation>Largeur minimale de la ligne de paroi</translation>
         </message>
         <message>
             <source>Profile</source>
@@ -10276,7 +10275,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>GUID of the material. This is set automatically. </source>
-            <translation type="unfinished">材料 GUID，此项为自动设置。 </translation>
+            <translation type="unfinished"> GUID du matériau. Il est défini automatiquement</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10361,7 +10360,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Rectangular</source>
-            <translation>Rectangular</translation>
+            <translation>Rectangulaire</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10955,32 +10954,32 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Line Width</source>
-            <translation>Largeur de la ligne du mur</translation>
+            <translation>Largeur de la ligne du paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Width of a single wall line.</source>
-            <translation>Largeur d'une seule ligne de mur.</translation>
+            <translation>Largeur d'une seule ligne de paroi.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Line Width</source>
-            <translation>Largeur de la ligne du mur extérieur</translation>
+            <translation>Largeur de la ligne du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Width of the outermost wall line. By lowering this value, higher levels of detail can be printed.</source>
-            <translation>Largeur de la ligne de mur la plus extérieure. En réduisant cette valeur, des niveaux de détails plus élevés peuvent être imprimés.</translation>
+            <translation>Largeur de la ligne de paroi la plus extérieure. En réduisant cette valeur, des niveaux de détails plus élevés peuvent être imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Inner Wall(s) Line Width</source>
-            <translation>Largeur de ligne des murs intérieurs</translation>
+            <translation>Largeur de ligne des parois intérieurs</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Width of a single wall line for all wall lines except the outermost one.</source>
-            <translation>Largeur d'une seule ligne de mur pour toutes les lignes de mur sauf celle la plus extérieure.</translation>
+            <translation>Largeur d'une seule ligne de paroi pour toutes les lignes de paroi sauf celle la plus extérieure.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11085,17 +11084,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Shell</source>
-            <translation>Coquille</translation>
+            <translation>Shell Coquille</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Extruder</source>
-            <translation>Extrudeuse murale</translation>
+            <translation>Extrudeuse paroiale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The extruder train used for printing the walls. This is used in multi-extrusion.</source>
-            <translation>Le train d'extrudeuse utilisé pour imprimer les murs. Ceci est utilisé en multi-extrusion.</translation>
+            <translation>Le train d'extrudeuse utilisé pour imprimer les parois. Ceci est utilisé en multi-extrusion.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11120,42 +11119,42 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Thickness</source>
-            <translation>Épaisseur du mur</translation>
+            <translation>Épaisseur du paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The thickness of the walls in the horizontal direction. This value divided by the wall line width defines the number of walls.</source>
-            <translation>L'épaisseur des murs dans le sens horizontal. Cette valeur divisée par la largeur de la ligne du mur définit le nombre de murs.</translation>
+            <translation>L'épaisseur des parois dans le sens horizontal. Cette valeur divisée par la largeur de la ligne du paroi définit le nombre de parois.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Line Count</source>
-            <translation>Nombre de lignes de mur</translation>
+            <translation>Nombre de lignes de paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The number of walls. When calculated by the wall thickness, this value is rounded to a whole number.</source>
-            <translation>Le nombre de murs. Lorsqu'elle est calculée en fonction de l'épaisseur de la paroi, cette valeur est arrondie à un nombre entier.</translation>
+            <translation>Le nombre de parois. Lorsqu'elle est calculée en fonction de l'épaisseur de la paroi, cette valeur est arrondie à un nombre entier.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Only One Wall for Roofing</source>
-            <translation>Un seul mur pour la toiture</translation>
+            <translation>Un seul paroi pour la toiture</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Only a single wall is used for the top surface, so that more space can be used for the roofing pattern.</source>
-            <translation>Un seul mur est utilisé pour la surface supérieure, de sorte que plus d'espace puisse être utilisé pour le motif de la toiture.</translation>
+            <translation>Un seul paroi est utilisé pour la surface supérieure, de sorte que plus d'espace puisse être utilisé pour le motif de la toiture.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Wipe Distance</source>
-            <translation>Distance d'essuyage du mur extérieur</translation>
+            <translation>Distance d'essuyage du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Distance of a travel move inserted after the outer wall, to hide the Z seam better.</source>
-            <translation>Distance d'un mouvement de déplacement inséré après le mur extérieur, pour mieux cacher la couture Z.</translation>
+            <translation>Distance d'un mouvement de déplacement inséré après le paroi extérieur, pour mieux cacher la couture Z.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11295,57 +11294,57 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Inset</source>
-            <translation>Encart de mur extérieur</translation>
+            <translation>Encart de paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Inset applied to the path of the outer wall. If the outer wall is smaller than the nozzle, and printed after the inner walls, use this offset to get the hole in the nozzle to overlap with the inner walls instead of the outside of the model.</source>
-            <translation>Encart appliqué sur le tracé du mur extérieur. Si la paroi extérieure est plus petite que la buse et imprimée après les parois intérieures, utilisez ce décalage pour que le trou de la buse chevauche les parois intérieures au lieu de l'extérieur du modèle.</translation>
+            <translation>Encart appliqué sur le tracé du paroi extérieur. Si la paroi extérieure est plus petite que la buse et imprimée après les parois intérieures, utilisez ce décalage pour que le trou de la buse chevauche les parois intérieures au lieu de l'extérieur du modèle.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Optimize Wall Printing Order</source>
-            <translation>Optimiser l'ordre d'impression des murs</translation>
+            <translation>Optimiser l'ordre d'impression des parois</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Optimize the order of wall printing to reduce the number of retracements and the distance travelled. Most parts will benefit from enabling this feature, but some may take longer, so compare the estimated printing time with not optimized. The first layer was not optimized when selecting the brim as build plate adhesion type.</source>
-            <translation>Optimisez l’ordre d’impression des murs pour réduire le nombre de retracements et la distance parcourue. La plupart des pièces bénéficieront de l'activation de cette fonctionnalité, mais certaines peuvent prendre plus de temps, alors comparez le temps d'impression estimé avec celui non optimisé. La première couche n'a pas été optimisée lors de la sélection du bord comme type d'adhésion de la plaque de construction.</translation>
+            <translation>Optimisez l’ordre d’impression des parois pour réduire le nombre de retracements et la distance parcourue. La plupart des pièces bénéficieront de l'activation de cette fonctionnalité, mais certaines peuvent prendre plus de temps, alors comparez le temps d'impression estimé avec celui non optimisé. La première couche n'a pas été optimisée lors de la sélection du bord comme type d'adhésion de la plaque de construction.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall First, Inner Wall Second</source>
-            <translation>Mur extérieur en premier, mur intérieur en second</translation>
+            <translation>paroi extérieur en premier, paroi intérieur en second</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Ordering</source>
-            <translation>Commande murale</translation>
+            <translation>Commande paroiale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Determines the order in which walls are printed. Printing outer walls earlier helps with dimensional accuracy, as faults from inner walls cannot propagate to the outside. However printing them later allows them to stack better when overhangs are printed. When there is an uneven amount of total innner walls, the 'center last line' is always printed last.</source>
-            <translation>Détermine l'ordre dans lequel les murs sont imprimés. L'impression précoce des murs extérieurs contribue à la précision dimensionnelle, car les défauts des murs intérieurs ne peuvent pas se propager vers l'extérieur. Cependant, les imprimer plus tard permet de mieux les empiler lorsque les surplombs sont imprimés. Lorsqu'il y a une quantité inégale de murs intérieurs totaux, la « dernière ligne centrale » est toujours imprimée en dernier.</translation>
+            <translation>Détermine l'ordre dans lequel les parois sont imprimés. L'impression précoce des parois extérieurs contribue à la précision dimensionnelle, car les défauts des parois intérieurs ne peuvent pas se propager vers l'extérieur. Cependant, les imprimer plus tard permet de mieux les empiler lorsque les surplombs sont imprimés. Lorsqu'il y a une quantité inégale de parois intérieurs totaux, la « dernière ligne centrale » est toujours imprimée en dernier.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Prints walls in order of outside to inside when enabled. This can help improve the dimensional accuracy of X and Y when using a high viscosity plastic like ABS; however it may reduce outer surface print quality, especially on overhangs.</source>
-            <translation>Imprime les murs de l'extérieur vers l'intérieur lorsqu'il est activé. Cela peut aider à améliorer la précision dimensionnelle de X et Y lors de l’utilisation d’un plastique à haute viscosité comme l’ABS ; cependant, cela peut réduire la qualité d'impression de la surface extérieure, en particulier sur les surplombs.</translation>
+            <translation>Imprime les parois de l'extérieur vers l'intérieur lorsqu'il est activé. Cela peut aider à améliorer la précision dimensionnelle de X et Y lors de l’utilisation d’un plastique à haute viscosité comme l’ABS ; cependant, cela peut réduire la qualité d'impression de la surface extérieure, en particulier sur les surplombs.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Alternate Extra Wall</source>
-            <translation>Mur supplémentaire alternatif</translation>
+            <translation>paroi supplémentaire alternatif</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Print an extra wall every other layer. In this way, the filler will get stuck between these extra walls, resulting in stronger print quality.</source>
-            <translation>Imprimez un mur supplémentaire tous les deux calques. De cette façon, le matériau de remplissage restera coincé entre ces parois supplémentaires, ce qui entraînera une meilleure qualité d'impression.</translation>
+            <translation>Imprimez un paroi supplémentaire tous les deux calques. De cette façon, le matériau de remplissage restera coincé entre ces parois supplémentaires, ce qui entraînera une meilleure qualité d'impression.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Unify Walls Print Drection</source>
-            <translation>Unifier la direction d'impression des murs</translation>
+            <translation>Unifier la direction d'impression des parois</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11355,32 +11354,32 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate Wall Overlaps</source>
-            <translation>Compenser les chevauchements de murs</translation>
+            <translation>Compenser les chevauchements de parois</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate the flow for parts of a wall being printed where there is already a wall in place.</source>
-            <translation>Compensez le flux pour les parties d'un mur en cours d'impression là où un mur est déjà en place.</translation>
+            <translation>Compensez le flux pour les parties d'un paroi en cours d'impression là où un paroi est déjà en place.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate Outer Wall Overlaps</source>
-            <translation>Compenser les chevauchements des murs extérieurs</translation>
+            <translation>Compenser les chevauchements des parois extérieurs</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate the flow for parts of an outer wall being printed where there is already a wall in place.</source>
-            <translation>Compensez le flux pour les parties d'un mur extérieur en cours d'impression là où un mur est déjà en place.</translation>
+            <translation>Compensez le flux pour les parties d'un paroi extérieur en cours d'impression là où un paroi est déjà en place.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate Inner Wall Overlaps</source>
-            <translation>Compenser les chevauchements des murs intérieurs</translation>
+            <translation>Compenser les chevauchements des parois intérieurs</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Compensate the flow for parts of an inner wall being printed where there is already a wall in place.</source>
-            <translation>Compensez le flux pour les parties d'un mur intérieur en cours d'impression là où un mur est déjà en place.</translation>
+            <translation>Compensez le flux pour les parties d'un paroi intérieur en cours d'impression là où un paroi est déjà en place.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11390,7 +11389,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The minimum percentage flow rate allowed by the wall line. When a wall is close to an existing wall, wall overlap compensation can reduce its flow. Walls with a flow rate less than this value will be replaced by travel moves. When using this setting, you must enable wall overlap compensation and print the outer wall before printing the inner wall.</source>
-            <translation>Le pourcentage de débit minimum autorisé par la ligne murale. Lorsqu'un mur est proche d'un mur existant, la compensation du chevauchement du mur peut réduire son écoulement. Les murs ayant un débit inférieur à cette valeur seront remplacés par des déplacements. Lorsque vous utilisez ce paramètre, vous devez activer la compensation de chevauchement des murs et imprimer le mur extérieur avant d'imprimer le mur intérieur.</translation>
+            <translation>Le pourcentage de débit minimum autorisé par la ligne paroiale. Lorsqu'un paroi est proche d'un paroi existant, la compensation du chevauchement du paroi peut réduire son écoulement. Les parois ayant un débit inférieur à cette valeur seront remplacés par des déplacements. Lorsque vous utilisez ce paramètre, vous devez activer la compensation de chevauchement des parois et imprimer le paroi extérieur avant d'imprimer le paroi intérieur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11405,12 +11404,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Fill Gaps Between Walls</source>
-            <translation>Combler les espaces entre les murs</translation>
+            <translation>Combler les espaces entre les parois</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Fills the gaps between walls where no walls fit.</source>
-            <translation>Remplit les espaces entre les murs là où aucun mur ne rentre.</translation>
+            <translation>Remplit les espaces entre les parois là où aucun paroi ne rentre.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11435,17 +11434,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Print Thin Walls</source>
-            <translation>Imprimer des murs fins</translation>
+            <translation>Imprimer des parois fins</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Single Extrusion Walls</source>
-            <translation>Murs à extrusion unique</translation>
+            <translation>parois à extrusion unique</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Enable single extrusion walls.</source>
-            <translation>Activer les murs à extrusion unique.</translation>
+            <translation>Activer les parois à extrusion unique.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11680,7 +11679,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Extra Skin Wall Count</source>
-            <translation>Nombre supplémentaire de murs de peau</translation>
+            <translation>Nombre supplémentaire de parois de peau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11795,7 +11794,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Adjust the amount of overlap between the walls and (the endpoints of) the skin-centerlines, as a percentage of the line widths of the skin lines and the innermost wall. A slight overlap allows the walls to connect firmly to the skin. Note that, given an equal skin and wall line-width, any percentage over 50% may already cause any skin to go past the wall, because at that point the position of the nozzle of the skin-extruder may already reach past the middle of the wall.</source>
-            <translation>Ajustez le degré de chevauchement entre les murs et (les extrémités des) lignes centrales de la peau, en pourcentage de la largeur des lignes de peau et du mur le plus intérieur. Un léger chevauchement permet aux murs de se lier fermement à la peau. Notez que, pour une largeur de ligne de peau et de paroi égale, tout pourcentage supérieur à 50 % peut déjà faire passer la peau au-delà de la paroi, car à ce stade, la position de la buse de l'extrudeuse de peau peut déjà dépasser le milieu de la paroi. le mur.</translation>
+            <translation>Ajustez le degré de chevauchement entre les parois et (les extrémités des) lignes centrales de la peau, en pourcentage de la largeur des lignes de peau et du paroi le plus intérieur. Un léger chevauchement permet aux parois de se lier fermement à la peau. Notez que, pour une largeur de ligne de peau et de paroi égale, tout pourcentage supérieur à 50 % peut déjà faire passer la peau au-delà de la paroi, car à ce stade, la position de la buse de l'extrudeuse de peau peut déjà dépasser le milieu de la paroi. le paroi.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11805,7 +11804,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Adjust the amount of overlap between the walls and (the endpoints of) the skin-centerlines. A slight overlap allows the walls to connect firmly to the skin. Note that, given an equal skin and wall line-width, any value over half the width of the wall may already cause any skin to go past the wall, because at that point the position of the nozzle of the skin-extruder may already reach past the middle of the wall.</source>
-            <translation>Ajustez le degré de chevauchement entre les murs et (les extrémités des) lignes médianes de la peau. Un léger chevauchement permet aux murs de se lier fermement à la peau. Notez que, pour une largeur de ligne de peau et de mur égale, toute valeur supérieure à la moitié de la largeur du mur peut déjà faire dépasser la peau du mur, car à ce stade, la position de la buse de l'extrudeuse de peau peut déjà atteindre passé le milieu du mur.</translation>
+            <translation>Ajustez le degré de chevauchement entre les parois et (les extrémités des) lignes médianes de la peau. Un léger chevauchement permet aux parois de se lier fermement à la peau. Notez que, pour une largeur de ligne de peau et de paroi égale, toute valeur supérieure à la moitié de la largeur du paroi peut déjà faire dépasser la peau du paroi, car à ce stade, la position de la buse de l'extrudeuse de peau peut déjà atteindre passé le milieu du paroi.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11860,7 +11859,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Connect the ends where the infill pattern meets the inner wall using a line which follows the shape of the inner wall. Enabling this setting can make the infill adhere to the walls better and reduce the effects of infill on the quality of vertical surfaces. Disabling this setting reduces the amount of material used.</source>
-            <translation>Reliez les extrémités où le motif de remplissage rencontre la paroi intérieure à l'aide d'une ligne qui suit la forme de la paroi intérieure. L'activation de ce paramètre peut permettre au remplissage de mieux adhérer aux murs et de réduire les effets du remplissage sur la qualité des surfaces verticales. La désactivation de ce paramètre réduit la quantité de matériau utilisé.</translation>
+            <translation>Reliez les extrémités où le motif de remplissage rencontre la paroi intérieure à l'aide d'une ligne qui suit la forme de la paroi intérieure. L'activation de ce paramètre peut permettre au remplissage de mieux adhérer aux parois et de réduire les effets du remplissage sur la qualité des surfaces verticales. La désactivation de ce paramètre réduit la quantité de matériau utilisé.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11925,7 +11924,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Extra Infill Wall Count</source>
-            <translation>Nombre de murs de remplissage supplémentaire</translation>
+            <translation>Nombre de parois de remplissage supplémentaire</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11945,7 +11944,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The amount of overlap between the infill and the walls as a percentage of the infill line width. A slight overlap allows the walls to connect firmly to the infill.</source>
-            <translation>Quantité de chevauchement entre le remplissage et les murs en pourcentage de la largeur de la ligne de remplissage. Un léger chevauchement permet aux murs de se relier fermement au remplissage.</translation>
+            <translation>Quantité de chevauchement entre le remplissage et les parois en pourcentage de la largeur de la ligne de remplissage. Un léger chevauchement permet aux parois de se relier fermement au remplissage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11955,7 +11954,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The amount of overlap between the infill and the walls. A slight overlap allows the walls to connect firmly to the infill.</source>
-            <translation>Le degré de chevauchement entre le remplissage et les murs. Un léger chevauchement permet aux murs de se relier fermement au remplissage.</translation>
+            <translation>Le degré de chevauchement entre le remplissage et les parois. Un léger chevauchement permet aux parois de se relier fermement au remplissage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11975,7 +11974,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Distance of a travel move inserted after every infill line, to make the infill stick to the walls better. This option is similar to infill overlap, but without extrusion and only on one end of the infill line.</source>
-            <translation>Distance d'un déplacement inséré après chaque ligne de remplissage, pour que le remplissage adhère mieux aux murs. Cette option est similaire au chevauchement de remplissage, mais sans extrusion et uniquement à une extrémité de la ligne de remplissage.</translation>
+            <translation>Distance d'un déplacement inséré après chaque ligne de remplissage, pour que le remplissage adhère mieux aux parois. Cette option est similaire au chevauchement de remplissage, mais sans extrusion et uniquement à une extrémité de la ligne de remplissage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12020,12 +12019,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Infill Before Walls</source>
-            <translation>Remplissage avant les murs</translation>
+            <translation>Remplissage avant les parois</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Print the infill before printing the walls. Printing the walls first may lead to more accurate walls, but overhangs print worse. Printing the infill first leads to sturdier walls, but the infill pattern might sometimes show through the surface.</source>
-            <translation>Imprimez le remplissage avant d'imprimer les murs. Imprimer les murs en premier peut conduire à des murs plus précis, mais les surplombs s'impriment moins bien. L'impression du remplissage conduit d'abord à des murs plus solides, mais le motif de remplissage peut parfois apparaître à travers la surface.</translation>
+            <translation>Imprimez le remplissage avant d'imprimer les parois. Imprimer les parois en premier peut conduire à des parois plus précis, mais les surplombs s'impriment moins bien. L'impression du remplissage conduit d'abord à des parois plus solides, mais le motif de remplissage peut parfois apparaître à travers la surface.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12140,7 +12139,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Material</source>
-            <translation>Matériel</translation>
+            <translation>Matériau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12170,7 +12169,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Upper heating plate</source>
-            <translation>Upper heating plate</translation>
+            <translation>Chauffage de la partie supérieure</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12409,147 +12408,147 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow</source>
-            <translation>Couler</translation>
+            <translation>Flow</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation: the amount of material extruded is multiplied by this value.</source>
-            <translation>Compensation de débit : la quantité de matière extrudée est multipliée par cette valeur.</translation>
+            <translation>Flow Compensation de débit : la quantité de matière extrudée est multipliée par cette valeur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Flow</source>
-            <translation>Flux mural</translation>
+            <translation>Flow Flux paroial</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on wall lines.</source>
-            <translation>Compensation de débit sur les lignes murales.</translation>
+            <translation>Flow Compensation de débit sur les lignes paroiales.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Flow</source>
-            <translation>Flux du mur extérieur</translation>
+            <translation>Flow Flux du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on the outermost wall line.</source>
-            <translation>Compensation de débit sur la ligne de mur la plus extérieure.</translation>
+            <translation>Flow Compensation de débit sur la ligne de paroi la plus extérieure.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Inner Wall(s) Flow</source>
-            <translation>Débit des parois intérieures</translation>
+            <translation>Flow Débit des parois intérieures</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on wall lines for all wall lines except the outermost one.</source>
-            <translation>Compensation de débit sur les lignes murales pour toutes les lignes murales sauf celle la plus extérieure.</translation>
+            <translation>Flow Compensation de débit sur les lignes paroiales pour toutes les lignes paroiales sauf celle la plus extérieure.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Top/Bottom Flow</source>
-            <translation>Débit haut/bas</translation>
+            <translation>Flow Débit haut/bas</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on top/bottom lines.</source>
-            <translation>Compensation de débit sur les lignes supérieure/inférieure.</translation>
+            <translation>Flow Compensation de débit sur les lignes supérieure/inférieure.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Top Surface Skin Flow</source>
-            <translation>Flux cutané à la surface supérieure</translation>
+            <translation>Flow Flux cutané à la surface supérieure</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on lines of the areas at the top of the print.</source>
-            <translation>Compensation de flux sur les lignes des zones en haut de l'impression.</translation>
+            <translation>Flow Compensation de flux sur les lignes des zones en haut de l'impression.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Infill Flow</source>
-            <translation>Débit de remplissage</translation>
+            <translation>Flow Débit de remplissage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on infill lines.</source>
-            <translation>Compensation de débit sur les lignes de remplissage.</translation>
+            <translation>Flow Compensation de débit sur les lignes de remplissage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Skirt/Brim Flow</source>
-            <translation>Débit jupe/bord</translation>
+            <translation>Flow débit jupe/bord</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on skirt or brim lines.</source>
-            <translation>Compensation du flux sur les lignes de jupe ou de bord.</translation>
+            <translation>Flow Compensation du flux sur les lignes de jupe ou de bord.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Support Flow</source>
-            <translation>Flux de support</translation>
+            <translation>Flow Flux de support</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on support structure lines.</source>
-            <translation>Compensation de débit sur les lignes des structures porteuses.</translation>
+            <translation>Flow Compensation de débit sur les lignes des structures porteuses.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Support Interface Flow</source>
-            <translation>Flux d'interface de support</translation>
+            <translation>Flow Flux d'interface de support</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on lines of support roof or floor.</source>
-            <translation>Compensation de débit sur lignes de support toiture ou plancher.</translation>
+            <translation>Flow Compensation de débit sur lignes de support toiture ou plancher.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Support Roof Flow</source>
-            <translation>Soutenir le flux du toit</translation>
+            <translation>floW Soutenir le flux du toit</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on support roof lines.</source>
-            <translation>Compensation de débit sur les lignes de support de toiture.</translation>
+            <translation>FlowCompensation de débit sur les lignes de support de toiture.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Support Floor Flow</source>
-            <translation>Flux de plancher de support</translation>
+            <translation>Flow Flux de plancher de support</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on support floor lines.</source>
-            <translation>Compensation de débit sur les lignes de plancher de support.</translation>
+            <translation>FlowCompensation de débit sur les lignes de plancher de support.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Prime Tower Flow</source>
-            <translation>Flux de la tour principale</translation>
+            <translation>Flow Flux de la tour principale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation on prime tower lines.</source>
-            <translation>Compensation de débit sur les lignes prime tower.</translation>
+            <translation>Flow Compensation de débit sur les lignes prime tower.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Initial Layer Flow</source>
-            <translation>Flux de couche initial</translation>
+            <translation>Flow Flux de couche initial</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Flow compensation for the first layer: the amount of material extruded on the initial layer is multiplied by this value.</source>
-            <translation>Compensation de débit pour la première couche : la quantité de matière extrudée sur la couche initiale est multipliée par cette valeur.</translation>
+            <translation>Flow Compensation de débit pour la première couche : la quantité de matière extrudée sur la couche initiale est multipliée par cette valeur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Material Flow Ratio</source>
-            <translation>Rapport de débit de matière</translation>
+            <translation>Flow Rapport de débit de matière</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12564,12 +12563,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Retraction Wipe</source>
-            <translation>Lingette de rétraction</translation>
+            <translation>rétraction d"essuyage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe the nozzle when retraction. </source>
-            <translation type="unfinished">回抽时擦拭喷嘴</translation>
+            <translation type="unfinished">Essuyer la buse lors de la rétractation</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12584,12 +12583,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe length</source>
-            <translation>Longueur de lingette</translation>
+            <translation>Longueur d'essuyage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Before Wipe Retraction Amount Percent</source>
-            <translation>Avant pourcentage de retrait du linge</translation>
+            <translation>Avant pourcentage de retrait d'essuyage<</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12599,7 +12598,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Z Hop Type when retraction </source>
-            <translation type="unfinished">Z抬升方式</translation>
+            <translation type="unfinished"> Type de saut en Z lors de la rétractation </translation>
         </message>
         <message>
             <source>DirectLift</source>
@@ -12616,7 +12615,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Retract the filament when the nozzle is moving over a non-printed area. </source>
-            <translation type="unfinished">当喷嘴移动到非打印区域上方时回抽耗材。 </translation>
+            <translation>Rétracter le filament lorsque la buse se déplace sur une zone non imprimée</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12776,7 +12775,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Nozzle Switch Retract Speed</source>
-            <translation>Nozzle Switch Retract Speed</translation>
+            <translation>Interrupteur de buse , Vitesse de rétraction</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12831,22 +12830,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Speed</source>
-            <translation>Vitesse du mur</translation>
+            <translation>Vitesse du paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the walls are printed.</source>
-            <translation>La vitesse à laquelle les murs sont imprimés.</translation>
+            <translation>La vitesse à laquelle les parois sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Speed</source>
-            <translation>Vitesse du mur extérieur</translation>
+            <translation>Vitesse du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the outermost walls are printed. Printing the outer wall at a lower speed improves the final skin quality. However, having a large difference between the inner wall speed and the outer wall speed will affect quality in a negative way.</source>
-            <translation>Vitesse à laquelle les murs les plus extérieurs sont imprimés. L'impression de la paroi extérieure à une vitesse inférieure améliore la qualité finale de la peau. Cependant, une grande différence entre la vitesse de la paroi intérieure et la vitesse de la paroi extérieure affectera la qualité de manière négative.</translation>
+            <translation>Vitesse à laquelle les parois les plus extérieurs sont imprimés. L'impression de la paroi extérieure à une vitesse inférieure améliore la qualité finale de la peau. Cependant, une grande différence entre la vitesse de la paroi intérieure et la vitesse de la paroi extérieure affectera la qualité de manière négative.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12856,7 +12855,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which all inner walls are printed. Printing the inner wall faster than the outer wall will reduce printing time. It works well to set this in between the outer wall speed and the infill speed.</source>
-            <translation>La vitesse à laquelle toutes les parois intérieures sont imprimées. Imprimer la paroi intérieure plus rapidement que la paroi extérieure réduira le temps d'impression. Cela fonctionne bien de régler cela entre la vitesse du mur extérieur et la vitesse de remplissage.</translation>
+            <translation>La vitesse à laquelle toutes les parois intérieures sont imprimées. Imprimer la paroi intérieure plus rapidement que la paroi extérieure réduira le temps d'impression. Cela fonctionne bien de régler cela entre la vitesse du paroi extérieur et la vitesse de remplissage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12921,7 +12920,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Support Floor Speed</source>
-            <translation>Vitesse du sol de support</translation>
+            <translation>Vitesse de l'étage du support</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12941,7 +12940,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Travel Speed</source>
-            <translation>Vitesse de voyage</translation>
+            <translation>Vitesse de déplacement</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13066,22 +13065,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Acceleration</source>
-            <translation>Accélération du mur</translation>
+            <translation>Accélération du paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The acceleration with which the walls are printed.</source>
-            <translation>L'accélération avec laquelle les murs sont imprimés.</translation>
+            <translation>L'accélération avec laquelle les parois sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Acceleration</source>
-            <translation>Accélération du mur extérieur</translation>
+            <translation>Accélération du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The acceleration with which the outermost walls are printed.</source>
-            <translation>L'accélération avec laquelle les murs les plus extérieurs sont imprimés.</translation>
+            <translation>L'accélération avec laquelle les parois les plus extérieurs sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13266,27 +13265,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wall Jerk</source>
-            <translation>Secousse de mur</translation>
+            <translation>Secousse de paroi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The maximum instantaneous velocity change with which the walls are printed.</source>
-            <translation>Le changement de vitesse instantané maximum avec lequel les murs sont imprimés.</translation>
+            <translation>Le changement de vitesse instantané maximum avec lequel les parois sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Outer Wall Jerk</source>
-            <translation>Secousse du mur extérieur</translation>
+            <translation>Secousse du paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The maximum instantaneous velocity change with which the outermost walls are printed.</source>
-            <translation>Changement de vitesse instantané maximum avec lequel les murs les plus extérieurs sont imprimés.</translation>
+            <translation>Changement de vitesse instantané maximum avec lequel les parois les plus extérieurs sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Inner Wall Jerk</source>
-            <translation>Secousse du mur intérieur</translation>
+            <translation>Secousse du paroi intérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13456,7 +13455,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Retract Before Outer Wall</source>
-            <translation>Rétracter avant le mur extérieur</translation>
+            <translation>Rétracter avant le paroi extérieur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13466,12 +13465,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Retract when traveling. </source>
-            <translation type="unfinished">移动时回抽</translation>
+            <translation type="unfinished">Se rétracte lors des déplacements</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Always retract when moving to start an outer wall.</source>
-            <translation>Rétractez-vous toujours lorsque vous vous déplacez pour démarrer un mur extérieur.</translation>
+            <translation>Rétractez-vous toujours lorsque vous vous déplacez pour démarrer un paroi extérieur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13646,7 +13645,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>When the degree of overhang exceeds this value, the cooling fan is forced to a certain speed. 0% means that cooling is forced on all outer walls regardless of the degree of overhang.</source>
-            <translation>Lorsque le degré de porte-à-faux dépasse cette valeur, le ventilateur de refroidissement est forcé à une certaine vitesse. 0 % signifie que le refroidissement est forcé sur tous les murs extérieurs, quel que soit le degré de surplomb.</translation>
+            <translation>Lorsque le degré de porte-à-faux dépasse cette valeur, le ventilateur de refroidissement est forcé à une certaine vitesse. 0 % signifie que le refroidissement est forcé sur tous les parois extérieurs, quel que soit le degré de surplomb.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13786,7 +13785,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The height at which the Cds fans spin on regular fan speed. </source>
-            <translation type="unfinished">辅助风扇以正常速度旋转的高度。</translation>
+            <translation type="unfinished">Hauteur à laquelle les ventilateurs du Cds tournent à la vitesse normale.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13796,7 +13795,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Advance the fan start command by the specified time to compensate for the fan speed up time. </source>
-            <translation type="unfinished">把风扇启动指令提前指定时间以补偿风扇启动时间。</translation>
+            <translation type="unfinished">Avance la commande de démarrage du ventilateur de la durée spécifiée pour compenser le temps d'accélération du ventilateur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13806,7 +13805,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Advance the fan start command by the specified time to compensate for the cds fan speed up time. </source>
-            <translation type="unfinished">把风扇启动指令提前指定时间以补偿辅助风扇启动时间。</translation>
+            <translation type="unfinished">Avance la commande de démarrage du ventilateur de la durée spécifiée pour compenser le temps d'accélération du ventilateur cds</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13976,12 +13975,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Support Wall Line Count</source>
-            <translation>Nombre de lignes de mur de support</translation>
+            <translation>Nombre de lignes de paroi de support</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The number of walls with which to surround support infill. Adding a wall can make support print more reliably and can support overhangs better, but increases print time and material used.</source>
-            <translation>Le nombre de murs avec lesquels entourer le remplissage du support. L'ajout d'un mur peut rendre l'impression du support plus fiable et mieux supporter les surplombs, mais augmente le temps d'impression et le matériau utilisé.</translation>
+            <translation>Le nombre de parois avec lesquels entourer le remplissage du support. L'ajout d'un paroi peut rendre l'impression du support plus fiable et mieux supporter les surplombs, mais augmente le temps d'impression et le matériau utilisé.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14141,7 +14140,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Distance of the support structure from the overhang in the X/Y directions. </source>
-            <translation type="unfinished">支撑结构在 X/Y 方向距悬垂的距离。 </translation>
+            <translation type="unfinished">Distance de la structure porteuse par rapport au surplomb dans les directions X/Y</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14186,12 +14185,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Support Layer Thickness</source>
-            <translation>Support Layer Thickness</translation>
+            <translation>Épaisseur de la couche de support</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The thickness per layer of support material. This value should always be a multiple of the layer height and is otherwise rounded.</source>
-            <translation>The thickness per layer of support material. This value should always be a multiple of the layer height and is otherwise rounded.</translation>
+            <translation>L'épaisseur par couche du matériau de support. Cette valeur doit toujours être un multiple de la hauteur de la couche ou est sinon arrondie.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14972,7 +14971,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Raft Base Fan Speed</source>
-            <translation>Vitesse du ventilateur de la base du radeau</translation>
+            <translation>Vitesse du ventilateur pour la base du radeau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14982,32 +14981,32 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>SimpleRaft Init Layers</source>
-            <translation>Couches d'initialisation SimpleRaft</translation>
+            <translation>Couches d'initialisation radeau simple</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The number of SimpleRaft Init Layers. </source>
-            <translation type="unfinished">简单底座基础层数</translation>
+            <translation type="unfinished">nombres de Couches d'initialisation radeau simple</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>SimpleRaft Init Layers  FlowRate</source>
-            <translation>SimpleRaft Init Layers  FlowRate</translation>
+            <translation>radeau simple débit de la première couche</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The Init Layers  FlowRate. </source>
-            <translation type="unfinished">简单底座基础层流量</translation>
+            <translation type="unfinished">débit de la couche initiale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>SimpleRaft Top Layers</source>
-            <translation>Couches supérieures SimpleRaft</translation>
+            <translation>Couches supérieures radeau simple</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The number of SimpleRaft Top Layers. </source>
-            <translation type="unfinished">简单底座顶层层数</translation>
+            <translation type="unfinished">nombre de couches supérieures radeau simple</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15257,7 +15256,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Use this mesh to modify the infill of other meshes with which it overlaps. Replaces infill regions of other meshes with regions for this mesh. It's suggested to only print one Wall and no Top/Bottom Skin for this mesh.</source>
-            <translation>Utilisez ce maillage pour modifier le remplissage des autres maillages avec lesquels il se superpose. Remplace les régions de remplissage d'autres maillages par des régions pour ce maillage. Il est suggéré de n'imprimer qu'un seul mur et aucune peau supérieure/inférieure pour ce maillage.</translation>
+            <translation>Utilisez ce maillage pour modifier le remplissage des autres maillages avec lesquels il se superpose. Remplace les régions de remplissage d'autres maillages par des régions pour ce maillage. Il est suggéré de n'imprimer qu'un seul paroi et aucune peau supérieure/inférieure pour ce maillage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15272,7 +15271,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Cutting Mesh</source>
-            <translation>Filet de coupe</translation>
+            <translation>coupe de maillage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15632,7 +15631,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>This will create a wall around the model, which traps (hot) air and shields against exterior airflow. Especially useful for materials which warp easily.</source>
-            <translation>Cela créera un mur autour du modèle, qui emprisonnera l'air (chaud) et protégera contre le flux d'air extérieur. Particulièrement utile pour les matériaux qui se déforment facilement.</translation>
+            <translation>Cela créera un paroi autour du modèle, qui emprisonnera l'air (chaud) et protégera contre le flux d'air extérieur. Particulièrement utile pour les matériaux qui se déforment facilement.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15822,7 +15821,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The offset from the walls from where the spaghetti infill will be printed.</source>
-            <translation>Le décalage par rapport aux murs à partir desquels le remplissage spaghetti sera imprimé.</translation>
+            <translation>Le décalage par rapport aux parois à partir desquels le remplissage spaghetti sera imprimé.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15892,7 +15891,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The width within which to jitter. It's advised to keep this below the outer wall width, since the inner walls are unaltered.</source>
-            <translation>La largeur dans laquelle jitter. Il est conseillé de la maintenir en dessous de la largeur du mur extérieur, car les murs intérieurs ne sont pas modifiés.</translation>
+            <translation>La largeur dans laquelle jitter. Il est conseillé de la maintenir en dessous de la largeur du paroi extérieur, car les parois intérieurs ne sont pas modifiés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16217,52 +16216,52 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Overhanging Wall Angle</source>
-            <translation>Angle de mur en surplomb</translation>
+            <translation>Angle de paroi en surplomb</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Walls that overhang more than this angle will be printed using overhanging wall settings. When the value is 90, no walls will be treated as overhanging. Overhang that gets supported by support will not be treated as overhang either.</source>
-            <translation>Les murs qui dépassent plus que cet angle seront imprimés en utilisant les paramètres de mur en surplomb. Lorsque la valeur est de 90, aucun mur ne sera traité comme en surplomb. Le surplomb supporté par le support ne sera pas non plus traité comme un surplomb.</translation>
+            <translation>Les parois qui dépassent plus que cet angle seront imprimés en utilisant les paramètres de paroi en surplomb. Lorsque la valeur est de 90, aucun paroi ne sera traité comme en surplomb. Le surplomb supporté par le support ne sera pas non plus traité comme un surplomb.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Overhang wall Angle when using flexible printing sequence</source>
-            <translation>Angle du mur en surplomb lors de l'utilisation d'une séquence d'impression flexible</translation>
+            <translation>Angle du paroi en surplomb lors de l'utilisation d'une séquence d'impression flexible</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Walls that overhang beyond this Angle will use the printing sequence of inner wall first then outer wall, otherwise use outer wall first then inner wall.</source>
-            <translation>Les murs qui dépassent au-delà de cet angle utiliseront d'abord la séquence d'impression du mur intérieur puis du mur extérieur, sinon, utiliseront d'abord le mur extérieur puis le mur intérieur.</translation>
+            <translation>Les parois qui dépassent au-delà de cet angle utiliseront d'abord la séquence d'impression du paroi intérieur puis du paroi extérieur, sinon, utiliseront d'abord le paroi extérieur puis le paroi intérieur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Overhanging Wall Speed</source>
-            <translation>Vitesse du mur en surplomb</translation>
+            <translation>Vitesse du paroi en surplomb</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Overhanging walls will be printed at this percentage of their normal print speed.</source>
-            <translation>Les murs en surplomb seront imprimés à ce pourcentage de leur vitesse d’impression normale.</translation>
+            <translation>Les parois en surplomb seront imprimés à ce pourcentage de leur vitesse d’impression normale.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Set Overhanging Wall Speed Grading</source>
-            <translation>Définir le classement de vitesse du mur en surplomb</translation>
+            <translation>Définir le classement de vitesse du paroi en surplomb</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Whether To Set Graded Treatment Of Overhanging Wall Speed.</source>
-            <translation>S'il faut définir un traitement progressif de la vitesse du mur en surplomb.</translation>
+            <translation>S'il faut définir un traitement progressif de la vitesse du paroi en surplomb.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Overhanging walls of this angle range will be printed at this speed.</source>
-            <translation>Les murs en surplomb de cette plage d’angle seront imprimés à cette vitesse.</translation>
+            <translation>Les parois en surplomb de cette plage d’angle seront imprimés à cette vitesse.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Hole Wall Speed</source>
-            <translation>Vitesse du mur de trou</translation>
+            <translation>Vitesse du paroi de trou</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16282,12 +16281,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Minimum Bridge Wall Length</source>
-            <translation>Longueur minimale du mur du pont</translation>
+            <translation>Longueur minimale du paroi du pont</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Unsupported walls shorter than this will be printed using the normal wall settings. Longer unsupported walls will be printed using the bridge wall settings.</source>
-            <translation>Les murs non supportés plus courts que cela seront imprimés en utilisant les paramètres de mur normaux. Les murs non supportés plus longs seront imprimés en utilisant les paramètres du mur de pont.</translation>
+            <translation>Les parois non supportés plus courts que cela seront imprimés en utilisant les paramètres de paroi normaux. Les parois non supportés plus longs seront imprimés en utilisant les paramètres du paroi de pont.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16302,32 +16301,32 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Bridge Wall Coasting</source>
-            <translation>Roulement des murs du pont</translation>
+            <translation>Roulement des parois du pont</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>This controls the distance the extruder should coast immediately before a bridge wall begins. Coasting before the bridge starts can reduce the pressure in the nozzle and may produce a flatter bridge.</source>
-            <translation>Cela contrôle la distance sur laquelle l'extrudeuse doit rouler immédiatement avant le début d'un mur de pont. La marche en roue libre avant le début du pont peut réduire la pression dans la buse et produire un pont plus plat.</translation>
+            <translation>Cela contrôle la distance sur laquelle l'extrudeuse doit rouler immédiatement avant le début d'un paroi de pont. La marche en roue libre avant le début du pont peut réduire la pression dans la buse et produire un pont plus plat.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Bridge Wall Speed</source>
-            <translation>Vitesse du mur du pont</translation>
+            <translation>Vitesse du paroi du pont</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the bridge walls are printed.</source>
-            <translation>La vitesse à laquelle les murs du pont sont imprimés.</translation>
+            <translation>La vitesse à laquelle les parois du pont sont imprimés.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Bridge Wall Flow</source>
-            <translation>Flux de mur de pont</translation>
+            <translation>Flux de paroi de pont</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>When printing bridge walls, the amount of material extruded is multiplied by this value.</source>
-            <translation>Lors de l'impression de murs de pont, la quantité de matériau extrudé est multipliée par cette valeur.</translation>
+            <translation>Lors de l'impression de parois de pont, la quantité de matériau extrudé est multipliée par cette valeur.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16467,7 +16466,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Material Volume Between Wipes</source>
-            <translation>Volume de matériau entre les lingettes</translation>
+            <translation>Volume de matériau entre les essuyages</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16487,7 +16486,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe Retraction Distance</source>
-            <translation>Distance de rétraction des lingettes</translation>
+            <translation>Distance de rétraction d'essuyage<</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16497,7 +16496,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe Retraction Extra Prime Amount</source>
-            <translation>Montant supplémentaire de rétraction des lingettes</translation>
+            <translation>Montant supplémentaire de rétraction < </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16507,27 +16506,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe Retraction Speed</source>
-            <translation>Vitesse de rétraction des lingettes</translation>
+            <translation>Vitesse de rétraction d'essuyage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the filament is retracted and primed during a wipe retraction move.</source>
-            <translation>Vitesse à laquelle le filament est rétracté et amorcé lors d'un mouvement de rétraction de lingette.</translation>
+            <translation>Vitesse à laquelle le filament est rétracté et amorcé lors d'un mouvement de rétraction d'essuyage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe Retraction Retract Speed</source>
-            <translation>Vitesse de rétraction des lingettes</translation>
+            <translation>Vitesse de rétraction d'essuyage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the filament is retracted during a wipe retraction move.</source>
-            <translation>Vitesse à laquelle le filament est rétracté lors d'un mouvement de rétraction de lingette.</translation>
+            <translation>Vitesse à laquelle le filament est rétracté lors d'un mouvement de rétraction dd'essuyage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the filament is primed during a wipe retraction move.</source>
-            <translation>La vitesse à laquelle le filament est amorcé lors d'un mouvement de rétraction de lingette.</translation>
+            <translation>La vitesse à laquelle le filament est amorcé lors d'un mouvement de rétraction dd'essuyage.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16677,22 +16676,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Small Feature Speed 1</source>
-            <translation>Small Feature Speed 1</translation>
+            <translation>1Vitesse 1 des petites fonctionnalités </translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Small Feature Speed 2</source>
-            <translation>Small Feature Speed 2</translation>
+            <translation>Vitesse 2 des petites fonctionnalités</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Small Feature Speed 3</source>
-            <translation>Small Feature Speed 3</translation>
+            <translation>Vitesse 3 des petites fonctionnalités</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Small Feature Speed 4</source>
-            <translation>Small Feature Speed 4</translation>
+            <translation>Vitesse 4 des petites fonctionnalités</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16802,7 +16801,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>simpleraft</source>
-            <translation>simpleraft</translation>
+            <translation>radeau simple</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16842,22 +16841,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Small Feature Initial Layer Speed 1</source>
-            <translation>Small Feature Initial Layer Speed 1</translation>
+            <translation> couche initiale des petites fonctionnalité vitesse 1</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Small Feature Initial Layer Speed 2</source>
-            <translation>Small Feature Initial Layer Speed 2</translation>
+            <translation>couche initiale des petites fonctionnalité vitesse 2</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Small Feature Initial Layer Speed 3</source>
-            <translation>Small Feature Initial Layer Speed 3</translation>
+            <translation>couche initiale des petites fonctionnalité vitesse 3</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Small Feature Initial Layer Speed 4</source>
-            <translation>Small Feature Initial Layer Speed 4</translation>
+            <translation>couche initiale des petites fonctionnalité vitesse 4</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16877,7 +16876,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wipe Retraction Prime Speed</source>
-            <translation>Vitesse d'amorçage de rétraction des lingettes</translation>
+            <translation>Vitesse d'amorçage de rétraction d'essuyage</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16887,7 +16886,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Change Print ColorCheck this option to change the print material according to the specified mode.</source>
-            <translation>Modifier la couleur d'impressionCochez cette option pour modifier le support d'impression en fonction du mode spécifié.</translation>
+            <translation>Modifier la couleur d'impression,Cochez cette option pour modifier le support d'impression en fonction du mode spécifié.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16902,27 +16901,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The number of layers of the first exchange of printed materials.</source>
-            <translation>The number of layers of the first exchange of printed materials.</translation>
+            <translation>le nombres de layers pour le premier changement de materiau.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Second Change Color</source>
-            <translation>Second Change Color</translation>
+            <translation>second changement de couleur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The number of layers of the Second exchange of printed materials.</source>
-            <translation>The number of layers of the Second exchange of printed materials.</translation>
+            <translation>le nombres de layers pour le second changement de materiau.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Third Change Color</source>
-            <translation>Third Change Color</translation>
+            <translation>troixième changement de couleur</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The number of layers of the Third exchange of printed materials.</source>
-            <translation>The number of layers of the Third exchange of printed materials.</translation>
+            <translation>le nombres de layers pour le troisièmechangement de materiau.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -17012,7 +17011,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Belt</source>
-            <translation>Ceinture</translation>
+            <translation>Contour</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -17057,12 +17056,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="176"/>
             <source>Extrusion flow ratio</source>
-            <translation>Extrusion flow ratio</translation>
+            <translation>Ratio de débit d'extrusion</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="36"/>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>Bonne qualité</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="36"/>
@@ -17087,7 +17086,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
             <source>Maximum material that can be extruded before another nozzle wipe is initiated. If this value is less than the volume of material required in a layer, the setting has no effect in this layer, i.e. it is limited to one wipe per layer.</source>
-            <translation>Matériau maximum pouvant être extrudé avant qu'un autre nettoyage de la buse ne soit lancé. Si cette valeur est inférieure au volume de matière nécessaire dans une couche, le réglage n'a aucun effet dans cette couche, c'est à dire qu'il est limité à une lingette par couche.</translation>
+            <translation>Matériau maximum pouvant être extrudé avant qu'un autre nettoyage de la buse ne soit lancé. Si cette valeur est inférieure au volume de matière nécessaire dans une couche, le réglage n'a aucun effet dans cette couche, c'est à dire qu'il est limité à un essuyage par couche.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
@@ -17102,7 +17101,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="420"/>
             <source>Add extra walls around the infill area. Such walls can make top/bottom skin lines sag down less which means you need less top/bottom skin layers for the same quality at the cost of some extra material.This feature can combine with the Connect Infill Polygons to connect all the infill into a single extrusion path without the need for travels or retractions if configured right.</source>
-            <translation>Ajoutez des murs supplémentaires autour de la zone de remplissage. De tels murs peuvent réduire l'affaissement des lignes de peau supérieure/inférieure, ce qui signifie que vous avez besoin de moins de couches de peau supérieure/inférieure pour la même qualité au prix d'un matériau supplémentaire. Cette fonctionnalité peut être combinée avec les polygones de remplissage Connect pour connecter tout le remplissage dans un chemin d'extrusion unique sans besoin de déplacements ou de rétractions s'il est correctement configuré.</translation>
+            <translation>Ajoutez des parois supplémentaires autour de la zone de remplissage. De tels parois peuvent réduire l'affaissement des lignes de peau supérieure/inférieure, ce qui signifie que vous avez besoin de moins de couches de peau supérieure/inférieure pour la même qualité au prix d'un matériau supplémentaire. Cette fonctionnalité peut être combinée avec les polygones de remplissage Connect pour connecter tout le remplissage dans un chemin d'extrusion unique sans besoin de déplacements ou de rétractions s'il est correctement configuré.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="99"/>
@@ -17122,7 +17121,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
             <source>Profile:</source>
-            <translation>Profile:</translation>
+            <translation>Profil:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
@@ -17352,11 +17351,11 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="568"/>
             <source>The Num of part outline</source>
-            <translation>Le nombre de pièces</translation>
+            <translation>Nombre de pièces</translation>
         </message>
         <message>
             <source>The number of the print cooling fan associated with this extruder. Only change this from the default value of 0 when you have a different print cooling fan for each extruder.</source>
-            <translation>Le numéro du ventilateur de refroidissement d'impression associé à cette extrudeuse. Modifiez cette valeur par défaut de 0 uniquement lorsque vous disposez d'un ventilateur de refroidissement d'impression différent pour chaque extrudeuse.</translation>
+            <translation>Le numéro du ventilateur de refroidissement d'impression associé à cette extrudeuse. Modifiez cette valeur par défaut de 0 uniquement lorsque vous disposez d'un ventilateur de refroidissemet d'impression différent pour chaque extrudeuse.</translation>
         </message>
         <message>
             <source>The x-coordinate of the offset of the nozzle.</source>
@@ -17368,7 +17367,7 @@
         </message>
         <message>
             <source>First Change Color</source>
-            <translation>First Change Color</translation>
+            <translation>Premier changemenr de couleur</translation>
         </message>
         <message>
             <source>layer</source>
@@ -17376,11 +17375,11 @@
         </message>
         <message>
             <source>Nozzle offset X:</source>
-            <translation>Nozzle offset X:</translation>
+            <translation>Buse offset X:</translation>
         </message>
         <message>
             <source>Nozzle offset Y:</source>
-            <translation>Nozzle offset Y:</translation>
+            <translation>Buse offset Y:</translation>
         </message>
         <message>
             <source>Number of cooling fans:</source>
@@ -17388,23 +17387,23 @@
         </message>
         <message>
             <source>Minimum Even Wall Line Width</source>
-            <translation>Largeur minimale de ligne de mur uniforme</translation>
+            <translation>Largeur minimale de ligne de paroi uniforme</translation>
         </message>
         <message>
             <source>Minimum Odd Wall Line Width</source>
-            <translation>Largeur minimale de la ligne de mur impair</translation>
+            <translation>Largeur minimale de la ligne de paroi impair</translation>
         </message>
         <message>
             <source>For thin structures around once or twice the nozzle size, the line widths need to be altered to adhere to the thickness of the model. This setting controls the minimum line width allowed for the walls. The minimum line widths inherently also determine the maximum line widths, since we transition from N to N+1 walls at some geometry thickness where the N walls are wide and the N+1 walls are narrow. The widest possible wall line is twice the Minimum Wall Line Width.</source>
-            <translation>Pour les structures fines d’une taille d’environ une ou deux fois la taille de la buse, les largeurs de lignes doivent être modifiées pour adhérer à l’épaisseur du modèle. Ce paramètre contrôle la largeur de ligne minimale autorisée pour les murs. Les largeurs de ligne minimales déterminent également par nature les largeurs de ligne maximales, puisque nous passons de murs N à N+1 à une certaine épaisseur géométrique où les murs N sont larges et les murs N+1 sont étroits. La ligne de mur la plus large possible est le double de la largeur minimale de la ligne de mur.</translation>
+            <translation>Pour les structures fines d’une taille d’environ une ou deux fois la taille de la buse, les largeurs de lignes doivent être modifiées pour adhérer à l’épaisseur du modèle. Ce paramètre contrôle la largeur de ligne minimale autorisée pour les parois. Les largeurs de ligne minimales déterminent également par nature les largeurs de ligne maximales, puisque nous passons de parois N à N+1 à une certaine épaisseur géométrique où les parois N sont larges et les parois N+1 sont étroits. La ligne de paroi la plus large possible est le double de la largeur minimale de la ligne de paroi.</translation>
         </message>
         <message>
             <source>The minimum line width for normal polygonal walls. This setting determines at which model thickness we switch from printing a single thin wall line, to printing two wall lines. A higher Minimum Even Wall Line Width leads to a higher maximum odd wall line width. The maximum even wall line width is calculated as Outer Wall Line Width + 0.5 * Minimum Odd Wall Line Width.</source>
-            <translation>La largeur de ligne minimale pour les murs polygonaux normaux. Ce paramètre détermine à quelle épaisseur de modèle nous passons de l’impression d’une seule ligne de paroi fine à l’impression de deux lignes de paroi. Une largeur minimale de ligne de mur pair plus élevée entraîne une largeur de ligne de mur impaire maximale plus élevée. La largeur maximale de la ligne de mur pair est calculée comme la largeur de la ligne du mur extérieur + 0,5 * la largeur minimale de la ligne du mur impair.</translation>
+            <translation>La largeur de ligne minimale pour les parois polygonaux normaux. Ce paramètre détermine à quelle épaisseur de modèle nous passons de l’impression d’une seule ligne de paroi fine à l’impression de deux lignes de paroi. Une largeur minimale de ligne de paroi pair plus élevée entraîne une largeur de ligne de paroi impaire maximale plus élevée. La largeur maximale de la ligne de paroi pair est calculée comme la largeur de la ligne du paroi extérieur + 0,5 * la largeur minimale de la ligne du paroi impair.</translation>
         </message>
         <message>
             <source>The minimum line width for middle line gap filler polyline walls. This setting determines at which model thickness we switch from printing two wall lines, to printing two outer walls and a single central wall in the middle. A higher Minimum Odd Wall Line Width leads to a higher maximum even wall line width. The maximum odd wall line width is calculated as 2 * Minimum Even Wall Line Width.</source>
-            <translation>La largeur de ligne minimale pour les murs polylignes de remplissage d'espace de ligne médiane. Ce paramètre détermine à quelle épaisseur de modèle nous passons de l'impression de deux lignes de paroi à l'impression de deux parois extérieures et d'une seule paroi centrale au milieu. Une largeur minimale de ligne de mur impair plus élevée entraîne une largeur maximale de ligne de mur uniforme plus élevée. La largeur maximale de la ligne de mur impaire est calculée comme suit : 2 * largeur minimale de la ligne de mur paire.</translation>
+            <translation>La largeur de ligne minimale pour les parois polylignes de remplissage d'espace de ligne médiane. Ce paramètre détermine à quelle épaisseur de modèle nous passons de l'impression de deux lignes de paroi à l'impression de deux parois extérieures et d'une seule paroi centrale au milieu. Une largeur minimale de ligne de paroi impair plus élevée entraîne une largeur maximale de ligne de paroi uniforme plus élevée. La largeur maximale de la ligne de paroi impaire est calculée comme suit : 2 * largeur minimale de la ligne de paroi paire.</translation>
         </message>
         <message>
             <source>Chooses between the techniques available to generate support. "Normal" support creates a support structure directly below the overhanging parts and drops those areas straight down. "Tree" support creates branches towards the overhanging areas that support the model on the tips of those branches, and allows the branches to crawl around the model to support it from the build plate as much as possible.</source>
@@ -17424,11 +17423,11 @@
         </message>
         <message>
             <source>Enable pressure advance</source>
-            <translation>Enable pressure advance</translation>
+            <translation>Activer la pression d"avance</translation>
         </message>
         <message>
             <source>Material pressure advance length</source>
-            <translation>Material pressure advance length</translation>
+            <translation>pression d'avance du materiau</translation>
         </message>
         <message>
             <source>This setting is the volume of filament that can be melted andextruded per second. Printing speed is limited by max volumetric speed.</source>
@@ -17543,32 +17542,32 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManageBasicTabItem.qml" line="417"/>
             <source>Proximal</source>
-            <translation>Proximal</translation>
+            <translation>Proximité</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="21"/>
             <source>new</source>
-            <translation>nouveau</translation>
+            <translation>Nouveau</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="276"/>
             <source>Material:</source>
-            <translation>Material:</translation>
+            <translation>Matériau:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="354"/>
             <source>Layer Height:</source>
-            <translation>Layer Height:</translation>
+            <translation>hauteur de couche:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="391"/>
             <source>Line Width:</source>
-            <translation>Line Width:</translation>
+            <translation>Largeur de ligne:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="424"/>
             <source>Wall Line Count:</source>
-            <translation>Wall Line Count:</translation>
+            <translation>Nombre de lignes de paroi:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="460"/>
@@ -17583,7 +17582,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="527"/>
             <source>Generate Support:</source>
-            <translation>Generate Support:</translation>
+            <translation>générer des supports:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="549"/>
@@ -17593,12 +17592,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="586"/>
             <source>Support Density:</source>
-            <translation>Support Density:</translation>
+            <translation>densité des supports:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="622"/>
             <source>Small Feature Max Length:</source>
-            <translation>Small Feature Max Length:</translation>
+            <translation>Petit élément Longueur maximale:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="666"/>
@@ -17613,27 +17612,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="736"/>
             <source>Print Speed:</source>
-            <translation>Print Speed:</translation>
+            <translation>vitesse d'impression:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="771"/>
             <source>Infill Speed:</source>
-            <translation>Infill Speed:</translation>
+            <translation>Vitesse du remplissage:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="806"/>
             <source>Wall Speed:</source>
-            <translation>Wall Speed:</translation>
+            <translation>vitesse des parois:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="841"/>
             <source>Support Flow:</source>
-            <translation>Support Flow:</translation>
+            <translation>remplissage des supports:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="876"/>
             <source>Infill Flow:</source>
-            <translation>Débit de remplissage :</translation>
+            <translation>Débit de remplissage(Infill Flow):</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="911"/>
@@ -17725,12 +17724,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="80"/>
             <source>Basic Parameters</source>
-            <translation>Basic Parameters</translation>
+            <translation>Paramètres de base</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="138"/>
             <source>Build Plate Shape:</source>
-            <translation>Build Plate Shape:</translation>
+            <translation>forme de la plaque de construction:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="155"/>
@@ -17755,22 +17754,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="260"/>
             <source>Number of Extruders:</source>
-            <translation>Number of Extruders:</translation>
+            <translation>Nombre d'extrudeur:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="272"/>
             <source>please input 1-2</source>
-            <translation>veuillez saisir 1-2</translation>
+            <translation>Veuillez saisir 1-2</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="299"/>
             <source>Nozzle Diameter:</source>
-            <translation>Nozzle Diameter:</translation>
+            <translation>Diamètre de la buse:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="327"/>
             <source>Machine Depth:</source>
-            <translation>Machine Depth:</translation>
+            <translation>Profondeur de machine:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="362"/>
@@ -17790,7 +17789,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="417"/>
             <source>Is Center Origin</source>
-            <translation>Est l'origine du centre</translation>
+            <translation>Origine du centre</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="417"/>
@@ -17810,7 +17809,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="417"/>
             <source>Proximal</source>
-            <translation>Proximal</translation>
+            <translation>Proximité (Proximal)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="155"/>
@@ -17827,7 +17826,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="474"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="522"/>
             <source>End of G-code:</source>
-            <translation>End of G-code:</translation>
+            <translation>Fin du G-code:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="474"/>
@@ -17837,7 +17836,7 @@
         </message>
         <message>
             <source>Compatible material diameter:</source>
-            <translation>Compatible material diameter:</translation>
+            <translation>Diamètre du matériau compatible:</translation>
         </message>
     </context>
     <context>
@@ -17845,7 +17844,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RepairPanelDlg.qml" line="12"/>
             <source>Damaged Plane</source>
-            <translation>Avion endommagé</translation>
+            <translation>Surface endommagée</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RepairPanelDlg.qml" line="12"/>
@@ -17855,7 +17854,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RepairPanelDlg.qml" line="12"/>
             <source>Redundant Shell</source>
-            <translation>Coque redondante</translation>
+            <translation>Coque redondante (Redundant Shell)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RepairPanelDlg.qml" line="12"/>
@@ -17865,7 +17864,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RepairPanelDlg.qml" line="12"/>
             <source>Crossed Model Planes</source>
-            <translation>Avions modèles croisés</translation>
+            <translation>Modèles de plans croisés</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/RepairPanelDlg.qml" line="12"/>
@@ -17905,11 +17904,11 @@
         </message>
         <message>
             <source>Save successed, do you want open the folder now?</source>
-            <translation>Save successed, do you want open the folder now?</translation>
+            <translation>Enregistrement réussi, voulez-vous ouvrir le dossier maintenant ?</translation>
         </message>
         <message>
             <source>Save failed, please try again.</source>
-            <translation>Save failed, please try again.</translation>
+            <translation>Echec de l'enregistrement,veuillez réessayer svp.</translation>
         </message>
         <message>
             <source>Yes</source>
@@ -17957,7 +17956,7 @@
         </message>
         <message>
             <source>Open folder</source>
-            <translation>Open folder</translation>
+            <translation>Ouvrir dossier</translation>
         </message>
     </context>
     <context>
@@ -18037,7 +18036,7 @@
         </message>
         <message>
             <source>Retract</source>
-            <translation>Se rétracter</translation>
+            <translation>Rétracter</translation>
         </message>
         <message>
             <source>Line Width</source>
@@ -18070,15 +18069,15 @@
         <name>DumpWindow</name>
         <message>
             <source>title</source>
-            <translation>titre</translation>
+            <translation>Titre</translation>
         </message>
         <message>
             <source>A serious error has occurred in %1. Please send this error report to us to fix the problem.</source>
-            <translation>A serious error has occurred in %1. Please send this error report to us to fix the problem.</translation>
+            <translation>Une erreur grave s'est produite dans %1. Veuillez nous envoyer ce rapport d'erreur pour résoudre le problème.</translation>
         </message>
         <message>
             <source>Please click the 'Send Report' button to automatically publish the error report to our server.</source>
-            <translation>Please click the 'Send Report' button to automatically publish the error report to our server.</translation>
+            <translation>Veuillez cliquer sur le bouton « Envoyer le rapport » pour publier automatiquement le rapport d'erreur sur notre serveur..</translation>
         </message>
         <message>
             <source>%1 version: %2&#xd;
@@ -18100,7 +18099,7 @@ OpenGL:&#xd;
         </message>
         <message>
             <source>accept</source>
-            <translation>accepter</translation>
+            <translation>Accepter</translation>
         </message>
         <message>
             <source>cancel</source>
@@ -18159,7 +18158,7 @@ OpenGL:&#xd;
         </message>
         <message>
             <source>SSL CA certificate error</source>
-            <translation>SSL CA certificate error</translation>
+            <translation> SSL CA certificate error</translation>
         </message>
         <message>
             <source>Generic SSL error</source>
@@ -18171,7 +18170,7 @@ OpenGL:&#xd;
         </message>
         <message>
             <source>Request cancelled</source>
-            <translation>Request cancelled</translation>
+            <translation>Demande annulée</translation>
         </message>
         <message>
             <source>Too many redirects</source>
@@ -18194,7 +18193,7 @@ OpenGL:&#xd;
         </message>
         <message>
             <source>Communication abnormality</source>
-            <translation>Communication abnormality</translation>
+            <translation>Communication anormale</translation>
         </message>
         <message>
             <source>The temperature of the hot bed is abnormal</source>
@@ -18258,7 +18257,7 @@ OpenGL:&#xd;
         </message>
         <message>
             <source>Machine in preparation</source>
-            <translation>Machine in preparation</translation>
+            <translation>Machine en préparation</translation>
         </message>
         <message>
             <source>Continue printing after power failure</source>
