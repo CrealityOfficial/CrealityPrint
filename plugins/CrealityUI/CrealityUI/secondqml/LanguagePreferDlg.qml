@@ -71,6 +71,7 @@ BasicDialog
                         ListElement { text: qsTr("简体中文");}  //zh_CN.ts
                         ListElement { text: qsTr("繁体中文");} //zh_TW.ts
                         ListElement { text: qsTr("한국어/Korean");}  //ko.ts
+			ListElement { text: qsTr("Italiano/Italian");} //it.ts
                     }
                     onCurrentIndexChanged:
                     {
