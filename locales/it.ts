@@ -116,7 +116,7 @@
         </message>
         <message>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Stampante</translation>
         </message>
         <message>
             <source>MaterialType</source>
@@ -128,7 +128,7 @@
         </message>
         <message>
             <source>User Materials</source>
-            <translation>Materiali utente</translation>
+            <translation>Materiali Utente</translation>
         </message>
         <message>
             <source>Check All</source>
@@ -150,7 +150,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AboutUsDlg.qml" line="192"/>
             <source>Close</source>
-            <translation>Vicino</translation>
+            <translation>Chiudi</translation>
         </message>
     </context>
     <context>
@@ -178,7 +178,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="98"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Stampante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="119"/>
@@ -193,7 +193,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="174"/>
             <source>Next</source>
-            <translation>Prossimo</translation>
+            <translation>Successivo</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddEditProfile.qml" line="207"/>
@@ -216,7 +216,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="11"/>
             <source>Add</source>
-            <translation>Aggiungere</translation>
+            <translation>Aggiungi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="36"/>
@@ -226,12 +226,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="54"/>
             <source>Ip Address:</source>
-            <translation>Ip Address:</translation>
+            <translation>Indirizzo Ip:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="74"/>
             <source>Mac Address:</source>
-            <translation>Mac Address:</translation>
+            <translation>Indirizzo Mac:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddMacAndTcpDlg.qml" line="91"/>
@@ -269,7 +269,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddNewProjectDlg.qml" line="74"/>
             <source>Yes</source>
-            <translation>SÌ</translation>
+            <translation>Sì</translation>
         </message>
     </context>
     <context>
@@ -293,7 +293,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="16"/>
             <source>Add Printer</source>
-            <translation>Aggiungi stampante</translation>
+            <translation>Aggiungi Stampante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="22"/>
@@ -306,12 +306,12 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="287"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="295"/>
             <source>Printer information has been updated, please restart the software!</source>
-            <translation>Printer information has been updated, please restart the software!</translation>
+            <translation>Le informazioni sulla stampante sono state aggiornate, è necessario riavviare il software!</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="63"/>
             <source>Printer Update</source>
-            <translation>Printer Update</translation>
+            <translation>Aggiornamento stampante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="82"/>
@@ -322,7 +322,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="139"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Stampante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="153"/>
@@ -337,22 +337,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="195"/>
             <source>Sermoon series</source>
-            <translation>Serie di sermoni</translation>
+            <translation>Serie Sermoon</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="195"/>
             <source>K1 series</source>
-            <translation>K1 series</translation>
+            <translation>Serie K1</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="210"/>
             <source>Fast series</source>
-            <translation>Fast series</translation>
+            <translation>Serie Stas</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="210"/>
             <source>Nebula Pad</source>
-            <translation>Tappetino nebuloso</translation>
+            <translation>Nebula Pad</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterDlgNew.qml" line="216"/>
@@ -365,12 +365,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="87"/>
             <source>Sonic</source>
-            <translation>Sonico</translation>
+            <translation>Sonic</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="87"/>
             <source>Nebula</source>
-            <translation>Nebulosa</translation>
+            <translation>Nebula</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="95"/>
@@ -390,12 +390,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="98"/>
             <source>Nozzle Size</source>
-            <translation>Dimensione dell'ugello</translation>
+            <translation>Dimensione Ugello</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AddPrinterViewItem.qml" line="135"/>
             <source>Add</source>
-            <translation>Aggiungere</translation>
+            <translation>Aggiungi</translation>
         </message>
     </context>
     <context>
@@ -416,7 +416,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="46"/>
             <source>Exit</source>
-            <translation>Uscita</translation>
+            <translation>Esci</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="47"/>
@@ -426,19 +426,19 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="86"/>
             <source>Yes</source>
-            <translation>SÌ</translation>
+            <translation>Sì</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="87"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="403"/>
             <source>Delete model</source>
-            <translation>Delete model</translation>
+            <translation>Elimina Modello</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="88"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="404"/>
             <source>Ignore</source>
-            <translation>Ignorare</translation>
+            <translation>Ignora</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="91"/>
@@ -452,12 +452,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="99"/>
             <source>There are exceptions or errors in the model. What should be done?</source>
-            <translation>Ci sono eccezioni o errori nel modello. Cosa dovrebbe essere fatto?</translation>
+            <translation>Ci sono eccezioni o errori nel modello. Cosa è necessario fare?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="116"/>
             <source>Whether to remove  all supports</source>
-            <translation>Whether to remove  all supports</translation>
+            <translation>Rimuovere o meno tutti i supporti</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="207"/>
@@ -482,7 +482,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="289"/>
             <source>The software closes abnormally, whether to open the saved temporary file?</source>
-            <translation>Il software si chiude in modo anomalo, è opportuno aprire il file temporaneo salvato?</translation>
+            <translation>Il software si chiude in modo anomalo. Devo aprire il file temporaneo?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AllMenuDialog.qml" line="305"/>
@@ -507,11 +507,11 @@
         </message>
         <message>
             <source>Retract</source>
-            <translation>Ritrattare</translation>
+            <translation>Retrai</translation>
         </message>
         <message>
             <source>Compensate</source>
-            <translation>Compensare</translation>
+            <translation>Compensa</translation>
         </message>
         <message>
             <source>Full</source>
@@ -535,7 +535,7 @@
         </message>
         <message>
             <source>Right</source>
-            <translation>Giusto</translation>
+            <translation>Destra</translation>
         </message>
         <message>
             <source>Front Right</source>
@@ -563,7 +563,7 @@
         </message>
         <message>
             <source>TrapezoidalLeft</source>
-            <translation>TrapezoidaleSinistra</translation>
+            <translation>TrapezoidalLeft</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -572,15 +572,15 @@
         </message>
         <message>
             <source>Two-Color Printing</source>
-            <translation>Two-Color Printing</translation>
+            <translation>Stampa a due colori</translation>
         </message>
         <message>
             <source>Three-Color Printing</source>
-            <translation>Three-Color Printing</translation>
+            <translation>Stampa a tre colori</translation>
         </message>
         <message>
             <source>Four-Color Printing</source>
-            <translation>Four-Color Printing</translation>
+            <translation>Stampa a quattro colori</translation>
         </message>
         <message>
             <source>Five-Color Printing</source>
@@ -588,7 +588,7 @@
         </message>
         <message>
             <source>First Change Color</source>
-            <translation>First Change Color</translation>
+            <translation>Primo cambio di colore</translation>
         </message>
         <message>
             <source>Off</source>
@@ -632,7 +632,7 @@
         </message>
         <message>
             <source>X/Y overrides Z</source>
-            <translation>X/Y sovrascrive Z</translation>
+            <translation>X/Y prevale su Z</translation>
         </message>
         <message>
             <source>Z overrides X/Y</source>
@@ -640,7 +640,7 @@
         </message>
         <message>
             <source>Touching Build Plate</source>
-            <translation>Toccando la piastra di costruzione</translation>
+            <translation>Contatto con il Piano di Stampa</translation>
         </message>
         <message>
             <source>Normal</source>
@@ -648,7 +648,7 @@
         </message>
         <message>
             <source>Single</source>
-            <translation>Separare</translation>
+            <translation>Singolo</translation>
         </message>
         <message>
             <source>Surface</source>
@@ -664,11 +664,11 @@
         </message>
         <message>
             <source>One At A Time</source>
-            <translation>One At A Time</translation>
+            <translation>Uno alla volta</translation>
         </message>
         <message>
             <source>Middle</source>
-            <translation>Mezzo</translation>
+            <translation>Centro</translation>
         </message>
         <message>
             <source>Exclusive</source>
@@ -684,7 +684,7 @@
         </message>
         <message>
             <source>to and fro</source>
-            <translation>avanti e indietro</translation>
+            <translation>da e verso</translation>
         </message>
         <message>
             <source>Not overridden</source>
@@ -704,15 +704,15 @@
         </message>
         <message>
             <source>skirt</source>
-            <translation>gonna</translation>
+            <translation>skirt</translation>
         </message>
         <message>
             <source>Lace</source>
-            <translation>Pizzo</translation>
+            <translation>Lace</translation>
         </message>
         <message>
             <source>brim</source>
-            <translation>bordo</translation>
+            <translation>brim</translation>
         </message>
         <message>
             <source>autobrim</source>
@@ -720,7 +720,7 @@
         </message>
         <message>
             <source>raft</source>
-            <translation>zattera</translation>
+            <translation>raft</translation>
         </message>
         <message>
             <source>simpleraft</source>
@@ -732,19 +732,19 @@
         </message>
         <message>
             <source>Hide Seam</source>
-            <translation>Nascondi cucitura</translation>
+            <translation>Nascondi Giunzione</translation>
         </message>
         <message>
             <source>Expose Seam</source>
-            <translation>Esporre la cucitura</translation>
+            <translation>Esponi Giunzione</translation>
         </message>
         <message>
             <source>Hide or Expose Seam</source>
-            <translation>Nascondere o esporre la cucitura</translation>
+            <translation>Nascondi o esponi giunzione</translation>
         </message>
         <message>
             <source>Smart Hiding</source>
-            <translation>Nascondersi intelligente</translation>
+            <translation>Occultamento intelligente</translation>
         </message>
         <message>
             <source>Inside To Outside</source>
@@ -776,7 +776,7 @@
         </message>
         <message>
             <source>Nowhere</source>
-            <translation>Luogo inesistente</translation>
+            <translation>Da nessuna parte</translation>
         </message>
         <message>
             <source>Everywhere</source>
@@ -788,7 +788,7 @@
         </message>
         <message>
             <source>Honeycomb</source>
-            <translation>Favo</translation>
+            <translation>A nido d'ape</translation>
         </message>
         <message>
             <source>Lightning</source>
@@ -820,7 +820,7 @@
         </message>
         <message>
             <source>Triangles</source>
-            <translation>triangoli</translation>
+            <translation>Triangoli</translation>
         </message>
         <message>
             <source>Tri-Hexagon</source>
@@ -828,7 +828,7 @@
         </message>
         <message>
             <source>Cubic</source>
-            <translation>Cubo</translation>
+            <translation>Cubico</translation>
         </message>
         <message>
             <source>Cubic Subdivision</source>
@@ -836,19 +836,19 @@
         </message>
         <message>
             <source>Octet</source>
-            <translation>Ottetto</translation>
+            <translation>Ottagonale</translation>
         </message>
         <message>
             <source>Quarter Cubic</source>
-            <translation>Quarto cubico</translation>
+            <translation>Quarto di cubo</translation>
         </message>
         <message>
             <source>Cross</source>
-            <translation>Attraverso</translation>
+            <translation>Incrociata</translation>
         </message>
         <message>
             <source>Cross 3D</source>
-            <translation>Croce 3D</translation>
+            <translation>Incrociata 3D</translation>
         </message>
         <message>
             <source>Gyroid</source>
@@ -860,7 +860,7 @@
         </message>
         <message>
             <source>Marlin (Volumetric)</source>
-            <translation>Marlin (volumetrico)</translation>
+            <translation>Marlin (Volumetrico)</translation>
         </message>
         <message>
             <source>RepRap</source>
@@ -872,7 +872,7 @@
         </message>
         <message>
             <source>Griffin</source>
-            <translation>Grifone</translation>
+            <translation>Griffin</translation>
         </message>
         <message>
             <source>Makerbot</source>
@@ -880,7 +880,7 @@
         </message>
         <message>
             <source>Bits from Bytes</source>
-            <translation>Bit da byte</translation>
+            <translation>Bits from Bytes</translation>
         </message>
         <message>
             <source>Mach3</source>
@@ -888,11 +888,11 @@
         </message>
         <message>
             <source>Repetier</source>
-            <translation>Ripetitore</translation>
+            <translation>Repetier</translation>
         </message>
         <message>
             <source>rectangular</source>
-            <translation>rectangular</translation>
+            <translation>rettangolare</translation>
         </message>
         <message>
             <source>elliptic</source>
@@ -919,7 +919,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicCombobox.qml" line="74"/>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>Qualità migliore</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicCombobox.qml" line="75"/>
@@ -943,7 +943,7 @@
         </message>
         <message>
             <source>Best quality</source>
-            <translation>Best quality</translation>
+            <translation>Qualità migliore</translation>
         </message>
         <message>
             <source>Fast</source>
@@ -956,12 +956,12 @@
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicCombobox_Metarial.qml" line="174"/>
             <location filename="../plugins/CrealityUITest/BasicComponent/BasicCombobox_Metarial.qml" line="177"/>
             <source>Add</source>
-            <translation>Aggiungere</translation>
+            <translation>Aggiungi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUITest/BasicComponent/BasicCombobox_Metarial.qml" line="190"/>
             <source>Manage</source>
-            <translation>Maneggio</translation>
+            <translation>Gestisci</translation>
         </message>
     </context>
     <context>
@@ -976,7 +976,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBar.qml" line="430"/>
             <source>Prepare</source>
-            <translation>Preparare</translation>
+            <translation>Prepara</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBar.qml" line="449"/>
@@ -1025,7 +1025,7 @@
         </message>
         <message>
             <source>Standard Model</source>
-            <translation>Modello standard</translation>
+            <translation>Modello Standard</translation>
         </message>
         <message>
             <source>Test Model</source>
@@ -1034,12 +1034,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="34"/>
             <source>Open File</source>
-            <translation>Apri il file</translation>
+            <translation>Apri File</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="44"/>
             <source>Open Project</source>
-            <translation>Progetto aperto</translation>
+            <translation>Apri Progetto</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="55"/>
@@ -1049,7 +1049,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="60"/>
             <source>Recently Opened Project</source>
-            <translation>Progetto aperto di recente</translation>
+            <translation>Progetto aperto recentemente</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="66"/>
@@ -1059,36 +1059,36 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="76"/>
             <source>Save As Project</source>
-            <translation>Salva come progetto</translation>
+            <translation>Salva Come Progetto</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="88"/>
             <source>Close</source>
-            <translation>Vicino</translation>
+            <translation>Chiudi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="101"/>
             <source>Edit</source>
-            <translation>Modificare</translation>
+            <translation>Modifica</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="103"/>
             <source>Undo</source>
-            <translation>Disfare</translation>
+            <translation>Annulla</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="112"/>
             <source>Copy</source>
-            <translation>copia</translation>
+            <translation>Copia</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="112"/>
             <source>Paste</source>
-            <translation>Impasto</translation>
+            <translation>Incolla</translation>
         </message>
         <message>
             <source>Delete Model</source>
-            <translation>Elimina modello</translation>
+            <translation>Elimina Modello</translation>
         </message>
         <message>
             <source>Clear All</source>
@@ -1096,15 +1096,15 @@
         </message>
         <message>
             <source>Clone Model</source>
-            <translation>Modello clone</translation>
+            <translation>Duplica Modello</translation>
         </message>
         <message>
             <source>Split Model</source>
-            <translation>Modello diviso</translation>
+            <translation>Dividi Modello</translation>
         </message>
         <message>
             <source>Merge Model</source>
-            <translation>Unisci modello</translation>
+            <translation>Unisci Modello</translation>
         </message>
         <message>
             <source>Select All Model</source>
@@ -1122,7 +1122,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="123"/>
             <source>View</source>
-            <translation>Visualizzazione</translation>
+            <translation>Vista</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="127"/>
@@ -1167,12 +1167,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="189"/>
             <source>Merge Model Locations</source>
-            <translation>Unisci le posizioni dei modelli</translation>
+            <translation>Unisci le posizioni del modello</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="199"/>
             <source>Tool</source>
-            <translation>Attrezzo</translation>
+            <translation>Strumenti</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="203"/>
@@ -1182,22 +1182,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="208"/>
             <source>Model Repair</source>
-            <translation>Riparazione del modello</translation>
+            <translation>Ripara Modello</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="216"/>
             <source>Manage Materials</source>
-            <translation>Gestisci i materiali</translation>
+            <translation>Gestisci Materiali</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="224"/>
             <source>Manage Printer</source>
-            <translation>Gestisci stampante</translation>
+            <translation>Gestisci Stampante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="233"/>
             <source>Theme color change</source>
-            <translation>Cambiamento di colore del tema</translation>
+            <translation>Modifica colore del tema</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="238"/>
@@ -1227,7 +1227,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="271"/>
             <source>USB Printing</source>
-            <translation>USB Printing</translation>
+            <translation>Stampa USB</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="290"/>
@@ -1242,12 +1242,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="301"/>
             <source>Update</source>
-            <translation>Aggiornamento</translation>
+            <translation>Aggiorna</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="309"/>
             <source>Use Course</source>
-            <translation>Usa il corso</translation>
+            <translation>Usa Percorso</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="318"/>
@@ -1267,12 +1267,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>PA</source>
-            <translation>PAPÀ</translation>
+            <translation>PA</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Flow</source>
-            <translation>Fluire</translation>
+            <translation>Flusso</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
@@ -1292,7 +1292,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Maximum volume flow</source>
-            <translation>Portata volumetrica massima</translation>
+            <translation>Flusso volumetrico massimo</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
@@ -1302,7 +1302,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
             <source>Tutorial</source>
-            <translation>Esercitazione</translation>
+            <translation>Tutorial</translation>
         </message>
     </context>
     <context>
@@ -1310,22 +1310,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Temperature calibration</source>
-            <translation>Temperature calibration</translation>
+            <translation>Calibrazione della temperatura</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Material type</source>
-            <translation>Material type</translation>
+            <translation>Tipo di materiale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Set up</source>
-            <translation>Impostare</translation>
+            <translation>Imposta</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Starting temperature:</source>
-            <translation>Starting temperature:</translation>
+            <translation>Temperatura iniziale:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
@@ -1335,7 +1335,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
             <source>Temperature step:</source>
-            <translation>Temperature step:</translation>
+            <translation>Incremento della temperatura:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/TemperatureDlg.qml"/>
@@ -1361,7 +1361,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>Extruder type</source>
-            <translation>Extruder type</translation>
+            <translation>Tipo di estrusore</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
@@ -1381,37 +1381,37 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>PA tower</source>
-            <translation>PA tower</translation>
+            <translation>Torre PA</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>PA dash</source>
-            <translation>PA dash</translation>
+            <translation>Dash PA</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>Set up</source>
-            <translation>Impostare</translation>
+            <translation>Imposta</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>Initial PA value</source>
-            <translation>Initial PA value</translation>
+            <translation>Valore PA iniziale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>End PA value</source>
-            <translation>Fine valore PA</translation>
+            <translation>Valore PA Finale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>PA step</source>
-            <translation>PA step</translation>
+            <translation>Incrementi di PA</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
             <source>Print numbers</source>
-            <translation>Print numbers</translation>
+            <translation>Stampa numeri</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
@@ -1424,22 +1424,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MaxFlowVolumeDlg.qml"/>
             <source>Maximum Volume Flow Velocity Test</source>
-            <translation>Test della velocità di flusso del volume massimo</translation>
+            <translation>Test della velocità Flusso volumetrico massimo</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MaxFlowVolumeDlg.qml"/>
             <source>Initial traffic</source>
-            <translation>Initial traffic</translation>
+            <translation>Traffico iniziale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MaxFlowVolumeDlg.qml"/>
             <source>End traffic</source>
-            <translation>Fine del traffico</translation>
+            <translation>Traffico finale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MaxFlowVolumeDlg.qml"/>
             <source>Flow step</source>
-            <translation>Flow step</translation>
+            <translation>Incremento del Flusso</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MaxFlowVolumeDlg.qml"/>
@@ -1457,7 +1457,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
             <source>Starting speed</source>
-            <translation>Starting speed</translation>
+            <translation>Velocità iniziale</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
@@ -1467,7 +1467,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
             <source>Flow step</source>
-            <translation>Flow step</translation>
+            <translation>Incremento di flusso</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
@@ -1480,7 +1480,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FlowFineTuningDlg.qml"/>
             <source>Fine tune selection</source>
-            <translation>Selezione fine</translation>
+            <translation>Selezione della regolazione fine</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FlowFineTuningDlg.qml"/>
@@ -1508,27 +1508,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="86"/>
             <source>Save and exit ?</source>
-            <translation>Salva ed esci ?</translation>
+            <translation>Salva ed esci?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="131"/>
             <source>Next time it will not pop up, remember that?</source>
-            <translation>La prossima volta non apparirà, te lo ricordi?</translation>
+            <translation>La prossima volta non apparirà più, te lo ricordi?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="143"/>
             <source>yes</source>
-            <translation>SÌ</translation>
+            <translation>sì</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="169"/>
             <source>no</source>
-            <translation>NO</translation>
+            <translation>no</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicMessageDialog.qml" line="189"/>
             <source>ignore</source>
-            <translation>ignorare</translation>
+            <translation>ignora</translation>
         </message>
     </context>
     <context>
@@ -1536,22 +1536,22 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="151"/>
             <source>Import Gcode</source>
-            <translation>Import Gcode</translation>
+            <translation>Importa Gcode</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="151"/>
             <source>Download Model</source>
-            <translation>Download Model</translation>
+            <translation>Scarica Modello</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="178"/>
             <source>Share The Model Group(Copy Link)</source>
-            <translation>Condividi il gruppo del modello (Copia collegamento)</translation>
+            <translation>Condividi il gruppo del modello (Copia link)</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="201"/>
             <source>Print Gcode</source>
-            <translation>Stampa il codice G</translation>
+            <translation>Stampa il Gcode</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="224"/>
@@ -1561,12 +1561,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="224"/>
             <source>Delete Gcode</source>
-            <translation>Elimina il codice G</translation>
+            <translation>Elimina il Gcode</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="224"/>
             <source>Delete Model</source>
-            <translation>Elimina modello</translation>
+            <translation>Elimina Modello</translation>
         </message>
     </context>
     <context>
@@ -1575,13 +1575,13 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="113"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="313"/>
             <source>No camera detected, unable to use this function</source>
-            <translation>No camera detected, unable to use this function</translation>
+            <translation>Non è stata rilevata alcuna telecamera, non è possibile utilizzare questa funzione</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="129"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="356"/>
             <source>Add</source>
-            <translation>Aggiungere</translation>
+            <translation>Aggiungi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="326"/>
@@ -1591,7 +1591,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="330"/>
             <source>IP address:</source>
-            <translation>IP address:</translation>
+            <translation>Indirizzo IP:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicVideoItem.qml" line="371"/>
@@ -1624,7 +1624,7 @@
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/ccommandsdata.cpp" line="69"/>
             <source>Tool(&amp;T)</source>
-            <translation>Strumento(&amp;T)</translation>
+            <translation>Strumenti(&amp;T)</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/ccommandsdata.cpp" line="70"/>
@@ -1639,7 +1639,7 @@
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/ccommandsdata.cpp" line="71"/>
             <source>PrinterControl(&amp;C)</source>
-            <translation>PrinterControl(&amp;C)</translation>
+            <translation>ControlloStampante(&amp;C)</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/ccommandsdata.cpp" line="72"/>
@@ -1658,7 +1658,7 @@
         <message>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dexportercommand.cpp" line="53"/>
             <source>Save Finished, Open Local Folder</source>
-            <translation>Salva finito, apri la cartella locale</translation>
+            <translation>Salvataggio concluso, Apertura della cartella locale</translation>
         </message>
     </context>
     <context>
@@ -1666,7 +1666,7 @@
         <message>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dexportjob.cpp" line="18"/>
             <source>No matching printer found, cannot import project file</source>
-            <translation>No matching printer found, cannot import project file</translation>
+            <translation>Non è stata trovata alcuna stampante corrispondente, non è possibile importare il file di progetto</translation>
         </message>
     </context>
     <context>
@@ -1675,7 +1675,7 @@
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dimportercommand.cpp" line="19"/>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dimportercommand.cpp" line="99"/>
             <source>Open Project</source>
-            <translation>Progetto aperto</translation>
+            <translation>Apri Progetto</translation>
         </message>
     </context>
     <context>
@@ -1698,7 +1698,7 @@
         <message>
             <location filename="../kernel/BasicKernel/internal/menu/clearrecentfilecommand.cpp" line="26"/>
             <source>Clear</source>
-            <translation>Chiaro</translation>
+            <translation>Cancella</translation>
         </message>
     </context>
     <context>
@@ -1706,7 +1706,7 @@
         <message>
             <location filename="../kernel/BasicKernel/res/qml/Clone.qml" line="33"/>
             <source>The document has been modified.</source>
-            <translation>The document has been modified.</translation>
+            <translation>Il documento è stato modificato.</translation>
         </message>
     </context>
     <context>
@@ -1715,7 +1715,7 @@
             <location filename="../kernel/BasicKernel/internal/rclick_menu/cloneaction.cpp" line="13"/>
             <location filename="../kernel/BasicKernel/internal/rclick_menu/cloneaction.cpp" line="29"/>
             <source>Clone Model</source>
-            <translation>Modello clone</translation>
+            <translation>Duplica Modello</translation>
         </message>
     </context>
     <context>
@@ -1724,7 +1724,7 @@
             <location filename="../kernel/BasicKernel/internal/tool/clonecommand.cpp" line="24"/>
             <location filename="../kernel/BasicKernel/internal/tool/clonecommand.cpp" line="48"/>
             <source>Clone</source>
-            <translation>Clone</translation>
+            <translation>Duplica</translation>
         </message>
     </context>
     <context>
@@ -1747,7 +1747,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloneNumDlg.qml" line="76"/>
             <source>Yes</source>
-            <translation>SÌ</translation>
+            <translation>Sì</translation>
         </message>
     </context>
     <context>
@@ -1755,7 +1755,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ClonePanel.qml" line="13"/>
             <source>Clone</source>
-            <translation>Clone</translation>
+            <translation>Duplica</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ClonePanel.qml" line="48"/>
@@ -1765,12 +1765,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ClonePanel.qml" line="99"/>
             <source>Add</source>
-            <translation>Aggiungere</translation>
+            <translation>Aggiungi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/ClonePanel.qml" line="120"/>
             <source>Delete</source>
-            <translation>Eliminare</translation>
+            <translation>Elimina</translation>
         </message>
     </context>
     <context>
@@ -1793,7 +1793,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloseProFileDlg.qml" line="79"/>
             <source>Exit</source>
-            <translation>Uscita</translation>
+            <translation>Esci</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CloseProFileDlg.qml" line="93"/>
@@ -1806,12 +1806,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="11"/>
             <source>Print Select</source>
-            <translation>Stampa Seleziona</translation>
+            <translation>Seleziona Stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="42"/>
             <source>Export to</source>
-            <translation>Esporta a</translation>
+            <translation>Esporta in</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="72"/>
@@ -1821,7 +1821,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="73"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Stampante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComLaserPrinterSelectDlg.qml" line="87"/>
@@ -1839,27 +1839,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="10"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Stampante</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="43"/>
             <source>Delete</source>
-            <translation>Eliminare</translation>
+            <translation>Elimina</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="60"/>
             <source>Add</source>
-            <translation>Aggiungere</translation>
+            <translation>Aggiungi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="78"/>
             <source>Send</source>
-            <translation>Inviare</translation>
+            <translation>Invia</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComOnLineWifiDlg.qml" line="96"/>
             <source>zip</source>
-            <translation>cerniera lampo</translation>
+            <translation>zip</translation>
         </message>
     </context>
     <context>
@@ -1867,7 +1867,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComPrinterSelectDlg.qml" line="11"/>
             <source>Upload Select</source>
-            <translation>Carica Seleziona</translation>
+            <translation>Seleziona Caricamento</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ComPrinterSelectDlg.qml" line="42"/>
@@ -1895,17 +1895,17 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CopyRightDlg.qml" line="11"/>
             <source>Portions Copyright</source>
-            <translation>Parti Copyright</translation>
+            <translation>Porzioni di Copyright</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CopyRightDlg.qml" line="24"/>
             <source>The license agreement for all of the following programs (libraries) is part of the Application License Agreement:</source>
-            <translation>Il contratto di licenza per tutti i seguenti programmi (librerie) fa parte del contratto di licenza dell'applicazione:</translation>
+            <translation>Il contratto di licenza per tutti i seguenti programmi (librerie) fa parte del Contratto di Licenza dell'Applicazione:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CopyRightDlg.qml" line="347"/>
             <source>Close</source>
-            <translation>Vicino</translation>
+            <translation>Chiudi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CopyRightDlg.qml" line="347"/>
@@ -1915,7 +1915,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CopyRightDlg.qml" line="347"/>
             <source>copyright</source>
-            <translation>diritto d'autore</translation>
+            <translation>copyright</translation>
         </message>
     </context>
     <context>
@@ -1932,7 +1932,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="27"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Stampante</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="27"/>
@@ -1942,7 +1942,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="27"/>
             <source>File Name</source>
-            <translation>Nome del file</translation>
+            <translation>Nome File</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="28"/>
@@ -1952,7 +1952,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="28"/>
             <source>Progress</source>
-            <translation>Progresso</translation>
+            <translation>Avanzamento</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="28"/>
@@ -1990,7 +1990,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusControlTableView.qml" line="426"/>
             <source>Printing Stopped</source>
-            <translation>Stampa interrotta</translation>
+            <translation>Stampa Interrotta</translation>
         </message>
     </context>
     <context>
@@ -2011,7 +2011,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/usbControlQml/CusHeatBedBox.qml" line="36"/>
             <source>Build Plate</source>
-            <translation>Costruisci piastra</translation>
+            <translation>Piano di Stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/usbControlQml/CusHeatBedBox.qml" line="81"/>
@@ -2032,7 +2032,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="27"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Stampante</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="27"/>
@@ -2042,7 +2042,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="27"/>
             <source>File Name</source>
-            <translation>Nome del file</translation>
+            <translation>Nome File</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="28"/>
@@ -2052,7 +2052,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="28"/>
             <source>Progress</source>
-            <translation>Progresso</translation>
+            <translation>Avanzamento</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="28"/>
@@ -2062,7 +2062,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="173"/>
             <source>Some connect error</source>
-            <translation>Some connect error</translation>
+            <translation>Alcuni errori di connessione</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="272"/>
@@ -2077,7 +2077,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusManualTableView.qml" line="277"/>
             <source>Connect</source>
-            <translation>Collegare</translation>
+            <translation>Collega</translation>
         </message>
     </context>
     <context>
@@ -2085,7 +2085,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="26"/>
             <source>Printer</source>
-            <translation>Printer</translation>
+            <translation>Stampante</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="26"/>
@@ -2095,7 +2095,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="26"/>
             <source>File Name</source>
-            <translation>Nome del file</translation>
+            <translation>Nome File</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="27"/>
@@ -2105,7 +2105,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="27"/>
             <source>Progress</source>
-            <translation>Progresso</translation>
+            <translation>Avanzamento</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="27"/>
@@ -2115,7 +2115,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="151"/>
             <source>Some connect error</source>
-            <translation>Some connect error</translation>
+            <translation>Alcuni errori di connessione</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="249"/>
@@ -2130,7 +2130,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusSearchTableView.qml" line="254"/>
             <source>Connect</source>
-            <translation>Collegare</translation>
+            <translation>Collega</translation>
         </message>
     </context>
     <context>
@@ -2138,7 +2138,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSkinButton.qml" line="9"/>
             <source>skin</source>
-            <translation>pelle</translation>
+            <translation>skin</translation>
         </message>
     </context>
     <context>
@@ -2146,7 +2146,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="1733"/>
             <source>Do you want to clear existing  supports before create new supports?</source>
-            <translation>Do you want to clear existing  supports before create new supports?</translation>
+            <translation>Vuoi cancellare i supporti esistenti prima di crearne di nuovi?</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="11"/>
@@ -2156,12 +2156,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="45"/>
             <source>Support Parameter</source>
-            <translation>Parametro di supporto</translation>
+            <translation>Parametro di Supporto</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="64"/>
             <source>Support Grid</source>
-            <translation>Griglia di supporto</translation>
+            <translation>Griglia di Supporto</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="86"/>
@@ -2171,12 +2171,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="119"/>
             <source>Maximum Angle</source>
-            <translation>Angolo massimo</translation>
+            <translation>Angolo Massimo</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="140"/>
             <source>Enter Angle</source>
-            <translation>Immettere l'Angolo</translation>
+            <translation>Inserisci Angolo</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="141"/>
@@ -2186,33 +2186,33 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="157"/>
             <source>Only add support to the hot bed</source>
-            <translation>Aggiungi solo supporto al letto caldo</translation>
+            <translation>Aggiungi supporto solo con letto caldo</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="182"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="197"/>
             <source>Automatic Support</source>
-            <translation>Supporto automatico</translation>
+            <translation>Supporto Automatico</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="238"/>
             <source>Custom Support</source>
-            <translation>Supporto personalizzato</translation>
+            <translation>Supporto Personalizzato</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="253"/>
             <source>Add</source>
-            <translation>Aggiungere</translation>
+            <translation>Aggiungi</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="275"/>
             <source>Delete</source>
-            <translation>Eliminare</translation>
+            <translation>Elimina</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusSupportPanel.qml" line="321"/>
             <source>Clear All Supports</source>
-            <translation>Cancella tutti i supporti</translation>
+            <translation>Cancella Tutti i Supporti</translation>
         </message>
     </context>
     <context>
@@ -2230,7 +2230,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusTableView.qml" line="206"/>
             <source>Finished</source>
-            <translation>Finito</translation>
+            <translation>Terminato</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusTableView.qml" line="243"/>
@@ -2258,7 +2258,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/CusTransFileMessageDlg.qml" line="62"/>
             <source>Translate Finished</source>
-            <translation>Traduci finito</translation>
+            <translation>Traduzione Terminata</translation>
         </message>
     </context>
     <context>
@@ -2266,7 +2266,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusWizard.qml" line="10"/>
             <source>Click any area to show next</source>
-            <translation>Fare clic su un'area qualsiasi per mostrarla successivamente</translation>
+            <translation>Clicca su un'area qualsiasi per visualizzare la successiva</translation>
         </message>
     </context>
     <context>
@@ -2275,7 +2275,7 @@
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusWizardPage.qml" line="208"/>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/CusWizardPage.qml" line="392"/>
             <source>Next</source>
-            <translation>Prossimo</translation>
+            <translation>Successiva</translation>
         </message>
     </context>
     <context>
@@ -2283,7 +2283,7 @@
         <message>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dclearprojectcommand.cpp" line="9"/>
             <source>Clear</source>
-            <translation>Chiaro</translation>
+            <translation>Cancella</translation>
         </message>
     </context>
     <context>
@@ -2292,7 +2292,7 @@
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dcloseprojectcommand.cpp" line="19"/>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dcloseprojectcommand.cpp" line="43"/>
             <source>Close</source>
-            <translation>Vicino</translation>
+            <translation>Chiudi</translation>
         </message>
     </context>
     <context>
@@ -2301,7 +2301,7 @@
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dsubmenurecentproject.cpp" line="16"/>
             <location filename="../plugins/plugin_cx3d_exporter/src/cx3dsubmenurecentproject.cpp" line="44"/>
             <source>Recently Opened Project</source>
-            <translation>Progetto aperto di recente</translation>
+            <translation>Progetto Aperto Recentemente</translation>
         </message>
     </context>
     <context>
@@ -2310,7 +2310,7 @@
             <location filename="../kernel/BasicKernel/internal/rclick_menu/deletemodelaction.cpp" line="16"/>
             <location filename="../kernel/BasicKernel/internal/rclick_menu/deletemodelaction.cpp" line="44"/>
             <source>Delete Model</source>
-            <translation>Elimina modello</translation>
+            <translation>Elimina Modello</translation>
         </message>
         <message>
             <location filename="../kernel/BasicKernel/internal/rclick_menu/deletemodelaction.cpp" line="17"/>
@@ -2324,48 +2324,48 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="19"/>
             <source>Device Connect</source>
-            <translation>Dispositivo Connetti</translation>
+            <translation>Dispositivo Connesso</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="38"/>
             <source>Device List</source>
-            <translation>Elenco dispositivi</translation>
+            <translation>Elenco Dispositivi</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="65"/>
             <source>Manual Connect</source>
-            <translation>Connessione manuale</translation>
+            <translation>Connessione Manuale</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="172"/>
             <source>No device found, try refreshing to get it again.</source>
-            <translation>No device found, try refreshing to get it again.</translation>
+            <translation>Nessun dispositivo trovato, prova ad aggiornare per visualizzarlo di nuovo.</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="192"/>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="205"/>
             <source>Input Ip</source>
-            <translation>Ingresso Ip</translation>
+            <translation>Immetti Ip</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="218"/>
             <source>Connect</source>
-            <translation>Collegare</translation>
+            <translation>Collega</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="234"/>
             <source>device already exist</source>
-            <translation>dispositivo esiste già</translation>
+            <translation>dispositivo già esistente</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="241"/>
             <source>connecting</source>
-            <translation>connecting</translation>
+            <translation>collegamento</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="251"/>
             <source>Device Control</source>
-            <translation>Controllo del dispositivo</translation>
+            <translation>Controllo del Dispositivo</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="288"/>
@@ -2388,12 +2388,12 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="335"/>
             <source>connect success</source>
-            <translation>connect success</translation>
+            <translation>connessione riuscita</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceConnectDlg.qml" line="340"/>
             <source>connect failed</source>
-            <translation>connect failed</translation>
+            <translation>connessione fallita</translation>
         </message>
     </context>
     <context>
@@ -2401,7 +2401,7 @@
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="12"/>
             <source>Device Control</source>
-            <translation>Controllo del dispositivo</translation>
+            <translation>Controllo del Dispositivo</translation>
         </message>
         <message>
             <location filename="../plugins/plugin_localnet/res/DeviceControlDlg.qml" line="35"/>
@@ -2696,7 +2696,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="701"/>
             <source>Build Plate Temperature:</source>
-            <translation>Temperatura della piastra di costruzione:</translation>
+            <translation>Temperatura Piano di Stampa:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="736"/>
@@ -3056,7 +3056,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/GroupPrintInfoDlg.qml" line="813"/>
             <source>Close</source>
-            <translation>Vicino</translation>
+            <translation>Chiudi</translation>
         </message>
     </context>
     <context>
@@ -3349,7 +3349,7 @@
         </message>
         <message>
             <source>%),Build Plate Adhesion Type(</source>
-            <translation>%), Tipo di adesione della piastra di costruzione (</translation>
+            <translation>%), Tipo di adesione del Piano di Stampa(</translation>
         </message>
         <message>
             <source>),Printing Temperature(</source>
@@ -3357,7 +3357,7 @@
         </message>
         <message>
             <source>℃),Build Plate Temperature(</source>
-            <translation>℃), temperatura della piastra di costruzione (</translation>
+            <translation>℃), temperatura del Piano di Stampa(</translation>
         </message>
         <message>
             <source>℃),Print Speed(</source>
@@ -4842,7 +4842,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="1098"/>
             <source>Angola</source>
-            <translation>L'Angola</translation>
+            <translation>Angola</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/LoginDlg.qml" line="1099"/>
@@ -6121,11 +6121,11 @@
         </message>
         <message>
             <source>Build Plate Temperature</source>
-            <translation>Costruisci la temperatura della piastra</translation>
+            <translation>Temperatura del del Piano di Stampa</translation>
         </message>
         <message>
             <source>Build Plate Temperature Initial Layer</source>
-            <translation>Costruisci lo strato iniziale della temperatura della piastra</translation>
+            <translation>Temperatura Iniziale del Piano di Stampa</translation>
         </message>
         <message>
             <source>Chamber Temperature</source>
@@ -8206,7 +8206,7 @@
         </message>
         <message>
             <source>Retraction</source>
-            <translation>Ritrazione</translation>
+            <translation>Retrazione</translation>
         </message>
     </context>
     <context>
@@ -8410,7 +8410,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/SupportPanel.qml" line="118"/>
             <source>Only add support to the hot bed</source>
-            <translation>Aggiungi solo supporto al letto caldo</translation>
+            <translation>Aggiungi supporto solo con letto caldo</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/qml/SupportPanel.qml" line="134"/>
@@ -8473,7 +8473,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/SupportTabPanel.qml" line="120"/>
             <source>Only add support to the hot bed</source>
-            <translation>Aggiungi solo supporto al letto caldo</translation>
+            <translation>Aggiungi supporto solo con letto caldo</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/SupportTabPanel.qml" line="149"/>
@@ -9807,7 +9807,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="272"/>
             <source>Build Plate Temperature:</source>
-            <translation>Temperatura della piastra di costruzione:</translation>
+            <translation>Temperatura del Piano di Stampa:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="291"/>
@@ -10134,7 +10134,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
             <source>The temperature used for the heated build plate. If this is 0, the bed temperature will not be adjusted.</source>
-            <translation>La temperatura utilizzata per il piano di costruzione riscaldato. Se è 0, la temperatura del letto non verrà regolata.</translation>
+            <translation>La temperatura utilizzata per il piano di stampa riscaldato. Se è 0, la temperatura del letto non verrà regolata.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -10144,7 +10144,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
             <source>Different options that help to improve both priming your extrusion and adhesion to the build plate. Brim adds a single layer flat area around the base of your model to prevent warping. Raft adds a thick grid with a roof below the model. Skirt is a line printed around the model, but not connected to the model.</source>
-            <translation>Diverse opzioni che aiutano a migliorare sia il priming dell'estrusione che l'adesione alla piastra di costruzione. Brim aggiunge un'area piatta a strato singolo attorno alla base del modello per evitare deformazioni. Raft aggiunge una griglia spessa con un tetto sotto il modello. La gonna è una linea stampata attorno al modello, ma non collegata al modello.</translation>
+            <translation>Diverse opzioni che aiutano a migliorare sia il priming dell'estrusione che l'adesione al piano di stampa. Brim aggiunge un'area piatta a strato singolo attorno alla base del modello per evitare deformazioni. Raft aggiunge una griglia spessa con un tetto sotto il modello. La gonna è una linea stampata attorno al modello, ma non collegata al modello.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="215"/>
@@ -10291,12 +10291,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Wait for Build Plate Heatup</source>
-            <translation>Attendere il riscaldamento della piastra di costruzione</translation>
+            <translation>Attendere il riscaldamento del piano di stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Whether to insert a command to wait until the build plate temperature is reached at the start.</source>
-            <translation>Se inserire un comando per attendere fino al raggiungimento della temperatura del piano di costruzione all'avvio.</translation>
+            <translation>Se inserire un comando per attendere fino al raggiungimento della temperatura del piano di stampa all'avvio.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10321,12 +10321,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Include Build Plate Temperature</source>
-            <translation>Includere la temperatura della piastra di costruzione</translation>
+            <translation>Includere la temperatura del Piano di Stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Whether to include build plate temperature commands at the start of the gcode. When the start_gcode already contains build plate temperature commands Creality Print frontend will automatically disable this setting.</source>
-            <translation>Se includere i comandi di temperatura della piastra di costruzione all'inizio del gcode. Quando start_gcode contiene già i comandi relativi alla temperatura della piastra di costruzione, il frontend di Creality Print disabiliterà automaticamente questa impostazione.</translation>
+            <translation>Se includere i comandi di temperatura del Piano di Stampa all'inizio del gcode. Quando start_gcode contiene già i comandi relativi alla temperatura del Piano di Stampa, il frontend di Creality Print disabiliterà automaticamente questa impostazione.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10351,12 +10351,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Build Plate Shape</source>
-            <translation>Costruisci la forma del piatto</translation>
+            <translation>Forma del Piano di Stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The shape of the build plate without taking unprintable areas into account.</source>
-            <translation>La forma della piastra di costruzione senza tenere conto delle aree non stampabili.</translation>
+            <translation>La forma del Piano di Stampa senza tenere conto delle aree non stampabili.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10371,12 +10371,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Build Plate Material</source>
-            <translation>Costruisci il materiale della piastra</translation>
+            <translation>Materiale del Piano di Stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The material of the build plate installed on the printer.</source>
-            <translation>Il materiale della piastra di costruzione installata sulla stampante.</translation>
+            <translation>Il materiale del Piano di Stampa installato sulla stampante.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10401,7 +10401,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Has Heated Build Plate</source>
-            <translation>Ha una piastra di costruzione riscaldata</translation>
+            <translation>Ha un piano di stampa riscaldato</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -10940,7 +10940,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The height of the initial layer in mm. A thicker initial layer makes adhesion of the build plate easier.</source>
-            <translation>L'altezza dello strato iniziale in mm. Uno strato iniziale più spesso facilita l'adesione della piastra di costruzione.</translation>
+            <translation>L'altezza dello strato iniziale in mm. Uno strato iniziale più spesso facilita l'adesione del piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11310,7 +11310,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Optimize the order of wall printing to reduce the number of retracements and the distance travelled. Most parts will benefit from enabling this feature, but some may take longer, so compare the estimated printing time with not optimized. The first layer was not optimized when selecting the brim as build plate adhesion type.</source>
-            <translation>Ottimizza l'ordine di stampa della parete per ridurre il numero di ritracciamenti e la distanza percorsa. La maggior parte delle parti trarrà vantaggio dall'attivazione di questa funzionalità, ma alcune potrebbero richiedere più tempo, quindi confrontare il tempo di stampa stimato con quello non ottimizzato. Il primo strato non è stato ottimizzato quando si selezionava la tesa come tipo di adesione della piastra di costruzione.</translation>
+            <translation>Ottimizza l'ordine di stampa della parete per ridurre il numero di ritracciamenti e la distanza percorsa. La maggior parte delle parti trarrà vantaggio dall'attivazione di questa funzionalità, ma alcune potrebbero richiedere più tempo, quindi confrontare il tempo di stampa stimato con quello non ottimizzato. Il primo strato non è stato ottimizzato quando si selezionava la tesa come tipo di adesione del piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -11665,7 +11665,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>When enabled, the z seam coordinates are relative to each part's centre. When disabled, the coordinates define an absolute position on the build plate.</source>
-            <translation>Quando abilitate, le coordinate della cucitura z sono relative al centro di ciascuna parte. Quando disabilitate, le coordinate definiscono una posizione assoluta sulla piastra di costruzione.</translation>
+            <translation>Quando abilitate, le coordinate della giuntura z sono relative al centro di ciascuna parte. Quando disabilitate, le coordinate definiscono una posizione assoluta sul piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12225,27 +12225,27 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Default Build Plate Temperature</source>
-            <translation>Temperatura della piastra di costruzione predefinita</translation>
+            <translation>Temperatura predefinita del piano di stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The default temperature used for the heated build plate. This should be the [base] temperature of a build plate. All other print temperatures should use offsets based on this value</source>
-            <translation>La temperatura predefinita utilizzata per il piano di costruzione riscaldato. Questa dovrebbe essere la temperatura [base] di una piastra di costruzione. Tutte le altre temperature di stampa dovrebbero utilizzare offset basati su questo valore</translation>
+            <translation>La temperatura predefinita utilizzata per il piano di stampa riscaldato. Questa dovrebbe essere la temperatura [base] di un piano di stampa. Tutte le altre temperature di stampa dovrebbero utilizzare offset basati su questo valore</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Build Plate Temperature</source>
-            <translation>Costruisci la temperatura della piastra</translation>
+            <translation>Temperatura del Piano di Stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The temperature used for the heated build plate. If this is 0, the bed temperature will not be adjusted.</source>
-            <translation>La temperatura utilizzata per il piano di costruzione riscaldato. Se è 0, la temperatura del letto non verrà regolata.</translation>
+            <translation>La temperatura utilizzata per il piano di stampa riscaldato. Se è 0, la temperatura del letto non verrà regolata.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Build Plate Temperature Initial Layer</source>
-            <translation>Costruisci lo strato iniziale della temperatura della piastra</translation>
+            <translation>Temperatura piano di stampa Strato iniziale</translation>
         </message>
         <message>
             <source>Printer chamber temperature</source>
@@ -12254,7 +12254,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The temperature used for the heated build plate at the first layer.</source>
-            <translation>La temperatura utilizzata per il piano di costruzione riscaldato sul primo strato.</translation>
+            <translation>La temperatura utilizzata per il piano di stampa riscaldato sul primo strato.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12956,7 +12956,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed for the initial layer. A lower value is advised to improve adhesion to the build plate.</source>
-            <translation>La velocità per il livello iniziale. Si consiglia un valore inferiore per migliorare l'adesione alla piastra di costruzione.</translation>
+            <translation>La velocità per il livello iniziale. Si consiglia un valore inferiore per migliorare l'adesione al piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12966,7 +12966,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed of printing for the initial layer. A lower value is advised to improve adhesion to the build plate.</source>
-            <translation>La velocità di stampa per lo strato iniziale. Si consiglia un valore inferiore per migliorare l'adesione alla piastra di costruzione.</translation>
+            <translation>La velocità di stampa per lo strato iniziale. Si consiglia un valore inferiore per migliorare l'adesione al piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12976,7 +12976,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed of travel moves in the initial layer. A lower value is advised to prevent pulling previously printed parts away from the build plate. The value of this setting can automatically be calculated from the ratio between the Travel Speed and the Print Speed.</source>
-            <translation>La velocità di viaggio si sposta nello strato iniziale. Si consiglia un valore inferiore per evitare di allontanare le parti precedentemente stampate dalla piastra di costruzione. Il valore di questa impostazione può essere calcolato automaticamente dal rapporto tra la velocità di viaggio e la velocità di stampa.</translation>
+            <translation>La velocità di viaggio si sposta nello strato iniziale. Si consiglia un valore inferiore per evitare di allontanare le parti precedentemente stampate dal piano di stampa. Il valore di questa impostazione può essere calcolato automaticamente dal rapporto tra la velocità di viaggio e la velocità di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -12996,7 +12996,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The speed at which the vertical Z movement is made for Z Hops. This is typically lower than the print speed since the build plate or machine's gantry is harder to move.</source>
-            <translation>La velocità con cui viene effettuato il movimento Z verticale per Z Hops. Questa è in genere inferiore alla velocità di stampa poiché la piastra di costruzione o il portale della macchina sono più difficili da spostare.</translation>
+            <translation>La velocità con cui viene effettuato il movimento Z verticale per Z Hops. Questa è in genere inferiore alla velocità di stampa poiché il piano di stampa o il portale della macchina sono più difficili da spostare.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13011,7 +13011,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The first few layers are printed slower than the rest of the model, to get better adhesion to the build plate and improve the overall success rate of prints. The speed is gradually increased over these layers.</source>
-            <translation>I primi strati vengono stampati più lentamente rispetto al resto del modello, per ottenere una migliore adesione alla piastra di costruzione e migliorare il tasso di successo complessivo delle stampe. La velocità viene gradualmente aumentata su questi strati.</translation>
+            <translation>I primi strati vengono stampati più lentamente rispetto al resto del modello, per ottenere una migliore adesione al piano di stampa e migliorare il tasso di successo complessivo delle stampe. La velocità viene gradualmente aumentata su questi strati.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13531,7 +13531,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Whenever a retraction is done, the build plate is lowered to create clearance between the nozzle and the print. It prevents the nozzle from hitting the print during travel moves, reducing the chance to knock the print from the build plate.</source>
-            <translation>Ogni volta che viene eseguita una retrazione, la piastra di costruzione viene abbassata per creare spazio tra l'ugello e la stampa. Impedisce che l'ugello colpisca la stampa durante gli spostamenti, riducendo la possibilità di far cadere la stampa dal piano di stampa.</translation>
+            <translation>Ogni volta che viene eseguita una retrazione,  il piano di stampa viene abbassato per creare spazio tra l'ugello e la stampa. Impedisce che l'ugello colpisca la stampa durante gli spostamenti, riducendo la possibilità di far cadere la stampa dal piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13561,7 +13561,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>After the machine switched from one extruder to the other, the build plate is lowered to create clearance between the nozzle and the print. This prevents the nozzle from leaving oozed material on the outside of a print.</source>
-            <translation>Dopo che la macchina è passata da un estrusore all'altro, il piano di costruzione viene abbassato per creare spazio tra l'ugello e la stampa. Ciò impedisce all'ugello di lasciare materiale trasudato all'esterno della stampa.</translation>
+            <translation>Dopo che la macchina è passata da un estrusore all'altro, il piano di stampa viene abbassato per creare spazio tra l'ugello e la stampa. Ciò impedisce all'ugello di lasciare materiale trasudato all'esterno della stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -13941,12 +13941,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Adjusts the placement of the support structures. The placement can be set to touching build plate or everywhere. When set to everywhere the support structures will also be printed on the model.</source>
-            <translation>Regola il posizionamento delle strutture di supporto. Il posizionamento può essere impostato in modo che tocchi la piastra di costruzione o ovunque. Se impostato su ovunque, sul modello verranno stampate anche le strutture di supporto.</translation>
+            <translation>Regola il posizionamento delle strutture di supporto. Il posizionamento può essere impostato in modo che tocchi il piano di stampa o ovunque. Se impostato su ovunque, sul modello verranno stampate anche le strutture di supporto.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Touching Build Plate</source>
-            <translation>Toccando la piastra di costruzione</translation>
+            <translation>Toccando il Piano di Stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14051,7 +14051,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Generate a brim within the support infill regions of the first layer. This brim is printed underneath the support, not around it. Enabling this setting increases the adhesion of support to the build plate.</source>
-            <translation>Genera un bordo all'interno delle regioni di riempimento del supporto del primo strato. Questa tesa è stampata sotto il supporto, non attorno ad esso. L'abilitazione di questa impostazione aumenta l'adesione del supporto alla piastra di costruzione.</translation>
+            <translation>Genera un bordo all'interno delle regioni di riempimento del supporto del primo strato. Questa tesa è stampata sotto il supporto, non attorno ad esso. L'abilitazione di questa impostazione aumenta l'adesione del supporto alla piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14061,7 +14061,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The width of the brim to print underneath the support. A larger brim enhances adhesion to the build plate, at the cost of some extra material.</source>
-            <translation>La larghezza della tesa da stampare sotto il supporto. Un bordo più grande migliora l'adesione alla piastra di costruzione, al costo di materiale aggiuntivo.</translation>
+            <translation>La larghezza della tesa da stampare sotto il supporto. Un bordo più grande migliora l'adesione alla piano di stampa, al costo di materiale aggiuntivo.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14071,7 +14071,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The number of lines used for the support brim. More brim lines enhance adhesion to the build plate, at the cost of some extra material.</source>
-            <translation>Il numero di linee utilizzate per l'orlo di supporto. Un numero maggiore di linee del bordo migliora l'adesione alla piastra di costruzione, al costo di materiale aggiuntivo.</translation>
+            <translation>Il numero di linee utilizzate per l'orlo di supporto. Un numero maggiore di linee del bordo migliora l'adesione al piano di stampa, al costo di materiale aggiuntivo.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14526,7 +14526,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Build Plate Adhesion</source>
-            <translation>Costruire l'adesione della piastra</translation>
+            <translation>Adesione Piano di Stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14566,12 +14566,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Build Plate Adhesion Type</source>
-            <translation>Costruisci il tipo di adesione della piastra</translation>
+            <translation>Tipo di Adesione Piano di Stampa</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Different options that help to improve both priming your extrusion and adhesion to the build plate. Brim adds a single layer flat area around the base of your model to prevent warping. Raft adds a thick grid with a roof below the model. Skirt is a line printed around the model, but not connected to the model.</source>
-            <translation>Diverse opzioni che aiutano a migliorare sia il priming dell'estrusione che l'adesione alla piastra di costruzione. Brim aggiunge un'area piatta a strato singolo attorno alla base del modello per evitare deformazioni. Raft aggiunge una griglia spessa con un tetto sotto il modello. La gonna è una linea stampata attorno al modello, ma non collegata al modello.</translation>
+            <translation>Diverse opzioni che aiutano a migliorare sia il priming dell'estrusione che l'adesione al piano di stampa. Brim aggiunge un'area piatta a strato singolo attorno alla base del modello per evitare deformazioni. Raft aggiunge una griglia spessa con un tetto sotto il modello. La gonna è una linea stampata attorno al modello, ma non collegata al modello.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14807,7 +14807,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Width of the lines in the base raft layer. These should be thick lines to assist in build plate adhesion.</source>
-            <translation>Larghezza delle linee nello strato base della base. Queste dovrebbero essere linee spesse per favorire l'adesione della piastra di costruzione.</translation>
+            <translation>Larghezza delle linee nello strato base della base. Queste dovrebbero essere linee spesse per favorire l'adesione al piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -14817,7 +14817,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The distance between the raft lines for the base raft layer. Wide spacing makes for easy removal of the raft from the build plate.</source>
-            <translation>La distanza tra le linee della base per lo strato della base. L'ampia spaziatura facilita la rimozione della base dalla piastra di costruzione.</translation>
+            <translation>La distanza tra le linee della base per lo strato della base. L'ampia spaziatura facilita la rimozione della base al piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15287,7 +15287,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>Print models as a mold, which can be cast in order to get a model which resembles the models on the build plate.</source>
-            <translation>Stampa i modelli come uno stampo, che può essere fuso per ottenere un modello che assomigli ai modelli sulla piastra di costruzione.</translation>
+            <translation>Stampa i modelli come uno stampo, che può essere fuso per ottenere un modello che assomigli ai modelli sul piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15452,7 +15452,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The diameter of the widest branches of tree support. A thicker trunk is more sturdy; a thinner trunk takes up less space on the build plate.</source>
-            <translation>Il diametro dei rami più larghi di sostegno dell'albero. Un tronco più spesso è più robusto; un tronco più sottile occupa meno spazio sul piano di costruzione.</translation>
+            <translation>Il diametro dei rami più larghi di sostegno dell'albero. Un tronco più spesso è più robusto; un tronco più sottile occupa meno spazio sul piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -15692,7 +15692,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>The maximum angle of overhangs after the they have been made printable. At a value of 0° all overhangs are replaced by a piece of model connected to the build plate, 90° will not change the model in any way.</source>
-            <translation>L'angolo massimo delle sporgenze dopo che sono state rese stampabili. Con un valore di 0° tutte le sporgenze vengono sostituite da un pezzo di modello collegato al piano di costruzione, 90° non modificherà in alcun modo il modello.</translation>
+            <translation>L'angolo massimo delle sporgenze dopo che sono state rese stampabili. Con un valore di 0° tutte le sporgenze vengono sostituite da un pezzo di modello collegato al piano di stampa, 90° non modificherà in alcun modo il modello.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -16872,7 +16872,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
             <source>When wiping, the build plate is lowered to create clearance between the nozzle and the print. It prevents the nozzle from hitting the print during travel moves, reducing the chance to knock the print from the build plate.</source>
-            <translation>Durante la pulizia, il piano di costruzione viene abbassato per creare spazio tra l'ugello e la stampa. Impedisce che l'ugello colpisca la stampa durante gli spostamenti, riducendo la possibilità di far cadere la stampa dal piano di stampa.</translation>
+            <translation>Durante la pulizia, il piano di stampa viene abbassato per creare spazio tra l'ugello e la stampa. Impedisce che l'ugello colpisca la stampa durante gli spostamenti, riducendo la possibilità di far cadere la stampa dal piano di stampa.</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
@@ -17408,7 +17408,7 @@
         </message>
         <message>
             <source>Chooses between the techniques available to generate support. "Normal" support creates a support structure directly below the overhanging parts and drops those areas straight down. "Tree" support creates branches towards the overhanging areas that support the model on the tips of those branches, and allows the branches to crawl around the model to support it from the build plate as much as possible.</source>
-            <translation>Sceglie tra le tecniche disponibili per generare supporto. Il supporto "normale" crea una struttura di supporto direttamente sotto le parti sporgenti e fa cadere quelle aree verso il basso. Il supporto "albero" crea rami verso le aree sporgenti che supportano il modello sulle punte di tali rami e consente ai rami di strisciare attorno al modello per sostenerlo il più possibile dalla piastra di costruzione.</translation>
+            <translation>Sceglie tra le tecniche disponibili per generare supporto. Il supporto "normale" crea una struttura di supporto direttamente sotto le parti sporgenti e fa cadere quelle aree verso il basso. Il supporto "albero" crea rami verso le aree sporgenti che supportano il modello sulle punte di tali rami e consente ai rami di strisciare attorno al modello per sostenerlo il più possibile dal piano si stampa.</translation>
         </message>
         <message>
             <source>Printer chamber temperature.</source>
@@ -17608,12 +17608,12 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="701"/>
             <source>Build Plate Temperature:</source>
-            <translation>Temperatura della piastra di costruzione:</translation>
+            <translation>Temperatura dell Piano di Stampa:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="736"/>
             <source>Print Speed:</source>
-            <translation>Print Speed:</translation>
+            <translation>Velocità di Stampa:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfile.qml" line="771"/>
@@ -17730,7 +17730,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="138"/>
             <source>Build Plate Shape:</source>
-            <translation>Build Plate Shape:</translation>
+            <translation>Forma Piano di Stampa:</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="155"/>
@@ -17775,7 +17775,7 @@
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="362"/>
             <source>Has Heated Build Plate</source>
-            <translation>Ha una piastra di costruzione riscaldata</translation>
+            <translation>Ha un piano di stampa riscaldato</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerFdmGroupShow.qml" line="387"/>
