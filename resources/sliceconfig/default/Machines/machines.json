@@ -1003,7 +1003,7 @@
         {
             "name": "K1",
             "extruderCount": 1,
-            "supportExtruderDiameters": "0.4",
+            "supportExtruderDiameters": "0.4,0.6,0.8",
             "supportMaterialTypes": "PLA,ABS,PETG,TPU,Carbon,PLA-CF,PC,PA-CF",
             "supportMaterialDiameters": "1.75, 2.85",
             "supportMaterialNames": "Hyper PLA,Generic-PLA,Silk-PLA,Generic-ABS,Generic-PETG,Generic-TPU,CR-PLA Carbon"
