@@ -13630,8 +13630,8 @@
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
-            <source>Force Cooling for Onerhangs and Bridges</source>
-            <translation>Enfriamiento forzado para Onerhangs y puentes</translation>
+            <source>Force Cooling for Overhangs and Bridges</source>
+            <translation>Enfriamiento forzado para Overhangs y puentes</translation>
         </message>
         <message>
             <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
