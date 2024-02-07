@@ -14063,7 +14063,7 @@
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/EditProfileByFilter.qml" line="155"/>
-        <source>Force Cooling for Onerhangs and Bridges</source>
+        <source>Force Cooling for Overhangs and Bridges</source>
         <translation>브릿지 오버행 및 강제 냉각</translation>
     </message>
     <message>

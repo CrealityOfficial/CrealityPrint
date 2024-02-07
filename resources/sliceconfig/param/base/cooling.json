@@ -68,7 +68,7 @@
 	},
 	"cool_overhang_bridge_force_cooling":
 	{
-		"label": "Force Cooling for Onerhangs and Bridges",
+		"label": "Force Cooling for Overhangs and Bridges",
 		"description": "Automatically optimize fan speed for overhangs/bridges for better cooling.",
 		"type": "bool",
 		"default_value": "true",
