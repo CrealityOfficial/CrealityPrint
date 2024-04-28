@@ -9,7 +9,7 @@ Window {
     id: eo_askDialog
     width: 300
     height: 200
-    property string title: "baisc dialog"
+    property string title: "basic dialog"
     property var titleIcon: ""//"qrc:/scence3d/res/logo.png"
     property var closeIcon: closeButton.hovered ? "qrc:/UI/photo/closeBtn_d.svg" : "qrc:/UI/photo/closeBtn.svg"//"qrc:/UI/photo/closeBtn.png"
     // property int titleIconWidth: 30     //defalut 30
