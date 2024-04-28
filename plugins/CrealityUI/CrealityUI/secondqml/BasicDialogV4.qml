@@ -10,7 +10,7 @@ Popup {
     id: eo_askDialog
 
     property real shadowWidth: 0
-    property string title: "baisc dialog"
+    property string title: "basic dialog"
     property var titleIcon: "" //"qrc:/scence3d/res/logo.png"
     property var closeIcon: "qrc:/UI/photo/closeBtn.svg"
     property var closeIcon_d: "qrc:/UI/photo/closeBtn_d.svg"
