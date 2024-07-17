@@ -3,18 +3,36 @@
 
 #include <QtCore/QDebug>
 #include <QtCore/QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 namespace us
 {
 	bool checkBool(const QString& str)
 	{
-		return str == "true" || str == "True";
+		return str == "true" || str == "True" || str == "1";
 	}
 
 	QStringList loadKeys(const QString& fileName)
 	{
 		QStringList keys;
 		QFile file(fileName);
+
+		if (!file.open(QIODevice::ReadOnly)) return keys;
+		QByteArray byteArray = file.readAll();
+		file.close();
+		QJsonDocument document = QJsonDocument::fromJson(byteArray);
+		if (!document.isNull() && document.isObject()) {
+			QJsonObject rootObj = document.object();
+			QJsonArray keyArray = rootObj.value("keys").toArray();
+			for (int i = 0; i < keyArray.size(); i++)
+			{
+				QString key = keyArray.at(i).toString();
+				keys.append(key);
+			}
+			return keys;
+		}
 		if (file.open(QIODevice::ReadOnly | QIODevice::Text))
 		{
 			while (!file.atEnd())

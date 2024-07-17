@@ -20,9 +20,11 @@ SpinBox {
     property real realTo: to /factor
     property var overMax: false
     property bool isBindingValue: true
+    property bool needTextEditing: true
     signal textContentChanged(real result)
+    signal textEditing(real result)
 
-    value: (realValue * factor).toFixed(0)
+    value: 0
     id: control
     implicitWidth: 80* screenScaleFactor
     implicitHeight: 28* screenScaleFactor
@@ -46,12 +48,16 @@ SpinBox {
         return parseFloat(value).toFixed(decimals);
     }
 
+    onRealValueChanged: {
+        value = (realValue * factor).toFixed(0)
+    }
+
     background: Rectangle{
         radius: 5
         color: bgColor
         border.width: 1
         // border.color:overMax ? "red" : control.hovered ? "#009cff" : borderColor
-        border.color: control.hovered ? itemBorderColor_H : borderColor
+        border.color: overMax ? "red" : control.hovered ? itemBorderColor_H : borderColor
         // border.color: "red"
     }
 
@@ -70,12 +76,8 @@ SpinBox {
                 horizontalAlignment: TextInput.AlignLeft
                 verticalAlignment: TextInput.AlignVCenter
                 color: Constants.textColor
-                // selectionColor: "#21be2b"
-                // selectedTextColor: Constants.selectedTextColor
-                onTextChanged: {
-//                    if(text == "NaN")
-//                        text =control.textFromValue(control.realFrom, control.locale)
 
+                onTextChanged: {
                     if(text > control.realTo || text < control.realFrom)
                     {
                         overMax = true
@@ -86,45 +88,83 @@ SpinBox {
                     }
                 }
 
-//                onAccepted:
-//                {
-//                    //editingFinished()
-//                }
-                onEditingFinished: {
+                function format(txt) {
+                    let value = 0
                     if(!isBindingValue)
                     {
-                        if(control.valueFromText(text, control.locale) < control.from / factor)
+                        if(control.valueFromText(txt, control.locale) < control.from / factor)
                         {
-                            control.value = control.textFromValue((control.from).toFixed(decimals), control.locale)
+                            value = control.textFromValue((control.from).toFixed(decimals), control.locale)
                         }
-                        else if(control.valueFromText(text, control.locale) > control.to / factor)
+                        else if(control.valueFromText(txt, control.locale) > control.to / factor)
                         {
-                            control.value = control.textFromValue((control.to).toFixed(decimals), control.locale)
+                            value = control.textFromValue((control.to).toFixed(decimals), control.locale)
                         }
                         else{
-                            control.value = control.valueFromText(text, control.locale)*factor.toFixed(decimals)
+                            value = control.valueFromText(txt, control.locale)*factor.toFixed(decimals)
                         }
-                        numbTxt.text = Qt.binding(function() { return (control.value/factor).toFixed(decimals) })
-                        control.textContentChanged((control.value/factor).toFixed(decimals))
-                        return ;
                     }
-                    if(control.valueFromText(text, control.locale) < control.from / factor)
+                    else 
                     {
-//                       numbTxt.text = control.from / factor.toFixed(decimals)
-                       control.textContentChanged(control.from / factor.toFixed(decimals))
+                        if(control.valueFromText(txt, control.locale) < control.from / factor)
+                        {
+                            value = (control.from / factor.toFixed(decimals))
+                        }
+                        else if(control.valueFromText(txt, control.locale) > control.to / factor)
+                        {
+                            value = (control.to / factor.toFixed(decimals))
+                        }
+                        else
+                        {
+                            console.log("***control.value***=",control.value)
+                            value = ((control.valueFromText(txt, control.locale)).toFixed(decimals))
+                        }
                     }
-                    else if(control.valueFromText(text, control.locale) > control.to / factor)
+                    return value
+
+                }
+
+                onTextEdited: {
+                    if(!needTextEditing)return
+                    let value;
+                    if (text == "")
+                        value = 0
+                    else
+                        value = format(text)
+
+                    if(!isBindingValue)
                     {
-//                       numbTxt.text = control.to / factor.toFixed(decimals)
-                        control.textContentChanged(control.to / factor.toFixed(decimals))
+                        // control.value = value
+                        // numbTxt.text = Qt.binding(function() { return (control.value/factor).toFixed(decimals) })
+                        control.textEditing((value/factor).toFixed(decimals))
                     }
                     else
                     {
-                        console.log("***control.value***=",control.value)
-                        control.textContentChanged((control.valueFromText(text, control.locale)).toFixed(decimals))
+                        control.textEditing(value)
+                        //两次输入相同值也能刷新显示一次 text
+                        // numbTxt.text = Qt.binding(function() { return (control.value/factor).toFixed(decimals) })
                     }
-                    //两次输入相同值也能刷新显示一次 text
-                    numbTxt.text = Qt.binding(function() { return (control.value/factor).toFixed(decimals) })
+                }
+
+                onEditingFinished: {
+                    let value;
+                    if (text == "")
+                        value = 0
+                    else
+                        value = format(text)
+                        
+                    if(!isBindingValue)
+                    {
+                        control.value = value
+                        numbTxt.text = Qt.binding(function() { return (control.value/factor).toFixed(decimals) })
+                        control.textContentChanged((control.value/factor).toFixed(decimals))
+                    }
+                    else 
+                    {
+                        control.textContentChanged(value)
+                        //两次输入相同值也能刷新显示一次 text
+                        numbTxt.text = Qt.binding(function() { return (control.value/factor).toFixed(decimals) })
+                    }
                 }
 
                 validator: RegExpValidator {
@@ -189,7 +229,7 @@ SpinBox {
         Image {
             width: sourceSize.width
             height: sourceSize.height
-            source: control.up.pressed || control.up.hovered ? "qrc:/UI/photo/lanPrinterSource/upBtn_hover.svg" : "qrc:/UI/photo/lanPrinterSource/upBtn.svg"
+            source: control.up.pressed || control.up.hovered ? Constants.upBtnImgSource_d:Constants.upBtnImgSource
             anchors.centerIn: parent
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
@@ -208,7 +248,7 @@ SpinBox {
         Image {
             width: sourceSize.width
             height: sourceSize.height
-            source: control.down.pressed || control.down.hovered ? "qrc:/UI/photo/lanPrinterSource/downBtn_hover.svg" : "qrc:/UI/photo/lanPrinterSource/downBtn.svg"
+            source: control.down.pressed || control.down.hovered ? Constants.downBtnImgSource_d : Constants.downBtnImgSource
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             anchors.centerIn: parent

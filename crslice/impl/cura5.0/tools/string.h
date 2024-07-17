@@ -7,6 +7,8 @@
 #include <cstdio> // sprintf
 #include <ctype.h>
 #include <sstream> // ostringstream
+#include <vector>
+#include <string>
 
 #include "ccglobal/log.h"
 

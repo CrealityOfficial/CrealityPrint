@@ -24,6 +24,9 @@ namespace qtuser_core
 		void success() override;
 
 		bool error();
+
+		QString getFailReason();
+
 	protected:
 		Progressor* m_progressor;
 		bool m_failed;

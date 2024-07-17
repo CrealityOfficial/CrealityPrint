@@ -11,7 +11,7 @@ namespace topomesh
 	{
 		float initial_layer_thickness;
 		float layer_thickness;
-
+		int  initial_layer_count;
 		float minimum_polygon_circumference;
 		float line_segment_resolution;
 		float line_segment_deviation;
@@ -31,6 +31,7 @@ namespace topomesh
 		{
 			initial_layer_thickness = 300.0f;
 			layer_thickness = 100.0f;
+			initial_layer_count = 1;
 
 			minimum_polygon_circumference = 1000.0f;
 			line_segment_resolution = 50.0f;
@@ -54,7 +55,7 @@ namespace topomesh
 		std::shared_ptr<trimesh::TriMesh> mesh;
 	};
 
-	bool dlp_slice(const std::vector<DLPSliceObject>& objects, const DLPSliceParam& param,
+	TOPOMESH_API bool dlp_slice(const std::vector<DLPSliceObject>& objects, const DLPSliceParam& param,
 		/*out*/DLPData& data, ccglobal::Tracer* tracer);
 }
 

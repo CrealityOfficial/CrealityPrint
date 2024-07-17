@@ -47,8 +47,9 @@ namespace creative_kernel
 
 		if (base)
 		{
+			m_receiver->setStartAction(SliceFlow::PreviewGCodeFile);
 			setKernelPhase(KernelPhaseType::kpt_preview);
-			connect(base, SIGNAL(sliceSuccess(SliceAttain*)), m_receiver, SLOT(onSliceSuccess(SliceAttain*)));
+			connect(base, SIGNAL(sliceSuccess(SliceAttain*)), m_receiver, SLOT(onGotSliceAttain(SliceAttain*)));
 			connect(base, SIGNAL(sliceFailed()), m_receiver, SLOT(onSliceFailed()));
 			base->setFileName(fileName);
             dirtyModelSpace();

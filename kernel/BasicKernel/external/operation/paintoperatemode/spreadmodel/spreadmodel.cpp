@@ -3,6 +3,8 @@
 #include "spreadchunk.h"
 #include "qtuser3d/refactor/xeffect.h"
 #include <QtMath>
+#include "kernel/kernel.h"
+#include "external/kernel/reuseablecache.h"
 
 #define MAX_COLOR_NUM 16
 
@@ -13,9 +15,9 @@ SpreadModel::SpreadModel(QObject* object)
 	{
 		qtuser_3d::XRenderPass* viewPass = new qtuser_3d::XRenderPass("spread", m_effect);
 		viewPass->addFilterKeyMask("view", 0);
-		viewPass->addFilterKeyMask("rt", 0);
 		viewPass->setPassCullFace();
 		viewPass->setPassDepthTest();
+		viewPass->addParameter(creative_kernel::getKernel()->reuseableCache()->renderModeParameter());
 		m_effect->addRenderPass(viewPass);
 
 		qtuser_3d::XRenderPass* pickPass = new qtuser_3d::XRenderPass("pickFace_pwd", m_effect);
@@ -50,6 +52,7 @@ void SpreadModel::clear()
 void SpreadModel::addChunk(const std::vector<trimesh::vec3>& positions, const std::vector<int>& flags)
 {
 	SpreadChunk* chunk = new SpreadChunk(m_chunks.size(), this);
+	chunk->setDefaultFlag(m_defaultFlag);
 	chunk->updateData(positions, flags);
 	chunk->setEffect(m_effect);
 	m_chunks << chunk;
@@ -67,6 +70,15 @@ void SpreadModel::updateChunkData(int id, const std::vector<trimesh::vec3>& posi
 
 	SpreadChunk* chunk = m_chunks[id];
 	chunk->updateData(position, flags);
+}
+
+void SpreadModel::updateChunkData(int id, const std::vector<trimesh::vec3>& position, const std::vector<int>& flags, const std::vector<int>& originFlags)
+{
+	if ((chunkCount() <= id) || id < 0)
+		return;
+
+	SpreadChunk* chunk = m_chunks[id];
+	chunk->updateData(position, flags, originFlags);
 }
 
 void SpreadModel::setChunkIndexMap(int id, const std::vector<int>& indexMap)
@@ -103,11 +115,6 @@ void SpreadModel::setSection(const QVector3D &frontPos, const QVector3D &backPos
 	m_effect->setParameter("sectionNormal", normal);
 	m_effect->setParameter("sectionFrontPos", frontPos);
 	m_effect->setParameter("sectionBackPos", backPos);
-}
-
-void SpreadModel::setRenderModel(int model)
-{
-	m_effect->setParameter("renderModel", model);
 }
 
 void SpreadModel::setPalette(const std::vector<trimesh::vec>& colorsList)
@@ -155,5 +162,36 @@ int SpreadModel::spreadFaceParentId(int chunkId, int faceId)
 
 void SpreadModel::setHighlightOverhangsDeg(float deg)
 {
-	m_effect->setParameter("highlightOverhangsRadian", qDegreesToRadians(deg));
+	if (deg == 90)
+		deg = 89.99;
+	float rad = qDegreesToRadians(deg);
+	m_effect->setParameter("highlightOverhangsRadian", rad);
 }
+
+void SpreadModel::setNeedHighlightEnabled(bool enabled)
+{
+	m_effect->setParameter("needHighLight", enabled);
+}
+
+void SpreadModel::setNeedMixEnabled(bool enabled)
+{
+	m_effect->setParameter("needMix", enabled);
+}
+
+void SpreadModel::setDefaultFlag(int defaultFlag)
+{
+	m_defaultFlag = defaultFlag;
+	
+	for (int i = 0, count = m_chunks.size(); i < count; ++i)
+	{
+		m_chunks[i]->setDefaultFlag(defaultFlag);
+	}
+}
+
+int SpreadModel::defaultFlag()
+{
+	return m_defaultFlag;
+}
+
+
+	

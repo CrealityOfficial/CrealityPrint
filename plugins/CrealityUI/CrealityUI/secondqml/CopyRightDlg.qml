@@ -1,6 +1,7 @@
 import QtQuick 2.10
 import CrealityUI 1.0
 import "qrc:/CrealityUI"
+import "qrc:/CrealityUI/components"
 import QtQuick.Controls 1.4
 DockItem
 {

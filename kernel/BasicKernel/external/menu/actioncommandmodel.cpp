@@ -176,6 +176,12 @@ ActionCommand* ActionCommandModel::getData(int index)
 {
     return m_actionCommands.at(index);
 }
+
+QList<ActionCommand*> ActionCommandModel::actionCommands()
+{
+    return m_actionCommands;
+}
+
 QHash<int, QByteArray> ActionCommandModel::roleNames() const
 {
     return m_rolesName;

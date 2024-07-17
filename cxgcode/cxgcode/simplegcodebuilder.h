@@ -17,28 +17,22 @@ namespace cxgcode
 
 		float traitSpeed(int layer, int step) override;
 		trimesh::vec3 traitPosition(int layer, int step) override;
+		float traitDuration(int layer, int step);
+		float layerHeight(int layer);
 
 		Qt3DRender::QGeometry* buildGeometry() override;
+		void rebuildGeometryVisualTypeData();
 		Qt3DRender::QGeometry* buildRetractionGeometry();
 		Qt3DRender::QGeometry* buildZSeamsGeometry();
+		Qt3DRender::QGeometry* buildUnretractGeometry();
 
 		Qt3DRender::QGeometryRenderer* buildRetractionGeometryRenderer();
 		Qt3DRender::QGeometryRenderer* buildZSeamsGeometryRenderer();
 
 		void updateFlagAttribute(Qt3DRender::QAttribute* attribute, gcode::GCodeVisualType type) override;
 
-		void getPathData(const trimesh::vec3 point, float e, int type);
-		void getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type, bool isG2 = true);
-		void setParam(gcode::GCodeParseInfo& pathParam);
-		void setLayer(int layer);
-		void setSpeed(float s);
-		void setTEMP(float temp);
-		void setExtruder(int nr);
-		void setFan(float fan);
-		void setZ(float z, float h);
-		void setE(float e);
-		void setTime(float time);
-		void getNotPath();
+		gcode::GCodeStruct& getGCodeStruct();
+		trimesh::box3 pathBox();
 	protected:
 		void implBuild(SliceResultPointer result) override;
 		void implBuild()override;
@@ -62,6 +56,9 @@ namespace cxgcode
         //cr30 offset
         void processCr30offset(gcode::GCodeParseInfo& info);
 		
+		//���������߶��νӴ��Ĺսǲ���
+		float calculateCornelCompensate(const std::vector<trimesh::vec3>& positions, const std::vector<gcode::GCodeMove>& moves, int index);
+
 		Qt3DRender::QGeometryRenderer* buildGeometryRenderer(const std::vector<trimesh::vec3>& positions, const std::vector<int>& index, trimesh::vec2* pStepsFlag);
 
 	protected:
@@ -69,12 +66,18 @@ namespace cxgcode
 		qtuser_3d::AttributeShade m_positions;
 		qtuser_3d::AttributeShade m_normals;
 		qtuser_3d::AttributeShade m_steps;
-		qtuser_3d::AttributeShade m_lineWidths;
+		qtuser_3d::AttributeShade m_lineWidthAndLayerHeights; //combine line width & layer height per step
+
 #if SIMPLE_GCODE_IMPL == 1
 		qtuser_3d::AttributeShade m_indices;
 #elif SIMPLE_GCODE_IMPL == 3
 		qtuser_3d::AttributeShade m_endPositions;
 #endif
+		qtuser_3d::AttributeShade m_visualTypeFlags;
+
+		Qt3DRender::QAttribute* m_visualTypeFlagsAttribute;
+
+		trimesh::box3 m_path_box;
 	};
 }
 

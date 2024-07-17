@@ -24,7 +24,7 @@ Button {
   property string subButtonSelectedImage: ""
   property color textColor: "black"
 
-  implicitWidth: 125 * screenScaleFactor
+  implicitWidth: left_button.width + spacer.width + typeText.width //   125 * screenScaleFactor
   implicitHeight: 36 * screenScaleFactor
 
   background: Rectangle {
@@ -35,8 +35,7 @@ Button {
 
       anchors.verticalCenter: parent.verticalCenter
       anchors.left: parent.left
-
-      width: 13 * screenScaleFactor
+      width: root.subButtonDefaultImage?13 * screenScaleFactor:0
       height: 13 * screenScaleFactor
 
       checkable: root.isTypeButton
@@ -61,7 +60,7 @@ Button {
       anchors.bottom: parent.bottom
       anchors.left: left_button.right
 
-      width: 10 * screenScaleFactor
+      width: root.subButtonDefaultImage?10 * screenScaleFactor:0
       color: "transparent"
     }
 
@@ -79,11 +78,11 @@ Button {
           anchors.verticalCenter: parent.verticalCenter
           anchors.left: parent.left
           horizontalAlignment: Text.AlignLeft
-
+          id:typeText
           font.weight: Font.Medium
           font.family: Constants.mySystemFont.name
           font.pointSize: Constants.labelFontPointSize_9
-          color: root.isSelected || root.hovered ? "#1E9BE2" : root.textColor
+          color: root.hovered?  Constants.themeGreenColor: root.isSelected ?  Constants.themeGreenColor : root.textColor
           text: root.isTypeButton ? qsTranslate("AddPrinterDlgNew", root.typeName) : root.printerName
         }
       }

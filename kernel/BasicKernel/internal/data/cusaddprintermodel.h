@@ -17,6 +17,7 @@ namespace creative_kernel
         ~CusAddPrinterModel();
     public:
         void initialize();
+        void reinitialize();
 
     public:
         Q_PROPERTY(QString currentPrinterName READ getCurrentPrinterName NOTIFY sigCurrentPrinterNameChanged);
@@ -29,9 +30,13 @@ namespace creative_kernel
         Q_INVOKABLE QString getCurrentTypeName();
 
     public:
+        Q_PROPERTY(QStringList typeNameList READ getTypeNameList NOTIFY sigTypeNameListChanged);
+        Q_SIGNAL void sigTypeNameListChanged(const QStringList& name);
         Q_INVOKABLE QStringList getTypeNameList();
         Q_INVOKABLE QStringList getPrinterNameList(const QString& type);
+        Q_INVOKABLE QStringList getAllPrinterNameList();
         Q_INVOKABLE QString getModelNameByCodeName(const QString& codeName);
+        Q_INVOKABLE QString getThumbByCodeName(const QString& printerModel);
         Q_INVOKABLE void selectPrinter(const QString& type, const QString& printer = {});
 
     protected:
@@ -47,19 +52,18 @@ namespace creative_kernel
             uint32_t depth{ 0U };
             uint32_t width{ 0U };
             uint32_t height{ 0U };
-            uint32_t nozzle_count{ 0U };
-            float    nozzle_size{ 0.F };
+            uint32_t nozzle_count{ 1U };
             bool     granular{ false };
         };
 
         enum class DataRole : int {
             IMAGE_URL = Qt::UserRole + 1,
             NAME,
+            CODENAME,
             DEPTH,
             WIDTH,
             HEIGHT,
             NOZZLE_COUNT,
-            NOZZLE_SIZE,
             GRANULAR,
             ADDED
         };
@@ -68,6 +72,7 @@ namespace creative_kernel
         std::map<QString, std::vector<PrinterInfo>> type_printer_map_;
 
         QStringList                                 type_name_list_;
+        QStringList                                 printer_name_list_;
         std::map<QString, QStringList>              type_printer_name_map_;
 
         QString                                     current_type_name_;

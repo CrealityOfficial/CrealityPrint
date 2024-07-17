@@ -1,10 +1,11 @@
 #include <sstream>
 #include <fstream>
 #include <memory>
-
+#include <optional>
 #include "crslice/gcode/parasegcode.h"
 #include "gcodeprocesslib/gcode_position.h"
 #include "gcodeprocesslib/gcode_parser.h"
+#include "crslice/gcode/thumbnail.h"
 #include "gcode/sliceline.h"
 #include "ccglobal/platform.h"
 
@@ -13,8 +14,189 @@
 #define DEFAULT_GCODE_BUFFER_SIZE 50
 #define DEFAULT_G90_G91_INFLUENCES_EXTRUDER false
 
+#define sqr(x) x*x
+
 namespace gcode
 {
+    enum GCodeType
+    {
+        ColorChange,
+        PausePrint,
+        ToolChange,
+        Template,
+        Custom,
+        Unknown,
+    };
+
+    enum class EMoveType : unsigned char
+    {
+        Noop,
+        Retract,
+        Unretract,
+        Seam,
+        Tool_change,
+        Color_change,
+        Pause_Print,
+        Custom_GCode,
+        Travel,
+        Wipe,
+        Extrude,
+        Count
+    };
+
+    struct UsedFilaments  // filaments per ColorChange
+    {
+        double color_change_cache{0.0f};
+        std::vector<double> volumes_per_color_change;
+
+        double Wipe_cache{ 0.0f };
+        std::map<int, double> volumes_per_tower;
+
+        double tool_change_cache{ 0.0f };
+        std::map<int, double> volumes_per_extruder;
+
+        //BBS: the flush amount of every filament
+        std::map<int, double> flush_per_filament;
+
+        //double role_cache;
+        //std::map<ExtrusionRole, std::pair<double, double>> filaments_per_role;
+        void process_color_change_cache()
+        {
+            if (color_change_cache != 0.0f) {
+                volumes_per_color_change.push_back(color_change_cache);
+                color_change_cache = 0.0f;
+            }
+        }
+
+        void process_extruder_cache(int active_extruder_id)
+        {
+            //size_t active_extruder_id = processor->m_extruder_id;
+            if (tool_change_cache >= 0.0f) {
+                if (volumes_per_extruder.find(active_extruder_id) != volumes_per_extruder.end())
+                    volumes_per_extruder[active_extruder_id] += tool_change_cache;
+                else
+                    volumes_per_extruder[active_extruder_id] = tool_change_cache;
+                tool_change_cache = 0.0f;
+            }
+
+            if (Wipe_cache > 0.0f) {
+                if (volumes_per_tower.find(active_extruder_id) != volumes_per_tower.end())
+                    volumes_per_tower[active_extruder_id] += Wipe_cache;
+                else
+                    volumes_per_tower[active_extruder_id] = Wipe_cache;
+                Wipe_cache = 0.0f;
+            }
+        }
+
+        void update_flush_per_filament(size_t extrude_id, float flush_volume)
+        {
+            if (flush_per_filament.find(extrude_id) != flush_per_filament.end())
+                flush_per_filament[extrude_id] += flush_volume;
+            else
+                flush_per_filament[extrude_id] = flush_volume;
+        }
+
+        void increase_caches(double extruded_volume)
+        {
+            color_change_cache += extruded_volume;
+            tool_change_cache += extruded_volume;
+            //role_cache += extruded_volume;
+        }
+
+        void increase_color_change_caches(double extruded_volume)
+        {
+            Wipe_cache += extruded_volume;
+        }
+
+        void reset()
+        {
+            color_change_cache = 0.0f;
+            Wipe_cache = 0.0f;
+            volumes_per_color_change = std::vector<double>();
+
+            tool_change_cache = 0.0f;
+            volumes_per_extruder.clear();
+            volumes_per_tower.clear();
+            flush_per_filament.clear();
+
+            //role_cache = 0.0f;
+            //filaments_per_role.clear();
+        }
+    };
+
+    class SeamsDetector
+    {
+        bool m_active{ false };
+        std::optional<trimesh::vec3> m_first_vertex;
+
+        public:
+        void activate(bool active) {
+            if (m_active != active) {
+                m_active = active;
+                if (m_active)
+                    m_first_vertex.reset();
+            }
+        }
+
+        std::optional<trimesh::vec3> get_first_vertex() const { return m_first_vertex; }
+        void set_first_vertex(const trimesh::vec3& vertex) { m_first_vertex = vertex; }
+
+        bool is_active() const { return m_active; }
+        bool has_first_vertex() const { return m_first_vertex.has_value(); }
+    };
+
+    struct GCodeProcessor {
+
+        SliceCompany sliceCompany = SliceCompany::none;
+        std::unordered_map<std::string, std::string> kvs;
+
+        GCodeParseInfo gcodeParaseInfo;
+        UsedFilaments m_used_filaments;
+
+
+        SliceLineType curType = SliceLineType::NoneType;
+        SliceLineType lastType = SliceLineType::NoneType;
+        EMoveType eMoveType{ EMoveType::Noop};
+        bool haveStartCmd{ false };
+        bool have_start_print{ false };
+
+        int m_extruder_id{0};
+        int m_last_extruder_id;
+        int extruders_count;
+        trimesh::box3 box;
+        float m_nozzle_volume;
+        float m_remaining_volume;
+
+        bool m_flushing{false};
+        bool m_wiping{ false };
+
+        bool isFirstLayerHeight{ false };
+
+        double current_e;
+        trimesh::vec3 current_v;
+
+        std::set <int> extruders;
+
+        std::vector<std::pair<trimesh::ivec2, std::string>> images;
+
+        bool writeImage{false};
+
+        //seam
+        SeamsDetector m_seams_detector;
+
+        std::vector<float> filament_diameters;
+        std::vector<float> material_densitys;
+        GCodeProcessor()
+        {
+            m_extruder_id = 0;
+            m_nozzle_volume = 0.0f;
+            extruders_count = 0;
+            m_remaining_volume = 0.0f;
+            filament_diameters.clear();
+            material_densitys.clear();
+        }
+    };
+
     gcode_position_args get_args_(bool g90_g91_influences_extruder, int buffer_size)
     {
         gcode_position_args args;
@@ -117,9 +299,16 @@ namespace gcode
                     kvs.insert(std::make_pair(_kvs[0], _kvs[1]));
                 }
                 else {
-                    std::string str = comment;
-                    removeSpace(str);
-                    kvs.insert(std::make_pair(str,""));
+                    Stringsplit(comment, '#', _kvs);
+                    if (_kvs.size() > 1) {
+                        kvs.insert(std::make_pair(_kvs[0], _kvs[1]));
+                    }
+                    else
+                    {
+                        std::string str = comment;
+                        removeSpace(str);
+                        kvs.insert(std::make_pair(str, ""));
+                    }
                 }
             }
             break;
@@ -151,7 +340,7 @@ namespace gcode
                 else {
                     std::string str = comment;
                     int pos = str.find("feature");
-                    if (pos >=0 && pos < str.length())
+                    if (pos >= 0 && pos < str.length())
                     {
                         str = str.substr(pos + 7, str.length());
                     }
@@ -161,11 +350,58 @@ namespace gcode
                 }
             }
             break;
+        case SliceCompany::craftware:
+            Stringsplit(comment, ':', _kvs);
+            if (_kvs.size() > 1) {
+                kvs.insert(std::make_pair(_kvs[0], _kvs[1]));
+            }
+            else { //end of gcode
+                std::string str = comment;
+                if (str.find("AreaBegin") != std::string::npos)
+                {
+                    //; @AreaBegin "Raft" Z-0.650 H0.3
+                    int pos = str.find("\"");
+                    if (pos != std::string::npos)
+                    {
+                        std::string _comment = str.substr(pos + 1, str.length());
+                        pos = _comment.find("\"");
+                        if (pos != std::string::npos)
+                        {
+                            std::string type = _comment.substr(0, pos);
+                            kvs.insert(std::make_pair("TYPE", type));
+
+                            pos = str.find("H");
+                            if (pos != std::string::npos)
+                            {
+                                std::string h = str.substr(pos + 1, str.length());
+                                kvs.insert(std::make_pair("HEIGHT", h));
+                            }
+                        }
+                    }
+                }
+
+                //LayerBegin N1 Z - 0.400 H0.3
+                if (str.find("LayerBegin") != std::string::npos)
+                {
+                    kvs.insert(std::make_pair("LAYER", ""));
+                    int pos = str.find("H");
+                    if (pos != std::string::npos)
+                    {
+                        std::string h = str.substr(pos + 1, str.length());
+                        kvs.insert(std::make_pair("HEIGHT", h));
+                    }
+                }
+
+                removeSpace(str);
+                kvs.insert(std::make_pair(str, ""));
+            }
+                break;
         default:
             Stringsplit(comment, ':', _kvs);
             if (_kvs.size() > 1) {
                 kvs.insert(std::make_pair(_kvs[0], _kvs[1]));
             }
+
             break;
         };
     }
@@ -419,9 +655,9 @@ namespace gcode
         changeKey("Top/Bottom Thickness", "top_bottom_thickness", kvs); 	
         changeKey("Out Wall Line Width", "wall_line_width", kvs);
         changeKey("Filament Cost", "filament_cost", kvs);
+        changeKey("Filament Colour", "filament_colour", kvs);
+        changeKey("Flush Volumes Matrix", "flush_volumes_matrix", kvs);
         
-        
-
         //changeKey("Print Speed", "speed_print", kvs);
         changeKey("Initial Layer Speed", "speed_layer_0", kvs);
         changeKey("Travel Speed", "speed_travel", kvs);
@@ -568,56 +804,56 @@ namespace gcode
 
     }
 
+    //orca
+    //case erNone: return L("Undefined");
+    //case erPerimeter: return L("Inner wall");
+    //case erExternalPerimeter: return L("Outer wall");
+    //case erOverhangPerimeter: return L("Overhang wall");
+    //case erInternalInfill: return L("Sparse infill");
+    //case erSolidInfill: return L("Internal solid infill");
+    //case erTopSolidInfill: return L("Top surface");
+    //case erBottomSurface: return L("Bottom surface");
+    //case erIroning: return L("Ironing");
+    //case erBridgeInfill: return L("Bridge");
+    //case erGapFill: return L("Gap infill");
+    //case erSkirt: return ("Skirt");
+    //case erBrim: return ("Brim");
+    //case erSupportMaterial: return L("Support");
+    //case erSupportMaterialInterface: return L("Support interface");
+    //case erSupportTransition: return L("Support transition");
+    //case erWipeTower: return L("Prime tower");
+    //case erCustom: return L("Custom");
+    //case erMixed: return L("Multiple");
     void _bambuKv(std::unordered_map<std::string, std::string>& kvs, bool _layer)
     {
         if (_layer)
         {
-            changeKey("AFTER_LAYER_CHANGE", "LAYER", kvs);
+            //changeKey("AFTER_LAYER_CHANGE", "LAYER", kvs);
             changeKey("LAYER_CHANGE", "LAYER", kvs);
             changeKey("CHANGE_LAYER", "LAYER", kvs);
+            changeKey("===== noozle load line ===============================", "LAYER", kvs);
             
-            kvs.insert(std::make_pair("TIME_ELAPSED", "0"));
+            //kvs.insert(std::make_pair("TIME_ELAPSED", "0"));
            
-            auto iter = kvs.find("FEATURE");
-            if (iter != kvs.end())
-            {
-                if (iter->second == "Outer wall")
-                {
-                    iter->second = "WALL-OUTER";
-                }
-                else if (iter->second == "Inner wall")
-                {
-                    iter->second = "WALL-INNER";
-                }
-                else if (iter->second == "Bottom surface"
-                    || iter->second == "Bottom surface")
-                {
-                    iter->second = "SKIN";
-                }
-                else if (iter->second == "Support")
-                {
-                    iter->second = "SUPPORT";
-                }
-                else if (iter->second == "Skirt")
-                {
-                    iter->second = "SKIRT";
-                }
-                else if (iter->second == "Internal solid infill"
-                    || iter->second == "Gap infill"
-                    || iter->second == "Sparse infill")
-                {
-                    iter->second = "FILL";
-                }
-            }
-
             changeKey("FEATURE", "TYPE", kvs);
+            changeKey("Z", "Z_HEIGHT", kvs);
+
+            changeKey("filament_diameter", "material_diameter", kvs);
+            changeKey("filament_density", "material_density", kvs);
+            
             return;
         }
 
         changeKey("total_layer_count", "layer_count", kvs);
         changeKey("printer_model", "machine_name", kvs);
         changeKey("model printing time", "print_time", kvs);
+        changeKey("estimated printing time (normal mode)", "print_time", kvs);
+        changeKey("total estimated time", "print_time", kvs);
         changeKey("filament_diameter", "material_diameter", kvs);
+        changeKey("filament used [mm]", "filament_used", kvs);
+        changeKey("filament used [g]", "filament_weight", kvs);
+        changeKey("filament cost", "gcode_filament_cost", kvs);
+
         //changeKey("layer_height", "layer_height", kvs);
         changeKey("line_width", "wall_line_width", kvs);
         changeKey("sparse_infill_pattern", "infill_pattern", kvs);
@@ -642,8 +878,23 @@ namespace gcode
         {
             std::vector<std::string> _kvs;
             Stringsplit(iter->second, ' ', _kvs);
-            if (_kvs.size() > 2) {
-                if (_kvs[0].length()>1 && _kvs[1].length() > 1 && _kvs[2].length() > 1)
+            if (_kvs.size() == 1)
+            {
+                int strS = atoi(_kvs[0].substr(0, _kvs[0].length() - 1).c_str());
+                int time = strS;
+                iter->second = std::to_string(time);
+            }
+            else if (_kvs.size() == 2) {
+                if (_kvs[0].length() > 1 && _kvs[1].length() > 1)
+                {
+                    int strM = atoi(_kvs[0].substr(0, _kvs[0].length() - 1).c_str());
+                    int strS = atoi(_kvs[1].substr(0, _kvs[1].length() - 1).c_str());
+                    int time = strM * 60 + strS;
+                    iter->second = std::to_string(time);
+                }
+            }
+            else if (_kvs.size() > 2) {
+                if (_kvs[0].length() > 1 && _kvs[1].length() > 1 && _kvs[2].length() > 1)
                 {
                     int strH = atoi(_kvs[0].substr(0, _kvs[0].length() - 1).c_str());
                     int strM = atoi(_kvs[1].substr(0, _kvs[1].length() - 1).c_str());
@@ -652,6 +903,49 @@ namespace gcode
                     iter->second = std::to_string(time);
                 }
             }
+        }
+
+        //filament used [mm] = 4386.68, 2941.27, 1378.17, 1562.97
+        iter = kvs.find("filament_used");
+        if (iter != kvs.end())
+        {
+            float filament_len = 0.0f;
+            std::vector<std::string> _kvs;
+            Stringsplit(iter->second, ',', _kvs);
+            for (auto& v : _kvs)
+            {
+                filament_len += std::atof(_kvs[0].c_str());
+            }
+            filament_len /= 1000.f;
+            iter->second = std::to_string(filament_len);
+        }
+
+        //filament used [g] = 13.08, 8.77, 4.11, 4.66
+        iter = kvs.find("filament_weight");
+        if (iter != kvs.end())
+        {
+            float filament_len = 0.0f;
+            std::vector<std::string> _kvs;
+            Stringsplit(iter->second, ',', _kvs);
+            for (auto& v : _kvs)
+            {
+                filament_len += std::atof(v.c_str());
+            }
+            iter->second = std::to_string(filament_len);
+        }
+
+        //filament cost = 0.26, 0.18, 0.08, 0.09;
+        iter = kvs.find("gcode_filament_cost");
+        if (iter != kvs.end())
+        {
+            float filament_len = 0.0f;
+            std::vector<std::string> _kvs;
+            Stringsplit(iter->second, ',', _kvs);
+            for (auto& v : _kvs)
+            {
+                filament_len += std::atof(_kvs[0].c_str());
+            }
+            iter->second = std::to_string(filament_len);
         }
 
         //; filament_diameter = 1.75,1.75
@@ -807,7 +1101,7 @@ namespace gcode
             }
 
             changeKey("structure", "TYPE", kvs);
-
+            changeKey("filament_diameter", "material_diameter", kvs);
             return;
         }
 
@@ -917,19 +1211,26 @@ namespace gcode
             changeKey("AFTER_LAYER_CHANGE", "LAYER", kvs);
             changeKey("LAYER_CHANGE", "LAYER", kvs);
             changeKey("CHANGE_LAYER", "LAYER", kvs);
+            changeKey("FEATURE", "TYPE", kvs);
+
+            changeKey("Z", "Z_HEIGHT", kvs);
 
             auto iter = kvs.find("TYPE");
             if (iter != kvs.end())
             {
-                if (iter->second == "External perimeter")
+                if (iter->second == "External perimeter" || iter->second == "Custom" || iter->second == "Outer wall"
+                    || iter->second == "Overhang wall"
+                    || iter->second == "Bridge")
                 {
                     iter->second = "WALL-OUTER";
                 }
-                else if (iter->second == "perimeter")
+                else if (iter->second == "perimeter" || iter->second == "Inner wall")
                 {
                     iter->second = "WALL-INNER";
                 }
-                else if (iter->second == "Top solid infill")
+                else if (iter->second == "Top solid infill"
+                    || iter->second == "Bottom surface"
+                    || iter->second == "Top surface")
                 {
                     iter->second = "SKIN";
                 }
@@ -944,22 +1245,24 @@ namespace gcode
                 }
                 else if (iter->second == "Solid infill"
                     || iter->second == "Internal infill"
-                    || iter->second == "Bridge infill")
+                    || iter->second == "Bridge infill"
+                    || iter->second == "Gap infill"
+                    || iter->second == "Internal solid infill"
+                    || iter->second == "Sparse infill")
                 {
                     iter->second = "FILL";
                 }
             }
 
-
             kvs.insert(std::make_pair("TIME_ELAPSED", "0"));
+            changeKey("filament_diameter", "material_diameter", kvs);
+            changeKey("filament_density", "material_density", kvs);
             return;
         }
 
 
         changeKey("printer_model", "machine_name", kvs);
         changeKey("filament used [mm]", "filament_used", kvs);
-        changeKey("filament_diameter", "material_diameter", kvs);
-        
         changeKey("filament_diameter", "material_diameter", kvs);
 
         //4h 0m 41s -> 4*3600 + 0 + 41
@@ -1073,7 +1376,7 @@ namespace gcode
             iter = kvs.find("outer perimeter");
             if (iter != kvs.end())
             {
-                iter->second = " WALL-OUTER";
+                iter->second = "WALL-OUTER";
                 changeKey("outer perimeter", "TYPE", kvs);
             }
 
@@ -1104,6 +1407,8 @@ namespace gcode
                 iter->second = "SUPPORT";
                 changeKey("support", "TYPE", kvs);
             }
+
+            changeKey("filamentDiameters", "material_diameter", kvs);
             return;
         }
 
@@ -1124,7 +1429,7 @@ namespace gcode
         }
 
         //filamentDiameters,1.75|1.75|1.75|1.75|1.75|1.75
-        iter = kvs.find("filamentDiameters");
+        iter = kvs.find("material_diameter");
         if (iter != kvs.end())
         {
             std::vector<std::string> _kvs;
@@ -1133,7 +1438,6 @@ namespace gcode
             {
                 iter->second = _kvs[0];    
             }
-            changeKey("filamentDiameters", "material_diameter", kvs);
         }
 
         //Build time : 29 hours 56 minutes
@@ -1263,58 +1567,61 @@ namespace gcode
             }
         }
 
-        changeKey("defaultSpeed", "speed_print", kvs);
-        float defaultSpeed = 0.0f;
-        iter3 = kvs.find("speed_print");
-        if (iter3 != kvs.end())
-        {
-            defaultSpeed = std::atof(iter3->second.c_str()) / 60.0f;
-            iter3->second = std::to_string(defaultSpeed);
-        }
-        
-        //
-        changeKey("firstLayerUnderspeed", "speed_layer_0", kvs);
-        iter3 = kvs.find("speed_layer_0");
-        if (iter3 != kvs.end())
-        {
-            float s = std::atof(iter3->second.c_str());
-            iter3->second = std::to_string(s * defaultSpeed);
-        }
+        auto speed_print = [&kvs]()->float {
+            float defaultSpeed = 0.0f;
+            auto iter = kvs.find("speed_print");
+            if (iter != kvs.end())
+            {
+                defaultSpeed = std::atof(iter->second.c_str());
+            }
+            return defaultSpeed;
+        };
 
-        //rapidXYspeed, 4800
-        changeKey("rapidXYspeed", "speed_travel", kvs);
-        iter3 = kvs.find("speed_travel");
+        auto checkoutSpeed = [&kvs, &speed_print](const std::string& key) {
+            auto iter = kvs.find(key);
+            if (iter != kvs.end())
+            {
+                float _speed = std::atof(iter->second.c_str());
+                if (_speed <= 1.0f)
+                {
+                    float defaultSpeed = speed_print();
+                    if (defaultSpeed > 1.0f)
+                    {
+                        iter->second = std::to_string(_speed * defaultSpeed);
+                    }
+                }
+            }
+        };
+
+        iter3 = kvs.find("defaultSpeed");
         if (iter3 != kvs.end())
         {
             float defaultSpeed = std::atof(iter3->second.c_str()) / 60.0f;
             iter3->second = std::to_string(defaultSpeed);
+            changeKey("defaultSpeed", "speed_print", kvs);
+        }
+
+        //
+        changeKey("firstLayerUnderspeed", "speed_layer_0", kvs);
+        checkoutSpeed("speed_layer_0");
+
+        iter3 = kvs.find("rapidXYspeed");
+        if (iter3 != kvs.end())
+        {
+            float defaultSpeed = std::atof(iter3->second.c_str()) / 60.0f;
+            iter3->second = std::to_string(defaultSpeed);
+            changeKey("rapidXYspeed", "speed_travel", kvs);
         }
 
         //Outer Wall Speed  outlineUnderspeed
         changeKey("outlineUnderspeed", "speed_wall_0", kvs);
-        iter3 = kvs.find("speed_wall_0");
-        if (iter3 != kvs.end())
-        {
-            float s = std::atof(iter3->second.c_str());
-            iter3->second = std::to_string(s * defaultSpeed);
-        }
-       
-        changeKey("solidInfillUnderspeed", "speed_infill", kvs);
-        iter3 = kvs.find("speed_infill");
-        if (iter3 != kvs.end())
-        {
-            float s = std::atof(iter3->second.c_str());
-            iter3->second = std::to_string(s * defaultSpeed);
-        }
+        checkoutSpeed("speed_wall_0");
 
+        changeKey("solidInfillUnderspeed", "speed_infill", kvs);
+        checkoutSpeed("speed_infill");
         //Support Speed
-        changeKey("solidInfillUnderspeed", "speed_support", kvs);
-        iter3 = kvs.find("speed_support");
-        if (iter3 != kvs.end())
-        {
-            float s = std::atof(iter3->second.c_str());
-            iter3->second = std::to_string(s * defaultSpeed);
-        }
+        changeKey("supportUnderspeed", "speed_support", kvs);
+        checkoutSpeed("speed_support");
 
         //
         changeKey("toolChangeRetractionDistance", "retraction_amount", kvs);
@@ -1483,8 +1790,59 @@ namespace gcode
         changeKey("bed_temperature", "material_bed_temperature", kvs);
     }
 
-    void _paraseKvs(const SliceCompany& sliceCompany, trimesh::box3& box,std::unordered_map<std::string, std::string>& kvs,bool _layer = false)
+    void _craftwareKv(std::unordered_map<std::string, std::string>& kvs, bool _layer)
     {
+        if (_layer)
+        {
+            changeKey("LayerBegin", "LAYER", kvs);
+
+            auto iter = kvs.find("TYPE");
+            if (iter != kvs.end())
+            {
+                if (iter->second == "Shell")
+                {
+                    iter->second = "Outer wall";
+                }
+                else if (iter->second == "Perimeter")
+                {
+                    iter->second = "Inner wall";
+                }
+                else if (iter->second == "Support")
+                {
+                    iter->second = "Support";
+                }
+                else if (iter->second == "SupportInterface")
+                {
+                    iter->second = "Support interface";
+                }
+                else if (iter->second == "Bridge")
+                {
+                    iter->second = "Bridge";
+                }
+                else if (iter->second == "Raft"
+                    || iter->second == "Skirt")
+                {
+                    iter->second = "Skirt";
+                }
+                else if (iter->second == "Infill")
+                {
+                    iter->second = "Internal solid infill";
+                }
+                else
+                    ;// iter->second = "Outer wall";
+            }
+
+
+            kvs.insert(std::make_pair("TIME_ELAPSED", "0"));
+            return;
+        }
+    }
+
+    void _paraseKvs(GCodeProcessor& gcodeProcessor,trimesh::box3& box,bool _layer = false)
+    {
+        std::unordered_map<std::string, std::string>& kvs = gcodeProcessor.kvs;
+        SliceCompany& sliceCompany = gcodeProcessor.sliceCompany;
+
         switch (sliceCompany)
         {
         case SliceCompany::creality:
@@ -1511,6 +1869,9 @@ namespace gcode
         case SliceCompany::superslicer:
             _superslicerKv(kvs, _layer);
             break;
+        case SliceCompany::craftware:
+            _craftwareKv(kvs, _layer);
+            break;
         default:
             break;
         }
@@ -1525,14 +1886,73 @@ namespace gcode
             }
         }
 
+        //; filament_diameter = 1.75,1.75
+        auto iter1 = kvs.find("material_diameter");
+        if (iter1 != kvs.end() && gcodeProcessor.filament_diameters.empty())
+        {
+            std::vector<std::string> _kvs;
+            Stringsplit(iter1->second, ',', _kvs);
+            for (auto& v : _kvs)
+            {
+                gcodeProcessor.filament_diameters.push_back(std::atof(v.c_str()));
+            }
+        }
+
+        iter1 = kvs.find("material_density");
+        if (iter1 != kvs.end() && gcodeProcessor.filament_diameters.empty())
+        {
+            std::vector<std::string> _kvs;
+            Stringsplit(iter1->second, ',', _kvs);
+            for (auto& v : _kvs)
+            {
+                gcodeProcessor.material_densitys.push_back(std::atof(v.c_str()));
+            }
+        }     
+
+        iter1 = kvs.find("nozzle_volume");
+        if (iter1 != kvs.end() && gcodeProcessor.m_nozzle_volume <= 0 )
+        {
+            gcodeProcessor.m_nozzle_volume = std::atof(iter1->second.c_str());
+        }
+        
+
+        iter1 = kvs.find("FLUSH_START");
+        if (iter1 != kvs.end())
+        {
+            gcodeProcessor.m_flushing = true;
+            kvs.erase(iter1);
+        }
+        iter1 = kvs.find("FLUSH_END");
+        if (iter1 != kvs.end())
+        {
+            gcodeProcessor.m_flushing = false;
+            kvs.erase(iter1);
+        }
+
+        iter1 = kvs.find("WIPE_START");
+        if (iter1 != kvs.end())
+        {
+            gcodeProcessor.eMoveType = EMoveType::Wipe;
+            gcodeProcessor.m_wiping = true;
+            kvs.erase(iter1);
+        }
+        iter1 = kvs.find("WIPE_END");
+        if (iter1 != kvs.end())
+        {
+            gcodeProcessor.m_wiping = false;
+            kvs.erase(iter1);
+        }
 
     }
 
-    void _detect_layer(std::unordered_map<std::string, std::string>& kvs, std::string& gcode_layer_data,bool& startLayer,int& curLayer, GcodeTracer* pathData)
+    void _detect_layer(GCodeProcessor& gcodeProcessor, std::string& gcode_layer_data,bool& startLayer,int& curLayer, GcodeTracer* pathData)
     {
+        std::unordered_map<std::string, std::string>& kvs = gcodeProcessor.kvs;
+
         auto iter = kvs.find("LAYER");
         if (iter != kvs.end())
         {
+            gcodeProcessor.isFirstLayerHeight = true;
             startLayer = true;
 
             int pos = gcode_layer_data.find_last_of("\n");
@@ -1541,32 +1961,53 @@ namespace gcode
                 gcode_layer_data = gcode_layer_data.substr(0, pos);
             }
 
-            pathData->set_data_gcodelayer(curLayer - 1, gcode_layer_data);
-
-            gcode_layer_data.clear();
-            if (curLayer > 0)
+            if (curLayer <= 0)
             {
-                auto iter1 = kvs.find("TIME_ELAPSED");
-                if (iter1 != kvs.end())
-                {
-                    pathData->setTime(std::atoi(iter1->second.c_str()));
-                    kvs.erase(iter1);
-                }
-                else
-                {
-                    pathData->setTime(0);
-                }
-
-                pathData->setLayer(curLayer);
+                if (!gcodeProcessor.haveStartCmd)
+                    gcode_layer_data.clear();
             }
+            else
+            {
+                gcodeProcessor.haveStartCmd = false;
 
+                pathData->set_data_gcodelayer(curLayer - 1, gcode_layer_data);
+                gcode_layer_data.clear();
+
+
+                if (curLayer > 0)
+                {
+                    pathData->setLayer(curLayer);
+
+                    auto iter1 = kvs.find("TIME_ELAPSED");
+                    if (iter1 != kvs.end())
+                    {
+                        pathData->setTime(std::atoi(iter1->second.c_str()));
+                        kvs.erase(iter1);
+                    }
+                    else
+                    {
+                        pathData->setTime(0);
+                    }
+                }
+            }
             kvs.erase(iter);
             curLayer++;
         }
     }
 
-    void _detect_height(std::unordered_map<std::string, std::string>& kvs,bool& haveLayerHeight, GcodeTracer* pathData)
+    void _detect_height(std::unordered_map<std::string, std::string>& kvs, GCodeProcessor& gCodeProcessor,bool& haveLayerHeight, GcodeTracer* pathData)
     {
+        const SliceLineType& curType = gCodeProcessor.curType;
+        if (curType == SliceLineType::FlowTravel)
+        {
+            auto iter = kvs.find("HEIGHT");
+            if (iter != kvs.end())
+            {
+                kvs.erase(iter);
+            }
+            return;
+        }
+
         auto iter = kvs.find("layer_height");
         if (iter != kvs.end() && !haveLayerHeight)
         {
@@ -1580,15 +2021,38 @@ namespace gcode
             pathData->setZ(std::atof(iter->second.c_str()), std::atof(iter->second.c_str()));
             kvs.erase(iter);
         }
+
+
+        iter = kvs.find("LAYER_HEIGHT");
+        if (iter != kvs.end())
+        {
+            ////orca当每一层有多个层高修改时，只取第一次的层高值， 表现：悬空层预览断层
+            //if (gCodeProcessor.sliceCompany == SliceCompany::bambu)
+            //{
+            //    if (gCodeProcessor.isFirstLayerHeight)
+            //    {
+            //        pathData->setZ(std::atof(iter->second.c_str()), std::atof(iter->second.c_str()));
+            //        gCodeProcessor.isFirstLayerHeight = false;
+            //    }
+            //}
+            //else
+                pathData->setZ(std::atof(iter->second.c_str()), std::atof(iter->second.c_str()));
+
+            kvs.erase(iter);
+        }       
     }
 
-    void _detect_type(std::unordered_map<std::string, std::string>& kvs, SliceLineType& curType, SliceLineType& lastType)
+    void _detect_type(std::unordered_map<std::string, std::string>& kvs, GCodeProcessor& gCodeProcessor)
     {
+        SliceLineType& curType = gCodeProcessor.curType;
+        SliceLineType& lastType = gCodeProcessor.lastType;
+
         auto iter = kvs.find("TYPE");
         if (iter != kvs.end())
         {
             if (iter->second == "WALL-OUTER")
             {
+                gCodeProcessor.m_seams_detector.activate(true);
                 curType = SliceLineType::OuterWall;
                 lastType = curType;
             }
@@ -1603,7 +2067,7 @@ namespace gcode
                 lastType = curType;
             }
             else if (iter->second == "SUPPORT"
-                || iter->second == "SUPPORT - INTERFACE")
+                || iter->second == "SUPPORT-INTERFACE")
             {
                 curType = SliceLineType::Support;
                 lastType = curType;
@@ -1623,6 +2087,114 @@ namespace gcode
                 curType = SliceLineType::PrimeTower;
                 lastType = curType;
             }
+            else if (iter->second == "Ironing")
+            {
+                curType = SliceLineType::FlowTravel;
+                lastType = curType;
+            }
+            else
+            {
+                //curType = SliceLineType::AdvanceTravel;
+                //lastType = curType;
+            }
+
+            std::string& role = iter->second;
+            if (role == ("Inner wall"))
+            {
+                curType = SliceLineType::erPerimeter;
+                lastType = curType;
+            }
+            else if (role == ("Outer wall"))
+            {
+                gCodeProcessor.m_seams_detector.activate(true);
+                curType = SliceLineType::erExternalPerimeter;
+                lastType = curType;
+            }
+            else if (role == ("Overhang wall"))
+            {
+                curType = SliceLineType::erOverhangPerimeter;
+                lastType = curType;
+            }
+            else if (role == ("Sparse infill"))
+            {
+                curType = SliceLineType::erInternalInfill;
+                lastType = curType;
+            }
+            else if (role == ("Internal solid infill"))
+            {
+                curType = SliceLineType::erSolidInfill;
+                lastType = curType;
+            }
+            else if (role == ("Top surface"))
+            {
+                curType = SliceLineType::erTopSolidInfill;
+                lastType = curType;
+            }
+            else if (role == ("Bottom surface"))
+            {
+                curType = SliceLineType::erBottomSurface;
+                lastType = curType;
+            }
+            else if (role == ("Ironing"))
+            {
+                curType = SliceLineType::erIroning;
+                lastType = curType;
+            }
+            else if (role == ("Bridge"))
+            {
+                curType = SliceLineType::erBridgeInfill;
+                lastType = curType;
+            }
+            else if (role == ("Gap infill"))
+            {
+                curType = SliceLineType::erGapFill;
+                lastType = curType;
+            }
+            else if (role == ("Skirt"))
+            {
+                curType = SliceLineType::erSkirt;
+                lastType = curType;
+            }
+            else if (role == ("Brim"))
+            {
+                curType = SliceLineType::erBrim;
+                lastType = curType;
+            }
+            else if (role == ("Support"))
+            {
+                curType = SliceLineType::erSupportMaterial;
+                lastType = curType;
+            }
+            else if (role == ("Support interface"))
+            {
+                curType = SliceLineType::erSupportMaterialInterface;
+                lastType = curType;
+            }
+            else if (role == ("Support transition"))
+            {
+                curType = SliceLineType::erSupportTransition;
+                lastType = curType;
+            }
+            else if (role == ("Prime tower"))
+            {
+                curType = SliceLineType::erWipeTower;
+                lastType = curType;
+            }
+            else if (role == ("Custom"))
+            {
+                curType = SliceLineType::erCustom;
+                lastType = curType;
+            }
+            else if (role == ("Multiple"))
+            {
+                curType = SliceLineType::erMixed;
+                lastType = curType;
+            }
+            else if (role == "Internal Bridge")
+            {
+                curType = SliceLineType::erInternalBridgeInfill;
+                lastType = curType;
+            }
 
 
             //pathData->setLayer(std::atoi(iter->second.c_str()));
@@ -1635,17 +2207,18 @@ namespace gcode
         if (!is_get_company)
         {
             is_get_company = true;
-            if (comment.find("Creality") != std::string::npos)
+            if (comment.find("BambuStudio") != std::string::npos || comment.find("OrcaSlicer") != std::string::npos
+                ||  comment.find("Creality_Print") != std::string::npos)
+            {
+                sliceCompany = SliceCompany::bambu;
+            }
+            else if (comment.find("Creality") != std::string::npos)
             {
                 sliceCompany = SliceCompany::creality;
             }
-            else if (comment.find("PrusaSlicer") != std::string::npos)
+            else if (comment.find("PrusaSlicer") != std::string::npos )
             {
                 sliceCompany = SliceCompany::prusa;
-            }
-            else if (comment.find("BambuStudio") != std::string::npos)
-            {
-                sliceCompany = SliceCompany::bambu;
             }
             else if (comment.find("Cura_SteamEngine") != std::string::npos)
             {
@@ -1667,74 +2240,192 @@ namespace gcode
             {
                 sliceCompany = SliceCompany::simplify;
             }
+            else if (comment.find("CraftWare") != std::string::npos)
+            {
+                sliceCompany = SliceCompany::craftware;
+            }
             else
                 is_get_company = false;
         }
     }
 
+    void _detect_image(GCodeProcessor& gcodeProcessor, const std::string& comment)
+    {
+        if (comment.find("png end") != std::string::npos
+            || comment.find("jpg end") != std::string::npos
+            || comment.find("bmp end") != std::string::npos
+            || comment.find("thumbnail end") != std::string::npos
+            || comment.find("thumbnail_JPG end") != std::string::npos
+            || comment.find("thumbnail_QOI end") != std::string::npos
+            || comment.find("thumbnail_QOI end") != std::string::npos
+            || comment.find("THUMBNAIL_BLOCK_START") != std::string::npos
+            ) {
+            gcodeProcessor.writeImage = false;
+        }
+
+        if (gcodeProcessor.writeImage)
+        {
+            //gcodeProcessor.images.push_back(std::pair<trimesh::ivec2, std::string>(imageSize, ""));
+            std::string _comment = comment;
+            removeSpace(_comment);
+            gcodeProcessor.images.back().second += _comment;
+        }
+
+        if (comment.find("png begin") != std::string::npos
+            || comment.find("jpg begin") != std::string::npos
+            || comment.find("bmp begin") != std::string::npos
+            || comment.find("thumbnail begin") != std::string::npos
+            || comment.find("thumbnail_JPG begin") != std::string::npos
+            || comment.find("thumbnail_QOI begin") != std::string::npos
+            || comment.find("thumbnail_QOI begin") != std::string::npos
+            ) {
+            // std::vector<std::pair<trimesh::ivec2, std::string>> images;
+            trimesh::ivec2 imageSize(0, 0);
+
+            std::vector<std::string> vs;
+            Stringsplit(comment, ' ', vs);
+            if (!vs.empty())
+            {
+                for (auto& v : vs)
+                {
+                    if (v.find("*") != std::string::npos)
+                    {
+                        std::vector<std::string> _vs;
+                        Stringsplit(v, '*', _vs);
+                        if (_vs.size() > 1)
+                        {
+                            imageSize.x = std::atoi(_vs[0].c_str());
+                            imageSize.y = std::atoi(_vs[1].c_str());
+                        }
+
+                        break;
+                    }
+                    if (v.find("x") != std::string::npos)
+                    {
+                        std::vector<std::string> _vs;
+                        Stringsplit(v, '*', _vs);
+                        if (_vs.size() > 1)
+                        {
+                            imageSize.x = std::atoi(_vs[0].c_str());
+                            imageSize.y = std::atoi(_vs[1].c_str());
+                        }
+
+                        break;
+                    }
+                }
+            }
+            gcodeProcessor.images.push_back(std::pair<trimesh::ivec2, std::string>(imageSize, ""));
+            gcodeProcessor.writeImage = true;
+        }
+    }
+
+    bool detectZSeam(GCodeProcessor& gcodeProcessor,trimesh::vec3& v, trimesh::vec3& vp)
+    {
+        bool detect = false;
+        if (gcodeProcessor.m_seams_detector.is_active()) {
+            if (gcodeProcessor.eMoveType == EMoveType::Extrude && gcodeProcessor.curType == SliceLineType::OuterWall && !gcodeProcessor.m_seams_detector.has_first_vertex()) {
+                gcodeProcessor.m_seams_detector.set_first_vertex(v);
+            }
+            else if ((gcodeProcessor.eMoveType != EMoveType::Extrude || (gcodeProcessor.curType != SliceLineType::OuterWall && gcodeProcessor.curType != SliceLineType::erOverhangPerimeter)) && gcodeProcessor.m_seams_detector.has_first_vertex()) {
+                const trimesh::vec3 curr_pos = v;
+                const trimesh::vec3 new_pos = vp;
+                const std::optional<trimesh::vec3> first_vertex = gcodeProcessor.m_seams_detector.get_first_vertex();
+
+                double len = sqrt((new_pos - *first_vertex).x + (new_pos - *first_vertex).y);
+                if (len < 0.0625f) {
+                    detect = false;
+                }
+                else
+                    detect = true;
+
+
+                gcodeProcessor.m_seams_detector.activate(false);
+            }
+        }
+        else if (gcodeProcessor.eMoveType == EMoveType::Extrude && gcodeProcessor.curType == SliceLineType::OuterWall) {
+            gcodeProcessor.m_seams_detector.activate(true);
+            gcodeProcessor.m_seams_detector.set_first_vertex(vp);
+        }
+            return detect;
+    }
+
     void _get_path(std::string& command, std::vector<parsed_command_parameter>& parameters
-        , double e
+        , GCodeProcessor& gcodeProcessor
         , bool is_travel
         , bool has_position_changed
         , trimesh::vec3& v
-        , SliceLineType& curType
-        , SliceLineType& lastType
-        , GcodeTracer* pathData)
+        , trimesh::vec3& vp
+        , GcodeTracer* pathData
+        , SliceCompany& sliceCompany)
     {
+        double& e = gcodeProcessor.current_e;
+        SliceLineType curType = gcodeProcessor.curType;
         if (!command.empty())
         {
-            //travel and react is_travel
-            if (is_travel)
+            if (gcodeProcessor.eMoveType != EMoveType::Extrude && gcodeProcessor.eMoveType != EMoveType::Noop)
             {
-                curType = SliceLineType::Travel;
-            }
-            else  if (e < 0)
-            {
-                curType = SliceLineType::React;
-            }
-            else
-            {
-                curType = lastType;
+                switch (gcodeProcessor.eMoveType)
+                {
+                case EMoveType::Retract:
+                    curType = SliceLineType::Retract;
+                    break;
+                case EMoveType::Unretract:
+                    curType = SliceLineType::Unretract;
+                    break;
+                case EMoveType::Seam:
+                    break;
+                case EMoveType::Tool_change:
+                    break;
+                case EMoveType::Color_change:
+                    break;
+                case EMoveType::Pause_Print:
+                    break;
+                case EMoveType::Custom_GCode:
+                    break;
+                case EMoveType::Travel:
+                    curType = SliceLineType::Travel;
+                    break;
+                case EMoveType::Wipe:
+                    curType = SliceLineType::Wipe;
+                    break;
+                default:
+                    break;
+                }
             }
 
             if (command == "G0")
             {
+                for (auto& p : parameters)
+                {
+                    if (p.name == "F" || p.name == "f")
+                        pathData->setSpeed(p.double_value);
+                }
                 if (has_position_changed)
                 {
-                    for (auto& p : parameters)
-                    {
-                        if (p.name == "F" || p.name == "f")
-                            pathData->setSpeed(p.double_value);
-                    }
-
-                    //trimesh::vec3 v(p_source_position_->get_current_position_ptr()->x, p_source_position_->get_current_position_ptr()->y,
-                    //    p_source_position_->get_current_position_ptr()->z);
-                    //double e = p_source_position_->get_current_position_ptr()->get_current_extruder().e_relative;
-                    pathData->getPathData(v, e, (int)curType);
+                    pathData->getPathData(v, e, (int)curType, (sliceCompany == SliceCompany::bambu || sliceCompany == SliceCompany::prusa));
                 }
                 else
                     pathData->getNotPath();
             }
             else if (command == "G1")
             {
+                for (auto& p : parameters)
+                {
+                    if (p.name == "F" || p.name == "f")
+                        pathData->setSpeed(p.double_value);
+                }
                 if (has_position_changed)
                 {
-                    //trimesh::vec3 v1(p_source_position_->get_current_position_ptr()->x, p_source_position_->get_current_position_ptr()->y,
-                    //    p_source_position_->get_current_position_ptr()->z);
-
-                    for (auto& p : parameters)
-                    {
-                        //if (p.name == "Z" || p.name == "z")
-                        //    pathData->setZ(p.double_value, p.double_value);         
-                        if (p.name == "F" || p.name == "f")
-                            pathData->setSpeed(p.double_value);
-                    }
                     if (has_position_changed)
                     {
-                        //trimesh::vec3 v(p_source_position_->get_current_position_ptr()->x, p_source_position_->get_current_position_ptr()->y,
-                        //    p_source_position_->get_current_position_ptr()->z);
-                        //double e = p_source_position_->get_current_position_ptr()->get_current_extruder().e_relative;
-                        pathData->getPathData(v, e, (int)curType);
+                        if (detectZSeam(gcodeProcessor,v, vp))
+                        {
+                            pathData->getPathData(v, e, (int)curType, (sliceCompany == SliceCompany::bambu || sliceCompany == SliceCompany::prusa), true);
+                        }
+                        else
+                        {
+                            pathData->getPathData(v, e, (int)curType, (sliceCompany == SliceCompany::bambu || sliceCompany == SliceCompany::prusa));
+                        }    
                     }
                     else
                         pathData->getNotPath();
@@ -1748,32 +2439,30 @@ namespace gcode
                 if (command == "G3")
                     isG2 = false;
 
-                //trimesh::vec3 v(p_source_position_->get_current_position_ptr()->x, p_source_position_->get_current_position_ptr()->y,
-                //    p_source_position_->get_current_position_ptr()->z);
-                //double e = p_source_position_->get_current_position_ptr()->get_current_extruder().e_relative;
-
                 float i = 0.0f;
                 float j = 0.0f;
+                int _p = 0;
                 for (auto& p : parameters)
-                {
-                    //if (p.name == "Z" || p.name == "z")
-                    //    pathData->setZ(p.double_value, p.double_value);         
+                { 
                     if (p.name == "F" || p.name == "f")
                         pathData->setSpeed(p.double_value);
                     else if (p.name == "I" || p.name == "i")
                         i = p.double_value;
                     else if (p.name == "J" || p.name == "j")
                         j = p.double_value;
+                    else if (p.name == "P" || p.name == "p")
+                        _p = (int)p.double_value;
                 }
-                pathData->getPathDataG2G3(v, i, j, e, (int)curType, isG2);
-            }
-            else if (command == "T")
-            {
-                for (auto& p : parameters)
+
+                 if (detectZSeam(gcodeProcessor, v, vp))
                 {
-                    if (p.name == "T" || p.name == "t")
-                        pathData->setExtruder((int)p.unsigned_long_value);
+                    pathData->getPathDataG2G3(v, i, j, e, (int)curType,_p, isG2, (sliceCompany == SliceCompany::bambu || sliceCompany == SliceCompany::prusa),true);
                 }
+                else
+                {
+                    pathData->getPathDataG2G3(v, i, j, e, (int)curType,_p, isG2, (sliceCompany == SliceCompany::bambu || sliceCompany == SliceCompany::prusa));
+                }
+
             }
             else
                 pathData->getNotPath();
@@ -1794,36 +2483,516 @@ namespace gcode
         return size;
     }
 
-    void _paraseGcodeAndPreview(SliceCompany& sliceCompany, const std::string& gCodeFile, std::unordered_map<std::string, std::string>& kvs, trimesh::box3& box, GcodeTracer* pathData, ccglobal::Tracer* tracer = nullptr)
+    void process_M104(parsed_command& cmd, GcodeTracer* pathData)
+    {
+        //temp
+        //if (cmd.command == "M104" || cmd.command == "M109")
+        {
+            for (auto& p : cmd.parameters)
+            {
+                if (p.name == "S" || p.name == "s")
+                    pathData->setTEMP(p.double_value);
+            }
+        }
+    }
+
+    std::string removeTrailingNewline(std::string str) {
+        if (!str.empty() && str[str.size() - 1] == '\n') {
+            if (str.size() > 1 && str[str.size() - 2] == '\r') {
+                str.erase(str.size() - 2); // 去除"\r\n"
+            }
+            else {
+                str.erase(str.size() - 1); // 只去除"\n"
+            }
+        }
+        return str;
+    }
+
+    void process_M204(parsed_command& cmd, GcodeTracer* pathData)
+    {
+        //ACC
+        {
+            //M204 S500
+            std::vector<std::string> _kvs;
+            Stringsplit(cmd.gcode, ' ', _kvs);
+            for (size_t i = 0; i < _kvs.size(); i++)
+            {
+                if (_kvs[i].length() > 1 )
+                {
+                    if (_kvs[i][0] == 'S' || _kvs[i][0] == 's' || _kvs[i][0] == 'P' || _kvs[i][0] == 'T' || _kvs[i][0] == 'R')
+                    {
+                        std::string _value = _kvs[i].substr(1, _kvs[i].length());
+                        _value = removeTrailingNewline(_value);
+                        pathData->setAcc(atof(_value.c_str()));
+                    }
+                }
+            }
+            //for (auto& p : cmd.parameters)
+            //{
+            //    //"S" "P" acceleration ;  "R"retract_acceleration ; "T" travel_acceleration
+            //    if (p.name == "S" || p.name == "s" || p.name == "P" || p.name == "T" || p.name == "R")
+            //        pathData->setAcc(p.double_value);
+            //}
+        }
+    }
+
+    void process_M106(parsed_command& cmd, GcodeTracer* pathData)
+    {
+        //BBS: for Bambu machine ,we both use M106 P1 and M106 to indicate the part cooling fan
+        //So we must not ignore M106 P1
+        //if (cmd.command == "M106")
+        {
+            for (auto& p : cmd.parameters)
+            {
+                if (p.name == "S" || p.name == "s")
+                    pathData->setFan((100.0f / 255.0f) * p.double_value);
+                else if(p.name == "P" && p.double_value ==1.0f)
+                    pathData->setFan(100.0f);
+            }
+        }
+    }
+
+    void process_filaments(GCodeProcessor& gcodeProcessor,GCodeType code)
+    {
+        if (code == GCodeType::ColorChange)
+            gcodeProcessor.m_used_filaments.process_color_change_cache();
+
+        if (code == GCodeType::ToolChange) {
+            gcodeProcessor.m_used_filaments.process_extruder_cache(gcodeProcessor.m_extruder_id);
+            //BBS: reset remaining filament
+            gcodeProcessor.m_remaining_volume = gcodeProcessor.m_nozzle_volume;
+        }
+    }
+
+    void process_T(parsed_command& cmd, GCodeProcessor& gcodeProcessor, GcodeTracer* pathData)
+    {
+        //BBS: T255, T1000 and T1100 is used as special command for BBL machine and does not cost time. return directly
+        if (cmd.command.length() >= 1) {
+            int extruder_id = 0;
+            for (auto& p : cmd.parameters)
+            {
+                if (p.name == "T" || p.name == "t")
+                    if (p.unsigned_long_value >= 0 && p.unsigned_long_value <= 254)
+                    {
+                        extruder_id = p.unsigned_long_value;
+                        pathData->setExtruder((int)extruder_id);
+                        gcodeProcessor.gcodeParaseInfo.total_filamentchanges++;
+
+                        gcodeProcessor.extruders.insert(extruder_id);
+                    }
+            }
+            if (extruder_id >= 0 && extruder_id <= 254
+                &&extruder_id != gcodeProcessor.m_extruder_id)
+            {
+                //if (id >= m_result.extruders_count) {}
+
+                auto iter = gcodeProcessor.extruders.find(gcodeProcessor.m_extruder_id);
+                if (iter == gcodeProcessor.extruders.end() && gcodeProcessor.m_extruder_id == 0)
+                {
+                    gcodeProcessor.m_extruder_id = extruder_id;
+                }
+
+                gcodeProcessor.m_last_extruder_id = gcodeProcessor.m_extruder_id;
+                process_filaments(gcodeProcessor, GCodeType::ToolChange);
+                gcodeProcessor.m_extruder_id = extruder_id;
+
+                //todo  加载耗材时间
+            }
+        }
+        pathData->getNotPath();
+    }
+
+    void process_G1(GCodeProcessor& pathParam)
+    {
+        float filament_diameter = 1.75f;
+        if (!pathParam.filament_diameters.empty()
+            && pathParam.m_extruder_id >=0  
+            && pathParam.m_extruder_id < pathParam.filament_diameters.size())
+        {
+            filament_diameter = pathParam.filament_diameters[pathParam.m_extruder_id];
+        }
+
+        float filament_radius = 0.5f * filament_diameter;
+        float area_filament_cross_section = static_cast<float>(M_PI) * sqr(filament_radius);
+
+        auto move_type = [&]() {
+            EMoveType type = EMoveType::Noop;
+
+            if (pathParam.m_wiping) {
+                type = EMoveType::Wipe;
+                pathParam.eMoveType = type;
+            }
+            else if (pathParam.current_e < 0.0f)
+            {
+                type = (pathParam.current_v.x != 0.0f || pathParam.current_v.y != 0.0f || pathParam.current_v.z != 0.0f) ? EMoveType::Travel : EMoveType::Retract;           
+                pathParam.eMoveType = type == EMoveType::Travel ? EMoveType::Travel : EMoveType::Retract;
+            }
+            else if (pathParam.current_e > 0.0f) {
+                if (pathParam.current_v.x == 0.0f && pathParam.current_v.y == 0.0f)
+                {
+                    type = (pathParam.current_v.z == 0.0f) ? EMoveType::Unretract : EMoveType::Travel;
+                    pathParam.eMoveType = type == EMoveType::Unretract ? EMoveType::Unretract : EMoveType::Travel;
+                }
+                else if (pathParam.current_v.x != 0.0f || pathParam.current_v.y != 0.0f)
+                {
+                    type = EMoveType::Extrude;
+                    pathParam.eMoveType = EMoveType::Extrude;
+                }
+            }
+            else if (pathParam.current_v.x != 0.0f || pathParam.current_v.y != 0.0f || pathParam.current_v.z != 0.0f)
+            {
+                type = EMoveType::Travel;
+                pathParam.eMoveType = EMoveType::Travel;
+            }
+
+            return type;
+        };
+
+        EMoveType type = move_type();
+        if (type == EMoveType::Extrude) {
+            float volume_extruded_filament = area_filament_cross_section * pathParam.current_e;
+
+            // save extruded volume to the cache
+            if(pathParam.curType == SliceLineType::erWipeTower)
+                pathParam.m_used_filaments.increase_color_change_caches(volume_extruded_filament);
+            else
+            {
+                pathParam.m_used_filaments.increase_caches(volume_extruded_filament);
+            }
+
+        }
+        else if (type == EMoveType::Unretract && pathParam.m_flushing) {
+            float volume_flushed_filament = area_filament_cross_section * pathParam.current_e;
+            if (pathParam.m_remaining_volume > volume_flushed_filament)
+            {
+                pathParam.m_used_filaments.update_flush_per_filament(pathParam.m_last_extruder_id, volume_flushed_filament);
+                pathParam.m_remaining_volume -= volume_flushed_filament;
+            }
+            else {
+                pathParam.m_used_filaments.update_flush_per_filament(pathParam.m_last_extruder_id, pathParam.m_remaining_volume);
+                pathParam.m_used_filaments.update_flush_per_filament(pathParam.m_extruder_id, volume_flushed_filament - pathParam.m_remaining_volume);
+                pathParam.m_remaining_volume = 0.f;
+            }
+        }
+        else  if (type == EMoveType::Wipe)
+        {
+            float volume_extruded_filament = area_filament_cross_section * pathParam.current_e;
+            // save extruded volume to the cache
+            //pathParam.m_used_filaments.increase_color_change_caches(volume_extruded_filament);
+        }
+    }
+
+    void getDefineTEMP(const std::string& comment, GCodeProcessor& pathParam, GcodeTracer* pathData)
+    {
+        if (comment.find("START_PRINT") != std::string::npos)
+        {
+            std::vector<std::string> _kvs;
+            Stringsplit(comment, ' ', _kvs);
+            for (std::string& str : _kvs)
+            {
+                if (str.find("EXTRUDER_TEMP") != std::string::npos)
+                {
+                    std::vector<std::string> kvs;
+                    Stringsplit(str, '=', kvs);
+                    if (kvs.size()>1)
+                    {
+                        pathData->setTEMP(atoi(kvs[1].c_str()));
+                        pathParam.have_start_print = true;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    void getACCEL(const std::string& comment, GCodeProcessor& pathParam, GcodeTracer* pathData)
+    {
+        if (comment.find("SET_VELOCITY_LIMIT") != std::string::npos)
+        {
+            std::vector<std::string> _kvs;
+            Stringsplit(comment, ' ', _kvs);
+            for (std::string& str : _kvs)
+            {
+                if (str.find("ACCEL") != std::string::npos)
+                {
+                    std::vector<std::string> kvs;
+                    Stringsplit(str, '=', kvs);
+                    if (kvs.size() > 1)
+                    {
+                        pathData->setAcc(atoi(kvs[1].c_str()));
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    void parese_manual_tool_change(parsed_command& cmd)
+    {
+        if (cmd.comment.find("MANUAL_TOOL_CHANGE") != std::string::npos)
+        {
+            std::vector<std::string> _kvs;
+            removeSpace(cmd.comment);
+            Stringsplit(cmd.comment, ' ', _kvs);
+            if (_kvs.size() > 1)
+            {
+                cmd.command = _kvs[1];
+
+                std::vector<std::string> __kvs;
+                Stringsplit(_kvs[1], 'T', __kvs);
+                if (__kvs.size() > 1)
+                {
+                    cmd.parameters.push_back(parsed_command_parameter("T", atoi(__kvs[1].c_str())));
+                }
+            }
+        }
+    }
+
+    void process_gcode_line(parsed_command& cmd, GCodeProcessor& pathParam, SliceLineType& curType, GcodeTracer* pathData)
+    {
+        //START_PRINT EXTRUDER_TEMP=220 BED_TEMP=60
+        if (!cmd.gcode.empty() && !pathParam.have_start_print)
+            getDefineTEMP(cmd.gcode, pathParam,pathData);
+
+        if (!cmd.gcode.empty())
+            getACCEL(cmd.gcode, pathParam, pathData);
+
+        parese_manual_tool_change(cmd);
+
+        if (cmd.command.length() >=1 ) {
+            switch (cmd.command[0])
+            {
+            case 'g':
+            case 'G':
+                switch (cmd.command.size()) 
+                {
+                case 2:
+                    switch (cmd.command[1]) {
+                    case '0': //{ process_G0(line); break; }  // Move
+                    case '1': //{ process_G1(pathParam); break; }  // Move
+                    case '2':
+                    case '3': //{ process_G2_G3(line); break; }  // Move
+                    { process_G1(pathParam); break; }
+                    //BBS
+                    //case 4: { process_G4(line); break; }  // Delay
+                    default: break;
+                    }
+                    break;
+                case 3:
+                    switch (cmd.command[1]) {
+                    case '1':
+                        switch (cmd.command[2]) {
+                        //case '0': { process_G10(line); break; } // Retract
+                        //case '1': { process_G11(line); break; } // Unretract
+                        default: break;
+                        }
+                        break;
+                    case '2':
+                        switch (cmd.command[2]) {
+                        //case '0': { process_G20(line); break; } // Set Units to Inches
+                        //case '1': { process_G21(line); break; } // Set Units to Millimeters
+                        //case '2': { process_G22(line); break; } // Firmware controlled retract
+                        //case '3': { process_G23(line); break; } // Firmware controlled unretract
+                        //case '8': { process_G28(line); break; } // Move to origin
+                        //case '9': { process_G29(line); break; }
+                        default: break;
+                        }
+                        break;
+                    case '9':
+                        switch (cmd.command[2]) {
+                        //case '0': { process_G90(line); break; } // Set to Absolute Positioning
+                        //case '1': { process_G91(line); break; } // Set to Relative Positioning
+                        //case '2': { process_G92(line); break; } // Set Position
+                        default: break;
+                        }
+                        break;
+                    }
+                    break;
+                default:
+                    break;
+                }
+                break;
+            case 'm':
+            case 'M':
+                switch (cmd.command.size()) {
+                case 2:
+                    switch (cmd.command[1]) {
+                    //case '1': { process_M1(line); break; }   // Sleep or Conditional stop
+                    default: break;
+                    }
+                    break;
+                case 3:
+                    switch (cmd.command[1]) {
+                    case '8':
+                        switch (cmd.command[2]) {
+                        //case '2': { process_M82(line); break; }  // Set extruder to absolute mode
+                        //case '3': { process_M83(line); break; }  // Set extruder to relative mode
+                        default: break;
+                        }
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                case 4:
+                    switch (cmd.command[1]) {
+                    case '1':
+                        switch (cmd.command[2]) {
+                        case '0':
+                            switch (cmd.command[3]) {
+                            case '4': { 
+                                if (pathParam.curType != SliceLineType::erCustom)
+                                    process_M104(cmd, pathData); 
+                                break; 
+                            } // Set extruder temperature
+                            case '6': {  process_M106(cmd, pathData); break;  } // Set fan speed
+                            //case '7': { process_M107(line); break; } // Disable fan
+                            //case '8': { process_M108(line); break; } // Set tool (Sailfish)
+                            case '9': {                                 
+                                if (pathParam.curType != SliceLineType::erCustom)
+                                    process_M104(cmd, pathData);
+                                break;
+                            } // Set extruder temperature
+                            default: break;
+                            }
+                            break;
+                        case '3':
+                            switch (cmd.command[3]) {
+                            //case '2': { process_M132(line); break; } // Recall stored home offsets
+                            //case '5': { process_M135(line); break; } // Set tool (MakerWare)
+                            default: break;
+                            }
+                            break;
+                        case '4':
+                            switch (cmd.command[3]) {
+                            //case '0': { process_M140(cmd, pathData); break; } // Set bed temperature
+                            default: break;
+                            }
+                        case '9':
+                            switch (cmd.command[3]) {
+                            //case '0': { process_M190(line); break; } // Wait bed temperature
+                            default: break;
+                            }
+                        default:
+                            break;
+                        }
+                        break;
+                    case '2':
+                        switch (cmd.command[2]) {
+                        case '0':
+                            switch (cmd.command[3]) {
+                            //case '1': { process_M201(line); break; } // Set max printing acceleration
+                            //case '3': { process_M203(line); break; } // Set maximum feedrate
+                            case '4': { process_M204(cmd, pathData); break; } // Set default acceleration
+                            //case '5': { process_M205(line); break; } // Advanced settings
+                            default: break;
+                            }
+                            break;
+                        case '2':
+                            switch (cmd.command[3]) {
+                            //case '1': { process_M221(line); break; } // Set extrude factor override percentage
+                            default: break;
+                            }
+                            break;
+                        default:
+                            break;
+                        }
+                        break;
+                    case '4':
+                        switch (cmd.command[2]) {
+                        case '0':
+                            switch (cmd.command[3]) {
+                                //BBS
+                            //case '0': { process_M400(line); break; } // BBS delay
+                            //case '1': { process_M401(line); break; } // Repetier: Store x, y and z position
+                            //case '2': { process_M402(line); break; } // Repetier: Go to stored position
+                            default: break;
+                            }
+                            break;
+                        default:
+                            break;
+                        }
+                        break;
+                    case '5':
+                        switch (cmd.command[2]) {
+                        case '6':
+                            switch (cmd.command[3]) {
+                            //case '6': { process_M566(line); break; } // Set allowable instantaneous speed change
+                            default: break;
+                            }
+                            break;
+                        default:
+                            break;
+                        }
+                        break;
+                    case '7':
+                        switch (cmd.command[2]) {
+                        case '0':
+                            switch (cmd.command[3]) {
+                            //case '2': { process_M702(line); break; } // Unload the current filament into the MK3 MMU2 unit at the end of print.
+                            default: break;
+                            }
+                            break;
+                        default:
+                            break;
+                        }
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                default:
+                    break;
+                }
+                break;
+            case 't':
+            case 'T':
+                process_T(cmd, pathParam, pathData); // Select Tool
+                break;
+            default:
+                break;
+            }      
+        }
+    }
+
+    void process_tags(GCodeProcessor& gcodeProcessor)
+    {
+        
+    }
+
+    void _paraseGcodeAndPreview(const std::string& gCodeFile
+        ,GCodeProcessor& gcodeProcessor
+        , GcodeTracer* pathData, ccglobal::Tracer* tracer = nullptr)
     {
         //temp
         std::vector<std::vector<SliceLine3D>> m_sliceLayers;
 
+        std::unordered_map<std::string, std::string>& kvs = gcodeProcessor.kvs;
+        SliceCompany& sliceCompany = gcodeProcessor.sliceCompany;
+
         std::vector<SliceLine3D > m_sliceLines;
         const char* path = gCodeFile.data();
-        //sphere
         gcode_parser parser_;
-        //std::ifstream gcode_file;
-        //gcode_file.open(path);
 
         FILE* gcode_file = boost::nowide::fopen(gCodeFile.c_str(), "rb");
 
         int lines_with_no_commands = 0;
-        //gcode_file.sync_with_stdio(false);
-
         gcode_parser parser;
         int gcodes_processed = 0;
         int lines_processed_ = 0;
         bool is_shell = true; 
 
         std::shared_ptr<gcode_position> p_source_position_(new gcode_position(get_args_(DEFAULT_G90_G91_INFLUENCES_EXTRUDER, DEFAULT_GCODE_BUFFER_SIZE)));
-        //gcode_position* p_source_position_ = );
 
         bool haveLayerHeight = false;
         bool haveLayerCount = false;
 
-        SliceLineType curType(SliceLineType::NoneType);
-        SliceLineType lastType(SliceLineType::NoneType);
+        bool loadInitWiDth = false;
+
+        bool bDataValiable = false;
+
+        //SliceLineType curType(SliceLineType::NoneType);
+        //SliceLineType lastType(SliceLineType::NoneType);
         if (gcode_file != nullptr)
         {
             int curLayer = 0;
@@ -1831,9 +3000,9 @@ namespace gcode
             parsed_command cmd;
             bool is_get_company = false;
             std::string gcode_layer_data = "";
-            //while (std::getline(gcode_file, line))
-
+            bool isToolChange = false;
             char _line[1024] = { '\0' };
+
             while (!feof(gcode_file))
             {
                 fgets(_line, 1024, gcode_file);
@@ -1861,9 +3030,26 @@ namespace gcode
                 gcode_comment_processor* gcode_comment_processor = p_source_position_->get_gcode_comment_processor();
 
                 getKvs(cmd.comment, sliceCompany, kvs);
-                _paraseKvs(sliceCompany,box,kvs,true);
+                _paraseKvs(gcodeProcessor, gcodeProcessor.box,true);
+
+                _detect_image(gcodeProcessor,cmd.comment);
 
                 _detect_gcode_company(is_get_company, cmd.comment, sliceCompany);
+
+                if (curLayer <= 0 
+                    && (cmd.comment == "===== noozle load line ==============================="
+                        || gcodeProcessor.curType != SliceLineType::NoneType))
+                {
+                    gcodeProcessor.haveStartCmd = true;
+                    startLayer = true;
+
+                    if (!bDataValiable)
+                    {
+                        gcode_layer_data.clear();
+                        gcode_layer_data += line.c_str();
+                        bDataValiable = true;
+                    }
+                }
 
                 auto iter = kvs.find("layer_count");
                 if (iter != kvs.end() && !haveLayerCount)
@@ -1872,26 +3058,68 @@ namespace gcode
                     haveLayerCount = true;
                 }
 
-                //temp
-                if (cmd.command == "M104" || cmd.command == "109")
+                iter = kvs.find("filament_colour");
+                if (iter != kvs.end() && !haveLayerCount)
                 {
-                    for (auto& p : cmd.parameters)
+                    pathData->setNozzleColorList(iter->second);
+                    haveLayerCount = true;
+                }   
+
+                //add init width
+                if (!loadInitWiDth)
+                {
+                    iter = kvs.find("external perimeters extrusion width");
+                    if (iter != kvs.end())
                     {
-                        if (p.name == "S" || p.name == "s")
-                            pathData->setTEMP(p.double_value);
+                        std::vector<std::string> widths;
+                        Stringsplit(iter->second, 'mm', widths);
+                        if (!widths.empty())
+                        {
+                            pathData->setWidth(std::atof(widths[0].c_str()));
+                        }
+                        loadInitWiDth = true;
                     }
                 }
 
-                //Fan
-                if (cmd.command == "M106")
+                iter = kvs.find("WIDTH");
+                if (iter != kvs.end())
                 {
-                    for (auto& p : cmd.parameters)
-                    {
-                        if (p.name == "S" || p.name == "s")
-                            pathData->setFan(p.double_value);
-                    }
+                    pathData->setWidth(std::atof(iter->second.c_str()));
+                    kvs.erase(iter);
                 }
 
+                iter = kvs.find("LINE_WIDTH");
+                if (iter != kvs.end())
+                {
+                    pathData->setWidth(std::atof(iter->second.c_str()));
+                    kvs.erase(iter);
+                }
+
+                iter = kvs.find("Z_HEIGHT");
+                if (iter != kvs.end())
+                {
+                    pathData->setLayerHeight(std::atof(iter->second.c_str()));
+                    kvs.erase(iter);
+                }
+
+                if (curLayer > 0)
+                {
+                    iter = kvs.find("PAUSE_PRINTING");
+                    if (iter != kvs.end())
+                    {
+                        pathData->setLayerPause(curLayer - 1);
+                        kvs.erase(iter);
+                    }
+                    else
+                    {
+                        iter = kvs.find("PAUSE_PRINT");
+                        if (iter != kvs.end())
+                        {
+                            pathData->setLayerPause(curLayer - 1);
+                            kvs.erase(iter);
+                        }
+                    }
+                }
                 //relative extrusion
                 if (cmd.command == "M83" || cmd.command == "G91")
                 {
@@ -1900,64 +3128,120 @@ namespace gcode
                 }
 
                 //must have : layer height
-                _detect_height(kvs,haveLayerHeight, pathData);
+                _detect_height(kvs,gcodeProcessor,haveLayerHeight, pathData);
 
                 //must have : per layer
-                _detect_layer(kvs, gcode_layer_data, startLayer, curLayer, pathData);
+                _detect_layer(gcodeProcessor, gcode_layer_data, startLayer, curLayer, pathData);
 
                 //must have : per path type
-                _detect_type(kvs, curType, lastType);
+                _detect_type(kvs, gcodeProcessor);
+
+                gcodeProcessor.current_e = p_source_position_->get_current_position_ptr()->get_current_extruder().e_relative;
+
+                trimesh::vec3 _v(0.0f, 0.0f, 0.0f);
+                for (auto& p : cmd.parameters)
+                {
+                    if (p.name == "X" || p.name == "x")
+                        _v.x = p.double_value;
+                    if (p.name == "Y" || p.name == "y")
+                        _v.y = p.double_value;
+                    if (p.name == "Z" || p.name == "z")
+                        _v.z = p.double_value;
+                }  
+                gcodeProcessor.current_v = _v;
+                process_gcode_line(cmd, gcodeProcessor, gcodeProcessor.curType,pathData);
 
                 //path
                 if (startLayer)
                 {
-                    double e = p_source_position_->get_current_position_ptr()->get_current_extruder().e_relative;
+                    //double e = p_source_position_->get_current_position_ptr()->get_current_extruder().e_relative;
                     bool is_travel =p_source_position_->get_current_position_ptr()->is_travel();
                     bool has_position_changed = p_source_position_->get_current_position_ptr()->has_position_changed;
 
                     trimesh::vec3 v(p_source_position_->get_current_position_ptr()->x, p_source_position_->get_current_position_ptr()->y,
                         p_source_position_->get_current_position_ptr()->z);
 
+                    trimesh::vec3 vp(p_source_position_->get_previous_position_ptr()->x, p_source_position_->get_previous_position_ptr()->y,
+                        p_source_position_->get_previous_position_ptr()->z);
+
                     _get_path(cmd.command, cmd.parameters
-                        , e
+                        , gcodeProcessor
                         , is_travel
                         , has_position_changed
                         , v
-                        , curType
-                        , lastType
-                        , pathData);
+                        , vp
+                        , pathData
+                        ,sliceCompany);
                 }
 
                 //get box
                 if ((cmd.command == "G1" || cmd.command == "G2" || cmd.command == "G3")
-                    && (curType != SliceLineType::React && curType != SliceLineType::Travel))
+                    && (gcodeProcessor.eMoveType != EMoveType::Retract && gcodeProcessor.eMoveType != EMoveType::Travel))
                 {
                     trimesh::vec3 v3(p_source_position_->get_previous_position_ptr()->x, p_source_position_->get_previous_position_ptr()->y,
                         p_source_position_->get_previous_position_ptr()->z);
                     trimesh::vec3 v4(p_source_position_->get_current_position_ptr()->x, p_source_position_->get_current_position_ptr()->y,
                         p_source_position_->get_current_position_ptr()->z);
 
-                    box += v3;
-                    box += v4;
+                    gcodeProcessor.box += v3;
+                    gcodeProcessor.box += v4;
                 }
             }
 
             if (!gcode_layer_data.empty())
             {
-                pathData->set_data_gcodelayer(curLayer, gcode_layer_data);
-                //pathData->setLayer(curLayer);
+                pathData->set_data_gcodelayer(curLayer-1, gcode_layer_data);
+                pathData->setLayer(curLayer);
             }
 
-            kvs.insert(std::make_pair("box_max_x", std::to_string(box.size().x)));
-            kvs.insert(std::make_pair("box_max_y", std::to_string(box.size().y)));
-            kvs.insert(std::make_pair("box_max_z", std::to_string(box.size().z)));
+            auto iter1 = kvs.find("TIME_ELAPSED");
+            if (iter1 != kvs.end())
+            {
+                pathData->setTime(std::atoi(iter1->second.c_str()));
+                kvs.erase(iter1);
+            }
+
+            kvs.insert(std::make_pair("box_max_x", std::to_string(gcodeProcessor.box.size().x)));
+            kvs.insert(std::make_pair("box_max_y", std::to_string(gcodeProcessor.box.size().y)));
+            kvs.insert(std::make_pair("box_max_z", std::to_string(gcodeProcessor.box.size().z)));
             kvs.insert(std::make_pair("layer_count", std::to_string(m_sliceLayers.size())));
-            float averageThickness = box.size().z / (float)m_sliceLayers.size();
+            float averageThickness = gcodeProcessor.box.size().z / (float)m_sliceLayers.size();
             kvs.insert(std::make_pair("averageThickness", std::to_string(averageThickness)));
 
             size_t fileSize = getFileSize(gcode_file);
             kvs.insert(std::make_pair("fileSize", std::to_string(fileSize)));
         }
+
+        gcodeProcessor.m_used_filaments.process_color_change_cache();
+
+        if (!gcodeProcessor.extruders.empty())
+        {
+            auto iter = gcodeProcessor.extruders.find(gcodeProcessor.m_extruder_id);
+            if (iter == gcodeProcessor.extruders.end() && gcodeProcessor.m_extruder_id == 0)
+            {
+                auto it = gcodeProcessor.extruders.end();
+                it--;
+                gcodeProcessor.m_extruder_id =  *it;
+            }
+        }
+        gcodeProcessor.m_used_filaments.process_extruder_cache(gcodeProcessor.m_extruder_id);
+        //process_role_cache
+
+        if (!gcodeProcessor.images.empty())
+        {
+            std::vector<std::pair<trimesh::ivec2, std::vector<unsigned char>>> images;
+
+            std::vector<std::string> inPrevData;
+            for (auto& str : gcodeProcessor.images)
+            {
+                inPrevData.push_back(str.second);
+                images.push_back(std::pair<trimesh::ivec2, std::vector<unsigned char>>(str.first, std::vector<unsigned char>()));
+                gcode::thumbnail_base2image(inPrevData, images.back().second);
+            }
+            pathData->writeImages(images);
+            gcodeProcessor.images.clear();
+        }
+
 
         if (gcode_file)
             fclose(gcode_file);
@@ -2029,11 +3313,148 @@ namespace gcode
         kvs.swap(Newkvs);
     }
 
-    //设置参数
-    void _setParam(const std::unordered_map<std::string, std::string>& kvs, gcode::GCodeParseInfo& pathParam)
+    void deal_roles_times(const std::vector<std::pair<int, float>>& moves_times, std::vector<std::pair<int, float>>& times)
     {
+        for (auto& custom_gcode_time : moves_times)
+        {
+            auto funPushTimes = [](int role, float time, std::vector<std::pair<int, float>>& times) {
+                std::pair<int, float> _pair;
+                _pair.first = role;
+                _pair.second = time;
+                times.push_back(_pair);
+            };
+            int role = 1;
+            switch (custom_gcode_time.first)
+            {
+            case 1://Slic3r::ExtrusionRole::erPerimeter:
+                role = static_cast<int>(SliceLineType::erPerimeter);
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 2://Slic3r::ExtrusionRole::erExternalPerimeter:
+                role = static_cast<int>(SliceLineType::erExternalPerimeter);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 3://Slic3r::ExtrusionRole::erOverhangPerimeter:
+                role = static_cast<int>(SliceLineType::erOverhangPerimeter);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 4://Slic3r::ExtrusionRole::erInternalInfill:
+                role = static_cast<int>(SliceLineType::erInternalInfill);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 5://Slic3r::ExtrusionRole::erSolidInfill:
+                role = static_cast<int>(SliceLineType::erSolidInfill);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 6://Slic3r::ExtrusionRole::erTopSolidInfill:
+                role = static_cast<int>(SliceLineType::erTopSolidInfill);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 7://Slic3r::ExtrusionRole::erBottomSurface:
+                role = static_cast<int>(SliceLineType::erBottomSurface);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 8://Slic3r::ExtrusionRole::erIroning:
+                role = static_cast<int>(SliceLineType::erIroning);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 9://Slic3r::ExtrusionRole::erBridgeInfill:
+                role = static_cast<int>(SliceLineType::erBridgeInfill);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 10://Slic3r::ExtrusionRole::erInternalBridgeInfill:
+                role = static_cast<int>(SliceLineType::erInternalBridgeInfill);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 11://Slic3r::ExtrusionRole::erGapFill:
+                role = static_cast<int>(SliceLineType::erGapFill);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 12://Slic3r::ExtrusionRole::erSkirt:
+                role = static_cast<int>(SliceLineType::erSkirt);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 13://Slic3r::ExtrusionRole::erBrim:
+                role = static_cast<int>(SliceLineType::erBrim);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 14://Slic3r::ExtrusionRole::erSupportMaterial:
+                role = static_cast<int>(SliceLineType::erSupportMaterial);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 15://Slic3r::ExtrusionRole::erSupportMaterialInterface:
+                role = static_cast<int>(SliceLineType::erSupportMaterialInterface);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 16://Slic3r::ExtrusionRole::erSupportTransition:
+                role = static_cast<int>(SliceLineType::erSupportTransition);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 17://Slic3r::ExtrusionRole::erWipeTower:
+                role = static_cast<int>(SliceLineType::erWipeTower);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 18://Slic3r::ExtrusionRole::erCustom:
+                role = static_cast<int>(SliceLineType::erCustom);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 19://Slic3r::ExtrusionRole::erMixed:
+                role = static_cast<int>(SliceLineType::erMixed);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            case 20://Slic3r::ExtrusionRole::erCount:
+                role = static_cast<int>(SliceLineType::erCount);;
+                funPushTimes(role, custom_gcode_time.second, times);
+                break;
+            default:
+                break;
+            }
+            //if(_pair.first == 2)
+            //    _pair.first = 1;
+            //else if (_pair.first >0 )
+            //    _pair.first += 19;
+
+
+
+        }
+    }
+
+    void deal_moves_times(const std::vector<std::pair<int, float>>& roles_times, std::vector<std::pair<int, float>>& times)
+    {
+        for (auto& custom_gcode_time : roles_times)
+        {
+            std::pair<int, float> _pair;
+            _pair.first = (int)custom_gcode_time.first;
+
+            if (_pair.first == 1)
+            {
+                _pair.first = 14;
+            }
+            else if (_pair.first == 8)
+            {
+                _pair.first = 13;
+            }
+            else
+            {
+                _pair.first += 40;
+            }
+            _pair.second = custom_gcode_time.second;
+            times.push_back(_pair);
+        }
+    }
+
+    //设置参数
+    void _setParam(GCodeProcessor& gcodeProcessor)
+    {
+        std::unordered_map<std::string, std::string>& kvs = gcodeProcessor.kvs;
+
+        GCodeParseInfo& pathParam = gcodeProcessor.gcodeParaseInfo;
+
+        if (gcodeProcessor.sliceCompany == SliceCompany::bambu)
+        {
+            pathParam.producer = GProducer::OrcaSlicer;
+        }
         pathParam.printTime = std::atof(getValue(kvs,"print_time").c_str());
-        pathParam.printTime = std::atof(getValue(kvs, "print_time").c_str());
         //float machine_height;
         //float machine_width;
         //float machine_depth;
@@ -2047,7 +3468,9 @@ namespace gcode
         pathParam.materialDensity = M_PI * (pathParam.material_diameter * 0.5) * (pathParam.material_diameter * 0.5) * pathParam.material_density;//单位面积密度
         pathParam.lineWidth = std::atof(getValue(kvs, "wall_line_width").c_str());
         pathParam.layerHeight = std::atof(getValue(kvs, "layer_height").c_str());
-        float filament_cost = std::atof(getValue(kvs, "filament_cost").c_str());
+        pathParam.cost = std::atof(getValue(kvs, "gcode_filament_cost").c_str());
+        pathParam.weight = std::atof(getValue(kvs, "filament_weight").c_str());
+        float filament_cost = std::atof(getValue(kvs, "gcode_filament_cost").c_str());
         pathParam.unitPrice = pathParam.materialLenth > 0.0f ? filament_cost / pathParam.materialLenth : 0.0f;
         pathParam.relativeExtrude = std::atoi(getValue(kvs, "relative_extrusion").c_str()) == 1 ? true: false;
 
@@ -2061,6 +3484,112 @@ namespace gcode
         pathParam.timeParts.MoveCombing = std::atof(getValue(kvs, "Combing Time").c_str());
         pathParam.timeParts.MoveRetraction = std::atof(getValue(kvs, "Retraction Time").c_str());
         pathParam.timeParts.PrimeTower = std::atof(getValue(kvs, "PrimeTower Time").c_str());
+
+        if (gcodeProcessor.filament_diameters.empty())
+        {
+            gcodeProcessor.filament_diameters.push_back(1.75);
+        }
+        if (gcodeProcessor.material_densitys.empty())
+        {
+            gcodeProcessor.material_densitys.push_back(1.24);
+        }
+
+        for (auto&f :  gcodeProcessor.m_used_filaments.volumes_per_extruder)
+        {
+            if (f.first < 0 || f.first > 254)
+                continue;
+            float filament_radius = 0.5f * gcodeProcessor.filament_diameters[f.first % gcodeProcessor.filament_diameters.size()];
+            float filament_density = gcodeProcessor.material_densitys[f.first % gcodeProcessor.material_densitys.size()];
+            double s = M_PI * sqr(filament_radius) > 0.0f? M_PI * sqr(filament_radius) : 1.0f;
+            float used_filament = f.second / s * 0.001;
+            float weight = f.second * filament_density * 0.001;
+            pathParam.volumes_per_extruder.push_back(std::pair(f.first,used_filament));
+            pathParam.volumes_per_extruder.push_back(std::pair(f.first, weight));
+        }
+        for (auto& f : gcodeProcessor.m_used_filaments.flush_per_filament)
+        {
+            if (f.first < 0 || f.first > 254)
+                continue;
+            float filament_radius = 0.5f * gcodeProcessor.filament_diameters[f.first % gcodeProcessor.filament_diameters.size()];
+            float filament_density = gcodeProcessor.material_densitys[f.first % gcodeProcessor.material_densitys.size()];
+            double s = M_PI * sqr(filament_radius) > 0.0f ? M_PI * sqr(filament_radius) : 1.0f;
+            float used_filament = f.second / s * 0.001;
+            float weight = f.second * filament_density * 0.001;
+            pathParam.flush_per_filament.push_back(std::pair(f.first, used_filament));
+            pathParam.flush_per_filament.push_back(std::pair(f.first, weight));
+            pathParam.weight += weight;
+        }
+        for (auto& f : gcodeProcessor.m_used_filaments.volumes_per_tower)
+        {
+            if (f.first < 0 || f.first > 254)
+                continue;
+            float filament_radius = 0.5f * gcodeProcessor.filament_diameters[f.first % gcodeProcessor.filament_diameters.size()];
+            float filament_density = gcodeProcessor.material_densitys[f.first % gcodeProcessor.material_densitys.size()];
+            double s = M_PI * sqr(filament_radius) > 0.0f ? M_PI * sqr(filament_radius) : 1.0f;
+            float used_filament = f.second / s * 0.001;
+            float weight = f.second * filament_density * 0.001;
+            pathParam.volumes_per_tower.push_back(std::pair(f.first, used_filament));
+            pathParam.volumes_per_tower.push_back(std::pair(f.first, weight));
+        }
+
+
+        //; type_times_1 =  1,5.778656; 2,5.746951; 8,20.648708; 10,399.188141;
+        //; type_times_2 =  0,20.648708; 1,150.658997; 2,86.188622; 4,142.359619; 5,16.140944; 7,6.060084; 10,9.247404; 18,1.099889; 
+        std::string moves_times = getValue(kvs, "type_times_1");
+        std::string roles_times = getValue(kvs, "type_times_2");
+        std::string model_time = getValue(kvs, "type_times_3");
+
+        std::vector<std::pair<int, float>> roles_times_pair;
+        std::vector<std::pair<int, float>> moves_times_pair;
+
+        std::vector<std::string> _moves_times;
+        Stringsplit(moves_times,';', _moves_times);
+        for (auto move_time : _moves_times)
+        {
+            if (!move_time.empty())
+            {
+                std::vector<std::string> _moves_time;
+                Stringsplit(move_time, ',', _moves_time);
+                if (_moves_time.size() > 1)
+                {
+                    std::pair<int, float> _pair;
+                    moves_times_pair.push_back(std::pair(std::atoi(_moves_time[0].c_str()), std::atof(_moves_time[1].c_str())));
+                }
+            }
+        }
+        if (!moves_times_pair.empty())
+        {
+            pathParam.have_roles_time = true;
+            deal_moves_times(moves_times_pair, pathParam.roles_time);
+        }
+
+        std::vector<std::string> _roles_times;
+        Stringsplit(roles_times, ';', _roles_times);
+        for (auto roles_time : _roles_times)
+        {
+            if (!roles_time.empty())
+            {
+                std::vector<std::string> _roles_time;
+                Stringsplit(roles_time, ',', _roles_time);
+                if (_roles_time.size() > 1)
+                {
+                    std::pair<int, float> _pair;
+                    roles_times_pair.push_back(std::pair(std::atoi(_roles_time[0].c_str()), std::atof(_roles_time[1].c_str())));
+                }
+            }
+        }
+        if (!roles_times_pair.empty())
+        {
+            pathParam.have_roles_time = true;
+            deal_roles_times(roles_times_pair, pathParam.roles_time);
+        }
+
+        if (!model_time.empty())
+        {
+            pathParam.have_roles_time = true;
+            pathParam.printTime = std::atof(model_time.c_str());
+        }
+
     }
 
     void paraseGcode(const std::string& gCodeFile, std::vector<std::vector<SliceLine3D>>& m_sliceLayers, trimesh::box3& box, std::unordered_map<std::string, std::string>& kvs, ccglobal::Tracer* tracer)
@@ -2071,7 +3600,7 @@ namespace gcode
         _paraseGcode(sliceCompany,gCodeFile,box,m_sliceLayers,kvs);
 
         //解析成通用参数
-        _paraseKvs(sliceCompany, box, kvs);
+        //_paraseKvs(sliceCompany, box, kvs);
 
         //过滤其他参数
         _removeOthersKvs(kvs);
@@ -2083,19 +3612,22 @@ namespace gcode
         {
             return;
         }
-        SliceCompany sliceCompany = SliceCompany::none;
-        std::unordered_map<std::string, std::string> kvs;
-        GCodeParseInfo pathParam;
+        GCodeProcessor gcodeProcessor;
+        gcodeProcessor.m_used_filaments.reset();
+
+        //double s = PI * sqr(0.5* extruder->filament_diameter());
+        //double weight = volume.second * extruder->filament_density() * 0.001;
+        //total_used_filament += volume.second / s;
 
         //获取原始数据
         trimesh::box3 box;
-        _paraseGcodeAndPreview(sliceCompany, gCodeFile, kvs,box, pathData, tracer);
+        _paraseGcodeAndPreview(gCodeFile, gcodeProcessor, pathData, tracer);
 
         //解析成通用参数
-        _paraseKvs(sliceCompany, box, kvs);
+        _paraseKvs(gcodeProcessor, box);
 
         //设置参数
-        _setParam(kvs,pathParam);
-        pathData->setParam(pathParam);
+        _setParam(gcodeProcessor);
+        pathData->setParam(gcodeProcessor.gcodeParaseInfo);
     }
 }

@@ -1,17 +1,19 @@
 #include <fstream>
 
-#include <QQmlApplicationEngine>
-#include <QGuiApplication>
-#include <QQmlContext>
-#include <QTranslator>
-#include <QCryptographicHash>
-#include <QHostInfo>
-#include <QSettings>
-#include <QObject>
+#include <QtCore/QCryptographicHash>
+#include <QtCore/QObject>
+#include <QtCore/QTranslator>
+#include <QtGui/QGuiApplication>
+#include <QtNetwork/QHostInfo>
+#include <QtQml/QQmlApplicationEngine>
+#include <QtQml/QQmlContext>
 
-#include "wizardui.hpp"
-#include "buildinfo.h"
+#include <buildinfo.h>
+
+#include <qtusercore/util/settings.h>
+
 #include "dumptool.h"
+#include "wizardui.hpp"
 
 /// argv example: [
 ///   "C:/Users/xxx/AppData/Roaming/Creality/Creative3D/4.3/Log/xxx.dmp", // dump file abs path
@@ -42,7 +44,7 @@ int main(int argc, char* argv[]) {
   DumpTool dump_tool{ argument_list[1], argument_list[2], creality_cloud_id };
 
   // init langauge
-  QSettings setting;
+  qtuser_core::VersionSettings setting;
   setting.beginGroup(QStringLiteral("language_perfer_config"));
   QString language_file_name = setting.value(
     QStringLiteral("language_type"), QStringLiteral("en.ts"))

@@ -19,12 +19,45 @@ enum class SliceLineType
     MoveOnly = 12,
     Travel = 13,
     React = 14,
-	FlowTravel = 15,
-	AdvanceTravel = 16,
+	FlowTravel = 15, //Ironing
+	AdvanceTravel = 16,//other
 
-    NumPrintFeatureTypes = 17 // this number MUST be the last one because other modules will
+    NumPrintFeatureTypes = 17, // this number MUST be the last one because other modules will
                               // use this symbol to get the total number of types, which can
                               // be used to create an array or so
-};
 
+    erPerimeter = 20,
+    erExternalPerimeter = 1,
+    erOverhangPerimeter = 22,
+    erInternalInfill,
+    erSolidInfill,
+    erTopSolidInfill,
+    erBottomSurface,
+    erIroning,
+    erBridgeInfill,
+    erGapFill,
+    erSkirt,
+    erBrim,
+    erSupportMaterial,
+    erSupportMaterialInterface,
+    erSupportTransition,
+    erWipeTower,
+    erCustom,
+    erMixed,
+
+    Noop = 40,
+    Retract = 14,
+    Unretract = 42,
+    Seam,
+    Tool_change,
+    Color_change,
+    Pause_Print,
+    Custom_GCode,
+    //Travel = 13,
+    Wipe = 49,
+    Extrude,
+    erInternalBridgeInfill,
+    erCount
+
+};
 #endif // _GCODE_NULLSPACE_SLICELINE_1590032412412_H

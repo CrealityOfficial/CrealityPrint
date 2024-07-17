@@ -1,31 +1,37 @@
-﻿import CrealityUI 1.0
-import QtQuick 2.0
+﻿import QtQuick 2.15
+
+import CrealityUI 1.0
 import "qrc:/CrealityUI"
 
-QtObject {
-    id: root
+Item {
+    // initialize Constants before load ui components
+    readonly property var _ : Constants
 
-    property var crealityVersion: ""
-    property QtObject $splashScreen
-
-    $splashScreen: Splash {
-    }
-
-    property var loader
-
-    loader: Loader {
-        id: idMainWindow
-
+    Loader {
+        id: splash_loader
         asynchronous: true
-        source: "qrc:/scence3d/res/MainWindow.qml"
-        active: false
+        source: "qrc:/CrealityUI/qml/Splash.qml"
         onLoaded: {
-            $splashScreen.visible = false;
-            idMainWindow.item.showWizardDlg();
+            item.show()
         }
     }
 
-    Component.onCompleted: {
-        loader.active = true;
+    Loader {
+        id: main_window_loader
+
+        anchors.fill: parent
+        anchors.margins: frameLessView && frameLessView.isMax ? 7 * screenScaleFactor : 0
+
+        asynchronous: true
+        sourceComponent: MainWindow2 {}
+
+        onLoaded: {
+            splash_loader.sourceComponent = null
+            item.initialized = true
+            console.log("main loaded")
+            kernel_kernel.processCommandLine()
+            if(!kernel_kernel.blTestEnabled())
+                autoSaveProject.startAutoSave()
+        }
     }
 }

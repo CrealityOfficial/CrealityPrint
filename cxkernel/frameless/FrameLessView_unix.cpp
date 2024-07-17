@@ -10,12 +10,15 @@ public:
     bool m_isMax = false;
     bool m_isFull = false;
     QQuickItem* m_titleItem = nullptr;
+    QQuickItem* m_maskItem = nullptr;
 };
 FrameLessView::FrameLessView(QWindow* parent)
     : Super(parent)
     , d(new FrameLessViewPrivate)
 {
+#ifndef __APPLE__
     setFlags(Qt::CustomizeWindowHint | Qt::Window | Qt::FramelessWindowHint | Qt::WindowMinMaxButtonsHint | Qt::WindowTitleHint | Qt::WindowSystemMenuHint);
+#endif
     setResizeMode(SizeRootObjectToView);
 
     setIsMax(windowState() == Qt::WindowMaximized);
@@ -33,6 +36,10 @@ FrameLessView::~FrameLessView()
 void FrameLessView::showEvent(QShowEvent* e)
 {
     Super::showEvent(e);
+}
+void FrameLessView::showLessViewMinimized()
+{
+    showMinimized();
 }
 QRect FrameLessView::calcCenterGeo(const QRect& screenGeo, const QSize& normalSize)
 {
@@ -94,6 +101,10 @@ void FrameLessView::setIsFull(bool isFull)
 void FrameLessView::setTitleItem(QQuickItem* item)
 {
     d->m_titleItem = item;
+}
+void FrameLessView::setMaskItem(QQuickItem* item)
+{
+    d->m_maskItem = item;
 }
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 bool TaoFrameLessView::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)

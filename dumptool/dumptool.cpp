@@ -1,29 +1,62 @@
 #include "dumptool.h"
 
-#include <boost/filesystem.hpp>
 #include <fstream>
 #include <string>
 
-#include <QOffscreenSurface>
-#include <QOpenGLFunctions>
-#include <QOpenGLContext>
-#include <QCoreApplication>
-#include <QDateTime>
-#include <QSettings>
-#include <QVariant>
-#include <QObject>
-#include <QString>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDateTime>
+#include <QtCore/QObject>
+#include <QtCore/QSettings>
+#include <QtCore/QVariant>
+#include <QtGui/QOffscreenSurface>
+#include <QtGui/QOpenGLContext>
+#include <QtGui/QOpenGLFunctions>
 
 #include <alibabacloud/oss/OssClient.h>
 
+#include <boost/filesystem.hpp>
+
 #include <rapidjson/document.h>
-#include <rapidjson/prettywriter.h>
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/ostreamwrapper.h>
+#include <rapidjson/prettywriter.h>
 
 #include <quazip/JlCompress.h>
 
-#include "buildinfo.h"
+#include <cxcloud/define.h>
+#include <cxcloud/tool/settings.h>
+#include "cxcloud/tool/function.h"
+
+#include <buildinfo.h>
+
+#ifdef Q_OS_WINDOWS
+
+#include <Windows.h>
+
+QString GetOperatingSystemName() {
+  auto name = QSysInfo::prettyProductName();
+
+  auto winbrand = ::LoadLibraryW(L"winbrand.dll");
+  if (winbrand) {
+    auto BrandingFormatString =
+        (PWSTR(WINAPI*)(__in PCWSTR))::GetProcAddress(winbrand, "BrandingFormatString");
+    if (BrandingFormatString) {
+      auto name_data = BrandingFormatString(L"%WINDOWS_LONG%");
+      auto name_size = lstrlenW(name_data);
+      name = QString::fromWCharArray(name_data, name_size);
+    }
+  }
+
+  ::FreeLibrary(winbrand);
+  winbrand = NULL;
+  return name;
+}
+
+#else
+
+const auto GetOperatingSystemName = QSysInfo::prettyProductName;
+
+#endif  // Q_OS_WINDOWS
 
 DumpTool::DumpTool(QObject* parent) : QObject(parent) {}
 
@@ -50,11 +83,11 @@ DumpTool::DumpTool(const QString& dump_file_path,
       .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMddhhmmss"))))
     , temp_dir_path_(QStringLiteral("%1/%2/").arg(dump_dir_path_).arg(temp_dir_name_))
 
-    , zip_file_name_(QStringLiteral("%1.zip").arg(temp_dir_name_))
-    , zip_file_path_(QStringLiteral("%1/%2").arg(dump_dir_path_).arg(zip_file_name_))
-
     , info_json_name_(QStringLiteral("info.json"))
-    , info_json_path_(QStringLiteral("%1/%2").arg(temp_dir_path_).arg(info_json_name_)) {
+    , info_json_path_(QStringLiteral("%1/%2").arg(temp_dir_path_).arg(info_json_name_))
+
+    , zip_file_name_(QStringLiteral("%1.zip").arg(temp_dir_name_))
+    , zip_file_path_(QStringLiteral("%1/%2").arg(dump_dir_path_).arg(zip_file_name_)) {
   QOffscreenSurface surface;
   surface.create();
 
@@ -93,7 +126,7 @@ QString DumpTool::getApplicationVersion() const {
 }
 
 QString DumpTool::getApplicationLanguage() const {
-  QSettings setting;
+  qtuser_core::VersionSettings setting;
   setting.beginGroup(QStringLiteral("language_perfer_config"));
   QString langauge = setting.value(
     QStringLiteral("language_type"), QStringLiteral("en.ts")).toString();
@@ -109,7 +142,7 @@ QString DumpTool::getApplicationLanguage() const {
 }
 
 QString DumpTool::getOperatingSystemName() const {
-  return QSysInfo::prettyProductName();
+  return GetOperatingSystemName();
 }
 
 QString DumpTool::getGraphicsCardName() const {
@@ -156,11 +189,9 @@ void DumpTool::sendReport() {
 
     AlibabaCloud::OSS::InitializeSdk();
 
-    QSettings setting;
-    setting.beginGroup(QStringLiteral("cloud_service"));
-    const bool is_mainland_china = setting.value(
-      QStringLiteral("server_type"), QStringLiteral("0")).toString() == QStringLiteral("0");
-    setting.endGroup();
+    const bool is_mainland_china =
+        cxcloud::ServerTypeToRealServerType(cxcloud::CloudSettings{}.getServerType()) ==
+        cxcloud::RealServerType::MAINLAND_CHINA;
 
     const std::string endpoint{ is_mainland_china ? DUMPTOOL_ENDPOINT : DUMPTOOL_ENDPOINT_FOREIGN };
     static const std::string ACCESS_KEY_ID{ DUMPTOOL_ACCESS_KEY_ID };

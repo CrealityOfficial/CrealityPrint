@@ -1,0 +1,542 @@
+{
+  "name": "FDM Printer Material Description",
+  "version": 2,
+  "children": [
+    {
+      "label": "Filament",
+      "children": [
+        {
+          "label": "Base information",
+          "children": [
+            {
+              "key": "filament_type",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "filament_vendor",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "filament_soluble",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "filament_is_support",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "default_filament_colour",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_diameter",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "filament_flow_ratio",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "enable_pressure_advance",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "pressure_advance",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "filament_density",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_shrink",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_cost",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "temperature_vitrification",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "required_nozzle_HRC",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "label": "Recommended nozzle temperature",
+              "component": "fork_tiny_label",
+              "children": [
+                {
+                  "key": "nozzle_temperature_range_high",
+                  "component": "text_field",
+                  "level": 2
+                },
+                {
+                  "key": "nozzle_temperature_range_low",
+                  "component": "text_field",
+                  "level": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Print chamber temperature",
+          "children": [
+            {
+              "key": "chamber_temperature",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "activate_chamber_temp_control",
+              "component": "check_box",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Print temperature",
+          "children": [
+            {
+              "label": "Nozzle",
+              "component": "fork_tiny_label",
+              "children": [
+                {
+                  "key": "nozzle_temperature_initial_layer",
+                  "component": "text_field",
+                  "level": 2
+                },
+                {
+                  "key": "nozzle_temperature",
+                  "component": "text_field",
+                  "level": 2
+                },
+                {
+                  "key": "material_flow_dependent_temperature",
+                  "component": "check_box",
+                  "level": 1
+                },
+                {
+                  "key": "material_flow_temp_graph",
+                  "component": "array_text_edit",
+                  "level": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Bed temperature",
+          "children": [
+            {
+              "label": "Smooth PEI Plate / High Temp Plate",
+              "component": "fork_tiny_label",
+              "children": [
+                {
+                  "key": "hot_plate_temp_initial_layer",
+                  "component": "text_field",
+                  "level": 2
+                },
+                {
+                  "key": "hot_plate_temp",
+                  "component": "text_field",
+                  "level": 2
+                }
+              ]
+            },
+            {
+              "label": "Textured PEI Plate",
+              "component": "fork_tiny_label",
+              "children": [
+                {
+                  "key": "textured_plate_temp_initial_layer",
+                  "component": "text_field",
+                  "level": 2
+                },
+                {
+                  "key": "textured_plate_temp",
+                  "component": "text_field",
+                  "level": 2
+                }
+              ]
+            },
+            {
+              "label": "Cool Plate",
+              "component": "fork_tiny_label",
+              "children": [
+                {
+                  "key": "cool_plate_temp_initial_layer",
+                  "component": "text_field",
+                  "level": 2
+                },
+                {
+                  "key": "cool_plate_temp",
+                  "component": "text_field",
+                  "level": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Volumetric speed limitation",
+          "children": [
+            {
+              "key": "filament_max_volumetric_speed",
+              "component": "text_field",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Cools",
+      "children": [
+        {
+          "label": "Cooling for specific layer",
+          "children": [
+            {
+              "key": "close_fan_the_first_x_layers",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "full_fan_speed_layer",
+              "component": "text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Part cooling fan",
+          "children": [
+            {
+              "label": "Min fan speed threshold",
+              "component": "fork_tiny_label",
+              "children": [
+                {
+                  "key": "fan_min_speed",
+                  "component": "float_text_field",
+                  "level": 2
+                },
+                {
+                  "key": "fan_cooling_layer_time",
+                  "component": "text_field",
+                  "level": 2
+                }
+              ]
+            },
+            {
+              "label": "Max fan speed threshold",
+              "component": "fork_tiny_label",
+              "children": [
+                {
+                  "key": "fan_max_speed",
+                  "component": "float_text_field",
+                  "level": 2
+                },
+                {
+                  "key": "slow_down_layer_time",
+                  "component": "text_field",
+                  "level": 2
+                }
+              ]
+            },
+            {
+              "key": "reduce_fan_stop_start_freq",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "slow_down_min_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "enable_overhang_bridge_fan",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "cool_special_cds_fan_speed",
+              "component": "int_text_field",
+              "level": 1
+            },
+            {
+              "key": "cool_cds_fan_start_at_height",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "overhang_fan_threshold",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "overhang_fan_speed",
+              "component": "int_text_field",
+              "level": 1
+            },
+            {
+              "key": "support_material_interface_fan_speed",
+              "component": "int_text_field",
+              "level": 1
+            },
+            {
+              "key": "slow_down_for_layer_cooling",
+              "component": "check_box",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Auxiliary part cooling fan",
+          "children": [
+            {
+              "key": "additional_cooling_fan_speed",
+              "component": "int_text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Exhaust fan",
+          "children": [
+            {
+              "key": "activate_air_filtration",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "during_print_exhaust_fan_speed",
+              "component": "int_text_field",
+              "level": 2
+            },
+            {
+              "key": "complete_print_exhaust_fan_speed",
+              "component": "int_text_field",
+              "level": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Setting Overrides",
+      "children": [
+        {
+          "label": "Retraction",
+          "children": [
+            {
+              "key": "filament_retraction_length",
+              "component": "text_field",
+              "overrideable": true,
+              "level": 2
+            },
+            {
+              "key": "filament_z_hop",
+              "component": "text_field",
+              "overrideable": true,
+              "level": 2
+            },
+            {
+              "key": "filament_z_hop_types",
+              "component": "combo_box",
+              "overrideable": true,
+              "level": 2
+            },
+            {
+              "key": "filament_retraction_speed",
+              "component": "text_field",
+              "overrideable": true,
+              "level": 2
+            },
+            {
+              "key": "filament_deretraction_speed",
+              "component": "text_field",
+              "overrideable": true,
+              "level": 2
+            },
+            {
+              "key": "filament_retraction_minimum_travel",
+              "component": "text_field",
+              "overrideable": true,
+              "level": 2
+            },
+            {
+              "key": "filament_retract_when_changing_layer",
+              "component": "check_box",
+              "overrideable": true,
+              "level": 2
+            },
+            {
+              "key": "filament_wipe",
+              "component": "check_box",
+              "overrideable": true,
+              "level": 2
+            },
+            {
+              "key": "filament_wipe_distance",
+              "component": "text_field",
+              "overrideable": true,
+              "level": 2
+            },
+            {
+              "key": "filament_retract_before_wipe",
+              "component": "float_text_field",
+              "overrideable": true,
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Lift Z Enforcement",
+          "children": [
+            {
+              "key": "filament_retract_lift_above",
+              "component": "text_field",
+              "overrideable": true,
+              "level": 1
+            },
+            {
+              "key": "filament_retract_lift_below",
+              "component": "text_field",
+              "overrideable": true,
+              "level": 1
+            },
+            {
+              "key": "filament_retract_lift_enforce",
+              "component": "combo_box",
+              "overrideable": true,
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Retraction when switching material",
+          "children": [
+            {
+              "key": "filament_retract_restart_extra",
+              "component": "text_field",
+              "overrideable": true,
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Advanced",
+      "children": [
+        {
+          "label": "Advanced",
+          "children": [
+            {
+              "key": "filament_start_gcode",
+              "component": "text_edit",
+              "level": 1
+            },
+            {
+              "key": "filament_end_gcode",
+              "component": "text_edit",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Multimaterial",
+      "children": [
+        {
+          "label": "Wipe tower parameters",
+          "children": [
+            {
+              "key": "filament_minimal_purge_on_wipe_tower",
+              "component": "text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Toolchange parameters with single extruder MM printers",
+          "children": [
+            {
+              "key": "filament_loading_speed_start",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_loading_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_unloading_speed_start",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_unloading_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_load_time",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_unload_time",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_toolchange_delay",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_cooling_moves",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_cooling_initial_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_cooling_final_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_ramming_parameters",
+              "component": "text_edit",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

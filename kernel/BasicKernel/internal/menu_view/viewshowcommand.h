@@ -15,6 +15,8 @@ namespace creative_kernel
         virtual ~ViewShowCommand();
 
         Q_INVOKABLE void execute();
+        Q_INVOKABLE void updateCheck();
+        bool enabled();
     protected:
         void onThemeChanged(ThemeCategory category) override;
         void onLanguageChanged(MultiLanguage language) override;

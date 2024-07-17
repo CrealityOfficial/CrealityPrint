@@ -35,10 +35,12 @@ QQC2.Label {
     id: control
     property string tooltip: strToolTip
     property string strToolTip: ""
+    property int toolTipPosition: BasicTooltip.Position.RIGHT
     property string borderColor: "transparent"
     property string bgColor: "transparent"
     property string profileTipBgColor: "#6E6E73"
-    color: enabled ? Constants.textColor : Constants.disabledTextColor
+    property color textColor: Constants.textColor
+    color: enabled ? textColor : Constants.disabledTextColor
     font.family: Constants.labelFontFamily
     font.weight: Constants.labelFontWeight
     font.pointSize: Constants.labelFontPointSize_9
@@ -49,7 +51,7 @@ QQC2.Label {
         textWrap: true
         textWidth: 300 * screenScaleFactor
         backgroundColor: profileTipBgColor
-        position: BasicTooltip.Position.RIGHT
+        position: toolTipPosition
         font.pointSize: Constants.labelFontPointSize_10
         timeout: -1
         text:strToolTip

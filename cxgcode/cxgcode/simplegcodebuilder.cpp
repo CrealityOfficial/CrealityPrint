@@ -43,7 +43,7 @@ namespace cxgcode
 	SimpleGCodeBuilder::SimpleGCodeBuilder()
 		:GCodeBuilder()
 	{
-
+		m_visualTypeFlags.name = QString("visualTypeFlags");
 	}
 
 	SimpleGCodeBuilder::~SimpleGCodeBuilder()
@@ -51,11 +51,41 @@ namespace cxgcode
 
 	}
 
+
+	float SimpleGCodeBuilder::traitDuration(int layer, int step)
+	{
+		int index = stepIndex(layer, step);
+		if (index >= 0 && index < baseInfo.totalSteps)
+		{
+			int i = m_struct.m_moves[index].start;
+			trimesh::vec3 p0 = m_struct.m_positions.at(i);
+			trimesh::vec3 p1 = m_struct.m_positions.at(i + 1);
+			float length = trimesh::length(p1 - p0);
+			float currentSpeed = m_struct.m_moves[index].speed;
+			if (length > 0.0f && currentSpeed > 0.0f)
+			{
+				//time use as millisecond
+				float time = length * 60 * 1000 / currentSpeed;  
+
+				return std::max(time, 10.0f);
+			}
+		}
+
+		return 10.0f; //ms
+	}
+
 	float SimpleGCodeBuilder::traitSpeed(int layer, int step)
 	{
 		int index = stepIndex(layer, step);
 		if (index >= 0 && index < baseInfo.totalSteps)
-			return m_struct.m_moves[index].speed;
+		{
+			if ((baseInfo.speedMax - baseInfo.speedMin + 0.01f) > 0.0f)
+			{
+				float ratio = (m_struct.m_moves[index].speed - baseInfo.speedMin) / (baseInfo.speedMax - baseInfo.speedMin + 0.01f);		
+				return ratio;
+			}	
+		}
+		
 		return 0.0f;
 	}
 
@@ -72,15 +102,43 @@ namespace cxgcode
 		return trimesh::vec3();
 	}
 
+	float SimpleGCodeBuilder::layerHeight(int layer)
+	{
+		if (!m_struct.m_layerHeights.empty() && m_struct.m_layerHeights.size() >= layer && layer > 0)
+		{
+			return m_struct.m_layerHeights[layer - 1];
+		}
+		return -1;
+	}
+
 	Qt3DRender::QGeometry* SimpleGCodeBuilder::buildGeometry()
 	{
 #if SIMPLE_GCODE_IMPL == 1
 		return qtuser_3d::GeometryCreateHelper::create(nullptr, &m_positions, &m_normals, &m_steps, &m_indices);
 #elif SIMPLE_GCODE_IMPL == 3
-		return qtuser_3d::GeometryCreateHelper::create(nullptr, &m_positions, &m_endPositions, &m_normals, &m_steps, &m_lineWidths);
+
+		Qt3DRender::QGeometry *geo = qtuser_3d::GeometryCreateHelper::create(nullptr, &m_positions, &m_endPositions, &m_normals, &m_steps, &m_lineWidthAndLayerHeights);
+		{
+			Qt3DRender::QBuffer* buffer = new Qt3DRender::QBuffer(Qt3DRender::QBuffer::VertexBuffer);
+			buffer->setData(m_visualTypeFlags.bytes);
+			m_visualTypeFlagsAttribute = new Qt3DRender::QAttribute(buffer, m_visualTypeFlags.name, Qt3DRender::QAttribute::Float, m_visualTypeFlags.stride, m_visualTypeFlags.count);
+			geo->addAttribute(m_visualTypeFlagsAttribute);
+		}
+		return geo;
+
 #else
 		return qtuser_3d::GeometryCreateHelper::create(nullptr, &m_positions, &m_normals, &m_steps);
 #endif
+	}
+
+	void SimpleGCodeBuilder::rebuildGeometryVisualTypeData()
+	{
+		if (m_visualTypeFlagsAttribute && m_visualTypeFlagsAttribute->buffer())
+		{
+			Qt3DRender::QBuffer* buffer = m_visualTypeFlagsAttribute->buffer();
+			buffer->setData(m_visualTypeFlags.bytes);
+			m_visualTypeFlagsAttribute->setCount(m_visualTypeFlags.count);
+		}
 	}
 
 	Qt3DRender::QGeometry* SimpleGCodeBuilder::buildRetractionGeometry()
@@ -171,6 +229,62 @@ namespace cxgcode
 		return geometry;
 	}
 
+	Qt3DRender::QGeometry* SimpleGCodeBuilder::buildUnretractGeometry()
+	{
+		const std::vector<trimesh::vec3>& positions = m_struct.m_positions;
+		const std::vector<gcode::GCodeMove>& moves = m_struct.m_moves;
+		
+		std::vector<gcode::GCodeMove> unretract;
+		for (size_t i = 0; i < moves.size(); i++)
+		{
+			const gcode::GCodeMove& m = moves.at(i);
+			if (m.type == SliceLineType::Unretract)
+			{
+				unretract.emplace_back(m);
+			}
+		}
+
+		int count = unretract.size();
+
+		trimesh::vec2* stepsFlags = (trimesh::vec2*)m_steps.bytes.data();
+
+		qtuser_3d::AttributeShade* positionAttr = new qtuser_3d::AttributeShade();
+		positionAttr->name = Qt3DRender::QAttribute::defaultPositionAttributeName();
+		positionAttr->stride = 3;
+		positionAttr->count = count;
+		positionAttr->bytes.resize(sizeof(float) * 3 * count);
+
+		qtuser_3d::AttributeShade* stepsAttr = new qtuser_3d::AttributeShade();
+		stepsAttr->name = QString("stepsFlag");
+		stepsAttr->stride = 2;
+		stepsAttr->count = count;
+		stepsAttr->bytes.resize(sizeof(float) * 2 * count);
+
+		{
+			trimesh::vec3* tPosition = (trimesh::vec3*)positionAttr->bytes.data();
+			trimesh::vec2* tSteps = (trimesh::vec2*)stepsAttr->bytes.data();
+
+			for (size_t i = 0; i < count; i++)
+			{
+				const gcode::GCodeMove& m = unretract.at(i);
+				int idx = m.start;
+				if (idx >= positions.size() || idx >= m_steps.count)
+				{
+					continue;
+				}
+				const trimesh::vec3& v = positions.at(idx);
+				tPosition[i] = v;
+				tSteps[i] = stepsFlags[idx];
+			}
+		}
+
+		Qt3DRender::QGeometry* geometry = qtuser_3d::GeometryCreateHelper::create(nullptr, positionAttr, stepsAttr);
+		delete positionAttr;
+		delete stepsAttr;
+
+		return geometry;
+	}
+
 	Qt3DRender::QGeometryRenderer* SimpleGCodeBuilder::buildRetractionGeometryRenderer()
 	{
 		return buildGeometryRenderer(m_struct.m_positions, m_struct.m_retractions, (trimesh::vec2*)m_steps.bytes.data());;
@@ -183,12 +297,11 @@ namespace cxgcode
 
 	void SimpleGCodeBuilder::updateFlagAttribute(Qt3DRender::QAttribute* attribute, gcode::GCodeVisualType type)
 	{
-		if (!attribute)
-			return;
+		/*if (!attribute)
+			return;*/
 
-		qtuser_3d::AttributeShade steps;
-		steps.name = QString("visualTypeFlags");
-
+		qtuser_3d::AttributeShade& steps = m_visualTypeFlags;
+		
 #if SIMPLE_GCODE_IMPL == 0
 		cpuTriSoupUpdate(steps, type);
 #elif SIMPLE_GCODE_IMPL == 1
@@ -197,12 +310,28 @@ namespace cxgcode
 #elif SIMPLE_GCODE_IMPL == 3
 		gpuIndicesUpdate(steps, type);
 #endif
-
-		attribute->setBuffer(qtuser_3d::GeometryCreateHelper::createBuffer(&steps));
+		/*attribute->setBuffer(qtuser_3d::GeometryCreateHelper::createBuffer(&steps));
 		attribute->setName(steps.name);
 		attribute->setCount(steps.count);
 		attribute->setVertexSize(steps.stride);
-		attribute->setVertexBaseType(Qt3DRender::QAttribute::Float);
+		attribute->setVertexBaseType(Qt3DRender::QAttribute::Float);*/
+	}
+
+	gcode::GCodeStruct& SimpleGCodeBuilder::getGCodeStruct()
+	{
+		return m_struct;
+	}
+
+	trimesh::box3 SimpleGCodeBuilder::pathBox()
+	{
+		if (!m_path_box.valid)
+		{
+			for (const trimesh::vec3& pos : m_struct.m_positions)
+			{
+				m_path_box += pos;
+			}
+		}
+		return m_path_box;
 	}
 
 	void SimpleGCodeBuilder::implBuild(SliceResultPointer result)
@@ -242,10 +371,7 @@ namespace cxgcode
 		//cr30
 		processCr30offset(parseInfo);
 		if (m_tracer)
-		{
 			m_tracer->resetProgressScope(step, 1.0f);
-			m_tracer->variadicFormatMessage(1);
-		}
 #if SIMPLE_GCODE_IMPL == 0
 		cpuTriSoupBuild();
 #elif SIMPLE_GCODE_IMPL == 1
@@ -585,8 +711,7 @@ namespace cxgcode
 		std::vector<trimesh::ivec2> layerSteps;
 		processSteps(layerSteps);
 
-		int stride = 1;
-		int count = stride * stepCount;
+		int count = stepCount;
 		m_positions.name = Qt3DRender::QAttribute::defaultPositionAttributeName();
 		m_positions.stride = 3;
 		m_positions.count = count;
@@ -607,25 +732,28 @@ namespace cxgcode
 		m_steps.count = count;
 		m_steps.bytes.resize(sizeof(float) * 2 * count);
 
-		m_lineWidths.name = QString("lineWidth");
-		m_lineWidths.stride = 1;
-		m_lineWidths.count = count;
-		m_lineWidths.bytes.resize(sizeof(float) * 1 * count);
+		m_lineWidthAndLayerHeights.name = QString("lineWidth_layerHeight");
+		m_lineWidthAndLayerHeights.stride = 4;
+		m_lineWidthAndLayerHeights.count = count;
+		m_lineWidthAndLayerHeights.bytes.resize(sizeof(float) * 4 * count);
+
 
 		trimesh::vec3* tposition = (trimesh::vec3*)m_positions.bytes.data();
 		trimesh::vec3* tEndPosition = (trimesh::vec3*)m_endPositions.bytes.data();
 		trimesh::vec3* tnormals = (trimesh::vec3*)m_normals.bytes.data();
 		trimesh::vec2* tsteps = (trimesh::vec2*)m_steps.bytes.data();
-		float* tlineWidths = (float *)m_lineWidths.bytes.data();
+		trimesh::vec4* tlineWidthHeight = (trimesh::vec4*)m_lineWidthAndLayerHeights.bytes.data();
+
+		const gcode::GCodeParseInfo& parseInfo = m_struct.getParam();
 
 		for (int i = 0; i < stepCount; ++i)
 		{
 			const gcode::GCodeMove& move = structMoves.at(i);
-			trimesh::vec3* tempPosition = tposition + stride * i;
-			trimesh::vec3* tempEndPosition = tEndPosition + stride * i;
-			trimesh::vec3* tempNormals = tnormals + stride * i;
-			trimesh::vec2* tempSteps = tsteps + stride * i;
-			float* tempLineWidths = tlineWidths + stride * i;
+			trimesh::vec3* tempPosition = tposition + i;
+			trimesh::vec3* tempEndPosition = tEndPosition + i;
+			trimesh::vec3* tempNormals = tnormals + i;
+			trimesh::vec2* tempSteps = tsteps + i;
+			trimesh::vec4* tempLineWidthHeight = tlineWidthHeight + i;
 
 			trimesh::vec3 start = structPositions.at(move.start);
 			trimesh::vec3 end = structPositions.at(move.start + 1);
@@ -635,12 +763,37 @@ namespace cxgcode
 			*(tempNormals) = positionsNormals.at(i);
 			*(tempSteps) = layerSteps.at(i);
 			
-			{
-				int idx = m_struct.m_layerInfoIndex[i];
-				const gcode::GcodeLayerInfo& l = m_struct.m_gcodeLayerInfos[idx];
-				*tempLineWidths = l.width;
-			}
+			int idx = m_struct.m_layerInfoIndex[i];
+			const gcode::GcodeLayerInfo& l = m_struct.m_gcodeLayerInfos[idx];
 
+			const SliceLineType& linetype = move.type;
+			float tempLineWidth;
+			if (linetype == SliceLineType::Travel || linetype == SliceLineType::MoveCombing || linetype == SliceLineType::React)
+			{
+				tempLineWidth = parseInfo.lineWidth * 0.25;
+			} 
+			else if (linetype == SliceLineType::Wipe)
+			{
+				tempLineWidth = parseInfo.lineWidth * 0.15;
+			}
+			else if (linetype == SliceLineType::erIroning)
+			{
+				tempLineWidth = l.width;
+				*(tempPosition) = start + trimesh::vec3(0.0f, 0.0f, 1.0f) * (parseInfo.layerHeight * 0.5);
+				*(tempEndPosition) = end + trimesh::vec3(0.0f, 0.0f, 1.0f) * (parseInfo.layerHeight * 0.5);
+			}
+			/*else if (linetype == SliceLineType::erInternalBridgeInfill) 
+			{
+				tempLineWidth = l.width;
+			}*/
+			else
+			{
+				tempLineWidth = l.width;
+			}
+			
+			float compensate0 = calculateCornelCompensate(structPositions, structMoves, move.start);
+			float compensate1 = calculateCornelCompensate(structPositions, structMoves, move.start + 1);
+			*tempLineWidthHeight = trimesh::vec4(tempLineWidth, l.layerHight, compensate0, compensate1);
 
 			if (m_tracer && (i % 1000 == 0))
 			{
@@ -789,9 +942,18 @@ namespace cxgcode
 		{
 			case gcode::GCodeVisualType::gvt_speed:
 			{
-				flag = (float)move.speed;
-				//◊≈…´∆˜¿Ô√Ê∞—flag < 0.0µƒœﬂ∂Œ∫ˆ¬‘
-				if (move.type == SliceLineType::Travel)
+				//flag = (float)move.speed;
+				flag = (move.speed - baseInfo.speedMin) / (baseInfo.speedMax - baseInfo.speedMin + 0.01f);
+				//ÁùÄËâ≤Âô®ÈáåÈù¢Êääflag < 0.0ÁöÑÁ∫øÊÆµÂøΩÁï•
+				if (move.type == SliceLineType::Travel || move.type == SliceLineType::MoveCombing || move.type == SliceLineType::React)
+					flag = -1.0f;
+			}
+			break;
+
+			case gcode::GCodeVisualType::gvt_acc:
+			{
+				flag = (move.acc - baseInfo.minAcc) / (baseInfo.maxAcc - baseInfo.minAcc + 0.01f);
+				if (move.type == SliceLineType::Travel || move.type == SliceLineType::MoveCombing || move.type == SliceLineType::React)
 					flag = -1.0f;
 			}
 			break;
@@ -805,14 +967,31 @@ namespace cxgcode
 			case gcode::GCodeVisualType::gvt_extruder:
 			{
 				flag = (float)move.extruder;
-				if (move.type == SliceLineType::Travel)
+				if (move.type == SliceLineType::Travel || move.type == SliceLineType::MoveCombing || move.type == SliceLineType::React)
+				{
 					flag = -1.0f;
+				}
+				else if (step < m_steps.count)
+				{
+					// find pause layers and set flag(16)
+					int stride = 1;
+					trimesh::vec2* tsteps = (trimesh::vec2*)m_steps.bytes.data();
+					trimesh::vec2 layerAndStepAtOne = *(tsteps + stride * step);
+					int layer = layerAndStepAtOne.x - INDEX_START_AT_ONE;
+
+					const std::vector<int>& pauseLayers = m_struct.m_pause;
+					std::vector<int>::const_iterator it = std::find(pauseLayers.begin(), pauseLayers.end(), layer);
+					if (it != pauseLayers.end())
+					{
+						flag = 16.0f;
+					}
+				}
 			}
 			break;
 
 			case gcode::GCodeVisualType::gvt_layerHight:
 			{
-				//÷ÿ–¬”≥…‰µΩ[0.0, 1.0]
+				//ÈáçÊñ∞Êò†Â∞ÑÂà∞[0.0, 1.0]
 				int idx = m_struct.m_layerInfoIndex[step];
 				const gcode::GcodeLayerInfo& l = m_struct.m_gcodeLayerInfos[idx];
 
@@ -827,14 +1006,14 @@ namespace cxgcode
 					flag = (l.layerHight - min) / (max - min);
 				}
 				//qDebug() << "layer height = " << flag;
-				if (move.type == SliceLineType::Travel)
+				if (move.type == SliceLineType::Travel || move.type == SliceLineType::MoveCombing || move.type == SliceLineType::React || move.type == SliceLineType::erWipeTower || move.type == SliceLineType::Wipe || move.type == SliceLineType::Unretract)
 					flag = -1.0f;
 			}
 			break;
 
 			case gcode::GCodeVisualType::gvt_lineWidth:
 			{
-				//÷ÿ–¬”≥…‰µΩ[0.0, 1.0]
+				//ÈáçÊñ∞Êò†Â∞ÑÂà∞[0.0, 1.0]
 				int idx = m_struct.m_layerInfoIndex[step];
 				const gcode::GcodeLayerInfo& l = m_struct.m_gcodeLayerInfos[idx];
 
@@ -848,7 +1027,7 @@ namespace cxgcode
 				}
 
 				
-				if (move.type == SliceLineType::Travel)
+				if (move.type == SliceLineType::Travel || move.type == SliceLineType::MoveCombing || move.type == SliceLineType::React)
 					flag = -1.0f;
 			}
 			break;
@@ -859,7 +1038,7 @@ namespace cxgcode
 				const gcode::GcodeLayerInfo& l = m_struct.m_gcodeLayerInfos[idx];
 				float flow = l.flow;
 				//qDebug() << "flow = " << flow;
-				if (move.type == SliceLineType::Travel || flow <= 0.0)
+				if (move.type == SliceLineType::Travel || flow <= 0.0 || move.type == SliceLineType::MoveCombing || move.type == SliceLineType::React)
 					flag = -1.0f;
 				else
 				{
@@ -870,7 +1049,7 @@ namespace cxgcode
 
 			case gcode::GCodeVisualType::gvt_layerTime:
 			{
-				if (move.type == SliceLineType::Travel)
+				if (move.type == SliceLineType::Travel || move.type == SliceLineType::MoveCombing || move.type == SliceLineType::React)
 					flag = -1.0f;
 				else if (step < m_steps.count)
 				{
@@ -903,10 +1082,11 @@ namespace cxgcode
 				assert(0 <= idx && idx < m_struct.m_fans.size());
 #endif // DEBUG
 				gcode::GcodeFan& fans = m_struct.m_fans[idx];
-				flag = fminf(fmaxf(fans.fanSpeed / 255.0, 0.0), 1.0);
+
+				flag = fminf(fmaxf(fans.fanSpeed / 100.0, 0.0), 1.0);
 
 				//qDebug() << "fan speed = " << flag;
-				if (move.type == SliceLineType::Travel)
+				if (move.type == SliceLineType::Travel || move.type == SliceLineType::MoveCombing || move.type == SliceLineType::React)
 					flag = -1.0f;
 			}
 			break;
@@ -914,7 +1094,7 @@ namespace cxgcode
 
 			case gcode::GCodeVisualType::gvt_temperature:
 			{
-				//÷ÿ–¬”≥…‰µΩ[0.0, 1.0]
+				//ÈáçÊñ∞Êò†Â∞ÑÂà∞[0.0, 1.0]
 				int idx = m_struct.m_temperatureIndex[step];
 				gcode::GcodeTemperature& t = m_struct.m_temperatures[idx];
 				float temp = t.temperature ;
@@ -928,7 +1108,7 @@ namespace cxgcode
 					flag = (temp - baseInfo.minTemperature) / diff;
 				}
 
-				if (move.type == SliceLineType::Travel)
+				if (move.type == SliceLineType::Travel || move.type == SliceLineType::MoveCombing || move.type == SliceLineType::React)
 					flag = -1.0f;
 			}
 			break;
@@ -940,54 +1120,10 @@ namespace cxgcode
 		return flag;
 	}
 
-	void SimpleGCodeBuilder::getPathData(const trimesh::vec3 point, float e, int type)
-	{
-		m_struct.getPathData(point, e, type);
-	}
-	void SimpleGCodeBuilder::getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type, bool isG2)
-	{
-		m_struct.getPathDataG2G3(point,i,j,e,type,isG2);
-	}
-	void SimpleGCodeBuilder::setParam(gcode::GCodeParseInfo& pathParam)
-	{
-		m_struct.setParam(pathParam);
-	}
-	void SimpleGCodeBuilder::setLayer(int layer) {
-		m_struct.setLayer(layer);
-	}
-	void SimpleGCodeBuilder::setSpeed(float s) {
-		m_struct.setSpeed(s);
-	}
-	void SimpleGCodeBuilder::setTEMP(float temp) {
-		m_struct.setTEMP(temp);
-	}
-	void SimpleGCodeBuilder::setExtruder(int nr) {
-		m_struct.setExtruder(nr);
-	}
-	void SimpleGCodeBuilder::setFan(float fan) {
-		m_struct.setFan(fan);
-	}
-	void SimpleGCodeBuilder::setZ(float z,float h){
-		m_struct.setZ(z,h);
-	}
-	void SimpleGCodeBuilder::setE(float e) {
-		m_struct.setE(e);
-	}
-
-	void SimpleGCodeBuilder::setTime(float time)
-	{
-		m_struct.setTime(time);
-	}
-
-	void SimpleGCodeBuilder::getNotPath()
-	{
-		m_struct.getNotPath();
-	}
-
 	/*
-	* ∂‡ µ¿˝‰÷»æ£∫
-	* ±æ¿˝ «‰÷»æ∂‡∏ˆ«ÚÃÂ£¨≥˝¡À«ÚÃÂ±æ…Ìµƒº∏∫Œ ˝æ›÷ÆÕ‚£¨‘ˆº”¡À√ø∏ˆ«ÚÃÂ ¿ΩÁ◊¯±Íº∞∆‰±Í ∂–≈œ¢
-	* ≤Œøº£∫https://github.com/qt/qt3d/tree/dev/examples/qt3d/instanced-arrays-qml
+	* Â§öÂÆû‰æãÊ∏≤ÊüìÔºö
+	* Êú¨‰æãÊòØÊ∏≤ÊüìÂ§ö‰∏™ÁêÉ‰ΩìÔºåÈô§‰∫ÜÁêÉ‰ΩìÊú¨Ë∫´ÁöÑÂá†‰ΩïÊï∞ÊçÆ‰πãÂ§ñÔºåÂ¢ûÂä†‰∫ÜÊØè‰∏™ÁêÉ‰Ωì‰∏ñÁïåÂùêÊ†áÂèäÂÖ∂Ê†áËØÜ‰ø°ÊÅØ
+	* ÂèÇËÄÉÔºöhttps://github.com/qt/qt3d/tree/dev/examples/qt3d/instanced-arrays-qml
 	*/
 	Qt3DRender::QGeometryRenderer* SimpleGCodeBuilder::buildGeometryRenderer(const std::vector<trimesh::vec3>& positions, const std::vector<int>& index, trimesh::vec2* pStepsFlag)
 	{
@@ -1036,5 +1172,59 @@ namespace cxgcode
 		renderer->setInstanceCount(count);
 
 		return renderer;
+	}
+
+	float SimpleGCodeBuilder::calculateCornelCompensate(const std::vector<trimesh::vec3>& positions, const std::vector<gcode::GCodeMove>& moves, int index)
+	{
+		float compensate = 0.0f;
+		if (0 < index && index < positions.size()-1)
+		{
+			const gcode::GCodeMove& curmove = moves.at(index);
+			const gcode::GCodeMove& premove = moves.at(index - 1);
+
+			auto f = [](SliceLineType linetype) {
+
+				bool exceptLineWidth = false;
+				if (linetype == SliceLineType::Travel ||
+					linetype == SliceLineType::MoveCombing ||
+					linetype == SliceLineType::React ||
+					linetype == SliceLineType::Wipe ||
+					linetype == SliceLineType::erIroning)
+				{
+					exceptLineWidth = true;
+				}
+				return exceptLineWidth;
+			};
+
+			bool preExcept = f(premove.type);
+			bool curExcept = f(curmove.type);
+			if (preExcept != curExcept)
+			{
+				return compensate;
+			}
+
+			//Áõ∏ÈÇªÁöÑ‰∏§‰∏™Á∫øÊÆµÔºåËÆ°ÁÆóÂá∫Ë°îÊé•Â§ÑÁöÑÊãêËßíË°•ÂÅøÂõ†Â≠ê
+			trimesh::vec3 currentDir = trimesh::normalized(positions[index-1] - positions[index]);
+			trimesh::vec3 nextDir = trimesh::normalized(positions[index + 1] - positions[index]);
+
+			float d = trimesh::dot(currentDir, nextDir);
+			if (d >= 0.999 || d <= -0.999)
+			{
+				return compensate;
+			}
+			float theta = acos(d) / 2.0;
+			
+			trimesh::vec3 crs = trimesh::cross(nextDir, currentDir);
+			float sign = trimesh::sign(trimesh::dot(crs, trimesh::vec3(0.0f, 0.0f, 1.0f)));
+
+			compensate = sign / tanf(theta);
+
+			if (compensate > 2.50f || compensate < -2.50f)
+			{
+				compensate = 0.0f;
+			}
+		}
+
+		return compensate;
 	}
 }

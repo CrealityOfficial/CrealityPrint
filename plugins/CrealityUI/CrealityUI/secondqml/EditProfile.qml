@@ -14,60 +14,44 @@ BasicDialog
     title: qsTr("Edit")
     //titleHeight : 30
     property int spacing: 5
-	
+
 	property var currentMachine : null
 	property var currentProfile : null
-	
+
 	property int addOrEdit: 1 //0: add, 1: edit
 
 	property var simpleProfileLabelMap: {0:0}
-	property var simpleProfileItemMap: {0:0}	
-	
+	property var simpleProfileItemMap: {0:0}
+
 	property var profileButtonMap: {0:0}
 	property var profileLabelMap: {0:0}
-	property var profileItemMap: {0:0}	
+	property var profileItemMap: {0:0}
 	property var classTypeFilter: "Quality"
-	
-	ParameterContext {
-		id : idParameterContext
-	}
 
 	function showEditProfile(_addOrEdit, machine){
 		addOrEdit = _addOrEdit
 		currentMachine = machine
-		currentProfile = machine.currentProfileObject()
-		
+		currentProfile = machine.currentProfileObject
+
 		idProfileName.text = findTranslate(currentProfile.name())
 		idEditFilterProfileName.text = findTranslate(currentProfile.name())
-		
-		idParameterContext.settings = currentProfile.settingsObject()
-		
+
 		if(simpleProfileLabelMap[0] === 0){
 			simpleProfileLabelMap = {}
 			simpleProfileItemMap = {}
-			
-			var keyList0 = idParameterContext.settings.profileParameterList(0)
-			idParameterContext.createLabelItemFromList(keyList0, idGrid1, simpleProfileLabelMap, simpleProfileItemMap)
-			console.log("showEditProfile . initializ . " + keyList0.length)
-			var keyList1 = idParameterContext.settings.profileParameterList(1)
-			idParameterContext.createLabelItemFromList(keyList1, idGrid2, simpleProfileLabelMap, simpleProfileItemMap)
-			console.log("showEditProfile . initializ . " + keyList1.length)			
-		}else{
-			idParameterContext.updateItems(simpleProfileItemMap)
 		}
-		    
+
 		visible = true
 	}
-	
-	function hideEditProfile(){		
+
+	function hideEditProfile(){
 		currentProfile.cancel()
 		currentMachine = null
 		currentProfile = null
-		idParameterContext.settings = null
 
 		editProfiledlg.close()
 	}
-	
+
     function findTranslate(key){
         var quality = ""
         var tempArray = key.split("_")
@@ -88,7 +72,7 @@ BasicDialog
     function updateLanguage(){
         idEditProfileByFilter.updateLanguage()
     }
-					
+
     Item//Rectangle
     {
         id: rectangle
@@ -161,11 +145,11 @@ BasicDialog
 
                 width: parent.width
                 height: 340* screenScaleFactor
-                ScrollView{
+                BasicScrollView{
                     width: parent.width
                     height: 340* screenScaleFactor
-//                    hpolicy: ScrollBar.AlwaysOff
-//                    vpolicy: ScrollBar.AsNeeded
+                    hpolicy: ScrollBar.AlwaysOff
+                    vpolicy: ScrollBar.AsNeeded
                     clip : true
                     Grid{
                         anchors.fill:parent
@@ -317,35 +301,28 @@ BasicDialog
             }
         }
     }
-	
+
     Component {
         id: someComponent
         ListModel {
         }
     }
-	
+
 	BasicDialog {
 		id: idEditProfileFilter
-	
+
 		width: 700 * screenScaleFactor
 		height: 670 * screenScaleFactor
 		title: qsTr("Edit")
 		property int spacing: 5
-		
+
 		function createProfileButtons(){
 			if(profileButtonMap[0] === 0){
-				console.log("idEditProfileFilter createProfileButtons profileButtonMap.")				
+				console.log("idEditProfileFilter createProfileButtons profileButtonMap.")
 				profileButtonMap = {}
-				
-				var keyList = idParameterContext.settings.parameterGroupList()
-				for(var i in keyList){
-					var key = keyList[i]
-					if(key != "Machine" && key != "Command Line Settings")
-						createProfileButton(key)
-				}
 			}
 		}
-	
+
 		function createProfileButton(key){
 			console.log("createProfileButton : " + key)
 			var componentButton = Qt.createComponent("../qml/BasicButton.qml")
@@ -364,40 +341,34 @@ BasicDialog
 				profileButtonMap[key] = obj
 			}
 		}
-	
+
 		function createProfileValues(profileType){
 			if(!profileLabelMap[profileType]){
-				
+
 				profileLabelMap[profileType] = {}
 				profileItemMap[profileType] = {}
-				
-				var keyList = idParameterContext.settings.parameterList(profileType)
-				console.log("idEditProfileFilter createProfileValues. " + profileType + " " + keyList.length)
-				idParameterContext.createLabelItemFromList(keyList, profileValuelList, profileLabelMap[profileType], profileItemMap[profileType])
-			}else{
-				idParameterContext.updateItems(profileItemMap[profileType])
 			}
 		}
-	
+
 		function showEditProfileFilter(){
 			createProfileButtons()
 			onProfileTypeChanged(classTypeFilter)
-						
+
 			filterProfileTypeList()
 			this.visible = true
 		}
-		
+
 		function hideEditProfileFilter(){
 			this.close()
 		}
-		
+
 		function onProfileTypeChanged(type){
 			for(var key in profileButtonMap)
 			{
 				if(key == type){
 					profileButtonMap[key].defaultBtnBgColor = "#1E9BE2"//"#1EB6E2"
 					classTypeFilter = key
-					
+
 					createProfileValues(classTypeFilter)
 					filterProfileValueList()
 				}
@@ -408,12 +379,12 @@ BasicDialog
 			}
 			idParamScrollView.setVScrollBarPosition(0)
 		}
-		
+
 		function filterProfileTypeList(){
 			var strArray = []
 			for(var key in profileButtonMap){
 				var nameFilter = idSearch.text
-	
+
 				var lable = key.toLowerCase()
 				var paramlevel = (key == "Special Machine Type" || key == "Mesh Fixes") ? 3 : 1
 				if(nameFilter == "")
@@ -431,18 +402,18 @@ BasicDialog
 					}
 				}
 			}
-	
+
 			for(var key in profileButtonMap){
 				profileButtonMap[key].visible = false
 			}
-	
+
 			for(var key in strArray)
 			{
 				profileButtonMap[strArray[key]].visible = true
 			}
-	
+
 		}
-	
+
 		function filterProfileValueList(){
 			var roscnt = 1
 			var nameFilter = idSearch.text
@@ -452,58 +423,16 @@ BasicDialog
 			    {
 			        continue
 			    }
-			
+
 				var labelContainer = profileLabelMap[classType]
 				var itemContainer = profileItemMap[classType]
 				for(var key in labelContainer)
 				{
-					var setting = idParameterContext.settings.settingObject(key)
-					var paramlevel = Number(setting.level())
-					var label = labelContainer[key]
-					var item = itemContainer[key]
-					
-					if(classTypeFilter == classType && (idConfiguration.currentIndex + 1) >= paramlevel)
-					{
-						if(nameFilter == "")
-						{
-							label.visible = item.enabled
-							item.visible = item.enabled
-							if(item.enabled)
-							{
-								roscnt++
-							}
-						}
-						else
-						{
-							var text = label.text.toLowerCase()
-							if(text.search(nameFilter.toLowerCase()) != -1)
-							{
-								//包含关键字
-								label.visible = item.enabled
-								item.visible = item.enabled
-								if(item.enabled)
-								{
-									roscnt++
-								}
-							}
-							else
-							{
-								label.visible = false
-								item.visible = false
-							}
-						}
-				
-					}
-					else
-					{
-						label.visible = false
-						item.visible = false
-					}
 				}
 			}
 			profileValuelList.rows = roscnt
 		}
-	
+
 		Item {
 			x:30
 			y :25 + titleHeight
@@ -534,7 +463,7 @@ BasicDialog
 							verticalAlignment: Qt.AlignVCenter
 							horizontalAlignment: Qt.AlignLeft
 						}
-	
+
 						Item {
 							width:2*screenScaleFactor
 							height: 30*screenScaleFactor
@@ -543,7 +472,7 @@ BasicDialog
 								anchors.fill: parent
 							}
 						}
-	
+
 						BasicLoginTextEdit
 						{
 							id: idSearch
@@ -564,7 +493,7 @@ BasicDialog
 								idSearchButton.sigButtonClicked()
 							}
 						}
-	
+
 						BasicButton {
 							id: idSearchButton
 							width: 60*screenScaleFactor
@@ -581,13 +510,13 @@ BasicDialog
 								//showProfileType()
 							}
 						}
-	
+
 						Rectangle {
 							color: "transparent"
 							width: 175*screenScaleFactor - idFilterProfile.contentWidth - element.contentWidth
 							height: 30*screenScaleFactor
 						}
-	
+
 						Row{
 							id:idConfiguration
 							height: 30*screenScaleFactor
@@ -624,7 +553,7 @@ BasicDialog
 				Item {
 					width: idEditProfileFilter.width - 13
 					height : 2
-	
+
 					Rectangle {
 						// anchors.left: idCol.left
 						// anchors.leftMargin: -10
@@ -642,11 +571,11 @@ BasicDialog
 				Row {
 					spacing: 20
 					width: parent.width
-                    ScrollView {
+					BasicScrollView {
 						width: 125*screenScaleFactor
 						height: 450*screenScaleFactor
-//						hpolicy: ScrollBar.AlwaysOff
-//						vpolicy: ScrollBar.AsNeeded
+						hpolicy: ScrollBar.AlwaysOff
+						vpolicy: ScrollBar.AsNeeded
 						clip : true
 						Column
 						{
@@ -654,7 +583,7 @@ BasicDialog
 							width:125
 						}
 					}
-	
+
 					Item {
 						width:2
 						height: 450*screenScaleFactor
@@ -662,12 +591,12 @@ BasicDialog
 							anchors.fill: parent
 						}
 					}
-                    ScrollView	{
+					BasicScrollView	{
 						id: idParamScrollView
 						width: 500*screenScaleFactor
 						height: 450*screenScaleFactor
-//						hpolicy: ScrollBar.AlwaysOff
-//						vpolicy: ScrollBar.AsNeeded
+						hpolicy: ScrollBar.AlwaysOff
+						vpolicy: ScrollBar.AsNeeded
 						clip : true
 						Grid{
 							id: profileValuelList
@@ -681,7 +610,7 @@ BasicDialog
 				Item {
 					width: idEditProfileFilter.width - 13*screenScaleFactor
 					height : 2
-	
+
 					Rectangle {
 						// anchors.left: idCol.left
 						// anchors.leftMargin: -10
@@ -714,7 +643,7 @@ BasicDialog
 							idEditProfileFilter.hideEditProfileFilter()
 						}
 					}
-	
+
 					BasicButton {
 						width: 125*screenScaleFactor
 						height: 28*screenScaleFactor
@@ -727,7 +656,7 @@ BasicDialog
 							idEditProfileFilter.hideEditProfileFilter()
 						}
 					}
-	
+
 					BasicButton {
 						width: 125*screenScaleFactor
 						height: 28*screenScaleFactor
@@ -742,8 +671,7 @@ BasicDialog
 					}
 				}
 			}
-		}		
+		}
 	}
 
 }
-

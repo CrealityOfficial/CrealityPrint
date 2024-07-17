@@ -24,6 +24,9 @@ class BASIC_KERNEL_API MoveOperateMode : public qtuser_3d::SceneOperateMode
 public:
 	MoveOperateMode(QObject* parent = nullptr);
 	virtual ~MoveOperateMode();
+
+	void setType(int type) { m_type = type; }
+
 signals:
 	void moving();
 	void positionChanged();
@@ -44,10 +47,11 @@ protected:
 	void setMode(TMode mode);
 	void resetSpacePoint(QPoint pos);
 
-private:
+protected:
 	QVector3D m_spacePoint;
 	TMode m_mode;
 	QVector3D m_tempLocal;
+	bool m_isGlobalMode{ false };
 
 };
 #endif // _NULLSPACE_MOVE_OPERATE_MODE_1589770383921_H

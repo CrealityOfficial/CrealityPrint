@@ -26,6 +26,7 @@ uniform vec3 minSpace;
 uniform vec3 maxSpace;
 uniform float supportCos = 0.5;
 uniform float alphaValue = 1.0;
+uniform float layerHeight = 0.1;
 
 uniform int hoverState = 0;
 uniform int waterState = 0;
@@ -88,7 +89,7 @@ void main( void )
 	vec4 coreColor = directLight(lightDir, fnormal, color, ambient, diffuse, specular);	
 	if(checkScope > 0)
 	{
-		if(worldPosition.x < minSpace.x || worldPosition.y < minSpace.y || worldPosition.z < 0.1 || worldPosition.x > maxSpace.x || worldPosition.y > maxSpace.y || worldPosition.z > maxSpace.z)
+		if(worldPosition.x < minSpace.x || worldPosition.y < minSpace.y || worldPosition.z < layerHeight || worldPosition.x > maxSpace.x || worldPosition.y > maxSpace.y || worldPosition.z > maxSpace.z)
 		{
 			coreColor *= 0.3;
 			coreColor.r += 0.6;

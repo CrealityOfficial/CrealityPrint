@@ -6,6 +6,31 @@
 #include "interface/selectorinterface.h"
 //#include "data/trimeshutils.h"
 
+#include "qtuser3d/geometry/bufferhelper.h"
+#include "qtuser3d/geometry/geometrycreatehelper.h"
+#include "qtuser3d/trimesh2/create.h"
+
+static Qt3DRender::QGeometry* createTrianglesWithFlags(const std::vector<trimesh::vec3>& tris, const std::vector<float>& flags1, const std::vector<float>& flags2)
+{
+	//if (tris.size() <= 0 || flags1.size() <= 0 || flags2.size() <= 0)
+	//	return nullptr;
+
+	int posNum = tris.size();
+	int flag1Num = flags1.size();
+	int flag2Num = flags2.size();
+
+	Qt3DRender::QAttribute* positionAttribute = qtuser_3d::BufferHelper::CreateVertexAttribute(
+		(const char*)tris.data(), posNum, 3, Qt3DRender::QAttribute::defaultPositionAttributeName());
+
+	Qt3DRender::QAttribute* flagAttribute1 = qtuser_3d::BufferHelper::CreateVertexAttribute(
+		(const char*)flags1.data(), flag1Num, 1, "vertexFlag");
+
+	Qt3DRender::QAttribute* flagAttribute2 = qtuser_3d::BufferHelper::CreateVertexAttribute(
+		(const char*)flags2.data(), flag2Num, 1, "originFlag");
+
+	return qtuser_3d::GeometryCreateHelper::create(nullptr, positionAttribute, flagAttribute1, flagAttribute2);
+}
+
 SpreadChunk::SpreadChunk(int id, QObject* parent)
 	:Pickable(parent)
 	, m_id(id)
@@ -70,18 +95,63 @@ void SpreadChunk::updateData(const std::vector<trimesh::vec3>& position, const s
 	else
 	{
 		std::vector<float> vertexFlags;
+		std::vector<float> originFlags;
 		int flagNum = flags.size();
 		vertexFlags.resize(flagNum * 3);
+		originFlags.resize(flagNum * 3);
 		for (int i = 0, j = 0; i < flagNum; ++i, j += 3)
 		{
 			int flag = flags[i];
-			flag = flag == 0 ? flag : flag - 1;
+			flag = flag == 0 ? m_defaultFlag : flag;
+			flag -= 1;
 			vertexFlags[j] = flag;
 			vertexFlags[j + 1] = flag;
 			vertexFlags[j + 2] = flag;
+			originFlags[j] = flag;
+			originFlags[j + 1] = flag;
+			originFlags[j + 2] = flag;
 		}
-		m_entity->setGeometry(qtuser_3d::createTrianglesWithFlags(position, vertexFlags), Qt3DRender::QGeometryRenderer::Triangles, true);
+		//m_entity->setGeometry(qtuser_3d::createTrianglesWithFlags(position, vertexFlags), Qt3DRender::QGeometryRenderer::Triangles, true);
+		m_entity->setGeometry(createTrianglesWithFlags(position, vertexFlags, originFlags), Qt3DRender::QGeometryRenderer::Triangles, true);
 	
+		creative_kernel::visShowCustom(m_entity);
+	}
+}
+
+void SpreadChunk::updateData(const std::vector<trimesh::vec3>& position, const std::vector<int>& flags, const std::vector<int>& originFlags)
+{
+	m_positions = position;
+
+	if (m_positions.size() == 0)
+	{
+		creative_kernel::visHideCustom(m_entity);
+	}
+	else
+	{
+		std::vector<float> vertexFlags1;
+		std::vector<float> vertexFlags2;
+		int flagNum = flags.size();
+		vertexFlags1.resize(flagNum * 3);
+		vertexFlags2.resize(flagNum * 3);
+		for (int i = 0, j = 0; i < flagNum; ++i, j += 3)
+		{
+			int flag = flags[i];
+			flag = flag == 0 ? m_defaultFlag : flag;
+			flag -= 1;
+			vertexFlags1[j] = flag;
+			vertexFlags1[j + 1] = flag;
+			vertexFlags1[j + 2] = flag;
+
+			int orgFlag = originFlags[i];
+			orgFlag = orgFlag == 0 ? m_defaultFlag : orgFlag;
+			orgFlag -= 1;
+			vertexFlags2[j] = orgFlag;
+			vertexFlags2[j + 1] = orgFlag;
+			vertexFlags2[j + 2] = orgFlag;
+
+		}
+		m_entity->setGeometry(createTrianglesWithFlags(position, vertexFlags1, vertexFlags2), Qt3DRender::QGeometryRenderer::Triangles, true);
+
 		creative_kernel::visShowCustom(m_entity);
 	}
 }
@@ -104,4 +174,9 @@ void SpreadChunk::setPose(const QMatrix4x4& pose)
 QMatrix4x4 SpreadChunk::pose() const
 {
 	return m_entity->pose();
+}
+
+void SpreadChunk::setDefaultFlag(int defaultFlag)
+{
+	m_defaultFlag = defaultFlag;
 }

@@ -1,0 +1,13 @@
+<svg 
+ xmlns="http://www.w3.org/2000/svg"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ width="34.75px" height="34.75px">
+<path fill-rule="evenodd"  stroke="rgb(203, 203, 203)" stroke-width="1.5px" stroke-linecap="butt" stroke-linejoin="miter" fill="none"
+ d="M21.204,11.869 L28.071,18.394 C29.299,19.560 29.299,21.450 28.071,22.616 L21.204,29.141 C19.976,30.306 17.987,30.306 16.759,29.141 L9.892,22.616 C8.664,21.450 8.664,19.560 9.892,18.394 L16.759,11.869 C17.987,10.704 19.976,10.704 21.204,11.869 Z"/>
+<path fill-rule="evenodd"  stroke="rgb(23, 204, 95)" stroke-width="1.5px" stroke-linecap="butt" stroke-linejoin="miter" fill="none"
+ d="M7.435,20.250 C6.520,18.672 5.999,16.850 5.999,14.909 C5.999,8.884 11.027,4.000 17.229,4.000 C20.189,4.000 22.882,5.112 24.888,6.931 "/>
+<path fill-rule="evenodd"  stroke="rgb(23, 204, 95)" stroke-width="1.5px" stroke-linecap="butt" stroke-linejoin="miter" fill="none"
+ d="M26.266,4.541 C26.534,4.257 26.980,4.244 27.260,4.512 C27.353,4.600 27.419,4.712 27.453,4.836 L28.976,10.493 C29.117,11.018 28.807,11.563 28.282,11.709 C28.129,11.752 27.967,11.757 27.812,11.723 L22.106,10.490 C21.726,10.407 21.488,10.032 21.572,9.651 C21.600,9.525 21.662,9.409 21.750,9.315 L26.266,4.541 Z"/>
+<path fill-rule="evenodd"  fill="none"
+ d="M0.000,0.000 L34.000,0.000 L34.000,34.000 L0.000,34.000 L0.000,0.000 Z"/>
+</svg>

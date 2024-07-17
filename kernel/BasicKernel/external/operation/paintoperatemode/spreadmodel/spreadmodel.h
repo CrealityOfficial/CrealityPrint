@@ -24,13 +24,13 @@ public:
 	int chunkCount();
 
 	void updateChunkData(int id, const std::vector<trimesh::vec3>& position, const std::vector<int>& flags);
+	void updateChunkData(int id, const std::vector<trimesh::vec3>& position, const std::vector<int>& flags, const std::vector<int>& originFlags);
 	void setChunkIndexMap(int id, const std::vector<int>& indexMap);
 
 	void setPose(const QMatrix4x4& pose);
 	QMatrix4x4 pose() const;
 
 	void setSection(const QVector3D &frontPos, const QVector3D &backPos, const QVector3D &normal);
-	void setRenderModel(int model);
 	void setPalette(const std::vector<trimesh::vec>& colorsList);
 
 	int chunkId(qtuser_3d::Pickable* pickable);
@@ -39,9 +39,18 @@ public:
 
 	void setHighlightOverhangsDeg(float deg);
 
+	void setNeedHighlightEnabled(bool enabled);
+
+	void setNeedMixEnabled(bool enabled);
+
+	void setDefaultFlag(int defaultFlag);
+	int defaultFlag();
+
 protected:
 	QList<SpreadChunk*> m_chunks;
 	qtuser_3d::XEffect* m_effect;
+
+	int m_defaultFlag { 1 };
 
 };
 

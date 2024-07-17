@@ -1,8 +1,9 @@
 #include "seampaintingplugin.h"
-#include "seampaintingcommand.h"
 #include "kernel/translator.h"
 #include "kernel/kernelui.h"
 #include "interface/commandinterface.h"
+#include "seampaintingoperatemode.h"
+#include "operation/paintoperatemode/paintcommand.h"
 
 using namespace creative_kernel;
 SeamPaintingPlugin::SeamPaintingPlugin(QObject* parent) : QObject(parent), m_command(nullptr)
@@ -27,28 +28,28 @@ QString SeamPaintingPlugin::info()
 
 void SeamPaintingPlugin::initialize()
 {
-	m_command = new SeamPaintingCommand(this);
+	m_command = new PaintCommand(this);
 	m_command->setName(tr("Seam Painting") + ": N");
-
 	m_command->setSource("qrc:/paint/paint/SeamPaintingPanel.qml");
-
+	m_command->setOperateMode(new SeamPaintingOperateMode(m_command));
+	m_command->orderindex = 1;
   getKernelUI()->addToolCommand(m_command,
-    qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_OTHER,
+    qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_DRAW,
     qtuser_qml::ToolCommandType::SEAM_PAINTING);
-	addUIVisualTracer(this);
+	addUIVisualTracer(this,this);
 }
 
 void SeamPaintingPlugin::uninitialize()
 {
-  getKernelUI()->removeToolCommand(m_command, qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_MAIN);
+  getKernelUI()->removeToolCommand(m_command, qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_DRAW);
 }
 
 void SeamPaintingPlugin::onThemeChanged(ThemeCategory category)
 {
-	m_command->setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/seam_painting_n.svg" : "qrc:/UI/photo/leftBar/seam_painting_light_n.svg");
-	m_command->setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/seam_painting_n.svg" : "qrc:/UI/photo/leftBar/seam_painting_light_n.svg");
-	m_command->setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/seam_painting_p.svg" : "qrc:/UI/photo/leftBar/seam_painting_p.svg");
-	m_command->setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/seam_painting_p.svg" : "qrc:/UI/photo/leftBar/seam_painting_p.svg");
+	m_command->setDisabledIcon("qrc:/UI/photo/cToolBar/zDraw_dark_disable.svg");
+	m_command->setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/zDraw_dark_default.svg" : "qrc:/UI/photo/cToolBar/zDraw_light_default.svg");
+	m_command->setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/zDraw_dark_default.svg" : "qrc:/UI/photo/cToolBar/zDraw_light_default.svg");
+	m_command->setPressedIcon("qrc:/UI/photo/cToolBar/zDraw_dark_press.svg");
 }
 
 void SeamPaintingPlugin::onLanguageChanged(creative_kernel::MultiLanguage language)

@@ -14,13 +14,19 @@ namespace msbase
 	struct CutParam
 	{
 		bool fillHole = true;
+		//debug
+		std::string fileName;
 	};
 
 	MSBASE_API bool planeCut(trimesh::TriMesh* input, const CutPlane& plane,
 		std::vector<trimesh::TriMesh*>& outMeshes, const CutParam& param = CutParam());
 
 	//ÇÐ¸îÇø¼ä
-	MSBASE_API bool splitRangeZ(trimesh::TriMesh* inputMesh, float Upz, float Dowmz, trimesh::TriMesh** mesh);
+	MSBASE_API bool splitRangeZ(trimesh::TriMesh* inputMesh, float Upz, float Dowmz, trimesh::TriMesh** mesh, const char* fileName = nullptr);
+
+	MSBASE_API bool planeCutFromFile(const std::string& fileName, std::vector<trimesh::TriMesh*>& outMeshes);
+
+	MSBASE_API bool splitRangeZFromFile(const std::string& fileName, trimesh::TriMesh** mesh);
 }
 
 #endif // MMESH_BASE_CUT_1612341980784_H

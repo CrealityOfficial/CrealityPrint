@@ -1,5 +1,8 @@
 #include "mirrorundocommand.h"
 #include "internal/data/_modelinterface.h"
+#include "external/job/mirrorjob.h"
+#include "cxkernel/interface/jobsinterface.h"
+#include "interface/spaceinterface.h"
 
 namespace creative_kernel
 {
@@ -12,9 +15,17 @@ namespace creative_kernel
 	{
 	}
 
-	void MirrorUndoCommand::setMirrors(const QList<NMirrorStruct>& mirrorStructs)
+	void MirrorUndoCommand::setModels(const QList<ModelN*>& models)
 	{
-		m_mirrors = mirrorStructs;
+		for (ModelN* model : models)
+		{
+			m_serialNames << model->getSerialName();
+		}
+	}
+
+	void MirrorUndoCommand::setMirrorMode(int mode)
+	{
+		m_mode = mode;
 	}
 
 	void MirrorUndoCommand::undo()
@@ -29,17 +40,13 @@ namespace creative_kernel
 
 	void MirrorUndoCommand::call(bool _redo)
 	{
-		QList<NMirrorStruct> changes = m_mirrors;
-		if (!_redo)
+		QList<ModelN*> models;
+		for (QString name : m_serialNames)
 		{
-			for (NMirrorStruct& change : changes)
-			{
-				QMatrix4x4 temp = change.start;
-				change.start = change.end;
-				change.end = temp;
-			}
+			models << findModelBySerialName(name);
 		}
 
-		_mirrorModels(changes);
+		MirrorJob* job = new MirrorJob(models, m_mode);
+		cxkernel::executeJob(qtuser_core::JobPtr(job));
 	}
 }

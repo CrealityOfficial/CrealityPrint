@@ -77,12 +77,36 @@ RESOURCES += \
 #    ../../kernel/BasicKernel/res/plugin/preventwarpe.qrc \
 #    ../../kernel/BasicKernel/res/plugin/simplesupport.qrc \
 #    ../../kernel/BasicKernel/res/plugin/split.qrc \
+#    ../../kernel/BasicKernel/res/plugin/paint.qrc \
     ../../Creative3D/scence3d.qrc \
+    ../../kernel/BasicKernel/res/kernel.qrc \
+    ../../kernel/BasicKernel/res/plugin/DistanceMeasure.qrc \
+    ../../kernel/BasicKernel/res/plugin/DistanceMeasure.qrc \
+    ../../kernel/BasicKernel/res/plugin/cx3dexporter.qrc \
+    ../../kernel/BasicKernel/res/plugin/cx3dexporter.qrc \
+    ../../kernel/BasicKernel/res/plugin/dlpsupport.qrc \
+    ../../kernel/BasicKernel/res/plugin/dlpsupport.qrc \
+    ../../kernel/BasicKernel/res/plugin/drill.qrc \
+    ../../kernel/BasicKernel/res/plugin/drill.qrc \
     ../../kernel/BasicKernel/res/plugin/drill.qrc \
     ../../kernel/BasicKernel/res/plugin/hollow.qrc \
+    ../../kernel/BasicKernel/res/plugin/hollow.qrc \
+    ../../kernel/BasicKernel/res/plugin/hollow.qrc \
+    ../../kernel/BasicKernel/res/plugin/laser.qrc \
+    ../../kernel/BasicKernel/res/plugin/laser.qrc \
     ../../kernel/BasicKernel/res/plugin/letter.qrc \
+    ../../kernel/BasicKernel/res/plugin/letter.qrc \
+    ../../kernel/BasicKernel/res/plugin/letter.qrc \
+    ../../kernel/BasicKernel/res/plugin/paint.qrc \
+    ../../kernel/BasicKernel/res/plugin/pickbottom.qrc \
+    ../../kernel/BasicKernel/res/plugin/pickbottom.qrc \
+    ../../kernel/BasicKernel/res/plugin/preventwarpe.qrc \
+    ../../kernel/BasicKernel/res/plugin/preventwarpe.qrc \
+    ../../kernel/BasicKernel/res/plugin/simplesupport.qrc \
+    ../../kernel/BasicKernel/res/plugin/simplesupport.qrc \
+    ../../kernel/BasicKernel/res/plugin/split.qrc \
+    ../../kernel/BasicKernel/res/plugin/split.qrc \
+    ../../kernel/BasicKernel/res/printer.qrc \
+    ../../kernel/BasicKernel/res/slice.qrc \
+    image.qrc \
     qml.qrc
-
-
-
-

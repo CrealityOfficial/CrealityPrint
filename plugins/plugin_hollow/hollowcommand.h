@@ -45,7 +45,7 @@ protected:
 
 private:
   float thinkness_;
-  QPointer<HollowOperateMode> operation_mode_;
+  HollowOperateMode* operation_mode_{ NULL };
 };
 
 #endif // HOLLOWCOMMAND_H_

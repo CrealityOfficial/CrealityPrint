@@ -254,8 +254,8 @@ namespace msbase
 			}
 
 			//int smallCount = (int)((float)maxCount * 0.05f);
-			const int smallV = 150;
-			const int samllF = 50;
+			const int smallV = 4;
+			const int samllF = 4;
 			std::vector<trimesh::TriMesh*> allInOne;
 			//std::vector<trimesh::TriMesh*> validMeshes;
 			std::vector<BaseMeshPtr> validMeshes;

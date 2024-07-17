@@ -11,7 +11,10 @@
 #include "qtuser3d/trimesh2/conv.h"
 
 #include "qtusercore/module/progressortracer.h"
+#include "interface/uiinterface.h"
+#include <QCoreApplication>
 
+#include "kernel/kernelui.h"
 namespace creative_kernel
 {
 	SplitModelJob::SplitModelJob(QObject* parent)
@@ -45,6 +48,11 @@ namespace creative_kernel
 
 	void SplitModelJob::successed(qtuser_core::Progressor* progressor)
 	{
+		if (m_bSplit && m_datas.size() <= 1)
+		{
+			getKernelUI()->requestQmlTipDialog(QCoreApplication::translate("AllMenuDialog", "The currently selected model cannot be split"));
+			return;
+		}
 		if (m_datas.size() > 0)
 		{
 			QList<ModelN*> removes;

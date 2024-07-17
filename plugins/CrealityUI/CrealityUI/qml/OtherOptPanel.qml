@@ -11,11 +11,15 @@ LeftPanelDialog {
     property var selectItem
     property bool buttonEnabled: true
     property var bindBtn //点击之后弹窗的btn
+    property var loader
+    property bool haveOpt: false
 
     id:control
 
     width: 332 *screenScaleFactor 
     height: 180 *screenScaleFactor
+    // width: 272 *screenScaleFactor
+    // height: 180 *screenScaleFactor
     title : qsTr("Others")
 
     onCloseButtonClicked: {
@@ -30,7 +34,7 @@ LeftPanelDialog {
         color:Constants.dropShadowColor
     }
 
-    signal clicked(int index, var com)
+    signal clicked(int index)
     signal closed()
 
     function switchMode(btnIndex)
@@ -70,35 +74,47 @@ LeftPanelDialog {
 
                 enabledIconSource:enabledIcon
                 pressedIconSource:pressedIcon
-                highLightIconSource:hoveredIcon
+                highLightIconSource:pressedIcon
 
                 borderColor: Constants.leftbar_btn_border_color
                 hoverBorderColor: Constants.leftbar_btn_border_color
                 selectBorderColor: "transparent"
 
                 defaultBtnBgColor: "transparent"
-                hoveredBtnBgColor: Constants.leftBtnBgColor_hovered
+                hoveredBtnBgColor: Constants.leftBtnBgColor_selected
                 selectedBtnBgColor: Constants.leftBtnBgColor_selected
+
+                // bottonSelected: kernel_kernelui.otherCommandIndex == index
 
                 property var commandIndex: index
 
+
                 Connections {
-                    target: control
-                    onCurIndexChanged: {
-                        otherBtn.bottonSelected = control.curIndex == otherBtn.commandIndex
+                    target: kernel_kernelui
+
+                    onOtherCommandIndexChanged: {
+                        if (index == kernel_kernelui.otherCommandIndex) {
+                            if (bottonSelected == false) {
+                                bottonSelected = true
+                                control.clicked(index)
+                                haveOpt = true
+                            }
+                        } else {
+                            if (bottonSelected == true && kernel_kernelui.otherCommandIndex == -1) {
+                                haveOpt = false
+                            }
+                            bottonSelected = false
+                        }
+
                     }
                 }
 
+
                 onClicked: {
-                    control.selectItem = this
-                    bottonSelected = !bottonSelected
-                    if (bottonSelected) {
-                        control.curIndex = this.commandIndex
-                        control.clicked(this.commandIndex, this)
-                    } else {
-                        control.curIndex = -1
-                        control.clicked(-1, null)
-                    }
+                    if (kernel_kernelui.otherCommandIndex == index)
+                        kernel_kernelui.otherCommandIndex = -1
+                    else 
+                        kernel_kernelui.otherCommandIndex = index
                 }
             }
         }

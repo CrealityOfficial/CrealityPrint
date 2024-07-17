@@ -43,7 +43,7 @@ BASIC_KERNEL_API void getRProperPlane(QVector3D& planeCenter, QVector3D& planeDi
  *		= 0  getTSProperPlane
  *		= 1  getRProperPlane
  */
-BASIC_KERNEL_API QVector3D operationProcessCoord(const QPoint& point, creative_kernel::ModelN* model, int op_type, TMode m);
+BASIC_KERNEL_API QVector3D operationProcessCoord(const QPoint& point, creative_kernel::ModelN* model, int op_type, TMode m, bool isBackward = true);
 
 
 #endif // creative_kernel_OPERATION_UTIL_H

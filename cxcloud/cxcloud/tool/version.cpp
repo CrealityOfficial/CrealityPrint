@@ -4,109 +4,169 @@
 
 namespace cxcloud {
 
-Version::Version(uint32_t major, uint32_t minor, uint32_t patch, uint32_t build)
-    : major_(major), minor_(minor), patch_(patch), build_(build) {}
+  Version::Version(int64_t major, int64_t minor, int64_t patch, int64_t build)
+      : major_{ std::max<int64_t>(-1, major) }
+      , minor_{ std::max<int64_t>(-1, minor) }
+      , patch_{ std::max<int64_t>(-1, patch) }
+      , build_{ std::max<int64_t>(-1, build) } {}
 
-Version& Version::operator=(const QString& string) {
-  auto elements = string.split(QStringLiteral("."));
-  if (elements.empty()) {
+  Version::Version(const QString& string) {
+    *this = string;
+  }
+
+  auto Version::operator=(const QString& string) -> Version& {
+    auto elements = string.split(QStringLiteral("."));
+    if (elements.empty()) {
+      return *this;
+    }
+
+    auto& major = elements[0];
+    major = major.toLower();
+    if (major.startsWith(QStringLiteral("v"))) {
+      major.replace(QStringLiteral("v"), QStringLiteral(""));
+    }
+
+    const auto elements_size = elements.size();
+    major_ = elements_size > 0 ? elements[0].toLongLong() : -1;
+    minor_ = elements_size > 1 ? elements[1].toLongLong() : -1;
+    patch_ = elements_size > 2 ? elements[2].toLongLong() : -1;
+    build_ = elements_size > 3 ? elements[3].toLongLong() : -1;
     return *this;
   }
 
-  auto& major = elements[0];
-  major = major.toLower();
-  if (major.startsWith(QStringLiteral("v"))) {
-    major.replace(QStringLiteral("v"), QStringLiteral(""));
+  auto Version::FromString(const QString& string) -> Version {
+    return { string };
   }
 
-  const auto elements_size = elements.size();
-  major_ = elements_size > 0 ? elements[0].toUInt() : 0;
-  minor_ = elements_size > 1 ? elements[1].toUInt() : 0;
-  patch_ = elements_size > 2 ? elements[2].toUInt() : 0;
-  build_ = elements_size > 3 ? elements[3].toUInt() : 0;
-  return *this;
-}
+  auto Version::toString() const -> QString {
+    if (major_ < 0) {
+      return QStringLiteral("");
+    }
 
-Version::Version(const QString& string) {
-  *this = string;
-}
+    if (minor_ < 0) {
+      return QStringLiteral("%1").arg(QString::number(major_));
+    }
 
-QString Version::toString() const {
-  return QStringLiteral("%1.%2.%3.%4").arg(major_).arg(minor_).arg(patch_).arg(build_);
-}
+    if (patch_ < 0) {
+      return QStringLiteral("%1.%2").arg(QString::number(major_), QString::number(minor_));
+    }
 
-Version Version::FromString(const QString& string) {
-  return Version{ string };
-}
+    if (build_ < 0) {
+      return QStringLiteral("%1.%2.%3").arg(QString::number(major_),
+                                            QString::number(minor_),
+                                            QString::number(patch_));
+    }
 
-uint32_t Version::getMajor() const { return major_; }
+    return QStringLiteral("%1.%2.%3.%4").arg(QString::number(major_),
+                                             QString::number(minor_),
+                                             QString::number(patch_),
+                                             QString::number(build_));
+  }
 
-void Version::setMajor(uint32_t major) { major_ = major; }
+  auto Version::getMajor() const -> uint32_t {
+    return static_cast<uint32_t>(std::max<int64_t>(0, major_));
+  }
 
-uint32_t Version::getMinor() const { return minor_; }
+  auto Version::setMajor(int64_t major) -> void {
+    major_ = std::max<int64_t>(-1, major);
+  }
 
-void Version::setMinor(uint32_t minor) { minor_ = minor; }
+  auto Version::getMinor() const -> uint32_t {
+    return static_cast<uint32_t>(std::max<int64_t>(0, minor_));
+  }
 
-uint32_t Version::getPatch() const { return patch_; }
+  auto Version::setMinor(int64_t minor) -> void {
+    minor_ = std::max<int64_t>(-1, minor);
+  }
 
-void Version::setPatch(uint32_t patch) { patch_ = patch; }
+  auto Version::getPatch() const -> uint32_t {
+    return static_cast<uint32_t>(std::max<int64_t>(0, patch_));
+  }
 
-uint32_t Version::getBuild() const { return build_; }
+  auto Version::setPatch(int64_t patch) -> void {
+    patch_ = std::max<int64_t>(-1, patch_);
+  }
 
-void Version::setBuild(uint32_t build) { build_ = build; }
+  auto Version::getBuild() const -> uint32_t {
+    return static_cast<uint32_t>(std::max<int64_t>(0, build_));
+  }
 
-bool Version::operator==(const Version& that) const {
-  return this->major_ == that.major_ &&
-         this->minor_ == that.minor_ &&
-         this->patch_ == that.patch_ &&
-         this->build_ == that.build_;
-}
+  auto Version::setBuild(int64_t build) -> void {
+    build_ = std::max<int64_t>(-1, build);
+  }
 
-bool Version::operator!=(const Version& that) const {
-  return !(*this == that);
-}
+  auto Version::operator==(const Version& other) const -> bool {
+    auto& self = *this;
+    return self.getMajor() == other.getMajor() &&
+           self.getMinor() == other.getMinor() &&
+           self.getPatch() == other.getPatch() &&
+           self.getBuild() == other.getBuild();
+  }
 
-bool Version::operator<(const Version& that) const {
-  return this->major_ < that.major_ ? true : this->major_ > that.major_ ? false :
-         this->minor_ < that.minor_ ? true : this->minor_ > that.minor_ ? false :
-         this->patch_ < that.patch_ ? true : this->patch_ > that.patch_ ? false :
-         this->build_ < that.build_ ;
-}
+  auto Version::operator!=(const Version& other) const -> bool {
+    auto& self = *this;
+    return !(self == other);
+  }
 
-bool Version::operator<=(const Version& that) const {
-  return *this == that || *this < that;
-}
+  auto Version::operator<(const Version& other) const -> bool {
+    auto& self = *this;
 
-bool Version::operator>(const Version& that) const {
-  return !(*this <= that);
-}
+    const auto self_major = self.getMajor();
+    const auto self_minor = self.getMinor();
+    const auto self_patch = self.getPatch();
+    const auto self_build = self.getBuild();
 
-bool Version::operator>=(const Version& that) const {
-  return *this == that || *this > that;
-}
+    const auto other_major = other.getMajor();
+    const auto other_minor = other.getMinor();
+    const auto other_patch = other.getPatch();
+    const auto other_build = other.getBuild();
 
-bool Version::isEqualTo(const Version& that) const {
-  return *this == that;
-}
+    return self_major < other_major ? true : self_major > other_major ? false :
+           self_minor < other_minor ? true : self_minor > other_minor ? false :
+           self_patch < other_patch ? true : self_patch > other_patch ? false :
+           self_build < other_build ;
+  }
 
-bool Version::isSmallerThan(const Version& that) const {
-  return *this < that;
-}
+  auto Version::operator<=(const Version& other) const -> bool {
+    auto& self = *this;
+    return self == other || *this < other;
+  }
 
-bool Version::isBiggerThan(const Version& that) const {
-  return *this > that;
-}
+  auto Version::operator>(const Version& other) const -> bool {
+    auto& self = *this;
+    return !(self <= other);
+  }
 
-QString VersionToString(const Version& version) {
-  return version.toString();
-}
+  auto Version::operator>=(const Version& other) const -> bool {
+    auto& self = *this;
+    return self == other || *this > other;
+  }
 
-Version StringToVersion(const QString& string) {
-  return Version{ string };
-}
+  auto Version::isEqualTo(const Version& other) const -> bool {
+    auto& self = *this;
+    return self == other;
+  }
 
-Version operator""_v(const char* string, size_t size) {
-  return StringToVersion(QString{ string }.replace('\'', '.'));
-}
+  auto Version::isLessThan(const Version& other) const -> bool {
+    auto& self = *this;
+    return self < other;
+  }
+
+  auto Version::isGreaterThan(const Version& other) const -> bool {
+    auto& self = *this;
+    return self > other;
+  }
+
+  auto VersionToString(const Version& version) -> QString {
+    return version.toString();
+  }
+
+  auto StringToVersion(const QString& string) -> Version {
+    return Version{ string };
+  }
+
+  auto operator""_v(const char* string, size_t size) -> Version {
+    return StringToVersion(QString{ string }.replace('\'', '.'));
+  }
 
 }  // namespace cxcloud

@@ -43,6 +43,7 @@ private:
     std::vector<ExtrusionMoves> pattern_per_extruder_layer0; //!< For each extruder the pattern to print on the first layer
 
 public:
+    int count = 0;
     SliceContext* application = nullptr;
     bool enabled; //!< Whether the prime tower is enabled.
     bool would_have_actual_tower; //!< Whether there is an actual tower.
@@ -50,6 +51,7 @@ public:
     Polygons outer_poly; //!< The outline of the outermost prime tower.
     Polygons outer_poly_first_layer; //!< The outermost outline, plus optional brim on 'brim for prime tower' is enabled.
 
+    std::vector<int> prime_tower_added;
     /*
      * In which order, from outside to inside, will we be printing the prime
      * towers for maximum strength?
@@ -97,6 +99,13 @@ public:
      */
     void subtractFromSupport(SliceDataStorage& storage);
 
+    /**
+     * @brief 
+     * 
+     * @param gcode_layer 
+     */
+    void addToGcode_sparse(LayerPlan& gcode_layer) const;
+
 private:
 
     /*!
@@ -125,6 +134,14 @@ private:
      * tower paths should be drawn.
      */
     void addToGcode_denseInfill(LayerPlan& gcode_layer, const size_t extruder) const;
+
+    /**
+     * @brief 
+     * 
+     * @param gcode_layer 
+     * @param startindex 
+     */
+    void addToGcode_sparseInfill(LayerPlan& gcode_layer, const size_t startindex) const;
 
     /*!
      * For an extruder switch that happens not on the first layer, the extruder needs to be primed on the prime tower.

@@ -12,7 +12,7 @@ namespace creative_kernel
         m_actionNameWithout = "Update";
         m_eParentMenu = eMenuType_Help;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     UpdateCommand::~UpdateCommand()

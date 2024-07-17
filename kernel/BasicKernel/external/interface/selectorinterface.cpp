@@ -11,6 +11,16 @@
 using namespace qtuser_3d;
 namespace creative_kernel
 {
+	bool wipeTowerSelected() 
+	{ 
+		return getKernel()->modelSelector()->wipeTowerSelected(); 
+	}
+
+	void setSelectorEnable(bool enable)
+	{
+		getKernel()->modelSelector()->setEnabled(enable);
+	}
+
 	void addSelectTracer(SelectorTracer* tracer)
 	{
 		getKernel()->modelSelector()->addTracer(tracer);
@@ -52,6 +62,16 @@ namespace creative_kernel
 	void unTracePickable(Pickable* entity)
 	{
 		getKernel()->modelSelector()->removePickable(entity);
+	}
+
+	void addPickables(QList<qtuser_3d::Pickable*> pickables)
+	{
+		getKernel()->modelSelector()->addPickables(pickables);
+	}
+
+	void removePickables(QList<qtuser_3d::Pickable*> pickables)
+	{
+		getKernel()->modelSelector()->removePickables(pickables);
 	}
 
 	Pickable* checkPickable(const QPoint& point, int* primitiveID)

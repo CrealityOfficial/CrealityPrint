@@ -57,24 +57,36 @@ namespace creative_kernel
 		Q_INVOKABLE bool haveModelsOutPlatform();
 		Q_INVOKABLE bool modelOutPlatform(ModelN* amodel);
 
-		bool haveSupports(const QList<ModelN*>& models);
-		void deleteSupports(QList<ModelN*>& models);
-
 		QList<ModelN*> getModelnsBySerialName(const QStringList& names);
 		ModelN* getModelNBySerialName(const QString& name);
+		ModelN* getModelNByObjectName(const QString& objectName);
 		
 		void uniformName(ModelN* item);
+
+		void modelMeshLoadStarted(int iMeshNum) override;
+		void onMeshLoadFail() override;
+
+		void checkCollide();
+		int checkModelRange();
+		int checkBedRange();
+
+		bool checkLayerHeightEqual(const std::vector<std::vector<double>>& objectsLayers);
+
 	signals:
 		void signalVisualChanged(bool capture);
 		void modelNNumChanged();
 		void sigAddModel();
 		void sigRemoveModel();
-	public:
-		void checkCollide();
-		int checkModelRange();
-		int checkBedRange();
+
+
 	protected:
 		void process(cxkernel::ModelNDataPtr data) override;
+
+	private:
+		void layoutAddedModel(ModelN* aModel);
+		bool checkModelSizeForLayout(ModelN* aModel);
+		void reCheckLayoutWhenLoadingFinish();
+
 	private:
 		qtuser_3d::Box3D m_baseBoundingBox;
 
@@ -85,6 +97,10 @@ namespace creative_kernel
 
 		bool m_spaceDirty;
 		QList<ModelN*> m_needResizeModels;
+
+		int m_loadMeshCount;
+		QList<ModelN*> m_loadedModels;
+		bool m_layoutDoneFlag;
 	};
 }
 #endif // creative_kernel_MODEL_SPACE_H

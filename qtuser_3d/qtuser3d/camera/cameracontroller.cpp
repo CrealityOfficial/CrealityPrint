@@ -49,6 +49,11 @@ namespace qtuser_3d
 		setScreenCamera(m_screenCamera);
 	}
 
+	void CameraController::setMouseSensitivity(float sensitivity)
+	{
+		m_cameraManipulator->setMouseSensitivity(sensitivity);
+	}
+
 	void CameraController::setNeed360Rotate(bool is_need)
 	{
 		m_cameraManipulator->setNeed360Rotate(is_need);
@@ -70,6 +75,14 @@ namespace qtuser_3d
 	{
 		if (m_cameraManipulator)
 			m_cameraManipulator->setRotateCenter(rotateCenter);
+	}
+
+	QVector3D CameraController::rotateCenter() const
+	{
+		QVector3D center;
+		if (m_cameraManipulator)
+			center = m_cameraManipulator->rotateCenter();
+		return center;
 	}
 
 	void CameraController::setScreenCamera(qtuser_3d::ScreenCamera* camera)
@@ -125,6 +138,7 @@ namespace qtuser_3d
 
 		pickerCamera->setProjectionType(Qt3DRender::QCameraLens::ProjectionType::OrthographicProjection);
 		emit signalViewChanged(false);
+		m_screenCamera->notifyCameraChanged();
 	}
 
 	void CameraController::viewFromPerspective()
@@ -135,6 +149,7 @@ namespace qtuser_3d
 
 		pickerCamera->setProjectionType(Qt3DRender::QCameraLens::ProjectionType::PerspectiveProjection);
 		emit signalViewChanged(false);
+		m_screenCamera->notifyCameraChanged();
 	}
 
 	void CameraController::showSelf()
@@ -172,7 +187,7 @@ namespace qtuser_3d
 		{
 			m_screenCamera->setScreenSize(size);
 
-			//´¦ÀíÒÔÏÂÎÊÌâ : Õý½»ÊÓ½ÇÇé¿öÏÂ£¬resizeÊÂ¼þºó ³¡¾°»áÀ­Éì±äÐÎ
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ : ï¿½ï¿½ï¿½ï¿½ï¿½Ó½ï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½resizeï¿½Â¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			Qt3DRender::QCamera* pickerCamera = m_screenCamera->camera();
 			if (pickerCamera && pickerCamera->projectionType() == Qt3DRender::QCameraLens::OrthographicProjection)
 				m_screenCamera->zoom(1.0f);
@@ -352,7 +367,7 @@ if (m_enableZoomAroundCursor) {
 		 
 		if (true)
 		{
-			bool zoomIn = event->delta() > 0; //ÊÇ·ñ·Å´ó
+			bool zoomIn = event->delta() > 0; //ï¿½Ç·ï¿½Å´ï¿½
 
 			if (m_screenCamera && m_screenCamera->zoom(zoomIn ? 1.0f / 1.1f : 1.1f))
 			{

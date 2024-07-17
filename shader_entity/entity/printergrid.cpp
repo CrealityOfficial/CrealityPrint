@@ -17,7 +17,11 @@ namespace qtuser_3d
 		pass->addFilterKeyMask("view", 0);
 		pass->setPassDepthTest(Qt3DRender::QDepthTest::Less);
 		Qt3DRender::QLineWidth* lineWidth = new Qt3DRender::QLineWidth(this);
+#ifdef Q_OS_OSX
+		lineWidth->setSmooth(false);
+#else
 		lineWidth->setSmooth(true);
+#endif
 		lineWidth->setValue(lw);
 		pass->addRenderState(lineWidth);
 

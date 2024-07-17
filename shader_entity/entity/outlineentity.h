@@ -19,11 +19,15 @@ namespace qtuser_3d
 		void setRoute(std::vector<trimesh::vec3> route);
 		void setRoute(std::vector<std::vector<trimesh::vec3>> routes);
 
+		void setOffset(float offset);
+
 	private:
 		// trimesh::vec3 triangleNormal(const trimesh::vec3& v1, const trimesh::vec3& v2, const trimesh::vec3& v3);
 		// void setFloatOffset(std::vector<std::vector<trimesh::vec3>>& routes);
 		void updateGeometry(int pointsNum, float* positions, bool loop);
 
+	private:
+		XEffect* m_effect;
 	};
 }
 

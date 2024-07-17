@@ -17,8 +17,10 @@ namespace creative_kernel
         m_actionname = tr("Delete Model");
         m_actionNameWithout = "Delete Model";
         m_strMessageText = tr("Do you Want to Delete SelectModel?");
-
-        addUIVisualTracer(this);
+        m_source = "qrc:/UI/photo/menuImg/delete_n.svg";
+        m_icon = "qrc:/UI/photo/menuImg/delete_p.svg";
+        setShortcut("Delete");
+        addUIVisualTracer(this,this);
     }
 
     DeleteModelAction::~DeleteModelAction()

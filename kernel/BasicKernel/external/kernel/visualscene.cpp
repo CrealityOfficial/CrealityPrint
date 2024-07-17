@@ -15,7 +15,10 @@
 #include "interface/renderinterface.h"
 #include "interface/camerainterface.h"
 
+#include "internal/render/printerentity.h"
 #include "internal/utils/visscenehandler.h"
+#include "internal/utils/wipetowerhandler.h"
+
 #include "entity/rectlineentity.h"
 #include "qtuser3d/geometry/basicshapecreatehelper.h"
 
@@ -23,9 +26,14 @@
 #include "kernel/kernel.h"
 #include "data/modelspaceundo.h"
 #include "qtuser3d/refactor/xentity.h"
-#include "qtuser3d/refactor/xrenderpass.h"
 #include "qtuser3d/refactor/xeffect.h"
-#include "renderpass/zprojectrenderpass.h"
+#include "renderpass/purerenderpass.h"
+#include "qtuser3d/geometry/boxcreatehelper.h"
+#include <QElapsedTimer>
+#include "mainthreadjob.h"
+#include "cxkernel/interface/jobsinterface.h"
+
+#include <QCoreApplication>
 
 namespace creative_kernel
 {
@@ -41,28 +49,30 @@ namespace creative_kernel
 		m_colorPicker = new qtuser_3d::ColorPicker();
 		m_colorPicker->setParent(m_surface->getCameraViewportFrameGraphNode());
 		
-		m_textureRenderTarget = new qtuser_3d::TextureRenderTarget(m_rootEntity);
+		m_textureRenderTarget = new qtuser_3d::TextureRenderTarget(m_rootEntity, QSize(500, 500), true, true);
 		m_colorPicker->setTextureRenderTarget(m_textureRenderTarget);
 
 		connect(m_colorPicker, SIGNAL(signalUpdate()), this, SIGNAL(signalUpdate()));
 
 		m_handler = new VisSceneHandler(this);
+		m_towerHandler = new WipeTowerHandler(this);
 
 		m_rectLine = new qtuser_3d::RectLineEntity(m_rootEntity);
 		m_rectLine->setColor(QVector4D(1.0f, 0.7530f, 0.0f, 1.0f));
 
+		m_heightReferEntity = new qtuser_3d::XEntity(m_rootEntity);
 		{
-			m_sphereEntity = new qtuser_3d::XEntity(m_rootEntity);
-			m_sphereEntity->setGeometry(qtuser_3d::BasicShapeCreateHelper::createBall(QVector3D(0, 0, 0), 1.0, 10));
-			
-			qtuser_3d::XRenderPass *renderPass = new qtuser_3d::ZProjectRenderPass(m_sphereEntity);
-			//m_sphereEntity->setParameter("pcolor", QVector4D(0.2275, 0.2275, 0.2353, 0.5));
+			qtuser_3d::PureRenderPass* pass = new qtuser_3d::PureRenderPass(m_heightReferEntity);
+			pass->setLineWidth(2.0f);
+			pass->addFilterKeyMask("view", 0);
+			pass->setPassDepthTest();
+			pass->setColor(QVector4D(0.3f, 0.3f, 0.9f, 1.0f));
 
-			qtuser_3d::XEffect* effect = new qtuser_3d::XEffect(m_sphereEntity);
-			effect->addRenderPass(renderPass);
-			m_sphereEntity->setEffect(effect);
+			qtuser_3d::XEffect* effect = new qtuser_3d::XEffect(m_heightReferEntity);
+			effect->addRenderPass(pass);
+			m_heightReferEntity->setEffect(effect);
 
-			//showPrimeTower(100.0f, 100.0f, 40.0f);
+			m_heightReferEntity->setGeometry(qtuser_3d::BoxCreateHelper::createNoBottom(), Qt3DRender::QGeometryRenderer::Lines);
 		}
 
 		m_updateTimer = new QTimer(this);
@@ -79,7 +89,7 @@ namespace creative_kernel
 
 	bool VisualScene::isDefaultScene()
 	{
-		return m_rootEntity->isEnabled();
+		return !m_customRootEntity->isEnabled();
 	}
 
 	void VisualScene::useDefaultScene()
@@ -131,7 +141,6 @@ namespace creative_kernel
 
 	void VisualScene::updateRender(bool updatePick)
 	{
-		qDebug() << "update capture";
 		if (updatePick)
 			m_colorPicker->requestCapture();
 		
@@ -175,17 +184,14 @@ namespace creative_kernel
 		m_handlerEnabled = enable;
 		if (m_handlerEnabled)
 		{
-			addSelectTracer(m_handler);
-			addKeyEventHandler(m_handler);
-			addHoverEventHandler(m_handler);
-			addLeftMouseEventHandler(m_handler);
+			m_handler->setEnabled(true);
+			addLeftMouseEventHandler(m_towerHandler);
+
 		} 
 		else
 		{
-			removeSelectorTracer(m_handler);
-			removeKeyEventHandler(m_handler);
-			removeHoverEventHandler(m_handler);
-			removeLeftMouseEventHandler(m_handler);
+			m_handler->setEnabled(false);
+			removeLeftMouseEventHandler(m_towerHandler);
 		}
 	}
 
@@ -204,10 +210,9 @@ namespace creative_kernel
 
 		show(spaceEntity());
 
-		addSelectTracer(m_handler);
-		addKeyEventHandler(m_handler);
-		addHoverEventHandler(m_handler);
-		addLeftMouseEventHandler(m_handler);
+		m_handler->setEnabled(true);
+		addLeftMouseEventHandler(m_towerHandler);
+
 		m_handlerEnabled = true;
 
 		if (m_operateMode)
@@ -228,28 +233,37 @@ namespace creative_kernel
 			m_operateMode->onDettach();
 		}
 
-		removeSelectorTracer(m_handler);
-		removeKeyEventHandler(m_handler);
-		removeHoverEventHandler(m_handler);
-		removeLeftMouseEventHandler(m_handler);
-
+		m_handler->setEnabled(false);
+		removeLeftMouseEventHandler(m_towerHandler);
 		cxkernel::setUndoStack(nullptr);
 	}
 
 	void VisualScene::updateRenderSize(const QSize& size)
 	{
-		if (size.width() == 0 || size.height() == 0)
+		if (size.width() <= 0 || size.height() <= 0)
 			return;
-		
-		m_surface->updateSurfaceSize(size);
+			
 		m_colorPicker->resize(size);
-		m_textureRenderTarget->resize(size);
+		m_surface->updateSurfaceSize(size * m_colorPicker->renderTargetRatio());
 		updateRender(true);
 	}
 
 	void VisualScene::onStartPhase()
 	{
-		renderDefaultRenderGraph();
+		static bool firstStart = true;
+		if (firstStart)
+		{
+			renderDefaultRenderGraph();
+			firstStart = false;
+		}
+		else 
+		{
+			 QTimer::singleShot(40, [=] ()
+			 {
+				if (getKernel()->currentPhase() == 0)
+					renderDefaultRenderGraph();
+			 });		
+		}
 	}
 
 	void VisualScene::onStopPhase()
@@ -288,23 +302,6 @@ namespace creative_kernel
 		m_updateTimer->start(msec);
 	}
 
-	void VisualScene::showPrimeTower(float x, float y, float radius)
-	{
-		QMatrix4x4 m;
-		m.translate(QVector3D(x, y, 0.0f));
-		m.scale(radius);
-		m_sphereEntity->setPose(m);
-		show(m_sphereEntity);
-		
-		updateRender(false);
-	}
-
-	void VisualScene::hidePrimeTower()
-	{
-		hide(m_sphereEntity);
-		updateRender(false);
-	}
-
 	bool VisualScene::didSelectAnyEntity(const QPoint& p)
 	{
 		return m_colorPicker->pick(p, nullptr);
@@ -334,5 +331,10 @@ namespace creative_kernel
 	void VisualScene::setSceneClearColor(const QColor& color)
 	{
 		m_surface->setClearColor(color);
+	}
+
+	qtuser_3d::XEntity* VisualScene::heightReferEntity()
+	{
+		return m_heightReferEntity;
 	}
 }

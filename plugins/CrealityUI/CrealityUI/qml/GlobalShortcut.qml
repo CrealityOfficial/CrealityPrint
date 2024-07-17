@@ -3,11 +3,13 @@ import QtQuick 2.13
 Item{
     property alias funcItem: loader.funcItem
     property int shortcutType: 0 //0: leftBtnsShortcut, 1: otherBtnsShortcut
+    property var listView
     Loader{
         id: loader
         property var funcItem
         sourceComponent: shortcutType ? otherBtnsShortcutCom : leftBtnsShortcutCom
     }
+
 
     Component{
         id: leftBtnsShortcutCom
@@ -16,46 +18,37 @@ Item{
             visible: shortcutType == 0
             Shortcut{
                 context: Qt.WindowShortcut
-                sequence: "M"
-
-                onActivated: {
-                    funcItem.switchMode(0)
+                sequence: "T"
+                onActivated: { 
+                    funcItem.switchToolMode(listView,0)
                 }
             }
 
-            Shortcut{
-                context: Qt.WindowShortcut
-                sequence: "S"
-
-                onActivated: {
-                    funcItem.switchMode(1)
-                }
-            }
-
+            
             Shortcut{
                 context: Qt.WindowShortcut
                 sequence: "R"
 
                 onActivated: {
-                    funcItem.switchMode(2)
+                    funcItem.switchToolMode(listView,1)
                 }
             }
 
             Shortcut{
                 context: Qt.WindowShortcut
-                sequence: "F"
+                sequence: "Shift+A"
 
                 onActivated: {
-                    funcItem.switchMode(3)
+                    funcItem.switchToolMode(listView,2)
                 }
             }
 
+
             Shortcut{
                 context: Qt.WindowShortcut
-                sequence: "L"
-
+                sequence: "B"
                 onActivated: {
-                    funcItem.switchMode(4)
+                    funcItem.switchToolMode(listView,3)
                 }
             }
         }
@@ -69,31 +62,35 @@ Item{
             visible: shortcutType == 1
             Shortcut{
                 context: Qt.WindowShortcut
-                sequence: "Alt+L"
-
+                sequence: "Ctrl+R"
                 onActivated: {
-                    funcItem.bindBtn.checked = true
-                    funcItem.switchMode(0)
+                    // funcItem.bindBtn.checked = true
+                    funcItem.switchToolMode(listView,0)
                 }
             }
 
+            Shortcut{
+                context: Qt.WindowShortcut
+                sequence: "M"
+                onActivated: {
+                    funcItem.switchToolMode(listView,1)
+                }
+            }
+
+            Shortcut{
+                context: Qt.WindowShortcut
+                sequence: "Alt+C"
+                onActivated: {
+                    // funcItem.bindBtn.checked = true
+                    funcItem.switchToolMode(listView,2)
+                }
+            }
             Shortcut{
                 context: Qt.WindowShortcut
                 sequence: "C"
-
                 onActivated: {
-                    funcItem.bindBtn.checked = true
-                    funcItem.switchMode(2)
-                }
-            }
-
-            Shortcut{
-                context: Qt.WindowShortcut
-                sequence: "T"
-
-                onActivated: {
-                    funcItem.bindBtn.checked = true
-                    funcItem.switchMode(7)
+                    // funcItem.bindBtn.checked = true
+                    funcItem.switchToolMode(listView,6)
                 }
             }
         }

@@ -19,6 +19,8 @@ namespace creative_kernel
         virtual ~SubMenuViewShow();
 
         QAbstractListModel* subMenuActionmodel();
+
+        virtual bool enabled()override;
     protected:
         void initActionModel();
         void onThemeChanged(ThemeCategory category) override;

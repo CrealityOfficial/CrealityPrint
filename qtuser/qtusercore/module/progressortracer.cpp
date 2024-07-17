@@ -48,6 +48,13 @@ namespace qtuser_core
 		m_failed = true;
 	}
 
+	QString ProgressorTracer::getFailReason()
+	{
+		if (m_progressor)
+			return m_progressor->getFailReason();
+		return QString();
+	}
+
 	void ProgressorTracer::success()
 	{
 		qDebug() << "ProgressorTracer success. ";

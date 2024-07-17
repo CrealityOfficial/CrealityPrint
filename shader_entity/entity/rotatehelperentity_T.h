@@ -19,12 +19,18 @@ namespace qtuser_3d
 	class ScreenCamera;
 	class RotateCallback;
 
+	enum class RotateHelperType
+	{
+		RH_NORMAL,
+		RH_SIMPLE
+	};
+
 	class SHADER_ENTITY_API RotateHelperEntity_T : public XEntity
 		,public LeftMouseEventHandler, public WheelEventHandler
 	{
 		Q_OBJECT
 	public:
-		RotateHelperEntity_T(Qt3DCore::QNode* parent = nullptr);
+		RotateHelperEntity_T(Qt3DCore::QNode* parent = nullptr, RotateHelperType helperType = RotateHelperType::RH_NORMAL);
 		virtual ~RotateHelperEntity_T();
 
 		Pickable* getPickable();
@@ -49,10 +55,12 @@ namespace qtuser_3d
 		void setDialColor(QVector4D color);
 		void setHandlerColor(QVector4D color);
 		void setHandlerPickedColor(QVector4D color);
-		void setFixSize(bool fixSize);
 
 		QVector3D center();
 		bool isRotating() { return m_rotatingFlag; }
+
+		void onCameraChanged();
+		void setAlwaysFaceCamera(bool faceCamera);
 
 	public slots:
 		void onBoxChanged(Box3D box);
@@ -60,8 +68,10 @@ namespace qtuser_3d
 	private:
 		void initRing();
 		void initHandler();
-		void initDial();
+		void initDial(QVector3D scale);
 		void initTip();
+		void initManipulateSimpleRing();
+		void resetSimpleRingRotateInitAngle();
 
 	protected:
 		void onLeftMouseButtonClick(QMouseEvent* event) override {}
@@ -75,6 +85,7 @@ namespace qtuser_3d
 		void perform(QPoint point, bool release);
 
 	protected:
+		RotateHelperType m_helperType;
 		bool m_rotatingFlag; 
 		double m_lastestRotAngles; // < 0: Ë³Ê±Õë£¬= 0£º0£¬> 0£ºÄæÊ±Õë
 		double m_initRotateDirAngles;
@@ -85,10 +96,10 @@ namespace qtuser_3d
 		QVector3D m_originInitRotateDir;
 		QQuaternion m_initQuaternion;
 
-		bool m_fixSize;
 		QVector3D m_scale;
 		QVector3D m_center;
 		QVector3D m_spacePoint;
+		QVector3D m_simpleRingScale;
 
 		double m_ringRadius;
 		double m_ringMinorRadius;
@@ -101,6 +112,18 @@ namespace qtuser_3d
 		QVector4D m_handlerPickedColor;
 		ManipulateEntity* m_pHandlerEntity;
 		ManipulatePickable* m_pHandlerPickable;
+
+		float m_camViewRingRadius;
+		float m_camViewRingMinorRadius;
+		QVector4D m_camViewRingColor;
+		QVector4D m_camViewRingPickedColor;
+		ManipulateEntity* m_manipulateRingEntity;
+		bool m_alwaysFaceCamera;
+		QVector3D m_camRight;
+
+		// only apply to m_manipulateRingEntity,   to set difference from the dial entity
+		Qt3DCore::QTransform* m_pManipulateRingTransform;
+		QEntity* m_pManipulateRingGroup;
 
 		double m_dialRadius;
 		double m_degreeRadius;

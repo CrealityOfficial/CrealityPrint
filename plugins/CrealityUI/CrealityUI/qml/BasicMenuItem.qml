@@ -7,6 +7,7 @@ BasicMenuItemStyle
     property var actionIconSource
     property  var actionSource
     property  var  actionCmdItem
+    itemChecked:idMenItem.itemChecked
     separatorVisible: true
     signal loadSouce(string title,var commd)
 

@@ -18,7 +18,7 @@ namespace creative_kernel
         m_bSubMenu = true;
         m_insertKey = "subMenuFile";
         initActionModel();
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     TestModelImport::~TestModelImport()
@@ -36,10 +36,10 @@ namespace creative_kernel
             fileName = "Block20XY.stl";
             break;
         case creative_kernel::TestModelImport::BOAT:
-            fileName = "Boat.stl";
+            fileName = "3DBenchy.stl";
             break;
         case creative_kernel::TestModelImport::COMPLEX:
-            fileName = "Complex.stl";
+            fileName = "ksr_fdmtest_w4.stl";
             break;
         case creative_kernel::TestModelImport::OVERHANG: 
             fileName = "Overhang.stl";
@@ -53,7 +53,13 @@ namespace creative_kernel
         default:
             break;
         }
-        QString name = QCoreApplication::applicationDirPath() + "/resources/mesh/testModel/" + fileName;
+        #if defined(__APPLE__)
+            const auto index = QCoreApplication::applicationDirPath().lastIndexOf(QStringLiteral("/"));
+            QString name = QStringLiteral("%1%2%3").arg(QCoreApplication::applicationDirPath().left(index))
+                                 .arg(QStringLiteral("/Resources/resources/mesh/testModel/")).arg(fileName);
+        #else
+            QString name = QCoreApplication::applicationDirPath() + "/resources/mesh/testModel/" + fileName;
+        #endif
         cxkernel::openFileWithString(name);
     }
 
@@ -84,8 +90,8 @@ namespace creative_kernel
         case creative_kernel::TestModelImport::BLOCK20XY:
             m_actionname = QCoreApplication::translate("TestModel", "Block20XY");
             m_actionNameWithout = "Block20XY";
-            m_source = "qrc:/UI/photo/menuImg/Block20XY.png";
-            m_icon = "qrc:/UI/photo/menuImg/Block20XY.png";
+            m_source = "qrc:/UI/photo/menuImg/Block20XY.svg";
+            m_icon = "qrc:/UI/photo/menuImg/Block20XY.svg";
             break;
         case creative_kernel::TestModelImport::BOAT:
             m_actionname = QCoreApplication::translate("TestModel", "Boat");
@@ -108,8 +114,8 @@ namespace creative_kernel
         case creative_kernel::TestModelImport::SQUARE_COLUMNS_Z_AXIS:
             m_actionname = QCoreApplication::translate("TestModel", "Square columns Z axis");
             m_actionNameWithout = "Square columns Z axis";
-            m_source = "qrc:/UI/photo/menuImg/Square columns Z axis.png";
-            m_icon = "qrc:/UI/photo/menuImg/Square columns Z axis.png";
+            m_source = "qrc:/UI/photo/menuImg/Square columns Z axis.svg";
+            m_icon = "qrc:/UI/photo/menuImg/Square columns Z axis.svg";
             break;
         case creative_kernel::TestModelImport::SQUARE_PRISM_Z_AXIS:
             m_actionname = QCoreApplication::translate("TestModel", "Square prism Z axis");

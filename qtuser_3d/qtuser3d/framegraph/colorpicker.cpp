@@ -87,11 +87,13 @@ namespace qtuser_3d
 	void ColorPicker::resize(const QSize& size)
 	{
 		//qDebug() << "ColorPicker::resize " << size;
-		m_colorPickerImage = QImage(size, QImage::Format_RGBA8888);
+		QSize scaleSize = size * m_renderTargetRatio;
+
+		m_colorPickerImage = QImage(scaleSize, QImage::Format_RGBA8888);
 		m_colorPickerImage.fill(0xFFFFFFFF);
 
 		if (m_textureRenderTarget)
-			m_textureRenderTarget->resize(size);
+			m_textureRenderTarget->resize(scaleSize);
 	}
 
 	//noted:  Only one render capture result is produced per requestCapture call even if the frame graph has multiple leaf nodes.
@@ -118,11 +120,18 @@ namespace qtuser_3d
 			m_updateTimer->start(40);
 		}
 	}
+	
+	void ColorPicker::requestCapture(Qt3DRender::QCamera* camera, QObject* receiver, RenderCaptor::ReceiverHandleReplyFunc func)
+	{
+		RenderCaptor* captor = new RenderCaptor(m_renderPassFilter);
+		captor->capture(camera, receiver, func);
+	}
 
 	void ColorPicker::requestSyncCapture(int timeout)
 	{
 		m_createImageFinished = false;
 		m_capturing = true;
+		m_delayTimer->stop();
 		if (m_captureReply)
 		{
 			delete m_captureReply;
@@ -137,7 +146,7 @@ namespace qtuser_3d
 		timeoutTimer.start();
 		while (m_capturing && timeoutTimer.elapsed() < timeout)
 		{
-			QCoreApplication::processEvents();
+			QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 		}
 	}
 
@@ -278,6 +287,9 @@ namespace qtuser_3d
 
 	bool ColorPicker::pick(int x, int y, int* faceID)
 	{
+		x *= m_renderTargetRatio;
+		y *= m_renderTargetRatio;
+
 		if (y >= m_colorPickerImage.height())
 			return false;
 
@@ -387,4 +399,8 @@ namespace qtuser_3d
 		m_filterKey->setValue(0);
 	}
 
+	float ColorPicker::renderTargetRatio()
+	{
+		return m_renderTargetRatio;
+	}
 }

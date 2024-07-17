@@ -128,7 +128,7 @@ MenuBar {
         CusMenuItem {
             separatorVisible: true
             actionName: qsTr("Redo")
-            actionShortcut: "Ctrl+Shift+Z"
+            actionShortcut: "Ctrl+Y"
             onTriggered: {
                 excuteOpt("Redo");
             }
@@ -178,7 +178,7 @@ MenuBar {
             separatorVisible: true
             actionName: qsTr("Clone Model")
             enabled: controlEnabled
-            actionShortcut: "Ctrl+Shift+C"
+            actionShortcut: "Alt+C"
             onTriggered: {
                 excuteOpt("Clone Model");
             }

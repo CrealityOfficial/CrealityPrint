@@ -5,20 +5,24 @@
 
 namespace msbase
 {
-	bool checkDegenerateFace(trimesh::TriMesh* mesh, bool remove)
+	bool checkDegenerateFace(trimesh::TriMesh* mesh, std::vector<bool>& valid, bool remove)
 	{
 		if (!mesh || mesh->faces.size() <= 0)
 			return false;
 
 		size_t size = mesh->faces.size();
+        valid.resize(size, true);
 
 		std::vector<int> newFaces;
 		newFaces.reserve(size);
 		for (size_t i = 0; i < size; ++i)
 		{
 			const trimesh::TriMesh::Face& face = mesh->faces.at(i);
-			if ((face.x == face.y) || (face.x == face.z) || (face.y == face.z))
-				continue;
+            if ((face.x == face.y) || (face.x == face.z) || (face.y == face.z))
+            {
+                valid.at(i) = false;
+                continue;
+            }
 
 			newFaces.push_back(i);
 		}
@@ -43,6 +47,32 @@ namespace msbase
 		}
 		return have;
 	}
+
+    void mantainValids(std::vector<std::string>& datas, std::vector<bool>& valid)
+    {
+        int size = (int)datas.size();
+        if (size == valid.size())
+        {
+            int valid_size = 0;
+            int invalid_size = 0;
+            for (int i = 0; i < size; ++i)
+            {
+                if (valid.at(i))
+                {
+                    if (invalid_size > 0)
+                        datas.at(valid_size) = datas.at(i);
+                    ++valid_size;
+                }
+                else
+                    ++invalid_size;
+            }
+
+            if (valid_size > 0)
+                datas.resize(valid_size);
+            else
+                datas.clear();
+        }
+    }
 
     void checkLargetPlanar(trimesh::TriMesh* mesh, const std::vector<trimesh::vec3>& normals, const std::vector<float>& areas, float threshold,
         /*out*/std::vector<int>& faces)

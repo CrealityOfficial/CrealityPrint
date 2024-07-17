@@ -1,6 +1,7 @@
 ﻿#include "sliceattain.h"
 #include "cxgcode/gcodehelper.h"
 #include "crslice/gcode/gcodedata.h"
+#include "crslice/gcode/header.h"
 
 #include "qtusercore/string/resourcesfinder.h"
 #include "qtusercore/module/systemutil.h"
@@ -278,7 +279,16 @@ namespace cxgcode
 		if (_layer >= 0 && _layer < layers())
 		{
 			const std::vector<int>& maps = builder.m_stepGCodesMaps.at(_layer);
-			return maps.at(nViewIndex);
+			//if (nViewIndex >= maps.size()) return -1;
+			for (int step = 0; step < maps.size(); step++)
+			{
+				int viewIndex = maps[step];
+				if (viewIndex == nViewIndex)
+				{
+					return step;
+				}
+			}
+			//return maps.at(nViewIndex);
 		}
 		return -1;
 	}

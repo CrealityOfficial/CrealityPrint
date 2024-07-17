@@ -43,7 +43,13 @@ namespace qtuser_3d
 
 		void resetCameraAngle(const int angle);
 		void resetCameraAngle();
-
+		void topCameraAngle();
+		void bottomCameraAngle();
+		void leftCameraAngle();
+		void rightCameraAngle();
+		void frontCameraAngle();
+		void backCameraAngle();
+		
 		void setTheme(int theme);
 		void setupLightTexture(const QUrl& url);
 		void setupDarkTexture(const QUrl& url);
@@ -94,7 +100,7 @@ namespace qtuser_3d
         QVector3D m_startCenter;
         QVector3D m_endCenter;
 
-		float m_length = 100.0;//Õý·½ÌåµÄ±ß³¤
+		float m_length = 100.0;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ß³ï¿½
 		int m_theme;
 		QUrl m_lightTextureUrl;
 		QUrl m_darkTextureUrl;

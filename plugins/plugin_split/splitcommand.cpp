@@ -18,9 +18,9 @@ SplitCommand::SplitCommand(QObject* parent)
 	, m_op(nullptr)
 {
     m_name = tr("Split") + ": C";
-
+    orderindex = 7;
 	m_source = "qrc:/split/split/split.qml";
-    addUIVisualTracer(this);
+    addUIVisualTracer(this,this);
 }
 
 SplitCommand::~SplitCommand()
@@ -29,10 +29,10 @@ SplitCommand::~SplitCommand()
 
 void SplitCommand::onThemeChanged(creative_kernel::ThemeCategory category)
 {
-    setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/split_dark.svg" : "qrc:/UI/photo/leftBar/split_lite.svg");
-    setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/split_dark.svg" : "qrc:/UI/photo/leftBar/split_lite.svg");
-    setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/split_pressed.svg" : "qrc:/UI/photo/leftBar/split_lite.svg");
-    setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/split_pressed.svg" : "qrc:/UI/photo/leftBar/split_pressed.svg");
+    setDisabledIcon("qrc:/UI/photo/cToolBar/cut_dark_disable.svg");
+    setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/cut_dark_default.svg" : "qrc:/UI/photo/cToolBar/cut_light_default.svg");
+    setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/cut_dark_default.svg" : "qrc:/UI/photo/cToolBar/cut_light_default.svg");
+    setPressedIcon("qrc:/UI/photo/cToolBar/cut_dark_press.svg");
 }
 
 void SplitCommand::onLanguageChanged(creative_kernel::MultiLanguage language)
@@ -108,6 +108,7 @@ void SplitCommand::changeOffset(float off)
     if (m_op)
     {
         m_op->setOffset(off);
+        emit onOffsetChanged();
     }
 }
 
@@ -115,6 +116,39 @@ void SplitCommand::changeAxisType(int type)
 {
     m_op->setAcitiveAxis(type);
 }
+void SplitCommand::indicateEnabled(bool bRet)
+{
+    if (m_op)
+    {
+        m_op->enabledIndicate(bRet);
+    }
+}
+void SplitCommand::setCutToParts(bool bRet)
+{
+    //
+    qDebug() << "";
+    //if (m_op)
+    //{
+    //    m_op->set(bRet);
+    //}
+}
+
+bool SplitCommand::getCutToParts() const
+{
+    //if (m_op)
+    //{
+    //    return m_op->get
+    //}
+    return false;
+}
+void SplitCommand::modelGap(float gap)
+{
+    if (m_op)
+    {
+        m_op->setModelGap(gap);
+    }
+}
+
 
 float SplitCommand::getOffset()
 {

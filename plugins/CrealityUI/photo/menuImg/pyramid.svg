@@ -1,9 +1,11 @@
 <svg 
  xmlns="http://www.w3.org/2000/svg"
  xmlns:xlink="http://www.w3.org/1999/xlink"
- width="20px" height="22px">
-<path fill-rule="evenodd"  fill="rgb(211, 146, 118)"
- d="M20.000,13.000 L7.000,-0.000 C7.000,-0.000 3.527,4.199 2.000,9.000 C0.074,15.053 0.000,22.000 0.000,22.000 L20.000,13.000 Z"/>
-<path fill-rule="evenodd"  fill="rgb(84, 59, 48)"
- d="M0.000,6.000 L7.000,-0.000 L0.000,22.000 L0.000,6.000 Z"/>
+ width="20px" height="20px">
+<path fill-rule="evenodd"  fill="rgb(69, 177, 112)"
+ d="M19.000,11.818 L7.299,-0.000 C7.299,-0.000 4.174,3.818 2.800,8.182 C1.066,13.684 0.999,20.000 0.999,20.000 L19.000,11.818 Z"/>
+<path fill-rule="evenodd"  fill="rgb(86, 255, 154)"
+ d="M0.999,5.454 L7.299,-0.000 L0.999,20.000 L0.999,5.454 Z"/>
+<path fill-rule="evenodd"  fill="none"
+ d="M0.000,0.000 L20.000,0.000 L20.000,20.000 L0.000,20.000 L0.000,0.000 Z"/>
 </svg>

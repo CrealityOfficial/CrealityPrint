@@ -6,7 +6,10 @@
 
 #include "interface/camerainterface.h"
 #include "qtuser3d/camera/screencamera.h"
-
+#include "data/modelspaceundo.h"
+#include "interface/modelinterface.h"
+#include "interface/printerinterface.h"
+#include "interface/projectinterface.h"
 namespace creative_kernel
 {
 	ModelSpace* getModelSpace()
@@ -34,13 +37,19 @@ namespace creative_kernel
 		Qt3DCore::QEntity* root = spaceEntity();
 		if (entity && entity->parent() != root)
 			entity->setParent(root);
+		if (!entity->isEnabled())
+			entity->setEnabled(true);
 	}
 
 	void spaceHide(Qt3DCore::QEntity* entity)
 	{
 		Qt3DCore::QEntity* root = spaceEntity();
-		if (entity && entity->parent() == root)
-			entity->setParent((Qt3DCore::QEntity*)nullptr);
+		if (entity && entity->parent() != root)
+			entity->setParent(root);
+
+		if (entity->isEnabled())
+			entity->setEnabled(false);
+
 	}
 
 	QList<ModelGroup*> modelGroups()
@@ -79,63 +88,22 @@ namespace creative_kernel
 		return getKernel()->modelSpace()->modelOutPlatform(amodel);
 	}
 
-	QList<FDMSupportGroup*> fdmSuppportGroups()
+	ModelN* findModelBySerialName(const QString& serialName)
 	{
-		QList<ModelN*> models = modelns();
-		QList<FDMSupportGroup*> supportsGroups;
+		for (auto m : modelns())
+		{
+			if (m->getSerialName() == serialName)
+				return m;
+		}
+		return NULL;
+	}
+
+	qtuser_3d::Box3D modelsBox(const QList<ModelN*>& models)
+	{
+		qtuser_3d::Box3D box;
 		for (ModelN* model : models)
-			supportsGroups << model->fdmSupport();
-		return supportsGroups;
-	}
-
-	bool spaceHasFDMSupport()
-	{
-		bool result = false;
-		QList<ModelGroup*> groups = modelGroups();
-		for (ModelGroup* group : groups)
-		{
-			QList<ModelN*> models = group->models();
-			for (ModelN* model : models)
-			{
-				if (model->hasFDMSupport())
-				{
-					model->setFDMSuooprt(true);
-					result = true;
-					break;
-				}
-			}
-
-			if (result)
-				break;
-		}
-
-		return result;
-	}
-
-	void spaceCancelFDMSupport()
-	{
-		QList<ModelGroup*> groups = modelGroups();
-		for (ModelGroup* group : groups)
-		{
-			QList<ModelN*> models = group->models();
-			for (ModelN* model : models)
-			{
-				if (model->hasFDMSupport())
-				{
-					model->setFDMSuooprt(false);
-				}
-			}
-		}
-	}
-
-	bool haveSupports(const QList<ModelN*>& models)
-	{
-		return getKernel()->modelSpace()->haveSupports(models);
-	}
-
-	void deleteSupports(QList<ModelN*>& models)
-	{
-		getKernel()->modelSpace()->deleteSupports(models);
+			box += model->globalSpaceBox();
+		return box;
 	}
 
 	qtuser_3d::Box3D baseBoundingBox()
@@ -166,8 +134,8 @@ namespace creative_kernel
 	{
 		ModelSpace* space = getKernel()->modelSpace();
 
-		qtuser_3d::Box3D box = space->sceneBoundingBox();
-		setModelEffectBottomZ(box.min.z());
+		/*qtuser_3d::Box3D box = space->sceneBoundingBox();
+		setModelEffectBottomZ(box.min.z());*/
 
 		onModelSceneChanged();
 
@@ -193,5 +161,32 @@ namespace creative_kernel
 	bool modelSpaceDirty()
 	{
 		return getKernel()->modelSpace()->spaceDirty();
+	}
+
+	void onModelMeshLoadStart(int iMeshNum)
+	{
+		getModelSpace()->modelMeshLoadStarted(iMeshNum);
+	}
+	void clearProjectCache(bool clearModel)
+	{
+		if (clearModel)
+		{
+			resetPrinterNum();
+			removeAllModel(false);
+		}	
+		getKernel()->modelSpaceUndo()->clear();
+		clearProjectSpaceDrity();
+	}
+
+	bool spaceHasWipeTower()
+	{
+		QSet<int> allIndexs;
+
+		for (auto m : modelns())
+		{
+			allIndexs.unite(m->data()->colorIndexs);
+		}
+
+		return allIndexs.size() >= 2;
 	}
 }

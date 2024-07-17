@@ -1016,7 +1016,7 @@
 		"description": "Acceleration Limit Volume",
 		"unit": "[[kg,mm/s²]]",
 		"type": "str",
-		"default_value": "[[0.5,1.0,100,6000],[1.0,1.5,80,5500],[1.5,2.0,60,5000]]",
+		"default_value": "[[0.5,6000],[1.0,5000],[2.0,4000],[3.0,3000],[4.0,2000],[6.0,1000]]",
 		"parameter_level": "4",
 		"enabled": "eval(contex.value(\"acceleration_limit_mess_enable\"))",
 		"settable_per_mesh": "false",
@@ -1027,18 +1027,18 @@
 		"label": "Print Speed Limit to Height Enable",
 		"type": "bool",
 		"default_value": "false",
-		"settable_per_mesh": false,
-		"settable_per_extruder": false
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "false"
 	},
 	"speed_limit_to_height":
 	{
 		"label": "Print Speed Limit to Height",
 		"unit": "[[mm,mm/s]]",
 		"type": "str",
-		"default_value": "[[100,150,100,6000],[150,200,80,5500],[200,250,60,5000]]",
+		"default_value": "[[100,150,100,6000,210],[150,200,80,5500,200],[200,250,60,5000,190]]",
 		"parameter_level": "4",
 		"enabled": "eval(contex.value(\"speed_limit_to_height_enable\"))",
-		"settable_per_mesh": false,
-		"settable_per_extruder": false
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "false"
 	}
 }

@@ -11,7 +11,7 @@ namespace creative_kernel
         orderindex = 0;
         m_name = tr("Pick") + "M";
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
         m_source = "qrc:/CrealityUI/qml/MovePanel.qml";
     }
 
@@ -22,8 +22,8 @@ namespace creative_kernel
 
     void PickMode::onThemeChanged(ThemeCategory category)
     {
-        setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/pick_dark.svg" : "qrc:/UI/photo/leftBar/pick_lite.svg");
-        setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/pick_dark.svg" : "qrc:/UI/photo/leftBar/pick_lite.svg");
+        setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/pick_dark.svg" : "qrc:/UI/photo/cToolBar/faceFlat_light_disable.svg");
+        setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/pick_dark.svg" : "qrc:/UI/photo/cToolBar/faceFlat_light_default.svg");
         setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/pick_pressed.svg" : "qrc:/UI/photo/leftBar/pick_lite.svg");
         setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/pick_pressed.svg" : "qrc:/UI/photo/leftBar/pick_pressed.svg");
     }

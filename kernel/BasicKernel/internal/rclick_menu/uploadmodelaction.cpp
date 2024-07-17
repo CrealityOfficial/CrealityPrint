@@ -24,7 +24,7 @@ namespace creative_kernel
         m_uploadSelectAction = new UploadModelSubAction(UploadModelSubAction::UPLOADSELECT, tr("Upload Selected Model"), this);
         m_actionModelList->addCommand(m_uploadLoacalAction);
         m_actionModelList->addCommand(m_uploadSelectAction);
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     UploadModelAction::~UploadModelAction()

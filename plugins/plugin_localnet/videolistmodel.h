@@ -63,6 +63,7 @@ public:
 		E_VideoCover,
 		E_ExportProgress,
 		E_VideoFileShowName,
+		E_VideoFilePath,
 	};
 
 	Q_PROPERTY(QString gcodeFileName	    READ gcodeFileName		  WRITE setGcodeFileName		NOTIFY gcodeFileNameChanged)
@@ -73,7 +74,7 @@ public:
 	Q_PROPERTY(QString videoCover	    READ videoCover		  WRITE setVideoCover		NOTIFY videoCoverChanged)
 	Q_PROPERTY(float   exportProgress  READ exportProgress  WRITE setExportProgress  NOTIFY exportProgressChanged)
 	Q_PROPERTY(QString videoFileShowName	    READ videoFileShowName		  WRITE setVideoFileShowName		NOTIFY videoFileShowNameChanged)
-
+	Q_PROPERTY(QString videoFilPath	    READ videoFilePath		  WRITE setVideoFilePath		NOTIFY videoFilePathChanged)
 	explicit VideoModelItem(QObject* parent = nullptr);
 	VideoModelItem(const VideoModelItem& VideoModelItem);
 	~VideoModelItem();
@@ -86,6 +87,9 @@ public:
 
 	const QString& videoFileName() const;
 	void setVideoFileName(const QString& fileName);
+
+	const QString& videoFilePath() const;
+	void setVideoFilePath(const QString& path);
 
 	const QString& startTime() const;
 	void setStartTime(const QString& startTime);
@@ -113,11 +117,13 @@ signals:
 	void videoCoverChanged();
 	void exportProgressChanged();
 	void videoFileShowNameChanged();
+	void videoFilePathChanged();
 
 private:
 	QString m_gCodeFileName;
 	QString m_videoFileSize;
 	QString m_videoFileName;
+	QString m_videoFilePath;
 	QString m_startTime;
 	QString m_printTime;
 	QString m_videoCover;

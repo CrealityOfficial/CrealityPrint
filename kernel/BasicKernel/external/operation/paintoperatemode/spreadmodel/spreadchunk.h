@@ -26,10 +26,13 @@ public:
 	bool getFace(int primitiveID, trimesh::vec3& p1, trimesh::vec3& p2, trimesh::vec3& p3);
 
 	void updateData(const std::vector<trimesh::vec3>& position, const std::vector<int>& flags);
+	void updateData(const std::vector<trimesh::vec3>& position, const std::vector<int>& flags, const std::vector<int>& highlightFlags);
 	void setIndexMap(std::vector<int> indexMap);
 
 	void setPose(const QMatrix4x4& pose);
 	QMatrix4x4 pose() const;
+
+	void setDefaultFlag(int defaultFlag);
 
 private:
 		
@@ -41,5 +44,6 @@ protected:
 	qtuser_3d::PickXEntity* m_entity;
 	std::vector<int> m_indexMap;
 	std::vector<trimesh::vec3> m_positions;
+	int m_defaultFlag;
 };
 #endif // _SPREADCHUNK_1697868785361_H

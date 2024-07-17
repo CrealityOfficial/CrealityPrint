@@ -4,106 +4,79 @@
 #define CXCLOUD_NET_PRINTER_REQUEST_H_
 
 #include <functional>
+#include <map>
 
 #include "cxcloud/interface.hpp"
-#include "cxcloud/net/http_request.h"
+#include "cxcloud/model/printer_model.h"
+#include "cxcloud/tool/http_component.h"
 
 namespace cxcloud {
 
-class CXCLOUD_API GetPrinterTypeListRequest : public HttpRequest {
-  Q_OBJECT;
+  class CXCLOUD_API LoadPrinterListRequest : public HttpRequest {
+    Q_OBJECT;
 
-public:
-  explicit GetPrinterTypeListRequest(QObject* parent = nullptr);
-  virtual ~GetPrinterTypeListRequest() = default;
+   public:
+    explicit LoadPrinterListRequest(int page_index,
+                                    int page_size,
+                                    QObject* parent = nullptr);
+    virtual ~LoadPrinterListRequest() = default;
 
-protected:
-  QString getUrlTail() const override;
-};
+   protected:
+    auto getRequestData() const -> QByteArray override;
+    auto getUrlTail() const -> QString override;
 
-class CXCLOUD_API GetDeviceListRequest : public HttpRequest {
-  Q_OBJECT;
+   private:
+    int page_index_;
+    int page_size_;
+  };
 
-public:
-  GetDeviceListRequest(
-		int pageIndex,
-		int pageSize,
-		std::function<void(const QVariant&, const QVariant&)> info_updater = nullptr,
-		std::function<void(const QVariant&, const QVariant&)> realtime_info_updater = nullptr,
-		std::function<void(const QVariant&, const QVariant&)> position_info_updater = nullptr,
-		std::function<void(const QVariant&, const QVariant&)> status_updater = nullptr,
-		QObject* parent = nullptr);
-  virtual ~GetDeviceListRequest();
+  CXCLOUD_API auto SyncHttpResponseDataToModel(const LoadPrinterListRequest& request,
+                                               PrinterListModel& model) -> bool;
 
-protected:
-  void callWhenSuccessed() override;
-  QByteArray getRequestData() const override;
-  QString getUrlTail() const override;
 
-protected:
-  int m_pageIndex;
-  int m_pageSize;
 
-	std::function<void(const QVariant&, const QVariant&)> info_updater_;
-	std::function<void(const QVariant&, const QVariant&)> realtime_info_updater_;
-	std::function<void(const QVariant&, const QVariant&)> position_info_updater_;
-	std::function<void(const QVariant&, const QVariant&)> status_updater_;
-};
 
-enum class CXCLOUD_API DeviceQueryType {
-  dqt_property_status,
-  dqt_status,
-  dqt_property_iot,
-  dqt_property_iot_realtime,
-  dqt_property_iot_position
-};
 
-struct DeviceInfo {
-  QString productKey;
-  QString deviceName;
-  QString iotId;
-  QString tbId;
-  int iotType;
-};
+  class CXCLOUD_API LoadPrinterConfigListRequest : public HttpRequest {
+    Q_OBJECT;
 
-class CXCLOUD_API QueryDeviceInfoResponse : public HttpRequest {
-  Q_OBJECT;
+   public:
+    explicit LoadPrinterConfigListRequest(QObject* parent = nullptr);
+    virtual ~LoadPrinterConfigListRequest() = default;
 
-public:
-  QueryDeviceInfoResponse(
-		DeviceQueryType type,
-		const DeviceInfo& deviceInfo,
-		std::function<void(const QVariant&, const QVariant&)> info_updater = nullptr,
-		std::function<void(const QVariant&, const QVariant&)> realtime_info_updater = nullptr,
-		std::function<void(const QVariant&, const QVariant&)> position_info_updater = nullptr,
-		std::function<void(const QVariant&, const QVariant&)> status_updater = nullptr,
-		QObject* parent = nullptr);
-  virtual ~QueryDeviceInfoResponse();
+   protected:
+    auto getRequestData() const -> QByteArray override;
+    auto getUrlTail() const -> QString override;
+  };
 
-  QString getUrl() const override;
+  CXCLOUD_API auto SyncHttpResponseDataToModel(const LoadPrinterConfigListRequest& request,
+                                               std::map<QString, QString>& model) -> bool;
 
-protected:
-  void callWhenSuccessed() override;
-  QByteArray getRequestData() const override;
-  QString getUrlTail() const override;
 
-  cpr::Parameters createParameters(const QString& action,
-                                   const QString& accessKeyId,
-                                   const QString& accessToken);
 
-protected:
-  DeviceInfo m_deviceInfo;
-  DeviceQueryType m_type;
-  bool m_postStage;
 
-  bool use_iot_url_;
 
-	std::function<void(const QVariant&, const QVariant&)> info_updater_;
-	std::function<void(const QVariant&, const QVariant&)> realtime_info_updater_;
-	std::function<void(const QVariant&, const QVariant&)> position_info_updater_;
-	std::function<void(const QVariant&, const QVariant&)> status_updater_;
-};
+  class CXCLOUD_API LoadPrinterStatusRequest : public HttpRequest {
+    Q_OBJECT;
+
+   public:
+    explicit LoadPrinterStatusRequest(QString uid, QObject* parent = nullptr);
+    virtual ~LoadPrinterStatusRequest() = default;
+
+   public:
+    QString getUid() const;
+
+   protected:
+    QString getUrlTail() const override;
+    HttpParameters getParameters() const override;
+
+   private:
+    QString uid_;
+  };
+
+  CXCLOUD_API auto SyncHttpResponseDataToModel(const LoadPrinterStatusRequest& request,
+                                               PrinterListModel::Data& model) -> bool;
 
 }  // namespace cxcloud
 
-#endif  // CXCLOUD_NET_PRINTER_REQUEST_H_
+#endif

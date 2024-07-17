@@ -33,6 +33,36 @@ namespace creative_kernel
 		m_name = name;
 	}
 
+	void ModelInput::setColors2Facets(const std::vector<std::string>& colors2Facets)
+	{
+		m_colors2Facets = colors2Facets;
+	}
+
+	void ModelInput::setSeam2Facets(const std::vector<std::string>& seam2Facets)
+	{
+		m_seam2Facets = seam2Facets;
+	}
+
+	void ModelInput::setSupport2Facets(const std::vector<std::string>& support2Facets)
+	{
+		m_support2Facets = support2Facets;
+	}
+
+	std::vector<std::string>& ModelInput::getColors2Facets()
+	{
+		return m_colors2Facets;
+	}
+
+	std::vector<std::string>& ModelInput::getSeam2Facets()
+	{
+		return m_seam2Facets;
+	}
+
+	std::vector<std::string>& ModelInput::getSupport2Facets()
+	{
+		return m_support2Facets;
+	}
+
 	int ModelInput::vertexNum() const
 	{
 		return 0;

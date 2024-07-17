@@ -1,21 +1,11 @@
 <svg 
  xmlns="http://www.w3.org/2000/svg"
  xmlns:xlink="http://www.w3.org/1999/xlink"
- width="33px" height="32px">
-<defs>
-<filter id="Filter_0">
-                <feOffset in="SourceAlpha" dx="0" dy="0" />
-                <feGaussianBlur result="blurOut" stdDeviation="2.828" />
-                <feFlood flood-color="rgb(33, 17, 17)" result="floodOut" />
-                <feComposite operator="out" in="floodOut" in2="blurOut" result="compOut" />
-                <feComposite operator="in" in="compOut" in2="SourceAlpha" />
-                <feComponentTransfer><feFuncA type="linear" slope="1"/></feComponentTransfer>
-                <feBlend mode="normal" in2="SourceGraphic" />
-            </filter>
-
-</defs>
-<g filter="url(#Filter_0)">
-<path fill-rule="evenodd"  fill="rgb(255, 129, 129)"
- d="M16.000,5.000 C22.075,5.000 27.000,9.925 27.000,16.000 C27.000,22.075 22.075,27.000 16.000,27.000 C9.925,27.000 5.000,22.075 5.000,16.000 C5.000,9.925 9.925,5.000 16.000,5.000 Z"/>
-</g>
+ width="20px" height="20px">
+<path fill-rule="evenodd"  fill="rgb(57, 212, 119)"
+ d="M10.000,1.000 C14.970,1.000 19.000,5.029 19.000,10.000 C19.000,14.970 14.970,19.000 10.000,19.000 C5.029,19.000 1.000,14.970 1.000,10.000 C1.000,5.029 5.029,1.000 10.000,1.000 Z"/>
+<path fill-rule="evenodd"  fill="rgb(62, 162, 102)"
+ d="M15.361,2.770 C15.361,2.770 15.607,2.958 15.726,3.056 C17.726,4.707 19.000,7.205 19.000,10.000 C19.000,14.970 14.970,19.000 10.000,19.000 C7.714,19.000 5.627,18.148 4.040,16.744 C3.916,16.634 3.677,16.405 3.677,16.405 C3.677,16.405 11.209,16.511 14.000,13.000 C16.815,9.459 15.340,2.746 15.361,2.770 Z"/>
+<path fill-rule="evenodd"  fill="none"
+ d="M-0.000,-0.000 L20.000,-0.000 L20.000,20.000 L-0.000,20.000 L-0.000,-0.000 Z"/>
 </svg>

@@ -104,6 +104,7 @@ MouseArea {
             var rectobj;
             rectobj =component.createObject(this, {x: x, y: y,width:width,height:height,
                                                 textConfig: gTextPara,
+                                                fontsize:gTextPara.textSize	,
                                                 objectName:"drawText",
                                                 visible:roiRectArea.visible},
                                                 );
@@ -111,6 +112,7 @@ MouseArea {
             rectobj.select.connect(this.onRectSelected)
             rectobj.ctrlSelect.connect(this.onCtrSelectArray)
             rectobj.textChanged.connect(function slotText(){return gTextPara.textName = rectobj.text})
+            rectobj.fontsizeChanged.connect(function(){gTextPara.textSize = rectobj.fontsize})
             rectobj.selected=true
             rectobj.z = zCnt
             currentSel = rectobj

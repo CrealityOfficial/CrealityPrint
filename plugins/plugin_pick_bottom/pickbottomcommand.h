@@ -18,7 +18,7 @@ public:
 	Q_INVOKABLE void accept();
 	Q_INVOKABLE void cancel();
 
-	Q_INVOKABLE void maxFaceBottom();
+	Q_INVOKABLE void autoPickBottom();
 
 	void setMessage(bool isRemove);
 	bool message();

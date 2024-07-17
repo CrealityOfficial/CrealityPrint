@@ -12,7 +12,7 @@ UsbPrintCommand::UsbPrintCommand(QObject* parent)
     m_actionNameWithout = "USB Printing";
     m_eParentMenu = eMenuType_PrinterControl;
 
-    addUIVisualTracer(this);
+    addUIVisualTracer(this,this);
 }
 
 UsbPrintCommand::~UsbPrintCommand()

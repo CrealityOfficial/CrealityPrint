@@ -9,145 +9,168 @@
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
 
-#include "cxcloud/define.hpp"
+#include "cxcloud/define.h"
 #include "cxcloud/interface.hpp"
-#include "cxcloud/model/base_model.h"
-#include "cxcloud/net/http_request.h"
+#include "cxcloud/model/server_list_model.h"
 #include "cxcloud/service/account_service.h"
 #include "cxcloud/service/download_service.h"
 #include "cxcloud/service/model_library_service.h"
 #include "cxcloud/service/model_service.h"
 #include "cxcloud/service/printer_service.h"
+#include "cxcloud/service/profile_service.h"
 #include "cxcloud/service/slice_service.h"
 #include "cxcloud/service/upgrade_service.h"
+#include "cxcloud/tool/http_component.h"
 
 namespace cxcloud {
 
-class CXCLOUD_API ServiceCenter : public QObject {
-  Q_OBJECT;
+  class CXCLOUD_API ServiceCenter : public QObject {
+    Q_OBJECT;
 
-  ServiceCenter(ServiceCenter&&) = delete;
-  ServiceCenter(const ServiceCenter&) = delete;
-  ServiceCenter& operator=(ServiceCenter&&) = delete;
-  ServiceCenter& operator=(const ServiceCenter&) = delete;
+    ServiceCenter(ServiceCenter&&) = delete;
+    ServiceCenter(const ServiceCenter&) = delete;
+    auto operator=(ServiceCenter&&) -> ServiceCenter& = delete;
+    auto operator=(const ServiceCenter&) -> ServiceCenter& = delete;
 
-public:
-  explicit ServiceCenter(QObject* parent = nullptr);
-  explicit ServiceCenter(Version local_version, QObject* parent = nullptr);
-  virtual ~ServiceCenter() = default;
+   public:
+    explicit ServiceCenter(QObject* parent = nullptr);
+    explicit ServiceCenter(Version local_version, QObject* parent = nullptr);
+    virtual ~ServiceCenter() = default;
 
-public:  // module interface
-  void initialize();
-  void uninitialize();
-  void loadUserSettings();
+   public:  // module interface
+    auto initialize() -> void;
+    auto uninitialize() -> void;
+    auto loadUserSettings() -> void;
 
-  ApplicationType getApplicationType() const;
-  void setApplicationType(ApplicationType type);
+    auto getApplicationType() const -> ApplicationType;
+    auto setApplicationType(ApplicationType type) -> void;
 
-  /// @param handler (file_path)
-  void setOpenFileHandler(std::function<void(const QString&)> handler);
+    auto getInterfaceType() const -> InterfaceType;
+    auto setInterfaceType(InterfaceType type) -> void;
 
-  /// @param handler (file_path_list)
-  void setOpenFileListHandler(std::function<void(const QStringList&)> handler);
+    /// @param handler (file_path)
+    auto setOpenFileHandler(std::function<void(const QString&)> handler) -> void;
 
-  /// @param saver (save_dir)->file_path
-  void setSelectedModelCombineSaver(std::function<QString(const QString&)> saver);
+    /// @param handler (file_path_list)
+    auto setOpenFileListHandler(std::function<void(const QStringList&)> handler) -> void;
 
-  /// @param saver (save_dir)->file_path_list
-  void setSelectedModelUncombineSaver(std::function<QStringList(const QString&)> saver);
+    /// @param saver (save_dir)->file_path
+    auto setSelectedModelCombineSaver(std::function<QString(const QString&)> saver) -> void;
 
-  /// @param saver (save_dir)->file_path
-  void setCurrentSliceSaver(std::function<QString(const QString&)> saver);
+    /// @param saver (save_dir)->file_path_list
+    auto setSelectedModelUncombineSaver(std::function<QStringList(const QString&)> saver) -> void;
 
-  QStringList getVaildSliceFileSuffixList() const;
-  /// @note old list model will stay after the suffix list updated
-  void setVaildSliceFileSuffixList(const QStringList& list);
+    /// @param saver (save_dir)->file_path
+    auto setCurrentSliceSaver(std::function<QString(const QString&)> saver) -> void;
 
-  bool isOnlineSliceFileCompressed() const;
-  void setOnlineSliceFileCompressed(bool compressed);
+    auto getVaildSliceFileSuffixList() const -> QStringList;
+    /// @note old list model will stay after the suffix list updated
+    auto setVaildSliceFileSuffixList(const QStringList& list) -> void;
 
-  QString getModelCacheDirPath() const;
-  void setModelCacheDirPath(const QString& path);
+    auto isOnlineSliceFileCompressed() const -> bool;
+    auto setOnlineSliceFileCompressed(bool compressed) -> void;
 
-  /// @return 0 if automatically determined by library
-  size_t getMaxDownloadThreadCount() const;
-  void setMaxDownloadThreadCount(size_t count);
+    auto getModelCacheDirPath() const -> QString;
+    auto setModelCacheDirPath(const QString& path) -> void;
 
-public:  // base
-  ServerType getServerType() const;
-  void setServerType(ServerType server_type);
-  int getServerTypeIndex() const;
-  void setServerTypeIndex(int server_type);
-  Q_SIGNAL void serverTypeChanged();
-  Q_PROPERTY(int serverType
-             READ getServerTypeIndex
-             WRITE setServerTypeIndex
-             NOTIFY serverTypeChanged);
+    /// @return 0 if automatically determined by library
+    auto getMaxDownloadThreadCount() const -> size_t;
+    auto setMaxDownloadThreadCount(size_t count) -> void;
 
-  QAbstractListModel* getServerListModel();
-  Q_PROPERTY(QAbstractListModel* serverListModel READ getServerListModel CONSTANT);
+   public:  // base
+    auto getServerType() const -> ServerType;
+    auto setServerType(ServerType server_type) -> void;
+    auto getServerTypeIndex() const -> int;
+    auto setServerTypeIndex(int server_type_index) -> void;
+    Q_SIGNAL void serverTypeChanged();
+    Q_PROPERTY(int serverType
+               READ getServerTypeIndex
+               WRITE setServerTypeIndex
+               NOTIFY serverTypeChanged);
 
-  QString getUrl() const;
-  Q_PROPERTY(QString url READ getUrl CONSTANT);
+    auto getRealServerType() const -> RealServerType;
+    auto getRealServerTypeIndex() const -> int;
+    Q_SIGNAL void realServerTypeChanged() const;
+    Q_PROPERTY(int realServerType READ getRealServerTypeIndex NOTIFY realServerTypeChanged);
 
-  QString getModelGroupUrlHead() const;
-  QString loadModelGroupUrl(const QString& group_uid);
-  Q_PROPERTY(QString modelGroupUrlHead READ getModelGroupUrlHead CONSTANT);
+    Q_INVOKABLE int toRealServerType(int server_type_index) const;
+    Q_INVOKABLE int toServerType(int real_server_type_index) const;
 
-public:  // sub servive
-  std::weak_ptr<AccountService> getAccountService() const;
-  QObject* getAccountServiceObject() const;
-  Q_PROPERTY(QObject* accountService READ getAccountServiceObject CONSTANT);
+    auto getServerList() const -> ServerListModel::DataContainer;
+    auto setServerList(ServerListModel::DataContainer list) -> void;
+    auto getServerListModel() const -> QAbstractListModel*;
+    Q_PROPERTY(QAbstractListModel* serverListModel READ getServerListModel CONSTANT);
 
-  std::weak_ptr<ModelService> getModelService() const;
-  QObject* getModelServiceObject() const;
-  Q_PROPERTY(QObject* modelService READ getModelServiceObject CONSTANT);
+    auto getApiUrl() const -> QString;
+    Q_PROPERTY(QString apiUrl READ getApiUrl CONSTANT);
 
-  std::weak_ptr<SliceService> getSliceService() const;
-  QObject* getSliceServiceObject() const;
-  Q_PROPERTY(QObject* sliceService READ getSliceServiceObject CONSTANT);
+    auto getWebUrl() const -> QString;
+    Q_PROPERTY(QString webUrl READ getWebUrl CONSTANT);
 
-  std::weak_ptr<PrinterService> getPrinterService() const;
-  QObject* getPrinterServiceObject() const;
-  Q_PROPERTY(QObject* printerService READ getPrinterServiceObject CONSTANT);
+    auto getModelGroupUrlHead() const -> QString;
+    auto loadModelGroupUrl(const QString& group_uid) -> QString;
+    Q_PROPERTY(QString modelGroupUrlHead READ getModelGroupUrlHead CONSTANT);
 
-  std::weak_ptr<ModelLibraryService> getModelLibraryService() const;
-  QObject* getModelLibraryServiceObject() const;
-  Q_PROPERTY(QObject* modelLibraryService READ getModelLibraryServiceObject CONSTANT);
+   public:  // sub servive
+    auto getAccountService() const -> std::weak_ptr<AccountService>;
+    auto getAccountServiceObject() const -> QObject*;
+    Q_PROPERTY(QObject* accountService READ getAccountServiceObject CONSTANT);
 
-  std::weak_ptr<DownloadService> getDownloadService() const;
-  QObject* getDownloadServiceObject() const;
-  Q_PROPERTY(QObject* downloadService READ getDownloadServiceObject CONSTANT);
+    auto getModelService() const -> std::weak_ptr<ModelService>;
+    auto getModelServiceObject() const -> QObject*;
+    Q_PROPERTY(QObject* modelService READ getModelServiceObject CONSTANT);
 
-  std::weak_ptr<UpgradeService> getUpgradeService() const;
-  QObject* getUpgradeServiceObject() const;
-  Q_PROPERTY(QObject* upgradeService READ getUpgradeServiceObject CONSTANT);
+    auto getSliceService() const -> std::weak_ptr<SliceService>;
+    auto getSliceServiceObject() const -> QObject*;
+    Q_PROPERTY(QObject* sliceService READ getSliceServiceObject CONSTANT);
 
-private:
-  std::unique_ptr<ServerListModel> server_list_model_{ nullptr };
+    auto getPrinterService() const -> std::weak_ptr<PrinterService>;
+    auto getPrinterServiceObject() const -> QObject*;
+    Q_PROPERTY(QObject* printerService READ getPrinterServiceObject CONSTANT);
 
-  std::shared_ptr<HttpSession> http_session_{ nullptr };
+    auto getModelLibraryService() const -> std::weak_ptr<ModelLibraryService>;
+    auto getModelLibraryServiceObject() const -> QObject*;
+    Q_PROPERTY(QObject* modelLibraryService READ getModelLibraryServiceObject CONSTANT);
 
-  std::shared_ptr<AccountService> account_service_{ nullptr };
-  std::shared_ptr<ModelService> model_service_{ nullptr };
-  std::shared_ptr<SliceService> slice_service_{ nullptr };
-  std::shared_ptr<PrinterService> printer_service_{ nullptr };
-  std::shared_ptr<ModelLibraryService> model_library_service_{ nullptr };
-  std::shared_ptr<DownloadService> download_service_{ nullptr };
-  std::shared_ptr<UpgradeService> upgrade_service_{ nullptr };
+    auto getDownloadService() const -> std::weak_ptr<DownloadService>;
+    auto getDownloadServiceObject() const -> QObject*;
+    Q_PROPERTY(QObject* downloadService READ getDownloadServiceObject CONSTANT);
 
-  std::function<void(const QString&)> open_file_handler_{ nullptr };
-  std::function<void(const QStringList&)> open_file_list_handler_{ nullptr };
-  std::function<QString(const QString&)> model_group_url_creater_{ nullptr };
-  std::function<QString(const QString&)> selected_model_combine_saver_{ nullptr };
-  std::function<QStringList(const QString&)> selected_model_uncombine_saver_{ nullptr };
-  std::function<QString(const QString&)> current_slice_saver_{ nullptr };
+    auto getUpgradeService() const -> std::weak_ptr<UpgradeService>;
+    auto getUpgradeServiceObject() const -> QObject*;
+    Q_PROPERTY(QObject* upgradeService READ getUpgradeServiceObject CONSTANT);
 
-  QStringList vaild_slice_file_suffix_list_{};
-  bool online_slice_file_compressed_{ false };
-  QString model_cache_dir_path_{};
-  size_t max_download_thread_count_{ 0 };
-};
+    auto getProfileService() const -> std::weak_ptr<ProfileService>;
+    auto getProfileServiceObject() const -> QObject*;
+    Q_PROPERTY(QObject* profileService READ getProfileServiceObject CONSTANT);
+
+   private:
+    std::unique_ptr<ServerListModel> server_list_model_{ nullptr };
+
+    std::shared_ptr<HttpSession> http_session_{ nullptr };
+
+    std::shared_ptr<AccountService> account_service_{ nullptr };
+    std::shared_ptr<ModelService> model_service_{ nullptr };
+    std::shared_ptr<SliceService> slice_service_{ nullptr };
+    std::shared_ptr<PrinterService> printer_service_{ nullptr };
+    std::shared_ptr<ModelLibraryService> model_library_service_{ nullptr };
+    std::shared_ptr<DownloadService> download_service_{ nullptr };
+    std::shared_ptr<UpgradeService> upgrade_service_{ nullptr };
+    std::shared_ptr<ProfileService> profile_service_{ nullptr };
+
+    std::function<void(const QString&)> open_file_handler_{ nullptr };
+    std::function<void(const QStringList&)> open_file_list_handler_{ nullptr };
+    std::function<QString(const QString&)> model_group_url_creater_{ nullptr };
+    std::function<QString(const QString&)> selected_model_combine_saver_{ nullptr };
+    std::function<QStringList(const QString&)> selected_model_uncombine_saver_{ nullptr };
+    std::function<QString(const QString&)> current_slice_saver_{ nullptr };
+
+    InterfaceType interface_type_{ InterfaceType::RELEASE };
+    QStringList vaild_slice_file_suffix_list_{};
+    bool online_slice_file_compressed_{ false };
+    QString model_cache_dir_path_{};
+    size_t max_download_thread_count_{ 0 };
+  };
 
 }  // namespace cxcloud
 

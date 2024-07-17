@@ -12,52 +12,40 @@
 #include <QtCore/QObject>
 #include <QtCore/QByteArray>
 #include <QtCore/QDebug>
-#include <QTime>
+
 namespace creative_kernel
 {
 	typedef std::shared_ptr<trimesh::TriMesh> TriMeshPtr;
 
-	struct MachineMeta
+	struct MachineData
 	{
 		QString baseName;
-		int extruderCount;
-		QString basicMachineName = baseName;//记录该机型是从哪个设备拷贝过来的
-		QList<QList<float>> supportExtruderDiameters;
+		QString codeName;
+		int extruderCount = 1;
+		QList<float> extruderDiameters;
 		QList<QString> supportMaterialTypes;
 		QList<float> supportMaterialDiameters;
 		QList<QString> supportMaterialNames;
 		bool isUser = false;
-
-		MachineMeta() {
-			baseName = QString("");
-			extruderCount = 1;
-		}
-	};
-
-	struct MachineData
-	{
-		QList<float> extruderDiameters;
-	};
-
-	struct MaterialMeta
-	{
-		QString name;
-		QString type;
-		QString brand;
-		QList<float> supportDiameters;
-		bool isUserDef = false;
-		bool isChecked = false;
-		bool isVisible = true;
-		
-		MaterialMeta() {
-			name = QString("");
-			type = QString("PLA");
-			brand = QString("Creality");
-			isUserDef = false;
-		}
-
+		bool is_bbl_printer = false;
+		bool is_import = false;
+		QString inherits_from;
+		QString preferredProcess;
 		QString uniqueName() const {
-			return QString("%1_%2").arg(name).arg(supportDiameters.at(0));
+			QString ret = codeName;
+			for (const auto& diameter : extruderDiameters)
+			{
+				ret += QString("-%1").arg(diameter);
+			}
+			return ret;
+		}
+		QString uniqueShowName() const {
+			QString ret = baseName;
+			for (const auto& diameter : extruderDiameters)
+			{
+				ret += QString("-%1").arg(diameter);
+			}
+			return ret;
 		}
 	};
 
@@ -67,21 +55,18 @@ namespace creative_kernel
 		QString type;
 		QString brand;
 		float diameter;
+		int rank = 0;
 		bool isUserDef = false;
 		bool isChecked = false;
-		int time = QDateTime::currentMSecsSinceEpoch();
+		bool isVisible = true;
+		QString id;
+
 		MaterialData() {
-			diameter = 0.4f;
-			isUserDef = false;
+			diameter = 1.75f;
 		}
 
 		QString uniqueName() const {
-            QString diameterPrefix = QString("_%1").arg(diameter);
-            int index = name.lastIndexOf("_");
-            if (index == -1)
-                return name + diameterPrefix;
-            else
-                return name.mid(0, index) + diameterPrefix;
+			return QString("%1-%2").arg(name).arg(diameter);
 		}
 	};
 }

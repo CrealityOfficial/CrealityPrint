@@ -15,6 +15,8 @@ LeftPanelDialog {//by TCJ
         anchors.fill: parent
     }
 
+
+
     Item {
         property alias x_angle: x_angle
         property alias y_angle: y_angle

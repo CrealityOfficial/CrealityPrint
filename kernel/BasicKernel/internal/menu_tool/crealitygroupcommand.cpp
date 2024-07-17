@@ -10,7 +10,7 @@ namespace creative_kernel
         m_actionNameWithout = "Models";
         m_eParentMenu = eMenuType_CrealityGroup;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     CrealityGroupCommand::~CrealityGroupCommand()

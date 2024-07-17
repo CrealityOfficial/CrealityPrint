@@ -74,7 +74,7 @@ Rectangle
 //        return source;
 //    }
 
-    ScrollView
+    BasicScrollView
     {
         width: parent.width
         height: parent.height

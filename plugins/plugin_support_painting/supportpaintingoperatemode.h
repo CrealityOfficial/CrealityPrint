@@ -10,6 +10,13 @@ public:
 	explicit SupportPaintingOperateMode(QObject* parent = nullptr);
 	virtual ~SupportPaintingOperateMode();
 
+private:
+	int m_paintIndex { 0 };
+	int m_blockIndex { 1 };
+
+private:
+	void initColors();
+
 /* override */
 protected:
 	virtual void restore(creative_kernel::ModelN* model, const std::vector<std::string>& data) override;

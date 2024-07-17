@@ -23,14 +23,22 @@ namespace creative_kernel
 		PrintMaterialModel(const PrintMaterialModel& printMaterialModel){}
 		virtual ~PrintMaterialModel();
 
-		void addMaterial(MaterialMeta* md);
+		int checkedCount();
+		void addMaterial(MaterialData* md);
 		void initMaterial();
 		void setSupportMaterialNames(QStringList names);
+		void filterType(QString type, bool checked);
 		QStringList supportMaterialNames();
-		QList<MaterialMeta*> materialList();
+		QList<MaterialData*> materialList();
+
+		void setSelectMaterials(QList<QString> materials);
+		void resetModel();
+
+		void onCancel();
+		void onConfirm();
 
 		bool isCheckedAll();
-		void setIsCheckedAll(bool checkedAll);
+		void setIsCheckedAll(int checkedAll);
 		bool setChecked(bool checked, int index);
 
 		QStringList userMaterialList();
@@ -44,9 +52,13 @@ namespace creative_kernel
 		void isCheckedAllChanged();
 
 	private:
-		bool m_IsCheckedAll;
+		int m_IsCheckedAll;
 		QStringList m_SupportMaterials;;
-		QList<MaterialMeta*> m_MaterialList;
+		QList<MaterialData*> m_MaterialList;
+
+		QList<QString> m_SelectMaterials;
+		QList<QString> m_SelectMaterialsPre;
+		QList<QString> m_SelectMaterialsDefault;
 	};
 }
 Q_DECLARE_METATYPE(creative_kernel::PrintMaterialModel)

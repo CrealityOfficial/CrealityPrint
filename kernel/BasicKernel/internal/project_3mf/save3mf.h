@@ -4,6 +4,7 @@
 #include "qtusercore/module/cxhandlerbase.h"
 #include "qtusercore/module/job.h"
 #include "data/interface.h"
+#include "ccglobal/tracer.h"
 
 namespace creative_kernel
 {
@@ -38,10 +39,12 @@ namespace creative_kernel
 		void setFileName(const QString& fileName);
 
 		Q_INVOKABLE QString getMessageText();
-
+		void setShowProgress(bool show);
+		void setRemoveProjectCache(bool cache);
 	private:
 		QString m_strMessageText;
 	protected:
+		bool showProgress() override;
 		QString name();
 		QString description();
 		void failed();                        // invoke from main thread
@@ -50,7 +53,11 @@ namespace creative_kernel
 
 	protected:
 		QString m_fileName;
+		bool m_showProgress;
+		bool m_removeProjectCache;
 	};
+
+	void save_current_scene_2_3mf(const QString& file_name, ccglobal::Tracer* tracer = nullptr);
 }
 
 #endif // _SAVE3MF_H

@@ -5,16 +5,17 @@ import "qrc:/CrealityUI"
 Rectangle
 {
     color: Constants.itemBackgroundColor
-    width: 190
-    height: 100
-	property var com
-	
-	function execute()
-	{
-		//console.log("split.qml start:=========================");
+    width: partPanel.width
+    height: partPanel.height
+    property var com
+
+    function execute()
+    {
+        //console.log("split.qml start:=========================");
         console.log(com)
-	}
+    }
     PartPanel {
+        id: partPanel
         control:com
     }
 

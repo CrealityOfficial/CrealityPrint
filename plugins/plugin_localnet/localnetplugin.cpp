@@ -12,6 +12,7 @@ LocalNetPlugin::LocalNetPlugin(QObject* parent) : QObject(parent)
 	m_GcodeFileList = new GcodeListModel(this);
 	m_HistoryFileList = new HistoryListModel(this);
 	m_videoList = new VideoListModel(this);
+	m_materialBoxList = new MaterialBoxListModel(this);
 
 	FliterProxyModel* fliterModel = new FliterProxyModel(this);
 	fliterModel->setSourceModel(m_PrinterList);
@@ -24,6 +25,7 @@ LocalNetPlugin::LocalNetPlugin(QObject* parent) : QObject(parent)
 	registerContextObject("gcodeFileListModel", gcodeSortModel);
 	registerContextObject("historyFileListModel", m_HistoryFileList);
 	registerContextObject("videoListModel", m_videoList);
+	registerContextObject("materialBoxListModel", m_materialBoxList);
 }
 
 LocalNetPlugin::~LocalNetPlugin()

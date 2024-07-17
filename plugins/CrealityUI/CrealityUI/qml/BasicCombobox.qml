@@ -1,8 +1,6 @@
 import QtQuick 2.0
-import QtQuick.Controls 2.1
-import QtQuick.Controls 2.0 as QQC2
 import QtQuick.Controls 2.5
-QQC2.ComboBox {
+ComboBox {
     id: control
     //像源码一样，定义一个全局的样式，然后取全局样式中对应的颜色
     //checked选中状态，down按下状态，hovered悬停状态
@@ -40,7 +38,7 @@ QQC2.ComboBox {
     font.weight: Constants.labelFontWeight
     font.pointSize: Constants.labelFontPointSize_9
 
-    QQC2.ToolTip {
+    ToolTip {
         id: tipCtrl
         visible: hovered&&strToolTip ? true : false
         //timeout: 2000
@@ -53,7 +51,7 @@ QQC2.ComboBox {
             color: "transparent"
         }
 
-        contentItem: QQC2.TextArea{
+        contentItem: TextArea{
             id: idTextArea
             text: strToolTip
             wrapMode: TextEdit.WordWrap

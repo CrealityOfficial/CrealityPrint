@@ -1,223 +1,279 @@
 #include "cxcloud/service/slice_service.h"
 
 #include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtCore/QJsonDocument>
 #include <QtCore/QVariant>
+#include <QtGui/QDesktopServices>
 
 #include <buildinfo.h>
 
 #include <qtusercore/module/quazipfile.h>
 #include <qtusercore/string/resourcesfinder.h>
 
+#include "cxcloud/net/common_request.h"
 #include "cxcloud/net/slice_request.h"
-#include "cxcloud/net/oss_request.h"
 
 namespace cxcloud {
 
-SliceService::SliceService(std::weak_ptr<HttpSession> http_session, QObject* parent)
-    : BaseService(http_session, parent)
-    , cache_dir_name_(QStringLiteral("temp_upload_slice"))
-    , uploaded_slice_list_model_(std::make_unique<SliceListModel>(getVaildSuffixList()))
-    , cloud_slice_list_model_(std::make_unique<SliceListModel>(getVaildSuffixList())) {}
+  SliceService::SliceService(std::weak_ptr<HttpSession> http_session, QObject* parent)
+      : BaseService{ http_session, parent }
+      , cache_dir_name_{ QStringLiteral("temp_upload_slice") }
+      , uploaded_slice_list_model_{ std::make_unique<SliceListModel>(getVaildSuffixList()) }
+      , cloud_slice_list_model_{ std::make_unique<SliceListModel>(getVaildSuffixList()) } {}
 
-void SliceService::setCurrentSliceSaver(std::function<QString(const QString&)> saver) {
-  current_slice_saver_ = saver;
-}
+  auto SliceService::setCurrentSliceSaver(std::function<QString(const QString&)> saver) -> void {
+    current_slice_saver_ = saver;
+  }
 
-void SliceService::setOpenFileHandler(std::function<void(const QString&)> handler) {
-  open_file_handler_ = handler;
-}
+  auto SliceService::setOpenFileHandler(std::function<void(const QString&)> handler) -> void {
+    open_file_handler_ = handler;
+  }
 
-bool SliceService::isOnlineSliceFileCompressed() const {
-  return online_slice_file_compressed_;
-}
+  auto SliceService::isOnlineSliceFileCompressed() const -> bool {
+    return online_slice_file_compressed_;
+  }
 
-void SliceService::setOnlineSliceFileCompressed(bool compressed) {
-  online_slice_file_compressed_ = compressed;
-}
+  auto SliceService::setOnlineSliceFileCompressed(bool compressed) -> void {
+    online_slice_file_compressed_ = compressed;
+  }
 
-QStringList SliceService::getVaildSuffixList() const {
-  return vaild_suffix_list_;
-}
+  auto SliceService::getWebUrlGetter() const -> std::function<QString(void)> {
+    return web_url_getter_;
+  }
 
-void SliceService::setVaildSuffixList(const QStringList& list) {
-  vaild_suffix_list_ = list;
-  uploaded_slice_list_model_->setVaildSuffixList(list);
-  cloud_slice_list_model_->setVaildSuffixList(list);
-  Q_EMIT vaildSuffixListChanged();
-}
+  auto SliceService::setWebUrlGetter(std::function<QString(void)> getter) -> void {
+    web_url_getter_ = getter;
+  }
 
-QAbstractItemModel* SliceService::getUploadedSliceListModel() const {
-  return uploaded_slice_list_model_.get();
-}
+  auto SliceService::getVaildSuffixList() const -> QStringList {
+    return vaild_suffix_list_;
+  }
 
-void SliceService::clearUploadedSliceListModel() const {
-  uploaded_slice_list_model_->clear();
-}
+  auto SliceService::setVaildSuffixList(const QStringList& list) -> void {
+    vaild_suffix_list_ = list;
+    uploaded_slice_list_model_->setVaildSuffixList(list);
+    cloud_slice_list_model_->setVaildSuffixList(list);
+    vaildSuffixListChanged();
+  }
 
-void SliceService::loadUploadedSliceList(int page_index, int page_size) {
-  auto* request = createRequest<LoadSliceListRequest>(true, page_index, page_size);
+  auto SliceService::getUploadedSliceListModel() const -> QAbstractItemModel* {
+    return uploaded_slice_list_model_.get();
+  }
 
-  request->setSuccessedCallback([this, request]() {
-    SyncHttpResponseDataToModel(*request, *uploaded_slice_list_model_);
-    Q_EMIT loadUploadedSliceListSuccessed(QVariant::fromValue<QString>(request->getResponseData()),
-                                          QVariant::fromValue(request->getPageIndex()),
-                                          QVariant::fromValue(request->getPageSize()));
-  });
+  auto SliceService::clearUploadedSliceListModel() const -> void {
+    uploaded_slice_list_model_->clear();
+  }
 
-  HttpPost(request);
-}
+  auto SliceService::loadUploadedSliceList(int page_index, int page_size) -> void {
+    auto request = createRequest<LoadSliceListRequest>(true, page_index, page_size);
 
-QAbstractItemModel* SliceService::getCloudSliceListModel() const {
-  return cloud_slice_list_model_.get();
-}
+    request->setSuccessedCallback([this, request]() {
+      SyncHttpResponseDataToModel(*request, *uploaded_slice_list_model_);
+    });
 
-void SliceService::clearCloudSliceListModel() const {
-  cloud_slice_list_model_->clear();
-}
+    request->asyncPost();
+  }
 
-void SliceService::loadCloudSliceList(int page_index, int page_size) {
-  auto* request = createRequest<LoadSliceListRequest>(false, page_index, page_size);
+  auto SliceService::deleteUploadedSlice(const QString& uid) -> void {
+    auto request = createRequest<DeleteSliceRequest>(uid);
 
-  request->setSuccessedCallback([this, request]() {
-    SyncHttpResponseDataToModel(*request, *cloud_slice_list_model_);
-    Q_EMIT loadUploadedSliceListSuccessed(QVariant::fromValue<QString>(request->getResponseData()),
-                                          QVariant::fromValue(request->getPageIndex()),
-                                          QVariant::fromValue(request->getPageSize()));
-  });
+    request->setSuccessedCallback([this, uid]() {
+      uploaded_slice_list_model_->erase(uid);
+    });
 
-  HttpPost(request);
-}
+    request->asyncPost();
+  }
 
-void SliceService::uploadSlice(const QString& slice_name) {
-  const auto cache_dir_path = qtuser_core::getOrCreateAppDataLocation(cache_dir_name_);
-  const auto cache_dir_cleaner = [cache_dir_path]() { QDir{ cache_dir_path }.removeRecursively(); };
+  auto SliceService::getCloudSliceListModel() const -> QAbstractItemModel* {
+    return cloud_slice_list_model_.get();
+  }
 
-  if (!current_slice_saver_) { return; }
-  const auto slice_file_path = current_slice_saver_(cache_dir_path);
-  const auto slice_suffix = slice_file_path.split(QStringLiteral(".")).last();
+  auto SliceService::clearCloudSliceListModel() const -> void {
+    cloud_slice_list_model_->clear();
+  }
 
-  auto upload_file_path = slice_file_path;
-  auto upload_file_suffix = slice_suffix;
-  if (isOnlineSliceFileCompressed()) {
-    const auto compressed_file_suffix = qtuser_core::CompressedFileFormat();
-    const auto compressed_file_path = QStringLiteral("%1/%2.%3.%4")
-      .arg(cache_dir_path).arg(slice_name).arg(slice_suffix).arg(compressed_file_suffix);
-    if (!qtuser_core::zipLocalFile(slice_file_path, compressed_file_path)) {
-      cache_dir_cleaner();
+  auto SliceService::loadCloudSliceList(int page_index, int page_size) -> void {
+    auto request = createRequest<LoadSliceListRequest>(false, page_index, page_size);
+
+    request->setSuccessedCallback([this, request]() {
+      SyncHttpResponseDataToModel(*request, *cloud_slice_list_model_);
+    });
+
+    request->asyncPost();
+  }
+
+  auto SliceService::deleteCloudSlice(const QString& uid) -> void {
+    auto request = createRequest<DeleteSliceRequest>(uid);
+
+    request->setSuccessedCallback([this, uid]() {
+      cloud_slice_list_model_->erase(uid);
+    });
+
+    request->asyncPost();
+  }
+
+  auto SliceService::uploadSlice(const QString& slice_name) -> void {
+    if (upload_request_) {
       return;
     }
 
-    const auto online_file_suffix =
-      QStringLiteral("%1.%2").arg(slice_suffix).arg(compressed_file_suffix);
+    const auto cache_dir_path = qtuser_core::getOrCreateAppDataLocation(cache_dir_name_);
+    const auto cache_dir_cleaner = [cache_dir_path]() {
+      QDir{ cache_dir_path }.removeRecursively();
+    };
 
-    upload_file_path = compressed_file_path;
-    upload_file_suffix = online_file_suffix;
-  }
-
-  auto* upload_request = createRequest<UploadFileRequest>(
-    QStringList{ upload_file_path },
-    std::move(upload_file_suffix),
-    UploadFileRequest::FileType::FILE);
-
-  upload_request->setProgressUpdatedCallback([this, upload_request]() {
-    Q_EMIT uploadSliceProgressUpdated(
-      QVariant::fromValue<int>(upload_request->getCurrentProgress()));
-  });
-
-  upload_request->setSuccessedCallback([this,
-                                        cache_dir_cleaner,
-                                        upload_request,
-                                        slice_name,
-                                        upload_file_path]() {
-    cache_dir_cleaner();
-
-    auto* create_request = createRequest<CreateSliceRequest>(
-      slice_name, upload_request->getOnlineFilePath(upload_file_path));
-
-    create_request->setSuccessedCallback([this, cache_dir_cleaner]() {
-      Q_EMIT uploadSliceSuccessed();
-    });
-
-    create_request->setFailedCallback([this, cache_dir_cleaner]() {
-      Q_EMIT uploadSliceFailed();
-    });
-
-    HttpPost(create_request);
-  });
-
-  upload_request->setFailedCallback([this, cache_dir_cleaner]() {
-    cache_dir_cleaner();
-    Q_EMIT uploadSliceFailed();
-  });
-
-  StartOssRequest(upload_request);
-}
-
-void SliceService::importSlice(const QString& uid) {
-  SliceListModel::Data info;
-  do {
-    if (uploaded_slice_list_model_->find(uid)) {
-      info = uploaded_slice_list_model_->load(uid);
-      break;
+    if (!current_slice_saver_) {
+      return;
     }
 
-    if (cloud_slice_list_model_->find(uid)) {
-      info = cloud_slice_list_model_->load(uid);
-      break;
-    }
-  } while (false);
+    const auto slice_file_path = current_slice_saver_(cache_dir_path);
+    const auto slice_suffix = slice_file_path.split(QStringLiteral(".")).last();
 
-  if (info.url.isEmpty()) {
-    Q_EMIT importSliceFailed(uid);
-    return;
-  }
-
-  auto suffix = isOnlineSliceFileCompressed()
-      ? QStringLiteral("%1.%2").arg(std::move(info.suffix)).arg(qtuser_core::CompressedFileFormat())
-      : std::move(info.suffix);
-
-  auto* request = createRequest<DownloadSliceRequest>(
-    qtuser_core::getOrCreateAppDataLocation(QStringLiteral("/myGcodes/%1").arg(uid)),
-    std::move(info.name),
-    std::move(suffix),
-    std::move(info.url)
-  );
-
-  request->setSuccessedCallback([this, request, uid]() {
-    auto file_path = request->getFilePath();
+    auto upload_file_path = slice_file_path;
+    auto upload_file_suffix = slice_suffix;
     if (isOnlineSliceFileCompressed()) {
-      auto compressed_file_path = file_path;
-      file_path = compressed_file_path.left(compressed_file_path.lastIndexOf('.'));
-      if (!qtuser_core::unZipLocalFile(compressed_file_path, file_path)) {
-        Q_EMIT importSliceFailed(uid);
+      const auto compressed_file_suffix = qtuser_core::CompressedFileFormat();
+      const auto compressed_file_path = QStringLiteral("%1/%2.%3.%4").arg(cache_dir_path)
+                                                                     .arg(slice_name)
+                                                                     .arg(slice_suffix)
+                                                                     .arg(compressed_file_suffix);
+
+      if (!qtuser_core::zipLocalFile(slice_file_path, compressed_file_path)) {
+        cache_dir_cleaner();
         return;
       }
+
+      upload_file_path = compressed_file_path;
+      upload_file_suffix = QStringLiteral("%1.%2").arg(slice_suffix).arg(compressed_file_suffix);
     }
 
-    if (!open_file_handler_) {
-      Q_EMIT importSliceFailed(uid);
+    upload_request_ = createRequest<UploadFileRequest>(QStringList{ upload_file_path },
+                                                       std::move(upload_file_suffix),
+                                                       UploadFileRequest::FileType::FILE);
+
+    upload_request_->setProgressUpdatedCallback([this]() {
+      uploadSliceProgressUpdated(
+        QVariant::fromValue<int>(upload_request_->getCurrentProgress()));
+    });
+
+    upload_request_->setSuccessedCallback([this,
+                                           cache_dir_cleaner,
+                                           slice_name,
+                                           upload_file_path]() {
+      if (upload_request_->isCancelDownloadLater()) {
+        uploadSliceCanceled();
+        return;
+      }
+
+      cache_dir_cleaner();
+
+      auto create_request = createRequest<CreateSliceRequest>(
+        slice_name, upload_request_->getOnlineFilePath(upload_file_path));
+
+      create_request->setSuccessedCallback([this, cache_dir_cleaner]() {
+        uploadSliceSuccessed();
+      });
+
+      create_request->setFailedCallback([this, cache_dir_cleaner]() {
+        uploadSliceFailed();
+      });
+
+      create_request->asyncPost();
+    });
+
+    upload_request_->setFailedCallback([this, cache_dir_cleaner]() {
+      cache_dir_cleaner();
+      uploadSliceFailed();
+    });
+
+    upload_request_->asyncRequest();
+  }
+
+  auto SliceService::cancelUploadSlice() -> void {
+    if (!upload_request_) {
       return;
     }
 
-    open_file_handler_(file_path);
-    Q_EMIT importSliceSuccessed(uid);
-  });
+    upload_request_->setCancelDownloadLater(true);
+  }
 
-  HttpDownload(request);
-}
+  auto SliceService::importSlice(const QString& uid) -> void {
+    SliceListModel::Data info;
+    do {
+      if (uploaded_slice_list_model_->find(uid)) {
+        info = uploaded_slice_list_model_->load(uid);
+        break;
+      }
 
-void SliceService::deleteSlice(const QString& uid) {
-  QPointer<HttpRequest> request{ createRequest<DeleteSliceRequest>(uid) };
+      if (cloud_slice_list_model_->find(uid)) {
+        info = cloud_slice_list_model_->load(uid);
+        break;
+      }
+    } while (false);
 
-  request->setSuccessedCallback([this, uid]() {
-    Q_EMIT deleteSliceSuccessed(QVariant::fromValue(uid));
-  });
+    if (info.url.isEmpty()) {
+      importSliceFailed(uid);
+      return;
+    }
 
-  request->setFailedCallback([this, uid]() {
-    Q_EMIT deleteSliceFailed(QVariant::fromValue(uid));
-  });
+    auto suffix = isOnlineSliceFileCompressed()
+                ? QStringLiteral("%1.%2").arg(std::move(info.suffix))
+                                         .arg(qtuser_core::CompressedFileFormat())
+                : std::move(info.suffix);
 
-  HttpPost(request);
-}
+    auto request = createRequest<DownloadSliceRequest>(
+      qtuser_core::getOrCreateAppDataLocation(QStringLiteral("/myGcodes/%1").arg(uid)),
+      std::move(info.name),
+      std::move(suffix),
+      std::move(info.url));
+
+    request->setSuccessedCallback([this, request, uid]() {
+      auto file_path = request->getFilePath();
+      if (isOnlineSliceFileCompressed()) {
+        auto compressed_file_path = file_path;
+        file_path = compressed_file_path.left(compressed_file_path.lastIndexOf('.'));
+        if (!qtuser_core::unZipLocalFile(compressed_file_path, file_path)) {
+          importSliceFailed(uid);
+          return;
+        }
+      }
+
+      if (!open_file_handler_) {
+        importSliceFailed(uid);
+        return;
+      }
+
+      open_file_handler_(file_path);
+      importSliceSuccessed(uid);
+    });
+
+    request->asyncDownload();
+  }
+
+  auto SliceService::openPrintSliceWebpage(const QString& uid) -> void {
+    if (!web_url_getter_) {
+      return;
+    }
+
+    auto web_url = web_url_getter_();
+    if (web_url.isEmpty()) {
+      return;
+    }
+
+    auto request = createRequest<SsoTokenRequest>();
+
+    request->setSuccessedCallback([request, uid, web_url = std::move(web_url)]() {
+      auto token = request->getSsoToken();
+      if (token.isEmpty()) {
+        return;
+      }
+
+      QDesktopServices::openUrl(QUrl{ QStringLiteral("%1/user/select-device/%2?slice-token=%3")
+                                          .arg(std::move(web_url), uid, std::move(token)) });
+    });
+
+    request->asyncPost();
+  }
 
 }  // namespace cxcloud

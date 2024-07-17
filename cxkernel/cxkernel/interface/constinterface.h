@@ -21,6 +21,7 @@ namespace cxkernel
 	CXKERNEL_API bool isReleaseVersion();
 
 	CXKERNEL_API QString writableLocation(const QString& subDir, const QString& subSubDir = QString());
+	CXKERNEL_API int generateUniqueId();
 }
 
 #endif // XCKERNEL_APP_SETTING_INTERFACE_1593676766939_H

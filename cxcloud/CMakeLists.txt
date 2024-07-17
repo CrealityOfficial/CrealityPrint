@@ -1,18 +1,20 @@
 __enable_cxx17()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 __cc_find(aliyunoss_static)
+__cc_find(boost_static)
+__cc_find(curl_static)
 __cc_find(cpr_static)
 __cc_find(libqrencode_static)
 __cc_find(osswrapper_static)
 __cc_find(rapidjson)
-__cc_find(boost_static)
 __cc_find(qtuser)
 
-__assert_target(qtuser_core)
 __assert_target(cpr_static)
+__assert_target(qtuser_core)
 
 file(GLOB_RECURSE SRCS
   cxcloud/*.h
@@ -28,18 +30,17 @@ set(LIBS
 
   aliyunoss_static
   boost_filesystem
+  curl_static
   cpr_static
   libqrencode_static
   osswrapper_static
   rapidjson
-
-  qtuser_core
 )
 
 set(ILIBS
   Qt5::Core
-  
-  cpr_static
+
+  qtuser_core
 )
 
 set(DEFS

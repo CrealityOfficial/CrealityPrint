@@ -82,6 +82,7 @@ namespace creative_kernel
 #else
 		maxNameLength = NAME_MAX;
 #endif
+
 		QString name;
 		QString machineName = currentMachineName();
 		QList<ModelN*> models = modelns();
@@ -89,18 +90,18 @@ namespace creative_kernel
 			ModelN* firstModel = models.first();
 			QFileInfo info(firstModel->objectName());
 			name = info.completeBaseName();
-			name += "-";
+			//name += "-";
 		}
-		/*for (ModelN* model : models)
+	/*	for (ModelN* model : models)
 		{
 			QFileInfo info(model->objectName());
-			if ((name + "-" + info.completeBaseName() + machineName + "_image.gcode").length() > maxNameLength)
+			if (name.length() + info.completeBaseName().length() > maxNameLength)
 			{
 				break;
 			}
-			name += QString("%1-").arg(info.completeBaseName());
+			name += QString("-%1").arg(info.completeBaseName());
 		}*/
-		name += machineName;
+		//name += machineName;
 		return name;
 	}
 }

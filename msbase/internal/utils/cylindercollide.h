@@ -53,7 +53,6 @@ namespace msbase
 
 		double getDrillDepth();
 		bool lineCollideTriangle(trimesh::dvec3 linePos, trimesh::dvec3 lineDir, trimesh::dvec3 A, trimesh::dvec3 B, trimesh::dvec3 C, trimesh::dvec3& intersectedPos);
-		trimesh::TriMesh* createCylinderMesh(trimesh::vec3 top, trimesh::vec3 bottom, float radius, int num = 20, float theta = 0.0);
 
 		trimesh::TriMesh* postProcess(trimesh::TriMesh* Mout, trimesh::TriMesh* Cin);
 		trimesh::TriMesh* postProcessDrill(trimesh::TriMesh* Mout, trimesh::TriMesh* Cin);

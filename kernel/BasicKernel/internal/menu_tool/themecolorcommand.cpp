@@ -11,7 +11,7 @@ namespace creative_kernel
         , m_theme(theme)
     {
         m_eParentMenu = eMenuType_Tool;
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
 
         onLanguageChanged(MultiLanguage::eLanguage_EN_TS);
     }

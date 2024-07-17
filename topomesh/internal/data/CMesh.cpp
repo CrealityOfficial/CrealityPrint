@@ -1203,6 +1203,7 @@ namespace topomesh {
                 for (const auto& ring : current) {
                     sequence.insert(sequence.end(), ring.begin(), ring.end());
                 }
+                if (sequence.size() < 3) result = false;
                 edgeRings.emplace_back(sequence);
             }
         }

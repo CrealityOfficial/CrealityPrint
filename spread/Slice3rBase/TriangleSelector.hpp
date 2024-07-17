@@ -231,7 +231,20 @@ public:
             return TriangleSelector::Cursor::is_facet_visible(*this, facet_idx, face_normals);
         }
     };
-
+   
+    //-------------
+    std::vector<int> get_all_touching_triangles(int facet_idx, const Slic3r::Vec3i& neighbors, const Slic3r::Vec3i& neighbors_propagated);
+    int get_triangles_size();
+    bool get_triangle_isvalid(int facet);
+    bool get_triangle_issplit(int facet);
+    EnforcerBlockerType get_triangle_state(int facet);
+    int get_triangle_vert_idx(int facet, int vert);
+    float get_vertices_coord(int vert, int idx);
+    int get_source_triangle(int facet);
+    void set_triangle_state(int facet, EnforcerBlockerType type);
+    void get_height_lines(float z_bot,float z_top, std::vector<std::vector<Vec3f>>& contour);
+    bool get_source_triangles(int facet);
+    //---------------
     std::pair<std::vector<Vec3i>, std::vector<Vec3i>> precompute_all_neighbors() const;
     void precompute_all_neighbors_recursive(int facet_idx, const Vec3i &neighbors, const Vec3i &neighbors_propagated, std::vector<Vec3i> &neighbors_out, std::vector<Vec3i> &neighbors_normal_out) const;
 
@@ -284,6 +297,9 @@ public:
     void get_chunk_facets(int chunk, const std::vector<int>& faceChunkID,
         indexed_triangle_set& out, std::vector<int>& flags, std::vector<int>& splitIndices) const;
 
+  
+  
+
     // BBS
     void get_facets(std::vector<indexed_triangle_set>& facets_per_type) const;
 
@@ -323,7 +339,10 @@ public:
 
     void clear_dirty_source_triangles(std::vector<int>& triangles);
     void dirty_triangle(Triangle* tri);
+
+    bool judge_select_triangles();
 protected:
+   
     // Triangle and info about how it's split.
     class Triangle {
     public:
@@ -391,8 +410,10 @@ protected:
         int ref_cnt;
     };
 
+    //protected ->public ->protected
     void append_touching_subtriangles(int itriangle, int vertexi, int vertexj, std::vector<int>& touching_subtriangles_out) const;
     bool verify_triangle_neighbors(const Triangle& tr, const Vec3i& neighbors) const;
+   
 
 
     // Lists of vertices and triangles, both original and new
@@ -401,7 +422,11 @@ protected:
     const TriangleMesh &m_mesh;
     std::vector<Vec3i> m_neighbors;
     const std::vector<Vec3f> m_face_normals;
-
+    // height 
+    std::vector<std::vector<int>> height_triangles;
+    float max_z;
+    float min_z;
+    float chunk_span;
     //aoob
     std::vector<int> m_dirty_source_triangles;
 
@@ -421,7 +446,7 @@ protected:
     std::unique_ptr<Cursor> m_cursor;
     // Zero indicates an uninitialized state.
     float m_old_cursor_radius_sqr = 0;
-
+ 
     // Private functions:
 private:
     bool select_triangle(int facet_idx, EnforcerBlockerType type, bool triangle_splitting);

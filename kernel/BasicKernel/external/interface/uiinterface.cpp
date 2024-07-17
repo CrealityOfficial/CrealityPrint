@@ -64,9 +64,28 @@ namespace creative_kernel
 		getKernelUI()->requestQmlDialog(receiver, objectName);
 	}
 
+	void requestQmlTipDialog(const QString& message)
+	{
+		getKernelUI()->requestQmlTipDialog(message);
+	}
+
 	void requestQmlDialog(const QString& objectName)
 	{
 		getKernelUI()->requestQmlDialog(objectName);
+	}
+	void requestQmlMessage(QObject* messageSource)
+	{
+		getKernelUI()->requestMessage(messageSource);
+	}
+
+	void destroyQmlMessage(int code)
+	{
+		getKernelUI()->destroyMessage(code);
+	}
+
+	void destroyFloatMessage(int code)
+	{
+
 	}
 
 	void requestQmlCloseAction()

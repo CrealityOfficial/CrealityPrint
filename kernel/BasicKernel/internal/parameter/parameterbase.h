@@ -19,14 +19,28 @@ namespace creative_kernel
 		ParameterBase(QObject* parent = nullptr);
 		virtual ~ParameterBase();
 
-		Q_INVOKABLE QObject* settingsObject();
+	public:
 		us::USettings* settings();
+		Q_INVOKABLE QObject* settingsObject();
+		Q_SIGNAL void settingsChanged();
+		Q_PROPERTY(QObject* settings READ settingsObject NOTIFY settingsChanged);
+
 		us::USettings* userSettings();
+		Q_INVOKABLE QObject* userSettingsObject();
+		Q_SIGNAL void userSettingsChanged();
+		Q_PROPERTY(QObject* userSettings READ userSettingsObject NOTIFY userSettingsChanged);
+
+	public:
+		QString settingsValue(const QString &key, const QString& defaultValue = QString()) const;
+
 		void saveSetting(const QString& fileName);
 		//void saveUserSetting(const QString& fileName);
 		void setUserSettings(us::USettings* settings);
-		void exportSetting(const QString& fileName);
+		virtual void exportSetting(const QString& fileName);
 		void exportSettingIni(const QString& fileName);
+
+		//比较两个不同配置，返回value不同的key的列表
+		QStringList compareSettings(ParameterBase* const param);
 
 		//配置文件读写
 		Q_INVOKABLE QString readIniByKey(const QString& key, const QString& path);
@@ -35,8 +49,15 @@ namespace creative_kernel
 		bool dirty();
 		void setDirty();
 		void clearDiry();
+		virtual void enableChanged(const QString& key, bool enabled);
+		virtual void strChanged(const QString& key, const QString& str);
 		Q_INVOKABLE virtual void save();
 		Q_INVOKABLE virtual void reset();
+		virtual void mergeAndSave();
+		QString inheritsFrom() const;
+		virtual void setInheritFrom(const QString& factoryName);
+		QStringList differentKeysToFactory() const;
+		virtual void setDifferentKeysToFactory(const QStringList& keys);
 	protected:
 		void setSettings(us::USettings* settings);
 	protected:
@@ -44,6 +65,8 @@ namespace creative_kernel
 		us::USettings* m_user_settings = nullptr;
 
 		bool m_dirty;
+		QString m_inherits_from;
+		QStringList m_different_keys_to_factory;
 	};
 }
 

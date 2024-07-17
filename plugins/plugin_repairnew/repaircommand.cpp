@@ -25,7 +25,7 @@ RepairCommand::RepairCommand()
 	m_strMessageText = tr("Please import model");
 	m_eParentMenu = eMenuType_Tool;//eMenuType_Repair;
 
-	addUIVisualTracer(this);
+	addUIVisualTracer(this,this);
 }
 
 RepairCommand::~RepairCommand()

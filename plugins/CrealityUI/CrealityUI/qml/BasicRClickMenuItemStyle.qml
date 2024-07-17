@@ -5,13 +5,13 @@ import QtQuick.Shapes 1.12
 MenuItem {
     id: control
     property alias separatorVisible:  idSeparator.visible
-    property color textColor: !enabled ? control.palette.mid :  "#000000"//control.highlighted ? /*"black" : "black"*/Constants.menuTextColor:Constants.menuTextColor
-    property color buttonColor:   control.hovered ? "#74C9FF" : "#FFFFFF"//Constants.menuStyleBgColor_hovered/*"#9CE8F4"*/ : Constants.menuStyleBgColor//"white"/*Constants.themeColor*///"#061F3B"
+    property color textColor: !enabled ? control.palette.mid :  "#000000"
+    property color buttonColor:  control.hovered ? "#74C9FF" : "#FFFFFF"
+    property color indicatorColor
 
     property var separatorHeight: 1
     property var textPadding: 30
 
-    //  property alias rectColor: idColorRect.color
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             implicitContentWidth + leftPadding + rightPadding)
@@ -47,18 +47,18 @@ MenuItem {
             width: 20
             height: 20
             anchors.centerIn: parent
+            color: indicatorColor
             visible: control.checkable//选择后显示，类似单选按钮
-            border.color: "#97F204"/*"#21be2b"*/
+            border.color: indicatorColor
             radius: 3
-            Rectangle {
-
-                width: 14
-                height: 14
-                anchors.centerIn: parent
-                visible: control.checked
-                color: "#97F204"/*"#21be2b"*/
-                radius: 2
-            }
+//            Rectangle {
+//                width: 14
+//                height: 14
+//                anchors.centerIn: parent
+//                visible: control.checked
+//                color: indicatorColor
+//                radius: 2
+//            }
         }
     }
 

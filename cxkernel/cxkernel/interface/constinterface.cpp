@@ -19,4 +19,9 @@ namespace cxkernel
 	{
 		return cxKernel->cxConst()->writableLocation(subDir, subSubDir);
 	}
+
+	int generateUniqueId()
+	{
+		return cxKernel->cxConst()->generateUniqueId();
+	}
 }

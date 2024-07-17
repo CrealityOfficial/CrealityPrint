@@ -17,7 +17,7 @@ Item {
       switch(event.key) {
 
         case Qt.Key_Delete:
-          draw_panel.deleteSelectObject()
+//          draw_panel.deleteSelectObject()
           break
         case /*Qt.ControlModifier &&  */Qt.Key_A :
             draw_panel.selectAll()

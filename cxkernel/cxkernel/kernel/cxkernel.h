@@ -55,6 +55,7 @@ namespace cxkernel
 		virtual void uninitialize();
 
 		virtual QString entryQmlFile();
+		virtual QStringList pluginFilter();
 		bool loadQmlEngine(QObject* object, QQmlEngine& engine) override;
 		void unloadQmlEngine() override;
 		void shutDown() override;

@@ -17,7 +17,7 @@ namespace creative_kernel
 		m_name = tr("Rotate") + ": R";
 
 		m_source = "qrc:/kernel/qml/RotatePanel.qml";
-		addUIVisualTracer(this);
+		addUIVisualTracer(this,this);
 	}
 
 	RotateMode::~RotateMode()
@@ -31,10 +31,10 @@ namespace creative_kernel
 
 	void RotateMode::onThemeChanged(ThemeCategory category)
 	{
-		setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/rotate_dark.svg" : "qrc:/UI/photo/leftBar/rotate_lite.svg");
-		setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/rotate_dark.svg" : "qrc:/UI/photo/leftBar/rotate_lite.svg");
+		setDisabledIcon("qrc:/UI/photo/cToolBar/rotate_dark_disable.svg");
+		setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/rotate_dark_default.svg": "qrc:/UI/photo/cToolBar/rotate_light_default.svg");
 		setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/rotate_pressed.svg" : "qrc:/UI/photo/leftBar/rotate_lite.svg");
-		setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/rotate_pressed.svg" : "qrc:/UI/photo/leftBar/rotate_pressed.svg");
+		setPressedIcon("qrc:/UI/photo/cToolBar/rotate_dark_press.svg");
 	}
 
 	void RotateMode::onLanguageChanged(MultiLanguage language)

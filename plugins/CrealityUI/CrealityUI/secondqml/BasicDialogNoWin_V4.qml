@@ -12,7 +12,7 @@ CusRoundedBg {
     property alias cloader: contentLoader
     property real shadowWidth: 0
     property real titleHeight: 30* screenScaleFactor
-    property string title: "basic Dialog"
+    property string title: ""
     property Component bdContentItem
     property alias titleTextColor: closeBtn.fontColor
     property alias closeBtnVis: closeBtn.closeBtnVis

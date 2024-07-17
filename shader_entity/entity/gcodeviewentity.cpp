@@ -15,10 +15,10 @@ namespace qtuser_3d
 
 		QMatrix4x4 m;
 		m.setToIdentity();
-		m_modelMatrix = setParameter("modelMatrix", m);
+		m_modelMatrix = setParameter("model_matrix", m);
 
 		QVariantList values;
-		values << QVector4D(0.5f, 0.5f, 0.5f, 1.0f)
+		/*values << QVector4D(0.5f, 0.5f, 0.5f, 1.0f)
 			<< QVector4D(0.47f, 0.18f, 0.16f, 1.0f)
 			<< QVector4D(0.01f, 0.55f, 0.02f, 1.0f)
 			<< QVector4D(1.0f, 0.7f, 0.5f, 1.0f)
@@ -34,7 +34,7 @@ namespace qtuser_3d
 			<< QVector4D(0.37f, 0.34f, 0.37f, 1.0f)
 			<< QVector4D(1.0f, 1.0f, 1.0f, 1.0f)
 			<< QVector4D(0.0f, 0.0f, 1.0f, 1.0f)
-			<< QVector4D(1.0f, 0.0f, 0.0f, 1.0f);
+			<< QVector4D(1.0f, 0.0f, 0.0f, 1.0f);*/
 
 		m_typeColors = setParameter("typecolors[0]", values);
 
@@ -84,6 +84,19 @@ namespace qtuser_3d
 			<< 0
 			<< 1
 			<< 0;
+		int size = m_showTypeValues.size();
+		for (size_t i = size; i < 53; i++)
+		{
+			//结构类型“擦拭”默认为不勾选
+			if (i == 49)
+			{
+				m_showTypeValues << 0;
+			}
+			else {
+				m_showTypeValues << 1;
+			}
+			
+		}
 
 		m_typecolorsshow = setParameter("typecolorsshow[0]", m_showTypeValues);
 

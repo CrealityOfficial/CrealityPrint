@@ -2,18 +2,16 @@
 #include "entity/manipulateentity.h"
 #include "qtuser3d/module/manipulatepickable.h"
 #include "qtuser3d/camera/cameracontroller.h"
-#include "qtuser3d/camera/screencamera.h"
 #include "qtuser3d/utils/primitiveshapecache.h"
 #include "qtuser3d/geometry/bufferhelper.h"
 #include "qtuser3d/geometry/geometrycreatehelper.h"
-
+#include "qtuser3d/math/space3d.h"
 
 namespace qtuser_3d
 {
 	TranslateHelperEntity::TranslateHelperEntity(Qt3DCore::QNode* parent, int type, IndicatorType shapetype)
 		: XEntity(parent)
-		, m_fixSize(0)
-		, m_scale(70.0)
+		, m_scale(1.0)
 		, m_initAxisDir(0.0, 1.0, 0.0)
 		, m_pXArrowEntity(nullptr)
 		, m_pYArrowEntity(nullptr)
@@ -53,27 +51,23 @@ namespace qtuser_3d
 	void TranslateHelperEntity::setCameraController(CameraController* controller)
 	{
 		m_pCameraController = controller;
-
-		slotCameraChanged(m_pCameraController->getViewPosition(), m_pCameraController->getViewupVector());
 	}
 
 	void TranslateHelperEntity::attach()
 	{
 		if (m_pCameraController)
 		{
-			connect(m_pCameraController, &CameraController::signalCameraChaged, this, &TranslateHelperEntity::slotCameraChanged);
-			slotCameraChanged(m_pCameraController->getViewPosition(), m_pCameraController->getViewupVector());
+			qtuser_3d::ScreenCamera* sc = m_pCameraController->screenCamera();
+			sc->addCameraObserver(this);
+			onCameraChanged(sc);
 		}
-
-		//addSpaceTracer(this);
 	}
 
 	void TranslateHelperEntity::detach()
 	{
-		if (m_pCameraController)
-			disconnect(m_pCameraController, &CameraController::signalCameraChaged, this, &TranslateHelperEntity::slotCameraChanged);
-
-		//removeSpaceTracer(this);
+		if (m_pCameraController) {
+			m_pCameraController->screenCamera()->removeCameraObserver(this);
+		}
 	}
 
 	Pickable* TranslateHelperEntity::xArrowPickable()
@@ -349,6 +343,9 @@ namespace qtuser_3d
 
 	void TranslateHelperEntity::initCenterCube(int helperType)
 	{
+		if ((helperType & HELPERTYPE_CUBE_XYZ) == false)
+			return;
+
 		// 构建 中心操作器 模型数据
 		double length = 0.2;
 		double halfLength = length / 2.0;
@@ -435,33 +432,30 @@ namespace qtuser_3d
 		Qt3DRender::QAttribute* indexAttribute = qtuser_3d::BufferHelper::CreateIndexAttribute((const char*)&indices[0], indices.size());
 		Qt3DRender::QGeometry* cubeGeo = qtuser_3d::GeometryCreateHelper::createEx(nullptr, positionAttribute, normalAttribute, indexAttribute);
 
-		if (helperType & HELPERTYPE_CUBE_XYZ)
-		{
-			QMatrix4x4 mt;
-			mt.rotate(-90.0f, 0.0f, 0.0f, 1.0f);
-			mt.scale(m_scale, m_scale, m_scale);
-			//xMatrix.scale(15.0f, 15.0f, 15.0f);
+		QMatrix4x4 mt;
+		mt.rotate(-90.0f, 0.0f, 0.0f, 1.0f);
+		mt.scale(m_scale, m_scale, m_scale);
+		//xMatrix.scale(15.0f, 15.0f, 15.0f);
 
-			m_pXYZCubeEntity = new qtuser_3d::ManipulateEntity(this, ManipulateEntity::Alpha | ManipulateEntity::Pickable);
-			m_pXYZCubeEntity->setObjectName("TranslateHelperEntity.xyzCubeEntity");
-			m_pXYZCubeEntity->setPose(mt);
-			m_pXYZCubeEntity->setColor(QVector4D(1.0f, 1.0f, 1.0f, 0.1f));
-			m_pXYZCubeEntity->setTriggeredColor(QVector4D(1.0f, 0.79f, 0.0f, 1.0f));
-			m_pXYZCubeEntity->setTriggerible(true);
-			m_pXYZCubeEntity->setGeometry(cubeGeo, Qt3DRender::QGeometryRenderer::Triangles);
+		m_pXYZCubeEntity = new qtuser_3d::ManipulateEntity(this, ManipulateEntity::Alpha | ManipulateEntity::Pickable);
+		m_pXYZCubeEntity->setObjectName("TranslateHelperEntity.xyzCubeEntity");
+		m_pXYZCubeEntity->setPose(mt);
+		m_pXYZCubeEntity->setColor(QVector4D(1.0f, 1.0f, 1.0f, 0.1f));
+		m_pXYZCubeEntity->setTriggeredColor(QVector4D(1.0f, 0.79f, 0.0f, 1.0f));
+		m_pXYZCubeEntity->setTriggerible(true);
+		m_pXYZCubeEntity->setGeometry(cubeGeo, Qt3DRender::QGeometryRenderer::Triangles);
 
-			m_pXYZCubePickable = new ManipulatePickable(this);
-			m_pXYZCubePickable->setPickableEntity(m_pXYZCubeEntity);
-			m_pXYZCubePickable->setEnableSelect(false);
-		}
+		m_pXYZCubePickable = new ManipulatePickable(this);
+		m_pXYZCubePickable->setPickableEntity(m_pXYZCubeEntity);
+		m_pXYZCubePickable->setEnableSelect(false);
 	}
 
-	void TranslateHelperEntity::slotCameraChanged(QVector3D position, const QVector3D upVector)
+	void TranslateHelperEntity::adaptHelperEntityDir(QVector3D dir)
 	{
-		QVector3D viewDir = position;
-		QVector3D newXDir(position.x(), 0.0, 0.0);
-		QVector3D newYDir(0.0, position.y(), 0.0);
-		QVector3D newZDir(0.0, 0.0, position.z());
+		QVector3D viewDir = dir;
+		QVector3D newXDir(dir.x(), 0.0, 0.0);
+		QVector3D newYDir(0.0, dir.y(), 0.0);
+		QVector3D newZDir(0.0, 0.0, dir.z());
 		newXDir.normalize();
 		newYDir.normalize();
 		newZDir.normalize();
@@ -539,17 +533,6 @@ namespace qtuser_3d
 		}
 	}
 
-	void TranslateHelperEntity::setScale(float scaleRate)
-	{
-		m_transform->setScale(scaleRate);
-	}
-
-	void TranslateHelperEntity::setEntitiesLocalScale(float scale)
-	{
-		m_scale = scale;
-		slotCameraChanged(m_pCameraController->getViewPosition(), m_pCameraController->getViewupVector());
-	}
-
 	void TranslateHelperEntity::setRotation(QQuaternion rotQ)
 	{
 		m_initRotationQ = rotQ;
@@ -563,41 +546,49 @@ namespace qtuser_3d
 		matrix.translate(center);
 		m_center = center;
 
-		float len = 1.0f;
-		if (m_fixSize == 1)
-		{
-			QVector3D sz = box.size();
-			double maxlen = sz.x() > sz.y() ? sz.x() : sz.y();
-			maxlen = maxlen > sz.z() ? maxlen : sz.z();
-			if (maxlen > 80)
-			{
-				len = maxlen / 80;
-			}
-		}
-		else if (m_fixSize == 2)
-		{
-			QVector3D sz = box.size();
-			double maxlen = sz.x() > sz.y() ? sz.x() : sz.y();
-			maxlen = maxlen > sz.z() ? maxlen : sz.z();
-			if (maxlen * 1.1 < 44 && maxlen > 0.00000001)
-			{
-				len = maxlen * 1.1 / 44;
-			}
-		}
+		m_transform->setTranslation(center);
+		adaptScale();
 
-		matrix.scale(len);
-		m_transform->setMatrix(matrix);
-
-		qDebug() << "far plane" << m_pCameraController->screenCamera()->camera()->farPlane();
-	}
-
-	void TranslateHelperEntity::setFixSize(int fixSize)
-	{
-		m_fixSize = fixSize;
+		//qDebug() << "far plane" << m_pCameraController->screenCamera()->camera()->farPlane();
 	}
 
 	QVector3D TranslateHelperEntity::center()
 	{
 		return m_center;
+	}
+
+	void TranslateHelperEntity::onCameraChanged(ScreenCamera* camera)
+	{
+		adaptHelperEntityDir(-camera->camera()->viewVector());
+
+		adaptScale();
+	}
+
+	void TranslateHelperEntity::adaptScale()
+	{
+		if (m_pCameraController)
+		{
+			qtuser_3d::ScreenCamera* screenCamera = m_pCameraController->screenCamera();
+			QPoint p0 = screenCamera->mapToScreen(m_center);
+			QSize screenSize = screenCamera->size();
+			QSize opSize = screenSize * 0.095f;
+			QPoint p1;
+			if (p0.x() > screenSize.width() / 2)
+			{
+				p1 = p0 - QPoint(opSize.width(), 0);
+			}
+			else {
+				p1 = p0 + QPoint(opSize.width(), 0);
+			}
+
+			qtuser_3d::Ray ray = screenCamera->screenRay(p1);
+
+			QVector3D c0;
+			qtuser_3d::lineCollidePlane(m_center, screenCamera->camera()->viewVector(), ray, c0);
+
+			float scale = (c0 - m_center).length();
+
+			m_transform->setScale(scale);
+		}
 	}
 }

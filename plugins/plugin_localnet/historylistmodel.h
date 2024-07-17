@@ -60,10 +60,12 @@ public:
 		E_HistoryInterval,
 		E_HistoryMaterialUsage,
 		E_HistoryThumbnailImage,
-		E_GCodeExportProgress
+		E_GCodeExportProgress,
+		E_GCodePrefixPath,
 	};
 
 	Q_PROPERTY(int	   isPrintFinished		  READ isPrintFinished		  WRITE setIsPrintFinished		  NOTIFY isPrintFinishedChanged)
+	Q_PROPERTY(QString gCodePrefixPath	    READ gCodePrefixPath		  WRITE setGCodePrefixPath		NOTIFY gCodePrefixPathChanged)
 	Q_PROPERTY(QString historyFileNumb	      READ historyFileNumb		  WRITE setHistoryFileNumb		  NOTIFY historyFileNumbChanged)
 	Q_PROPERTY(QString historyFileName	      READ historyFileName		  WRITE setHistoryFileName		  NOTIFY historyFileNameChanged)
 	Q_PROPERTY(QString historyFileSize	      READ historyFileSize		  WRITE setHistoryFileSize		  NOTIFY historyFileSizeChanged)
@@ -79,6 +81,9 @@ public:
 
 	int isPrintFinished() const;
 	void setIsPrintFinished(int finished);
+
+	const QString& gCodePrefixPath() const;
+	void setGCodePrefixPath(const QString& path);
 
 	const QString& historyFileNumb() const;
 	void setHistoryFileNumb(const QString& fileNumb);
@@ -108,6 +113,7 @@ public:
 
 signals:
 	void isPrintFinishedChanged();
+	void gCodePrefixPathChanged();
 	void historyFileNumbChanged();
 	void historyFileNameChanged();
 	void historyFileSizeChanged();
@@ -119,6 +125,7 @@ signals:
 
 private:
 	int m_isPrintFinished;
+	QString m_gCodePrefixPath;
 	QString m_historyFileNumb;
 	QString m_historyFileName;
 	QString m_historyFileSize;

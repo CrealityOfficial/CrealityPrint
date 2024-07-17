@@ -5,7 +5,6 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDebug>
 #include <QtCore/QDir>
-#include <QtCore/QSettings>
 #include <QtCore/QStandardPaths>
 
 #include <rapidjson/document.h>
@@ -13,12 +12,16 @@
 
 #include <buildinfo.h>
 
+#include <cxcloud/define.h>
 #include <cxcloud/service_center.h>
+#include <cxcloud/tool/function.h>
+#include <cxcloud/tool/settings.h>
 
 #include <cxgcode/us/settingdef.h>
 
 #include <qtusercore/module/systemutil.h>
 #include <qtusercore/string/resourcesfinder.h>
+#include <qtusercore/util/settings.h>
 
 #include "external/interface/cloudinterface.h"
 #include "internal/parameter/parameterpath.h"
@@ -31,44 +34,18 @@ namespace creative_kernel {
   GlobalConst::GlobalConst(QObject* parent)
       : cxkernel::CXKernelConst{ parent }
       , m_lanTsFiles{
-          QStringLiteral("en.ts"),
-          QStringLiteral("zh_CN.ts"),
-          QStringLiteral("zh_TW.ts"),
-          QStringLiteral("ko.ts"),
-		      QStringLiteral("jp.ts"),
-          QStringLiteral("de.ts"),
-          QStringLiteral("es.ts"),
-          QStringLiteral("fr.ts"),
-          QStringLiteral("it.ts"),
-          QStringLiteral("pt.ts"),
-          QStringLiteral("ru.ts"),
-          QStringLiteral("tr.ts"),
-          QStringLiteral("pl.ts"),
-          QStringLiteral("nl.ts"),
-          QStringLiteral("cz.ts"),
-          QStringLiteral("hu.ts"),
-          QStringLiteral("se.ts"),
-          QStringLiteral("ua.ts"),
+          QStringLiteral("en"),
+          QStringLiteral("zh_CN"),
+          QStringLiteral("zh_TW"),
+          QStringLiteral("zh_CN_orca"),
+          QStringLiteral("en_c3d"),
+          QStringLiteral("zh_CN_c3d"),
+          QStringLiteral("zh_TW_c3d"),
         }
       , m_lanNames{
           QStringLiteral("English"),
           QStringLiteral("简体中文"),
           QStringLiteral("繁體中文"),
-          QStringLiteral("한국어/Korean"),
-		      QStringLiteral("日本語/Japanese"),
-          QStringLiteral("Deutsch/German"),
-          QStringLiteral("España/Spain"),
-          QStringLiteral("Français/French"),
-          QStringLiteral("Italiano/Italian"),
-          QStringLiteral("Portugal/Portugal"),
-          QStringLiteral("Pусский язык/Russian"),
-          QStringLiteral("Türkçe/Turkish"),
-          QStringLiteral("Polska/Poland"),
-          QStringLiteral("Nederland/Netherlands"),
-          QStringLiteral("Česká republika/Czech Republic"),
-          QStringLiteral("Magyarország/Hungary"),
-          QStringLiteral("Sverige/Sweden"),
-          QStringLiteral("Україна/Ukraine"),
         } {
     QCoreApplication::setOrganizationName(QStringLiteral(ORGANIZATION));
     QCoreApplication::setOrganizationDomain(QStringLiteral("FDM"));
@@ -76,12 +53,29 @@ namespace creative_kernel {
     QCoreApplication::setApplicationName(
       QStringLiteral(BUNDLE_NAME).replace(QStringLiteral("_"), QStringLiteral(" ")));
 #else
-    QCoreApplication::setApplicationName(QStringLiteral(PROJECT_NAME));
+    QCoreApplication::setApplicationName(QStringLiteral("Creative3D"));
 #endif
 
-    initialize();
+    qtuser_core::VersionSettings setting;
+    setting.setValue("engine_type", 1);
+    setEngineType(static_cast<EngineType>(setting.value("engine_type", 1).toInt()));
+    //initialize();
+
+    QString gcodeDir = qtuser_core::getOrCreateAppDataLocation("GCodes");
+    clearPath(gcodeDir);
+    QString serialDir = qtuser_core::getOrCreateAppDataLocation("RecentSerializeModel");
+    clearPath(serialDir);
   }
 
+  GlobalConst::~GlobalConst() {
+      QString serialDir = qtuser_core::getOrCreateAppDataLocation("RecentSerializeModel");
+      clearPath(serialDir);
+      QString gcodeDir = qtuser_core::getOrCreateAppDataLocation("GCodes");
+      clearPath(gcodeDir);
+  }
+  bool GlobalConst::isAlpha() const{
+      return  QStringLiteral(PROJECT_VERSION_EXTRA).toLower() == "alpha";
+  }
   bool GlobalConst::isCustomized() const {
 #ifndef CUSTOMIZED
     return false;
@@ -209,7 +203,19 @@ namespace creative_kernel {
 #  endif  // CUSTOM_PARTITION_PRINT_ENABLED
 #endif  // !CUSTOMIZED
   }
-
+bool GlobalConst::isLaserEnabled() const {
+  #ifdef ENABLE_LASER_PLUGIN
+    return true;
+  #endif
+  return false;
+}
+bool GlobalConst::isDebug() const
+{
+#ifdef DEBUG
+    return true;
+#endif // DEBUG
+    return false;
+}
   QString GlobalConst::getTranslateContext() const {
 #ifndef CUSTOMIZED
     return QStringLiteral("global_const");
@@ -238,24 +244,32 @@ namespace creative_kernel {
 #ifdef QT_NO_DEBUG
 #  if defined(__APPLE__)
     const auto index = QCoreApplication::applicationDirPath().lastIndexOf(QStringLiteral("/"));
-    path = QStringLiteral("%1%2").arg(QCoreApplication::applicationDirPath().left(index))
-                                 .arg(QStringLiteral("/Resources/resources/sliceconfig/param/ui/"));
+    path = QStringLiteral("%1%2%3/param/ui/").arg(QCoreApplication::applicationDirPath().left(index))
+                                 .arg(QStringLiteral("/Resources/resources/sliceconfig/")).arg(getEnginePathPrefix());
 #  else
-    path = QStringLiteral("%1%2").arg(QCoreApplication::applicationDirPath())
-                                 .arg(QStringLiteral("/resources/sliceconfig/param/ui/"));
+    path = QStringLiteral("%1%2%3/param/ui/").arg(QCoreApplication::applicationDirPath())
+                                 .arg(QStringLiteral("/resources/sliceconfig/")).arg(getEnginePathPrefix());
 #  endif
 #else
-    path = QStringLiteral("%1%2").arg(QStringLiteral(SOURCE_ROOT))
-                                 .arg(QStringLiteral("/resources/sliceconfig/param/ui/"));
+#  if defined(__APPLE__)
+    const auto index = QCoreApplication::applicationDirPath().lastIndexOf(QStringLiteral("/"));
+    path = QStringLiteral("%1%2%3/param/ui/").arg(QCoreApplication::applicationDirPath().left(index))
+                                 .arg(QStringLiteral("/Resources/resources/sliceconfig/")).arg(getEnginePathPrefix());
+    qDebug()<<path;
+#  else
+    path = QStringLiteral("%1%2%3/param/ui/").arg(QStringLiteral(SOURCE_ROOT))
+                               .arg(QStringLiteral("/resources/sliceconfig/")).arg(getEnginePathPrefix());
+#  endif
 #endif
+
     return path;
   }
 
   QString GlobalConst::userFeedbackWebsite() {
     QString website = "http://as.cxswyjy.com/slice/#/OnlineSupport?";
 
-    QSettings setting;
-    setting.beginGroup("cloud_service");
+    qtuser_core::VersionSettings setting;
+    setting.beginGroup("profile_setting");
     QString strStartType = setting.value("server_type", "0").toString();
     setting.endGroup();
     QString version = PROJECT_VERSION_EXTRA;
@@ -288,7 +302,7 @@ namespace creative_kernel {
   }
 
   QString GlobalConst::calibrationTutorialWebsite() {
-    QSettings setting;
+    qtuser_core::VersionSettings setting;
     setting.beginGroup("language_perfer_config");
     QString strLanguageType = setting.value("language_type", "en.ts").toString();
     setting.endGroup();
@@ -300,7 +314,7 @@ namespace creative_kernel {
   }
 
   QString GlobalConst::officialWebsite() {
-    QSettings setting;
+    qtuser_core::VersionSettings setting;
     setting.beginGroup("language_perfer_config");
     QString strLanguageType = setting.value("language_type", "en.ts").toString();
     setting.endGroup();
@@ -330,6 +344,58 @@ namespace creative_kernel {
     return qtuser_core::getOrCreateAppDataLocation(tails[(int)resource]);
   }
 
+  QString GlobalConst::getEnginePathPrefix()
+  {
+      return m_enginePathPrefix;
+  }
+
+  EngineType GlobalConst::getEngineType() const
+  {
+      return m_engineType;
+  }
+
+  int GlobalConst::getEngineIntType() const
+  {
+      return (int)m_engineType;
+  }
+
+  void GlobalConst::setEngineType(const EngineType& engineType)
+  {
+      m_engineType = engineType;
+      auto server_type = cxcloud::CloudSettings{}.getServerType();
+      auto server_index = static_cast<int>(cxcloud::ServerTypeToRealServerType(server_type));
+
+      switch (engineType)
+      {
+      case EngineType::ET_CURA:
+      {
+          m_enginePathPrefix = QStringLiteral("server_%1/cura/").arg(QString::number(server_index));
+      }
+      break;
+      case EngineType::ET_ORCA:
+      {
+          m_enginePathPrefix = QStringLiteral("server_%1/orca/").arg(QString::number(server_index));
+      }
+      break;
+      default:
+          break;
+      }
+  }
+
+  QString GlobalConst::getEngineVersion() const
+  {
+      return m_engineVersion;
+  }
+
+  void GlobalConst::setEngineVersion(const QString& engineVersion)
+  {
+      if (m_engineVersion == engineVersion)
+      {
+          return;
+      }
+      m_engineVersion = engineVersion;
+  }
+
   QString GlobalConst::languageName(MultiLanguage language) {
     return m_lanNames[(int)language];
   }
@@ -340,8 +406,10 @@ namespace creative_kernel {
 
   MultiLanguage GlobalConst::tsFile2Language(const QString& tsFile) {
     MultiLanguage language = MultiLanguage::eLanguage_EN_TS;
+    QString fileName = tsFile;
+    fileName.remove(".ts");
     for (int i = 0; i < (int)MultiLanguage::eLanguage_NUM; ++i) {
-      if (m_lanTsFiles.at(i) == tsFile) {
+      if (m_lanTsFiles.at(i) == fileName) {
         language = (MultiLanguage)i;
         break;
       }
@@ -361,7 +429,7 @@ namespace creative_kernel {
   }
 
   QString GlobalConst::moneyType() {
-    // QSettings setting;
+    // qtuser_core::VersionSettings setting;
     // setting.beginGroup("language_perfer_config");
     // int nType = setting.value("money_type", "0").toInt();
     //
@@ -378,23 +446,21 @@ namespace creative_kernel {
   }
 
   QString GlobalConst::cloudTutorialWeb(const QString& name) {
-    QSettings setting;
-    setting.beginGroup("cloud_service");
-    QString strStartType = setting.value("server_type", "-1").toString();
+    auto type = cxcloud::ServerTypeToRealServerType(cxcloud::CloudSettings{}.getServerType());
 
     QString web;
     if (name == "myslices") {
-      if (strStartType == "0")
+      if (type == cxcloud::RealServerType::MAINLAND_CHINA)
         web = QString("https://www.crealitycloud.cn/post-detail/7776");
       else
         web = QString("https://www.crealitycloud.com/post-detail/9768");
     } else if (name == "mymodels") {
-      if (strStartType == "0")
+      if (type == cxcloud::RealServerType::MAINLAND_CHINA)
         web = QString("https://www.crealitycloud.cn/post-detail/7703");
       else
         web = QString("https://www.crealitycloud.com/post-detail/9766");
     } else if (name == "myfavorited") {
-      if (strStartType == "0")
+      if (type == cxcloud::RealServerType::MAINLAND_CHINA)
         web = QString("https://www.crealitycloud.cn/post-detail/7770");
       else
         web = QString("https://www.crealitycloud.com/post-detail/9769");
@@ -408,11 +474,11 @@ namespace creative_kernel {
   void GlobalConst::writeRegister(const QString& key, const QVariant& value) {
     qDebug() << QString("GlobalConst::writeRegister [%1]").arg(key);
 
-    QSettings settings;
+    qtuser_core::VersionSettings settings;
     QStringList keys = key.split("/");
     int count = keys.count();
     if (count >= 1) {
-      QSettings setting;
+      qtuser_core::VersionSettings setting;
       for (int i = 0; i < count; ++i) {
         if (i == count - 1) {
           setting.setValue(keys.at(i), value);
@@ -433,7 +499,7 @@ namespace creative_kernel {
     QStringList keys = key.split("/");
     int count = keys.count();
     if (count >= 1) {
-      QSettings setting;
+      qtuser_core::VersionSettings setting;
       for (int i = 0; i < count; ++i) {
         if (i == count - 1) {
           result = setting.value(keys.at(i));
@@ -449,23 +515,37 @@ namespace creative_kernel {
   }
 
   void GlobalConst::initialize() {
-#ifdef QT_NO_DEBUG
+#if 1
 #  ifdef __APPLE__
     int index = QCoreApplication::applicationDirPath().lastIndexOf("/");
-    QString src_dir = (QCoreApplication::applicationDirPath().left(index) +
-                      "/Resources/resources/sliceconfig/default/");
+    QString src_dir = QStringLiteral("%1%2%3/default/").arg(QCoreApplication::applicationDirPath().left(index))
+        .arg(QStringLiteral("/Resources/resources/sliceconfig/")).arg(getEnginePathPrefix());
 #  else
-    QString src_dir = (QCoreApplication::applicationDirPath() + "/resources/sliceconfig/default/");
+    QString src_dir = QStringLiteral("%1%2%3/default/").arg(QCoreApplication::applicationDirPath())
+        .arg(QStringLiteral("/resources/sliceconfig/")).arg(getEnginePathPrefix());
 #  endif
 #else
     QString src_dir = QString(SOURCE_ROOT) + "/resources/sliceconfig/default/";
 #endif
-    us::SettingDef::instance().initialize(src_dir + "/fdm.def.json");
-    cxgcode::SettingDef::instance().initialize(src_dir + "/fdm.def.json");
-
-    QString dst_dir = getResourcePath(ResourcesType::rt_default_config_root);
+    QString dst_dir = _pfpt_default_root + "/";
+    QDir profile_dir(dst_dir);
+    //QStringList jsonfiles;
+    //for (const auto& entry : profile_dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot)) {
+    //    QFile json_file(entry.absoluteFilePath());
+    //    if (entry.fileName() == "base.json")
+    //    {
+    //        continue;
+    //    }
+    //    jsonfiles.push_back(entry.absoluteFilePath());
+    //}
+#if 1
     QDir config_directory(dst_dir);
     QFile version_file(dst_dir + "/version.txt");
+
+    QString appDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    auto old_src_dir = QString("%1/%2.%3/orca/").arg(appDir).arg(5).arg(0);
+    QFile old_version_file(old_src_dir + "default/version.txt");
+    bool need_transfer = old_version_file.exists() && !version_file.exists();
 
     bool need_copy = true;
     bool old_version_exists = version_file.exists();
@@ -475,39 +555,14 @@ namespace creative_kernel {
       version_file.close();
       need_copy = version() != local_version;
     }
-    bool needCopyOldVersion = false;
-    QString oldVersionDir;
-    if (!version_file.exists()) {
-      QString appDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-      QDir app_dir(appDir);
-      int lastVersionMajor = 0;
-      int lastVersionMinor = 0;
-      for (const auto& entry : app_dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        const auto versionDir = entry.fileName().split(".");
-        if (versionDir.size() != 2) {
-          continue;
-        }
-        int tempVersionMajor = versionDir[0].toInt();
-        int tempVersionMinor = versionDir[1].toInt();
-        if (tempVersionMajor > lastVersionMajor ||
-            (tempVersionMajor == lastVersionMajor && tempVersionMinor > lastVersionMinor)) {
-          lastVersionMajor = tempVersionMajor;
-          lastVersionMinor = tempVersionMinor;
-        }
-      }
-      if (lastVersionMajor != 0 || lastVersionMinor != 0) {
-        needCopyOldVersion = true;
-        oldVersionDir = QString("%1/%2.%3").arg(appDir).arg(lastVersionMajor).arg(lastVersionMinor);
-      }
-    }
 
     if (need_copy) {
-      {
-        QSettings updaterSettings;
-        updaterSettings.setValue(QString::fromLatin1("AutoCheckForUpdates"), true);
-      }
       if (config_directory.exists()) {
         config_directory.removeRecursively();
+      }
+
+      if (!config_directory.exists()) {
+          mkMutiDirFromFileName(dst_dir);
       }
 
       if (!qtuser_core::copyDir(src_dir, dst_dir, true)) {
@@ -517,9 +572,6 @@ namespace creative_kernel {
               .arg(src_dir)
               .arg(dst_dir);
         return;
-      }
-      if (old_version_exists) {
-        removeOldDefaultFiles();
       }
 
 #ifndef QT_NO_DEBUG
@@ -555,275 +607,83 @@ namespace creative_kernel {
       version_file.write(version().toLocal8Bit());
       version_file.close();
     }
-    if (QString(PROJECT_VERSION_EXTRA) != "Release")
+    if (need_transfer)
     {
-        needCopyOldVersion = false;
+        //拷贝用户目录
+        qtuser_core::copyDir(old_src_dir + "user", _pfpt_user_root, true);
+        //但5.0用户耗材存储目录不对，也需要拷贝
+        QDir old_param_dir(old_src_dir + "default/parampack");
+        for (const auto& entry : old_param_dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+            QDir machine_dir(entry.absoluteFilePath());
+            auto materials_user = entry.absoluteFilePath() + "/materials_user.json";
+            QFile materials_user_file(materials_user);
+            if (!materials_user_file.exists())
+            {
+                continue;
+            }
+            QString dstFile = _pfpt_user_parampack + "/" + machine_dir.dirName() + "/materials_user.json";
+            materials_user_file.copy(dstFile);
+        }
+        //拷贝注册表
+        copyOldVersionSettings();
     }
-
-    if (needCopyOldVersion) {
-      copyFromOldVersion(oldVersionDir);
-    }
+#endif
+    us::SettingDef::instance().initialize("");
+    cxgcode::SettingDef::instance().initialize("");
     loadDefaultKeys();
   }
 
-  void GlobalConst::removeOldDefaultFiles() {
-    QString dst_dir = getResourcePath(ResourcesType::rt_default_config_root);
-
-    std::string machineUserFile = getResourcePath(ResourcesType::rt_machine).toStdString() + "/machines_user.json";
-    QStringList userMachines;
-
-    rapidjson::Document jsonDoc;
-    rapidjson::Value machineArray(rapidjson::kArrayType);
-    if (QFile{ machineUserFile.c_str() }.exists()) {
-        FILE* file = fopen(machineUserFile.c_str(), "r");
-
-        char read_buffer[10 * 1024] = { 0 };
-        rapidjson::FileReadStream reader_stream(file, read_buffer, sizeof(read_buffer));
-        jsonDoc.ParseStream(reader_stream);
-        fclose(file);
-        if (!jsonDoc.HasParseError()) {
-            if (jsonDoc.HasMember("machines") && jsonDoc["machines"].IsArray()) {
-                const auto& array = jsonDoc["machines"];
-                for (size_t i = 0; i < array.Size(); i++) {
-                    const auto& machine = array[i];
-                    QString machineName;
-                    QString machineDiameter;
-                    if (machine.HasMember("name") && machine["name"].IsString()) {
-                        machineName = machine["name"].GetString();
-                    }
-                    if (machine.HasMember("supportExtruderDiameters") && machine["supportExtruderDiameters"].IsString()) {
-                        machineDiameter = machine["supportExtruderDiameters"].GetString();
-                    }
-                    userMachines.push_back(
-                        QString("%1_%2").arg(machineName).arg(machineDiameter));
-                }
-            }
-        }
-    }
-
-    QDir profile_dir(getResourcePath(ResourcesType::rt_profile));
-    for (const auto& entry : profile_dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-      if (userMachines.contains(entry.fileName()))
-      {
-          continue;
-      }
-      QDir machine_dir(entry.absoluteFilePath());
-      for (const auto& profile_entry :
-          machine_dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot)) {
-        QFile profile(profile_entry.absoluteFilePath());
-        const QString& profileFileName = profile_entry.fileName();
-        if (profileFileName == "low.default" || profileFileName == "middle.default" ||
-            profileFileName == "high.default") {
-          profile.remove();
-        }
-      }
-    }
-
-    QDir machine_dir(getResourcePath(ResourcesType::rt_machine));
-    for (const auto& entry : machine_dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot)) {
-      QFile machine(entry.absoluteFilePath());
-      const auto uniqueName = entry.fileName();
-      if (!uniqueName.endsWith(".default")) {
-        continue;
-      }
-      int nNozzlePos = uniqueName.lastIndexOf("_");
-      QString machineName = uniqueName;
-      machineName.truncate(nNozzlePos);
-      QFile originMachine(dst_dir + "/Machines/" + machineName + ".default");
-      if (originMachine.exists()) {
-        machine.remove();
-      }
-    }
-
-    QDir extruder_dir(getResourcePath(ResourcesType::rt_extruder));
-    for (const auto& entry : extruder_dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot)) {
-      QFile extruder(entry.absoluteFilePath());
-      const auto uniqueName = entry.fileName();
-      QRegExp regex("([a-zA-Z0-9-_ ]+)(_\\d.\\d_extruder_\\d.default)");
-      if (regex.exactMatch(entry.fileName())) {
-        QString machineName = regex.cap(1);
-        QFile originMachine(dst_dir + "/Machines/" + machineName + ".default");
-        if (originMachine.exists()) {
-          extruder.remove();
-        }
-      }
-    }
-
-    QDir material_dir(getResourcePath(ResourcesType::rt_material));
-    for (const auto& entry : material_dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        if (userMachines.contains(entry.fileName()))
-        {
-            continue;
-        }
-      QStringList userMaterials;
-      machine_dir = QDir(entry.absoluteFilePath());
-
-      std::string materialUserFile = entry.absoluteFilePath().toStdString() + "/materials_user.json";
-
-      rapidjson::Document jsonDoc;
-      rapidjson::Value machineArray(rapidjson::kArrayType);
-      if (QFile{ materialUserFile.c_str() }.exists()) {
-        FILE* file = fopen(materialUserFile.c_str(), "r");
-
-        char read_buffer[10 * 1024] = {0};
-        rapidjson::FileReadStream reader_stream(file, read_buffer, sizeof(read_buffer));
-        jsonDoc.ParseStream(reader_stream);
-        fclose(file);
-        if (!jsonDoc.HasParseError()) {
-          if (jsonDoc.HasMember("materials") && jsonDoc["materials"].IsArray()) {
-            const auto& array = jsonDoc["materials"];
-            for (size_t i = 0; i < array.Size(); i++) {
-              const auto& material = array[i];
-              QString materialName;
-              QString materialDiameter;
-              if (material.HasMember("name") && material["name"].IsString()) {
-                materialName = material["name"].GetString();
-              }
-              if (material.HasMember("supportDiameters") && material["supportDiameters"].IsString()) {
-                materialDiameter = material["supportDiameters"].GetString();
-              }
-              userMaterials.push_back(
-                QString("%1_%2.default").arg(materialName).arg(materialDiameter));
-            }
-          }
-        }
-      }
-
+  void GlobalConst::copyOldVersionSettings() {
+      QString cur_machine_name;
+      std::vector<QColor> extruderColors;
+      std::vector<bool> extruderPhysicals;
       QSettings settings;
+      settings.beginGroup("5.0");
       settings.beginGroup("PresetMachines");
-      settings.beginGroup(entry.fileName());
-      settings.beginGroup("Extruders");
-      const auto& groups = settings.childGroups();
-      for (int i = 0; i < groups.size(); ++i)
+      int index = settings.value("machine_curren_index", "-1").toInt();
+      auto machineUniqueNames = settings.childGroups();
+      if (index != -1)
       {
-          settings.beginGroup(groups[i]);
-          settings.beginGroup("PresetMaterials");
-          settings.remove("");
-          settings.endGroup();
-          settings.endGroup();
+          cur_machine_name = machineUniqueNames[index];
       }
-      settings.endGroup();
-      settings.endGroup();
-      settings.endGroup();
-
-      for (const auto& profile_entry :
-          machine_dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot)) {
-        QFile profile(profile_entry.absoluteFilePath());
-        const QString& profileFileName = profile_entry.fileName();
-        if (!profileFileName.endsWith(".default"))
-        {
-            continue;
-        }
-        if (!userMaterials.contains(profileFileName)) {
-          profile.remove();
-        }
-      }
-    }
-  }
-
-  void GlobalConst::copyFromOldVersion(const QString& oldVersionDir) {
-    QString dst_dir = getResourcePath(ResourcesType::rt_default_config_root);
-    QDir profile_dir(oldVersionDir + "/Profiles/");
-    for (const auto& entry : profile_dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-      QDir machine_dir(entry.absoluteFilePath());
-      for (const auto& profile_entry :
-          machine_dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot)) {
-        QFile profile(profile_entry.absoluteFilePath());
-        const QString& profileFileName = profile_entry.fileName();
-        if (profileFileName == "low.default" || profileFileName == "middle.default" ||
-            profileFileName == "high.default") {
-          continue;
-        }
-        QString curProfileDir =
-          getResourcePath(ResourcesType::rt_profile) + "/" + machine_dir.dirName();
-        QString dstFile = curProfileDir + "/" + profileFileName;
-        if (!QDir(curProfileDir).exists()) {
-          mkMutiDirFromFileName(dstFile);
-        }
-        profile.copy(dstFile);
-      }
-    }
-
-    QDir machine_dir(oldVersionDir + "/Machines/");
-
-    for (const auto& entry : machine_dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot)) {
-      QFile machine(entry.absoluteFilePath());
-      const auto uniqueName = entry.fileName();
-      if (!uniqueName.endsWith(".cover")) {
-        int nNozzlePos = uniqueName.lastIndexOf("_");
-        QString machineName = uniqueName;
-        machineName.truncate(nNozzlePos);
-        QFile originMachine(dst_dir + "/Machines/" + machineName + ".default");
-        if (originMachine.exists()) {
-          continue;
-        }
-      }
-      QString dstFile = getResourcePath(ResourcesType::rt_machine) + "/" + uniqueName;
-      machine.copy(dstFile);
-    }
-
-    QDir extruder_dir(oldVersionDir + "/Extruders/");
-    for (const auto& entry : extruder_dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot)) {
-      QFile extruder(entry.absoluteFilePath());
-      const auto uniqueName = entry.fileName();
-      QRegExp regex("([a-zA-Z0-9-_ ]+)(_\\d.\\d_extruder_\\d.default)");
-      if (regex.exactMatch(entry.fileName())) {
-        QString machineName = regex.cap(1);
-        QFile originMachine(dst_dir + "/Machines/" + machineName + ".default");
-        if (originMachine.exists()) {
-          continue;
-        }
-      }
-      QString dstFile = getResourcePath(ResourcesType::rt_extruder) + "/" + uniqueName;
-      extruder.copy(dstFile);
-    }
-
-    QDir material_dir(oldVersionDir + "/Materials/");
-    for (const auto& entry : material_dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-      QStringList userMaterials;
-      machine_dir = QDir(entry.absoluteFilePath());
-
-      std::string materialUserFile = entry.absoluteFilePath().toStdString() + "/materials_user.json";
-
-      rapidjson::Document jsonDoc;
-      if (QFile{ materialUserFile.c_str() }.exists()) {
-        FILE* file = fopen(materialUserFile.c_str(), "r");
-
-        char read_buffer[10 * 1024] = {0};
-        rapidjson::FileReadStream reader_stream(file, read_buffer, sizeof(read_buffer));
-        jsonDoc.ParseStream(reader_stream);
-        fclose(file);
-        if (!jsonDoc.HasParseError()) {
-          if (jsonDoc.HasMember("materials") && jsonDoc["materials"].IsArray()) {
-            const auto& array = jsonDoc["materials"];
-            for (size_t i = 0; i < array.Size(); i++) {
-              const auto& material = array[i];
-              QString materialName;
-              QString materialDiameter;
-              if (material.HasMember("name") && material["name"].IsString()) {
-                materialName = material["name"].GetString();
-              }
-              if (material.HasMember("supportDiameters") && material["supportDiameters"].IsString()) {
-                materialDiameter = material["supportDiameters"].GetString();
-              }
-              userMaterials.push_back(
-                QString("%1_%2.default").arg(materialName).arg(materialDiameter));
-            }
+      if (!cur_machine_name.isEmpty())
+      {
+          settings.beginGroup(cur_machine_name);
+          settings.beginGroup("Extruders");
+          for (int extruder = 0; extruder < settings.childGroups().size(); ++extruder)
+          {
+              settings.beginGroup(QString("%1").arg(extruder));
+              auto color = settings.value("Color", 0x3DDF56).toUInt();
+              extruderColors.push_back(color);
+              extruderPhysicals.push_back(settings.value("IsPhysical", 1).toBool());
+              settings.endGroup();
           }
-        }
+          settings.endGroup();
+          settings.endGroup();
       }
+      settings.endGroup();
+      settings.endGroup();
 
-      for (const auto& profile_entry :
-          machine_dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot)) {
-        QFile profile(profile_entry.absoluteFilePath());
-        const QString& profileFileName = profile_entry.fileName();
-        if (!userMaterials.contains(profileFileName)) {
-          continue;
-        }
-        QString dstFile = getResourcePath(ResourcesType::rt_extruder) + "/" + profileFileName;
-        profile.copy(dstFile);
+      cxcloud::VersionServerSettings new_settings;
+      new_settings.beginGroup("PresetMachines");
+      new_settings.setValue("machine_curren_index", index);
+      for (int i = 0; i < machineUniqueNames.size(); ++i)
+      {
+          const auto& machine_name = machineUniqueNames[i];
+          new_settings.beginGroup(machine_name);
+          new_settings.beginGroup("Extruders");
+          for (int j = 0; j < extruderColors.size(); j++)
+          {
+              new_settings.beginGroup(QString::number(j));
+              new_settings.setValue("Color", extruderColors[j].rgba64().toArgb32());
+              bool physical = extruderPhysicals[j];
+              new_settings.setValue("IsPhysical", physical);
+              new_settings.endGroup();
+          }
+          new_settings.endGroup();
+          new_settings.endGroup();
       }
-    }
+      new_settings.endGroup();
   }
 
 }  // namespace creative_kernel

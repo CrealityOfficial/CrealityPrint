@@ -14,6 +14,7 @@
 
 #include "qtuser3d/macro.h"
 #include <Qt3DInput/QInputSettings>
+#include <QTimer>
 
 namespace qtuser_3d
 {
@@ -70,6 +71,8 @@ namespace qtuser_3d
 			if(w)
 				w->installEventFilter(this);
 		}
+
+		QTimer::singleShot(2000, this, &QuickScene3DWrapper::releaseAlwaysRender);
 	}
 
 	void QuickScene3DWrapper::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry)
@@ -90,6 +93,8 @@ namespace qtuser_3d
 			graph->updateRenderSize(size);
 
 		//requestUpdate();
+
+		setAlways(true);
 	}
 
 	void QuickScene3DWrapper::mousePressEvent(QMouseEvent* event)
@@ -168,13 +173,13 @@ namespace qtuser_3d
 			m_eventSubdivide->keyPressEvent(keyEvent);
 
 #ifdef DEBUG
-			if (keyEvent->key() == Qt::Key_F1)
+			if (keyEvent->key() == Qt::Key_F11)
 			{
 				m_forceAlways = true;
 				setAlways(m_always);
 				currentRenderGraph()->setShowDebugOverlay(true);
 			}
-			if (keyEvent->key() == Qt::Key_F2)
+			if (keyEvent->key() == Qt::Key_F12)
 			{
 				m_forceAlways = false;
 				setAlways(m_always);
@@ -200,7 +205,7 @@ namespace qtuser_3d
 		if (currentGraph)
 		{
 			currentGraph->endRender();
-			currentGraph->setEnabled(false);
+			currentGraph->sceneGraph()->setEnabled(false);
 			//currentGraph->setParent((Qt3DCore::QNode*)nullptr);
 			currentGraph->setParent(m_defaultFG);
 			disconnect(currentGraph, SIGNAL(signalUpdate()), this, SLOT(requestUpdate()));
@@ -228,7 +233,7 @@ namespace qtuser_3d
 				itemSize *= m_ratio;
 			}
 			graph->updateRenderSize(itemSize);
-			graph->setEnabled(true);
+			graph->sceneGraph()->setEnabled(true);
 			graph->setParent(m_renderSettings);
 			graph->begineRender();
 
@@ -285,12 +290,23 @@ namespace qtuser_3d
 	{
 		if (m_scene3D)
 		{
-#if Q515
-			QMetaObject::invokeMethod(m_scene3D, "requestUpdate", Qt::AutoConnection);
-#else
-			QMetaObject::invokeMethod(m_scene3D, "update", Qt::AutoConnection);
-#endif
+			bool originState = always();
+			if (originState == false)
+			{
+				setAlways(true);
+				setAlways(false);
+			}
+//#if Q515
+//			QMetaObject::invokeMethod(m_scene3D, "requestUpdate", Qt::AutoConnection);
+//#else
+//			QMetaObject::invokeMethod(m_scene3D, "update", Qt::AutoConnection);
+//#endif
 		}
+	}
+
+	void QuickScene3DWrapper::releaseAlwaysRender()
+	{
+		setAlways(false);
 	}
 
 	void QuickScene3DWrapper::_geometry(int width, int height)

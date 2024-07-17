@@ -2,10 +2,11 @@
 #define _CXKERNEL_MODEL_FROM_MESH_JOB_1590984808257_H
 #include "qtusercore/module/job.h"
 #include "cxkernel/data/modelndata.h"
+#include "cxkernel/utils/meshjob.h"
 
 namespace cxkernel
 {
-	class ModelFromMeshJob: public qtuser_core::Job
+	class ModelFromMeshJob: public MeshJob
 	{
 	public:
 		ModelFromMeshJob(ModelNDataProcessor* processor, QObject* parent = nullptr);
@@ -13,6 +14,7 @@ namespace cxkernel
 
 		void setInput(ModelCreateInput input);
 		void setParam(const ModelNDataCreateParam& param);
+
 	protected:
 		QString name();
 		QString description();

@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <float.h>
 #include <algorithm>
+#include <memory>
 #include <polyclipping/clipper.hpp>
 
 #include <algorithm>    // std::reverse, fill_n array
@@ -697,6 +698,7 @@ namespace cura52 {
     {
         ClipperLib::Path poly;
     public:
+    int color = 0;
         Polygon()
             : PolygonRef(poly)
         {
@@ -712,6 +714,7 @@ namespace cura52 {
             : PolygonRef(poly)
             , poly(*other.path)
         {
+        color = other.color;
         }
 
         Polygon(Polygon&& moved)
@@ -734,6 +737,7 @@ namespace cura52 {
         Polygon& operator=(Polygon&& other) //!< move assignment
         {
             poly = std::move(other.poly);
+        color = other.color;
             return *this;
         }
     };
@@ -749,6 +753,8 @@ namespace cura52 {
     public:
         ClipperLib::Paths paths;
     public:
+    std::vector<std::unique_ptr<Polygon>> polys;
+    std::vector<int> colors;
         unsigned int size() const
         {
             return paths.size();
@@ -1184,6 +1190,8 @@ namespace cura52 {
          */
         std::vector<PolygonsPart> splitIntoParts(bool unionAll = false) const;
 
+        std::vector<PolygonsPart> splitIntoColorParts(bool unionAll = false);
+
         /*!
          * Utility method for creating the tube (or 'donut') of a shape.
          * \param inner_offset Offset relative to the original shape-outline towards the inside of the shape. Sort-of like a negative normal offset, except it's the offset part that's kept, not the shape.
@@ -1396,64 +1404,65 @@ namespace cura52 {
         }
     };
 
+/*!
+ * A single area with holes. The first polygon is the outline, while the rest are holes within this outline.
+ *
+ * This class has little more functionality than Polygons, but serves to show that a specific instance is ordered such that the first Polygon is the outline and the rest are holes.
+ */
+class PolygonsPart : public Polygons
+{
+public:
+    int color;
+    PolygonRef outerPolygon()
+    {
+        return paths[0];
+    }
+    ConstPolygonRef outerPolygon() const
+    {
+        return paths[0];
+    }
+
     /*!
-     * A single area with holes. The first polygon is the outline, while the rest are holes within this outline.
+     * Tests whether the given point is inside this polygon part.
+     * \param p The point to test whether it is inside.
+     * \param border_result If the point is exactly on the border, this will be
+     * returned instead.
+     */
+    bool inside(Point p, bool border_result = false) const;
+};
+
+/*!
+ * Extension of vector<vector<unsigned int>> which is similar to a vector of PolygonParts, except the base of the container is indices to polygons into the original Polygons, instead of the polygons themselves
+ */
+class PartsView : public std::vector<std::vector<unsigned int>>
+{
+public:
+    Polygons& polygons;
+    PartsView(Polygons& polygons) : polygons(polygons) { }
+    /*!
+     * Get the index of the PolygonsPart of which the polygon with index \p poly_idx is part.
      *
-     * This class has little more functionality than Polygons, but serves to show that a specific instance is ordered such that the first Polygon is the outline and the rest are holes.
+     * \param poly_idx The index of the polygon in \p polygons
+     * \param boundary_poly_idx Optional output parameter: The index of the boundary polygon of the part in \p polygons
+     * \return The PolygonsPart containing the polygon with index \p poly_idx
      */
-    class PolygonsPart : public Polygons
-    {
-    public:
-        PolygonRef outerPolygon()
-        {
-            return paths[0];
-        }
-        ConstPolygonRef outerPolygon() const
-        {
-            return paths[0];
-        }
-
-        /*!
-         * Tests whether the given point is inside this polygon part.
-         * \param p The point to test whether it is inside.
-         * \param border_result If the point is exactly on the border, this will be
-         * returned instead.
-         */
-        bool inside(Point p, bool border_result = false) const;
-    };
-
+    unsigned int getPartContaining(unsigned int poly_idx, unsigned int* boundary_poly_idx = nullptr) const;
     /*!
-     * Extension of vector<vector<unsigned int>> which is similar to a vector of PolygonParts, except the base of the container is indices to polygons into the original Polygons, instead of the polygons themselves
+     * Assemble the PolygonsPart of which the polygon with index \p poly_idx is part.
+     *
+     * \param poly_idx The index of the polygon in \p polygons
+     * \param boundary_poly_idx Optional output parameter: The index of the boundary polygon of the part in \p polygons
+     * \return The PolygonsPart containing the polygon with index \p poly_idx
      */
-    class PartsView : public std::vector<std::vector<unsigned int>>
-    {
-    public:
-        Polygons& polygons;
-        PartsView(Polygons& polygons) : polygons(polygons) { }
-        /*!
-         * Get the index of the PolygonsPart of which the polygon with index \p poly_idx is part.
-         *
-         * \param poly_idx The index of the polygon in \p polygons
-         * \param boundary_poly_idx Optional output parameter: The index of the boundary polygon of the part in \p polygons
-         * \return The PolygonsPart containing the polygon with index \p poly_idx
-         */
-        unsigned int getPartContaining(unsigned int poly_idx, unsigned int* boundary_poly_idx = nullptr) const;
-        /*!
-         * Assemble the PolygonsPart of which the polygon with index \p poly_idx is part.
-         *
-         * \param poly_idx The index of the polygon in \p polygons
-         * \param boundary_poly_idx Optional output parameter: The index of the boundary polygon of the part in \p polygons
-         * \return The PolygonsPart containing the polygon with index \p poly_idx
-         */
-        PolygonsPart assemblePartContaining(unsigned int poly_idx, unsigned int* boundary_poly_idx = nullptr) const;
-        /*!
-         * Assemble the PolygonsPart of which the polygon with index \p poly_idx is part.
-         *
-         * \param part_idx The index of the part
-         * \return The PolygonsPart with index \p poly_idx
-         */
-        PolygonsPart assemblePart(unsigned int part_idx) const;
-    };
+    PolygonsPart assemblePartContaining(unsigned int poly_idx, unsigned int* boundary_poly_idx = nullptr) const;
+    /*!
+     * Assemble the PolygonsPart of which the polygon with index \p poly_idx is part.
+     *
+     * \param part_idx The index of the part
+     * \return The PolygonsPart with index \p poly_idx
+     */
+    PolygonsPart assemblePart(unsigned int part_idx) const;
+};
 
     void rotate(ClipperLib::Path& points, double angle);
 }//namespace cura52

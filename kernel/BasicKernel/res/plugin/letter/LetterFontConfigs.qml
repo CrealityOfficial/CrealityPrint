@@ -18,16 +18,16 @@ Column {
 
     Rectangle{
         width: parent.width
-        height: 5
+        height: 5 * screenScaleFactor
         color: "transparent"
     }
 
     Row{
-        spacing: 10
+        spacing: 10 * screenScaleFactor
         StyledLabel {
             text: qsTr("Text")
             width: 100 * screenScaleFactor
-            height: 28
+            height: 28 * screenScaleFactor
             verticalAlignment: Qt.AlignVCenter
             horizontalAlignment: Qt.AlignHCenter
             color: Constants.textColor
@@ -36,7 +36,7 @@ Column {
         BasicDialogTextField {
             id:idTextArea
             width: 145 * screenScaleFactor
-            height: 28
+            height: 28 * screenScaleFactor
             baseValidator:RegExpValidator { regExp: /^\S{100}$/ }
             placeholderText: qsTr("Please input text")
             font.pointSize: Constants.labelFontPointSize_9
@@ -50,17 +50,17 @@ Column {
         }
     }
     Row{
-        spacing: 10
+        spacing: 10 * screenScaleFactor
         StyledLabel {
             text: qsTr("Font Family")
             font.pointSize: Constants.labelFontPointSize_9
             width: 100 * screenScaleFactor
-            height: 28
+            height: 28 * screenScaleFactor
             verticalAlignment: Qt.AlignVCenter
             horizontalAlignment: Qt.AlignHCenter
             color: Constants.textColor
         }
-        BasicCombobox
+        CXComboBox
         {
             id: idFontFamily
             width: 145 * screenScaleFactor
@@ -68,7 +68,7 @@ Column {
             font.pointSize: Constants.labelFontPointSize_9
             model: /*com ? com.font_list :  */Qt.fontFamilies()
             currentIndex:0
-            showCount : 15
+            showCount : 7
 
             function setFontFamily(familyName) {
                 gTextPara.familyName = familyName
@@ -91,7 +91,7 @@ Column {
     }
 
     Row{
-        spacing: 10
+        spacing: 10 * screenScaleFactor
         StyledLabel {
             text: qsTr("Font Size")
             width: 100 * screenScaleFactor
@@ -106,7 +106,7 @@ Column {
             width: 145 * screenScaleFactor
             height: 28  * screenScaleFactor
             stepSize:1 * Math.pow(10, decimals)
-            from:5 * Math.pow(10, decimals)
+            from:20 * Math.pow(10, decimals)
             to:100 * Math.pow(10, decimals)
             decimals: 0
             realValue: gTextPara.textSize

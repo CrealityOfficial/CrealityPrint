@@ -13,6 +13,7 @@ namespace msbase
 		,std::vector<bool>& filament_is_support
 		, /*out*/std::vector<float>& m_matrix
 		, float flush_multiplier = 1.0
+		, float extra_flush_volume = 0.0f
 		);
 }
 

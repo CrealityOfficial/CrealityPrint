@@ -21,6 +21,7 @@ namespace gcode
 		float y;
 		float i;
 		float j;
+		int p;
 		float currentE;
 		bool isG2;
 		bool bIsTravel;
@@ -48,6 +49,9 @@ namespace gcode
 		float minTemperature;
 		float maxTemperature;
 
+		float minAcc;
+		float maxAcc;
+
 		trimesh::box3 gCodeBox;
 		int nNozzle;
 		float speedMin;
@@ -69,7 +73,8 @@ namespace gcode
 			, maxLayerHeight(FLT_MIN)
 			, minTemperature(FLT_MAX)
 			, maxTemperature(FLT_MIN)
-		
+			, minAcc(FLT_MAX)
+			, maxAcc(FLT_MIN)
 		{
 		}
 	};
@@ -99,6 +104,7 @@ namespace gcode
 	{
 		int start;
 		float speed;
+		float acc;
 		SliceLineType type;
 		float e;  //流量
 		int extruder;
@@ -124,32 +130,42 @@ namespace gcode
 		std::vector <GcodeLayerInfo> m_gcodeLayerInfos;  //层高、线宽设置值
 		std::vector<int> m_layerInfoIndex;  //层高、线宽 步进索引
 
+		std::vector<float> m_layerHeights;
+		std::vector<int> m_pause;
+
 		std::map<int,float> m_layerTimes;  //每层时间
 		//std::map<int, float> m_layerTimeLogs;  //每层时间对数
 
 		std::vector<int> m_zSeams;
 		std::vector<int> m_retractions;
 
-		void getPathData(const trimesh::vec3 point, float e, int type, bool fromGcode = false);
-		void getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type, bool isG2 = true,bool fromGcode = false);
+		std::vector<std::string> m_nozzleColorList;
+		gcode::GCodeParseInfo& getParam();
+		void getPathData(const trimesh::vec3 point, float e, int type, bool fromGcode = false, bool isOrca = false, bool isseam =false);
+		void getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type, int p, bool isG2 = true,bool fromGcode = false, bool isOrca = false, bool isseam=false);
 		void setParam(gcode::GCodeParseInfo& pathParam);
 		void setLayer(int layer);
 		void setSpeed(float s);
+		void setAcc(float acc);
 		void setTEMP(float temp);
 		void setExtruder(int nr);
 		void setFan(float fan);
 		void setZ(float z, float h);
 		void setZ_from_gcode(float z);
 		void setE(float e);
+		void setWidth(float width);
+		void setLayerHeight(float height);
+		void setLayerPause(int pause);
 		void setTime(float time);
 		void getNotPath();
+		void setNozzleColorList(std::string& colorList);
 	private:
 		void processLayer(const std::string& layerCode, int layer, std::vector<int>& stepIndexMap);
 		void processStep(const std::string& stepCode, int nIndex, std::vector<int>& stepIndexMap);
-		void processG01(const std::string& G01Str, int nIndex, std::vector<int>& stepIndexMap,bool isG2G3 =false, bool fromGcode = false);
-		void processG01_sub(SliceLineType tempType, double tempEndE, trimesh::vec3 tempEndPos, bool havaXYZ, int nIndex, std::vector<int>& stepIndexMap, bool isG2G3, bool fromGcode = false);
-		void processG23(const std::string& G23Str, int nIndex, std::vector<int>& stepIndexMap);
-		void processG23_sub(G2G3Info info, int nIndex, std::vector<int>& stepIndexMap);
+		void processG01(const std::string& G01Str, int nIndex, std::vector<int>& stepIndexMap,bool isG2G3 =false, bool fromGcode = false, bool isOrca = false, bool isseam = false);
+		void processG01_sub(SliceLineType tempType, double tempEndE, trimesh::vec3 tempEndPos, bool havaXYZ, int nIndex, std::vector<int>& stepIndexMap, bool isG2G3, bool fromGcode = false, bool isOrca = false, bool isseam = false);
+		void processG23(const std::string& G23Str, int nIndex, std::vector<int>& stepIndexMap, bool isG2 = false, bool fromGcode = false, bool isOrca = false, bool isseam = false);
+		void processG23_sub(G2G3Info info, int nIndex, std::vector<int>& stepIndexMap, bool isG2 = false, bool fromGcode = false, bool isOrca = false, bool isseam = false);
 		void processSpeed(float speed);
 
 		void processPrefixCode(const std::string& stepCod);
@@ -166,6 +182,7 @@ namespace gcode
 		float belowZ{ 0.0f };//上层层高
 		trimesh::vec3 tempCurrentPos;
 		float tempSpeed;
+		float tempAcc;
 		float tempSpeedMax{ 0.0f };//最大速度限制
 		int tempTempIndex{ 0 };; //当前温度索引
 		bool layerNumberParseSuccess;

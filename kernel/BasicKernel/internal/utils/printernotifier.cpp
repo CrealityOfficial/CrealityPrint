@@ -7,8 +7,7 @@
 #include "interface/selectorinterface.h"
 
 #include "internal/render/printerentity.h"
-
-#include "qtuser3d/camera/cameracontroller.h"
+#include "internal/multi_printer/printermanager.h"
 
 namespace creative_kernel
 {
@@ -23,45 +22,18 @@ namespace creative_kernel
 
 	void PrinterNotifier::onBoxChanged(const qtuser_3d::Box3D& box)
 	{
-		visCamera()->fittingBoundingBox(box);
+		getPrinterMangager()->allPrinterUpdateBox(box);
 
-		cameraController()->setRotateCenter(visCamera()->orignCenter());
+	//	cameraController()->setRotateCenter(visCamera()->orignCenter());
 
-		QVector3D machineCube = box.size();
-
-		PrinterEntity* entity = getCachedPrinterEntity();
-		entity->updateBox(box);
+		visCamera()->fittingBoundingBox(getPrinterMangager()->boundingBox());
 
 		renderOneFrame();
 	}
 
 	void PrinterNotifier::onCameraChanged(qtuser_3d::ScreenCamera* screenCamera)
 	{
-		PrinterEntity* entity = getCachedPrinterEntity();
-
-		qtuser_3d::Box3D bbox = creative_kernel::baseBoundingBox();
 		Qt3DRender::QCamera* camera = screenCamera->camera();
-
-		QVector3D cameraPosition = camera->position();
-		QVector3D viewCenter = camera->viewCenter();
-		QVector3D viewUp = camera->upVector();
-
-		bool enable = cameraPosition.z() > bbox.min.z();
-		entity->enableSkirt(enable);
-
-		//grid
-		{
-			bool visible = false;
-			if (cameraPosition.z() < bbox.min.z())
-			{
-				visible = qAbs(cameraPosition.z() - bbox.min.z()) < 250.0f;
-			}
-			else
-			{
-				visible = (qAbs(cameraPosition.z() - bbox.min.z()) < 250.0f) || ((cameraPosition - viewCenter).length() < 100.0f);
-			}
-		}
-
 		if (camera)
 		{
 			QVector3D viewDir = camera->viewVector();
@@ -80,8 +52,5 @@ namespace creative_kernel
 
 	void PrinterNotifier::onSelectionsChanged()
 	{
-		QList<ModelN*> selections = selectionms();
-		PrinterEntity* entity = getCachedPrinterEntity();
-		entity->setSkirtHighlight(selections.size() > 0);
 	}
 }

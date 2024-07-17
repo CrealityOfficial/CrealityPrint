@@ -40,11 +40,11 @@ void DistanceMeasurePlugin::initialize() {
   getKernelUI()->addToolCommand(command_,
     qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_OTHER,
     qtuser_qml::ToolCommandType::DISTANCE_MEASURE);
-	creative_kernel::addUIVisualTracer(this);
+	creative_kernel::addUIVisualTracer(this,this);
 }
 
 void DistanceMeasurePlugin::uninitialize() {
-  getKernelUI()->removeToolCommand(command_, qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_MAIN);
+  getKernelUI()->removeToolCommand(command_, qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_OTHER);
 }
 
 void DistanceMeasurePlugin::onThemeChanged(creative_kernel::ThemeCategory theme) {
@@ -54,16 +54,16 @@ void DistanceMeasurePlugin::onThemeChanged(creative_kernel::ThemeCategory theme)
 
   switch (theme) {
     case creative_kernel::ThemeCategory::tc_dark:
-      command_->setDisabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/distancemeasure_dark.svg"));
-      command_->setEnabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/distancemeasure_dark.svg"));
-      command_->setHoveredIcon(QStringLiteral("qrc:/UI/photo/leftBar/distancemeasure_pressed.svg"));
-      command_->setPressedIcon(QStringLiteral("qrc:/UI/photo/leftBar/distancemeasure_pressed.svg"));
+      command_->setDisabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/ranging_dark_disable.svg"));
+      command_->setEnabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/ranging_dark_default.svg"));
+      command_->setHoveredIcon(QStringLiteral("qrc:/UI/photo/cToolBar/ranging_dark_default.svg"));
+      command_->setPressedIcon(QStringLiteral("qrc:/UI/photo/cToolBar/ranging_dark_press"));
       break;
     case creative_kernel::ThemeCategory::tc_light:
-      command_->setDisabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/distancemeasure_lite.svg"));
-      command_->setEnabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/distancemeasure_lite.svg"));
-      command_->setHoveredIcon(QStringLiteral("qrc:/UI/photo/leftBar/distancemeasure_lite.svg"));
-      command_->setPressedIcon(QStringLiteral("qrc:/UI/photo/leftBar/distancemeasure_pressed.svg"));
+      command_->setDisabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/ranging_light_disable.svg"));
+      command_->setEnabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/ranging_light_default.svg"));
+      command_->setHoveredIcon(QStringLiteral("qrc:/UI/photo/cToolBar/ranging_light_default.svg"));
+      command_->setPressedIcon(QStringLiteral("qrc:/UI/photo/cToolBar/ranging_dark_press"));
       break;
     case creative_kernel::ThemeCategory::tc_num:
       break;

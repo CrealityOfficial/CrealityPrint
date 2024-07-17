@@ -1,6 +1,11 @@
 #include "modelninput.h"
 #include "msbase/utils/box2dgrid.h"
 #include "msbase/primitive/primitive.h"
+#include "msbase/mesh/merge.h"
+
+#include "interface/appsettinginterface.h"
+#include "internal/multi_printer/printer.h"
+#include "qtuser3d/trimesh2/conv.h"
 
 namespace creative_kernel
 {
@@ -8,17 +13,38 @@ namespace creative_kernel
 		:ModelInput(parent)
 		, m_model(model)
 	{
-		settings->merge(m_model->setting());
+		if (getEngineType() == EngineType::ET_CURA)
+			settings->merge(m_model->setting());
 		trimesh::TriMesh* mmesh = new trimesh::TriMesh();
-		*mmesh = *m_model->globalMesh();
-
-		m_model->mergePaintSupport();
-		m_model->mergePaintSupport_anti_overhang();
-		m_model->mergePaintSeam();
-		m_model->mergePaintSeam_anti();
+		msbase::copyTrimesh2Trimesh(m_model->globalMesh().get(), mmesh);
 
 		m_mesh = TriMeshPtr(mmesh);
-		outline_ObjectExclude = model->getoutline_ObjectExclude();
+	}
+
+	ModelNInput::ModelNInput(ModelN* model, Printer* printer, QObject* parent)
+		:ModelInput(parent)
+		, m_model(model)
+	{
+		//if(getEngineType() == EngineType::ET_CURA)
+			settings->merge(m_model->setting());
+		//trimesh::TriMesh* mmesh = new trimesh::TriMesh();
+		//msbase::copyTrimesh2Trimesh(m_model->globalMesh().get(), mmesh);
+
+		//QVector3D pos = printer->globalBox().min;
+		//QMatrix4x4 printerMatrix;
+		//printerMatrix.translate(-pos);
+
+		//trimesh::apply_xform(mmesh, trimesh::xform(qtuser_3d::qMatrix2Xform(printerMatrix)));
+		////*mmesh = *m_model->globalMesh();
+		//m_mesh = TriMeshPtr(mmesh);
+
+		m_mesh = m_model->localMesh();
+		QMatrix4x4 gm = m_model->globalMatrix();
+		QVector3D pos = printer->globalBox().min;
+		QMatrix4x4 printerMatrix;
+		printerMatrix.translate(-pos);
+		m_xform = trimesh::xform(qtuser_3d::qMatrix2Xform(printerMatrix * gm));
+
 	}
 
 	ModelNInput::~ModelNInput()
@@ -27,7 +53,7 @@ namespace creative_kernel
 
 	TriMeshPtr ModelNInput::ptr()
 	{
-		return m_model->globalMesh(false);
+		return m_model->globalMesh();
 	}
 
 	void ModelNInput::tiltSliceSet(trimesh::vec axis, float angle)
@@ -127,6 +153,11 @@ namespace creative_kernel
 		}
 
 		return supportMesh;
+	}
+
+	std::vector<double> ModelNInput::layerHeightProfile()
+	{
+		return m_model->layerHeightProfile();
 	}
 
 }

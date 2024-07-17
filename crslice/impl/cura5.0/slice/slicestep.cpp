@@ -20,7 +20,8 @@ namespace cura52 {
 				l.z = layer.z;
 				l.openPolylines.paths.swap(layer.openPolylines.paths);
 				l.polygons.paths.swap(layer.polygons.paths);
-
+				l.polygons.colors.swap(layer.polygons.colors);
+				l.polygons.polys.swap(layer.polygons.polys);
 				data.mesh = mesh;
 			}
 		}

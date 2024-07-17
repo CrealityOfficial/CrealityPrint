@@ -9,7 +9,7 @@
 
 namespace creative_kernel
 {
-	ModelSerialCommand::ModelSerialCommand(QList<ModelN*>& removes, QList<ModelN*>& adds)
+	ModelSerialCommand::ModelSerialCommand(const QList<ModelN*>& removes, const QList<ModelN*>& adds)
 	{
 		m_adds = adds;
 		m_removes = removes;
@@ -123,8 +123,25 @@ namespace creative_kernel
 				savedInfo.localPosition = model->localPosition();
 				savedInfo.localScale = model->localScale();
 				savedInfo.localQuaternion = model->localQuaternion();
-				//savedInfo.isHoneyFilled = model->isHoneyFilled();
-				//savedInfo.isHoneyHollowed = model->isHoneyHollowed();
+				savedInfo.defaultColor = model->defaultColorIndex();
+
+				savedInfo.spreadColorFlag = model->hasColors();
+				if(savedInfo.spreadColorFlag)
+					savedInfo.colors = model->getColors2Facets();
+
+				savedInfo.spreadSeamFlag = model->hasSeamsData();
+				if(savedInfo.spreadSeamFlag)
+					savedInfo.seams = model->getSeam2Facets();
+
+				savedInfo.spreadSupportFlag = model->hasSupportsData();
+				if(savedInfo.spreadSupportFlag)
+					savedInfo.supports = model->getSupport2Facets();
+				
+				if (model->setting())
+				{
+					savedInfo.settings = new us::USettings(this);
+					savedInfo.settings->merge(model->setting());
+				}
 
 				dataSerializer.setData(model->modelNData());
 				dataSerializer.save(savedInfo.serialName, nullptr);
@@ -174,8 +191,21 @@ namespace creative_kernel
 				creative_kernel::ModelN* newModel = creative_kernel::createModelFromData(data);
 				newModel->setSerialName(savedSerialInfos.at(i).serialName);
 				newModel->setLocalData(savedSerialInfos.at(i).localPosition, savedSerialInfos.at(i).localQuaternion, savedSerialInfos.at(i).localScale);
-				//newModel->setHoneyFillState(savedSerialInfos.at(i).isHoneyFilled);
-				//newModel->setHoneyHollowed(savedSerialInfos.at(i).isHoneyHollowed);
+
+				if(savedSerialInfos.at(i).spreadSeamFlag)
+					newModel->setSeam2Facets(savedSerialInfos.at(i).seams);
+
+				if(savedSerialInfos.at(i).spreadSupportFlag)
+					newModel->setSupport2Facets(savedSerialInfos.at(i).supports);
+
+				if(savedSerialInfos.at(i).spreadColorFlag)
+					newModel->setColors2Facets(savedSerialInfos.at(i).colors);
+
+				newModel->setDefaultColorIndex(savedSerialInfos.at(i).defaultColor);
+				
+				if (savedSerialInfos.at(i).settings)
+					newModel->setting()->merge(savedSerialInfos.at(i).settings);
+
 				newModels.push_back(newModel);
 			}
 		}

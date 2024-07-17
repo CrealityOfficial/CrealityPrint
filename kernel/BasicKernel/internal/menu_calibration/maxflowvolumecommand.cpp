@@ -13,7 +13,7 @@ namespace creative_kernel
         m_actionNameWithout = "MaxFlowVolume";
         m_eParentMenu = eMenuType_Calibration;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     MaxFlowVolumeCommand::~MaxFlowVolumeCommand()

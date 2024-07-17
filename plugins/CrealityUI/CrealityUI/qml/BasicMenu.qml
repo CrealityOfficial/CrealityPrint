@@ -8,7 +8,7 @@ Menu {
     property var parentLoad
     property var triggerSource
     property var listObj
-    property var maxWidth: 200
+    property var maxWidth: 200* screenScaleFactor
     x:3
     topPadding: -4
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
@@ -18,13 +18,15 @@ Menu {
 
     delegate: BasicMenuItemStyle
     {
+        highlightSeparator : false
+        separatorVisible : false
     }
 
 //    contentWidth : 200
 
 
     background: Rectangle {
-        implicitWidth: Math.max(maxWidth,240)
+        implicitWidth: Math.max(maxWidth,240)* screenScaleFactor
         color: "white"
         Rectangle {
             id: mainLayout

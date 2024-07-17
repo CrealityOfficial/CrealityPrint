@@ -10,7 +10,7 @@ namespace creative_kernel
         m_actionNameWithout = "Use Course";
         m_eParentMenu = eMenuType_Help;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     UseCourseCommand::~UseCourseCommand()

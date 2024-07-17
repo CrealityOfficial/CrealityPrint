@@ -35,10 +35,13 @@ namespace creative_kernel
 		void unsetOnlyLayer();
 
 		void setIndicatorVisible(bool isShow);
-		void showGCodeType(int type, bool isShow);
+		void showGCodeType(int type, bool isShow, bool isCuraProducer);
 		void setGCodeVisualType(gcode::GCodeVisualType type);
+
 		void setRetractionVisible();
 		void setZSeamsVisible();
+		void setUnretractVisible();
+
 		void setZseamRetractDis();
 
 		SlicePreviewNode* previewNode();
@@ -47,6 +50,8 @@ namespace creative_kernel
 		void setGeometry(Qt3DRender::QGeometry* geometry, Qt3DRender::QGeometryRenderer::PrimitiveType type, int vCountPerPatch = -1);
 		void setRetractionGeometry(Qt3DRender::QGeometry* geometry, Qt3DRender::QGeometryRenderer::PrimitiveType type, int vCountPerPatch = -1);
 		void setZSeamsGeometry(Qt3DRender::QGeometry* geometry, Qt3DRender::QGeometryRenderer::PrimitiveType type, int vCountPerPatch = -1);
+		void setUnretractGeometry(Qt3DRender::QGeometry* geometry, Qt3DRender::QGeometryRenderer::PrimitiveType type, int vCountPerPatch = -1);
+
 
 		void setRetractionGeometryRenderer(Qt3DRender::QGeometryRenderer* renderer);
 		void setZSeamsGeometryRenderer(Qt3DRender::QGeometryRenderer *renderer);
@@ -78,10 +83,12 @@ namespace creative_kernel
 #else
 		qtuser_3d::AlonePointEntity* m_retractionPoints;
 		qtuser_3d::AlonePointEntity* m_zSeamsPoints;
+		qtuser_3d::AlonePointEntity* m_unretractPoints;
 #endif // 0
 
 		bool m_showZseam;
 		bool m_showRetraction;
+		bool m_showUnretract;
 
 		float m_layerHeight;
 		float m_lineWidth;

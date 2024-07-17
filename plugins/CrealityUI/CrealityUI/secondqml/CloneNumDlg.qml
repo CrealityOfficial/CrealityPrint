@@ -31,7 +31,7 @@ BasicDialog
         height: 30*screenScaleFactor
         color: Constants.textColor
         text: "1"
-        validator: IntValidator {bottom: 1; top: 100;}
+        validator: IntValidator {bottom: 1; top: 9;}
         unitchar:""
         font.pointSize: Constants.labelFontPointSize_9
         horizontalAlignment: Qt.LeftToRight

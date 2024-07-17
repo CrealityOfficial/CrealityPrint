@@ -16,20 +16,22 @@ import QtCharts 2.0
 import "qrc:/CrealityUI"
 Item {
     property var com
+    width:clonePanel.width
+    height:clonePanel.height
 
     function execute()
     {
 
     }
     ClonePanel {
-
+        id: clonePanel
         control:com
 
     }
 
     MessageDialog {
-          id:messagebox
-          buttons: MessageDialog.Ok
-          text: qsTr("The document has been modified.")
-      }
+        id:messagebox
+        buttons: MessageDialog.Ok
+        text: qsTr("The document has been modified.")
+    }
 }

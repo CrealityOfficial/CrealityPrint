@@ -1,0 +1,17 @@
+#ifndef CRSLICE_INTERFACE_2
+#define CRSLICE_INTERFACE_2
+#include "ccglobal/export.h"
+
+#if USE_CRSLICE2_DLL
+	#define CRSLICE2_API CC_DECLARE_IMPORT
+#elif USE_CRSLICE2_STATIC
+	#define CRSLICE2_API CC_DECLARE_STATIC
+#else
+	#if CRSLICE2_DLL
+		#define CRSLICE2_API CC_DECLARE_EXPORT
+	#else
+		#define CRSLICE2_API CC_DECLARE_STATIC
+	#endif
+#endif
+
+#endif // CRSLICE_INTERFACE_2

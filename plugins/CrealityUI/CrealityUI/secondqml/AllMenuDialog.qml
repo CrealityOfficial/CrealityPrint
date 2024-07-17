@@ -1,613 +1,1391 @@
+import "../components"
+import "../qml"
+import "../secondqml"
 import QtQuick 2.0
 import QtQuick.Controls 2.0
 import com.cxsw.SceneEditor3D 1.0
 import "qrc:/CrealityUI"
-import "../qml"
+import "qrc:/CrealityUI/secondqml/printer"
 
-Item {
-    property alias mosueInfo: mosueInfo
+Loader {
+    id: idAllMenuDialog
+
+    property var receiver
+    property var menuObjName
+
     signal sigShowLoginPanel()
     signal dialogShowed(string name)
 
-    function showDiag() {
-        idMaterial.show()
+    function openSaveAs(machine) {
+        sourceComponent = idSaveDialog;
+        idAllMenuDialog.menuObjName = machine;
     }
 
     function requestDialog(name) {
-        if(name === "idModelUnfitMessageDlg")
+        sourceComponent = null;
+        idAllMenuDialog.menuObjName = name;
+        if (name === "idModelUnfitMessageDlg")
+            sourceComponent = idModelUnfitMessageDlg;
+        else if (name === "idModelUnfitMessageDlg_small")
+            sourceComponent = idModelUnfitSmallMessageDlg;
+        else if (name === "idWarningLoginDlg")
+            sourceComponent = idWarningLoginDlg;
+        else if (name === "idUploadModelFailedDialog")
+            sourceComponent = idUploadModelFailedDialog;
+        else if (name === "idAddPrinterDlgNew")
+            sourceComponent = idAddPrinterDlgNew;
+        else if (name === "slice_height_setting_dialog")
+            sourceComponent = slice_height_setting_dialog;
+        else if (name === "partition_print_dialog")
+            sourceComponent = partition_print_dialog;
+        else if (name === "mosueInfo")
+            sourceComponent = idMosueInfo;
+        else if (name === "idUpdateDlg")
+            sourceComponent = idUpdateDlg;
+        else if (name === "idReleaseNote")
+            sourceComponent = idReleaseNote;
+        else if (name === "idStartFirstConfig")
+            sourceComponent = idStartFirstConfig;
+        else if (name === "idOutPlatform")
+            sourceComponent = idOutPlatform;
+        else if (name === "saveParemDialog")
+            sourceComponent = saveParemDialog;
+        else if (name === "saveParamSecondDialog")
+            sourceComponent = saveParamSecondDialog;
+        else if (name === "switchDownModelPathDialog")
+            sourceComponent = swichDownloadPathDialog;
+        else if(name === "newProjectDialog")
+            sourceComponent = __newProjectDialog
+        else if(name === "openProjectDialog")
+            sourceComponent = __openProjectDialog
+        else if(name === "saveProjectDlg")
+            sourceComponent = __saveProjectDialog
+        else if(name === "migrateSuccessful")
         {
-//            idModelUnfitMessageDlg.ignoreBtnVisible = true
-            idModelUnfitMessageDlg.okBtnText = qsTr("Yes")
-//            idModelUnfitMessageDlg.ignoreBtnText = qsTr("Delete model")
-            idModelUnfitMessageDlg.cancelBtnText = qsTr("No")
 
-            idModelUnfitMessageDlg.msgText = qsTr("Model's size exceeds the printer's maximum build volume,apply auto-scale?")
-            idModelUnfitMessageDlg.show()
-        }else if(name === "idModelUnfitMessageDlg_small")
-        {
-//            idModelUnfitMessageDlg.ignoreBtnVisible = true
-            idModelUnfitMessageDlg.okBtnText = qsTr("Yes")
-//            idModelUnfitMessageDlg.ignoreBtnText = qsTr("Delete model")
-            idModelUnfitMessageDlg.cancelBtnText = qsTr("No")
-
-            idModelUnfitMessageDlg.msgText = qsTr("Model's size too small and mabye in inches or meters measurement, do you want to scale to millimeters?")
-            idModelUnfitMessageDlg.show()
+            sourceComponent = idMigrateDialog
+            item.dialogType = 0
         }
-        else if(name === "idWarningLoginDlg")
+        else if(name === "modifySuccessful")
         {
-            idWarningLoginDlg.show()
+            sourceComponent = idMigrateDialog
+            item.dialogType = 1
         }
-        else if(name === "idUploadModelFailedDialog")
+        else if(name === "unitTestDialog")
         {
-            idUploadModelFailedDialog.show()
+            sourceComponent = _unitTestDlg
         }
-        else if(name === "idAddPrinterDlgNew")
-        {
-            idAddPrinterDlgNew.show()
-        } else if (name === "slice_height_setting_dialog") {
-            slice_height_setting_dialog.show()
-        } else if (name === "partition_print_dialog") {
-            partition_print_dialog.show()
-        }
-
-        dialogShowed(name)
+        dialogShowed(name);
     }
 
-    function requestMenuDialog(receiver,menuObjName) {
-        //console.log("requestMenuDialog success")
-        if(menuObjName === "languageObj")
-        {
-            idLanguage.show()
-            idLanguage.receiver = receiver
-            idLanguage.timeInterval = receiver.getMinutes().toFixed(1)
-            idLanguage.cmbMoneyCurrentIndex = receiver.currentMoneyIndex()
-            //idLanguage.currentLanguageIndex = receiver.currentLanguageIndex()
+    function requestMenuDialog(receiver, menuObjName) {
+        idAllMenuDialog.receiver = receiver;
+        idAllMenuDialog.menuObjName = menuObjName;
+        sourceComponent = null;
+        switch (menuObjName) {
+        case "languageObj":
+            sourceComponent = idLanguage;
+            break;
+        case "newProjectObj":
+            sourceComponent = idNewProject;
+            break;
+        case "cloneNumObj":
+            sourceComponent = idCloneNumDlg;
+            break;
+        case "aboutUsObj":
+            sourceComponent = idAboutUs;
+            break;
+        case "updateObj":
+            standaloneWindow.checkupgrade();
+            return ;
+            break;
+        case "closeProfile":
+            sourceComponent = idClosePro;
+            break;
+        case "messageDlg":
+            sourceComponent = idConfirmMessageDlg;
+            break;
+        case "deletemessageDlg":
+            sourceComponent = idDoubleMessageDlg;
+            break;
+        case "messageSingleBtnDlg":
+            sourceComponent = idConfirmMessageDlg;
+            break;
+        case "importimageDlg":
+            sourceComponent = idImportImageConfigDlg;
+            break;
+        case "modelRepairMessageDlg":
+            sourceComponent = idModelRepairMessageDlg;
+            break;
+        case "sliceSuccessDlg":
+            sourceComponent = idSelectPrint;
+            break;
+        case "laserSaveSuccessDlg":
+            sourceComponent = idLaserSelectPrint;
+            break;
+        case "deleteSupportDlg":
+            sourceComponent = idSupportConfirmMessageDlg;
+            break;
+        case "lanPrintErrorDlg":
+            sourceComponent = idLanPrintErrorDlg;
+            break;
+        case "openDefaultCx3d":
+            sourceComponent = idOpenDefaultProjectDlg;
+            break;
+        case "openRecentlyFileDlg":
+            sourceComponent = idOpenRecentlyFileDlg;
+            break;
+        case "repaircmdDlg":
+            sourceComponent = idRepairdlg;
+            break;
+        case "messageNoModelDlg":
+            sourceComponent = idMessageNoBtn;
+            break;
+        case "TemperatureObj":
+            sourceComponent = idTemperature;
+            break;
+        case "PAObj":
+            sourceComponent = idPA;
+            break;
+        case "VFAObj":
+            sourceComponent = idVFA;
+            break;
+        case "RetractionObj":
+            sourceComponent = idRetraction;
+            break;
+        case "FlowFineTuningObj":
+            sourceComponent = idFlowFineTuning;
+            break;
+        case "MaxFlowVolumeObj":
+            sourceComponent = idMaxFlowVolume;
+            break;
+        case "idPrinterSettingsDialog":
+            sourceComponent = idPrinterSettingsDialog;
+            break;
+        case "idPrinterNameEditorDialog":
+            sourceComponent = idPrinterNameEditorDialog;
+            break;
+        case "PreferencesObj":
+            sourceComponent = idPreferences;
+            break;
+        case "saveParemDialog":
+            sourceComponent = saveParemDialog;
+            break;
+        case "saveParamSecondDialog":
+            sourceComponent = saveParamSecondDialog;
+            break;
+        case "idDeletePreset":
+            sourceComponent = idDeletePreset;
+            break;
+        case "ManagePrinterObj":
+            sourceComponent = idManagePrinter;
+            break;
+        case "model_setting_tip_dialog":
+            sourceComponent = model_setting_tip_dialog;
+            break;
+        case "idNoMaterialWarning":
+            sourceComponent = idNoMaterialWarning;
+            break;
+        case "parameter_update_dialog":
+            sourceComponent = parameter_update_dialog;
+            break;
+         case"newProjectDialog":
+            sourceComponent = __newProjectDialog
+             break;
+        default:
         }
-        else if(menuObjName === "newProjectObj")
-        {
-            idNewProject.show()
-            idNewProject.receiver = receiver
-        }
-        else if(menuObjName === "cloneNumObj")//by TCJ
-        {
-            idCloneNumDlg.show()
-            idCloneNumDlg.receiver = receiver
-            //console.log("display cloneN")
-        }
-        else if(menuObjName === "aboutUsObj")
-        {
-            idAboutUs.show()
-        }
-        else if(menuObjName === "updateObj")
-        {
-            showReleaseNote()
-        }
-        else if(menuObjName === "closeProfile")
-        {
-            idClosePro.ignoreBtnVisible = true
-            idClosePro.okBtnText = qsTr("Save")
-            idClosePro.ignoreBtnText = qsTr("Exit")
-            idClosePro.cancelBtnText = qsTr("Cancel")
-            idClosePro.show()
-            idClosePro.receiver = receiver
-        }
-        else if(menuObjName === "messageDlg")
-        {
-            idConfirmMessageDlg.receiver = receiver
-            idConfirmMessageDlg.cancelBtnVisible = true
-            idConfirmMessageDlg.isInfo = true
-            idConfirmMessageDlg.msgText = receiver.getMessageText()
-            idConfirmMessageDlg.show()
-        }
-        else if(menuObjName === "deletemessageDlg")
-        {
-            idDoubleMessageDlg.showDoubleBtn()
-            idDoubleMessageDlg.receiver = receiver
-            idDoubleMessageDlg.showCheckBox(true)
-            idDoubleMessageDlg.typename = menuObjName
-            idDoubleMessageDlg.messageText = receiver.getMessageText()
-            idDoubleMessageDlg.show()
-        }
-        else if(menuObjName === "messageSingleBtnDlg")
-        {
-            idConfirmMessageDlg.isInfo = true
-            idConfirmMessageDlg.cancelBtnVisible = false
-            idConfirmMessageDlg.receiver = receiver
-            idConfirmMessageDlg.msgText = receiver.getMessageText()
-            idConfirmMessageDlg.show()
-        }
-        else if(menuObjName === "importimageDlg")
-        {
-            idImportImageConfigDlg.initTextVelue()
-
-            idImportImageConfigDlg.show()
-            idImportImageConfigDlg.receiver = receiver
-        }
-        else if(menuObjName === "modelRepairMessageDlg")
-        {
-            idModelRepairMessageDlg.showTripleBtn()
-            idModelRepairMessageDlg.isInfo = false
-            idModelRepairMessageDlg.receiver = receiver
-            idModelRepairMessageDlg.messageText = qsTr("There are exceptions or errors in the model. What should be done?")
-            idModelRepairMessageDlg.show()
-        }
-        else if(menuObjName === "sliceSuccessDlg")
-        {
-            idSelectPrint.receiver = receiver
-            idSelectPrint.show()
-        }
-        else if(menuObjName === "laserSaveSuccessDlg")
-        {
-            idLaserSelectPrint.receiver = receiver
-            idLaserSelectPrint.show()
-        }
-        else if(menuObjName === "deleteSupportDlg")
-        {
-            idConfirmMessageDlg.receiver = receiver
-            idConfirmMessageDlg.cancelBtnVisible = true
-            idConfirmMessageDlg.msgText = qsTr("Whether to remove  all supports")
-            idConfirmMessageDlg.show()
-        }
-        else if(menuObjName === "lanPrintErrorDlg")
-        {
-            idLanPrintErrorDlg.messageType = 1
-            idLanPrintErrorDlg.receiver = receiver
-            idLanPrintErrorDlg.cancelBtnVisible = false
-            idLanPrintErrorDlg.msgText = qsTr("Some Print Error,Reset Printer?")
-            idLanPrintErrorDlg.show()
-        }
-        else if(menuObjName === "openDefaultCx3d")
-        {
-            idOpenDefaultProjectDlg.receiver = receiver
-            idOpenDefaultProjectDlg.visible = true
-        }
-        else if(menuObjName === "openRecentlyFileDlg")
-        {
-            idOpenRecentlyFileDlg.visible = true
-        }
-        else if(menuObjName === "messageNoModelDlg")
-        {
-            idMessageNoBtn.visible = true
-        }
-        else if(menuObjName === "repaircmdDlg")
-        {
-            idRepairdlg.receiver = receiver
-            idRepairdlg.updateErrorInfo()
-            idRepairdlg.show()
-        } else if(menuObjName === "TemperatureObj")
-        {
-            idTemperature.show()
-            idTemperature.receiver = receiver
-        } else if(menuObjName === "PAObj")
-        {
-            idPA.receiver = receiver
-            idPA.show()
-        }  else if(menuObjName === "MaxFlowVolumeObj")
-        {
-            idMaxFlowVolume.show()
-            idMaxFlowVolume.receiver = receiver
-        } else if(menuObjName === "VFAObj")
-        {
-            idVFA.show()
-            idVFA.receiver = receiver
-        }else if(menuObjName === "FlowFineTuningObj")
-        {
-            idFlowFineTuning.show()
-            idFlowFineTuning.receiver = receiver
-        }
-
-        dialogShowed(menuObjName)
     }
 
     function requestTipDialog(message) {
-        tip_dialog.msgText = message
-        tip_dialog.visible = true
+        idAllMenuDialog.menuObjName = message;
+        sourceComponent = null;
+        sourceComponent = tip_dialog;
     }
 
-    UploadMessageDlg {
+    onLoaded: {
+        console.log("loaded:" + menuObjName);
+        if (item.hasOwnProperty("receiver"))
+            item.receiver = idAllMenuDialog.receiver;
+
+        item.show();
+    }
+
+    Component {
+        id: model_setting_tip_dialog
+
+        ModelSettingTipDialog {
+            Component.onCompleted: {
+                confirmButtonClicked.connect(receiver.onTipDialogFinished);
+            }
+        }
+
+    }
+
+    Component {
+        id: parameter_update_dialog
+
+        ParameterUpdateDialog {
+            //confirm.connect(receiver.onConfirmUpdate);
+            //cancel.connect(receiver.onCancelUpdate);
+
+            Component.onCompleted: {
+                model = receiver.updateProfileModel;
+            }
+        }
+
+    }
+
+    Component {
         id: idUploadModelFailedDialog
-        msgText: qsTr("Failed to upload model!")
-        cancelBtnVisible: false
-        visible: false
+
+        UploadMessageDlg {
+            msgText: qsTr("Failed to upload model!")
+            cancelBtnVisible: false
+            visible: false
+        }
+
+    }
+    Component {
+        id: idMigrateDialog
+
+        UploadMessageDlg {
+            property real dialogType: 0
+            msgText: dialogType ===0 ?  qsTr("Path modification and model migration successful") + "!"
+                                     :  qsTr("Path modified successfully") + "!"
+            cancelBtnVisible: false
+            visible: false
+        }
+
     }
 
-    LanguagePreferDlg {
+    Component {
+        id: idOutPlatform
+
+        //模型超出打印范围的提示弹窗
+        UploadMessageDlg {
+            visible: false
+            centerToWindow: false
+            // cancelBtnVisible: false
+            messageType: 0
+            msgText: qsTr("The model has exceeded the printing range, do you want to continue slicing?")
+            onSigOkButtonClicked: {
+                close();
+                kernel_kernel.setKernelPhase(1);
+            }
+            onSigCancelButtonClicked: {
+                kernel_kernel.setKernelPhase(0);
+            }
+        }
+
+    }
+
+    Component {
+        id: idNoMaterialWarning
+
+        //模型超出打印范围的提示弹窗
+        UploadMessageDlg {
+            visible: false
+            width: 500 * screenScaleFactor
+            height: 160 * screenScaleFactor
+            messageType: 0
+            msgText: qsTr("Choose at least one material.\n Do you wish to use the default material list?")
+            onSigOkButtonClicked: {
+                receiver.onOk();
+            }
+            onSigCancelButtonClicked: {
+                receiver.onCancel();
+            }
+        }
+
+    }
+
+    Component {
         id: idLanguage
-        visible: false
-        objectName: "languageObj"
 
-        onSaveLanguageConfig:
-        {
-            receiver.setCurrentMinutes(timeInterval)
-            receiver.setMoneyCurrentIndex(cmbMoneyCurrentIndex)
-            receiver.saveLanguageConfig()
+        LanguagePreferDlg {
+            visible: false
+            objectName: "languageObj"
+            onSaveLanguageConfig: {
+                receiver.setCurrentMinutes(timeInterval);
+                receiver.setMoneyCurrentIndex(cmbMoneyCurrentIndex);
+                receiver.saveLanguageConfig();
+            }
+            Component.onCompleted: {
+                idLanguage.timeInterval = receiver.getMinutes().toFixed(1);
+                idLanguage.cmbMoneyCurrentIndex = receiver.currentMoneyIndex();
+            }
         }
+
     }
 
-    ManageMaterialDlg {
+    Component {
         id: idMaterial
-        visible: false
-        objectName: "managematerialObj"
+
+        ManageMaterialDlg {
+            visible: false
+            objectName: "managematerialObj"
+        }
+
     }
 
-    AddNewProjectDlg {
+    Component {
         id: idNewProject
-        visible: false
-        objectName: "newProjectObj"
-        property var receiver
 
-        onSigProject: receiver.saveProject(name)
+        AddNewProjectDlg {
+            property var receiver
+
+            visible: false
+            objectName: "newProjectObj"
+            onSigProject: receiver.saveProject(name)
+        }
+
     }
 
-    CloneNumDlg {
+    Component {
         id: idCloneNumDlg
-        visible: false
-        objectName: "cloneNumObj"
-        property var receiver
 
-        onSigNumber: receiver.clone(clonenum)
+        CloneNumDlg {
+            property var receiver
+
+            visible: false
+            objectName: "cloneNumObj"
+            onSigNumber: receiver.clone(clonenum)
+        }
+
     }
 
-    MouseInfo{
-        id: mosueInfo
-        visible: false
-    }
-
-    AboutUsDlg {
+    Component {
         id: idAboutUs
-        visible: false
-        objectName: "aboutUsObj"
+
+        AboutUsDlg {
+            visible: false
+            objectName: "aboutUsObj"
+        }
+
     }
 
-    TemperatureDlg{
+    Component {
         id: idTemperature
-        visible: false
-        objectName: "temperatureObj"
-        property var receiver
 
-        onSigGenerate: kernel_slice_calibrate.generate(start,end,step)
+        TemperatureDlg {
+            property var receiver
+
+            visible: false
+            objectName: "temperatureObj"
+            onSigTemp: kernel_slice_calibrate.temp(start, end, step)
+        }
+
     }
 
-    PADlg{
+    Component {
+        id: idRetraction
+
+        RetractionDlg {
+            objectName: "RetractionObj"
+            onSigRetraction: kernel_slice_calibrate.retractionTower(start, end, step)
+        }
+
+    }
+
+    Component {
         id: idPA
-        visible: false
-        objectName: "PAObj"
 
-        onSigTestType: kernel_slice_calibrate.testType(type)
-        onSigPaTower: kernel_slice_calibrate.paTower(start,end,step)
+        PADlg {
+            visible: false
+            objectName: "PAObj"
+            onSigPaTower: kernel_slice_calibrate.setPA(start, end, step, type)
+        }
+
     }
 
-
-    MaxFlowVolumeDlg{
+    Component {
         id: idMaxFlowVolume
-        visible: false
-        objectName: "MaxFlowVolumeObj"
-        property var receiver
-        onSigGenerate: kernel_slice_calibrate.maxFlowValume(start,end,step)
+
+        MaxFlowVolumeDlg {
+            property var receiver
+
+            visible: false
+            objectName: "MaxFlowVolumeObj"
+            onSigGenerate: kernel_slice_calibrate.maxFlowValume(start, end, step)
+        }
+
     }
 
-    VFADlg{
+    Component {
+        id: idPreferences
+
+        PreferencesDlg {
+            property var receiver
+
+            visible: false
+            objectName: "PreferencesObj"
+        }
+
+    }
+
+    Component {
+        id: idManagePrinter
+
+        MachineManagerPanel_New {
+            property var receiver
+
+            visible: false
+            objectName: "ManagePrinterObj"
+        }
+
+    }
+
+    Component {
+        id: idManageMaterial
+
+        MaterialManagerPanel_New {
+            property var receiver
+
+            visible: false
+            objectName: "ManageMaterialObj"
+        }
+
+    }
+
+    Component {
         id: idVFA
-        visible: false
-        objectName: "VFAObj"
-        property var receiver
 
-        onSigGenerate: kernel_slice_calibrate.VFA(start,end,step)
+        VFADlg {
+            property var receiver
+
+            visible: false
+            objectName: "VFAObj"
+            onSigGenerate: kernel_slice_calibrate.setVFA(start, end, step)
+        }
+
     }
-   FlowFineTuningDlg{
+
+    Component {
         id: idFlowFineTuning
-        visible: false
-        objectName: "FlowFineTuningObj"
-        property var receiver
-        onSigGenerate: kernel_slice_calibrate.highflow(flowValue)
-        onGetTuningTutorial: receiver ? receiver.getTuningTutorial() : ""
+
+        FlowFineTuningDlg {
+            property var receiver
+
+            visible: false
+            objectName: "FlowFineTuningObj"
+            onSigGenerate: kernel_slice_calibrate.highflow(flowValue)
+            onGetTuningTutorial: receiver ? receiver.getTuningTutorial() : ""
+        }
+
     }
 
-
-
-
-    BasicDialog {
+    Component {
         id: idMessageNoBtn
-        width: 400
-        height: 200
-        titleHeight : 30
-        title: qsTr("Message")
 
-        StyledLabel{
-            anchors.centerIn: parent
-            text: qsTr("No model selected to save")
-            wrapMode: Text.WordWrap
-            verticalAlignment: Text.AlignVCenter
-            horizontalAlignment:Text.AlignLeft
+        BasicDialog {
+            width: 400
+            height: 200
+            titleHeight: 30
+            title: qsTr("Message")
+
+            StyledLabel {
+                anchors.centerIn: parent
+                text: qsTr("No model selected to save")
+                wrapMode: Text.WordWrap
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignLeft
+            }
+
         }
+
     }
 
-    UploadMessageDlg {
+    Component {
         id: idWarningLoginDlg
-        msgText: qsTr("Not logged in to Creality Cloud, Unable to current operation, Do you want to log in?")
-        visible: false
-        messageType: 0
 
-        onSigOkButtonClicked:
-        {
-            close()
-            sigShowLoginPanel()
+        UploadMessageDlg {
+            msgText: qsTr("Not logged in to Creality Cloud, Unable to current operation, Do you want to log in?")
+            visible: false
+            messageType: 0
+            onSigOkButtonClicked: {
+                close();
+                sigShowLoginPanel();
+            }
         }
+
     }
 
-    RepairPanelDlg {
+    Component {
         id: idRepairdlg
-        objectName: "repaircmdDlg"
-        property var receiver
 
-        function updateErrorInfo()
-        {
-            faceSize = receiver ? receiver.getFacesizeAll() : 0
-            errorNormals = receiver ? receiver.getErrorNormalsAll() : 0
-            errorEdges = receiver ? receiver.getErrorEdgesAll() : 0
-            verticessize = receiver ? receiver.getVerticessizeAll() : 0
-            shells = receiver ? receiver.getshellsAll() : 0
-            errorHoles = receiver ? receiver.getholesAll() : 0
-            errorIntersects = receiver ? receiver.getIntersectsAll() : 0
+        RepairPanelDlg {
+            property var receiver
+
+            function updateErrorInfo() {
+                faceSize = receiver ? receiver.getFacesizeAll() : 0;
+                errorNormals = receiver ? receiver.getErrorNormalsAll() : 0;
+                errorEdges = receiver ? receiver.getErrorEdgesAll() : 0;
+                verticessize = receiver ? receiver.getVerticessizeAll() : 0;
+                shells = receiver ? receiver.getshellsAll() : 0;
+                errorHoles = receiver ? receiver.getholesAll() : 0;
+                errorIntersects = receiver ? receiver.getIntersectsAll() : 0;
+            }
+
+            objectName: "repaircmdDlg"
+            onAccept: {
+                if (receiver)
+                    receiver.acceptRepair();
+
+            }
+            onCancel: {
+                if (receiver)
+                    receiver.cancel();
+
+            }
         }
 
-        onAccept: if(receiver) receiver.acceptRepair()
-        onCancel: if(receiver) receiver.cancel()
     }
 
-    UploadMessageDlg {
-        id:idClosePro
-        objectName: "closeProfile"
-        msgText: qsTr("Save Project Before Exiting?")
-        visible: false
-        labelPointSize: Constants.labelFontPointSize_9
-        messageType: 1
-        property var receiver
+    Component {
+        id: idClosePro
 
-        onSigOkButtonClicked:
-        {
-            idClosePro.close()
-            receiver.saveFile()
+        UploadMessageDlg {
+            //receiver.noSaveFile();
+            //receiver.delDefaultProject();
+            //Qt.callLater(Qt.quit);
+
+            property var receiver
+
+            objectName: "closeProfile"
+            msgText: qsTr("Save Project Before Exiting?")
+            visible: false
+            ignoreBtnVisible: true
+            okBtnText: qsTr("Save")
+            ignoreBtnText: qsTr("Exit")
+            cancelBtnText: qsTr("Cancel")
+            labelPointSize: Constants.labelFontPointSize_9
+            messageType: 1
+
+            onSigOkButtonClicked: {
+                close();
+                receiver.saveFile(true);
+                Qt.callLater(Qt.quit);
+            }
+            onSigIgnoreButtonClicked: {
+                close();
+                if (kernel_parameter_manager.isAnyModified()) {
+                   standaloneWindow.saveParemDialog();
+                } else {
+                    receiver.clearScreen();
+                    Qt.callLater(Qt.quit);
+                }
+            }
         }
-        onSigIgnoreButtonClicked:
-        {
-            idClosePro.close()
-            receiver.noSaveFile()
-            receiver.delDefaultProject()
-        }
+
     }
 
-    UploadMessageDlg {
+    Component {
         id: idOpenDefaultProjectDlg
-        objectName: "openDefaultProjectDlg"
-        property var receiver
-        visible: false
-        messageType:0
-        //cancelBtnVisible: false
-        msgText: qsTr("The software closes abnormally, whether to open the saved temporary file?")
 
-        onSigOkButtonClicked:
-        {
-            if(receiver) receiver.accept()
-            idOpenDefaultProjectDlg.visible = false
+        UploadMessageDlg {
+            property var receiver
+
+            objectName: "openDefaultProjectDlg"
+            visible: false
+            messageType: 0
+            //cancelBtnVisible: false
+            msgText: qsTr("The software closes abnormally, whether to open the saved temporary file?")
+            onSigOkButtonClicked: {
+                if (receiver)
+                    receiver.accept();
+
+                visible = false;
+            }
+            onSigCancelButtonClicked: {
+                if (receiver)
+                    receiver.reject();
+
+                visible = false;
+            }
         }
-        onSigCancelButtonClicked:
-        {
-            if(receiver) receiver.reject()
-            idOpenDefaultProjectDlg.visible = false
-        }
+
     }
 
-    UploadMessageDlg {
+    Component {
         id: idOpenRecentlyFileDlg
-        objectName: "openRecentlyFileDlg"
-        visible: false
-        cancelBtnVisible: false
-        messageType: 1
-        msgText: qsTr("The file does not exist or the path has changed, the file cannot be accessed!")
 
-        onSigOkButtonClicked:
-        {
-            idOpenRecentlyFileDlg.visible = false
+        UploadMessageDlg {
+            id: idOpenRecentlyFileDlg
+
+            objectName: "openRecentlyFileDlg"
+            visible: false
+            cancelBtnVisible: false
+            messageType: 1
+            msgText: qsTr("The file does not exist or the path has changed, the file cannot be accessed!")
+            onSigOkButtonClicked: {
+                idOpenRecentlyFileDlg.visible = false;
+            }
         }
+
     }
 
-    BasicMessageDialog {
+    Component {
         id: idDoubleMessageDlg
-        objectName: "openMessageDlg"
-        width_x: 480
-        isInfo: typename === "deletemessageDlg" ? false : true
-        property var receiver
-        property var typename
 
-        onAccept:
-        {
-            if(receiver)
-            {
-                receiver.accept()
-                if(typename === "deletemessageDlg")
-                {
-                    if(checkedFlag) receiver.writeReg(false)
+        BasicMessageDialog {
+            property var receiver
+            property var typename
+
+            objectName: "openMessageDlg"
+            width_x: 480
+            isInfo: typename === "deletemessageDlg" ? false : true
+            onAccept: {
+                if (receiver) {
+                    receiver.accept();
+                    if (typename === "deletemessageDlg") {
+                        if (checkedFlag)
+                            receiver.writeReg(false);
+
+                    }
                 }
             }
+            onCancel: {
+                if (receiver)
+                    receiver.cancel();
+
+            }
+            onDialogClosed: {
+                if (receiver)
+                    receiver.cancel();
+
+            }
+            Component.onCompleted: {
+                showDoubleBtn();
+                showCheckBox(true);
+                receiver = idAllMenuDialog.receiver;
+                typename = idAllMenuDialog.menuObjName;
+                messageText = receiver.getMessageText();
+            }
         }
-        onCancel: if(receiver) receiver.cancel()
-        onDialogClosed: if(receiver) receiver.cancel()
+
     }
 
-    UploadMessageDlg {
+    Component {
         id: idLanPrintErrorDlg
-        property var receiver
-        messageType: 1
-        okBtnText : qsTr("Reset")
-        onSigOkButtonClicked:
-        {
-            close()
-            if(receiver) receiver.accept()
+
+        UploadMessageDlg {
+            property var receiver
+
+            messageType: 1
+            cancelBtnVisible: false
+            msgText: qsTr("Some Print Error,Reset Printer?")
+            okBtnText: qsTr("Reset")
+            onSigOkButtonClicked: {
+                close();
+                if (receiver)
+                    receiver.accept();
+
+            }
+            Component.onCompleted: {
+                receiver = idAllMenuDialog.receiver;
+            }
         }
+
     }
 
-    UploadMessageDlg {
+    Component {
+        id: idSupportConfirmMessageDlg
+
+        UploadMessageDlg {
+            property var receiver
+
+            isInfo: true
+            cancelBtnVisible: true
+            msgText: qsTr("Whether to remove  all supports")
+            onSigOkButtonClicked: {
+                close();
+                if (receiver)
+                    receiver.accept();
+
+            }
+            onSigCancelButtonClicked: {
+                close();
+                if (receiver)
+                    receiver.cancel();
+
+            }
+            Component.onCompleted: {
+                receiver = idAllMenuDialog.receiver;
+            }
+        }
+
+    }
+
+    Component {
         id: idConfirmMessageDlg
-        property var receiver
 
-        onSigOkButtonClicked:
-        {
-            idConfirmMessageDlg.close()
-            if(receiver) receiver.accept()
+        UploadMessageDlg {
+            property var receiver
+
+            isInfo: true
+            cancelBtnVisible: true
+            onSigOkButtonClicked: {
+                close();
+                if (receiver)
+                    receiver.accept();
+
+            }
+            onSigCancelButtonClicked: {
+                close();
+                if (receiver)
+                    receiver.cancel();
+
+            }
+            Component.onCompleted: {
+                receiver = idAllMenuDialog.receiver;
+                msgText = receiver.getMessageText();
+            }
         }
-        onSigCancelButtonClicked:
-        {
-            idConfirmMessageDlg.close()
-            if(receiver) receiver.cancel()
+
+    }
+    Component {
+        id: __saveProjectDialog
+
+        UploadMessageDlg {
+            property var receiver
+            msgText: qsTranslate("LaserScene","Save Finished, Open Local Folder")
+            isInfo: true
+            cancelBtnVisible: true
+            onSigOkButtonClicked: {
+                close();
+                cxkernel_io_manager.openLastSaveFolder()
+            }
+            onSigCancelButtonClicked: {
+                close();
+
+            }
         }
+
     }
 
-    UploadMessageDlg {
+
+
+    Component {
         id: idModelUnfitMessageDlg
-        ignoreBtnVisible: false
-        messageType: 0
 
-        onSigOkButtonClicked:
-        {
-            close()
-            kernel_modelspace.adaptTempModels()
+        UploadMessageDlg {
+            ignoreBtnVisible: false
+            messageType: 0
+            okBtnText: qsTr("Yes")
+            cancelBtnText: qsTr("No")
+            msgText: qsTr("Model's size exceeds the printer's maximum build volume,apply auto-scale?")
+            onSigOkButtonClicked: {
+                close();
+                kernel_modelspace.adaptTempModels();
+            }
+            onSigCancelButtonClicked: {
+                close();
+                kernel_modelspace.ignoreTempModels();
+            }
         }
-        onSigCancelButtonClicked:
-        {
-            close()
-            kernel_modelspace.ignoreTempModels()
-        }
+
     }
 
-    BasicMessageDialog {
+    Component {
+        id: idModelUnfitSmallMessageDlg
+
+        UploadMessageDlg {
+            ignoreBtnVisible: false
+            messageType: 0
+            okBtnText: qsTr("Yes")
+            cancelBtnText: qsTr("No")
+            msgText: qsTr("Model's size too small and mabye in inches or meters measurement, do you want to scale to millimeters?")
+            onSigOkButtonClicked: {
+                close();
+                kernel_modelspace.adaptTempModels();
+            }
+            onSigCancelButtonClicked: {
+                close();
+                kernel_modelspace.ignoreTempModels();
+            }
+        }
+
+    }
+
+    Component {
+        id: swichDownloadPathDialog
+
+        UploadMessageDlg {
+            ignoreBtnVisible: false
+            messageType: 0
+            okBtnText: qsTr("Yes")
+            cancelBtnText: qsTr("No")
+            msgText: qsTranslate("CusPrefernceObj", "Whether it is necessary to migrate the files in the original folder") + "?"
+            onSigOkButtonClicked: {
+                close();
+                kernel_preference_manager.acceptRepalceCache();
+            }
+            onSigCancelButtonClicked: {
+                close();
+                requestDialog("modifySuccessful")
+            }
+        }
+
+    }
+
+    Component {
+        id: __newProjectDialog
+
+        UploadMessageDlg {
+            property var receiver
+            ignoreBtnVisible: false
+            messageType: 0
+            okBtnText: qsTr("Yes")
+            cancelBtnText: qsTr("No")
+            msgText: qsTranslate("CustomObject","A new project is about to be opened. Do you want to save the existing project before opening it?")
+            onSigOkButtonClicked: {
+//                project_kernel.saveCX3D(true)
+                close();
+
+                receiver.onOkClicked()
+            }
+            onSigCancelButtonClicked: {
+//                project_kernel.cancelSave()
+                close();
+
+                receiver.onCancelClicked()
+            }
+        }
+
+    }
+
+    Component {
+        id: __openProjectDialog
+
+        UploadMessageDlg {
+            ignoreBtnVisible: false
+            messageType: 0
+            okBtnText: qsTr("Yes")
+            cancelBtnText: qsTr("No")
+            msgText: qsTranslate("CustomObject","A new project is about to be opened. Do you want to save the existing project before opening it?")
+            onSigOkButtonClicked: {
+                project_kernel.saveCX3D(true)
+                close();
+            }
+            onSigCancelButtonClicked: {
+                close();
+                project_kernel.openCX3D()
+            }
+        }
+
+    }
+
+
+    Component {
         id: idModelRepairMessageDlg
-        objectName: "modelRepairMessageDlg"
-        property var receiver
 
-        width_x: 480
-        yesBtnText: qsTr("Repair model")
-        noBtnText: qsTr("Delete model")
-        ignoreBtnText: qsTr("Ignore")
+        BasicMessageDialog {
+            property var receiver
 
-        onAccept: if(receiver) receiver.repairModel()
-        onCancel: if(receiver) receiver.delSelectedModel()
+            objectName: "modelRepairMessageDlg"
+            width_x: 480
+            isInfo: false
+            messageText: qsTr("There are exceptions or errors in the model. What should be done?")
+            yesBtnText: qsTr("Repair model")
+            noBtnText: qsTr("Delete model")
+            ignoreBtnText: qsTr("Ignore")
+            onAccept: {
+                if (receiver)
+                    receiver.repairModel();
+
+            }
+            onCancel: {
+                if (receiver)
+                    receiver.delSelectedModel();
+
+            }
+            Component.onCompleted: {
+                receiver = idAllMenuDialog.receiver;
+                showTripleBtn();
+            }
+        }
+
     }
 
-    ImportImageDlg {
-        id:idImportImageConfigDlg
-        objectName: "importimageDlg"
-        property var receiver
+    Component {
+        id: idImportImageConfigDlg
 
-        onAccept:
-        {
-            console.log("parseFloat(myBase).toFixed(2) =" + parseFloat(myBase).toFixed(2))
-            console.log("parseFloat(myHeight).toFixed(2) =" + parseFloat(myHeight).toFixed(2))
-            console.log("parseFloat(myWidth).toFixed(2) =" + parseFloat(myWidth).toFixed(2))
-            receiver.setBaseHeight(parseFloat(myBase).toFixed(2))
-            receiver.setMaxHeight(parseFloat(myHeight).toFixed(2))
-            receiver.setMeshWidth(parseFloat(myWidth).toFixed(2))
-            receiver.setLighterOrDarker(myCmbCurrentIndex)
-            receiver.setBlur(mySmothing)
-            receiver.accept()
+        ImportImageDlg {
+            property var receiver
+
+            objectName: "importimageDlg"
+            onAccept: {
+                console.log("parseFloat(myBase).toFixed(2) =" + parseFloat(myBase).toFixed(2));
+                console.log("parseFloat(myHeight).toFixed(2) =" + parseFloat(myHeight).toFixed(2));
+                console.log("parseFloat(myWidth).toFixed(2) =" + parseFloat(myWidth).toFixed(2));
+                receiver.setBaseHeight(parseFloat(myBase).toFixed(2));
+                receiver.setMaxHeight(parseFloat(myHeight).toFixed(2));
+                receiver.setMeshWidth(parseFloat(myWidth).toFixed(2));
+                receiver.setLighterOrDarker(myCmbCurrentIndex);
+                receiver.setBlur(mySmothing);
+                receiver.accept();
+            }
+            onCancel: {
+                receiver.cancel();
+            }
+            Component.onCompleted: {
+                receiver = idAllMenuDialog.receiver;
+                initTextVelue();
+            }
         }
-        onCancel:
-        {
-            receiver.cancel()
-        }
+
     }
 
-    ComPrinterSelectDlg {
-        id:idSelectPrint
-        property var receiver
-        property var slice: receiver ? receiver.getSlicePlugin() : ""
-        myTableModel: receiver ?receiver.getTableModel() : ""
+    Component {
+        id: idSelectPrint
 
-        onSearchWifi: receiver.startSearchWifi()
-        onSendFileFunction: receiver.sendSliceFile()
-        onAccept: idSelectPrint.close()
-        onCancel: close()
+        ComPrinterSelectDlg {
+            property var receiver
+            property var slice: receiver ? receiver.getSlicePlugin() : ""
+
+            myTableModel: receiver ? receiver.getTableModel() : ""
+            onSearchWifi: receiver.startSearchWifi()
+            onSendFileFunction: receiver.sendSliceFile()
+            onAccept: idSelectPrint.close()
+            onCancel: close()
+            Component.onCompleted: {
+                receiver = idAllMenuDialog.receiver;
+            }
+        }
+
     }
 
-    ComLaserPrinterSelectDlg {
-        id:idLaserSelectPrint
-        property var receiver
-        property var laserscene: receiver ? receiver.getLaserScene() : ""
-        myTableModel: receiver ?receiver.getTableModel() : ""
+    Component {
+        id: idLaserSelectPrint
 
-        onSearchWifi:
-        {
-            receiver.startSearchWifi()
+        ComLaserPrinterSelectDlg {
+            property var receiver
+            property var laserscene: receiver ? receiver.getLaserScene() : ""
+
+            myTableModel: receiver ? receiver.getTableModel() : ""
+            onSearchWifi: {
+                receiver.startSearchWifi();
+            }
+            onSendFileFunction: {
+                receiver.sendSliceFile();
+            }
+            onAccept: {
+                laserscene.saveLocalGcodeFile();
+                close();
+            }
+            onCancel: {
+                close();
+            }
+            Component.onCompleted: {
+                receiver = idAllMenuDialog.receiver;
+            }
         }
-        onSendFileFunction:
-        {
-            receiver.sendSliceFile()
-        }
-        onAccept:
-        {
-            laserscene.saveLocalGcodeFile()
-            close()
-        }
-        onCancel:
-        {
-            close()
-        }
+
     }
 
-    AddPrinterDlgNew {
-        visible: false
+    Component {
         id: idAddPrinterDlgNew
-        objectName: "AddPrinterDlg"
-        property var isFristStart: "0"
 
-        // context: dock_context
-        autoClose: false
-        onCloseButtonClicked: {
-            if (kernel_parameter_manager.machinesCount === 0) {
-                addLeastOnePrinterTip.visible = true
-                return
-            }
+        AddPrinterDlgNew {
+            property var isFristStart: "0"
 
-            this.visible = false
-        }
-        Connections {
-            target: kernel_parameter_manager
-            onMachinesCountChanged: {
-                if (kernel_parameter_manager.machinesCount === 0) {
-                    idAddPrinterDlgNew.visible = true
-                }
-                else{
-                    //idAddPrinterDlgNew.visible = false
-                }
+            visible: false
+            objectName: "AddPrinterDlg"
+            // context: dock_context
+            autoClose: false
+            onCloseButtonClicked: {
+                showLeastOnePrinterMsg();
             }
         }
+
     }
 
-    UploadMessageDlg {
-        id: addLeastOnePrinterTip
-        msgText: qsTr("Please add at least one printer")
-        cancelBtnVisible: false
-        ignoreBtnVisible: false
-        onSigOkButtonClicked: {
-            this.visible = false
-        }
-    }
-
-    UploadMessageDlg {
+    Component {
         id: tip_dialog
-        msgText: ""
-        cancelBtnVisible: false
-        ignoreBtnVisible: false
-        onSigOkButtonClicked: {
-            this.visible = false
+
+        UploadMessageDlg {
+            msgText: ""
+            cancelBtnVisible: false
+            ignoreBtnVisible: false
+            onSigOkButtonClicked: {
+                this.visible = false;
+            }
+            onVisibleChanged: {
+                msgText = idAllMenuDialog.menuObjName;
+            }
+        }
+
+    }
+
+    Component {
+        id: slice_height_setting_dialog
+
+        SliceHeightSettingDialog {
+        }
+
+    }
+
+    Component {
+        id: partition_print_dialog
+
+        PartitionPrintDialog {
+        }
+
+    }
+
+    Component {
+        id: addMaterialDlg
+
+        AddMaterialDlg {
+            property var eItem: null
+
+            Component.onCompleted: {
+                eItem = idAllMenuDialog.receiver.eItem;
+                startShowMaterialDialog(idAllMenuDialog.receiver.state, idAllMenuDialog.receiver.extruderIndex, idAllMenuDialog.receiver.materialName, idAllMenuDialog.receiver.currentMachine);
+            }
+        }
+
+    }
+
+    Component {
+        id: manageMaterialDlg
+
+        ManageMaterialDlg {
+            Component.onCompleted: {
+                startShowMaterialDialog(idAllMenuDialog.receiver.state, idAllMenuDialog.receiver.extruderIndex, idAllMenuDialog.receiver.materialName, idAllMenuDialog.receiver.currentMachine);
+            }
+        }
+
+    }
+
+    Component {
+        id: idParameterProfile
+
+        ParameterProfilePanel {
+            //if (!visible)
+            //   currentMachine.profilesModel().notifyReset();
+
+            property var currentMachine
+
+            visible: false
+            onRemoveProfile: {
+                currentMachine.removeProfile(profileObject);
+            }
+            onVisibleChanged: {
+            }
+            Component.onCompleted: {
+                currentMachine = idAllMenuDialog.receiver.currentMachine;
+                startEditProfile(currentMachine, idAllMenuDialog.receiver.addOrEdit, idAllMenuDialog.receiver.extruderCount);
+            }
+        }
+
+    }
+
+    Component {
+        id: idUploadGcodeDialog
+
+        UploadGcodeDlg {
+            objectName: "idUploadGcodeDialog"
+            onSigCancelBtnClicked: {
+                idAllMenuDialog.sourceComponent = null;
+            }
+            onSigConfirmBtnClicked: {
+                if (uploadDlgType) {
+                    visible = false;
+                    __LANload.wifiSwitch = true;
+                    __LANload.curGcodeFileName = curGcodeFileName + ".gcode";
+                    var currentIndex = kernel_parameter_manager.curMachineIndex;
+                    var machineObject = kernel_parameter_manager.machineObject(currentIndex);
+                    let currentPrinterName = machineObject.baseName();
+                    printerListModel.setCurrentDevice(currentPrinterName);
+                    kernel_kernel.setKernelPhase(2);
+                } else {
+                    curWindowState = UploadGcodeDlg.WindowState.State_Progress;
+                    cxkernel_cxcloud.sliceService.uploadSlice(curGcodeFileName);
+                }
+            }
+            Component.onCompleted: {
+                showUploadDialog(idAllMenuDialog.receiver.type);
+            }
+        }
+
+    }
+
+    Component {
+        id: idSaveDialog
+
+        SaveDialog {
+            property var currentMachine: idAllMenuDialog.menuObjName
+
+            title: qsTranslate("ExpertParamPanel", "Save Presets")
+            clabel.text: qsTranslate("ExpertParamPanel", "Process Save As") + ":"
+            onOkBtnClicked: {
+                close();
+                if (!currentMachine)
+                    return ;
+
+                var curName = currentMachine.currentProfileObject.uniqueName();
+                if (curName == cText)
+                    currentMachine.saveCurrentProfile();
+                else
+                    currentMachine.addProfile(cText, currentMachine.currentProfileObject.uniqueName());
+            }
+            onCancelBtnClicked: {
+                close();
+            }
+        }
+
+    }
+
+    Component {
+        id: idMosueInfo
+
+        MouseInfo {
+        }
+
+    }
+
+    Component {
+        id: idStartFirstConfig
+
+        StartFirstConfig {
+            visible: false
+        }
+
+    }
+
+    Component {
+        id: idReleaseNote
+
+        ReleaseNote {
+        }
+
+    }
+
+    Component {
+        id: idPrinterSettingsDialog
+
+        PrinterSettingsDialog {
+            Component.onCompleted: {
+                printer = idAllMenuDialog.receiver;
+                init();
+            }
+        }
+
+    }
+
+    Component {
+        id: idPrinterNameEditorDialog
+
+        PrinterNameEditorDialog {
+            Component.onCompleted: {
+                printer = idAllMenuDialog.receiver;
+            }
+        }
+
+    }
+
+    Component {
+        id: idUpdateDlg
+
+        DockItem {
+            width: 400 * screenScaleFactor
+            height: 200 * screenScaleFactor
+            titleHeight: 30 * screenScaleFactor
+            title: qsTr("Version Update")
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width / 2
+                height: parent.height / 2
+                color: "transparent"
+
+                Text {
+                    id: name
+
+                    anchors.centerIn: parent
+                    width: idUpdateDlg.width - 20 * screenScaleFactor
+                    font.family: Constants.labelFontFamily
+                    font.weight: Constants.labelFontWeight
+                    text: qsTr("You are currently on the latest version and do not need to update")
+                    font.pointSize: Constants.labelFontPointSize_10
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    color: Constants.textColor
+                }
+
+            }
+
+            StyledLabel {
+                id: urlLabel
+
+                property string openUrl: cxkernel_cxcloud.serverType ? "https://www.crealitycloud.com/post-detail/6454af4f58f57701c94a56f9" : "https://www.crealitycloud.cn/post-detail/6454a92b716e5ffc532cec31"
+
+                anchors.left: parent.left
+                anchors.leftMargin: 20 * screenScaleFactor
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 10 * screenScaleFactor
+                text: qsTranslate("ReleaseNote", "Check out the changelog")
+                color: Constants.leftBtnBgColor_selected
+                font.underline: mouseArea.containsMouse
+
+                MouseArea {
+                    id: mouseArea
+
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: (containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor)
+                    onClicked: Qt.openUrlExternally(urlLabel.openUrl)
+                }
+
+            }
+
+        }
+
+    }
+
+    Component {
+        id: idAddProfileDialog
+
+        AddEditProfile {
+            id: idAddProfile
+
+            visible: false
+            onSigAddProfile: {
+                root.currentMachine.addProfile(newProfileName, templateObject);
+                showEditProfile(0);
+            }
+        }
+
+    }
+
+    Component {
+        id: idUploadModelDialog
+
+        UploadModelDlg {
+            function uploadModelError() {
+                uploadModelGroupFailed();
+                hide();
+                idAllMenuDialog.requestDialog("idUploadModelFailedDialog");
+            }
+
+            objectName: "idUploadModelDialog"
+            onViewMyModel: {
+                kernel_ui.invokeCloudUserInfoFunc("setUserInfoDlgShow", "myModel");
+                idUploadModelDialog.initData();
+                idUploadModelDialog.visible = false;
+            }
+            Component.onCompleted: {
+            }
+
+            Connections {
+                // onUploadSelectModelsFailed: function() {
+                //     idUploadModelDialog.uploadModelError()
+                // }
+
+                target: cxkernel_cxcloud.modelService
+                onUploadModelGroupFailed: function() {
+                    idUploadModelDialog.uploadModelError();
+                }
+            }
+
+        }
+
+    }
+
+    Component {
+        id: saveParemDialog
+
+        SaveParameterFirst {
+            id: saveParem
+
+            //parent: standaloneWindow
+            visible: false
+            onTransfer: {
+                receiver.onTransfer();
+                close();
+            }
+            onCancel: {
+                receiver.onIgnore();
+                close();
+            }
+            onSave: {
+                //requestMenuDialog(receiver2, "saveParamSecondDialog");
+                showSaveDialog();
+            }
+            onSaved: function(index) {
+                receiver.onSaved(index);
+            }
+            onCloseButtonClicked: {
+                receiver.onCloseButtonClicked();
+            }
+            Component.onCompleted: {
+                receiver = idAllMenuDialog.receiver;
+                type = receiver.type;
+                profileName = receiver.profileName;
+            }
+            onVisibleChanged:
+            {
+                if(!visible)
+                {
+                    receiver.onVisibleFalse()
+                }
+            }
+        }
+
+    }
+
+    Component {
+        id: saveParamSecondDialog
+
+        SaveParameterSecond {
+            id: saveParamSecond
+
+            visible: false
+            Component.onCompleted: {
+                receiver = idAllMenuDialog.receiver;
+                type = receiver.type;
+            }
         }
     }
 
-    SliceHeightSettingDialog {
-        id: slice_height_setting_dialog
+    Component {
+        id: addLeastOnePrinterTipDialog
+
+        UploadMessageDlg {
+            id: addLeastOnePrinterTip
+
+            msgText: qsTr("Please add at least one printer")
+            cancelBtnVisible: false
+            ignoreBtnVisible: false
+            onSigOkButtonClicked: {
+                this.visible = false;
+            }
+        }
+
     }
 
-    PartitionPrintDialog {
-        id: partition_print_dialog
+    Component {
+        id: idDeletePreset
+
+        UploadMessageDlg2 {
+            property var receiver
+
+            msgText: qsTr("Do you want to delete the preset?")
+            ignoreBtnVisible: false
+            onSigOkButtonClicked: {
+                receiver.exec();
+            }
+            Component.onCompleted: {
+                receiver = idAllMenuDialog.receiver;
+            }
+        }
+
+    }
+    Component {
+        id: _unitTestDlg
+        UnitTestDialog {
+
+        }
     }
 }

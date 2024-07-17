@@ -17,37 +17,67 @@ namespace creative_kernel
 
 	Q_INVOKABLE void PrintMaterialModelProxy::filterMaterialType(const QString& mType, bool checked)
 	{
+		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
+		if (!sModel)
+			return;
+		QList<MaterialData*> materialList = sModel->materialList();
 		if (checked)
 		{
-			PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
-			QList<MaterialMeta*> materialList = sModel->materialList();
-			for (MaterialMeta* data : materialList)
+			if (!m_MaterialFilterTypes.contains(mType))
 			{
-				if (data->type == mType)
-				{
-					data->isVisible = true;
-				}
+				m_MaterialFilterTypes.append(mType);
 			}
 		}
 		else {
-			PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
-			QList<MaterialMeta*> materialList = sModel->materialList();
-			for (MaterialMeta* data : materialList)
+			if (m_MaterialFilterTypes.contains(mType))
 			{
-				if (data->type == mType)
-				{
-					data->isChecked = false;
-					data->isVisible = false;
-				}
+				m_MaterialFilterTypes.removeOne(mType);
 			}
 		}
 
+		sModel->filterType(mType, checked);
+
+
+		emit checkStateChanged();
+		emit visibleMaterialsChanged();
+		invalidateFilter();
+	}
+
+	void PrintMaterialModelProxy::refreshState()
+	{
+		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
+		// QList<MaterialData*> materialList = sModel->materialList();
+		sModel->filterType("Type", true);
+		emit checkStateChanged();
+		emit visibleMaterialsChanged();
 		invalidateFilter();
 	}
 
 	void PrintMaterialModelProxy::setSelectMaterialTypes(QStringList selectMaterials)
 	{
+		m_MaterialFilterTypesDefault = selectMaterials;
+		m_MaterialFilterTypesPrevious = selectMaterials;
 		m_MaterialFilterTypes = selectMaterials;
+	}
+
+	int PrintMaterialModelProxy::visibleMaterials()
+	{
+		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
+		if (!sModel)
+			return false;
+
+		QList<MaterialData*> materialsList = sModel->materialList();
+
+		int visibleCount = 0;
+		for (MaterialData* data : materialsList)
+		{
+			if (m_MaterialFilterTypes.contains(data->type))
+			{
+				++visibleCount;
+			}
+		}
+
+		return visibleCount;
 	}
 
 	Q_INVOKABLE void PrintMaterialModelProxy::filterMeterilasByIsUser(bool isUser)
@@ -56,37 +86,81 @@ namespace creative_kernel
 		invalidateFilter();
 	}
 
+	void PrintMaterialModelProxy::confirm()
+	{
+		m_MaterialFilterTypesPrevious = m_MaterialFilterTypes;
+
+		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
+		sModel->onConfirm();
+	}
+
+	void PrintMaterialModelProxy::resetModel()
+	{
+		m_MaterialFilterTypes = m_MaterialFilterTypesDefault;
+		m_MaterialFilterTypesPrevious = m_MaterialFilterTypesDefault;
+
+		invalidateFilter();
+
+		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
+		sModel->resetModel();
+		//emit isCheckedAllChanged();
+	}
+
+	void PrintMaterialModelProxy::cancelModel()
+	{
+		m_MaterialFilterTypes = m_MaterialFilterTypesPrevious;
+
+		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
+		sModel->onCancel();
+
+		emit checkStateChanged();
+	}
+
 	bool PrintMaterialModelProxy::isVisible(const QString& materialType)
 	{
+		bool isContains = m_MaterialFilterTypes.contains(materialType);
+		return isContains;
+	}
+	
+	int PrintMaterialModelProxy::checkState()
+	{
 		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
-		QList<MaterialMeta*> materialList = sModel->materialList();
+		if (!sModel)
+			return false;
 
-		bool isVisible = false;
-		for (MaterialMeta* data : materialList)
+		QList<MaterialData*> materialsList = sModel->materialList();
+
+		int checkedCount = 0;
+		int visibleCount = 0;
+		for (MaterialData* data : materialsList)
 		{
-			if (data->type == materialType)
+			if (m_MaterialFilterTypes.contains(data->type))
 			{
-				if (data->isVisible)
+				++visibleCount;
+				if (data->isChecked)
 				{
-					isVisible = true;
-					break;
+					++checkedCount;
 				}
 			}
 		}
 
-		return isVisible;
-	}
-	
-	bool PrintMaterialModelProxy::isCheckedAll()
-	{
-		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
-		return sModel->isCheckedAll();
+		int res = checkedCount == visibleCount ?
+			Qt::CheckState::Checked : (checkedCount == 0 ? Qt::CheckState::Unchecked : Qt::CheckState::PartiallyChecked);
+
+		m_CheckState = res;
+		return res;
 	}
 
-	void PrintMaterialModelProxy::setIsCheckedAll(bool checkedAll)
+	void PrintMaterialModelProxy::setCheckState(int checkedAll)
 	{
+		if (checkedAll == m_CheckState)
+			return;
+
+		m_CheckState = checkedAll;
 		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
 		sModel->setIsCheckedAll(checkedAll);
+
+		emit checkStateChanged();
 	}
 
 	QStringList PrintMaterialModelProxy::userMaterialsList()
@@ -100,12 +174,19 @@ namespace creative_kernel
 	{
 	}
 
-	Q_INVOKABLE void PrintMaterialModelProxy::setChecked(bool checked, int index)
+	void PrintMaterialModelProxy::setChecked(bool checked, int index)
 	{
 		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
 		bool checkedAll = sModel->setChecked(checked, index);
-		m_IsCheckedAll = checkedAll;
-		emit isCheckedAllChanged();
+
+		emit checkStateChanged();
+	}
+
+	int PrintMaterialModelProxy::selectMaterialsCount()
+	{
+		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
+		int checkedCount = sModel->checkedCount();
+		return checkedCount;
 	}
 
 	bool PrintMaterialModelProxy::filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const
@@ -114,12 +195,12 @@ namespace creative_kernel
 		QString meName = sourceModel()->data(stateIndex, PrintMaterialModel::ME_NAME).toString();
 
 		PrintMaterialModel* sModel = qobject_cast<PrintMaterialModel*>(sourceModel());
-		QList<MaterialMeta*> materialList = sModel->materialList();
+		QList<MaterialData*> materialList = sModel->materialList();
 
 		bool res = false;
-		MaterialMeta* materialData = materialList.at(sourceRow);
+		MaterialData* materialData = materialList.at(sourceRow);
 
-		if (m_MaterialFilterTypes.contains(materialData->type) && materialData->isVisible)
+		if (m_MaterialFilterTypes.contains(materialData->type) /*&& materialData->isVisible*/)
 		{
 			res = true;
 		}

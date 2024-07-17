@@ -174,107 +174,115 @@ namespace gcode
 		std::smatch sm;
 
 		result->previewsData.clear();
-        if (std::regex_match(gcodeStr, sm, std::regex(".*jpg begin(.*)jpg end.*jpg begin(.*)jpg end.*"))) //jpg
-        {
-			std::string strTemp = gcodeStr;
-            getImage(sm[1], result);
-
-			int pos = strTemp.find(sm[1]);
-			if (pos != std::string::npos)
+		if (gcodeStr.find("jpg") != std::string::npos 
+			|| gcodeStr.find("png") != std::string::npos
+			|| gcodeStr.find("bmp") != std::string::npos
+			|| gcodeStr.find("thumbnail") != std::string::npos)
+		{
+			if (std::regex_match(gcodeStr, sm, std::regex(".*jpg begin(.*)jpg end.*jpg begin(.*)jpg end.*"))) //jpg
 			{
-				std::string str1  = strTemp.substr(0, pos);
-				std::string str2 = strTemp.substr(pos + sm[1].length(), strTemp.length());
-				strTemp = str1 + str2;
-			}
+				std::string strTemp = gcodeStr;
+				getImage(sm[1], result);
 
-            if (sm.size() > 2)
-            {
-                getImage(sm[2], result);
-
-				int pos = strTemp.find(sm[2]);
+				int pos = strTemp.find(sm[1]);
 				if (pos != std::string::npos)
 				{
 					std::string str1 = strTemp.substr(0, pos);
-					std::string str2 = strTemp.substr(pos + sm[2].length(), strTemp.length());
+					std::string str2 = strTemp.substr(pos + sm[1].length(), strTemp.length());
 					strTemp = str1 + str2;
 				}
 
-            }
-			gcodeStr = strTemp;
-        }
-        else  if (std::regex_match(gcodeStr, sm, std::regex(".*png begin(.*)png end.*png begin(.*)png end.*"))) //png
-        {
-			std::string strTemp = gcodeStr;
+				if (sm.size() > 2)
+				{
+					getImage(sm[2], result);
 
-            getImage(sm[1], result);
+					int pos = strTemp.find(sm[2]);
+					if (pos != std::string::npos)
+					{
+						std::string str1 = strTemp.substr(0, pos);
+						std::string str2 = strTemp.substr(pos + sm[2].length(), strTemp.length());
+						strTemp = str1 + str2;
+					}
 
-			int pos = strTemp.find(sm[1]);
-			if (pos != std::string::npos)
-			{
-				std::string str1 = strTemp.substr(0, pos);
-				std::string str2 = strTemp.substr(pos + sm[1].length(), strTemp.length());
-				strTemp = str1 + str2;
+				}
+				gcodeStr = strTemp;
 			}
+			else  if (std::regex_match(gcodeStr, sm, std::regex(".*png begin(.*)png end.*png begin(.*)png end.*"))) //png
+			{
+				std::string strTemp = gcodeStr;
 
-            if (sm.size() > 2)
-            {
-                getImage(sm[2], result);
+				getImage(sm[1], result);
 
-				int pos = strTemp.find(sm[2]);
+				int pos = strTemp.find(sm[1]);
 				if (pos != std::string::npos)
 				{
 					std::string str1 = strTemp.substr(0, pos);
-					std::string str2 = strTemp.substr(pos + sm[2].length(), strTemp.length());
+					std::string str2 = strTemp.substr(pos + sm[1].length(), strTemp.length());
 					strTemp = str1 + str2;
 				}
 
-            }
+				if (sm.size() > 2)
+				{
+					getImage(sm[2], result);
 
-			gcodeStr = strTemp;
-        }
-        else  if (std::regex_match(gcodeStr, sm, std::regex(".*bmp begin(.*)bmp end.*bmp begin(.*)bmp end.*"))) //bmp
-        {
-			std::string strTemp = gcodeStr;
-            getImage(sm[1], result);
+					int pos = strTemp.find(sm[2]);
+					if (pos != std::string::npos)
+					{
+						std::string str1 = strTemp.substr(0, pos);
+						std::string str2 = strTemp.substr(pos + sm[2].length(), strTemp.length());
+						strTemp = str1 + str2;
+					}
 
-			int pos = strTemp.find(sm[1]);
-			if (pos != std::string::npos)
-			{
-				std::string str1 = strTemp.substr(0, pos);
-				std::string str2 = strTemp.substr(pos + sm[1].length(), strTemp.length());
-				strTemp = str1 + str2;
+				}
+
+				gcodeStr = strTemp;
 			}
+			else  if (std::regex_match(gcodeStr, sm, std::regex(".*bmp begin(.*)bmp end.*bmp begin(.*)bmp end.*"))) //bmp
+			{
+				std::string strTemp = gcodeStr;
+				getImage(sm[1], result);
 
-            if (sm.size() > 2)
-            {
-                getImage(sm[2], result);
-
-				int pos = strTemp.find(sm[2]);
+				int pos = strTemp.find(sm[1]);
 				if (pos != std::string::npos)
 				{
 					std::string str1 = strTemp.substr(0, pos);
-					std::string str2 = strTemp.substr(pos + sm[2].length(), strTemp.length());
+					std::string str2 = strTemp.substr(pos + sm[1].length(), strTemp.length());
 					strTemp = str1 + str2;
 				}
 
-            }
-			gcodeStr = strTemp;
-        }
-        if (std::regex_match(gcodeStr, sm, std::regex(".*thumbnail begin(.*)thumbnail end.*"))) //thumbnail
-        {
-			std::string strTemp = gcodeStr;
-            getImage(sm[1], result);
+				if (sm.size() > 2)
+				{
+					getImage(sm[2], result);
 
-			int pos = strTemp.find(sm[1]);
-			if (pos != std::string::npos)
-			{
-				std::string str1 = strTemp.substr(0, pos);
-				std::string str2 = strTemp.substr(pos + sm[1].length(), strTemp.length());
-				strTemp = str1 + str2;
+					int pos = strTemp.find(sm[2]);
+					if (pos != std::string::npos)
+					{
+						std::string str1 = strTemp.substr(0, pos);
+						std::string str2 = strTemp.substr(pos + sm[2].length(), strTemp.length());
+						strTemp = str1 + str2;
+					}
+
+				}
+				gcodeStr = strTemp;
 			}
-			gcodeStr = strTemp;
-        }     
-		if (std::regex_match(gcodeStr, sm, std::regex(".*TIME:\\s{0,}([0-9]{0,8}).*"))) ////get print time
+			if (std::regex_match(gcodeStr, sm, std::regex(".*thumbnail begin(.*)thumbnail end.*"))) //thumbnail
+			{
+				std::string strTemp = gcodeStr;
+				getImage(sm[1], result);
+
+				int pos = strTemp.find(sm[1]);
+				if (pos != std::string::npos)
+				{
+					std::string str1 = strTemp.substr(0, pos);
+					std::string str2 = strTemp.substr(pos + sm[1].length(), strTemp.length());
+					strTemp = str1 + str2;
+				}
+				gcodeStr = strTemp;
+			}
+		}
+
+		if (gcodeStr.find("TIME") != std::string::npos)
+			if (std::regex_match(gcodeStr, sm, std::regex(".*TIME:\\s{0,}([0-9]{0,8}).*"))) ////get print time
 		{
 			std::string tStr = sm[1];
 			int tmp = atoi(tStr.c_str());
@@ -282,21 +290,25 @@ namespace gcode
 
 			regex_match_time(gcodeStr, sm, parseInfo);
 		}
-		if (std::regex_match(gcodeStr, sm, std::regex(".*Filament used:\\s{0,}([0-9]{0,8}\\.[0-9]{0,8}).*"))) ////get print time
+		
+		if (gcodeStr.find("Filament used") != std::string::npos)
+			if (std::regex_match(gcodeStr, sm, std::regex(".*Filament used:\\s{0,}([0-9]{0,8}\\.[0-9]{0,8}).*"))) ////get print time
 		{
 			std::string tStr = sm[1];
 			float tmp = atof(tStr.c_str());
 			parseInfo.materialLenth = tmp;
 		}
 
-		if (regex_match(gcodeStr, "machine belt offset", sm))
+		if (gcodeStr.find("machine belt offset") != std::string::npos)
+			if (regex_match(gcodeStr, "machine belt offset", sm))
 		{
 			std::string tStr = sm[1];
 			float tmp = atof(tStr.c_str());
 			parseInfo.beltOffset = tmp;
 		}
 
-		if (regex_match(gcodeStr, "machine belt offset Y", sm))
+		if (gcodeStr.find("machine belt offset Y") != std::string::npos)
+			if (regex_match(gcodeStr, "machine belt offset Y", sm))
 		{
 			std::string tStr = sm[1];
 			float tmp = atof(tStr.c_str());
@@ -304,52 +316,58 @@ namespace gcode
 		}
 
 		bool hasMachineSpaceBox = false;
-		if (regex_match(gcodeStr, "Machine Height", sm))
-		{
-			std::string tStr = sm[1];
-			float tmp = atof(tStr.c_str());
-			parseInfo.machine_height = tmp;
-		}
-		else
-			hasMachineSpaceBox = true;
+		if (gcodeStr.find("Machine Height") != std::string::npos)
+			if (regex_match(gcodeStr, "Machine Height", sm))
+			{
+				std::string tStr = sm[1];
+				float tmp = atof(tStr.c_str());
+				parseInfo.machine_height = tmp;
+			}
+			else
+				hasMachineSpaceBox = true;
 
-		if (regex_match(gcodeStr, "Machine Width", sm))
-		{
-			std::string tStr = sm[1];
-			float tmp = atof(tStr.c_str());
-			parseInfo.machine_width = tmp;
-		}
-		else
-			hasMachineSpaceBox = true;
+		if (gcodeStr.find("Machine Width") != std::string::npos)
+			if (regex_match(gcodeStr, "Machine Width", sm))
+			{
+				std::string tStr = sm[1];
+				float tmp = atof(tStr.c_str());
+				parseInfo.machine_width = tmp;
+			}
+			else
+				hasMachineSpaceBox = true;
 
-		if (regex_match(gcodeStr, "Machine Depth", sm))
-		{
-			std::string tStr = sm[1];
-			float tmp = atof(tStr.c_str());
-			parseInfo.machine_depth = tmp;
-		}
-		else
-			hasMachineSpaceBox = true;
+		if (gcodeStr.find("Machine Depth") != std::string::npos)
+			if (regex_match(gcodeStr, "Machine Depth", sm))
+			{
+				std::string tStr = sm[1];
+				float tmp = atof(tStr.c_str());
+				parseInfo.machine_depth = tmp;
+			}
+			else
+				hasMachineSpaceBox = true;
 
 		if (hasMachineSpaceBox)
 		{//获取模型尺寸信息
-			if (regex_match(gcodeStr, "MAXX", sm))
-			{
-				std::string tStr = sm[1];
-				parseInfo.machine_width = atof(tStr.c_str()) + 20; //gap
-			}
+			if (gcodeStr.find("MAXX") != std::string::npos)
+				if (regex_match(gcodeStr, "MAXX", sm))
+				{
+					std::string tStr = sm[1];
+					parseInfo.machine_width = atof(tStr.c_str()) + 20; //gap
+				}
 
-			if (regex_match(gcodeStr, "MAXY", sm))
-			{
-				std::string tStr = sm[1];
-				parseInfo.machine_depth = atof(tStr.c_str()) + 20; //gap
-			}
+			if (gcodeStr.find("MAXY") != std::string::npos)
+				if (regex_match(gcodeStr, "MAXY", sm))
+				{
+					std::string tStr = sm[1];
+					parseInfo.machine_depth = atof(tStr.c_str()) + 20; //gap
+				}
 
-			if (regex_match(gcodeStr, "MAXZ", sm))
-			{
-				std::string tStr = sm[1];
-				parseInfo.machine_height = atof(tStr.c_str()) + 20; //gap
-			}
+			if (gcodeStr.find("MAXZ") != std::string::npos)
+				if (regex_match(gcodeStr, "MAXZ", sm))
+				{
+					std::string tStr = sm[1];
+					parseInfo.machine_height = atof(tStr.c_str()) + 20; //gap
+				}
 		}
 
 		int pos1 = gcodeStr.find("M82");// absolute extrusion mode
@@ -389,36 +407,47 @@ namespace gcode
 
 		//float material_diameter = 1.75;
 		//float material_density = 1.24;
-		if (regex_match(gcodeStr, "Material Diameter", sm))
-		{
-			std::string tStr = sm[1];
-			parseInfo.material_diameter = atof(tStr.c_str()); //gap
-		}
-		if (regex_match(gcodeStr, "Material Density", sm))
-		{
-			std::string tStr = sm[1];
-			parseInfo.material_density = atof(tStr.c_str()); //gap
-		}
+		if (gcodeStr.find("Material Diameter") != std::string::npos)
+			if (regex_match(gcodeStr, "Material Diameter", sm))
+			{
+				std::string tStr = sm[1];
+				parseInfo.material_diameter = atof(tStr.c_str()); //gap
+			}
+		if (gcodeStr.find("Material Density") != std::string::npos)
+			if (regex_match(gcodeStr, "Material Density", sm))
+			{
+				std::string tStr = sm[1];
+				parseInfo.material_density = atof(tStr.c_str()); //gap
+			}
 
 		//单位面积密度
 		parseInfo.materialDensity = PI * (parseInfo.material_diameter * 0.5) * (parseInfo.material_diameter * 0.5) * parseInfo.material_density;
 
 		float filament_cost = 0.0;
-		if (regex_match(gcodeStr, "Filament Cost", sm))
-		{
-			std::string tStr = sm[1];
-			filament_cost = atof(tStr.c_str()); //gap
-		}
+		if (gcodeStr.find("Filament Cost") != std::string::npos)
+			if (regex_match(gcodeStr, "Filament Cost", sm))
+			{
+				std::string tStr = sm[1];
+				filament_cost = atof(tStr.c_str()); //gap
+			}
+		float filament_weight = 0.0;
+		if (gcodeStr.find("Filament Weight") != std::string::npos)
+			if (regex_match(gcodeStr, "Filament Weight", sm))
+			{
+				std::string tStr = sm[1];
+				filament_weight = atof(tStr.c_str()); //gap
+			}
 
-		parseInfo.unitPrice = filament_cost / parseInfo.materialLenth;
-		parseInfo.filament_weight = parseInfo.materialLenth * parseInfo.materialDensity;
+		float filament_length = filament_weight / parseInfo.materialDensity;
+		parseInfo.unitPrice = filament_cost / filament_length;
 
 		parseInfo.lineWidth = 0.4;
-		if (regex_match(gcodeStr, "Out Wall Line Width", sm))
-		{
-			std::string tStr = sm[1];
-			parseInfo.lineWidth = atof(tStr.c_str()); //gap
-		}
+		if (gcodeStr.find("Out Wall Line Width") != std::string::npos)
+			if (regex_match(gcodeStr, "Out Wall Line Width", sm))
+			{
+				std::string tStr = sm[1];
+				parseInfo.lineWidth = atof(tStr.c_str()); //gap
+			}
 
 		parseInfo.exportFormat = "jpg";
 		int ipos = gcodeStr.find("Preview Img Type");
@@ -427,22 +456,26 @@ namespace gcode
 			parseInfo.exportFormat = gcodeStr.substr(ipos + 17, 3);
 		}
 
-
 		parseInfo.layerHeight = 0.0;
-		if (regex_match(gcodeStr, "Layer Height", sm)
-			|| regex_match(gcodeStr, "Layer height", sm))
+		if (gcodeStr.find("Layer Height") != std::string::npos
+			|| gcodeStr.find("Layer height") != std::string::npos)
 		{
-			std::string tStr = sm[1];
-			parseInfo.layerHeight = atof(tStr.c_str()); //gap
-			//兼容老的
-			if (parseInfo.layerHeight >= 50)
-				parseInfo.layerHeight = parseInfo.layerHeight / 1000.0f;
+			if (regex_match(gcodeStr, "Layer Height", sm)
+				|| regex_match(gcodeStr, "Layer height", sm))
+			{
+				std::string tStr = sm[1];
+				parseInfo.layerHeight = atof(tStr.c_str()); //gap
+				//兼容老的
+				if (parseInfo.layerHeight >= 50)
+					parseInfo.layerHeight = parseInfo.layerHeight / 1000.0f;
+			}
 		}
-		if (regex_match(gcodeStr, "Adaptive Layers", sm))
-		{
-			std::string tStr = sm[1];
-			parseInfo.adaptiveLayers = bool(atoi(tStr.c_str())); //gap
-		}
+		if (gcodeStr.find("Adaptive Layers") != std::string::npos)
+			if (regex_match(gcodeStr, "Adaptive Layers", sm))
+			{
+				std::string tStr = sm[1];
+				parseInfo.adaptiveLayers = bool(atoi(tStr.c_str())); //gap
+			}
 
 		parseInfo.screenSize = "Sermoon D3";
 		if (gcodeStr.find("Screen Size:CR-200B Pro") != std::string::npos)

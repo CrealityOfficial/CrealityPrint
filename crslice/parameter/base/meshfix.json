@@ -38,7 +38,7 @@
 		"description": "Keep open polygons slicing for printers using granular consumables.   ",
 		"type": "bool",
 		"default_value": "false",
-		"settable_per_mesh": true
+		"settable_per_mesh": "true"
 	},
 	"multiple_mesh_overlap":
 	{

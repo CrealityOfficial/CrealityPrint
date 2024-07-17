@@ -78,7 +78,7 @@ public:
 	//状态复位
 	Q_INVOKABLE void batch_reset();
     //发送文件/一键打印
-    Q_INVOKABLE void batch_command(const QString& fileName, bool sendOnly);
+    Q_INVOKABLE void batch_command(const QString& fileName, const QString& filePath, bool sendOnly);
 	//传输文件
 	Q_INVOKABLE void reloadFile(const QString& macAddress);
 	Q_INVOKABLE void importFile(const QString& macAddress, const QList<QUrl>& fileUrls);
@@ -105,13 +105,25 @@ public:
 	Q_INVOKABLE QDateTime getCurrentDateTime(bool min);
     //获取Item
     Q_INVOKABLE ListModelItem* getDeviceItem(const QString& macAddress);
+    Q_INVOKABLE QObject* getDeviceObject(int index);
 
+	Q_INVOKABLE bool hasDeviceOnline();
 	Q_INVOKABLE bool checkOnePrint();
-
 	Q_INVOKABLE void checkAutoPrint(bool auto_check);
 	Q_INVOKABLE bool showAutoPrintTip();
+	Q_INVOKABLE bool checkPrinterFromIp(QString ip);
+	Q_INVOKABLE void setOneSelected(QString ip);
+	Q_INVOKABLE QString getOneProgress(QString ip);
+	Q_INVOKABLE QString getPinterErrorCode(QString ip);
+	Q_INVOKABLE QString getPinterErrorMsg(QString ip);
+	Q_INVOKABLE QString getPinterErrorKey(QString ip);
+	Q_INVOKABLE QString getPrinterType(QString ip);
 	Q_INVOKABLE int deviceCount();
+	Q_INVOKABLE int getPinterStatus(QString ip);
+	Q_INVOKABLE int getPinterState(QString ip);
+	Q_INVOKABLE QString getPinterName(QString ip);
 
+	
 
 protected:
 	int rowCount(const QModelIndex &parent = QModelIndex()) const;
@@ -121,6 +133,7 @@ protected:
 protected:
 	QString getErrorMsgFromCode(int errorCode);
 	QString getPrinterNameFromCode(QString codeName);
+	QString getUniqueNameFromCode(QString codeName);
 	const QMap<int, QString> Cpr_ErrorMsg = QMap<int, QString>
 	{
 		{1, "Connection failure"},
@@ -196,6 +209,7 @@ private:
 
 	bool m_sendOnly = false;
 	bool m_bIsConnecting = false;
+	RemotePrinerType m_isConnectingType = RemotePrinerType::REMOTE_PRINTER_TYPE_LAN;
 	ImgProvider* m_previewProvider;
 
 	QRegExp m_posRegExp;
@@ -206,10 +220,11 @@ private:
 	QStringList m_deviceGroupNames;
 	bool m_firstRun = true;
 
-	QSharedPointer<us::USettings> settings;
 	QMap<QString, DeviceInfo> m_MapDeviceInfo;
 	QList<QPair<QString, ListModelItem*>> m_ListPrinterItem;
-
+	std::map<QString, std::vector<PrinterInfo>> type_printer_map_;
+	bool m_isTransing = false;			//用于判定是否正在传输文件，如果正在传输，则不需要显示是否离线。
+	QString m_curTransingMac = "";
 };
 
 class ListModelItem: public QObject
@@ -266,13 +281,16 @@ public:
 		E_ChamberTemp,
 		E_ChamberDstTemp,
 		E_SendingFileName,
-		E_PrinterModelName
+		E_PrinterModelName,
+		E_PrinterImageUrl,
+		E_MateialBoxList,
+		E_FilePrefixPath
     };
-
 
     Q_PROPERTY(QString pcPrinterID READ pcPrinterID WRITE setPcPrinterID NOTIFY pcPrinterIDChanged)
     Q_PROPERTY(QString pcPrinterModel READ pcPrinterModel WRITE setPcPrinterModel NOTIFY pcPrinterModelChanged)
 	Q_PROPERTY(QString printerModelName READ printerModelName WRITE setPrinterModelName NOTIFY printerModelNameChanged)
+	Q_PROPERTY(QString deviceName READ deviceName WRITE setDeviceName NOTIFY deviceNameChanged)
 	Q_PROPERTY(int errorKey READ errorKey WRITE setErrorKey NOTIFY errorKeyChanged)
 	Q_PROPERTY(int errorCode READ errorCode WRITE setErrorCode NOTIFY errorCodeChanged)
 	Q_PROPERTY(int fluiddPort READ fluiddPort WRITE setFluiddPort NOTIFY fluiddPortChanged)
@@ -330,14 +348,20 @@ public:
 	Q_PROPERTY(QString printObjects READ printObjects WRITE setPrintObjects NOTIFY printObjectsChanged)
 	Q_PROPERTY(QString excludedObjects READ excludedObjects WRITE setExcludedObjects NOTIFY excludedObjectsChanged)
 	Q_PROPERTY(QString currentObject READ currentObject WRITE setCurrentObject NOTIFY currentObjectChanged)
+
 	Q_PROPERTY(int maxNozzleTemp READ maxNozzleTemp WRITE setMaxNozzleTemp NOTIFY maxNozzleTempChanged)
 	Q_PROPERTY(int maxBedTemp READ maxBedTemp WRITE setMaxBedTemp NOTIFY maxBedTempChanged)
 
-	Q_PROPERTY(QString machineChamberFanExist READ machineChamberFanExist WRITE setMachineChamberFanExist NOTIFY machineChamberFanExistChanged)
-	Q_PROPERTY(QString machineCdsFanExist READ machineCdsFanExist WRITE setMachineCdsFanExist NOTIFY machineCdsFanExistChanged)
-    Q_PROPERTY(QString machineLEDLightExist READ machineLEDLightExist WRITE setMachineLEDLightExist NOTIFY machineLEDLightExistChanged)
+	Q_PROPERTY(bool machineChamberFanExist READ machineChamberFanExist WRITE setMachineChamberFanExist NOTIFY machineChamberFanExistChanged)
+	Q_PROPERTY(bool machineCdsFanExist READ machineCdsFanExist WRITE setMachineCdsFanExist NOTIFY machineCdsFanExistChanged)
+	Q_PROPERTY(bool machineLEDLightExist READ machineLEDLightExist WRITE setMachineLEDLightExist NOTIFY machineLEDLightExistChanged)
 	Q_PROPERTY(QString sendingFileName READ sendingFileName NOTIFY sendingFileNameChanged)
-	Q_PROPERTY(QString machinePlatformMotionEnable READ machinePlatformMotionEnable WRITE setMachinePlatformMotionEnable NOTIFY machinePlatformMotionEnableChanged)
+	Q_PROPERTY(bool machinePlatformMotionEnable READ machinePlatformMotionEnable WRITE setMachinePlatformMotionEnable NOTIFY machinePlatformMotionEnableChanged)
+
+	Q_PROPERTY(QObject*materialBoxList READ materialBoxList WRITE setMaterialBoxList NOTIFY materialBoxListChanged)
+
+	Q_PROPERTY(QString filePrefixPath READ filePrefixPath NOTIFY filePrefixPathChanged)
+
     explicit ListModelItem(QObject* parent = nullptr);
     ListModelItem(const ListModelItem& listModelItem);
     ~ListModelItem();
@@ -350,6 +374,9 @@ public:
 
 	const QString& printerModelName() const;
 	void setPrinterModelName(const QString& printerModel);
+
+	const QString& deviceName() const;
+	void setDeviceName(const QString& deviceName);
 
 	int errorKey() const;
 	void setErrorKey(int key);
@@ -468,6 +495,35 @@ public:
     bool ledOpened() const;
     void setLedOpened(bool opened);
 
+	QString printObjects() const;
+	void setPrintObjects(const QString& printobject);
+	QString currentObject() const;
+	void setCurrentObject(const QString& printobject);
+	
+
+	QString excludedObjects() const;
+	void setExcludedObjects(const QString& printobject);
+
+	int maxNozzleTemp() const;
+	void setMaxNozzleTemp(const int temp);
+	int maxBedTemp() const;
+	void setMaxBedTemp(const int temp);
+
+	bool machineChamberFanExist() const;
+	void setMachineChamberFanExist(const bool& machineChamberFanExist);
+
+	bool machineCdsFanExist() const;
+	void setMachineCdsFanExist(const bool& machineCdsFanExist);
+
+	bool machineLEDLightExist() const;
+	void setMachineLEDLightExist(const bool& machineLEDLightExist);
+
+	bool machinePlatformMotionEnable() const;
+	void setMachinePlatformMotionEnable(const bool& machinePlatformMotionEnable);
+
+	QObject* materialBoxList() const;
+	void setMaterialBoxList(QObject* box);
+
 	float gCodeTransProgress() const;
 	void setGCodeTransProgress(float progress);
 
@@ -505,31 +561,11 @@ public:
 	float machineDepth() const;
 	void setMachineDepth(float depth);
 
+	QString filePrefixPath() const;
+	void setFilePrefixPath(QString path);
+
 	QString sendingFileName() const;
 	void setSendingFileName(const QString& filename);
-
-	QString printObjects() const;
-	void setPrintObjects(const QString& printobject);
-	QString currentObject() const;
-	void setCurrentObject(const QString& printobject);
-	QString excludedObjects() const;
-	void setExcludedObjects(const QString& printobject);
-	int maxNozzleTemp() const;
-	void setMaxNozzleTemp(const int temp);
-	int maxBedTemp() const;
-	void setMaxBedTemp(const int temp);
-
-	QString machineChamberFanExist() const;
-	void setMachineChamberFanExist(const QString& machineChamberFanExist);
-
-	QString machineCdsFanExist() const;
-	void setMachineCdsFanExist(const QString& machineCdsFanExist);
-
-	QString machineLEDLightExist() const;
-	void setMachineLEDLightExist(const QString& machineLEDLightExist);
-
-	QString machinePlatformMotionEnable() const;
-	void setMachinePlatformMotionEnable(const QString& machinePlatformMotionEnable);
 
 	friend class CusListModel;
 
@@ -596,12 +632,16 @@ signals:
 	void machineCdsFanExistChanged();
 	void machineLEDLightExistChanged();
 	void machinePlatformMotionEnableChanged();
+	void deviceNameChanged();
+	void materialBoxListChanged();
+	void filePrefixPathChanged();
 
 private:
 	QVector<int> m_roles = QVector<int>();
 	QString m_pcPrinterID;
     QString m_pcPrinterModel;
 	QString m_printerModelName;
+	QString m_deviceName;
 	int m_errorKey;
 	int m_errorCode;
 	int m_fluiddPort;
@@ -654,16 +694,18 @@ private:
 	float m_machineHeight;
 	float m_machineWidth;
 	float m_machineDepth;
+	QString m_filePrefixPath;
 	QString m_sendingFileName;
 	QString m_printObjects;
 	QString m_excludedObjects;
 	QString m_currentObject;
 	int m_maxNozzleTemp;
 	int m_maxBedTemp;
-	QString m_machineChamberFanExist;
-	QString m_machineCdsFanExist;
-	QString m_machineLEDLightExist;
-	QString m_machinePlatformMotionEnable;
+	bool m_machineChamberFanExist;
+	bool m_machineCdsFanExist;
+	bool m_machineLEDLightExist;
+	bool m_machinePlatformMotionEnable;
+	QObject* m_materialBoxList;
 	
 };
 Q_DECLARE_METATYPE(ListModelItem)

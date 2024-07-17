@@ -63,6 +63,7 @@ GCodeExport::GCodeExport()
     fan_number = 0;
 
     total_bounding_box = AABB3D();
+    //max_speed_limit_to_height = -1.0;
 }
 
 GCodeExport::~GCodeExport()
@@ -234,6 +235,11 @@ void GCodeExport::writeProfileConfig()
     tmp << ";Material Type:" << extruderSettings->get<std::string>("material_type") << new_line;
     tmp << ";Max volumetric speed:" << extruderSettings->get<std::string>("material_max_volumetric_speed") << new_line;
 
+
+	tmp << ";Material Diameter:" << extruderSettings->get<std::string>("material_diameter") << new_line;
+	tmp << ";Material Density:" << extruderSettings->get<std::string>("material_density") << new_line;
+	tmp << ";Filament Cost:" << extruderSettings->get<std::string>("filament_cost") << new_line; 
+	tmp << ";Filament Weight:" << extruderSettings->get<std::string>("filament_weight") << new_line;
 	tmp << ";Preview Img Type:" << groupSettings->get<std::string>("preview_img_type") << new_line;
 	tmp << ";Screen Size:" << groupSettings->get<std::string>("screen_size") << new_line;
     *output_stream << tmp.str();
@@ -357,6 +363,15 @@ void GCodeExport::writeSpecialModelAndMeshConfig()
     tmp << ";Raft AirGap:" << (float)extruderSettings->get<coord_t>("raft_airgap") / 1000.0f << new_line;
     tmp << ";Layer0 ZOverLap:" << (float)extruderSettings->get<coord_t>("layer_0_z_overlap") / 1000.0f << new_line;
     tmp << ";Adaptive Layers:" << (float)extruderSettings->get<bool>("adaptive_layer_height_enabled") << new_line;
+
+    tmp << "; --------Colors--------" << new_line;
+    tmp << ";ASM Material Count:" << groupSettings->get<int>("asm_material_count") << new_line;
+    tmp << ";Model Color Count:" << groupSettings->get<int>("model_color_count") << new_line;
+    tmp << ";Flush Volumes Matrix:" << groupSettings->get<std::string>("flush_volumes_matrix") << new_line;
+    tmp << ";Filament Colour:" << groupSettings->get<std::string>("filament_colour") << new_line;
+    tmp << ";Flush into objects:" << groupSettings->get<bool>("flush_into_objects") << new_line;
+    tmp << ";Flush into objects:" << groupSettings->get<bool>("flush_into_infill") << new_line;
+    tmp << ";Filament minimal purge on wipe tower:" << (float)meshSettings->get<coord_t>("filament_minimal_purge_on_wipe_tower") / 1000.0f << new_line;
 
     *output_stream << tmp.str();
 }
@@ -498,7 +513,7 @@ std::string GCodeExport::getFileHeader(const std::vector<bool>& extruder_is_used
             prefix << ";Filament Length:" << std::to_string(pathParam.materialLenth) << new_line;
         }
         else
-            prefix << ";Layer Height:" << application->get_layer_height() << new_line;
+            prefix << ";Layer Height:" << INT2MM(application->get_layer_height()) << new_line;
         prefix << ";MINX:" << INT2MM(total_bounding_box.min.x) << new_line;
         prefix << ";MINY:" << INT2MM(total_bounding_box.min.y) << new_line;
         prefix << ";MINZ:" << INT2MM(total_bounding_box.min.z) << new_line;
@@ -1017,8 +1032,14 @@ void GCodeExport::writeZoffsetComment(const double zOffset)
 
 void GCodeExport::writePressureComment(const double length)
 {
-    *output_stream << "M900 K" << length << new_line;
-
+    if(flavor == EGCodeFlavor::Creality_OS)
+	{
+        *output_stream << "SET_PRESSURE_ADVANCE ADVANCE=" << length << "; Override pressure advance value" << new_line;
+	}
+    else
+    {
+        *output_stream << "M900 K" << length << new_line;
+    }
     if (application->debugger())
         application->debugger()->getNotPath();
 }
@@ -1658,7 +1679,7 @@ void GCodeExport::writeFXYZIJE(const Velocity& speed, const coord_t x, const coo
             , MMtoStream{ i }.value
             , MMtoStream{ j }.value
             , (e + current_e_offset != current_e_value) ? PrecisionedDouble{ 5, output_e }.value :-999
-            , (int)feature, estimateCalculator->is_ccw);
+            , (int)feature,0, estimateCalculator->is_ccw);
 
 
     *output_stream << new_line;
@@ -2348,6 +2369,9 @@ void GCodeExport::writeTemperatureCommand(const size_t extruder, const Temperatu
     {
         return;
     }
+    if (extruder != current_extruder) {
+        return;
+    }
 
     if (wait && flavor != EGCodeFlavor::MAKERBOT)
     {
@@ -2363,6 +2387,7 @@ void GCodeExport::writeTemperatureCommand(const size_t extruder, const Temperatu
     }
     else
     {
+        //¼ÓÈÈÅçÍ·
         *output_stream << "M104";
         extruder_attr[extruder].waited_for_temperature = false;
 
@@ -2568,7 +2593,16 @@ void GCodeExport::writePrintAcceleration(const Acceleration& acceleration, bool 
             {
                 //Acceleration breakAcc = std::max(acc * acceleration_percent / 100, Acceleration(100));
                 *output_stream << "SET_VELOCITY_LIMIT ACCEL=" << PrecisionedDouble{ 0, acc };
-                *output_stream << " ACCEL_TO_DECEL=" << PrecisionedDouble{ 0, acc * acceleration_percent / 100 } << new_line;
+                *output_stream << " ACCEL_TO_DECEL=" << PrecisionedDouble{ 0, acc * acceleration_percent / 100 } << new_line;;
+                //if (acc >10000)
+                //{
+                //    *output_stream << " SQUARE_CORNER_VELOCITY=12" << new_line;
+                //    
+                //} 
+                //else
+                //{
+                //    *output_stream << " SQUARE_CORNER_VELOCITY=1" << new_line;
+                //}
                 if (application->debugger())
                     application->debugger()->getNotPath();
             }

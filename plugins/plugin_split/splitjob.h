@@ -18,7 +18,8 @@ public:
 	virtual ~SplitJob();
 
 	void setModel(creative_kernel::ModelN* model);
-	void setPlane(const qtuser_3d::Plane& plane);
+	void setPlane(const trimesh::vec3& position, const trimesh::vec3& normal);
+	void setGap(float gap);
 protected:
 	QString name() override;
 	QString description() override;
@@ -26,8 +27,10 @@ protected:
     void failed() override; 
     void successed(qtuser_core::Progressor* progressor) override;
 protected:
+	float m_gap;
 	creative_kernel::ModelN* m_model;
-	qtuser_3d::Plane m_plane;
+	trimesh::vec3 m_position;
+	trimesh::vec3 m_normal;
 
 	std::vector<trimesh::TriMesh*> m_meshes;
 };

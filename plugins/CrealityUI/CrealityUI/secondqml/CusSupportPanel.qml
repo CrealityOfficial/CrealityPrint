@@ -264,7 +264,7 @@ LeftPanelDialog {
                 text: qsTr("Delete")
                 width: add_support.width
                 height: add_support.height
-                btnRadius:14 * screenScaleFacto
+                btnRadius:14 * screenScaleFactor
                 pointSize: 9
                 borderColor: Constants.lpw_BtnBorderColor
                 borderHoverColor: "transparent"

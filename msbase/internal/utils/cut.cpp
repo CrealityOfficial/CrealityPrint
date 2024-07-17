@@ -1,15 +1,61 @@
-#include "msbase/utils/cut.h"
+ï»¿#include "msbase/utils/cut.h"
+#include "ccglobal/serial.h"
+#include "msbase/utils/trimeshserial.h"
+#include "msbase/mesh/dumplicate.h"
 #include <list>
 #include <map>
 
 #include "trimesh2/XForm.h"
 #include "trimesh2/Vec3Utils.h"
-
+#include <unordered_map>
 #include "internal/poly/polygonstack.h"
 #include <cfloat>
+#include <queue>
 
 namespace msbase
 {
+	class CutInput : public ccglobal::Serializeable {
+	public:
+		trimesh::TriMesh* mesh = nullptr;
+		CutPlane plane;
+		CutParam param;
+		float Upz = 0.0f;
+		float Downz = 0.0f;
+
+		CutInput() {}
+		~CutInput() {}
+
+		int version() override
+		{
+			return 0;
+		}
+		bool save(std::fstream& out, ccglobal::Tracer* tracer) override
+		{
+			msbase::saveTrimesh(out, *mesh);
+			ccglobal::cxndSaveT(out, plane.normal);
+			ccglobal::cxndSaveT(out, plane.position);
+			ccglobal::cxndSaveT(out, Upz);
+			ccglobal::cxndSaveT(out, Downz);
+			ccglobal::cxndSaveT(out, param.fillHole);
+			ccglobal::cxndSaveStr(out, param.fileName);
+			return true;
+		}
+		bool load(std::fstream& in, int ver, ccglobal::Tracer* tracer) override
+		{
+			if (ver == 0) {
+				msbase::loadTrimesh(in, *mesh);
+				ccglobal::cxndLoadT(in, plane.normal);
+				ccglobal::cxndLoadT(in, plane.position);
+				ccglobal::cxndLoadT(in, Upz);
+				ccglobal::cxndLoadT(in, Downz);
+				ccglobal::cxndLoadT(in, param.fillHole);
+				ccglobal::cxndLoadStr(in, param.fileName);
+				return true;
+			}
+			return false;
+		}
+	};
+
 	struct segment
 	{
 		int start;
@@ -28,7 +74,7 @@ namespace msbase
 		}
 	};
 
-	//½«ÃæºÍ¶ÔÓ¦µÄ¶¥µãÌí¼Óµ½mesh ÖĞ
+	//å°†é¢å’Œå¯¹åº”çš„é¡¶ç‚¹æ·»åŠ åˆ°mesh ä¸­
 	 void addFaceVertices(trimesh::TriMesh* mesh, const trimesh::vec3& v1, const trimesh::vec3& v2, const trimesh::vec3& v3)
 	 {
 		int index = (int)mesh->vertices.size();
@@ -48,15 +94,15 @@ namespace msbase
 		float dv = distances.at(Point0Index);//
 		float d1 = distances.at(Point1Index);
 		float d2 = distances.at(Point2Index);
-		if (d1 == 0.0f && d2 == 0.0f)//±ß½çÅĞ¶Ï d1,d2Î»ÓÚÇĞ¸îÃæÊ±
+		if (d1 == 0.0f && d2 == 0.0f)//è¾¹ç•Œåˆ¤æ–­ d1,d2ä½äºåˆ‡å‰²é¢æ—¶
 		{
-			if (dv >= 0.0f)//dv´óÓÚÇĞ¸îÃæ¡÷
+			if (dv >= 0.0f)//dvå¤§äºåˆ‡å‰²é¢â–³
 			{
-				addFaceVertices(meshUP, Point0, Point1, Point2);//·Ö¸îĞÂÔöµÄÃæÌí¼Óµ½¶ÔÓ¦µÄmesh
+				addFaceVertices(meshUP, Point0, Point1, Point2);//åˆ†å‰²æ–°å¢çš„é¢æ·»åŠ åˆ°å¯¹åº”çš„mesh
 				lines.push_back(Point1);
 				lines.push_back(Point2);
 			}
-			else//dvĞ¡ÓÚÇĞ¸îÃæ¨Œ
+			else//dvå°äºåˆ‡å‰²é¢â–½
 			{
 				addFaceVertices(meshDown, Point0, Point1, Point2);
 				lines.push_back(Point2);
@@ -65,21 +111,21 @@ namespace msbase
 		}
 		else if (d1 == 0.0f && dv * d2 >= 0.0f)
 		{
-			if (dv >= 0.0f)//d1Î»ÓÚÇĞ¸îÃæÇÒdv d2Î»ÓÚÇĞ¸îÃæÉÏÃæ
+			if (dv >= 0.0f)//d1ä½äºåˆ‡å‰²é¢ä¸”dv d2ä½äºåˆ‡å‰²é¢ä¸Šé¢
 				addFaceVertices(meshUP, Point0, Point1, Point2);
-			else//d1Î»ÓÚÇĞ¸îÃæÇÒdv d2Î»ÓÚÇĞ¸îÃæÏÂÃæ
+			else//d1ä½äºåˆ‡å‰²é¢ä¸”dv d2ä½äºåˆ‡å‰²é¢ä¸‹é¢
 				addFaceVertices(meshDown, Point0, Point1, Point2);
 		}
 		else if (d2 == 0.0f && dv * d1 >= 0.0f)
 		{
-			if (dv >= 0.0f)//d2Î»ÓÚÇĞ¸îÃæÇÒdv d1Î»ÓÚÇĞ¸îÃæÉÏÃæ
+			if (dv >= 0.0f)//d2ä½äºåˆ‡å‰²é¢ä¸”dv d1ä½äºåˆ‡å‰²é¢ä¸Šé¢
 				addFaceVertices(meshUP, Point0, Point1, Point2);
-			else//d2Î»ÓÚÇĞ¸îÃæÇÒdv d1Î»ÓÚÇĞ¸îÃæÏÂÃæ
+			else//d2ä½äºåˆ‡å‰²é¢ä¸”dv d1ä½äºåˆ‡å‰²é¢ä¸‹é¢
 				addFaceVertices(meshDown, Point0, Point1, Point2);
 		}
-		else//ÅÅ³ıËùÓĞµÄµã´¦ÓÚÇĞ¸îÃæµÄÇé¿öºó£¬ ³£¹æÇĞ¸îÇé¿ö
+		else//æ’é™¤æ‰€æœ‰çš„ç‚¹å¤„äºåˆ‡å‰²é¢çš„æƒ…å†µåï¼Œ å¸¸è§„åˆ‡å‰²æƒ…å†µ
 		{
-			//c1 c2 Èı½ÇÃæ±»ÇĞ¸îºóÉú³ÉµÄµã
+			//c1 c2 ä¸‰è§’é¢è¢«åˆ‡å‰²åç”Ÿæˆçš„ç‚¹
 			trimesh::vec3 c1 = (dv / (dv - d1)) * Point1 - (d1 / (dv - d1)) * Point0;
 			trimesh::vec3 c2 = (dv / (dv - d2)) * Point2 - (d2 / (dv - d2)) * Point0;
 
@@ -90,7 +136,7 @@ namespace msbase
 				printf("error");
 			}
 #endif
-			if (dv > 0.0f)//¡÷¡÷¡÷
+			if (dv > 0.0f)//â–³â–³â–³
 			{
 				addFaceVertices(meshUP, Point0, c1, c2);
 				addFaceVertices(meshDown, c2, c1, Point2);
@@ -99,7 +145,7 @@ namespace msbase
 				lines.push_back(c1);
 				lines.push_back(c2);
 			}
-			else if (dv < 0.0f)//¨Œ¨Œ¨Œ 
+			else if (dv < 0.0f)//â–½â–½â–½ 
 			{
 				addFaceVertices(meshDown, Point0, c1, c2);
 				addFaceVertices(meshUP, c2, c1, Point2);
@@ -108,7 +154,7 @@ namespace msbase
 				lines.push_back(c2);
 				lines.push_back(c1);
 			}
-			else//dv ==0,´ËÊ±²»ĞèÒªĞÂÔölines
+			else//dv ==0,æ­¤æ—¶ä¸éœ€è¦æ–°å¢lines
 			{
 				if (d1 > 0.0f)
 				{
@@ -411,21 +457,217 @@ namespace msbase
 		uniPoints.swap(vecpoints);
 	}
 
-	//face ºÍ vetices Éú³ÉĞÂmesh
+	//face å’Œ vetices ç”Ÿæˆæ–°mesh
 	void FaceGenerateMesh(trimesh::TriMesh* newMesh, trimesh::TriMesh* inputMesh, std::vector<trimesh::TriMesh::Face>& inputface)
 	{
-		newMesh->faces.swap(inputface);//Ìí¼ÓÃæ
+		newMesh->faces.swap(inputface);//æ·»åŠ é¢
 		int index = 0;
 		for (trimesh::TriMesh::Face& f : newMesh->faces)
 		{
-			newMesh->vertices.push_back(inputMesh->vertices.at(f.x));//Ìí¼ÓÃæ¶ÔÓ¦µÄ 3¸ö¶¥µã
+			newMesh->vertices.push_back(inputMesh->vertices.at(f.x));//æ·»åŠ é¢å¯¹åº”çš„ 3ä¸ªé¡¶ç‚¹
 			newMesh->vertices.push_back(inputMesh->vertices.at(f.y));
 			newMesh->vertices.push_back(inputMesh->vertices.at(f.z));
 
-			f.x = index++;//newMeshË÷Òı¸üĞÂ
+			f.x = index++;//newMeshç´¢å¼•æ›´æ–°
 			f.y = index++;
 			f.z = index++;
 		}
+	}
+
+	void PointGenerateMesh(trimesh::TriMesh& pointMesh, std::vector<trimesh::vec3>& points)
+	{
+		const int nrows = 20;
+		const int ncolumns = 20;
+		const float radius = 0.02;
+		const size_t nums = nrows * ncolumns + 2;
+		pointMesh.vertices.reserve(points.size());
+		for (int k = 0; k < points.size(); ++k) {
+			const auto& p = points[k];
+			pointMesh.vertices.emplace_back(p.x, p.y, p.z + radius);
+			for (int i = 0; i < nrows; ++i) {
+				const auto& phi = M_PI * (i + 1.0) / double(nrows + 1.0);
+				const auto& z = radius * std::cos(phi);
+				const auto& r = radius * std::sin(phi);
+				for (int j = 0; j < ncolumns; ++j) {
+					const auto& theta = 2.0 * M_PI * j / ncolumns;
+					const auto& x = r * std::cos(theta);
+					const auto& y = r * std::sin(theta);
+					pointMesh.vertices.emplace_back(p.x + x, p.y + y, p.z + z);
+				}
+			}
+			pointMesh.vertices.emplace_back(p.x, p.y, p.z - radius);
+			const auto& maxInx = pointMesh.vertices.size() - 1;
+			const auto& v0 = k * nums;
+			//
+			for (size_t i = 0; i < ncolumns; ++i) {
+				const auto& i0 = i + 1 + v0;
+				const auto& i1 = (i + 1) % ncolumns + 1 + v0;
+				pointMesh.faces.emplace_back(v0, i0, i1);
+				const auto& j0 = i0 + (nrows - 1) * ncolumns;
+				const auto& j1 = i1 + (nrows - 1) * ncolumns;
+				pointMesh.faces.emplace_back(j1, j0, maxInx);
+			}
+			//
+			for (size_t i = 0; i < nrows - 1; ++i) {
+				const auto& j0 = i * ncolumns + 1 + v0;
+				const auto& j1 = (i + 1) * ncolumns + 1 + v0;
+				for (size_t j = 0; j < ncolumns; ++j) {
+					const auto& i0 = j0 + j;
+					const auto& i1 = j0 + (j + 1) % ncolumns;
+					const auto& i2 = j1 + j;
+					const auto& i3 = j1 + (j + 1) % ncolumns;
+					pointMesh.faces.emplace_back(i2, i1, i0);
+					pointMesh.faces.emplace_back(i2, i3, i1);
+				}
+			}
+		}
+		return;
+	}
+
+	void deleteCollideLines(std::vector<trimesh::vec3>& lines, std::vector<trimesh::vec3>& collideLines)
+	{
+		if (lines.size() % 2 != 0 && collideLines.size() % 2 != 0) return;
+		if (collideLines.empty()) return;
+		struct Segment {
+			trimesh::vec3 a;
+			trimesh::vec3 b;
+		};
+		const size_t lineSize = lines.size() / 2;
+		const size_t collideSize = collideLines.size() % 2;
+		std::vector<Segment> segments;
+		for (int i = 0; i < lineSize; ++i) {
+			Segment seg;
+			seg.a = lines[2 * i];
+			seg.b = lines[2 * i + 1];
+			segments.emplace_back(seg);
+		}
+		std::queue<Segment> Queues;
+		for (const auto& seg : segments) {
+			Queues.push(seg);
+		}
+		std::vector<std::vector<Segment>>segLists;
+		while (!Queues.empty()) {
+			std::vector<Segment> current;
+			current.reserve(lineSize);
+			const auto& e = Queues.front();
+			current.emplace_back(e);
+			Queues.pop();
+			int count = Queues.size();
+			int times = 0;
+			while (!Queues.empty()) {
+				const auto& front = current.front();
+				const auto& back = current.back();
+				const auto& ef = Queues.front();
+				if (ef.b == front.a) {
+					current.insert(current.begin(), ef);
+					Queues.pop();
+					times = 0;
+				} else if (ef.a == back.b) {
+					current.emplace_back(ef);
+					Queues.pop();
+					times = 0;
+				} else {
+					Queues.pop();
+					Queues.push(ef);
+					++times;
+				}
+				if (front.a == back.b) {
+					break;
+				}
+				if (times > count) {
+					break;
+				}
+			}
+			segLists.emplace_back(current);
+		}
+		std::vector<trimesh::vec3> collidePoints;
+		collidePoints.reserve(collideSize);
+		for (int i = 0; i < collideLines.size(); i += 2) {
+			collidePoints.emplace_back(collideLines[i]);
+		}
+		auto squeezeLines = [&collidePoints](const std::vector<Segment>& segs, std::vector<trimesh::vec3>& resPoints) {
+			struct equal_vec3 {
+				bool operator()(const trimesh::vec3& v1, const trimesh::vec3& v2) const
+				{
+					return v1.x == v2.x && v1.y == v2.y && v1.z == v2.z;
+				}
+			};
+			struct hash_func {
+				size_t operator()(const trimesh::vec3& v)const
+				{
+					return (int(v.x * 99971)) ^ (int(v.y * 99989)) ^ (int(v.z * 99991));
+				}
+			};
+			std::vector<trimesh::vec3> linePoints;
+			linePoints.reserve(segs.size() * 2);
+			for (int i = 0; i < segs.size(); ++i) {
+				linePoints.emplace_back(segs[i].a);
+				linePoints.emplace_back(segs[i].b);
+			}
+			std::unordered_map<trimesh::vec3, int, hash_func, equal_vec3> unique_point;
+			unique_point.reserve(segs.size());
+			for (int i = 0; i < linePoints.size(); i += 2) {
+				const auto& p = linePoints[i];
+				unique_point.emplace(p, i);
+			}
+			std::vector<bool> marks(segs.size() * 2, true);
+			for (int i = 0; i < collidePoints.size(); ++i) {
+				const auto& p = collidePoints[i];
+				auto itr = unique_point.find(p);
+				if (itr != unique_point.end()) {
+					int index = itr->second;
+					marks[index] = false;
+					marks[index + 1] = false;
+				}
+			}
+			std::vector<trimesh::vec3> selectPoints;
+			selectPoints.reserve(linePoints.size());
+			for (int i = 0; i < linePoints.size(); ++i) {
+				if (marks[i]) {
+					selectPoints.emplace_back(linePoints[i]);
+				}
+			}
+			std::vector<Segment> resSegments;
+			resSegments.reserve(selectPoints.size() / 2);
+			for (int i = 0; i < selectPoints.size(); i += 2) {
+				Segment seg;
+				seg.a = selectPoints[i];
+				seg.b = selectPoints[i + 1];
+				resSegments.emplace_back(seg);
+			}
+			if (resSegments.size() >= 2 && resSegments.back().b != resSegments.front().a) {
+				Segment seg;
+				seg.a = resSegments.back().b;
+				seg.b = resSegments.front().a;
+				resSegments.emplace_back(seg);
+			}
+			for (auto it = resSegments.begin(); it != std::prev(resSegments.end());) {
+				const auto& curLine = *it;
+				const auto& nextLine = *std::next(it);
+				if (curLine.b != nextLine.a) {
+					Segment seg;
+					seg.a = curLine.b;
+					seg.b = nextLine.a;
+					it = resSegments.insert(std::next(it), seg);
+				} else {
+					++it;
+				}
+			}
+			for (const auto& s : resSegments) {
+				resPoints.emplace_back(s.a);
+				resPoints.emplace_back(s.b);
+			}
+		};
+		std::vector<trimesh::vec3> sequenceLines;
+		for (const auto& segs : segLists) {
+			std::vector<trimesh::vec3> resPoints;
+			squeezeLines(segs, resPoints);
+			for (const auto& p : resPoints) {
+				sequenceLines.emplace_back(p);
+			}
+		}
+
+		lines.swap(sequenceLines);
 	}
 
 	bool split(trimesh::TriMesh* inputMesh, float z, const trimesh::vec3& normal,
@@ -435,7 +677,7 @@ namespace msbase
 		if (vertex_size == 0)
 			return false;
 
-		trimesh::vec3 pos(x, y, z);//ÇĞ¸îµãÓë·¨Ïßnormal ¹²Í¬¾ö¶¨ÇĞ¸îÃæ
+		trimesh::vec3 pos(x, y, z);//åˆ‡å‰²ç‚¹ä¸æ³•çº¿normal å…±åŒå†³å®šåˆ‡å‰²é¢
 		std::vector<float> distances;
 		distances.resize(vertex_size);
 #define min_value 1e-4
@@ -443,42 +685,57 @@ namespace msbase
 		bool allNegtive = true;
 		for (int i = 0; i < vertex_size; ++i)
 		{
-			trimesh::vec3 d = inputMesh->vertices.at(i) - pos;//ËùÓĞÄ£ĞÍ¶¥µãverticesµ½ÇĞ¸îµãµÄÏòÁ¿
-			distances.at(i) = normal.dot(d);//ÏòÁ¿dÓë·¨ÏßµÄµã»ı£¬ÕıÊı´ú±í¸ÃµãÎ»ÓÚÇĞ¸îÃæÉÏÃæ£¬¸ºÊı´ú±íÇĞ¸îÃæÏÂÃæ
+			trimesh::vec3 d = inputMesh->vertices.at(i) - pos;//æ‰€æœ‰æ¨¡å‹é¡¶ç‚¹verticesåˆ°åˆ‡å‰²ç‚¹çš„å‘é‡
+			distances.at(i) = normal.dot(d);//å‘é‡dä¸æ³•çº¿çš„ç‚¹ç§¯ï¼Œæ­£æ•°ä»£è¡¨è¯¥ç‚¹ä½äºåˆ‡å‰²é¢ä¸Šé¢ï¼Œè´Ÿæ•°ä»£è¡¨åˆ‡å‰²é¢ä¸‹é¢
 
 			if (distances.at(i) < -min_value)
 				allPositive = false;
 			if (distances.at(i) > min_value)
 				allNegtive = false;
 		}
-		if (allPositive || allNegtive)//È«²¿ÔÚÇĞ¸îÃæÉÏÃæ»òÕßÏÂÃæ£¬ÔòÍË³ö
+		if (allPositive || allNegtive)//å…¨éƒ¨åœ¨åˆ‡å‰²é¢ä¸Šé¢æˆ–è€…ä¸‹é¢ï¼Œåˆ™é€€å‡º
 			return false;
 
-		std::vector<trimesh::TriMesh::Face> faceUp;//ÇĞ¸îÃæÉÏÃæ
-		std::vector<trimesh::TriMesh::Face> faceDown; //ÇĞ¸îÃæÏÂÃæ
-		std::vector<trimesh::TriMesh::Face> collideFaces;//ÇĞ¸îÃæ
+		std::vector<trimesh::TriMesh::Face> faceUp;//åˆ‡å‰²é¢ä¸Šé¢
+		std::vector<trimesh::TriMesh::Face> faceDown; //åˆ‡å‰²é¢ä¸‹é¢
+		std::vector<trimesh::TriMesh::Face> collideFaces;//æ°´å¹³åˆ‡å‰²é¢
+		std::vector<trimesh::TriMesh::Face> collideFaces2;//å…¶ä»–åˆ‡å‰²é¢
 		for (trimesh::TriMesh::Face& f : inputMesh->faces)
 		{
-			float Point0 = distances.at(f.x);//ÃæFaceµÄ3¸ö¶¥µã
+			float Point0 = distances.at(f.x);//é¢Faceçš„3ä¸ªé¡¶ç‚¹
 			float Point1 = distances.at(f.y);
 			float Point2 = distances.at(f.z);
 
 			if (Point0 == 0.0f && Point1 == 0.0f && Point2 == 0.0f)
 			{
-				collideFaces.push_back(f);//·ñÔò¸ÃÃæ±»ÇĞ¸î£¬ĞèºóĞøÖØĞÂÉú³ÉÃæ
-				continue;
+				// collideFaces.push_back(f);//å¦åˆ™è¯¥é¢è¢«åˆ‡å‰²ï¼Œéœ€åç»­é‡æ–°ç”Ÿæˆé¢
+				// continue;
+				// åˆ‡åˆ°è¿™ç§é¢ï¼Œæ ¹æ®æ³•å‘é‡çš„æ–¹å‘æ¥å†³å®šå±äºä¸Šé¢è¿˜æ˜¯ä¸‹é¢
+				trimesh::point& a = inputMesh->vertices.at(f.x);
+				trimesh::point& b = inputMesh->vertices.at(f.y);
+				trimesh::point& c = inputMesh->vertices.at(f.z);
+				trimesh::vec3 v1 = b - a;
+				trimesh::vec3 v2 = c - a;
+				trimesh::vec3 v3 = cross(v1, v2);
+				trimesh::vec3 dir = trimesh::normalized(v3);
+				trimesh::vec3 norm = trimesh::normalized(normal);
+				if ((dir DOT norm) > 0) {
+					faceDown.push_back(f);
+				} else {
+					faceUp.push_back(f);
+				}
 			}
 
-			if (Point0 >= 0.0f && Point1 >= 0.0f && Point2 >= 0.0f)
+			else if (Point0 >= 0.0f && Point1 >= 0.0f && Point2 >= 0.0f)
 			{
-				faceUp.push_back(f);//3¸öµã¶¼´óÓÚ0Ôò¸ÃÃæÎ»ÓÚÇĞ¸îÃæÉÏÃæ
+				faceUp.push_back(f);//3ä¸ªç‚¹éƒ½å¤§äº0åˆ™è¯¥é¢ä½äºåˆ‡å‰²é¢ä¸Šé¢
 			}
 			else if (Point0 <= 0.0f && Point1 <= 0.0f && Point2 <= 0.0f)
 			{
-				faceDown.push_back(f);//3¸öµã¶¼Ğ¡ÓÚ0Ôò¸ÃÃæÎ»ÓÚÇĞ¸îÃæÏÂÃæ
+				faceDown.push_back(f);//3ä¸ªç‚¹éƒ½å°äº0åˆ™è¯¥é¢ä½äºåˆ‡å‰²é¢ä¸‹é¢
 			}
 			else
-				collideFaces.push_back(f);//·ñÔò¸ÃÃæ±»ÇĞ¸î£¬ĞèºóĞøÖØĞÂÉú³ÉÃæ
+				collideFaces2.push_back(f);//å¦åˆ™è¯¥é¢è¢«åˆ‡å‰²ï¼Œéœ€åç»­é‡æ–°ç”Ÿæˆé¢
 		}
 		trimesh::TriMesh* meshUP = new trimesh::TriMesh();
 		trimesh::TriMesh* meshDown = new trimesh::TriMesh();
@@ -488,11 +745,12 @@ namespace msbase
 		FaceGenerateMesh(meshUP,inputMesh,faceUp);
 		FaceGenerateMesh(meshDown, inputMesh, faceDown);
 
+		// æ‰§è¡Œè¡¥é¢ç¨‹åº
 		std::vector<trimesh::vec3> lines;
-
-		auto getLine = [&lines,&inputMesh,&distances](int f1, int f2, int f3)
+		std::vector<trimesh::vec3> collideLines;
+		auto getLine = [&lines, &collideLines, &inputMesh, &distances](int f1, int f2, int f3)
 		{
-			float Point0 = distances.at(f1);//ÃæFaceµÄ3¸ö¶¥µã
+			float Point0 = distances.at(f1);//é¢Faceçš„3ä¸ªé¡¶ç‚¹
 			float Point1 = distances.at(f2);
 			float Point2 = distances.at(f3);
 
@@ -503,16 +761,22 @@ namespace msbase
 			{
 				lines.push_back(inputMesh->vertices.at(f1));
 				lines.push_back(inputMesh->vertices.at(f2));
+				collideLines.push_back(inputMesh->vertices.at(f1));
+				collideLines.push_back(inputMesh->vertices.at(f2));
 			}
 			else if (Point0 == 0.0f && Point1 > 0.0f && Point2 == 0.0f)
 			{
 				lines.push_back(inputMesh->vertices.at(f3));
 				lines.push_back(inputMesh->vertices.at(f1));
+				collideLines.push_back(inputMesh->vertices.at(f3));
+				collideLines.push_back(inputMesh->vertices.at(f1));
 			}
 			else if (Point0 > 0.0f && Point1 == 0.0f && Point2 == 0.0f)
 			{
 				lines.push_back(inputMesh->vertices.at(f2));
 				lines.push_back(inputMesh->vertices.at(f3));
+				collideLines.push_back(inputMesh->vertices.at(f2));
+				collideLines.push_back(inputMesh->vertices.at(f3));
 			}
 		};
 
@@ -520,27 +784,27 @@ namespace msbase
 		for (int i = 0; i < faceNum; ++i)
 		{
 			trimesh::TriMesh::Face& f = inputMesh->faces.at(i);
-			//Ïß¶Î´óÓÚ0±íÊ¾Ïß¶ÎµÄµã·Ö±ğÎ»ÓÚÉÏÏÂÃæÖĞ£¬Ïß¶Î<=0 ±íÊ¾Ïß¶ÎÎ»µÄµãÓÚÉÏÃæ»òÕßÏÂÃæÖĞ
+			//çº¿æ®µå¤§äº0è¡¨ç¤ºçº¿æ®µçš„ç‚¹åˆ†åˆ«ä½äºä¸Šä¸‹é¢ä¸­ï¼Œçº¿æ®µ<=0 è¡¨ç¤ºçº¿æ®µä½çš„ç‚¹äºä¸Šé¢æˆ–è€…ä¸‹é¢ä¸­
 			float segment0 = distances.at(f.x) * distances.at(f.y);
 			float segment1 = distances.at(f.y) * distances.at(f.z);
 			float segment2 = distances.at(f.x) * distances.at(f.z);
 			if (segment0 == 0.0f && segment1 == 0.0f && segment2 == 0.0f)
 			{
-				getLine(f.x,f.y, f.z);//¼ì²â2¸öµãÔÚÃæµÄÇé¿ö
+				getLine(f.x,f.y, f.z);//æ£€æµ‹2ä¸ªç‚¹åœ¨é¢çš„æƒ…å†µ
 				continue;
 			}
 
-			if (segment0 >= 0.0f && (segment1 <= 0.0f || segment2 <= 0.0f))//f.z Îª¶¥µã
+			if (segment0 >= 0.0f && (segment1 <= 0.0f || segment2 <= 0.0f))//f.z ä¸ºé¡¶ç‚¹
 			{
 				fcollid(lines, inputMesh, distances,meshUP,meshDown,f.z, f.x, f.y);
 			}
 			else if (segment0 < 0.0f)
 			{
-				if (segment1 <= 0.0f)//f.y Îª¶¥µã
+				if (segment1 <= 0.0f)//f.y ä¸ºé¡¶ç‚¹
 				{
 					fcollid(lines, inputMesh, distances, meshUP, meshDown, f.y, f.z, f.x);
 				}
-				else if (segment2 <= 0.0f)//f.x Îª¶¥µã
+				else if (segment2 <= 0.0f)//f.x ä¸ºé¡¶ç‚¹
 				{
 					fcollid(lines, inputMesh, distances, meshUP, meshDown, f.x, f.y, f.z);
 				}
@@ -548,7 +812,13 @@ namespace msbase
 
 		}
 
-		//·Ö¸îÃæµÄlinesÏß¶ÎÉú³É±ÕºÏÂÖÀª£¬polygonsÂÖÀªË÷Òı£¬pointsÂÖÀªÊı¾İ
+		//trimesh::TriMesh pointMesh;
+		//PointGenerateMesh(pointMesh, lines);
+		//pointMesh.write("pointMesh.stl");
+		//åˆ é™¤ä¸åˆ‡é¢å…±é¢çš„åŸæ¨¡å‹ä¸Šé¢çš„çº¿æ®µ
+		deleteCollideLines(lines, collideLines);
+
+		//åˆ†å‰²é¢çš„linesçº¿æ®µç”Ÿæˆé—­åˆè½®å»“ï¼Œpolygonsè½®å»“ç´¢å¼•ï¼Œpointsè½®å»“æ•°æ®
 		std::vector<std::vector<int>> polygons;
 		std::vector<trimesh::vec3> points;
 		lines2polygon(lines, polygons, points);
@@ -567,12 +837,12 @@ namespace msbase
 			polygons2.push_back(trimesh::dvec2(p.x, p.y));
 		}
 
-		//±ÕºÏÂÖÀªÈı½Ç»¯Éú³É faces
+		//é—­åˆè½®å»“ä¸‰è§’åŒ–ç”Ÿæˆ faces
 		std::vector<trimesh::TriMesh::Face> faces;
 		msbase::PolygonStack pstack;
 		pstack.generates(polygons, polygons2, faces, 0);
 
-		//½«ĞÂÉú³ÉµÄfaces Ìí¼Óµ½meshUP£¬meshDownÉÏÏÂ2¸ömeshÖĞ
+		//å°†æ–°ç”Ÿæˆçš„faces æ·»åŠ åˆ°meshUPï¼ŒmeshDownä¸Šä¸‹2ä¸ªmeshä¸­
 		if (fillHole)
 		{
 			int start1 = (int)meshUP->vertices.size();
@@ -600,6 +870,13 @@ namespace msbase
 	bool planeCut(trimesh::TriMesh* input, const CutPlane& plane,
 		std::vector<trimesh::TriMesh*>& outMeshes, const CutParam& param)
 	{
+		if (!param.fileName.empty()) {
+			CutInput cutInput;
+			cutInput.mesh = input;
+			cutInput.plane = plane;
+			cutInput.param = param;
+			ccglobal::cxndSave(cutInput, param.fileName);
+		}
 		outMeshes.clear();
 		trimesh::TriMesh* m1 = new trimesh::TriMesh();
 		trimesh::TriMesh* m2 = new trimesh::TriMesh();
@@ -607,6 +884,8 @@ namespace msbase
 				plane.position.x, plane.position.y, param.fillHole);
 		if (result)
 		{
+			msbase::dumplicateMesh(m1);
+			msbase::dumplicateMesh(m2);
 			outMeshes.push_back(m1);
 			outMeshes.push_back(m2);
 			return true;
@@ -617,8 +896,16 @@ namespace msbase
 		return false;
 	}
 
-	bool splitRangeZ(trimesh::TriMesh* inputMesh, float Upz, float Dowmz, trimesh::TriMesh** mesh)
+	bool splitRangeZ(trimesh::TriMesh* inputMesh, float Upz, float Dowmz, trimesh::TriMesh** mesh, const char* fileName)
 	{
+		if (fileName != nullptr) {
+			CutInput cutInput;
+			cutInput.mesh = inputMesh;
+			cutInput.Upz = Upz;
+			cutInput.Downz = Dowmz;
+			std::string filePath(fileName);
+			ccglobal::cxndSave(cutInput, filePath);
+		}
 		trimesh::vec3 normalUp = trimesh::vec3(0.0f, 0.0f, 1.0f);
 		trimesh::vec3 normalDown = trimesh::vec3(0.0f, 0.0f, -1.0f);
 
@@ -642,6 +929,7 @@ namespace msbase
 		{
 			*mesh = new trimesh::TriMesh();
 			**mesh = *mesh2;
+			msbase::dumplicateMesh(*mesh);
 		}
 
 		if (mesh1 != nullptr)
@@ -655,5 +943,25 @@ namespace msbase
 			mesh2 = nullptr;
 		}
 		return true;
+	}
+	
+	bool planeCutFromFile(const std::string& fileName, std::vector<trimesh::TriMesh*>& outMeshes)
+	{
+		CutInput cutInput;
+		if (!ccglobal::cxndLoad(cutInput, fileName)) {
+			LOGE("planeCutFromFile load error [%s]", fileName.c_str());
+			return false;
+		}
+		return planeCut(cutInput.mesh, cutInput.plane, outMeshes, cutInput.param);
+	}
+	
+	bool splitRangeZFromFile(const std::string& fileName, trimesh::TriMesh** mesh)
+	{
+		CutInput cutInput;
+		if (!ccglobal::cxndLoad(cutInput, fileName)) {
+			LOGE("splitRangeZFromFile load error [%s]", fileName.c_str());
+			return false;
+		}
+		return splitRangeZ(cutInput.mesh, cutInput.Upz, cutInput.Downz, mesh);
 	}
 }

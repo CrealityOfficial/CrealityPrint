@@ -3,6 +3,7 @@ import QtQuick.Layouts 1.13
 import QtQuick.Controls 2.5
 import QtQuick.Window 2.13
 
+import "../components"
 import "../qml"
 import "../secondqml"
 
@@ -13,7 +14,7 @@ DockItem
     width: 1205 * screenScaleFactor
     height: 772 * screenScaleFactor
     panelColor: sourceTheme.background_color
-    modality: Qt.ApplicationModal
+
     signal quitClicked()
 
     property int themeType: -1
@@ -720,25 +721,25 @@ DockItem
 //                    text: "Hello world"
 //                }
 
-                ScrollView {
+                BasicScrollView {
                     clip: true
                     visible: false
                     id: idMySliceView
                     anchors.fill: parent
-//                    hpolicyVisible: contentWidth > width
-//                    vpolicyVisible: contentHeight > height
-//                    hpolicyindicator: Rectangle {
-//                        radius: height / 2
-//                        color: sourceTheme.scrollbar_color
-//                        implicitWidth: 180 * screenScaleFactor
-//                        implicitHeight: 6 * screenScaleFactor
-//                    }
-//                    vpolicyindicator: Rectangle {
-//                        radius: width / 2
-//                        color: sourceTheme.scrollbar_color
-//                        implicitWidth: 6 * screenScaleFactor
-//                        implicitHeight: 180 * screenScaleFactor
-//                    }
+                    hpolicyVisible: contentWidth > width
+                    vpolicyVisible: contentHeight > height
+                    hpolicyindicator: Rectangle {
+                        radius: height / 2
+                        color: sourceTheme.scrollbar_color
+                        implicitWidth: 180 * screenScaleFactor
+                        implicitHeight: 6 * screenScaleFactor
+                    }
+                    vpolicyindicator: Rectangle {
+                        radius: width / 2
+                        color: sourceTheme.scrollbar_color
+                        implicitWidth: 6 * screenScaleFactor
+                        implicitHeight: 180 * screenScaleFactor
+                    }
 
                     Grid {
                         id: idMySliceList
@@ -755,34 +756,34 @@ DockItem
                         }
                     }
 
-//                    onVPositionChanged: {
-//                        if((vSize + vPosition) === 1 && currentSlicePage != nextSlicePage)
-//                        {
-//                            let checkedBtn = subButtonGroup.checkedButton
-//                            if(checkedBtn !== null) checkedBtn.modelFunc(nextSlicePage)
-//                        }
-//                    }
+                    onVPositionChanged: {
+                        if((vSize + vPosition) === 1 && currentSlicePage != nextSlicePage)
+                        {
+                            let checkedBtn = subButtonGroup.checkedButton
+                            if(checkedBtn !== null) checkedBtn.modelFunc(nextSlicePage)
+                        }
+                    }
                 }
 
-                ScrollView {
+                BasicScrollView {
                     clip: true
                     visible: false
                     id: idMyModelView
                     anchors.fill: parent
-//                    hpolicyVisible: contentWidth > width
-//                    vpolicyVisible: contentHeight > height
-//                    hpolicyindicator: Rectangle {
-//                        radius: height / 2
-//                        color: sourceTheme.scrollbar_color
-//                        implicitWidth: 180 * screenScaleFactor
-//                        implicitHeight: 6 * screenScaleFactor
-//                    }
-//                    vpolicyindicator: Rectangle {
-//                        radius: width / 2
-//                        color: sourceTheme.scrollbar_color
-//                        implicitWidth: 6 * screenScaleFactor
-//                        implicitHeight: 180 * screenScaleFactor
-//                    }
+                    hpolicyVisible: contentWidth > width
+                    vpolicyVisible: contentHeight > height
+                    hpolicyindicator: Rectangle {
+                        radius: height / 2
+                        color: sourceTheme.scrollbar_color
+                        implicitWidth: 180 * screenScaleFactor
+                        implicitHeight: 6 * screenScaleFactor
+                    }
+                    vpolicyindicator: Rectangle {
+                        radius: width / 2
+                        color: sourceTheme.scrollbar_color
+                        implicitWidth: 6 * screenScaleFactor
+                        implicitHeight: 180 * screenScaleFactor
+                    }
 
                     Grid {
                         id: idMyModelList
@@ -799,37 +800,37 @@ DockItem
                         }
                     }
 
-//                    onVPositionChanged: {
-//                        if((vSize + vPosition) === 1 && currentModelPage != nextModelPage)
-//                        {
-//                            if(nextModelPage)
-//                            {
-//                                let checkedBtn = subButtonGroup.checkedButton
-//                                if(checkedBtn !== null) checkedBtn.modelFunc(nextModelPage)
-//                            }
-//                        }
-//                    }
+                    onVPositionChanged: {
+                        if((vSize + vPosition) === 1 && currentModelPage != nextModelPage)
+                        {
+                            if(nextModelPage)
+                            {
+                                let checkedBtn = subButtonGroup.checkedButton
+                                if(checkedBtn !== null) checkedBtn.modelFunc(nextModelPage)
+                            }
+                        }
+                    }
                 }
 
-                ScrollView {
+                BasicScrollView {
                     clip: true
                     visible: false
                     id: idMyDeviceView
                     anchors.fill: parent
-//                    hpolicyVisible: contentWidth > width
-//                    vpolicyVisible: contentHeight > height
-//                    hpolicyindicator: Rectangle {
-//                        radius: height / 2
-//                        color: sourceTheme.scrollbar_color
-//                        implicitWidth: 180 * screenScaleFactor
-//                        implicitHeight: 6 * screenScaleFactor
-//                    }
-//                    vpolicyindicator: Rectangle {
-//                        radius: width / 2
-//                        color: sourceTheme.scrollbar_color
-//                        implicitWidth: 6 * screenScaleFactor
-//                        implicitHeight: 180 * screenScaleFactor
-//                    }
+                    hpolicyVisible: contentWidth > width
+                    vpolicyVisible: contentHeight > height
+                    hpolicyindicator: Rectangle {
+                        radius: height / 2
+                        color: sourceTheme.scrollbar_color
+                        implicitWidth: 180 * screenScaleFactor
+                        implicitHeight: 6 * screenScaleFactor
+                    }
+                    vpolicyindicator: Rectangle {
+                        radius: width / 2
+                        color: sourceTheme.scrollbar_color
+                        implicitWidth: 6 * screenScaleFactor
+                        implicitHeight: 180 * screenScaleFactor
+                    }
 
                     Grid {
                         id: idMyDeviceList
@@ -1180,7 +1181,7 @@ DockItem
                 if(currentSlicePage == 1)
                 {
                     deleteSliceComponent()
-//                    idMySliceView.vPosition = 0
+                    idMySliceView.vPosition = 0
                 }
 
                 var objResult = objectArray.result.list
@@ -1245,7 +1246,7 @@ DockItem
                 if(currentModelPage == "")
                 {
                     deleteModelComponent()
-//                    idMyModelView.vPosition = 0
+                    idMyModelView.vPosition = 0
                 }
 
                 var objResult = objectArray.result.list

@@ -40,7 +40,7 @@ set(LIBS
   rapidjson
   quazip_static
   boost_filesystem
-  qtuser_core
+  cxcloud
 )
 
 set(DEFS

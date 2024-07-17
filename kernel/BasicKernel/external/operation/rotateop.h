@@ -4,7 +4,6 @@
 #include "qtuser3d/scene/sceneoperatemode.h"
 #include "qtuser3d/module/pickableselecttracer.h"
 #include "qtuser3d/module/manipulatecallback.h"
-#include "interface/spaceinterface.h"
 
 #include <QVector3D>
 #include <QPointer>
@@ -15,16 +14,8 @@
 #include "moveoperatemode.h"
 
 class BASIC_KERNEL_API RotateOp : public MoveOperateMode
-	, public qtuser_3d::SelectorTracer, public qtuser_3d::RotateCallback, public creative_kernel::SpaceTracer
+	, public qtuser_3d::SelectorTracer, public qtuser_3d::RotateCallback
 {
-	// enum class TMode
-	// {
-	// 	null,
-	// 	x,
-	// 	y,
-	// 	z,
-	// };
-
 	Q_OBJECT
 public:
 	RotateOp(QObject* parent = nullptr);
@@ -74,10 +65,6 @@ protected:
 
 	void perform(const QPoint& point, bool reversible, bool needcheck);
 
-protected:
-	void onBoxChanged(const qtuser_3d::Box3D& box) override;
-	void onSceneChanged(const qtuser_3d::Box3D& box) override;
-
 private:
 	
 	qtuser_3d::Rotate3DHelperEntity* m_helperEntity;
@@ -94,7 +81,6 @@ private:
 	QList<creative_kernel::ModelN*> m_selectedModels;
     QVector3D m_displayRotate;
     bool m_bShowPop=false;
-	double m_originFovy;
 
 	QList<creative_kernel::NUnionChangedStruct> m_changes;
 

@@ -27,6 +27,10 @@ namespace creative_kernel
 	BASIC_KERNEL_API void executeQmlCommand(const QString& cmd, QObject* receiver, const QString& objectName);
 	BASIC_KERNEL_API void requestQmlDialog(QObject* receiver, const QString& objectName);
 	BASIC_KERNEL_API void requestQmlDialog(const QString& objectName);
+	BASIC_KERNEL_API void requestQmlTipDialog(const QString& message);
+
+	BASIC_KERNEL_API void requestQmlMessage(QObject* messageSource);
+	BASIC_KERNEL_API void destroyQmlMessage(int code);
 
 	BASIC_KERNEL_API void requestQmlCloseAction();
 	BASIC_KERNEL_API void setCloseHook(CloseHook* hook);

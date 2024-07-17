@@ -14,6 +14,7 @@
 #include "interface/appsettinginterface.h"
 #include "interface/commandinterface.h"
 #include "data/kernelmacro.h"
+#include "interface/machineinterface.h"
 
 namespace creative_kernel
 {
@@ -34,7 +35,7 @@ namespace creative_kernel
     {
     }
 
-    SliceResultPointer DLLAnsycSlicer52::doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer, crslice::PathData* _fDebugger)
+    SliceResultPointer DLLAnsycSlicer52::doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer, SliceAttain* _fDebugger)
     {
         float progressStep = 0.8f;
         tracer.resetProgressScope(0.0f, progressStep);
@@ -61,10 +62,15 @@ namespace creative_kernel
             scene->m_settings->add(it.key().toStdString(), it.value()->str().toStdString());
         }
 
+        std::vector<trimesh::vec> colors = creative_kernel::currentColors();
+        scene->m_settings->add("asm_material_count", std::to_string(colors.size()));
+
         //Extruder Settings
         size_t extruder_count = std::stoul(scene->m_settings->getString("machine_extruder_count"));
         if (extruder_count == 0)
             extruder_count = 1;
+
+        extruder_count = colors.size() > extruder_count ? colors.size() : extruder_count;
 
         for (size_t extruder_nr = 0; extruder_nr < extruder_count; extruder_nr++)
             scene->m_extruders.emplace_back(new crslice::Settings());
@@ -148,40 +154,19 @@ namespace creative_kernel
 
                 int objectID = scene->addObject2Group(groupID);
                 scene->setObjectSettings(groupID, objectID, meshSettings);
+
+                if (m->flags.size() != m->faces.size())
+                    m->flags.resize(m->faces.size(), 2);
                 scene->setOjbectMesh(groupID, objectID, m);
-                QString fileName = QString("%1/poly").arg(SLICE_PATH);
-                std::string s = fileName.toLocal8Bit().data();
-                scene->setOjbectExclude(groupID, objectID, s + std::to_string(objectID), modelInput->outline_ObjectExclude);
             }
             scene->setGroupOffset(groupID, offsetXYZ);
         }
 
-#if EXPORT_FDM52_DATA
-		QDir dir(TEMPGCODE_PATH);
-		dir.setFilter(QDir::Files);
-		int fileCount = dir.count();
-		for (int i = 0; i < fileCount; i++)
-			dir.remove(dir[i]);
-
-        QString sceneFile = QString("%1/%2-%3").arg(TEMPGCODE_PATH).arg(generateSceneName())
-                                                                    .arg(QUuid::createUuid().toString(QUuid::Id128));
+        QString sceneFile = sceneTempFile();
         scene->save(sceneFile.toLocal8Bit().data());
 
-        qDebug() << QString("DLLAnsycSlicer52 EXPORT_FDM52_DATA -> [%1]").arg(sceneFile);
-#endif
-
-        QString fileName = generateTempGCodeFileName();
+        QString fileName = _fDebugger->tempGCodeFileName();
         scene->setOutputGCodeFileName(fileName.toLocal8Bit().data());
-
-        QString supportFile = QString("%1/paint_support").arg(SLICE_PATH);
-        scene->setSupportFileName(supportFile.toLocal8Bit().data());
-        QString paint_anti_support = QString("%1/paint_anti_support").arg(SLICE_PATH);
-        scene->setAntiSupportFileName(paint_anti_support.toLocal8Bit().data());
-        QString paint_seam = QString("%1/paint_seam").arg(SLICE_PATH);
-        scene->setSeamFileName(paint_seam.toLocal8Bit().data());
-        QString paint_anti_seam = QString("%1/paint_anti_seam").arg(SLICE_PATH);
-        scene->setAntiSeamFileName(paint_anti_seam.toLocal8Bit().data());
-
 
         qDebug() << QString("Slice : DLLAnsycSlicer52 construct scene . [%1]").arg(currentProcessMemory());
         crslice::CrSlice slice;
@@ -189,16 +174,7 @@ namespace creative_kernel
 
         qDebug() << QString("Slice : DLLAnsycSlicer52 slice over . [%1]").arg(currentProcessMemory());
         if (!failed && !tracer.error())
-        {
-            tracer.resetProgressScope(progressStep, 1.0f);
-            SliceResultPointer result(new gcode::SliceResult());
-            result->load(fileName.toLocal8Bit().data(), &tracer);
-
-            qDebug() << QString("Slice : DLLAnsycSlicer52 load over . [%1]").arg(currentProcessMemory());
-            if (result->layerCode().size() == 0)
-                result.reset();
-            return result;
-        }
+            return generateResult(fileName, tracer);
         return nullptr;
     }
 }

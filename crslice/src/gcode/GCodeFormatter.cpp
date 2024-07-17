@@ -1,5 +1,9 @@
 #include "GCodeFormatter.h"
 
+#ifdef __APPLE__
+#include <boost/spirit/include/karma.hpp>
+#endif
+
 namespace Slic3r
 {
     void GCodeFormatter::emit_axis(const char axis, const double v, size_t digits) {

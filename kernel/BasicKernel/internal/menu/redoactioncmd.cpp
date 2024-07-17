@@ -6,13 +6,13 @@ namespace creative_kernel
 {
     RedoActionCmd::RedoActionCmd()
     {
-        m_shortcut = "Ctrl+Shift+Z";      //不能有空格
+        m_shortcut = "Ctrl+Y";      //不能有空格
         m_actionname = tr("Redo");
         m_actionNameWithout = "Redo";
         m_eParentMenu = eMenuType_Edit;
         m_icon = "qrc:/kernel/images/redo.png";
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     RedoActionCmd::~RedoActionCmd()

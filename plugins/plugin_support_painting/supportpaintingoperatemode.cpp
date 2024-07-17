@@ -4,23 +4,48 @@
 #include "interface/eventinterface.h"
 #include "interface/visualsceneinterface.h"
 #include "interface/spaceinterface.h"
+#include "kernel/kernel.h"
+#include "kernel/globalconst.h"
+#include "kernel/kernelui.h"
 
 SupportPaintingOperateMode::SupportPaintingOperateMode(QObject* parent)
     : PaintOperateMode(parent)
 {
 	m_colorMethod = 1;
-    
-    std::vector<trimesh::vec> colors;
-    colors.push_back(trimesh::vec(0.87, 0.87, 0.87));
-    colors.push_back(trimesh::vec(0.32, 0.76, 0.32));
-    colors.push_back(trimesh::vec(0.76, 0.32, 0.32));
-
-    setColorsList(colors);
 }
 
 SupportPaintingOperateMode::~SupportPaintingOperateMode()
 {
 
+}
+
+void SupportPaintingOperateMode::initColors()
+{
+    creative_kernel::EngineType type = creative_kernel::getKernel()->globalConst()->getEngineType();
+     if (type == creative_kernel::EngineType::ET_CURA) 
+     {   /* ET_CURA */
+        std::vector<trimesh::vec> colors;
+        colors.push_back(trimesh::vec(0.87, 0.87, 0.87));
+        colors.push_back(trimesh::vec(0.32, 0.76, 0.32));
+        colors.push_back(trimesh::vec(0.76, 0.32, 0.32));
+        setColorsList(colors);
+        
+        m_paintIndex = 1;
+        m_blockIndex = 2;
+        setDefaultFlag(1);
+     }
+     else if (type == creative_kernel::EngineType::ET_ORCA)
+     {   /* ET_ORCA */
+         std::vector<trimesh::vec> colors;
+         colors.push_back(trimesh::vec(0.32, 0.76, 0.32));
+         colors.push_back(trimesh::vec(0.76, 0.32, 0.32));
+         colors.push_back(trimesh::vec(0.87, 0.87, 0.87));
+         setColorsList(colors);
+
+         m_paintIndex = 0;
+         m_blockIndex = 1;
+         setDefaultFlag(3);
+     }
 }
 
 void SupportPaintingOperateMode::restore(creative_kernel::ModelN* model, const std::vector<std::string>& data)
@@ -29,7 +54,7 @@ void SupportPaintingOperateMode::restore(creative_kernel::ModelN* model, const s
 	{	// 切换到涂抹场景
         creative_kernel::selectOne(model);
         setWaitForLoadModel(true);
-        creative_kernel::setVisOperationMode(this);
+        getKernelUI()->switchMode(30);
         setWaitForLoadModel(false);
 	}
 
@@ -44,42 +69,30 @@ void SupportPaintingOperateMode::onAttach()
     m_lastSpreadData = selections.at(0)->getSupport2Facets();
     
     PaintOperateMode::onAttach();
+    m_isWrapperReady = true;
+    initColors();
 }
 
 void SupportPaintingOperateMode::onDettach() 
 {
-    auto oldData = m_originModel->getSupport2Facets();
-    auto newData = getPaintData();
+    if (m_originModel)
+    {
+        auto oldData = m_originModel->getSupport2Facets();
+        auto newData = getPaintData();
 
-    bool isChanged = false;
-    if (oldData.size() != newData.size())
-    {
-        isChanged = true;
-    }
-    else 
-    {
-        for (int i = 0, count = oldData.size(); i < count; ++i)
+        if (!paintDataEqual(oldData, newData))
         {
-            if (oldData[i] != newData[i])
-            {
-                isChanged = true;
-                break;
-            }
+            m_originModel->setSupport2Facets(newData);
+            m_originModel->dirty();
         }
-    }
 
-    if (isChanged)
-    {
-        m_originModel->setSupport2Facets(newData);
-        creative_kernel::dirtyModelSpace();
+        PaintOperateMode::onDettach();
     }
-
-    PaintOperateMode::onDettach();
 }
 
 void SupportPaintingOperateMode::onLeftMouseButtonPress(QMouseEvent* event)
 {
-    setColorIndex(1);
+    setColorIndex(m_paintIndex);
     PaintOperateMode::onLeftMouseButtonPress(event);
 }
 
@@ -88,7 +101,7 @@ void SupportPaintingOperateMode::onRightMouseButtonPress(QMouseEvent* event)
     if (isHoverModel(event->pos()))
     {
         m_pressed = true;
-        setColorIndex(2);
+        setColorIndex(m_blockIndex);
         PaintOperateMode::onLeftMouseButtonPress(event);
         m_rightPressStatus = false;
         m_rightClickStatus = false;

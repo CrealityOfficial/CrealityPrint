@@ -2,6 +2,7 @@
 #include "standardmodelimport.h"
 #include "menu/actioncommand.h"
 #include "interface/commandinterface.h"
+#include "interface/spaceinterface.h"
 #include "cxkernel/interface/modelninterface.h"
 #include "cxkernel/data/modelndata.h"
 
@@ -18,7 +19,7 @@ namespace creative_kernel
         m_bSubMenu = true;
         m_insertKey = "subMenuFile";
         initActionModel();
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     StandardModelImport::~StandardModelImport()
@@ -62,6 +63,8 @@ namespace creative_kernel
         default:
             break;
         }
+
+        onModelMeshLoadStart(1);
 
         std::shared_ptr<trimesh::TriMesh> ptr2(triMesh);
         cxkernel::ModelCreateInput input;

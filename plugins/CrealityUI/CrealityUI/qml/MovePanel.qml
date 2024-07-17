@@ -20,6 +20,10 @@ LeftPanelDialog {
         anchors.fill: control.panelArea
         MouseArea{//捕获鼠标点击空白地方的事件
             anchors.fill: parent
+            onClicked:
+            {
+                focus = true
+            }
         }
 
         Column {
@@ -145,6 +149,7 @@ LeftPanelDialog {
                     btnRadius:14
                     btnBorderW:1
                     borderColor: Constants.lpw_BtnBorderColor
+                    defaultBtnBgColor: Constants.leftToolBtnColor_normal
                     hoveredBtnBgColor: Constants.leftToolBtnColor_hovered
                     onSigButtonClicked:
                     {

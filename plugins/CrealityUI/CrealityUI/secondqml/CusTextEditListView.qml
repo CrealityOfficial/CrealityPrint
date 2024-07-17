@@ -1,6 +1,5 @@
-import QtQuick 2.12
-import QtQuick.Controls 2.12
-import QtQuick.Controls.impl 2.12
+import QtQuick 2.0
+import QtQuick.Controls 2.0
 import "../qml"
 Item {
     id: root
@@ -12,10 +11,16 @@ Item {
     property alias backgroundColor: idBackground.color
     property alias backgroundBorder: idBackground.border
     property alias backgroundRadius: idBackground.radius
+    
+    property bool clickEnabled: true
 
     width: parent.width
     height: parent.height
+
     signal doubleClickItem(var viewIndex)
+    signal preparePressed(var viewIndex)
+    signal prepareReleased(var viewIndex)
+
     Rectangle{
         id: idBackground
         width: parent.width
@@ -23,13 +28,14 @@ Item {
         color: Constants.tabButtonSelectColor
         border.width: 1
         border.color: Constants.dialogItemRectBgBorderColor
-        ScrollView {
+        BasicScrollView {
             anchors.top: parent.top
             anchors.topMargin: 10 * screenScaleFactor
             anchors.left: parent.left
             anchors.leftMargin: 10 * screenScaleFactor
             width: parent.width - 10 * screenScaleFactor
             height: parent.height - 20 * screenScaleFactor
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
             ListView {
                 id: textView
                 width: parent.width// - 20
@@ -47,10 +53,13 @@ Item {
             id :wrapper
             width: idtext.contentWidth + 10 * screenScaleFactor
             height: 20 * screenScaleFactor
+            property bool pressed: false
+
             Rectangle {
                 id: bgColor
                 anchors.fill: parent
-                color: "transparent"
+                radius: 5
+                color: (idtext.text && wrapper.ListView.isCurrentItem) || wrapper.pressed ? Constants.themeGreenColor: "transparent"
             }
             Text {
                 id : idtext
@@ -59,25 +68,35 @@ Item {
                 property var myIndex
                 text: modelData
                 myIndex : index
-                //                width: parent.width
                 height: parent.height
                 wrapMode: Text.WrapAnywhere
                 font.family: Constants.labelFontFamily
                 font.pointSize: Constants.labelFontPointSize_9
-                color: wrapper.ListView.isCurrentItem? "red": Constants.textColor
+                color: wrapper.ListView.isCurrentItem? "red": "#ffffff"
             }
             MouseArea {
                 id: mousearea
                 anchors.fill: parent
                 onDoubleClicked: {
+                    if (!clickEnabled)
+                        return
+
                     textView.currentIndex = index;
                     doubleClickItem(index)
                 }
                 onPressed: {
-                    bgColor.color = Constants.right_panel_item_checked_color
+                    preparePressed(index)
+                    if (!clickEnabled)
+                        return
+
+                    wrapper.pressed = true
                 }
                 onReleased: {
-                    bgColor.color = "transparent"
+                    prepareReleased(index)
+                    if (!clickEnabled)
+                        return
+
+                    wrapper.pressed = false
                 }
             }
         }
@@ -86,7 +105,7 @@ Item {
     Component {
         id: highlightComponent
         Rectangle {
-            color: "lightblue"
+            color: "transparent"
             radius: 5
             y: textView.currentItem.y
             Behavior on y {

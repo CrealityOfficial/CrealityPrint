@@ -12,6 +12,9 @@ macro(add_kernel_plugin plugin)
 							)	
 endmacro()
 
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/plugins.in
+               ${CMAKE_BINARY_DIR}/plugins.h)
+				   
 foreach(plugin ${Creative3D_plugins})
 	add_subdirectory(${plugin})
 endforeach()

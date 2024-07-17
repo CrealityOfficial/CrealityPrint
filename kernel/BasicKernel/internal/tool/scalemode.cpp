@@ -14,10 +14,10 @@ namespace creative_kernel
         , m_op(nullptr)
     {
         orderindex = 1;
-        m_name = tr("Scale") + ": S";
+        m_name = tr("Scale") + ": Ctrl+R";
 
         m_source = "qrc:/kernel/qml/ScalePanel.qml";
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     ScaleMode::~ScaleMode()
@@ -59,15 +59,15 @@ namespace creative_kernel
 
     void ScaleMode::onThemeChanged(ThemeCategory category)
     {
-        setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/scale_dark.svg" : "qrc:/UI/photo/leftBar/scale_lite.svg");
-        setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/scale_dark.svg" : "qrc:/UI/photo/leftBar/scale_lite.svg");
-        setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/scale_pressed.svg" : "qrc:/UI/photo/leftBar/scale_lite.svg");
-        setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/scale_pressed.svg" : "qrc:/UI/photo/leftBar/scale_pressed.svg");
+        setDisabledIcon("qrc:/UI/photo/cToolBar/scale_dark_disable.svg");
+        setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/scale_dark_default.svg" : "qrc:/UI/photo/cToolBar/scale_light_default.svg");
+        setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/scale_dark_default.svg" : "qrc:/UI/photo/cToolBar/scale_light_default.svg");
+        setPressedIcon("qrc:/UI/photo/cToolBar/scale_dark_press.svg");
     }
 
     void ScaleMode::onLanguageChanged(MultiLanguage language)
     {
-        m_name = tr("Scale") + ": S";
+        m_name = tr("Scale") + ": Ctrl+R";
     }
 
     void ScaleMode::slotMouseLeftClicked()
@@ -82,10 +82,8 @@ namespace creative_kernel
             m_op = new ScaleOp(this);
             disconnect(m_op, SIGNAL(scaleChanged()), this, SIGNAL(scaleChanged()));
             disconnect(m_op, SIGNAL(sizeChanged()), this, SIGNAL(sizeChanged()));
-            disconnect(m_op, SIGNAL(checkChanged()), this, SIGNAL(scaleLockChanged()));
             connect(m_op, SIGNAL(scaleChanged()), this, SIGNAL(scaleChanged()));
             connect(m_op, SIGNAL(sizeChanged()), this, SIGNAL(sizeChanged()));
-            connect(m_op, SIGNAL(checkChanged()), this, SIGNAL(checkChanged()));
             connect(m_op, SIGNAL(mouseLeftClicked()), this, SLOT(slotMouseLeftClicked()));
         }
 

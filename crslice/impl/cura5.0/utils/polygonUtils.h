@@ -596,6 +596,16 @@ namespace cura52
          */
         static Polygon makeCircle(const Point mid, const coord_t radius, const AngleRadians a_step = M_PI / 8);
 
+        /**
+         * @brief Create a rect.
+         * 
+         * @param x  startx
+         * @param y  starty
+         * @param w  width
+         * @param h  high
+         * @return Polygon 
+         */
+        static Polygon makeRect(const coord_t x, const coord_t y,const coord_t w,const coord_t h);
         /*!
          * Connect all polygons to their holes using zero widths hole channels, so that the polygons and their outlines are connected together
          */

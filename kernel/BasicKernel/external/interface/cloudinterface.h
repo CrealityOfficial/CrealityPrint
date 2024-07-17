@@ -5,7 +5,7 @@
 
 #include <QtCore/QPointer>
 
-#include <cxcloud/define.hpp>
+#include <cxcloud/define.h>
 #include <cxcloud/service_center.h>
 
 #include "external/basickernelexport.h"
@@ -13,6 +13,7 @@
 namespace creative_kernel {
 
 BASIC_KERNEL_API QPointer<cxcloud::ServiceCenter> CloudService();
+BASIC_KERNEL_API QString GetCloudUrl();
 BASIC_KERNEL_API QString LoadCloudModelGroupUrl(const QString& group_id);
 
 BASIC_KERNEL_API std::weak_ptr<cxcloud::AccountService> CloudAccountService();

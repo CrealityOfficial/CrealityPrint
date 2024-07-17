@@ -28,28 +28,38 @@ namespace cxkernel
 		QString fileName;    // only for load
 		QString name;
 		QString description;
+
+		int defaultColor { 0 };
 		std::vector<std::string> colors; //for paint color
 		std::vector<std::string> seams; //for paint seam
 		std::vector<std::string> supports; //for paint support
 		ModelNDataType type = ModelNDataType::mdt_none;
+
+		trimesh::xform mxform;  // used when loading 3mf
+		int objectId3mf{ 0 };  // used when loading 3mf
+		trimesh::xform componentxform;  // 3mf object component transform
 	};
 
+	class ModelNData;
+	typedef std::shared_ptr<ModelNData> ModelNDataPtr;
 	class CXKERNEL_API ModelNData
 	{
 	public:
 		ModelNData();
 		~ModelNData();
 
+		ModelNDataPtr clone();
+
 		int primitiveNum();
-		void updateRenderData();
-		void updateRenderDataForced();
-		void updateIndexRenderData();
 		trimesh::box3 calculateBox(const trimesh::fxform& matrix = trimesh::fxform::identity());
 		trimesh::box3 localBox();
 		float localZ();
 
 		void calculateFaces();
 		void resetHull();
+
+		void adaptSmallBox(const trimesh::box3& box);
+		void adaptBigBox(const trimesh::box3& box);
 
 		void convex(const trimesh::fxform& matrix, std::vector<trimesh::vec3>& datas);
 		bool traitTriangle(int faceID, std::vector<trimesh::vec3>& position, const trimesh::fxform& matrix, bool offset = false);
@@ -58,22 +68,27 @@ namespace cxkernel
 
 		TriMeshPtr mesh;
 		TriMeshPtr hull;
-		cxkernel::GeometryData renderData;
+
 		std::vector<KernelHullFace> faces;
+		QMap<int, trimesh::vec3> colorMap;
+		QSet<int> colorIndexs;
 		std::vector<std::string> colors; //for paint color
+		int defaultColor;
+		std::vector<int> spreadFaces; //for paint color spread face
+		int spreadFaceCount;
 		std::vector<std::string> seams; //for paint seam
 		std::vector<std::string> supports; //for paint support
 		trimesh::vec3 offset;
 		ModelCreateInput input;
 	};
 
-	typedef std::shared_ptr<ModelNData> ModelNDataPtr;
-
 	class ModelNDataProcessor
 	{
 	public:
 		virtual ~ModelNDataProcessor() {}
 		virtual void process(ModelNDataPtr data) = 0;
+		virtual void modelMeshLoadStarted(int iMeshNum) {};
+		virtual void onMeshLoadFail() {};
 	};
 
 	struct ModelNDataCreateParam

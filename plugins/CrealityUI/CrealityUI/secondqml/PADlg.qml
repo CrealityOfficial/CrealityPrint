@@ -1,9 +1,10 @@
-import QtQuick 2.10
+    import QtQuick 2.10
 import QtQuick.Controls 2.12
 import QtQuick.Layouts 1.3
 import CrealityUI 1.0
 import "qrc:/CrealityUI"
 import ".."
+import "../components"
 import "../qml"
 DockItem {
     id: idDialog
@@ -14,9 +15,10 @@ DockItem {
     title: qsTr("PA calibration")
     property string version:""
     property string website: ""
+    property int testIndex: 0
     property var receiver
     signal sigTestType(var type)
-    signal sigPaTower(var start,var end,var step)
+    signal sigPaTower(var start,var end,var step,var type)
     ListModel{
         id: _aModel
         ListElement{key:qsTr("Initial PA value");text: "0";value: "0"}
@@ -32,6 +34,16 @@ DockItem {
         _aModel.setProperty(0,"value", defaultValue[index][0])
         _aModel.setProperty(1,"value", defaultValue[index][1])
         _aModel.setProperty(2,"value", defaultValue[index][2])
+    }
+    UploadMessageDlg2 {
+        id: paWarning
+        objectName: "paWarning"
+        property var receiver
+        visible: false
+        messageType:0
+        cancelBtnVisible: false
+        msgText: qsTr("The starting PA value cannot exceed the ending PA value")
+        onSigOkButtonClicked:paWarning.visible = false
     }
     Column
     {
@@ -94,7 +106,7 @@ DockItem {
                                     font.family: Constants.labelFontFamily
                                     font.weight: Constants.labelFontWeight
                                     font.pointSize: Constants.labelFontPointSize_9
-                                    verticalAlignment: Text.AlignVCente
+                                    verticalAlignment: Text.AlignVCenter
                                     horizontalAlignment: Text.AlignLeft
                                     x:18*screenScaleFactor
                                     anchors.verticalCenter: parent.verticalCenter
@@ -129,7 +141,7 @@ DockItem {
                     anchors.margins: 20*screenScaleFactor
                     //qsTr("PA dash") PA划线还没开发好，暂时屏蔽
                     Repeater{
-                        model: [qsTr("PA tower")]
+                        model: [qsTr("PA tower"),qsTr("PA dash")]
                         delegate:RadioDelegate{
                             id: testRadioControl
                             implicitWidth: 100*screenScaleFactor
@@ -161,7 +173,7 @@ DockItem {
                                     font.family: Constants.labelFontFamily
                                     font.weight: Constants.labelFontWeight
                                     font.pointSize: Constants.labelFontPointSize_9
-                                    verticalAlignment: Text.AlignVCente
+                                    verticalAlignment: Text.AlignVCenter
                                     horizontalAlignment: Text.AlignLeft
                                     x:18*screenScaleFactor
                                     anchors.verticalCenter: parent.verticalCenter
@@ -169,7 +181,8 @@ DockItem {
                             }
                             onClicked:
                             {
-                                sigTestType(index)
+                                testIndex = index
+//                                sigTestType(index)
                                 console.log("index =",index)
                             }
                         }
@@ -271,8 +284,14 @@ DockItem {
             defaultBtnBgColor: Constants.leftToolBtnColor_normal
             hoveredBtnBgColor: Constants.leftToolBtnColor_hovered
             onClicked: {
+                let startTemp = _aModel.get(0).value
+                let endTemp = _aModel.get(1).value
+                if(+startTemp>+endTemp){
+                    paWarning.visible = true
+                    return
+                }
                 close()
-                sigPaTower(_aModel.get(0).value,_aModel.get(1).value,_aModel.get(2).value)
+                sigPaTower(_aModel.get(0).value,_aModel.get(1).value,_aModel.get(2).value,testIndex)
             }
         }
     }

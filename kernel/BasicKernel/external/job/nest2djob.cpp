@@ -4,7 +4,7 @@
 #include "interface/modelinterface.h"
 #include "interface/machineinterface.h"
 #include "utils/modelpositioninitializer.h"
-#include "internal/data/_modelinterface.h"
+#include "internal/multi_printer/printermanager.h"
 
 namespace creative_kernel
 {
@@ -49,7 +49,8 @@ namespace creative_kernel
         : cxkernel::Nest2DJob(parent)
         , m_object(nullptr)
     {
-        qtuser_3d::Box3D bbx = baseBoundingBox();
+        //qtuser_3d::Box3D bbx = baseBoundingBox();
+        qtuser_3d::Box3D bbx = getPrinterMangager()->getSelectedPrinter()->globalBox();
         trimesh::box3 bbx3;
         bbx3.min = bbx.min;
         bbx3.max = bbx.max;
@@ -58,6 +59,19 @@ namespace creative_kernel
 
     Nest2DJob::~Nest2DJob()
     {
+    }
+
+    void Nest2DJob::setSpaceBox(const qtuser_3d::Box3D& box)
+    {
+        trimesh::box3 bbx3;
+        bbx3.min = box.min;
+        bbx3.max = box.max;
+        setBounding(bbx3);
+    }
+
+    void Nest2DJob::setSpecialModels(const QList<ModelN*>& models)
+    {
+        m_specialModels = models;
     }
 
     void Nest2DJob::setInsert(ModelN* model)
@@ -71,6 +85,8 @@ namespace creative_kernel
         }
     }
 
+
+
     void Nest2DJob::failed()
     {
         if (m_object)
@@ -79,9 +95,11 @@ namespace creative_kernel
 
     void Nest2DJob::prepare()
     {
-        const QList<ModelN*>& models = modelns();
+        if (m_specialModels.isEmpty())
+            m_specialModels = modelns();
+
         QList<cxkernel::PlaceItem*> items;
-        for (ModelN* model : models)
+        for (ModelN* model : m_specialModels)
         {
             LayoutItem* item = new LayoutItem(model, this);
             m_objects.append(item);
@@ -153,7 +171,7 @@ namespace creative_kernel
         }
 
         mixTRModels(models, s_ts, d_ts, s_qs, d_qs, m_object == nullptr);
-        _setModelsInitPosition(models, d_ts);
+
     }
 
 }

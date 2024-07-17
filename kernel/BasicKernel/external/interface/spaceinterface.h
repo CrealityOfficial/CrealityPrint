@@ -23,14 +23,9 @@ namespace creative_kernel
 	BASIC_KERNEL_API bool haveModelN();
 	BASIC_KERNEL_API bool haveModelsOutPlatform();
 	BASIC_KERNEL_API bool modelOutPlatform(ModelN* amodel);
+	BASIC_KERNEL_API ModelN* findModelBySerialName(const QString& serialName);
 
-	BASIC_KERNEL_API QList<FDMSupportGroup*> fdmSuppportGroups();
-	BASIC_KERNEL_API bool spaceHasFDMSupport();
-	BASIC_KERNEL_API void spaceCancelFDMSupport();
-	BASIC_KERNEL_API bool haveSupports(const QList<ModelN*>& models);
-	BASIC_KERNEL_API void deleteSupports(QList<ModelN*>& models);
-
-
+	BASIC_KERNEL_API qtuser_3d::Box3D modelsBox(const QList<ModelN*>& models);
 	BASIC_KERNEL_API qtuser_3d::Box3D baseBoundingBox();
 	BASIC_KERNEL_API qtuser_3d::Box3D sceneBoundingBox();      // changed when scene modified , trait it again
 
@@ -40,10 +35,18 @@ namespace creative_kernel
 
 	BASIC_KERNEL_API int checkModelRange();
 
+	BASIC_KERNEL_API void checkModelCollision();
+
 	BASIC_KERNEL_API int checkBedRange();
 
 	BASIC_KERNEL_API void dirtyModelSpace();
 	BASIC_KERNEL_API void clearModelSpaceDrity();
 	BASIC_KERNEL_API bool modelSpaceDirty();
+
+	BASIC_KERNEL_API void onModelMeshLoadStart(int iMeshNum);
+	//清空上一个工程所有的操作数据缓存
+	BASIC_KERNEL_API void clearProjectCache(bool clearModel = true);
+
+	BASIC_KERNEL_API bool spaceHasWipeTower();
 }
 #endif // CREATIVE_KERNEL_SPACEINTERFACE_1592880998363_H

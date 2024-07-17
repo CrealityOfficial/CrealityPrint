@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.3
 import CrealityUI 1.0
 import "qrc:/CrealityUI"
 import ".."
+import "../components"
 import "../qml"
 DockItem {
     id: idDialog
@@ -23,7 +24,16 @@ DockItem {
         ListElement{key:qsTr("End speed");text: "200";value: "200"}
         ListElement{key:qsTr("Flow step");text: "10";value: "10"}
     }
-
+    UploadMessageDlg2 {
+           id: vfaWarning
+           objectName: "vfaWarning"
+           property var receiver
+           visible: false
+           messageType:0
+           cancelBtnVisible: false
+           msgText: qsTr("The starting speed cannot exceed the ending speed")
+           onSigOkButtonClicked:vfaWarning.visible = false
+       }
 
     Column
     {
@@ -89,6 +99,12 @@ DockItem {
             hoveredBtnBgColor: Constants.leftToolBtnColor_hovered
             onSigButtonClicked:
             {
+                let startTemp = _aModel.get(0).value
+                let endTemp = _aModel.get(1).value
+                if(+startTemp>+endTemp){
+                    vfaWarning.visible = true
+                    return
+                }
                 close()
                 sigGenerate(_aModel.get(0).value,_aModel.get(1).value,_aModel.get(2).value)
             }

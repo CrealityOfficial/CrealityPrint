@@ -5,7 +5,6 @@
 #include "interface/selectorinterface.h"
 #include "interface/spaceinterface.h"
 
-#include "data/fdmsupportgroup.h"
 #include "data/modeln.h"
 
 #include "qtuser3d/trimesh2/conv.h"
@@ -87,8 +86,10 @@ void HollowJob::work(qtuser_core::Progressor* progressor) {
       trimesh::apply_xform(omesh.get(), trimesh::xform{ trimesh::inv(xform) });
       omesh->need_bbox();
 
-      odata = cxkernel::createModelNData(omesh, QStringLiteral("hollow_%1").arg(model->objectName()),
+      odata = cxkernel::createModelNData(omesh, QStringLiteral("%1").arg(model->objectName()),
           cxkernel::ModelNDataType::mdt_algrithm);
+
+      odata->defaultColor = model->defaultColorIndex();
 
     } catch (...) {
       assert(false && "exception catched!");
@@ -112,7 +113,12 @@ void HollowJob::successed(qtuser_core::Progressor* progressor) {
     data_list.push_back(odata);
   }
 
-  creative_kernel::replaceModelsMesh(model_list, data_list, true);
+  auto newModels = creative_kernel::replaceModelsMesh(model_list, data_list, true);
+
+  QList<qtuser_3d::Pickable*> pickable_list;
+  for (auto model : newModels)
+    pickable_list << model;
+  creative_kernel::selectMore(pickable_list);
 
   // clearCache();
   finished(true);

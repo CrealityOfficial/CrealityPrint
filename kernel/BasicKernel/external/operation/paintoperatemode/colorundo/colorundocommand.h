@@ -31,7 +31,8 @@ public:
 
 protected:
 	PaintOperateMode* m_colorOperateMode;
-	creative_kernel::ModelN* m_model;
+	// creative_kernel::ModelN* m_model;
+	QString m_serialName;
 	std::vector<std::string> m_oldData;
 	std::vector<std::string> m_newData;
 	bool m_needRedoOnFirst{ false };

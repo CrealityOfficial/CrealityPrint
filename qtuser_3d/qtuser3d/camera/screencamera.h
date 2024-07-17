@@ -79,6 +79,9 @@ namespace qtuser_3d
 		void notifyCameraChanged();
 
 		void setUpdateNearFarRuntime(bool update);
+
+		QPoint mapToScreen(const QVector3D& position);
+		
 	protected:
 		void _updateNearFar(const qtuser_3d::Box3D& box);
 	protected:

@@ -909,7 +909,7 @@ BasicDialog
             Row {
                 spacing: 20
                 width: parent.width
-               ScrollView
+                BasicScrollView
                 {
                     width: 125*screenScaleFactor
                     height: 450*screenScaleFactor
@@ -930,7 +930,7 @@ BasicDialog
                         anchors.fill: parent
                     }
                 }
-                ScrollView
+                BasicScrollView
                 {
                     id: idParamScrollView
                     width: 500*screenScaleFactor

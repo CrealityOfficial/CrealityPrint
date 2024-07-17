@@ -1,10 +1,11 @@
-#ifndef CREATIVE_KERNEL_GLOBALCONST_1672882923747_H
+﻿#ifndef CREATIVE_KERNEL_GLOBALCONST_1672882923747_H
 #define CREATIVE_KERNEL_GLOBALCONST_1672882923747_H
 
 #include <cxkernel/kernel/const.h>
 
 #include "basickernelexport.h"
 #include "data/kernelenum.h"
+#include "enginedatatype.h"
 
 namespace creative_kernel {
 
@@ -21,13 +22,17 @@ namespace creative_kernel {
     Q_PROPERTY(bool distanceMeasureable READ isDistanceMeasureable CONSTANT);
     Q_PROPERTY(bool sliceHeightSettingEnabled READ isSliceHeightSettingEnabled CONSTANT);
     Q_PROPERTY(bool partitionPrintEnabled READ isPartitionPrintEnabled CONSTANT);
+    Q_PROPERTY(bool laserEnabled READ isLaserEnabled CONSTANT);
     Q_PROPERTY(QString translateContext READ getTranslateContext CONSTANT);
 
+    Q_PROPERTY(bool isDebug READ isDebug CONSTANT);
+    Q_PROPERTY(bool isAlpha READ isAlpha CONSTANT);
    public:
     explicit GlobalConst(QObject* parent = nullptr);
-    virtual ~GlobalConst() = default;
+    virtual ~GlobalConst();
 
    public:
+    bool isAlpha() const;
     bool isCustomized() const;
     bool isCxcloudEnabled() const;
     bool isUpgradeable() const;
@@ -39,16 +44,24 @@ namespace creative_kernel {
     bool isDistanceMeasureable() const;
     bool isSliceHeightSettingEnabled() const;
     bool isPartitionPrintEnabled() const;
+    bool isLaserEnabled() const;
+    bool isDebug() const;
     QString getTranslateContext() const;
 
     int appType() const;
-
+    
     QString userCoursePath();
     QString getUiParameterDirPath();
     QString userFeedbackWebsite();
     QString calibrationTutorialWebsite();
     QString officialWebsite();
     QString getResourcePath(ResourcesType resource);
+    QString getEnginePathPrefix();
+    EngineType getEngineType() const;
+    Q_INVOKABLE int getEngineIntType() const;
+    void setEngineType(const EngineType& engineType);
+    QString getEngineVersion() const;
+    void setEngineVersion(const QString& engineVersion);
 
     QString languageName(MultiLanguage language);
     QString languageTsFile(MultiLanguage language);
@@ -63,16 +76,20 @@ namespace creative_kernel {
     Q_INVOKABLE void writeRegister(const QString& key, const QVariant& value);
     Q_INVOKABLE QVariant readRegister(const QString& key);
 
-   protected:
+   //protected:
     void initialize();
 
    private:
-    void removeOldDefaultFiles();
-    void copyFromOldVersion(const QString& oldVersionDir);
+    void copyOldVersionSettings();
 
    protected:
     const QStringList m_lanTsFiles;
     const QStringList m_lanNames;
+
+  private:
+      EngineType m_engineType = EngineType::ET_CURA;
+      QString m_engineVersion;
+      QString m_enginePathPrefix;
   };
 
 }  // namespace creative_kernel

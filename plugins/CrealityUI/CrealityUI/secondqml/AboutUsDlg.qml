@@ -5,6 +5,7 @@ import QtQuick.Layouts 1.13
 import CrealityUI 1.0
 
 import "qrc:/CrealityUI"
+import "qrc:/CrealityUI/components"
 
 DockItem {
   id: root
@@ -27,23 +28,34 @@ DockItem {
                                               .arg(cxkernel_const.versionExtra)
   readonly property bool versionVisible: true
 
-  readonly property string copyright: qsTranslate(context, "Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved")
-  readonly property bool copyrightVisible: copyright !== "Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved"
+  readonly property string copyright: qsTranslate(context, "sofrware_copyright")
+  readonly property bool copyrightVisible: copyright !== "sofrware_copyright"
 
-  readonly property string introduction: qsTranslate(context, "Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R & D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R & D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China's 3D printing industry, with its R & D strength, production, quality and services all leading the industry.")
-  readonly property bool introductionVisible: introduction !== "Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China&apos;s 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry."
+  readonly property string introduction: qsTranslate(context, "offical_introduction")
+  readonly property bool introductionVisible: introduction !== "offical_introduction"
 
-  readonly property string websiteTitle: qsTranslate(context, "Website")
-  readonly property string website: qsTranslate(context, "https://www.creality.cn/")
-  readonly property bool websiteVisible: website !== "https://www.creality.cn/"
+  readonly property string websiteTitle: qsTranslate(context, "aboutusdialog_webside")
+  readonly property string website: qsTranslate(context, "offical_webside")
+  readonly property bool websiteVisible: website !== "offical_webside"
 
-  readonly property string emailTitle: qsTranslate(context, "E-mail")
-  readonly property string email: qsTranslate(context, "crealityprint@creality.com")
-  readonly property bool emailVisible: email !== "crealityprint@creality.com"
+  readonly property string emailTitle: qsTranslate(context, "aboutusdialog_email")
+  readonly property string email: qsTranslate(context, "offical_email")
+  readonly property bool emailVisible: email !== "offical_email"
 
-  readonly property string telephoneTitle: qsTranslate(context, "Telephone")
-  readonly property string telephone: qsTranslate(context, "+86 755-8523 4565")
-  readonly property bool telephoneVisible: telephone !== "+86 755-8523 4565"
+  readonly property string telephoneTitle: qsTranslate(context, "aboutusdialog_telephone")
+  readonly property string telephone: qsTranslate(context, "offical_telephone")
+  readonly property bool telephoneVisible: telephone !== "offical_telephone"
+
+  readonly property string engineCopyright1: qsTranslate(context, "engine_copyright1")
+  readonly property bool engineCopyrightVisible1: engineCopyright1 !== "engine_copyright1"
+  readonly property string engineCopyright2: qsTranslate(context, "engine_copyright2")
+  readonly property bool engineCopyrightVisible2: engineCopyright2 !== "engine_copyright2"
+  readonly property string engineCopyright3: qsTranslate(context, "engine_copyright3")
+  readonly property bool engineCopyrightVisible3: engineCopyright3 !== "engine_copyright3"
+  readonly property string engineCopyright4: qsTranslate(context, "engine_copyright4")
+  readonly property bool engineCopyrightVisible4: engineCopyright4 !== "engine_copyright4"
+  readonly property string engineCopyright5: qsTranslate(context, "engine_copyright5")
+  readonly property bool engineCopyrightVisible5: engineCopyright5 !== "engine_copyright5"
 
   CopyRightDlg {
     id: copyright_dialog
@@ -107,7 +119,7 @@ DockItem {
       height: contentHeight
       Layout.bottomMargin: parent.spacing
 
-//      visible: root.introductionVisible
+      visible: root.introductionVisible
 
       padding: 0
 
@@ -143,103 +155,155 @@ DockItem {
       color: Constants.textColor
     }
 
-    Text {
-      id: copyright_text
-
+Column{
+  Layout.fillWidth: true
+  id:engineCopyrightId
+   Text {
       Layout.fillWidth: true
-
-//      visible: root.copyrightVisible
-
-      horizontalAlignment: Text.AlignLeft
-      verticalAlignment: Text.AlignTop
-
-      text: root.copyright
+      height:contentHeight
+      visible: root.engineCopyrightVisible1
+      text: root.engineCopyright1
       textFormat: Text.PlainText
-      wrapMode: Text.WordWrap
+      font.family: Constants.labelFontFamily
+      font.weight: Constants.labelFontWeight
+      font.pointSize: Constants.labelFontPointSize_9
+      color: Constants.textColor
+    }
+     Text {
+      Layout.fillWidth: true
+      height:contentHeight
+      visible: root.engineCopyrightVisible2
+      text: root.engineCopyright2
+      textFormat: Text.PlainText
+      font.family: Constants.labelFontFamily
+      font.weight: Constants.labelFontWeight
+      font.pointSize: Constants.labelFontPointSize_9
+      color: Constants.textColor
+    }
+     Text {
+      Layout.fillWidth: true
+      height:contentHeight
+      visible: root.engineCopyrightVisible3
+      text: root.engineCopyright3
+      textFormat: Text.PlainText
+      font.family: Constants.labelFontFamily
+      font.weight: Constants.labelFontWeight
+      font.pointSize: Constants.labelFontPointSize_9
+      color: Constants.textColor
+    }
+     Text {
+      Layout.fillWidth: true
+      lineHeight:1
+      visible: root.engineCopyrightVisible4
+      text: root.engineCopyright4
+      textFormat: Text.PlainText
+      font.family: Constants.labelFontFamily
+      font.weight: Constants.labelFontWeight
+      font.pointSize: Constants.labelFontPointSize_9
+      color: Constants.textColor
+    }
+     Text {
+      Layout.fillWidth: true
+      height:10
+      visible: root.engineCopyrightVisible5
+      text: root.engineCopyright5
+      textFormat: Text.PlainText
       font.family: Constants.labelFontFamily
       font.weight: Constants.labelFontWeight
       font.pointSize: Constants.labelFontPointSize_9
       color: Constants.textColor
     }
 
-    Text {
-      id: website_text
-
-      Layout.fillWidth: true
-
-   //   visible: root.websiteVisible
-
-      horizontalAlignment: Text.AlignLeft
-      verticalAlignment: Text.AlignTop
-
-      text: "%1: <a href='%2' style='color:%3'>%2</a>"
-              .arg(root.websiteTitle)
-              .arg(root.website)
-              .arg("#449ec7")
-      textFormat: Text.RichText
-      wrapMode: Text.WordWrap
-      font.family: Constants.labelFontFamily
-      font.weight: Constants.labelFontWeight
-      font.pointSize: Constants.labelFontPointSize_9
-      color: Constants.textColor
-
-      onLinkActivated: function(link) {
-        Qt.openUrlExternally(link)
-      }
-    }
-
-    Text {
-      id: email_text
-
-      Layout.fillWidth: true
-
-      visible: root.emailVisible
-
-      horizontalAlignment: Text.AlignLeft
-      verticalAlignment: Text.AlignTop
-
-      text: "%1: <a href='mailto:%2' style='color:%3'>%2</a>"
-              .arg(root.emailTitle)
-              .arg(root.email)
-              .arg("#449ec7")
-      textFormat: Text.RichText
-      wrapMode: Text.WordWrap
-      font.family: Constants.labelFontFamily
-      font.weight: Constants.labelFontWeight
-      font.pointSize: Constants.labelFontPointSize_9
-      color: Constants.textColor
-
-      onLinkActivated: function(link) {
-        Qt.openUrlExternally(link)
-      }
-    }
-
-    Text {
-      id: telephone_text
-
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-
-//      visible: root.telephoneVisible
-
-      horizontalAlignment: Text.AlignLeft
-      verticalAlignment: Text.AlignTop
-
-      text: "%1: %2"
-              .arg(root.telephoneTitle)
-              .arg(root.telephone)
-      textFormat: Text.RichText
-      wrapMode: Text.WordWrap
-      font.family: Constants.labelFontFamily
-      font.weight: Constants.labelFontWeight
-      font.pointSize: Constants.labelFontPointSize_9
-      color: Constants.textColor
     }
 
     Item {
       Layout.fillWidth: true
       Layout.fillHeight: true
     }
+    
+    Column{
+      spacing:2
+      RowLayout{
+        spacing:5
+        // anchors.top:engineCopyrightId.bottom
+        // anchors.topMargin:5
+        Text {
+          id: website_text
+          visible: root.websiteVisible
+          text: "%1: <a href='%2' style='color:%3'>%2</a>"
+                  .arg(root.websiteTitle)
+                  .arg(root.website)
+                  .arg("#449ec7")
+          textFormat: Text.RichText
+          Layout.fillWidth: true
+          font.family: Constants.labelFontFamily
+          font.weight: Constants.labelFontWeight
+          font.pointSize: Constants.labelFontPointSize_9
+          color: Constants.textColor
+          width: 300
+          onLinkActivated: function(link) {
+            Qt.openUrlExternally(link)
+          }
+        }
+
+        Text {
+          id: email_text
+          Layout.fillWidth: true
+          visible: root.emailVisible
+          text: "%1: <a href='mailto:%2' style='color:%3'>%2</a>"
+                  .arg(root.emailTitle)
+                  .arg(root.email)
+                  .arg("#449ec7")
+          textFormat: Text.RichText
+          wrapMode: Text.WordWrap
+          font.family: Constants.labelFontFamily
+          font.weight: Constants.labelFontWeight
+          font.pointSize: Constants.labelFontPointSize_9
+          color: Constants.textColor
+          width: 300
+          onLinkActivated: function(link) {
+            Qt.openUrlExternally(link)
+          }
+        }
+
+        Text {
+          id: telephone_text
+          Layout.fillWidth: true
+          visible: root.telephoneVisible
+          text: "%1: %2"
+                  .arg(root.telephoneTitle)
+                  .arg(root.telephone)
+          textFormat: Text.RichText
+          wrapMode: Text.WordWrap
+          font.family: Constants.labelFontFamily
+          font.weight: Constants.labelFontWeight
+          font.pointSize: Constants.labelFontPointSize_9
+          color: Constants.textColor
+          width: 300
+        }
+      }
+
+
+      Text {
+        id: copyright_text
+
+        Layout.fillWidth: true
+
+        visible: root.copyrightVisible
+
+        horizontalAlignment: Text.AlignLeft
+        verticalAlignment: Text.AlignTop
+
+        text: root.copyright
+        textFormat: Text.PlainText
+        wrapMode: Text.WordWrap
+        font.family: Constants.labelFontFamily
+        font.weight: Constants.labelFontWeight
+        font.pointSize: Constants.labelFontPointSize_9
+        color: Constants.textColor
+      }
+}
+
 
     RowLayout {
       id: button_layout

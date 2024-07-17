@@ -1,0 +1,17 @@
+cxlog/0.0.2
+trimesh2/0.0.3
+eigen/0.0.2
+clipper2/0.0.1
+boost_static/1.0.0
+rapidjson/1.0.0
+stb/0.0.2
+polyclipping/0.0.1
+clipper2/0.0.1
+admesh/0.0.1
+tbb_static/2.0.0
+png_static/1.0.0
+openssl/0.0.2
+expat/0.0.1
+opencascade_static/1.0.0
+nlopt_static/1.0.0
+cgal/0.0.2

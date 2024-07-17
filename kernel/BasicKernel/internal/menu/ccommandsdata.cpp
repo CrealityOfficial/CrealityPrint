@@ -9,6 +9,8 @@
 #include "us/settingdef.h"
 
 #include "openfilecommand.h"
+#include "importpresetcommand.h"
+#include "exportpresetcommand.h"
 #include "submenurecentfiles.h"
 
 #include "undoactioncmd.h"
@@ -24,10 +26,11 @@
 #include "../menu_calibration/flowcoarsetuningcommand.h"
 #include "../menu_calibration/flowfinetuningcommand.h"
 #include "../menu_calibration/tutorialcommand.h"
+#include "../menu_calibration/retractioncommand.h"
 
 
-
-
+#include "submenuexportmodel.h"
+#include "submenuimportmodel.h"
 #include "submenustandardmodel.h"
 #include "submenutestmodel.h"
 #include "../menu_view/modelshowcommand.h"
@@ -39,15 +42,17 @@
 #include "../menu_view/submenuviewsshow.h"
 #include "../menu_view/resetactioncommand.h"
 #include "../menu_view/mergemodelcommand.h"
-#include "../menu_tool/manageprinter.h"
 #include "../menu_tool/submenuThemeColor.h"
 #include "../menu_tool/logviewcommand.h"
 #include "../menu_tool/crealitygroupcommand.h"
+#include "../menu_tool/preferencescommand.h"
 #include"../menu_help/usecoursecommand.h"
 #include "../menu_help/userfeedbackcommand.h"
+#include "../project_cx3d/cx3dmanager.h"
 #include"internal/rclick_menu/deletemodelaction.h"
 #include"internal/rclick_menu/clearallaction.h"
 #include"internal/rclick_menu/mergemodelaction.h"
+#include"internal/rclick_menu/mergemodellocation.h"
 #include"internal/rclick_menu/splitmodelaction.h"
 #include"internal/rclick_menu/cloneaction.h"
 #include"internal/rclick_menu/selectallaction.h"
@@ -61,9 +66,8 @@ using namespace creative_kernel;
 CCommandsData::CCommandsData(QObject *parent) : QObject(parent)
 {
     addCommonCommand();
-    createMenuNameMap();
 
-    addUIVisualTracer(this);
+    addUIVisualTracer(this,this);
 }
 
 CCommandsData::~CCommandsData()
@@ -76,25 +80,10 @@ void CCommandsData::onThemeChanged(ThemeCategory category)
 
 void CCommandsData::onLanguageChanged(MultiLanguage language)
 {
-    m_mapMenuName.clear();
-    createMenuNameMap();
+
 }
 
-void CCommandsData:: createMenuNameMap()
-{
-    //  int index = eMenuType_File;
-    m_mapMenuName.clear();
-    m_mapMenuName.insert(QString::number(eMenuType_File),tr("File(&F)"));
-    m_mapMenuName.insert(QString::number(eMenuType_Edit),tr("Edit(&E)"));
-    m_mapMenuName.insert(QString::number(eMenuType_View),tr("View(&V)"));
-    //m_mapMenuName.insert(QString::number(eMenuType_Repair),tr("Repair(&R)"));
-    //    m_mapMenuName.insert(QString::number(eMenuType_Slice),tr("Slice(&R)"));
-    m_mapMenuName.insert(QString::number(eMenuType_Tool),tr("Tool(&T)"));
-    m_mapMenuName.insert(QString::number(eMenuType_CrealityGroup),tr("Models(&M)"));
-    m_mapMenuName.insert(QString::number(eMenuType_PrinterControl), tr("PrinterControl(&C)"));
-    m_mapMenuName.insert(QString::number(eMenuType_Calibration), tr("Calibration(&C)"));
-    m_mapMenuName.insert(QString::number(eMenuType_Help),tr("Help(&H)"));
-}
+
 void CCommandsData::addCommads(ActionCommand *pAction)
 {
     if (pAction)
@@ -113,35 +102,6 @@ QVariantList  CCommandsData::getCommandsList(void)
     return varList;
 }
 
-QString CCommandsData::getMenuNameFromKey(QString key)
-{
-    //m_mapMenuName.value(key);
-    return m_mapMenuName.value(key);
-}
-void CCommandsData::initMapData(QVariantMap &map)
-{
-    QVariantList fileList;
-    QVariantList editList;
-    QVariantList viewList;
-    QVariantList repairList;
-    QVariantList sliceList;
-    QVariantList toolList;
-    QVariantList groupList;
-    QVariantList printerControlList;
-    QVariantList helpList;
-    QVariantList calibrationList;
-    map.insert(QString::number(eMenuType_File),fileList);
-    map.insert(QString::number(eMenuType_Edit),editList);
-    map.insert(QString::number(eMenuType_View),viewList);
-    //map.insert(QString::number(eMenuType_Repair),repairList);
-    //    map.insert(QString::number(eMenuType_Slice),sliceList);
-    map.insert(QString::number(eMenuType_Tool),toolList);
-    map.insert(QString::number(eMenuType_CrealityGroup),groupList);
-    map.insert(QString::number(eMenuType_PrinterControl), printerControlList);
-    map.insert(QString::number(eMenuType_Help),helpList);
-    map.insert(QString::number(eMenuType_Calibration), calibrationList);
-
-}
 
 void CCommandsData::addCommonCommand()
 {
@@ -155,10 +115,10 @@ void CCommandsData::addCommonCommand()
     CCommandList::getInstance()->addActionCommad(rectfile);
     rectfile->setNumOfRecentFiles(10);
 
-    Save3MFCommand* save3MF = new Save3MFCommand();
-    save3MF->setParent(this);
-    save3MF->setBSeparator(true);
-    CCommandList::getInstance()->addActionCommad(save3MF);
+    //Save3MFCommand* save3MF = new Save3MFCommand();
+    //save3MF->setParent(this);
+    //save3MF->setBSeparator(true);
+    //CCommandList::getInstance()->addActionCommad(save3MF);
 
     Load3MFCommand* load3MF = new Load3MFCommand();
     load3MF->setParent(this);
@@ -175,10 +135,31 @@ void CCommandsData::addCommonCommand()
     ssm->setBSeparator(true);
     CCommandList::getInstance()->addActionCommad(ssm);
 
-    SubMenuTestModel* stm = new SubMenuTestModel();
+    SubMenuTestModel* stm = SubMenuTestModel::getInstance();
     stm->setParent(this);
     stm->setBSeparator(true);
     CCommandList::getInstance()->addActionCommad(stm);
+
+
+    SubMenuImportModel* subImport = SubMenuImportModel::getInstance();
+    subImport->setParent(this);
+    subImport->setBSeparator(true);
+    CCommandList::getInstance()->addActionCommad(subImport);
+    
+    SubMenuExportModel* subExport = SubMenuExportModel::getInstance();
+    subExport->setParent(this);
+    subExport->setBSeparator(true);
+    CCommandList::getInstance()->addActionCommad(subExport);
+
+    //ImportPresetCommand* importPresetCmd = new ImportPresetCommand();
+    //importPresetCmd->setParent(this);
+    //importPresetCmd->setBSeparator(true);
+    //CCommandList::getInstance()->addActionCommad(importPresetCmd);
+
+    //ExportPresetCommand* exportPresetCmd = new ExportPresetCommand();
+    //exportPresetCmd->setParent(this);
+    //exportPresetCmd->setBSeparator(true);
+    //CCommandList::getInstance()->addActionCommad(exportPresetCmd);
     //edit
     UndoActionCmd* undo = new UndoActionCmd();
     undo->setParent(this);
@@ -203,14 +184,17 @@ void CCommandsData::addCommonCommand()
     MergeModelAction* merge = new MergeModelAction(this);
     CCommandList::getInstance()->addActionCommad(merge);
 
+    MergeModelLocation* mergeLocation = new MergeModelLocation(this);
+    CCommandList::getInstance()->addActionCommad(mergeLocation);
+
     MergeModelCommand* mergeModel = new MergeModelCommand(this);
     CCommandList::getInstance()->addActionCommad(mergeModel);
 
     SelectAllAction* selectAll = new SelectAllAction(this);
     CCommandList::getInstance()->addActionCommad(selectAll);
 
-    //ResetAllAction* resetall = new ResetAllAction(this);
-    //CCommandList::getInstance()->addActionCommad(resetall);
+    ResetAllAction* resetall = new ResetAllAction(this);
+    CCommandList::getInstance()->addActionCommad(resetall);
 
     //view
     ModelShowCommand* lineShow = new ModelShowCommand(ModelVisualMode::mvm_line, this);
@@ -239,9 +223,9 @@ void CCommandsData::addCommonCommand()
     CCommandList::getInstance()->addActionCommad(viewshow);
     //    viewshow->setBSeparator(true);
 
-    //ResetActionCommand* resetAll = new ResetActionCommand();
-    //resetAll->setParent(this);
-    //CCommandList::getInstance()->addActionCommad(resetAll);
+    ResetActionCommand* resetAll = new ResetActionCommand();
+    resetAll->setParent(this);
+    CCommandList::getInstance()->addActionCommad(resetAll);
 
     //MergeModelCommand* mergeModel = new MergeModelCommand();
     //mergeModel->setParent(this);
@@ -253,9 +237,6 @@ void CCommandsData::addCommonCommand()
     lang->setParent(this);
     CCommandList::getInstance()->addActionCommad(lang);
 
-    ManagePrinter* printer = new ManagePrinter();
-    printer->setParent(this);
-    CCommandList::getInstance()->addActionCommad(printer);
     SubMenuThemeColor* themecolor = new SubMenuThemeColor();
     themecolor->setParent(this);
     CCommandList::getInstance()->addActionCommad(themecolor);
@@ -266,6 +247,11 @@ void CCommandsData::addCommonCommand()
     CrealityGroupCommand* group = new CrealityGroupCommand();
     group->setParent(this);
     CCommandList::getInstance()->addActionCommad(group);
+
+    //perferences
+    PreferencesCommand* preferences = new PreferencesCommand();
+    preferences->setParent(this);
+    CCommandList::getInstance()->addActionCommad(preferences);
 
     //help
     AboutUsCommand* aboutus = new AboutUsCommand(this);
@@ -292,44 +278,9 @@ void CCommandsData::addCommonCommand()
     CCommandList::getInstance()->addActionCommad(fft);
     TutorialCommand* tutorial = new TutorialCommand(this);
     CCommandList::getInstance()->addActionCommad(tutorial);
-}
+    RetractionCommand* rc = new RetractionCommand(this);
+    CCommandList::getInstance()->addActionCommad(rc);
 
-QVariantMap CCommandsData::getCommandsMap(void)
-{
-    QVariantMap dataMap;
-
-    initMapData(dataMap);
-    //get actionCommand Data
-
-
-    m_varCommandList = CCommandList::getInstance()->getActionCommandList();
-    if(m_varCommandList.isEmpty())
-    {
-        return dataMap;
-    }
-    //data write into QVariantMap
-    //QVariantMap tmpMap = dataMap;
-    foreach (auto var, m_varCommandList)
-    {
-        QVariantList  list;
-        int index = var->parentMenu();
-        if(index > eMenuType_Help)continue;
-        if(dataMap.isEmpty())
-        {
-            return dataMap;
-        }
-        if(dataMap.find(QString::number(index))->isNull())
-        {
-            list.append(QVariant::fromValue(var));
-        }
-        else
-        {
-            list = dataMap.find(QString::number(index)).value().value<QVariantList>();
-            list.append(QVariant::fromValue(var));
-        }
-        dataMap.insert(QString::number(index),list);
-    }
-    return dataMap;
 }
 
 QVariant CCommandsData::getFileOpenOpt()

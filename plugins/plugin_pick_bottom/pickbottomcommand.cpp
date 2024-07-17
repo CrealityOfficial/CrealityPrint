@@ -7,15 +7,18 @@
 #include "kernel/kernelui.h"
 #include "interface/commandinterface.h"
 #include "interface/uiinterface.h"
+#include "interface/spaceinterface.h"
+#include "interface/modelinterface.h"
+#include "interface/printerinterface.h"
 
 using namespace creative_kernel;
 
 PickBottomCommand::PickBottomCommand(QObject* parent) : ToolCommand(parent), m_op(nullptr)
 {
-    m_name = tr("P Bottom") + ": F";
+    m_name = tr("P Bottom") + ": B";
     setSource("qrc:/pickbottom/pickbottom/pickBottom.qml");
 
-    addUIVisualTracer(this);
+    addUIVisualTracer(this,this);
 }
 
 PickBottomCommand::~PickBottomCommand()
@@ -25,15 +28,15 @@ PickBottomCommand::~PickBottomCommand()
 
 void PickBottomCommand::onThemeChanged(creative_kernel::ThemeCategory category)
 {
-    setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/pick_dark.svg" : "qrc:/UI/photo/leftBar/pick_lite.svg");
-    setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/pick_dark.svg" : "qrc:/UI/photo/leftBar/pick_lite.svg");
-    setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/pick_pressed.svg" : "qrc:/UI/photo/leftBar/pick_lite.svg");
-    setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/pick_pressed.svg" : "qrc:/UI/photo/leftBar/pick_pressed.svg");
+    setDisabledIcon("qrc:/UI/photo/cToolBar/faceFlat_dark_disable.svg" );
+    setEnabledIcon(category == ThemeCategory::tc_dark ?"qrc:/UI/photo/cToolBar/faceFlat_dark_default.svg" : "qrc:/UI/photo/cToolBar/faceFlat_light_default.svg");
+    setHoveredIcon(category == ThemeCategory::tc_dark ?"qrc:/UI/photo/cToolBar/faceFlat_dark_default.svg" : "qrc:/UI/photo/cToolBar/faceFlat_light_default.svg");
+    setPressedIcon("qrc:/UI/photo/cToolBar/faceFlat_dark_press.svg");
 }
 
 void PickBottomCommand::onLanguageChanged(creative_kernel::MultiLanguage language)
 {
-    m_name = tr("P Bottom") + ": F";
+    m_name = tr("P Bottom") + ": B";
 }
 
 void PickBottomCommand::slotMouseLeftClicked()
@@ -97,7 +100,18 @@ void PickBottomCommand::cancel()
     getKernelUI()->switchPickMode();
 }
 
- void PickBottomCommand::maxFaceBottom()
+void PickBottomCommand::autoPickBottom()
 {
-    m_op->setMaxFaceBottom();
+    auto models = selectionms();
+
+    if (models.isEmpty())
+    {
+	    creative_kernel::setModelsMaxFaceBottomExceptLock();
+    }
+    else 
+    {
+        creative_kernel::setSelectionsMaxFaceBottomExceptLock();
+    }
+
+
 }

@@ -9,6 +9,7 @@
 #include "historylistmodel.h"
 #include "sortproxymodel.h"
 #include "videolistmodel.h"
+#include "localnetworkinterface/materialboxmodellist.h"
 
 #include "qtusercore/module/creativeinterface.h"
 
@@ -34,5 +35,6 @@ protected:
     GcodeListModel* m_GcodeFileList = nullptr;
 	HistoryListModel* m_HistoryFileList = nullptr;
     VideoListModel* m_videoList = nullptr;
+    MaterialBoxListModel* m_materialBoxList = nullptr;
 };
 #endif

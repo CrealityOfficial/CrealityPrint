@@ -23,6 +23,11 @@ Item {
         __lanPrinterPanel.curGcodeFileName = fileName
     }
 
+    function setCurGcodeFilePath(filePath)
+    {
+        __lanPrinterPanel.curGcodeFilePath = filePath
+    }
+
     function lanPrintingBtnClicked()
     {
         curSelectPrintingIndex = -1
@@ -116,8 +121,8 @@ Item {
             ScrollView{
                 anchors.fill: parent
                 clip: true
-                Row
-                {
+                ScrollBar.vertical.policy: (contentHeight > height) ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                Row {
                     anchors.left: parent.left
                     anchors.leftMargin: 1 * screenScaleFactor
                     anchors.verticalCenter: parent.verticalCenter
@@ -151,8 +156,6 @@ Item {
 
                         onClicked: lanPrintingBtnClicked()
                     }
-
-
 
                     //可变数量的打印机按钮
                     Repeater {
@@ -270,6 +273,17 @@ Item {
                     __testLoad.itemPrinterID = printerID
                     __testLoad.itemPrinterType = printerType
                     __testLoad.sourceComponent = __test
+                }
+                onClickDelete: {
+                    delete devicesMap[__testLoad.itemPrinterID]
+                    curSelectPrintingIndex = -1
+                    __testLoad.sourceComponent = undefined
+                    for(var index = 0; index < __repeaterModel.count; ++index)
+                    {
+                        var macAddress = __repeaterModel.get(index).Key_PrinterID
+                        if(macAddress === printerID)  __repeaterModel.remove(index)
+                    }
+
                 }
                 Loader
                 {

@@ -49,12 +49,12 @@ TextField{
     implicitHeight: Math.max(contentHeight + topPadding + bottomPadding,
                              implicitBackgroundHeight + topInset + bottomInset,
                              placeholder.implicitHeight + topPadding + bottomPadding)
-    padding: 6 * screenScaleFactor
+    padding: 2 * screenScaleFactor
     leftPadding: padding + 4* screenScaleFactor
     rightPadding: idUnitChar.contentWidth + 5* screenScaleFactor
     property int radius : 5 * screenScaleFactor
-	property var keyStr: ""
-	property var errorCode: 0x0000
+    property var keyStr: ""
+    property var errorCode: 0x0000
     property var limitEnable: true
     property var onlyPositiveNum: true
 
@@ -64,7 +64,7 @@ TextField{
     property var strToolTip: ""
     property var borderW: 1
     property alias unitChar: idUnitChar.text
-	property alias baseValidator: control.validator
+    property alias baseValidator: control.validator
     //property var baseValidator: ""//control.validator
     property color defaultBackgroundColor: "transparent" // Constants.dialogItemRectBgColor
     property  color  itemBorderColor: Constants.dialogItemRectBgBorderColor
@@ -75,15 +75,14 @@ TextField{
     font.weight: Constants.labelFontWeight
     font.pointSize: Constants.labelFontPointSize_9
     validator: RegExpValidator { regExp: limitEnable ? (onlyPositiveNum ? /(\d{1,6})([.,]\d{1,2})?$/ : /^([\+ \-]?(([1-9]\d*)|(0)))([.]\d{0,2})?$/): /.*/}
-//    placeholderText: "hello"
     selectByMouse  : true
-	
-	signal editingFieldFinished(var key, var value)
-	signal textFieldChanged(var key, var value)
 
-	signal styleTextFieldFinished(var key, var item)
-	signal styleTextFieldChanged(var key, var item)
-	
+    signal editingFieldFinished(var key, var value)
+    signal textFieldChanged(var key, var value)
+
+    signal styleTextFieldFinished(var key, var item)
+    signal styleTextFieldChanged(var key, var item)
+
     PlaceholderText {
         id: placeholder
         x: control.leftPadding
@@ -130,8 +129,8 @@ TextField{
             }
         }
     }
-	
-	
+
+
     background: Rectangle
     {
         border.width: borderW
@@ -156,7 +155,7 @@ TextField{
         editingFieldFinished(keyStr, control.text)
         styleTextFieldFinished(keyStr, this)
     }
-	
+
     onTextChanged:
     {
         textFieldChanged(keyStr, control.text)

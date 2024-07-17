@@ -47,6 +47,7 @@ namespace qtuser_3d
 		void cleanup();
 	private slots:
 		void handleWindowChanged(QQuickWindow* win);
+		void releaseAlwaysRender();
 	protected:
 		Q_INVOKABLE void _geometry(int width, int height);
 		virtual void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) Q_DECL_OVERRIDE;

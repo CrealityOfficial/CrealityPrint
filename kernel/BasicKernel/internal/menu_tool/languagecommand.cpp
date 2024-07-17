@@ -10,7 +10,7 @@ namespace creative_kernel
     {
         m_eParentMenu = eMenuType_Tool;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
 
         onLanguageChanged(m_language);
     }

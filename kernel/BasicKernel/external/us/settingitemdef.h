@@ -39,10 +39,12 @@ namespace us
 		QString enableStatus;
 		bool isCustomSetting;
 
+		QString settablePerMesh;
+
 		int level;
 		int order;
 
-		QMap<QString, QString> options;
+		QList<std::pair<QString, QString> > options;
 
 	protected:
 		MetaType* m_metaType;

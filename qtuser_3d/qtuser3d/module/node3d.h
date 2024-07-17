@@ -62,6 +62,9 @@ namespace qtuser_3d
 		QVector3D mapGlobal2LocalAD(QVector3D position);  // map global bottom center to position
 
 		void liftZUp(float z);  // z is global value
+
+		void buildLocalMatrix(const QMatrix4x4& gMatrix);
+
 	protected:
 		void parentGlobalChanged(const QMatrix4x4& parent2Global);
 		void notifyGlobalChanged(const QMatrix4x4& globalMatrix);
@@ -70,6 +73,11 @@ namespace qtuser_3d
 		virtual void onLocalMatrixChanged(const QMatrix4x4& localMatrix);
 
 		virtual void mirror(const QMatrix4x4& matrix, bool apply = true);
+
+		virtual void onLocalScaleChanged(const QVector3D& newScale);
+		virtual void onLocalPositionChanged(const QVector3D& newPosition);
+		virtual void onLocalQuaternionChanged(const QQuaternion& newQ);
+
 	protected:
 		virtual Box3D calculateGlobalSpaceBox();
 		virtual Box3D calculateGlobalSpaceBoxNoScale();

@@ -9,6 +9,8 @@ namespace topomesh
         NO_MODEL_DATA = 1,
         BOUNDARY_CHECK_FAIL = 2,
         NO_INTERSECT_HEXAGON = 3,
+
+
         MAX_ERROR = 4,
     };
 
@@ -24,7 +26,12 @@ namespace topomesh
 		float holeGap = 1.0f;
 		std::vector<std::vector<int>> faces;
         int mode = 0; ///< 0 is shell, 1 is backfill.
+
+        //debug
+        std::string fileName;
 	};
+
+    TOPOMESH_API std::shared_ptr<trimesh::TriMesh> honeyGenerateFromFile(const std::string& fileName, ccglobal::Tracer* tracer);
 
     TOPOMESH_API std::shared_ptr<trimesh::TriMesh> honeyCombGenerate(trimesh::TriMesh* trimesh, ErrorCode& code, const CombParam& honeyparams = CombParam(),
         ccglobal::Tracer* tracer = nullptr);

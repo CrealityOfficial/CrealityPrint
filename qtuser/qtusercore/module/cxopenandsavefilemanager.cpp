@@ -13,6 +13,7 @@
 #include "ccglobal/platform.h"
 #include <QtCore/QStandardPaths>
 #include <QApplication>
+#include "qtusercore/util/settings.h"
 namespace qtuser_core
 {
 
@@ -211,7 +212,7 @@ namespace qtuser_core
 			}
 			m_externalHandler = nullptr;
 			m_State = OpenSaveState::oss_none;
-			
+
 			return true;
 		}
 		return true;
@@ -234,7 +235,7 @@ namespace qtuser_core
 		save(handle);
 	}
 
-	void CXFileOpenAndSaveManager::open(CXHandleBase* receiver, const QString& title)
+	void CXFileOpenAndSaveManager::open(CXHandleBase* receiver, const QString& title, bool isSingleFile)
 	{
 		m_State = OpenSaveState::oss_open;
 		if (receiver)
@@ -253,12 +254,21 @@ namespace qtuser_core
 			auto f = [this](const QStringList& files) {
 				openWithNames(files);
 			};
-
 			QString filter = generateFilterFromHandlers(false);
-			dialogOpenFiles(filter,
-				title.isEmpty() ? QObject::tr("OpenFile") : title
-				,f);
-
+			if (isSingleFile)
+			{
+				
+				
+				dialogOpenFile(filter,
+					title.isEmpty() ? QObject::tr("OpenFile") : title
+					, f);
+			}
+			else
+			{
+				dialogOpenFiles(filter,
+					title.isEmpty() ? QObject::tr("OpenFile") : title
+					, f);
+			}
 			m_externalHandler = nullptr;
 		}
 	}
@@ -285,7 +295,7 @@ namespace qtuser_core
 			};
 
 			QString filter = generateFilterFromHandlers(true);
-			dialogSave(filter, 
+			dialogSave(filter,
 				defaultName.isEmpty() ? m_lastOpenFile : defaultName,
 				title.isEmpty() ? QObject::tr("Save") : title
 				, f);
@@ -321,7 +331,7 @@ namespace qtuser_core
 	{
 		m_filterKey = filterKey;
 	}
-	
+
 	bool CXFileOpenAndSaveManager::openWithName(const QString& fileName)
 	{
 		if (m_externalHandler)
@@ -657,12 +667,12 @@ namespace qtuser_core
 		if (callback)
 			m_callbacks.removeOne(callback);
 	}
-	
+
 	size_t CXFileOpenAndSaveManager::getFileSize(const QString& fileName)
 	{
 		if (fileName.isEmpty())
 			return 0;
-	
+
 		FILE* file = fopen(fileName.toLocal8Bit().constData(), "rb+");
 		if (nullptr == file)
 		{
@@ -673,14 +683,37 @@ namespace qtuser_core
 		size_t filesize = _cc_ftelli64(file);
 		fclose(file);
 
-		return filesize;	
+		return filesize;
 	}
-
+	void dialogOpenFile(const QString& filter, const QString& title, loadFunc func)
+	{
+		if (!func)
+			return;
+		qtuser_core::VersionSettings setting;
+		QString lastPath = setting.value("dialogLastPath", "").toString();
+#ifdef Q_OS_LINUX
+		QString fileName = QFileDialog::getOpenFileName(
+			nullptr, title,
+			lastPath, filter, nullptr, QFileDialog::DontUseNativeDialog);
+#else
+		QString fileName = QFileDialog::getOpenFileName(
+			nullptr, title,
+			lastPath, filter);
+#endif
+		if (fileName.isEmpty())
+			return;
+		QFileInfo fileinfo = QFileInfo(fileName);
+		lastPath = fileinfo.path();
+		setting.setValue("dialogLastPath", lastPath);
+		QStringList files;
+		files << fileName;
+		func(files);
+	}
 	void dialogOpenFiles(const QString& filter, const QString& title,loadFunc func)
 	{
 		if (!func)
 			return;
-		QSettings setting;
+		qtuser_core::VersionSettings setting;
 		QString lastPath = setting.value("dialogLastPath", "").toString();
 #ifdef Q_OS_LINUX
 		QStringList fileName = QFileDialog::getOpenFileNames(
@@ -698,14 +731,35 @@ namespace qtuser_core
 		setting.setValue("dialogLastPath", lastPath);
 		func(fileName);
 	}
-
+//	void dialogOpenFile(const QString& filter, const QString& title, loadFunc func)
+//	{
+//		if (!func)
+//			return;
+//		qtuser_core::VersionSettings setting;
+//		QString lastPath = setting.value("dialogLastPath", "").toString();
+//#ifdef Q_OS_LINUX
+//		QString fileName = QFileDialog::getOpenFileNames(
+//			nullptr, title,
+//			lastPath, filter, nullptr, QFileDialog::DontUseNativeDialog);
+//#else
+//		QString fileName = QFileDialog::getOpenFileName(
+//			nullptr, title,
+//			lastPath, filter);
+//#endif
+//		if (fileName.isEmpty())
+//			return;
+//		QFileInfo fileinfo = QFileInfo(fileName);
+//		lastPath = fileinfo.path();
+//		setting.setValue("dialogLastPath", lastPath);
+//		func(fileName);
+//	}
 	void dialogSave(const QString& filter, const QString& defaultName, const QString& title,saveFunc func)
 	{
 		if (!func)
 			return;
-		QSettings setting;
+		qtuser_core::VersionSettings setting;
 		QString lastPath = setting.value("dialogLastPath", "").toString() + "/" + defaultName;
-#ifdef Q_OS_OSX	
+#ifdef Q_OS_OSX
 		lastPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)+ "/" + defaultName;
 #endif
 		qDebug() <<  "lastPath =" << lastPath;

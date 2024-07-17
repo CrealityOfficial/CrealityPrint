@@ -9,6 +9,7 @@ HollowCommand::HollowCommand(QObject *parent)
     : ToolCommand(parent)
     , thinkness_(2.f)
     , operation_mode_(nullptr) {
+      orderindex = 4;
   creative_kernel::addSelectTracer(this);
 }
 

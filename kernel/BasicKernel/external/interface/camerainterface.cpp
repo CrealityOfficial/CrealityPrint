@@ -1,5 +1,6 @@
 #include "camerainterface.h"
 #include "qtuser3d/camera/screencamera.h"
+#include "qtuser3d/camera/cameracontroller.h"
 #include "external/kernel/kernel.h"
 #include "external/kernel/reuseablecache.h"
 
@@ -23,5 +24,10 @@ namespace creative_kernel
 	float cameraScreenSpaceRatio(QVector3D position)
 	{
 		return visCamera()->screenSpaceRatio(position);
+	}
+
+	QVector3D cameraPosition()
+	{
+		return getKernel()->cameraController()->getViewPosition();
 	}
 }

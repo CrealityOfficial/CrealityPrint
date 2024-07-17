@@ -219,7 +219,7 @@ BasicDialog{
                 verticalAlignment: Qt.AlignVCenter
                 horizontalAlignment: Qt.AlignLeft
             }
-            ScrollView {
+            BasicScrollView {
                 id: idScrollView
                 width: grid_wrapper.width-idGroupNameLabel.width-110
                 height: 56

@@ -10,22 +10,24 @@
 
 namespace cxcloud {
 
-class CXCLOUD_API QrcodeImageProvider : public QObject
-                                      , public QQuickImageProvider {
-public:
-  explicit QrcodeImageProvider(QObject* parent = nullptr);
-  virtual ~QrcodeImageProvider() = default;
+  class CXCLOUD_API QrcodeImageProvider : public QObject
+                                        , public QQuickImageProvider {
+   public:
+    explicit QrcodeImageProvider(QObject* parent = nullptr);
+    virtual ~QrcodeImageProvider() = default;
 
-public:
-  QImage requestImage(const QString& id, QSize* size, const QSize& requested_size) override;
+   public:
+    auto requestImage(const QString& id,
+                      QSize* size,
+                      const QSize& requested_size) -> QImage override;
 
-public:
-  QString getUrl() const;
-  void setUrl(const QString& url);
+   public:
+    auto getUrl() const -> QString;
+    auto setUrl(const QString& url) -> void;
 
-private:
-  QString url_;
-};
+   private:
+    QString url_;
+  };
 
 }  // namespace cxcloud
 

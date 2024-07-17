@@ -3,70 +3,52 @@ import QtQuick.Controls 2.5
 
 import "../qml"
 import "../secondqml"
+import "../cxcloud"
 
 Button {
-    id: root
-    width: 40 * screenScaleFactor
-    height: 40 * screenScaleFactor
+  id: root
+  width: 40 * screenScaleFactor
+  height: 40 * screenScaleFactor
 
-    property bool loginStatus: cxkernel_cxcloud.accountService.logined
-    property string btnImgUrl: root.hovered && !Constants.currentTheme ? "qrc:/UI/photo/userImg_hover.svg" : "qrc:/UI/photo/userImg_normal.svg"
+  readonly property var cloudContext: standaloneWindow.cloudContext
 
-    function showLoginPanel() {
-        idLoginDialog.show()
-        idLoginDialog.raise()
+  property bool logined: cxkernel_cxcloud.accountService.logined
+  property string btnImgUrl: Constants.currentTheme ? "qrc:/UI/photo/menuImg/userImg_light.svg" : "qrc:/UI/photo/menuImg/userImg_dark.svg"
+
+  function showLoginPanel() {
+    cloudContext.loginDialog.show()
+    cloudContext.loginDialog.raise()
+  }
+
+  function setCurrentServer(serverIndex) {
+    cloudContext.loginDialog.setServerType(serverIndex)
+  }
+
+  onClicked: {
+    if (logined) {
+      cloudContext.userInfoDialog.show()
+    } else {
+      cloudContext.loginDialog.show()
     }
+  }
 
-    function setCurrentServer(serverIndex) {
-        idLoginDialog.setServerType(serverIndex)
+  onLoginedChanged: {
+    if (logined && cloudContext.loginDialog.visible) {
+      cloudContext.loginDialog.visible = false
     }
+  }
 
-    onClicked: {
-        if(loginStatus)
-        {
-            idUserInfoDlg.setUserInfoDlgShow("mySlice")
-        }
-        else {
-            idLoginDialog.show()
-        }
+  background: Rectangle {
+    color:  "transparent"
+    border.color: Constants.themeGreenColor
+    border.width: parent.hovered ? 1 : 0
+    radius: 5* screenScaleFactor
+
+    BaseCircularImage {
+      anchors.centerIn: parent
+      width: (logined ? 24 : 14) * screenScaleFactor
+      height: (logined ? 24 : 16) * screenScaleFactor
+      img_src: logined ? cxkernel_cxcloud.accountService.avatar : btnImgUrl
     }
-
-    onLoginStatusChanged: {
-        if(loginStatus && idLoginDialog.visible) idLoginDialog.visible = false
-    }
-
-    background: Rectangle {
-        color: parent.hovered ? (Constants.currentTheme ? "#FFE0E1E5" : "#80000000") : "transparent"
-        border.color: Constants.downloadbtn_finished_border_default_color
-        border.width: parent.hovered ? 0 : 2 * screenScaleFactor
-        radius: parent.width / 2
-
-        BaseCircularImage {
-            //id: sourceImage
-            anchors.centerIn: parent
-            width: (loginStatus ? 40 : 14) * screenScaleFactor
-            height: (loginStatus ? 40 : 16) * screenScaleFactor
-            img_src: loginStatus ? cxkernel_cxcloud.accountService.avatar : btnImgUrl
-        }
-    }
-
-    LoginDlg {
-        visible: false
-        id: idLoginDialog
-        objectName: "LoginDlg"
-    }
-
-    UserInfoDlg {
-        visible: false
-        id: idUserInfoDlg
-      //  context: dock_context
-        objectName: "UserInfoDlg"
-
-        onQuitClicked: {
-            cxkernel_cxcloud.accountService.logout()
-
-            idLoginDialog.visible = true
-            idUserInfoDlg.visible = false
-        }
-    }
+  }
 }

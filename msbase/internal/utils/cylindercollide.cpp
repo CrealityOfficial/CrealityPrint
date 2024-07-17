@@ -7,6 +7,7 @@
 #include "msbase/mesh/tinymodify.h"
 #include "msbase/space/angle.h"
 #include "msbase/data/conv.h"
+#include "msbase/primitive/primitive.h"
 
 #include "trimesh2/Vec3Utils.h"
 #include "uniformpoints.h"
@@ -816,15 +817,8 @@ namespace msbase
 
 		m_cylinderDepth += 2.0;
 
-		m_cylinder = createCylinderMesh(newStartPos + m_cylinderDepth * ZAXIS, newStartPos, m_cylinderRadius, m_cylinderResolution, 0.0);
-		trimesh::fxform invXF = trimesh::inv(xf);
-		for (int i = 0; i < m_cylinder->vertices.size(); ++i)
-		{
-			m_cylinder->vertices[i] = invXF * m_cylinder->vertices[i];
-		}
-
-		//m_cylinder = createCylinderMesh(m_cylinderPointStart + m_cylinderDepth * m_cylinderDir,
-		//	m_cylinderPointStart - m_cylinderRadius * m_cylinderDir, m_cylinderRadius, m_cylinderResolution, 0.0);
+		m_cylinder = msbase::createCylinderMesh(m_cylinderPointStart + m_cylinderDepth * m_cylinderDir,
+			m_cylinderPointStart, m_cylinderRadius, m_cylinderResolution, 0.0);
 
 		focusTriangle = (int)meshFocusFaces.size();
 		cylinderTriangles = (int)m_cylinder->faces.size();
@@ -1037,100 +1031,6 @@ namespace msbase
 		}
 
 		return false;
-	}
-
-	trimesh::TriMesh* OptimizeCylinderCollide::createCylinderMesh(trimesh::vec3 top, trimesh::vec3 bottom, float radius, int num, float theta)
-	{
-#if 0
-		trimesh::TriMesh* mesh = mmesh::ShapeCreator::createCylinderMesh(top, bottom, radius, num, theta);
-#else
-		trimesh::TriMesh* mesh = new trimesh::TriMesh();
-
-		int hPart = num;
-
-		trimesh::vec3 start = bottom;
-		trimesh::vec3 end = top;
-
-		trimesh::vec3 dir = trimesh::normalized(end - start);
-		trimesh::quaternion q = trimesh::quaternion::fromDirection(dir, trimesh::vec3(0.0f, 0.0f, 1.0f));
-
-		theta *= M_PIf / 180.0f;
-		float deltaTheta = M_PIf * 2.0f / (float)(hPart);
-		std::vector<float> cosValue;
-		std::vector<float> sinValue;
-		for (int i = 0; i < hPart; ++i)
-		{
-			cosValue.push_back(cos(deltaTheta * (float)i + theta));
-			sinValue.push_back(sin(deltaTheta * (float)i + theta));
-		}
-
-		std::vector<trimesh::vec3> baseNormals;
-		for (int i = 0; i < hPart; ++i)
-		{
-			baseNormals.push_back(trimesh::vec3(cosValue[i], sinValue[i], 0.0f));
-		}
-
-		int vertexNum = 2 * hPart;
-		std::vector<trimesh::vec3> points(vertexNum);
-		int faceNum = 4 * hPart - 4;
-		mesh->faces.resize(faceNum);
-
-		int vertexIndex = 0;
-		for (int i = 0; i < hPart; ++i)
-		{
-			trimesh::vec3 n = q * baseNormals[i];
-			trimesh::vec3 s = start + n * radius;
-			points.at(vertexIndex) = trimesh::vec3(s.x, s.y, s.z);
-			++vertexIndex;
-			trimesh::vec3 e = end + n * radius;
-			points.at(vertexIndex) = trimesh::vec3(e.x, e.y, e.z);
-			++vertexIndex;
-		}
-		mesh->vertices.swap(points);
-
-		auto fvindex = [&hPart](int layer, int index)->int {
-			return layer + 2 * index;
-		};
-
-		int faceIndex = 0;
-		for (int i = 0; i < hPart; ++i)
-		{
-			int v1 = fvindex(0, i);
-			int v2 = fvindex(1, i);
-			int v3 = fvindex(0, (i + 1) % hPart);
-			int v4 = fvindex(1, (i + 1) % hPart);
-
-			trimesh::TriMesh::Face& f1 = mesh->faces.at(faceIndex);
-			f1[0] = v1;
-			f1[1] = v3;
-			f1[2] = v2;
-			++faceIndex;
-			trimesh::TriMesh::Face& f2 = mesh->faces.at(faceIndex);
-			f2[0] = v2;
-			f2[1] = v3;
-			f2[2] = v4;
-			++faceIndex;
-		}
-
-		for (int i = 1; i < hPart - 1; ++i)
-		{
-			trimesh::TriMesh::Face& f1 = mesh->faces.at(faceIndex);
-			f1[0] = 0;
-			f1[1] = fvindex(0, i + 1);
-			f1[2] = fvindex(0, i);
-			++faceIndex;
-		}
-
-		for (int i = 1; i < hPart - 1; ++i)
-		{
-			trimesh::TriMesh::Face& f1 = mesh->faces.at(faceIndex);
-			f1[0] = 1;
-			f1[1] = fvindex(1, i);
-			f1[2] = fvindex(1, i + 1);
-			++faceIndex;
-		}
-#endif
-		return mesh;
 	}
 
 	bool OptimizeCylinderCollide::valid()

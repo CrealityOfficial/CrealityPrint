@@ -14,19 +14,20 @@
 #include "msbase/mesh/merge.h"
 
 #include "interface/spaceinterface.h"
-
+#include <QCoreApplication>
 namespace creative_kernel
 {
     SaveAsCommand::SaveAsCommand(QObject* parent)
         :ActionCommand(parent)
     {
         m_shortcut = "Ctrl+S";
-        m_actionname = tr("Save STL");
+        
+        m_actionname = QCoreApplication::translate("MenuCmdObj", "Model File");  //tr("Save STL");
         m_actionNameWithout = "Save STL";
         m_insertKey = "saveSTL";
         m_eParentMenu = eMenuType_File;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     SaveAsCommand::~SaveAsCommand()
@@ -52,7 +53,7 @@ namespace creative_kernel
 
     void SaveAsCommand::onLanguageChanged(MultiLanguage language)
     {
-        m_actionname = tr("Save STL") + "    " + m_shortcut;
+        m_actionname = QCoreApplication::translate("MenuCmdObj", "Model File");  //tr("Save STL") + "    " + m_shortcut;
     }
 
     QString SaveAsCommand::filter()

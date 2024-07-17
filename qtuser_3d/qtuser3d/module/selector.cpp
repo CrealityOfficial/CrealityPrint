@@ -83,6 +83,54 @@ namespace qtuser_3d
 		}
 	}
 
+	void Selector::addPickables(QList<qtuser_3d::Pickable*> pickables)
+	{
+		bool needNotify = false;
+		for (auto pickable : pickables)
+		{
+			if (m_pickables.indexOf(pickable) < 0)
+			{
+				_add(pickable);
+			}
+
+			if (pickable->enableSelect())
+				needNotify = true;
+		}
+		
+		if (m_pickables.size() == 1)
+		{
+			selectPickable(m_pickables[0]);
+		}
+
+		updateFaceBases();
+
+		if (needNotify)
+			notifyTracers();
+	}
+
+	void Selector::removePickables(QList<qtuser_3d::Pickable*> pickables)
+	{
+		bool needNotify = false;
+		for (auto pickable : pickables)
+		{
+			_remove(pickable);
+			pickable->setState(ControlState::none);
+			if (m_hoverPickable && (m_hoverPickable == pickable))
+			{
+				clearHover();
+			}
+
+			m_selectedPickables.removeOne(pickable);
+			if (pickable->enableSelect())
+				needNotify = true;
+		}
+		
+		updateFaceBases(); //prevent m_currentFaceBase from changing into nagetive value, modified by wys, 2023-3-21
+
+		if (needNotify)
+			notifyTracers();
+	}
+
 	void Selector::addTracer(SelectorTracer* tracer)
 	{
 		if (tracer)
@@ -400,7 +448,10 @@ namespace qtuser_3d
 
 	void Selector::unselectMore(const QList<qtuser_3d::Pickable*>& pickables)
 	{
-		QList<qtuser_3d::Pickable*> onList;
+		QList<qtuser_3d::Pickable*> onList = m_selectedPickables;
+		for (qtuser_3d::Pickable* pick : pickables)
+			onList.removeOne(pick);
+
 		selectPickables(onList, pickables);
 	}
 
@@ -431,6 +482,9 @@ namespace qtuser_3d
 
 	void Selector::notifyTracers(qtuser_3d::SelectorTracer* tracer)
 	{
+		if (!m_enabled)
+			return;
+
 		selectNotifying = true;
 
 		if (tracer)

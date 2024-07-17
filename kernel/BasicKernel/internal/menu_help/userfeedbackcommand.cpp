@@ -12,7 +12,7 @@ namespace creative_kernel
 		m_actionNameWithout = "User Feedback";
 		m_eParentMenu = eMenuType_Help;
 
-		addUIVisualTracer(this);
+		addUIVisualTracer(this,this);
 	}
 
 	UserFeedbackCommand::~UserFeedbackCommand()

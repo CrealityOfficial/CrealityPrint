@@ -4,8 +4,10 @@
 
 #include <functional>
 #include "internal/parameter/parameterpath.h"
+#include "crslice/base/parametermeta.h"
 
 #include <QtCore/QDebug>
+#include "external/kernel/crsliceadaptor.h"
 namespace us
 {
 	SettingDef SettingDef::s_settingDef;
@@ -47,10 +49,7 @@ namespace us
 		for (SettingGroupDef* def : m_settingGroupDefs)
 			delete def;
 		m_settingGroupDefs.clear();
-
-		JsonDef jsonDef;
-		jsonDef.parse(file, m_settingGroupDefs, this);
-
+		creative_kernel::CrsliceAdaptor::getInstance().getSettingGroupDefs(m_settingGroupDefs);
 		buildHash();
 	}
 
@@ -156,23 +155,6 @@ namespace us
 		}
 	}
 
-	QList<us::SettingGroupDef*> SettingDef::profileCategoryGroup(const bool& isSingleExtruder)
-	{
-		QList<us::SettingGroupDef*> groupDefs;
-		QStringList keys = creative_kernel::loadCategoryKeys();
-		if (isSingleExtruder)
-		{
-			keys = creative_kernel::loadSingleCategoryKeys();
-			//keys << "material" << "cooling" << "travel";
-		}
-
-		for (const QString& key : keys)
-			if(m_settingGroupDefs.contains(key))
-				groupDefs << m_settingGroupDefs[key];
-
-		return groupDefs;
-	}
-
 	QVariantList SettingDef::parameterGroupList()
 	{
 		auto variantLessThanByOrder = [](us::SettingGroupDef* v1, us::SettingGroupDef* v2)
@@ -271,5 +253,40 @@ namespace us
 		}
 
 		return values;
+	}
+
+	void convert(const std::vector<std::string>& inKeys, QStringList& keys)
+	{
+		keys.clear();
+		for (const std::string& k : inKeys)
+			keys.append(QString(k.c_str()));
+	}
+
+	void loadMetaMachineKeys(QStringList& keys)
+	{
+		std::vector<std::string> inKeys;
+		creative_kernel::CrsliceAdaptor::getInstance().getMetaKeys(creative_kernel::MetaGroup::emg_machine, inKeys);
+		convert(inKeys, keys);
+	}
+
+	void loadMetaExtruderKeys(QStringList& keys)
+	{
+		std::vector<std::string> inKeys;
+		creative_kernel::CrsliceAdaptor::getInstance().getMetaKeys(creative_kernel::MetaGroup::emg_extruder, inKeys);
+		convert(inKeys, keys);
+	}
+
+	void loadMetaMaterialKeys(QStringList& keys)
+	{
+		std::vector<std::string> inKeys;
+		creative_kernel::CrsliceAdaptor::getInstance().getMetaKeys(creative_kernel::MetaGroup::emg_material, inKeys);
+		convert(inKeys, keys);
+	}
+
+	void loadMetaProfileKeys(QStringList& keys)
+	{
+		std::vector<std::string> inKeys;
+		creative_kernel::CrsliceAdaptor::getInstance().getMetaKeys(creative_kernel::MetaGroup::emg_profile, inKeys);
+		convert(inKeys, keys);
 	}
 }

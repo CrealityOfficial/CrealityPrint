@@ -4,6 +4,9 @@
 #include <QtCore/QString>
 #include <QObject>
 #include "RemotePrinterConstant.h"
+//#include "materialboxmodellist.h"
+
+class MaterialBoxListModel;
 
 struct RemotePrinter
 {
@@ -66,6 +69,9 @@ struct RemotePrinter
 	QString machineLEDLightExist;
 	int maxNozzleTemp;
 	int maxBedTemp;
+	MaterialBoxListModel* materialboxList;
+	QString filePrefixPath;
+
 
 
 
@@ -124,6 +130,8 @@ struct RemotePrinter
 		machineLEDLightExist = "";
 		maxNozzleTemp = 0;
 		maxBedTemp = 0;
+		materialboxList = nullptr;
+		filePrefixPath = "";
 	}
 };
 

@@ -12,7 +12,7 @@ namespace creative_kernel
         m_icon = "qrc:/kernel/images/undo.png";
         m_eParentMenu = eMenuType_Edit;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     UndoActionCmd::~UndoActionCmd()

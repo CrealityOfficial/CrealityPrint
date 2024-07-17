@@ -1,8 +1,12 @@
 #ifndef _NULLSPACE_INFOPLUGIN_1589979999085_H
 #define _NULLSPACE_INFOPLUGIN_1589979999085_H
 #include "qtusercore/module/creativeinterface.h"
-
+#include "infoprovider.h"
 class ZSliderInfo;
+namespace {
+	class InfoProvider;
+}
+
 class InfoPlugin : public QObject, public CreativeInterface
 {
 	Q_OBJECT
@@ -24,5 +28,6 @@ protected:
     //QObject* m_zSliderUI;
 
     ZSliderInfo *m_sliderInfo;
+	creative_kernel::InfoProvider *m_InfoProvider;
 };
 #endif // _NULLSPACE_INFOPLUGIN_1589979999085_H

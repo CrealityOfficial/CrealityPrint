@@ -24,6 +24,7 @@ namespace creative_kernel
         m_bSubMenu = true;
         m_insertKey = "subMenuFile";
         initActionModel();
+        addUIVisualTracer(this,this);
     }
 
     SubMenuTestModel::~SubMenuTestModel()

@@ -1426,6 +1426,17 @@ double PolygonUtils::relativeHammingDistance(const Polygons& poly_a, const Polyg
     return hamming_distance / total_area;
 }
 
+Polygon PolygonUtils::makeRect(const coord_t x, const coord_t y,const coord_t w,const coord_t h)
+{
+    Polygon rect;
+    rect.emplace_back(x,y);
+    rect.emplace_back(x+w,y);
+    rect.emplace_back(x+w,y+h);
+    rect.emplace_back(x,y+h);
+    rect.emplace_back(x,y);
+    return rect;
+}
+
 Polygon PolygonUtils::makeCircle(const Point mid, const coord_t radius, const AngleRadians a_step)
 {
     Polygon circle;

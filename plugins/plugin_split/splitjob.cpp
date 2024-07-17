@@ -14,13 +14,16 @@
 #include "interface/visualsceneinterface.h"
 #include "interface/modelinterface.h"
 
-#include "msbase/utils/cut.h"
-#include "msbase/mesh/tinymodify.h"
+//#include "msbase/utils/cut.h"
+#include "CUT/cut.h"
 
+#include "msbase/mesh/tinymodify.h"
+#include "interface/selectorinterface.h"
 using namespace creative_kernel;
 SplitJob::SplitJob(QObject* parent)
 	: Job(parent)
 	, m_model(nullptr)
+	, m_gap(0)
 {
 }
 
@@ -45,35 +48,52 @@ void SplitJob::setModel(creative_kernel::ModelN* model)
 	m_model = model;
 }
 
-void SplitJob::setPlane(const qtuser_3d::Plane& plane)
+void SplitJob::setPlane(const trimesh::vec3& position, const trimesh::vec3& normal)
 {
-	m_plane = plane;
+	m_position = position;
+	m_normal = normal;
 }
-
+void SplitJob::setGap(float gap)
+{
+	m_gap = gap;
+}
 void SplitJob::work(qtuser_core::Progressor* progressor)
 {
 	if (!m_model)
 		return;
 
-	QMatrix4x4 m = m_model->globalMatrix();
+	//QMatrix4x4 m = m_model->globalMatrix();
 
-	trimesh::fxform xf = qtuser_3d::qMatrix2Xform(m);
+	//trimesh::fxform xf = qtuser_3d::qMatrix2Xform(m);
 	//QMatrix4x4 invm = m.inverted();
-	msbase::CutPlane aplane;
-	aplane.normal = m_plane.dir;
-	aplane.position = /*invm * */m_plane.center;
+	//msbase::CutPlane aplane;
+	//aplane.normal = m_normal;
+	//aplane.position = m_position;
 
+	//progressor->progress(0.1f);
+	//m_model->mesh()->bbox;
+
+	//trimesh::TriMesh amesh = *m_model->mesh();
+	//for (trimesh::point& apoint: amesh.vertices)
+	//{
+		//apoint = xf * apoint;
+	//}
+
+	//msbase::planeCut(&amesh, aplane, m_meshes);
+	//progressor->progress(1.0f);
+
+	CUT::CutPlane aplane;
+	aplane.normal = m_normal;
+	aplane.position = m_position;
+
+	//std::vector<trimesh::TriMesh*> meshes;
+
+	TriMeshPtr inputMesh(m_model->createGlobalMesh());
 	progressor->progress(0.1f);
-	m_model->mesh()->bbox;
-
-	trimesh::TriMesh amesh = *m_model->mesh();
-	for (trimesh::point& apoint: amesh.vertices)
-	{
-		apoint = xf * apoint;
-	}
-
-	msbase::planeCut(&amesh, aplane, m_meshes);
+	//m_model->mesh()->bbox;
+	CUT::planeCut(&*inputMesh, aplane, m_meshes);
 	progressor->progress(1.0f);
+
 }
 
 void SplitJob::failed()
@@ -89,12 +109,16 @@ void SplitJob::successed(qtuser_core::Progressor* progressor)
 		QList<ModelN*> newModels;
 		QString name = m_model->objectName().left(m_model->objectName().lastIndexOf("."));
 		QString suffix = m_model->objectName().right(m_model->objectName().length() - m_model->objectName().lastIndexOf("."));
+		if (!m_model->objectName().contains("."))
+		{
+			suffix = QString();
+		}
 		int id = 0;
 		int size = m_meshes.size();
 		float centerOfIndex = float(size - 1) / 2.0;
-		float gap = 10.0;
+		float gap = m_gap;
 
-		QVector3D dirOnFloor = m_plane.dir;
+		QVector3D dirOnFloor = qtuser_3d::vec2qvector( m_normal );
 		dirOnFloor.setZ(0.0);
 		dirOnFloor.normalize();
 
@@ -109,7 +133,7 @@ void SplitJob::successed(qtuser_core::Progressor* progressor)
 			++id;
 
 			creative_kernel::ModelN* m = new creative_kernel::ModelN();
-			QString subName = QString("%1-split-%2").arg(name).arg(id) + suffix;
+			QString subName = QString("%1-%2").arg(name).arg(id) + suffix;
 
 			size_t vertexCount = mesh->vertices.size();
 			//for (size_t i = 0; i < vertexCount; ++i)
@@ -120,21 +144,56 @@ void SplitJob::successed(qtuser_core::Progressor* progressor)
 			
 			mesh->clear_bbox();
 			mesh->need_bbox();
-			trimesh::vec3 offset = msbase::moveTrimesh2Center(mesh);
+			//trimesh::vec3 offset = msbase::moveTrimesh2Center(mesh);
+			auto box = mesh->bbox;
+			trimesh::vec3 center = box.center();
 
-			trimesh::vec3 layoutOffset = (trimesh::vec3(dirOnFloor.x(), dirOnFloor.y(), dirOnFloor.z()) *  trimesh::vec3(i-centerOfIndex, i-centerOfIndex, 0.0f)) * gap;
-			offset += layoutOffset;
+			trimesh::vec3 min = box.min;
+			trimesh::vec3 planeDir = m_normal;
+			bool atPlaneForward = true;
+			for (trimesh::vec3 v : mesh->vertices)
+			{
+				float d = (v - m_position).dot(planeDir);
+				if (d > 0.01)
+				{
+					atPlaneForward = true;
+					break;
+				}
+				else if (d < -0.01)
+				{
+					atPlaneForward = false;
+					break;
+				}
+			}
+			trimesh::vec3 offsetDir = atPlaneForward ? planeDir : -planeDir;
+
+			if (offsetDir == trimesh::vec3(0.0f, 0.0f, 1.0f)) 
+			{
+				center.z += gap;
+			}
+			else if (offsetDir == trimesh::vec3(0.0f, 0.0f, -1.0f)) 
+			{	// 贴底一侧不需要平移
+				//center.z;
+			}
+			else 
+			{	// 其它方向水平平移
+				offsetDir[2] = 0;
+				trimesh::normalize(offsetDir);
+				double offsetLen = gap / 2.0;
+				center += offsetDir * offsetLen;
+			}
 
 			TriMeshPtr ptr(mesh);
 			cxkernel::ModelCreateInput input;
 			cxkernel::ModelNDataCreateParam param;
-			param.toCenter = false;
+			param.toCenter = true;
 			input.mesh = ptr;
 			input.name = subName;
+			input.defaultColor = m_model->defaultColorIndex();
 			cxkernel::ModelNDataPtr data(cxkernel::createModelNData(input, nullptr, param));
 
 			m->setData(data);
-			m->setLocalPosition(-QVector3D(offset.x, offset.y, offset.z));
+			m->setLocalPosition(QVector3D(center.x, center.y, center.z));
 			m->SetInitPosition(m->localPosition());
 			newModels.push_back(m);
 		}
@@ -146,6 +205,10 @@ void SplitJob::successed(qtuser_core::Progressor* progressor)
 			removes << m_model;
 
 			modifySpace(removes, newModels, true);
+
+			creative_kernel::selectOne(newModels.last());
+			
+			
 		}
 
 		requestVisUpdate(true);

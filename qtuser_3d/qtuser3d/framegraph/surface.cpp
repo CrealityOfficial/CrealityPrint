@@ -27,11 +27,6 @@ namespace qtuser_3d
 		filterKey->setValue(0);
 		m_renderPassFilter->addMatch(filterKey);
 
-#ifdef ENABLE_DEBUG_OVERLAY
-		m_debugOverlay = new Qt3DRender::QDebugOverlay(m_renderPassFilter);
-		m_debugOverlay->setEnabled(false);
-#endif
-
 		m_alphaPassFilter = new Qt3DRender::QRenderPassFilter(m_cameraSelector);
 		Qt3DRender::QFilterKey* alphaKey = new Qt3DRender::QFilterKey();
 		alphaKey->setName("alpha");
@@ -56,6 +51,11 @@ namespace qtuser_3d
 			filterKey->setName("overlay");
 			filterKey->setValue(0);
 			renderPassFilter->addMatch(filterKey);
+
+#ifdef ENABLE_DEBUG_OVERLAY
+			m_debugOverlay = new Qt3DRender::QDebugOverlay(renderPassFilter);
+			m_debugOverlay->setEnabled(false);
+#endif
 		}
 	}
 

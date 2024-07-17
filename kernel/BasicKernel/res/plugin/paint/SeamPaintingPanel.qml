@@ -15,15 +15,21 @@ LeftPanelDialog {
     title: qsTr("Seam Painting")
     property var com
 
+    onTitleChanged: {
+        idBottom.updateCopywriting()
+    }
+
     function execute() {
         idToolSeletor.setMethodEnable(0, false)
         idToolSeletor.setMethodEnable(2, false)
+        idToolSeletor.setMethodEnable(3, false)
+        idToolSeletor.setMethodEnable(4, false)
 
         idToolSeletor.method = com.colorMethod
-        idPenSize.value = com.colorRadius * 100.0
-        idSectionView.value = com.sectionRate * 100.0
-        idCanvas.penSize = idPenSize.value * 2
+        idSectionView.value = com.sectionRate
+        idCanvas.screenRadius = com.screenRadius 
 
+        idToolConfigPanel.update();
         idCanvas.update();
         idToolSeletor.update();
     }
@@ -32,16 +38,22 @@ LeftPanelDialog {
     {
         target: com
 
-        onColorRadiusChanged: {
-            idPenSize.value = com.colorRadius * 100.0;
+        onScreenRadiusChanged: {
+            idCanvas.screenRadius = com.screenRadius
+            idCanvas.update();
         }
 
         onSectionRateChanged: {
-            idSectionView.value = com.sectionRate * 100.0;
+            idSectionView.value = com.sectionRate;
         }
 
     }
 
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+    }
+    
     ColorCanvas {
         id : idCanvas
         parent: gGlScene
@@ -62,44 +74,38 @@ LeftPanelDialog {
             height: 70 * screenScaleFactor
 
             onMethodChanged: {
-                if (com)
-                    com.colorMethod = method        
-                idCanvas.update();
+                if (!com || com.colorMethod == method)
+                    return
+
+                com.colorMethod = method        
+                idCanvas.update()
+                idBottom.updateCopywriting()
             }
         }
 
-        SliderWithSpinBox {
-            id: idPenSize
+        ToolConfigPanel {
+            id: idToolConfigPanel
             anchors.top: idToolSeletor.bottom
             width: parent.width
-            height: 30 * screenScaleFactor
-            title: qsTr("Pen Size")
-            
-            from: 10
-            to: 800
-            value: 100
-
-            onValueChanged: {
-                idCanvas.penSize = idPenSize.value * 2
-                com.colorRadius = idPenSize.value / 100
-            }
+            com: idRoot.com
         }
 
         SliderWithSpinBox {
             id: idSectionView
-            anchors.top: idPenSize.bottom
+            anchors.top: idToolConfigPanel.bottom
             width: parent.width
-            anchors.topMargin: idPenSize.visible * 25
+            anchors.topMargin: idToolConfigPanel.visible * 25
             // anchors.topMargin: 30
             height: 30 * screenScaleFactor
             title: qsTr("Section")
 
             from: 0
-            to: 100
-            value: 100
+            to: 1
+            value: com ? com.sectionRate : 1
+            stepSize: 0.05
 
             onValueChanged: {
-                var rate = value / 100.0
+                var rate = value
                 com.sectionRate = rate
             }
         }
@@ -134,18 +140,91 @@ LeftPanelDialog {
             height: 28 * screenScaleFactor
             com: idRoot.com
             
-            contextList: [
-                qsTr("Left mouse button") + ":",
-                qsTr("Enforce seam"),
-                qsTr("Right mouse button") + ":",
-                qsTr("Block seam"),
-                qsTr("Shift + Left mouse button") + ":",
-                qsTr("Erase"),
-                qsTr("Ctrl + Wheel") + ":",
-                qsTr("Pen size"),
-                qsTr("Alt + Wheel") + ":",
-                qsTr("Section view")
-            ]
+            // contextList: [
+            //     qsTr("Left mouse button") + ":",
+            //     qsTr("Enforce seam"),
+            //     qsTr("Right mouse button") + ":",
+            //     qsTr("Block seam"),
+            //     qsTr("Shift + Left mouse button") + ":",
+            //     qsTr("Erase"),
+            //     qsTr("Ctrl + Wheel") + ":",
+            //     qsTr("Pen size"),
+            //     qsTr("Alt + Wheel") + ":",
+            //     qsTr("Section view")
+            // ]
+
+            
+            contextList: []
+
+            function updateCopywriting() {
+                let method = idToolSeletor.method
+                if (method == 0) {
+                    contextList = [
+                        qsTr("Left mouse button") + ":",
+                        qsTr("Enforce seam"),
+                        qsTr("Right mouse button") + ":",
+                        qsTr("Block seam"),
+                        qsTr("Shift + Left mouse button") + ":",
+                        qsTr("Erase"),
+
+                        qsTr("Alt + Wheel") + ":",
+                        qsTr("Section view")
+                    ]
+                } else if (method == 1) {
+                    contextList = [
+                        
+                        qsTr("Left mouse button") + ":",
+                        qsTr("Enforce seam"),
+                        qsTr("Right mouse button") + ":",
+                        qsTr("Block seam"),
+                        qsTr("Shift + Left mouse button") + ":",
+                        qsTr("Erase"),
+                        qsTr("Ctrl + Wheel") + ":",
+                        qsTr("Pen size"),
+                        qsTr("Alt + Wheel") + ":",
+                        qsTr("Section view")
+                    ]
+                } else if (method == 2) {
+                    contextList = [
+                        qsTr("Left mouse button") + ":",
+                        qsTr("Enforce seam"),
+                        qsTr("Right mouse button") + ":",
+                        qsTr("Block seam"),
+                        qsTr("Shift + Left mouse button") + ":",
+                        qsTr("Erase"),
+                        qsTr("Ctrl + Wheel") + ":",
+                        qsTr("Smart Fill Angle"),
+                        qsTr("Alt + Wheel") + ":",
+                        qsTr("Section view")
+                    ]
+                } else if (method == 5) {
+                    contextList = [
+                        qsTr("Left mouse button") + ":",
+                        qsTr("Enforce seam"),
+                        qsTr("Right mouse button") + ":",
+                        qsTr("Block seam"),
+                        qsTr("Shift + Left mouse button") + ":",
+                        qsTr("Erase"),
+                        qsTr("Ctrl + Wheel") + ":",
+                        qsTr("Height Range"),
+                        qsTr("Alt + Wheel") + ":",
+                        qsTr("Section view")
+                    ]
+                } else if (method == 3) {
+                    contextList = [
+                        qsTr("Left mouse button") + ":",
+                        qsTr("Enforce seam"),
+                        qsTr("Right mouse button") + ":",
+                        qsTr("Block seam"),
+                        qsTr("Shift + Left mouse button") + ":",
+                        qsTr("Erase"),
+                        qsTr("Ctrl + Wheel") + ":",
+                        qsTr("Gap Area"),
+                        qsTr("Alt + Wheel") + ":",
+                        qsTr("Section view")
+                    ]
+                } 
+            }
         }
     }
 

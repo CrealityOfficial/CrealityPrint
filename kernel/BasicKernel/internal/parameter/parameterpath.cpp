@@ -7,6 +7,8 @@
 #include <QTextCodec>
 #include <fstream>
 #include "parameterpath.h"
+#include "us/settingdef.h"
+
 #include "rapidjson/document.h"
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/stringbuffer.h"
@@ -18,26 +20,28 @@
 #include "qtusercore/string/resourcesfinder.h"
 #include "interface/appsettinginterface.h"
 #include "qtusercore/string/resourcesfinder.h"
-
+#include <external/us/defaultloader.h>
+#include "qtusercore/module/systemutil.h"
+#include <QCoreApplication>
 namespace creative_kernel
 {
 	QString pathFromPFPT(ParameterFilePathType type)
 	{
 		QString tails[(int)ParameterFilePathType::pfpt_max_num]{
 			"default",
-			"default/Machines",
-			"default/Extruders",
-            "default/Profiles",
-            "default/Materials",
-            "default/MachineSupportMaterials",
+            "default/base",
+            "default/keys",
+            "default/ui",
+            "default/parampack",
             "Machines",
             "Extruders",
             "Profiles",
             "Materials",
-            "MachineSupportMaterials",
+            "user",
+            "user/parampack",
 		};
 
-		return qtuser_core::getOrCreateAppDataLocation(tails[(int)type]);
+		return qtuser_core::getOrCreateAppDataLocation(getEnginePathPrefix() + tails[(int)type]);
 	}
 
     QStringList machine_parameter_keys;
@@ -46,113 +50,72 @@ namespace creative_kernel
     QStringList material_parameter_keys;
     void loadDefaultKeys()
     {
+#if 1
+        us::loadMetaMachineKeys(machine_parameter_keys);
+        us::loadMetaExtruderKeys(extruder_parameter_keys);
+        us::loadMetaProfileKeys(profile_parameter_keys);
+        us::loadMetaMaterialKeys(material_parameter_keys);
+#else
         QString machine_key_file = QString("%1/keys").arg(_pfpt_default_machines);
         machine_parameter_keys = us::loadKeys(machine_key_file);
-        QString extruder_key_file = QString("%1/keys").arg(_pfpt_default_extruders);
+        QString extruder_key_file = QString("%1/extruder_keys.json").arg(_pfpt_def(pfpt_default_keys));
         extruder_parameter_keys = us::loadKeys(extruder_key_file);
 #ifdef CUSTOM_KEY
 		QString profile_key_file = QString("%1/keys_custom").arg(_pfpt_default_profiles);
 #else
-		QString profile_key_file = QString("%1/keys").arg(_pfpt_default_profiles);
+		QString profile_key_file = QString("%1/profile_keys.json").arg(_pfpt_def(pfpt_default_keys));
 #endif
 
         profile_parameter_keys = us::loadKeys(profile_key_file);
-        QString material_key_file = QString("%1/keys").arg(_pfpt_default_materials);
+        QString material_key_file = QString("%1/material_keys.json").arg(_pfpt_def(pfpt_default_keys));
         material_parameter_keys = us::loadKeys(material_key_file);
-
-        qDebug() << QString("machine_parameter_keys -> [%1]").arg(machine_key_file);
-        qDebug() << machine_parameter_keys;
-        qDebug() << QString("extruder_parameter_keys -> [%1]").arg(extruder_key_file);
-        //qDebug() << extruder_parameter_keys;
-        //qDebug() << QString("profile_parameter_keys -> [%1]").arg(profile_key_file);
-        //qDebug() << profile_parameter_keys;
-        //qDebug() << QString("material_parameter_keys -> [%1]").arg(material_key_file);
-        //qDebug() << material_parameter_keys;
+#endif
     }
 
-    QStringList loadCategoryKeys()
+    QStringList getMetaMachineKeys()
     {
-        QString category_file = QString("%1/category").arg(_pfpt_default_profiles);
-        QFile file(category_file);
-        if (!file.exists())
-            category_file = QString("%1/Profiles/category").arg(_qr_default);
-        return us::loadKeys(category_file);
-    }
-    QStringList loadSingleCategoryKeys()
-    {
-        QString category_file = QString("%1/category_single").arg(_pfpt_default_profiles);
-        QFile file(category_file);
-        if (!file.exists())
-            category_file = QString("%1/Profiles/category_single").arg(_qr_default);
-        return us::loadKeys(category_file);
+        return machine_parameter_keys;
     }
 
-    QStringList loadMaterialKeys()
+    QStringList getMetaExtruderKeys()
     {
-        QString _file = QString("%1/keys").arg(_pfpt_default_materials);
-        QFile file(_file);
-        if (!file.exists())
-            _file = QString("%1/Materials/keys").arg(_qr_default);
-        return us::loadKeys(_file);
+        return extruder_parameter_keys;
     }
 
-    QStringList loadMaterialKeys(const QString& category)
+    QStringList getMetaProfileKeys()
     {
-        QString _file = QString("%1/keys-%2").arg(_pfpt_default_materials).arg(category);
-        QFile file(_file);
-        if (!file.exists())
-            _file = QString("%1/Materials/keys-%2").arg(_qr_default).arg(category);
-        return us::loadKeys(_file);
+        return profile_parameter_keys;
     }
 
-    QStringList loadExtruderKeys(const QString& category)
+    QStringList getMetaMaterialKeys()
     {
-        if (category.isEmpty())
-        {
-            return extruder_parameter_keys;
-        }
-        QString _file = QString("%1/keys-%2").arg(_pfpt_default_extruders).arg(category);
-        QFile file(_file);
-        if (!file.exists())
-            _file = QString("%1/Extruders/keys-%2").arg(_qr_default).arg(category);
-        return us::loadKeys(_file);
+        return material_parameter_keys;
     }
 
-    QStringList loadMachineKeys(const QString& category)
-    {
-        if (category.isEmpty())
-        {
-            return machine_parameter_keys;
-        }
-        QString _file = QString("%1/keys-%2").arg(_pfpt_default_machines).arg(category);
-        QFile file(_file);
-        if (!file.exists())
-            _file = QString("%1/Machines/keys-%2").arg(_qr_default).arg(category);
-        return us::loadKeys(_file);
-    }
-
-    void loadMachineMeta(QList<MachineMeta>& metas, const bool& user)
+    void loadMachineMeta(QList<MachineData>& metas, const bool& user)
     {
         QString file_path;
         if (user)
         {
-            file_path = QString("%1/machines_user.json").arg(_pfpt_machines);
+            file_path = QString("%1/machineList.json").arg(_pfpt_user_root);
         }
         else
         {
-            file_path = QString("%1/machines.json").arg(_pfpt_default_machines);
-
-            if (!QFileInfo{ file_path }.isFile()) {
-                file_path = QString("%1/Machines/machines.json").arg(_qr_default);
-            }
+            file_path = QString("%1/machineList.json").arg(_pfpt_default_root);
         }
 
         QFile file{ file_path };
         if (!file.open(QIODevice::ReadOnly)) {
-            qDebug() << "File open failed!";
+            qWarning() << "loadMachineMeta File open failed!";
+            file.setFileName(QCoreApplication::applicationDirPath() + QStringLiteral("/resources/sliceconfig/orca/default/machineList.json"));
+            if (!file.open(QIODevice::ReadOnly)) {
+                {
+                    qWarning() << "machineList open2 failed!" << file.errorString();
+                    return;
+                }
+            }
             return;
         }
-
         QJsonParseError error{ QJsonParseError::ParseError::NoError };
         QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
         if (error.error != QJsonParseError::ParseError::NoError) {
@@ -162,188 +125,53 @@ namespace creative_kernel
 
         file.close();
 
-        QJsonArray machines = document.object().value(QStringLiteral("machines")).toArray();
-        for (const QJsonValueRef& machineRef : machines) {
-            if (!machineRef.isObject()) {
-                continue;
-            }
-
-            MachineMeta meta;
-            QJsonObject machine = machineRef.toObject();
-            meta.baseName = machine.value(QStringLiteral("name")).toString();
-            meta.extruderCount = machine.value(QStringLiteral("extruderCount")).toInt();
-            meta.isUser = user;
-            QString extruderDiameters = machine.value(QStringLiteral("supportExtruderDiameters")).toString();
-            QStringList extruders = extruderDiameters.split(";");
-            if (extruders.count() != meta.extruderCount)
-            {
-                qDebug() << "loadMachineMeta error , extruder mismatch.";
-                continue;
-            }
-
-            for (const QString& extruder : extruders)
-            {
-                QList<float> values;
-                QStringList diameters = extruder.split(",");
-                for (const QString& diameter : diameters)
-                    values.append(diameter.toFloat());
-
-                meta.supportExtruderDiameters.append(values);
-            }
-
-            QString materialType = machine.value(QStringLiteral("supportMaterialTypes")).toString();
-            QStringList materialTypes = materialType.split(",");
-            for (QString type : materialTypes)
-            {
-                meta.supportMaterialTypes.append(type.trimmed());
-            }
-
-            QString materialDiameter = machine.value(QStringLiteral("supportMaterialDiameters")).toString();
-            QStringList materialDiameters = materialDiameter.split(",");
-            for (const QString& diameter : materialDiameters)
-                meta.supportMaterialDiameters.append(diameter.toFloat());
-
-            if (machine.contains("supportMaterialNames") && machine.value(QStringLiteral("supportMaterialNames")).isString())
-            {
-                QString materialName = machine.value(QStringLiteral("supportMaterialNames")).toString();
-                meta.supportMaterialNames = materialName.split(",");
-            }
-
-            metas.append(std::move(meta));
-        }
-
-#if 0 //_DEBUG
-        qDebug() << "Machine Meta Data:";
-        for (const MachineMeta& meta : metas)
+        const auto& rootObj = document.object();
+        if (rootObj.contains("printerList") && rootObj.value(QStringLiteral("printerList")).isArray())
         {
-            qDebug() << meta.baseName;
-            qDebug() << meta.supportExtruderDiameters;
-            qDebug() << meta.supportMaterialDiameters;
-            qDebug() << meta.supportMaterialTypes;
+            const auto& printerArray = rootObj.value(QStringLiteral("printerList")).toArray();
+            for (const auto& printer : printerArray)
+            {
+                auto printerObj = printer.toObject();
+
+                MachineData meta;
+                meta.baseName = printerObj.value(QStringLiteral("name")).toString();
+                meta.codeName = printerObj.value(QStringLiteral("printerIntName")).toString();
+                meta.extruderCount = printerObj.value(QStringLiteral("nozzleDiameter")).toArray().size();
+                meta.isUser = user;
+                const auto& materialArray = printerObj.value(QStringLiteral("supMaterialType")).toArray();
+                for (const auto& material : materialArray)
+                {
+                    auto materialObj = material.toString();
+                    meta.supportMaterialTypes.append(materialObj);
+                }
+
+                for (int i = 0; i < meta.extruderCount; ++i)
+                {
+                    const auto& nozzleDiameters = printerObj.value(QStringLiteral("nozzleDiameter")).toArray();
+                    float nozzleDiameter = nozzleDiameters[i].toString().toFloat();
+                    meta.extruderDiameters.append(nozzleDiameter);
+                }
+                metas.append(meta);
+            }
         }
-#endif
     }
 
-    void saveMachineMeta(const MachineMeta& meta)
+    void saveMachineMetaUser(const MachineData& meta)
     {
-        std::string machineListFile = QString("%1/machines_user.json").arg(_pfpt_machines).toStdString();
-
-        QFile file(QString("%1/machines_user.json").arg(_pfpt_machines));
-        rapidjson::Document jsonDoc;
-        rapidjson::Value machineArray(rapidjson::kArrayType);
-        bool fileExist = false;
-        if (file.exists())
-        {
-            FILE* file = fopen(machineListFile.c_str(), "r");
-
-            char read_buffer[10 * 1024] = { 0 };
-            rapidjson::FileReadStream reader_stream(file, read_buffer, sizeof(read_buffer));
-            jsonDoc.ParseStream(reader_stream);
-            fclose(file);
-            QString strTemp(read_buffer);
-            if (strTemp.contains(meta.baseName))
-            {
-                return;
-            }
-            if (!jsonDoc.HasParseError())
-            {
-                bool res = jsonDoc.HasMember("machines");
-                if (res)
-                {
-                    machineArray = jsonDoc["machines"];
-                    fileExist = true;
-                }
-            }
-        }
-        jsonDoc.SetObject();
-
-        rapidjson::Document::AllocatorType& allocator = jsonDoc.GetAllocator();
-
-        rapidjson::Value objValue;
-        objValue.SetObject();
-        objValue.AddMember("name", rapidjson::Value(meta.baseName.toStdString().c_str(), allocator), allocator);
-        objValue.AddMember("extruderCount", meta.extruderCount, allocator);
-        std::string supportExtruderDiameters;
-
-        for (int i = 0; i < meta.extruderCount; i++)
-        {
-            for (int j = 0; j < meta.supportExtruderDiameters[i].size(); j++)
-            {
-                supportExtruderDiameters += std::to_string(meta.supportExtruderDiameters[i][j]);
-                if (j < meta.supportExtruderDiameters.size() - 1)
-                {
-                    supportExtruderDiameters += ",";
-                }
-            }
-            if (i < meta.extruderCount - 1)
-            {
-                supportExtruderDiameters += ";";
-            }
-        }
-
-        objValue.AddMember("supportExtruderDiameters", rapidjson::Value(supportExtruderDiameters.c_str(), allocator), allocator);
-
-        std::string supportMaterialTypes;
-
-        for (int j = 0; j < meta.supportMaterialTypes.size(); j++)
-        {
-            supportMaterialTypes += meta.supportMaterialTypes[j].toStdString();
-            if (j < meta.supportMaterialTypes.size() - 1)
-            {
-                supportMaterialTypes += ",";
-            }
-        }
-
-        objValue.AddMember("supportMaterialTypes", rapidjson::Value(supportMaterialTypes.c_str(), allocator), allocator);
-
-
-        std::string supportMaterialDiameters;
-
-        for (int j = 0; j < meta.supportMaterialDiameters.size(); j++)
-        {
-            supportMaterialDiameters += std::to_string(meta.supportMaterialDiameters[j]);
-            if (j < meta.supportMaterialDiameters.size() - 1)
-            {
-                supportMaterialDiameters += ",";
-            }
-        }
-        objValue.AddMember("supportMaterialDiameters", rapidjson::Value(supportMaterialDiameters.c_str(), allocator), allocator);
-
-        machineArray.PushBack(objValue, allocator);
-
-        if (!fileExist)
-        {
-            jsonDoc.AddMember("machines", machineArray, allocator);
-        }
-
-        rapidjson::StringBuffer strbuf;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
-        jsonDoc.Accept(writer);
-
-        std::string json(strbuf.GetString(), strbuf.GetSize());
-
-        std::ofstream ofs(machineListFile);
-        ofs << json;
-    }
-
-    void saveMachineMetaUser(const MachineMeta& meta)
-    {
-        //1.¶ÁÈ¡
-        QString userMachine = QString("%1/machines_user.json").arg(_pfpt_machines);
+        //1.ï¿½ï¿½È¡
+        QString userMachine = QString("%1/machineList.json").arg(_pfpt_user_root);
         QFile file(userMachine);
         if (!file.open(QFile::ReadWrite | QFile::Text))
         {
             return;
         }
 
-        QTextStream outStream(&file);
-        outStream.setCodec("UTF-8");
-        QString str = outStream.readAll();
+        QString str = file.readAll();
         file.close();
         QJsonDocument qdoc = QJsonDocument::fromJson(str.toUtf8());
         QJsonObject rootObj = qdoc.object();
 
-        QJsonValue qValue = rootObj.value("machines");
+        QJsonValue qValue = rootObj.value("printerList");
         QJsonArray arry;
         if (qValue.type() == QJsonValue::Array)
         {
@@ -361,85 +189,55 @@ namespace creative_kernel
             arry = qValue.toArray();
         }
 
-        QString supportExtruderDiameters;
+        QJsonArray nozzleDiameterArray;
         for (int i = 0; i < meta.extruderCount; i++)
         {
-            for (int j = 0; j < meta.supportExtruderDiameters[i].size(); j++)
-            {
-                supportExtruderDiameters += QString::number(meta.supportExtruderDiameters[i][j]);
-                if (j < meta.supportExtruderDiameters.size() - 1)
-                {
-                    supportExtruderDiameters += ",";
-                }
-            }
-            if (i < meta.extruderCount - 1)
-            {
-                supportExtruderDiameters += ";";
-            }
+            nozzleDiameterArray.append(QString::number(meta.extruderDiameters[i], 'f', 1));
         }
 
-        QString supportMaterialTypes;
+        QJsonArray supMaterialTypeArray;
         for (int j = 0; j < meta.supportMaterialTypes.size(); j++)
         {
-            supportMaterialTypes += meta.supportMaterialTypes[j];
-            if (j < meta.supportMaterialTypes.size() - 1)
-            {
-                supportMaterialTypes += ",";
-            }
-        }
-
-        QString supportMaterialDiameters;
-        for (int j = 0; j < meta.supportMaterialDiameters.size(); j++)
-        {
-            supportMaterialDiameters += QString::number(meta.supportMaterialDiameters[j]);
-            if (j < meta.supportMaterialDiameters.size() - 1)
-            {
-                supportMaterialDiameters += ",";
-            }
+            supMaterialTypeArray.append(meta.supportMaterialTypes[j]);
         }
 
         QJsonObject nameObj;
         nameObj["name"] = meta.baseName;
-        nameObj["extruderCount"] = meta.extruderCount;
-        nameObj["supportExtruderDiameters"] = supportExtruderDiameters;
-        nameObj["supportMaterialTypes"] = supportMaterialTypes;
-        nameObj["supportMaterialDiameters"] = supportMaterialDiameters;
+        nameObj["printerIntName"] = meta.codeName;
+        nameObj["nozzleDiameter"] = nozzleDiameterArray;
+        nameObj["supMaterialType"] = supMaterialTypeArray;
         arry.append(nameObj);
-        rootObj["machines"] = arry;
+        rootObj["printerList"] = arry;
 
-        //3.ÖØÐÂÐ´Èë
+        //3.ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½
         QFile inFile(userMachine);
         if (!inFile.open(QFile::WriteOnly | QFile::Text))
         {
             return;
         }
-        QTextStream inStream(&inFile);
-        inStream.setCodec("UTF-8");
 
         qdoc.setObject(rootObj);
         QByteArray qba = qdoc.toJson(QJsonDocument::Indented);
-        inStream << qba.data();
+        inFile.write(qba);
         inFile.close();
     }
 
     void removeMachineMetaUser(const QString& machineName)
     {
-        //1.¶ÁÈ¡
-        QString userMachine = QString("%1/machines_user.json").arg(_pfpt_machines);
+        //1.ï¿½ï¿½È¡
+        QString userMachine = QString("%1/machineList.json").arg(_pfpt_user_root);
         QFile file(userMachine);
         if (!file.open(QFile::ReadOnly | QFile::Text))
         {
             return;
         }
 
-        QTextStream outStream(&file);
-        outStream.setCodec("UTF-8");
-        QString str = outStream.readAll();
+        QString str = file.readAll();
         file.close();
         QJsonDocument qdoc = QJsonDocument::fromJson(str.toUtf8());
         QJsonObject rootObj = qdoc.object();
 
-        QJsonValue qValue = rootObj.value("machines");
+        QJsonValue qValue = rootObj.value("printerList");
         if (qValue.type() == QJsonValue::Array)
         {
             QJsonArray arry = qValue.toArray();
@@ -450,49 +248,51 @@ namespace creative_kernel
                     QJsonValue jValue = arry.at(index);
                     QJsonObject qjObj = jValue.toObject();
                     QString strName = qjObj.value("name").toString();
-                    QString strDia = qjObj.value("supportExtruderDiameters").toString();
-                    QString temp = strName + "_" + strDia.split(",")[0];
+                    QJsonArray strDia = qjObj.value("nozzleDiameter").toArray();
+
+                    QString temp = strName;
+                    for (int i = 0; i < strDia.count(); ++i)
+                    {
+                        const auto& nozzleDiameter = strDia.at(i).toString();
+                        temp = temp + "-" + nozzleDiameter;
+                    }
                     if (temp == machineName)
                     {
-                        //2.É¾³ý
                         arry.removeAt(index);
-                        rootObj["machines"] = arry;
+                        rootObj["printerList"] = arry;
                         break;
                     }
                 }
             }
         }
 
-        //3.ÖØÐÂÐ´Èë
+        //3.ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½
         QFile inFile(userMachine);
         if (!inFile.open(QFile::WriteOnly | QFile::Text))
         {
             return;
         }
-        QTextStream inStream(&inFile);
-        inStream.setCodec("UTF-8");
-
         qdoc.setObject(rootObj);
         QByteArray qba = qdoc.toJson(QJsonDocument::Indented);
-        inStream << qba.data();
+        inFile.write(qba);
         inFile.close();
     }
 
-    void loadMaterialMeta(QList<MaterialMeta>& metas, const bool& user, const QString& machineName)
+    void loadMaterialMeta(QList<MaterialData>& metas, const bool& user, const QString& machineName)
     {
         QString file_path;
         if (user)
         {
-            file_path = QString("%1/%2/materials_user.json").arg(_pfpt_materials).arg(machineName);
+            file_path = QString("%1/%2/materials_user.json").arg(_pfpt_user_parampack).arg(machineName);
         }
         else
         {
 #ifdef CUSTOM_MATERIAL_LIST
             constexpr auto FILE_NAME{ "materials_custom.json" };
 #else
-            constexpr auto FILE_NAME{ "materials.json" };
+            constexpr auto FILE_NAME{ "materialList.json" };
 #endif
-            file_path = QStringLiteral("%1/%2").arg(_pfpt_default_materials).arg(FILE_NAME);
+            file_path = QStringLiteral("%1/%2").arg(_pfpt_default_root).arg(FILE_NAME);
 
             if (!QFileInfo{ file_path }.isFile()) {
 #ifdef CUSTOM_MATERIAL_LIST
@@ -530,28 +330,28 @@ namespace creative_kernel
 
 			QJsonObject material = materialRef.toObject();
 			QString name = material.value(QStringLiteral("name")).toString();
-			if (metaNameCache.contains(name)) {		// ±ÜÃâÖØ¸´Ìí¼Ó
+			if (metaNameCache.contains(name)) {		// ï¿½ï¿½ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½ï¿½ï¿½
 				continue;
 			}
 			metaNameCache.insert(name);
 
-            MaterialMeta meta;
+            MaterialData meta;
             meta.name = name;
+            meta.id = material.value(QStringLiteral("id")).toString();
             meta.type = material.value(QStringLiteral("type")).toString();
             meta.brand = material.value(QStringLiteral("brand")).toString();
+            meta.rank = material.value(QStringLiteral("rank")).toInt();
             meta.isUserDef = user;
 
             QString materialDiameter = material.value(QStringLiteral("supportDiameters")).toString();
-            QStringList materialDiameters = materialDiameter.split(",");
-            for (const QString& diameter : materialDiameters)
-                meta.supportDiameters.append(diameter.toFloat());
+            meta.diameter = materialDiameter.toFloat();
 
             metas.append(std::move(meta));
         }
 
 #if 0 //_DEBUG
         qDebug() << "Material Meta Data:";
-        for (const MaterialMeta& meta : metas)
+        for (const MaterialData& meta : metas)
         {
             qDebug() << meta.name;
             qDebug() << meta.brand;
@@ -563,17 +363,15 @@ namespace creative_kernel
 
     void removeUserMaterialFromJson(const QString& materialName, const QString& machineName)
     {
-        //1.¶ÁÈ¡
-        QString path = QString("%1/%2/materials_user.json").arg(_pfpt_materials).arg(machineName);
+        //1.ï¿½ï¿½È¡
+        QString path = QString("%1/%2/materials_user.json").arg(_pfpt_user_parampack).arg(machineName);
         QFile file(path);
         if (!file.open(QFile::ReadOnly | QFile::Text))
         {
             return;
         }
 
-        QTextStream outStream(&file);
-        outStream.setCodec("UTF-8");
-        QString str = outStream.readAll();
+        QString str = file.readAll();
         file.close();
         QJsonDocument qdoc = QJsonDocument::fromJson(str.toUtf8());
         QJsonObject rootObj = qdoc.object();
@@ -590,10 +388,16 @@ namespace creative_kernel
                     QJsonObject qjObj = jValue.toObject();
                     QString strName = qjObj.value("name").toString();
                     QString strDia = qjObj.value("supportDiameters").toString();
-                    QString temp = strName + "_" + strDia.left(4);
+
+                    QString temp = strName;
+                    if (!strName.contains("_" + strDia.left(4)))
+                    {
+                        temp += "_" + strDia.left(4);
+                    }
+
                     if (temp == materialName)
                     {
-                        //2.É¾³ý
+                        //2.É¾ï¿½ï¿½
                         arry.removeAt(index);
                         rootObj["materials"] = arry;
                         break;
@@ -602,34 +406,30 @@ namespace creative_kernel
             }
         }
 
-        //3.ÖØÐÂÐ´Èë
-        QFile inFile(QString("%1/%2/materials_user.json").arg(_pfpt_materials).arg(machineName));
+        //3.ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½
+        QFile inFile(QString("%1/%2/materials_user.json").arg(_pfpt_user_parampack).arg(machineName));
         if (!inFile.open(QFile::WriteOnly | QFile::Text))
         {
             return;
         }
-        QTextStream inStream(&inFile);
-        inStream.setCodec("UTF-8");
 
         qdoc.setObject(rootObj);
         QByteArray qba = qdoc.toJson(QJsonDocument::Indented);
-        inStream << qba.data();
+        inFile.write(qba);
         inFile.close();
     }
 
     void reNameUserMaterialFromJson(const QString& materialName, const QString& newMaterialName, const QString& machineName)
     {
-        //1.¶ÁÈ¡
-        QString path = QString("%1/%2/materials_user.json").arg(_pfpt_materials).arg(machineName);
+        //1.ï¿½ï¿½È¡
+        QString path = QString("%1/%2/materials_user.json").arg(_pfpt_user_parampack).arg(machineName);
         QFile file(path);
         if (!file.open(QFile::ReadOnly | QFile::Text))
         {
             return;
         }
 
-        QTextStream outStream(&file);
-        outStream.setCodec("UTF-8");
-        QString str = outStream.readAll();
+        QString str = file.readAll();
         file.close();
         QJsonDocument qdoc = QJsonDocument::fromJson(str.toUtf8());
         QJsonObject rootObj = qdoc.object();
@@ -660,34 +460,30 @@ namespace creative_kernel
             }
         }
 
-        //3.ÖØÐÂÐ´Èë
-        QFile inFile(QString("%1/%2/materials_user.json").arg(_pfpt_materials).arg(machineName));
+        //3.ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½
+        QFile inFile(QString("%1/%2/materials_user.json").arg(_pfpt_user_parampack).arg(machineName));
         if (!inFile.open(QFile::WriteOnly | QFile::Text))
         {
             return;
         }
-        QTextStream inStream(&inFile);
-        inStream.setCodec("UTF-8");
 
         qdoc.setObject(rootObj);
         QByteArray qba = qdoc.toJson(QJsonDocument::Indented);
-        inStream << qba.data();
+        inFile.write(qba);
         inFile.close();
     }
 
-    void saveMateriaMeta(const MaterialMeta& meta, const QString& machineName)
+    void saveMateriaMeta(const MaterialData& meta, const QString& machineName)
     {
-        //1.¶ÁÈ¡
-        QString filePath = QString("%1/%2/materials_user.json").arg(_pfpt_materials).arg(machineName);
+        //1.ï¿½ï¿½È¡
+        QString filePath = QString("%1/%2/materials_user.json").arg(_pfpt_user_parampack).arg(machineName);
         QFile file(filePath);
         if (!file.open(QFile::ReadWrite | QFile::Text))
         {
             return;
         }
 
-        QTextStream outStream(&file);
-        outStream.setCodec("UTF-8");
-        QString str = outStream.readAll();
+        QString str = file.readAll();
         file.close();
         QJsonDocument qdoc = QJsonDocument::fromJson(str.toUtf8());
         QJsonObject rootObj = qdoc.object();
@@ -708,25 +504,16 @@ namespace creative_kernel
             arry = qValue.toArray();
         }
 
-        QString sdStr = QString("%1").arg(meta.supportDiameters[0]);
-        if (meta.supportDiameters.count() > 1)
-        {
-            for (int index = 1; index < meta.supportDiameters.count(); ++index)
-            {
-                sdStr += QString(",%1").arg(meta.supportDiameters[index]);
-            }
-        }
-
         QJsonObject nameObj;
         nameObj["name"] = meta.name;
         nameObj["type"] = meta.type;
         nameObj["brand"] = meta.brand;
-        nameObj["supportDiameters"] = sdStr;
+        nameObj["supportDiameters"] = QString::number(meta.diameter, 'f', 2);
         arry.append(nameObj);
         rootObj["materials"] = arry;
 
-        //3.ÖØÐÂÐ´Èë
-        QFile inFile(QString("%1/%2/materials_user.json").arg(_pfpt_materials).arg(machineName));
+        //3.ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½
+        QFile inFile(QString("%1/%2/materials_user.json").arg(_pfpt_user_parampack).arg(machineName));
         if (!inFile.open(QFile::WriteOnly | QFile::Text))
         {
             return;
@@ -737,6 +524,24 @@ namespace creative_kernel
         QByteArray qba = qdocIn.toJson(QJsonDocument::Indented);
         inFile.write(qba);
         inFile.close();
+    }
+
+    void loadOfficialMachineNames(QStringList& names)
+    {
+        names.clear();
+        QDir profile_dir(_pfpt_default_parampack);
+        for (const auto& entry : profile_dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+            names << entry.fileName();
+        }
+    }
+
+    void loadUserMachineNames(QStringList& names)
+    {
+        names.clear();
+        QDir profile_dir(_pfpt_user_parampack);
+        for (const auto& entry : profile_dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+            names << entry.fileName();
+        }
     }
 
     us::USettings* createDefaultGlobal()
@@ -759,10 +564,14 @@ namespace creative_kernel
         return createSettings(defaultMachineFile(baseMachineName), machine_parameter_keys);
     }
 
-    void makeSureDirectory(const QString& folder, const QString& subFolder)
+    void makeSureUserParamPackDir(const QString& machineUniqueName)
     {
-        QString _folder = QString("/%1/%2").arg(folder).arg(subFolder);
-        qtuser_core::getOrCreateAppDataLocation(_folder);
+        QStringList paramdirs = { "Materials","Overrides","Processes" };
+        for (const auto& dir : paramdirs)
+        {
+            QString _folder = QString("%1/%2/%3").arg(_pfpt_user_parampack).arg(machineUniqueName).arg(dir);
+            mkMutiDir(_folder);
+        }
     }
 
     void removeSubDirectory(const QString& folder, const QString& subFolder)
@@ -770,7 +579,7 @@ namespace creative_kernel
 
     }
 
-    QStringList fetchFileNames(const QString& directory)
+    QStringList fetchFileNames(const QString& directory, bool noExt)
     {
         QDir dir(directory);
         dir.setFilter(QDir::Files);
@@ -781,95 +590,63 @@ namespace creative_kernel
         QStringList fileNames;
         for (QFileInfo& fileInfo : fileInfos)
         {
-            QString name = fileInfo.fileName();
+            QString name =  fileInfo.fileName();
             if (!fileNames.contains(name) && !name.contains(".cover"))
+            {
+                if (noExt)
+                {
+                    name = name.mid(0, name.lastIndexOf("."));
+                }
                 fileNames.append(name);
+            }
+                
         }
         return fileNames;
     }
 
-    us::USettings* createMachineSettings(const QString& uniqueName)
+    void createMachineSettings(const QString& uniqueName, us::USettings* uSettings, QList<us::USettings*>* extruderSettings, bool isUser, MachineData* data)
     {
-        makeSureUserMachineFile(uniqueName);
-        QString fileName = userMachineFile(uniqueName);
+        QString fileName = defaultMachineFile(uniqueName, isUser);
 
-        return createSettings(fileName, machine_parameter_keys);
+        us::DefaultLoader loader;
+        loader.loadDefault(fileName, uSettings, extruderSettings, data);
+        uSettings->appendDefault(machine_parameter_keys);
+        for (const auto& extruder : *extruderSettings)
+        {
+            extruder->appendDefault(extruder_parameter_keys);
+        }
     }
 
-    us::USettings* createMachineSettingsImport(const QString& uniqueName)
+    us::USettings* createMachineCoverSettings(const QString& uniqueName)
     {
-         makeSureUserMachineFile(uniqueName);
-        QString fileName = userMachineFile(uniqueName);
+        QString fileName = machineCoverFile(uniqueName);
 
-        return createSettings(fileName, machine_parameter_keys);
+        QStringList preKeys;
+        return createSettings(fileName, preKeys);
     }
 
-    us::USettings* createUserMachineSettings(const QString& uniqueName)
-    {
-        QString fileName = userMachineFile(uniqueName,true);
-
-        return createSettings(fileName, QStringList());
-    }
-
-	QString defaultMachineFile(const QString& baseMachineName)
+	QString defaultMachineFile(const QString& baseMachineName, bool isUser)
 	{
-		return QString("%1/%2.default").arg(_pfpt_default_machines).arg(baseMachineName);
+        if (isUser)
+        {
+            return QString("%1/%2/%2.def.json").arg(_pfpt_user_parampack).arg(baseMachineName);
+        }
+		return QString("%1/%2/%2.def.json").arg(_pfpt_default_parampack).arg(baseMachineName);
 	}
 
-    QString userMachineFile(const QString& uniqueName, bool cover)
+    QString machineCoverFile(const QString& uniqueName)
     {
-        QString fileName = QString("%1/%2.default").arg(_pfpt_machines).arg(uniqueName);
-        if (cover)
-        {
-            fileName += ".cover";
-        }
+        QString tmpProject = qtuser_core::getOrCreateAppDataLocation("tmpProject");
+        mkMutiDir(QString("%1/%2/").arg(tmpProject).arg(uniqueName));
+        QString fileName = QString("%1/%2/%2.def.json.cover").arg(tmpProject).arg(uniqueName);
+        
         return fileName;
-    }
-
-    QString uniqueName2BaseMachineName(const QString& uniqueName)
-    {
-        return uniqueName.split("_").at(0);
-    }
-
-	QString uniqueName2ExtruderSize(const QString& uniqueName,int index)
-	{
-        QString extruderSize = uniqueName.split("_").at(1);
-        if (extruderSize.indexOf("-"))//Ë«Åç×ì
-        {
-            return extruderSize.split("-").at(index);
-        }
-        else
-        {
-            return extruderSize;
-        }
-	}
-
-	void makeSureUserMachineFile(const QString& uniqueName, const QString& dstName, bool isSourceMachineUser)
-    {
-        QString baseMachineName = uniqueName2BaseMachineName(uniqueName);
-        QString userFile = userMachineFile(dstName.isEmpty() ? uniqueName : dstName);
-
-        QString defFile;
-        if (isSourceMachineUser)
-        {
-            defFile = userMachineFile(uniqueName);
-        }
-        else
-        {
-            defFile = defaultMachineFile(baseMachineName);
-        }
-
-        bool res = qtuser_core::copyFile(defFile, userFile, false);
-        if (!res)
-        {
-            qDebug() << "copy file failed!!!";
-        }
     }
 
     void removeUserMachineFile(const QString& uniqueName)
     {
-        QString filePath = userMachineFile(uniqueName);
-        QString coverFilePath = userMachineFile(uniqueName, true);
+        QString filePath = defaultMachineFile(uniqueName, true);
+        QString coverFilePath = machineCoverFile(uniqueName);
 
         QFile machineFile(filePath);
         if(machineFile.exists())
@@ -880,131 +657,26 @@ namespace creative_kernel
             coverMachineFile.remove();
     }
 
-    void coverUserMachineFile(const QString& uniqueName)
-    {
-        QString defaultFile = defaultMachineFile(uniqueName2BaseMachineName(uniqueName));
-        QString userFile = userMachineFile(uniqueName);
-
-        if (!QFile::exists(defaultFile))
-        {
-            qDebug() << QString("coverUserMachineFile [%1] not exist.").arg(defaultFile);
-            return;
-        }
-        qtuser_core::copyFile(defaultFile, userFile);
-    }
-
-	QString defaultExtruderFile(const QString& machineName,int index)
+	QString userExtruderFile(const QString& machine, int index)
 	{
-		//return QString("%1/extruder_%2.default").arg(_pfpt_default_extruders).arg(index);
-        QString baseName = uniqueName2BaseMachineName(machineName);
-        QString extruderSize = uniqueName2ExtruderSize(machineName,index);
-        QString machineExtruder = QString("%1/%2/extruder_%3_%4.default").arg(_pfpt_default_extruders).arg(baseName).arg(index).arg(extruderSize);
-        if (QFile(machineExtruder).exists())//»úÐÍ¶ÀÓÐµÄÅç×ìÅäÖÃ
-        {
-            return machineExtruder;
-        }
-        else//Í¨ÓÃµÄÅç×ìÅäÖÃ
-        {
-			return QString("%1/extruder_%3_%4.default").arg(_pfpt_default_extruders).arg(index).arg(extruderSize);
-        }
-
-	}
-
-	QString userExtruderFile(const QString& machine, int index, bool cover)
-	{
-        QString name = QString("%1/%2_extruder_%3.default").arg(_pfpt_extruders).arg(machine).arg(index);
-        if (cover)
-        {
-            name += ".cover";
-        }
+        QString tmpProject = qtuser_core::getOrCreateAppDataLocation("tmpProject");
+        mkMutiDir(QString("%1/%2/").arg(tmpProject).arg(machine));
+        QString name = QString("%1/%2/extruder_%3.json.cover").arg(tmpProject).arg(machine).arg(index);
 		return name;
 	}
-
-    void makeSureUserExtruderFile(const QString& machineName, int index, const QString& sourceMachineName, bool isSourceMachineUser)
-    {
-        QString userFile = userExtruderFile(machineName, index);
-        QString defFile = defaultExtruderFile(machineName,index);
-        if (isSourceMachineUser)
-        {
-            defFile = defaultExtruderFile(machineName, index);
-        }
-
-        qtuser_core::copyFile(defFile, userFile, false);
-    }
-
-    void makeSureUserExtruderFileFromUser(const QString& sourceMachineName, const QString& dstMachineName, int index)
-    {
-        QString userFile = userExtruderFile(dstMachineName, index);
-        QString defFile = userExtruderFile(sourceMachineName, index);
-        qtuser_core::copyFile(defFile, userFile, false);
-    }
 
     void removeUserExtuderFile(const QString& machineName, int index)
     {
         QString extruderFilePath = userExtruderFile(machineName, index);
-        QString coverExtruderFilePath = userExtruderFile(machineName, index, true);
 
         QFile machineFile(extruderFilePath);
         if (machineFile.exists())
             machineFile.remove();
-
-        QFile coverMachineFile(coverExtruderFilePath);
-        if (coverMachineFile.exists())
-            coverMachineFile.remove();
-    }
-
-    void coverUserExtuderFile(const QString& machineName, int index)
-    {
-        QString defaultFile = defaultExtruderFile(machineName,index);
-        QString userFile = userExtruderFile(machineName, index);
-
-        if (!QFile::exists(defaultFile))
-        {
-            qDebug() << QString("coverUserExtuderFile [%1] not exist.").arg(machineName);
-            return;
-        }
-        qtuser_core::copyFile(defaultFile, userFile);
-    }
-
-    us::USettings* createExtruderSettings(const QString& machineName, int index, bool defaultPath)
-    {
-        QString fileName = defaultExtruderFile(machineName,index);
-        if (!defaultPath)
-        {
-            makeSureUserExtruderFile(machineName, index);
-            fileName = userExtruderFile(machineName, index);
-        }
-
-        auto f = [](const QString& fileName)->us::USettings* {
-            us::USettings* settings = new us::USettings();
-            settings->loadDefault(fileName);
-            settings->appendDefault(extruder_parameter_keys);
-            return settings;
-        };
-        return f(fileName);
-    }
-
-    us::USettings* createExtruderSettingsFromUser(const QString& machineName, int index, const QString& sourceMachineName, bool defaultPath)
-    {
-        QString fileName = defaultExtruderFile(machineName, index);
-        if (!defaultPath)
-        {
-            makeSureUserExtruderFileFromUser(sourceMachineName, machineName, index);
-            fileName = userExtruderFile(machineName, index);
-        }
-
-        auto f = [](const QString& fileName)->us::USettings* {
-            us::USettings* settings = new us::USettings();
-            settings->loadDefault(fileName);
-            settings->appendDefault(extruder_parameter_keys);
-            return settings;
-        };
-        return f(fileName);
     }
 
     us::USettings* createUserExtruderSettings(const QString& machineName, int index)
     {
-        QString fileName = userExtruderFile(machineName, index, true);
+        QString fileName = userExtruderFile(machineName, index);
 
         QStringList preKeys;
         return createSettings(fileName, preKeys);
@@ -1012,7 +684,7 @@ namespace creative_kernel
 
     us::USettings* createUserExtruderSettingsFromUser(const QString& machineName, int index, const QString& sourceMachineName)
     {
-        QString fileName = userExtruderFile(machineName, index, true);
+        QString fileName = userExtruderFile(machineName, index);
 
         QStringList preKeys;
         return createSettings(fileName, preKeys);
@@ -1020,145 +692,91 @@ namespace creative_kernel
 
     void copyFile2User(const QString& source, const QString& machineName, const QString& profileName, bool createCover)
     {
-        QString dest = userProfileFile(machineName, profileName);
+        QString dest = userProfileCoverFile(machineName, profileName);
         qtuser_core::copyFile(source, dest, false);
         if (createCover)
         {
-            dest = userProfileFile(machineName, profileName, true);
+            dest = userProfileCoverFile(machineName, profileName);
             qtuser_core::copyFile(source, dest, false);
         }
     }
 
     void copyPrinterFile2User(const QString& source, const QString& machineName, const QString& profileName, bool createCover)
     {
-        QString dest = userProfileFile(machineName, profileName);
+        QString dest = userProfileCoverFile(machineName, profileName);
         qtuser_core::copyFile(source, dest, false);
         if (createCover)
         {
-            dest = userProfileFile(machineName, profileName, true);
+            dest = userProfileCoverFile(machineName, profileName);
             qtuser_core::copyFile(source, dest, false);
         }
     }
 
     void copyMaterialFile2User(const QString& source, const QString& machineName, const QString& profileName, bool createCover)
     {
-        QString dest = userProfileFile(machineName, profileName);
+        QString dest = userProfileCoverFile(machineName, profileName);
         qtuser_core::copyFile(source, dest, false);
         if (createCover)
         {
-            dest = userProfileFile(machineName, profileName, true);
+            dest = userProfileCoverFile(machineName, profileName);
             qtuser_core::copyFile(source, dest, false);
         }
     }
 
     QString defaultProfileFile(const QString& machineName, const QString& profile)
     {
-        return QString("%1/%2/%3.default").arg(_pfpt_default_profiles).arg(machineName).arg(profile);
+        return QString("%1/%2/Processes/%3").arg(_pfpt_default_parampack).arg(machineName).arg(profile);
     }
 
-	QString userProfileFile(const QString& machineName, const QString& profile, bool cover, const QString& materialName)
+    QString defaultProfileCoverFile(const QString& machineName, const QString& profile, const QString& materialName)
+    {
+        QString name = QString("%1/%2/Processes/%3.cover").arg(_pfpt_user_parampack).arg(machineName).arg(materialName.isEmpty() ? profile : materialName + "@" + profile);
+        return name;
+    }
+
+    QString userProfileFile(const QString& machineName, const QString& profile, const QString& materialName)
+    {
+        QString name = QString("%1/%2/Processes/%3").arg(_pfpt_user_parampack).arg(machineName).arg(profile);
+        return name;
+    }
+
+	QString userProfileCoverFile(const QString& machineName, const QString& profile, const QString& materialName)
 	{
-        QString name = QString("%1/%2/%3").arg(_pfpt_profiles).arg(machineName).arg(materialName.isEmpty() ? profile : materialName + "@" + profile);
-        if (cover)
-            name += ".cover";
+        QString tmpProject = qtuser_core::getOrCreateAppDataLocation("tmpProject");
+        mkMutiDir(QString("%1/%2/Processes/").arg(tmpProject).arg(machineName));
+        QString name = QString("%1/%2/Processes/%3.cover").arg(tmpProject).arg(machineName).arg(profile);
+
         return name;
 	}
 
-    void makeSureUserProfileFiles(const QString& machineName)
+    QStringList fetchOfficialProfileNames(const QString& machineName)
     {
-        QString folder = QString("Profiles/%1").arg(machineName);
-        qtuser_core::getOrCreateAppDataLocation(folder);
-
-        QString directory = QString("%1/%2/").arg(_pfpt_profiles).arg(machineName);
-        QString defaultFolder = QString("%1/%2").arg(_pfpt_default_profiles).arg(machineName);
-        QDir defaultDir(defaultFolder);
-        if (defaultDir.exists())
-        {
-            if (!qtuser_core::copyDir(defaultFolder, directory, false))
-            {
-                qDebug() << QString("initializeConfig failed ! please check access right ! source: [%1], destination:[%2]")
-                    .arg(defaultFolder).arg(directory);
-                return;
-            }
-        }
-        else
-        {
-            QStringList profileNames;
-            profileNames << "low.default";
-            profileNames << "middle.default";
-            profileNames << "high.default";
-
-            for (const QString& profileName : profileNames)
-            {
-                QString src = QString("%1/%2").arg(_pfpt_default_profiles).arg(profileName);
-                QString dest = userProfileFile(machineName, profileName);
-                qtuser_core::copyFile(src, dest, false);
-            }
-        }
+        return fetchFileNames(QString("%1/%2/Processes").arg(_pfpt_default_parampack).arg(machineName));
     }
 
-    void makeSureUserProfileFiles_(const QString& machineName, const QString& dstMachineName)
+    QStringList fetchUserProfileNames(const QString& machineName)
     {
-        QString folder = QString("Profiles/%1").arg(dstMachineName);
-        qtuser_core::getOrCreateAppDataLocation(folder);
-
-        QString directory = QString("%1/%2/").arg(_pfpt_profiles).arg(dstMachineName);
-        QString defaultFolder = QString("%1/%2").arg(_pfpt_default_profiles).arg(machineName);
-        QDir defaultDir(defaultFolder);
-        if (defaultDir.exists())
-        {
-            if (!qtuser_core::copyDir(defaultFolder, directory, false))
-            {
-                qWarning() << QString("initializeConfig failed ! please check access right ! source: [%1], destination:[%2]")
-                    .arg(defaultFolder).arg(directory);
-                return;
-            }
-        }
-        else
-        {
-            QStringList profileNames;
-            profileNames << "low.default";
-            profileNames << "middle.default";
-            profileNames << "high.default";
-
-            for (const QString& profileName : profileNames)
-            {
-                QString src = QString("%1/%2").arg(_pfpt_default_profiles).arg(profileName);
-                QString dest = userProfileFile(dstMachineName, profileName);
-                qtuser_core::copyFile(src, dest, false);
-            }
-        }
-    }
-
-    void makeUserDefProfileFile(const QString& machineName, const QString& profileName, const QString& copyProfile)
-    {
-        QString copyProfileName = copyProfile.isEmpty() ? defaultProfileFile(uniqueName2BaseMachineName(machineName), "middle.default")
-            : userProfileFile(machineName, copyProfile);
-        QString newProfileName = userProfileFile(machineName, profileName);
-        QString coverProfileName = userProfileFile(machineName, profileName, true);
-        qtuser_core::copyFile(copyProfileName, newProfileName);
-        qtuser_core::copyFile(coverProfileName, coverProfileName);
-    }
-
-    QStringList fetchUserProfileNames(const QString& machineName, const QString& dstMachineName)
-    {
-        if (dstMachineName == QString())
-        {
-            makeSureUserProfileFiles(machineName);
-            return fetchFileNames(QString("%1/%2").arg(_pfpt_profiles).arg(machineName));
-        }
-        else {
-            makeSureUserProfileFiles_(machineName, dstMachineName);
-            return fetchFileNames(QString("%1/%2").arg(_pfpt_profiles).arg(dstMachineName));
-        }
+        return fetchFileNames(QString("%1/%2/Processes").arg(_pfpt_user_parampack).arg(machineName));
     }
 
     void removeUserProfileFile(const QString& machineName, const QString& fileName, const QString& materialName)
     {
         QFile profileFile(userProfileFile(machineName, fileName));
         profileFile.remove();
-        QFile coverFile(userProfileFile(machineName, fileName, true, materialName));
+        QFile coverFile(userProfileCoverFile(machineName, fileName, materialName));
         coverFile.remove();
+    }
+
+    us::USettings* createDefaultProfileSettings(const QString& machineName, const QString& profileName)
+    {
+        QString fileName = defaultProfileFile(machineName, profileName);
+        return createSettings(fileName, profile_parameter_keys);
+    }
+    us::USettings* createDefaultProfileCoverSettings(const QString& machineName, const QString& profileName, const QString& materialName)
+    {
+        QString fileName = userProfileCoverFile(machineName, profileName, materialName);
+        QStringList preKeys;
+        return createSettings(fileName, preKeys);
     }
 
     us::USettings* createUserProfileSettings(const QString& machineName, const QString& profileName)
@@ -1166,177 +784,99 @@ namespace creative_kernel
         QString fileName = userProfileFile(machineName, profileName);
         return createSettings(fileName, profile_parameter_keys);
     }
+
     us::USettings* createUserProfileCoverSettings(const QString& machineName, const QString& profileName, const QString& materialName)
     {
-        QString fileName = userProfileFile(machineName, profileName,true, materialName);
+        QString fileName = userProfileCoverFile(machineName, profileName, materialName);
         QStringList preKeys;
         return createSettings(fileName, preKeys);
     }
 
-    QString defaultMachineSupportMaterialFile(const QString& machineName)
+    QString defaultMaterialFile(const QString& uniqueName, const QString& materialName, bool user)
     {
-        QString defFile = QString("%1/%2.default").arg(_pfpt_default_machine_support_materials).arg(machineName);
-        QFile file(defFile);
-        if (!file.exists())
-            defFile = QString("%1/support.default").arg(_pfpt_default_machine_support_materials);
-        return defFile;
-    }
-
-    QString userMachineSupportMaterialFile(const QString& machineName)
-    {
-        return QString("%1/%2.default").arg(_pfpt_machine_support_materials).arg(machineName);
-    }
-
-    void makeSureUserMachineSupportMaterialFile(const QString& machineName)
-    {
-        QString defFile = defaultMachineSupportMaterialFile(machineName);
-        QString userFile = userMachineSupportMaterialFile(machineName);
-        qtuser_core::copyFile(defFile, userFile, false);
-    }
-
-    void removeUserMachineSupportMaterialFile(const QString& machineName)
-    {
-
-    }
-
-    void coverUserMachineSupportMaterialFile(const QString& machineName)
-    {
-
-    }
-
-    QStringList fetchUserMachineSupportMaterialNames(const QString& machineName)
-    {
-        makeSureUserMachineSupportMaterialFile(machineName);
-        QString fileName = userMachineSupportMaterialFile(machineName);
-
-        return us::loadKeys(fileName);
-    }
-
-    QString userMaterialFile(const QString& uniqueName, const QString& materialName, bool cover)
-    {
-        QString folder = QString("Materials/%1").arg(uniqueName);
-        qtuser_core::getOrCreateAppDataLocation(folder);
-
-        QString name = QString("%1/%2/%3.default").arg(_pfpt_materials).arg(uniqueName).arg(materialName);
-        if (cover)
-            name += ".cover";
-        return name;
-    }
-
-    QString defaultMaterialFile(const QString& materialName)
-    {
-        return QString("%1/%2.default").arg(_pfpt_default_materials).arg(materialName);
-    }
-
-    void makeSureUserMaterialFiles(const QString& uniqueName)
-    {
-        QString folder = QString("Materials/%1").arg(uniqueName);
-        qtuser_core::getOrCreateAppDataLocation(folder);
-
-        QString directory = QString("%1/%2/").arg(_pfpt_materials).arg(uniqueName);
-        QString defaultFolder = QString("%1/%2").arg(_pfpt_default_materials).arg(uniqueName2BaseMachineName(uniqueName));
-        QDir defaultDir(defaultFolder);
-        if (defaultDir.exists())
+        if (user)
         {
-            if (!qtuser_core::copyDir(defaultFolder, directory, false))
-            {
-                qDebug() << QString("initializeConfig failed ! please check access right ! source: [%1], destination:[%2]")
-                    .arg(defaultFolder).arg(directory);
-                return;
-            }
+            return QString("%1/%2/Materials/%3.json").arg(_pfpt_user_parampack).arg(uniqueName).arg(materialName);
         }
-        else
-        {
-            QStringList profileNames;
-            profileNames << "PLA-1.75.default";
-            profileNames << "PLA-2.85.default";
-
-            for (const QString& profileName : profileNames)
-            {
-                QString src = QString("%1/%2").arg(_pfpt_default_materials).arg(profileName);
-                QString dest = userMaterialFile(uniqueName, profileName);
-                qtuser_core::copyFile(src, dest, false);
-            }
-        }
+        return QString("%1/%2/Materials/%3.json").arg(_pfpt_default_parampack).arg(uniqueName).arg(materialName);
     }
 
-    QStringList fetchUserMaterialNames(const QString& uniqueName)
+    QString materialCoverFile(const QString& uniqueName, const QString& materialName)
     {
-        makeSureUserMaterialFiles(uniqueName);
-        return fetchFileNames(QString("%1/%2").arg(_pfpt_materials).arg(uniqueName));
+        QString tmpProject = qtuser_core::getOrCreateAppDataLocation("tmpProject");
+        mkMutiDir(QString("%1/%2/Materials").arg(tmpProject).arg(uniqueName));
+        return QString("%1/%2/Materials/%3.json.cover").arg(tmpProject).arg(uniqueName).arg(materialName);
     }
 
-    void makeSureUserMaterialFile(const QString& uniqueName, const MaterialData& data)
+    QString userExtruderOverrideFile(const QString& machineUniqueName, const QString& materialUniqueName)
     {
-        QString fileName = userMaterialFile(uniqueName, data.uniqueName());
-        QFile file(fileName);
-        if (file.exists())
-            return;
-
-        QString defFileName = QString("%1/%2/%3_%4.default").arg(_pfpt_default_materials)
-            .arg(uniqueName2BaseMachineName(uniqueName)).arg(data.name).arg(data.diameter);
-
-        QFile defFile(defFileName);
-        if (defFile.exists())
-        {
-            qtuser_core::copyFile(defFileName, fileName, true);
-            return;
-        }
-
-        defFileName = QString("%1/%2_%3.default").arg(_pfpt_default_materials).arg(data.name).arg(data.diameter);
-        QFile defFile2(defFileName);
-        if (defFile2.exists())
-        {
-            qtuser_core::copyFile(defFileName, fileName, true);
-            return;
-        }
-
-        defFileName = QString("%1/%2-%3.default").arg(_pfpt_default_materials).arg(data.type).arg(data.diameter);
-
-        QFile defFile1(defFileName);
-        if (defFile1.exists())
-        {
-            qtuser_core::copyFile(defFileName, fileName, true);
-            return;
-        }
-
-        qDebug() << QString("makeSureUserMaterialFile error. [%1] [%2]").arg(uniqueName).arg(data.name);
+        QString fileName = QString("%1/%2/Overrides/%3.json").arg(_pfpt_user_parampack)
+            .arg(machineUniqueName).arg(materialUniqueName);
+        return fileName;
     }
 
-    us::USettings* createMaterialSettings(const QString& uniqueName, const MaterialData& data, bool cover)
+    QString defaultExtruderOverrideFile(const QString& machineUniqueName, const QString& materialUniqueName)
     {
-        makeSureUserMaterialFile(uniqueName, data);
-        QString fileName = userMaterialFile(uniqueName, data.uniqueName(), cover);
+        QString fileName = QString("%1/%2/Overrides/%3.json").arg(_pfpt_default_parampack)
+            .arg(machineUniqueName).arg(materialUniqueName);
+        return fileName;
+    }
+
+    QString userProcessOverrideFile(const QString& machineUniqueName, const QString& materialUniqueName, const QString& process)
+    {
+        QString fileName = QString("%1/%2/Overrides/%3-%4.json").arg(_pfpt_user_parampack)
+            .arg(machineUniqueName).arg(process).arg(materialUniqueName);
+        return fileName;
+    }
+
+    QString defaultProcessOverrideFile(const QString& machineUniqueName, const QString& materialUniqueName, const QString& process)
+    {
+        QString fileName = QString("%1/%2/Overrides/%3-%4.json").arg(_pfpt_default_parampack)
+            .arg(machineUniqueName).arg(process).arg(materialUniqueName);
+        return fileName;
+    }
+
+    us::USettings* createMaterialSettings(const QString& uniqueName, const MaterialData& data, bool user)
+    {
+        QString fileName = defaultMaterialFile(uniqueName, data.uniqueName(), user);
 
         return createSettings(fileName, material_parameter_keys);
     }
-    us::USettings* createUserMaterialSettings(const QString& uniqueName, const MaterialData& data)
+
+    us::USettings* createMaterialCoverSettings(const QString& uniqueName, const MaterialData& data)
     {
-        QString fileName = userMaterialFile(uniqueName, data.uniqueName(),true);
+        QString fileName = materialCoverFile(uniqueName, data.uniqueName());
         QStringList preKeys;
         return createSettings(fileName, preKeys);
     }
 
-    us::USettings* createMaterialOverrideSettings(const QString& uniqueName, const MaterialData& data, const QString& quality)
+    us::USettings* createProcessOverrideSettings(const QString& uniqueName, const MaterialData& data, const QString& quality)
     {
-        QString defFileName = QString("%1/%2/%5/%3_%4.default.cover").arg(_pfpt_default_materials)
-            .arg(uniqueName2BaseMachineName(uniqueName)).arg(data.name).arg(data.diameter).arg(quality);
-        if (!QFile::exists(defFileName))
-        {
-            return nullptr;
-        }
-        QString filePath = QString("%1/%2/%3").arg(_pfpt_materials).arg(uniqueName).arg(quality);
-        QString fileName = QString("%1/%2.default.cover").arg(filePath).arg(data.uniqueName());
+        QString fileName = QString("%1/%2/Overrides/%3-%4.json").arg(_pfpt_user_parampack)
+            .arg(uniqueName).arg(quality).arg(data.uniqueName());
         if (!QFile::exists(fileName))
         {
-            QDir dir(filePath);
-            if (!dir.exists())
-            {
-                dir.mkdir(filePath);
-            }
-            QFile::copy(defFileName, fileName);
+            fileName = QString("%1/%2/Overrides/%3-%4.json").arg(_pfpt_default_parampack)
+                .arg(uniqueName).arg(quality).arg(data.uniqueName());
+        }
+        if (!QFile::exists(fileName))
+        {
+            return new us::USettings();
         }
         return createSettings(fileName);
     }
 
+    us::USettings* createExtruderOverrideSettings(const QString& machineUniqueName, const QString& materialUniqueName)
+    {
+        QString fileName = userExtruderOverrideFile(machineUniqueName, materialUniqueName);
+        if (!QFile::exists(fileName))
+        {
+            fileName = defaultExtruderOverrideFile(machineUniqueName, materialUniqueName);
+        }
+        if (!QFile::exists(fileName))
+        {
+            return new us::USettings();
+        }
+        return createSettings(fileName);
+    }
 }

@@ -18,11 +18,11 @@ namespace creative_kernel
     CloneCommand::CloneCommand(QObject* parent)
         :ToolCommand(parent)
     {
-        orderindex = 5;
-        m_name = tr("Clone") + ": Alt+L";
+        orderindex = 3;
+        m_name = tr("Clone") + ": Alt + C";
 
         m_source = "qrc:/kernel/qml/Clone.qml";
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     CloneCommand::~CloneCommand()
@@ -31,15 +31,15 @@ namespace creative_kernel
 
     void CloneCommand::onThemeChanged(ThemeCategory category)
     {
-        setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/clone_dark.svg" : "qrc:/UI/photo/leftBar/clone_lite.svg");
-		setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/clone_dark.svg" : "qrc:/UI/photo/leftBar/clone_lite.svg");
-		setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/clone_pressed.svg" : "qrc:/UI/photo/leftBar/clone_lite.svg");
-		setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/clone_pressed.svg" : "qrc:/UI/photo/leftBar/clone_pressed.svg");
+        setDisabledIcon("qrc:/UI/photo/cToolBar/clone_dark_disable.svg");
+		setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/clone_dark_default.svg" : "qrc:/UI/photo/cToolBar/clone_light_default.svg");
+		setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/clone_dark_default.svg" : "qrc:/UI/photo/cToolBar/clone_light_default.svg");
+		setPressedIcon("qrc:/UI/photo/cToolBar/clone_dark_press.svg");
     }
 
     void CloneCommand::onLanguageChanged(MultiLanguage language)
     {
-        m_name = tr("Clone") + ": Alt+L";
+        m_name = tr("Clone") + ": Alt + C";
     }
 
     bool CloneCommand::isSelect()
@@ -85,7 +85,7 @@ namespace creative_kernel
         if (!m_pickOp)
         {
             m_pickOp = new PickOp(this);
-
+            m_pickOp->setType(qtuser_3d::SceneOperateMode::FixedMode);
         }
         setVisOperationMode(m_pickOp);
         sensorAnlyticsTrace("Model Editing & Layout", "Clone");

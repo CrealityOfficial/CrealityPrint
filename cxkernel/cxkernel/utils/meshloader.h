@@ -1,12 +1,17 @@
 #ifndef _NULLSPACE_MESHLOADERWRAPPER_1590982007351_H
 #define _NULLSPACE_MESHLOADERWRAPPER_1590982007351_H
+
+#include <list>
+#include <set>
+
 #include "cxkernel/cxkernelinterface.h"
 #include "cxkernel/data/modelndata.h"
 #include "qtusercore/module/cxhandlerbase.h"
+#include "cxkernel/utils/meshjob.h"
 
 namespace cxkernel
 {
-	class MeshLoader : public QObject, public qtuser_core::CXHandleBase
+	class MeshLoader : public QObject, public qtuser_core::CXHandleBase, public MeshJobObserver
 	{
 		Q_OBJECT
 	public:
@@ -22,9 +27,14 @@ namespace cxkernel
 
 		void addModelFromCreateInput(const ModelCreateInput& input);
 		void setModelNDataProcessor(ModelNDataProcessor* processor);
-	protected:
-		ModelNDataProcessor* m_processor;
 
+	protected:
+		void onFinished(MeshJob* job) override;
+
+	protected:
+		std::list<QStringList> m_tasks;
+		std::set<MeshJob*> m_jobs;
+		ModelNDataProcessor* m_processor;
 		ModelNDataCreateParam m_param;
 	};
 }

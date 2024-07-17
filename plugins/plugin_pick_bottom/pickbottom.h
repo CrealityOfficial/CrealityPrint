@@ -1,7 +1,7 @@
 #ifndef _NULLSPACE_PICKBOTTOM_1589849922902_H
 #define _NULLSPACE_PICKBOTTOM_1589849922902_H
 #include "qtusercore/module/creativeinterface.h"
-
+class AutoPickBottomCommand;
 class PickBottomCommand;
 class PickBottom: public QObject, public CreativeInterface
 {
@@ -21,5 +21,6 @@ protected:
 
 protected:
 	PickBottomCommand* m_command;
+	AutoPickBottomCommand* m_autocommand;
 };
 #endif // _NULLSPACE_PICKBOTTOM_1589849922902_H

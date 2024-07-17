@@ -90,8 +90,6 @@ TextField{
         anchors.bottom: placeholder.bottom
         anchors.right: placeholder.right
         text: ""
-        width: contentWidth
-        height: placeholder.height
         color: enabled ? "#999999" : Qt.lighter("#999999",0.7)
         opacity : control.enabled ? 1 : 0.3
 

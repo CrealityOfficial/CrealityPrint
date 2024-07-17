@@ -1,7 +1,6 @@
 #include "modelspace.h"
 
 #include "data/modeln.h"
-#include "data/fdmsupportgroup.h"
 #include "interface/modelinterface.h"
 #include "qtusercore/module/systemutil.h"
 
@@ -13,7 +12,22 @@
 #include "interface/reuseableinterface.h"
 #include "interface/spaceinterface.h"
 #include "interface/uiinterface.h"
+#include "interface/printerinterface.h"
+#include "interface/camerainterface.h"
+#include "interface/layoutinterface.h"
+#include "interface/machineinterface.h"
+#include "interface/renderinterface.h"
+#include "interface/selectorinterface.h"
+
+#include "qtuser3d/camera/cameracontroller.h"
+
+#include "internal/multi_printer/printermanager.h"
+#include "internal/data/_modelinterface.h"
+#include "utils/modelpositioninitializer.h"
+
 #include <QtCore>
+
+static constexpr double EPSILON = 1e-3;
 
 using namespace qtuser_3d;
 namespace creative_kernel
@@ -23,6 +37,8 @@ namespace creative_kernel
 		, m_root(nullptr)
 		, m_currentModelGroup(nullptr)
 		, m_spaceDirty(true)
+		, m_loadMeshCount(0)
+		, m_layoutDoneFlag(false)
 	{
 		m_baseBoundingBox += QVector3D(0.0f, 0.0f, 0.0f);
 		m_baseBoundingBox += QVector3D(300.0f, 300.0f, 300.0f);
@@ -39,9 +55,6 @@ namespace creative_kernel
 
 	void ModelSpace::initialize()
 	{
-		QString strPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/RecentSerializeModel/";
-		clearPath(strPath);
-
 		addModelGroup(new ModelGroup());
 	}
 
@@ -109,85 +122,11 @@ namespace creative_kernel
 
 	int ModelSpace::checkModelRange()
 	{
-		//≈–∂œƒ£–Õ «∑Ò‘⁄≥¨≥ˆ∆ΩÃ®¥Û–°
-		QVector3D bbOffset(0.1f, 0.1f, 0.1f);
-		Box3D basebox = baseBoundingBox();
-		basebox.min = basebox.min - bbOffset;
-		basebox.max = basebox.max + bbOffset;
-		QList<ModelN*> models = modelns();
-		bool  bleft = false;
-		bool  bfront = false;
-		bool  bdown = false;
-		bool  bright = false;
-		bool  bback = false;
-		bool  bup = false;
-		int result = 0;
-		for (size_t i = 0; i < models.size(); i++)
-		{
-			ModelN* model = models.at(i);
-			qtuser_3d::Box3D LocalBox = model->globalSpaceBox();
-			/*if (LocalBox.min.x() < basebox.min.x() ||
-				LocalBox.min.y() < basebox.min.y() ||
-				LocalBox.min.z() + 0.01 < basebox.min.z() ||
-				LocalBox.max.x() > basebox.max.x() ||
-				LocalBox.max.y() > basebox.max.y() ||
-				LocalBox.max.z() > basebox.max.z())
-			{
-				model->setErrorState(true);
-			}
-			else
-			{
-				model->setErrorState(false);
-			}*/
-
-			//œ‘ æ√Ê
-			if (LocalBox.min.x() < basebox.min.x())
-			{
-				bleft = true;
-				result |= 1;
-			}
-			if (LocalBox.min.y() < basebox.min.y())
-			{
-				bfront = true;
-				result |= 2;
-			}
-			if (LocalBox.min.z() + 0.01 < basebox.min.z())
-			{
-				bdown = true;
-				result |= 4;
-			}
-			if (LocalBox.max.x() > basebox.max.x())
-			{
-				bright = true;
-				result |= 8;
-			}
-			if (LocalBox.max.y() > basebox.max.y())
-			{
-				bback = true;
-				result |= 16;
-			}
-			if (LocalBox.max.z() > basebox.max.z())
-			{
-				bup = true;
-				result |= 32;
-			}
-		}
-		PrinterEntity* entity = getCachedPrinterEntity();
-		entity->onModelChanged(basebox, creative_kernel::haveModelN(), bleft, bright, bfront, bback, bup, bdown);
-		return result;
+		return 0;
 	}
 
 	int ModelSpace::checkBedRange()
 	{
-		QList<ModelN*> models = modelns();
-		QList<Box3D> boxes;
-		for (ModelN* amodel :models)
-		{
-			boxes.append(amodel->globalSpaceBox());
-		}
-
-		PrinterEntity* entity = getCachedPrinterEntity();
-		entity->onCheckBed(boxes);
 		return true;
 	}
 
@@ -257,7 +196,11 @@ namespace creative_kernel
 		{
 			return QString();
 		}
-		QList<ModelN*> models = modelns();
+
+		QList<ModelN*> models = selectionms();
+		if (models.isEmpty())
+			models = modelns();
+		
 		ModelN* model = models[0];
 		QFileInfo file(model->objectName());
 		return file.completeBaseName();
@@ -279,53 +222,45 @@ namespace creative_kernel
 			return;
 
 		QList<ModelN*> items = modelns();
-		constexpr auto ITEM_NAME_KEY{ "item_name" };
-		constexpr auto ITEM_INDEX_KEY{ "item_index" };
-
-		std::function<QString(QString)> getBaseName = [](QString name) 
+		bool hasSame = false;
+		for (auto itemData : items)
 		{
-			int suffix_index = name.lastIndexOf(QStringLiteral("."));
-			int id_index = name.lastIndexOf(QStringLiteral("#"));
-			if (id_index != -1 && id_index < suffix_index)
+			if (itemData->objectName() == item->objectName())
 			{
-				QString suffix = name.mid(suffix_index);
-				QString base_name = name.mid(0, id_index);
-				name = base_name + suffix;
-			}
-			return name;
-		};
-
-		QString item_name = getBaseName(item->objectName());
-
-		QVector<int> occupiedIds;
-		for (const auto& old_item : items) {
-			const auto OLD_ITEM_NAME = getBaseName(old_item->property(ITEM_NAME_KEY).toString());
-			const auto OLD_ITEM_INDEX = old_item->property(ITEM_INDEX_KEY).toInt();
-
-			if (old_item != item && OLD_ITEM_NAME == item_name) {
-				occupiedIds << OLD_ITEM_INDEX;
-			}
-		}
-
-		std::sort(occupiedIds.begin(), occupiedIds.end());
-
-		int id = 0;
-		for (; id < occupiedIds.size(); id++)
-		{
-			if (occupiedIds[id] != id)
+				hasSame = true;
 				break;
+			}
 		}
 
-		item->setProperty(ITEM_INDEX_KEY, id);
-		item->setProperty(ITEM_NAME_KEY, item_name);
+		if (!hasSame)
+			return;
+		
+		QString objectName = item->objectName();
+		QFileInfo file(objectName);
+		QString suffix = file.suffix().isEmpty() ? "" : "." + file.suffix();
+		QString baseName = file.baseName();
 
-		if (id != 0) {
-			const auto INSERT_INDEX = item_name.lastIndexOf(QStringLiteral("."));
-			const auto INDEX_TEXT = QStringLiteral("#%1").arg(QString::number(id));
-			item->setObjectName(item_name.insert(INSERT_INDEX, INDEX_TEXT));
-		} else {
-			item->setObjectName(item_name);
+		item->setProperty("baseName", objectName);
+		item->setProperty("baseNameID", objectName);
+
+		int nameIndex = 1;
+		QString name = QString("%1-%2").arg(baseName).arg(nameIndex) + suffix;
+		//---                
+		QList<ModelN*> models = modelns();
+		QString sname;
+		for (int k = 0; k < models.size(); ++k)
+		{
+			sname = models[k]->objectName();
+			if (name == sname)
+			{
+				nameIndex++;
+				name = QString("%1-%2").arg(baseName).arg(nameIndex) + suffix;
+				k = -1;
+			}
 		}
+		//---
+		item->setObjectName(name);
+
 	}
 
 	void ModelSpace::process(cxkernel::ModelNDataPtr data)
@@ -353,7 +288,7 @@ namespace creative_kernel
 		qtuser_3d::Box3D baseBox = baseBoundingBox();
 		qtuser_3d::Box3D modelBox = model->globalSpaceBox();
 
-		//’‚¿ÔµƒÃıº˛º”…œÃÂª˝≈–∂œ
+		//ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ–∂ÔøΩ
 		static const float volume = 0.008;
 		if (modelBox.size().x() > baseBox.size().x() ||
 			modelBox.size().y() > baseBox.size().y() ||
@@ -370,7 +305,7 @@ namespace creative_kernel
 		}
 		else
 		{
-			addModelLayout(model);
+			layoutAddedModel(model);
 		}
 	}
 
@@ -417,15 +352,40 @@ namespace creative_kernel
 			{
 				model->adaptSmallBox(baseBoundingBox());
 			}
-			else 
+			else
 			{
 				model->adaptBox(baseBoundingBox());
 			}
-			model->setParent(nullptr);
-			addModelLayout(model);
+
+			if (checkModelSizeForLayout(model))
+			{
+				if (1 == m_loadMeshCount)
+				{
+					creative_kernel::addModel(model, true);
+					QVector3D newPos = getSelectedPrinter()->position();
+					qtuser_3d::Box3D printerBox = getSelectedPrinter()->globalBox();
+					float sizeX = printerBox.size().x();
+					float sizeY = printerBox.size().y();
+					newPos.setX(newPos.x() + sizeX / 2.0f);
+					newPos.setY(newPos.y() + sizeY / 2.0f);
+					_setModelPosition(model, newPos, true);
+					bottomModel(model);
+				}
+				else
+				{
+					model->setParent(nullptr);
+					layoutAddedModel(model);
+				}
+
+			}
+
 		}
 
 		m_needResizeModels.clear();
+
+		// the "click event" could happen in the middle of loading  or  after all mesh loading
+		reCheckLayoutWhenLoadingFinish();
+
 	}
 
 	void ModelSpace::clearTempModels()
@@ -436,35 +396,62 @@ namespace creative_kernel
 
 	void ModelSpace::ignoreTempModels()
 	{
+		qtuser_3d::Box3D baseBox = baseBoundingBox();
+
 		for (ModelN* model : m_needResizeModels)
 		{
-			model->setParent(nullptr);
-			addModelLayout(model);
+			if (checkModelSizeForLayout(model))
+			{
+				model->setParent(nullptr);
+				layoutAddedModel(model);
+			}
+			else
+			{
+				m_loadMeshCount -= 1;
+			}
+
 		}
 
 		m_needResizeModels.clear();
+
+		reCheckLayoutWhenLoadingFinish();
+
 	}
 
 	bool ModelSpace::haveModelsOutPlatform()
 	{
-		QVector3D bbOffset(0.1f, 0.1f, 0.1f);
-		Box3D baseBox = baseBoundingBox();
-		baseBox.min = baseBox.min - bbOffset;
-		baseBox.max = baseBox.max + bbOffset;
-		QList<ModelN*> models = modelns();
-
-		bool outPlatform = false;
-		for (ModelN* model : models)
+		bool onPlatformBorder = false;
+		for (int i = 0, count = creative_kernel::printersCount(); i < count; ++i)
 		{
-			qtuser_3d::Box3D LocalBox = model->globalSpaceBox();
-			if (!baseBox.contains(LocalBox))
+			auto p = creative_kernel::getPrinter(i);
+			if (p->hasModelsOnBorder())
 			{
-				outPlatform = true;
-				break;
+				auto modelsOnBorder = p->modelsOnBorder();
+				float minX, minY, minZ, maxX, maxY, maxZ;
+				minX = minY = minZ = 100000;
+				maxX = maxY = maxZ = -100000;
+				for (auto m : modelsOnBorder)
+				{
+					// ËÆ°ÁÆóÈ¢ÑËßàÂå∫Âüü
+					auto box = m->boxWithSup();
+					minX = box.min.x() < minX ? box.min.x() : minX;
+					minY = box.min.y() < minY ? box.min.y() : minY;
+					minZ = box.min.z() < minZ ? box.min.z() : minZ;
+					maxX = box.max.x() > maxX ? box.max.x() : maxX;
+					maxY = box.max.y() > maxY ? box.max.y() : maxY;
+					maxZ = box.max.z() > maxZ ? box.max.z() : maxZ;
+				}
+				qtuser_3d::Box3D box(QVector3D(minX, minY, minZ), QVector3D(maxX, maxY, maxZ));
+				QVector3D dir(0.0f, 1.0f, -1.0f);
+				QVector3D right(1.0f, 0.0f, 0.0f);
+				QVector3D center = box.center();
+				center.setZ(0);
+				creative_kernel::cameraController()->view(dir, right, &center);
+				onPlatformBorder = true;
 			}
 		}
 
-		return outPlatform;
+		return onPlatformBorder;
 	}
 
 	bool ModelSpace::modelOutPlatform(ModelN* amode)
@@ -485,42 +472,15 @@ namespace creative_kernel
 		return outPlatform;
 	}
 
-	bool ModelSpace::haveSupports(const QList<ModelN*>& models)
-	{
-		for (ModelN* model : models)
-		{
-			if (model->hasFDMSupport())
-			{
-				creative_kernel::FDMSupportGroup* p_support = model->fdmSupport();
-				if (p_support->fdmSupportNum())
-				{
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
-
-	void ModelSpace::deleteSupports(QList<ModelN*>& models)
-	{
-		for (ModelN* model : models)
-		{
-			if (model->hasFDMSupport())
-			{
-				creative_kernel::FDMSupportGroup* p_support = model->fdmSupport();
-				p_support->clearSupports();
-			}
-		}
-	}
-
 	QList<ModelN*> ModelSpace::getModelnsBySerialName(const QStringList& names)
 	{
 		QList<ModelN*> theModels;
 
 		for (QString sName : names)
 		{
-			theModels.append(getModelNBySerialName(sName));
+			ModelN* model = getModelNBySerialName(sName);
+			if (model)
+				theModels.append(model);
 		}
 
 		return theModels;
@@ -544,5 +504,144 @@ namespace creative_kernel
 			qDebug() << QString("getModelNBySerialName error. [%1]").arg(name);
 		}
 		return model;
+	}
+
+	ModelN* ModelSpace::getModelNByObjectName(const QString& objectName)
+	{
+		ModelN* model = nullptr;
+		QList<ModelN*> ms = modelns();
+		for (ModelN* m : ms)
+		{
+			if (objectName == m->objectName())
+			{
+				model = m;
+				break;
+			}
+		}
+
+		if (!model)
+		{
+			qDebug() << QString("getModelNByObjectName error. [%1]").arg(objectName);
+		}
+		return model;
+	}
+
+	void ModelSpace::modelMeshLoadStarted(int iNum)
+	{
+		setContinousRender();
+		m_loadedModels.clear();
+		m_loadMeshCount = iNum;
+		m_layoutDoneFlag = false;
+	}
+
+	void ModelSpace::onMeshLoadFail()
+	{
+		m_loadMeshCount -= 1;
+	}
+
+	void ModelSpace::layoutAddedModel(ModelN* aModel)
+	{
+		if (!aModel)
+			return;
+
+		if (currentMachineIsBelt())
+		{
+			ModelPositionInitializer::layoutBelt(aModel, nullptr);
+			bottomModel(aModel);
+			creative_kernel::addModel(aModel, true);
+			aModel->updateMatrix();
+			aModel->dirty();
+
+			m_loadMeshCount -= 1;
+		}
+		else
+		{
+			m_loadedModels.append(aModel);
+			if (m_loadMeshCount == m_loadedModels.count())
+			{
+				creative_kernel::layoutModels(m_loadedModels, currentPrinterIndex(), false);
+				m_layoutDoneFlag = true;
+			}
+		}
+	}
+
+	bool ModelSpace::checkModelSizeForLayout(ModelN* aModel)
+	{
+		if (!aModel)
+			return false;
+
+		qtuser_3d::Box3D baseBox = baseBoundingBox();
+
+		qtuser_3d::Box3D modelBox = aModel->globalSpaceBox();
+
+		// very big model DO NOT need to do layout algorithm
+		if (modelBox.size().x() > baseBox.size().x() ||
+			modelBox.size().y() > baseBox.size().y() ||
+			modelBox.size().z() > baseBox.size().z())
+		{
+			creative_kernel::addModel(aModel, true);
+			QVector3D newPos = getPrinter(0)->position();
+			newPos.setX(newPos.x() - modelBox.size().x() / 2);
+			newPos.setY(newPos.y() + modelBox.size().y() / 2);
+			_setModelPosition(aModel, newPos, true);
+			bottomModel(aModel);
+
+			return false;
+		}
+		else
+		{
+			return true;
+		}
+
+	}
+
+	void ModelSpace::reCheckLayoutWhenLoadingFinish()
+	{
+		if (!m_layoutDoneFlag && m_loadedModels.size() > 0 && m_loadMeshCount == m_loadedModels.size())
+		{
+			creative_kernel::layoutModels(m_loadedModels, currentPrinterIndex(), false);
+		}
+	}
+
+	bool ModelSpace::checkLayerHeightEqual(const std::vector<std::vector<double>>& objectsLayers)
+	{
+		/* ÂÖ®ÈÉ®Âõ∫ÂÆöÂ±ÇÈ´ò */
+		if (std::all_of(objectsLayers.begin(), objectsLayers.end(),
+			[](const std::vector<double>& layer) {
+				return layer.empty();
+			})) {
+			return true;
+		}
+
+		/* Ëá™ÈÄÇÂ∫îÂ±ÇÈ´òÂíåÂõ∫ÂÆöÂ±ÇÈ´òÂêåÊó∂Â≠òÂú®ÔºåËøîÂõûfalse */
+		if (std::any_of(objectsLayers.begin(), objectsLayers.end(), [](const std::vector<double>& layer) {
+			return layer.empty();
+			})) {
+			return false;
+		}
+
+		auto areClose = [](double a, double b) {
+			return std::abs(a - b) <= EPSILON;
+			};
+
+		/* Ëé∑ÂèñÊúÄÂ§ßÁöÑÂ±ÇÊï∞ */
+		auto maxIt = std::max_element(objectsLayers.begin(), objectsLayers.end(),
+			[](const std::vector<double>& a, const std::vector<double>& b) {
+				return a.size() < b.size();
+			});
+		size_t maxLayerSize = (*maxIt).size();
+		size_t maxLayerIndex = std::distance(objectsLayers.begin(), maxIt);
+
+		/* ÈÄêÂ±ÇÊØîËæÉÂ±ÇÈ´ò, Â¶ÇÊûú‰∏çÁõ∏Á≠âÂàôËøîÂõûfalse */
+		for (size_t heightIdx = 0; heightIdx < maxLayerSize; heightIdx++) {
+			const double layerHeight = (*maxIt)[heightIdx];
+			for (size_t layerIdx = 0; layerIdx < objectsLayers.size(); layerIdx++) {
+				if (layerIdx != maxLayerIndex && heightIdx < objectsLayers[layerIdx].size() &&
+					!areClose(layerHeight, objectsLayers[layerIdx][heightIdx])) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 }

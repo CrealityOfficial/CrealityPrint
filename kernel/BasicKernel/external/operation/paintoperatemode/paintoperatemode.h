@@ -40,8 +40,15 @@ signals:
 	void scaleChanged();
 	void sectionRateChanged();
 	void colorRadiusChanged();
+	void colorMethodChanged();
+	void colorIndexChanged();
+	void screenRadiusChanged();
 	void highlightOverhangsDegChanged();
 	void overHangsEnableChanged();
+	void smartFillAngleChanged();
+	void smartFillEnableChanged();	
+	void heightRangeChanged();
+	void gapAreaChanged();
 	void enter();
 	void quit();
 
@@ -49,6 +56,7 @@ public:
 	explicit PaintOperateMode(QObject* parent = nullptr);
 	virtual ~PaintOperateMode();
 
+	bool routeFlag{ false };
 	bool isRunning();
 	virtual void restore(creative_kernel::ModelN* model, const std::vector<std::string>& data);
 
@@ -72,11 +80,16 @@ protected:
   	//read-write
 	float m_sectionRate { 1.0 };	//横截面截取比率
 	float m_colorRadius { 1.0 };		//涂色半径
-	int m_colorMethod { 0 };
+	float m_screenRadius;
+	int m_colorMethod { 1 };
 	int m_colorIndex { 1 };		//颜色索引
 	std::vector<trimesh::vec> m_colorsList;
 	float m_highlightOverhangsDeg { 0.0 };	//悬空角度
 	bool m_overHangsEnable { false }; 
+	float m_smartFillAngle { 30.0 };
+	bool m_smartFillEnable { true };
+	float m_heightRange { 0.1 };
+	float m_gapArea { 0.0 };
 
 public:
 	//read-only
@@ -87,20 +100,44 @@ public:
 	//read-write
 	float sectionRate();
 	void setSectionRate(float rate);
+
 	float colorRadius();
 	void setColorRadius(float radius);
+
+	float screenRadius();
+
 	int colorMethod();
 	void setColorMethod(int method);
+
 	int colorIndex();
 	void setColorIndex(int index);
+
 	QVariantList colorsList();
 	void setColorsList(const QVariantList& datasList);
 	void setColorsList(const std::vector<trimesh::vec>& datasList);
 	std::vector<trimesh::vec> getColorsList();
+
 	float highlightOverhangsDeg();
 	void setHighlightOverhangsDeg(float deg);
+
 	bool overHangsEnable();
 	void setOverHangsEnable(bool enable);
+
+	float smartFillAngle();
+	void setSmartFillAngle(float angle);
+
+	bool smartFillEnable();
+	void setSmartFillEnable(bool enable);
+
+	float heightRange();
+	void setHeightRange(float angle);
+	
+	float gapArea();
+	void setGapArea(float angle);
+
+private:
+	float radiusMapToScreen(QVector3D pos);
+	float actualUsedHighlightHangsAngle();
 
 private slots:
   	void resize();
@@ -112,7 +149,7 @@ protected:
 	QVector3D m_sectionPos;
 	QVector3D m_sectionNormal;	//剖面法线
 	float m_offset { 0 };
-
+	QVector3D m_normal;
 public:
 	void resetDirection();
 	void updateSectionBoundary();
@@ -136,6 +173,11 @@ protected:
 	std::vector<std::string> m_lastSpreadData;
 	bool m_isWrapperReady{ true };
 	bool m_enabled { true };
+	bool m_hasGap { false };
+	bool m_hoverOnModel { false };
+
+protected:
+	virtual void handleColorsListChanged(const std::vector<trimesh::vec>& newColors);
 
 private:
 	void resetRouteNum(int number);	
@@ -146,6 +188,9 @@ private:
   	void choose(const QPoint& pos);
 	void chooseFillArea();			//选中填充区域
 	void chooseTriangle();			//选中三角形
+	void chooseCircle();
+	void chooseHeightRange();
+	void chooseGapFillArea();
 
   	QVector3D getTriangleNormal(const QVector3D& v1, const QVector3D& v2, const QVector3D& v3) const;
 	QVector3D mapToSectionArea(const QVector3D& position, const QVector3D& direction);
@@ -156,9 +201,13 @@ private:
 private slots:
   	void onColorsListChanged();
 	void onGotNewData(std::vector<int> dirtyChunks);
+	void onTriggerGapFill();
 
 /* override */
 protected:
+	void refreshRender();
+	void setDefaultFlag(int flag);
+	bool paintDataEqual(std::vector<std::string> data1, std::vector<std::string> data2);
 	virtual void installEventHandlers();
 	virtual void uninstallEventHandlers();
 	virtual void onAttach() override;

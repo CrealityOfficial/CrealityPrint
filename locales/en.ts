@@ -4,79 +4,114 @@
 <context>
     <name>global_const</name>
     <message>
-        <source>Website</source>
+        <source>aboutusdialog_webside</source>
         <translation>Website</translation>
     </message>
     <message>
-        <source>E-mail</source>
+        <source>aboutusdialog_email</source>
         <translation>E-mail</translation>
     </message>
     <message>
-        <source>Telephone</source>
+        <source>aboutusdialog_telephone</source>
         <translation>Telephone</translation>
     </message>
     <message>
-        <source>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved</source>
+        <source>sofrware_copyright</source>
         <translation>Copyright©2014 Shenzhen Creality 3D technology company, LTD. All rights reserved.</translation>
     </message>
     <message>
-        <source>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China&apos;s 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</source>
+        <source>offical_introduction</source>
         <translation>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China&apos;s 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</translation>
     </message>
     <message>
-        <source>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</source>
-        <translation>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</translation>
+        <source>offical_brief_introduction</source>
+        <translation>Use the power of technology to create a better world and let thousands of households enjoy the fun brought by 3D printing technology.</translation>
     </message>
     <message>
-        <source>https://www.creality.com/</source>
+        <source>offical_webside</source>
         <translation>https://www.creality.com/</translation>
     </message>
     <message>
-        <source>crealityprint@creality.com</source>
+        <source>offical_email</source>
         <translation>crealityprint@creality.com</translation>
     </message>
     <message>
-        <source>+86 755-8523 4565</source>
+        <source>offical_telephone</source>
         <translation>+86 755-8523 4565</translation>
+    </message>
+	 <message>
+        <source>engine_copyright1</source>
+        <translation>Creality Print V5.0 is based on the slic3r of OrcaSlicer and the CuraEngine of Ultimaker.</translation>
+    </message>
+	 <message>
+        <source>engine_copyright2</source>
+        <translation>OrcaSlicer is based on BambuStudio, PrusaSlicer, and SuperSlicer; </translation>
+    </message>
+	 <message>
+        <source>engine_copyright3</source>
+        <translation>BambuStudio itself is built upon PrusaResearch's PrusaSlicer and Merill's (supermerill) SuperSlicer. </translation>
+    </message>
+	 <message>
+        <source>engine_copyright4</source>
+        <translation>PrusaSlicer was developed based on Slic3r by Alessandro Ranellucci and the RepRap community. </translation>
+    </message>
+	 <message>
+        <source>engine_copyright5</source>
+        <translation>We express our heartfelt gratitude for the contributions of the aforementioned open-source software projects.</translation>
     </message>
 </context>
 <context>
     <name>global_const_Piocreat</name>
     <message>
-        <source>Website</source>
+        <source>aboutusdialog_webside</source>
         <translation>Website</translation>
     </message>
     <message>
-        <source>E-mail</source>
+        <source>aboutusdialog_email</source>
         <translation>E-mail</translation>
     </message>
     <message>
-        <source>Telephone</source>
+        <source>aboutusdialog_telephone</source>
         <translation>Telephone</translation>
     </message>
     <message>
-        <source>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved</source>
+        <source>sofrware_copyright</source>
         <translation>Copyright©2021 Shenzhen Piocreat 3D technology company, LTD. All rights reserved.</translation>
     </message>
     <message>
-        <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China</source>
+        <source>offical_introduction</source>
         <translation>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China</translation>
     </message>
     <message>
-        <source>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China.</source>
+        <source>offical_brief_introduction</source>
         <translation>Shenzhen Piocreat 3D Technology Co., Ltd. is a leading enterprise of industrial-grade 3D printers and materials, Piocreat dedicates to showcasing the outstanding power of Made-in-China.</translation>
     </message>
     <message>
-        <source>https://www.piocreat3d.com/</source>
+        <source>offical_webside</source>
         <translation>https://www.piocreat3d.com/</translation>
     </message>
     <message>
-        <source>after@piocreat3d.com</source>
+        <source>offical_email</source>
         <translation>after@piocreat3d.com</translation>
     </message>
     <message>
-        <source>+86 755-2103 9743</source>
+        <source>offical_telephone</source>
         <translation>+86 755-2103 9743</translation>
+    </message>
+</context>
+<context>
+    <name>StartFirstConfig</name>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+	 <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+	<message>
+        <source>Do you want to save the current settings?</source>
+        <translation>Do you want to save the current settings?</translation>
     </message>
 </context>
 <context>
@@ -89,17 +124,6 @@
     </message>
 </context>
 <context>
-    <name>ParameterContext</name>
-		<message>
-        <source>Tree</source>
-        <translation type="unfinished">Tree Strong</translation>
-    </message>
-    <message>
-        <source>ThomasTree</source>
-        <translation type="unfinished">Tree Slim</translation>
-    </message>
-</context>
-<context>
     <name>OtherOptPanel</name>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/OtherOptPanel.qml" line="33"/>
@@ -108,10 +132,10 @@
     </message>
 </context>
 <context>
-    <name>LeftToolBar</name>
+    <name>CToolBar</name>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/LeftToolBar.qml" line="229"/>
-        <source>Others</source>
+        <source>Printer</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -122,7 +146,16 @@
         <source>About Us</source>
         <translation type="unfinished"></translation>
     </message>
-   
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AboutUsDlg.qml" line="61"/>
+        <source>Founded in 2014, Shenzhen Creality 3D Technology Co., Ltd. is the first R &amp; D manufacturer in China to enter the 3D printing industry and is committed to building a full range of 3D printing solutions, whose business field mainly focuses on the R &amp; D, manufacturing and sales of 3D printers, extending to 3D printing accessories, 3D printing filament, 3D education curriculum system, 3D printing services, etc.  At present, it has become a leading high-tech enterprise in China&apos;s 3D printing industry, with its R &amp; D strength, production, quality and services all leading the industry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AboutUsDlg.qml" line="92"/>
+        <source>Copyright©2014-2024 Shenzhen Creality 3D technology company, LTD. All rights reserved.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/AboutUsDlg.qml" line="104"/>
         <source>Website:</source>
@@ -329,7 +362,120 @@
         <source>Others</source>
         <translation type="unfinished"></translation>
     </message>
+	<message>
+        <source>Clear series</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Selected quantity</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Search</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>New</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
+
+<context>
+    <name>AddPrinterDlgNewStep</name>
+	<message>
+        <source>New model</source>
+        <translation>>New model</translation>
+    </message>
+	<message>
+        <source>Step 1</source>
+        <translation>Step 1</translation>
+    </message>
+	<message>
+        <source>Step 2</source>
+        <translation>Step 2</translation>
+    </message>
+	<message>
+        <source>Step 3</source>
+        <translation>Step 3</translation>
+    </message>
+	<message>
+        <source>Printer name</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Printer platform shape</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Printer platform size</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Extruder type</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Nozzle diameter</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Compatible filament diameters</source>
+       <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Nozzle offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>G-code style</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Starts G-code</source>
+       <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>End G-code</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>printer</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>material type</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Material name</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>all</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>crafts</source>
+       <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Previous</source>
+       <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Next</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Finish</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+
 <context>
     <name>AddPrinterViewItem</name>
 	<message>
@@ -502,6 +648,30 @@
         <source>Fast</source>
         <translation type="unfinished"></translation>
     </message>
+	<message>
+        <source>China</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Asia-Pacific</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>Europe</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>North America</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>South America</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>Others</source>
+        <translation>Others</translation>
+    </message>
 </context>
 <context>
     <name>BasicCombobox_Metarial</name>
@@ -531,7 +701,7 @@
     </message>
 </context>
 <context>
-    <name>BasicMenuBarStyle</name>
+    <name>CWinMenu</name>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="30"/>
         <source>File(&amp;F)</source>
@@ -599,17 +769,17 @@
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="127"/>
         <source>ShowModelLine</source>
-        <translation type="unfinished"></translation>
+        <translation>Triangle</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="134"/>
         <source>ShowModelFace</source>
-        <translation type="unfinished"></translation>
+        <translation>Shade</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="142"/>
         <source>ShowModelFaceLine</source>
-        <translation type="unfinished"></translation>
+        <translation>Shade/Triangle</translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="149"/>
@@ -683,12 +853,28 @@
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="248"/>
-        <source>Models(&amp;M)</source>
+        <source>Creality Cloud(&amp;M)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml" line="251"/>
         <source>Models</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+      <source>Download Manage</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>My Model</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>My Slice</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>My Devices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -782,11 +968,58 @@
         <translation>Tutorial</translation>
     </message>
 	<message>
-        <location filename="../plugins/CrealityUI/CrealityUI/qml/BasicMenuBarStyle.qml"/>
         <source>Test Model</source>
         <translation>Test Model</translation>
     </message>
+	<message>
+        <source>Import Preset Config</source>
+        <translation>Import Preset Config</translation>
+    </message>
+	<message>
+        <source>Export Preset Config</source>
+        <translation>Export Preset Config</translation>
+    </message>
+	<message>
+        <source>Load 3MF</source>
+        <translation>Load 3MF</translation>
+    </message>
+	<message>
+        <source>Save 3MF</source>
+        <translation>Save 3MF</translation>
+    </message>
+	<message>
+        <source>Preferences</source>
+        <translation>Preferences</translation>
+    </message>
+	<message>
+        <source>Retraction test</source>
+        <translation>Retraction test</translation>
+    </message>
+	<message>
+        <location filename="../Creative3D/res/MainWindow.qml" line="1138"/>
+        <source>Prepare</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Creative3D/res/MainWindow.qml" line="1161"/>
+        <source>Preview</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Creative3D/res/MainWindow.qml" line="1191"/>
+        <source>Device</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Save the project file</source>
+        <translation>Save the project file</translation>
+    </message>
+	<message>
+        <source>File</source>
+        <translation>File</translation>
+    </message>
 </context>
+
 <context>
  <name>TestModel</name>
 	<message>
@@ -795,7 +1028,7 @@
     </message>
 	<message>
         <source>Boat</source>
-        <translation>Boat</translation>
+        <translation>3DBenchy</translation>
     </message>
 	<message>
         <source>Complex</source>
@@ -803,7 +1036,7 @@
     </message>
 	<message>
         <source>Overhang</source>
-        <translation>Complex</translation>
+        <translation>Overhang</translation>
     </message>
 	<message>
         <source>Square columns Z axis</source>
@@ -814,6 +1047,7 @@
         <translation>Square prism Z axis</translation>
     </message>
 </context>
+
 <context>
 	<name>TemperatureDlg</name>
 	<message>
@@ -851,7 +1085,7 @@
         <source>OK</source>
         <translation>OK</translation>
     </message>
-	<message>
+		<message>
         <source>Calibration warning</source>
         <translation  type="unfinished"></translation>
     </message>
@@ -928,6 +1162,11 @@
         <source>OK</source>
         <translation>OK</translation>
     </message>
+	<message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PADlg.qml"/>
+        <source>The starting PA value cannot exceed the ending PA value</source>
+        <translation>The starting PA value cannot exceed the ending PA value</translation>
+    </message>
 </context>
 
 <context>
@@ -954,6 +1193,40 @@
     </message>
 	<message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MaxFlowVolumeDlg.qml"/>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+	<message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/MaxFlowVolumeDlg.qml"/>
+        <source>The starting flow rate cannot exceed the ending flow rate</source>
+        <translation>The starting flow rate cannot exceed the ending flow rate</translation>
+    </message>
+</context>
+
+
+<context>
+	<name>RetractionDlg</name>
+	<message>
+        <source>Retraction test</source>
+        <translation>Retraction test</translation>
+    </message>
+	<message>
+        <source>Start retraction length</source>
+        <translation>Start retraction length</translation>
+    </message>
+	<message>
+        <source>End retraction length</source>
+        <translation>End retraction length</translation>
+    </message>
+	<message>
+        <source>Retraction step</source>
+        <translation>Retraction step</translation>
+    </message>
+	<message>
+        <source>The initial retraction length cannot exceed the ending retraction length</source>
+        <translation>The initial retraction length cannot exceed the ending retraction length</translation>
+    </message>
+	<message>
         <source>OK</source>
         <translation>OK</translation>
     </message>
@@ -985,6 +1258,11 @@
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
         <source>OK</source>
         <translation>OK</translation>
+    </message>
+	<message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/VFADlg.qml"/>
+        <source>The starting speed cannot exceed the ending speed</source>
+        <translation>The starting speed cannot exceed the ending speed</translation>
     </message>
 </context>
 
@@ -1047,7 +1325,7 @@
     </message>
 </context>
 <context>
-    <name>BasicUserItem</name>
+    <name>UserFileItem</name>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicUserItem.qml" line="151"/>
         <source>Import Gcode</source>
@@ -2086,7 +2364,7 @@
     <name>ParameterProfilePanel</name>
 	    <message>
         <source>Do you want to reset the selected slice configuration parameters?</source>
-        <translation type="unfinished">Do you want to reset the selected slice configuration parameters?</translation>
+        <translation>Do you want to reset the selected slice configuration parameters?</translation>
     </message>
     <message>
         <source>Edit</source>
@@ -2371,7 +2649,7 @@
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMFooterPanel.qml" line="113"/>
-        <source>Speed</source>
+        <source>Print Speed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2406,7 +2684,7 @@
     </message>
 </context>
 <context>
-    <name>FDMPreviewButtonBox</name>
+    <name>CSliceButton</name>
 	    <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMPreviewPanel.qml" line="60"/>
         <source>Upload to Crealitycloud</source>
@@ -2426,6 +2704,33 @@
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/FDMPreviewPanel.qml" line="186"/>
         <source>Export to Local</source>
         <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>Slice Plate</source>
+        <translation>Slice Plate</translation>
+    </message>
+	 <message>
+        <source>Slice all</source>
+        <translation>Slice all</translation>
+    </message>
+</context>
+<context>
+    <name>CMachineTab</name>
+    <message>
+        <source>Bed Type</source>
+        <translation>Bed Type</translation>
+    </message>
+	 <message>
+        <source>Add</source>
+        <translation>Add</translation>
+    </message>
+	 <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+	<message>
+        <source>Printer</source>
+        <translation>Printer</translation>
     </message>
 </context>
 <context>
@@ -2733,66 +3038,156 @@
         <translation type="unfinished"></translation>
     </message>
 </context>
+
 <context>
-    <name>HalotBoxTotalRightUIPanel</name>
+	<name>SyncMaterial</name>
+	<message>
+        <source>Synchronize material information from printer</source>
+        <translation>Synchronize material information from printer</translation>
+    </message>
+	<message>
+        <source>Synchronize</source>
+        <translation>Synchronize</translation>
+    </message>
+	<message>
+        <source>Resync</source>
+        <translation>Resync</translation>
+    </message>
+	<message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+
+</context>
+
+<context>
+	<name>FlushVolumeDialog</name>
+	<message>
+        <source>Flush volume when filament replacement</source>
+        <translation>Flush volume when filament replacement</translation>
+    </message>
+	<message>
+        <source>from/to</source>
+        <translation>from/to</translation>
+    </message>
+	<message>
+        <source>multiplier:</source>
+        <translation>multiplier:</translation>
+    </message>
+	<message>
+        <source>multiplier:</source>
+        <translation>multiplier:</translation>
+    </message>
+	<message>
+        <source>Automatic calculation</source>
+        <translation>Auto calc</translation>
+    </message>
+	<message>
+        <source>Ok</source>
+        <translation>OK</translation>
+    </message>
+	<message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+	<message>
+        <source>Flush volume required to switch between two filaments (mm³)</source>
+        <translation>Flush volume required to switch between two filaments (mm³)</translation>
+    </message>
+	<message>
+        <source>Warm reminder: It is recommended that the flushing volume be set within the range of.</source>
+        <translation>Warm reminder: It is recommended that the flushing volume be set within the range of.</translation>
+    </message>
+</context>
+
+<context>
+    <name>PrintParameterPanel</name>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="70"/>
-        <location filename="../plugins/CrealityUITest/HalotBoxTotalRightUIPanel.qml" line="75"/>
+        <source>Level</source>
+        <translation>Level</translation>
+    </message>
+    <message>
+        <source>Basic</source>
+        <translation>Basic</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>Custom</translation>
+    </message>
+    <message>
+        <source>Global</source>
+        <translation>Global</translation>
+    </message>
+    <message>
+        <source>Object</source>
+        <translation>Object</translation>
+    </message>
+    <message>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintParameterPanel.qml" line="70"/>
+        <location filename="../plugins/CrealityUITest/PrintParameterPanel.qml" line="75"/>
         <source>Material</source>
         <translation type="unfinished"></translation>
     </message>
+	<message>
+        <source>No AMS material found. Please select the printer on the 'Device' page and the AMS information will be loaded.</source>
+        <translation>No AMS material found. Please select the printer on the "Device" page and the AMS information will be loaded.</translation>
+    </message>
+	<message>
+        <source>Sync material</source>
+        <translation>Sync material</translation>
+    </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="107"/>
-        <location filename="../plugins/CrealityUITest/HalotBoxTotalRightUIPanel.qml" line="110"/>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintParameterPanel.qml" line="107"/>
+        <location filename="../plugins/CrealityUITest/PrintParameterPanel.qml" line="110"/>
         <source>Parameter config</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="223"/>
-        <location filename="../plugins/CrealityUITest/HalotBoxTotalRightUIPanel.qml" line="201"/>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintParameterPanel.qml" line="223"/>
+        <location filename="../plugins/CrealityUITest/PrintParameterPanel.qml" line="201"/>
         <source>Add</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="229"/>
-        <location filename="../plugins/CrealityUITest/HalotBoxTotalRightUIPanel.qml" line="202"/>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintParameterPanel.qml" line="229"/>
+        <location filename="../plugins/CrealityUITest/PrintParameterPanel.qml" line="202"/>
         <source>Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="235"/>
-        <location filename="../plugins/CrealityUITest/HalotBoxTotalRightUIPanel.qml" line="203"/>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintParameterPanel.qml" line="235"/>
+        <location filename="../plugins/CrealityUITest/PrintParameterPanel.qml" line="203"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="259"/>
-        <location filename="../plugins/CrealityUITest/HalotBoxTotalRightUIPanel.qml" line="220"/>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintParameterPanel.qml" line="259"/>
+        <location filename="../plugins/CrealityUITest/PrintParameterPanel.qml" line="220"/>
         <source>Slice</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="388"/>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintParameterPanel.qml" line="388"/>
         <source>Model out of range, please put &apos;red&apos; model in the printer!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="400"/>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintParameterPanel.qml" line="400"/>
         <source>Message</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/HalotBoxTotalRightUIPanel.qml" line="415"/>
+        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrintParameterPanel.qml" line="415"/>
         <source>The profile already exists! please enter again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUITest/HalotBoxTotalRightUIPanel.qml" line="38"/>
+        <location filename="../plugins/CrealityUITest/PrintParameterPanel.qml" line="38"/>
         <source>Printer</source>
         <translation type="unfinished"></translation>
     </message>
 	 <message>
-        <location filename="../plugins/CrealityUITest/HalotBoxTotalRightUIPanel.qml" line="38"/>
+        <location filename="../plugins/CrealityUITest/PrintParameterPanel.qml" line="38"/>
         <source>Manage</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3210,7 +3605,7 @@
     </message>
 	<message>
         <location filename="../plugins/CrealityUI/CrealityUI/lanprinterqml/LanPrinterListLocal.qml" line="3540"/>
-        <source>Printer Match</source>
+        <source>Printer Matching</source>
         <translation type="unfinished"></translation>
     </message>
 	<message>
@@ -3841,15 +4236,6 @@
         <translation type="unfinished"></translation>
     </message>
 </context>
-
-<context>
-	<name>PlotterScene</name>
-	  <message>
-        <source>Model out of range, please put &apos;red&apos; model in the printer!</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-
 <context>
     <name>LaserRClickMenu</name>
     <message>
@@ -3878,10 +4264,6 @@
     <message>
         <location filename="../plugins/plugin_laser/laserscene.cpp" line="1118"/>
         <source>Save Gcode failed!</source>
-        <translation type="unfinished"></translation>
-    </message>
-	  <message>
-        <source>Model out of range, please put &apos;red&apos; model in the printer!</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -4055,7 +4437,7 @@
     </message>
 </context>
 <context>
-    <name>LoginDlg</name>
+    <name>LoginDialog</name>
     <message>
         <source>HOST_RESOLUTION_FAILURE</source>
         <translation>Network error, please check your network status.</translation>
@@ -5191,8 +5573,70 @@
         <translation type="unfinished"></translation>
     </message>
 </context>
+
 <context>
-    <name>MainWindow</name>
+    <name>PreferencesDlg</name>
+	<message>
+        <source>China</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Asia-Pascific</source>
+        <translation>Asia-Pacific</translation>
+    </message>
+	 <message>
+        <source>Europe</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>North America</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>South America</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>Others</source>
+        <translation>Others</translation>
+    </message>
+	 <message>
+        <source>Preferences</source>
+        <translation type="unfinished"> </translation>
+    </message>
+	 <message>
+        <source>Language</source>
+        <translation>Language </translation>
+    </message>
+	<message>
+        <source>Login area</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Synchronize user presets (printer/filament/process)</source>
+        <translation>Sync user presets</translation>
+    </message>
+
+	<message>
+        <source>Automatically update system defaults</source>
+        <translation>Push parameter package updates</translation>
+    </message>
+	<message>
+        <source>Enable dark theme mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Model download</source>
+        <translation type="unfinished"></translation>
+    </message>
+		<message>
+        <source>Open folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+
+</context>
+<context>
+    <name>MainWindow2</name>
      <message>
         <source>Personal Center</source>
         <translation>Personal Center</translation>
@@ -5247,21 +5691,7 @@
         <source>Are you sure to delete this printer</source>
         <translation type="unfinished"></translation>
     </message>
-	<message>
-        <location filename="../Creative3D/res/MainWindow.qml" line="1138"/>
-        <source>Prepare</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Creative3D/res/MainWindow.qml" line="1161"/>
-        <source>Preview</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Creative3D/res/MainWindow.qml" line="1191"/>
-        <source>Device</source>
-        <translation type="unfinished"></translation>
-    </message>
+
 	<message>
         <location filename="../Creative3D/res/MainWindow.qml" line="1213"/>
         <source>Undo</source>
@@ -5303,6 +5733,10 @@
         <location filename="../Creative3D/res/MainWindow.qml" />
         <source>Manage</source>
         <translation>Manage</translation>
+    </message>
+	<message>
+        <source>Height</source>
+        <translation>Height</translation>
     </message>
 </context>
 <context>
@@ -5394,45 +5828,19 @@
     </message>
 </context>
 <context>
-    <name>ManagerPrinterDlg</name>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerPrinterDlg.qml" line="31"/>
-        <source>Manage Printer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerPrinterDlg.qml" line="50"/>
-        <source>Printer Type:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerPrinterDlg.qml" line="171"/>
-        <source>Save</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerPrinterDlg.qml" line="192"/>
-        <source>Reset</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerPrinterDlg.qml" line="208"/>
-        <source>Delete</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ManagerPrinterDlg.qml" line="225"/>
-        <source>Cancel</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>creative_kernel::MergeModelAction</name>
     <message>
         <location filename="../kernel/BasicKernel/internal/rclick_menu/mergemodelaction.cpp" line="14"/>
         <location filename="../kernel/BasicKernel/internal/rclick_menu/mergemodelaction.cpp" line="43"/>
         <source>Merge Model</source>
         <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>creative_kernel::MergeModelLocation</name>
+	<message>
+        <source>Merge Model Location</source>
+        <translation>Merge Model Locations</translation>
     </message>
 </context>
 <context>
@@ -5626,50 +6034,158 @@
         <source>The Model is in the download task list. Please check the download center.</source>
         <translation type="unfinished"></translation>
     </message>
+	<message>
+        <source>Latest upload</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Most liked</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Best seller</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Downloads</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Most makes</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Price</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Paid</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Free</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Import all</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Category</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Sort by</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+	<name>ModelLibraryAuthorInfo</name>
+	<message>
+        <source>Back</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Following</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Followers</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Likes</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Favorite</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Latest upload</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Most liked</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Best seller</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Downloads</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Most makes</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Enter Model Name</source>
+        <translation>Enter the model name, category</translation>
+    </message>
+	<message>
+        <source>Search</source>
+        <translation type="unfinished"></translation>
+    </message>
+		<message>
+        <source>Author</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>total</source>
+        <translation></translation>
+    </message>
+	 <message>
+        <source>Model</source>
+        <translation>models</translation>
+    </message>
+</context>
+<context>
+	<name>ModelLibraryAuthorModelInfo</name>
+	<message>
+        <source>Import all</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Category</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>DownLoad All</source>
+        <translation type="unfinished"></translation>
+    </message>
+	<message>
+        <source>Model List</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>Creative Commons License</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Please check the copyright information in the description.</source>
+        <translation type="unfinished"></translation>
+    </message>
+	 <message>
+        <source>Model Library</source>
+        <translation  type="unfinished"></translation>
+    </message>
+		 <message>
+        <source>UploadedTime</source>
+        <translation type="unfinished">Update time</translation>
+    </message>
 </context>
 <context>
     <name>ModelLibraryItem</name>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelLibraryItem.qml" line="256"/>
         <source>Download</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>ModelList</name>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelList.qml" line="74"/>
-        <source>All</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelList.qml" line="119"/>
-        <source>You have not imported the model,please click Import</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelList.qml" line="195"/>
-        <source>Import Model</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelList.qml" line="213"/>
-        <source>Auto arrange</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelList.qml" line="241"/>
-        <source>Upload platform model to CrealityCloud</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelList.qml" line="273"/>
-        <source>Upload local model to CrealityCloud</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/ModelList.qml" line="291"/>
-        <source>Delete Model</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -6518,48 +7034,8 @@
     </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
-        <source>The main parameter configuration of this mode: Layer Height(</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
-        <source>mm),Line Width(</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
-        <source>mm),Wall Line Count(</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
-        <source>mm),Infill Density(</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
-        <source>%),Build Plate Adhesion Type(</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
-        <source>),Printing Temperature(</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
-        <source>℃),Build Plate Temperature(</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
-        <source>℃),Print Speed(</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/PrinterModelListView.qml" line="138"/>
-        <source>mm/s)</source>
-        <translation type="unfinished"></translation>
+        <source>The main parameter configuration of this mode</source>
+        <translation>The main parameter configuration of this mode</translation>
     </message>
 </context>
 <context>
@@ -7153,18 +7629,8 @@
 <context>
     <name>Splash</name>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/qml/Splash.qml" line="8"/>
-        <source>Splash Window</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/qml/Splash.qml" line="41"/>
-        <source>Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R &amp; D and production of 3D printers.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>FDM Slicer</source>
-        <translation> </translation>
+        <source>Version</source>
+        <translation>Version</translation>
     </message>
 </context>
 <context>
@@ -7602,6 +8068,22 @@
 </context>
 <context>
     <name>UploadGcodeDlg</name>
+	<message>
+        <source>Printer</source>
+        <translation>Printer</translation>
+    </message>
+	 <message>
+        <source>One-click Printing</source>
+        <translation>One-click Printing</translation>
+    </message>
+	<message>
+        <source>Multi-machine control</source>
+        <translation>Multi-machine</translation>
+    </message>
+	<message>
+        <source>CFS slot selection</source>
+        <translation>CFS slot selection</translation>
+    </message>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UploadGcodeDlg.qml" line="38"/>
         <source>Upload G-code</source>
@@ -7652,6 +8134,35 @@
         <source>Cloud Printing</source>
         <translation type="unfinished"></translation>
     </message>
+	<message>
+        <source>Offline</source>
+        <translation>Offline</translation>
+    </message>
+	 <message>
+        <source>Idle</source>
+        <translation>Idle</translation>
+    </message>
+	<message>
+        <source>Printing</source>
+        <translation>Printing</translation>
+    </message>
+	<message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+	<message>
+        <source>Failed</source>
+        <translation>Failed</translation>
+    </message>
+	<message>
+        <source>Completed</source>
+        <translation>Completed</translation>
+    </message>
+	<message>
+        <source>Stop</source>
+        <translation>Stop</translation>
+    </message>
+
 </context>
 <context>
     <name>UploadMessageDlg</name>
@@ -7881,7 +8392,7 @@
     </message>
 </context>
 <context>
-    <name>BasicPrinterItem</name>
+    <name>UserPrinterItem</name>
     <message>
         <location filename="../plugins/CrealityUI/CrealityUI/secondqml/BasicPrinterItem.qml" line="87"/>
         <source>Device Name</source>
@@ -7953,121 +8464,92 @@
     </message>
 </context>
 <context>
-    <name>UserInfoDlg</name>
+    <name>UserInfoDialog</name>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="111"/>
         <source>Copy link successfully!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="435"/>
         <source>Printing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="441"/>
         <source>Printing pause</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="483"/>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="497"/>
         <source>The device is offline. Printing Failure.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="488"/>
         <source>Unable to identify the TF card information. Printing Failure.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="493"/>
         <source>The device is not connected to the printer. Printing Failure.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="706"/>
         <source>Failed to import gcode file!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1164"/>
         <source>Personal Center</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1205"/>
-        <source>ID: </source>
+        <source>Remaining Space</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1234"/>
-        <source>Remaining Space:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1284"/>
         <source>Quit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1331"/>
         <source>My Slices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1361"/>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1436"/>
         <source>My Uploads</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1386"/>
         <source>Cloud Slicing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1408"/>
         <source>My Model</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1460"/>
         <source>My Favorited</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1484"/>
         <source>My Purchased</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1503"/>
         <source>My Devices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1524"/>
         <source>My Profile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1565"/>
         <source>How to add my devices?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1607"/>
         <source>How to add my slices?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1686"/>
         <source>How to add my models?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/CrealityUI/CrealityUI/secondqml/UserInfoDlg.qml" line="1738"/>
         <source>How to collect models?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8152,6 +8634,14 @@
     <message>
         <source>Drill</source>
         <translation>Drill</translation>
+    </message>
+	<message>
+        <source>drill invalid</source>
+        <translation>drill invalid</translation>
+    </message>
+	 <message>
+        <source>split invalid</source>
+        <translation>split invalid</translation>
     </message>
     <message>
         <source>Shape:</source>
@@ -8447,11 +8937,11 @@
         <translation>Save Failed</translation>
     </message>
     <message>
-        <source>Save successed, do you want open the folder now?</source>
+        <source>save_successed_tip</source>
         <translation>Save successed, do you want open the folder now?</translation>
     </message>
     <message>
-        <source>Save failed, please try again.</source>
+        <source>save_failed_tip</source>
         <translation>Save failed, please try again.</translation>
     </message>
     <message>
@@ -8509,6 +8999,10 @@
         <source>The model has not been supported and may fail to print. Do you want to continue adding supports before slicing?</source>
         <translation>The model has not been supported and may fail to print. Do you want to continue adding supports before slicing?</translation>
     </message>
+    <message>
+        <source>cancel</source>
+        <translation>Cancel</translation>
+    </message>
 </context>
 <context>
     <name>DumpWindow</name>
@@ -8517,22 +9011,15 @@
         <translation>Error Report</translation>
     </message>
     <message>
-        <source>A serious error has occurred in %1. Please send this error report to us to fix the problem.</source>
+        <source>dump_tip_format_0</source>
         <translation>A serious error has occurred in %1. Please send this error report to us to fix the problem.</translation>
     </message>
     <message>
-        <source>Please click the 'Send Report' button to automatically publish the error report to our server.</source>
+        <source>dump_tip_format_1</source>
         <translation>Please click the "Send Report" button to automatically publish the error report to our server.</translation>
     </message>
     <message>
-        <source>%1 version: %2
-%3 langauge: %4
-Operating System: %5
-Graphics card: %6
-OpenGL:
-  - OpenGL version: %7
-  - OpenGL vendor: %8
-  - OpenGL renderer: %9</source>
+        <source>dump_info_format</source>
         <translation>%1 version: %2
 %3 langauge: %4
 Operating System: %5
@@ -8560,6 +9047,262 @@ OpenGL:
     <message>
         <source>Broken material</source>
         <translation>Filament ranout, printing paused, please refill.</translation>
+    </message>
+</context>
+<context>
+    <name>ProfileUiParameterDialog</name>
+    <message>
+        <source>title</source>
+        <translation>Select Custom Config</translation>
+    </message>
+    <message>
+        <source>select_all</source>
+        <translation>Select All</translation>
+    </message>
+    <message>
+        <source>confirm</source>
+        <translation>Confirm</translation>
+    </message>
+    <message>
+        <source>reset</source>
+        <translation>Reset</translation>
+    </message>
+    <message>
+        <source>cancel</source>
+        <translation>Cancel</translation>
+    </message>
+</context>
+<context>
+    <name>creative_kernel::ModelSettingAction</name>
+    <message>
+        <source>Model Setting</source>
+        <translation>Model Setting</translation>
+    </message>
+</context>
+<context>
+    <name>ModelSettingTipDialog</name>
+    <message>
+        <source>Edit Process Settings</source>
+        <translation>Edit Process Settings</translation>
+    </message>
+    <message>
+        <source>Switched to object settings mode, where you can edit the parameters of the selected object.</source>
+        <translation>Switched to object settings mode, where you can edit the parameters of the selected object.</translation>
+    </message>
+    <message>
+        <source>Don't ask me again</source>
+        <translation>Don't ask me again</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>Confirm</translation>
+    </message>
+</context>
+<context>
+    <name>ParameterExceededMessage</name>
+    <message>
+        <source>The %1's parameter %2 exceeds the %3 value.</source>
+        <translation>The %1's parameter %2 exceeds the %3 value.</translation>
+    </message>
+    <message>
+        <source>The parameter %1 exceeds the %2 value.</source>
+        <translation>The parameter %1 exceeds the %2 value.</translation>
+    </message>
+    <message>
+        <source>minimum</source>
+        <translation>minimum</translation>
+    </message>
+    <message>
+        <source>maximum</source>
+        <translation>maximum</translation>
+    </message>
+    <message>
+        <source>Jump to %1's %2</source>
+        <translation>Jump to %1's %2</translation>
+    </message>
+    <message>
+        <source>Jump to %1</source>
+        <translation>Jump to %1</translation>
+    </message>
+</context>
+<context>
+    <name>parameter_update</name>
+    <message>
+        <source>A new parameter package update is detected. Would you like to update it?</source>
+        <translation>A new parameter package update is detected. Would you like to update it?</translation>
+    </message>
+    <message>
+        <source>Current version</source>
+        <translation>Current version</translation>
+    </message>
+    <message>
+        <source>Found new version</source>
+        <translation>Found new version</translation>
+    </message>
+    <message>
+        <source>Latest version already</source>
+        <translation>Latest version already</translation>
+    </message>
+    <message>
+        <source>Update Now</source>
+        <translation>Update Now</translation>
+    </message>
+    <message>
+        <source>Updating</source>
+        <translation>Updating</translation>
+    </message>
+    <message>
+        <source>Parameter Package Update</source>
+        <translation>Parameter Package Update</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>Confirm</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+</context>
+<context>
+    <name>ParameterComponent</name>
+    <message>
+        <source>travel_speed.label</source>
+        <translation>Travel</translation>
+    </message>
+    <message>
+        <source>activate_chamber_temp_control.description</source>
+        <translation>Enable this option for chamber temperature control. An  M141 command will be added before "machine_start_gcode".
+G-code commands: M141 S(0-255)</translation>
+    </message>
+    <message>
+        <source>bridge_angle.description</source>
+        <translation>Bridging angle override. If left to zero, the bridging angle will be calculated automatically. Otherwise the provided angle will be used for external bridges. Use 180.for zero angle.</translation>
+    </message>
+    <message>
+        <source>wall_sequence.label</source>
+        <translation>Walls printing order</translation>
+    </message>
+    <message>
+        <source>wall_sequence.description</source>
+        <translation>Print sequence of the internal (inner) and external (outer) walls.
+
+Use Inner/Outer for best overhangs. This is because the overhanging walls can adhere to a neighouring perimeter while printing. However, this option results in slightly reduced surface quality as the external perimeter is deformed by being squashed to the internal perimeter.
+
+Use Inner/Outer/Inner for the best external surface finish and dimensional accuracy as the external wall is printed undisturbed from an internal perimeter. However, overhang performance will reduce as there is no internal perimeter to print the external wall against. This option requires a minimum of 3 walls to be effective as it prints the internal walls from the 3rd perimeter onwards first, then the external perimeter and, finally, the first internal perimeter. This option is recomended against the Outer/Inner option in most cases.
+
+Use Outer/Inner for the same external wall quality and dimensional accuracy benefits of Inner/Outer/Inner option. However, the z seams will appear less consistent as the first extrusion of a new layer starts on a visible surface.</translation>
+    </message>
+    <message>
+        <source>wall_sequence.label</source>
+        <translation>Inner/Outer</translation>
+    </message>
+    <message>
+        <source>wall_sequence.options.inner wall/outer wall.label</source>
+        <translation>Inner/Outer</translation>
+    </message>
+    <message>
+        <source>wall_sequence.options.outer wall/inner wall.label</source>
+        <translation>Outer/Inner</translation>
+    </message>
+    <message>
+        <source>wall_sequence.options.inner-outer-inner wall.label</source>
+        <translation>Inner/Outer/Inner</translation>
+    </message>
+    <message>
+        <source>is_infill_first.description</source>
+        <translation>Order of wall/infill. When the tickbox is unchecked the walls are printed first, which works best in most cases.
+
+Printing walls first may help with extreme overhangs as the walls have the neighbouring infill to adhere to. However, the infill will slighly push out the printed walls where it is attached to them, resulting in a worse external surface finish. It can also cause the infill to shine through the external surfaces of the part.</translation>
+    </message>
+    <message>
+        <source>wall_loops.label</source>
+        <translation>Wall loops</translation>
+    </message>
+    <message>
+        <source>retraction_speed.label</source>
+        <translation>Retraction Speed</translation>
+    </message>
+    <message>
+        <source>cool_special_cds_fan_speed.label</source>
+        <translation>Special Cds Fan Speed</translation>
+    </message>
+    <message>
+        <source>cool_special_cds_fan_speed.description</source>
+        <translation>The speed at which the cds cooling fans spin on special zones(bridge,overhand,etc.).</translation>
+    </message>
+    <message>
+        <source>Cool Plate</source>
+        <translation>Customized Plate</translation>
+    </message>
+    <message>
+        <source>fork_node_modifyed_tip_format</source>
+        <translation>The parameters in the current classification (%1) have changed, please pay attention to verification!</translation>
+    </message>
+    <message>
+        <source>during_print_exhaust_fan_speed.label</source>
+        <translation>During printing</translation>
+    </message>
+    <message>
+        <source>complete_print_exhaust_fan_speed.label</source>
+        <translation>After printing completes</translation>
+    </message>
+    <message>
+        <source>material_flow_temp_graph.description</source>
+        <translation>Correspondence between flow rate (mm2/s) and printing temperature (°C).</translation>
+    </message>
+    <message>
+        <source>support_air_filtration.label</source>
+        <translation>Support Air Filtration</translation>
+    </message>
+    <message>
+        <source>support_air_filtration.description</source>
+        <translation>Enable this if printer support air filtration\nG-code command: M106 P3 S(0-255)</translation>
+    </message>
+    <message>
+        <source>machine_LED_light_exist.label</source>
+        <translation>Machine LED light exist</translation>
+    </message>
+    <message>
+        <source>machine_LED_light_exist.description</source>
+        <translation>Enable this if printer support LED.</translation>
+    </message>
+    <message>
+        <source>machine_platform_motion_enable.label</source>
+        <translation>Machine platform motion enable</translation>
+    </message>
+    <message>
+        <source>machine_platform_motion_enable.description</source>
+        <translation>Machine platform motion enable</translation>
+    </message>
+    <message>
+        <source>max_volumetric_extrusion_rate_slope.description</source>
+        <translation>This parameter smooths out sudden extrusion rate changes that happen when the printer transitions from printing a high flow (high speed/larger width) extrusion to a lower flow (lower speed/smaller width) extrusion and vice versa.
+It defines the maximum rate by which the extruded volumetric flow in mm3/sec can change over time. Higher values mean higher extrusicon rate changes are allowed, resulting in faster speed transitions.
+A value of 0 disables the feature.
+However it can provide some marginal benefit in certain cases where feature speeds vary greatly.
+For example, when there are aggressive slowdowns due to overhangs. In these cases a high value of around 300-350mm3/s2 is recommended as this allows for just enough smoothing to asssist pressure advance achieve a smoother flow transition.
+For slower printers without pressure advance, the value shouldbe set much lower.
+A value of 10-15mm3/s2 is a good starting point for direct drive extruders and 5-10mm3/s2 for Bowden style.
+This feature is known as Pressure Equalizer in Prusa slicer.
+Note: this parameter disables arc fitting.</translation>
+    </message>
+    <message>
+        <source>%1 infill pattern doesn't support 100% density.
+Switch to rectilinear pattern?
+Yes - switch to rectilinear pattern automaticlly
+No - reset density to default non 100% value automaticlly</source>
+        <translation>%1 infill pattern doesn't support 100% density.
+Switch to rectilinear pattern?
+Yes - switch to rectilinear pattern automaticlly
+No - reset density to default non 100% value automaticlly</translation>
+    </message>
+</context>
+<context>
+    <name>CloudContext</name>
+    <message>
+        <source>restart_appliction_tip</source>
+        <translation>This operation will restart the application immediately. Do you want to proceed?</translation>
     </message>
 </context>
 </TS>

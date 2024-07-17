@@ -4,14 +4,15 @@
 #include <QQuickItem>
 #include <QScreen>
 #include <QWindow>
-
+#include <QShortcutEvent>
+#include <QKeySequence>
 #include <windows.h>
-
+#include <QApplication>
 #include <VersionHelpers.h>
 #include <WinUser.h>
 #include <dwmapi.h>
 #include <objidl.h> // Fixes error C2504: 'IUnknown' : base class undefined
-
+#include <qwindow.h>
 #include <windowsx.h>
 #include <wtypes.h>
 #pragma comment(lib, "Dwmapi.lib") // Adds missing library, fixes error LNK2019: unresolved
@@ -103,6 +104,7 @@ public:
     bool m_isMax = false;
     bool m_isFull = false;
     QQuickItem* m_titleItem = nullptr;
+    QQuickItem* m_maskItem = nullptr;
     HMENU mMenuHandler = NULL;
     bool borderless = true;        // is the window currently borderless
     bool borderless_resize = true; // should the window allow resizing by dragging the borders while borderless
@@ -151,13 +153,21 @@ FrameLessView::FrameLessView(QWindow* parent)
         setIsFull(windowState() == Qt::WindowFullScreen);
     });
 }
+void FrameLessView::showLessViewMinimized()
+{
+#ifdef Q_OS_WIN
+    PostMessage((HWND)winId(), WM_SYSCOMMAND, SC_MINIMIZE, 0);
+#else
+    showMinimized();
+#endif
+}
 void FrameLessView::showEvent(QShowEvent* e)
 {
     if (d->m_firstRun)
     {
         d->m_firstRun = false;
         // 第一次show的时候，设置无边框。不在构造函数中设置。取winId会触发QWindowsWindow::create,直接创建win32窗口,引起错乱(win7 或者虚拟机启动即黑屏)。
-        d->setBorderLess((HWND)(winId()), d->borderless);
+        //d->setBorderLess((HWND)(winId()), d->borderless);
         {
             // Qt 5.15.2 的bug; 问题复现及解决方法：当使用WM_NCCALCSIZE 修改非客户区大小后，移动窗口到其他屏幕时，qwindows.dll 源码 qwindowswindow.cpp:2447
             // updateFullFrameMargins() 函数 处会调用qwindowswindow.cpp:2453 的
@@ -201,6 +211,10 @@ QQuickItem* FrameLessView::titleItem() const
 void FrameLessView::setTitleItem(QQuickItem* item)
 {
     d->m_titleItem = item;
+}
+void FrameLessView::setMaskItem(QQuickItem* item)
+{
+    d->m_maskItem = item;
 }
 QRect FrameLessView::calcCenterGeo(const QRect& screenGeo, const QSize& normalSize)
 {
@@ -261,6 +275,9 @@ bool FrameLessView::nativeEvent(const QByteArray& eventType, void* message, long
 #endif
 
 {
+    const auto msg = static_cast<LPMSG>(message);
+    
+
     const long border_width = 4;
     if (!result)
     {
@@ -273,7 +290,7 @@ bool FrameLessView::nativeEvent(const QByteArray& eventType, void* message, long
     // Work-around a bug caused by typo which only exists in Qt 5.11.1
     const auto msg = *reinterpret_cast<MSG**>(message);
 #else
-    const auto msg = static_cast<LPMSG>(message);
+ 
 #endif
 
     if (!msg || !msg->hwnd)
@@ -322,6 +339,28 @@ bool FrameLessView::nativeEvent(const QByteArray& eventType, void* message, long
         }
         break;
     }
+    case WM_SYSKEYDOWN: {
+        const quint32 modifiers = LOWORD(msg->wParam);
+        qDebug() << "event:" << modifiers;
+        if(modifiers == 83) //ALT+S
+        {
+            //QShortcutEvent keyPress(QKeySequence("Alt+S"),100);
+            QKeyEvent keyPress(QEvent::KeyPress, Qt::Key_S, Qt::AltModifier);
+            QApplication::sendEvent(this, &keyPress);
+        }
+        if(modifiers == 77)
+        {
+            QKeyEvent keyPress(QEvent::KeyPress, Qt::Key_M, Qt::AltModifier);
+            QApplication::sendEvent(this, &keyPress);
+        }
+        if(modifiers == 67)
+        {
+            QKeyEvent keyPress(QEvent::KeyPress, Qt::Key_C, Qt::AltModifier);
+            QApplication::sendEvent(this, &keyPress);
+        }
+
+        break;
+    }
     case WM_NCHITTEST: {
         if (d->borderless)
         {
@@ -340,7 +379,18 @@ bool FrameLessView::nativeEvent(const QByteArray& eventType, void* message, long
                     return true;
                 }
             }
-
+            if(d->m_maskItem)
+            {
+                auto titlePos = d->m_maskItem->mapToGlobal({ 0, 0 });
+                titlePos = mapFromGlobal(titlePos.toPoint());
+                auto titleRect = QRect(titlePos.x(), titlePos.y(), d->m_maskItem->width(), d->m_maskItem->height());
+                double dpr = qApp->devicePixelRatio();
+                QPoint pos = mapFromGlobal(QPoint(x / dpr, y / dpr));
+                if (titleRect.contains(pos))
+                {
+                    return false;
+                }
+            }
             if (d->m_titleItem)
             {
                 auto titlePos = d->m_titleItem->mapToGlobal({ 0, 0 });

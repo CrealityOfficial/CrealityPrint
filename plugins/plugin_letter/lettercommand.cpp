@@ -18,6 +18,7 @@
 
 LetterCommand::LetterCommand(QObject* parent) : ToolCommand(parent)
 {
+	orderindex = 6;
 	m_model = new cxkernel::LetterModel(this);	
 }
 
@@ -55,7 +56,10 @@ void LetterCommand::execute()
 	m_listFonts = m_listFonts.toSet().toList();
 
 	if (m_mode == NULL)
-		m_mode = new MoveOperateMode(this);
+	{
+		m_mode = new MoveOperateMode(this); 
+		m_mode->setType(qtuser_3d::SceneOperateMode::FixedMode);
+	}
 
 	creative_kernel::setVisOperationMode(m_mode);
 	creative_kernel::sensorAnlyticsTrace("Model Editing & Layout", "Letter");
@@ -107,11 +111,23 @@ void LetterCommand::generatePolygonData(const QList<QObject*>& objectList)
 	m_model->parseQmlData(objectList);
 
 	auto modelList = creative_kernel::selectionms();
+	if (modelList.isEmpty())
+	{
+		getKernelUI()->requestQmlTipDialog(tr("Please select the model first."));
+		return;
+	}
+
 	creative_kernel::ModelN* model = modelList.first();
+
+	getKernelUI()->setAutoResetOperateMode(false);
 
 	LetterJob* job = new LetterJob(this);
 	job->SetModel(model);
 	job->SetLetterModel(m_model);
 	job->SetObjects(objectList);
+	connect(job, &LetterJob::finished, this, [=] ()
+	{
+		getKernelUI()->setAutoResetOperateMode(true);
+	});
 	cxkernel::executeJob(qtuser_core::JobPtr(job));
 }

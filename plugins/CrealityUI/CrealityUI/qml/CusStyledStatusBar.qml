@@ -16,6 +16,7 @@ Item{
     property var currentPhase: 0
     property var progressMessage: 0
 
+
     Connections {
         target: kernel_slice_flow
         onSupportStructureRequired: {
@@ -38,7 +39,7 @@ Item{
     }
 
     function addSupport(){
-        cancelButton.sigButtonClicked()
+        cancelButton.clicked()
         kernel_kernel.setKernelPhase(0)
         standaloneWindow.tipsItem.visible = false
     }
@@ -72,13 +73,13 @@ Item{
         {
             id: progressBarInside
             width: statusBur.width
-            height: 40
+            height: 40*screenScaleFactor
             color: "transparent"
             anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.topMargin: 15*screenScaleFactor
             Rectangle
             {
+                anchors.top: parent.top
+                anchors.topMargin: 15*screenScaleFactor
                 id: idProgressOut
                 height: 4*screenScaleFactor
                 width: parent.width
@@ -87,68 +88,93 @@ Item{
                 {
                     id: idProgress
                     height: idProgressOut.height
-                    color:"#1E9BE2"
+                    color: Constants.themeGreenColor
                     anchors.left: idProgressOut.left
                 }
             }
 
-            Row {
-                anchors.horizontalCenter: progressBarInside.horizontalCenter
-                anchors.bottom: idProgressOut.top
-                anchors.bottomMargin: 5*screenScaleFactor
+
+           
+
+//        CusButton
+//        {
+//            id: cancelButton
+//            txtContent: qsTr("cancel")
+//            width: 120*screenScaleFactor
+//            height: 28*screenScaleFactor
+//            radius: height/2
+//            anchors.top: progressBarInside.bottom
+//            anchors.topMargin: 55*screenScaleFactor
+//            anchors.horizontalCenter: progressBarInside.horizontalCenter
+//            normalColor: Constants.leftToolBtnColor_normal
+//            hoveredColor: Constants.leftToolBtnColor_hovered
+//            pressedColor: Constants.leftToolBtnColor_hovered
+//            onClicked:
+//            {
+//                if(object) object.stop()
+//                cancelJobButton()
+//                //kernel_kernel.setKernelPhase(0)
+//            }
+        }
+         Row {
+                // anchors.horizontalCenter: progressBarInside.horizontalCenter
+                // anchors.bottom: idProgressOut.top
+                // anchors.bottomMargin: 5*screenScaleFactor
+                anchors.left:parent.left
+                anchors.leftMargin: parent.width/2 - 150*screenScaleFactor //progressBarInside.horizontalCenter +100*screenScaleFactor
+                width:525*screenScaleFactor
+                height:22*screenScaleFactor
+                spacing:5*screenScaleFactor
+                anchors.top: parent.top
+                anchors.topMargin: -10*screenScaleFactor
+                z:999
+                 CusButton
+                {
+                    id: cancelButton
+                    txtContent: qsTr("cancel")
+                    width: 60*screenScaleFactor
+                    height: 20*screenScaleFactor
+                    radius: height/2
+                    normalColor: Constants.leftToolBtnColor_normal
+                    hoveredColor: Constants.leftToolBtnColor_hovered
+                    pressedColor: Constants.leftToolBtnColor_hovered
+
+                    onClicked:
+                    {
+                        if(object) object.stop()
+                        cancelJobButton()
+                        //kernel_kernel.setKernelPhase(0)
+                    }
+                }
                 StyledLabel
                 {
                     id:idSliceNumber
                     width: 50*screenScaleFactor
                     height: 18*screenScaleFactor
                     text: ""
-                    color: "#00A3FF"//Constants.textColor 深色浅色 字体一样
+                    color: Constants.themeGreenColor//Constants.textColor 深色浅色 字体一样
                     font.pointSize: Constants.labelFontPointSize_14 //16*screenScaleFactor
                     font.family: Constants.labelFontFamilyBold
                     font.weight: Font.ExtraBold
+                    visible: currentPhase === 1
+                    
                 }
 
 
                 StyledLabel
                 {
                     id:idSliceMessage
-                    width: 176*screenScaleFactor
+                    width: 400*screenScaleFactor
                     height: 18*screenScaleFactor
-                    text: progressMessage
+                    text:currentPhase === 1 ? progressMessage:qsTr("Processing, Please Wait...")
                     color: "#ffffff"
                     font.pointSize: Constants.labelFontPointSize_12 //16*screenScaleFactor
                     font.family: Constants.labelFontFamilyBold
-
                 }
 
 
-
             }
 
-
-
-        }
-
-
-        BasicButton
-        {
-            id: cancelButton
-            text: qsTr("cancel")
-            width: 120*screenScaleFactor
-            height: 28*screenScaleFactor
-            btnRadius: height/2
-            anchors.top: progressBarInside.bottom
-            anchors.topMargin: 55*screenScaleFactor
-            anchors.horizontalCenter: progressBarInside.horizontalCenter
-            defaultBtnBgColor :Constants.leftToolBtnColor_normal
-            hoveredBtnBgColor : Constants.leftToolBtnColor_hovered
-            onSigButtonClicked:
-            {
-                if(object) object.stop()
-                cancelJobButton()
-                //kernel_kernel.setKernelPhase(0)
-            }
-        }
 
     }
 
@@ -261,14 +287,6 @@ Item{
         }
     }
 
-	function setVisible()
-	{
-	    statusBur.visible = object.visible
-        progressBar.visible = object.visible
-        cancelButton.visible = object.visible
-		if(object.visible)
-			sigJobStart()
-	}
 
     function jobsStart()
     {
@@ -333,18 +351,10 @@ Item{
         idopenFileMessageDlg.show()
     }
     function jobMessage(msg)
-    {
-		if(msg == "need_support_structure")
-		{
-				   standaloneWindow.tipsItem.addMsgTipTemp(addSupport)
-					if(kernel_kernel.currentPhase === 1)
-						standaloneWindow.tipsItem.visible = true
-		}
-		else
-		{
-				progressMessage = msg
-		}
-     }
+     {
+         progressMessage = msg
+
+      }
 
     function bind(bindObject)
     {
@@ -356,7 +366,6 @@ Item{
         //object.jobEnd.connect(jobEnd)
         object.jobProgress.connect(jobProgress)
         object.jobMessage.connect(jobMessage)
-		object.visibleChanged.connect(setVisible)
     }
 
     function showJobFinishMessage(receiver,textMessage)

@@ -17,6 +17,10 @@ namespace cxsw
 
 	CXGCODE_API void getImageStr(QString& imageStr, QImage* Image, int layers, QString sPreImgFormat, float layerHeight = 0., bool multiFormat = false,
 		const QString& path = QString(""));
+
+	CXGCODE_API int getLineStart(QImage* Image);
+
+	CXGCODE_API int getLineEnd(QImage* Image);
 }
 
 #endif // CXGCODE_CXSW_GCODEHELPER_1603698936550_H

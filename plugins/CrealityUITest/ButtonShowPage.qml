@@ -2,6 +2,7 @@ import QtQuick 2.0
 import QtQuick.Controls 2.5
 import CrealityUIComponent 1.0
 import "qrc:/qml/CrealityUIComponent"
+import QtQuick.Layouts 1.1
 //import "qrc:/qml/CrealityUIComponent/CusText"
 //import "qrc:/qml/CrealityUIComponent/CusButton"
 Item {
@@ -154,9 +155,96 @@ Item {
                 CXButton{
                     width: 150
                     height: 50
-                  //  borderRadius: 5
+                    //  borderRadius: 5
                 }
             }
         }
+        CusText{
+            text: qsTr("test")
+        }
+
+        Rectangle{
+            width: parent.width
+            height: 150
+            color:"lightBlue"
+            anchors.margins: 20
+            Row{
+                height: parent.height
+                anchors.left: parent.left
+                Rectangle{
+                    id: author_image
+                    width: 80
+                    height: 80
+                    radius: height/2
+                    anchors.verticalCenter: parent.verticalCenter
+                    Image {
+                        anchors.fill: parent
+                        source: "qrc:/res/img/warning_icon.svg"
+                    }
+
+                }
+                Column{
+                    anchors.left: author_image.right
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 5
+                    Text {
+                        text: qsTr("text1")
+                    }
+                    Text {
+                        text: qsTr("text2")
+                    }
+                }
+
+            }
+            Row{
+                height: parent.height
+                anchors.right: parent.right
+                anchors.rightMargin: 10
+                ListModel{
+                    id:info_count
+                    ListElement{ count:58;label:"关注" }
+                    ListElement{ count:220;label:"粉丝" }
+                    ListElement{ count:130000;label:"获赞" }
+                    ListElement{ count:1.5;label:"收藏";noline:true }
+                }
+
+                Repeater{
+                    model: info_count
+                    delegate: Row{
+                        height: parent.height
+                        Column{
+                            id: follow_num
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 100
+                            spacing: 8
+                            Text {
+                                text: count
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                            Text {
+                                text: label
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                        }
+                        Rectangle{
+                            id:line
+                            width: 1
+                            height: 20
+                            color: "#55555B"
+                            visible: !noline
+                            anchors.verticalCenter: parent.verticalCenter
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+
+        }
+
     }
 }

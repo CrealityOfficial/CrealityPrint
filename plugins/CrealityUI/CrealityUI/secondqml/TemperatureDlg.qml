@@ -1,13 +1,11 @@
 import QtQuick 2.10
 import QtQuick.Controls 2.12
 import QtQuick.Layouts 1.3
-import QtQuick.Window 2.0
 import CrealityUI 1.0
-import QtGraphicalEffects 1.12
 import "qrc:/CrealityUI"
 import ".."
+import "../components"
 import "../qml"
-import "../secondqml"
 DockItem {
     id: idDialog
     width: 730 * screenScaleFactor
@@ -17,7 +15,7 @@ DockItem {
     title: qsTr("Temperature calibration")
 
 
-    signal sigGenerate(var start,var end,var step)
+    signal sigTemp(var start,var end,var step)
 
     ListModel{
         id: _aModel
@@ -30,12 +28,12 @@ DockItem {
     function setValue(index)
     {
         const defaultValue = [[230,190,5],[270,230,5],[260,230,5],[240,210,5],[320,280,5],[320,280,5]]
-        _aModel.setProperty(0,"text", defaultValue[index][0])
-        _aModel.setProperty(1,"text", defaultValue[index][1])
-        _aModel.setProperty(2,"text", defaultValue[index][2])
-        _aModel.setProperty(0,"value", defaultValue[index][0])
-        _aModel.setProperty(1,"value", defaultValue[index][1])
-        _aModel.setProperty(2,"value", defaultValue[index][2])
+            _aModel.setProperty(0,"text", defaultValue[index][0])
+            _aModel.setProperty(1,"text", defaultValue[index][1])
+            _aModel.setProperty(2,"text", defaultValue[index][2])
+            _aModel.setProperty(0,"value", defaultValue[index][0])
+            _aModel.setProperty(1,"value", defaultValue[index][1])
+            _aModel.setProperty(2,"value", defaultValue[index][2])
     }
 
 
@@ -55,8 +53,8 @@ DockItem {
             borderColor: Constants.dialogItemRectBgBorderColor
             defaultBgColor: "transparent"
             textBgColor: Constants.themeColor
-            contentItem:ScrollView{
-               // vpolicyVisible: materialList.height > parent.height
+            contentItem:BasicScrollView{
+                vpolicyVisible: materialList.height > parent.height
                 anchors.fill: parent
                 anchors.margins: 20*screenScaleFactor
                 Grid{
@@ -101,7 +99,7 @@ DockItem {
                                     font.family: Constants.labelFontFamily
                                     font.weight: Constants.labelFontWeight
                                     font.pointSize: Constants.labelFontPointSize_9
-                                    verticalAlignment: Text.AlignVCente
+                                    verticalAlignment: Text.AlignVCenter
                                     horizontalAlignment: Text.AlignLeft
                                     x:18*screenScaleFactor
                                     anchors.verticalCenter: parent.verticalCenter
@@ -160,9 +158,9 @@ DockItem {
                             text:model.text
                             readOnly: index === 2
                             unitChar:  qsTr("°C")
-                            validator: RegExpValidator { regExp:  textEditRegExp?textEditRegExp:/.*/}
+                         //   validator: RegExpValidator { regExp:  textEditRegExp?textEditRegExp:/.*/}
                             onTextChanged: {
-                                _aModel.setProperty(index,"value", +text)
+                                 _aModel.setProperty(index,"value", +text)
                             }
                         }
                     }
@@ -182,29 +180,28 @@ DockItem {
             hoveredBtnBgColor: Constants.leftToolBtnColor_hovered
             onSigButtonClicked:
             {
-
                 let startTemp = _aModel.get(0).value
                 let endTemp = _aModel.get(1).value
-                if(+startTemp<+endTemp){
+                if(+startTemp<=+endTemp){
                     tempWarning.visible = true
                     return
                 }
-                 close()
-                sigGenerate(startTemp, endTemp,_aModel.get(2).value)
+                close()
+                sigTemp(_aModel.get(0).value,_aModel.get(1).value,_aModel.get(2).value)
                 idDialog.visible = false
 
             }
         }
-        UploadMessageDlg {
-            id: tempWarning
-            objectName: "tempWarning"
-            property var receiver
-            visible: false
-            messageType:0
-            cancelBtnVisible: false
-            msgText: qsTr("The end temperature cannot exceed the start temperature")
-            onSigOkButtonClicked:tempWarning.visible = false
+        UploadMessageDlg2 {
+              id: tempWarning
+              objectName: "tempWarning"
+              property var receiver
+              visible: false
+              messageType:0
+              cancelBtnVisible: false
+              msgText: qsTr("The end temperature cannot exceed the start temperature")
+              onSigOkButtonClicked:tempWarning.visible = false
+          }
 
-        }
     }
 }

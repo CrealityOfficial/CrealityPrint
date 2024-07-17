@@ -7,9 +7,9 @@
 namespace topomesh
 {
     struct HexaEdge {
-        int associate = -1;
-        int neighbor = -1;
-        int relate = -1;
+        int associate = -1; ///<边的综合相邻边索引(下面两种合并)，-1表示这条边没有关联关系
+        int neighbor = -1; ///<完整边的相邻边索引，-1表示这条边没有关联关系
+        int relate = -1; ///<裁剪的相邻边索引，-1表示这条边没有关联关系
         bool canAdd = false;
         bool hasAdd = false;
         bool addRect = false;
@@ -41,17 +41,17 @@ namespace topomesh
         }
     };
     struct HexaPolygon {
-        bool standard = true;
-        trimesh::vec3 center;
-        TriPolygon poly;
-        TriPolygon hexagon;
+        bool standard = true; ///< 是否为完整的六边形结构(指原始的六边形的6条边未被裁剪，若被裁剪都是不完整的六边形结构)
+        trimesh::vec3 center; ///< 裁剪前的六边形网格中心
+        TriPolygon poly; ///<
+        TriPolygon hexagon; ///<
         int startIndex = 0; ///< 六棱柱第一个点的索引
         trimesh::ivec3 coord; ///<三轴坐标系下的坐标
-        std::vector<HexaEdge> edges;
-        std::map<int, int> p2hPointMap;
-        std::map<int, int> h2pPointMap;
-        std::map<int, int> p2hEdgeMap;
-        std::map<int, int> h2pEdgeMap;
+        std::vector<HexaEdge> edges; ///<所有的边结构
+        std::map<int, int> p2hPointMap; /// poly->hexagon顶点索引映射
+        std::map<int, int> h2pPointMap; /// hexagon->poly顶点索引映射
+        std::map<int, int> p2hEdgeMap; ///  poly->hexagon边索引映射
+        std::map<int, int> h2pEdgeMap; ///  hexagon->poly边索引映射
     };
     struct HexaPolygons {
         bool bSewTop = true; ///棱柱的顶部是否需要缝合
@@ -75,21 +75,21 @@ namespace topomesh
 
     struct HexagonArrayParam {
         trimesh::vec dir = trimesh::vec3(0, 0, 1);
-        trimesh::vec3 pos; ///<
+        trimesh::vec3 pos; ///<第一个六角网格的中心坐标
         int nrows = 2;
         int ncols = 2;
-        double radius = 2.0; ///<
-        double nestWidth = 0.3; ///<
+        double radius = 2.0; ///<每个六边形半径
+        double nestWidth = 0.3; ///<相邻六边形网格的壁厚
     };
 
     TOPOMESH_API HexaPolygons GenerateHexagonsGridArray(const HexagonArrayParam& hexagonparams = HexagonArrayParam());
 
     struct ColumnarHoleParam {
-        int nslices = 17; ///<
-        float height = 5.0f; ///<
-        float ratio = 0.5f; ///<
-        float delta = 1.0f; ///<
-        bool holeConnect = true;
+        int nslices = 17; ///<圆孔截面圆采样为正17边形
+        float height = 5.0f; ///<圆孔圆心距底面的高度
+        float ratio = 0.5f; ///<圆孔截面圆半径
+        float delta = 1.0f; ///<上下两层相邻圆孔的偏移距离
+        bool holeConnect = true; ///<是否启用圆孔相连
     };
 
     TOPOMESH_API void GenerateHexagonNeighbors(HexaPolygons& hexas, const ColumnarHoleParam& param = ColumnarHoleParam());

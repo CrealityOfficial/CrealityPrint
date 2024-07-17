@@ -32,6 +32,13 @@ namespace cxgcode
 		m_tracer = nullptr;
 	}
 
+	void GCodeBuilder::build_with_image(SliceResultPointer result, ccglobal::Tracer* tracer)
+	{
+		gcode::parseGCodeInfo(result.get(), parseInfo);
+		implBuild();
+		m_tracer = nullptr;
+	}
+
     std::string trim(const std::string& str) {
         std::string::const_iterator it = str.begin();
         while (it != str.end() && std::isspace(*it))

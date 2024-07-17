@@ -4,6 +4,8 @@ import CrealityUI 1.0
 import "qrc:/CrealityUI"
 Item {
 	property var com
+    width: rotatePanel.width
+    height: rotatePanel.height
 	
 	function execute()
 	{
@@ -11,7 +13,7 @@ Item {
 	}
 	
     RotatePanel {
-
+        id: rotatePanel
         mrotate: com
 
     }

@@ -6,6 +6,7 @@
 #include "qtuser3d/refactor/xentity.h"
 #include <Qt3DCore/QTransform>
 #include <Qt3DCore/QEntity>
+#include "qtuser3d/camera/screencamera.h"
 
 #define HELPERTYPE_AXIS_X 1
 #define HELPERTYPE_AXIS_Y 2
@@ -25,7 +26,7 @@ namespace qtuser_3d
 	class SimplePickable;
 	class ManipulateEntity;
 	class CameraController;
-	class SHADER_ENTITY_API TranslateHelperEntity : public XEntity
+	class SHADER_ENTITY_API TranslateHelperEntity : public XEntity , public qtuser_3d::ScreenCameraObserver
 	{
 		Q_OBJECT
 	public:
@@ -54,29 +55,26 @@ namespace qtuser_3d
 		void setYVisibility(bool visibility);
 		void setZVisibility(bool visibility);
 
-		void setScale(float scaleRate);
-		void setEntitiesLocalScale(float scale);
 		void setRotation(QQuaternion rotQ);
 		Qt3DCore::QTransform* getTransform() { return m_transform; }
 
 		void updateBox(const Box3D& box);
-		void setFixSize(int fixSize);
 		QVector3D center();
 		void setDirColor(QVector4D v4, int nDir);
 		void setZArrowEntityPickable(bool enablePick);
 
-	public slots:
-		void slotCameraChanged(QVector3D position, const QVector3D upVector);
-
-	private:
+	protected:
 		void initAxis(int helperType, IndicatorType shapeType);
 		void initPlane(int helperType);
 		void initCenterCube(int helperType);
 
+		void onCameraChanged(ScreenCamera* camera) override;
+
+		void adaptHelperEntityDir(QVector3D dir);
+		void adaptScale();
 	protected:
 		Qt3DCore::QTransform* m_transform;
 
-		int m_fixSize;
 		double m_scale;
 		QVector3D m_center;
 		QVector3D m_initAxisDir;

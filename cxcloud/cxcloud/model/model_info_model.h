@@ -4,207 +4,220 @@
 #define CXCLOUD_MODEL_MODEL_INFO_MODEL_H_
 
 #include <memory>
-#include <vector>
 
 #include <QtCore/QAbstractListModel>
-#include <QtCore/QPointer>
 #include <QtCore/QString>
 
+#include <qtusercore/plugin/datalistmodel.h>
+
 #include "cxcloud/interface.hpp"
-#include "cxcloud/model/base_model.h"
 
 namespace cxcloud {
 
-struct ModelGroupCategoryInfo {
-  QString uid{};
-  QString name{};
-};
-
-class CXCLOUD_API ModelGroupCategoryListModel : public DataListModel<ModelGroupCategoryInfo> {
-  Q_OBJECT;
-
-public:
-  using SuperType::SuperType;
-
-  virtual ~ModelGroupCategoryListModel() = default;
-
-public:
-  Q_INVOKABLE QVariantMap get(int index) const override;
-
-protected:
-  QVariant data(const QModelIndex& index, int role = Qt::ItemDataRole::DisplayRole) const override;
-  QHash<int, QByteArray> roleNames() const override;
-
-private:
-  enum class DataRole : int {
-    UID = Qt::ItemDataRole::UserRole + 1,
-    NAME,
+  struct ModelGroupCategoryInfo {
+    QString uid{};
+    QString name{};
   };
-};
 
-struct ModelInfo {
-  QString uid{};
-  QString name{};
-  QString image{};
-  size_t size{};
-};
+  class CXCLOUD_API ModelGroupCategoryListModel
+      : public qtuser_qml::DataListModel<ModelGroupCategoryInfo> {
+    Q_OBJECT;
 
-class CXCLOUD_API ModelInfoListModel : public DataListModel<ModelInfo> {
-  Q_OBJECT;
+   public:
+    using SuperType::SuperType;
 
-public:
-  using Info = Data;
+    virtual ~ModelGroupCategoryListModel() = default;
 
-public:
-  explicit ModelInfoListModel(QObject* parent = nullptr);
-  virtual ~ModelInfoListModel() = default;
+   public:
+    Q_INVOKABLE QVariantMap get(int index) const override;
 
-protected:
-  QVariant data(const QModelIndex& index, int role = Qt::ItemDataRole::DisplayRole) const override;
-  QHash<int, QByteArray> roleNames() const override;
+   protected:
+    auto data(const QModelIndex& index, int role) const -> QVariant override;
+    auto roleNames() const -> QHash<int, QByteArray> override;
 
-private:
-  enum class DataRole : int {
-    UID           = Qt::ItemDataRole::UserRole + 1,
-    NAME          ,
-    IMAGE         ,
-    SIZE          ,
-    SIZE_WITH_UNIT,
+   private:
+    enum class DataRole : int {
+      UID = Qt::ItemDataRole::UserRole,
+      NAME,
+    };
   };
-};
 
-struct ModelGroupInfo {
-  QString uid{};
-  QString name{};
-  QString image{};
-  QString license{};
-  size_t price{ 0ull };
-  size_t creation_time{ 0ull };  // seconds timestamp
-  bool collected{ false };
-  bool liked{ false };
-  QString author_name{};
-  QString author_image{};
-  QString author_id{};
-  size_t model_count{ 0ull };
-  std::shared_ptr<ModelInfoListModel> models{ nullptr };
-};
 
-class CXCLOUD_API ModelGroupInfoListModel : public DataListModel<ModelGroupInfo> {
-  Q_OBJECT;
 
-public:
-  using SuperType::SuperType;
 
-  virtual ~ModelGroupInfoListModel() = default;
 
-protected:
-  QVariant data(const QModelIndex& index, int role = Qt::ItemDataRole::DisplayRole) const override;
-  QHash<int, QByteArray> roleNames() const override;
-
-private:
-  enum class DataRole : int {
-    UID          = Qt::ItemDataRole::UserRole + 1,
-    NAME         ,
-    IMAGE        ,
-    LICENSE      ,
-    PRICE        ,
-    CREATION_TIME,
-    COLLECTED    ,
-    LIKED        ,
-    AUTHOR_NAME  ,
-    AUTHOR_IMAGE ,
-    MODEL_COUNT  ,
-    MODELS       ,
+  struct ModelInfo {
+    QString uid{};
+    QString name{};
+    QString image{};
+    size_t size{};
   };
-};
 
-class CXCLOUD_API ModelGroupInfoModel : public QObject {
-  Q_OBJECT;
+  class CXCLOUD_API ModelInfoListModel : public qtuser_qml::DataListModel<ModelInfo> {
+    Q_OBJECT;
 
-public:
-  explicit ModelGroupInfoModel(const ModelGroupInfo& info, QObject* parent = nullptr);
-  explicit ModelGroupInfoModel(ModelGroupInfo&& info, QObject* parent = nullptr);
-  explicit ModelGroupInfoModel(QObject* parent = nullptr);
-  virtual ~ModelGroupInfoModel() = default;
+   public:
+    using Info = Data;
 
-public:
-  QString getUid() const;
-  void setUid(const QString& uid);
-  Q_SIGNAL void uidChanged();
-  Q_PROPERTY(QString uid READ getUid NOTIFY uidChanged);
+   public:
+    using SuperType::SuperType;
 
-public:
-  QString getName() const;
-  void setName(const QString& name);
-  Q_SIGNAL void nameChanged();
-  Q_PROPERTY(QString name READ getName NOTIFY nameChanged);
+    virtual ~ModelInfoListModel() = default;
 
-public:
-  QString getImage() const;
-  void setImage(const QString& image);
-  Q_SIGNAL void imageChanged();
-  Q_PROPERTY(QString image READ getImage NOTIFY imageChanged);
+   protected:
+    auto data(const QModelIndex& index, int role) const -> QVariant override;
+    auto roleNames() const -> QHash<int, QByteArray> override;
 
-public:
-  QString getLicense() const;
-  void setLicense(const QString& license);
-  Q_SIGNAL void licenseChanged();
-  Q_PROPERTY(QString license READ getLicense NOTIFY licenseChanged);
+   private:
+    enum class DataRole : int {
+      UID           = Qt::ItemDataRole::UserRole,
+      NAME          ,
+      IMAGE         ,
+      SIZE          ,
+      SIZE_WITH_UNIT,
+    };
+  };
 
-public:
-  int getPrice() const;
-  void setPrice(int price);
-  Q_SIGNAL void priceChanged();
-  Q_PROPERTY(int price READ getPrice NOTIFY priceChanged);
 
-public:
-  /// @return seconds timestamp
-  int getCreationTime() const;
-  void setCreationTime(int timestamp);
-  Q_SIGNAL void creationTimeChanged();
-  Q_PROPERTY(int creationTime READ getCreationTime NOTIFY creationTimeChanged);
 
-public:
-  bool isCollected() const;
-  void setCollected(bool collected);
-  Q_SIGNAL void collectedChanged();
-  Q_PROPERTY(bool collected READ isCollected NOTIFY collectedChanged);
 
-public:
-  bool isLiked() const;
-  void setLiked(bool liked);
-  Q_SIGNAL void likedChanged();
-  Q_PROPERTY(bool liked READ isLiked NOTIFY likedChanged);
 
-public:
-  QString getAuthorName() const;
-  void setAuthorName(const QString& name);
-  Q_SIGNAL void authorNameChanged();
-  Q_PROPERTY(QString authorName READ getAuthorName NOTIFY authorNameChanged);
+  struct ModelGroupInfo {
+    QString uid{};
+    QString name{};
+    QString image{};
+    QString license{};
+    size_t price{ 0ull };
+    size_t creation_time{ 0ull };  // seconds timestamp
+    bool collected{ false };
+    bool liked{ false };
+    QString author_name{};
+    QString author_image{};
+    QString author_id{};
+    size_t model_count{ 0ull };
+    std::shared_ptr<ModelInfoListModel> models{ nullptr };
+  };
 
-public:
-  QString getAuthorImage() const;
-  void setAuthorImage(const QString& image);
-  Q_SIGNAL void authorImageChanged();
-  Q_PROPERTY(QString authorImage READ getAuthorImage NOTIFY authorImageChanged);
+  class CXCLOUD_API ModelGroupInfoListModel : public qtuser_qml::DataListModel<ModelGroupInfo> {
+    Q_OBJECT;
 
-public:
-  int getModelCount() const;
-  void setModelCount(int count);
-  Q_SIGNAL void modelCountChanged();
-  Q_PROPERTY(int modelCount READ getModelCount NOTIFY modelCountChanged);
+   public:
+    using SuperType::SuperType;
 
-public:
-  std::weak_ptr<ModelInfoListModel> models() const;
-  QAbstractListModel* getModels() const;
-  Q_PROPERTY(QAbstractListModel* models READ getModels CONSTANT);
+    virtual ~ModelGroupInfoListModel() = default;
 
-protected:
-  std::shared_ptr<ModelInfoListModel> loadOrMakeModels() const;
+   protected:
+    auto data(const QModelIndex& index, int role) const -> QVariant override;
+    auto roleNames() const -> QHash<int, QByteArray> override;
 
-private:
-  mutable ModelGroupInfo info_;
-};
+   private:
+    enum class DataRole : int {
+      UID          = Qt::ItemDataRole::UserRole,
+      NAME         ,
+      IMAGE        ,
+      LICENSE      ,
+      PRICE        ,
+      CREATION_TIME,
+      COLLECTED    ,
+      LIKED        ,
+      AUTHOR_NAME  ,
+      AUTHOR_IMAGE ,
+      MODEL_COUNT  ,
+      MODELS       ,
+    };
+  };
+
+
+
+
+
+  class CXCLOUD_API ModelGroupInfoModel : public QObject {
+    Q_OBJECT;
+
+   public:
+    explicit ModelGroupInfoModel(const ModelGroupInfo& info, QObject* parent = nullptr);
+    explicit ModelGroupInfoModel(ModelGroupInfo&& info, QObject* parent = nullptr);
+    explicit ModelGroupInfoModel(QObject* parent = nullptr);
+    virtual ~ModelGroupInfoModel() = default;
+
+   public:
+    auto getUid() const -> QString;
+    auto setUid(const QString& uid) -> void;
+    Q_SIGNAL void uidChanged();
+    Q_PROPERTY(QString uid READ getUid NOTIFY uidChanged);
+
+   public:
+    auto getName() const -> QString;
+    auto setName(const QString& name) -> void;
+    Q_SIGNAL void nameChanged();
+    Q_PROPERTY(QString name READ getName NOTIFY nameChanged);
+
+   public:
+    auto getImage() const -> QString;
+    auto setImage(const QString& image) -> void;
+    Q_SIGNAL void imageChanged();
+    Q_PROPERTY(QString image READ getImage NOTIFY imageChanged);
+
+   public:
+    auto getLicense() const -> QString;
+    auto setLicense(const QString& license) -> void;
+    Q_SIGNAL void licenseChanged();
+    Q_PROPERTY(QString license READ getLicense NOTIFY licenseChanged);
+
+   public:
+    auto getPrice() const -> int;
+    auto setPrice(int price) -> void;
+    Q_SIGNAL void priceChanged();
+    Q_PROPERTY(int price READ getPrice NOTIFY priceChanged);
+
+   public:
+    /// @return seconds timestamp
+    auto getCreationTime() const -> int;
+    auto setCreationTime(int timestamp) -> void;
+    Q_SIGNAL void creationTimeChanged();
+    Q_PROPERTY(int creationTime READ getCreationTime NOTIFY creationTimeChanged);
+
+   public:
+    auto isCollected() const -> bool;
+    auto setCollected(bool collected) -> void;
+    Q_SIGNAL void collectedChanged();
+    Q_PROPERTY(bool collected READ isCollected NOTIFY collectedChanged);
+
+   public:
+    auto isLiked() const -> bool;
+    auto setLiked(bool liked) -> void;
+    Q_SIGNAL void likedChanged();
+    Q_PROPERTY(bool liked READ isLiked NOTIFY likedChanged);
+
+   public:
+    auto getAuthorName() const -> QString;
+    auto setAuthorName(const QString& name) -> void;
+    Q_SIGNAL void authorNameChanged();
+    Q_PROPERTY(QString authorName READ getAuthorName NOTIFY authorNameChanged);
+
+   public:
+    auto getAuthorImage() const -> QString;
+    auto setAuthorImage(const QString& image) -> void;
+    Q_SIGNAL void authorImageChanged();
+    Q_PROPERTY(QString authorImage READ getAuthorImage NOTIFY authorImageChanged);
+
+   public:
+    auto getModelCount() const -> int;
+    auto setModelCount(int count) -> void;
+    Q_SIGNAL void modelCountChanged();
+    Q_PROPERTY(int modelCount READ getModelCount NOTIFY modelCountChanged);
+
+   public:
+    auto models() const -> std::weak_ptr<ModelInfoListModel>;
+    auto getModels() const -> QAbstractListModel*;
+    Q_PROPERTY(QAbstractListModel* models READ getModels CONSTANT);
+
+   protected:
+    auto loadOrMakeModels() const -> std::shared_ptr<ModelInfoListModel>;
+
+   private:
+    mutable ModelGroupInfo info_{};
+  };
 
 }  // namespace cxcloud
 

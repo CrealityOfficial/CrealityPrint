@@ -17,7 +17,7 @@ namespace creative_kernel
         m_actionNameWithout = "Temperature";
         m_eParentMenu = eMenuType_Calibration;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     TemperatureCommand::~TemperatureCommand()

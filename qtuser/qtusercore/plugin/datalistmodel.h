@@ -5,6 +5,8 @@
 
 #include <deque>
 #include <limits>
+#include <type_traits>
+#include <vector>
 
 #include <QtCore/QAbstractListModel>
 #include <QtCore/QVariantMap>
@@ -13,10 +15,13 @@ namespace qtuser_qml {
 
   /// @brief help to control QAbstractListModel's raw data
   /// @note must derived this class
-  /// @tparam _Data struct of data item info, must have a QString member `uid` as item's unique id
+  /// @tparam _Data struct of data item info, must have a *QString* member *uid* as item's unique id
   /// @example cxcloud/model/server_list_model.h
   template<typename _Data>
   class DataListModel : public QAbstractListModel {
+    static_assert(std::is_same<decltype(_Data::uid), QString>::value,
+                  "*_Data* must have a *QString* member *uid*");
+
    public:
     using Data = _Data;
 
@@ -59,7 +64,8 @@ namespace qtuser_qml {
     virtual auto pushFront(const Data& data) -> bool;
     virtual auto pushFront(Data&& data) -> bool;
 
-    /// @brief pushFront each data in list, and notify the qml engine of all changes in one operation
+    /// @brief pushFront each data in list,
+    ///        and notify the qml engine of all changes in one operation
     /// @return pushFront successed data count
     virtual auto pushFront(const DataContainer& datas) -> size_t;
 
@@ -108,6 +114,9 @@ namespace qtuser_qml {
     virtual auto rawData() -> DataContainer&;
 
     virtual auto syncRawData(size_t begin_index, size_t end_index) -> void;
+    virtual auto syncRawData(size_t begin_index,
+                             size_t end_index,
+                             const std::vector<int>& roles) -> void;
 
    protected:
     auto rowCount(const QModelIndex& parent = QModelIndex{}) const -> int override;

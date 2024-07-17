@@ -35,20 +35,20 @@ void LetterPlugin::initialize()
   getKernelUI()->addToolCommand(m_command,
     qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_OTHER,
     qtuser_qml::ToolCommandType::LETTER);
-	addUIVisualTracer(this);
+	addUIVisualTracer(this,this);
 }
 
 void LetterPlugin::uninitialize()
 {
-  getKernelUI()->removeToolCommand(m_command, qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_MAIN);
+  getKernelUI()->removeToolCommand(m_command, qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_OTHER);
 }
 
 void LetterPlugin::onThemeChanged(ThemeCategory category)
 {
-	m_command->setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/letter_dark.svg" : "qrc:/UI/photo/leftBar/letter_lite.svg");
-	m_command->setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/letter_dark.svg" : "qrc:/UI/photo/leftBar/letter_lite.svg");
+	m_command->setDisabledIcon("qrc:/UI/photo/cToolBar/letter_dark_disable.svg");
+	m_command->setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/letter_dark_default.svg" : "qrc:/UI/photo/cToolBar/letter_light_default.svg");
 	m_command->setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/letter_pressed.svg" : "qrc:/UI/photo/leftBar/letter_lite.svg");
-	m_command->setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/letter_pressed.svg" : "qrc:/UI/photo/leftBar/letter_pressed.svg");
+	m_command->setPressedIcon("qrc:/UI/photo/cToolBar/letter_dark_press.svg");
 }
 
 void LetterPlugin::onLanguageChanged(creative_kernel::MultiLanguage language)

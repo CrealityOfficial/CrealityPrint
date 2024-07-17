@@ -21,10 +21,10 @@ namespace us
 			m_values << "Not overridden" << "Extruder 1" << "Extruder 2";
 		}
 		else if (def->type == "enum") {
-			for (QMap<QString, QString>::const_iterator it = def->options.constBegin(); it != def->options.constEnd(); ++it)
+			for (const auto& it : def->options)
 			{
-				m_keys.append(it.key());
-				m_values.append(it.value());
+				m_keys.append(it.first);
+				m_values.append(it.second);
 			}
 		}
 	}

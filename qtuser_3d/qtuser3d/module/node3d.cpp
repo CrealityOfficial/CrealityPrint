@@ -85,6 +85,8 @@ namespace qtuser_3d
 		m_localMatrixDirty = true;
 
 		if (update) updateMatrix();
+
+		onLocalScaleChanged(scale);
 	}
 
 	void Node3D::resetLocalScale(bool update)
@@ -108,6 +110,8 @@ namespace qtuser_3d
 		m_localMatrixDirty = true;
 
 		if (update) updateMatrix();
+
+		onLocalQuaternionChanged(q);
 	}
 
 	void Node3D::resetLocalQuaternion(bool update)
@@ -121,6 +125,8 @@ namespace qtuser_3d
 		m_localMatrixDirty = true;
 
 		if (update) updateMatrix();
+
+		onLocalPositionChanged(position);
 	}
 
 	void Node3D::resetLocalPosition(bool update)
@@ -360,5 +366,36 @@ namespace qtuser_3d
 		QVector3D localPos = localPosition();
 		QVector3D newLocalPos = localPos + offset;
 		setLocalPosition(newLocalPos);
+	}
+
+	void Node3D::buildLocalMatrix(const QMatrix4x4& gMatrix)
+	{
+		QVector3D trans = gMatrix.column(3).toVector3D();
+		setLocalPosition(trans, false);
+
+		QVector3D scale;
+		scale.setX(QVector3D(gMatrix(0, 0), gMatrix(1, 0), gMatrix(2, 0)).length());
+		scale.setY(QVector3D(gMatrix(0, 1), gMatrix(1, 1), gMatrix(2, 1)).length());
+		scale.setZ(QVector3D(gMatrix(0, 2), gMatrix(1, 2), gMatrix(2, 2)).length());
+		setLocalScale(scale, false);
+
+		QMatrix4x4 m;
+		m.scale(scale);
+		m = m.inverted() * gMatrix;
+		QMatrix3x3 rotationMatrix = m.normalMatrix();
+		QQuaternion qrot = QQuaternion::fromRotationMatrix(rotationMatrix);
+		setLocalQuaternion(qrot, true);
+	}
+	
+	void Node3D::onLocalScaleChanged(const QVector3D& newScale)
+	{
+	}
+
+	void Node3D::onLocalPositionChanged(const QVector3D& newPosition)
+	{
+	}
+
+	void Node3D::onLocalQuaternionChanged(const QQuaternion& newQ)
+	{
 	}
 }

@@ -16,7 +16,7 @@ BasicDialog{
     // titleBackground: "#D7D7D7"
     contentBackground: "#FFFFFF"
 
-    ScrollView{
+    BasicScrollView{
         anchors.top: parent.top
         anchors.topMargin: 30+30+5
         anchors.left: parent.left

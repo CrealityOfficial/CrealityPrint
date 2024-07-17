@@ -15,6 +15,7 @@ namespace topomesh
 
 		param.initial_layer_thickness = DLP_MM2_S(inParam.initial_layer_thickness);
 		param.layer_thickness = DLP_MM2_S(inParam.layer_thickness);
+		param.initial_layer_count = inParam.initial_layer_count;
 
 		param.xy_offset = inParam.xy_offset;
 		//float hole_xy_offset = setting->floatParam("hole_xy_offset");

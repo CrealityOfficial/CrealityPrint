@@ -7,13 +7,17 @@
 
 #include "us/settingdef.h"
 #include "interface/appsettinginterface.h"
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include "internal/parameter/parameterpath.h"
 
 namespace us
 {
 	DefaultLoader::DefaultLoader(QObject* parent)
 		:QObject(parent)
 	{
-		m_configRoot = DEFAULT_CONFIG_ROOT;
+		m_configRoot = _pfpt_default_root;
 		m_defRecommendSetting = new USettings();
 	}
 
@@ -26,58 +30,118 @@ namespace us
 		}
 	}
 
-	void DefaultLoader::loadDefault(const QString& fileName, USettings* uSettings)
+	void DefaultLoader::loadDefault(const QString& fileName, USettings* uSettings, QList<USettings*>* extruderSettings, creative_kernel::MachineData* data)
 	{
-		if (uSettings != NULL)
-		{
-			uSettings->clear();
-		}
-       
-		if (true)
-		{
-			QFile file(fileName);
-			//qDebug() << QString("DefaultLoader::loadDefault : [%1]").arg(fileName);
-			if (file.open(QIODevice::ReadOnly | QIODevice::Text))
-			{
-				while (!file.atEnd())
-				{
-					QString line = file.readLine().trimmed();
-					if (line.isEmpty() || 
-						(line == "\n") ||
-						(line.contains("[") && line.contains("]") && !line.contains("="))
-						)
-						continue;
+		QFile file(fileName);
+		qDebug() << QString("DefaultLoader::loadDefault : [%1]").arg(fileName);
 
-					QStringList lists = line.split("=");
-#if 0 //_DEBUG
-					qDebug() << lists;
-#endif
-					if (lists.size() == 1)
-					{
-						USetting* setting = SETTING(lists.at(0).trimmed());
-						uSettings->insert(setting);
-					}
-					else if (lists.size() > 2) //start_gcode�� ���� =
-					{
-						for (int n = 2; n < lists.size(); n++)
-						{
-							lists[1] += "=" + lists[n];
-						}
-						lists[1].replace("\"", "");
-						USetting* setting = SETTING2(lists.at(0).trimmed(), lists.at(1).trimmed());
-						uSettings->insert(setting);
-					}
-					else
-					{
-						USetting* setting = SETTING2(lists.at(0).trimmed(), lists.at(1).trimmed());
-						uSettings->insert(setting);
-					}
+		if (!file.open(QIODevice::ReadOnly)) {
+			qDebug() << "File open failed!";
+			return;
+		}
+
+		QJsonParseError error{ QJsonParseError::ParseError::NoError };
+		QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
+		if (error.error != QJsonParseError::ParseError::NoError) {
+			qDebug() << "parseJson:" << error.errorString();
+			return;
+		}
+		if (document.isNull() || !document.isObject())
+		{
+			return;
+		}
+		file.close();
+		QJsonObject rootObj = document.object();
+		if (rootObj.contains("inherits") && rootObj.value("inherits").isString())
+		{
+			QString inherits = rootObj.value("inherits").toString();
+			if (!inherits.isEmpty())
+			{
+				QString inherits_file = QString("%1/%2.json").arg(_pfpt_default_root).arg(inherits);
+				loadDefault(inherits_file, uSettings, extruderSettings);
+			}
+		}
+		QString material_id;
+		if (rootObj.contains("metadata") && rootObj.value("metadata").isObject())
+		{
+			QJsonObject metadata = rootObj.value("metadata").toObject();
+			if (data)
+			{
+				if (metadata.contains("is_bbl_printer") && metadata.value("is_bbl_printer").isBool())
+				{
+					data->is_bbl_printer = metadata.value("is_bbl_printer").toBool();
+				}
+				if (metadata.contains("preferred_process") && metadata.value("preferred_process").isString())
+				{
+					data->preferredProcess = metadata.value("preferred_process").toString();
+				}
+				if (metadata.contains("inherits_from") && metadata.value("inherits_from").isString())
+				{
+					data->inherits_from = metadata.value("inherits_from").toString();
+				}
+				if (metadata.contains("is_import") && metadata.value("is_import").isBool())
+				{
+					data->is_import = metadata.value("is_import").toBool();
 				}
 			}
-			file.close();
+			if (metadata.contains("id") && metadata.value("id").isString())
+			{
+				material_id = metadata.value("id").toString();
+				if (!material_id.isEmpty())
+				{
+					USetting* setting = SETTING2("filament_ids", material_id);
+					uSettings->insert(setting);
+				}
+			}
 		}
-		else //decrypt
+		if (rootObj.contains("engine_data") && rootObj.value("engine_data").isObject())
 		{
+			QJsonObject engine_data = rootObj.value("engine_data").toObject();
+			for (const auto& key : engine_data.keys())
+			{
+				if (engine_data.value(key).isObject())
+				{
+					QJsonObject detail_engine_data = engine_data.value("key").toObject();
+					USetting* setting = SETTING(key);
+					if (rootObj.contains("value") && rootObj.value("value").isString())
+					{
+						setting->setValue(rootObj.value("value").toString());
+					}
+					uSettings->insert(setting);
+				}
+				else
+				{
+					USetting* setting = SETTING2(key, engine_data.value(key).toString());
+					uSettings->insert(setting);
+				}
+			}
+		}
+		if (rootObj.contains("printer") && rootObj.value("printer").isObject())
+		{
+			QJsonObject engine_data = rootObj.value("printer").toObject();
+			for (const auto& key : engine_data.keys())
+			{
+				USetting* setting = SETTING2(key, engine_data.value(key).toString());
+				uSettings->insert(setting);
+			}
+		}
+		if (rootObj.contains("extruders") && rootObj.value("extruders").isArray())
+		{
+			QJsonArray extruder_data = rootObj.value("extruders").toArray();
+			for (const auto& type_printer_ref : extruder_data)
+			{
+				USettings* settings = new USettings();
+				QJsonObject engine_data = type_printer_ref.toObject().value("engine_data").toObject();
+				for (const auto& key : engine_data.keys())
+				{
+					USetting* setting = SETTING2(key, engine_data.value(key).toString());
+					settings->insert(setting);
+				}
+				if (extruderSettings)
+				{
+					extruderSettings->push_back(settings);
+				}
+			}
 		}
 	}
 }

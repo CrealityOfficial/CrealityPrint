@@ -160,8 +160,8 @@ using boost::multiprecision::abs;
 int cmp_angles(const Point &dir, const Point &dirA, const Point &dirB) {
     int128_t dotA = dot(dir, dirA);
     int128_t dotB = dot(-dir, dirB);
-    int256_t dcosa = int128_t(magnsq(dirB)) * int128_t(abs(dotA)) * dotA;
-    int256_t dcosb = int128_t(magnsq(dirA)) * int128_t(abs(dotB)) * dotB;
+    int256_t dcosa = int256_t(magnsq(dirB)) * int256_t(abs(dotA)) * dotA;
+    int256_t dcosb = int256_t(magnsq(dirA)) * int256_t(abs(dotB)) * dotB;
     int256_t diff = dcosa - dcosb;
 
     return diff > 0? -1 : (diff < 0 ? 1 : 0);

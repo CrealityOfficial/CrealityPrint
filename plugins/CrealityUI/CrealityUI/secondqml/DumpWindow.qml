@@ -5,6 +5,7 @@ import QtQuick.Window 2.13
 import QtQuick.Layouts 1.13
 
 import "../"
+import "../components"
 import "../qml/"
 import "../secondqml/"
 
@@ -68,7 +69,7 @@ DockItem {
           font.family: Constants.panelFontFamily
           font.pointSize: Constants.labelFontPointSize_11
 
-          text: qsTr("A serious error has occurred in %1. Please send this error report to us to fix the problem.")
+          text: qsTr("dump_tip_format_0")
                 .arg(dumpTool.getApplicationName())
 
           onContentWidthChanged: {
@@ -83,7 +84,7 @@ DockItem {
           font.family: Constants.panelFontFamily
           font.pointSize: Constants.labelFontPointSize_9
 
-          text: qsTr("Please click the 'Send Report' button to automatically publish the error report to our server.")
+          text: qsTr("dump_tip_format_1")
 
           onContentWidthChanged: {
             root.resetWidth(this.contentWidth + tip_image.width + 60 * screenScaleFactor)
@@ -113,14 +114,7 @@ DockItem {
         font.family: Constants.panelFontFamily
         font.pointSize: Constants.labelFontPointSize_9
 
-        text: qsTr("%1 version: %2
-%3 langauge: %4
-Operating System: %5
-Graphics card: %6
-OpenGL:
-  - OpenGL version: %7
-  - OpenGL vendor: %8
-  - OpenGL renderer: %9")
+        text: qsTr("dump_info_format")
               .arg(dumpTool.getApplicationName())
               .arg(dumpTool.getApplicationVersion())
               .arg(dumpTool.getApplicationName())

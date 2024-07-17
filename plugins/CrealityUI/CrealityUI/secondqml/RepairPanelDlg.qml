@@ -1,5 +1,6 @@
 import QtQuick 2.10
 import QtQuick.Controls 2.12
+import "../components"
 import "../qml"
 DockItem
 {

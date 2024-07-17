@@ -13,7 +13,8 @@ namespace creative_kernel
     public:
         ModelShowCommand(ModelVisualMode mode, QObject* parent = nullptr);
         virtual ~ModelShowCommand();
-
+        bool enabled();
+        Q_INVOKABLE void updateCheck();
         Q_INVOKABLE void execute();
     protected:
         void onThemeChanged(ThemeCategory category) override;

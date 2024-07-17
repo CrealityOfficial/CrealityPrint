@@ -37,6 +37,7 @@ public:
     PickOp(QObject* parent = nullptr);
     virtual ~PickOp();
 
+    void setType(int type) { m_type = type; }
     void reset();
     void center();
     QVector3D position();

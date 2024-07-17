@@ -2,7 +2,8 @@
 #define _NULLSPACE_SLICEATTAIN_1590249988869_H
 #include <QtCore/QObject>
 #include <QtCore/QUrl>
-#include "crslice/gcode/define.h"
+//#include "crslice/gcode/define.h"
+#include "crslice/gcode/header.h"
 
 #include "crslice/gcode/sliceresult.h"
 #include "cxgcode/simplegcodebuilder.h"
@@ -15,6 +16,7 @@
 #include <unordered_map>
 #include "trimesh2/Vec.h"
 #include "trimesh2/TriMesh.h"
+#include "trimesh2/XForm.h"
 
 namespace cxgcode
 {

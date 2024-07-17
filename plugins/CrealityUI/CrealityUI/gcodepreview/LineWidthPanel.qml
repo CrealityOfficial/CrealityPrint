@@ -20,7 +20,7 @@ Rectangle {
     anchors.right: parent.right
 
     text: "%1 (%2)".arg(root.title).arg(root.unit)
-    color: Constants.textColor
+    color:"#FFFFFF"
     font.family: Constants.labelFontFamily
     font.weight: Constants.labelFontWeight
     font.pointSize: Constants.labelFontPointSize_9
@@ -58,7 +58,7 @@ Rectangle {
         Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
 
         text: String(model_value.toFixed(3))
-        color: Constants.textColor
+        color: "#FFFFFF"
         font.family: Constants.labelFontFamily
         font.weight: Constants.labelFontWeight
         font.pointSize: Constants.labelFontPointSize_9

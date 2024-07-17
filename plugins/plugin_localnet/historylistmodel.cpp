@@ -3,6 +3,7 @@
 #include <QUrl>
 
 #include "historylistmodel.h"
+#include <regex>
 
 using namespace creative_kernel;
 
@@ -37,6 +38,9 @@ QVariant HistoryListModel::data(const QModelIndex& index, int role) const
 	{
 		case HistoryModelItem::E_IsPrintFinished:
 			value = modelItem->isPrintFinished();
+			break;
+		case HistoryModelItem::E_GCodePrefixPath:
+			value = modelItem->gCodePrefixPath();
 			break;
 		case HistoryModelItem::E_HistoryFileNumb:
 			value = modelItem->historyFileNumb();
@@ -80,6 +84,7 @@ QHash<int, QByteArray> HistoryListModel::roleNames() const
 	roles[HistoryModelItem::E_HistoryMaterialUsage]  = "historyMaterialUsage";
 	roles[HistoryModelItem::E_HistoryThumbnailImage] = "historyThumbnailImage";
 	roles[HistoryModelItem::E_GCodeExportProgress] = "gCodeExportProgress";
+	roles[HistoryModelItem::E_GCodePrefixPath] = "gCodePrefixPath";
 	return roles;
 }
 
@@ -187,6 +192,8 @@ void HistoryListModel::slotGetHistoryFileList(const QString& from_std_macAddr, c
 				{
 					HistoryModelItem* modelItem = new HistoryModelItem(this);
 
+					int lastPathIndex = m_webInfoRegExp.cap(2).lastIndexOf('/');
+					QString gcodePrefixPath = m_webInfoRegExp.cap(2).left(lastPathIndex);
 					QString historyFileNumb = m_webInfoRegExp.cap(1);
 					QString historyFileName = m_webInfoRegExp.cap(2).split("/", QString::SkipEmptyParts).last();
 					QString historyFileSize = QString::number(m_webInfoRegExp.cap(3).toDouble() / 1024.0 / 1024.0, 'f', 2);
@@ -197,6 +204,7 @@ void HistoryListModel::slotGetHistoryFileList(const QString& from_std_macAddr, c
 					int		isPrintFinished = m_webInfoRegExp.cap(8).toInt();
 
 					modelItem->setHistoryFileNumb(historyFileNumb);
+					modelItem->setGCodePrefixPath(gcodePrefixPath);
 					modelItem->setHistoryFileName(historyFileName);
 					modelItem->setHistoryFileSize(historyFileSize);
 					modelItem->setHistoryInterval(historyInterval);
@@ -249,6 +257,17 @@ void HistoryModelItem::setIsPrintFinished(int finished)
 {
 	m_isPrintFinished = finished;
 	emit isPrintFinishedChanged();
+}
+
+const QString& HistoryModelItem::gCodePrefixPath() const
+{
+	return m_gCodePrefixPath;
+}
+
+void HistoryModelItem::setGCodePrefixPath(const QString& path)
+{
+	m_gCodePrefixPath = path;
+	emit gCodePrefixPathChanged();
 }
 
 const QString& HistoryModelItem::historyFileNumb() const

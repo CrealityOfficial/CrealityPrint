@@ -10,12 +10,15 @@ namespace qtuser_3d
 {
 	BoxEntity::BoxEntity(Qt3DCore::QNode* parent)
 		:XEntity(parent)
+		, m_viewPass(nullptr)
 	{
 		m_colorParameter = setParameter("color", QVector4D(1.0f, 0.0f, 0.0f, 1.0f));
 
 		XRenderPass* viewPass = new PureRenderPass(this);
 		viewPass->addFilterKeyMask("view", 0);
-		
+		viewPass->setPassDepthTest();
+		m_viewPass = viewPass;
+
 		XEffect* effect = new XEffect(this);
 		effect->addRenderPass(viewPass);
 		setEffect(effect);
@@ -66,5 +69,13 @@ namespace qtuser_3d
 	void BoxEntity::setColor(const QVector4D& color)
 	{
 		m_colorParameter->setValue(color);
+	}
+
+	void BoxEntity::setLineWidth(float width)
+	{
+		if (m_viewPass)
+		{
+			m_viewPass->setLineWidth(width);
+		}
 	}
 }

@@ -1,4 +1,4 @@
-import QtQuick 2.0
+import QtQuick 2.12
 import QtQuick.Controls 2.12
 //import QtQuick.Layouts 1.3
 import QtQuick.Window 2.0
@@ -11,7 +11,7 @@ Window {
     height: 200
     property string title: "baisc dialog"
     property var titleIcon: ""//"qrc:/scence3d/res/logo.png"
-    property var closeIcon: closeButton.hovered ? "qrc:/UI/photo/closeBtn_d.svg" : "qrc:/UI/photo/closeBtn.svg"//"qrc:/UI/photo/closeBtn.png"
+    property string closeIcon: closeButton.hovered ? "qrc:/UI/photo/closeBtn_d.svg" : "qrc:/UI/photo/closeBtn.svg"//"qrc:/UI/photo/closeBtn.png"
     // property int titleIconWidth: 30     //defalut 30
     property string titleBackground:  Constants.dialogTitleColor //"#061F3B"     //
     property string contentBackground: Constants.themeColor

@@ -18,12 +18,17 @@
 #include "interface/spaceinterface.h"
 #include "interface/uiinterface.h"
 #include "interface/machineinterface.h"
+#include "interface/layoutinterface.h"
+#include "interface/printerinterface.h"
+
 #include "cxkernel/interface/jobsinterface.h"
 #include "internal/undo/modelserialcommand.h"
-#include "job/nest2djob.h"
 
 #include "qtuser3d/trimesh2/conv.h"
 #include "internal/menu/submenurecentfiles.h"
+#include "external/job/mirrorjob.h"
+#include "cxkernel/interface/jobsinterface.h"
+#include "external/kernel/reuseablecache.h"
 
 namespace creative_kernel
 {
@@ -44,16 +49,17 @@ namespace creative_kernel
 	{
 		if (currentMachineIsBelt())
 		{
-			addModel(model, true);
 			ModelPositionInitializer::layoutBelt(model, nullptr);
 			bottomModel(model);
+			addModel(model, true);
 			model->updateMatrix();
+			model->dirty();
 		}
 		else
 		{
-			Nest2DJob* job = new Nest2DJob();
-			job->setInsert(model);
-			cxkernel::executeJob(qtuser_core::JobPtr(job), true);
+			QList<ModelN*> models;
+			models << model;
+			creative_kernel::layoutModels(models, currentPrinterIndex());
 		}
 	}
 
@@ -65,6 +71,14 @@ namespace creative_kernel
 		QList<ModelN*> removes;
 		QList<ModelN*> adds;
 		adds << model;
+		modifySpace(removes, adds, reversible);
+	}
+
+	void addModels(QList<ModelN*> models, bool reversible)
+	{
+		QList<ModelN*> removes;
+		QList<ModelN*> adds;
+		adds << models;
 		modifySpace(removes, adds, reversible);
 	}
 
@@ -99,6 +113,8 @@ namespace creative_kernel
 		QList<ModelN*> removes = selectionms();
 		QList<ModelN*> adds;
 		modifySpace(removes, adds, reversible);
+
+		creative_kernel::checkModelCollision();
 	}
 
 	QList<ModelN*> replaceModelsMesh(const QList<ModelN*>& models, const QList<cxkernel::ModelNDataPtr>& datas, bool reversible)
@@ -122,6 +138,103 @@ namespace creative_kernel
 	ModelN* getModelNBySerialName(const QString& name)
 	{
 		return getModelSpace()->getModelNBySerialName(name);
+	}
+
+	ModelN* getModelNByObjectName(const QString& objectName)
+	{
+		return getModelSpace()->getModelNByObjectName(objectName);
+	}
+
+	void rotateXModels(float angle,bool reversible)
+	{
+		QVector3D axis(1.0, 0.0, 0.0);
+		if(reversible) axis = QVector3D(-1.0, 0.0, 0.0);
+		auto selectedModels = selectionms();
+		for (size_t i = 0; i < selectedModels.size(); i++)
+		{
+			QQuaternion oldQ = selectedModels[i]->localQuaternion();
+			QQuaternion q = selectedModels[i]->rotateByStandardAngle(axis, angle);
+
+			qtuser_3d::Box3D box = selectedModels[i]->globalSpaceBox();
+			QVector3D zoffset = QVector3D(0.0f, 0.0f, -box.min.z());
+			QVector3D localPosition = selectedModels[i]->localPosition();
+			QVector3D newPosition = localPosition + zoffset;
+			//selectedModels[i]->setLocalPosition(newPosition);
+			mixTRModel(selectedModels[i], localPosition, newPosition, oldQ, q, true);
+			// emit rotateChanged();
+			if (axis.x() != 0 || axis.y() != 0)
+				selectedModels[i]->resetNestRotation();
+		}
+	}
+
+	void rotateYModels(float angle,bool reversible)
+	{
+		QVector3D axis(0.0, 1.0, 0.0);
+		if(reversible) axis = QVector3D(0.0, -1.0, 0.0);
+		auto selectedModels = selectionms();
+		for (size_t i = 0; i < selectedModels.size(); i++)
+		{
+			QQuaternion oldQ = selectedModels[i]->localQuaternion();
+			QQuaternion q = selectedModels[i]->rotateByStandardAngle(axis, angle);
+
+			qtuser_3d::Box3D box = selectedModels[i]->globalSpaceBox();
+			QVector3D zoffset = QVector3D(0.0f, 0.0f, -box.min.z());
+			QVector3D localPosition = selectedModels[i]->localPosition();
+			QVector3D newPosition = localPosition + zoffset;
+			//selectedModels[i]->setLocalPosition(newPosition);
+			mixTRModel(selectedModels[i], localPosition, newPosition, oldQ, q, true);
+			// emit rotateChanged();
+			if (axis.x() != 0 || axis.y() != 0)
+				selectedModels[i]->resetNestRotation();
+		}
+	}
+
+	void rotateZModels(float angle,bool reversible)
+	{
+		QVector3D axis(0.0, 0.0, 1.0);
+		if(reversible) axis = QVector3D(0.0, 0.0, -1.0);
+		auto selectedModels = selectionms();
+		for (size_t i = 0; i < selectedModels.size(); i++)
+		{
+			QQuaternion oldQ = selectedModels[i]->localQuaternion();
+			QQuaternion q = selectedModels[i]->rotateByStandardAngle(axis, angle);
+
+			qtuser_3d::Box3D box = selectedModels[i]->globalSpaceBox();
+			QVector3D zoffset = QVector3D(0.0f, 0.0f, -box.min.z());
+			QVector3D localPosition = selectedModels[i]->localPosition();
+			QVector3D newPosition = localPosition + zoffset;
+			//selectedModels[i]->setLocalPosition(newPosition);
+			mixTRModel(selectedModels[i], localPosition, newPosition, oldQ, q, true);
+			// emit rotateChanged();
+			if (axis.x() != 0 || axis.y() != 0)
+				selectedModels[i]->resetNestRotation();
+		}
+	}
+
+	void moveXModels(float distance,bool reversible)
+	{
+		QVector3D delta = QVector3D(distance, 0.0f, 0.0f);
+		if(reversible) delta = QVector3D(-distance, 0.0f, 0.0f);
+	    auto selectedModels = selectionms();
+		for (size_t i = 0; i < selectedModels.size(); i++)
+		{
+			QVector3D localPosition = selectedModels.at(i)->localPosition();
+			moveModel(selectedModels.at(i), localPosition, localPosition + delta);
+		}
+		requestVisUpdate(true);
+	}
+
+	void moveYModels(float distance,bool reversible)
+	{
+		QVector3D delta = QVector3D(0.0f, distance, 0.0f);
+		if(reversible) delta = QVector3D(0.0f, -distance, 0.0f);
+	    auto selectedModels = selectionms();
+		for (size_t i = 0; i < selectedModels.size(); i++)
+		{
+			QVector3D localPosition = selectedModels.at(i)->localPosition();
+			moveModel(selectedModels.at(i), localPosition, localPosition + delta);
+		}
+		requestVisUpdate(true);
 	}
 
 	void moveModel(ModelN* model, const QVector3D& start, const QVector3D& end, bool reversible)
@@ -237,6 +350,105 @@ namespace creative_kernel
 		position.setZ(box.center().z());
 
 		alignAllModels(position, reversible);
+	}
+
+	void mergePosition(bool reversible)
+	{
+		QList<ModelN*> models = modelns();
+		mergePosition(models, reversible);
+	}
+
+	void mergePosition(const QList<ModelN*>& models, bool reversible)
+	{
+		if (models.size() <= 0)
+			return;
+
+		//reset
+		QList<NUnionChangedStruct> changes;
+		int mCount = models.size();
+		for (int i = 0; i < mCount; ++i)
+		{
+			cxkernel::ModelNDataPtr data = models.at(i)->data();
+			NUnionChangedStruct change;
+			change.serialName = models.at(i)->getSerialName();
+			change.posActive = true;
+			change.posChange.start = models.at(i)->localPosition();
+			change.rotateActive = true;
+			change.rotateChange.start = models.at(i)->localQuaternion();
+			change.rotateChange.end = QQuaternion();
+			change.scaleActive = true;
+			change.scaleChange.start = models.at(i)->localScale();
+			change.scaleChange.end = QVector3D(1.0f, 1.0f, 1.0f);
+
+			models.at(i)->resetLocalQuaternion();
+			models.at(i)->resetLocalScale();
+			models.at(i)->setLocalPosition(- qtuser_3d::vec2qvector(data->offset));
+			changes.push_back(change);
+		}
+		//
+		qtuser_3d::Box3D base = baseBoundingBox();
+		qtuser_3d::Box3D box;
+		for (int i = 0; i < mCount; ++i)
+		{
+			models.at(i)->updateMatrix();
+			box += models.at(i)->calculateGlobalSpaceBox();
+		}
+		QVector3D offset = base.center() - box.center();
+		offset.setZ(base.min.z() - box.min.z());
+
+		for (int i = 0; i < mCount; ++i)
+		{
+			V3Change& change = changes[i].posChange;
+			change.end = models.at(i)->localPosition() + offset;
+		}
+		//
+		mixUnions(changes, reversible);
+	}
+	
+	void mergePosition(const QList<ModelN*>& models, const qtuser_3d::Box3D& base, bool reversible)
+	{
+		if (models.size() <= 0)
+			return;
+
+		//reset
+		QList<NUnionChangedStruct> changes;
+		int mCount = models.size();
+		for (int i = 0; i < mCount; ++i)
+		{
+			cxkernel::ModelNDataPtr data = models.at(i)->data();
+			NUnionChangedStruct change;
+			change.serialName = models.at(i)->getSerialName();
+			change.posActive = true;
+			change.posChange.start = models.at(i)->localPosition();
+			change.rotateActive = true;
+			change.rotateChange.start = models.at(i)->localQuaternion();
+			change.rotateChange.end = QQuaternion();
+			change.scaleActive = true;
+			change.scaleChange.start = models.at(i)->localScale();
+			change.scaleChange.end = QVector3D(1.0f, 1.0f, 1.0f);
+
+			models.at(i)->resetLocalQuaternion();
+			models.at(i)->resetLocalScale();
+			models.at(i)->setLocalPosition(- qtuser_3d::vec2qvector(data->offset));
+			changes.push_back(change);
+		}
+		//
+		qtuser_3d::Box3D box;
+		for (int i = 0; i < mCount; ++i)
+		{
+			models.at(i)->updateMatrix();
+			box += models.at(i)->calculateGlobalSpaceBox();
+		}
+		QVector3D offset = base.center() - box.center();
+		offset.setZ(base.min.z() - box.min.z());
+
+		for (int i = 0; i < mCount; ++i)
+		{
+			V3Change& change = changes[i].posChange;
+			change.end = models.at(i)->localPosition() + offset;
+		}
+		//
+		mixUnions(changes, reversible);
 	}
 
 	void mixTSModel(ModelN* model, const QVector3D& tstart, const QVector3D& tend,
@@ -399,6 +611,35 @@ namespace creative_kernel
 		model->resetNestRotation();
 	}
 
+	void rotateModelsNormal2Bottom(const QList<ModelN*>& models, const QList<QVector3D>& normals)
+	{
+		QList<QVector3D> tStarts;
+		QList<QVector3D> tEnds;
+		QList<QQuaternion> rStarts;
+		QList<QQuaternion> rEnds;
+		for (int i = 0, count = models.size(); i < count; ++i)
+		{
+			ModelN* model = models[i];
+			QVector3D normal;
+			if (normals.size() <= i)
+				normal = normals[0];
+			else 
+				normal = normals[i];
+
+			QVector3D tStart = model->localPosition();
+			QQuaternion rStart = model->localQuaternion();
+			QVector3D tEnd;
+			QQuaternion rEnd;
+			model->rotateNormal2Bottom(normal, tEnd, rEnd);
+
+			tStarts.append(tStart);
+			tEnds.append(tEnd);
+			rStarts.append(rStart);
+			rEnds.append(rEnd);
+		}
+		mixTRModels(models, tStarts, tEnds, rStarts, rEnds, true);
+	}
+
 	void rotateModelsNormal2Bottom(const QList<ModelN*>& models, const QVector3D& normal)
 	{
 		QList<QVector3D> tStarts;
@@ -501,22 +742,22 @@ namespace creative_kernel
 
 	void mirrorX(const QList<ModelN*>& models, bool reversible)
 	{
-		mirrorModels(generateMirrorChanges(models, MirrorOperation::mo_x), reversible);
+		mirrorModels(models, 0, reversible);
 	}
 
 	void mirrorY(const QList<ModelN*>& models, bool reversible)
 	{
-		mirrorModels(generateMirrorChanges(models, MirrorOperation::mo_y), reversible);
+		mirrorModels(models, 1, reversible);
 	}
 
 	void mirrorZ(const QList<ModelN*>& models, bool reversible)
 	{
-		mirrorModels(generateMirrorChanges(models, MirrorOperation::mo_z), reversible);
+		mirrorModels(models, 2, reversible);
 	}
 
 	void mirrorReset(const QList<ModelN*>& models, bool reversible)
 	{
-		mirrorModels(generateMirrorChanges(models, MirrorOperation::mo_reset), reversible);
+		//mirrorModels(generateMirrorChanges(models, MirrorOperation::mo_reset), reversible);
 	}
 
 	void mirrorXSelections(bool reversible)
@@ -539,16 +780,17 @@ namespace creative_kernel
 		mirrorReset(selectionms(), reversible);
 	}
 
-	void mirrorModels(const QList<NMirrorStruct>& changes, bool reversible)
+	void mirrorModels(const QList<ModelN*>& models, int mode, bool reversible)
 	{
 		if (reversible)
 		{
 			ModelSpaceUndo* stack = getKernel()->modelSpaceUndo();
-			stack->mirror(changes);
+			stack->mirror(models, mode);
 			return;
 		}
 
-		_mirrorModels(changes);
+		MirrorJob* job = new MirrorJob(models, mode);
+		cxkernel::executeJob(qtuser_core::JobPtr(job));
 	}
 
 	QList<NMirrorStruct> generateMirrorChanges(const QList<ModelN*>& models, MirrorOperation operation)
@@ -606,9 +848,7 @@ namespace creative_kernel
 
 	void setModelVisualMode(ModelVisualMode mode)
 	{
-		QList<ModelN*> models = modelns();
-		for (ModelN* model : models)
-			model->setVisualMode(mode);
+		getKernel()->reuseableCache()->setModelVisualMode(mode);
 		_requestUpdate();
 	}
 
@@ -631,8 +871,11 @@ namespace creative_kernel
 
 	void setModelsNozzle(const QList<ModelN*>& models, int nozzle)
 	{
-		for (ModelN* model : models)
+		for (ModelN* model : models) {
 			model->setNozzle(nozzle);
+			model->setDefaultColorIndex(nozzle);
+		}
+			
 		_requestUpdate();
 	}
 
@@ -646,13 +889,6 @@ namespace creative_kernel
 
 	ModelN* createModelFromData(cxkernel::ModelNDataPtr data, ModelN* replaceModel)
 	{
-		if (data)
-		{
-			if (data->mesh->colors.size() == 0)
-				data->updateIndexRenderData();
-			else
-				data->updateRenderData();
-		}
 		ModelN* model = new ModelN();
 		model->setData(data);
 		if (replaceModel)
@@ -665,14 +901,86 @@ namespace creative_kernel
 
 		return model;
 	}
-
-	void setMaxFaceBottom()
+	
+	bool applyMaterialColorsToMesh(trimesh::TriMesh* mesh, int& defaultColorIndex, QSet<int>& usedColorIndexs)
 	{
-		QList<creative_kernel::ModelN*> selections = creative_kernel::selectionms();
-		if (selections.size() < 1)
-			return;
+		std::vector<trimesh::vec> colors = currentColors();
+		int colorsCount = colors.size();
+		if (colorsCount == 0)
+			return false;
 
-		for (creative_kernel::ModelN* model : selections)
+		int flagsCount = mesh->flags.size();
+		if (flagsCount != mesh->faces.size())
+		{
+			flagsCount = mesh->faces.size();
+			mesh->flags.resize(flagsCount);
+		}
+
+		/* 颜色索引说明
+		 * mesh里的flag从1开始算，0代表默认颜色，此时使用defaultColorIndex。
+		 */
+		// bool hasColor = false;
+		if (defaultColorIndex >= colorsCount || defaultColorIndex < 0)
+			defaultColorIndex = 0;
+
+		mesh->colors.resize(flagsCount);
+		for (int i = 0; i < flagsCount; ++i) 
+		{
+			if (mesh->flags[i] > colorsCount)
+				mesh->flags[i] = defaultColorIndex;	//索引值超出颜色数量，改为第一种颜色
+
+			int flag = mesh->flags[i];
+			// if (flag > 0)
+			// 	hasColor = true;
+
+			if (flag == 0)
+			{
+				usedColorIndexs.insert(defaultColorIndex);
+				mesh->colors[i] = colors[defaultColorIndex];
+			}
+			else 
+			{
+				usedColorIndexs.insert(flag - 1);
+				mesh->colors[i] = colors[flag - 1];	
+			}
+		}
+		
+		// if (!hasColor)
+		// 	mesh->colors.clear();
+
+		return true;
+	}
+
+	void applyMaterialColorsToAllModel()
+	{
+		QSet<ModelNRenderData*> cache;
+		QList<ModelN*> ms = modelns();
+		for (auto m : ms)
+		{
+			auto renderData = m->renderData();
+			if (cache.contains(renderData.get()))
+			{
+				m->setRenderData(renderData);
+			}
+			else 
+			{
+				m->updateRender();
+				cache.insert(renderData.get());
+			}
+		}
+	}
+
+	void setAllModelMaxFaceBottom()
+	{
+		setModelsMaxFaceBottom(modelns());
+	}
+
+	void setModelsMaxFaceBottom(QList<ModelN*>models)
+	{
+		QList<creative_kernel::ModelN*> operateModels;
+		QList<QVector3D> normals;
+
+		for (creative_kernel::ModelN* model : models)
 		{
 			model->data()->calculateFaces();
 
@@ -685,8 +993,11 @@ namespace creative_kernel
 				trimesh::vec n = trimesh::norm_xf(xf) * face.normal;
 				QVector3D normal = qtuser_3d::vec2qvector(trimesh::normalized(n));
 
-				creative_kernel::rotateModelNormal2Bottom(model, normal);
+				operateModels << model;
+				normals << normal;
 			}
-		}		
+		}	
+
+		creative_kernel::rotateModelsNormal2Bottom(operateModels, normals);		
 	}
 }

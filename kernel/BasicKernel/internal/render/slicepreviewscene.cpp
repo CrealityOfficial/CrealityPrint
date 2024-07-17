@@ -8,6 +8,9 @@
 #include "interface/camerainterface.h"
 #include <cmath>
 #include "entity/nozzleentity.h"
+
+#include "gcode/gcode/sliceline.h"
+
 using namespace qtuser_3d;
 namespace creative_kernel
 {
@@ -20,9 +23,9 @@ namespace creative_kernel
 		m_fdmIndicator = new NozzleEntity(this);
 
 #if SHOW_ZSEAM_POINTS
-		m_showZseam= false;
-		m_showRetraction=false;
-
+		m_showZseam = false;
+		m_showRetraction =false;
+		m_showUnretract = false;
 #if 0
 		m_retractionPoints = new PureColorEntity(this);
 		m_retractionPoints->setEffect(EFFECT("pointInGcode"));
@@ -41,6 +44,11 @@ namespace creative_kernel
 		m_zSeamsPoints->setPointSize(2.0);
 		m_zSeamsPoints->setShader("pointInGcode");
 		m_zSeamsPoints->setColor(QVector4D(1.0f, 1.0f, 1.0f, 1.0));
+
+		m_unretractPoints = new AlonePointEntity(this);
+		m_unretractPoints->setPointSize(2.0);
+		m_unretractPoints->setShader("pointInGcode");
+		m_unretractPoints->setColor(QVector4D(0.286275, 0.678431, 0.811765, 1.0));
 #endif // 0
 
 #endif
@@ -62,6 +70,10 @@ namespace creative_kernel
 
 	void SlicePreviewScene::clear()
 	{
+		setGeometry(NULL, Qt3DRender::QGeometryRenderer::Points);
+		setZSeamsGeometry(NULL, Qt3DRender::QGeometryRenderer::Points);
+		setUnretractGeometry(NULL, Qt3DRender::QGeometryRenderer::Points);
+		setRetractionGeometry(NULL, Qt3DRender::QGeometryRenderer::Points);
 	}
 
 	void SlicePreviewScene::setGCodeVisualType(gcode::GCodeVisualType type)
@@ -75,6 +87,7 @@ namespace creative_kernel
 #if SHOW_ZSEAM_POINTS
 		m_retractionPoints->setParameter("animation", animation);
 		m_zSeamsPoints->setParameter("animation", animation);
+		m_unretractPoints->setParameter("animation", animation);
 #endif
 	}
 
@@ -90,6 +103,7 @@ namespace creative_kernel
 #if SHOW_ZSEAM_POINTS
 		m_retractionPoints->setParameter("layershow", QVector2D(layer, layer));
 		m_zSeamsPoints->setParameter("layershow", QVector2D(layer, layer));
+		m_unretractPoints->setParameter("layershow", QVector2D(layer, layer));
 #endif
 	}
 
@@ -99,6 +113,7 @@ namespace creative_kernel
 #if SHOW_ZSEAM_POINTS
 		m_retractionPoints->setParameter("layershow", QVector2D(-1.0f, 9999999.0f));
 		m_zSeamsPoints->setParameter("layershow", QVector2D(-1.0f, 9999999.0f));
+		m_unretractPoints->setParameter("layershow", QVector2D(-1.0f, 9999999.0f));
 #endif
 	}
 
@@ -108,6 +123,7 @@ namespace creative_kernel
 #if SHOW_ZSEAM_POINTS
 		m_retractionPoints->setParameter("clipValue", clipValue);
 		m_zSeamsPoints->setParameter("clipValue", clipValue);
+		m_unretractPoints->setParameter("clipValue", clipValue);
 #endif
 	}
 
@@ -145,15 +161,20 @@ namespace creative_kernel
 	void SlicePreviewScene::setRetractionGeometry(Qt3DRender::QGeometry* geometry, Qt3DRender::QGeometryRenderer::PrimitiveType type, int vCountPerPatch)
 	{
 #if SHOW_ZSEAM_POINTS
-		m_retractionPoints->setGeometry(geometry, type, true);
+		m_retractionPoints->setGeometry(geometry, type);
 #endif
 	}
 
 	void SlicePreviewScene::setZSeamsGeometry(Qt3DRender::QGeometry* geometry, Qt3DRender::QGeometryRenderer::PrimitiveType type, int vCountPerPatch)
 	{
 #if SHOW_ZSEAM_POINTS
-		m_zSeamsPoints->setGeometry(geometry, type, true);
+		m_zSeamsPoints->setGeometry(geometry, type);
 #endif
+	}
+
+	void SlicePreviewScene::setUnretractGeometry(Qt3DRender::QGeometry* geometry, Qt3DRender::QGeometryRenderer::PrimitiveType type, int vCountPerPatch)
+	{
+		m_unretractPoints->setGeometry(geometry, type);
 	}
 
 	void SlicePreviewScene::setRetractionVisible()
@@ -170,11 +191,17 @@ namespace creative_kernel
 #endif
 	}
 
+	void SlicePreviewScene::setUnretractVisible()
+	{
+		m_unretractPoints->setEnabled(m_showUnretract);
+	}
+
 	void SlicePreviewScene::setZseamRetractDis()
 	{
 #if SHOW_ZSEAM_POINTS
 		m_zSeamsPoints->setEnabled(false);
 		m_retractionPoints->setEnabled(false);
+		m_unretractPoints->setEnabled(false);
 #endif
 	}
 
@@ -183,8 +210,9 @@ namespace creative_kernel
 		m_slicePreviewNode->setModelMatrix(matrix);
 
 #if SHOW_ZSEAM_POINTS
-		m_zSeamsPoints->setParameter("modelMatrix", matrix);
-		m_retractionPoints->setParameter("modelMatrix", matrix);
+		m_zSeamsPoints->setParameter("model_matrix", matrix);
+		m_retractionPoints->setParameter("model_matrix", matrix);
+		m_unretractPoints->setParameter("model_matrix", matrix);
 #endif
 	}
 
@@ -193,22 +221,43 @@ namespace creative_kernel
 		m_fdmIndicator->setEnabled(isShow);
 	}
 
-	void SlicePreviewScene::showGCodeType(int type, bool isShow)
+	void SlicePreviewScene::showGCodeType(int type, bool isShow, bool isCuraProducer)
 	{
 		m_slicePreviewNode->setTypeShow(type, isShow);
-		if (type==17)
+
+		if (isCuraProducer)
 		{
-			m_showZseam = isShow;
-			setZSeamsVisible();
-		} 
-		else if (type == 18)
-		{
-			m_showRetraction = isShow;
-			setRetractionVisible();
+			if (type == 17)
+			{
+				m_showZseam = isShow;
+				setZSeamsVisible();
+			}
+			else if (type == 18)
+			{
+				m_showRetraction = isShow;
+				setRetractionVisible();
+			}
+		}
+		else {
+			if ((SliceLineType)type == SliceLineType::Seam)
+			{
+				m_showZseam = isShow;
+				setZSeamsVisible();
+			}
+			else if ((SliceLineType)type == SliceLineType::Retract)
+			{
+				m_showRetraction = isShow;
+				setRetractionVisible();
+			}
+			else if ((SliceLineType)type == SliceLineType::Unretract)
+			{
+				m_showUnretract = isShow;
+				setUnretractVisible();
+			}
 		}
 	}
 
-	// ¸ù¾ÝÏà»úÐÅÏ¢Ô¤¹À³öÒ»¸öºÏÊÊµÄÔ²°ë¾¶
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢Ô¤ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½Ô²ï¿½ë¾¶
 	float SlicePreviewScene::caculateAdaptivePointSize()
 	{
 		if (m_lineWidth <= 0.0 || m_layerHeight <= 0.0)
@@ -235,7 +284,7 @@ namespace creative_kernel
 		float scaleX = uvP.x() - uvO.x();
 		float pixels = sc->size().width() * scaleX * 0.5;
 
-		//²»Í¬¹Û²ì½Ç¶È´óÐ¡²»Ò»Ñù£¬´¹Ö±·½Ïò¿´µ½µÄ´ó¸ÅÊÇÏß¿íµÄ´óÐ¡£¬Ë®Æ½·½Ïò´óÖÂÊÇ²ã¸ß°ã´óÐ¡
+		//ï¿½ï¿½Í¬ï¿½Û²ï¿½Ç¶È´ï¿½Ð¡ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ò¿´µï¿½ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½ß¿ï¿½ï¿½Ä´ï¿½Ð¡ï¿½ï¿½Ë®Æ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç²ï¿½ß°ï¿½ï¿½Ð¡
 		{
 			float lineWidth = m_lineWidth, layerHeight = m_layerHeight * 2.0;
 			float maxSize = lineWidth * 1.25, minSize = layerHeight * 1.25;
@@ -260,6 +309,7 @@ namespace creative_kernel
 
 		m_retractionPoints->setPointSize(pixels);
 		m_zSeamsPoints->setPointSize(pixels);
+		m_unretractPoints->setPointSize(pixels);
 #endif
 	}
 
@@ -276,6 +326,7 @@ namespace creative_kernel
 
 		m_retractionPoints->setParameter("layerHeight", height);
 		m_zSeamsPoints->setParameter("layerHeight", height);
+		m_unretractPoints->setParameter("layerHeight", height);
 
 		updatePointEntitySize();
 	}
@@ -287,6 +338,7 @@ namespace creative_kernel
 		//m_slicePreviewNode->setLineWidth(width);
 		m_retractionPoints->setParameter("lineWidth", width);
 		m_zSeamsPoints->setParameter("lineWidth", width);
+		m_unretractPoints->setParameter("lineWidth", width);
 
 		updatePointEntitySize();
 	}

@@ -1,6 +1,9 @@
 #include "submenuviewsshow.h"
 #include "viewshowcommand.h"
 #include "interface/commandinterface.h"
+#include <qtusercore/util/settings.h>
+#include "qtuser3d/camera/cameracontroller.h"
+#include "kernel/kernel.h"
 
 namespace creative_kernel
 {
@@ -13,7 +16,7 @@ namespace creative_kernel
         m_eParentMenu = eMenuType_View;
         m_bSubMenu = true;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
         initActionModel();
     }
 
@@ -37,36 +40,34 @@ namespace creative_kernel
         return m_actionModelList;
     }
 
+    bool SubMenuViewShow::enabled()
+    {
+        return true;
+    }
+
     void SubMenuViewShow::initActionModel()
     {
         if (nullptr == m_actionModelList)
         {
             m_actionModelList = new ActionCommandModel(this);
         }
+        qtuser_core::VersionSettings setting;
+        setting.beginGroup("view_show");
+        int nPerspectiveType = setting.value("perspective_type").toInt();
+        if (!nPerspectiveType) {
+            setting.setValue("perspective_type", ePerspectiveViewShow);
+        }
+        setting.endGroup();
 
-        ViewShowCommand* pFront = new ViewShowCommand(eFrontViewShow);
-        pFront->setParent(this);
-        m_actionModelList->addCommand(pFront);
-        ViewShowCommand* pBack = new ViewShowCommand(eBackViewShow);
-        pBack->setParent(this);
-        m_actionModelList->addCommand(pBack);
-        ViewShowCommand* pLeft = new ViewShowCommand(eLeftViewShow);
-        pLeft->setParent(this);
-        m_actionModelList->addCommand(pLeft);
-        ViewShowCommand* pRight = new ViewShowCommand(eRightViewShow);
-        pRight->setParent(this);
-        m_actionModelList->addCommand(pRight);
-        ViewShowCommand* pTop = new ViewShowCommand(eTopViewShow);
-        pTop->setParent(this);
-        m_actionModelList->addCommand(pTop);
-        ViewShowCommand* pBottom = new ViewShowCommand(eBottomViewShow);
-        pBottom->setParent(this);
-        m_actionModelList->addCommand(pBottom);
         ViewShowCommand* pPerspective = new ViewShowCommand(ePerspectiveViewShow);
         pPerspective->setParent(this);
+        // pPerspective->setChecked(nPerspectiveType == ePerspectiveViewShow);
         m_actionModelList->addCommand(pPerspective);
-        ViewShowCommand* pOrthographic = new ViewShowCommand(eOrthographicViewShow);
+         ViewShowCommand* pOrthographic = new ViewShowCommand(eOrthographicViewShow);
         pOrthographic->setParent(this);
+        //pOrthographic->setChecked(nPerspectiveType == eOrthographicViewShow);
         m_actionModelList->addCommand(pOrthographic);
+
+
     }
 }

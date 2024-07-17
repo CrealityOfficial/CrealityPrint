@@ -10,7 +10,6 @@
 #include "data/undochange.h"
 
 #include "../utils/operationutil.h"
-#include "interface/spaceinterface.h"
 #include "moveoperatemode.h"
 
 namespace creative_kernel
@@ -19,7 +18,7 @@ namespace creative_kernel
 }
 
 class BASIC_KERNEL_API ScaleOp : public MoveOperateMode
-	, public qtuser_3d::SelectorTracer , public creative_kernel::SpaceTracer
+	, public qtuser_3d::SelectorTracer
 {
 public:
 	Q_OBJECT
@@ -40,9 +39,10 @@ public:
 
 	bool uniformCheck();
 	void setUniformCheck(bool check);
+	void onUniformUnCheck();
 
 	bool getShowPop();
-
+	float deltaXY(float modelVal, float pressVal, float moveVal);
 signals:
 	void scaleChanged();
 	void sizeChanged();
@@ -72,8 +72,6 @@ protected:
 	void perform(const QPoint& point, bool reversible);
 
 protected:
-	void onBoxChanged(const qtuser_3d::Box3D& box) override;
-	void onSceneChanged(const qtuser_3d::Box3D& box) override;
 	void onModelDestroyed();
 
 private:
@@ -89,8 +87,6 @@ private:
     bool m_bShowPop=false;
 
 	bool m_uniformCheck=true;
-
-	double m_originFovy;
 
 	QList<creative_kernel::NUnionChangedStruct> m_changes;
 

@@ -1,4 +1,4 @@
-#include "topomesh/interface/hex.h"
+ï»¿#include "topomesh/interface/hex.h"
 
 #include "internal/data/const.h"
 #include "internal/alg/fillhoneycombs.h"
@@ -46,7 +46,7 @@ namespace topomesh
         TriPolygons polys;
         polys.reserve(hexas.polys.size());
         for (const auto& h : hexas.polys) {
-            polys.emplace_back(std::move(h.poly));
+            polys.emplace_back(h.poly);
         }
         return polys;
     }
@@ -199,7 +199,7 @@ namespace topomesh
             points.emplace_back(p.x, p.y, p.z - radius);
             const auto& maxInx = points.size() - 1;
             const auto& v0 = k * nums;
-            //ÉÏÏÂµ×²¿Á½²¿·Ö
+            //ä¸Šä¸‹åº•éƒ¨ä¸¤éƒ¨åˆ†
             for (size_t i = 0; i < ncolumns; ++i) {
                 const auto& i0 = i + 1 + v0;
                 const auto& i1 = (i + 1) % ncolumns + 1 + v0;
@@ -208,7 +208,7 @@ namespace topomesh
                 const auto& j1 = i1 + (nrows - 1) * ncolumns;
                 faces.emplace_back(trimesh::ivec3(j1, j0, maxInx));
             }
-            //ÖÐ¼ä²¿·Ö
+            //ä¸­é—´éƒ¨åˆ†
             for (size_t i = 0; i < nrows - 1; ++i) {
                 const auto& j0 = i * ncolumns + 1 + v0;
                 const auto& j1 = (i + 1) * ncolumns + 1 + v0;
@@ -306,7 +306,7 @@ namespace topomesh
         HexaPolygons polygons;
         polygons.polys.reserve(nums);
         polygons.side = side;
-        //¼ÆËãÁù½ÇÍø¸ñ¶ÔÓ¦±ß½ç°üÎ§ºÐ×ø±êÆæÅ¼ÐÔÖÊ
+        //è®¡ç®—å…­è§’ç½‘æ ¼å¯¹åº”è¾¹ç•ŒåŒ…å›´ç›’åæ ‡å¥‡å¶æ€§è´¨
         for (int i = 0; i < 2 * nrows - 1; i += 2) {
             const auto& rowPoints = gridPoints[i];
             for (int j = 0; j < ncols; ++j) {
@@ -360,17 +360,17 @@ namespace topomesh
         std::vector<std::vector<int>> associatehoods(nums, std::vector<int>(nums, 1));
         for (int i = 0; i < nums; ++i) {
             for (int j = 0; j < nums; ++j) {
-                //¸üÐÂÍêÕû±ß¶ÔÓ¦¹ØÏµ
+                //æ›´æ–°å®Œæ•´è¾¹å¯¹åº”å…³ç³»
                 if (neighborhoods[i][j] && (j != i)) {
                     const auto& hexa = hexas.polys[i];
                     const auto& hexb = hexas.polys[j];
                     int res = int(hex_neighbor(hexa.coord, hexb.coord));
                     if (res >= 0) {
                         const auto& h2pmap1 = hexa.h2pEdgeMap;
-                        auto itr1 = h2pmap1.find(res); ///<µ±Ç°Ïß¶Î¶ÔÓ¦Áù½ÇÍø¸ñ±ßµÄË÷Òý
+                        auto itr1 = h2pmap1.find(res); ///<å½“å‰çº¿æ®µå¯¹åº”å…­è§’ç½‘æ ¼è¾¹çš„ç´¢å¼•
                         if (itr1 != h2pmap1.end()) {
                             const auto& h2pmap2 = hexb.h2pEdgeMap;
-                            const int inx = (res + 3) % 6; ///<ÁÙ½üÏß¶Î¶ÔÓ¦Áù½ÇÍø¸ñ±ßµÄË÷Òý
+                            const int inx = (res + 3) % 6; ///<ä¸´è¿‘çº¿æ®µå¯¹åº”å…­è§’ç½‘æ ¼è¾¹çš„ç´¢å¼•
                             const auto& itr2 = h2pmap2.find(inx);
                             if (itr2 != h2pmap2.end()) {
                                 hexas.polys[i].edges[itr1->second].neighbor = j;
@@ -385,17 +385,17 @@ namespace topomesh
         }
         for (int i = 0; i < nums; ++i) {
             for (int j = 0; j < nums; ++j) {
-                //¸üÐÂ²Ã¼ô±ß¶ÔÓ¦¹ØÏµ
+                //æ›´æ–°è£å‰ªè¾¹å¯¹åº”å…³ç³»
                 if (associatehoods[i][j] && (neighborhoods[i][j]) && (j != i)) {
                     const auto& hexa = hexas.polys[i];
                     const auto& hexb = hexas.polys[j];
                     int res = int(hex_neighbor(hexa.coord, hexb.coord));
                     if (res >= 0) {
                         const auto& h2pmap1 = hexa.h2pPointMap;
-                        auto itr1 = h2pmap1.find(res); ///<µ±Ç°Ïß¶ÎÆðÊ¼µãÎªÁù½ÇÍø¸ñÍø¸ñ¶¥µã
+                        auto itr1 = h2pmap1.find(res); ///<å½“å‰çº¿æ®µèµ·å§‹ç‚¹ä¸ºå…­è§’ç½‘æ ¼ç½‘æ ¼é¡¶ç‚¹
                         if (itr1 != h2pmap1.end()) {
                             const auto& h2pmap2 = hexb.h2pPointMap;
-                            const int inx = (res + 3 + 1) % 6; ///<¹ØÁªÏß¶ÎÖÕµãÎªÁù½ÇÍø¸ñÍø¸ñ¶¥µã
+                            const int inx = (res + 3 + 1) % 6; ///<å…³è”çº¿æ®µç»ˆç‚¹ä¸ºå…­è§’ç½‘æ ¼ç½‘æ ¼é¡¶ç‚¹
                             const auto& itr2 = h2pmap2.find(inx);
                             if (itr2 != h2pmap2.end()) {
                                 const int sizeb = hexb.poly.size();
@@ -409,7 +409,7 @@ namespace topomesh
                 }
             }
         }
-        //¸üÐÂÄÚÍâÂÖÀªÖ®¼äµÄÍø¸ñÏàÁÚ¹ØÏµ
+        //æ›´æ–°å†…å¤–è½®å»“ä¹‹é—´çš„ç½‘æ ¼ç›¸é‚»å…³ç³»
         for (int i = 0; i < nums; ++i) {
             for (int j = 0; j < nums; ++j) {
                 if (associatehoods[i][j] && (neighborhoods[i][j]) && (j != i)) {
@@ -418,10 +418,10 @@ namespace topomesh
                     int res = int(hex_neighbor(hexa.coord, hexb.coord));
                     if (res >= 0) {
                         const auto& h2pmap1 = hexa.h2pPointMap;
-                        auto itr1 = h2pmap1.find(res); ///<µ±Ç°Ïß¶ÎÆðÊ¼µãÎªÁù½ÇÍø¸ñÍø¸ñ¶¥µã
+                        auto itr1 = h2pmap1.find(res); ///<å½“å‰çº¿æ®µèµ·å§‹ç‚¹ä¸ºå…­è§’ç½‘æ ¼ç½‘æ ¼é¡¶ç‚¹
                         if (itr1 != h2pmap1.end()) {
                             const auto& h2pmap2 = hexb.h2pPointMap;
-                            const int inx = (res + 3) % 6; ///<¹ØÁªÏß¶ÎÊ¼µãÎªÁù½ÇÍø¸ñÍø¸ñ¶¥µã
+                            const int inx = (res + 3) % 6; ///<å…³è”çº¿æ®µå§‹ç‚¹ä¸ºå…­è§’ç½‘æ ¼ç½‘æ ¼é¡¶ç‚¹
                             const auto& itr2 = h2pmap2.find(inx);
                             if (itr2 != h2pmap2.end()) {
                                 const int sizeb = hexb.poly.size();
@@ -434,10 +434,10 @@ namespace topomesh
                     }
                     if (res >= 0) {
                         const auto& h2pmap1 = hexa.h2pPointMap;
-                        auto itr1 = h2pmap1.find((res + 1) % 6); ///<µ±Ç°Ïß¶ÎÖÕµãµãÎªÁù½ÇÍø¸ñÍø¸ñ¶¥µã
+                        auto itr1 = h2pmap1.find((res + 1) % 6); ///<å½“å‰çº¿æ®µç»ˆç‚¹ç‚¹ä¸ºå…­è§’ç½‘æ ¼ç½‘æ ¼é¡¶ç‚¹
                         if (itr1 != h2pmap1.end()) {
                             const auto& h2pmap2 = hexb.h2pPointMap;
-                            const int inx = (res + 3 + 1) % 6; ///<¹ØÁªÏßÖÕµãÎªÁù½ÇÍø¸ñÍø¸ñ¶¥µã
+                            const int inx = (res + 3 + 1) % 6; ///<å…³è”çº¿ç»ˆç‚¹ä¸ºå…­è§’ç½‘æ ¼ç½‘æ ¼é¡¶ç‚¹
                             const auto& itr2 = h2pmap2.find(inx);
                             if (itr2 != h2pmap2.end()) {
                                 const int sizea = hexa.poly.size();
@@ -452,6 +452,7 @@ namespace topomesh
                 }
             }
         }
+        //æ›´æ–°å…³è”å…³ç³»(ç»¼åˆneighborä¸Žassociate)
         for (int i = 0; i < nums; ++i) {
             const int size = hexas.polys[i].poly.size();
             for (int j = 0; j < size; ++j) {
@@ -464,7 +465,7 @@ namespace topomesh
         const float cdelta = param.delta + 2 * cradius;
         const float cheight = param.height + cradius;
         float cmax = param.height + 2 * cradius;
-        //¸üÐÂÁùÀâÖùÃ¿¸ö¿É¼Ó¿×¶´²àÃæ×îµÍµã×î¸ßµã×ø±êÖµ
+        //æ›´æ–°å…­æ£±æŸ±æ¯ä¸ªå¯åŠ å­”æ´žä¾§é¢æœ€ä½Žç‚¹æœ€é«˜ç‚¹åæ ‡å€¼
         for (auto& hexa : hexas.polys) {
             const int polysize = hexa.poly.size();
             for (int j = 0; j < polysize; ++j) {

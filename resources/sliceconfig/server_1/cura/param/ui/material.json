@@ -1,0 +1,358 @@
+{
+  "name": "FDM Printer Material Description",
+  "version": 2,
+  "children": [
+    {
+      "label": "Filament",
+      "children": [
+        {
+          "label": "Base information",
+          "children": [
+            {
+              "key": "material_name",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "material_type",
+              "label": "Material Type",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "material_brand",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "material_color",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "material_density",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "material_diameter",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "material_max_volumetric_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_cost",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "filament_weight",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "material_pressure_advance",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "material_advance_length",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "material_description",
+              "component": "text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Print temperature",
+          "children": [
+            {
+              "key": "material_print_temperature",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "material_print_temperature_layer_0",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "material_final_print_temperature",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "material_bed_temperature",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "material_bed_temperature_layer_0",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Volumetric speed limitation",
+          "children": [
+            {
+              "key": "material_max_volumetric_speed",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Flow",
+      "children": [
+        {
+          "label": "Flow",
+          "children": [
+            {
+              "key": "wall_0_material_flow",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "wall_x_material_flow",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "skin_material_flow",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "infill_material_flow",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "prime_tower_flow",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "material_flow_layer_0",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Cools",
+      "children": [
+        {
+          "label": "Cooling for specific layer",
+          "children": [
+            {
+              "key": "cool_fan_speed_0",
+              "component": "check_box",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Part cooling fan",
+          "children": [
+            {
+              "key": "cool_fan_enabled",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "cool_fan_speed_min",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "cool_fan_speed_max",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "cool_min_layer_time_fan_speed_max",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "cool_overhang_bridge_force_cooling",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "cool_overhang_threshold",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "cool_overhang_fan_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "cool_small_feature_fan_speed_factor",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "bridge_fan_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "support_fan_enable",
+              "component": "check_box",
+              "level": 0
+            },
+            {
+              "key": "support_supported_skin_fan_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "cool_fan_full_layer",
+              "component": "int_text_field",
+              "level": 1
+            },
+            {
+              "key": "cool_min_layer_time",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "cool_infill_speed_slowdown_first",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "cool_min_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "cool_lift_head",
+              "component": "check_box",
+              "level": 1
+            }
+
+          ]
+        },
+        {
+          "label": "Auxiliary part cooling fan",
+          "children": [
+            {
+              "key": "cool_cds_fan_enable",
+              "component": "check_box",
+              "level": 2
+            } ,
+            {
+              "key": "cool_cds_fan_speed",
+              "component": "float_text_field",
+              "level": 2
+            } ,
+            {
+              "key": "cool_special_cds_fan_speed",
+              "component": "float_text_field",
+              "level": 1
+            } ,
+            {
+              "key": "cool_cds_fan_start_at_height",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "cool_chamber_fan_enable",
+              "component": "check_box",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Overrides",
+      "children": [
+        {
+          "label": "Extruder",
+          "children": [
+            {
+              "key": "retraction_enable",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "retraction_amount",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "retraction_hop_enabled",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "retraction_hop",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "retraction_retract_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "retraction_prime_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "retraction_extra_prime_amount",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "travel_avoid_distance",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "retract_at_layer_change",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "retraction_wipe",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "wipe_length",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "before_wipe_retraction_amount_percent",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 /lib
 /.vscode
 /.idea
+.cache
 .DS_Store
 /plugins/CrealityUI/CrealityUId.pdb
 /plugins/CrealityUI/CrealityUId.dll

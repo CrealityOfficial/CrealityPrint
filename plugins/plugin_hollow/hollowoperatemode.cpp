@@ -12,12 +12,13 @@
 #include "interface/uiinterface.h"
 
 #include "kernel/kernel.h"
+#include "kernel/kernelui.h"
 
-#include "data/fdmsupportgroup.h"
 #include "data/modelspace.h"
 #include "data/modeln.h"
 
 #include "hollowjob.h"
+#include "interface/printerinterface.h"
 
 HollowOperateMode::HollowOperateMode(QObject* parent)
     : MoveOperateMode(parent)
@@ -26,7 +27,10 @@ HollowOperateMode::HollowOperateMode(QObject* parent)
     , fill_ratio_(0.5f)
     , fill_enabled_(false)
     , popup_visible_(false)
-    , message_text_() {}
+    , message_text_() 
+{
+	m_type = qtuser_3d::SceneOperateMode::FixedMode;
+}
 
 HollowOperateMode::~HollowOperateMode() {
   if (timer_.isActive()) {
@@ -38,12 +42,6 @@ void HollowOperateMode::onAttach() {
   MoveOperateMode::onAttach();
 
   bool has_support{ false };
-  for (auto* model : creative_kernel::selectionms()) {
-    if (model->hasFDMSupport()) {
-      has_support = true;
-      break;
-    }
-  }
 
   if (has_support) {
     setMessageText(tr("This operation will delete the support.Do you want to continue?"));
@@ -75,6 +73,7 @@ void HollowOperateMode::jobFinished(bool successed) {
     setMessageText(tr("Hollow failed"));
     creative_kernel::requestQmlDialog("messageDlg");
   }
+  getKernelUI()->setAutoResetOperateMode(true);
 }
 
 void HollowOperateMode::timerUpdate() {
@@ -87,6 +86,7 @@ void HollowOperateMode::timerUpdate() {
     timer_.stop();
     resetModelsVisibility();
     creative_kernel::setModelEffectClipMaxZSceneTop();
+    creative_kernel::updateAllPrinterContent();
   }
 
   creative_kernel::requestVisUpdate(true);
@@ -117,9 +117,6 @@ void HollowOperateMode::hollow(float thinkness, int type) {
   for (auto* model : selected_model_list) { // 选中的且可见的模型才打洞
     box += model->boxWithSup();
 
-    if (model->hasFDMSupport()) {
-        model->fdmSupport()->clearSupports();
-    }
     if (model->isVisible()) {
       job->appendModel(model);
     }
@@ -127,6 +124,8 @@ void HollowOperateMode::hollow(float thinkness, int type) {
 
   creative_kernel::requestVisUpdate(true);
   model_max_height_ = box.max.z();
+  
+  getKernelUI()->setAutoResetOperateMode(false);
   cxkernel::executeJob(job);
 }
 
@@ -157,13 +156,10 @@ void HollowOperateMode::resetModelsVisibility() const {
 }
 
 bool HollowOperateMode::isPopupVisible() {
-  return popup_visible_;
+  return true;
 }
 
 void HollowOperateMode::accept() {
-  for (auto* model : creative_kernel::selectionms()) {
-    model->fdmSupport()->clearSupports();
-  }
 }
 
 void HollowOperateMode::cancel() {

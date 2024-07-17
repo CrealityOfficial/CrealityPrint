@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.3
 import CrealityUI 1.0
 import "qrc:/CrealityUI"
 import ".."
+import "../components"
 import "../qml"
 DockItem {
     id: idDialog
@@ -24,7 +25,16 @@ DockItem {
         ListElement{key:qsTr("End traffic");text: "20";value: "20"}
         ListElement{key:qsTr("Flow step");text: "0.5";value: "0.5"}
     }
-
+    UploadMessageDlg2 {
+        id: flowWarning
+        objectName: "flowWarning"
+        property var receiver
+        visible: false
+        messageType:0
+        cancelBtnVisible: false
+        msgText: qsTr("The starting flow rate cannot exceed the ending flow rate")
+        onSigOkButtonClicked:flowWarning.visible = false
+    }
 
 
     Column
@@ -92,6 +102,12 @@ DockItem {
             hoveredBtnBgColor: Constants.leftToolBtnColor_hovered
             onSigButtonClicked:
             {
+                let startTemp = _aModel.get(0).value
+                let endTemp = _aModel.get(1).value
+                if(+startTemp>+endTemp){
+                    flowWarning.visible = true
+                    return
+                }
                 close()
                 sigGenerate(_aModel.get(0).value,_aModel.get(1).value,_aModel.get(2).value)
             }

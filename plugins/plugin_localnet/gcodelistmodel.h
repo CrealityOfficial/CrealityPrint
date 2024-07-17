@@ -21,6 +21,7 @@ public:
 	Q_INVOKABLE void switchDataSource(const QString& macAddr, RemotePrinerType remoteType, bool init = true);
 	Q_INVOKABLE void importMultiFile(const QString& macAddr, const QString& ipAddress, const QList<QUrl>& fileUrls);
 	Q_INVOKABLE void downloadGcodeFile(const QString& macAddr, const QString& ipAddress, const QString& fileName, const QString& localPath, const int& remoteType);
+	
 	void onGetExportProgress(const QString& ipAddress, const QString& fileName, const float& progress);
 
 	int printerType() const;
@@ -62,6 +63,7 @@ public:
 	enum GCodeFieldType
 	{
 		E_GCodeFileName,
+		E_GCodePrefixPath,
 		E_GCodeFileSize,
 		E_GCodeFileTime,
 		E_GCodeLayerHeight,
@@ -72,6 +74,7 @@ public:
 	};
 
 	Q_PROPERTY(QString gCodeFileName	    READ gCodeFileName		  WRITE setGCodeFileName		NOTIFY gCodeFileNameChanged)
+	Q_PROPERTY(QString gCodePrefixPath	    READ gCodePrefixPath		  WRITE setGCodePrefixPath		NOTIFY gCodePrefixPathChanged)
 	Q_PROPERTY(QString gCodeFileSize	    READ gCodeFileSize		  WRITE setGCodeFileSize		NOTIFY gCodeFileSizeChanged)
 	Q_PROPERTY(QString gCodeFileTime	    READ gCodeFileTime		  WRITE setGCodeFileTime		NOTIFY gCodeFileTimeChanged)
 	Q_PROPERTY(QString gCodeLayerHeight	    READ gCodeLayerHeight     WRITE setGCodeLayerHeight     NOTIFY gCodeLayerHeightChanged)
@@ -86,6 +89,9 @@ public:
 
 	const QString& gCodeFileName() const;
 	void setGCodeFileName(const QString& fileName);
+
+	const QString& gCodePrefixPath() const;
+	void setGCodePrefixPath(const QString& path);
 
 	const QString& gCodeFileSize() const;
 	void setGCodeFileSize(const QString& fileSize);
@@ -111,6 +117,7 @@ public:
 
 signals:
 	void gCodeFileNameChanged();
+	void gCodePrefixPathChanged();
 	void gCodeFileSizeChanged();
 	void gCodeFileTimeChanged();
 	void gCodeLayerHeightChanged();
@@ -121,6 +128,7 @@ signals:
 
 private:
 	QString m_gCodeFileName;
+	QString m_gCodePrefixPath;
 	QString m_gCodeFileSize;
 	QString m_gCodeFileTime;
 	QString m_gCodeLayerHeight;

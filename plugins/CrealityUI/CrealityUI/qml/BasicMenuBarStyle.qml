@@ -4,16 +4,29 @@ import QtQml 2.3
 import QtQuick 2.0
 import QtQuick.Controls 2.12
 import "qrc:/CrealityUI"
+import "qrc:/CrealityUI/cxcloud"
 
 MenuBar {
     id: idMenuBar
 
-    property var controlEnabled: kernel_kernel.currentPhase == 0
-    property var isFDMPrinter: kernel_parameter_manager.functionType == 0
-    property var isLaserPrinter: kernel_parameter_manager.functionType == 1
-    property var isCNCPrinter: kernel_parameter_manager.functionType == 2
+    property var controlEnabled: kernel_kernel.currentPhase === 0
+    property var isFDMPrinter: kernel_parameter_manager.functionType === 0
+    property var isLaserPrinter: kernel_parameter_manager.functionType === 1
+    property var isCNCPrinter: kernel_parameter_manager.functionType === 2
+    property bool logined: cxkernel_cxcloud.accountService.logined
+    property var cloudContext: standaloneWindow.cloudContext
 
     signal barItemTriggered()
+
+    function validLogin(cb, showUserDialog = true) {
+        if (!logined)
+            return cloudContext.loginDialog.show();
+
+        cb();
+        if (showUserDialog)
+            cloudContext.userInfoDialog.show();
+
+    }
 
     function indexOfMenu(menu) {
         let menu_list = idMenuBar.menus;
@@ -48,8 +61,6 @@ MenuBar {
     }
 
     BasicMenu {
-        // ...
-
         id: fileMenu
 
         title: qsTr("File(&F)")
@@ -133,13 +144,22 @@ MenuBar {
         }
 
         BasicMenuItem {
-            id: __closeProject
+            id: __importPresetConfig
 
             separatorVisible: true
-            actionName: qsTr("Close")
-            actionShortcut: "Ctrl+Q"
+            actionName: qsTr("Import Preset Config")
             onTriggered: {
-                excuteOpt("Close");
+                excuteOpt("Import Preset");
+            }
+        }
+
+        BasicMenuItem {
+            id: __exportPresetConfig
+
+            separatorVisible: true
+            actionName: qsTr("Export Preset Config")
+            onTriggered: {
+                excuteOpt("Export Preset");
             }
         }
 
@@ -165,6 +185,18 @@ MenuBar {
             }
         }
 
+        BasicMenuItem {
+            id: __closeProject
+
+            separatorVisible: true
+            actionName: qsTr("Close")
+            actionShortcut: "Ctrl+Q"
+            onTriggered: {
+                excuteOpt("Close");
+            }
+        }
+        // ...
+
     }
 
     BasicMenu {
@@ -185,7 +217,7 @@ MenuBar {
             separatorVisible: true
             actionName: qsTr("Redo")
             enabled: controlEnabled && isFDMPrinter
-            actionShortcut: "Ctrl+Shift+Z"
+            actionShortcut: "Ctrl+Y"
             onTriggered: {
                 excuteOpt("Redo");
             }
@@ -194,7 +226,7 @@ MenuBar {
         BasicMenuItem {
             separatorVisible: true
             actionName: qsTr("Copy")
-            enabled: controlEnabled && isFDMPrinter
+            enabled: controlEnabled
             actionShortcut: "Ctrl+C "
             onTriggered: {
                 kernel_ui.onCopy();
@@ -204,7 +236,7 @@ MenuBar {
         BasicMenuItem {
             separatorVisible: true
             actionName: qsTr("Paste")
-            enabled: controlEnabled && isFDMPrinter
+            enabled: controlEnabled
             actionShortcut: "Ctrl+V "
             onTriggered: {
                 kernel_ui.onPaste();
@@ -214,7 +246,7 @@ MenuBar {
         BasicMenuItem {
             separatorVisible: true
             actionName: qsTr("Delete Model")
-            enabled: controlEnabled && isFDMPrinter
+            enabled: controlEnabled
             actionShortcut: "Ctrl+D"
             onTriggered: {
                 excuteOpt("Delete Model");
@@ -224,7 +256,7 @@ MenuBar {
         BasicMenuItem {
             separatorVisible: true
             actionName: qsTr("Clear All")
-            enabled: controlEnabled && isFDMPrinter
+            enabled: controlEnabled
             actionShortcut: "Ctrl+Shift+D"
             onTriggered: {
                 excuteOpt("Clear All");
@@ -232,19 +264,21 @@ MenuBar {
         }
 
         BasicMenuItem {
+            //                excuteOpt("Clone Model")
+
             separatorVisible: true
             actionName: qsTr("Clone Model")
-            enabled: controlEnabled && isFDMPrinter
-            actionShortcut: "Ctrl+Shift+C"
+            enabled: controlEnabled
+            actionShortcut: enabled ? "Ctrl+Shift+C" : ""
             onTriggered: {
-                excuteOpt("Clone Model");
+                kernel_kernelui.otherCommandIndex = 0;
             }
         }
 
         BasicMenuItem {
             separatorVisible: true
             actionName: qsTr("Split Model")
-            enabled: controlEnabled && isFDMPrinter
+            enabled: controlEnabled
             actionShortcut: "Alt+S"
             onTriggered: {
                 excuteOpt("Split Model");
@@ -254,7 +288,7 @@ MenuBar {
         BasicMenuItem {
             separatorVisible: true
             actionName: qsTr("Merge Model")
-            enabled: controlEnabled && isFDMPrinter
+            enabled: controlEnabled
             actionShortcut: "Alt+Shift+M"
             onTriggered: {
                 excuteOpt("Merge Model");
@@ -263,7 +297,7 @@ MenuBar {
 
         BasicMenuItem {
             actionName: qsTr("Merge Model Locations")
-            enabled: isFDMPrinter
+            enabled: controlEnabled && isFDMPrinter
             actionShortcut: "Ctrl+M"
             onTriggered: {
                 excuteOpt("Unit As One");
@@ -273,10 +307,20 @@ MenuBar {
         BasicMenuItem {
             separatorVisible: true
             actionName: qsTr("Select All Model")
-            enabled: controlEnabled && isFDMPrinter
+            enabled: controlEnabled
             actionShortcut: "Ctrl+A"
             onTriggered: {
                 excuteOpt("Select All Model");
+            }
+        }
+
+        BasicMenuItem {
+            separatorVisible: true
+            actionName: qsTr("Reset All Model")
+            enabled: controlEnabled
+            actionShortcut: "Ctrl+Shift+R"
+            onTriggered: {
+                excuteOpt("Reset All Model");
             }
         }
 
@@ -389,10 +433,10 @@ MenuBar {
         }
 
         BasicMenuItem {
-            actionName: qsTr("Log View")
+            actionName: qsTr("Preferences")
             enabled: true
             onTriggered: {
-                excuteOpt("Log View");
+                excuteOpt("Preferences");
             }
         }
 
@@ -440,6 +484,38 @@ MenuBar {
             }
         }
 
+        BasicMenuItem {
+            actionName: qsTr("Download Manage")
+            enabled: controlEnabled && isFDMPrinter
+            onTriggered: validLogin(() => {
+                return cloudContext.downloadManageDialog.show();
+            }, false)
+        }
+
+        BasicMenuItem {
+            actionName: qsTr("My Model")
+            enabled: controlEnabled && isFDMPrinter
+            onTriggered: validLogin(() => {
+                return cloudContext.userInfoDialog.setPage(UserInfoDialog.Page.UPLOADED_MODEL);
+            })
+        }
+
+        BasicMenuItem {
+            actionName: qsTr("My Slice")
+            enabled: controlEnabled && isFDMPrinter
+            onTriggered: validLogin(() => {
+                return cloudContext.userInfoDialog.setPage(UserInfoDialog.Page.UPLOADED_SLICE);
+            })
+        }
+
+        BasicMenuItem {
+            actionName: qsTr("My Devices")
+            enabled: controlEnabled && isFDMPrinter
+            onTriggered: validLogin(() => {
+                return cloudContext.userInfoDialog.setPage(UserInfoDialog.Page.PRINTER);
+            })
+        }
+
     }
 
     BasicMenu {
@@ -456,60 +532,38 @@ MenuBar {
             }
         }
 
-        Menu {
-            id: idMenuFlow
-
-            title: qsTr("Flow")
+        BasicMenuItem {
+            actionName: qsTr("Coarse tune")
             enabled: controlEnabled && isFDMPrinter
-
-            Column {
-                BasicMenuItemStyle {
-                    text: qsTr("Coarse tune")
-                    height: 32 //25
-                    width: 230
-                    separatorVisible: index === 0 ? false : (actionSeparator ? actionSeparator : false)
-                    onTriggered: {
-                        kernel_slice_calibrate.lowflow();
-                        excuteOpt("Coarse tune");
-                    }
-                }
-
-                BasicMenuItemStyle {
-                    text: qsTr("Fine tune")
-                    height: 32 //25
-                    width: 230
-                    separatorVisible: index === 0 ? false : (actionSeparator ? actionSeparator : false)
-                    onTriggered: {
-                        // kernel_slice_calibrate.highflow()
-                        excuteOpt("FlowFineTuning");
-                    }
-                }
-
+            onTriggered: {
+                kernel_slice_calibrate.lowflow();
+                excuteOpt("Coarse tune");
             }
-
         }
 
-        //            BasicMenuItem{
-        //                actionName: qsTr("Coarse tune")
-        //                enabled : controlEnabled && isFDMPrinter
-        //                onTriggered: {
-        //    			kernel_slice_calibrate.lowflow()
-        //                    excuteOpt("Coarse tune")
-        //                }
-        //            }
-        //            BasicMenuItem{
-        //                actionName: qsTr("Fine tune")
-        //                enabled : controlEnabled && isFDMPrinter
-        //                onTriggered: {
-        //                // kernel_slice_calibrate.highflow()
-        //                    excuteOpt("FlowFineTuning")
-        //                }
-        //            }
+        BasicMenuItem {
+            // excuteOpt("FlowFineTuning")
+
+            actionName: qsTr("Fine tune")
+            enabled: controlEnabled && isFDMPrinter
+            onTriggered: {
+                kernel_slice_calibrate.highflow(1);
+            }
+        }
+
         BasicMenuItem {
             actionName: qsTr("PA")
             enabled: controlEnabled && isFDMPrinter
             onTriggered: {
                 excuteOpt("PA");
+            }
+        }
+
+        BasicMenuItem {
+            actionName: qsTr("Retraction test")
+            enabled: controlEnabled && isFDMPrinter
+            onTriggered: {
+                excuteOpt("Retraction");
             }
         }
 
@@ -597,6 +651,14 @@ MenuBar {
                 }
             }
 
+        }
+
+        BasicMenuItem {
+            actionName: qsTr("Log View")
+            enabled: true
+            onTriggered: {
+                excuteOpt("Log View");
+            }
         }
 
         BasicMenuItem {

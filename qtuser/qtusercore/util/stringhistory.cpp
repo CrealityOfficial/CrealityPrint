@@ -1,5 +1,5 @@
 #include "stringhistory.h"
-#include <QtCore/QSettings>
+#include "qtusercore/util/settings.h"
 
 namespace qtuser_core
 {
@@ -13,7 +13,7 @@ namespace qtuser_core
 		if (m_stringsID.isEmpty())
 			m_stringsID = QString("DefaultFilesID");
 
-		QSettings settings;
+		qtuser_core::VersionSettings settings;
 		if (!settings.value(m_countID).isValid())
 			settings.setValue(m_countID, QVariant(4));
 
@@ -29,7 +29,7 @@ namespace qtuser_core
 
 	QStringList StringHistory::strings()
 	{
-		QSettings settings;
+		qtuser_core::VersionSettings settings;
 		int numOfRecentFiles = settings.value(m_countID, QVariant(4)).toInt();
 		QStringList MyRecentFileList = settings.value(m_stringsID).toStringList();
 
@@ -58,7 +58,7 @@ namespace qtuser_core
 		if (n <= 0)
 			n = 4;
 		{
-			QSettings settings;
+			qtuser_core::VersionSettings settings;
 			settings.setValue(m_countID, QVariant(n));
 		}
 
@@ -68,12 +68,12 @@ namespace qtuser_core
 	{
 		if (str.isEmpty())
 			return;
-		QSettings settings;
+		qtuser_core::VersionSettings settings;
 		QStringList recentFileList = settings.value(m_stringsID).toStringList();
 		recentFileList.removeOne(str);
 		settings.setValue(m_stringsID, QVariant(recentFileList));
 		emit sigDataChange(strings());
-		
+
 	}
 	void StringHistory::setRecentString(const QString& str)
 	{
@@ -81,7 +81,7 @@ namespace qtuser_core
 			return;
 
 		{
-			QSettings settings;
+			qtuser_core::VersionSettings settings;
 			QStringList recentFileList = settings.value(m_stringsID).toStringList();
 			recentFileList.removeOne(str);
 			recentFileList.append(str);
@@ -94,7 +94,7 @@ namespace qtuser_core
 	void StringHistory::clear()
 	{
 		{
-			QSettings settings;
+			qtuser_core::VersionSettings settings;
 			QStringList recentFileList;
 			settings.setValue(m_stringsID, QVariant(recentFileList));
 		}

@@ -101,13 +101,13 @@ namespace cura52
     }
 
     /*!
-    * 生成悬垂区域
+    * ??????
     *
     *
-    * \param prev_paths [in] 下一层轮廓
-    * \param cur_paths [in] 当前层轮廓
-    * \param layer_width  线宽
-    * \param extendedPoints 每一个轮廓对应的点数据
+    * \param prev_paths [in] ?????
+    * \param cur_paths [in] ?????
+    * \param layer_width  ??
+    * \param extendedPoints ???????????
     */
     bool processEstimatePoints(const Polygons& prev_paths, const Polygons& cur_paths, const coord_t layer_width, std::vector<std::vector<Slic3r::ExtendedPoint>>& extendedPoints)
     {
@@ -195,7 +195,7 @@ namespace cura52
                     line.start_idx = line.junctions.size() - 1;
                 }
 
-                //拦截z 缝flag
+                //??z ?flag
                 std::vector<Point> vctIntercept;
                 for (ExtrusionJunction& J:line.junctions)
                 {
@@ -204,7 +204,7 @@ namespace cura52
                         vctIntercept.push_back(J.p);
                     }
                 }
-				//涂抹z 缝flag
+				//??z ?flag
 				std::vector<Point> vctPaint;
 				for (ExtrusionJunction& J : line.junctions)
 				{

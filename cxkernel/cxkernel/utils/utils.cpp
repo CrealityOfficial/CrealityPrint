@@ -10,6 +10,8 @@
 #include <QStandardPaths>
 #include <QDateTime>
 #include "qtusercore/string/stringtool.h"
+#include "qtusercore/module/systemutil.h"
+
 namespace cxkernel
 {
 	void circleDirectory(const QString& directory, circleLoadFunc func)
@@ -76,7 +78,7 @@ namespace cxkernel
 	}
 	void clearModelSerializeData()
 	{
-		QString strPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/RecentSerializeModel/";
+		QString strPath = qtuser_core::getOrCreateAppDataLocation("RecentSerializeModel/");
 		QDir d(strPath);
 		if (!d.exists())
 		{
@@ -91,7 +93,7 @@ namespace cxkernel
 	}
 	QString getSerializeModelName(QString model_name)
 	{
-		QString strPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/RecentSerializeModel/";
+		QString strPath = qtuser_core::getOrCreateAppDataLocation("RecentSerializeModel/");
 		QDir d(strPath);
 		if (!d.exists())
 		{

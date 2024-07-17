@@ -34,9 +34,9 @@
 **
 ****************************************************************************/
 
-import QtQuick 2.12
-import QtQuick.Controls 2.12
-import QtQuick.Controls.impl 2.12
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 
 import "../qml"
 
@@ -52,48 +52,24 @@ ScrollView {
     property int horizontalHeight: 10
 
     property bool hpolicyVisible: false
-    property alias hpolicyindicator: idHScroll.contentItem
+    property Item hpolicyindicator
 
     property bool bgVisible: false
     property bool vpolicyVisible: true
-    property alias vpolicyindicator: idVScroll.contentItem
+    property Item vpolicyindicator
 
-    property alias hSize: idHScroll.size
-    property alias vSize: idVScroll.size
-    property alias hPosition: idHScroll.position
-    property alias vPosition: idVScroll.position
-    property alias hPolicy: idHScroll.policy
-    property alias vPolicy: idVScroll.policy
+    property real hSize
+    property real vSize
+    property real hPosition
+    property real vPosition
+    property real hPolicy
+    property real vPolicy
     hoverEnabled: true
 
     function setVScrollBarPosition(value){
         idVScroll.position = value
     }
-
-    ScrollBar.vertical: ScrollBar {
-        id: idVScroll
-        parent: control
-        x: control.mirrored ? 0 : control.width - width
-        y: control.topPadding
-        visible: vpolicyVisible
-        width: verticalWidth
-        height: control.availableHeight
-        active: control.ScrollBar.horizontal.active
-        policy: ScrollBar.AlwaysOn
-    }
-
-    ScrollBar.horizontal: ScrollBar {
-        id: idHScroll
-        parent: control
-        x: control.leftPadding
-        y: control.height - height
-        visible: hpolicyVisible
-        width: control.availableWidth
-        height: horizontalHeight
-        active: control.ScrollBar.vertical.active
-        policy: ScrollBar.AlwaysOn
-    }
-
+    ScrollBar.vertical.policy: (contentHeight > height) ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
     background: Rectangle
     {
         visible: bgVisible

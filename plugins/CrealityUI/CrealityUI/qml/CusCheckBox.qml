@@ -2,7 +2,6 @@ import QtQuick 2.0
 
 import QtQuick.Controls 2.5
 import QtQuick.Controls.Styles 1.4
-import "../secondqml"
 CheckBox {
     id:control
     property color textColor : Constants.textColor
@@ -15,22 +14,19 @@ CheckBox {
     property string indicatorImage: isGroupPrintUsed ? "qrc:/UI/images/check3.png"
                                                      : checked ? "qrc:/UI/images/check2.png" : ""
     property color indicatorColor: isGroupPrintUsed ? "#F9F9F9"
-                                                    : checked ? "#009CFF" : "transparent"
+                                                    : checked ? "#17CC5F" : "transparent"
     property color indicatorBorderColor:
-        isGroupPrintUsed && hovered ? "#828790"
+        isGroupPrintUsed && hovered ? "#829087"
                                     : checked || hovered ? Constants.textRectBgHoveredColor
                                                          : Constants.dialogItemRectBgBorderColor
 
     property int indicatorWidth: 16* screenScaleFactor
     property int indicatorHeight: 16* screenScaleFactor
-
-    hoverEnabled: true
-
     signal styleCheckChanged(var key, var item)
 
-    BasicTooltip {
+    ToolTip {
         id: tipCtrl
-        visible: control.hovered && (control.strToolTip != '')
+        visible: hovered&&strToolTip ? true : false
         //timeout: 2000
         delay: 100
         width: 400
@@ -61,17 +57,17 @@ CheckBox {
     }
     height: indicatorHeight
     contentItem: Label {
-            color: enabled ? textColor : "gray"
-            text: control.text
-            /*font: Constants.labelFontFamily*/
-            font.family: Constants.labelFontFamily
-            horizontalAlignment: Text.AlignLeft
-            verticalAlignment: Text.AlignVCenter
-            renderType: Text.NativeRendering
-            elide: Text.ElideRight
-            leftPadding: control.indicator.width
-            rightPadding: control.rightPadding
-        }
+        color: enabled ? textColor : "gray"
+        text: control.text
+        /*font: Constants.labelFontFamily*/
+        font.family: Constants.labelFontFamily
+        horizontalAlignment: Text.AlignLeft
+        verticalAlignment: Text.AlignVCenter
+        renderType: Text.NativeRendering
+        elide: Text.ElideRight
+        leftPadding: control.indicator.width
+        rightPadding: control.rightPadding
+    }
 
     indicator: Item{
         implicitWidth: indicatorWidth

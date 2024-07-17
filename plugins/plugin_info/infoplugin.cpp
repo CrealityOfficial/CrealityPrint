@@ -2,9 +2,9 @@
 
 #include "interface/spaceinterface.h"
 #include "interface/uiinterface.h"
-
+#include "interface/selectorinterface.h"
 #include "zsliderinfo.h"
-
+#include "infoprovider.h"
 using namespace creative_kernel;
 InfoPlugin::InfoPlugin(QObject* parent)
 	: QObject(parent)
@@ -14,6 +14,8 @@ InfoPlugin::InfoPlugin(QObject* parent)
 {
     m_sliderInfo = new ZSliderInfo(this);
     registerContextObject("plugin_info_sliderinfo", m_sliderInfo);
+    m_InfoProvider = new creative_kernel::InfoProvider(this);
+    registerContextObject("plugin_info", m_InfoProvider);
 }
 
 InfoPlugin::~InfoPlugin()
@@ -34,6 +36,9 @@ QString InfoPlugin::info()
 void InfoPlugin::initialize()
 {
     traceSpace(m_sliderInfo);
+    traceSpace(m_InfoProvider);
+
+    addSelectTracer(m_InfoProvider);
 }
 
 void InfoPlugin::uninitialize()

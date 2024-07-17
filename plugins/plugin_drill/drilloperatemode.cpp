@@ -57,7 +57,7 @@ void SyncDirectionToVector3D(DrillOperateMode::Direction direction, QVector3D& v
 } // namespace
 
 DrillOperateMode::DrillOperateMode(QObject* parent)
-    : qtuser_3d::SceneOperateMode(parent)
+    : SceneOperateMode(parent)
     , one_layer_only_(true)
     , radius_(5.0f)
     , depth_(50.0f)
@@ -65,6 +65,7 @@ DrillOperateMode::DrillOperateMode(QObject* parent)
     , direction_(Direction::NORMAL_DIRECTION)
     , mesh_(nullptr)
     , entity_([]()->decltype(entity_) {
+
       auto entity = std::make_unique<qtuser_3d::XEntity>();
 
       qtuser_3d::PhongRenderPass*renderPass = new qtuser_3d::PhongRenderPass(entity.get());
@@ -77,7 +78,10 @@ DrillOperateMode::DrillOperateMode(QObject* parent)
 
       entity->setParameter("color", QVector4D(1.0, 0.753, 0.0, 1.0));
       return entity;
-    }()) {}
+    }()) 
+{
+    m_type = qtuser_3d::SceneOperateMode::FixedMode;
+}
 
 bool DrillOperateMode::isOneLayerOnly() const {
   return one_layer_only_;
@@ -121,10 +125,8 @@ void DrillOperateMode::setDirection(Direction direction) {
 
 void DrillOperateMode::onAttach() {
   auto selections = creative_kernel::selectionms();
-  if (selections.empty())
-    return;
-
-  m_model = selections.first();
+  if (!selections.empty())
+    m_model = selections.first();
 
   creative_kernel::addSelectTracer(this);
   creative_kernel::addHoverEventHandler(this);
@@ -143,20 +145,21 @@ void DrillOperateMode::onDettach() {
 
 void DrillOperateMode::onHoverMove(QHoverEvent* event) {
   creative_kernel::visHide(entity_.get());
+ 
+  // if (m_model == NULL)
+  //   return;
 
-  if (m_model == NULL)
-    return;
+  // if (creative_kernel::selectionms().empty()) {
+  //   return;
+  // }
 
-  if (creative_kernel::selectionms().empty()) {
-    return;
-  }
 
-  QVector3D position_3d{ 0.0f, 0.0f, 0.0f };
-  QVector3D direction_3d{ 0.0f, 0.0f, 0.0f };
-  auto* model = creative_kernel::checkPickModel(event->pos(), position_3d, direction_3d);
-  if (model == nullptr) {
-    return;
-  }
+   QVector3D position_3d{ 0.0f, 0.0f, 0.0f };
+   QVector3D direction_3d{ 0.0f, 0.0f, 0.0f };
+   auto* model = creative_kernel::checkPickModel(event->pos(), position_3d, direction_3d);
+   if (model == nullptr) {
+     return;
+   }
 
   SyncDirectionToVector3D(direction_, direction_3d);
   //direction_3d = qtuser_3d::vec2qvector(trimesh::normalized(qtuser_3d::qVector3D2Vec3(direction_3d)));
@@ -202,13 +205,14 @@ void DrillOperateMode::onLeftMouseButtonClick(QMouseEvent* event) {
   param.cylinder_radius     = radius_;
   param.cylinder_depth      = one_layer_only_ ? -1 : depth_;
   param.cylinder_startPos   = qtuser_3d::qVector3D2Vec3(position_3d);
-  param.cylinder_Dir        = -trimesh::normalized(qtuser_3d::qVector3D2Vec3(direction_3d));
+  param.cylinder_Dir        = - trimesh::normalized(qtuser_3d::qVector3D2Vec3(direction_3d));
 
   auto job = QSharedPointer<DrillJob>::create();
   job->setModel(model);
   job->setParam(param);
   connect(job.get(), &DrillJob::finished, this, [=](creative_kernel::ModelN* newModel) {
     m_dirlling = false;
+    getKernelUI()->setAutoResetOperateMode(true);
     if (newModel != NULL) 
     { 
       creative_kernel::selectOne(newModel);
@@ -217,6 +221,7 @@ void DrillOperateMode::onLeftMouseButtonClick(QMouseEvent* event) {
     getKernelUI()->requestQmlTipDialog(QCoreApplication::translate("info", "Drill failed"));
   });
 
+  getKernelUI()->setAutoResetOperateMode(false);
   m_dirlling = true;
   cxkernel::executeJob(job);
 }
@@ -229,7 +234,7 @@ void DrillOperateMode::onSelectionsChanged()
   auto selections = creative_kernel::selectionms();
   if (selections.empty())
   {
-    creative_kernel::visHide(entity_.get());
+    // creative_kernel::visHide(entity_.get());
     m_model = NULL;
     return;
   } 

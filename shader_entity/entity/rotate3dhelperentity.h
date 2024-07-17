@@ -9,7 +9,8 @@
 #include "qtuser3d/event/eventhandlers.h"
 #include "qtuser3d/module/manipulatecallback.h"
 #include "qtuser3d/refactor/xentity.h"
-
+#include "entity/rotatehelperentity_T.h"
+#include "qtuser3d/camera/screencamera.h"
 
 namespace qtuser_3d
 {
@@ -18,13 +19,14 @@ namespace qtuser_3d
 	class FacePicker;
 	class ScreenCamera;
 	class RotateCallback;
+	class CameraController;
 
 	class SHADER_ENTITY_API Rotate3DHelperEntity : public XEntity,
-		public RotateCallback
+		public RotateCallback, public qtuser_3d::ScreenCameraObserver
 	{
 		Q_OBJECT
 	public:
-		Rotate3DHelperEntity(Qt3DCore::QNode* parent = nullptr);
+		Rotate3DHelperEntity(Qt3DCore::QNode* parent = nullptr, RotateHelperType rotateHelperType = RotateHelperType::RH_NORMAL);
 		virtual ~Rotate3DHelperEntity();
 
 		QList<Pickable*> getPickables();
@@ -37,9 +39,6 @@ namespace qtuser_3d
 		inline void setXVisibility(bool visibility);
 		inline void setYVisibility(bool visibility);
 		inline void setZVisibility(bool visibility);
-		
-		void setScale(float scaleRate);
-		void setInitScale(float initScale);
 
 		QVector3D getCurrentRotateAxis();
 		double getCurrentRotAngle();
@@ -47,9 +46,15 @@ namespace qtuser_3d
 		Pickable* xPickable();
 		Pickable* yPickable();
 		Pickable* zPickable();
+		Pickable* camViewPickable();
+
+		void setCameraController(CameraController* controller);
+		void attach();
+		void detach();
 
 	public slots:
 		void onBoxChanged(Box3D box);
+		//void slotCameraChanged(QVector3D position, const QVector3D upVector);
 
 	protected:
 		bool shouldStartRotate();
@@ -58,12 +63,20 @@ namespace qtuser_3d
 		void onEndRotate(QQuaternion q) override;
 		void setRotateAngle(QVector3D axis, float angle) override;
 
+		void onCameraChanged(ScreenCamera* camera) override;
+
+		void setScale(float scaleRate);
+		void adaptScale();
 	private:
 		RotateHelperEntity_T* m_pXRotHelper;
 		RotateHelperEntity_T* m_pYRotHelper;
 		RotateHelperEntity_T* m_pZRotHelper;
+		RotateHelperEntity_T* m_pCamViewRotHelper;
 
 		RotateCallback* m_pRotateCallback;
+		CameraController* m_pCameraController;
+
+		QVector3D m_center;
 	};
 }
 

@@ -49,6 +49,7 @@ namespace cura52
     class MeshFace
     {
     public:
+    int color = 0;
         int vertex_index[3] = { -1 }; //!< counter-clockwise ordering
         int connected_face_index[3]; //!< same ordering as vertex_index (connected_face 0 is connected via vertex 0 and 1, etc.)
     };
@@ -69,11 +70,13 @@ namespace cura52
         std::vector<MeshFace> faces; //!< list of all faces in the mesh
         Settings settings;
         std::string mesh_name;
+    std::vector<int> colors;
 
         Mesh(Settings& parent);
         Mesh();
 
         void addFace(Point3& v0, Point3& v1, Point3& v2); //!< add a face to the mesh without settings it's connected_faces.
+    void addFace(Point3& v0, Point3& v1, Point3& v2,int color); //!< add a face to the mesh without settings it's connected_faces.
         void clear(); //!< clears all data
         void finish(); //!< complete the model : set the connected_face_index fields of the faces.
 

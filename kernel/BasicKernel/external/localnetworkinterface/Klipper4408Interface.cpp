@@ -4,7 +4,7 @@
 #include "rapidjson/writer.h"
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
-
+#include <QVariantMap>
 #include <cmath>
 #include <cpr/cpr.h>
 #include <unordered_map>
@@ -35,6 +35,7 @@ namespace creative_kernel
 			webSocket->fileCallback = fileCallback;
 			webSocket->historyFileListCb = historyFileListCb;
 			webSocket->videoCallback = videoCallback;
+			//webSocket->materialBoxCb = materialBoxListCb;
 			if (m_webSockets.empty())
 			{
 				//auto t = std::thread(std::bind(&boost::asio::io_context::run, m_ioc));
@@ -130,6 +131,31 @@ namespace creative_kernel
 		}
 	}
 
+	void Klipper4408Interface::getMaterialBoxListFromDevice(const std::string& strServerIp, std::function<void(std::string, std::string)> callback)
+	{
+		rapidjson::Document doc; doc.SetObject();
+		rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
+
+		doc.AddMember("method", "get", allocator);
+		rapidjson::Value paramObject(rapidjson::kObjectType);
+		paramObject.AddMember("reqMaterialBoxsInfo", 1, allocator);
+		doc.AddMember("params", paramObject, allocator);
+
+		rapidjson::StringBuffer strbuf;
+		rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
+		doc.Accept(writer);
+
+		std::string json(strbuf.GetString(), strbuf.GetSize());
+
+		if (m_webSockets.find(strServerIp) != m_webSockets.end())
+		{
+			m_pfnMaterialBoxListCb = callback;
+			m_webSockets[strServerIp]->sendTextMessage(json);
+		}
+	}
+
+	
+
 	void Klipper4408Interface::getPrinterInfo(const std::string& strServerIp, int port, std::function<void(std::string, std::string)> callback)
 	{
 		std::string strUrl = "http://" + strServerIp + ":" + std::to_string(port) + cUrlSuffixGetPrinterInfo;
@@ -187,6 +213,11 @@ namespace creative_kernel
 		if (m_pfnHistoryFileListCb) m_pfnHistoryFileListCb(ipAddrClient, fileList);
 	}
 
+		void Klipper4408Interface::slotRetMaterialBoxList(const std::string& ipAddrClient, const std::string& boxList)
+	{
+		if (m_pfnMaterialBoxListCb) m_pfnMaterialBoxListCb(ipAddrClient, boxList);
+	}
+
 	void Klipper4408Interface::controlPrinter(const std::string& strServerIp, const int& port, const PrintControlType& cmdType, const std::string& value)
 	{
 		rapidjson::Document doc; doc.SetObject();
@@ -200,16 +231,27 @@ namespace creative_kernel
 		{
 			case PrintControlType::PRINT_START:
 			{
-				std::string filepath = "/usr/data/printer_data/gcodes/" + value;
-				auto paramValue = rapidjson::Value(("printprt:" + filepath).c_str(), allocator);
+				// std::string filepath = "/usr/data/printer_data/gcodes/" + value;
+				auto paramValue = rapidjson::Value(("printprt:" + value).c_str(), allocator);
 				paramObject.AddMember("opGcodeFile", paramValue, allocator);
 				paramObject.AddMember("enableSelfTest", 0, allocator);
 				break;
 			}
+
+			case PrintControlType::CONTROL_CMD_MULTICOLORPRINT:
+			{
+				// std::string filepath = "/usr/data/printer_data/gcodes/" + value;
+				rapidjson::Value multiColorPrint(rapidjson::kObjectType);
+				rapidjson::Value filepathValue(value.c_str(), allocator);
+				multiColorPrint.AddMember("gcode", filepathValue, allocator);
+				paramObject.AddMember("multiColorPrint", multiColorPrint, allocator);
+				break;
+			}
+
 			case PrintControlType::PRINT_WITH_CALIBRATION:
 			{
-				std::string filepath = "/usr/data/printer_data/gcodes/" + value;
-				auto paramValue = rapidjson::Value(("printprt:" + filepath).c_str(), allocator);
+				// std::string filepath = "/usr/data/printer_data/gcodes/" + value;
+				auto paramValue = rapidjson::Value(("printprt:" + value).c_str(), allocator);
 				paramObject.AddMember("opGcodeFile", paramValue, allocator);
 				paramObject.AddMember("enableSelfTest", 1, allocator);
 				break;
@@ -252,6 +294,12 @@ namespace creative_kernel
 				paramObject.AddMember("fan", atoi(value.c_str()), allocator);
 				break;
 			}
+			case PrintControlType::CONTROL_CMD_HOSTNAME:
+			{
+				auto paramValue = rapidjson::Value(value.c_str(), allocator);
+				paramObject.AddMember("hostname", paramValue, allocator);
+				break;
+			}
 			case PrintControlType::CONTROL_CMD_BEDTEMP:
 			{
 				rapidjson::Value bedTempObject(rapidjson::kObjectType);
@@ -289,6 +337,11 @@ namespace creative_kernel
 			case PrintControlType::CONTROL_CMD_FANAUXILIARY:
 			{
 				paramObject.AddMember("fanAuxiliary", atoi(value.c_str()), allocator);
+				break;
+			}
+			case PrintControlType::CONTROL_CMD_COLORAUTOMATCH:
+			{
+				paramObject.AddMember("colorAutoMatch", atoi(value.c_str()), allocator);
 				break;
 			}
 			case PrintControlType::CONTROL_CMD_RESTART_KLIPPER:
@@ -379,8 +432,8 @@ namespace creative_kernel
 		doc.AddMember("method", "set", allocator);
 		rapidjson::Value paramObject(rapidjson::kObjectType);
 
-		std::string filepath = "/usr/data/printer_data/gcodes/" + filePath;
-		auto paramValue = rapidjson::Value(("deleteprt:" + filepath).c_str(), allocator);
+		//std::string filepath = "/usr/data/printer_data/gcodes/" + filePath;
+		auto paramValue = rapidjson::Value(("deleteprt:" + filePath).c_str(), allocator);
 		paramObject.AddMember("opGcodeFile", paramValue, allocator);
 		doc.AddMember("params", paramObject, allocator);
 
@@ -432,7 +485,7 @@ namespace creative_kernel
 
 		ctrlVideoFilesObject.AddMember("cmd", "remove", allocator);
 		ctrlVideoFilesObject.AddMember("printId", "", allocator);
-		std::string filepath = "\/usr\/data\/\/creality\/userdata\/delay_image\/video\/" + filePath;
+		 std::string filepath =  filePath;
 		auto paramValue = rapidjson::Value(filepath.c_str(), allocator);
 		ctrlVideoFilesObject.AddMember("file", paramValue, allocator);
 		paramObject.AddMember("ctrlVideoFiles", ctrlVideoFilesObject, allocator);
@@ -460,7 +513,7 @@ namespace creative_kernel
 
 		ctrlVideoFilesObject.AddMember("cmd", "rename", allocator);
 		ctrlVideoFilesObject.AddMember("printId", "", allocator);
-		std::string filepath = "\/usr\/data\/\/creality\/userdata\/delay_image\/video\/" + filePath;
+		std::string filepath =  filePath;
 		ctrlVideoFilesObject.AddMember("file", rapidjson::Value(filepath.c_str(), allocator), allocator);
 		ctrlVideoFilesObject.AddMember("targetname", rapidjson::Value(targetName.c_str(), allocator), allocator);
 		paramObject.AddMember("ctrlVideoFiles", ctrlVideoFilesObject, allocator);
@@ -486,9 +539,9 @@ namespace creative_kernel
 		doc.AddMember("method", "set", allocator);
 		rapidjson::Value paramObject(rapidjson::kObjectType);
 
-		std::string filepath = "/usr/data/printer_data/gcodes/" + filePath;
-		std::string targetPath = "/usr/data/printer_data/gcodes/" + targetName;
-		auto paramValue = rapidjson::Value(("renameprt:" + filepath + ":" + targetPath).c_str(), allocator);
+		/*std::string filepath = "/usr/data/printer_data/gcodes/" + filePath;
+		std::string targetPath = "/usr/data/printer_data/gcodes/" + targetName;*/
+		auto paramValue = rapidjson::Value(("renameprt:" + filePath + ":" + targetName).c_str(), allocator);
 		paramObject.AddMember("opGcodeFile", paramValue, allocator);
 		doc.AddMember("params", paramObject, allocator);
 
@@ -498,6 +551,52 @@ namespace creative_kernel
 
 		std::string json(strbuf.GetString(), strbuf.GetSize());
 
+		if (m_webSockets.find(strIp) != m_webSockets.end())
+		{
+			m_webSockets[strIp]->sendTextMessage(json);
+		}
+	}
+
+	void Klipper4408Interface::setMaterialColorMap(const QString& ip, QString path,const QList<QVariantMap>& colorMap)
+	{
+
+	
+		rapidjson::Document doc; doc.SetObject();
+		rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
+
+		doc.AddMember("method", "set", allocator);
+		rapidjson::Value paramObject(rapidjson::kObjectType);
+
+		rapidjson::Value colorArray(rapidjson::kArrayType);
+		rapidjson::Value colorMatch(rapidjson::kObjectType);
+		std::string filepath = path.toStdString();
+		rapidjson::Value filepathValue(filepath.c_str(), allocator);
+		colorMatch.AddMember("path", filepathValue, allocator);
+
+		for (const QVariantMap& colorData : colorMap) {
+			// 解析 colorData 中的数据
+			std::string type = colorData.value("type").toString().toStdString();
+			std::string color = colorData.value("color").toString().toStdString();
+			int boxId = colorData.value("boxId").toInt();
+			int materialId = colorData.value("materialId").toInt();
+			rapidjson::Value arrayItem(rapidjson::kObjectType);
+			arrayItem.AddMember("type", rapidjson::Value(type.c_str(), allocator).Move(), doc.GetAllocator());
+			arrayItem.AddMember("color", rapidjson::Value(color.c_str(), allocator).Move(), doc.GetAllocator());
+			arrayItem.AddMember("boxId", boxId, doc.GetAllocator());
+			arrayItem.AddMember("materialId", materialId, doc.GetAllocator());
+			colorArray.PushBack(arrayItem, doc.GetAllocator());
+		}
+	
+		colorMatch.AddMember("list", colorArray, allocator);
+		paramObject.AddMember("colorMatch", colorMatch, allocator);	
+		doc.AddMember("params", paramObject, allocator);
+
+		rapidjson::StringBuffer strbuf;
+		rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
+		doc.Accept(writer);
+
+		std::string json(strbuf.GetString(), strbuf.GetSize());
+		std::string strIp = ip.toStdString();
 		if (m_webSockets.find(strIp) != m_webSockets.end())
 		{
 			m_webSockets[strIp]->sendTextMessage(json);

@@ -12,9 +12,9 @@ namespace qtuser_3d
 {
 	class LineExEntity;
 	class AlonePointEntity;
+	class SplitPlane;
 }
 
-class SplitPlane;
 class SplitOp: public MoveOperateMode
 	, public qtuser_3d::SelectorTracer
 	, public qtuser_3d::RotateCallback
@@ -40,15 +40,15 @@ public:
 	bool getShowPop();
 	bool getMessage();
 	void setMessage(bool isRemove);
-
-
+	void enabledIndicate(bool enable);
+	void setModelGap(float gap);
 	void enableSelectPlaneByCursor(bool enable);
 
 protected:
 	void onAttach() override;
 	void onDettach() override;
 	void onKeyPress(QKeyEvent* event) override;
-	void onHoverMove(QHoverEvent* event) override;
+	//void onHoverMove(QHoverEvent* event) override;
 
 	void onLeftMouseButtonPress(QMouseEvent* event) override;
 	void onLeftMouseButtonMove(QMouseEvent* event) override;
@@ -62,14 +62,15 @@ protected:
 	void onEndRotate(QQuaternion q) override;
 
 	void selectChanged(qtuser_3d::Pickable* pickable) override;
+	virtual bool shouldMultipleSelect();
 
 	void onSelectionsChanged() override;
 	void setSelectedModel(creative_kernel::ModelN* model);
 
-	void updatePlaneEntity(bool request);
+	void updatePlaneEntity();
 
 	void tryCollectMouseClickEvent(QMouseEvent *event);
-	bool processCursorMoveEvent(const QPoint& pos);
+	void processCursorMoveEvent(const QPoint& pos);
 
 	bool getSelectedModelsCenter(QVector3D* center);
 
@@ -79,10 +80,21 @@ protected:
 
 	void setCustomPlanePosition();
 
+	void processPlaneMove(const QPoint& pos);
+	void planeMoveOnClickPos(const QPoint& pos);
+	float calMaxOffset();
+	void updateOffset(const QVector3D& position);
+
+	void showSplitPlaneOnRelease(const QPoint& releasePos);
+	void showCursorPoint(const QPoint& pos);
+	void notifyOffsetChanged();
+
 protected:
 	qtuser_3d::LineExEntity* m_lineEntity;
 	qtuser_3d::AlonePointEntity* m_pointEntity;
-	SplitPlane* m_splitPlane;
+	qtuser_3d::SplitPlane* m_splitPlane;
+
+	creative_kernel::ModelN* m_operateModel;
 
 	qtuser_3d::Plane m_plane;
 
@@ -91,6 +103,8 @@ protected:
 
 	QVector3D m_rotateAngle;    // rotate euler
 
+	QVector3D m_firstPosition;
+
 	bool m_bShowPop = false;
 	
     int m_axisType = 2;     // 0 : x ;1 : y ; z:2
@@ -98,9 +112,24 @@ protected:
 	bool m_selectPlaneByCursor;
 	QVector<QVector3D> m_selectedPosition;
 	float m_offset;
+	bool m_capture;
+	bool m_canSplitPlaneMove;
+	float m_maxOffset;
+	QPoint m_savePoint;
+	bool m_bIndicate;
+	bool m_planeMoveOnClick;
+	int m_gap = 0;
+
+	QPoint m_pressPoint;	//indicate
+	bool m_generatePlane { false }; // axis 3
+	bool m_tempHidePlane;
+
+	bool m_pickEntity { false };
+
 signals:
 	void posionChanged();
 	void rotateAngleChanged();
 	void mouseLeftClicked();
+	void offsetChanged();
 };
 #endif // _NULLSPACE_SPLITOP_1591235104278_H

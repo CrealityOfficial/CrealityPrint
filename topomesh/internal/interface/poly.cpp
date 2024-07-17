@@ -11,8 +11,14 @@ namespace topomesh
 		ClipperLib::Paths paths;
 		convertRaw(polys, paths);
 
-		ClipperLib::SimplifyPolygons(paths);
-		convertRaw(paths, polys);
+        ClipperLib::Paths outPath;
+        ClipperLib::Clipper clipper;
+        for(const ClipperLib::Path& path : paths)
+            clipper.AddPath(path, ClipperLib::ptSubject, true);
+        clipper.Execute(ClipperLib::ctUnion, outPath, ClipperLib::pftNonZero, ClipperLib::pftNonZero);
+
+		ClipperLib::SimplifyPolygons(outPath);
+		convertRaw(outPath, polys);
 	}
 
 	void generateEdgePolygons(trimesh::TriMesh* mesh, const std::vector<int>& removedFaces, TriPolygons& polys)

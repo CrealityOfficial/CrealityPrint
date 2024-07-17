@@ -1,0 +1,646 @@
+{
+	"layer_height":
+	{
+		"label": "Layer Height",
+		"description": "The height of each layer in mm. Higher values produce faster prints in lower resolution, lower values produce slower prints in higher resolution.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.1",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.04",
+		"maximum_value_warning": "2.0 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"layer_height_0":
+	{
+		"label": "Initial Layer Height",
+		"description": "The height of the initial layer in mm. A thicker initial layer makes adhesion of the build plate easier.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.3",
+		"resolve": "min(extruderValues('layer_height_0'))",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.1",
+		"maximum_value_warning": "2.0 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "2",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"line_width":
+	{
+		"label": "Line Width",
+		"description": "Width of a single line. Generally, the width of each line should correspond to the width of the nozzle. However, slightly reducing this value could produce better prints.",
+		"unit": "mm",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "3 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "-1",
+		"default_value": "0.4",
+		"type": "float",
+		"value": "eval(contex.value(\"machine_nozzle_size\"))",
+		"settable_per_mesh": true
+	},
+	"wall_line_width":
+	{
+		"label": "Wall Line Width",
+		"description": "Width of a single wall line.",
+		"unit": "mm",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "3 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "2",
+		"value": "eval(contex.value(\"line_width\"))",
+		"default_value": "0.4",
+		"type": "float",
+		"limit_to_extruder": "wall_0_extruder_nr if wall_x_extruder_nr == wall_0_extruder_nr else -1",
+		"settable_per_mesh": true
+	},
+	"wall_line_width_0":
+	{
+		"label": "Outer Wall Line Width",
+		"description": "Width of the outermost wall line. By lowering this value, higher levels of detail can be printed.",
+		"unit": "mm",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "eval(contex.value(\"outer_inset_first\")) ? (0.4 * eval(contex.value(\"machine_nozzle_size\")) + 0.1) : 0.1 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "3 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "2",
+		"default_value": "0.4",
+		"value": "eval(contex.value(\"wall_line_width\"))",
+		"type": "float",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"wall_line_width_x":
+	{
+		"label": "Inner Wall(s) Line Width",
+		"description": "Width of a single wall line for all wall lines except the outermost one.",
+		"unit": "mm",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "2 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "2",
+		"default_value": "0.4",
+		"value": "eval(contex.value(\"wall_line_width\"))",
+		"type": "float",
+		"limit_to_extruder": "wall_x_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skin_line_width":
+	{
+		"label": "Top/Bottom Line Width",
+		"description": "Width of a single top/bottom line.",
+		"unit": "mm",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "2 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "2",
+		"default_value": "0.4",
+		"type": "float",
+		"value": "eval(contex.value(\"line_width\"))",
+		"enabled": "(eval(contex.value(\"top_layers\")) > 0) || (eval(contex.value(\"bottom_layers\")) > 0)",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"roofing_line_width":
+	{
+		"label": "Top Surface Skin Line Width",
+		"description": "Width of a single line of the areas at the top of the print.",
+		"unit": "mm",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.1 + (0.4 * eval(contex.value(\"machine_nozzle_size\")))",
+		"maximum_value_warning": "2 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "2",
+		"default_value": "0.4",
+		"type": "float",
+		"value": "eval(contex.value(\"skin_line_width\"))",
+		"limit_to_extruder": "roofing_extruder_nr",
+		"settable_per_mesh": true,
+		"enabled": "eval(contex.value(\"roofing_layer_count\")) > 0 && eval(contex.value(\"top_layers\")) > 0"
+	},
+	"infill_line_width":
+	{
+		"label": "Infill Line Width",
+		"description": "Width of a single infill line.",
+		"unit": "mm",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "3 * eval(contex.value(\"machine_nozzle_size\"))",
+		"parameter_level": "2",
+		"default_value": "0.4",
+		"type": "float",
+		"value": "eval(contex.value(\"line_width\"))",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skirt_brim_line_width":
+	{
+		"label": "Skirt/Brim Line Width",
+		"description": "Width of a single skirt or brim line.",
+		"unit": "mm",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "3 * eval(contex.value(\"machine_nozzle_size\"))",
+		"default_value": "0.4",
+		"type": "float",
+		"value": "eval(contex.value(\"line_width\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'skirt' || getEnumValue(\"adhesion_type\") == 'brim' || eval(contex.value(\"prime_tower_brim_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_line_width":
+	{
+		"label": "Support Line Width",
+		"description": "Width of a single support structure line.",
+		"unit": "mm",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "3 * eval(contex.value(\"machine_nozzle_size\"))",
+		"default_value": "0.4",
+		"type": "float",
+		"enabled": "(eval(contex.value(\"support_enable\")) || eval(contex.value(\"support_tree_enable\")))",
+		"value": "eval(contex.value(\"line_width\"))",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_interface_line_width":
+	{
+		"label": "Support Interface Line Width",
+		"description": "Width of a single line of support roof or floor.",
+		"unit": "mm",
+		"default_value": "0.4",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "2 * eval(contex.value(\"machine_nozzle_size\"))",
+		"type": "float",
+		"enabled": "(eval(contex.value(\"support_enable\")) || eval(contex.value(\"support_tree_enable\"))) && eval(contex.value(\"support_interface_enable\"))",
+		"limit_to_extruder": "support_interface_extruder_nr",
+		"value": "eval(contex.value(\"line_width\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_roof_line_width":
+	{
+		"label": "Support Roof Line Width",
+		"description": "Width of a single support roof line.",
+		"unit": "mm",
+		"default_value": "0.4",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "2 * eval(contex.value(\"machine_nozzle_size\"))",
+		"type": "float",
+		"enabled": "(eval(contex.value(\"support_enable\")) || eval(contex.value(\"support_tree_enable\"))) && eval(contex.value(\"support_roof_enable\"))",
+		"limit_to_extruder": "support_roof_extruder_nr",
+		"value": "eval(contex.value(\"support_interface_line_width\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_bottom_line_width":
+	{
+		"label": "Support Floor Line Width",
+		"description": "Width of a single support floor line.",
+		"unit": "mm",
+		"default_value": "0.4",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "2 * eval(contex.value(\"machine_nozzle_size\"))",
+		"type": "float",
+		"enabled": "(eval(contex.value(\"support_enable\")) || eval(contex.value(\"support_tree_enable\"))) && eval(contex.value(\"support_bottom_enable\"))",
+		"limit_to_extruder": "support_bottom_extruder_nr",
+		"value": "eval(contex.value(\"support_interface_line_width\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"prime_tower_line_width":
+	{
+		"label": "Prime Tower Line Width",
+		"description": "Width of a single prime tower line.",
+		"type": "float",
+		"unit": "mm",
+		"enabled": "eval(contex.value(\"prime_tower_enable\"))",
+		"default_value": "0.4",
+		"value": "eval(contex.value(\"line_width\"))",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.4 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "2 * eval(contex.value(\"machine_nozzle_size\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"initial_layer_line_width_factor":
+	{
+		"label": "Initial Layer Line Width",
+		"description": "Multiplier of the line width on the first layer. Increasing this could improve bed adhesion.",
+		"type": "float",
+		"unit": "%",
+		"default_value": "100.0",
+		"minimum_value": "0.001",
+		"maximum_value_warning": "150",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"limit_support_retractions":
+	{
+		"label": "Limit Support Retractions",
+		"description": "Omit retraction when moving from support to support in a straight line. Enabling this setting saves print time, but can lead to excessive stringing within the support structure.",
+		"type": "bool",
+		"default_value": "true",
+		"enabled": "eval(contex.value(\"retraction_enable\")) && (eval(contex.value(\"support_enable\")) || eval(contex.value(\"support_tree_enable\")))",
+		"settable_per_mesh": false,
+		"parameter_level": "1",
+		"settable_per_extruder": true
+	},
+	"retraction_combing":
+	{
+		"label": "Combing Mode",
+		"description": "Combing keeps the nozzle within already printed areas when traveling. This results in slightly longer travel moves but reduces the need for retractions. If combing is off, the material will retract and the nozzle moves in a straight line to the next point. It is also possible to avoid combing over top/bottom skin areas or to only comb within the infill.",
+		"type": "enum",
+		"options":
+		{
+			"off": "Off",
+			"all": "All",
+			"noskin": "Not in Skin",
+			"no_outer_surfaces": "Reduce Cross Outer Surfaces",
+			"infill": "Within Infill"
+		},
+		"default_value":"infill",
+		"value":"eval(contex.value(\"retraction_hop_enabled\")) == true ?  'off' : 'no_outer_surfaces'",
+		"resolve": "'noskin' if 'noskin' in extruderValues('retraction_combing') else ('infill' if 'infill' in extruderValues('retraction_combing') else ('all' if 'all' in extruderValues('retraction_combing') else 'off'))",
+		"parameter_level": "1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"retraction_combing_max_distance":
+	{
+		"label": "Max Comb Distance With No Retract",
+		"description": "When non-zero, combing travel moves that are longer than this distance will use retraction.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "15",
+		"minimum_value": "0",
+		"enabled": "getEnumValue(\"retraction_combing\") != 'off'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"retraction_during_traveling":
+	{
+		"label": "Retraction During Traveling",
+		"description": "Retract when traveling. ",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"retraction_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"travel_retract_before_outer_wall":
+	{
+		"label": "Retract Before Outer Wall",
+		"description": "Always retract when moving to start an outer wall.",
+		"type": "bool",
+		"default_value": "true",
+		"enabled": "eval(contex.value(\"retraction_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"travel_avoid_other_parts":
+	{
+		"label": "Avoid Printed Parts When Traveling",
+		"description": "The nozzle avoids already printed parts when traveling. This option is only available when combing is enabled.",
+		"type": "bool",
+		"default_value": "true",
+		"parameter_level": "2",
+		"enabled": "getEnumValue(\"retraction_combing\") != 'off'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"travel_avoid_supports":
+	{
+		"label": "Avoid Supports When Traveling",
+		"description": "The nozzle avoids already printed supports when traveling. This option is only available when combing is enabled.",
+		"type": "bool",
+		"default_value": "true",
+		"parameter_level": "2",
+		"enabled": "getEnumValue(\"retraction_combing\") != 'off' && eval(contex.value(\"travel_avoid_other_parts\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"travel_avoid_distance":
+	{
+		"label": "Travel Avoid Distance",
+		"description": "The distance between the nozzle and already printed parts when avoiding during travel moves.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.625",
+		"value": "eval(contex.value(\"machine_nozzle_tip_outer_diameter\")) / 2 * 1.25",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"machine_nozzle_tip_outer_diameter\")) * 0.5",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_tip_outer_diameter\")) * 5",
+		"parameter_level": "2",
+		"enabled": "getEnumValue(\"retraction_combing\") != 'off' && eval(contex.value(\"travel_avoid_other_parts\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"arc_configure_enable": 
+	{
+		"label": "Arc Configure Enable",
+		"description": "Arc Configure Enable",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"parameter_level": "1"
+	},
+	"arc_tolerance": 
+	{
+		"label": "Arc Tolerance",
+		"description": "Arc Tolerance",
+		"type": "float",
+		"default_value": "10",
+		"minimum_value": "0",
+		"minimum_value_warning": "-1",
+		"enabled": "eval(contex.value(\"arc_configure_enable\"))",
+		"parameter_level": "2",
+		"settable_per_mesh": false
+	},
+	"small_hole_max_size":
+	{
+		"label": "Small Hole Max Size",
+		"description": "Holes and part outlines with a diameter smaller than this will be printed using Small Feature Speed.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "3",
+		"default_value": "6",
+		"parameter_level": "-2",
+		"settable_per_mesh": true
+	},
+	"small_feature_max_length":
+	{
+		"label": "Small Feature Max Length",
+		"description": "Feature outlines that are shorter than this length will be printed using Small Feature Speed.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"default_value": "6",
+		"value": "eval(contex.value(\"small_hole_max_size\")) * Math.PI",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"small_feature_speed_factor":
+	{
+		"label": "Small Feature Speed",
+		"description": "Small features will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "50",
+		"parameter_level": "1",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "100",
+		"settable_per_mesh": true
+	},
+	"small_feature_speed_factor_0":
+	{
+		"label": "Small Feature Initial Layer Speed",
+		"description": "Small features on the first layer will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "50",
+		"value": "eval(contex.value(\"small_feature_speed_factor\"))",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "100",
+		"settable_per_mesh": true
+	},
+	"bridge_settings_enabled":
+	{
+		"label": "Enable Bridge Settings",
+		"description": "Detect bridges and modify print speed, flow and fan settings while bridges are printed.",
+		"type": "bool",
+		"default_value": "false",
+		"parameter_level": "1",
+		"settable_per_mesh": true,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": false
+	},
+	"bridge_wall_min_length":
+	{
+		"label": "Minimum Bridge Wall Length",
+		"description": "Unsupported walls shorter than this will be printed using the normal wall settings. Longer unsupported walls will be printed using the bridge wall settings.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"default_value": "2",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"settable_per_mesh": true,
+		"parameter_level": "4",
+		"settable_per_extruder": false
+	},
+	"bridge_skin_support_threshold":
+	{
+		"label": "Bridge Skin Support Threshold",
+		"description": "If a skin region is supported for less than this percentage of its area, print it using the bridge settings. Otherwise it is printed using the normal skin settings.",
+		"unit": "%",
+		"default_value": "50",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_sparse_infill_max_density":
+	{
+		"label": "Bridge Sparse Infill Max Density",
+		"description": "Maximum density of infill considered to be sparse. Skin over sparse infill is considered to be unsupported and therefore may be treated as a bridge skin.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "0",
+		"value": "getEnumValue(\"infill_pattern\") == 'grid' ? 20 :  0",
+		"minimum_value": "0",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_wall_coast":
+	{
+		"label": "Bridge Wall Coasting",
+		"description": "This controls the distance the extruder should coast immediately before a bridge wall begins. Coasting before the bridge starts can reduce the pressure in the nozzle and may produce a flatter bridge.",
+		"unit": "%",
+		"default_value": "100",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "500",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_wall_speed":
+	{
+		"label": "Bridge Wall Speed",
+		"description": "The speed at which the bridge walls are printed.",
+		"unit": "mm/s",
+		"type": "float",
+		"minimum_value": "eval(contex.value(\"cool_min_speed\"))",
+		"maximum_value": "Math.sqrt(Math.pow(eval(contex.value(\"machine_max_feedrate_x\")),2) + Math.pow(eval(contex.value(\"machine_max_feedrate_y\")),2))",
+		"maximum_value_warning": "300",
+		"default_value": "15",
+		"value": "Math.max(eval(contex.value(\"cool_min_speed\")), eval(contex.value(\"speed_wall_0\")) / 2)",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_wall_material_flow":
+	{
+		"label": "Bridge Wall Flow",
+		"description": "When printing bridge walls, the amount of material extruded is multiplied by this value.",
+		"unit": "%",
+		"default_value": "100",
+		"type": "float",
+		"minimum_value": "5",
+		"minimum_value_warning": "50",
+		"maximum_value_warning": "150",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_speed":
+	{
+		"label": "Bridge Skin Speed",
+		"description": "The speed at which bridge skin regions are printed.",
+		"unit": "mm/s",
+		"type": "float",
+		"minimum_value": "eval(contex.value(\"cool_min_speed\"))",
+		"maximum_value": "Math.sqrt(Math.pow(eval(contex.value(\"machine_max_feedrate_x\")),2) + Math.pow(eval(contex.value(\"machine_max_feedrate_y\")),2))",
+		"maximum_value_warning": "300",
+		"default_value": "15",
+		"value": "Math.max(eval(contex.value(\"cool_min_speed\")), eval(contex.value(\"speed_topbottom\")) / 2)",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_material_flow":
+	{
+		"label": "Bridge Skin Flow",
+		"description": "When printing bridge skin regions, the amount of material extruded is multiplied by this value.",
+		"unit": "%",
+		"default_value": "60",
+		"type": "float",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_density":
+	{
+		"label": "Bridge Skin Density",
+		"description": "The density of the bridge skin layer. Values less than 100 will increase the gaps between the skin lines.",
+		"unit": "%",
+		"default_value": "100",
+		"type": "float",
+		"minimum_value": "5",
+		"maximum_value": "100",
+		"minimum_value_warning": "20",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_enable_more_layers":
+	{
+		"label": "Bridge Has Multiple Layers",
+		"description": "If enabled, the second and third layers above the air are printed using the following settings. Otherwise, those layers are printed using the normal settings.",
+		"type": "bool",
+		"default_value": "true",
+		"parameter_level": "2",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\"))",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_speed_2":
+	{
+		"label": "Bridge Second Skin Speed",
+		"description": "Print speed to use when printing the second bridge skin layer.",
+		"unit": "mm/s",
+		"type": "float",
+		"minimum_value": "eval(contex.value(\"cool_min_speed\"))",
+		"maximum_value": "Math.sqrt(Math.pow(eval(contex.value(\"machine_max_feedrate_x\")),2) + Math.pow(eval(contex.value(\"machine_max_feedrate_y\")),2))",
+		"maximum_value_warning": "300",
+		"default_value": "25",
+		"value": "eval(contex.value(\"bridge_skin_speed\"))",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_material_flow_2":
+	{
+		"label": "Bridge Second Skin Flow",
+		"description": "When printing the second bridge skin layer, the amount of material extruded is multiplied by this value.",
+		"unit": "%",
+		"default_value": "100",
+		"type": "float",
+		"minimum_value": "5",
+		"maximum_value": "500",
+		"minimum_value_warning": "50",
+		"maximum_value_warning": "150",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_density_2":
+	{
+		"label": "Bridge Second Skin Density",
+		"description": "The density of the second bridge skin layer. Values less than 100 will increase the gaps between the skin lines.",
+		"unit": "%",
+		"default_value": "75",
+		"type": "float",
+		"minimum_value": "5",
+		"maximum_value": "100",
+		"minimum_value_warning": "20",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_speed_3":
+	{
+		"label": "Bridge Third Skin Speed",
+		"description": "Print speed to use when printing the third bridge skin layer.",
+		"unit": "mm/s",
+		"type": "float",
+		"minimum_value": "eval(contex.value(\"cool_min_speed\"))",
+		"maximum_value": "Math.sqrt(Math.pow(eval(contex.value(\"machine_max_feedrate_x\")),2) + Math.pow(eval(contex.value(\"machine_max_feedrate_y\")),2))",
+		"maximum_value_warning": "300",
+		"default_value": "15",
+		"value": "eval(contex.value(\"bridge_skin_speed\"))",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_material_flow_3":
+	{
+		"label": "Bridge Third Skin Flow",
+		"description": "When printing the third bridge skin layer, the amount of material extruded is multiplied by this value.",
+		"unit": "%",
+		"default_value": "110",
+		"type": "float",
+		"minimum_value": "5",
+		"maximum_value": "500",
+		"minimum_value_warning": "50",
+		"maximum_value_warning": "150",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bridge_skin_density_3":
+	{
+		"label": "Bridge Third Skin Density",
+		"description": "The density of the third bridge skin layer. Values less than 100 will increase the gaps between the skin lines.",
+		"unit": "%",
+		"default_value": "80",
+		"type": "float",
+		"minimum_value": "5",
+		"maximum_value": "100",
+		"minimum_value_warning": "20",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	}
+}

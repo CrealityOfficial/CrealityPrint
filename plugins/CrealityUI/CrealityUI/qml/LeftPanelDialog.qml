@@ -1,9 +1,8 @@
 import QtQuick 2.0
 import QtQuick.Window 2.0
 import QtQuick.Controls 2.12
-import QtGraphicalEffects 1.0
 import QtQml 2.3
-
+import QtGraphicalEffects 1.0
 import "./"
 import "../secondqml"
 
@@ -16,9 +15,9 @@ Rectangle {
     signal closeButtonClicked()
 
     radius: 5 * screenScaleFactor
-    color: Constants.lpw_titleColor
+    color: Constants.currentTheme ? "#D6D6DC": "#6E6E73"   //Constants.lpw_titleColor
     border.width: 1 * screenScaleFactor
-    border.color: Constants.dock_border_color
+    border.color: color
 
     MouseArea {
         id: wheelFilter
@@ -94,34 +93,17 @@ Rectangle {
         color: Constants.currentTheme == 0 ? "#56565C" : "#DDDDDD"
     }
 
-    Rectangle {
+    CusRoundedBg{
         id: panel_top
 
         anchors.top: split_line.bottom
         anchors.left: root.left
         anchors.right: root.right
         anchors.bottom: root.bottom
-        anchors.leftMargin: root.border.width
-        anchors.rightMargin: root.border.width
-        anchors.bottomMargin: root.radius
-
         color: Constants.themeColor
-    }
 
-    Rectangle {
-        id: panel_bottom
-
-        anchors.left: root.left
-        anchors.right: root.right
-        anchors.bottom: root.bottom
-        anchors.leftMargin: root.border.width
-        anchors.rightMargin: root.border.width
-        anchors.bottomMargin: root.border.width
-
-        height: root.radius * 2
-        radius: root.radius
-
-        color: Constants.themeColor
+        rightBottom: true
+        leftBottom: true
     }
 
     Item {
@@ -130,6 +112,16 @@ Rectangle {
         anchors.top: panel_top.top
         anchors.left: panel_top.left
         anchors.right: panel_top.right
-        anchors.bottom: panel_bottom.bottom
+        anchors.bottom: parent.bottom
+    }
+    DropShadow {
+        anchors.fill: panel_top
+        radius: 8
+        spread: 0.2
+        samples: 17
+        source: panel_top
+        verticalOffset:5
+        horizontalOffset: 0
+        color:  Constants.dropShadowColor
     }
 }

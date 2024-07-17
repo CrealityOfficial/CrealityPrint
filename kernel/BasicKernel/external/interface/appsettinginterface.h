@@ -3,6 +3,7 @@
 #include "basickernelexport.h"
 #include "utils/namedeclare.h"
 #include "data/kernelenum.h"
+#include "kernel/enginedatatype.h"
 #include <QColor>
 #include <QString>
 
@@ -30,6 +31,9 @@ namespace creative_kernel
 	BASIC_KERNEL_API QString writableLocation(const QString& subDir, const QString& subSubDir = QString());
 
 	BASIC_KERNEL_API QString getResourcePath(creative_kernel::ResourcesType resource);
+	BASIC_KERNEL_API QString getEnginePathPrefix();
+	BASIC_KERNEL_API EngineType getEngineType();
+	BASIC_KERNEL_API QString getEngineVersion();
 }
 
 #define CONFIG_GET_COLOR(x, y, z) creative_kernel::getSettingColor(x, y, z)

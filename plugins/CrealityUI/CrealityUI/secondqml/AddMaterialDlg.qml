@@ -1,211 +1,287 @@
-﻿import ".."
-import "../qml"
+﻿import QtQuick.Controls 2.12
+import QtQuick.Layouts 1.0
+import QtQuick 2.13
+import QtQuick.Controls 2.0 as QQC2
+import QtQuick.Controls.Styles 1.4
+import QtQuick.Controls 1.4 as Control14
 import CrealityUI 1.0
 import QtQml 2.3
-import QtQuick 2.13
-import QtQuick.Controls 2.12
-import QtQuick.Controls 2.0 as QQC2
-import QtQuick.Controls 1.4 as Control14
-import QtQuick.Controls.Styles 1.4
-import QtQuick.Layouts 1.0
+import "../qml"
+import ".."
 
-BasicDialogV4 {
-    //property alias userMeterialView: __userMaterialsRepeater
-
-    id: idAddPrinterDlg
-
+BasicDialogV4
+{
     property string curPrinter: "Ender-3 S1"
     property string curMaterial: "PLA"
     property string btnState: "addState"
+    property bool isConfirmClose: false
     property int extruderNum: 0
     property var extruderIndex
     property var materialParams
     property var printMaterialsModel
 
     signal addAccept(var extruderIndex)
-
-    function getMaterialTypeStatus(name) {
-        var materialtypes = kernel_parameter_manager.currentMachineObject().selectTypes();
-        console.log("____materialType =", name);
-        console.log("____checkTypes =", materialtypes);
-        console.log("____ifContains = ", materialtypes.indexOf(name));
-        if (materialtypes.indexOf(name) != -1)
-            return true;
-        else
-            return false;
-    }
-
-    function startShowMaterialDialog(_state, _extruderIndex, materialName, machineObject) {
-        extruderIndex = _extruderIndex;
-        curPrinter = kernel_parameter_manager.currentMachineName();
-        console.log("______startShowMaterialDialog");
-        cloader.item.repeaterView.model = null;
-        cloader.item.repeaterView.model = kernel_material_center.types(); //kernel_parameter_manager.currentMachineObject().supportTypes()
-        cloader.item.meterialView.model = null;
-        cloader.item.meterialView.model = Qt.binding(function() {
-            return kernel_parameter_manager.currentMachineObject().materialsModel();
-        });
-        //cloader.item.userMeterialView.model = Qt.binding(function() {
-        //    return kernel_parameter_manager.currentMachineObject().userMaterialsName;
-        //});
-        visible = true;
-    }
-
     maxBtnVis: false
     onVisibleChanged: {
-        if (visible) {
-            printMaterialsModel = kernel_parameter_manager.currentMachineObject().materialsModel();
-            cloader.item.repeaterView.model = kernel_material_center.types(); //kernel_parameter_manager.currentMachineObject().supportTypes()
+        if(visible){
+            isConfirmClose = false
         }
     }
-    width: 1040 * screenScaleFactor
-    height: 600 * screenScaleFactor
-    titleHeight: 30 * screenScaleFactor
+
+    onClosed: {
+        if(!isConfirmClose){
+            printMaterialsModel.cancelModel()
+            cloader.item.repeaterView.model = null
+            cloader.item.repeaterView.model = Qt.binding(function(){ return  kernel_material_center.types() })
+        }
+    }
+
+    id: idAddPrinterDlg
+    width: 823 * screenScaleFactor
+    height: 640 * screenScaleFactor
+    titleHeight : 30 * screenScaleFactor
     title: qsTr("Add Material")
 
     bdContentItem: Rectangle {
         property alias repeaterView: __materialTypeRepeater
         property alias meterialView: __materialsRepeater
-
         color: Constants.themeColor_primary
-
-        Column {
+        Column{
             anchors.fill: parent
-            spacing: 30 * screenScaleFactor
-            anchors.margins: 20 * screenScaleFactor
-
-            Row {
-                StyledLabel {
+            spacing: 30*screenScaleFactor
+            anchors.margins: 20*screenScaleFactor
+            Row{
+                StyledLabel{
                     text: qsTr("Printer") + ": " + curPrinter
-                    font.pointSize: Constants.labelFontPointSize_10
+                    font.pointSize: Constants.labelFontPointSize_12
+                    font.weight: Font.Bold
                     color: Constants.model_library_type_button_text_default_color
                 }
-
             }
 
-            Row {
-                StyledLabel {
+            Row{
+                spacing: 27 * screenScaleFactor
+                StyledLabel{
                     text: qsTr("MaterialType") + ": "
-                    font.pointSize: Constants.labelFontPointSize_10
+                    font.pointSize: Constants.labelFontPointSize_12
+                    font.weight: Font.Medium
                     color: Constants.model_library_type_button_text_default_color
+                    anchors.top: parent.top
+                    anchors.topMargin: 0
                 }
 
-                ScrollView {
-                    width: 950 * screenScaleFactor
-                    height: 50 * screenScaleFactor
+                BasicScrollView{
+                    width: 670*screenScaleFactor
+                    height: 70*screenScaleFactor
+                    anchors.top: parent.top
+                    anchors.topMargin: 0
                     clip: true
-                    ScrollBar.vertical.policy: ScrollBar.AlwaysOff
-
-                    //   vpolicyVisible:(__materialTypeRepeater.height+15)*screenScaleFactor > height
-                    Flow {
-                        spacing: 15 * screenScaleFactor
+                    vpolicyVisible:(__materialTypeRepeater.height+15)*screenScaleFactor > height
+                    Flow{
+                        spacing: 15*screenScaleFactor
                         width: parent.width
 
-                        Repeater {
-                            id: __materialTypeRepeater
-
-                            //model: kernel_parameter_manager.currentMachineObject().supportTypes()
-                            delegate: CusCheckBox {
-                                checked: printMaterialsModel.isVisible(modelData) //getMaterialTypeStatus(modelData)
+                        Repeater{
+                            id : __materialTypeRepeater
+                            delegate:StyleCheckBox {
+                                width: 70 * screenScaleFactor
+                                height: 30 * screenScaleFactor
+                                checked: printMaterialsModel.isVisible(modelData)
                                 text: modelData
                                 textColor: Constants.right_panel_item_text_default_color
-                                font.pointSize: Constants.labelFontPointSize_10
-                                onClicked: {
-                                    printMaterialsModel.filterMaterialType(modelData, checked);
+                                font.pointSize: Constants.labelFontPointSize_12
+                                font.weight: Font.Medium
+                                onStyleCheckChanged:
+                                {
+                                    printMaterialsModel.filterMaterialType(modelData,checked)
                                 }
                             }
-
                         }
-
                     }
-
                 }
-
             }
 
-            Rectangle {
+            Rectangle{
                 width: parent.width
-                height: 1 * screenScaleFactor
+                height: 1*screenScaleFactor
                 color: Constants.splitLineColor
             }
 
-            BasicGroupBox {
-                width: parent.width
-                anchors.horizontalCenter: parent.horizontalCenter
-                implicitHeight: isExpand ? contentItem.implicitHeight + 30 * screenScaleFactor : 40 * screenScaleFactor
-                title: qsTr("Default Materials")
-                backRadius: 5
-                borderWidth: 1
-                borderColor: Constants.dialogItemRectBgBorderColor
+            Column{
+                spacing: 30 * screenScaleFactor
+                Row{
+                    spacing: 27 * screenScaleFactor
+                    StyledLabel{
+                        text: qsTr("Material Name")
+                        font.pointSize: Constants.labelFontPointSize_12
+                        font.weight: Font.Bold
+                        color: Constants.model_library_type_button_text_default_color
+                    }
 
-                contentItem: Column {
-                    anchors.fill: parent
-                    anchors.margins: 10 * screenScaleFactor
-                    spacing: 20 * screenScaleFactor
+                    StyleCheckBox {
+                        id:checkAllCB
+                        checkState: printMaterialsModel.checkState
+                        text: qsTr("Check All")
+                        visible: printMaterialsModel.visibleMaterials
+                        textColor: Constants.right_panel_item_text_default_color
+                        fontSize: Constants.labelFontPointSize_10
+                        fontWeight: Font.Bold
 
-                    ScrollView {
-                        width: 924 * screenScaleFactor
-                        height: 210 * screenScaleFactor
-                        clip: true
+                        //                        onCheckStateChanged:{
+                        //                            if(checkState === Qt.PartiallyChecked){
+                        //                                return;
+                        //                            }
+                        //                            printMaterialsModel.isCheckedAll = checked
+                        //                        }
 
-                        //  vpolicyVisible: checkBoxGrid.height > height
-                        Grid {
-                            id: checkBoxGrid
+                        nextCheckState: function() {
+                            if (checkState === Qt.Checked)
+                                return Qt.Unchecked
+                            else
+                                return Qt.Checked
+                        }
 
-                            spacing: 100 * screenScaleFactor
-                            width: parent.width
-                            columns: 4
-                            columnSpacing: 150 * screenScaleFactor
-                            rowSpacing: 20 * screenScaleFactor
+                        onCheckStateChanged: {
+                            printMaterialsModel.checkState = checkState
+                        }
+                    }
+                }
 
-                            Repeater {
-                                id: __materialsRepeater
+                BasicScrollView{
+                    id: materialScroll
+                    width: 770*screenScaleFactor
+                    height: 180*screenScaleFactor
+                    clip: true
+                    hpolicyVisible: contentWidth > width
+                    vpolicyVisible: contentHeight > height
+                    Flow{
+                        id: checkBoxGrid
+                        spacing: 5*screenScaleFactor
+                        width: 770*screenScaleFactor
+                        Repeater{
+                            id : __materialsRepeater
+                            delegate:  StyleCheckBox {
+                                width: 160 * screenScaleFactor
+                                height: 30 * screenScaleFactor
+                                checked: model.meChecked
+                                text: model.meName
+                                textColor: Constants.right_panel_item_text_default_color
+                                fontSize: Constants.labelFontPointSize_10
+                                fontWeight: Font.Bold
 
-                                //model: kernel_parameter_manager.currentMachineObject().materialsModel()
-                                delegate: StyleCheckBox {
-                                    checked: model.meChecked
-                                    text: model.meName
-                                    textColor: Constants.right_panel_item_text_default_color
-                                    fontSize: Constants.labelFontPointSize_10
-                                    onClicked: {
-                                        kernel_parameter_manager.currentMachineObject().selectChanged(checked, model.meName, extruderIndex);
-                                        printMaterialsModel.setChecked(checked, model.index);
-                                    }
+                                onStyleCheckChanged:
+                                {
+                                    kernel_parameter_manager.currentMachineObject.selectChanged(checked, model.meName, extruderIndex)
+                                    printMaterialsModel.setChecked(checked, model.index)
                                 }
-
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        Row{
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 20*screenScaleFactor
+            spacing: 10*screenScaleFactor
+            BasicDialogButton {
+                id: okBtn
+                text: qsTr("OK")
+                width: 80* screenScaleFactor
+                height: 28* screenScaleFactor
+                btnBorderW: 1 * screenScaleFactor
+                btnTextColor: Constants.manager_printer_button_text_color
+                borderColor: Constants.manager_printer_button_border_color
+                defaultBtnBgColor: Constants.manager_printer_button_default_color
+                hoveredBtnBgColor: Constants.manager_printer_button_checked_color
+                selectedBtnBgColor: Constants.manager_printer_button_checked_color
+
+                onSigButtonClicked: {
+                    isConfirmClose = true
+                    if(!printMaterialsModel.selectMaterialsCount){
+                        let receiver = {}
+                        receiver.onOk = function (){
+                            __materialTypeRepeater.model = null
+                            __materialTypeRepeater.model = kernel_material_center.types()
+                            printMaterialsModel.resetModel()
+
+                            kernel_parameter_manager.currentMachineObject.finishMeterialSelect(extruderIndex)
+                            printMaterialsModel.confirm()
+                            idAddPrinterDlg.close()
+                        }
+
+                        receiver.onCancel = function (){
 
                         }
 
+                        idAllMenuDialog.requestMenuDialog(receiver, "idNoMaterialWarning");
+                    }else{
+                        printMaterialsModel.confirm()
+                        kernel_parameter_manager.currentMachineObject.finishMeterialSelect(extruderIndex)
+                        idAddPrinterDlg.close()
                     }
-
                 }
-
             }
 
-        }
+            BasicDialogButton {
+                id: resetBtn
+                text: qsTr("Reset")
+                width: 80* screenScaleFactor
+                height: 28* screenScaleFactor
 
-        BasicDialogButton {
-            id: okBtn
+                btnBorderW: 1 * screenScaleFactor
+                btnTextColor: Constants.manager_printer_button_text_color
+                borderColor: Constants.manager_printer_button_border_color
+                defaultBtnBgColor: Constants.manager_printer_button_default_color
+                hoveredBtnBgColor: Constants.manager_printer_button_checked_color
+                selectedBtnBgColor: Constants.manager_printer_button_checked_color
 
-            text: qsTr("OK")
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 20 * screenScaleFactor
-            width: 120 * screenScaleFactor
-            height: 28 * screenScaleFactor
-            btnBorderW: 1 * screenScaleFactor
-            btnTextColor: Constants.manager_printer_button_text_color
-            borderColor: Constants.manager_printer_button_border_color
-            defaultBtnBgColor: Constants.manager_printer_button_default_color
-            hoveredBtnBgColor: Constants.manager_printer_button_checked_color
-            selectedBtnBgColor: Constants.manager_printer_button_checked_color
-            onSigButtonClicked: {
-                kernel_parameter_manager.currentMachineObject().finishMeterialSelect(extruderIndex);
-                idAddPrinterDlg.close();
+                onSigButtonClicked: {
+                    printMaterialsModel.resetModel()
+
+                    __materialTypeRepeater.model = null
+                    __materialTypeRepeater.model = kernel_material_center.types()
+
+                    __materialsRepeater.model = null
+                    __materialsRepeater.model = printMaterialsModel
+                }
+            }
+
+            BasicDialogButton {
+                id: cancelBtn
+                text: qsTr("Cancel")
+                width: 80 * screenScaleFactor
+                height: 28* screenScaleFactor
+
+                btnBorderW: 1 * screenScaleFactor
+                btnTextColor: Constants.manager_printer_button_text_color
+                borderColor: Constants.manager_printer_button_border_color
+                defaultBtnBgColor: Constants.manager_printer_button_default_color
+                hoveredBtnBgColor: Constants.manager_printer_button_checked_color
+                selectedBtnBgColor: Constants.manager_printer_button_checked_color
+
+                onSigButtonClicked: {
+                    printMaterialsModel.cancelModel()
+                    idAddPrinterDlg.close()
+
+                    cloader.item.repeaterView.model = null
+                    cloader.item.repeaterView.model = Qt.binding(function(){ return  kernel_material_center.types() })
+                }
             }
         }
-
     }
 
+    function startShowMaterialDialog(_state, _extruderIndex, materialName, machineObject){
+        extruderIndex = _extruderIndex
+        curPrinter = kernel_parameter_manager.currentMachineShowName()
+        console.log("______startShowMaterialDialog")
+        printMaterialsModel = kernel_parameter_manager.currentMachineObject.materialsModelProxy();
+        cloader.item.repeaterView.model = null
+        cloader.item.repeaterView.model = Qt.binding(function(){ return  kernel_material_center.types() })
+        cloader.item.meterialView.model = null
+        cloader.item.meterialView.model = Qt.binding(function(){ return  kernel_parameter_manager.currentMachineObject.materialsModelProxy(); })
+        visible = true
+    }
 }

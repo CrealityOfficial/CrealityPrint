@@ -12,6 +12,7 @@
 #include "interface/cloudinterface.h"
 #include "interface/eventinterface.h"
 #include "interface/selectorinterface.h"
+#include "interface/visualsceneinterface.h"
 
 #include "internal/rclick_menu/setnozzlerange.h"
 #include "internal/rclick_menu/rclickmenulist.h"
@@ -34,12 +35,15 @@
 #include <QtQml/QQmlEngine>
 #include <QtGui/QGuiApplication>
 #include <QtQml/QQmlApplicationEngine>
-#include <QtCore/QSettings>
 #include <QQuickView>
 #include <QtCore/QDebug>
-#include <QQuickView>
-#include <QQuickView>
+#include <QQuickItem>
+#include <QColorDialog>
 
+#include <qtusercore/plugin/toolcommandcenter.h>
+#include <qtusercore/plugin/toolcommand.h>
+#include <qtusercore/module/systemutil.h>
+#include <qtusercore/util/settings.h>
 
 #ifdef __APPLE__
 #include "macwindow/macwindow.h"
@@ -76,10 +80,12 @@ KernelUI::KernelUI(QObject* parent)
     , m_footer(nullptr)
     , m_topbar(nullptr)
     , m_closeHook(nullptr)
+    , m_layoutCommand(nullptr)
 {
     // model list
     m_leftToolbarModelList = new qtuser_qml::ToolCommandCenter(this);
     m_leftOtherToolbarModelList = new qtuser_qml::ToolCommandCenter(this);
+    m_topToolbarModelList = new qtuser_qml::ToolCommandCenter(this);
 
     m_translator = new Translator(this);
 
@@ -91,20 +97,25 @@ KernelUI::~KernelUI()
 
 void KernelUI::initialize()
 {
-    addUIVisualTracer(this);
+    addUIVisualTracer(this,this);
     ProjectInfoUI::instance()->setParent(this);
     addRightMouseEventHandler(this);
+    addSelectTracer(this);
     addKeyEventHandler(this);
 
     {
         using group_t = qtuser_qml::ToolCommandGroupType;
         using command_t = qtuser_qml::ToolCommandType;
 
+
         //addToolCommand(new PickMode         , group_t::LEFT_TOOLBAR_MAIN , command_t::PICK     );
         addToolCommand(new TranslateMode    , group_t::LEFT_TOOLBAR_MAIN , command_t::TRANSLATE);
-        addToolCommand(new ScaleMode        , group_t::LEFT_TOOLBAR_MAIN , command_t::SCALE    );
+        addToolCommand(new ScaleMode        , group_t::LEFT_TOOLBAR_OTHER , command_t::SCALE    );
         addToolCommand(new RotateMode       , group_t::LEFT_TOOLBAR_MAIN , command_t::ROTATE   );
-        addToolCommand(new LayoutToolCommand, group_t::LEFT_TOOLBAR_MAIN , command_t::LAYOUT   );
+
+        m_layoutCommand = new LayoutToolCommand;
+        addToolCommand(m_layoutCommand, group_t::LEFT_TOOLBAR_MAIN , command_t::LAYOUT   );
+
         // addToolCommand(new SupportCommand   , group_t::LEFT_TOOLBAR_MAIN , command_t::SUPPORT  );
 
         addToolCommand(new CloneCommand     , group_t::LEFT_TOOLBAR_OTHER, command_t::CLONE    );
@@ -124,6 +135,9 @@ void KernelUI::initialize()
 		qDebug() << QString("OpenGL Driver is old.");
 		emit sigOpenglOld();
 	}
+
+	// BASIC_KERNEL_API void setContinousRender();
+	// BASIC_KERNEL_API void setCommandRender();
 }
 
 void KernelUI::uninitialize()
@@ -144,7 +158,7 @@ int KernelUI::currentLanguage()
 
 void KernelUI::firstStartConfigFinished()
 {
-    QSettings setting;
+    qtuser_core::VersionSettings setting;
     setting.beginGroup("profile_setting");
     setting.setValue("first_start", "1");
 }
@@ -161,22 +175,27 @@ void KernelUI::loadUserLanguage()
 
 void KernelUI::loadUserSettings()
 {
-    assert(m_topbar);
+    //assert(m_topbar);
     m_translator->loadUserSettings();
 
     creative_kernel::sensorAnlyticsTrace("Login", "start");
-    QSettings setting;
+    qtuser_core::VersionSettings setting;
     setting.beginGroup("profile_setting");
     QString strStartType = setting.value("first_start", "0").toString();
 
-    QObject* pMachineCommbox = m_topbar->findChild<QObject*>("AddPrinterDlg");
-    QQmlProperty::write(pMachineCommbox, "isFristStart", QVariant::fromValue(strStartType));
+    //QObject* pMachineCommbox = m_topbar->findChild<QObject*>("AddPrinterDlg");
+    //QQmlProperty::write(pMachineCommbox, "isFristStart", QVariant::fromValue(strStartType));
+    setting.endGroup();
     if (strStartType == "0")
     {
         qInfo() << "startWizardComp first_start";
-        QMetaObject::invokeMethod(m_topbar, "startFirstConfig");
+        QMetaObject::invokeMethod(m_glMainView, "requestFirstConfig");
+        setting.beginGroup("cloud_service");
+        setting.setValue("sync_official_param","1");
+        setting.endGroup();
+        
     }
-    setting.endGroup();
+    
 }
 
 void KernelUI::registerContextObject(const QString& name, QObject* object)
@@ -215,6 +234,13 @@ void KernelUI::removeImageProvider(const QString& name)
 void KernelUI::switchPickMode()
 {
     QMetaObject::invokeMethod(m_leftToolbar, "switchPickMode", Qt::ConnectionType::QueuedConnection);
+}
+
+void KernelUI::switchMode(int id)
+{
+    QObject* toolBar = leftToolbar();
+    if (toolBar)
+        QMetaObject::invokeMethod(toolBar, "switchModeById", Q_ARG(QVariant, QVariant::fromValue(id)));
 }
 
 void KernelUI::executeQmlCommand(const QString& cmd, QObject* receiver, const QString& objectName)
@@ -390,8 +416,7 @@ QJSValue KernelUI::invokeJS(const QString& str,QObject* jsContex)
 
 void KernelUI::invokeRightClickMenuFunc(const QString& func, const QVariant& variant1, const QVariant& variant2)
 {
-    QObject* object = m_appWindow->findChild<QObject*>("idRightClickMenu");
-    invokeQmlObjectFunc(object, func, variant1, variant2);
+    emit sigShowRightMenu();
 }
 
 QObject* KernelUI::getUI(QString uiname)
@@ -403,7 +428,9 @@ QObject* KernelUI::getUI(QString uiname)
     }
     else if (uiname == "loginbtn")
     {
-        QObject* logindBtn = m_appWindow->findChild<QObject*>("loginBtn");
+        QObject* pRoot = (QObject *) (qobject_cast<QQuickView*>(m_engine->parent())->rootObject());
+        //QObject* pRoot = (QQuickView*)(m_engine->parent())->rootObject();
+        QObject* logindBtn = pRoot->findChild<QObject*>("loginBtn");
         return logindBtn;
     }
     else if (uiname == "uiappwindow")
@@ -446,6 +473,9 @@ int KernelUI::addToolCommand(
         case qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_OTHER:
             center = lOtherCenter();
             break;
+        case qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_DRAW:
+            center = topBarCenter();
+            break;
         default:
             break;
     }
@@ -473,6 +503,9 @@ int KernelUI::removeToolCommand(ToolCommand* command, qtuser_qml::ToolCommandGro
             break;
         case qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_OTHER:
             center = lOtherCenter();
+            break;
+        case qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_DRAW:
+            center = topBarCenter();
             break;
         default:
             break;
@@ -539,8 +572,141 @@ void KernelUI::setGLMainView(QObject* glMainView)
     m_glMainView = glMainView;
 }
 
+QObject* KernelUI::messageStack()
+{
+    return m_messageStack;
+}
+
+void KernelUI::setMessageStack(QObject* messageStack) {
+    m_messageStack = messageStack;
+    if (!m_messageStack) {
+        return;
+    }
+
+    while (!message_queue_.empty()) {
+        auto* message = message_queue_.front();
+        QQmlEngine::setObjectOwnership(message, QQmlEngine::ObjectOwnership::JavaScriptOwnership);
+        QMetaObject::invokeMethod(m_messageStack, "requestMessage", Q_ARG(QVariant, QVariant::fromValue(message)));
+        message_queue_.pop();
+    }
+}
+float getScreenScaleFactor()
+{
+#ifdef __APPLE__
+    QFont font = qApp->font();
+    font.setPointSize(12);
+    qApp->setFont(font);
+    return 1;
+#else
+    QFont font = qApp->font();
+    font.setPointSize(10);
+    qApp->setFont(font);
+    //int ass = QFontMetrics(font).ascent();
+    float fontPixelRatio = QFontMetrics(qApp->font()).ascent() / 11.0;
+    fontPixelRatio = int(fontPixelRatio * 4) / 4.0;
+    return fontPixelRatio;
+#endif
+}
+
+#ifdef Q_OS_WINDOWS
+UINT_PTR ChooseColorProc(HWND hwnd,
+    UINT uMsg,
+    WPARAM wParam,
+    LPARAM lParam) {
+
+    RECT rc;
+    long hwndctl;
+    long scrWidth;
+    long scrHeight;
+    long dlgWidth;
+    long dlgHeight;
+    switch (uMsg)
+    {
+        case WM_INITDIALOG:
+        {
+            CHOOSECOLOR* data = (CHOOSECOLOR*)(lParam);
+            QQuickView* qv = (QQuickView*)(data->lCustData);
+            long mainwindowX = qv->x();
+            long mainwindowY = qv->y();
+            scrWidth = qv->width();
+            scrHeight = qv->height();
+            GetWindowRect(hwnd, &rc);
+
+            dlgWidth = rc.right - rc.left;
+            dlgHeight = rc.bottom - rc.top;
+
+            long x = mainwindowX + scrWidth - dlgWidth - 400* getScreenScaleFactor() + 8;
+            long y = mainwindowY + 30* getScreenScaleFactor() + 8;
+            MoveWindow(hwnd, x,
+                y, dlgWidth, dlgHeight, 1);
+        }
+            break;
+    default:
+        break;
+    }
+    return 0;
+}
+#endif
+QColor KernelUI::showColorDialog(QColor oldcolor, QObject* parent)
+{
+    QColor color= oldcolor;
+#ifdef Q_OS_WINDOWS
+    CHOOSECOLOR cc = {0}; // 颜色选择对话框结构 
+    static COLORREF acrCustClr[16] = {0xffffff,0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff}; // 16 个自定义颜色
+    //memset(acrCustClr, 0xFFFFFFFF, sizeof(COLORREF) * 16);
+    cc.lStructSize = sizeof(cc);
+    QQuickView* qv = qobject_cast<QQuickView*>(parent);
+    if (!qv)
+        return QColor();
+    WId winId = qobject_cast<QQuickView*>(parent)->winId();
+    HWND hwnd = (HWND)winId;
+    cc.hwndOwner = hwnd; // 对话框窗口的父窗口
+    cc.lpCustColors = (LPDWORD) acrCustClr; // 传入自定义颜色
+    cc.rgbResult = RGB(oldcolor.red(), oldcolor.green(), oldcolor.blue()); // 初始颜色
+    cc.Flags = CC_FULLOPEN | CC_RGBINIT | CC_ENABLEHOOK; // 显示“规定自定义颜色”的内容 | 用 rgbResult 的颜色值初始化
+    cc.lpfnHook = &ChooseColorProc;
+    cc.lCustData = (LPARAM)parent;
+
+
+    if (ChooseColor(&cc)) // 打印输出选择的颜色
+    {
+        color.setRed(GetRValue(cc.rgbResult));
+        color.setGreen(GetGValue(cc.rgbResult));
+        color.setBlue(GetBValue(cc.rgbResult));
+        //wsprintf(s, L"R：%d，G：%d，B：%d\n", GetRValue(cc.rgbResult), GetGValue(cc.rgbResult), GetBValue(cc.rgbResult));
+        //WriteConsole(out, s, wcslen(s), NULL, NULL);
+    }
+
+#else
+
+    color = QColorDialog::getColor(oldcolor,nullptr,"Please choose a color",QColorDialog::DontUseNativeDialog);
+
+#endif
+    return color;
+}
+void KernelUI::requestMessage(QObject* message) {
+    if (!message) {
+        return;
+    }
+
+    if (m_messageStack) {
+        QQmlEngine::setObjectOwnership(message, QQmlEngine::ObjectOwnership::JavaScriptOwnership);
+        QMetaObject::invokeMethod(m_messageStack, "requestMessage", Q_ARG(QVariant, QVariant::fromValue(message)));
+    } else {
+        message_queue_.emplace(message);
+    }
+}
+
+void KernelUI::destroyMessage(int code)
+{
+    if (m_messageStack)
+    {
+        QMetaObject::invokeMethod(m_messageStack, "destroyMessage", Q_ARG(QVariant, QVariant::fromValue(code)));
+    }
+}
+
 bool KernelUI::isFirstStart() const {
-  QSettings setting;
+  qtuser_core::VersionSettings setting;
   setting.beginGroup("profile_setting");
   return setting.value("first_start", "0").toString() == "0";
 }
@@ -569,21 +735,27 @@ void KernelUI::setAppWindow(QObject* appWindow)
 {
     m_appWindow = appWindow;
     m_appWindow->installEventFilter(this);
-
+#if 1
 #ifdef __APPLE__
-    QWindow* applicationWindiow = dynamic_cast<QWindow*> (appWindow);
+    QObject *frameLessView =m_engine->rootContext()->contextProperty("frameLessView").value<QObject*>();
+    QWindow* applicationWindiow = dynamic_cast<QWindow*> (frameLessView);
     MacWindow macWindow;
+    
     macWindow.setContentWindow(applicationWindiow);
     macWindow.setTitleVisibility(false);
     macWindow.setTitlebarAppearsTransparent(true);
+    macWindow.setFullSizeContentView(true);
     macWindow.show();
     MyCppObject* macAppObject = macWindow.getMacAppObject();
     connect(macAppObject, &MyCppObject::closeSignal, [=]
         {
             qDebug() << "signal KernelUI success ";
-            beforeCloseWindow();
-        });
+            applicationWindiow->close();
+            // ?????????????
+            //this->requestCommonDialog(creative_kernel::gContext->project, "CloseProFileDlg");
 
+        });
+#endif
 #endif
 }
 
@@ -604,7 +776,9 @@ qtuser_qml::ToolCommandCenter* KernelUI::lCenter() {
 qtuser_qml::ToolCommandCenter* KernelUI::lOtherCenter() {
     return m_leftOtherToolbarModelList;
 }
-
+qtuser_qml::ToolCommandCenter* KernelUI::topBarCenter() {
+    return m_topToolbarModelList;
+}
 QAbstractListModel* KernelUI::lMainModel() {
     return static_cast<QAbstractListModel*>(m_leftToolbarModelList);
 }
@@ -612,7 +786,10 @@ QAbstractListModel* KernelUI::lMainModel() {
 QAbstractListModel* KernelUI::lOtherModel() {
     return static_cast<QAbstractListModel*>(m_leftOtherToolbarModelList);
 }
-
+QAbstractListModel* KernelUI::topBarModel()
+{
+    return static_cast<QAbstractListModel*>(m_topToolbarModelList);
+}
 QStringList KernelUI::getFontList() const {
     return font_list_;
 }
@@ -636,7 +813,7 @@ void KernelUI::beforeCloseWindow()
         m_closeHook->onWindowClose();
         return;
     }
-    
+
     requestQmlCloseAction();
 }
 
@@ -675,45 +852,197 @@ QQmlEngine* KernelUI::getQmlEngine()
     return m_engine;
 }
 
+
+void KernelUI::setCommandIndex(int index)
+{
+    if (index == m_commandIndex)
+        return;
+
+    m_commandIndex = index;
+    m_otherCommandIndex = -1;
+    emit commandChanged();
+
+    if (m_commandIndex == -1)
+        setVisOperationMode(NULL);
+}
+
+int KernelUI::commandIndex()
+{
+    return m_commandIndex;
+}
+
+void KernelUI::setOtherCommandIndex(int index)
+{
+    if (index == m_otherCommandIndex)
+        return;
+
+    m_otherCommandIndex = index;
+    m_commandIndex = -1;
+    emit commandChanged();
+
+    if (m_otherCommandIndex == -1)
+        setVisOperationMode(NULL);
+}
+
+int KernelUI::otherCommandIndex()
+{
+    return m_otherCommandIndex;
+}
+
+void KernelUI::showToolTip(const QPoint& pos, const QString& text)
+{
+    QMetaObject::invokeMethod(appWindow(), "showToolTip", Q_ARG(QVariant, QVariant::fromValue(pos)),
+                                                        Q_ARG(QVariant, QVariant::fromValue(text)));
+}
+
+void KernelUI::hideToolTip()
+{
+    QMetaObject::invokeMethod(appWindow(), "hideToolTip");
+}
+
+void KernelUI::requestPrinterSettingsDialog(QObject* printer)
+{
+    QMetaObject::invokeMethod(appWindow(), "requestPrinterSettingsDialog", Q_ARG(QVariant, QVariant::fromValue(printer)));
+}
+
+void KernelUI::requestPrinterNameEditorDialog(QObject* printer)
+{
+    QMetaObject::invokeMethod(appWindow(), "requestPrinterNameEditorDialog", Q_ARG(QVariant, QVariant::fromValue(printer)));
+}
+
+void KernelUI::setAutoResetOperateMode(bool enabled)
+{
+    m_autoResetOperateMode = enabled;
+}
+
+void KernelUI::setModelCenter()
+{
+  qtuser_3d::Box3D modelsbox;
+	auto models = creative_kernel::selectionms();
+	for (auto m : models)
+	{
+		qtuser_3d::Box3D modelbox = m->globalSpaceBox();
+		modelsbox += modelbox;
+	}
+	QVector3D movePos;
+	float newZ = 0;
+	if (modelsbox.valid)
+	{
+		qtuser_3d::Box3D box = creative_kernel::baseBoundingBox();
+		QVector3D size = box.size();
+		QVector3D center = box.center();
+		newZ = center.z() - size.z() / 2.0f;
+
+		movePos = box.center() - modelsbox.center();
+		movePos.setZ(0);
+	}
+
+	for (auto m : models)
+	{
+		QVector3D oldLocalPosition = m->localPosition();
+		QVector3D newPositon = oldLocalPosition + movePos;
+		//newPositon.setZ(newZ);
+
+		moveModel(m, oldLocalPosition, newPositon, true);
+	}
+
+}
+
+void KernelUI::setModelBottom()
+{
+    auto models = creative_kernel::selectionms();
+	for (auto m : models)
+    {
+        qtuser_3d::Box3D box = m->globalSpaceBox();
+
+		float fOffset = -box.min.z();
+
+        QVector3D zoffset = QVector3D(0.0f, 0.0f, fOffset);
+        QVector3D localPosition = m->localPosition();
+
+        moveModel(m, localPosition, localPosition + zoffset, true);
+    }
+}
+
+LayoutToolCommand* KernelUI::getLayoutCommand()
+{
+    Q_ASSERT(m_layoutCommand);
+    return m_layoutCommand;
+}
+
+void KernelUI::setScene3DCursor(const QCursor& cursor)
+{
+    QQuickItem* item = dynamic_cast<QQuickItem*>(m_glMainView);
+    if (item)
+        item->setCursor(cursor);
+}
+
+QCursor KernelUI::getScene3DCursor()
+{
+    QCursor cursor;
+    QQuickItem* item = dynamic_cast<QQuickItem*>(m_glMainView);
+    if (item)
+        cursor = item->cursor();
+
+    return cursor;
+}
+
 void KernelUI::onKeyPress(QKeyEvent* event)
 {
-        creative_kernel::Kernel* kernel = getKernel();
-        int phase = kernel->currentPhase();
+    creative_kernel::Kernel* kernel = getKernel();
+    int phase = kernel->currentPhase();
 
-        if (event->key() == Qt::Key_Delete && phase == 0) {
-            creative_kernel::removeSelectionModels(true);
-        }
+    if (event->modifiers() == Qt::ControlModifier &&
+        event->key() == Qt::Key_Z &&
+        phase == 0) {
+        qDebug() << "Ctrl+Z";
+        cxkernel::undo();
+    }
+    if (event->modifiers() == (Qt::ControlModifier) &&
+        event->key() == Qt::Key_Y &&
+        phase == 0) {
+        qDebug() << "Ctrl+Y";
+        cxkernel::redo();
+    }
 
-        if (event->modifiers() == Qt::ControlModifier &&
-            event->key() == Qt::Key_A && phase == 0) {
-            selectAll();
-        }
-
-        if (event->modifiers() == Qt::ControlModifier &&
-            event->key() == Qt::Key_Z) {
-            qDebug() << "Ctrl+Z";
-            cxkernel::undo();
-        }
-
-        if (event->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier) &&
-            event->key() == Qt::Key_Z) {
-            qDebug() << "Ctrl+Shift+Z";
-            cxkernel::redo();
-        }
-
-        if (event->modifiers() == Qt::ControlModifier &&
-            event->key() == Qt::Key_C) {
+    if(!wipeTowerSelected()&&getKernel()->isDefaultVisScene()){
+        if (event->modifiers() == (Qt::ControlModifier) &&
+            event->key() == Qt::Key_C &&
+            phase == 0) {
             qDebug() << "Ctrl+C";
             onCopy();
-            //creative_kernel::undo();
-
         }
-
-        if (event->modifiers() == Qt::ControlModifier &&
-            event->key() == Qt::Key_V) {
+        if (event->modifiers() == (Qt::ControlModifier) &&
+            event->key() == Qt::Key_V &&
+            phase == 0) {
             qDebug() << "Ctrl+V";
             onPaste();
         }
+    }
+
+    if (event->modifiers() == (Qt::AltModifier) &&
+        event->key() == Qt::Key_S &&
+        phase == 0) {
+        qDebug() << "Alt+S";
+    }
+    if (event->modifiers() == (Qt::AltModifier) &&
+        event->key() == Qt::Key_M &&
+        phase == 0) {
+        QMetaObject::invokeMethod(m_topbar, "excuteOpt", Q_ARG(QVariant, QVariant::fromValue(QString("Models"))));
+        qDebug() << "Alt+M";
+    }
+    if (event->modifiers() == (Qt::AltModifier) &&
+        event->key() == Qt::Key_F4 &&
+        phase == 0) {
+        qDebug() << "Alt+F4";
+    }
+    if (event->modifiers() == (Qt::AltModifier) &&
+        event->key() == Qt::Key_C &&
+        phase == 0) {
+        qDebug() << "Alt+C";
+    }
+
+
 }
 
 void KernelUI::onKeyRelease(QKeyEvent* event)
@@ -721,54 +1050,6 @@ void KernelUI::onKeyRelease(QKeyEvent* event)
 
 }
 
-// bool KernelUI::eventFilter(QObject* object, QEvent* event)
-// {
-//     if (object == m_appWindow && QEvent::Type::KeyPress == event->type()) {
-//         auto* key_press_event = dynamic_cast<QKeyEvent*>(event);
-
-//         creative_kernel::Kernel* kernel = getKernel();
-//         int phase = kernel->currentPhase();
-
-//         if (m_scene3DWrapper && !m_scene3DWrapper->hasFocus())
-//             return false;
-
-//         if (key_press_event->key() == Qt::Key_Delete && phase == 0) {
-//             creative_kernel::removeSelectionModels(true);
-//         }
-
-//         if (key_press_event->modifiers() == Qt::ControlModifier &&
-//             key_press_event->key() == Qt::Key_A && phase == 0) {
-//             selectAll();
-//         }
-
-//         if (key_press_event->modifiers() == Qt::ControlModifier &&
-//                 key_press_event->key() == Qt::Key_Z) {
-//             qDebug() << "Ctrl+Z";
-//             cxkernel::undo();
-//         }
-
-//         if (key_press_event->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier) &&
-//                 key_press_event->key() == Qt::Key_Z) {
-//             qDebug() << "Ctrl+Shift+Z";
-//             cxkernel::redo();
-//         }
-
-//         if (key_press_event->modifiers() == Qt::ControlModifier &&
-//             key_press_event->key() == Qt::Key_C) {
-//             qDebug() << "Ctrl+C";
-//             return onCopy();
-//             //creative_kernel::undo();
-
-//         }
-
-//         if (key_press_event->modifiers() == Qt::ControlModifier &&
-//             key_press_event->key() == Qt::Key_V) {
-//             qDebug() << "Ctrl+V";
-//             return onPaste();
-//         }
-//     }
-//     return false;
-// }
 
 void KernelUI::onRightMouseButtonPress(QMouseEvent* event)
 {
@@ -790,10 +1071,11 @@ void KernelUI::onRightMouseButtonClick(QMouseEvent* event)
     Q_UNUSED(event);
     creative_kernel::Kernel* kernel = getKernel();
     int phase = kernel->currentPhase();
-    if(phase==0)
-    {
-        invokeRightClickMenuFunc("requstShow");
-    }
+
+    if(phase==0 && kernel->isDefaultVisScene()) invokeRightClickMenuFunc("requstShow");
+    if(phase == 1) Q_EMIT rightMouseClick();
+
+
 }
 
 void KernelUI::onThemeChanged(creative_kernel::ThemeCategory category)
@@ -802,6 +1084,7 @@ void KernelUI::onThemeChanged(creative_kernel::ThemeCategory category)
 
     m_leftToolbarModelList->refreshModel();
     m_leftOtherToolbarModelList->refreshModel();
+    m_topToolbarModelList->refreshModel();
 }
 
 void KernelUI::onLanguageChanged(creative_kernel::MultiLanguage language)
@@ -820,4 +1103,46 @@ void KernelUI::invokeQmlObjectFunc(QObject* object, const QString& func, const Q
         QMetaObject::invokeMethod(object, func.toStdString().c_str(), Q_ARG(QVariant, variant1));
     else
         QMetaObject::invokeMethod(object, func.toStdString().c_str(), Q_ARG(QVariant, variant1), Q_ARG(QVariant, variant2));
+}
+
+void KernelUI::onSelectionsChanged()
+{
+    auto mode = visOperationMode();
+    if (m_autoResetOperateMode && selectionms().isEmpty())
+    {
+        if (mode)
+        {
+            if (mode->type() == qtuser_3d::SceneOperateMode::FixedMode)
+            {
+                return;
+            }
+            else if (mode->type() == qtuser_3d::SceneOperateMode::ReusableMode)
+            {
+                if (m_leftToolbar)
+                    QMetaObject::invokeMethod(m_leftToolbar, "setOperatePanelVisible", Q_ARG(QVariant, false));
+                return;
+            }
+        }
+        if (commandIndex() != -1)
+            setCommandIndex(-1);
+        else if (otherCommandIndex() != -1)
+            setOtherCommandIndex(-1);
+    }
+    else
+    {
+        if (mode)
+        {
+            if (mode->type() == qtuser_3d::SceneOperateMode::ReusableMode)
+            {
+                if (m_leftToolbar)
+                    QMetaObject::invokeMethod(m_leftToolbar, "setOperatePanelVisible", Q_ARG(QVariant, true));
+                return;
+            }
+        }
+    }
+}
+
+void KernelUI::selectChanged(qtuser_3d::Pickable* pickable)
+{
+
 }

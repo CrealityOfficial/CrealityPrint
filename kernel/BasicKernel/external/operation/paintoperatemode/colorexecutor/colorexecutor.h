@@ -23,8 +23,10 @@ public:
 
 	/* 上色 */
 	void triangleColor();
-	void circleColor(spread::SceneData& data, bool isFirstCircle);
+	void circleColor(const spread::SceneData& data, bool isFirstCircle);
 	void fillColor();
+	void heightRangeColor(const spread::SceneData& data, float height);
+	void fillGapColor();
 
 	/* workers */
 	void appendWorker(ColorWorker* worker);

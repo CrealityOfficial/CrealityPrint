@@ -27,6 +27,8 @@ using namespace qtuser_qml;
 DistanceMeasureOp::DistanceMeasureOp(QObject* parent)
 	:SceneOperateMode(parent)
 {
+	m_type = qtuser_3d::SceneOperateMode::FixedMode;
+
 	reset();
 	m_measrureType = 1;
 
@@ -131,7 +133,7 @@ void DistanceMeasureOp::onLeftMouseButtonClick(QMouseEvent* event)
 	ModelN* model = checkPickModel(event->pos(), position, normal, &faceID);
 	if (model)
 	{
-		//ÇÐ»»Ñ¡ÖÐ
+		//ï¿½Ð»ï¿½Ñ¡ï¿½ï¿½
 		creative_kernel::selectOne(model);
 		QMatrix4x4 m = model->globalMatrix();
 		QVector3D vec3Pos = position;

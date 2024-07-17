@@ -13,8 +13,8 @@ MirrorCommand::MirrorCommand(QObject* parent)
     : ToolCommand(parent)
     // delay initlize the operate mode until the command first execution
     , operate_mode_(nullptr) {
-  creative_kernel::addUIVisualTracer(this);
-
+  creative_kernel::addUIVisualTracer(this,this);
+  orderindex = 2;
   onThemeChanged(creative_kernel::currentTheme()); 
   onLanguageChanged(creative_kernel::currentLanguage());
 }
@@ -34,16 +34,16 @@ void MirrorCommand::execute() {
 void MirrorCommand::onThemeChanged(ThemeCategory theme) {
   switch (theme) {
     case ThemeCategory::tc_dark:
-      setDisabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/flip_dark.svg"));
-      setEnabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/flip_dark.svg"));
-      setHoveredIcon(QStringLiteral("qrc:/UI/photo/leftBar/flip_pressed.svg"));
-      setPressedIcon(QStringLiteral("qrc:/UI/photo/leftBar/flip_pressed.svg"));
+      setDisabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/mirror_dark_disable.svg"));
+      setEnabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/mirror_dark_default.svg"));
+      setHoveredIcon(QStringLiteral("qrc:/UI/photo/cToolBar/mirror_dark_default.svg"));
+      setPressedIcon(QStringLiteral("qrc:/UI/photo/cToolBar/mirror_dark_press.svg"));
       break;
     case ThemeCategory::tc_light:
-      setDisabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/flip_lite.svg"));
-      setEnabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/flip_lite.svg"));
-      setHoveredIcon(QStringLiteral("qrc:/UI/photo/leftBar/flip_lite.svg"));
-      setPressedIcon(QStringLiteral("qrc:/UI/photo/leftBar/flip_pressed.svg"));
+      setDisabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/mirror_dark_disable.svg"));
+      setEnabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/mirror_light_default.svg"));
+      setHoveredIcon(QStringLiteral("qrc:/UI/photo/cToolBar/mirror_light_default.svg"));
+      setPressedIcon(QStringLiteral("qrc:/UI/photo/cToolBar/mirror_dark_press.svg"));
       break;
     case ThemeCategory::tc_num:
       break;
@@ -54,7 +54,7 @@ void MirrorCommand::onThemeChanged(ThemeCategory theme) {
 
 void MirrorCommand::onLanguageChanged(MultiLanguage language) {
   std::ignore = language;
-  setName(QCoreApplication::translate("MirrorCommand", "Mirror"));
+  setName(QCoreApplication::translate("MirrorCommand", "Mirror")+": M");
 }
 
 }  // namespace creative_kernel

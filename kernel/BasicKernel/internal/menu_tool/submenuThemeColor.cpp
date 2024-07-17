@@ -22,7 +22,7 @@ namespace creative_kernel
         lightTheme = new ThemeColorCommand(ThemeCategory::tc_light, this);
         m_actionModelList->addCommand(lightTheme);
 
-		addUIVisualTracer(this);
+		addUIVisualTracer(this,this);
     }
 
     SubMenuThemeColor::~SubMenuThemeColor()

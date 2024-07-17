@@ -129,6 +129,7 @@ namespace qtuser_3d
 		QVector3D horizontal = m_screenCamera->horizontal();
 
 		QPoint delta = pos - m_savePoint;
+		delta *= m_mouseSensitivity;
 
 		float hangle = -0.1f * (float)delta.x();
 		QQuaternion hq = QQuaternion::fromAxisAndAngle(QVector3D(0.0f, 0.0f, 1.0f), hangle);
@@ -180,6 +181,7 @@ namespace qtuser_3d
 		QVector3D up = m_camera->upVector();
 
 		QPoint delta = pos - m_savePoint;
+		delta *= m_mouseSensitivity;
 		float hangle = - m_hangleDelta * (float)delta.x();
 		QQuaternion hq = QQuaternion::fromAxisAndAngle(QVector3D(0.0f, 0.0f, 1.0f), hangle);
 		
@@ -238,6 +240,7 @@ namespace qtuser_3d
 		QVector3D horizontal = m_screenCamera->horizontal();
 
 		QPoint delta = pos - m_savePoint;
+		delta *= m_mouseSensitivity;
 
 		float hangle = -0.1f * (float)delta.x();
 		QQuaternion hq = QQuaternion::fromAxisAndAngle(QVector3D(0.0f, 0.0f, 1.0f), hangle);

@@ -46,7 +46,7 @@ namespace qtuser_core
 		void addCXFileOpenSaveCallback(CXFileOpenSaveCallback* callback);
 		void removeCXFileOpenSaveCallback(CXFileOpenSaveCallback* callback);
 	public:
-		void open(CXHandleBase* receiver = nullptr, const QString& title = QString(""));
+		void open(CXHandleBase* receiver = nullptr, const QString& title = QString(""), bool isSingleFile = false);
 		void save(CXHandleBase* receiver = nullptr, const QString& defaultName = QString(""), const QString& title = QString(""));
 
 		Q_INVOKABLE void qOpen(QObject* receiver);
@@ -126,6 +126,7 @@ namespace qtuser_core
 	};
 
 	typedef std::function<void(const QStringList& fileNames)> loadFunc;
+	QTUSER_CORE_API void dialogOpenFile(const QString& filter, const QString& title, loadFunc func);
 	QTUSER_CORE_API void dialogOpenFiles(const QString& filter, const QString& title,loadFunc func);
 
 	typedef std::function<void(const QString& fileName)> saveFunc;

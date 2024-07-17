@@ -7,8 +7,9 @@
 #include "interface/spaceinterface.h"
 #include "interface/selectorinterface.h"
 #include "interface/appsettinginterface.h"
-
-#include "data/fdmsupportgroup.h"
+#include "interface/visualsceneinterface.h"
+#include "interface/parameterinterface.h"
+#include "interface/machineinterface.h"
 
 #include "us/usettings.h"
 
@@ -27,32 +28,109 @@
 #include <QColor>
 #include <Qt3DRender/QAttribute>
 #include <Qt3DRender/QBuffer>
-#include "msbase/mesh/deserializecolor.h" 
 #include "qtuser3d/refactor/xeffect.h"
+#include "msbase/mesh/deserializecolor.h"
+#include "external/interface/modelinterface.h"
+#include "qtuser3d/refactor/xeffect.h"
+#include "renderpass/zprojectrenderpass.h"
+
+#include "kernel/kernel.h"
+#include "internal/parameter/parametermanager.h"
+#include "internal/parameter/printmachine.h"
+
+#include "us/usettingwrapper.h"
+#include "nestplacer/printpiece.h"
+#include "slice/adaptiveslice.h"
+
+#include "interface/renderinterface.h"
 
 namespace creative_kernel
 {
 	ModelN::ModelN(QObject* parent)
 		:Node3D(parent)
-		, m_fdmSupportGroup(nullptr)
 		, m_nestRotation(0)
 		, m_localAngleStack({QVector3D()})
 		, m_currentLocalDispalyAngle(0)
+		, m_objectId(-1)
+		, m_groupId(-1)
 	{
 		m_entity = new ModelNEntity();
-		m_entity->setEffect(getCachedModelEffect());
+		setRenderType(ViewRender);
+		// m_entity->setEffect(getCachedModelEffect());
 
-		m_setting = new us::USettings(this);
+		m_lastUsedSetting = new us::USettings(this);
+		setsetting(new us::USettings(this));
 
 		m_visibility = true;
-		m_detectAdd = true;
 		setNozzle(0);
+
+		m_modelOffscreenEffect = new qtuser_3d::XEffect(m_entity);
+		{
+			qtuser_3d::XRenderPass* rtPass = new qtuser_3d::XRenderPass("modeloffscreen", m_modelOffscreenEffect);
+			rtPass->addFilterKeyMask("rt", 0);
+			rtPass->setPassCullFace();
+			rtPass->setPassDepthTest();
+			m_modelOffscreenEffect->addRenderPass(rtPass);
+		}
+
+		m_modelCombindEffect = new qtuser_3d::XEffect(m_entity);
+		{
+			qtuser_3d::XRenderPass* viewPass = new qtuser_3d::XRenderPass("modelpreview", m_modelCombindEffect);
+			viewPass->addFilterKeyMask("alpha", 0);
+			viewPass->setPassBlend(Qt3DRender::QBlendEquationArguments::SourceAlpha, Qt3DRender::QBlendEquationArguments::OneMinusSourceAlpha);
+			viewPass->setPassCullFace(Qt3DRender::QCullFace::Back);
+			viewPass->setPassDepthTest();
+			viewPass->setPassNoDepthMask();
+			m_modelCombindEffect->addRenderPass(viewPass);
+
+			qtuser_3d::XRenderPass* rtPass = new qtuser_3d::XRenderPass("modeloffscreen", m_modelCombindEffect);
+			rtPass->addFilterKeyMask("rt", 0);
+			rtPass->setPassCullFace();
+			rtPass->setPassDepthTest();
+			m_modelCombindEffect->addRenderPass(rtPass);
+
+			qtuser_3d::XRenderPass* shadowPass = new qtuser_3d::ZProjectRenderPass(m_modelCombindEffect);
+			shadowPass->addFilterKeyMask("modelzproject", 0);
+			shadowPass->setEnabled(false);
+			m_modelCombindEffect->addRenderPass(shadowPass);
+		}
+
+		QVariantList emptyList;
+		setLayersColor(emptyList);
+
+		ParameterManager* parameterManager = getKernel()->parameterManager();
+		connect(parameterManager, &ParameterManager::parameterEdited, this, &ModelN::onGlobalSettingsChanged);
+		connect(parameterManager, &ParameterManager::extruderClearanceRadiusChanged, this, [=](float radius)
+			{
+				m_sweepPathDirty = true;
+				updateSweepAreaPath();
+			});
+		connect(this, &ModelN::defaultColorIndexChanged, this, &ModelN::updateSetting);
 	}
-	
+
 	ModelN::~ModelN()
 	{
-		m_entity->deleteLater();
-		m_setting->deleteLater();
+		if (m_entity)
+		{
+			// 避免主线程删除entity与渲染线程冲突。
+			setContinousRender();
+			m_entity->setEnabled(false);
+			delete m_entity;
+			m_entity = nullptr;
+			setCommandRender();
+		}
+
+		if (m_setting)
+		{
+			delete m_setting;
+			m_setting = nullptr;
+		}
+
+		if (m_lastUsedSetting)
+		{
+			delete m_lastUsedSetting;
+			m_lastUsedSetting = NULL;
+		}
 	}
 
 	void ModelN::onGlobalMatrixChanged(const QMatrix4x4& globalMatrix)
@@ -63,13 +141,6 @@ namespace creative_kernel
 		QMatrix4x4 matrix = globalMatrix;
 		m_entity->updateBoxLocal(box, matrix);
 
-#if 0
-		if(m_data)
-		{
-			std::vector<trimesh::vec3> convexData = outline_path();
-			m_entity->updateLines(convexData);
-		}
-#endif
     }
 
 	void ModelN::onStateChanged(qtuser_3d::ControlState state)
@@ -139,12 +210,6 @@ namespace creative_kernel
 		m_entity->setVertexBase(vertexBase);
 	}
 
-	void ModelN::setSupportsVisibility(bool visibility)
-	{
-		if (m_fdmSupportGroup)
-			m_fdmSupportGroup->setVisibility(visibility);
-	}
-
 	us::USettings* ModelN::setting()
 	{
 		return m_setting;
@@ -152,28 +217,105 @@ namespace creative_kernel
 
 	void ModelN::setsetting(us::USettings* modelsetting)
 	{
+		if (m_setting)
+		{
+			disconnect(m_setting, &us::USettings::settingsChanged, this, &ModelN::onSettingsChanged);
+			disconnect(m_setting, &us::USettings::settingValueChanged, this, &ModelN::onSettingsChanged);
+		}
+
 		m_setting = modelsetting;
+		connect(m_setting, &us::USettings::settingsChanged, this, &ModelN::onSettingsChanged, Qt::UniqueConnection);
+		connect(m_setting, &us::USettings::settingValueChanged, this, &ModelN::onSettingsChanged, Qt::UniqueConnection);
 	}
 
-	void ModelN::setVisualMode(ModelVisualMode mode)
+	bool ModelN::hasParameter(const QString& key)
 	{
-		m_entity->setRenderMode((int)mode); 
+		return m_setting->hasKey(key);
 	}
 
-	int ModelN::getVisualMode()
+	void ModelN::getUsedSetting(us::USettings* setting)
 	{
-		return m_entity->getRenderMode(); 
+		QSharedPointer<us::USettings> globalSetting = creative_kernel::createCurrentGlobalSettings();
+		setting->clear();
+		setting->merge(globalSetting.get());
+		setting->merge(m_setting);
+	}
+
+	void ModelN::recordSetting()
+	{
+		getUsedSetting(m_lastUsedSetting);
+	}
+	
+	bool ModelN::checkSettingDirty()
+	{
+		QSharedPointer<us::USettings> currentUsedSetting(new us::USettings());
+		getUsedSetting(currentUsedSetting.get());
+		
+		if (*(currentUsedSetting.get()) == *m_lastUsedSetting)
+			return false;
+		else 
+			return true;
+	}
+
+	bool ModelN::checkSettingDirty(const QString& key)
+	{
+		if (m_setting->hasKey(key))
+		{
+			if (m_lastUsedSetting->hasKey(key))
+			{
+				QString value = m_setting->value(key, "");
+				QString lastValue = m_lastUsedSetting->value(key, "");
+				return value != lastValue;
+			}
+			else 
+			{
+				return false;
+			}
+		}
+		else 
+		{
+			QString value = getPrintProfileValue(key, "");
+			if (value.isEmpty())
+			{
+				if (m_lastUsedSetting->hasKey(key))
+					return true;
+				else 
+					return false;
+			}
+			else 
+			{
+				if (m_lastUsedSetting->hasKey(key))
+				{
+					QString lastValue = m_lastUsedSetting->value(key, "");
+					return value != lastValue;
+				}
+				else 
+					return true;
+			}
+		}
 	}
 
 	void ModelN::setVisibility(bool visibility)
 	{
-		dirtyModelSpace();
-
+		dirty();
 		m_visibility = visibility;
 
-		visibility ? spaceShow(m_entity) : spaceHide(m_entity);
-		setSupportsVisibility(visibility);
-		m_entity->update();
+		if (visibility)
+		{
+			if (m_entity->parent() != spaceEntity())
+			{
+				m_entity->setParent(spaceEntity());
+			}
+			m_entity->setEnabled(true);
+		}
+		else
+		{
+			if (m_entity->parent() != spaceEntity())
+			{
+				m_entity->setParent(spaceEntity());
+			}
+			m_entity->setEnabled(false);
+		}
 	}
 
 	bool ModelN::isVisible()
@@ -186,36 +328,32 @@ namespace creative_kernel
 		return m_entity;
 	}
 
-	/*void ModelN::setCustomColor(QColor color)
+	void ModelN::setModelEffect(qtuser_3d::XEffect* effect)
 	{
-		m_entity->setCustomColor(color);
+		m_entity->setEffect(effect);
 	}
 
-	QColor ModelN::getCustomColor()
+	void ModelN::useVariableLayerHeightEffect()
 	{
-		return m_entity->getCustomColor();
-	}*/
+		setModelEffect(getCacheModelLayerEffect());
+	}
 
-	/*void ModelN::mirror(const QMatrix4x4& matrix, bool apply)
+	void ModelN::useDefaultModelEffect()
 	{
-		Node3D::mirror(matrix, apply);
-		bool fanzhuan = isFanZhuan();
-		m_entity->setFanZhuan((int)fanzhuan);
-	}*/
-
-	
+		setModelEffect(getCachedModelEffect());
+	}
 
 	void ModelN::setNozzle(int nozzle)
 	{
 		if (m_entity != nullptr)
 			m_entity->setNozzle(nozzle);
-		
-		m_setting->add("extruder_nr", QString("%1").arg(nozzle), true);
+
+		set_nozzle(m_setting, nozzle);
 	}
 
 	int ModelN::nozzle()
 	{
-		return m_setting->vvalue("extruder_nr").toInt();
+		return get_nozzle(m_setting);
 	}
 
     bool ModelN::needInit()
@@ -253,24 +391,10 @@ namespace creative_kernel
 		QVector3D offset = oldCenter - box.center();
 		QVector3D zoffset = QVector3D(offset.x(), offset.y(), -box.min.z());
 		QVector3D _lPosition = localPosition();
-		
+
 		position = _lPosition + zoffset;
 		rotate = q;
 	}
-
-	bool ModelN::hasFDMSupport()
-	{
-		return m_fdmSupportGroup && (m_fdmSupportGroup->fdmSupportNum() > 0);
-	}
-
-	void ModelN::setFDMSup(FDMSupportGroup* fdmSup)
-	{
-		m_fdmSupportGroup = fdmSup;
-		m_fdmSupportGroup->setParent(this);
-		m_fdmSupportGroup->setParent2Global(globalMatrix());
-		m_fdmSupportGroup->setVisibility(true);
-	}
-
 
 	void ModelN::setState(int state)
 	{
@@ -295,23 +419,6 @@ namespace creative_kernel
 			m_entity->setBoxVisibility(selected() ? true : false);
 	}
 
-    FDMSupportGroup* ModelN::fdmSupport()
-	{
-        if (!m_fdmSupportGroup)
-            buildFDMSupport();
-		return m_fdmSupportGroup;
-	}
-
-	void ModelN::setFDMSuooprt(bool detectAdd)
-	{
-		m_detectAdd = detectAdd;
-	}
-
-	bool ModelN::getFDMSuooprt()
-	{
-		return m_detectAdd;
-	}
-
 	void ModelN::enterSupportStatus()
 	{
 		m_entity->enterSupportStatus();
@@ -327,26 +434,12 @@ namespace creative_kernel
 		m_entity->setSupportCos(cos);
 	}
 
-	/*void ModelN::setNeedCheckScope(int checkscope)
-	{
-		m_entity->setNeedCheckScope(checkscope);
-	}*/
-
 	qtuser_3d::Box3D ModelN::boxWithSup()
 	{
 		qtuser_3d::Box3D box = Node3D::globalSpaceBox();
 		return box;
 	}
 
-    void ModelN::buildFDMSupport()
-	{
-        //bool bHasFdm = true;
-		if (m_fdmSupportGroup) return;
-		m_fdmSupportGroup = new FDMSupportGroup(this);
-        m_fdmSupportGroup->setParent2Global(globalMatrix());
-        m_fdmSupportGroup->setVisibility(true);
-	}
-	
 	void ModelN::SetModelViewClrState(qtuser_3d::ControlState statevalue,bool boxshow)
 	{
 		//m_entity->setState((float)ControlState::selected);
@@ -369,20 +462,55 @@ namespace creative_kernel
 	TriMeshPtr ModelN::globalMesh(bool needMergeColorMesh)
 	{
 		trimesh::TriMesh* mesh = nullptr;
-		//������ɫ
-		if (needMergeColorMesh && hasColors())
+
+		EngineType engine_type = getEngineType();
+		//解析颜色
+		if (needMergeColorMesh && hasColors() && engine_type == EngineType::ET_CURA)
 		{
 			std::vector<int> facet2Facets;
-			mesh = msbase::mergeColorMeshes(m_data->mesh.get(), m_seam2Facets, facet2Facets);
+			mesh = msbase::mergeColorMeshes(m_data->mesh.get(), m_data->colors, facet2Facets);
 			mesh->need_normals();
 		}
 		else
 		{
 			mesh = new trimesh::TriMesh();
-		*mesh = *m_data->mesh;
+			*mesh = *m_data->mesh;
+
+			//add default color
+			if (mesh->flags.size() != mesh->faces.size())
+			{
+				mesh->flags.clear();
+				mesh->flags.resize(mesh->faces.size(),0);
+			}
 		}
 
 		trimesh::apply_xform(mesh, trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())));
+		return TriMeshPtr(mesh);
+	}
+
+	TriMeshPtr ModelN::localMesh(bool needMergeColorMesh)
+	{
+		trimesh::TriMesh* mesh = nullptr;
+		EngineType engine_type = getEngineType();
+		//解析颜色
+		if (needMergeColorMesh && hasColors() && engine_type == EngineType::ET_CURA)
+		{
+			std::vector<int> facet2Facets;
+			mesh = msbase::mergeColorMeshes(m_data->mesh.get(), m_data->colors, facet2Facets);
+			mesh->need_normals();
+		}
+		else
+		{
+			mesh = new trimesh::TriMesh();
+			*mesh = *m_data->mesh;
+			//add default color
+			if (mesh->flags.size() != mesh->faces.size())
+			{
+				mesh->flags.clear();
+				mesh->flags.resize(mesh->faces.size(), 0);
+			}
+		}
+		//trimesh::apply_xform(mesh, trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())));
 		return TriMeshPtr(mesh);
 	}
 
@@ -482,29 +610,38 @@ namespace creative_kernel
 	{
 		if (m_data == data)
 			return;
+
+		// m_entity->setEnabled(false);
 		setRenderData(std::make_shared<ModelNRenderData>(data));
+		setObjectName(data->input.name);
+		// m_entity->setEnabled(true);
 	}
 
 	void ModelN::setRenderData(ModelNRenderDataPtr renderData)
 	{
-		if (m_renderData == renderData)
-			return;
+		//if (m_renderData == renderData)
+		//	return;
 
+		// m_entity->setEnabled(false);
 		m_data = renderData->data();
 		m_renderData = renderData;
 
-		//m_colors2Facets = data->colors;
-		//m_seam2Facets = data->seams;
-		//m_support2Facets = data->supports;
-		//data->colors.clear();
-		//data->seams.clear();
-		//data->supports.clear();
+		if (m_colorIndex != m_data->defaultColor)
+		{
+			m_colorIndex = m_data->defaultColor;
+			emit defaultColorIndexChanged();
+		}
 
 		if (m_renderData)
 		{
 			setObjectName(m_renderData->data()->input.name);
 
-			m_entity->setGeometry(m_renderData->geometry());
+			// 切换geometry前先隐藏模型，避免主线程更改geometry与渲染线程冲突。
+			setContinousRender();
+			m_entity->setEnabled(false);
+			m_entity->setGeometry(m_renderData->geometry(), Qt3DRender::QGeometryRenderer::Triangles, false);
+			m_entity->setEnabled(true);
+			setCommandRender();
 
 			//bool use = (m_data && m_data->mesh->colors.size() > 0);
 			//m_entity->setUseVertexColor(use);
@@ -518,6 +655,9 @@ namespace creative_kernel
 			setCenter(m_localBox.center());
 			m_data->resetHull();
 		}
+
+		updateSweepAreaPath();
+		// m_entity->setEnabled(true);
 	}
 
 	ModelNRenderDataPtr ModelN::renderData()
@@ -530,86 +670,6 @@ namespace creative_kernel
 		return m_data;
 	}
 
-	QMatrix4x4 ModelN::embedScaleNRot()
-	{
-		QMatrix4x4 scaleRotMat;
-
-		scaleRotMat.translate(m_localCenter);
-		scaleRotMat.rotate(m_localRotate);
-		scaleRotMat.scale(m_localScale);
-		scaleRotMat.translate(-m_localCenter);
-
-		embedMatrix(scaleRotMat);
-
-		resetLocalQuaternion(false);
-		resetLocalScale(true);
-
-		m_localBox = qtuser_3d::Box3D(QVector3D());
-		if (m_data->mesh)
-		{
-			m_data->resetHull();
-			m_data->updateRenderData();
-			m_localBox = qtuser_3d::triBox2Box3D(m_data->calculateBox(trimesh::fxform()));
-		}
-
-		setCenter(m_localBox.center());
-
-		return scaleRotMat;
-	}
-
-	void ModelN::embedMatrix(QMatrix4x4 mat)
-	{
-		Qt3DRender::QGeometry* modelGeo = m_entity->geometry();
-		if (modelGeo)
-		{
-			// update geometry
-			{
-				//QVector<Qt3DRender::QAttribute*> attrList = modelGeo->attributes();
-				//for each (Qt3DRender::QAttribute * attr in attrList)
-				//{
-				//	if (attr && attr->attributeType() == Qt3DRender::QAttribute::AttributeType::VertexAttribute)
-				//	{
-				//		QByteArray bufferData = attr->buffer()->data();
-				//		// check float type
-				//		if (bufferData.size() > 0 && bufferData.size() % 4 == 0)
-				//		{
-				//			trimesh::vec3* vertices = (trimesh::vec3*)bufferData.data();
-				//			int vCount = bufferData.size() / (3 * 4);
-
-				//			for (int i = 0; i < vCount; i++)
-				//			{
-				//				trimesh::vec3 newV = qcxutil::qMatrix2Xform(mat) * vertices[i];
-				//				vertices[i].x = newV.x;
-				//				vertices[i].y = newV.y;
-				//				vertices[i].z = newV.z;
-				//			}
-				//		}
-
-				//		attr->buffer()->setData(bufferData);
-
-				//		break;
-				//	}
-				//}
-			}
-
-			// update modelNData
-			{
-				cxkernel::ModelNDataPtr data = m_renderData->data();
-				if (data && data->mesh)
-				{
-					int vCount = data->mesh->vertices.size();
-
-					for (int i = 0; i < vCount; i++)
-					{
-						data->mesh->vertices[i] = qtuser_3d::qMatrix2Xform(mat) * data->mesh->vertices[i];
-					}
-					m_renderData->updateRenderDataForced();
-					m_entity->setGeometry(m_renderData->geometry());
-				}
-			}
-		}
-	}
-
 	std::vector<trimesh::vec3> ModelN::getoutline_ObjectExclude()
 	{
 		std::vector<trimesh::vec3> outline = outline_path(true, false);
@@ -618,7 +678,13 @@ namespace creative_kernel
 
 	int ModelN::primitiveNum()
 	{
-		return m_data ? m_data->primitiveNum() : 0;
+		if (!m_data)
+			return 0;
+
+		if (m_data->colors.empty())
+			return m_data->primitiveNum();
+		else
+			return m_data->spreadFaceCount;
 	}
 
 	void ModelN::setUnitType(UnitType type)
@@ -631,7 +697,6 @@ namespace creative_kernel
 	ModelN::UnitType ModelN::unitType()
 	{
 		return m_ut;
-
 	}
 
 	void ModelN::setPose(const QMatrix4x4& pose)
@@ -644,192 +709,77 @@ namespace creative_kernel
 		return m_entity->pose();
 	}
 
-	void ModelN::setColors2Facets(int index, const std::string& data)
-	{
-		if (m_colors2Facets.empty())
-		{
-			if (m_data && m_data->mesh)
-			{
-				int num = m_data->mesh->faces.size();
-				if (num)
-				{
-					m_colors2Facets.resize(num);
-				}
-			}
-		}
-
-		if (m_colors2Facets.size() > index && m_colors2Facets.size()>0)
-		{
-			m_colors2Facets[index] = data;
-		}
-	}
-
 	std::string ModelN::getColors2Facets(int index)
 	{
-		if (m_colors2Facets.size() > index && m_colors2Facets.size() > 0)
+		if (m_data && m_data->colors.size() > index && m_data->colors.size() > 0)
 		{
-			return m_colors2Facets[index];
+			return m_data->colors[index];
 		}
 		return "";
-	}
-
-	//paint seam
-	void ModelN::setSeam2Facets(int index, const std::string& data)
-	{
-		if (m_seam2Facets.empty())
-		{
-			if (m_data && m_data->mesh)
-			{
-				int num = m_data->mesh->faces.size();
-				if (m_data->mesh->faces.size())
-				{
-					m_seam2Facets.resize(num);
-				}
-			}
-		}
-
-		if (m_seam2Facets.size() > index && m_seam2Facets.size() > 0)
-		{
-			m_seam2Facets[index] = data;
-		}
-	}
-	std::string ModelN::getSeam2Facets(int index)
-	{
-		if (m_seam2Facets.size() > index && m_seam2Facets.size() > 0)
-		{
-			return m_seam2Facets[index];
-		}
-		return "";
-	}
-
-	void ModelN::setSeam2Facets(const std::vector<std::string>& data)
-	{
-		m_seam2Facets = data;
-	}
-	
-	std::vector<std::string> ModelN::getSeam2Facets()
-	{
-		if (m_seam2Facets.empty() && m_data)
-		{
-			int facetsCount = mesh()->faces.size();
-			for (int i = 0; i < facetsCount; ++i)
-				m_seam2Facets.push_back(std::string());
-		}
-		return m_seam2Facets;
-	}
-
-	//paint support
-	void ModelN::setSupport2Facets(int index, const std::string& data)
-	{
-		if (m_support2Facets.empty())
-		{
-			if (m_data && m_data->mesh)
-			{
-				int num = m_data->mesh->faces.size();
-				if (num)
-				{
-					m_support2Facets.resize(num);
-				}
-			}
-		}
-
-		if (m_support2Facets.size() > index && m_support2Facets.size() > 0)
-		{
-			m_support2Facets[index] = data;
-		}
-	}
-	std::string ModelN::getSupport2Facets(int index)
-	{
-		if (m_support2Facets.size() > index && m_support2Facets.size() > 0)
-		{
-			return m_support2Facets[index];
-		}
-		return "";
-	}
-
-	void ModelN::setSupport2Facets(const std::vector<std::string>& data)
-	{
-		m_support2Facets = data;
-	}
-	
-	std::vector<std::string> ModelN::getSupport2Facets()
-	{
-		if (m_support2Facets.empty() && m_data)
-		{
-			int facetsCount = mesh()->faces.size();
-			for (int i = 0; i < facetsCount; ++i)
-				m_support2Facets.push_back(std::string());
-		}
-		return m_support2Facets;
-	}
-
-	void ModelN::mergePaintSupport()
-	{
-		QString fileName = QString("%1/paint_support").arg(SLICE_PATH);
-		std::string _file = fileName.toLocal8Bit().data();
-		const int color_state = 2;
-		msbase::getColorPloygon(m_data->mesh.get(), trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())), m_support2Facets, _file, color_state);
-	}
-
-	void ModelN::mergePaintSupport_anti_overhang()
-	{
-		QString fileName = QString("%1/paint_anti_support").arg(SLICE_PATH);
-		std::string _file = fileName.toLocal8Bit().data();
-		const int color_state = 3;
-		msbase::getColorPloygon(m_data->mesh.get(), trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())), m_support2Facets, _file, color_state);
-	}
-	void ModelN::mergePaintSeam()
-	{
-		QString fileName = QString("%1/paint_seam").arg(SLICE_PATH);
-		std::string _file = fileName.toLocal8Bit().data();
-		const int color_state = 2;
-		msbase::getColorPloygon(m_data->mesh.get(), trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())), m_seam2Facets, _file, color_state);
-	}
-
-	void ModelN::mergePaintSeam_anti()
-	{
-		QString fileName = QString("%1/paint_anti_seam").arg(SLICE_PATH);
-		std::string _file = fileName.toLocal8Bit().data();
-		const int color_state = 3;
-		msbase::getColorPloygon(m_data->mesh.get(), trimesh::xform(qtuser_3d::qMatrix2Xform(globalMatrix())), m_seam2Facets, _file, color_state);
 	}
 
 	void ModelN::setColors2Facets(const std::vector<std::string>& data)
 	{
-		m_colors2Facets = data;
+		cxkernel::ModelNDataPtr modelData = m_data->clone();
+		modelData->colors = data;
+		setData(modelData);
+
+		emit colorsDataChanged();
 	}
 
 	std::vector<std::string> ModelN::getColors2Facets()
 	{
-		if (m_colors2Facets.empty() && m_data)
+		if (m_data)
 		{
-			int facetsCount = mesh()->faces.size();
-			for (int i = 0; i < facetsCount; ++i)
-				m_colors2Facets.push_back(std::string());
+			if (m_data->colors.empty())
+			{
+				m_data->colors.resize(m_data->mesh->faces.size());
+			}
+			return m_data->colors;
 		}
-		return m_colors2Facets;
+
+		return std::vector<std::string>();
 	}
 
-	void ModelN::resizeColors2Facet(int size)
+	std::vector<std::string> ModelN::getSeam2Facets()
 	{
-		m_colors2Facets.clear();
-		m_colors2Facets.resize(size);
-		for (int i = 0; i < size; i++)
+		if (m_data)
 		{
-			m_colors2Facets[i] = "";
+			if (m_data->seams.empty())
+			{
+				m_data->seams.resize(m_data->mesh->faces.size());
+			}
+			return m_data->seams;
 		}
+
+		return std::vector<std::string>();
+	}
+	std::vector<std::string> ModelN::getSupport2Facets()
+	{
+		if (m_data)
+		{
+			if (m_data->supports.empty())
+			{
+				m_data->supports.resize(m_data->mesh->faces.size());
+			}
+			return m_data->supports;
+		}
+
+		return std::vector<std::string>();
 	}
 
 	void ModelN::setFacet2Facets(const std::vector<int>& facet2Facets)
 	{
-		m_facet2Facets.clear();
-		m_facet2Facets = facet2Facets;
+		cxkernel::ModelNDataPtr modelData = m_data->clone();
+		modelData->spreadFaces = facet2Facets;
+		setData(modelData);
 	}
+
 	int ModelN::getFacet2Facets(int faceId)
 	{
-		if (!m_facet2Facets.empty() && faceId > 0 && faceId < m_facet2Facets.size())
+		if (!m_data->spreadFaces.empty() && faceId > 0 && faceId < m_data->spreadFaces.size())
 		{
-			return m_facet2Facets[faceId];
+			return m_data->spreadFaces[faceId];
 		}
 
 		return faceId;
@@ -837,7 +787,7 @@ namespace creative_kernel
 
 	bool ModelN::hasColors()
 	{
-		for (auto& color: m_colors2Facets)
+		for (auto& color: m_data->colors)
 		{
 			if (!color.empty())
 			{
@@ -845,6 +795,451 @@ namespace creative_kernel
 			}
 		}
 		return false;
+	}
+
+	bool ModelN::hasSeamsData()
+	{
+		for (auto& seam: m_data->seams)
+		{
+			if (!seam.empty())
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool ModelN::hasSupportsData()
+	{
+		for (auto& support: m_data->supports)
+		{
+			if (!support.empty())
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void ModelN::setDefaultColorIndex(int colorIndex)
+	{
+		if (m_colorIndex == colorIndex)
+			return;
+
+		m_colorIndex = colorIndex;
+
+		cxkernel::ModelNDataPtr data = m_data->clone();
+		data->defaultColor = m_colorIndex;
+		m_data = data;
+
+		setRenderData(std::make_shared<ModelNRenderData>(m_data));
+		requestVisUpdate(true);
+		//updateRender(false);
+
+		dirty();
+		emit dirtyChanged();
+		emit defaultColorIndexChanged();
+	}
+
+	int ModelN::defaultColorIndex() const
+	{
+		return m_colorIndex;
+	}
+
+	void ModelN::updateRenderByMeshSpreadData(const std::vector<std::string>& colorData, bool updateCapture)
+	{
+		if (m_data == NULL || colorData.empty())
+			return;
+
+		setColors2Facets(colorData);
+
+		// cxkernel::ModelNDataPtr data = m_data->clone();
+		// data->colors = colorData;
+		// m_data = data;
+		// setRenderData(std::make_shared<ModelNRenderData>(m_data));
+		requestVisUpdate(true);
+	}
+
+	void ModelN::updateRender(bool updateCapture)
+	{
+		if (m_data == NULL)
+			return;
+
+		// setRenderData(std::make_shared<ModelNRenderData>(m_data));
+
+		m_renderData->updateRenderDataForced();
+		setRenderData(m_renderData);
+		//m_entity->setGeometry(createGeometry());
+		requestVisUpdate(updateCapture);
+	}
+
+	//paint seam
+	void ModelN::setSeam2Facets(const std::vector<std::string>& data)
+	{
+		cxkernel::ModelNDataPtr modelData = m_data->clone();
+		modelData->seams = data;
+		setData(modelData);
+
+		emit seamsDataChanged();
+	}
+
+	//paint support
+	void ModelN::setSupport2Facets(const std::vector<std::string>& data)
+	{
+		cxkernel::ModelNDataPtr modelData = m_data->clone();
+		modelData->supports = data;
+		setData(modelData);
+
+		emit supportsDataChanged();
+	}
+
+	bool ModelN::isContainsMaterial(int materialIndex)
+	{
+		if (!m_data)
+			return false;
+
+		emit prepareCheckMaterial();
+
+		return m_data->colorIndexs.contains(materialIndex);
+	}
+
+	void ModelN::setLayerHeightProfile(const std::vector<double>& layerHeightProfile)
+	{
+		m_layerHeightProfile = layerHeightProfile;
+
+		ParameterManager* parameterManager = getKernel()->parameterManager();
+		float minLayerHeight = parameterManager->currentMachine()->minLayerHeight();
+		float maxLayerHeight = parameterManager->currentMachine()->maxLayerHeight();
+		float uniqueLayerHeight = parameterManager->currentMachine()->currentProcessLayerHeight();
+
+		auto layerHeight = creative_kernel::generateObjectLayers(m_layerHeightProfile, globalMesh().get());
+		m_entity->setLayerHeightProfile(layerHeight, minLayerHeight, maxLayerHeight, uniqueLayerHeight);
+		dirty();
+		Q_EMIT adaptiveLayerDataChanged();
+	}
+
+	std::vector<double> ModelN::layerHeightProfile()
+	{
+		return m_layerHeightProfile;
+	}
+
+	void ModelN::setRenderType(int type)
+	{
+		if (!m_entity)
+			return;
+
+		if (m_renderType == type)
+			return;
+
+		m_renderType = type;
+		if (type == NoRender)
+		{
+			//m_entity->setEffect(m_modelOffscreenEffect);
+			m_entity->setEnabled(false);	
+			return;
+		}
+
+		m_entity->setEnabled(true);
+		if (type & ViewRender)
+		{
+			if (type & OffscreenRender)
+				m_entity->setEffect(m_modelCombindEffect);
+			else
+				m_entity->setEffect(getCachedModelEffect());
+		}
+		else
+		{
+			if (type & OffscreenRender)
+				m_entity->setEffect(m_modelOffscreenEffect);
+			else
+				m_entity->setEffect(m_modelOffscreenEffect);
+		}
+	}
+
+	void ModelN::setLayersColor(const QVariantList& layersColor)
+	{
+		m_modelCombindEffect->setParameter("specificColorLayers[0]", layersColor);
+		m_modelOffscreenEffect->setParameter("specificColorLayers[0]", layersColor);
+
+		m_modelCombindEffect->setParameter("layersCount", layersColor.count());
+		m_modelOffscreenEffect->setParameter("layersCount", layersColor.count());
+	}
+	
+	void ModelN::setOffscreenRenderOffset(const QVector3D& offset)
+	{
+		//  QMatrix4x4 offsetMatrix;
+		//  offsetMatrix.translate(offset);
+		//  m_modelCombindEffect->setParameter("offsetMatrix", offsetMatrix);
+		//  m_modelOffscreenEffect->setParameter("offsetMatrix", offsetMatrix);
+
+		//
+		m_modelCombindEffect->setParameter("offset1", offset);
+		m_modelOffscreenEffect->setParameter("offset1", offset);
+
+	}
+
+	void ModelN::setBoxVisibility(bool visibility)
+	{
+		m_entity->setBoxEnabled(visibility);
+	}
+
+	void ModelN::setObjectId(int objId)
+	{
+		m_objectId = objId;
+	}
+
+	int ModelN::getObjectId()
+	{
+		return m_objectId;
+	}
+
+	void ModelN::setGroupId(int groupId)
+	{
+		m_groupId = groupId;
+	}
+
+	int ModelN::getGroupId()
+	{
+		return m_groupId;
+	}
+
+	cxkernel::ModelNDataPtr ModelN::getScaledUniformUnCheckData()
+	{
+		QMatrix4x4 scaleRotMat;
+		scaleRotMat.setToIdentity();
+
+		scaleRotMat.translate(m_localCenter);
+		scaleRotMat.scale(m_localScale);
+		scaleRotMat.rotate(m_localRotate);
+		scaleRotMat.translate(-m_localCenter);
+
+		TriMeshPtr mesh(new trimesh::TriMesh());
+		*mesh = *(m_data->mesh);
+
+		trimesh::apply_xform(mesh.get(), trimesh::xform(qtuser_3d::qMatrix2Xform(scaleRotMat)));
+
+		cxkernel::ModelNDataPtr newMeshdata;
+		if (mesh)
+		{
+			mesh->need_bbox();
+
+			cxkernel::ModelCreateInput input;
+			input.mesh = mesh;
+			input.name = this->objectName();
+
+			cxkernel::ModelNDataCreateParam param;
+			param.toCenter = true;
+
+			newMeshdata = cxkernel::createModelNData(input, nullptr, param);
+
+			return newMeshdata;
+		}
+
+		Q_ASSERT(newMeshdata != nullptr);
+		return nullptr;
+	}
+
+	bool ModelN::flushIntoInfill()
+	{
+		QString key = "flush_into_infill";
+		QString value;
+		if (!m_setting->hasKey(key))
+		{
+			value = getPrintProfileValue(key, "");
+		}
+		else
+		{
+			value = m_setting->value(key, "");
+		}
+		bool enabled = value == "1" ? true : false;
+		return enabled;
+	}
+
+	void ModelN::setFlushIntoInfillEnabled(bool enabled)
+	{
+		QString key = "flush_into_infill";
+		m_setting->add(key, enabled ? "1" : "0", true);
+	}
+
+	bool ModelN::flushIntoObjects()
+	{
+		QString key = "flush_into_objects";
+		QString value;
+		if (!m_setting->hasKey(key))
+		{
+			value = getPrintProfileValue(key, "");
+		}
+		else
+		{
+			value = m_setting->value(key, "");
+		}
+		bool enabled = value == "1" ? true : false;
+		return enabled;
+	}
+
+	void ModelN::setFlushIntoObjectsEnabled(bool enabled)
+	{
+		QString key = "flush_into_objects";
+		m_setting->add(key, enabled ? "1" : "0", true);
+	}
+
+	bool ModelN::flushIntoSupport()
+	{
+		QString key = "flush_into_support";
+		QString value;
+		if (!m_setting->hasKey(key))
+		{
+			value = getPrintProfileValue(key, "");
+		}
+		else
+		{
+			value = m_setting->value(key, "");
+		}
+		bool enabled = value == "1" ? true : false;
+		return enabled;
+	}
+
+	void ModelN::setFlushIntoSupportEnabled(bool enabled)
+	{
+		QString key = "flush_into_support";
+		m_setting->add(key, enabled ? "1" : "0", true);
+	}
+
+	bool ModelN::supportEnabled()
+	{
+		QString key = "enable_support";
+		QString value;
+		if (!m_setting->hasKey(key))
+		{
+			value = getPrintProfileValue(key, "");
+		}
+		else
+		{
+			value = m_setting->value(key, "");
+		}
+
+		return (value == "true" || value == "1") ? true : false;
+	}
+
+	void ModelN::setSupportEnabled(bool enabled)
+	{
+		QString key = "enable_support";
+		m_setting->add(key, enabled ? "1" : "0", true);
+	}
+
+	float ModelN::supportAngle()
+	{
+		QString key = "support_threshold_angle";
+		QString value;
+		if (!m_setting->hasKey(key))
+		{
+			value = getPrintProfileValue(key, "0");
+		}
+		else
+		{
+			value = m_setting->value(key, "0");
+		}
+
+		return value.toFloat();
+	}
+
+	void ModelN::setSupportAngle(float angle)
+	{
+		QString key = "support_threshold_angle";
+		QString valueStr = QString::number(angle);
+		m_setting->add(key, valueStr, true);
+	}
+
+	QString ModelN::supportStructure()
+	{
+		QString key = "support_type";
+		QString value;
+		if (!m_setting->hasKey(key))
+		{
+			value = getPrintProfileValue(key, "normal(auto)");
+		}
+		else
+		{
+			value = m_setting->value(key, "normal(auto)");
+		}
+
+		return (value == "" ? "normal(auto)" : value);
+	}
+
+	void ModelN::setSupportStructure(const QString& structure)
+	{
+		QString key = "support_type";
+		m_setting->add(key, structure, true);
+	}
+
+	void ModelN::onGlobalSettingsChanged(QObject* parameter_base, const QString& key)
+	{
+		if (key == "enable_support")
+		{
+			emit supportEnabledChanged();
+		}
+		else if (key == "support_threshold_angle")
+		{
+			emit supportAngleChanged();
+		}
+		else if (key == "support_type")
+		{
+			emit supportStructureChanged();
+		}
+	}
+
+	void ModelN::onSettingsChanged(const QString& key,us::USetting* setting)
+	{
+		if (!checkSettingDirty(key))
+			return;
+
+		dirty();
+		emit settingsChanged();
+
+		if (key == "enable_support")
+		{
+			emit supportEnabledChanged();
+		}
+		else if (key == "support_threshold_angle")
+		{
+			emit supportAngleChanged();
+		}
+		else if (key == "support_type")
+		{
+			emit supportStructureChanged();
+		}
+	}
+
+	void ModelN::updateSetting()
+	{
+		if (!m_setting)
+			return;
+
+		int index = defaultColorIndex() + 1;
+		m_setting->add("extruder", QString::number(index), true);
+	}
+
+	bool ModelN::isDirty()
+	{
+		return m_isDirty;
+	}
+
+	void ModelN::dirty()
+	{
+		if (!m_isDirty)
+		{
+			m_isDirty = true;
+			emit dirtyChanged();
+		}
+	}
+
+	void ModelN::resetDirty()
+	{
+		if (m_isDirty)
+		{
+			m_isDirty = false;
+			emit dirtyChanged();
+		}
 	}
 
 	qtuser_3d::Box3D ModelN::calculateGlobalSpaceBox()
@@ -942,24 +1337,10 @@ namespace creative_kernel
 		QQuaternion rotation = localQuaternion();
 		QVector3D scale = localScale();
 
-		trimesh::quaternion q = trimesh::quaternion(rotation.scalar(), -rotation.x(), -rotation.y(), -rotation.z());
+		trimesh::quaternion q = trimesh::quaternion(rotation.scalar(), rotation.x(), rotation.y(), rotation.z());
 		trimesh::vec3 s = trimesh::vec3(scale.x(), scale.y(), scale.z());
 
-		std::vector<trimesh::vec3> paths;
-		if (data->dirty() && hasFDMSupport())
-		{
-			TriMeshPtr mesh(new trimesh::TriMesh());
-
-			*mesh = *m_data->hull;
-			//trimesh::fxform ixf = trimesh::inv(trimesh::fxform(globalMatrix().data()));
-			TriMeshPtr supportMesh(m_fdmSupportGroup->createFDMSupportMesh());
-			//trimesh::apply_xform(supportMesh.get(), trimesh::xform(ixf));
-
-			mesh->vertices.insert(mesh->vertices.end(), supportMesh->vertices.begin(), supportMesh->vertices.end());
-			paths = global ? data->qPath(mesh, q, s) : data->path(mesh, s);
-		}
-		else
-			paths = global ? data->qPath(m_data->hull, q, s) : data->path(m_data->hull, s);
+		std::vector<trimesh::vec3> paths = global ? data->qPath(m_data->hull, q, s) : data->path(m_data->hull, s);
 
 		if (debug)
 		{
@@ -983,6 +1364,35 @@ namespace creative_kernel
 		nestData()->setNestRotation(src_rotation);
 		nestData()->setDirty(src_dirty);
 		return concave;
+	}
+
+	std::vector<trimesh::vec3> ModelN::rsPath()
+	{
+		if (!m_rIsDirty && !m_sIsDirty)
+		{
+			return m_rsPath;
+		}
+
+		m_rsPath = outline_path(true, false);
+		m_rIsDirty = false;
+		m_sIsDirty = false;
+
+		return m_rsPath;
+	}
+
+	const std::vector<trimesh::vec3>& ModelN::sweepAreaPath()
+	{
+		if (!m_rIsDirty && !m_sIsDirty && !m_sweepPathDirty) {
+			return m_sweepPath;
+		}
+		std::vector<trimesh::vec3> convexData = rsPath();
+
+		std::vector<trimesh::vec3> orbit = getKernel()->parameterManager()->extruderClearanceContour();
+		m_sweepPath = nestplacer::sweepAreaProfile(convexData, orbit, trimesh::vec3(0.0f));
+
+		m_sweepPathDirty = false;
+
+		return m_sweepPath;
 	}
 
 	trimesh::quaternion ModelN::nestRotation()
@@ -1047,7 +1457,7 @@ namespace creative_kernel
 
 		QVector3D qScale = QVector3D(s, s, s);
 		QVector3D qTranslate = QVector3D(0.0f, 0.0f, bsize.z / 2.0f);
-		
+
 		setLocalPosition(qTranslate);
 		setLocalScale(qScale);
 	}
@@ -1126,11 +1536,53 @@ namespace creative_kernel
 
 		updateMatrix();
 	}
+
+	void ModelN::setOuterLinesColor(const QVector4D& color)
+	{
+		m_entity->setOuterLinesColor(color);
+	}
+
+	void ModelN::setOuterLinesVisibility(bool visible)
+	{
+		m_entity->setOuterLinesVisibility(visible);
+	}
+
+	void ModelN::setNozzleRegionVisibility(bool visible)
+	{
+		m_entity->setNozzleRegionVisibility(visible);
+	}
+
 	Qt3DRender::QGeometry* createGeometryFromMesh(trimesh::TriMesh* mesh)
 	{
 		cxkernel::GeometryData data;
 		cxkernel::generateGeometryDataFromMesh(mesh, data);
 		return qtuser_3d::GeometryCreateHelper::create(data.vcount, data.position, data.normal,
 			data.texcoord, data.color);
+	}
+
+	void ModelN::onLocalPositionChanged(const QVector3D& newPosition)
+	{
+		QMatrix4x4 m;
+		m.translate(newPosition.x(), newPosition.y(), 0.0f);
+		m_entity->setLinesPose(m);
+	}
+
+	void ModelN::onLocalScaleChanged(const QVector3D& newScale)
+	{
+		m_sIsDirty = true;
+	}
+
+	void ModelN::onLocalQuaternionChanged(const QQuaternion& newQ)
+	{
+		m_rIsDirty = true;
+	}
+
+	void ModelN::updateSweepAreaPath()
+	{
+		if (!m_rIsDirty && !m_sIsDirty && !m_sweepPathDirty) {
+			return;
+		}
+
+		m_entity->updateLines(sweepAreaPath());
 	}
 }

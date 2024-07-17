@@ -144,6 +144,8 @@ Item {
                 // fontSize: Constants.labelFontPointSize_12
                 onCheckedChanged:
                 {
+                    if(!selShape)
+                        return;
                     selShape.originalShow = !checked
                     originalImageShow(checked)
                 }
@@ -156,6 +158,8 @@ Item {
                 // fontSize: Constants.labelFontPointSize_12
                 onCheckedChanged:
                 {
+                    if(!selShape)
+                        return;
                     selShape.reverse = !checked
                     reverseImage(checked)
                 }
@@ -171,6 +175,8 @@ Item {
 
                 onCheckedChanged:
                 {
+                    if(!selShape)
+                        return;
                     selShape.m4mode = !checked
                     m4modeChanged(checked)
                 }
@@ -212,6 +218,8 @@ Item {
                         ListElement {key:"Simultaneously"; modelData: qsTr("Simultaneously");}
                     }
                      onCurrentIndexChanged: {
+                         if(!selShape)
+                             return;
                          selShape.filpModelValue = currentIndex
                          flipModelValueChanged(currentIndex)
                      }
@@ -245,6 +253,8 @@ Item {
                     height: 25
                     onValueChanged:
                     { 
+                        if(!selShape)
+                            return;
                         selShape.threshold = value
                         thresholdChanged(value)
                     }
@@ -255,6 +265,8 @@ Item {
                     horizontalAlignment: Text.AlignVCenter
                     text: control.value
                     onTextChanged: {
+                        if(!selShape)
+                            return;
                         if(Number(text) > 255)
                         {
                             selShape.threshold = 255
@@ -298,6 +310,8 @@ Item {
                     height: 25
                     onValueChanged:
                     { 
+                        if(!selShape)
+                            return;
                         selShape.contrastValue = value
                         contrastValueChanged(value)
                     }
@@ -308,6 +322,8 @@ Item {
                     horizontalAlignment: Text.AlignVCenter
                     text: control1.value
                     onTextChanged: {
+                        if(!selShape)
+                            return;
                         if(Number(text) > 100)
                         {
                             selShape.contrastValue = 100
@@ -389,6 +405,8 @@ Item {
                     height: 25
                     onValueChanged:
                     {
+                        if(!selShape)
+                            return;
                         selShape.brightnessValue = value 
                         brightnessValueChanged(value)
                     }
@@ -399,6 +417,8 @@ Item {
                     horizontalAlignment: Text.AlignVCenter
                     text: control3.value
                     onTextChanged: {
+                        if(!selShape)
+                            return;
                         if(Number(text) > 100)
                         {
                             selShape.brightnessValue = 100
@@ -442,6 +462,8 @@ Item {
                     height: 25
                     onValueChanged:
                     { 
+                        if(!selShape)
+                            return;
                         selShape.whiteValue = value 
                         whiteValueChanged(value)
                     }
@@ -452,6 +474,8 @@ Item {
                     horizontalAlignment: Text.AlignVCenter
                     text: control4.value
                     onTextChanged: {
+                        if(!selShape)
+                            return;
                         if(Number(text) > 255)
                         {
                             selShape.whiteValue = 255
@@ -487,6 +511,8 @@ Item {
                     unitChar:"dot/mm"
                     text: selShape ? selShape.densityValue : ""
                     onTextChanged: {
+                        if(!selShape)
+                            return;
                         if(text == "")
                         {
                         }

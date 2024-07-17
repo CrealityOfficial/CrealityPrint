@@ -3,7 +3,7 @@
 #include "qtusercore/module/creativeinterface.h"
 #include "data/interface.h"
 
-class SupportPaintingCommand;
+class PaintCommand;
 class SupportPaintingPlugin : public QObject, public CreativeInterface
 	, public creative_kernel::UIVisualTracer
 {
@@ -25,7 +25,7 @@ protected:
 	void onThemeChanged(creative_kernel::ThemeCategory category) override;
 	void onLanguageChanged(creative_kernel::MultiLanguage language) override;
 protected:
-	SupportPaintingCommand* m_command;
+	PaintCommand* m_command;
 };
 
 #endif // _NULLSPACE_SUPPORT_PAINTING_PLUGIN_1591235079966_H

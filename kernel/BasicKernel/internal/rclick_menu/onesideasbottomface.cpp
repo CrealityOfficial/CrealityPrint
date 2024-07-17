@@ -12,7 +12,7 @@ namespace creative_kernel
         m_actionname = tr("OneSide As Bottomface");
         m_actionNameWithout = "OneSide As Bottomface";
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     OneSideAsBottomFace::~OneSideAsBottomFace()

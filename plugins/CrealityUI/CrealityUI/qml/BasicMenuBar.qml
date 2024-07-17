@@ -7,47 +7,34 @@ import "../secondqml"
 
 Rectangle {
     id: root
-    width: parent.width
-    height: 32 * screenScaleFactor
-
     gradient: Gradient {
         GradientStop {  position: 0.0; color: Constants.headerBackgroundColor  }
         GradientStop {  position: 1.0; color: Constants.headerBackgroundColorEnd }
     }
 
     property var mainWindow: ""
-    property bool isMaxed: true
+    property bool isMaxed: frameLessView.isMax
 
+    signal requestFirstConfig();
     signal closeWindow()
     signal changeServer(int serverIndex)
 
-    Connections {
-        target: standaloneWindow
-        onCurStateChanged:
-        {
-            if(curState === 0 && standaloneWindow.functionType === 0)
-            {
-                idMenuBar.showFDMMenuBar()
-            }
-            else
-            {
-                idMenuBar.onlyShowOtherMenuBar()
-            }
+    Item {
+        id: blankItem
+        objectName: "blankItem"
+        anchors {
+            left: idMenuBar.right
+            leftMargin: 4* screenScaleFactor
+            right: idControlButtonsRow.left
+            rightMargin: 4* screenScaleFactor
+            top: parent.top
+            topMargin: 4* screenScaleFactor
+            bottom: parent.bottom
         }
-        onFunctionTypeChanged:
-        {
-            if(standaloneWindow.curState === 0 && functionType === 0)
-            {
-                idMenuBar.showFDMMenuBar()
-            }
-            else
-            {
-                idMenuBar.onlyShowOtherMenuBar()
-            }
+        Component.onCompleted: {
+            frameLessView.setTitleItem(blankItem)
         }
-        onVisibilityChanged: if(isMaxed && visibility === 2) standaloneWindow.showMaximized()
     }
-
     function startWizardComp() {
         var pRoot = rootLoader
         while (pRoot.parent !== null) {
@@ -57,7 +44,8 @@ Rectangle {
     }
 
     function startFirstConfig() {
-        idStartFirstConfig.visible = true
+        requestFirstConfig()
+        // idStartFirstConfig.visible = true
     }
 
     Rectangle {
@@ -68,62 +56,14 @@ Rectangle {
         anchors.top: root.bottom
     }
 
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.LeftButton //只处理鼠标左键
-        property bool isDoubleClicked:false
-        property point clickPos: "0,0"
-
-        onPressed:
-        {
-            isDoubleClicked = false;
-            clickPos = Qt.point(mouse.x, mouse.y)//WizardUI.cursorGlobalPos()
-        }
-
-        onPositionChanged: {
-            var pos = WizardUI.cursorGlobalPos()
-            var delta = Qt.point(pos.x - clickPos.x, pos.y - clickPos.y)
-            if(!isDoubleClicked && pressed && mainWindow.visibility !== Window.Maximized && mainWindow.visibility !== Window.FullScreen)
-            {
-                //clickPos = WizardUI.cursorGlobalPos()
-                mainWindow.x = delta.x
-                mainWindow.y = delta.y
-            }
-            if(Math.abs(delta.y) > 20 && mainWindow.visibility === Window.Maximized && pressed && !isDoubleClicked)
-            {
-                isMaxed = false
-                mainWindow.showNormal()
-                mainWindow.x = delta.x
-                mainWindow.y = delta.y
-                maxBtn.normalIconSource = "qrc:/UI/photo/maxBtn.svg"
-            }
-        }
-
-        onDoubleClicked :
-        {
-            isDoubleClicked = true; // 这个时候一定不能响应onPositionChanged不然会一直置顶。
-            if(isMaxed && mainWindow.visibility === Window.Maximized){
-                isMaxed = false;
-                mainWindow.showNormal();
-                maxBtn.normalIconSource = "qrc:/UI/photo/maxBtn_main.svg"/**/;
-            }
-            else{
-                isMaxed = true;
-                mainWindow.showMaximized();
-                maxBtn.normalIconSource = "qrc:/UI/photo/normalBtn_main.svg"/**/;
-            }
-        }
-    }
-
     Image {
         id: logoImage
         anchors.left: root.left
-        anchors.leftMargin: 12
+        anchors.leftMargin: 12* screenScaleFactor
         anchors.verticalCenter: root.verticalCenter
         height: 24 * screenScaleFactor
         width: 24 * screenScaleFactor
         source: "qrc:/scence3d/res/logo.png"
-        objectName: "blankItem"
     }
 
     BasicMenuBarStyle {
@@ -164,9 +104,7 @@ Rectangle {
             normalIconSource: "qrc:/UI/photo/closeBtn_main.svg"
 
             onClicked: {
-                //window.close()
-                //console.log("menu bar click close")
-                closeWindow()
+                frameLessView.close()
             }
         }
 
@@ -186,12 +124,12 @@ Rectangle {
             onClicked: {
                 if(isMaxed)
                 {
-                    isMaxed = false
-                    mainWindow.showNormal()
+//                    isMaxed = false
+                    frameLessView.showNormal()
                 }
                 else {
-                    isMaxed = true
-                    mainWindow.showMaximized()
+//                    isMaxed = true
+                    frameLessView.showMaximized()
                 }
             }
         }
@@ -208,21 +146,20 @@ Rectangle {
             iconHeight: 2 * screenScaleFactor
 
             onClicked: {
-                mainWindow.doMinimized()
+                frameLessView.showMinimized()
             }
         }
     }
 
-    StartFirstConfig {
-       visible: false
-       id: idStartFirstConfig
-    }
+    // StartFirstConfig {
+    //     visible: false
+    //     id: idStartFirstConfig
+    // }
 
     Loader {
         id:rootLoader
         source: "../secondqml/CusWizardHome.qml"
     }
-
 
     Component {
         id: wizardComp

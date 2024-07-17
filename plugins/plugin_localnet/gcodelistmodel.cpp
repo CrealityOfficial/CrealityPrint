@@ -4,6 +4,7 @@
 #include <QFileInfo>
 
 #include "gcodelistmodel.h"
+#include <regex>
 
 using namespace creative_kernel;
 
@@ -40,6 +41,9 @@ QVariant GcodeListModel::data(const QModelIndex& index, int role) const
 	{
 		case GcodeModelItem::E_GCodeFileName:
 			value = modelItem->gCodeFileName();
+			break;
+		case GcodeModelItem::E_GCodePrefixPath:
+			value = modelItem->gCodePrefixPath();
 			break;
 		case GcodeModelItem::E_GCodeFileSize:
 			value = modelItem->gCodeFileSize();
@@ -79,6 +83,7 @@ QHash<int, QByteArray> GcodeListModel::roleNames() const
 	roles[GcodeModelItem::E_GCodeThumbnailImage] = "gCodeThumbnailImage";
 	roles[GcodeModelItem::E_GCodeImportProgress] = "gCodeImportProgress";
 	roles[GcodeModelItem::E_GCodeExportProgress] = "gCodeExportProgress";
+	roles[GcodeModelItem::E_GCodePrefixPath] = "gCodePrefixPath";
 	return roles;
 }
 
@@ -232,21 +237,35 @@ void GcodeListModel::slotGetGcodeFileList(const QString& from_std_macAddr, const
 			break;
 		case RemotePrinerType::REMOTE_PRINTER_TYPE_KLIPPER4408:
 		{
-			QStringList splitList = from_std_list.split(";", QString::SkipEmptyParts);
+			QStringList splitList = from_std_list.split("png;", QString::SkipEmptyParts);
 			foreach(QString fullInfo, splitList)
 			{
 				if (m_webInfoRegExp.exactMatch(fullInfo))
 				{
 					GcodeModelItem* modelItem = new GcodeModelItem(this);
 
+					QString gcodePrefixPath;
+					QString path = m_webInfoRegExp.cap(0);
+					QStringList splitList = path.split(":", QString::SkipEmptyParts);
+					std::string firstValue = splitList[0].toStdString();
+					std::regex pattern("^\\/[a-zA-Z0-9_]+(\\/[a-zA-Z0-9_]+)*$");
+					if (std::regex_match(firstValue, pattern))
+					{
+						gcodePrefixPath = splitList[0];
+					}
+					else {
+						gcodePrefixPath = "";
+					}
+
 					QString gcodeFileName  = m_webInfoRegExp.cap(1);
 					QString gcodeFileSize  = QString::number(m_webInfoRegExp.cap(2).toDouble() / 1024.0 / 1024.0, 'f', 2);
 					QString layerHeight	   = QString::number(m_webInfoRegExp.cap(3).toDouble(), 'f', 2);
 					QString gcodeFileTime  = QDateTime::fromSecsSinceEpoch(m_webInfoRegExp.cap(4).toLongLong()).toString("yyyy-MM-dd hh:mm:ss");
 					QString materialLength = QString::number(m_webInfoRegExp.cap(5).toDouble() / 1000.0, 'f', 3);
-					QString thumbnailImage = ":80/downloads" + m_webInfoRegExp.cap(6);
+					QString thumbnailImage = ":80/downloads" + m_webInfoRegExp.cap(6)+"png";
 
 					modelItem->setGCodeFileName(gcodeFileName);
+					modelItem->setGCodePrefixPath(gcodePrefixPath);
 					modelItem->setGCodeFileSize(gcodeFileSize);
 					modelItem->setGCodeFileTime(gcodeFileTime);
 					modelItem->setGCodeLayerHeight(layerHeight);
@@ -349,6 +368,17 @@ void GcodeModelItem::setGCodeFileName(const QString& fileName)
 {
 	m_gCodeFileName = fileName;
 	emit gCodeFileNameChanged();
+}
+
+const QString& GcodeModelItem::gCodePrefixPath() const
+{
+	return m_gCodePrefixPath;
+}
+
+void GcodeModelItem::setGCodePrefixPath(const QString& path)
+{
+	m_gCodePrefixPath = path;
+	emit gCodePrefixPathChanged();
 }
 
 const QString& GcodeModelItem::gCodeFileSize() const

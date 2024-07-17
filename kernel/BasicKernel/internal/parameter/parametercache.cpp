@@ -1,21 +1,89 @@
 #include "parametercache.h"
-#include <QtCore/QSettings>
+
+#include <cxcloud/tool/settings.h>
 
 namespace creative_kernel
 {
     QStringList readCacheMachineUniqueNames()
 	{
         QStringList machineUniqueNames;
-        QSettings settings;
+        cxcloud::VersionServerSettings settings;
         settings.beginGroup("PresetMachines");
         machineUniqueNames = settings.childGroups();
         settings.endGroup();
         return machineUniqueNames;
 	}
 
+    int readCacheMachineExtruders(const QString& machineUniqueNames, std::vector<QColor>& extruderColors, std::vector<bool>& extruderPhysicals)
+    {
+        int extruderCounts = 0;
+        cxcloud::VersionServerSettings settings;
+        settings.beginGroup("PresetMachines");
+        settings.beginGroup(machineUniqueNames);
+        settings.beginGroup("Extruders");
+        for (int extruder = 0; extruder < settings.childGroups().size(); ++extruder)
+        {
+            settings.beginGroup(QString("%1").arg(extruder));
+            auto color = settings.value("Color", 0x3DDF56).toUInt();
+            extruderColors.push_back(color);
+            extruderPhysicals.push_back(settings.value("IsPhysical", 1).toBool());
+            settings.endGroup();
+            ++extruderCounts;
+        }
+        settings.endGroup();
+        settings.endGroup();
+        settings.endGroup();
+        if (extruderCounts == 0)
+        {
+            extruderCounts = 1;
+        }
+        return extruderCounts;
+    }
+
+    void writeCacheMachineExtruder(const QString& machineUniqueNames, const QColor& extruderColor, const bool& extruderPhysical)
+    {
+        cxcloud::VersionServerSettings settings;
+        settings.beginGroup("PresetMachines");
+        settings.beginGroup(machineUniqueNames);
+        settings.beginGroup("Extruders");
+        settings.beginGroup(QString::number(settings.childGroups().size()));
+        settings.setValue("Color", extruderColor.rgba64().toArgb32());
+        settings.setValue("IsPhysical", extruderPhysical);
+        settings.endGroup();
+        settings.endGroup();
+        settings.endGroup();
+        settings.endGroup();
+    }
+
+    void modifyCacheMachineExtruder(const QString& machineUniqueNames, const int& index, const QColor& extruderColor)
+    {
+        cxcloud::VersionServerSettings settings;
+        settings.beginGroup("PresetMachines");
+        settings.beginGroup(machineUniqueNames);
+        settings.beginGroup("Extruders");
+        settings.beginGroup(QString::number(index));
+        settings.setValue("Color", extruderColor.rgba64().toArgb32());
+        settings.endGroup();
+        settings.endGroup();
+        settings.endGroup();
+        settings.endGroup();
+    }
+
+    void removeCacheMachineExtruder(const QString& machineUniqueNames)
+    {
+        cxcloud::VersionServerSettings settings;
+        settings.beginGroup("PresetMachines");
+        settings.beginGroup(machineUniqueNames);
+        settings.beginGroup("Extruders");
+        settings.remove(QString::number(settings.childGroups().size()-1));
+        settings.endGroup();
+        settings.endGroup();
+        settings.endGroup();
+    }
+
 	void removeCacheMachine(const QString& machineUniqueNames)
 	{
-        QSettings settings;
+        cxcloud::VersionServerSettings settings;
         settings.beginGroup("PresetMachines");
         settings.remove(machineUniqueNames);
         settings.endGroup();
@@ -23,7 +91,7 @@ namespace creative_kernel
 
     int readCacheCurrentMachineIndex()
     {
-        QSettings setting;
+        cxcloud::VersionServerSettings setting;
         setting.beginGroup("PresetMachines");
         int index = setting.value("machine_curren_index", "-1").toInt();
         setting.endGroup();
@@ -32,7 +100,7 @@ namespace creative_kernel
 
     void writeCacheCurrentMachineIndex(int index)
     {
-        QSettings setting;
+        cxcloud::VersionServerSettings setting;
         setting.beginGroup("PresetMachines");
         setting.setValue("machine_curren_index", index);
         setting.endGroup();
@@ -40,7 +108,7 @@ namespace creative_kernel
 
     //int readCacheCurrentProfile(const QString& machineName)
     //{
-    //    QSettings settings;
+    //    cxcloud::VersionServerSettings settings;
     //    settings.beginGroup("PresetMachines");
     //    settings.beginGroup(machineName);
     //    int index = settings.value("CurrentProfile", -1).toInt();
@@ -51,10 +119,10 @@ namespace creative_kernel
 
     QString readCacheCurrentProfile(const QString& machineName)
     {
-        QSettings settings;
+        cxcloud::VersionServerSettings settings;
         settings.beginGroup("PresetMachines");
         settings.beginGroup(machineName);
-        QString profileName = settings.value("CurrentProfile", -1).toString();
+        QString profileName = settings.value("CurrentProfile", "").toString();
         settings.endGroup();
         settings.endGroup();
         return profileName;
@@ -62,7 +130,7 @@ namespace creative_kernel
 
     void writeCacheCurrentProfile(const QString& machineName, int index)
     {
-        QSettings setting;
+        cxcloud::VersionServerSettings setting;
         setting.beginGroup("PresetMachines");
         setting.beginGroup(machineName);
         setting.setValue("CurrentProfile", index);
@@ -72,7 +140,7 @@ namespace creative_kernel
 
     void writeCacheCurrentProfile(const QString& machineName, const QString& profileName)
     {
-        QSettings setting;
+        cxcloud::VersionServerSettings setting;
         setting.beginGroup("PresetMachines");
         setting.beginGroup(machineName);
         setting.setValue("CurrentProfile", profileName);
@@ -83,7 +151,7 @@ namespace creative_kernel
     QStringList readCacheSelectMaterials(const QString& machineName, const int& index)
     {
         QStringList materialNames;
-        QSettings settings;
+        cxcloud::VersionServerSettings settings;
         settings.beginGroup("PresetMachines");
         settings.beginGroup(machineName);
         settings.beginGroup("Extruders");
@@ -96,7 +164,7 @@ namespace creative_kernel
             if (!materialName.isEmpty() && !materialNames.contains(materialName))
                 materialNames.append(materialName);
         }
-        
+
         settings.endArray();
         settings.endGroup();
         settings.endGroup();
@@ -106,7 +174,7 @@ namespace creative_kernel
 
     void writeCacheSelectMaterials(const QString& machineName, const QStringList& materialNames, const int& index)
     {
-        QSettings settings;
+        cxcloud::VersionServerSettings settings;
 
         settings.beginGroup("PresetMachines");
         settings.beginGroup(machineName);
@@ -118,7 +186,7 @@ namespace creative_kernel
             settings.setArrayIndex(i);
             settings.setValue("name", materialNames[i]);
         }
-        
+
         settings.endArray();
         settings.endGroup();
         settings.endGroup();
@@ -128,7 +196,7 @@ namespace creative_kernel
 
     bool removeMachineMaterials(const QString& machineName, const QStringList& materials, const int& index)
     {
-        QSettings settings;
+        cxcloud::VersionServerSettings settings;
         settings.beginGroup("PresetMachines");
         settings.beginGroup(machineName);
         settings.beginGroup("Extruders");
@@ -164,7 +232,7 @@ namespace creative_kernel
 
     bool reNameMachineMaterial(const QString& machineName, const QString& oldMaterialName, const QString& newMaterialName, const int& extruderIndex)
     {
-        QSettings settings;
+        cxcloud::VersionServerSettings settings;
         settings.beginGroup("PresetMachines");
         settings.beginGroup(machineName);
         settings.beginGroup("Extruders");
@@ -200,7 +268,7 @@ namespace creative_kernel
     QString readCacheExtruderMaterialIndex(const QString& machineName, int extruderIndex)
     {
         QString indexPrefix = QString("%1").arg(extruderIndex);
-        QSettings settings;
+        cxcloud::VersionServerSettings settings;
         settings.beginGroup("PresetMachines");
         settings.beginGroup(machineName);
         settings.beginGroup("Extruders");
@@ -216,7 +284,7 @@ namespace creative_kernel
     void writeCacheExtruderMaterialIndex(const QString& machineName, int extruderIndex, const QString& materialName)
     {
         QString indexPrefix = QString("%1").arg(extruderIndex);
-        QSettings settings;
+        cxcloud::VersionServerSettings settings;
         settings.beginGroup("PresetMachines");
         settings.beginGroup(machineName);
         settings.beginGroup("Extruders");

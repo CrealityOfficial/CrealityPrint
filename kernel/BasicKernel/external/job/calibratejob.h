@@ -5,6 +5,8 @@
 
 #include "crslice/crscene.h"
 #include "crslice/crslice.h"
+#include "crslice2/crscene.h"
+#include "crslice2/crslice.h"
 
 #include "entity/gcodeviewentity.h"
 #include "cxgcode/gcodeloadjob.h"
@@ -21,6 +23,7 @@ public:
 
 	void setFileName(const QString& fileName);
 	void setSceneCreator(crslice::SceneCreator* creator);
+	void setSceneCreatorOrca(crslice2::SceneCreator* creator);
 protected:
 	QString name();
 	QString description();
@@ -30,6 +33,7 @@ protected:
 protected:
 	QString m_fileName;
 	crslice::SceneCreator* m_creator;
+	crslice2::SceneCreator* m_creatorOrca;
 	QScopedPointer<cxgcode::SliceAttain> m_attain;
 	//FDM52Flow* m_flow;
 	creative_kernel::SliceFlow* m_sliceflow;

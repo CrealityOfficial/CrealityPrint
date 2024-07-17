@@ -12,7 +12,7 @@ namespace creative_kernel
         m_actionname = tr("Place On PrinterBed");
         m_actionNameWithout = "Place On PrinterBed";
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     PlaceOnPrinterBed::~PlaceOnPrinterBed()

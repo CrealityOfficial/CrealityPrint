@@ -53,31 +53,42 @@ namespace cura52 {
         }
         else
         {
-            result = layer->polygons.splitIntoParts(union_layers || union_all_remove_holes);
+            //// result = layer->polygons.splitIntoParts(union_layers || union_all_remove_holes);
+            //result.reserve(layer->polygons.size());
+            //for (const PolygonRef poly : layer->polygons)
+            //{
+            //    result.emplace_back();
+            //    result.back().add(poly);
+            //}
+            result = layer->polygons.splitIntoColorParts(union_layers || union_all_remove_holes);
         }
         const coord_t hole_offset = settings.get<coord_t>("hole_xy_offset");
-        const size_t bottom_layers = settings.get<size_t>("bottom_layers");
-        bool magic_spiralize = settings.get<bool>("magic_spiralize");
-        for (auto& part : result)
+        //const size_t bottom_layers = settings.get<size_t>("bottom_layers");
+        //bool magic_spiralize = settings.get<bool>("magic_spiralize");
+        // for (auto& part : result)
+        for(int i = 0; i < result.size(); i++) 
         {
+            PolygonsPart part = result[i];
             storageLayer.parts.emplace_back();
-            if (magic_spiralize && layer_nr >= bottom_layers)
+            storageLayer.parts.back().color = layer->polygons.colors[i];
+            //if (magic_spiralize && layer_nr >= bottom_layers)
+            if (hole_offset != 0)
             {
                 // holes remove
                 Polygons outline;
-                for (const PolygonRef poly : part)
-                {
-                    if (poly.orientation())
-                    {
-                        outline.add(poly);
-                    }
-                }
-                storageLayer.parts.back().outline.add(outline.unionPolygons());
-            }
-            else if (hole_offset != 0)
-            {
-                // holes are to be expanded or shrunk
-                Polygons outline;
+            //    for (const PolygonRef poly : part)
+            //    {
+            //        if (poly.orientation())
+            //        {
+            //            outline.add(poly);
+            //        }
+            //    }
+            //    storageLayer.parts.back().outline.add(outline.unionPolygons());
+            //}
+            //else if (hole_offset != 0)
+            //{
+            //    // holes are to be expanded or shrunk
+            //    Polygons outline;
                 Polygons holes;
                 for (const PolygonRef poly : part)
                 {
@@ -100,6 +111,41 @@ namespace cura52 {
             if (storageLayer.parts.back().outline.empty())
             {
                 storageLayer.parts.pop_back();
+            }
+        }
+        //    奇数层和偶数层按颜色一个逆序一个正序
+        if (layer_nr % 2 != 0)
+        {
+            for (int i = 0; i < storageLayer.parts.size(); i++)
+            {
+                for (int j = i; j < storageLayer.parts.size(); j++)
+                {
+                    if (storageLayer.parts[i].color > storageLayer.parts[j].color)
+                    {
+                        std::swap(storageLayer.parts[i], storageLayer.parts[j]);
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (int i = 0; i < storageLayer.parts.size(); i++)
+            {
+                for (int j = i; j < storageLayer.parts.size(); j++)
+                {
+                    if (storageLayer.parts[i].color < storageLayer.parts[j].color)
+                    {
+                        std::swap(storageLayer.parts[i], storageLayer.parts[j]);
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < storageLayer.parts.size(); i++)
+        {
+            if (std::find(storageLayer.colorused.begin(), storageLayer.colorused.end(), storageLayer.parts[i].color) == storageLayer.colorused.end())
+            {
+                storageLayer.colorused.push_back(storageLayer.parts[i].color);
             }
         }
     }
@@ -142,21 +188,17 @@ namespace cura52 {
         {
             SupportLayer& support_layer = storage.support.supportLayers[layer_nr];
             const SlicedLayer& slicer_layer = data->layers[layer_nr];
-
-            if (!slicer_layer.polygons.empty())
+            switch (modifier_type)
             {
-                switch (modifier_type)
-                {
-                case ANTI_OVERHANG:
-                    support_layer.anti_overhang.add(slicer_layer.polygons);
-                    break;
-                case SUPPORT_DROP_DOWN:
-                    support_layer.support_mesh_drop_down.add(slicer_layer.polygons);
-                    break;
-                case SUPPORT_VANILLA:
-                    support_layer.support_mesh.add(slicer_layer.polygons);
-                    break;
-                }
+            case ANTI_OVERHANG:
+                support_layer.anti_overhang.add(slicer_layer.polygons);
+                break;
+            case SUPPORT_DROP_DOWN:
+                support_layer.support_mesh_drop_down.add(slicer_layer.polygons);
+                break;
+            case SUPPORT_VANILLA:
+                support_layer.support_mesh.add(slicer_layer.polygons);
+                break;
             }
         }
     }

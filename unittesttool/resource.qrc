@@ -1,0 +1,10 @@
+<RCC>
+  <qresource prefix="/ui">
+    <file>main.qml</file>
+  </qresource>
+  <qresource prefix="/language">
+    <file>en.qm</file>
+    <file>zh_CN.qm</file>
+    <file>zh_TW.qm</file>
+  </qresource>
+</RCC>

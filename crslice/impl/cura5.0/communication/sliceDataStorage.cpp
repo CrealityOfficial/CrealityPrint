@@ -97,6 +97,7 @@ SliceMeshStorage::SliceMeshStorage(Mesh* mesh, const size_t slice_layer_count)
     , cross_fill_provider(nullptr)
     , lightning_generator(nullptr)
 {
+    colors  = mesh->colors;
     layers.resize(slice_layer_count);
 }
 
@@ -121,6 +122,11 @@ bool SliceMeshStorage::getExtruderIsUsed(const size_t extruder_nr) const
     if (settings.get<bool>("anti_overhang_mesh") || settings.get<bool>("support_mesh"))
     { // object is not printed as object, but as support.
         return false;
+    }
+    for(int i=0;i<colors.size();i++){
+        if(extruder_nr==colors[i]){
+            return true;
+        }
     }
     if (settings.get<bool>("magic_spiralize"))
     {
@@ -171,7 +177,18 @@ bool SliceMeshStorage::getExtruderIsUsed(const size_t extruder_nr, const LayerIn
     { // object is not printed as object, but as support.
         return false;
     }
+
     const SliceLayer& layer = layers[layer_nr];
+
+    // 添加使用喷头
+    for (const SliceLayerPart& part : layer.parts)
+    {
+        if(extruder_nr == (part.color)){
+             return true;
+        }
+    }
+    return false;
+
     if (settings.get<ExtruderTrain&>("wall_0_extruder_nr").extruder_nr == extruder_nr && (settings.get<size_t>("wall_line_count") > 0 || settings.get<size_t>("skin_outline_count") > 0))
     {
         for (const SliceLayerPart& part : layer.parts)
@@ -435,12 +452,6 @@ std::vector<bool> SliceDataStorage::getExtrudersUsed() const
 std::vector<bool> SliceDataStorage::getExtrudersUsed(const LayerIndex layer_nr) const
 {
     const std::vector<ExtruderTrain>& extruders = application->extruders();
-	if (layer_nr > 0)
-	{
-		std::vector<bool> ret;
-		ret.resize(extruders.size(), true);
-		return ret;
-	}
 	std::vector<bool> ret;
 	ret.resize(extruders.size(), false);
 

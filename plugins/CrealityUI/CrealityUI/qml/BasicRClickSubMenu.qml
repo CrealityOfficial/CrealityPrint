@@ -26,18 +26,17 @@ Menu {
             {
                 id : idMenuItem
                 text: actionNameRole
-
-//                icon.source: actionIcon
                 height: 32//25
                 width: maxImplicitWidth + 20
                 separatorVisible: actionSeparator
                 enabled: actionItem.enabled
                 checkable: actionItem.checkable
                 checked: actionItem.checked
+                indicatorColor: actionItem.nozzleColor
                 onTriggered:
                 {
                     actionItem.checked = checked
-                    visible = false
+//                    visible = false
                     Qt.callLater(actionItem.execute)
                     idClickVisible.onTriggered()
                 }
@@ -49,12 +48,6 @@ Menu {
         }
     }
 
-    BasicRClickMenuItemStyle
-    {
-        id: idClickVisible
-        //visible: false
-        height: 1
-    }
 
     background: Rectangle {
         implicitWidth:maxImplicitWidth + 20
@@ -62,23 +55,23 @@ Menu {
         border.width: 1
         border.color: "transparent "
         Rectangle
-		{
-			id: mainLayout2		
-			anchors.fill: parent			
-			anchors.margins: 5
-			color: Constants.themeColor
-			opacity: 1
-		}
+        {
+            id: mainLayout2
+            anchors.fill: parent
+            anchors.margins: 5
+            color: Constants.themeColor
+            opacity: 1
+        }
 	
-		DropShadow {
-			anchors.fill: mainLayout2
-			horizontalOffset: 5
-			verticalOffset: 5
-			radius: 8
-			samples: 17
-			source: mainLayout
+        DropShadow {
+            anchors.fill: mainLayout2
+            horizontalOffset: 5
+            verticalOffset: 5
+            radius: 8
+            samples: 17
+            source: mainLayout
             color: Constants.dropShadowColor // "#333333"
-		}
+        }
     }
     Component.onCompleted:
     {

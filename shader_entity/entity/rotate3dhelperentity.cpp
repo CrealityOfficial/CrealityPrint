@@ -5,9 +5,9 @@
 
 #include "qtuser3d/module/facepicker.h"
 #include "qtuser3d/camera/screencamera.h"
+#include "qtuser3d/camera/cameracontroller.h"
 #include "qtuser3d/math/angles.h"
-
-#include "rotatehelperentity_T.h"
+#include "qtuser3d/math/space3d.h"
 
 #include <Qt3DExtras/QTorusMesh>
 #include <QtCore/qmath.h>
@@ -15,29 +15,40 @@
 
 namespace qtuser_3d
 {
-	Rotate3DHelperEntity::Rotate3DHelperEntity(Qt3DCore::QNode* parent)
+	Rotate3DHelperEntity::Rotate3DHelperEntity(Qt3DCore::QNode* parent, RotateHelperType rotateHelperType)
 		: XEntity(parent)
 		, m_pXRotHelper(nullptr)
 		, m_pYRotHelper(nullptr)
 		, m_pZRotHelper(nullptr)
+		, m_pCamViewRotHelper(nullptr)
 		, m_pRotateCallback(nullptr)
+		, m_pCameraController(nullptr)
 	{
-		m_pXRotHelper = new RotateHelperEntity_T(this);
+		m_pXRotHelper = new RotateHelperEntity_T(this, rotateHelperType);
 		m_pXRotHelper->setColor(QVector4D(1.0f, 0.1098f, 0.1098f, 1.0f));
 		m_pXRotHelper->setRotateAxis(QVector3D(1.0, 0.0, 0.0));
 		m_pXRotHelper->setRotateCallback(this);
 
-		m_pYRotHelper = new RotateHelperEntity_T(this);
+		m_pYRotHelper = new RotateHelperEntity_T(this, rotateHelperType);
 		m_pYRotHelper->setColor(QVector4D(0.247f, 0.933f, 0.1098f, 1.0f));
 		m_pYRotHelper->setRotateAxis(QVector3D(0.0, 1.0, 0.0));
 		//m_pYRotHelper->setRotateInitAngle(90);
 		m_pYRotHelper->setRotateCallback(this);
 
-		m_pZRotHelper = new RotateHelperEntity_T(this);
+		m_pZRotHelper = new RotateHelperEntity_T(this, rotateHelperType);
 		m_pZRotHelper->setColor(QVector4D(0.4117f, 0.243f, 1.0f, 1.0f));
 		m_pZRotHelper->setRotateAxis(QVector3D(0.0, 0.0, 1.0), 90.0);
 		//m_pZRotHelper->setRotateInitAngle(90);
 		m_pZRotHelper->setRotateCallback(this);
+
+		if (RotateHelperType::RH_SIMPLE == rotateHelperType)
+		{
+			m_pCamViewRotHelper = new RotateHelperEntity_T(this, RotateHelperType::RH_SIMPLE);
+			m_pCamViewRotHelper->setColor(QVector4D(0.1f, 0.0f, 1.0f, 1.0f));
+			m_pCamViewRotHelper->setRotateCallback(this);
+			m_pCamViewRotHelper->setAlwaysFaceCamera(true);
+		}
+
 	}
 
 	Rotate3DHelperEntity::~Rotate3DHelperEntity()
@@ -55,6 +66,9 @@ namespace qtuser_3d
 
 		if (m_pZRotHelper)
 			pickables << m_pZRotHelper->getPickable();
+
+		if (m_pCamViewRotHelper)
+			pickables << m_pCamViewRotHelper->getPickable();
 		
 		return pickables;
 	}
@@ -80,6 +94,33 @@ namespace qtuser_3d
 		return nullptr;
 	}
 
+	Pickable* Rotate3DHelperEntity::camViewPickable()
+	{
+		if (m_pCamViewRotHelper)
+			return m_pCamViewRotHelper->getPickable();
+		return nullptr;
+	}
+
+	void Rotate3DHelperEntity::setCameraController(CameraController* controller)
+	{
+		m_pCameraController = controller;
+	}
+
+	void Rotate3DHelperEntity::attach()
+	{
+		if (m_pCameraController)
+		{
+			m_pCameraController->screenCamera()->addCameraObserver(this);
+		}
+	}
+
+	void Rotate3DHelperEntity::detach()
+	{
+		if (m_pCameraController) {
+			m_pCameraController->screenCamera()->removeCameraObserver(this);
+		}
+	}
+
 	QList<LeftMouseEventHandler*> Rotate3DHelperEntity::getLeftMouseEventHandlers()
 	{
 		QList<LeftMouseEventHandler*> handlers;
@@ -92,6 +133,9 @@ namespace qtuser_3d
 
 		if (m_pZRotHelper)
 			handlers << m_pZRotHelper;
+
+		if (m_pCamViewRotHelper)
+			handlers << m_pCamViewRotHelper;
 
 		return handlers;
 	}
@@ -106,6 +150,9 @@ namespace qtuser_3d
 
 		if (m_pZRotHelper)
 			m_pZRotHelper->setPickSource(pickSource);
+
+		if (m_pCamViewRotHelper)
+			m_pCamViewRotHelper->setPickSource(pickSource);
 	}
 
 	void Rotate3DHelperEntity::setScreenCamera(ScreenCamera* camera)
@@ -118,6 +165,9 @@ namespace qtuser_3d
 
 		if (m_pZRotHelper)
 			m_pZRotHelper->setScreenCamera(camera);
+
+		if (m_pCamViewRotHelper)
+			m_pCamViewRotHelper->setScreenCamera(camera);
 	}
 
 	void Rotate3DHelperEntity::setRotateCallback(RotateCallback* callback)
@@ -153,18 +203,10 @@ namespace qtuser_3d
 		
 		if (m_pZRotHelper)
 			m_pZRotHelper->setScale(scaleRate);
-	}
 
-	void Rotate3DHelperEntity::setInitScale(float initScale)
-	{
-		if (m_pXRotHelper)
-			m_pXRotHelper->setInitScale(initScale);
-
-		if (m_pYRotHelper)
-			m_pYRotHelper->setInitScale(initScale);
-
-		if (m_pZRotHelper)
-			m_pZRotHelper->setInitScale(initScale);
+		//TODO:fix
+		if (m_pCamViewRotHelper)
+			m_pCamViewRotHelper->setScale(scaleRate * 1.5f);
 	}
 
 	QVector3D Rotate3DHelperEntity::getCurrentRotateAxis()
@@ -206,6 +248,8 @@ namespace qtuser_3d
 	//Ä£ÐÍ°üÎ§ºÐ
 	void Rotate3DHelperEntity::onBoxChanged(Box3D box)
 	{
+		m_center = box.center();
+
 		if (m_pXRotHelper)
 			m_pXRotHelper->onBoxChanged(box);
 
@@ -214,7 +258,13 @@ namespace qtuser_3d
 
 		if (m_pZRotHelper)
 			m_pZRotHelper->onBoxChanged(box);
+
+		if (m_pCamViewRotHelper)
+			m_pCamViewRotHelper->onBoxChanged(box);
+
+		adaptScale();
 	}
+
 	bool Rotate3DHelperEntity::shouldStartRotate()
 	{
 		if (m_pRotateCallback)
@@ -244,6 +294,11 @@ namespace qtuser_3d
 		{
 			m_pZRotHelper->setHandlerVisibility(m_pZRotHelper->isRotating());
 			m_pZRotHelper->setDialVisibility(m_pZRotHelper->isRotating());
+		}
+
+		if (m_pCamViewRotHelper)
+		{
+			m_pCamViewRotHelper->setDialVisibility(m_pCamViewRotHelper->isRotating());
 		}
 	}
 
@@ -275,11 +330,53 @@ namespace qtuser_3d
 			m_pZRotHelper->setHandlerVisibility(true);
 			m_pZRotHelper->setDialVisibility(false);
 		}
+
+		if (m_pCamViewRotHelper)
+		{
+			m_pCamViewRotHelper->setDialVisibility(false);
+		}
 	}
 
 	void Rotate3DHelperEntity::setRotateAngle(QVector3D axis, float angle)
 	{
 		if (m_pRotateCallback)
 			m_pRotateCallback->setRotateAngle(axis, angle);
+	}
+
+	void Rotate3DHelperEntity::onCameraChanged(ScreenCamera* camera)
+	{
+		if (m_pCamViewRotHelper)
+		{
+			m_pCamViewRotHelper->onCameraChanged();
+		}
+		adaptScale();
+	}
+
+	void Rotate3DHelperEntity::adaptScale()
+	{
+		if (m_pCameraController)
+		{
+			qtuser_3d::ScreenCamera* screenCamera = m_pCameraController->screenCamera();
+			QPoint p0 = screenCamera->mapToScreen(m_center);
+			QSize screenSize = screenCamera->size();
+			QSize opSize = screenSize * 0.1f;
+			QPoint p1;
+			if (p0.x() > screenSize.width() / 2)
+			{
+				p1 = p0 - QPoint(opSize.width(), 0);
+			}
+			else {
+				p1 = p0 + QPoint(opSize.width(), 0);
+			}
+
+			qtuser_3d::Ray ray = screenCamera->screenRay(p1);
+
+			QVector3D c;
+			qtuser_3d::lineCollidePlane(m_center, screenCamera->camera()->viewVector(), ray, c);
+
+			float scale = (c - m_center).length();
+
+			setScale(scale);
+		}
 	}
 }

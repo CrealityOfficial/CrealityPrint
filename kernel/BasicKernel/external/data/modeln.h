@@ -16,19 +16,37 @@
 namespace us
 {
 	class USettings;
+	class USetting;
+}
+
+namespace qtuser_3d
+{
+	class XEffect;
 }
 
 namespace creative_kernel
 {
 	class ModelNEntity;
-	class FDMSupportGroup;
 	class BASIC_KERNEL_API ModelN : public qtuser_3d::Node3D
 	{
 		Q_OBJECT
+    	Q_PROPERTY(bool flushIntoInfill READ flushIntoInfill WRITE setFlushIntoInfillEnabled NOTIFY flushIntoInfillChanged)
+    	Q_PROPERTY(bool flushIntoObjects READ flushIntoObjects WRITE setFlushIntoObjectsEnabled NOTIFY flushIntoObjectsChanged)
+    	Q_PROPERTY(bool flushIntoSupport READ flushIntoSupport WRITE setFlushIntoSupportEnabled NOTIFY flushIntoSupportChanged)
+		Q_PROPERTY(bool supportEnabled READ supportEnabled WRITE setSupportEnabled NOTIFY supportEnabledChanged)
+    	Q_PROPERTY(float supportAngle READ supportAngle WRITE setSupportAngle NOTIFY supportAngleChanged)
+    	Q_PROPERTY(QString supportStructure READ supportStructure WRITE setSupportStructure NOTIFY supportStructureChanged)
+
 	public:
 		enum UnitType {
 			UT_METRIC,//公制, 长度单位mm, 重量单位g
 			UT_NOTMETRIC//非公制
+		};
+
+		enum RenderType {
+			NoRender = 0xFF,
+			ViewRender = 0x01,
+			OffscreenRender = 0x10
 		};
 
 		ModelN(QObject* parent = nullptr);
@@ -42,6 +60,11 @@ namespace creative_kernel
 
 		us::USettings* setting();
 		void setsetting(us::USettings* modelsetting);
+		bool hasParameter(const QString& key);
+		void getUsedSetting(us::USettings* setting);
+		void recordSetting();
+		bool checkSettingDirty();
+		bool checkSettingDirty(const QString& key);
 
 		void setState(int state);
 		int getState();
@@ -50,28 +73,20 @@ namespace creative_kernel
 		void setVisibility(bool visibility);
 		bool isVisible();
 		Qt3DCore::QEntity* getModelEntity();
+		void setModelEffect(qtuser_3d::XEffect* effect);
+		
+		//Variable Layer Height
+		void useVariableLayerHeightEffect();
+		void useDefaultModelEffect();
 
 		void setNozzle(int nozzle);
 		int nozzle();
 
-        void buildFDMSupport();
-		void setVisualMode(ModelVisualMode mode);
-		int getVisualMode();
 		void enterSupportStatus();
 		void leaveSupportStatus();
 		void setSupportCos(float cos);
 
-		//void setNeedCheckScope(int checkscope);
-
 		qtuser_3d::Box3D boxWithSup();
-
-		bool hasFDMSupport();
-		void setFDMSup(FDMSupportGroup* fdmSup);
-
-        FDMSupportGroup* fdmSupport();
-
-		void setFDMSuooprt(bool detectAdd);
-		bool getFDMSuooprt();
 
 		QVector3D localRotateAngle();
 		QQuaternion rotateByStandardAngle(QVector3D axis, float angle, bool updateCurFlag = false);
@@ -84,6 +99,7 @@ namespace creative_kernel
 		trimesh::TriMesh* mesh();
 		TriMeshPtr meshptr();
 		TriMeshPtr globalMesh(bool needMergeColorMesh = true);
+		TriMeshPtr localMesh(bool needMergeColorMesh = true);
 
 		int getErrorEdges();
         int getErrorNormals();
@@ -103,10 +119,6 @@ namespace creative_kernel
 		void setRenderData(ModelNRenderDataPtr renderData);
 		ModelNRenderDataPtr renderData();
 
-		// edit mesh vertices, return the matrix of scale and rotate
-		QMatrix4x4 embedScaleNRot();
-		void embedMatrix(QMatrix4x4 mat);
-
 		qtuser_3d::Box3D calculateGlobalSpaceBox() override;
 		qtuser_3d::Box3D calculateGlobalSpaceBoxNoScale() override;
 
@@ -119,6 +131,10 @@ namespace creative_kernel
 		trimesh::TriMesh* createGlobalMesh();
 		std::vector<trimesh::vec3> outline_path(bool global = false, bool debug = false);
 		std::vector<trimesh::vec3> concave_path();
+		std::vector<trimesh::vec3> rsPath();
+		const std::vector<trimesh::vec3>& sweepAreaPath();
+		void updateSweepAreaPath();
+
 		trimesh::quaternion nestRotation();
 		void resetNestRotation();
 		void dirtyNestData();
@@ -147,52 +163,117 @@ namespace creative_kernel
 		void setPose(const QMatrix4x4& pose);
 		QMatrix4x4 pose();
 
-		void setColors2Facets(int index, const std::string& data);
 		std::string getColors2Facets(int index);
 		void setColors2Facets(const std::vector<std::string>& data);
 		std::vector<std::string> getColors2Facets();
+		std::vector<std::string> getSeam2Facets();
+		std::vector<std::string> getSupport2Facets();
 		bool hasColors();
-		void resizeColors2Facet(int size);
+		bool hasSeamsData();
+		bool hasSupportsData();
 
 		void setFacet2Facets(const std::vector<int>& facet2Facets);
 		int getFacet2Facets(int faceId);
 
+		void setDefaultColorIndex(int colorIndex);
+		int defaultColorIndex() const;
+
+		void updateRenderByMeshSpreadData(const std::vector<std::string>& data, bool updateCapture = true);
+		void updateRender(bool updateCapture = true);
+		
 		//paint seam
-		void setSeam2Facets(int index, const std::string& data);
-		std::string getSeam2Facets(int index);
 		void setSeam2Facets(const std::vector<std::string>& data);
-		std::vector<std::string> getSeam2Facets();
 
 		//paint support
-		void setSupport2Facets(int index, const std::string& data);
-		std::string getSupport2Facets(int index);
 		void setSupport2Facets(const std::vector<std::string>& data);
-		std::vector<std::string> getSupport2Facets();
 
-		//slice paint support
-		void mergePaintSupport();
-		void mergePaintSupport_anti_overhang();
-		void mergePaintSeam();
-		void mergePaintSeam_anti();
+		/* 脏状态 */
+		bool isDirty();
+		void dirty();
+		void resetDirty();
 
-		void updateRenderByMeshSpreadData(const std::vector<std::string>& data);
-		void updateRender();
+		//print by object
+		void setOuterLinesColor(const QVector4D& color);
+		void setOuterLinesVisibility(bool visible);
+		void setNozzleRegionVisibility(bool visible);
+
+		bool isContainsMaterial(int materialIndex);
+
+		/* 冲刷参数 */
+		bool flushIntoInfill();
+		void setFlushIntoInfillEnabled(bool enabled); 
+
+    	bool flushIntoObjects(); 
+		void setFlushIntoObjectsEnabled(bool enabled); 
+
+    	bool flushIntoSupport(); 
+		void setFlushIntoSupportEnabled(bool enabled); 
+
+		/* 支撑参数 */
+		bool supportEnabled(); 
+		void setSupportEnabled(bool enabled); 
+
+    	float supportAngle(); 
+		void setSupportAngle(float angle);
+
+    	QString supportStructure();
+		void setSupportStructure(const QString& structure);
+
+		void setLayerHeightProfile(const std::vector<double>& layerHeightProfile);
+		std::vector<double> layerHeightProfile();
+
+		/* 渲染方式 */
+		void setRenderType(int type);
+		void setLayersColor(const QVariantList& layersColor);
+		void setOffscreenRenderOffset(const QVector3D& offset);
+
+		void setBoxVisibility(bool visibility);
+
+		void setObjectId(int objId);
+		int getObjectId();
+		void setGroupId(int groupId);
+		int getGroupId();
+
+		cxkernel::ModelNDataPtr getScaledUniformUnCheckData();
+
+	signals:
+		void flushIntoInfillChanged();
+		void flushIntoObjectsChanged();
+		void flushIntoSupportChanged();
+		void supportEnabledChanged();
+		void supportAngleChanged();
+		void supportStructureChanged();
+
+	signals:
+		void prepareCheckMaterial();
+		void dirtyChanged();
+		void colorsDataChanged();
+		void seamsDataChanged();
+		void supportsDataChanged();
+		void settingsChanged();
+		void defaultColorIndexChanged();
+		void adaptiveLayerDataChanged();
+	private slots:
+		void onGlobalSettingsChanged(QObject* parameter_base, const QString& key);
+		void onSettingsChanged(const QString& key,us::USetting* setting);
+		void updateSetting();
 
 	private:
-		std::vector<std::string> m_colors2Facets; //序列化数据
-		std::vector<int> m_facet2Facets;//原始面与细分数据映射表
-		int m_spreadFaceCount {0};
-
-		std::vector<std::string> m_seam2Facets; //涂抹Z缝
-		std::vector<std::string> m_support2Facets; //涂抹支撑
+		// std::vector<std::string> m_colors2Facets; //序列化数据
+		// std::vector<int> m_facet2Facets;//原始面与细分数据映射表
+		int m_colorIndex{0};
+		
 	protected:
 		void onGlobalMatrixChanged(const QMatrix4x4& globalMatrix) override;
 		void onStateChanged(qtuser_3d::ControlState state) override;
 		void meshChanged();
 		void faceBaseChanged(int faceBase) override;
 
-		void setSupportsVisibility(bool visibility);
-		Qt3DRender::QGeometry* createGeometry();
+	protected:
+		void onLocalPositionChanged(const QVector3D& newPosition) override;
+		void onLocalScaleChanged(const QVector3D& newScale) override;
+		void onLocalQuaternionChanged(const QQuaternion& newQ) override;
+
 	protected:
 		cxkernel::ModelNDataPtr m_data;
 		ModelNRenderDataPtr m_renderData;
@@ -200,15 +281,16 @@ namespace creative_kernel
 		ModelNEntity* m_entity;
         bool m_needInit { true };
 		QVector3D m_initPosition;
-		us::USettings* m_setting;
+		us::USettings* m_setting { NULL };
+		us::USettings* m_lastUsedSetting { NULL };
 
-		FDMSupportGroup* m_fdmSupportGroup;
+		qtuser_3d::XEffect *m_modelOffscreenEffect;
+		qtuser_3d::XEffect *m_modelCombindEffect;
 
 		int m_currentLocalDispalyAngle;
 		QList<QVector3D> m_localAngleStack;
 
 		bool m_visibility;
-		bool m_detectAdd; //for erase support;
 		cxkernel::NestDataPtr m_nestData;
 		
 		UnitType m_ut = UT_METRIC;
@@ -219,8 +301,22 @@ namespace creative_kernel
 		int m_errorIntersects; //非流面
 
 		double m_nestRotation;
-
 		QString m_serialName;
+		bool m_isDirty { false };
+
+		bool m_rIsDirty{ true }; //旋转数据脏
+		bool m_sIsDirty{ true }; //缩放数据脏
+		std::vector<trimesh::vec3> m_rsPath;  //旋转缩放的凸包轮廓
+		bool m_sweepPathDirty{ true };
+		std::vector<trimesh::vec3> m_sweepPath;
+
+		std::vector<double> m_layerHeightProfile;
+
+		int m_objectId;
+		int m_groupId;
+
+		int m_renderType{ -1 };
+
 	};
 
 	BASIC_KERNEL_API Qt3DRender::QGeometry* createGeometryFromMesh(trimesh::TriMesh* mesh);

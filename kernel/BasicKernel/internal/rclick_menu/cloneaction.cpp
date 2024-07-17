@@ -13,7 +13,7 @@ namespace creative_kernel
         m_actionname = tr("Clone Model");
         m_actionNameWithout = "Clone Model";
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     CloneAction::~CloneAction()

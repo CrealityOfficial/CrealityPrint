@@ -24,6 +24,8 @@ namespace qtuser_3d
 
 		virtual void click(int primitiveID);
 
+		virtual bool hoverInRange(int faceid);
+
 		///////////////////////
 		ControlState state();
 		void setState(ControlState state);
@@ -38,11 +40,12 @@ namespace qtuser_3d
 		bool noPrimitive();
 		void setNoPrimitive(bool noPrimitive);  // only set once at construct
 
-		bool notSupportData();
-		void setNotSupportData(bool notSupportData);
-
 		virtual void setVisible(bool visible);
 		bool isVisible();
+
+		void setCurPrimitiveId(int curPrimitiveId);
+		int getCurPrimitiveId();
+
 	public slots:
 		void setSelected(bool selected);
 	protected:
@@ -61,6 +64,8 @@ namespace qtuser_3d
 		int m_faceBase;
 		bool m_noPrimitive;
 		bool m_enableSelect;
+
+		int m_curPrimitiveID;
 
 	};
 

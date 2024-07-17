@@ -5,7 +5,7 @@
 namespace creative_kernel
 {
 	class DevicePhase : public QObject,
-		public KernelPhase
+		public KernelPhase, public SpaceTracer
 	{
 		Q_OBJECT
 	public:
@@ -15,6 +15,11 @@ namespace creative_kernel
 	protected:
 		void onStartPhase() override;
 		void onStopPhase() override;
+
+		void onBoxChanged(const qtuser_3d::Box3D& box) {};
+		void onSceneChanged(const qtuser_3d::Box3D& box) {};
+
+		void onModelAdded(ModelN* model) override;
 	};
 }
 

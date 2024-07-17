@@ -16,8 +16,17 @@ namespace qtuser_3d
 	{
 		Q_OBJECT
 	public:
+		enum OperateModeType 
+		{
+			DefaultMode = 0,
+			ReusableMode,
+			FixedMode
+		};
+
 		SceneOperateMode(QObject* parent = nullptr);
 		virtual ~SceneOperateMode();
+	
+		int type() { return m_type; }
 
 		virtual void onAttach() = 0;
 		virtual void onDettach() = 0;
@@ -48,6 +57,10 @@ namespace qtuser_3d
 
 		void onKeyPress(QKeyEvent* event) override;
 		void onKeyRelease(QKeyEvent* event) override;
+		
+	protected:
+		int m_type {DefaultMode};
+
 	};
 }
 #endif // QTUSER_3D_SCENEOPERATEMODE_1592203699385_H

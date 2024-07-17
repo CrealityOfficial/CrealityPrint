@@ -1,11 +1,91 @@
 #include "topomesh/interface/honeycomb.h"
 #include "internal/alg/fillhoneycombs.h"
-
+#include "msbase/utils/trimeshserial.h"
+#include "ccglobal/profile.h"
 namespace topomesh
 {
+    class HoneyCombInput : public ccglobal::Serializeable {
+    public:
+        trimesh::TriMesh mesh;
+        CombParam param;
+        int code = 0;
+
+        HoneyCombInput()
+        {
+
+        }
+        ~HoneyCombInput()
+        {
+
+        }
+
+        int version() override
+        {
+            return 0;
+        }
+        bool save(std::fstream& out, ccglobal::Tracer* tracer) override
+        {
+            ccglobal::cxndSaveT(out, param.width);
+            ccglobal::cxndSaveT(out, param.diameter);
+            ccglobal::cxndSaveT(out, param.combShell);
+
+            ccglobal::cxndSaveT(out, param.holeConnect);
+            ccglobal::cxndSaveT(out, param.holeHeight);
+            ccglobal::cxndSaveT(out, param.holeDiameter);
+            ccglobal::cxndSaveT(out, param.holeGap);
+            ccglobal::cxndSaveT(out, param.mode);
+
+            ccglobal::cxndSaveT(out, code);
+            msbase::saveTrimesh(out, mesh);
+            msbase::saveFacePatchs(out, param.faces);
+            return true;
+        }
+
+        bool load(std::fstream & in, int ver, ccglobal::Tracer * tracer) override
+        {
+            if (ver == 0) {
+                ccglobal::cxndLoadT(in, param.width);
+                ccglobal::cxndLoadT(in, param.diameter);
+                ccglobal::cxndLoadT(in, param.combShell);
+
+                ccglobal::cxndLoadT(in, param.holeConnect);
+                ccglobal::cxndLoadT(in, param.holeHeight);
+                ccglobal::cxndLoadT(in, param.holeDiameter);
+                ccglobal::cxndLoadT(in, param.holeGap);
+                ccglobal::cxndLoadT(in, param.mode);
+
+                ccglobal::cxndLoadT(in, code);
+                msbase::loadTrimesh(in, mesh);
+                msbase::loadFacePatchs(in, param.faces);
+                return true;
+            }
+            return false;
+        }
+    };
+
+    std::shared_ptr<trimesh::TriMesh> honeyGenerateFromFile(const std::string & fileName, ccglobal::Tracer * tracer)
+    {
+        HoneyCombInput input;
+        if (!ccglobal::cxndLoad(input, fileName, tracer)) {
+            LOGE("honeyCombFromFile load error [%s]", fileName.c_str());
+            return nullptr;
+        }
+        ErrorCode value = (ErrorCode)input.code;
+        return topomesh::honeyCombGenerate(&input.mesh, value, input.param, tracer);
+    }
+
 	std::shared_ptr<trimesh::TriMesh> honeyCombGenerate(trimesh::TriMesh* trimesh, ErrorCode& code, const CombParam& honeyparams,
 		ccglobal::Tracer* tracer)
 	{
+        if (!honeyparams.fileName.empty() && trimesh) {
+            HoneyCombInput input;
+            input.mesh = *trimesh;
+            input.param = honeyparams;
+            input.code = (int)code;
+
+            ccglobal::cxndSave(input, honeyparams.fileName);
+        }
+
         HoneyCombParam params;
         params.honeyCombRadius = honeyparams.diameter / 2.0f;
         params.nestWidth = honeyparams.width;
@@ -17,7 +97,9 @@ namespace topomesh
         params.mode = honeyparams.mode;
         params.faces = honeyparams.faces;
         int value = 0;
+        SYSTEM_TICK("honeyComb");
         std::shared_ptr<trimesh::TriMesh> mesh = GenerateHoneyCombs(trimesh, value, params, tracer);
+        SYSTEM_TICK("honeyComb");
         code = ErrorCode(value);
 		return mesh;
 	}

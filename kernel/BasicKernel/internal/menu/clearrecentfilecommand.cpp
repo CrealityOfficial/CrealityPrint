@@ -9,7 +9,7 @@ namespace creative_kernel
         m_eParentMenu = eMenuType_File;
         m_bSeparator = true;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     ClearRecentFileCommand::~ClearRecentFileCommand()

@@ -11,6 +11,8 @@ namespace creative_kernel
 		virtual ~SlicePreviewNode();
 
 		void initialize();
+
+		void setNozzleColorList(const QVariantList& list);
 	};
 }
 #endif // _NULLSPACE_SLICEPREVIEWNODE_1590320779367_H

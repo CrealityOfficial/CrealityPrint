@@ -14,10 +14,10 @@ namespace creative_kernel
         , m_translateOp(nullptr)
     {
         orderindex = 0;
-        m_name = tr("Move") + ": M";
+        m_name = tr("Move") + ": T";
 
         m_source = "qrc:/kernel/qml/MovePanel.qml";
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     bool TranslateMode::checkSelect()
@@ -57,15 +57,15 @@ namespace creative_kernel
 
     void TranslateMode::onLanguageChanged(MultiLanguage language)
     {
-        m_name = tr("Move") + ": M";
+        m_name = tr("Move") + ": T";
     }
 
     void TranslateMode::onThemeChanged(ThemeCategory category)
     {
-        setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/move_dark.svg" : "qrc:/UI/photo/leftBar/move_lite.svg");
-        setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/move_dark.svg" : "qrc:/UI/photo/leftBar/move_lite.svg");
-        setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/move_pressed.svg" : "qrc:/UI/photo/leftBar/move_lite.svg");
-        setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/move_pressed.svg" : "qrc:/UI/photo/leftBar/move_pressed.svg");
+        setDisabledIcon("qrc:/UI/photo/cToolBar/move_dark_disable.svg");
+        setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/move_dark_default.svg" : "qrc:/UI/photo/cToolBar/move_light_default.svg");
+        setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/cToolBar/move_dark_default.svg" : "qrc:/UI/photo/cToolBar/move_light_default.svg");
+        setPressedIcon("qrc:/UI/photo/cToolBar/move_dark_press.svg");
     }
 
     void TranslateMode::execute()
@@ -90,12 +90,8 @@ namespace creative_kernel
 
     QVector3D TranslateMode::position()
     {
-        QVector3D pos;
-        if (!m_translateOp)
-            pos = QVector3D(0, 0, 0);
-        else 
-            pos = m_translateOp->position();
-        return pos;
+        if (!m_translateOp)return QVector3D(0, 0, 0);
+        return m_translateOp->position();
     }
 
     float TranslateMode::positionX()

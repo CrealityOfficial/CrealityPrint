@@ -12,38 +12,37 @@
 #include "interface/appsettinginterface.h"
 #include "interface/machineinterface.h"
 #include "buildinfo.h"
-
+#include "internal/parameter/parameterpath.h"
+#include "external/kernel/kernel.h"
+#include <QCoreApplication>
 namespace creative_kernel
 {
     CusAddPrinterModel::CusAddPrinterModel(QObject* parent) : QAbstractListModel(parent) {}
 
-    CusAddPrinterModel::~CusAddPrinterModel(){}
+    CusAddPrinterModel::~CusAddPrinterModel() {}
 
     void CusAddPrinterModel::initialize() {
-
-        QString file_path{ DEFAULT_CONFIG_ROOT + QStringLiteral("/") +
-      #ifdef CUSTOM_MACHINE_LIST
+        QString file_path{ _pfpt_default_root + QStringLiteral("/") +
+#ifdef CUSTOM_MACHINE_LIST
           QStringLiteral("machineList_custom.json")
-      #else
+#else
           QStringLiteral("machineList.json")
-      #endif // CUSTOM_MACHINE_LIST
+#endif // CUSTOM_MACHINE_LIST
         };
 
-        if (!QFileInfo{ file_path }.isFile()) {
-            qDebug() << "File isn't exists!";
-            return;
-        }
+        qDebug() << "machineList == " << file_path;
 
         QFile file{ file_path };
         if (!file.open(QIODevice::ReadOnly)) {
-            qDebug() << "File open failed!";
+            qWarning() << "machineList open failed!" << file.errorString();
             return;
         }
 
         QJsonParseError error{ QJsonParseError::ParseError::NoError };
         QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
         if (error.error != QJsonParseError::ParseError::NoError) {
-            qDebug() << "parseJson:" << error.errorString();
+            qWarning() << "machineList parseJson:" << error.errorString();
+            file.close();
             return;
         }
 
@@ -51,125 +50,118 @@ namespace creative_kernel
 
         type_printer_map_.clear();
         type_name_list_.clear();
+        printer_name_list_.clear();
         type_printer_name_map_.clear();
         current_type_name_.clear();
         current_printer_name_.clear();
         current_printer_vector_.clear();
 
-        for (const auto& type_printer_ref : document.array()) {
-            if (!type_printer_ref.isObject()) {
-                continue;
-            }
+        const auto& rootObj = document.object();
+        std::map<int, QString> printer_series;
 
-            const auto type_printer = type_printer_ref.toObject();
-            if (type_printer.empty()) {
-                continue;
-            }
-
-            auto type_name = type_printer.value(QStringLiteral("name")).toString();
-            if (type_name.isEmpty()) {
-                continue;
-            }
-
-            const auto printer_array = type_printer.value(QStringLiteral("subnodes")).toArray();
-            if (printer_array.empty()) {
-                continue;
-            }
-
-            decltype(type_printer_map_)::value_type info_pair{ type_name, {} };
-            auto& printer_list = type_printer_map_.emplace(std::move(info_pair)).first->second;
-
-            decltype(type_printer_name_map_)::value_type name_pair{ type_name, {} };
-            auto& printer_name_list = type_printer_name_map_.emplace(std::move(name_pair)).first->second;
-
-            type_name_list_.push_back(std::move(type_name));
-
-            for (const auto& printer_value : printer_array) {
-                if (!printer_value.isObject()) {
+        if (rootObj.contains("series") && rootObj.value(QStringLiteral("series")).isArray())
+        {
+            const auto& seriesArray = rootObj.value(QStringLiteral("series")).toArray();
+            for (const auto& series : seriesArray)
+            {
+                auto seriesObj = series.toObject();
+                auto type = seriesObj.value(QStringLiteral("type")).toInt();
+                if (type != 1)
+                {
                     continue;
                 }
-
-                const auto printer = printer_value.toObject();
-                if (printer.empty()) {
-                    continue;
-                }
-
-                auto printer_name = printer.value(QStringLiteral("name")).toString();
-                if (printer_name.isEmpty()) {
-                    continue;
-                }
-                auto printer_code_name = printer.value(QStringLiteral("codeName")).toString();
-                if (printer.contains("showLevel") && printer.value(QStringLiteral("showLevel")).isString())
-                {
-                    auto showLevel = printer.value(QStringLiteral("showLevel")).toString();
-                    QStringList levels = showLevel.split(" ");
-                    bool bShow = false;
-                    Q_FOREACH(auto level, levels)
-                    {
-                        if (QString(PROJECT_VERSION_EXTRA).contains(level))
-                        {
-                            bShow = true;
-                            break;
-                        }
-                    }
-                    if(!bShow)
-                    {
-                        continue;
-                    }
-                    
-                }
-
-                PrinterInfo printer_info;
-                if (printer_name.startsWith("Fast-") || printer_name.startsWith("Nebula-"))
-                {
-                    printer_info.image_url = QStringLiteral("qrc:/UI/photo/machineImage/machineImage_%1.png").arg(printer_name.mid(printer_name.indexOf("-")+1));
-                }
-                else
-                {
-                    printer_info.image_url = QStringLiteral("qrc:/UI/photo/machineImage/machineImage_%1.png").arg(printer_name);
-                }
-
-                printer_info.name = printer_name;
-                printer_info.code_name = printer_code_name.isEmpty() ? printer_name : printer_code_name;
-
-                printer_list.emplace_back(std::move(printer_info));
-                printer_name_list.push_back(std::move(printer_name));
+                auto name = seriesObj.value(QStringLiteral("name")).toString();
+                auto id = seriesObj.value(QStringLiteral("id")).toInt();
+                decltype(type_printer_map_)::value_type info_pair{ name, {} };
+                type_printer_map_.emplace(std::move(info_pair));
+                decltype(type_printer_name_map_)::value_type name_pair{ name, {} };
+                type_printer_name_map_.emplace(std::move(name_pair));
+                printer_series[id] = name;
+                type_name_list_.push_back(name);
             }
         }
 
-        PrinterInfo defaultInfo;
-        const auto& default_name = defaultInfo.name;
-        const auto default_depth = QString::number(defaultInfo.depth);
-        const auto default_width = QString::number(defaultInfo.width);
-        const auto default_height = QString::number(defaultInfo.height);
-        const auto default_nozzle_size = QString::number(defaultInfo.nozzle_size);
+        if (rootObj.contains("printerList") && rootObj.value(QStringLiteral("printerList")).isArray())
+        {
+            const auto& printerArray = rootObj.value(QStringLiteral("printerList")).toArray();
+            for (const auto& printer : printerArray)
+            {
+                auto printerObj = printer.toObject();
+                PrinterInfo printer_info;
+                printer_info.name = printerObj.value(QStringLiteral("name")).toString();
+                printer_info.code_name = printerObj.value(QStringLiteral("printerIntName")).toString();
+                printer_info.height = printerObj.value(QStringLiteral("zSize")).toInt();
+                printer_info.width = printerObj.value(QStringLiteral("xSize")).toInt();
+                printer_info.depth = printerObj.value(QStringLiteral("ySize")).toInt();
+                printer_info.nozzle_count = printerObj.value(QStringLiteral("nozzleDiameter")).toArray().size();
+                if (printer_info.name.startsWith("Fast-"))
+                {
+                    printer_info.image_url = QStringLiteral("qrc:/UI/photo/machineImage/machineImage_%1.png").arg(printer_info.name.mid(5));
+                }
+                else
+                {
+                    printer_info.image_url = QStringLiteral("qrc:/UI/photo/machineImage/machineImage_%1.png").arg(printer_info.name);
+                }
+                QVariantList nozzleDiameters = printerObj.value(QStringLiteral("nozzleDiameter")).toArray().toVariantList();
+                QString nozzleDiameterName = "";
+                for(auto nozzleDiameter : nozzleDiameters)
+                {
+                    nozzleDiameterName +=nozzleDiameter.toString()+"+";
+                }
+                nozzleDiameterName = nozzleDiameterName.mid(0,nozzleDiameterName.size()-1);
+                printer_info.image_url = QString(QStringLiteral("%1/machineImages/%2.png")).arg(_pfpt_default_root).arg(printer_info.code_name);
+                QFileInfo fileInfo(printer_info.image_url);
+                if (!fileInfo.exists())
+                {
+                    printer_info.image_url = printerObj.value(QStringLiteral("thumbnail")).toString();
+                }
+                else {
+                    printer_info.image_url = QUrl::fromLocalFile(printer_info.image_url).toString();
+                }
+                const auto& seriesId = printerObj.value(QStringLiteral("seriesId")).toInt();
+                const auto & printer_infoes = type_printer_map_[printer_series[seriesId]];
+                bool found = false;
+                for (const auto printer : type_printer_map_[printer_series[seriesId]])
+                {
+                    if (printer.name == printer_info.name)
+                    {
+                        found = true;
+                    }
+                }
+                if (!found)
+                {
+                    type_printer_map_[printer_series[seriesId]].emplace_back(printer_info);
+                }
+                if (!type_printer_name_map_[printer_series[seriesId]].contains(printer_info.name))
+                {
+                    type_printer_name_map_[printer_series[seriesId]].push_back(printer_info.name);
+                    printer_name_list_.push_back(printer_info.name);
+                }
+                //if (std::find(printer_infoes.cbegin(), printer_infoes.cend(), [=](const PrinterInfo& left, const PrinterInfo& right) { return true; }) != printer_infoes.cend())
+                //{
+                //    type_printer_map_[printer_series[seriesId]].emplace_back(printer_info);
+                //}
+            }
+        }
 
-        for (auto& type_printers_pair : type_printer_map_) {
-            for (auto& printer : type_printers_pair.second) {
-                QSharedPointer<us::USettings> settings = createDefaultMachineSetting(printer.name);
-                printer.depth = settings->value(QStringLiteral("machine_depth"), default_depth).toInt();
-                printer.width = settings->value(QStringLiteral("machine_width"), default_width).toInt();
-                printer.height = settings->value(QStringLiteral("machine_height"), default_height).toInt();
-                printer.nozzle_size = settings->value(QStringLiteral("machine_nozzle_size"), default_nozzle_size).toFloat();
-                printer.nozzle_count = settings->value(QStringLiteral("machine_extruder_count"), default_nozzle_size).toInt();
-
-                static const std::set<QString> GRANULAR_PRINTERS{
-                    QStringLiteral("Piocreat G5"),
-                    QStringLiteral("Piocreat G5 Pro"),
-                    QStringLiteral("Piocreat G12"),
-                    QStringLiteral("Piocreat G40"),
-                    QStringLiteral("Piocreat G50"),
-                };
-
-                printer.granular = GRANULAR_PRINTERS.find(
-                    settings->value(QStringLiteral("machine_name"), default_name))
-                    != GRANULAR_PRINTERS.cend();
+        QMutableStringListIterator i(type_name_list_); // pass list as argument
+        while (i.hasNext()) {
+            int size = getPrinterNameList(i.next()).size();
+            if (size == 0) {
+                i.remove();
             }
         }
 
         selectPrinter(type_name_list_.empty() ? QString{} : type_name_list_.front());
+        Q_EMIT sigTypeNameListChanged(type_name_list_);
 
         qDebug() << "CusAddPrinterModel Series : " << type_name_list_;
+    }
+
+    void CusAddPrinterModel::reinitialize() {
+        beginResetModel();
+        initialize();
+        endResetModel();
     }
 
     QString CusAddPrinterModel::getCurrentTypeName() {
@@ -193,6 +185,10 @@ namespace creative_kernel
         return {};
     }
 
+    QStringList CusAddPrinterModel::getAllPrinterNameList() {
+        return printer_name_list_;
+    }
+
     QString CusAddPrinterModel::getModelNameByCodeName(const QString& codeName)
     {
         for (auto& type_printers_pair : type_printer_map_) {
@@ -205,7 +201,23 @@ namespace creative_kernel
         }
         return codeName;
     }
-
+    QString CusAddPrinterModel::getThumbByCodeName(const QString& printerModel)
+    {
+        QString codeName = printerModel;
+        if (printerModel == "K1" || printerModel == "K1 Max")
+	    {
+		    codeName = "CR-"+printerModel;
+	    }
+        for (auto& type_printers_pair : type_printer_map_) {
+            for (auto& printer : type_printers_pair.second) {
+                if (printer.code_name == codeName)
+                {
+                    return printer.image_url;
+                }
+            }
+        }
+        return codeName;
+    }
     void CusAddPrinterModel::selectPrinter(const QString& type, const QString& printer) {
         auto iter = type_printer_name_map_.find(type);
         if (iter == type_printer_name_map_.cend()) {
@@ -269,6 +281,9 @@ namespace creative_kernel
         case DataRole::NAME:
             result = printer.name;
             break;
+        case DataRole::CODENAME:
+            result = printer.code_name;
+            break;
         case DataRole::DEPTH:
             result = printer.depth;
             break;
@@ -277,9 +292,6 @@ namespace creative_kernel
             break;
         case DataRole::HEIGHT:
             result = printer.height;
-            break;
-        case DataRole::NOZZLE_SIZE:
-            result = printer.nozzle_size;
             break;
         case DataRole::NOZZLE_COUNT:
             result = printer.nozzle_count;
@@ -301,11 +313,11 @@ namespace creative_kernel
         return {
           { static_cast<int>(DataRole::IMAGE_URL), QByteArrayLiteral("model_image_url") },
           { static_cast<int>(DataRole::NAME), QByteArrayLiteral("model_name") },
+          { static_cast<int>(DataRole::CODENAME), QByteArrayLiteral("model_code_name") },
           { static_cast<int>(DataRole::DEPTH), QByteArrayLiteral("model_depth") },
           { static_cast<int>(DataRole::WIDTH), QByteArrayLiteral("model_width") },
           { static_cast<int>(DataRole::HEIGHT), QByteArrayLiteral("model_height") },
           { static_cast<int>(DataRole::NOZZLE_COUNT), QByteArrayLiteral("model_nozzle_count") },
-          { static_cast<int>(DataRole::NOZZLE_SIZE), QByteArrayLiteral("model_nozzle_size") },
           { static_cast<int>(DataRole::GRANULAR), QByteArrayLiteral("model_granular") },
           { static_cast<int>(DataRole::ADDED), QByteArrayLiteral("model_added") },
         };

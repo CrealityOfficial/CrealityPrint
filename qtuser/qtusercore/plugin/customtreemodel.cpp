@@ -1,14 +1,42 @@
 #include "qtusercore/plugin/customtreemodel.h"
 
+#include <functional>
+#include <memory>
+
+#include <QtQml/QQmlEngine>
+
 namespace qtuser_qml {
 
-  CustomTreeModel::CustomTreeModel()
-      : CustomTreeModel{ std::make_shared<CustomTreeModel>(nullptr) } {}
+  CustomTreeModel::CustomTreeModel() : CustomTreeModel{ nullptr } {}
 
   CustomTreeModel::CustomTreeModel(std::shared_ptr<CustomTreeModel> parent_node)
-      : QAbstractListModel{ nullptr }, parent_node_{ parent_node } {}
+      : QAbstractListModel{ nullptr }
+      , uid_{}
+      , valid_{ true }
+      , child_valid_{ true }
+      , parent_node_{ parent_node }
+      , child_nodes_{} {
+    connect(this, &QAbstractItemModel::rowsInserted, this, &CustomTreeModel::countChanged);
+    connect(this, &QAbstractItemModel::rowsRemoved, this, &CustomTreeModel::countChanged);
+    connect(this, &QAbstractItemModel::modelReset, this, &CustomTreeModel::childNodesChanged);
 
-  CustomTreeModel::~CustomTreeModel() {}
+    if (parent_node) {
+      connect(parent_node.get(), &CustomTreeModel::nodeValidChanged,
+              this, &CustomTreeModel::hasUnvalidParentNodeChanged);
+      connect(parent_node.get(), &CustomTreeModel::hasUnvalidParentNodeChanged,
+              this, &CustomTreeModel::hasUnvalidParentNodeChanged);
+
+      connect(parent_node.get(), &CustomTreeModel::childNodeValidChanged,
+              this, &CustomTreeModel::hasChildUnvalidParentNodeChanged);
+      connect(parent_node.get(), &CustomTreeModel::hasChildUnvalidParentNodeChanged,
+              this, &CustomTreeModel::hasChildUnvalidParentNodeChanged);
+
+      connect(this, &CustomTreeModel::nodeValidChanged,
+              parent_node.get(), &CustomTreeModel::hasValidLeafNodeChanged);
+      connect(this, &CustomTreeModel::hasValidLeafNodeChanged,
+              parent_node.get(), &CustomTreeModel::hasValidLeafNodeChanged);
+    }
+  }
 
   auto CustomTreeModel::getUid() const -> QString {
     return uid_;
@@ -20,7 +48,7 @@ namespace qtuser_qml {
     }
 
     uid_ = uid;
-    Q_EMIT uidChanged();
+    uidChanged();
   }
 
   auto CustomTreeModel::isRootNode() const -> bool {
@@ -48,10 +76,10 @@ namespace qtuser_qml {
                                    (!isRootNode() && parent_node.expired());
 
     parent_node_ = std::move(parent_node);
-    Q_EMIT parentNodeChanged();
+    parentNodeChanged();
 
     if (root_node_changed) {
-      Q_EMIT isRootNodeChanged();
+      isRootNodeChanged();
     }
   }
 
@@ -64,6 +92,10 @@ namespace qtuser_qml {
   }
 
   auto CustomTreeModel::childNodes() const -> const std::deque<std::shared_ptr<CustomTreeModel>>& {
+    return child_nodes_;
+  }
+
+  auto CustomTreeModel::childNodes() -> std::deque<std::shared_ptr<CustomTreeModel>>& {
     return child_nodes_;
   }
 
@@ -82,11 +114,10 @@ namespace qtuser_qml {
       child->setParentNode(shared_from_this());
     }
     endResetModel();
-    Q_EMIT childNodesChanged();
 
     if (leaf_node_changed) {
-      Q_EMIT isLeafNodeChanged();
-      Q_EMIT isForkNodeChanged();
+      isLeafNodeChanged();
+      isForkNodeChanged();
     }
   }
 
@@ -98,7 +129,11 @@ namespace qtuser_qml {
     return this;
   }
 
-  auto CustomTreeModel::appendChildNode(std::shared_ptr<CustomTreeModel> node) -> void {
+  auto CustomTreeModel::getCount() const -> int {
+    return rowCount({});
+  }
+
+  auto CustomTreeModel::emplaceBackChildNode(std::shared_ptr<CustomTreeModel> node) -> void {
     const auto index = std::distance(child_nodes_.cbegin(), child_nodes_.cend());
     beginInsertRows({}, index, index);
     child_nodes_.emplace_back(std::move(node));
@@ -140,12 +175,76 @@ namespace qtuser_qml {
     setChildNodes({});
   }
 
-  int CustomTreeModel::rowCount(const QModelIndex& parent) const {
-    return static_cast<int>(child_nodes_.size());
+  auto CustomTreeModel::isNodeValid() const -> bool {
+    return valid_;
   }
 
-  QVariant CustomTreeModel::data(const QModelIndex& index, int role) const {
-    if (index.row() < 0 || index.row() >= child_nodes_.size()) {
+  auto CustomTreeModel::setNodeValid(bool valid) -> void {
+    if (valid_ == valid) {
+      return;
+    }
+
+    valid_ = valid;
+    nodeValidChanged();
+  }
+
+  auto CustomTreeModel::isChildNodeValid() const -> bool {
+    return child_valid_;
+  }
+
+  auto CustomTreeModel::setChildNodeValid(bool valid) -> void {
+    if (child_valid_ == valid) {
+      return;
+    }
+
+    child_valid_ = valid;
+    childNodeValidChanged();
+  }
+
+  auto CustomTreeModel::hasValidChildNode() const -> bool {
+    for (const auto& child_node : childNodes()) {
+      if (child_node && child_node->isNodeValid()) {
+        if (child_node->isLeafNode() || child_node->hasValidChildNode()) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  auto CustomTreeModel::hasUnvalidParentNode() const -> bool {
+    for (auto parent = parentNode(); parent; parent = parent->parentNode()) {
+      if (!parent->isNodeValid()) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  auto CustomTreeModel::hasChildUnvalidParentNode() const -> bool {
+    for (auto parent = parentNode(); parent; parent = parent->parentNode()) {
+      if (!parent->isChildNodeValid()) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  auto CustomTreeModel::roleNames() const -> QHash<int, QByteArray> {
+    return {
+      { static_cast<int>(DataRole::NODE), QByteArrayLiteral("model_node") },
+    };
+  }
+
+  auto CustomTreeModel::rowCount(const QModelIndex& parent) const -> int {
+    return static_cast<int>(childNodes().size());
+  }
+
+  auto CustomTreeModel::data(const QModelIndex& index, int role) const -> QVariant {
+    if (index.row() < 0 || index.row() >= getCount()) {
       return QVariant::Type::Invalid;
     }
 
@@ -161,10 +260,120 @@ namespace qtuser_qml {
     }
   }
 
-  QHash<int, QByteArray> CustomTreeModel::roleNames() const {
+
+
+
+
+  FlattenTreeModel::FlattenTreeModel() : FlattenTreeModel{ nullptr } {}
+
+  FlattenTreeModel::FlattenTreeModel(std::shared_ptr<CustomTreeModel> parent_node)
+      : CustomTreeModel{ std::move(parent_node) }
+      , flattenable_{ true }
+      , flatten_child_nodes_valid_{ false }
+      , flatten_child_nodes_{} {
+    connect(this, &CustomTreeModel::countChanged, this, &FlattenTreeModel::onCountChanged);
+  }
+
+  auto FlattenTreeModel::isFlattenable() const -> bool {
+    return flattenable_;
+  }
+
+  auto FlattenTreeModel::setFlattenable(bool flattenable) -> void {
+    if (flattenable_ == flattenable) {
+      return;
+    }
+
+    flattenable_ = flattenable;
+
+    beginResetModel();
+    countChanged();
+    endResetModel();
+  }
+
+  auto FlattenTreeModel::flattenChildNodes() const
+      -> const std::deque<std::weak_ptr<CustomTreeModel>>& {
+    return const_cast<FlattenTreeModel*>(this)->flattenChildNodes();
+  }
+
+  auto FlattenTreeModel::flattenChildNodes() -> std::deque<std::weak_ptr<CustomTreeModel>>& {
+    if (!flatten_child_nodes_valid_) {
+      flatten_child_nodes_.clear();
+
+      std::function<void(std::shared_ptr<CustomTreeModel> node)> recursiver{ nullptr };
+
+      recursiver = [this, &recursiver](auto node) -> void {
+        if (!node) {
+          return;
+        }
+
+        if (node.get() != this) {
+          flatten_child_nodes_.emplace_back(node);
+        }
+
+        auto const_node = std::const_pointer_cast<const CustomTreeModel>(node);
+        for (auto child_node : const_node->childNodes()) {
+          recursiver(child_node);
+        }
+      };
+
+      recursiver(shared_from_this());
+    }
+
+    return flatten_child_nodes_;
+  }
+
+  auto FlattenTreeModel::roleNames() const -> QHash<int, QByteArray> {
     return {
       { static_cast<int>(DataRole::NODE), QByteArrayLiteral("model_node") },
+      { static_cast<int>(DataRole::LEVEL), QByteArrayLiteral("model_level") },
     };
+  }
+
+  auto FlattenTreeModel::rowCount(const QModelIndex& parent) const -> int {
+    if (!flattenable_) {
+      return CustomTreeModel::rowCount(parent);
+    }
+
+    return static_cast<int>(flattenChildNodes().size());
+  }
+
+  auto FlattenTreeModel::data(const QModelIndex& index, int role) const -> QVariant {
+    if (!flattenable_) {
+      return CustomTreeModel::data(index, role);
+    }
+
+    if (index.row() < 0 || index.row() >= getCount()) {
+      return QVariant::Type::Invalid;
+    }
+
+    switch (static_cast<DataRole>(role)) {
+      case DataRole::NODE: {
+        auto node = flattenChildNodes().at(index.row()).lock();
+        return QVariant::fromValue(node.get());
+        break;
+      }
+      case DataRole::LEVEL: {
+        auto node = flattenChildNodes().at(index.row()).lock();
+
+        auto level = 0;
+        for (auto parent = node->parentNode();
+             parent && parent.get() != this;
+             parent = parent->parentNode()) {
+          ++level;
+        }
+
+        return QVariant::fromValue(level);
+        break;
+      }
+      default: {
+        return QVariant::Type::Invalid;
+        break;
+      }
+    }
+  }
+
+  auto FlattenTreeModel::onCountChanged() -> void {
+    flatten_child_nodes_valid_ = false;
   }
 
 }  // namespace qtuser_qml

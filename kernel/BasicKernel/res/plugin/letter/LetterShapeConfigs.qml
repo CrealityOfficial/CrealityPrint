@@ -14,16 +14,16 @@ Column {
     property var selShape: null
     property var com
 
-    spacing: 10
+    spacing: 10 * screenScaleFactor
 
     Rectangle {
         width: parent.width
-        height: 5
+        height: 5 * screenScaleFactor
         color: "transparent"
     }
 
     Row {
-        spacing: 5
+        spacing: 5 * screenScaleFactor
 
         StyledLabel {
             width: 100 * screenScaleFactor
@@ -77,7 +77,7 @@ Column {
     }
 
     Row {
-        spacing: 5
+        spacing: 5 * screenScaleFactor
 
         StyledLabel {
             width: 100 * screenScaleFactor
@@ -130,7 +130,7 @@ Column {
     }
 
     Row {
-        spacing: 5
+        spacing: 5 * screenScaleFactor
         visible: false
 
         StyledLabel {
@@ -185,7 +185,7 @@ Column {
     }
 
     Row {
-        spacing: 5
+        spacing: 5 * screenScaleFactor
         visible: false
 
         StyledLabel {
@@ -240,7 +240,7 @@ Column {
     }
 
     Row {
-        spacing: 5
+        spacing: 5 * screenScaleFactor
 
         StyledLabel {
             width: 100 * screenScaleFactor
@@ -348,7 +348,7 @@ Column {
     Row {
         id: idTextSideRow
 
-        spacing: 5
+        spacing: 5 * screenScaleFactor
 
         // visible: Qt.platform.os === "windows"
         StyledLabel {

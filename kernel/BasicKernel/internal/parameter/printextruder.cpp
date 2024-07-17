@@ -1,26 +1,37 @@
 #include "printextruder.h"
-#include "internal/parameter/printextruder.h"
-#include "internal/parameter/parameterpath.h"
-#include "internal/parameter/printmaterial.h"
-#include "internal/parameter/printmachine.h"
-#include "internal/models/profileparametermodel.h"
 
 #include <QtCore/QFile>
-#include <QtCore/QDebug>
+#include <QtCore/QSettings>
+#include <QtQml/QQmlEngine>
+
+#include <qtusercore/util/settings.h>
+
+#include "internal/parameter/parameterpath.h"
+#include "internal/parameter/printextruder.h"
+#include "internal/parameter/printmachine.h"
+#include "internal/parameter/printmaterial.h"
 
 namespace creative_kernel
 {
     enum {
         name_role = Qt::UserRole + 1,
-        
+
     };
 
-	PrintExtruder::PrintExtruder(const QString& machineName, int index, QObject* parent)
+	PrintExtruder::PrintExtruder(const QString& machineName, int index, QObject* parent, bool isPhysical, const QColor& materialColor, us::USettings* uSettings)
 		: ParameterBase(parent)
 		, m_index(index)
 		, m_machineName(machineName)
+        , m_isPhysical(isPhysical)
+        , m_materialColor(materialColor)
 	{
+        setSettings(uSettings);
 
+        PrintMachine* machine = qobject_cast<PrintMachine*>(parent);
+        if (machine && machine->materialsNameList().count() > 0)
+        {
+            m_materialName = machine->materialsNameList().at(0);
+        }
 	}
 
 	PrintExtruder::~PrintExtruder()
@@ -30,25 +41,40 @@ namespace creative_kernel
 
 	void PrintExtruder::added()
 	{
-        PrintMachine* printMachine = qobject_cast<PrintMachine*>(this->parent());
-        bool isFromUserMachine = printMachine->isFromUserMachine();
-        if (isFromUserMachine)
-        {
-            setSettings(createExtruderSettings(m_machineName, m_index));
-            setUserSettings(createUserExtruderSettings(m_machineName, m_index));
-        }
-        else
-        {
-            setSettings(createExtruderSettings(m_machineName, m_index));
-            setUserSettings(createUserExtruderSettings(m_machineName, m_index));
-        }
-     
+        setUserSettings(createUserExtruderSettings(m_machineName, m_index));
     }
 
 	void PrintExtruder::removed()
 	{
         removeUserExtuderFile(m_machineName, m_index);
 	}
+
+    int PrintExtruder::extruderIndex()
+    {
+        return m_index;
+    }
+
+    void PrintExtruder::setExtruderIndex(int index)
+    {
+        m_index = index;
+    }
+
+    void PrintExtruder::setColor(const QColor& color) {
+        if (m_materialColor != color) {
+            m_materialColor = color;
+            colorChanged();
+        }
+    }
+
+    QColor PrintExtruder::color() const {
+        return m_materialColor;
+    }
+
+    PrintMaterial* PrintExtruder::curMaterial()
+    {
+        PrintMachine* machine = qobject_cast<PrintMachine*>(parent());
+        return qobject_cast<PrintMaterial*>( machine->materialObject(m_materialName));
+    }
 
     void PrintExtruder::setMaterial(const QString& materialName)
     {
@@ -68,30 +94,40 @@ namespace creative_kernel
         return 0;
     }
 
+    ParameterDataModel* PrintExtruder::getDataModel() const {
+        if (!m_dataModel) {
+            auto* self = const_cast<PrintExtruder*>(this);
+            m_dataModel = new ParameterDataModel(m_settings, m_user_settings, self);
+            QQmlEngine::setObjectOwnership(m_dataModel, QQmlEngine::QQmlEngine::CppOwnership);
+        }
+
+        return m_dataModel;
+    }
+
+    QObject* PrintExtruder::getDataModelObject() const {
+        return getDataModel();
+    }
+
     void PrintExtruder::setMaterial(int materialIndex)
     {
 
     }
 
-    QAbstractListModel* PrintExtruder::extruderParameterModel(const QString& category, bool professional)
-    {
-        ProfileParameterModel* model = nullptr;
-        QString key = category + (professional ? "-advance" : "");
-        if (m_extruderParameterModels.find(key) == m_extruderParameterModels.end()) {
-            model = new ProfileParameterModel(m_settings, this);
-            m_extruderParameterModels[key] = model;
-        }
-        else
-        {
-            model = m_extruderParameterModels[key];
-        }
-        model->setExtruderCategory(category, professional);
-        model->applyUserSetting(m_user_settings);
-        return model;
-    }
-
     QString PrintExtruder::materialName()
     {
+        PrintMachine* machine = qobject_cast<PrintMachine*>(parent());
+        if (machine)
+        {
+            QList<QString> materialList = machine->materialsNameList();
+            if (materialList.count() == 0)
+                return QString();
+
+            if (!materialList.contains(m_materialName))
+            {
+                m_materialName = materialList.at(0);
+            }
+        }
+
         return m_materialName;
     }
 
@@ -100,52 +136,18 @@ namespace creative_kernel
         saveSetting(userExtruderFile(m_machineName, m_index));
     }
 
-    void PrintExtruder::cancel()
-    {
-    }
-
     void PrintExtruder::reset()
     {
-        /*QString key = materialName + (professional ? "-advance" : "");
-        if (m_extruderParameterModels)
-        {
-            QList<QString> keys;
-            QHash<QString, us::USetting* >::const_iterator it = m_user_settings->settings().constBegin();
-            while (it != m_user_settings->settings().constEnd())
-            {
-                keys.append(it.key());
-                it++;
-            }
-            for (int i = 0; i < keys.size(); i++)
-            {
-                m_materialParameterModel->resetValue(keys[i]);
+        if (m_dataModel != nullptr) {
+            for (const auto& key : m_user_settings->settings().keys()) {
+                m_dataModel->resetValue(key);
             }
         }
-        save();*/
+
+        ParameterBase::reset();
     }
 
-    void  PrintExtruder::reset(const QString& category, bool professional/* = false*/)
+    void PrintExtruder::cancel()
     {
-        QString key = category + (professional ? "-advance" : "");
-        ProfileParameterModel* model = m_extruderParameterModels[key];
-
-        if (model)
-        {
-            QList<QString> keys;
-            QHash<QString, us::USetting* >::const_iterator it = m_user_settings->settings().constBegin();
-            while (it != m_user_settings->settings().constEnd())
-            {
-                keys.append(it.key());
-                it++;
-            }
-            for (const auto& key : keys)
-            {
-                if (model->hasKeyInFilter(key))
-                {
-                    model->resetValue(key);
-                }
-            }
-        }
-        save();
     }
 }

@@ -9,9 +9,11 @@ import "../secondqml"
 Rectangle
 {
     id: root
-    color: Constants.leftBarBgColor
-    width: (48 + 2) * screenScaleFactor
-    height: (10 + 2) * screenScaleFactor + button_background.height
+    color: Constants.leftBtnBgColor_normal
+    border.width: 1 * screenScaleFactor
+    border.color: Constants.leftbar_btn_border_color
+    width: 50 * screenScaleFactor
+    height:  button_background.height+2
     radius: 5 * screenScaleFactor
 
     property var topLeftButton: null
@@ -31,15 +33,15 @@ Rectangle
     property string currentSource: ""
     property string currentEnableIcon: "" //用于后面判断
 
-    layer.enabled: Constants.currentTheme
+//    layer.enabled: Constants.currentTheme
 
-    layer.effect: DropShadow {
-        radius: 3
-        spread: 0
-        samples: 7
-        color: Constants.dropShadowColor
-        verticalOffset: 3 * screenScaleFactor
-    }
+//    layer.effect: DropShadow {
+//        radius: 3
+//        spread: 0
+//        samples: 7
+//        color: Constants.dropShadowColor
+//        verticalOffset: 3 * screenScaleFactor
+//    }
 
     onVisibleChanged: if(!visible) focus = true
 
@@ -78,18 +80,18 @@ Rectangle
         spacing: 0
         anchors.centerIn: parent
 
-        Item
-        {
-            Layout.preferredWidth: 48 * screenScaleFactor
-            Layout.preferredHeight: 10 * screenScaleFactor
+//        Item
+//        {
+//            Layout.preferredWidth: 48 * screenScaleFactor
+//            Layout.preferredHeight: 10 * screenScaleFactor
 
-            Image {
-                anchors.centerIn: parent
-                width: 19 *screenScaleFactor
-                height: 4 * screenScaleFactor
-                source: "qrc:/UI/photo/leftBar/horizontalDragBtn.svg"
-            }
-        }
+//            Image {
+//                anchors.centerIn: parent
+//                width: 19 *screenScaleFactor
+//                height: 4 * screenScaleFactor
+//                source: "qrc:/UI/photo/leftBar/horizontalDragBtn.svg"
+//            }
+//        }
 
         Rectangle
         {
@@ -107,6 +109,7 @@ Rectangle
                     id: listView
                     Layout.preferredWidth: 48 * screenScaleFactor
                     Layout.preferredHeight: contentHeight
+                    property bool haveOpt: false
 
                     interactive: false
                     spacing: 1 * screenScaleFactor
@@ -120,21 +123,7 @@ Rectangle
                         target: kernel_modelspace
 
                         onSigAddModel:{
-                            //如果添加的是第一个模型才执行
-                            let beginIndex = 0
-                            if(kernel_modelspace.modelNNum === 1)
-                            {
-                                //1.默认选中添加的模型
-                                kernel_model_list_data.checkOne(kernel_modelspace.modelNNum - 1)
-                                //2.默认回归到索引为0（移动按钮）的按钮
-                                listView.currentIndex = beginIndex
-                                //3.调用execute
-                                listView.model.get(beginIndex).saveCall()
-                                //4.设置Loader的页面url
-                                content.source = listView.model.get(beginIndex).source
-                                //5.传递c++对象到qml用于交互
-                                content.item.com = listView.model.get(beginIndex)
-                            }
+
                         }
 
                         onSigRemoveModel:{
@@ -149,7 +138,6 @@ Rectangle
                     }
 
                     delegate: CusImglButton {
-                        bottonSelected: listView.currentIndex === model.index
                         width: 48 * screenScaleFactor
                         height: 48 * screenScaleFactor//PickMode unavailable
                         imgWidth: 24 * screenScaleFactor
@@ -161,39 +149,57 @@ Rectangle
                         cusTooltip.position: BasicTooltip.Position.RIGHT
                         enabledIconSource: enabledIcon
                         pressedIconSource: pressedIcon
-                        highLightIconSource: hoveredIcon
+                        highLightIconSource: pressedIcon
                         defaultBtnBgColor: "transparent"
-                        hoveredBtnBgColor: Constants.leftBtnBgColor_hovered
+                        hoveredBtnBgColor: Constants.leftBtnBgColor_selected
                         selectedBtnBgColor: Constants.leftBtnBgColor_selected
                         btnTextColor: Constants.leftTextColor
                         btnTextColor_d : Constants.leftTextColor_d
                         property var tindex
                         property var bitem: item
                         //                        visible: model.index !== 0
-                        opacity: enabled ? 1 : 0.5
+                        opacity: 1
                         onClicked:
                         {
-                            otherOpt.curIndex = -1
+                            if (kernel_kernelui.commandIndex == model.index) {
+                                kernel_kernelui.commandIndex = -1
+                            }
+                            else {
+                                kernel_kernelui.commandIndex = model.index
+                                listView.currentIndex = model.index
 
-                            if(listView.currentIndex === model.index)
-                            {
-                                switchMoveMode()
-                                return
+                                if (bottonSelected == false) {
+                                    bottonSelected = true
+                                    //初始化item
+                                    item.execute()
+
+                                    content.source = source
+                                    content.item.com = item
+
+                                    if(model.index === 5)
+                                    {   // 支撑
+                                        content.item.execute()
+                                    }
+                                    listView.haveOpt = true
+                                }
+                            }
+                        }
+
+                        Connections {
+                            target: kernel_kernelui
+
+                            onCommandIndexChanged: {
+                                if (model.index == kernel_kernelui.commandIndex) {
+
+                                } else {
+                                    if (bottonSelected && kernel_kernelui.commandIndex == -1)
+                                    {
+                                        listView.haveOpt = false
+                                    }
+                                    bottonSelected = false
+                                }
                             }
 
-                            //1.切换当前索引
-                            listView.currentIndex = model.index
-
-                            //2.初始化item
-                            item.execute()
-
-                            content.source = source
-                            content.item.com = item
-
-                            if(model.index === 5)
-                            {   // 支撑
-                                content.item.execute()
-                            }
                         }
                     }
                 }
@@ -206,7 +212,7 @@ Rectangle
                     checkable: true
                     checked: false
                     bottonSelected: checked
-                    opacity: enabled ? 1 : 0.5
+                    opacity:1
                     
                     imgWidth: 24 * screenScaleFactor
                     imgHeight: 24 * screenScaleFactor
@@ -218,10 +224,10 @@ Rectangle
 
                     enabledIconSource: Constants.leftbar_other_btn_icon_default
                     pressedIconSource: Constants.leftbar_other_btn_icon_checked
-                    highLightIconSource: Constants.leftbar_other_btn_icon_hovered
+                    highLightIconSource: Constants.leftbar_other_btn_icon_checked
 
                     defaultBtnBgColor: "transparent"
-                    hoveredBtnBgColor: Constants.leftBtnBgColor_hovered
+                    hoveredBtnBgColor: Constants.leftBtnBgColor_selected
                     selectedBtnBgColor: Constants.leftBtnBgColor_selected
 
                     btnTextColor: Constants.leftTextColor
@@ -245,25 +251,16 @@ Rectangle
         visible: otherBtn.checked && root.visible
         bindBtn: otherBtn
         closeButtonVisible: true
+        loader: content
 
         onClosed: otherBtn.checked = false
 
-        onClicked: function(index, com) {
-            if (index == -1) {
-                // index = 0
-                // com = listView.itemAtIndex(0)
-                // listView.itemAtIndex(0).clicked()
-                // listView.itemAtIndex(0).bottonSelected = true
-                switchMoveMode()
-                return
-            }
-
-            listView.currentIndex = -1
+        onClicked: function(index) {
+            kernel_kernelui.otherCommandIndex = index
             clickFunction(otherModel.get(index).enabledIcon,
-                          otherModel.get(index).source,
-                          otherModel.get(index),
-                          index,
-                          com)
+                        otherModel.get(index).source,
+                        otherModel.get(index),
+                        index)
         }
     }
 
@@ -280,12 +277,13 @@ Rectangle
         parent: root.parent
 
         anchors.top: root.topLeftButton.top
-        anchors.topMargin: listView.currentIndex !== 3 ? 0
-                                                       : listView.itemAtIndex(3).mapToGlobal(0, -root.topLeftButton.y).y
+        anchors.topMargin: kernel_kernelui.commandIndex !== 3 ? 0
+                                                       : parent.mapFromGlobal(listView.itemAtIndex(3).mapToGlobal(0, -root.topLeftButton.y)).y
         anchors.left: root.right
         anchors.leftMargin: 10 * screenScaleFactor
 
-        visible: kernel_model_selector.selectedNum > 0 && root.visible
+        // visible: kernel_model_selector.selectedNum > 0 && root.visible
+        visible: listView.haveOpt || otherOpt.haveOpt
 
         onLoaded: {
             if(selectItem && selectItem.bitem && content.item.com)
@@ -295,27 +293,18 @@ Rectangle
         }
 
         onVisibleChanged: {
-            console.log("+++++++onVisibleChanged = ", visible)
         }
 
         onYChanged: {
-            console.log("+++++++Y = ", y)
         }
 
-        //        MouseArea{
-        //            anchors.fill: parent
-        //        }
     }
 
-    function clickFunction(enabledIcon, source, item, index, thisItem)
+    function clickFunction(enabledIcon, source, item, index)
     {
         Constants.leftShowType = 0
 
         item.execute()
-        if(selectItem) selectItem.bottonSelected = false
-
-        selectItem = thisItem
-        selectItem.bottonSelected = true
 
         content.source = item.checkSelect() ? source : noSelect
         currentSource = source

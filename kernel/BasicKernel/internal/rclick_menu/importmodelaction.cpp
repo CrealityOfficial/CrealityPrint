@@ -13,7 +13,7 @@ namespace creative_kernel
         m_actionNameWithout = "Import Model";
         m_icon = "qrc:/kernel/images/open.png";
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     ImportModelAction::~ImportModelAction()

@@ -6,6 +6,8 @@
 #include "crslice/gcode/thumbnail.h"
 #include "crslice/gcode/gcodedata.h"
 
+#define _INT2MM(n) (n / 1000.0f)
+
 namespace gcode
 {
     float getAngelOfTwoVector(const trimesh::vec& pt1, const trimesh::vec& pt2, const trimesh::vec& c)
@@ -171,6 +173,7 @@ namespace gcode
         , tempNozzleIndex(0)
         , tempCurrentE(0.0f)
         , tempSpeed(0.0f)
+        , tempAcc(0.0f)
         , layerNumberParseSuccess(true)
         , m_tracer(nullptr)
         , nIndex(0)
@@ -590,7 +593,7 @@ namespace gcode
         }
     }
 
-    void GCodeStruct::processG01_sub(SliceLineType tempType,double tempEndE,trimesh::vec3 tempEndPos,bool havaXYZ,int nIndex, std::vector<int>& stepIndexMap, bool isG2G3, bool fromGcode) {
+    void GCodeStruct::processG01_sub(SliceLineType tempType,double tempEndE,trimesh::vec3 tempEndPos,bool havaXYZ,int nIndex, std::vector<int>& stepIndexMap, bool isG2G3, bool fromGcode, bool isOrca, bool isseam) {
         
         GcodeLayerInfo gcodeLayerInfo = m_gcodeLayerInfos.size() > 0 ? m_gcodeLayerInfos.back() : GcodeLayerInfo();
 
@@ -611,6 +614,7 @@ namespace gcode
                 tempSpeed = tempSpeed > tempSpeedMax ? tempSpeedMax : tempSpeed;
             }
             move.speed = tempSpeed;
+            move.acc = tempAcc;
             if (!fromGcode)
                 move.e = tempEndE - tempCurrentE;
             else
@@ -619,7 +623,9 @@ namespace gcode
             move.type = tempType;
             if (move.e == 0.0f)
                 move.type = SliceLineType::Travel;
-            else if (move.e >0.0f && move.type==SliceLineType::OuterWall && m_moves.back().type==SliceLineType::Travel)
+            //else if ( (move.e > 0.0f && move.type == SliceLineType::OuterWall && m_moves.back().type == SliceLineType::Travel)
+            //if ((move.type == SliceLineType::Travel || move.type == SliceLineType::React) && m_moves.size() > 0 && m_moves.back().type == SliceLineType::OuterWall)
+            if (isseam)
             {
                 m_zSeams.push_back(move.start);
             }
@@ -654,9 +660,13 @@ namespace gcode
 
                 float material_s = PI * (material_diameter * 0.5) * (material_diameter * 0.5);
                 float width = m_gcodeLayerInfos.back().width;
-                if (len >0.0001 && h > 0.0001 && move.e > 0.0f)
+
+                if (!isOrca)
                 {
-                    width = move.e * material_s / len / h;
+                    if (len > 0.0001 && h > 0.0001 && move.e > 0.0f)
+                    {
+                        width = move.e * material_s / len / h;
+                    }
                 }
 
                 //calculate flow
@@ -701,7 +711,7 @@ namespace gcode
         }
     }
 
-    void GCodeStruct::processG01(const std::string& G01Str, int nIndex, std::vector<int>& stepIndexMap, bool isG2G3, bool fromGcode)
+    void GCodeStruct::processG01(const std::string& G01Str, int nIndex, std::vector<int>& stepIndexMap, bool isG2G3, bool fromGcode, bool isOrca, bool isseam)
     {
         std::vector<std::string> G01Strs = splitString(G01Str," ");
 
@@ -766,10 +776,10 @@ namespace gcode
                 
         }
 
-        processG01_sub(tempType, tempEndE, tempEndPos, havaXYZ, nIndex, stepIndexMap, isG2G3, fromGcode);
+        processG01_sub(tempType, tempEndE, tempEndPos, havaXYZ, nIndex, stepIndexMap, isG2G3, fromGcode,isOrca,isseam);
     }
     
-    void GCodeStruct::processG23_sub(G2G3Info info, int nIndex, std::vector<int>& stepIndexMap)
+    void GCodeStruct::processG23_sub(G2G3Info info, int nIndex, std::vector<int>& stepIndexMap, bool isG2, bool fromGcode, bool isOrca, bool isseam)
     {
         bool bcircles = false;
 
@@ -790,7 +800,7 @@ namespace gcode
         {
             theta = getAngelOfTwoVector(circleEndPos, tempCurrentPos, circlePos);
         }
-        if (bcircles)
+        if (info.p >0)
         {
             theta = 360;
         }
@@ -807,16 +817,20 @@ namespace gcode
         float flow = r * r * PI * info.e * tempSpeed / 60.0 / len;
 
         float h = m_gcodeLayerInfos.back().layerHight;
-        float width = 0.0f;
-        if (len > 0.0001 && h > 0.0001 && info.e > 0.0f)
+        float width = m_gcodeLayerInfos.back().width;
+
+        if (!isOrca)
         {
-            width = info.e * material_s / len / h;
+            if (len > 0.0001 && h > 0.0001 && info.e > 0.0f)
+            {
+                width = info.e * material_s / len / h;
+            }
+            if ((len < 0.05) && m_gcodeLayerInfos.back().width > 0.0f)
+            {
+                width = m_gcodeLayerInfos.back().width;
+            }
         }
 
-        if ((len < 0.05) && m_gcodeLayerInfos.back().width > 0.0f)
-        {
-            width = m_gcodeLayerInfos.back().width;
-        }
         if (std::abs(m_gcodeLayerInfos.back().flow - flow) > 0.001 && len >= 1.0f)
         {
             GcodeLayerInfo  gcodeLayerInfo = m_gcodeLayerInfos.size() > 0 ? m_gcodeLayerInfos.back() : GcodeLayerInfo();
@@ -869,15 +883,22 @@ namespace gcode
             G23toG1s.push_back(devideTemp.c_str());
         }
 
+        bool first = true;
         for (const auto& G23toG01 : G23toG1s)
         {
-            processG01(G23toG01, nIndex, stepIndexMap, true);
+            if (first)
+            {
+                first = false;
+                processG01(G23toG01, nIndex, stepIndexMap, true, fromGcode, isOrca, isseam);
+            }
+            else
+                processG01(G23toG01, nIndex, stepIndexMap, true, fromGcode, isOrca, false);
         }
 
         tempCurrentE = info.currentE;
     }
 
-    void GCodeStruct::processG23(const std::string& G23Code, int nIndex, std::vector<int>& stepIndexMap)
+    void GCodeStruct::processG23(const std::string& G23Code, int nIndex, std::vector<int>& stepIndexMap, bool isG2, bool fromGcode, bool isOrca, bool isseam)
     {
         std::vector<std::string> G23Strs = splitString(G23Code," ");//G1 Fxxx Xxxx Yxxx Exxx
         //G3 F1500 X118.701 Y105.96 I9.55 J1.115 E7.96039
@@ -951,7 +972,7 @@ namespace gcode
             }
         }
 
-        GCodeStruct::processG23_sub(info,  nIndex, stepIndexMap);
+        GCodeStruct::processG23_sub(info,  nIndex, stepIndexMap,isG2, fromGcode, isOrca, isseam);
 
 
     }
@@ -1121,7 +1142,6 @@ namespace gcode
 		{
 			float minFlow = FLT_MAX, maxFlow = FLT_MIN;
 			float minWidth = FLT_MAX, maxWidth = FLT_MIN;
-			float minHeight = FLT_MAX, maxHeight = FLT_MIN;
 
 			for (GcodeLayerInfo& info : m_gcodeLayerInfos)
 			{
@@ -1131,23 +1151,55 @@ namespace gcode
 					maxFlow = fmaxf(info.flow, maxFlow);
 				}
 
-				if (info.width > 0.0)
-				{
-					minWidth = fminf(info.width, minWidth);
-					maxWidth = fmaxf(info.width, maxWidth);
-				}
+                if (info.width > 0.0)
+                {
+                    minWidth = fminf(info.width, minWidth);
+                    maxWidth = fmaxf(info.width, maxWidth);
+                }
 
-				minHeight = fminf(info.layerHight, minHeight);
-				maxHeight = fmaxf(info.layerHight, maxHeight);
 			}
 			tempBaseInfo.minFlowOfStep = minFlow;
 			tempBaseInfo.maxFlowOfStep = maxFlow;
 			tempBaseInfo.minLineWidth = minWidth;
 			tempBaseInfo.maxLineWidth = maxWidth;
-			tempBaseInfo.minLayerHeight = minHeight;
-			tempBaseInfo.maxLayerHeight = maxHeight;
-
 		}
+
+        {
+            float minHeight = FLT_MAX, maxHeight = FLT_MIN;
+            float minAcc = FLT_MAX, maxAcc = FLT_MIN;
+            if (m_layerInfoIndex.size() == m_moves.size())
+            {
+                for (int i = 0; i < m_moves.size(); i++)
+                {
+                    const GCodeMove& move = m_moves.at(i);
+                    SliceLineType type = move.type;
+                    if (type == SliceLineType::Travel || type == SliceLineType::MoveCombing || type == SliceLineType::React || type == SliceLineType::erWipeTower || type == SliceLineType::Wipe || type == SliceLineType::Unretract)
+                    {
+                        continue;
+                    }
+
+                    int idx = m_layerInfoIndex.at(i);
+                    if (idx < m_gcodeLayerInfos.size())
+                    {
+                        const GcodeLayerInfo& info = m_gcodeLayerInfos.at(idx);
+                        minHeight = fminf(info.layerHight, minHeight);
+                        maxHeight = fmaxf(info.layerHight, maxHeight);
+                    }
+
+                    // for acc
+                    minAcc = fminf(move.acc, minAcc);
+                    maxAcc = fmaxf(move.acc, maxAcc);
+                }
+
+                tempBaseInfo.minLayerHeight = minHeight;
+                tempBaseInfo.maxLayerHeight = maxHeight;
+                tempBaseInfo.minAcc = minAcc;
+                tempBaseInfo.maxAcc = maxAcc;
+            }
+            else {
+                printf("m_layerInfoIndex size not equal to m_moves\n");
+            }
+        }
 
 		{
 			float minTime = FLT_MAX, maxTime = FLT_MIN;
@@ -1209,7 +1261,6 @@ namespace gcode
         {
             float minFlow = FLT_MAX, maxFlow = FLT_MIN;
             float minWidth = FLT_MAX, maxWidth = FLT_MIN;
-            float minHeight = FLT_MAX, maxHeight = FLT_MIN;
 
             for (GcodeLayerInfo& info : m_gcodeLayerInfos)
             {
@@ -1225,16 +1276,49 @@ namespace gcode
                     maxWidth = fmaxf(info.width, maxWidth);
                 }
 
-                minHeight = fminf(info.layerHight, minHeight);
-                maxHeight = fmaxf(info.layerHight, maxHeight);
             }
             tempBaseInfo.minFlowOfStep = minFlow;
             tempBaseInfo.maxFlowOfStep = maxFlow;
             tempBaseInfo.minLineWidth = minWidth;
             tempBaseInfo.maxLineWidth = maxWidth;
-            tempBaseInfo.minLayerHeight = minHeight;
-            tempBaseInfo.maxLayerHeight = maxHeight;
 
+        }
+
+        {
+            float minHeight = FLT_MAX, maxHeight = FLT_MIN;
+            float minAcc = FLT_MAX, maxAcc = FLT_MIN;
+            if (m_layerInfoIndex.size() == m_moves.size())
+            {
+                for (int i = 0; i < m_moves.size(); i++)
+                {
+                    const GCodeMove& move = m_moves.at(i);
+                    SliceLineType type = move.type;
+                    if (type == SliceLineType::Travel || type == SliceLineType::MoveCombing || type == SliceLineType::React || type == SliceLineType::erWipeTower || type == SliceLineType::Wipe || type == SliceLineType::Unretract)
+                    {
+                        continue;
+                    }
+
+                    int idx = m_layerInfoIndex.at(i);
+                    if (idx < m_gcodeLayerInfos.size())
+                    {
+                        const GcodeLayerInfo& info = m_gcodeLayerInfos.at(idx);
+                        minHeight = fminf(info.layerHight, minHeight);
+                        maxHeight = fmaxf(info.layerHight, maxHeight);
+                    }
+
+                    // for acc
+                    minAcc = fminf(move.acc, minAcc);
+                    maxAcc = fmaxf(move.acc, maxAcc);
+                }
+
+                tempBaseInfo.minLayerHeight = minHeight;
+                tempBaseInfo.maxLayerHeight = maxHeight;
+                tempBaseInfo.minAcc = minAcc;
+                tempBaseInfo.maxAcc = maxAcc;
+            }
+            else {
+                printf("m_layerInfoIndex size not equal to m_moves\n");
+            }
         }
 
         {
@@ -1266,7 +1350,7 @@ namespace gcode
         baseInfo = tempBaseInfo;
     }
 
-    void GCodeStruct::getPathData(const trimesh::vec3 point, float e, int type, bool fromGcode)
+    void GCodeStruct::getPathData(const trimesh::vec3 point, float e, int type, bool fromGcode, bool isOrca, bool isseam)
     {
         if (layerNumberParseSuccess)
         {
@@ -1294,13 +1378,13 @@ namespace gcode
             if (point.z > -999)
             {
                 tempEndPos = point;
-                tempEndPos = { tempEndPos.x / 1000.f,tempEndPos.y / 1000.f ,tempEndPos.z / 1000.f };
+                tempEndPos = { _INT2MM(tempEndPos.x),_INT2MM(tempEndPos.y) ,_INT2MM(tempEndPos.z) };
             }
             else
             {
                 tempEndPos.x = point.x;
                 tempEndPos.y = point.y;
-                tempEndPos = { tempEndPos.x / 1000.f,tempEndPos.y / 1000.f ,tempEndPos.z };
+                tempEndPos = { _INT2MM(tempEndPos.x),_INT2MM(tempEndPos.y) ,tempEndPos.z };
             }
         }
         else
@@ -1316,10 +1400,10 @@ namespace gcode
         //std::vector<int> stepIndexMap;
         if(m_stepIndexMaps.empty())
             m_stepIndexMaps.push_back(std::vector<int>());
-        processG01_sub(tempType, tempEndE, tempEndPos, true , nIndex++, m_stepIndexMaps.back(), false, fromGcode);
+        processG01_sub(tempType, tempEndE, tempEndPos, true , nIndex++, m_stepIndexMaps.back(), false, fromGcode, isOrca,isseam);
     }
 
-    void GCodeStruct::getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type, bool isG2, bool fromGcode) {
+    void GCodeStruct::getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type,int p, bool isG2, bool fromGcode, bool isOrca, bool isseam) {
         
         trimesh::vec3 tempEndPos = tempCurrentPos;
 
@@ -1328,13 +1412,17 @@ namespace gcode
             if (point.z > -999)
             {
                 tempEndPos = point;
-                tempEndPos = { tempEndPos.x / 1000.f,tempEndPos.y / 1000.f ,tempEndPos.z / 1000.f };
+                tempEndPos = { _INT2MM(tempEndPos.x),_INT2MM(tempEndPos.y) ,_INT2MM(tempEndPos.z) };
+                i = _INT2MM(i);
+                j = _INT2MM(j);
             }
             else
             {
                 tempEndPos.x = point.x;
                 tempEndPos.y = point.y;
-                tempEndPos = { tempEndPos.x / 1000.f,tempEndPos.y / 1000.f ,tempEndPos.z };
+                tempEndPos = { _INT2MM(tempEndPos.x),_INT2MM(tempEndPos.y) ,tempEndPos.z };
+                i = _INT2MM(i);
+                j = _INT2MM(j);
             }
         }
         else
@@ -1356,6 +1444,7 @@ namespace gcode
         info.y = tempEndPos.y;
         info.i = i;
         info.j = j;
+        info.p = p;
         info.bIsTravel = (tempCurrentType == SliceLineType::Travel || tempCurrentType == SliceLineType::React);
         info.currentE = tempCurrentE;
 
@@ -1381,7 +1470,7 @@ namespace gcode
         //TODO
         if (m_stepIndexMaps.empty())
             m_stepIndexMaps.push_back(std::vector<int>());
-        GCodeStruct::processG23_sub(info, nIndex++, m_stepIndexMaps.back());
+        GCodeStruct::processG23_sub(info, nIndex++, m_stepIndexMaps.back(), isG2,  fromGcode,  isOrca,  isseam);
     }
 
     void GCodeStruct::getNotPath()
@@ -1389,8 +1478,34 @@ namespace gcode
         nIndex++;
     }
 
+    void GCodeStruct::setNozzleColorList(std::string& colorList)
+    {
+        //TODO std::vector<std::string> nozzleColorList;
+        //#006cff, #ffaaff, #ff0e00, #aaaa7f, #d87206, #43b7b0
+        if (!colorList.empty())
+        {
+            if (colorList.find(",") != std::string::npos)
+            {
+                m_nozzleColorList = splitString(colorList, ",");
+                for (auto& color : m_nozzleColorList)
+                    color = str_trimmed(color);
+            }
+            else if (colorList.find(";") != std::string::npos)
+            {
+                m_nozzleColorList = splitString(colorList, ";");
+                for (auto& color : m_nozzleColorList)
+                    color = str_trimmed(color);
+            }
+        }
+    }
+
     void GCodeStruct::setParam(gcode::GCodeParseInfo& pathParam){
         parseInfo = pathParam;
+    }
+
+    gcode::GCodeParseInfo& GCodeStruct::getParam()
+    {
+        return parseInfo;
     }
 
     void GCodeStruct::setLayer(int layer){
@@ -1410,6 +1525,10 @@ namespace gcode
     }
     void GCodeStruct::setSpeed(float s){
         tempSpeed = s;
+    }
+    void GCodeStruct::setAcc(float acc)
+    {
+        tempAcc = acc;
     }
     void GCodeStruct::setTEMP(float temp){
         GcodeTemperature gcodeTemperature = m_temperatures.size() > 0 ? m_temperatures.back() : GcodeTemperature();
@@ -1459,16 +1578,31 @@ namespace gcode
         tempCurrentE = e;
     }
 
+    void GCodeStruct::setWidth(float width)
+    {
+        GcodeLayerInfo  gcodeLayerInfo = m_gcodeLayerInfos.size() > 0 ? m_gcodeLayerInfos.back() : GcodeLayerInfo();
+        gcodeLayerInfo.width = width;
+        m_gcodeLayerInfos.push_back(gcodeLayerInfo);
+    }
+
+    void GCodeStruct::setLayerHeight(float height)
+    {
+        m_layerHeights.push_back(height);
+    }
+
+    void GCodeStruct::setLayerPause(int pause)
+    {
+        m_pause.push_back(pause);
+    }
     void GCodeStruct::setTime(float time)
     {
         float temp = time - tempCurrentTime;
         float templog = 0.0f;
-        //if (temp >0)
-        //{
-        //    templog = std::log(temp);
-        //}
-        //m_layerTimeLogs.insert(std::pair<int, float>(layer, templog));
-        m_layerTimes.insert(std::pair<int, float>(tempBaseInfo.layerNumbers.size()-1, temp));
+        
+        if (!tempBaseInfo.layerNumbers.empty())
+        {
+            m_layerTimes.insert(std::pair<int, float>(tempBaseInfo.layerNumbers.back()-1, temp));
+        }
         tempCurrentTime = time;//strs[1].toFloat();
 
         parseInfo.printTime = tempCurrentTime;

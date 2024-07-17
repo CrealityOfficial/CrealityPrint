@@ -6,6 +6,7 @@
 #include <QtGui/QQuaternion>
 #include <QtGui/QMatrix4x4>
 #include <QtCore/QList>
+#include <QMetaType>
 
 namespace creative_kernel
 {
@@ -49,6 +50,22 @@ namespace creative_kernel
 		QMatrix4x4 start;
 		QMatrix4x4 end;
 	};
-}
 
+	struct LayoutChangeInfo
+	{
+		QList<QString> moveModelsSerialNames;
+
+		int prevPrintersCount;
+		int nowPrintersCount;
+
+		QList<QVector3D> startPoses;
+		QList<QVector3D> endPoses;
+
+		QList<QQuaternion> startQuaternions;
+		QList<QQuaternion> endQuaternions;
+		bool needPrinterLayout = true;
+	};
+
+}
+Q_DECLARE_METATYPE(creative_kernel::LayoutChangeInfo)
 #endif // _creative_kernel_UNDOMATRIXCHANGE_1590115341614_H

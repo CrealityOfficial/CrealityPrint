@@ -9,6 +9,7 @@ namespace topomesh
 	{
 		coord_t initial_layer_thickness;
 		coord_t layer_thickness;
+		coord_t initial_layer_count;
 
 		coord_t minimum_polygon_circumference;
 		coord_t line_segment_resolution;
@@ -29,6 +30,7 @@ namespace topomesh
 		{
 			initial_layer_thickness = 300;
 			layer_thickness = 100;
+			initial_layer_count = 1;
 
 			minimum_polygon_circumference = 1000;
 			line_segment_resolution = 50;

@@ -8,6 +8,7 @@
 
 namespace creative_kernel
 {
+	class Printer;
 	class BASIC_KERNEL_API ModelSpaceUndo : public QUndoStack
 	{
 		Q_OBJECT
@@ -15,12 +16,17 @@ namespace creative_kernel
 		ModelSpaceUndo(QObject* parent = nullptr);
 		virtual ~ModelSpaceUndo();
 
+		void insertPrinter(int index, Printer* printer);
+		void removePrinter(int index, Printer* printer);
+
 		void modifySpace(const QList<ModelN*>& models, const QList<ModelN*>& removeModels);
 
 		void mix(const QList<NUnionChangedStruct>& mixChange);
-		void mirror(const QList<NMirrorStruct>& mirrors);
+		void mirror(const QList<ModelN*>& models, int mode);
 		void push(QUndoCommand* cmd);
 		time_t getActiveTime() const { return m_activeTime; }
+
+		void layoutChangeScene(const LayoutChangeInfo& changeInfo);
 	private:
 		time_t m_activeTime{ 0 };
 	};

@@ -1,0 +1,337 @@
+{
+  "printerList": [
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 2,
+      "type": 1,
+      "printerIntName": "F005",
+      "name": "Ender-3 V3 KE",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 220.0,
+      "ySize": 220.0,
+      "zSize": 250.0,
+      "nozzleDiameter": [
+        "0.4"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 2,
+      "type": 1,
+      "printerIntName": "F001",
+      "name": "Ender-3 V3",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 220.0,
+      "ySize": 220.0,
+      "zSize": 250.0,
+      "nozzleDiameter": [
+        "0.4"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 11,
+      "type": 1,
+      "printerIntName": "CR-K1",
+      "name": "K1",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 220.0,
+      "ySize": 220.0,
+      "zSize": 250.0,
+      "nozzleDiameter": [
+        "0.4"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 11,
+      "type": 1,
+      "printerIntName": "CR-K1",
+      "name": "K1",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 220.0,
+      "ySize": 220.0,
+      "zSize": 250.0,
+      "nozzleDiameter": [
+        "0.6"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 11,
+      "type": 1,
+      "printerIntName": "CR-K1",
+      "name": "K1",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 220.0,
+      "ySize": 220.0,
+      "zSize": 250.0,
+      "nozzleDiameter": [
+        "0.8"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 11,
+      "type": 1,
+      "printerIntName": "CR-K1 Max",
+      "name": "K1 Max",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 300.0,
+      "ySize": 300.0,
+      "zSize": 300.0,
+      "nozzleDiameter": [
+        "0.4"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 11,
+      "type": 1,
+      "printerIntName": "CR-K1 Max",
+      "name": "K1 Max",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 300.0,
+      "ySize": 300.0,
+      "zSize": 300.0,
+      "nozzleDiameter": [
+        "0.6"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 11,
+      "type": 1,
+      "printerIntName": "CR-K1 Max",
+      "name": "K1 Max",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 300.0,
+      "ySize": 300.0,
+      "zSize": 300.0,
+      "nozzleDiameter": [
+        "0.8"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 11,
+      "type": 1,
+      "printerIntName": "CR-K1C",
+      "name": "K1C",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 220.0,
+      "ySize": 220.0,
+      "zSize": 250.0,
+      "nozzleDiameter": [
+        "0.4"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 2,
+      "type": 1,
+      "printerIntName": "Ender-3 S1",
+      "name": "Ender-3 S1",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 220.0,
+      "ySize": 220.0,
+      "zSize": 270.0,
+      "nozzleDiameter": [
+        "0.4"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 2,
+      "type": 1,
+      "printerIntName": "Ender-3 V3 SE",
+      "name": "Ender-3 V3 SE",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 220.0,
+      "ySize": 220.0,
+      "zSize": 250.0,
+      "nozzleDiameter": [
+        "0.4"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 11,
+      "type": 1,
+      "printerIntName": "X1C",
+      "name": "X1C",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 220.0,
+      "ySize": 220.0,
+      "zSize": 250.0,
+      "nozzleDiameter": [
+        "0.4"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    },
+    {
+      "engineVersion": "5.2.0",
+      "seriesId": 11,
+      "type": 1,
+      "printerIntName": "F008",
+      "name": "F008",
+      "thumbnail": "https://pic-cdn.creality.com/printer/0aaec939c33332fc836461ee4cc001e3",
+      "xSize": 350.0,
+      "ySize": 350.0,
+      "zSize": 350.0,
+      "nozzleDiameter": [
+        "0.4"
+      ],
+      "supMaterialType": [
+        "ABS",
+        "PETG",
+        "PLA",
+        "TPU"
+      ],
+      "version": "1703239498",
+      "zipUrl": "https://file-cdn.creality.com/slice-profile/package/5.2.0/CR-K1/0.4/1703239498/CR-K1-0.4.zip"
+    }
+  ],
+  "series": [
+    {
+      "id": 1,
+      "name": "CR Series",
+      "type": 1
+    },
+    {
+      "id": 2,
+      "name": "Ender Series",
+      "type": 1
+    },
+    {
+      "id": 5,
+      "name": "HALOT Series",
+      "type": 2
+    },
+    {
+      "id": 3,
+      "name": "Others",
+      "type": 1
+    },
+    {
+      "id": 4,
+      "name": "Custom",
+      "type": 1
+    },
+    {
+      "id": 11,
+      "name": "K1",
+      "type": 1
+    },
+    {
+      "id": 10,
+      "name": "Sermoon Series",
+      "type": 1
+    },
+    {
+      "id": 9,
+      "name": "yinsuping",
+      "type": 1
+    },
+    {
+      "id": 7,
+      "name": "Others",
+      "type": 2
+    }
+  ]
+}

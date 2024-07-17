@@ -11,11 +11,6 @@ LeftPanelDialog {
     property var msale
     property var size:msale ? msale.orgSize : ""
     property bool lockCheck: msale ? msale.uniformCheck : true
-
-    onLockCheckChanged: {
-        cusContent.cusCheckBox.checked = lockCheck
-    }
-
     enum XYZType
     {
         X_Type =0,
@@ -183,12 +178,12 @@ LeftPanelDialog {
                     realStepSize:0.5
                     realFrom:0.1
                     realTo:cusContent.maxEnlarge * 100
-                    realValue: msale ? msale.scale.x * 100 : 100
+                    realValue: tmpVal>realTo?realTo:tmpVal // msale ? msale.scale.x.toFixed(2) * 100 : 100
                     unitchar : "%"
                     textValidator: RegExpValidator {
                         regExp:   /(\d{1,4})([.,]\d{1,2})?$/
                     }
-                    property var tmpVal: msale ? msale.scale.x * 100 : 100
+                    property var tmpVal: msale ?( msale.scale.x * 100).toFixed(2) : 100
                     onValueEdited:{
                         if(!msale || realValue < 1)return ;
                         console.log("===scale.x_scale.value = " + realValue)
@@ -205,6 +200,9 @@ LeftPanelDialog {
                     onTmpValChanged:
                     {
                         realValue = tmpVal
+                    }
+                    onRealValueChanged: {
+                        kernel_model_selector.sizeChanged()
                     }
                 }
             }
@@ -261,12 +259,12 @@ LeftPanelDialog {
                     realStepSize:0.5
                     realFrom:0.1
                     realTo:cusContent.maxEnlarge*100
-                    realValue: msale ? msale.scale.y * 100: 100
+                    realValue: tmpVal>realTo?realTo:tmpVal  // msale ? msale.scale.y * 100: 100
                     unitchar : "%"
                     textValidator: RegExpValidator {
                         regExp:   /(\d{1,4})([.,]\d{1,2})?$/
                     }
-                    property var tmpVal: msale ? msale.scale.y * 100: 100
+                    property var tmpVal: msale ? (msale.scale.y * 100).toFixed(2): 100
                     onValueEdited:{
                         if(!msale || realValue < 1)return ;
                         if(lockCheck)
@@ -338,12 +336,12 @@ LeftPanelDialog {
                     realStepSize:0.5
                     realFrom:0.1
                     realTo:cusContent.maxEnlarge*100
-                    realValue: msale ? msale.scale.z * 100 : 100
+                    realValue: tmpVal>realTo?realTo:tmpVal//msale ? msale.scale.z * 100 : 100
                     unitchar : "%"
                     textValidator: RegExpValidator {
                         regExp:   /(\d{1,4})([.,]\d{1,2})?$/
                     }
-                    property var tmpVal: msale ? msale.scale.z * 100 : 100
+                    property var tmpVal: msale ? (msale.scale.z * 100).toFixed(2) : 100
                     onValueEdited:{
                         if(!msale || realValue < 1)return ;
                         console.log("===scale.z_scale.value = " + realValue)

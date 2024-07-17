@@ -3,7 +3,7 @@
 #include "topomesh/interface/utils.h"
 #include "topomesh/interface/subdivision.h"
 #include "topomesh/interface/hex.h"
-#include "volumeMesh.h"
+#include "topomesh/interface/volumeMesh.h"
 
 #include "internal/data/mmesht.h"
 #include "internal/alg/letter.h"
@@ -405,7 +405,7 @@ namespace topomesh {
                     }
                     debugger->onGenerateBottomPolygons(polygons);
                 }
-                tracer->progress(0.35f);
+                if (tracer) tracer->progress(0.35f);
                 //第3步，生成底面六角网格
                 if (!GenerateBottomHexagons(cmesh, honeyparams, letterOpts, debugger)) {
                     code_error = 2;
@@ -413,15 +413,15 @@ namespace topomesh {
                 }
                 trimesh::TriMesh&& mesh = cmesh.GetTriMesh();            
                 trimesh = &mesh;
-                tracer->progress(0.5f);
+                if (tracer) tracer->progress(0.5f);
                 if (letterOpts.hexgons.empty()) {
                     code_error = 3;
                     return std::make_shared<trimesh::TriMesh>();
                 }
                 std::shared_ptr<trimesh::TriMesh> newmesh= SetHoneyCombHeight(trimesh, honeyparams, letterOpts);
-                tracer->progress(0.65f);
+                if (tracer) tracer->progress(0.65f);
                 JointBotMesh(trimesh,newmesh.get(), bottomFaces, honeyparams.mode);
-                tracer->progress(0.95f);
+                if (tracer) tracer->progress(0.95f);
                 trimesh::trans(newmesh.get(), minPt);
                 trimesh::apply_xform(newmesh.get(), trimesh::xform::rot_into(trimesh::vec3(0, 0, -1), dir));
                // trimesh->write("trimesh.ply");
@@ -464,22 +464,22 @@ namespace topomesh {
             std::vector<int> otherFaces;
             std::set_difference(honeyFaces.begin(), honeyFaces.end(), bottomFaces.begin(), bottomFaces.end(), std::back_inserter(otherFaces));
             letterOpts.others = std::move(otherFaces);
-            tracer->progress(0.35f);
+            if (tracer) tracer->progress(0.35f);
             if (!GenerateBottomHexagons(cmesh, honeyparams, letterOpts, debugger)) {
                 code_error = 2;
                 return std::make_shared<trimesh::TriMesh>();
             }
             trimesh::TriMesh&& mesh = cmesh.GetTriMesh();
             trimesh = &mesh;
-            tracer->progress(0.5f);
+            if (tracer) tracer->progress(0.5f);
             if (letterOpts.hexgons.empty()) {
                 code_error = 3;
                 return std::make_shared<trimesh::TriMesh>();
             }
             std::shared_ptr<trimesh::TriMesh> newmesh = SetHoneyCombHeight(trimesh, honeyparams, letterOpts);
-            tracer->progress(0.65f);
+            if (tracer) tracer->progress(0.65f);
             JointBotMesh(trimesh, newmesh.get(), letterOpts.bottom, honeyparams.mode);
-            tracer->progress(0.95f);
+            if (tracer) tracer->progress(0.95f);
             trimesh::trans(newmesh.get(), minPt);
             trimesh::apply_xform(newmesh.get(), trimesh::xform::rot_into(trimesh::vec3(0, 0, -1), normal));
             return newmesh;
@@ -730,14 +730,18 @@ namespace topomesh {
         {
             for (int vi = 0; vi < 3; vi++)
             {
-                float min_x = newmesh->vertices[newmesh->faces[fi][vi]].x - honeyparams.shellThickness * 3.f / 5.f;
-                float min_y = newmesh->vertices[newmesh->faces[fi][vi]].y - honeyparams.shellThickness * 3.f / 5.f;
-                float max_x = newmesh->vertices[newmesh->faces[fi][vi]].x + honeyparams.shellThickness * 3.f / 5.f;
-                float max_y = newmesh->vertices[newmesh->faces[fi][vi]].y + honeyparams.shellThickness * 3.f / 5.f;
+                float min_x = newmesh->vertices[newmesh->faces[fi][vi]].x - honeyparams.shellThickness /** 3.f / 5.f*/;
+                float min_y = newmesh->vertices[newmesh->faces[fi][vi]].y - honeyparams.shellThickness /** 3.f / 5.f*/;
+                float max_x = newmesh->vertices[newmesh->faces[fi][vi]].x + honeyparams.shellThickness /** 3.f / 5.f*/;
+                float max_y = newmesh->vertices[newmesh->faces[fi][vi]].y + honeyparams.shellThickness /** 3.f / 5.f*/;
                 int min_xi = (min_x - min_xy.x) / lengthx;
+                min_xi = min_xi > 0 ? min_xi : 0;
                 int min_yi = (min_y - min_xy.y) / lengthy;
+                min_yi = min_yi > 0 ? min_yi : 0;
                 int max_xi = (max_x - min_xy.x) / lengthx;
+                max_xi = max_xi < col - 1 ? max_xi : col - 1;
                 int max_yi = (max_y - min_xy.y) / lengthy;
+                max_yi = max_yi < row - 1 ? max_yi : row - 1;
                 float min_z = std::numeric_limits<float>::max();
                 for (int xii = min_xi; xii <= max_xi; xii++)
                     for (int yii = min_yi; yii <= max_yi; yii++)
@@ -748,6 +752,8 @@ namespace topomesh {
                     }               
                 if (min_z > 1.2 * honeyparams.shellThickness)
                     min_z -= 1.2 * honeyparams.shellThickness;
+               /* else
+                    min_z -= 0.2 * honeyparams.shellThickness;*/
                 newmesh->vertices[newmesh->faces[fi][vi]] = trimesh::point(newmesh->vertices[newmesh->faces[fi][vi]].x, newmesh->vertices[newmesh->faces[fi][vi]].y, min_z);              
             }
         }
@@ -961,7 +967,7 @@ namespace topomesh {
                     std::vector<int> newinfaceIndex(joinmesh.faces.size());
                     std::iota(newinfaceIndex.begin(), newinfaceIndex.end(), 0);
                     topomesh::polygonInnerFaces(&joinmesh, polygon, newinfaceIndex, outfaceIndex);
-                    for (int& fi : newinfaceIndex)
+                    for (int& fi : newinfaceIndex)if (!joinmesh.faces[fi].IsD())
                     {
                         float k1 = std::abs((joinmesh.faces[fi].V0(0)->p.y - joinmesh.faces[fi].V0(1)->p.y) / (joinmesh.faces[fi].V0(0)->p.x - joinmesh.faces[fi].V0(1)->p.x));
                         float k2 = std::abs((joinmesh.faces[fi].V0(0)->p.y - joinmesh.faces[fi].V0(2)->p.y) / (joinmesh.faces[fi].V0(0)->p.x - joinmesh.faces[fi].V0(2)->p.x));
@@ -1262,7 +1268,7 @@ namespace topomesh {
             const auto& theta = phi * (float)i + (float)M_PI_2;
             const auto& y = ydir * r * std::cos(theta);
             const auto& z = zdir * r * std::sin(theta);
-            points.emplace_back(std::move(center + y + z));
+            points.emplace_back(center + y + z);
         }
         float miny = points.front() DOT ydir;
         float minz = points.front() DOT zdir;
@@ -1310,6 +1316,7 @@ namespace topomesh {
         std::vector<trimesh::vec3> points;
         std::vector<trimesh::ivec3> faces;
         int hexagonsize = 0, columnvertexs = 0;
+        ///1.添加六棱柱的底面坐标
         for (auto& hexa : hexas.polys) {
             hexa.startIndex = columnvertexs;
             const auto& poly = hexa.poly;
@@ -1319,7 +1326,7 @@ namespace topomesh {
                 ++columnvertexs, ++hexagonsize;
             }
         }
-
+        ///2.添加六棱柱的顶面坐标
         for (const auto& hexa : hexas.polys) {
             const auto& poly = hexa.poly;
             for (int i = 0; i < poly.size(); ++i) {
@@ -1328,7 +1335,7 @@ namespace topomesh {
                 ++columnvertexs;
             }
         }
-        //每条边的最低点最高点可能被更新
+        ///3.每条边的最低点最高点可能被更新
         GenerateHexagonNeighbors(hexas, param);
         const float cradius = hexas.side * param.ratio * 0.5f;
         const float cdelta = param.delta + 2 * cradius; ///<相邻两层圆心高度差
@@ -1343,7 +1350,7 @@ namespace topomesh {
         int mutiHoleEdges = 0;
         int holesnum = 0;
         int bottomfacenums = 0;
-        ///六角网格底部
+        ///4.缝合六角网格底部
         if (hexas.bSewBottom) {
             ///底部网格中间矩形区域
             for (auto& hexa : hexas.polys) {
@@ -1528,7 +1535,7 @@ namespace topomesh {
                 }
             }
         }
-        ///添加连接孔洞的顶点坐标
+        ///5.添加连接孔洞的顶点坐标
         for (auto& hexa : hexas.polys) {
             const int size = hexa.poly.size();
             for (int i = 0; i < size; ++i) {
@@ -1689,6 +1696,7 @@ namespace topomesh {
         int allfacenums = holeFaces + rectfacenums + upperfacenums + bottomfacenums;
         faces.reserve(allfacenums);
         std::vector<int> topfaces;
+        ///6.缝合六角网格柱体的顶部
         if (hexas.bSewTop) {
             for (int i = 0; i < hexas.polys.size(); ++i) {
                 auto&& hexa = hexas.polys[i];
@@ -1761,6 +1769,7 @@ namespace topomesh {
             }
         }
         hexas.topfaces.swap(topfaces);
+        ///7.缝合六角网格柱体的侧面
         for (int i = 0; i < hexas.polys.size(); ++i) {
             const auto& hexa = hexas.polys[i];
             const auto& poly = hexa.poly;
@@ -2013,7 +2022,7 @@ namespace topomesh {
                 }
             }
         }
-        ///六角网格桥接的孔洞部
+        ///8.缝合六角网格桥接的孔洞圆柱侧面
         for (int i = 0; i < holesnum; i += 2) {
             const int& start = holeStarts[i];
             for (int j = 0; j < nslices; ++j) {

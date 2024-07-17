@@ -17,8 +17,6 @@
 #include "qtuser3d/math/space3d.h"
 #include "qtusercore/property/qmlpropertysetter.h"
 
-#include "data/fdmsupportgroup.h"
-
 #define MODEL_INIT_ROT_TAG "initRotation"
 
 using namespace creative_kernel;
@@ -28,10 +26,10 @@ RotateOp::RotateOp(QObject* parent)
 	, m_saveAngle(0.0f)
 	, tip_component_(nullptr)
 {
+    m_type = qtuser_3d::SceneOperateMode::ReusableMode;
 	m_helperEntity = new qtuser_3d::Rotate3DHelperEntity();
+	m_helperEntity->setCameraController(cameraController());
 	m_isRoate = false;
-
-	m_originFovy = 25.0f;
 
 	auto* ui_parent = getKernelUI()->glMainView();
 
@@ -43,7 +41,7 @@ RotateOp::RotateOp(QObject* parent)
 		tip_object_->setParent(ui_parent);
 		qtuser_qml::writeObjectProperty(tip_object_, QStringLiteral("parent"), ui_parent);
 	}
-	traceSpace(this);
+	//traceSpace(this);
 
 	connect(this, &MoveOperateMode::moving, this, [=]()
 		{
@@ -61,39 +59,19 @@ void RotateOp::setMessage(bool isRemove)
 {
 	if (isRemove)
 	{
-		for (size_t i = 0; i < m_selectedModels.size(); i++)
-		{
-			ModelN* model = m_selectedModels.at(i);
-			if (model->hasFDMSupport())
-			{
-				FDMSupportGroup* p_support = m_selectedModels.at(i)->fdmSupport();
-				p_support->clearSupports();
-			}
-		}
 		requestVisUpdate(true);
 	}
 }
 
 bool RotateOp::getMessage()
 {
-	//if (m_selectedModels.size())
-	for (size_t i = 0; i < m_selectedModels.size(); i++)
-	{
-		ModelN* model = m_selectedModels.at(i);
-		if (model->hasFDMSupport())
-		{
-			FDMSupportGroup* p_support = m_selectedModels.at(i)->fdmSupport();
-			if (p_support->fdmSupportNum())
-			{
-				return true;
-			}
-		}
-	}
 	return false;
 }
 
 void RotateOp::onAttach()
 {
+	m_helperEntity->attach();
+
     QList<ModelN*> selectModels = selectionms();
 	QList<qtuser_3d::Pickable*> pickableList = m_helperEntity->getPickables();
 	for (qtuser_3d::Pickable* pickable : pickableList)
@@ -126,6 +104,8 @@ void RotateOp::onAttach()
 
 void RotateOp::onDettach()
 {
+	m_helperEntity->detach();
+
 	QList<qtuser_3d::Pickable*> pickableList = m_helperEntity->getPickables();
 	for (qtuser_3d::Pickable* pickable : pickableList)
 	{
@@ -165,8 +145,6 @@ void RotateOp::onLeftMouseButtonPress(QMouseEvent* event)
 
 		m_saveAngle = 0;
 		m_isRoate = true;
-
-		//m_selectedModels[i]->setNeedCheckScope(0);
 	}
 
 	fillChangeStructs(m_changes, true);
@@ -220,21 +198,16 @@ void RotateOp::onLeftMouseButtonRelease(QMouseEvent* event)
 			QVector3D newPosition = m_selectedModels[i]->localPosition() + zoffset;
 
 			moveModel(m_selectedModels[i], oldPosition, newPosition, false);
-
-			//m_selectedModels[i]->setNeedCheckScope(1);
 		}
 		emit rotateChanged();
         m_bShowPop = false;
 	}
-	/*QList<creative_kernel::ModelN*> alls = creative_kernel::modelns();
-	for (size_t i = 0; i < alls.size(); i++)
-	{
-		alls[i]->setNeedCheckScope(1);
-	}*/
 
 	fillChangeStructs(m_changes, false);
 	mixUnions(m_changes, true);
 	m_changes.clear();
+
+	requestVisPickUpdate(true);
 }
 
 void RotateOp::rotateByAxis(QVector3D& axis,float & angle)
@@ -284,9 +257,6 @@ void RotateOp::onLeftMouseButtonClick(QMouseEvent* event)
 
 void RotateOp::onWheelEvent(QWheelEvent* event)
 {
-	Qt3DRender::QCamera* mainCamera = getCachedCameraEntity();
-	float curFovy = mainCamera->fieldOfView();
-	m_helperEntity->setScale(curFovy / m_originFovy);
 }
 
 void RotateOp::setSelectedModel(QList<creative_kernel::ModelN*> models)
@@ -360,6 +330,8 @@ void RotateOp::onRotate(QQuaternion q)
 		QVector3D newPosition = m_selectedModels[i]->localPosition();
 
 		mixTRModel(m_selectedModels[i], oldPosition, newPosition, oldq, newq, false);
+
+		setNeedCheckScope(0);
 	}
 
 	if (m_selectedModels.size() > 0)
@@ -401,8 +373,6 @@ void RotateOp::setRotateAngle(QVector3D axis, float angle)
 
 void RotateOp::onEndRotate(QQuaternion q)
 {
-	setNeedCheckScope(1);
-
 	for (size_t i = 0; i < m_selectedModels.size(); i++)
 	{		
 		QVariant initTemp = m_selectedModels[i]->property(MODEL_INIT_ROT_TAG);
@@ -426,6 +396,8 @@ void RotateOp::onEndRotate(QQuaternion q)
 		{
 			m_selectedModels[i]->resetNestRotation();
 		}
+
+		m_selectedModels[i]->updateSweepAreaPath();
 	}
 
 	updateHelperEntity();
@@ -482,9 +454,13 @@ void RotateOp::reset()
 		//moveModel(m_selectedModels[i], oldPosition, newPosition, true);		
 		m_selectedModels[i]->setProperty(MODEL_INIT_ROT_TAG, QVariant());
 		m_selectedModels[i]->resetNestRotation();
+
+		m_selectedModels[i]->updateSweepAreaPath();
 	}
     m_displayRotate = QVector3D();
 	emit rotateChanged();
+
+	creative_kernel::checkModelCollision();
 }
 
 QVector3D RotateOp::rotate()
@@ -534,6 +510,8 @@ void RotateOp::setRotate(QVector3D rotate)
 		updateHelperEntity();
 		requestVisUpdate(true);
 	}
+
+	creative_kernel::checkModelCollision();
 }
 
 void RotateOp::startRotate()
@@ -546,17 +524,6 @@ void RotateOp::process(const QPoint& point, QVector3D& axis, float& angle)
 
 	axis = QVector3D(0.0f, 0.0f, 1.0f);
 	QVector3D planeCenter = QVector3D(0.0f, 0.0f, 0.0f);
-	
-	//if (m_selectedModels.size())
-	for (size_t i = 0; i < m_selectedModels.size(); i++)
-	{
-		ModelN* model = m_selectedModels.at(i);
-		if (model->hasFDMSupport())
-		{
-			emit supportMessage();
-			break;
-		}
-	}
 	
 //	for (size_t i = 0; i < m_selectedModels.size(); i++)
 	{
@@ -647,12 +614,8 @@ void RotateOp::updateHelperEntity()
 {
 	if (m_selectedModels.size() && (!m_isRoate || m_isMoving))
 	{
-		qtuser_3d::Box3D box = m_selectedModels[m_selectedModels.size() - 1]->globalSpaceBox();
+		qtuser_3d::Box3D box = creative_kernel::modelsBox(m_selectedModels);
 		m_helperEntity->onBoxChanged(box);
-
-		Qt3DRender::QCamera* mainCamera = getCachedCameraEntity();
-		float curFovy = mainCamera->fieldOfView();
-		m_helperEntity->setScale(curFovy / m_originFovy);
 	}
 }
 
@@ -664,18 +627,4 @@ bool RotateOp::getShowPop()
 bool RotateOp::shouldMultipleSelect()
 {
 	return true;
-}
-
-//��ӡ���ɴ�ӡ����
-void RotateOp::onBoxChanged(const qtuser_3d::Box3D& box)
-{
-	const QVector3D size = box.size();
-	float length = size.length();
-	float s = fmin(length / 450.0, 1.6);
-	m_helperEntity->setInitScale(s);
-}
-
-void RotateOp::onSceneChanged(const qtuser_3d::Box3D& box)
-{
-
 }

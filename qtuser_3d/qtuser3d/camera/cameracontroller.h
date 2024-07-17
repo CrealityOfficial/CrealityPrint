@@ -25,9 +25,11 @@ namespace qtuser_3d
 		void useEularCamera();
 
 		void setRotateCenter(const QVector3D& rotateCenter);
+		QVector3D rotateCenter() const;
 		void setScreenCamera(qtuser_3d::ScreenCamera* camera);
 		qtuser_3d::ScreenCamera* screenCamera();
 
+		void setMouseSensitivity(float sensitivity);
 		void setNeed360Rotate(bool is_need);
 		void setNeedAroundRotate(bool is_need);
 		void setRotateSpeedDelta(float hDelta, float vDelta);
@@ -46,7 +48,7 @@ namespace qtuser_3d
 
 		void viewEx(const QVector3D& newDir, const QVector3D& newUp, const QVector3D& homePosition, const QVector3D& homeViewCenter, const QVector3D& newCenter);
 
-		// ÇÐ»»Õý½»ÓëÍ¸ÊÓÊÓÍ¼
+		// ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ï¿½ï¿½ï¿½Í¼
 		Q_INVOKABLE void viewSwitch();
 
 		Q_INVOKABLE void viewFromOrthographic();

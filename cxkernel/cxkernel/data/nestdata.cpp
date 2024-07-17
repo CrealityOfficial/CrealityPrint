@@ -88,10 +88,23 @@ namespace cxkernel
 
     std::vector<trimesh::vec3> NestData::concave_path(TriMeshPtr mesh, const trimesh::vec3 scale)
     {
+        return q_concave_path(mesh, rotation, scale);
+    }
+
+    std::vector<trimesh::vec3> NestData::q_concave_path(TriMeshPtr mesh, const trimesh::quaternion& _rotation, const trimesh::vec3& scale)
+    {
         std::vector<trimesh::vec3> concave;
 
+        trimesh::fxform rot = msbase::fromQuaterian(_rotation);
+
+        TriMeshPtr rotMesh(new trimesh::TriMesh());
+        *rotMesh = *(mesh);
+        trimesh::apply_xform(rotMesh.get(), trimesh::xform(rot));
+
+        trimesh::quaternion unitRot;
+
 #if USE_TOPOMESH
-        topomesh::meshConcave(mesh.get(), concave, rotation, scale);
+        topomesh::meshConcave(rotMesh.get(), concave, unitRot, scale);
 #else
         qWarning() << QString("NestData::concave_path need link topomesh.");
 #endif
@@ -116,10 +129,13 @@ namespace cxkernel
         {
             TriMeshPtr mesh(qhullWrapper::convex2DPolygon(hull.get(), rxf, nullptr));
 
-            for (trimesh::vec3& v : mesh->vertices)
-                v *= scale;
+            if (mesh && !mesh->vertices.empty())
+            {
+                for (trimesh::vec3& v : mesh->vertices)
+                    v *= scale;
 
-            convex2D = mesh->vertices;
+                convex2D = mesh->vertices;
+            }
         }
 
         return convex2D;

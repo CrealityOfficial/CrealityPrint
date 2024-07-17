@@ -15,8 +15,10 @@ namespace creative_kernel
     {
         m_actionname = tr("Split Model");
         m_actionNameWithout = "Split Model";
+        m_source = "qrc:/UI/photo/menuImg/split_model_n.svg";
+        m_icon = "qrc:/UI/photo/menuImg/split_model_p.svg";
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     SplitModelAction::~SplitModelAction()

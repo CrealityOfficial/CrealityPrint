@@ -237,6 +237,7 @@ namespace cura52
         friend class AddTravelTest;
 
     public:
+        int prime_tower_added = 0;
         const PathConfigStorage configs_storage; //!< The line configs for this layer for each feature type
         coord_t z;
         coord_t final_travel_z;
@@ -246,6 +247,7 @@ namespace cura52
         float maxvolumetricspeed;
         int tmp_is_change_layer;
         bool first_mesh_cancel;
+        std::vector<Polygons> meshes_bbox;
         bool need_smart_brim;
         bool is_deceleration_speed;
     private:

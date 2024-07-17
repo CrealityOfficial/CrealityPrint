@@ -13,9 +13,12 @@ Button {
 
     property var delayShow: false
     property bool fan_checked
+
+    property color btnColor: "#FFFFFF" // Constants.typeBtnHoveredColor
+    property color backGroundColor: Constants.themeGreenColor
     property var btnHeight: 20* screenScaleFactor
-    Layout.preferredWidth: 50 * screenScaleFactor
-    Layout.preferredHeight: 32 * screenScaleFactor
+    Layout.preferredWidth: 44 * screenScaleFactor
+    Layout.preferredHeight: 24 * screenScaleFactor
 
     Binding on checked {
         when: !fanSwitch.delayShow
@@ -35,7 +38,7 @@ Button {
 
         border.width: 1
         border.color: "transparent"
-        color: fanSwitch.checked ? "#213E4E": Constants.rectBorderColor
+        color: fanSwitch.checked ? backGroundColor: Constants.rectBorderColor
 
         Rectangle {
             radius: height / 2
@@ -43,8 +46,8 @@ Button {
             height: btnHeight
             anchors.verticalCenter: parent.verticalCenter
 
-            color: fanSwitch.checked ? Constants.typeBtnHoveredColor : Constants.mainBackgroundColor
-            x: fanSwitch.checked ? (parent.width - width - 3 * screenScaleFactor) : 3 * screenScaleFactor
+            color: fanSwitch.checked ? btnColor : Constants.mainBackgroundColor
+            x: fanSwitch.checked ? (parent.width - width - 1 * screenScaleFactor) : 1 * screenScaleFactor
 
             Behavior on x {
                 NumberAnimation { duration: 100 }

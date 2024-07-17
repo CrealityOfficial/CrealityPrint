@@ -88,7 +88,9 @@ void RepairJob::successed(qtuser_core::Progressor* progressor)
 		m->setErrorHoles(info.holeNum);
 		m->setErrorIntersects(info.intersectNum);
 
-		modifySpace({ m_model }, { m }, true);
+		modifySpace({ m_model }, { m }, true); 
+		
+		moveModel(m, m->localPosition(), m_model->localPosition(), false);
 	}
 
 	qDebug() << "repair success";

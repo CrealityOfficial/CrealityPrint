@@ -2,7 +2,7 @@ license: GLP
 author: zenggui,anoob@sina.cn
 url: xxxxxx
 repository: http://172.20.180.12:8050/yanfa4/core/msbase
-external_repository: http://172.20.180.12:8050/CrealityOfficial/msbase
+external_repository: https://github.com/CrealityOfficial/msbase
 description: msbase
 topics: msbase,model
 build_deps: trimesh2/0.0.3

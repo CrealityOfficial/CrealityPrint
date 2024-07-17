@@ -1,13 +1,19 @@
 #include "printerentity.h"
+#include "entity/boxentity.h"
+#include "entity/axisentity.h"
+#include "plateentity.h"
+#include "simpleplateentity.h"
+#include "interface/selectorinterface.h"
+#include "wipetowerentity.h"
 
 namespace creative_kernel
 {
 	PrinterEntity::PrinterEntity(Qt3DCore::QNode* parent)
-		: QEntity(parent)
-		, m_printerText(nullptr)
+		: XEntity(parent)
+		, m_bShowEntity(true)
 	{
 		QVector4D greyColor = QVector4D(0.309804f, 0.313725f, 0.325490f, 1.0f);
-		m_boxEntity = new qtuser_3d::BoxEntity(nullptr);
+		m_boxEntity = new qtuser_3d::BoxEntity(this);
 		m_boxEntity->setColor(greyColor);
 
 		m_axisEntity = new qtuser_3d::AxisEntity(this, 0);
@@ -18,51 +24,47 @@ namespace creative_kernel
 		m_axisEntity->setYAxisColor(QVector4D(0.247f, 0.933f, 0.1098f, 1.0f));
 		m_axisEntity->setZAxisColor(QVector4D(0.4117f, 0.243f, 1.0f, 1.0f));
 
-		//m_printerSkirt = new qtuser_3d::PrinterSkirtEntity(nullptr);
-		m1.setToIdentity();
-		//m_printerSkirt->setPose(m1);
-
-		//m_printerText = new PrinterText(this);
-		/*m_printerGrid = new qtuser_3d::PrinterGrid(this);
-		m_printerGrid->setLineColor(greyColor);
-		m1.translate(0.0f, 0.0f, -0.05f);
-		m_printerGrid->setPose(m1);*/
-		
-		m_bottom = new qtuser_3d::TexFaces(nullptr);
-		m1.translate(0.0f, 0.0f, -0.05f);
-		m_bottom->setPose(m1);
+		m_simplePlateEntity = new SimplePlateEntity(this);
 		
 		m_plateEntity = new PlateEntity(this);
 		
 		//前后左右上
-		m_faceEntity = new qtuser_3d::FaceEntity(this);
+		//m_faceEntity = new qtuser_3d::FaceEntity(nullptr);
 		
-		m_hotbed = new qtuser_3d::HotbedEntity(nullptr);
+		//m_hotbed = new qtuser_3d::HotbedEntity(nullptr);
 
-		m_bShowEntity = true;
+		m_wipeTowerEntity = new WipeTowerEntity(this);
+		tracePickable(m_wipeTowerEntity->pickable());
 	}
 
 	PrinterEntity::~PrinterEntity()
 	{
+		unTracePickable(m_wipeTowerEntity->pickable());
 	}
 
 	void PrinterEntity::updateBox(const qtuser_3d::Box3D& box)
 	{
+		{
+			QVector3D size = box.size();
+			float a, b, c;
+			a = fmax(size.x() / size.y(), size.y() / size.x());
+			b = fmax(size.y() / size.z(), size.z() / size.y());
+			c = fmax(size.z() / size.x(), size.x() / size.z());
+
+			float max = fmax(fmax(a, b), c);
+			switchPrinterStyle(max >= 10.0f);
+		}
+
 		qtuser_3d::Box3D globalBox = box;
 		m_boxEntity->updateGlobal(globalBox, false);
-		//m_printerSkirt->updateBoundingBox(globalBox);
-		//m_printerGrid->updateBounding(globalBox, 1);
-		//m_printerText->updateLen(globalBox, 10.0f, 4);
-		//m_faceEntity->drawFace(globalBox);
+		
+		m_simplePlateEntity->updateBounding(globalBox);
 
-		//m_imageEntity->updateGlobal(globalBox);
-		m_bottom->updateBox(box);
-
-		m_plateEntity->setSize(QSizeF(box.size().x(), box.size().y()));	
 		m_plateEntity->updateBounding(globalBox);
+		m_wipeTowerEntity->setPrinterBox(globalBox);
 	}
 
-	void PrinterEntity::onModelChanged(qtuser_3d::Box3D basebox, bool hasModel, 
+	/*void PrinterEntity::onModelChanged(qtuser_3d::Box3D basebox, bool hasModel,
 		bool bleft, bool bright, bool bfront, bool bback, bool bup, bool bdown)
 	{
 		if (bleft)
@@ -118,21 +120,21 @@ namespace creative_kernel
 	void PrinterEntity::onCheckBed(QList<qtuser_3d::Box3D>& boxes)
 	{
 		m_hotbed->checkBed(boxes);
-	}
+	}*/
 
 	void PrinterEntity::enableSkirt(bool enable)
 	{
-		/*if(m_bShowEntity)
-			m_printerSkirt->setEnabled(enable);*/
+		if (m_bShowEntity)
+			m_simplePlateEntity->enableSkirt(enable);
 	}
 
 	void PrinterEntity::setSkirtHighlight(bool highlight)
 	{
-		//m_printerSkirt->setHighlight(highlight);
-		m_plateEntity->setHighlight(highlight);
+		m_simplePlateEntity->setHighlight(highlight);
+		//m_plateEntity->setHighlight(highlight);
 	}
 
-	void PrinterEntity::updateFace(qtuser_3d::Box3D& box, qtuser_3d::faceType type)
+	/*void PrinterEntity::updateFace(qtuser_3d::Box3D& box, qtuser_3d::faceType type)
 	{
 		m_faceEntity->updateFace(box, type);
 	}
@@ -140,9 +142,9 @@ namespace creative_kernel
 	void PrinterEntity::setVisibility(int type, bool visibility)
 	{
 		m_faceEntity->setVisibility(type, visibility);
-	}
+	}*/
 
-	void PrinterEntity::drawBedFaces(qtuser_3d::bedType _bedType)
+	/*void PrinterEntity::drawBedFaces(qtuser_3d::bedType _bedType)
 	{
 		if (_bedType != qtuser_3d::bedType::None)
 		{
@@ -160,36 +162,48 @@ namespace creative_kernel
 			//m_hotbed = nullptr;
 		}
 
-	}
+	}*/
 
 	void PrinterEntity::showPrinterEntity(bool isShow)
 	{
 		m_bShowEntity = isShow;
-		m_boxEntity->setEnabled(isShow);//蓝色边框
-		//m_printerSkirt->setEnabled(isShow);//灰色边线
-		//m_printerText->setEnabled(isShow);//刻度
-		//m_printerGrid->setEnabled(isShow);//网格线
-		m_axisEntity->setEnabled(false);//坐标指示
-		//m_imageEntity->setEnabled(isShow);//logo
-		m_bottom->setEnabled(isShow);
-		m_plateEntity->setEnabled(isShow);
+		setEnabled(isShow);
 	}
 
 	void PrinterEntity::updatePrinterColor(const PrinterColorConfig& config)
 	{
-		/*m_printerSkirt->setInnerColor(config.skirtInner);
-		m_printerSkirt->setOuterColor(config.skirtOuter);
-		m_printerSkirt->setVerticalBottomColor(config.skirtVerticalBottom);*/
-
-		m_bottom->setColor(config.bottom);
+		m_simplePlateEntity->updatePrinterColor(config);
 		
 		m_boxEntity->setColor(config.box);
 
-		m_plateEntity->setGridColor(config.gridLine);
+		//m_plateEntity->setGridColor(config.gridLine);
 	}
 
 	void PrinterEntity::setTheme(int theme)
 	{
 		m_plateEntity->setTheme(theme);
+	}
+
+	void PrinterEntity::setIndex(int idx)
+	{
+		m_axisEntity->setEnabled(idx == 0);
+		m_plateEntity->setOrder(idx + 1);
+	}
+
+	PlateEntity* PrinterEntity::plateEntity()
+	{
+		return m_plateEntity;
+	}
+
+	void PrinterEntity::switchPrinterStyle(bool isSimple)
+	{
+		m_boxEntity->setEnabled(isSimple);
+		m_simplePlateEntity->setEnabled(isSimple);
+		m_plateEntity->setEnabled(!isSimple);
+	}
+
+	WipeTowerEntity* PrinterEntity::wipeTowerEntity()
+	{
+		return m_wipeTowerEntity;
 	}
 }

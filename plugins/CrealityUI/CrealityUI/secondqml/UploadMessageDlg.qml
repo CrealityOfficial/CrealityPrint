@@ -1,11 +1,12 @@
-import "../qml"
-import QtQuick 2.0
-import QtQuick 2.0
-import QtQuick.Controls 2.12
-import QtQuick.Window 2.13
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
 
-DockItem {
-    id: idDialog
+import "../qml"
+import "../components"
+
+BasicDialogV4 {
+    id: root
 
     property string msgText: "message contect"
     property string otherMsg: ""
@@ -16,96 +17,140 @@ DockItem {
     property var cancelBtnText: qsTr("Cancel")
     property var messageType: 0
     property var isInfo: false
-    property alias labelPointSize: idMsgLabel.font.pointSize
+    property var labelPointSize: 9
 
     signal sigOkButtonClicked()
     signal sigIgnoreButtonClicked()
     signal sigCancelButtonClicked()
 
     width: 500 * screenScaleFactor
-    height: 160 * screenScaleFactor
+    height: {
+        const line_count = msgText.split('\n').length
+        return (160 + (line_count - 1) * 15) * screenScaleFactor
+    }
     titleHeight: 30 * screenScaleFactor
     title: qsTr("Message")
-    onVisibleChanged: {
-        this.x = Math.round((standaloneWindow.width - width) / 2) + standaloneWindow.x;
-        this.y = Math.round((standaloneWindow.height - this.height) / 2) + standaloneWindow.y;
-    }
+    maxBtnVis: false
 
-    Row {
-        x: (idDialog.width - idUploadImage.width - idMsgLabel.contentWidth) / 2
-        y: 50 * screenScaleFactor
-        spacing: 10
+    onVisibleChanged: {}
 
-        Image {
-            id: idUploadImage
+    bdContentItem: ColumnLayout {
+        spacing: 10 * screenScaleFactor
 
-            height: sourceSize.height
-            width: sourceSize.width
-            source: messageType == 0 || isInfo ? "qrc:/UI/photo/UploadSuccess.png" : (messageType == 1 ? "qrc:/UI/photo/upload_msg.png" : "qrc:/UI/photo/upload_success_image.png")
+        Item {
+            Layout.fillHeight: true
         }
 
-        StyledLabel {
-            id: idMsgLabel
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.topMargin: 10 * screenScaleFactor
+            Layout.leftMargin: 10 * screenScaleFactor
+            Layout.rightMargin: 10 * screenScaleFactor
 
-            width: idDialog.width - 130 * screenScaleFactor - idUploadImage.sourceSize.width
-            height: idUploadImage.sourceSize.height
-            wrapMode: Text.WordWrap
-            text: msgText
-            verticalAlignment: Text.AlignVCenter
-            horizontalAlignment: Text.AlignLeft
-        }
+            Item {
+                Layout.fillWidth: true
+            }
 
-    }
+            Image {
+                Layout.minimumWidth: sourceSize.width
+                Layout.maximumWidth: Layout.minimumWidth
+                Layout.minimumHeight: sourceSize.height
+                Layout.maximumHeight: Layout.minimumHeight
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignRight
+                source: messageType == 0 || isInfo ? "qrc:/UI/photo/UploadSuccess.png"
+                      : messageType == 1           ? "qrc:/UI/photo/upload_msg.png"
+                                                   : "qrc:/UI/photo/upload_success_image.png"
+            }
 
-    Row {
-        x: ignoreBtnVisible ? (idDialog.width - 395 * screenScaleFactor) / 2 : (cancelBtnVisible ? (idDialog.width - 260 * screenScaleFactor) / 2 : (idDialog.width - 135 * screenScaleFactor) / 2)
-        y: 75 * screenScaleFactor + idMsgLabel.height
-        spacing: 10
+            StyledLabel {
+                Layout.minimumWidth: contentWidth
+                Layout.maximumWidth: 460  * screenScaleFactor
+                Layout.minimumHeight: contentHeight
+                Layout.maximumHeight: Layout.minimumHeight
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignLeft
+                font.pointSize: labelPointSize
+                wrapMode: Text.WordWrap
+                text: msgText
+            }
 
-        BasicButton {
-            width: 125 * screenScaleFactor
-            height: 28 * screenScaleFactor
-            btnRadius: height / 2
-            btnBorderW: 0
-            defaultBtnBgColor: Constants.profileBtnColor
-            hoveredBtnBgColor: Constants.profileBtnHoverColor
-            text: okBtnText
-            onSigButtonClicked: {
-                sigOkButtonClicked();
-                idDialog.close();
+            Item {
+                Layout.fillWidth: true
             }
         }
 
-        BasicButton {
-            width: 125 * screenScaleFactor
-            height: 28 * screenScaleFactor
-            btnRadius: height / 2
-            btnBorderW: 0
-            defaultBtnBgColor: Constants.profileBtnColor
-            hoveredBtnBgColor: Constants.profileBtnHoverColor
-            visible: ignoreBtnVisible
-            text: ignoreBtnText
-            onSigButtonClicked: {
-                sigIgnoreButtonClicked();
-                idDialog.close();
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.bottomMargin: 10 * screenScaleFactor
+            Layout.leftMargin: 10 * screenScaleFactor
+            Layout.rightMargin: 10 * screenScaleFactor
+
+            spacing: 10 * screenScaleFactor
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            BasicButton {
+                Layout.minimumWidth: 125 * screenScaleFactor
+                Layout.maximumWidth: Layout.minimumWidth
+                Layout.minimumHeight: 28 * screenScaleFactor
+                Layout.maximumHeight: Layout.minimumHeight
+                btnRadius: height / 2
+                btnBorderW: 0
+                defaultBtnBgColor: Constants.profileBtnColor
+                hoveredBtnBgColor: Constants.profileBtnHoverColor
+                text: okBtnText
+                onSigButtonClicked: {
+                    sigOkButtonClicked()
+                    root.close()
+                }
+            }
+
+            BasicButton {
+                Layout.minimumWidth: 125 * screenScaleFactor
+                Layout.maximumWidth: Layout.minimumWidth
+                Layout.minimumHeight: 28 * screenScaleFactor
+                Layout.maximumHeight: Layout.minimumHeight
+                btnRadius: height / 2
+                btnBorderW: 0
+                defaultBtnBgColor: Constants.profileBtnColor
+                hoveredBtnBgColor: Constants.profileBtnHoverColor
+                visible: ignoreBtnVisible
+                text: ignoreBtnText
+                onSigButtonClicked: {
+                    sigIgnoreButtonClicked()
+                    root.close()
+                }
+            }
+
+            BasicButton {
+                Layout.minimumWidth: 125 * screenScaleFactor
+                Layout.maximumWidth: Layout.minimumWidth
+                Layout.minimumHeight: 28 * screenScaleFactor
+                Layout.maximumHeight: Layout.minimumHeight
+                btnRadius: height / 2
+                btnBorderW: 0
+                defaultBtnBgColor: Constants.profileBtnColor
+                hoveredBtnBgColor: Constants.profileBtnHoverColor
+                visible: cancelBtnVisible
+                text: cancelBtnText
+                onSigButtonClicked: {
+                    sigCancelButtonClicked()
+                    root.close()
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
             }
         }
 
-        BasicButton {
-            width: 125 * screenScaleFactor
-            height: 28 * screenScaleFactor
-            btnRadius: height / 2
-            btnBorderW: 0
-            defaultBtnBgColor: Constants.profileBtnColor
-            hoveredBtnBgColor: Constants.profileBtnHoverColor
-            visible: cancelBtnVisible
-            text: cancelBtnText
-            onSigButtonClicked: {
-                sigCancelButtonClicked();
-                idDialog.close();
-            }
+        Item {
+            Layout.fillHeight: true
         }
-
     }
-
 }

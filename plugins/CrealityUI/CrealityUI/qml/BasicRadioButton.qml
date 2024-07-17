@@ -65,9 +65,9 @@ T.RadioButton {
         y: control.topPadding + (control.availableHeight - height) / 2
 
         radius: width / 2
-        color: control.checked ? Constants.radioInfillBgColor : "transparent"
+        color: control.checked ? Constants.themeGreenColor : "transparent"
         border.width: control.visualFocus ? 2 : 1
-        border.color: control.checked ? Constants.radioInfillBgColor : Constants.radioBorderColor
+        border.color: control.checked ? Constants.themeGreenColor : Constants.radioBorderColor
 
         Rectangle {
             x: (parent.width - width) / 2

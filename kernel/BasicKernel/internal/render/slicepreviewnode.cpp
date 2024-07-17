@@ -6,7 +6,7 @@ namespace creative_kernel
 	SlicePreviewNode::SlicePreviewNode(Qt3DCore::QNode* parent)
 		: GCodeViewEntity(parent)
 	{
-		addPassFilter(0, "view");
+		// addPassFilter(0, "view");
 	}
 
 	SlicePreviewNode::~SlicePreviewNode()
@@ -24,6 +24,11 @@ namespace creative_kernel
 
 		values = CONFIG_PLUGIN_VARLIST(gcodeeffect_nozzlecolors, slice_group);
 		m_nozzleColors->setValue(values);
+	}
+
+	void SlicePreviewNode::setNozzleColorList(const QVariantList& list)
+	{
+		m_nozzleColors->setValue(list);
 	}
 }
 

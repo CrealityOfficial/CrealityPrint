@@ -3,7 +3,12 @@
 #include "menu/actioncommand.h"
 #include "qtusercore/module/cxhandlerbase.h"
 #include "qtusercore/module/job.h"
+#include "cxkernel/data/modelndata.h"
 #include "data/interface.h"
+#include "internal/multi_printer/printermanager.h"
+#include "internal/multi_printer/printersettings.h"
+#include "common_3mf.h"
+
 
 namespace creative_kernel
 {
@@ -38,6 +43,7 @@ namespace creative_kernel
 		virtual ~Load3MFJob();
 
 		void setFileName(const QString& fileName);
+		void setOpenJob(bool jobType);		//type is open or load 3mf
 	protected:
 		QString name();
 		QString description();
@@ -47,7 +53,23 @@ namespace creative_kernel
 
 	protected:
 		QString m_fileName;
+		QString m_projectConfigFile;
+
+		common_3mf::Scene3MF m_scene;
+		QMap<int, QList<cxkernel::ModelNDataPtr>> m_datas;
+		QMap<int, QList<QMap<QString, QString>>> m_settings;
+		QList<QMap<float, crslice2::Plate_Item>> m_plates;
+
+		bool m_isOpenJob = true;	// defualt is open 3mf
 	};
+
+	struct MeshWithName
+	{
+		TriMeshPtr mesh;
+		std::string name;
+	};
+
+	std::vector<MeshWithName> load_meshes_from_3mf(const QString& file_name, ccglobal::Tracer* tracer = nullptr);
 }
 
 #endif // _LOAD3MF_H

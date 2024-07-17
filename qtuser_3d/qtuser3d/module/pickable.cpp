@@ -11,6 +11,7 @@ namespace qtuser_3d
 		, m_faceBase(0)
 		, m_noPrimitive(false)
 		, m_visible(true)
+		, m_curPrimitiveID(-1)
 	{
 	}
 
@@ -128,6 +129,16 @@ namespace qtuser_3d
 		return m_visible;
 	}
 
+	void Pickable::setCurPrimitiveId(int curPrimitiveId)
+	{
+		m_curPrimitiveID = curPrimitiveId;
+	}
+
+	int Pickable::getCurPrimitiveId()
+	{
+		return m_curPrimitiveID;
+	}
+
 	Pickable* checkPickableFromList(FacePicker* picker, QPoint point, QList<Pickable*>& list, int* primitiveID)
 	{
 		Pickable* pickable = nullptr;
@@ -142,10 +153,8 @@ namespace qtuser_3d
 				for (int i = 0; i < size; ++i)
 				{
 					Pickable* p = list.at(i);
-					int faceBase = p->faceBase();
-					int faceEnd = faceBase + (p->noPrimitive() ? 1 : p->primitiveNum());
 
-					if (faceID >= faceBase && faceID < faceEnd && p->isVisible())
+					if (p->hoverInRange(faceID))
 					{
 						pickable = p;
 						break;
@@ -156,6 +165,7 @@ namespace qtuser_3d
 				{
 					int faceBase = pickable->faceBase();
 					_primitiveID = faceID - faceBase;
+					pickable->setCurPrimitiveId(faceID);
 				}
 				else
 					_primitiveID = faceID;
@@ -185,5 +195,17 @@ namespace qtuser_3d
 	void Pickable::click(int primitiveID)
 	{
 		emit signalClick(primitiveID);
+	}
+
+	bool Pickable::hoverInRange(int faceid)
+	{
+		int faceEnd = m_faceBase + (noPrimitive() ? 1 : primitiveNum());
+
+		if (faceid >= m_faceBase && faceid < faceEnd && isVisible())
+		{
+			return true;
+		}
+
+		return false;
 	}
 }

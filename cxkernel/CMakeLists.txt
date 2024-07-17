@@ -22,7 +22,7 @@ __cc_find(enchase)
 __assert_target(enchase)
 
 __files_group(${CMAKE_CURRENT_SOURCE_DIR}/cxkernel/ SRCS)
-set(QRCS res/cxkernel.qrc res/images.qrc)
+set(QRCS res/cxkernel.qrc)
 
 set(LIBS cxbin ssl crypto qhullWrapper libtess2 enchase)
 

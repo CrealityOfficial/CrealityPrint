@@ -25,12 +25,12 @@ trimesh::TriMesh* ColorExecutor::getTrimesh()
 
 void ColorExecutor::triangleColor()
 {
-    ColorWorker worker(m_meshSpreadWrapper, m_colorIndex, spread::CursorType::POINTER);
+    ColorWorker worker(m_meshSpreadWrapper, m_colorIndex, spread::CursorType::TRIANGLE);
     auto dirtyChunks = worker.execute();
     emit sig_needUpdate(dirtyChunks);
 }
 
-void ColorExecutor::circleColor(spread::SceneData& data, bool isFirstCircle)
+void ColorExecutor::circleColor(const spread::SceneData& data, bool isFirstCircle)
 {
     ColorWorker worker(m_meshSpreadWrapper, m_colorIndex, spread::CursorType::CIRCLE);
     worker.setCircleParameter(data, isFirstCircle);
@@ -39,6 +39,21 @@ void ColorExecutor::circleColor(spread::SceneData& data, bool isFirstCircle)
 }
 
 void ColorExecutor::fillColor()
+{
+    ColorWorker worker(m_meshSpreadWrapper, m_colorIndex, spread::CursorType::FILL);
+    auto dirtyChunks = worker.execute();
+    emit sig_needUpdate(dirtyChunks);
+}
+
+void ColorExecutor::heightRangeColor(const spread::SceneData& data, float height)
+{
+    ColorWorker worker(m_meshSpreadWrapper, m_colorIndex, spread::CursorType::HEIGHT_RANGE);
+    worker.setHeightRangeParameter(data, height);
+    auto dirtyChunks = worker.execute();
+    emit sig_needUpdate(dirtyChunks);
+}
+
+void ColorExecutor::fillGapColor()
 {
     ColorWorker worker(m_meshSpreadWrapper, m_colorIndex, spread::CursorType::GAP_FILL);
     auto dirtyChunks = worker.execute();

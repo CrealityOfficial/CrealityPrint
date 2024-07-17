@@ -36,8 +36,7 @@ protected:
   virtual void selectChanged(qtuser_3d::Pickable* pickable) override;
 
 private:
-  QTimer m_operateTimer;
-  bool m_canOperate { true };
   std::unique_ptr<qtuser_3d::MirrorEntity> entity_;
   std::map<QPointer<qtuser_3d::Pickable>, std::function<void(void)>> pickable_callback_map_;
+
 };

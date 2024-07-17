@@ -13,7 +13,7 @@ namespace creative_kernel
         m_actionNameWithout = "PA";
         m_eParentMenu = eMenuType_Calibration;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     PACommand::~PACommand()

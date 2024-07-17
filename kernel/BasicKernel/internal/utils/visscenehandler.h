@@ -7,6 +7,12 @@
 #include <QPixmap>
 #include <QCursor>
 #include "external/data/interface.h"
+#include <QTimer>
+
+namespace qtuser_3d 
+{
+	class AlonePointEntity;
+};
 
 namespace creative_kernel
 {
@@ -14,7 +20,8 @@ namespace creative_kernel
 		, public qtuser_3d::HoverEventHandler
 		, public qtuser_3d::KeyEventHandler
 		, public qtuser_3d::LeftMouseEventHandler
-		, public qtuser_3d::SelectorTracer
+		, public qtuser_3d::RightMouseEventHandler
+		// , public qtuser_3d::SelectorTracer
     	, public UIVisualTracer
 	{
 		Q_OBJECT
@@ -22,15 +29,21 @@ namespace creative_kernel
 		VisSceneHandler(QObject* parent = nullptr);
 		virtual ~VisSceneHandler();
 
+		void setEnabled(bool enabled);
+
 	private:
 		void updateCameraCenter();
+
+	private slots:
+		void activeCameraCenterChange();
+		void onPhaseChanged();
 
 	protected:
 		void onThemeChanged(ThemeCategory category);
 		void onLanguageChanged(MultiLanguage language);
 
-		void onSelectionsChanged();
-		void selectChanged(qtuser_3d::Pickable* pickable);
+		// void onSelectionsChanged();
+		// void selectChanged(qtuser_3d::Pickable* pickable);
 
 		void onHoverEnter(QHoverEvent* event) override;
 		void onHoverLeave(QHoverEvent* event) override;
@@ -44,14 +57,26 @@ namespace creative_kernel
 		void onLeftMouseButtonMove(QMouseEvent* event) override;
 		void onLeftMouseButtonClick(QMouseEvent* event) override;
 
+		void onRightMouseButtonPress(QMouseEvent* event) override;
+		void onRightMouseButtonRelease(QMouseEvent* event) override;
+		void onRightMouseButtonMove(QMouseEvent* event) override;
+		void onRightMouseButtonClick(QMouseEvent* event) override;
+
+				// QApplication::setOverrideCursor(QCursor(m_rotatePixmap));
+				// QApplication::setOverrideCursor(QCursor(Qt::ArrowCursor));
 	private:
 		QPoint m_posOfLeftMousePress;
 		bool m_didSelectModelAtPress;
 
+		bool m_rotating { false };
 		bool m_selecting{ false };
 		QPixmap m_selectPixmap;
 		QPixmap m_movePixmap;
 		QPixmap m_rotatePixmap;
+
+		QTimer m_updateCameraCenterTimer;
+
+		qtuser_3d::AlonePointEntity* m_rotateCenterEntity;
 
 	};
 }

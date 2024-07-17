@@ -11,7 +11,7 @@ namespace creative_kernel
 		m_actionNameWithout = "Log View";
 		m_eParentMenu = eMenuType_Tool;
 
-		addUIVisualTracer(this);
+		addUIVisualTracer(this,this);
 	}
 
 	LogViewCommand::~LogViewCommand()

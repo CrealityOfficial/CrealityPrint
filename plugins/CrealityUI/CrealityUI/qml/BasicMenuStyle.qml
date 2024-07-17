@@ -10,8 +10,15 @@ Menu {
     implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
                              contentHeight + topPadding + bottomPadding)
 
+    property bool highlightSeparator: false
+    property bool hasIcon: true
+    property bool centerText: false
+
     delegate: BasicMenuItemStyle
     {
+        highlightSeparator: control.highlightSeparator
+        hasIcon: control.hasIcon
+        centerText: control.centerText
     }
 
     contentWidth : 200 * screenScaleFactor

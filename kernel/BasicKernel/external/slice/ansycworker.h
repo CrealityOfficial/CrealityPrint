@@ -4,6 +4,7 @@
 #include <QtCore/QThread>
 #include "us/usettings.h"
 #include "qtusercore/module/formattracer.h"
+#include "crslice2/crscene.h"
 
 namespace creative_kernel
 {
@@ -31,9 +32,18 @@ namespace creative_kernel
 		QString indexStr(int index, va_list vars);
 	};
 
+	class Crslice2Tracer : public qtuser_core::ProgressorTracer
+	{
+	public:
+		Crslice2Tracer(qtuser_core::Progressor* progressor, QObject* parent = nullptr);
+		virtual ~Crslice2Tracer();
 
+		void message(const char* msg) override;
+	};
 
 	class SliceAttain;
+	class Printer;
+	class ModelN;
 	class AnsycWorker : public qtuser_core::Job
 	{
 		Q_OBJECT
@@ -42,6 +52,14 @@ namespace creative_kernel
 		virtual ~AnsycWorker();
 		SliceAttain* sliceAttain();
 		void setRemainAttain(SliceAttain* attain);
+		void setSlicePrinter(Printer* printer);
+		Printer* slicePrinter();
+		void applyAdditionalSliceParameter();
+
+		void waitForCompleted();
+
+		void cancel();
+
 	protected:
 		QString name() override;
 		QString description() override;
@@ -51,18 +69,30 @@ namespace creative_kernel
 
 		bool needReSlice();
 
-	signals:
-		void sliceMessage(const QString& message);
-		void sliceSuccess(SliceAttain* attain, bool isRemain);
-		void sliceBeforeSuccess(SliceAttain* attain);
-		void sliceFailed();
+		void prepareSliceData();
 
 	signals:
-		void gcodeLayerChanged(int layer);
+		void prepareSlice(Printer* printer);
+		void sliceMessage(const QString& message);
+		void sliceSuccess(SliceAttain* attain, Printer* printer);
+		void sliceBeforeSuccess(SliceAttain* attain);
+		void sliceFailed(const QString& failReason);
+
+	signals:
+		void gcodeLayerChanged(SliceAttain* attain, int layer);
 
 	protected:
-		SliceAttain* m_sliceAttain;
-		QScopedPointer<SliceAttain> m_remainAttain;
+		SliceAttain* m_sliceAttain{ NULL };
+		SliceAttain* m_remainAttain{ NULL };
+		Printer* m_printer;
+        bool m_slicing { true };
+
+		QList<ModelN*> m_slicedModels;
+		std::vector<crslice2::ThumbnailData> m_thumbnailDatas;
+		crslice2::plateInfo m_plateInfo;
+
+		QString m_failExceptionDesc;
+	
 	};
 }
 #endif // _NULLSPACE_ANSYCWORKER_1590248311419_H

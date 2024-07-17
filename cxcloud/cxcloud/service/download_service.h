@@ -16,143 +16,169 @@
 #include "cxcloud/model/download_model.h"
 #include "cxcloud/net/download_request.h"
 #include "cxcloud/net/model_request.h"
-#include "cxcloud/service/base_service.hpp"
-
-#if (__cplusplus >= 201703L)
-namespace boost::asio {
-#else
-namespace boost {
-namespace asio {
-#endif
-
-class thread_pool;
-
-#if (__cplusplus >= 201703L)
-}  // namespace boost::asio
-#else
-}  // namespace asio
-}  // namespace boost
-#endif
+#include "cxcloud/service/base_service.h"
+#include "cxcloud/tool/thread_pool.h"
 
 namespace cxcloud {
 
-class CXCLOUD_API DownloadService final : public BaseService {
-  Q_OBJECT;
+  class CXCLOUD_API DownloadService final : public BaseService {
+    Q_OBJECT;
 
-public:
-  explicit DownloadService(std::weak_ptr<HttpSession> http_session, QObject* parent = nullptr);
-  virtual ~DownloadService() = default;
+   public:
+    using GroupListModel = DownloadGroupListModel;
+    using GroupList = GroupListModel::DataContainer;
+    using Group = GroupListModel::Data;
 
-public:
-  void initialize() override;
-  void uninitialize() override;
+    using ModelListModel = decltype(Group::items)::element_type;
+    using ModelList = ModelListModel::DataContainer;
+    using Model = ModelListModel::Data;
 
-  std::function<void(const QString&)> getOpenFileHandler() const;
-  void setOpenFileHandler(std::function<void(const QString&)> handler);
+   public:
+    explicit DownloadService(std::weak_ptr<HttpSession> http_session, QObject* parent = nullptr);
+    virtual ~DownloadService() = default;
 
-  std::function<void(const QStringList&)> getOpenFileListHandler() const;
-  void setOpenFileListHandler(std::function<void(const QStringList&)> handler);
+   public:
+    auto initialize() -> void override;
+    auto uninitialize() -> void override;
 
-  QString getCacheDirPath() const;
-  void setCacheDirPath(const QString& path);
+    auto getOpenFileHandler() const -> std::function<void(const QString&)>;
+    auto setOpenFileHandler(std::function<void(const QString&)> handler) -> void;
 
-  /// @return 0 if automatically determined by library
-  size_t getMaxDownloadThreadCount() const;
-  void setMaxDownloadThreadCount(size_t count);
+    auto getOpenFileListHandler() const -> std::function<void(const QStringList&)>;
+    auto setOpenFileListHandler(std::function<void(const QStringList&)> handler) -> void;
 
-public:  // local cache
-  Q_INVOKABLE bool checkModelDownloaded(const QString& group_id, const QString& model_id);
-  Q_INVOKABLE bool checkModelGroupDownloaded(const QString& group_id);
+    auto getCacheDirPath() const -> QString;
+    auto setCacheDirPath(const QString& path) -> void;
 
-  Q_INVOKABLE bool checkModelDownloading(const QString& group_id, const QString& model_id);
-  Q_INVOKABLE bool checkModelGroupDownloading(const QString& group_id);
+    /// @return 0 if automatically determined by library
+    auto getMaxDownloadThreadCount() const -> size_t;
+    auto setMaxDownloadThreadCount(size_t count) -> void;
 
-  /// @brief !checkModelDownloaded && !checkModelDownloading
-  /// @see checkModelDownloaded
-  /// @see checkModelDownloading
-  Q_INVOKABLE bool checkModelDownloadable(const QString& group_id, const QString& model_id);
-  Q_INVOKABLE bool checkModelGroupDownloadable(const QString& group_id);
+   public:  // qt model
+    auto getDownloadTaskModel() const -> QAbstractListModel*;
+    Q_PROPERTY(QAbstractListModel* downloadTaskModel READ getDownloadTaskModel CONSTANT);
 
-  Q_INVOKABLE void deleteModelCache(const QStringList& group_model_list);
-  Q_INVOKABLE void deleteModelCache(const QString& group_id, const QString& model_id);
-  Q_INVOKABLE void importModelCache(const QStringList& group_model_list);
-  Q_INVOKABLE void importModelCache(const QString& group_id, const QString& model_id);
-  Q_INVOKABLE bool exportModelCache(const QString& group_id,
-                                    const QString& model_id,
-                                    const QString& dir_path);
+   public:  // local cache
+    Q_INVOKABLE bool checkModelDownloaded(const QString& group_uid, const QString& model_uid);
+    Q_INVOKABLE bool checkModelGroupDownloaded(const QString& group_uid);
 
-  Q_INVOKABLE void openModelCacheDir() const;
+    Q_INVOKABLE bool checkModelDownloading(const QString& group_uid, const QString& model_uid);
+    Q_INVOKABLE bool checkModelGroupDownloading(const QString& group_uid);
 
-public:  // download promise
-  Q_INVOKABLE void makeModelGroupDownloadPromise(const QString& group_id);
-  Q_INVOKABLE void makeModelDownloadPromise(const QString& group_id, const QString& model_id);
-  Q_INVOKABLE void fulfillsAllDonwloadPromise();
-  Q_INVOKABLE void breachAllDonwloadPromise();
+    /// @brief !checkModelDownloaded && !checkModelDownloading
+    /// @see checkModelDownloaded
+    /// @see checkModelDownloading
+    Q_INVOKABLE bool checkModelDownloadable(const QString& group_uid, const QString& model_uid);
+    Q_INVOKABLE bool checkModelGroupDownloadable(const QString& group_uid);
 
-public:  // download task
-  Q_INVOKABLE void startModelGroupDownloadTask(const QString& group_id, bool is_model_import = false);
-  Q_INVOKABLE void startModelDownloadTask(const QString& group_id, const QString& model_id, bool is_model_import = false);
-  Q_INVOKABLE void cancelModelDownloadTask(const QString& group_id, const QString& model_id);
+    /// @param uid_map_list javascript var like: [
+    ///   {
+    ///      group_uid: "xxx",
+    ///      model_uid: "yyy"
+    ///   },
+    ///   ...
+    /// ]
+    Q_INVOKABLE void deleteModelCache(const QVariantList& uid_map_list);
+    Q_INVOKABLE void deleteModelCache(const QString& group_uid, const QString& model_uid);
 
-public:
-  Q_PROPERTY(QAbstractListModel* downloadTaskModel READ getDownloadTaskModel CONSTANT);
-  QAbstractListModel* getDownloadTaskModel() const;
+    /// @param uid_map_list javascript var like: [
+    ///   {
+    ///      group_uid: "xxx",
+    ///      model_uid: "yyy"
+    ///   },
+    ///   ...
+    /// ]
+    Q_INVOKABLE void importModelCache(const QVariantList& uid_map_list);
+    Q_INVOKABLE void importModelCache(const QString& group_uid, const QString& model_uid);
 
-private:
-  QString loadGroupCacheName(const QString& group_id) const;
-  QString loadModelCacheName(const QString& group_id, const QString& model_id) const;
-  QString loadGroupCacheDirPath() const;
-  QString loadModelCacheDirPath(const QString& group_id) const;
-  QString loadGroupCachePath(const QString& group_id) const;
-  QString loadModelCachePath(const QString& group_id, const QString& model_id) const;
-  QString loadCacheInfoPath() const;
+    Q_INVOKABLE bool exportModelCache(const QString& group_uid,
+                                      const QString& model_uid,
+                                      const QString& dir_path);
 
-  void syncCacheFromLocal();
-  void syncCacheToLocal() const;
-  void resetExpiredModel() const;
+    Q_INVOKABLE void openModelCacheDir() const;
 
-  /// @brief check whether there are models in the group whose state in the state list
-  /// @param group_id id of group
-  /// @param states target state list
-  /// @return true if found any model's state is in the state list, or false
-  bool checkModelGroupState(const QString& group_id,
-                            std::list<DownloadItemListModel::Data::State> states);
+   public:  // download promise
+    Q_INVOKABLE void makeModelGroupDownloadPromise(const QString& group_uid);
+    Q_INVOKABLE void makeModelDownloadPromise(const QString& group_uid, const QString& model_uid);
+    Q_INVOKABLE void fulfillsAllDonwloadPromise();
+    Q_INVOKABLE void breachAllDonwloadPromise();
 
-  /// @brief check model's state is in the state list
-  /// @param group_id id of model's group
-  /// @param model_id id of model
-  /// @param states target state list
-  /// @return true if model's state is in the state list, or false
-  bool checkModelState(const QString& group_id,
-                       const QString& model_id,
-                       std::list<DownloadItemListModel::Data::State> states);
+   public:  // download task
+    Q_INVOKABLE void startModelGroupDownloadTask(const QString& group_uid,
+                                                 bool import_later = false);
+    Q_INVOKABLE void startModelDownloadTask(const QString& group_uid,
+                                            const QString& model_uid,
+                                            bool import_later = false);
+    Q_INVOKABLE void cancelModelDownloadTask(const QString& group_uid, const QString& model_uid);
 
-  Q_SLOT void onDownloadProgressUpdated(const QString& group_id, const QString& model_id);
-  Q_SLOT void onDownloadFinished(const QString& group_id, const QString& model_id, bool is_model_import = false);
+   private:
+    struct Promise {
+      bool entire_group{ false };
+      QString group_uid{};
+      QString model_uid{};
+    };
 
-  void startDownloadInfoRequest(const QString& group_id, bool download_later = false, bool is_model_import = false);
-  void startDownloadTaskRequest(const QString& group_id, const QString& model_id, bool is_model_import = false);
+    struct Task {
+      using State = Model::State;
+      using Request = DownloadModelRequest;
 
-private:
-  QString cache_dir_path_;
-  size_t max_download_thread_count_{ 0 };
+      std::unique_ptr<Request> request{ nullptr };
+      bool import_later{ false };
+    };
 
-  std::function<void(const QString&)> open_file_handler_;
-  std::function<void(const QStringList&)> open_file_list_handler_;
+   private:
+    auto loadGroupCacheName(const QString& group_uid) const -> QString;
+    auto loadModelCacheName(const QString& group_uid, const QString& model_uid) const -> QString;
+    auto loadGroupCacheDirPath() const -> QString;
+    auto loadModelCacheDirPath(const QString& group_uid) const -> QString;
+    auto loadGroupCachePath(const QString& group_uid) const -> QString;
+    auto loadModelCachePath(const QString& group_uid, const QString& model_uid) const -> QString;
+    auto loadCacheInfoPath() const -> QString;
 
-  struct Promise {
-    bool is_group{false};
-    QString group_id{};
-    QString model_id{};
+    auto syncCacheFromLocal() -> void;
+    auto syncCacheToLocal() const -> void;
+    auto resetExpiredModel() const -> void;
+
+    /// @brief Check whether there are models in the group whose state in the state list.
+    /// @param states target state list
+    /// @return true if found any model's state is in the state list, or false
+    auto checkModelGroupState(const QString& group_uid, std::list<Task::State> states) -> bool;
+
+    /// @brief Check model's state is in the state list.
+    /// @param states target state list
+    /// @return true if model's state is in the state list, or false.
+    auto checkModelState(const QString& group_uid,
+                         const QString& model_uid,
+                         std::list<Task::State> states) -> bool;
+
+    /// @param download_all_later Download all models in group after request info finished.
+    ///                           If you just want to download part of models in group,
+    ///                           set their state to DownloadItemListModel::Data::State::READY
+    ///                           before call this function.
+    /// @param import_later Import all successful downloaded models.
+    auto startDownloadInfoRequest(const QString& group_uid,
+                                  bool download_all_later = false,
+                                  bool import_later = false) -> void;
+    auto startDownloadTaskRequest(const QString& group_uid,
+                                  const QString& model_uid,
+                                  bool import_later = false) -> void;
+
+    Q_SLOT void onDownloadProgressUpdated(const QString& group_uid, const QString& model_uid);
+    Q_SLOT void onDownloadFinished(const QString& group_uid, const QString& model_uid);
+
+   private:
+    QString cache_dir_path_;
+    size_t max_download_thread_count_{ 0 };
+
+    std::function<void(const QString&)> open_file_handler_;
+    std::function<void(const QStringList&)> open_file_list_handler_;
+
+    std::list<Promise> promise_list_;
+    std::map<QString, Task> model_task_map_;
+
+    std::shared_ptr<ThreadPool> download_thread_pool_;
+    std::unique_ptr<GroupListModel> download_group_model_;
   };
-
-  std::list<Promise> promise_list_;
-
-  std::shared_ptr<boost::asio::thread_pool> download_thread_pool_;
-  std::map<QString, std::unique_ptr<DownloadModelRequest>> task_request_map_;
-
-  std::unique_ptr<DownloadGroupListModel> download_group_model_;
-};
 
 }  // namespace cxcloud
 

@@ -210,6 +210,22 @@ namespace crslice
 
     std::string engineVersion()
     {
-        return "5.2.0";
+        std::string ver = "cura-5.2.0";
+
+#ifdef USE_BINARY_JSON
+        rapidjson::Document baseDoc;
+        baseDoc.Parse((const char*)base);
+        if (baseDoc.HasParseError())
+        {
+            LOGE("ParameterMetas::parseMetasMap parse base error. [%d].", (int)baseDoc.GetParseError());
+            return ver;
+        }
+
+        if (baseDoc.HasMember("version"))
+        {
+            ver = "cura-" + std::string(baseDoc["version"].GetString());
+        }
+#endif
+        return ver;
     }
 }

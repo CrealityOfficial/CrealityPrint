@@ -286,6 +286,7 @@ namespace topomesh
 
 		int slice_layer_count = 0;
 		const coord_t initial_layer_thickness = param.initial_layer_thickness;
+	    coord_t initial_layer_count = param.initial_layer_count;
 		const coord_t layer_thickness = param.layer_thickness;
 
 		AABB3D box = input.box();
@@ -294,17 +295,24 @@ namespace topomesh
 		if (slice_layer_count > 0)
 		{
 			z.resize(slice_layer_count, 0);
-
+			if (slice_layer_count < initial_layer_count)
+			{
+				initial_layer_count = slice_layer_count;
+			}
 			z[0] = std::max(0LL, initial_layer_thickness - layer_thickness);
 			coord_t adjusted_layer_offset = initial_layer_thickness;
 
-			z[0] = initial_layer_thickness / 2;
-			adjusted_layer_offset = initial_layer_thickness + (layer_thickness / 2);
-
-			// define all layer z positions (depending on slicing mode, see above)
-			for (int layer_nr = 1; layer_nr < slice_layer_count; layer_nr++)
+			//inital_layer z positions 
+			for (int initLayer = 0; initLayer < initial_layer_count; initLayer++)
 			{
-				z[layer_nr] = adjusted_layer_offset + (layer_thickness * (layer_nr - 1));
+				z[initLayer] = adjusted_layer_offset + (layer_thickness * (initLayer));
+			}
+			adjusted_layer_offset = initial_layer_thickness * initial_layer_count + (layer_thickness / 2);
+
+			// define all layer z positions other than inital_layer (depending on slicing mode, see above)
+			for (int layer_nr = initial_layer_count; layer_nr < slice_layer_count; layer_nr++)
+			{
+				z[layer_nr] = adjusted_layer_offset + (layer_thickness * (layer_nr - initial_layer_count));
 			}
 		}
 	}

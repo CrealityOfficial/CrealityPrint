@@ -11,6 +11,8 @@ namespace creative_kernel {
 	{
 		XRenderPass* pass = new XRenderPass("pure", parent);
 		pass->addFilterKeyMask("view", 0);
+		pass->setPassCullFace(Qt3DRender::QCullFace::Back);
+		pass->setPassDepthTest();
 
 		XEffect* effect = new XEffect(this);
 		effect->addRenderPass(pass);

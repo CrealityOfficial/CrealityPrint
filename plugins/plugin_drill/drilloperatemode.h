@@ -52,6 +52,8 @@ protected:
   virtual void onAttach() override;
   virtual void onDettach() override;
 
+  virtual bool needHoldConfigPanel() { return true;  }
+
   virtual void onHoverMove(QHoverEvent* event) override;
 
   virtual void onLeftMouseButtonClick(QMouseEvent* event) override;

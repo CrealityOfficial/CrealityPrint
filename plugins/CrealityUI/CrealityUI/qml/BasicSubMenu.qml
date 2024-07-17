@@ -6,7 +6,7 @@ Menu {
     id:idMenu
     property var myItemObj
     property var separator
-    property int maxImplicitWidth: 200
+    property int maxImplicitWidth: 200* screenScaleFactor
     property alias mymodel: idMenuItems.model
 
     Column
@@ -21,7 +21,7 @@ Menu {
                 text: actionNameRole
                 icon.source: actionIcon
                 height: 32* screenScaleFactor
-                width: maxImplicitWidth + 30* screenScaleFactor
+                width: maxImplicitWidth  + 10* screenScaleFactor
                 separatorVisible: index === 0 ? false : (actionSeparator ? actionSeparator : false)
                 checkable: false
                 itemChecked: actionChecked
@@ -40,7 +40,7 @@ Menu {
                 onTriggered:
                 {
                     idClickVisible.onTriggered()
-                    actionItem.execute(); if(model && model.count === 1) width = 200
+                    actionItem.execute(); if(model && model.count === 1) width = 200 * screenScaleFactor
                 }
             }
         }
@@ -55,7 +55,7 @@ Menu {
     }
 
     background: Rectangle {
-        implicitWidth:maxImplicitWidth + 20
+        implicitWidth: maxImplicitWidth + 10* screenScaleFactor
         Rectangle {
             id: mainLayout
             anchors.fill: parent
@@ -84,7 +84,7 @@ Menu {
 
     function getMaxWidth()
     {
-        var max = 200;
+        var max = 200 * screenScaleFactor;
         for(var cIndex = 0; cIndex < idMenuItems.count; ++cIndex)
         {
             var obj = idMenuItems.itemAt(cIndex);

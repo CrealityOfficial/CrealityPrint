@@ -10,13 +10,14 @@ import "qrc:/CrealityUI/secondqml"
 import "qrc:/CrealityUI/components"
 
 Item {
+    id: root
     property var com
     property var contextList: []
 
     Window {
         id: menu
         width: 205 * screenScaleFactor + (textLength > 8 ? 100 * screenScaleFactor : 0)
-        height: (30 + contextList.lenght / 2 * 18)* screenScaleFactor
+        height: (34 + (root.contextList.length / 2) * 18)* screenScaleFactor
         visible: idTipsBtn.hovered
         flags: Qt.FramelessWindowHint 
         color:"transparent" 
@@ -36,8 +37,9 @@ Item {
         }
 
         onVisibleChanged: {
-            if (visible)
+            if (visible) {
                 menu.trackTo(idTipsBtn)
+            }
         }
         
         Rectangle {
@@ -55,13 +57,14 @@ Item {
                 columnSpacing: 15
 
                 Repeater {
+                    id: r
                     model: contextList
 
                     delegate: Text {
                         text: modelData
                         horizontalAlignment: Text.AlignLeft
                         verticalAlignment: Text.AlignHCenter
-                        color: index % 2 ? "#1E9BE2" : Constants.textColor
+                        color: index % 2 ? Qt.rgba(0.09, 0.80, 0.37) : Constants.textColor
                         font.pointSize: Constants.labelFontPointSize_9
                         font.family: Constants.labelFontFamily
                         font.weight: Constants.labelFontWeight
@@ -84,7 +87,9 @@ Item {
 
         background: Image {
             anchors.centerIn: parent
-            source: idTipsBtn.hovered ? "qrc:/UI/photo/control_p.png" : "qrc:/UI/photo/control_n.png"
+            source: idTipsBtn.hovered ? "qrc:/UI/photo/control_p.svg" : Constants.currentTheme? "qrc:/UI/photo/control_l.svg" : "qrc:/UI/photo/control_n.svg"
+
+            opacity: root.enabled ? 1.0 : 0.3
         }
         
 

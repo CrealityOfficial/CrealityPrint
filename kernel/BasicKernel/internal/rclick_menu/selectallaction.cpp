@@ -12,8 +12,9 @@ namespace creative_kernel
     {
         m_actionname = tr("Select All Model");
         m_actionNameWithout = "Select All Model";
+        setShortcut("Ctrl+A");
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     SelectAllAction::~SelectAllAction()

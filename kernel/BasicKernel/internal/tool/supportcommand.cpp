@@ -11,7 +11,6 @@
 #include <QtCore/QDebug>
 #include "interface/visualsceneinterface.h"
 #include "kernel/translator.h"
-#include "data/fdmsupportgroup.h"
 
 #include "kernel/kernelui.h"
 #include "interface/uiinterface.h"
@@ -24,7 +23,7 @@ namespace creative_kernel
         orderindex = 5;
         m_name = tr("Support");
         m_source = "qrc:/CrealityUI/secondqml/CusSupportPanel.qml";
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     SupportCommand::~SupportCommand()
@@ -33,7 +32,7 @@ namespace creative_kernel
 
     void SupportCommand::onThemeChanged(ThemeCategory category)
     {
-        setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/support_dark.svg" : "qrc:/UI/photo/leftBar/support_lite.svg");
+        setDisabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/support_dark_d.svg" : "qrc:/UI/photo/cToolBar/support_light_disable.svg");
         setEnabledIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/support_dark.svg" : "qrc:/UI/photo/leftBar/support_lite.svg");
         setHoveredIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/support_pressed.svg" : "qrc:/UI/photo/leftBar/support_lite.svg");
         setPressedIcon(category == ThemeCategory::tc_dark ? "qrc:/UI/photo/leftBar/support_pressed.svg" : "qrc:/UI/photo/leftBar/support_pressed.svg");

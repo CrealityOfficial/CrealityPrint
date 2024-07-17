@@ -13,7 +13,7 @@ namespace creative_kernel
         m_actionNameWithout = "FlowFineTuning";
         m_eParentMenu = eMenuType_Calibration;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     FlowFineTuningCommand::~FlowFineTuningCommand()

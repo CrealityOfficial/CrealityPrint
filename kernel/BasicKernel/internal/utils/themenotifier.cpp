@@ -8,6 +8,7 @@
 #include "data/kernelmacro.h"
 #include "entity/worldindicatorentity.h"
 #include "external/kernel/kernel.h"
+#include "internal/multi_printer/printermanager.h"
 
 namespace creative_kernel
 {
@@ -24,8 +25,6 @@ namespace creative_kernel
 
 	void ThemeNotifier::onThemeChanged(ThemeCategory theme)
 	{
-		PrinterEntity* entity = getCachedPrinterEntity();
-		
 		PrinterColorConfig printerConfig;
 		QVector4D clearColor;
 		switch (theme)
@@ -69,8 +68,9 @@ namespace creative_kernel
 				break;
 		}
 
-		entity->updatePrinterColor(printerConfig);
-		entity->setTheme((int)theme);
+		//entity->updatePrinterColor(printerConfig);
+		//entity->setTheme((int)theme);
+		getPrinterMangager()->setTheme((int)theme);
 		setModelClearColor(clearColor);
 
 		qtuser_3d::WorldIndicatorEntity* indicator = getIndicatorEntity();

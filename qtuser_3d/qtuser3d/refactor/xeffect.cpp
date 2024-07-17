@@ -44,6 +44,12 @@ namespace qtuser_3d
 		if(pass)
 			m_technique->addRenderPass(pass);
 	}
+	
+	void XEffect::removeRenderPass(XRenderPass* pass)
+	{
+		if(pass)
+			m_technique->removeRenderPass(pass);
+	}
 
 	int XEffect::renderPassCount()
 	{

@@ -3,17 +3,17 @@
 #include "qtuser3d/refactor/xentity.h"
 #include "qtuser3d/geometry/linecreatehelper.h"
 #include <Qt3DRender/QLineWidth>
+#include <Qt3DRender/QPolygonOffset>
 #include "qtuser3d/refactor/xeffect.h"
 
 namespace qtuser_3d {
 	OutlineEntity::OutlineEntity(Qt3DCore::QNode* parent) : XEntity(parent)
 	{
-		
-		XEffect* effect = new XEffect(this);
+		m_effect = new XEffect(this);
 
 		qtuser_3d::XRenderPass* pass = new qtuser_3d::XRenderPass("outline");
 		pass->setParameter("color", QVector4D(1.0f, 0.7529f, 0.0f, 1.0));
-		pass->addFilterKeyMask("view", 0);
+		pass->addFilterKeyMask("alpha", 0);
 		pass->setPassDepthTest();
 		pass->setPassCullFace();
 
@@ -21,10 +21,10 @@ namespace qtuser_3d {
 		lineWidth->setValue(3);
 		pass->addRenderState(lineWidth);
 
-		effect->addRenderPass(pass);
-		setEffect(effect);
+		m_effect->addRenderPass(pass);
+		setEffect(m_effect);
+		// effect()->setParameter("offset", 0.1);
 	}
-
 
 	OutlineEntity::~OutlineEntity()
 	{
@@ -52,6 +52,10 @@ namespace qtuser_3d {
 		updateGeometry(mergeRoute.size(), (float*)&mergeRoute.at(0), false);
 	}
 
+	void OutlineEntity::setOffset(float offset)
+	{
+		m_effect->setParameter("offset", offset);
+	}
 	// trimesh::vec3 OutlineEntity::triangleNormal(const trimesh::vec3& v1, const trimesh::vec3& v2, const trimesh::vec3& v3)
 	// {
 	// 	trimesh::vec3 v01 = v2 - v1;

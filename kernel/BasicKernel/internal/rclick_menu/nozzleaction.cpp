@@ -3,29 +3,61 @@
 #include "interface/modelinterface.h"
 #include "interface/commandinterface.h"
 #include "setnozzlerange.h"
+#include "internal/parameter/parametermanager.h"
+#include "internal/parameter/printextruder.h"
+#include "internal/parameter/printmachine.h"
 namespace creative_kernel
 {
-    NozzleAction::NozzleAction(int nNumber,QObject* parent)
+    NozzleAction::NozzleAction(int nozzleIndex,QObject* parent, QString currentColor)
     {
         this->setParent(parent);
-        m_nNumber = nNumber;
-        m_actionname = tr("Nozzle ") + QString::number(m_nNumber + 1);
+        m_NozzleIndex = nozzleIndex;
+
+        //根据当双喷机型改变菜单内容
+        PrintMachine* curMachine = ParameterManager::currentMachine_s();
+        int extruderCount = curMachine->extruderCount();
+        if (extruderCount == 1)
+        {
+            m_actionname = tr("Material ") + QString::number(m_NozzleIndex + 1);
+        }
+        else if (extruderCount == 2)
+        {
+            m_actionname = tr("Nozzle ") + QString::number(m_NozzleIndex + 1);
+        }
+
         m_actionNameWithout = "Nozzle";
         m_bSubMenu = true;
-
-        addUIVisualTracer(this);
+        m_bCheckable = true;
+        m_CurrentColor = currentColor;
+        addUIVisualTracer(this,this);
     }
 
     NozzleAction::~NozzleAction()
     {
+
+    }
+
+    void NozzleAction::setExtruderObj(PrintExtruder* extruderObj)
+    {
+        assert(extruderObj);
+        m_PrintExtruder = extruderObj;
+    }
+
+    QColor NozzleAction::nozzleColor()
+    {
+        return m_PrintExtruder->color();
+    }
+
+    void NozzleAction::setNozzleColor(QColor color)
+    {
+
     }
 
     void NozzleAction::execute()
     {
         SetNozzleRange* nozzlerange = qobject_cast<SetNozzleRange*>(parent());
-        setSelectionModelsNozzle(m_nNumber);
-        nozzlerange->updateNozzleCheckStatus(m_nNumber, this->bChecked());
-        
+        setSelectionModelsNozzle(m_NozzleIndex);
+        nozzlerange->updateNozzleCheckStatus(m_NozzleIndex, this->bChecked());
     }
 
     bool NozzleAction::enabled()
@@ -39,6 +71,16 @@ namespace creative_kernel
 
     void NozzleAction::onLanguageChanged(MultiLanguage language)
     {
-        m_actionname = tr("Nozzle ") + QString::number(m_nNumber + 1);
+        //根据当双喷机型改变菜单内容
+        PrintMachine* curMachine = ParameterManager::currentMachine_s();
+        int extruderCount = curMachine->extruderCount();
+        if (extruderCount == 1)
+        {
+            m_actionname = tr("Material ") + QString::number(m_NozzleIndex + 1);
+        }
+        else if (extruderCount == 2)
+        {
+            m_actionname = tr("Nozzle ") + QString::number(m_NozzleIndex + 1);
+        }
     }
 }

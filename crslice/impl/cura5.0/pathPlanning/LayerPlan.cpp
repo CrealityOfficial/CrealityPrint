@@ -508,7 +508,9 @@ bool LayerPlan::setExtruder(const size_t extruder_nr)
     { // first extruder plan in a layer might be empty, cause it is made with the last extruder planned in the previous layer
         extruder_plans.back().extruder_nr = extruder_nr;
     }
-    extruder_plans.emplace_back(extruder_nr, layer_nr, is_initial_layer, is_raft_layer, layer_thickness, fan_speed_layer_time_settings_per_extruder[extruder_nr], storage.retraction_config_per_extruder[extruder_nr]);
+    if( extruder_plans.back().extruder_nr!=extruder_nr){
+         extruder_plans.emplace_back(extruder_nr, layer_nr, is_initial_layer, is_raft_layer, layer_thickness, fan_speed_layer_time_settings_per_extruder[extruder_nr], storage.retraction_config_per_extruder[extruder_nr]);
+    }
     //assert(extruder_plans.size() <= application->scene->extruders.size() && "Never use the same extruder twice on one layer!");
     last_planned_extruder = &application->extruders()[extruder_nr];
 
@@ -2287,29 +2289,10 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
     const bool jerk_travel_enabled = mesh_group_settings.get<bool>("jerk_travel_enabled");
     std::string current_mesh = "";
 
-	std::vector<bool> extruder_used;
-	extruder_used.resize(16, false);
-	for (size_t extruder_plan_idx = 0; extruder_plan_idx < extruder_plans.size(); extruder_plan_idx++)
-	{
-		ExtruderPlan& extruder_plan = extruder_plans[extruder_plan_idx];
-		for (GCodePath& apath : extruder_plan.paths)
-		{
-			if (apath.config->type != PrintFeatureType::MoveCombing)
-			{
-				extruder_used[extruder_plan.extruder_nr] = true;
-				break;
-			}
-		}
-	}
-
     for (size_t extruder_plan_idx = 0; extruder_plan_idx < extruder_plans.size(); extruder_plan_idx++)
     {
         ExtruderPlan& extruder_plan = extruder_plans[extruder_plan_idx];
-		if (!extruder_used[extruder_plan.extruder_nr])
-		{
-			continue;
-		}
-        const RetractionConfig& retraction_config = storage.retraction_config_per_extruder[extruder_plan.extruder_nr];
+        const RetractionConfig& retraction_config = storage.retraction_config_per_extruder[0];
         coord_t z_hop_height = retraction_config.zHop;
 
         double cds_fan_speed = extruder_plan.cds_fan_speed;
@@ -2393,11 +2376,11 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
 
         bool update_extrusion_offset = true;
 
-        bool isAvoidPoint = false;//Í³ï¿½Æ±ï¿½ï¿½ï¿½ï¿½ËµÄµï¿½ ï¿½ï¿½ï¿½ï¿½G2G3ï¿½ï¿½ï¿½Ð¶ï¿½
+        bool isAvoidPoint = false;//Í³¼Æ±»¹ýÂËµÄµã ÓÃÓÚG2G3µÄÅÐ¶Ï
         bool  entireLayerSlowdown = false;
         /*float*/Acceleration speed_slowtofast_slowdown_revise_acceleration = application->sceneSettings().get<Acceleration>("speed_slowtofast_slowdown_revise_acceleration");
         if (application->sceneSettings().get<bool>("speed_slowtofast_slowdown"))
-        {//speedSlowDownPath ï¿½ï¿½ï¿½ï¿½ï¿½Â½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¶ï¿½Ë¶ï¿½pathï¿½Ç·ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½Í»ï¿½ï¿½
+        {//speedSlowDownPath ÖØÐÂÐÂ½¨µÄÒ»¸ö±äÁ¿£¬±êÊ¶´Ë¶ÎpathÊÇ·ñÓÐËÙ¶ÈÍ»±ä
             for (unsigned int path_idx = 0; path_idx < paths.size(); path_idx++)
             {
                 double speed = paths[path_idx].config->getSpeed();
@@ -2454,12 +2437,12 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
             if (! path.retract && path.config->isTravelPath() && path.points.size() == 1 && path.points[0] == gcode.getPositionXY() && z == gcode.getPositionZ())
             {
                 // ignore travel moves to the current location to avoid needless change of acceleration/jerk
-                isAvoidPoint = false;//Í³ï¿½Æ±ï¿½ï¿½ï¿½ï¿½ËµÄµï¿½ ï¿½ï¿½ï¿½ï¿½G2G3ï¿½ï¿½ï¿½Ð¶ï¿½
+                isAvoidPoint = false;//Í³¼Æ±»¹ýÂËµÄµã ÓÃÓÚG2G3µÄÅÐ¶Ï
                 continue;
             }
             else
             {
-                isAvoidPoint = true;//Í³ï¿½Æ±ï¿½ï¿½ï¿½ï¿½ËµÄµï¿½ ï¿½ï¿½ï¿½ï¿½G2G3ï¿½ï¿½ï¿½Ð¶ï¿½
+                isAvoidPoint = true;//Í³¼Æ±»¹ýÂËµÄµã ÓÃÓÚG2G3µÄÅÐ¶Ï
             }
 
             // In some cases we want to find the next non-travel move.
@@ -2885,7 +2868,7 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
                                 }
                                 double tolerance = application->sceneSettings().get<double>("arc_tolerance");
 
-                                //ï¿½ï¿½ï¿½Ä£Ê½ï¿½Â¼Ó´ï¿½Æ«ï¿½ï¿½Öµ
+                                //Ìî³äÄ£Ê½ÏÂ¼Ó´óÆ«²îÖµ
                                 if (PrintFeatureType::Infill == path.config->type)
                                     tolerance *= 2.0;
 
@@ -2893,7 +2876,7 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
                                 std::vector<Point> points;
                                 std::vector<PathFittingData> fitting_result;
 
-                                if(isAvoidPoint && !path.points.empty())//Í³ï¿½Æ±ï¿½ï¿½ï¿½ï¿½ËµÄµï¿½ ï¿½ï¿½ï¿½ï¿½G2G3ï¿½ï¿½ï¿½Ð¶ï¿½
+                                if(isAvoidPoint && !path.points.empty())//Í³¼Æ±»¹ýÂËµÄµã ÓÃÓÚG2G3µÄÅÐ¶Ï
                                 {
                                     if (path.points[0] != gcode.getPositionXY())
                                     {
@@ -2905,7 +2888,7 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
                                 do_arc_fitting(points, fitting_result, tolerance);
 
                                 float dis = 0;
-                                float dis_threshold = application->sceneSettings().get<coord_t>("speed_slowtofast_slowdown_revise_distance"); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î¾ï¿½ï¿½ë£¬ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½50
+                                float dis_threshold = application->sceneSettings().get<coord_t>("speed_slowtofast_slowdown_revise_distance"); //Èç¹û´óÓÚÕâÒ»¶Î¾àÀë£¬ÔòÊÇÔ­À´µÄËÙ¶È£¬·ñÔòËÙ¶È50
                                 bool slow2fastSlowdown = application->sceneSettings().get<bool>("speed_slowtofast_slowdown");
                                 // BBS: start to generate gcode from arc fitting data which includes line and arc
                                 for (size_t fitting_index = 0; fitting_index < fitting_result.size(); fitting_index++)
@@ -2922,7 +2905,7 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
                                         {
                                             const Point& gcodePt = points[point_index];
                                             if (slow2fastSlowdown && !wall_slow_OK  && judgeVelocityDip && (path.config->type == PrintFeatureType::OuterWall || path.config->type == PrintFeatureType::InnerWall))
-                                            {//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ó²¿·Öµï¿½Ô²ï¿½ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½caseï¿½ï¿½Arc_move_ccwï¿½ï¿½Linear_moveï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ùµï¿½ï¿½ï¿½ï¿½ÙµÄ¾ï¿½ï¿½ï¿½ï¿½ï¿½ã£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î¾ï¿½ï¿½ë£¬ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½50
+                                            {//¾­¹ý²âÊÔ´ó²¿·ÖµÄÔ²»¡¶¼ÊÇ¾­³£Õâ¸öcase£¬Arc_move_ccwºÍLinear_move¹²Í¬×é³ÉÁËÂýËÙµ½¿ìËÙµÄ¾àÀë¼ÆËã£¬Èç¹û´óÓÚÕâÒ»¶Î¾àÀë£¬ÔòÊÇÔ­À´µÄËÙ¶È£¬·ñÔòËÙ¶È50
                                                 extrude_speed = speed_quarter;
                                                 if (dis > dis_threshold)  wall_slow_OK = true;
                                             }
@@ -2954,11 +2937,11 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
                                         Point center_offset = gcode.getGcodePos(center.X, center.Y, gcode.getExtruderNr()) - gcode.getGcodePos(start_point.X, start_point.Y, gcode.getExtruderNr());
                                         double extrude_speed;// = speed * path.speed_back_pressure_factor;
                                         {
-                                            //ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½Ï¢
+                                            //ÆÁ±ÎËµÃ÷ÐÅÏ¢
                                             //std::stringstream ss;
                                             //ss << "do_arc_fitting start pos=" << INT2MM(start_point.X) << " " << INT2MM(start_point.Y) << " " << INT2MM(arc_length);
                                             //gcode.writeComment(ss.str());
-                                            //È·ï¿½ï¿½Ã¿ï¿½Î¶ï¿½ï¿½ï¿½Ô²ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½ï¿½
+                                            //È·±£Ã¿´Î¶¼ÔÚÔ²»¡ÄâºÏµÄÆðµã
                                             //gcode.writeArcSatrt(start_point);
                                         }
                                         extrude_speed = speed * path.speed_back_pressure_factor;
@@ -3051,7 +3034,7 @@ void LayerPlan::writeGCode(GCodeExport& gcode)
 							};
 
 
-							if (is_deceleration_speed)//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ã¿ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½Î¼ï¿½ï¿½ï¿½
+							if (is_deceleration_speed)//¿ÅÁ£»ú Ã¿²ãÆðÊ¼¶Î¼õËÙ
 							{
 								float length = application->sceneSettings().get<coord_t>("layer_deceleration_length");
 								float deceleration_speed = application->sceneSettings().get<Velocity>("layer_deceleration_speed");

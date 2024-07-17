@@ -5,5 +5,5 @@ repository: http://172.20.180.12:8050/yanfa4/core/cxkernel
 external_repository: http://172.20.180.12:8050/CrealityOfficial/cxkernel
 description: cxkernel
 topics: cxkernel,service
-build_deps: boost_static/1.0.0,cxbin/2.0.0,openssl/0.0.2,enchase/0.0.3,qhullwrapper/0.0.4,sensors_analytics_sdk/0.0.2,libtess2/0.0.1,nestplacer/1.3.0,topomesh/0.0.4
-search_deps: cxbin/2.0.0,trimesh2/0.0.3,qhullwrapper/0.0.4,nestplacer/1.3.0,topomesh/0.0.4
+build_deps: boost_static/1.0.0,cxbin/2.0.0,openssl/0.0.2,enchase/0.0.3,qhullwrapper/0.0.4,sensors_analytics_sdk/0.0.2,libtess2/0.0.1,nestplacer/3.0.0,topomesh/0.0.4
+search_deps: cxbin/2.0.0,trimesh2/0.0.3,qhullwrapper/0.0.4,nestplacer/3.0.0,topomesh/0.0.4

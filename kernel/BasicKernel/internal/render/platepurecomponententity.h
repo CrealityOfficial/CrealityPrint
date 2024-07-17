@@ -3,7 +3,6 @@
 
 #include "basickernelexport.h"
 #include "qtuser3d/refactor/xentity.h"
-#include "qtuser3d/geometry/roundedrectanglehelper.h"
 
 namespace creative_kernel{
 

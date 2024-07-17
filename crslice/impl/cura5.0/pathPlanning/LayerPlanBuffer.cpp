@@ -557,7 +557,8 @@ namespace cura52
             }
             bool wait = false;
             double time_after_path_start = extrusion_time_seen - cool_down_time;
-            precool_extruder_plan->insertCommand(path_idx, extruder, final_print_temp, wait, time_after_path_start);
+            precool_extruder_plan->insertCommand( precool_extruder_plan->paths.size() - 1, extruder, final_print_temp, wait, time_after_path_start);
+            // precool_extruder_plan->insertCommand( path_idx, extruder, final_print_temp, wait, time_after_path_start);
         }
     }
 

@@ -1,22 +1,13 @@
 <RCC>
     <qresource prefix="/translations">
+		<file>en.qm</file>
 		<file>zh_TW.qm</file>
 		<file>zh_CN.qm</file>
-		<file>en.qm</file>
-		<file>ko.qm</file>
-		<file>jp.qm</file>
-		<file>de.qm</file>
-		<file>es.qm</file>
-		<file>fr.qm</file>
-		<file>it.qm</file>
-		<file>pt.qm</file>
-		<file>ru.qm</file>
-		<file>tr.qm</file>
-		<file>pl.qm</file>
-		<file>nl.qm</file>
-		<file>cz.qm</file>
-		<file>hu.qm</file>
-		<file>se.qm</file>
-		<file>ua.qm</file>
+		<file>en_c3d.qm</file>
+		<file>zh_CN_c3d.qm</file>
+		<file>zh_TW_c3d.qm</file>
+		<file>en_orca.qm</file>
+		<file>zh_CN_orca.qm</file>
+		<file>zh_TW_orca.qm</file>
     </qresource>
 </RCC>

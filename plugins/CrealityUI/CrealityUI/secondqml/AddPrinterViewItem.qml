@@ -8,8 +8,8 @@ import "../secondqml"
 
 Rectangle {
     id: root
-    width: 307 * screenScaleFactor
-    height: 310 * screenScaleFactor
+    width: 280 * screenScaleFactor
+    height: 345 * screenScaleFactor
     radius: 10 * screenScaleFactor
     border.width: (itemChecked || Constants.currentTheme) ? 2 : 0
     border.color: itemChecked ? bSelection_border : background_border
@@ -37,18 +37,22 @@ Rectangle {
     property color addPrinter_text_default_color: "#1E9BE2"
     property color addPrinter_text_hovered_color: "#FFFFFF"
 
-    property alias addEnabled : idAddButton.enabled
+  //  property alias addEnabled : true  //idAddButton.enabled
 
+    signal reset()
     property string imageUrl: ""
     property string printerName: ""
+    property string printerCodeName: ""
     property bool is_sonic: printerName.startsWith("Fast-")
     property bool is_nebula: printerName.startsWith("Nebula-")
 
     signal addMachine(var machineName)
 
+    signal addPrinter(var machineName, var nozzle, var initCheck, var changeCheck)
+
     Item {
         width: parent.width - 2 * parent.border.width
-        height: 214 * screenScaleFactor
+        height: 220 * screenScaleFactor
 
         anchors.top: parent.top
         anchors.topMargin: parent.border.width
@@ -92,85 +96,96 @@ Rectangle {
         }
 
         Image {
-            anchors.fill: parent
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            // anchors.fill: parent
+            width:250 * screenScaleFactor
+            height:250 * screenScaleFactor
             anchors.margins: 12 * screenScaleFactor
 
             cache: false
             asynchronous: true
-            fillMode: Image.PreserveAspectFit
+            // fillMode: Image.PreserveAspectFit
             sourceSize: Qt.size(width, height)
             source: imageUrl
         }
     }
-    Rectangle {
+
+    CusRoundedBg{
         width: parent.width - 2 * parent.border.width
-        height: 96 * screenScaleFactor
+        height: 125 * screenScaleFactor
+        borderWidth:0
+        leftBottom:true
+        rightBottom:true
+        color: "#ffffff"
+        radius: 10* screenScaleFactor
         anchors.bottom: parent.bottom
         anchors.bottomMargin: parent.border.width
-        anchors.horizontalCenter: parent.horizontalCenter
-        color: lower_background_color
-        radius: 10
-        Text {
+        Column {
+            anchors.fill: parent
+            spacing: 15* screenScaleFactor
             anchors.left: parent.left
             anchors.leftMargin: 15 * screenScaleFactor
-            anchors.verticalCenter: parent.verticalCenter
-
-            font.weight: Font.Medium
-            font.family: Constants.mySystemFont.name
-            font.pointSize: Constants.labelFontPointSize_10
-            horizontalAlignment: Text.AlignLeft
-            verticalAlignment: Text.AlignVCenter
-            lineHeightMode: Text.FixedHeight
-            lineHeight: 24 * screenScaleFactor
-
-            text: "<font color='#999999'>" + qsTr("Print Depth")  + "：" + "</font>" + "<font color='#333333'>" + machineDepth  + " mm" + "</font>" + "<br>" +
-                  "<font color='#999999'>" + qsTr("Print Width")  + "：" + "</font>" + "<font color='#333333'>" + machineWidth  + " mm" + "</font>" + "<br>" +
-                  "<font color='#999999'>" + qsTr("Print Height") + "：" + "</font>" + "<font color='#333333'>" + machineHeight + " mm" + "</font>"
-        }
-
-        Column {
-            anchors.right: parent.right
-            anchors.rightMargin: 15 * screenScaleFactor
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 8 * screenScaleFactor
-
             Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                font.weight: Font.Bold
+                topPadding: 25* screenScaleFactor
+                font.weight: Font.Medium
                 font.family: Constants.mySystemFont.name
-                font.pointSize: Constants.labelFontPointSize_10
+                font.pointSize: Constants.labelFontPointSize_12
+                horizontalAlignment: Text.AlignLeft
+                verticalAlignment: Text.AlignVCenter
+                lineHeightMode: Text.FixedHeight
                 color: text_weight_color
                 text: printerName
             }
-
-            Button {
-                id: idAddButton
-                width: 110 * screenScaleFactor
-                height: 32 * screenScaleFactor
-                anchors.horizontalCenter: parent.horizontalCenter
-
-				enabled: true
-
-                background: Rectangle {
-                    color: parent.hovered ? addPrinter_hovered_color : addPrinter_default_color
-                    radius: height / 2
-                }
-
-                contentItem: Text
-                {
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font.weight: Font.Medium
-                    font.family: Constants.mySystemFont.name
-                    font.pointSize: Constants.labelFontPointSize_9
-                    color: parent.hovered ? addPrinter_text_hovered_color : addPrinter_text_default_color
-                    text: qsTr("Add")
-                }
-
-                onClicked: addMachine(printerName)
+            Text {
+                topPadding: 5* screenScaleFactor
+                font.family: Constants.mySystemFont.name
+                font.pointSize: Constants.labelFontPointSize_9
+                horizontalAlignment: Text.AlignLeft
+                verticalAlignment: Text.AlignVCenter
+                lineHeightMode: Text.FixedHeight
+                color: "#666666"
+                text: `${machineDepth}*${machineWidth}*${machineHeight} mm`
             }
+
+            Grid{
+                id:checkContainer
+                topPadding: 5* screenScaleFactor
+                columns: 2
+                columnSpacing: 50
+                rowSpacing: 10
+                Repeater {
+                    id: modelItem
+                    model: kernel_parameter_manager.extruderSupportDiameters(printerCodeName, 0)
+                    delegate: CusCheckBox {
+                        property bool initCheck: kernel_parameter_manager.machineNozzleSelectList(printerName).includes(modelData)
+                        checked: initCheck
+                        text: modelData + " mm"
+                        textColor: text_weight_color
+                        font.pointSize: Constants.labelFontPointSize_10
+                        onCheckedChanged: addPrinter(printerCodeName, modelData, initCheck, checked)                        
+                        Connections{
+                            target:kernel_parameter_manager
+                            function onMachineListChange(){
+                                initCheck = kernel_parameter_manager.machineNozzleSelectList(printerName).includes(modelData)
+
+                            }
+
+                        }
+
+                        Connections{
+                            target: root
+                            function onReset(){
+                                checked =initCheck
+                            }
+                        }
+                    }
+
+                }
+
+            }
+
         }
-    }
+
+}
 }

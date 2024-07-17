@@ -21,6 +21,11 @@ namespace qtuser_3d
 	{
 	}
 
+	void CameraMouseManipulator::setMouseSensitivity(float sensitivity)
+	{
+		m_mouseSensitivity = sensitivity;
+	}
+
 	void CameraMouseManipulator::setNeed360Rotate(bool is_need)
 	{
 		//
@@ -44,6 +49,11 @@ namespace qtuser_3d
 	void CameraMouseManipulator::setRotateCenter(const QVector3D& rotateCenter)
 	{
 		m_rotateCenter = rotateCenter;
+	}
+
+	QVector3D CameraMouseManipulator::rotateCenter() const
+	{
+		return m_rotateCenter;
 	}
 
 	void CameraMouseManipulator::setRotateSpeedDelta(float hDelta, float vDelta)

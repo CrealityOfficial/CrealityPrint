@@ -7,7 +7,7 @@ namespace us
 		:QObject(parent)
 		, m_itemDef(def)
 	{
-		
+
 		m_str = m_itemDef->defaultStr;
 		//assert(m_str != "default");
 	}
@@ -31,14 +31,21 @@ namespace us
 
 	void USetting::setValue(const QString& str)
 	{
-		
+
 		m_str = str;
 		//assert(m_str != "default");
 	}
 
-	QString USetting::key()
+	QString USetting::key() {
+		return m_itemDef ? m_itemDef->name : QString{};
+	}
+
+	void USetting::setStr(const QString& str)
 	{
-		return m_itemDef->name;
+		if (m_str == str)
+			return;
+		m_str = str;
+		emit strChanged();
 	}
 
 	float USetting::toFloat()
@@ -76,23 +83,13 @@ namespace us
 
 	int USetting::enumIndex()
 	{
-		int index = -1;
-
-		QMap<QString, QString> options = m_itemDef->options;
-		for (QMap<QString, QString>::const_iterator it = options.begin();
-			it != options.end(); ++it)
-		{
-			++index;
-			if (it.key() == m_str)
-				break;
+		for (auto index = 0; index < m_itemDef->options.size(); ++index) {
+			if (m_itemDef->options.at(index).first == m_str) {
+				return index;
+			}
 		}
-#if _DEBUG
-		//qDebug() << QString("USetting::enumIndex [%1] in: ").arg(m_value.toString());
-		//qDebug() << options;
-#endif
-		if (index == options.count())
-			index = -1;
-		return index;
+
+		return -1;
 	}
 
 	bool USetting::enabled()
@@ -132,20 +129,52 @@ namespace us
 
 	QString USetting::minStr()
 	{
-		const SettingItemDef* def = m_itemDef;
-		if (def->minimum != "")
-			return def->minimum;
+		if (!m_itemDef->minimum.isEmpty()) {
+			return m_itemDef->minimum;
+		} else if (!m_itemDef->miniwarning.isEmpty()) {
+			return m_itemDef->miniwarning;
+		}
 
-		return "0"; //def->miniwarning;
+		return QStringLiteral("0");
 	}
 
 	QString USetting::maxStr()
 	{
-		const SettingItemDef* def = m_itemDef;
-		if (def->maximum != "")
-			return def->maximum;
+		if (!m_itemDef->maximum.isEmpty()) {
+			return m_itemDef->maximum;
+		} else if (!m_itemDef->maxwarning.isEmpty()) {
+			return m_itemDef->maxwarning;
+		}
 
-		return "99999"; //def->maxwarning;
+		return QStringLiteral("99999");
+	}
+
+	bool USetting::meshSettable() {
+		return m_itemDef->settablePerMesh == QStringLiteral("true");
+	}
+
+	std::vector<trimesh::vec2> USetting::point2s()
+	{
+		QStringList strs = m_str.split(",");
+		std::vector<trimesh::vec2> values;
+		for (const QString& str : strs)
+		{
+			QStringList p = str.split("x");
+			if (p.size() == 2)
+			{
+				trimesh::vec2 v;
+				for (int i = 0; i < 2; ++i)
+				{
+					bool ok = false;
+					float f = p.at(i).toFloat(&ok);
+					if (ok)
+						v[i] = f;
+				}
+				values.push_back(v);
+			}
+		}
+
+		return values;
 	}
 
 	QVariantList USetting::enums()
@@ -161,10 +190,43 @@ namespace us
 				datas.append(QVariant::fromValue(QString("-1=")+QString("Not overridden")));
 				datas.append(QVariant::fromValue(QString("0=")+ QString("Extruder 1")));
 				datas.append(QVariant::fromValue(QString("1=")+QString("Extruder 2")));
+			} else {
+				for (auto iter = def->options.cbegin(); iter != def->options.cend(); ++iter) {
+					datas.append(QVariant::fromValue(QStringLiteral("%1=%2").arg(iter->first, iter->second)));
+				}
 			}
-			else if (def->type == "enum") {
-				for (QMap<QString, QString>::const_iterator it = def->options.constBegin(); it != def->options.constEnd(); ++it)
-					datas.append(QVariant::fromValue(it.key()+"="+ it.value()));
+		}
+
+		return datas;
+	}
+
+	QStringList USetting::optionKeys()
+	{
+		QStringList datas;
+		datas.clear();
+
+		const SettingItemDef* def = m_itemDef;
+		if (def)
+		{
+			if (def->type == "enum" || def->type == "coEnum") {
+				for (const auto& it : def->options)
+					datas.append(it.first);
+			}
+		}
+
+		return datas;
+	}
+
+	QVariantList USetting::options()
+	{
+		QVariantList datas;
+		datas.clear();
+
+		const SettingItemDef* def = m_itemDef;
+		if (def)
+		{if (def->type == "enum" || def->type == "coEnum") {
+				for (const auto& it : def->options)
+					datas.append(QVariant::fromValue(it.second));
 			}
 		}
 

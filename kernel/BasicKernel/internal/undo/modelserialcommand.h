@@ -5,6 +5,7 @@
 #include "cxkernel/data/modelndata.h"
 #include <QtWidgets/QUndoCommand>
 #include <QtGui/QQuaternion>
+#include "us/usettings.h"
 
 namespace creative_kernel
 {
@@ -17,13 +18,21 @@ namespace creative_kernel
 			trimesh::vec3 localPosition;
 			trimesh::vec3 localScale;
 			QQuaternion localQuaternion;
+			int defaultColor;
+			bool spreadColorFlag = false;
+			bool spreadSeamFlag = false;
+			bool spreadSupportFlag = false;
+			std::vector<std::string> colors;
+			std::vector<std::string> seams;
+			std::vector<std::string> supports;
+			us::USettings* settings { NULL };
 			//bool isHoneyFilled;  //ģ���Ƿ���й����ѻ������
 			//bool isHoneyHollowed;//ģ���Ƿ���й����ѳ�ǲ���
 		}SAVED_INFO;
 
 		Q_OBJECT
 	public:
-		ModelSerialCommand(QList<ModelN*>& removes, QList<ModelN*>& adds);
+		ModelSerialCommand(const QList<ModelN*>& removes, const QList<ModelN*>& adds);
 		virtual ~ModelSerialCommand();
 
 	protected:

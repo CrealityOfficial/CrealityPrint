@@ -13,7 +13,7 @@ namespace creative_kernel
         m_actionNameWithout = "About Us";
         m_eParentMenu = eMenuType_Help;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     AboutUsCommand::~AboutUsCommand()

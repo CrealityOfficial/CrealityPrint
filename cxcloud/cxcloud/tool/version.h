@@ -1,9 +1,7 @@
 #pragma once
 
-#ifndef CXCLOUD_TOOL_VERSION_H
-#define CXCLOUD_TOOL_VERSION_H
-
-#include <string>
+#ifndef CXCLOUD_TOOL_VERSION_H_
+#define CXCLOUD_TOOL_VERSION_H_
 
 #include <QtCore/QString>
 
@@ -11,59 +9,59 @@
 
 namespace cxcloud {
 
-class CXCLOUD_API Version final {
-public:
-  Version(uint32_t major = 0, uint32_t minor = 0, uint32_t patch = 0, uint32_t build = 0);
-  Version& operator=(const Version&) = default;
-  Version& operator=(Version&&) = default;
-  Version(const Version&) = default;
-  Version(Version&&) = default;
+  class CXCLOUD_API Version final {
+   public:
+    Version(int64_t major = 0, int64_t minor = 0, int64_t patch = 0, int64_t build = -1);
+    Version(const Version&) = default;
+    Version(Version&&) = default;
+    auto operator=(const Version&) -> Version& = default;
+    auto operator=(Version&&) -> Version& = default;
 
-  ~Version() = default;
+    ~Version() = default;
 
-public:
-  Version& operator=(const QString&);
-  Version(const QString&);
-  QString toString() const;
-  static Version FromString(const QString&);
+   public:
+    Version(const QString&);
+    auto operator=(const QString&) -> Version&;
+    static auto FromString(const QString&) -> Version;
+    auto toString() const -> QString;
 
-public:
-  uint32_t getMajor() const;
-  void setMajor(uint32_t major);
+   public:
+    auto getMajor() const -> uint32_t;
+    auto setMajor(int64_t major) -> void;
 
-  uint32_t getMinor() const;
-  void setMinor(uint32_t minor);
+    auto getMinor() const -> uint32_t;
+    auto setMinor(int64_t minor) -> void;
 
-  uint32_t getPatch() const;
-  void setPatch(uint32_t patch);
+    auto getPatch() const -> uint32_t;
+    auto setPatch(int64_t patch) -> void;
 
-  uint32_t getBuild() const;
-  void setBuild(uint32_t build);
+    auto getBuild() const -> uint32_t;
+    auto setBuild(int64_t build) -> void;
 
-public:
-  bool operator==(const Version& that) const;
-  bool operator!=(const Version& that) const;
-  bool operator<(const Version& that) const;
-  bool operator<=(const Version& that) const;
-  bool operator>(const Version& that) const;
-  bool operator>=(const Version& that) const;
+   public:
+    auto operator==(const Version& other) const -> bool;
+    auto operator!=(const Version& other) const -> bool;
+    auto operator<(const Version& other) const -> bool;
+    auto operator<=(const Version& other) const -> bool;
+    auto operator>(const Version& other) const -> bool;
+    auto operator>=(const Version& other) const -> bool;
 
-  bool isEqualTo(const Version& that) const;
-  bool isSmallerThan(const Version& that) const;
-  bool isBiggerThan(const Version& that) const;
+    auto isEqualTo(const Version& other) const -> bool;
+    auto isLessThan(const Version& other) const -> bool;
+    auto isGreaterThan(const Version& other) const -> bool;
 
-private:
-  uint32_t major_;
-  uint32_t minor_;
-  uint32_t patch_;
-  uint32_t build_;
-};
+   private:
+    int64_t major_{ -1 };
+    int64_t minor_{ -1 };
+    int64_t patch_{ -1 };
+    int64_t build_{ -1 };
+  };
 
-CXCLOUD_API QString VersionToString(const Version&);
-CXCLOUD_API Version StringToVersion(const QString&);
+  CXCLOUD_API auto VersionToString(const Version&) -> QString;
+  CXCLOUD_API auto StringToVersion(const QString&) -> Version;
 
-CXCLOUD_API Version operator""_v(const char* string, size_t size);
+  CXCLOUD_API auto operator""_v(const char* string, size_t size) -> Version;
 
 }  // namespace cxcloud
 
-#endif  // CXCLOUD_TOOL_VERSION_H
+#endif  // CXCLOUD_TOOL_VERSION_H_

@@ -14,14 +14,20 @@ namespace creative_kernel
 		MirrorUndoCommand(QObject* parent = nullptr);
 		virtual ~MirrorUndoCommand();
 
-		void setMirrors(const QList<NMirrorStruct>& mirrorStructs);
+		void setModels(const QList<ModelN*>& models);
+
+		// 0: x, 1: y, 2: z
+		void setMirrorMode(int mode);
+
 	protected:
 		void undo() override;
 		void redo() override;
 	private:
 		void call(bool reverse);
+		
 	protected:
-		QList<NMirrorStruct> m_mirrors;
+		QStringList m_serialNames;
+		int m_mode;
 	};
 }
 #endif // CREATIVE_KERNEL_MIRRORCOMMAND_1592874176854_H

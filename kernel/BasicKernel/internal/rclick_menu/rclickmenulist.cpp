@@ -7,10 +7,25 @@
 #include"internal/rclick_menu/resetallaction.h"
 #include"internal/rclick_menu/placeonprinterbed.h"
 #include"internal/rclick_menu/mergemodelaction.h"
+#include"internal/rclick_menu/mergemodellocation.h"
 #include"internal/rclick_menu/splitmodelaction.h"
 #include "internal/rclick_menu/setnozzlerange.h"
 #include"internal/rclick_menu/uploadmodelaction.h"
 #include "internal/rclick_menu/layoutcommand.h"
+#include "internal/rclick_menu/layoutplateaction.h"
+#include "internal/rclick_menu/simplifiedModel.h"
+#include "internal/rclick_menu/coverdModelAction.h"
+#include "internal/rclick_menu/selecttoolaction.h"
+#include "internal/rclick_menu/pickbottomaction.h"
+#include "internal/rclick_menu/lockplateaction.h"
+#include "internal/rclick_menu/deleteplateaction.h"
+#include "internal/rclick_menu/modelsettingaction.h"
+#include "internal/rclick_menu/selectprinterallaction.h"
+#include "internal/rclick_menu/clearprinteraction.h"
+#include "internal/rclick_menu/mergemodeltoprinteraction.h"
+
+#include "internal/menu/submenutestmodel.h"
+#include "internal/menu/submenurecentfiles.h"
 
 #include "interface/machineinterface.h"
 
@@ -23,6 +38,13 @@ namespace creative_kernel
         , m_nozzleRange(nullptr)
         , m_upAction(nullptr)
     {
+        m_recentFiles = SubMenuRecentFiles::getInstance();
+
+        m_testModels = SubMenuTestModel::getInstance();
+        m_testModels->setBSeparator(true);
+
+        // setNozzleCount(currentMachineExtruderCount());
+        // m_ExtruderColors = currentMachineExtruderColorList();
     }
 
     RClickMenuList::~RClickMenuList()
@@ -30,77 +52,110 @@ namespace creative_kernel
 
     }
 
-    void RClickMenuList::addActionCommad(ActionCommand* pAction)
+    void RClickMenuList::updateState()
     {
-        if (pAction)
-        {
-            m_varCommandList.push_back(pAction);
+        for (ActionCommand* command : m_commandsMap) {
+            if (command)
+                command->update();
         }
     }
 
-    void RClickMenuList::addActionCommad(ActionCommand* pAction, int index)
+    QVariantList RClickMenuList::noModelsMenuList()
     {
-        if (pAction == nullptr)
-            return;
-        if (index > m_varCommandList.size())
-            return;
-
-        m_varCommandList.insert(index, pAction);
-    }
-
-    void RClickMenuList::addActionCommad(ActionCommand* pAction, QString strInfo)
-    {
-        if (pAction == nullptr || m_varCommandList.isEmpty())
-            return;
-
-        int index = indexOfString(strInfo);
-        m_varCommandList.insert(index + 1, pAction);
-    }
-
-    int RClickMenuList::indexOfString(QString strInfo)
-    {
-        int index = -1;
-        if (m_varCommandList.isEmpty())
-            return index;
-
-        for (int i = 0; i < m_varCommandList.size(); i++)
-        {
-            if (m_varCommandList[i]->name() == strInfo)
-            {
-                index = i;
-                break;
-            }
-        }
-        return  index;
-    }
-
-    void RClickMenuList::removeActionCommand(ActionCommand* command)
-    {
-        int index = m_varCommandList.indexOf(command);
-        if (index >= 0 && index < m_varCommandList.size())
-        {
-            m_varCommandList.removeAt(index);
-        }
-    }
-
-    QVariantList RClickMenuList::getCommandsList()
-    {
-        startAddCommads();
-        setNozzleCount(currentMachineExtruderCount());
         QVariantList datas;
-        for (ActionCommand* command : m_varCommandList) {
+        for (ActionCommand* command : m_noModelMenuList) {
             datas.append(QVariant::fromValue(command));
         }
         return datas;
     }
-    QObject* RClickMenuList::getNozzleModel()
+
+    QVariantList RClickMenuList::singleModelMenuList()
+    {
+        QVariantList datas;
+        for (ActionCommand* command : m_singleModelMenuList) {
+            datas.insert(0, QVariant::fromValue(command));
+        }
+        return datas;
+    }
+
+    QVariantList RClickMenuList::multiModelsMenuList()
+    {  
+         QVariantList datas;
+          for (ActionCommand* command : m_multiModelsMenuList) {
+              datas.append(QVariant::fromValue(command));
+          }
+         return datas;
+    }
+
+    QObject* RClickMenuList::recentFilesModel()
+    {
+        if (m_menuType == Kernel::NoModelMenu)
+        {
+            return qobject_cast<QObject*>(m_recentFiles);
+        }
+        else 
+        {
+            return NULL;
+        }
+
+    }
+
+    QObject* RClickMenuList::testModelsModel()
+    {
+        if (m_menuType == Kernel::NoModelMenu)
+        {
+            return qobject_cast<QObject*>(m_testModels);
+        }
+        else 
+        {
+            return NULL;
+        }
+    }
+
+    QObject* RClickMenuList::nozzleModel()
     {
         return qobject_cast<QObject*>(m_nozzleRange);
     }
 
-    QObject* RClickMenuList::getUploadModel()
+    QObject* RClickMenuList::uploadModel()
     {
         return qobject_cast<QObject*>(m_upAction);
+    }
+
+    void RClickMenuList::setMenuType(int type)
+    {
+        if (m_menuType == type)
+            return;
+
+        m_menuType = type;
+    }
+
+    int RClickMenuList::menuType()
+    {
+        return m_menuType;
+    }
+
+    QObject* RClickMenuList::getActionObject(const QString& actionName)
+    {
+        if (m_commandsMap.isEmpty())
+            startAddCommads();
+        return (QObject*)m_commandsMap[actionName];
+    }
+
+    QObject* RClickMenuList::getSubMenuObject(const QString& menuName)
+    {
+        if (menuName == "recent files")
+        {
+            return (QObject*)m_recentFiles;
+        } 
+        else if (menuName == "test models")
+        {
+            return (QObject*)m_testModels;
+        }
+        else 
+        {
+            return NULL;
+        }
     }
 
     void RClickMenuList::setNozzleCount(int nCount)
@@ -110,54 +165,39 @@ namespace creative_kernel
 
     void RClickMenuList::startAddCommads()
     {
-        if (!m_nozzleRange)
-            m_nozzleRange = new SetNozzleRange(this);
+        m_commandsMap["select all"] = (ActionCommand*)(new SelectPrinterAllAction(this));
+        m_commandsMap["clear all"] = (ActionCommand*)(new ClearPrinterAction(this));
+        m_commandsMap["pick bottom"] = (ActionCommand*)(new PickBottomAction(this));
+        m_commandsMap["layout"] = (ActionCommand*)(new LayoutPlateAction(this));
+        m_commandsMap["delete plate"] = (ActionCommand*)(new DeletePlateAction(this));
+        m_commandsMap["lock plate"] = (ActionCommand*)(new LockPlateAction(this));
+        m_commandsMap["cover model"] = (ActionCommand*)(new CoverModelAction(this));
+        m_commandsMap["delete"] = (ActionCommand*)(new DeleteModelAction(this));
+        m_commandsMap["split model"] = (ActionCommand*)(new SplitModelAction(this));
+        m_commandsMap["import model"] = (ActionCommand*)(new ImportModelAction(this));
 
-        if (!m_upAction)
-            m_upAction = new UploadModelAction(this);
+        SelectToolAction* moveAction = new SelectToolAction("move", 0, this);
+        moveAction->setSource("qrc:/UI/photo/menuImg/move_n.svg");
+        moveAction->setIcon("qrc:/UI/photo/menuImg/move_p.svg");
+        moveAction->setShortcut("T");
+        m_commandsMap["move"] = (ActionCommand*)moveAction;
+        
+        SelectToolAction* rotateAction = new SelectToolAction("rotate", 1, this);
+        rotateAction->setSource("qrc:/UI/photo/menuImg/rotate_n.svg");
+        rotateAction->setIcon("qrc:/UI/photo/menuImg/rotate_p.svg");
+        // rotateAction->setShortcut("R");
+        rotateAction->setShortcut("R");
+        m_commandsMap["rotate"] = (ActionCommand*)(rotateAction);
+        
+        SelectToolAction* scaleAction = new SelectToolAction("scale", 10, this);
+        scaleAction->setSource("qrc:/UI/photo/menuImg/scale_n.svg");
+        scaleAction->setIcon("qrc:/UI/photo/menuImg/scale_p.svg");
+        scaleAction->setShortcut("Ctrl+R");
+        m_commandsMap["scale"] = (ActionCommand*)scaleAction;
 
-        if (m_varCommandList.isEmpty())
-        {
-            ImportModelAction* pFile = new ImportModelAction(this);
-            addActionCommad(pFile);
+        m_commandsMap["merge model"] = (ActionCommand*)(new MergeModelAction(this));
+        m_commandsMap["merge model location"] = (ActionCommand*)(new MergeModelToPrinterAction(this));
+        m_commandsMap["model setting"] = (ActionCommand*)(new ModelSettingAction(this));
 
-            DeleteModelAction* pFile2 = new DeleteModelAction(this);
-            addActionCommad(pFile2);
-            CloneAction* clone = new CloneAction(this);
-            addActionCommad(clone);
-            MergeModelAction* merge = new MergeModelAction(this);
-            addActionCommad(merge);
-            merge->setBSeparator(true);
-            SplitModelAction* split = new SplitModelAction(this);
-            addActionCommad(split);
-
-            SelectAllAction* select = new SelectAllAction(this);
-            addActionCommad(select);
-            select->setBSeparator(true);
-            LayoutCommand* layout = new LayoutCommand(this);
-            addActionCommad(layout);
-
-            //ResetAllAction* resetall = new ResetAllAction(this);
-            //addActionCommad(resetall);
-
-            ClearAllAction* clearAll = new ClearAllAction(this);
-            addActionCommad(clearAll);
-
-            PlaceOnPrinterBed* placeBed = new PlaceOnPrinterBed(this);
-            addActionCommad(placeBed);
-            placeBed->setBSeparator(true);
-            //OneSideAsBottomFace* oneSide = new OneSideAsBottomFace();
-            //addActionCommad(oneSide);
-
-            //UploadModelAction* uploadModel = new UploadModelAction(this);
-            //addActionCommad(uploadModel);
-            //addActionCommad(m_nozzleRange);
-        }
-        else {
-            Q_FOREACH(ActionCommand * pAction, m_varCommandList)
-            {
-                pAction->update();
-            }
-        }
     }
 }

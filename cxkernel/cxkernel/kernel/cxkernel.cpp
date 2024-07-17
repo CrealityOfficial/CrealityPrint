@@ -3,7 +3,7 @@
 #include <QtWidgets/QApplication>
 #include <QtCore/QFile>
 #include <QQuickView>
-
+#include <QStringList>
 #include "qtusercore/module/cxopenandsavefilemanager.h"
 #include "qtusercore/module/creativeplugincenter.h"
 #include "qtusercore/module/jobexecutor.h"
@@ -130,7 +130,10 @@ namespace cxkernel
 	{
 		return QLatin1String("qrc:/cxkernel/main.qml");
 	}
-
+	QStringList CXKernel::pluginFilter()
+	{
+		return QStringList();
+	}
 	bool CXKernel::loadQmlEngine(QObject* object, QQmlEngine& engine)
 	{
 		m_engine = &engine;
@@ -166,7 +169,15 @@ namespace cxkernel
 		m_qmlUI->setEngine(m_engine, m_context);
 
 		initializeContext();
-		m_creativePluginCenter->load();
+		QStringList pluginFilters = pluginFilter();
+		if (pluginFilters.size() == 0)
+		{
+			m_creativePluginCenter->load();
+		}
+		else
+		{
+			m_creativePluginCenter->loadByFilter(pluginFilters);
+		}
 
 		if (useFrameless())
 		{

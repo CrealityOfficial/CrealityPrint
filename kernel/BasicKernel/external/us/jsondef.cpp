@@ -104,14 +104,14 @@ namespace us
                         QString name = child->name.GetString();
                         QString values = child->value.GetString();
 
-                        itemDef->options.insert(name, values);
+                        itemDef->options.push_back(std::make_pair(name, values));
                     }
                 }
                 if (itemDef->type == "optional_extruder" || itemDef->type == "extruder")
                 {
-                    itemDef->options.insert(QString("-1"), QString("Not overridden"));
-                    itemDef->options.insert(QString("0"), QString("Extruder 1"));
-                    itemDef->options.insert(QString("1"), QString("Extruder 2"));
+                    itemDef->options.push_back(std::make_pair(QString("-1"), QString("Not overridden")));
+                    itemDef->options.push_back(std::make_pair(QString("0"), QString("Extruder 1")));
+                    itemDef->options.push_back(std::make_pair(QString("1"), QString("Extruder 2")));
                 }
             };
 
@@ -138,25 +138,21 @@ namespace us
                 }
             };
 
-            if (jsonDocument.HasMember("settings"))
+            int index = 0;
+            for (rapidjson::Value::ConstMemberIterator settingGroup = jsonDocument.MemberBegin();
+                settingGroup != jsonDocument.MemberEnd(); settingGroup++)
             {
-                const rapidjson::Value& settings = jsonDocument["settings"];
-                int index = 0;
-                for (rapidjson::Value::ConstMemberIterator settingGroup = settings.MemberBegin();
-                    settingGroup != settings.MemberEnd(); settingGroup++)
-                {
-                    QString name = settingGroup->name.GetString();
-                    const rapidjson::Value& value = settingGroup->value;
+                QString name = settingGroup->name.GetString();
+                const rapidjson::Value& value = settingGroup->value;
 
-                    SettingGroupDef* settingGroupDef = new SettingGroupDef(parent);
-                    settingGroupDef->order = index;
-                    settingGroupDef->key = name;
-                    defs.insert(name, settingGroupDef);
+                SettingGroupDef* settingGroupDef = new SettingGroupDef(parent);
+                settingGroupDef->order = index;
+                settingGroupDef->key = name;
+                defs.insert(name, settingGroupDef);
 
-                    qDebug() << QString("JsonDef::parse SettingGroup [%1].").arg(name);
-                    fillGroup(value, settingGroupDef); 
-                    ++index;
-                }
+                qDebug() << QString("JsonDef::parse SettingGroup [%1].").arg(name);
+                fillGroup(value, settingGroupDef);
+                ++index;
             }
         }
         

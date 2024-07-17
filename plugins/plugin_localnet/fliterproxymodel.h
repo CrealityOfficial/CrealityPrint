@@ -25,6 +25,8 @@ public:
 
     Q_INVOKABLE void setCurrentDevice(QString deviceName = "");
 
+     Q_INVOKABLE QObject* getDeviceObject(int index);
+
     //Q_PROPERTY
     QAbstractItemModel *cSourceModel() const;
     void setSourceModel(QAbstractItemModel *sourceModel) override;

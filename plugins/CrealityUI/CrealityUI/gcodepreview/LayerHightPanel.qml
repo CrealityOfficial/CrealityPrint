@@ -20,51 +20,53 @@ Rectangle {
     anchors.right: parent.right
 
     text: "%1 (%2)".arg(root.title).arg(root.unit)
-    color: Constants.textColor
+    color: "#FFFFFF" //Constants.textColor
     font.family: Constants.labelFontFamily
     font.weight: Constants.labelFontWeight
     font.pointSize: Constants.labelFontPointSize_9
   }
+  ScrollView{
+      ScrollBar.vertical.policy: contentHeight > height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+      ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+      anchors.top: title_label.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      anchors.topMargin: 10 * screenScaleFactor
+      clip: true
+    ListView {
+      clip: true
+      model: kernel_slice_model.layerHightModel
+      delegate: RowLayout {
+        width: parent.width
+        height: 20 * screenScaleFactor
+        spacing: 5 * screenScaleFactor
 
-  ListView {
-    anchors.top: title_label.bottom
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.bottom: parent.bottom
-    anchors.topMargin: 10 * screenScaleFactor
+        Rectangle {
+          id: color_rect
 
-    clip: true
+          Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
 
-    model: kernel_slice_model.layerHightModel
-    delegate: RowLayout {
-      width: parent.width
-      height: 20 * screenScaleFactor
-      spacing: 5 * screenScaleFactor
+          height: parent.height
+          width: height
+          color: model_color
+          border.width: 1 * screenScaleFactor
+        }
 
-      Rectangle {
-        id: color_rect
+        Label {
+          id: value_label
 
-        Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+          Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
 
-        height: parent.height
-        width: height
-        color: model_color
-        border.width: 1 * screenScaleFactor
+          text: String(model_value.toFixed(3))
+          color: "#FFFFFF"
+          font.family: Constants.labelFontFamily
+          font.weight: Constants.labelFontWeight
+          font.pointSize: Constants.labelFontPointSize_9
+        }
+
+        Item { Layout.fillWidth: true }
       }
-
-      Label {
-        id: value_label
-
-        Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
-
-        text: String(model_value.toFixed(3))
-        color: Constants.textColor
-        font.family: Constants.labelFontFamily
-        font.weight: Constants.labelFontWeight
-        font.pointSize: Constants.labelFontPointSize_9
-      }
-
-      Item { Layout.fillWidth: true }
     }
   }
 }

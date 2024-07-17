@@ -21,6 +21,7 @@ namespace qtuser_3d
 		void addPassFilter(int index, const QString& filter);
 		void removePassFilter(int passIndex, const QString& filterName, const QVariant& filterValue);
 		void addRenderPass(XRenderPass* pass);
+		void removeRenderPass(XRenderPass* pass);
 
 		void setPassCullFace(int index, Qt3DRender::QCullFace::CullingMode cullingMode = Qt3DRender::QCullFace::NoCulling);
 		void setPassBlend(int index, Qt3DRender::QBlendEquationArguments::Blending source = Qt3DRender::QBlendEquationArguments::SourceAlpha,

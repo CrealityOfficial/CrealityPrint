@@ -37,6 +37,9 @@ namespace cura52
     {
         friend class Scene; // cause WireFrame2Gcode uses the member [gcode] (TODO)
         friend class FffProcessor; //Because FffProcessor exposes finalize (TODO)
+    private:
+        coord_t max_object_height; //!< The maximal height of all previously sliced meshgroups, used to avoid collision when moving to the next meshgroup to print.
+
     public:
 
         /*
@@ -52,9 +55,6 @@ namespace cura52
          * It holds information such as the last written position etc.
          */
         GCodeExport gcode;
-    private:
-        coord_t max_object_height; //!< The maximal height of all previously sliced meshgroups, used to avoid collision when moving to the next meshgroup to print.
-
         /*!
          * For each raft/filler layer, the extruders to be used in that layer in the order in which they are going to be used.
          * The first number is the first raft layer. Indexing is shifted compared to normal negative layer numbers for raft/filler layers.
@@ -346,7 +346,20 @@ namespace cura52
          * \param gcode_layer The initial planning of the gcode of the layer.
          */
         void addMeshPartToGCode(const SliceDataStorage& storage, const SliceMeshStorage& mesh, const size_t extruder_nr, const PathConfigStorage::MeshPathConfigs& mesh_config, const SliceLayerPart& part, LayerPlan& gcode_layer) const;
-
+        
+        /*!
+         * Add all features of the given extruder from a single part from a given layer of a mesh-volume to the layer plan \p gcode_layer.
+         * This only adds the features which are printed with \p extruder_nr.
+         *
+         * \param[in] storage where the slice data is stored.
+         * \param storage Storage to get global settings from.
+         * \param mesh The mesh to add to the layer plan \p gcode_layer.
+         * \param extruder_nr The extruder for which to print all features of the mesh which should be printed with this extruder
+         * \param mesh_config the line config with which to print a print feature
+         * \param part The part to add
+         * \param gcode_layer The initial planning of the gcode of the layer.
+         */
+        void addMeshPartInfillToGCode(const SliceDataStorage& storage, const SliceMeshStorage& mesh, const size_t extruder_nr, const PathConfigStorage::MeshPathConfigs& mesh_config, const SliceLayerPart& part, LayerPlan& gcode_layer) const;
         /*!
          * \brief Add infill for a given part in a layer plan.
          *

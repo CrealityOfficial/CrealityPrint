@@ -1,0 +1,318 @@
+{
+	"cool_fan_enabled":
+	{
+		"label": "Enable Print Cooling",
+		"description": "Enables the print cooling fans while printing. The fans improve print quality on layers with short layer times and bridging / overhangs.",
+		"type": "bool",
+		"default_value": "true",
+		"parameter_level": "1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_fan_speed":
+	{
+		"label": "Fan Speed",
+		"description": "The speed at which the print cooling fans spin.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"parameter_level": "-1",
+		"default_value": "100",
+		"value": "eval(contex.value(\"cool_fan_enabled\")) ? 100.0 : 0.0",
+		"enabled": "eval(contex.value(\"cool_fan_enabled\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_fan_speed_min":
+	{
+		"label": "Regular Fan Speed",
+		"description": "The speed at which the fans spin before hitting the threshold. When a layer prints faster than the threshold, the fan speed gradually inclines towards the maximum fan speed.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"parameter_level": "1",
+		"value": "eval(contex.value(\"cool_fan_speed\"))",
+		"default_value": "100",
+		"enabled": "eval(contex.value(\"cool_fan_enabled\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_fan_speed_max":
+	{
+		"label": "Maximum Fan Speed",
+		"description": "The speed at which the fans spin on the minimum layer time. The fan speed gradually increases between the regular fan speed and maximum fan speed when the threshold is hit.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "Math.max((0, eval(contex.value(\"cool_fan_speed_min\"))))",
+		"maximum_value": "100",
+		"default_value": "100",
+		"parameter_level": "1",
+		"enabled": "eval(contex.value(\"cool_fan_enabled\"))",
+		"value": "eval(contex.value(\"cool_fan_speed\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_min_layer_time_fan_speed_max":
+	{
+		"label": "Regular/Maximum Fan Speed Threshold",
+		"description": "The layer time which sets the threshold between regular fan speed and maximum fan speed. Layers that print slower than this time use regular fan speed. For faster layers the fan speed gradually increases towards the maximum fan speed.",
+		"unit": "s",
+		"type": "float",
+		"default_value": "10",
+		"maximum_value_warning": "600",
+		"parameter_level": "1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_overhang_bridge_force_cooling":
+	{
+		"label": "Force Cooling for Onerhangs and Bridges",
+		"description": "Automatically optimize fan speed for overhangs/bridges for better cooling.",
+		"type": "bool",
+		"default_value": "true",
+		"parameter_level": "1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_overhang_threshold":
+	{
+		"label": "Force Cooling Overhang Threshold",
+		"description": "When the degree of overhang exceeds this value, the cooling fan is forced to a certain speed. 0% means that cooling is forced on all outer walls regardless of the degree of overhang.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "50",
+		"parameter_level": "2",
+		"enabled": "eval(contex.value(\"cool_overhang_bridge_force_cooling\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_overhang_fan_speed":
+	{
+		"label": "Fan Speed for overhangs/bridges",
+		"description": "When printing overhangs that exceed the threshold, the fan speed will increase to this value.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "100",
+		"parameter_level": "2",
+		"enabled": "eval(contex.value(\"cool_overhang_bridge_force_cooling\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_small_feature_fan_speed_factor":
+	{
+		"label": "Small Feature Fan Speed",
+		"description": "Feature outlines that are shorter than this length will be printed using Small Feature Speed.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"minimum_value": "1",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "100",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"bridge_fan_speed":
+	{
+		"label": "Bridge Fan Speed",
+		"description": "Percentage fan speed to use when printing bridge walls and skin.",
+		"unit": "%",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "100",
+		"type": "float",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"bridge_fan_speed_2":
+	{
+		"label": "Bridge Second Skin Fan Speed",
+		"description": "Percentage fan speed to use when printing the second bridge skin layer.",
+		"unit": "%",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "0",
+		"type": "float",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"settable_per_mesh": true
+	},
+	"bridge_fan_speed_3":
+	{
+		"label": "Bridge Third Skin Fan Speed",
+		"description": "Percentage fan speed to use when printing the third bridge skin layer.",
+		"unit": "%",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "0",
+		"type": "float",
+		"enabled": "eval(contex.value(\"bridge_settings_enabled\")) && eval(contex.value(\"bridge_enable_more_layers\"))",
+		"settable_per_mesh": true
+	},
+	"support_supported_skin_fan_speed":
+	{
+		"label": "Supported Skin Fan Speed",
+		"description": "The percentage speed of the fan used when printing the surface area directly above the support. Using a high fan speed can make the support easier to remove.",
+		"unit": "%",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "100",
+		"type": "float",
+		"parameter_level": "1",
+		"settable_per_mesh": false
+	},
+	"cool_fan_speed_0":
+	{
+		"label": "Initial Fan Speed",
+		"description": "The speed at which the fans spin at the start of the print. In subsequent layers the fan speed is gradually increased up to the layer corresponding to Regular Fan Speed at Height.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "0",
+		"parameter_level": "1",
+		"enabled": "eval(contex.value(\"cool_fan_enabled\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_fan_full_at_height":
+	{
+		"label": "Regular Fan Speed at Height",
+		"description": "The height at which the fans spin on regular fan speed. At the layers below the fan speed gradually increases from Initial Fan Speed to Regular Fan Speed.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.5",
+		"value": "getEnumValue(\"adhesion_type\") == 'raft' ? 0 : eval(contex.value(\"layer_height_0\"))",
+		"minimum_value": "0",
+		"maximum_value_warning": "10.0",
+		"parameter_level": "-2",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_fan_full_layer":
+	{
+		"label": "Regular Fan Speed at Layer",
+		"description": "The layer at which the fans spin on regular fan speed. If regular fan speed at height is set, this value will be calculated and rounded to a whole number.",
+		"type": "int",
+		"default_value": "2",
+		"minimum_value": "1",
+		"maximum_value_warning": "10 / eval(contex.value(\"layer_height\"))",
+		"parameter_level": "1",
+		"value": "Math.max(1, Number(Math.floor((eval(contex.value(\"cool_fan_full_at_height\")) - eval(contex.value(\"layer_height_0\"))) / eval(contex.value(\"layer_height\"))) + 2))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_min_layer_time":
+	{
+		"label": "Minimum Layer Time",
+		"description": "The minimum time spent in a layer. This forces the printer to slow down, to at least spend the time set here in one layer. This allows the printed material to cool down properly before printing the next layer. Layers may still take shorter than the minimal layer time if Lift Head is disabled and if the Minimum Speed would otherwise be violated.",
+		"unit": "s",
+		"type": "float",
+		"default_value": "5",
+		"minimum_value": "0",
+		"maximum_value_warning": "600",
+		"parameter_level": "1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_infill_speed_slowdown_first":
+	{
+		"label": "Infill Speed Slowdown First",
+		"description": "",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"cool_min_layer_time\")) > 0",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_min_speed":
+	{
+		"label": "Minimum Speed",
+		"description": "The minimum print speed, despite slowing down due to the minimum layer time. When the printer decelerates too much, the pressure in the nozzle would be too low and result in bad print quality.",
+		"unit": "mm/s",
+		"type": "float",
+		"default_value": "10",
+		"minimum_value": "0",
+		"maximum_value_warning": "100",
+		"parameter_level": "1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_lift_head":
+	{
+		"label": "Lift Head",
+		"description": "When the minimum speed is hit because of minimum layer time, lift the head away from the print and wait the extra time until the minimum layer time is reached.",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_cds_fan_enable":
+	{
+		"label": "Enable Cds Cooling Fan",
+		"description": "Enables the cds cooling fans while printing.",
+		"type": "bool",
+		"default_value": "false",
+		"parameter_level": "1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"enabled": "eval(contex.value(\"cool_fan_enabled\"))"
+	},
+	"cool_cds_fan_speed":
+	{
+		"label": "Cds Fan Speed",
+		"description": "The speed at which the cds cooling fans spin.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"parameter_level": "2",
+		"default_value": "80",
+		"enabled": "eval(contex.value(\"cool_cds_fan_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_special_cds_fan_speed":
+	{
+		"label": "Special Cds Fan Speed",
+		"description": "The speed at which the cds cooling fans spin on special zones(bridge,overhand,etc.).",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"parameter_level": "2",
+		"default_value": "100",
+		"enabled": "eval(contex.value(\"cool_cds_fan_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_cds_fan_start_at_height":
+	{
+		"label": "Regular Cds Fan Speed at Height",
+		"description": "The height at which the Cds fans spin on regular fan speed. ",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "500",
+		"parameter_level": "2",
+		"default_value": "0.5",
+		"enabled": "eval(contex.value(\"cool_cds_fan_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"cool_chamber_fan_enable":
+	{
+		"label": "Enable Chamber Cooling Fan",
+		"description": "Enables the chamber cooling fans while printing.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"cool_fan_enabled\")) && eval(contex.value(\"machine_chamber_fan_exist\"))",
+		"parameter_level": "1",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	}
+}

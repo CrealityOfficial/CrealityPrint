@@ -58,22 +58,22 @@ Rectangle {
         spacing: 10 * screenScaleFactor
         anchors.fill: parent
 
-        PanelComponent {
+        PanelTitle {
             id: configTitle
             height: 60* screenScaleFactor
-            imgUrl: "qrc:/UI/photo/paramPanel.png"
+            image: "qrc:/UI/photo/paramPanel.png"
             title: qsTr("Configure")
-            topLineEnabled: true
+            // topLineEnabled: true
         }
 
-        ScrollView {
+        BasicScrollView {
             x : 3 * screenScaleFactor
             width: parent.width - x * 2
             height: parent.height - configTitle.height - parent.spacing
             clip : true
 
-//            hPolicy: ScrollBar.AlwaysOff
-//            vPolicy: ScrollBar.AsNeeded
+            hPolicy: ScrollBar.AlwaysOff
+            vPolicy: ScrollBar.AsNeeded
 
             Column {
                 width: parent.width

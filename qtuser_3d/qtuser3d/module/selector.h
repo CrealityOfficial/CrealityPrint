@@ -20,6 +20,8 @@ namespace qtuser_3d
 
 		void addPickable(qtuser_3d::Pickable* pickable);
 		void removePickable(qtuser_3d::Pickable* pickable);
+		void addPickables(QList<qtuser_3d::Pickable*> pickables);
+		void removePickables(QList<qtuser_3d::Pickable*> pickables);
 		void addTracer(qtuser_3d::SelectorTracer* tracer);
 		void removeTracer(qtuser_3d::SelectorTracer* tracer);
 		QList<qtuser_3d::Pickable*> selectionmPickables();
@@ -34,7 +36,7 @@ namespace qtuser_3d
 		void selectPickable(qtuser_3d::Pickable* pickable);
 		void appendSelect(qtuser_3d::Pickable* pickable);
 		void appendSelects(const QList<qtuser_3d::Pickable*> pickables);
-		void selectGroup(qtuser_3d::Pickable* pickable);
+		virtual void selectGroup(qtuser_3d::Pickable* pickable);
 		void updateFaceBases();
 
 		void selectOne(qtuser_3d::Pickable* pickable);
@@ -45,7 +47,7 @@ namespace qtuser_3d
 
 		void selectPickables(const QList<qtuser_3d::Pickable*>& onList, const QList<qtuser_3d::Pickable*>& offList);
 		
-		void selectRect(const QRect& rect, bool exclude = true);
+		virtual void selectRect(const QRect& rect, bool exclude = true);
 
 
 		Q_INVOKABLE void selectAll();

@@ -9,8 +9,12 @@ LeftPanelDialog
 {
     id:idControl
     width: 300* screenScaleFactor
-    height: 420* screenScaleFactor
+    height: 500* screenScaleFactor
     title: qsTr("Letter")
+    onVisibleChanged:
+    {
+        idLetterScene.visible = visible
+    }
     property var com
 
     QtObject
@@ -24,9 +28,11 @@ LeftPanelDialog
 
     function execute()
     {
-
     }
-    
+    Component.onCompleted:
+    {
+        idLetterScene.visible = true
+    }
     LetterScene
     {
         id : idLetterScene
@@ -34,7 +40,7 @@ LeftPanelDialog
         anchors.fill: parent
         winWidth: parent.width
         winHeight: parent.height
-        visible: idControl.visible
+//        visible: idControl.visible
 
         MouseArea{
             anchors.fill: parent
@@ -67,7 +73,7 @@ LeftPanelDialog
         BasicButton {
             id : idLetter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 10
+            anchors.bottomMargin: 20 * screenScaleFactor
             property var bottonSelected: true
             width: 258* screenScaleFactor
             height: 28* screenScaleFactor

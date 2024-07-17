@@ -102,6 +102,31 @@ namespace qtuser_3d {
         adaptCamera(DEFAUT_ANGLE);
     }
 
+    void WorldIndicatorEntity::topCameraAngle() {
+        constexpr int TOP{ 1 << 5 };
+        adaptCamera(TOP);
+    }
+    void WorldIndicatorEntity::bottomCameraAngle() {
+        constexpr int BOTTOM{ 1 << 4 };
+        adaptCamera(BOTTOM);
+    }
+    void WorldIndicatorEntity::leftCameraAngle() {
+        constexpr int LEFT{ 1 << 2 };
+        adaptCamera(LEFT);
+    }
+     void WorldIndicatorEntity::rightCameraAngle() {
+        constexpr int RIGHT{ 1 << 3 };
+        adaptCamera(RIGHT);
+    }
+     void WorldIndicatorEntity::frontCameraAngle() {
+        constexpr int FRONT{ 1 << 0 };
+        adaptCamera(FRONT);
+    }
+     void WorldIndicatorEntity::backCameraAngle() {
+        constexpr int BACK{ 1 << 1 };
+        adaptCamera(BACK);
+    }
+
 
     void WorldIndicatorEntity::setViewport(float x, float y, float w, float h)
     {
@@ -369,8 +394,13 @@ namespace qtuser_3d {
         {
             if (m_darkTextureUrl.isEmpty() == false)
             {
+                setParameter("colorMap", 0);
                 Qt3DRender::QTexture2D* t = qtuser_3d::createFromSource(m_darkTextureUrl);
-                setParameter("colorMap", QVariant::fromValue(t));
+                if (t)
+                {
+                    setParameter("colorMap", QVariant::fromValue(t));
+                }
+                
             }
 			setParameter("diffuseLowerLimit", 0.6);
 			setParameter("diffuseUpperLimit", 1.1);
@@ -381,8 +411,12 @@ namespace qtuser_3d {
         {
             if (m_lightTextureUrl.isEmpty() == false)
             {
+                setParameter("colorMap", 0);
                 Qt3DRender::QTexture2D* t = qtuser_3d::createFromSource(m_lightTextureUrl);
-                setParameter("colorMap", QVariant::fromValue(t));
+                if (t)
+                {
+                    setParameter("colorMap", QVariant::fromValue(t));
+                }
             }
 			setParameter("diffuseLowerLimit", 0.95);
 			setParameter("diffuseUpperLimit", 1.1);

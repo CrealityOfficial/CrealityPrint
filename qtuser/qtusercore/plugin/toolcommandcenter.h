@@ -25,7 +25,7 @@ namespace qtuser_qml
 
 		QList<ToolCommand*> getToolCommandList();
 		void refreshModel();
-
+		Q_INVOKABLE void orderModel();
 	protected:
 		int rowCount(const QModelIndex& parent) const override;
 		int columnCount(const QModelIndex& parent) const override;

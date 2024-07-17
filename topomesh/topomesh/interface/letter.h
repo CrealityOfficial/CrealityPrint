@@ -10,7 +10,6 @@ namespace topomesh
 		float deep = 2.0f;
 
 		//debug
-		bool cacheInput = false;
 		std::string fileName;
 	};
 
@@ -27,6 +26,11 @@ namespace topomesh
 		LetterDebugger* debugger = nullptr, ccglobal::Tracer* tracer = nullptr);
 
 	TOPOMESH_API trimesh::TriMesh* letterFromFile(const std::string& fileName, LetterDebugger* debugger = nullptr, ccglobal::Tracer* tracer = nullptr);
+
+	TOPOMESH_API void embedingAndCutting(trimesh::TriMesh* mesh, const std::vector<std::vector<trimesh::vec2>>& lines,
+		std::vector<int>& facesIndex, bool is_close = true);
+
+	TOPOMESH_API void polygonInnerFaces(trimesh::TriMesh* mesh, std::vector<std::vector<std::vector<trimesh::vec2>>>& poly, std::vector<int>& infaceIndex, std::vector<int>& outfaceIndex);
 }
 
 #endif // TOPOMESH_LETTER_1692613164094_H

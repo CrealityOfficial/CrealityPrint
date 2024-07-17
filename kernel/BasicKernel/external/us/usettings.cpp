@@ -5,6 +5,8 @@
 #include <QtCore/QDebug>
 #include <QSettings>
 #include "internal/parameter/parameterpath.h"
+#include <QJsonObject>
+#include <QJsonDocument>
 
 namespace us
 {
@@ -34,28 +36,37 @@ namespace us
 			QHash<QString, us::USetting*>::iterator insertIt = m_hashsettings.find(setting->key());
 			if (insertIt != m_hashsettings.end())
 			{
-				insertIt.value() = setting;
+				us::USetting*& current_setting = insertIt.value();
+				bool value_changed = current_setting && current_setting->str() != setting->str();
+
+				current_setting = setting;
+
+				if (value_changed)
+				{
+					settingValueChanged(setting->key(), setting);
+				}
 			}
 			else
 			{
-				m_hashsettings.insert(setting->key(), setting);
+				emplace(setting->key(), setting);
 			}
 		}
 	}
 
-	void USettings::add(const QString& key, const QString& value, bool cover)
-	{
-		QHash<QString, us::USetting*>::const_iterator it = m_hashsettings.find(key);
-		if (it != m_hashsettings.end())
-		{
-			if (cover)
-				it.value()->setValue(value);
+	bool USettings::add(const QString& key, const QString& value, bool cover) {
+		auto iter = m_hashsettings.find(key);
+		if (iter == m_hashsettings.cend()) {
+			auto* setting = SETTING2(key, value);
+			if (setting) {
+				emplace(key, setting);
+				return true;
+			}
+		} else if (cover) {
+			iter.value()->setStr(value);
+			return true;
 		}
-		else
-		{
-			USetting* s = SETTING2(key, value);
-			m_hashsettings.insert(key, s);
-		}
+
+		return false;
 	}
 
 	void USettings::merge(USettings* settings)
@@ -63,18 +74,17 @@ namespace us
 		if (settings)
 		{
 			const QHash<QString, USetting*>& mergeSettings = settings->m_hashsettings;
-			for (QHash<QString, us::USetting*>::const_iterator it = mergeSettings.begin(); it != mergeSettings.end(); ++it)
+			for (const auto& it : mergeSettings.keys())
 			{
-				QHash<QString, us::USetting*>::iterator insertIt = m_hashsettings.find(it.key());
-				if (insertIt != m_hashsettings.end())
+				if (m_hashsettings.contains(it))
 				{
-					insertIt.value()->setValue(it.value()->str());   // replace value
+					m_hashsettings[it]->setStr(mergeSettings[it]->str());   // replace value
 				}
 				else
 				{
-					USetting* setting = it.value()->clone();
+					USetting* setting = mergeSettings[it]->clone();
 					setting->setParent(this);
-					m_hashsettings.insert(it.key(), setting);     //insert
+					emplace(it, setting);     //insert
 				}
 			}
 		}
@@ -88,13 +98,13 @@ namespace us
 			QHash<QString, us::USetting*>::iterator insertIt = m_hashsettings.find(it.key());
 			if (insertIt != m_hashsettings.end())
 			{
-				insertIt.value()->setValue(it.value());   // replace value
+				insertIt.value()->setStr(it.value());   // replace value
 			}
 			else
 			{
 				USetting* setting = SETTING2(it.key(), it.value());
 				setting->setParent(this);
-				m_hashsettings.insert(it.key(), setting);     //insert
+				emplace(it.key(), setting);     //insert
 			}
 		}
 	}
@@ -109,32 +119,64 @@ namespace us
 				QHash<QString, us::USetting*>::iterator insertIt = m_hashsettings.find(it.key());
 				if (insertIt != m_hashsettings.end())
 				{
-					//insertIt.value()->setValue(it.value()->value());   // replace value
+					//insertIt.value()->setStr(it.value()->value());   // replace value
 				}
 				else
 				{
 					USetting* setting = it.value()->clone();
 					setting->setParent(this);
-					m_hashsettings.insert(it.key(), setting);     //insert
+					emplace(it.key(), setting);     //insert
 				}
 			}
 		}
 	}
 
+	QHash<QString, USetting*>::iterator USettings::emplace(const QString& key, USetting* setting) {
+		auto iter = m_hashsettings.insert(key, setting);
 
-    void USettings::clear()
-    {
-        m_hashsettings.clear();
-    }
-	
+		connect(setting, &USetting::strChanged,
+						this, std::bind(&USettings::settingValueChanged, this, setting->key(), setting),
+						Qt::ConnectionType::UniqueConnection);
+
+		settingEmplaced(key, setting);
+		settingsChanged(key, setting);
+		return iter;
+	}
+
+	int USettings::erase(const QString& key) {
+		auto count = m_hashsettings.remove(key);
+		settingErased(key);
+		settingsChanged(key, nullptr);
+		return count;
+	}
+
+	void USettings::clear() {
+		settingCleared();
+		m_hashsettings.clear();
+		settingsChanged({}, nullptr);
+	}
+
 	void USettings::deleteValueByKey(const QString& key)
 	{
-		m_hashsettings.remove(key);
+		erase(key);
 	}
 
     const QHash<QString, USetting*>& USettings::settings() const
 	{
 		return m_hashsettings;
+	}
+
+	std::map<std::string, std::string> USettings::toStdMaps()
+	{
+		std::map<std::string, std::string> ss;
+		for (QHash<QString, us::USetting*>::const_iterator it = m_hashsettings.begin();
+			it != m_hashsettings.end(); ++it)
+		{
+			ss.insert(std::pair<std::string, std::string>(it.key().toLocal8Bit().data(), 
+				it.value()->str().toLocal8Bit().data()));
+		}
+
+		return ss;
 	}
 
 	void USettings::print()
@@ -170,7 +212,7 @@ namespace us
 			it != hashItemDef.end(); ++it)
 		{
 			if (!m_hashsettings.contains(it.key()))
-				m_hashsettings.insert(it.key(), us::SettingDef::instance().create(it.key()));
+				emplace(it.key(), us::SettingDef::instance().create(it.key()));
 		}
 	}
 
@@ -180,7 +222,7 @@ namespace us
 		for (QHash<QString, us::SettingItemDef*>::iterator it = hashItemDef.begin();
 			it != hashItemDef.end(); ++it)
 		{
-			m_hashsettings.insert(it.key(), us::SettingDef::instance().create(it.key()));
+			emplace(it.key(), us::SettingDef::instance().create(it.key()));
 		}
 	}
 
@@ -192,11 +234,7 @@ namespace us
 		{
 			valueStr = it.value()->str();
 		}
-		else
-		{
-			//qDebug() << "USettings value" << key << " failed ! use default value " << defaultValue;
-		}
-		
+
 		return valueStr;
 	}
 
@@ -208,13 +246,39 @@ namespace us
 		{
 			value = QVariant(it.value()->str());
 		}
-		else
-		{
-			qDebug() << QString("USettings vvalue key [%1] failed! use default value [%2].")
-				.arg(key).arg(defaultValue.toString());
-		}
 
 		return value;
+	}
+
+	QVariantList USettings::enums(const QString& key)
+	{
+		auto it = m_hashsettings.find(key);
+		if (it != m_hashsettings.end())
+		{
+			return it.value()->options();
+		}
+		return QVariantList();
+	}
+
+	QStringList USettings::enumKeys(const QString& key)
+	{
+		auto it = m_hashsettings.find(key);
+		if (it != m_hashsettings.end())
+		{
+			return it.value()->optionKeys();
+		}
+		return QStringList();
+	}
+
+	std::vector<trimesh::vec2> USettings::point2s(const QString& key)
+	{
+		std::vector<trimesh::vec2> values;
+		auto it = m_hashsettings.find(key);
+		if (it != m_hashsettings.end())
+		{
+			values = it.value()->point2s();
+		}
+		return values;
 	}
 
 	QList<USetting*> USettings::filter(const QString& category, const QString& filter, bool professional)
@@ -227,8 +291,8 @@ namespace us
 			if (def->category == category || category=="")
 			{
 				bool levelOK = false;
-				if ((professional && def->level <= 4)
-					|| (!professional && def->level <= 2))
+				//if ((professional && def->level <= 4)
+				//	|| (!professional && def->level <= 2))
 					levelOK = true;
 				if (levelOK)
 				{
@@ -258,69 +322,64 @@ namespace us
 		return settings;
 	}
 
-	QList<USetting*> USettings::materialParameters(const QString& categoy)
-	{
-		QList<USetting*> settings;
-		QStringList keys = creative_kernel::loadMaterialKeys(categoy);
-		for (const QString& key : keys)
-		{
-			QHash<QString, us::USetting*>::const_iterator it = m_hashsettings.find(key);
-			if (it != m_hashsettings.end())
-				settings.append(it.value());
-		}
-		return settings;
-	}
-
-	QList<USetting*> USettings::extruderParameters(const QString& categoy, const bool& professional)
-	{
-		QList<USetting*> settings;
-		QStringList keys = creative_kernel::loadExtruderKeys(categoy);
-		for (const QString& key : keys)
-		{
-			QHash<QString, us::USetting*>::const_iterator it = m_hashsettings.find(key);
-			if (it == m_hashsettings.end()) {
-				continue;
-			}
-
-			us::SettingItemDef* def = it.value()->def();
-			if ((professional && def->level <= 3)
-				|| (!professional && def->level <= 2)) {
-				settings.append(it.value());
-			}
-		}
-		return settings;
-	}
-
-	QList<USetting*> USettings::machineParameters(const QString& categoy, const QString& subCategory)
-	{
-		QList<USetting*> settings;
-		QStringList keys = creative_kernel::loadMachineKeys(categoy);
-		for (const QString& key : keys)
-		{
-			if (!subCategory.isEmpty() && !key.contains(subCategory))
-			{
-				continue;
-			}
-			if (m_hashsettings.contains(key))
-			{
-				settings.append(m_hashsettings[key]);
-			}
-		}
-		return settings;
-	}
-
 	USetting* USettings::findSetting(const QString& key)
 	{
 		QHash<QString, USetting*>::iterator it = m_hashsettings.find(key);
 		if (it != m_hashsettings.end())
+		{
 			return it.value();
-		
-		qDebug() << QString("USettings findSetting [%1] failed!.").arg(key);
+		}
+
 		return nullptr;
 	}
+
+	USetting* USettings::findSettingDelegated(const QString& key) {
+		auto* setting = findSetting(key);
+		if (setting) {
+			return setting;
+		}
+
+		for (const auto& sub_settings : delegated_settings_list_) {
+			if (!sub_settings) {
+				continue;
+			}
+
+			setting = sub_settings->findSettingDelegated(key);
+			if (setting) {
+				return setting;
+			}
+		}
+
+		return nullptr;
+	}
+
+	std::list<QPointer<USettings>>& USettings::delegatedSettingsList() {
+		return delegated_settings_list_;
+	}
+
+	const std::list<QPointer<USettings>>& USettings::delegatedSettingsList() const {
+		return delegated_settings_list_;
+	}
+
+	bool USettings::operator==(const USettings& other)
+	{
+		if (m_hashsettings.size() != other.m_hashsettings.size())
+			return false;
+
+		auto it = m_hashsettings.begin(), end = m_hashsettings.end();
+		for (; it != end; ++it)
+		{
+			if (!other.m_hashsettings.contains(it.key()) || other.m_hashsettings[it.key()] != it.value())
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
 	bool  USettings::isEmpty()
 	{
-		return m_hashsettings.size()==0;
+		return m_hashsettings.empty();
 	}
 
 	bool USettings::hasKey(const QString& key)
@@ -336,7 +395,7 @@ namespace us
 			QString val = settings->value(ms->key(), "");
 			if (val != "")
 			{
-				ms->setValue(std::move(val));
+				ms->setStr(std::move(val));
 			}
 		}
 	}
@@ -365,7 +424,13 @@ namespace us
 		};
 
 		std::sort(orderSettings.begin(), orderSettings.end(), f);
-		for(us::USetting* setting : orderSettings)
+
+		//�汾��Ϣ
+		QJsonObject rootObj;
+		rootObj.insert("engine_version", "");
+
+		QJsonObject engine_data;
+		for (us::USetting* setting : orderSettings)
 		{
 			QString v = setting->str();
 			QString key = setting->key();
@@ -380,10 +445,13 @@ namespace us
 			{
 				v = v.replace("\n", "\\n");
 			}
-
-			QString str = QString("%1=%2\n").arg(key, v);
-			file.write(str.toUtf8());
+			engine_data.insert(key, v);
 		}
+		rootObj.insert("engine_data", engine_data);
+
+		QJsonDocument document(rootObj);
+		QByteArray byteArray = document.toJson();
+		file.write(byteArray);
 		file.close();
     }
 
@@ -400,31 +468,23 @@ namespace us
 			return s1->def()->order < s2->def()->order;
 		};
 
-		QStringList materialKeys = creative_kernel::loadMaterialKeys();
-		QStringList extruderKeys = creative_kernel::loadExtruderKeys("");
-
 		std::sort(orderSettings.begin(), orderSettings.end(), f);
 		for (us::USetting* setting : orderSettings)
 		{
 			QString v = setting->str();
 			QString key = setting->key();
-			if (v.isEmpty())
-			{
-				continue;
-			}
 
-			if (materialKeys.contains(key))
+			if ("gcode_start" == key
+				|| "inter_layer" == key
+				|| "gcode_end" == key
+				|| "machine_start_gcode" == key
+				|| "machine_extruder_start_code" == key
+				|| "machine_extruder_end_code" == key
+				|| "machine_end_gcode" == key)
 			{
-				iniSetting.setValue(QString("/Material/%1").arg(key), v);
+				v = v.replace("\n", "\\n");
 			}
-			else if (extruderKeys.contains(key))
-			{
-				iniSetting.setValue(QString("/Extruder/%1").arg(key), v);
-			}
-			else
-			{
-				iniSetting.setValue(QString("/Default/%1").arg(key), v);
-			}
+			iniSetting.setValue(QString("/Default/%1").arg(key), v);
 		}
 	}
 
@@ -520,16 +580,6 @@ namespace us
 	SettingDef* USettings::def()
 	{
 		return m_def;
-	}
-
-	QVariantList USettings::parameterGroupList()
-	{
-		return m_def->parameterGroupList();
-	}
-
-	QVariantList USettings::parameterList(const QString& type)
-	{
-		return m_def->parameterList(type);
 	}
 
 	QVariantList USettings::profileParameterList(int index)

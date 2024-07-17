@@ -1,5 +1,5 @@
-import QtQuick 2.12
-import QtQuick.Controls 2.12
+import QtQuick 2.15
+import QtQuick.Controls 2.15
 
 SpinBox {
     id: control
@@ -22,6 +22,7 @@ SpinBox {
 
     signal valueEdited
     signal textPressed
+    signal contentChanged
     //height: 30
     implicitHeight: 20
     value: realValue*factor
@@ -45,8 +46,7 @@ SpinBox {
         anchors.topMargin: 0
         anchors.bottom: control.bottom
         anchors.bottomMargin: 0
-        //          anchors.horizontalCenter: control.horizontalCenter
-        //          anchors.verticalCenter: control.verticalCenter
+
         width: control.width - idUp.width
         height: control.height
         font: control.font
@@ -56,20 +56,23 @@ SpinBox {
         horizontalAlignment: Qt.AlignLeft
         verticalAlignment: Qt.AlignVCenter
 
-        //          readOnly: !control.editable
-        //          inputMethodHints: Qt.ImhFormattedNumbersOnly
         validator: DoubleValidator {
-            bottom: Math.min(control.from, control.to)*control.factor
-            top:  Math.max(control.from, control.to)*control.factor
+            bottom: control.from * control.factor
+            top: control.to * control.factor
+            notation: DoubleValidator.StandardNotation
+            decimals: control.decimals
         }
-        //          width: control.width
-        MouseArea{
+
+        MouseArea {
             anchors.fill: parent
+            hoverEnabled: true
+
             onClicked: {
                 numbTxt.selectAll()
                 numbTxt.forceActiveFocus()
                 textPressed()
             }
+
             onWheel: {
                 var datl = wheel.angleDelta.y/120;
                 if(datl>0){
@@ -81,17 +84,39 @@ SpinBox {
                 realValue = control.value/factor
                 valueEdited()
             }
+
+            onExited: {
+                if(numbTxt.text === "") numbTxt.text = 5
+                if(numbTxt.text >= realFrom)
+                {
+                    let tempValue = valueFromText(numbTxt.text,control.locale)
+                    if(realValue > control.realTo){
+                        numbTxt.text = control.textFromValue(control.to, control.locale)
+                    }else{
+                        numbTxt.text = control.textFromValue(tempValue, control.locale)
+                    }
+                    realValue = numbTxt.text
+                }
+            }
         }
-        onEditingFinished:
-        {
-            if(text === "") return
-            if(text >= realFrom)
-            {
+
+        onEditingFinished: {
+            if (text === "") {
+                return
+            }
+
+            if (text >= realFrom) {
                 orgValue = realValue
-                //realValue = Number.fromLocaleString(locale, text)
                 valueFromText(text,control.locale)
                 valueEdited()
             }
+        }
+
+        onTextChanged: {
+            if (text.includes("+")) {
+                text = text.replace("+", "")
+            }
+            contentChanged()
         }
     }
 
@@ -123,14 +148,15 @@ SpinBox {
         color: "transparent"
 
         enabled: control.enabled
-        
+
         Rectangle {
             anchors.centerIn: parent
             width: 16 * screenScaleFactor
             height: 10 * screenScaleFactor
             radius: 3 * screenScaleFactor
-            color: control.up.pressed || control.up.hovered ? Constants.cmbIndicatorRectColor_pressed_basic
-                                                            : Constants.cmbIndicatorRectColor_basic
+            color: "transparent"
+            // color: control.up.pressed || control.up.hovered ? Constants.cmbIndicatorRectColor_pressed_basic
+            //                                                 : Constants.cmbIndicatorRectColor_basic
             Image {
                 anchors.centerIn: parent
                 width: 7 * screenScaleFactor
@@ -153,14 +179,13 @@ SpinBox {
         color: "transparent"
 
         enabled: control.enabled
-        
+
         Rectangle {
             anchors.centerIn: parent
             width: 16 * screenScaleFactor
             height: 10 * screenScaleFactor
             radius: 3 * screenScaleFactor
-            color: control.down.pressed || control.down.hovered ? Constants.cmbIndicatorRectColor_pressed_basic
-                                                                : Constants.cmbIndicatorRectColor_basic
+            color: "transparent"
             Image {
                 anchors.centerIn: parent
                 width: 7 * screenScaleFactor
@@ -183,10 +208,6 @@ SpinBox {
         orgValue = realValue
         realValue = control.value/factor
         valueEdited()
-    }
-    validator: DoubleValidator {
-        bottom: Math.min(control.from, control.to)*control.factor
-        top:  Math.max(control.from, control.to)*control.factor
     }
 
     textFromValue: function(value, locale) {

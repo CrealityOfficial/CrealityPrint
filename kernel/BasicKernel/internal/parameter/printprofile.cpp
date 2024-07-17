@@ -1,47 +1,54 @@
 #include "printprofile.h"
 #include <QtCore/QDebug>
+#include<QtQml/QQmlEngine>
+#include <QFile>
 
 #include "internal/parameter/parameterpath.h"
-#include "internal/models/parameterprofilecategorymodel.h"
-#include "internal/models/profileparametermodel.h"
 #include "internal/parameter/printmachine.h"
 #include "internal/parameter/printextruder.h"
 #include "internal/parameter/printmaterial.h"
+#include "internal/models/parameterdatamodel.h"
 namespace creative_kernel
 {
-    PrintProfile::PrintProfile(const QString& machineName, const QString& fileName, QObject* parent)
+    PrintProfile::PrintProfile(const QString& machineName, const QString& fileName, QObject* parent, bool isDefault)
         : ParameterBase(parent)
         , m_profileFileName(fileName)
         , m_machineName(machineName)
-        , m_profileParameterModel(nullptr)
-        , m_parameterProfileCategoryModel(nullptr)
     {
-        m_isDefault = m_profileFileName.contains(".default");
-        m_name = m_profileFileName;
-        if (m_isDefault)
-            m_name = m_profileFileName.mid(0, m_profileFileName.indexOf(".default"));
-        
-        //qDebug() << QString("PrintProfile Ctr : fileName [%1]: name [%2]").arg(m_profileFileName).arg(m_name);
+        m_isDefault = isDefault;
+        generateName(m_profileFileName);
     }
 
     PrintProfile::~PrintProfile()
     {
-        if (m_profileParameterModel)
-        {
-            delete m_profileParameterModel;
-            m_profileParameterModel = nullptr;
-        }
     }
 
     void PrintProfile::added()
     {
-        setSettings(createUserProfileSettings(m_machineName, m_profileFileName));
-        setUserSettings(createUserProfileCoverSettings(m_machineName, m_profileFileName, getCurrentMaterialName()));
+        if (m_isDefault)
+        {
+            us::USettings* s = createDefaultProfileSettings(m_machineName, m_profileFileName);
+            setSettings(s);
+            setUserSettings(createDefaultProfileCoverSettings(m_machineName, m_profileFileName, getCurrentMaterialName()));
+        }
+        else
+        {
+            us::USettings* s = createUserProfileSettings(m_machineName, m_profileFileName);
+            setSettings(s);
+            setUserSettings(createUserProfileCoverSettings(m_machineName, m_profileFileName, getCurrentMaterialName()));
+        }
+
     }
 
     void PrintProfile::removed()
     {
         removeUserProfileFile(m_machineName, m_profileFileName, getCurrentMaterialName());
+    }
+
+    void PrintProfile::setName(const QString& newName)
+    {
+        m_name = newName;
+        emit nameChanged();
     }
 
     QString PrintProfile::name()
@@ -54,6 +61,35 @@ namespace creative_kernel
         return m_name;
     }
 
+    void PrintProfile::changeUserFileName(const QString& newName)
+    {
+        PrintMachine* pm = qobject_cast<PrintMachine*>(parent());
+        QString pmName = pm->uniqueName();
+
+        QString path = userProfileFile(pmName, name());
+        QString coverPath = userProfileCoverFile(pmName, name());
+
+        QString newPath = userProfileFile(pmName, newName);
+        QString newCoverPath = userProfileCoverFile(pmName, newName);
+        
+        QFile file(path);
+        if (file.isOpen())
+        {
+            file.close();
+        }
+        bool res = file.rename(newPath);
+
+        QFile file1(coverPath);
+        if (file1.isOpen())
+        {
+            file1.close();
+        }
+            
+        res = file1.rename(newCoverPath);
+
+        generateName(newName);
+    }
+
     QString PrintProfile::profileFileName()
     {
         return m_profileFileName;
@@ -64,9 +100,49 @@ namespace creative_kernel
         return m_isDefault;
     }
 
+    void PrintProfile::enableChanged(const QString& key, bool enabled)
+    {
+        if (key == "enable_prime_tower")
+        {
+            emit enablePrimeTowerChanged(enabled);
+        }
+        else if (key == "enable_support")
+        {
+            emit enableSupportChanged(enabled);
+        }
+    }
+
+    void PrintProfile::strChanged(const QString& key, const QString& str)
+    {
+        if (key == "prime_volume")
+        {
+            emit currentProcessPrimeVolumeChanged(str.toFloat());
+        }
+        else if (key == "prime_tower_width")
+        {
+            emit currentProcessPrimeTowerWidthChanged(str.toFloat());
+        }
+        else if (key == "layer_height")
+        {
+            emit currentProcessLayerHeightChanged(str.toFloat());
+        }
+        else if (key == "support_filament")
+        {
+            emit currentProcessSupportFilamentChanged(str.toInt());
+        }
+        else if (key == "support_interface_filament")
+        {
+            emit currentProcessSupportInterfaceFilamentChanged(str.toInt());
+        }
+        else if (key == "print_sequence")
+        {
+            emit printSequenceChanged(str);
+        }
+    }
+
     void PrintProfile::save()
     {
-        saveSetting(userProfileFile(m_machineName, m_profileFileName, false, getCurrentMaterialName()));
+        saveSetting(userProfileCoverFile(m_machineName, m_profileFileName, getCurrentMaterialName()));
     }
 
     void PrintProfile::cancel()
@@ -76,7 +152,7 @@ namespace creative_kernel
 
    void PrintProfile::reset()
     {
-       if (m_profileParameterModel)
+       if (m_BasicDataModel)
        {
            QList<QString> keys;
            QHash<QString, us::USetting* >::const_iterator it = m_user_settings->settings().constBegin();
@@ -87,40 +163,18 @@ namespace creative_kernel
            }
            for (int i = 0; i < keys.size(); i++)
            {
-               m_profileParameterModel->resetValue(keys[i]);
+               //m_profileParameterModel->resetValue(keys[i]);
+               m_BasicDataModel->resetValue(keys[i]);
            }
        }
-       save();
+       ParameterBase::reset();
     }
 
-   void PrintProfile::reset(us::USettings* us)
+   QStringList PrintProfile::processDiffKeys(QObject* obj)
    {
-       Q_ASSERT(us);
-       if (m_profileParameterModel)
-       {
-           QList<QString> keys;
-           QHash<QString, us::USetting* >::const_iterator it = us->settings().constBegin();
-           while (it != us->settings().constEnd())
-           {
-               keys.append(it.key());
-               it++;
-           }
-           for (int i = 0; i < keys.size(); i++)
-           {
-               m_profileParameterModel->resetValue(keys[i]);
-           }
-       }
-       save();
-   }
-
-   QMap<QString, QList<QString> > PrintProfile::getAffetecdKeys()
-   {
-       return m_profileParameterModel->getAffetecdKeys();
-   }
-
-   QString PrintProfile::getModelValue(QString key) const
-   {
-       return m_profileParameterModel->value(key);
+       PrintProfile* profile = qobject_cast<PrintProfile*>(obj);
+       QStringList diffKeys = this->compareSettings(profile);
+       return diffKeys;
    }
 
    QString PrintProfile::getCurrentMaterialName() const
@@ -136,89 +190,44 @@ namespace creative_kernel
        return "";
    }
 
-    QAbstractListModel* PrintProfile::profileCategoryModel(const bool& isSingleExtruder)
-    {
-        if (!m_parameterProfileCategoryModel)
-        {
-            PrintMachine* machine = qobject_cast<PrintMachine*>(this->parent());
-            if (isSingleExtruder)
-            {
-                PrintExtruder* extruder = qobject_cast<PrintExtruder*>((machine->extruderObject(0)));
-
-                if (!extruder)
-                    return nullptr;
-                PrintMaterial* material = qobject_cast<PrintMaterial*>(machine->materialObject(extruder->materialName()));
-
-                us::USettings* usettings = new us::USettings(this);
-                usettings->merge(qobject_cast<us::USettings*>(material->settingsObject()));
-                usettings->merge(qobject_cast<us::USettings*>(extruder->settingsObject()));
-                usettings->merge(m_settings);
-                m_parameterProfileCategoryModel = new ParameterProfileCategoryModel(usettings, this, isSingleExtruder);
-            }
-            else {
-                m_parameterProfileCategoryModel = new ParameterProfileCategoryModel(m_settings, this, isSingleExtruder);
-            }
-            
-            
-        }
-        return m_parameterProfileCategoryModel;
-    }
+   void PrintProfile::generateName(const QString& fileName)
+   {
+       int res = fileName.indexOf(".json");
+       QString tempName;
+       if (res)
+       {
+           tempName = fileName.mid(0, m_profileFileName.indexOf(".json"));
+       }
+       else
+       {
+           tempName = fileName;
+       }
+       setName(tempName);
+   }
 
     QAbstractListModel* PrintProfile::profileParameterModel(const bool& isSingleExtruder)
     {
-        if (!m_profileParameterModel)
-        {
-            m_profileParameterModel = new ProfileParameterModel(m_settings, this);
-        }
         if (isSingleExtruder)
         {
-            m_profileParameterModel->mergeMachineSettings(0);
-            m_profileParameterModel->mergeMaterialSettings(0);
-            QStringList old_user_keys;
-            for (auto it = m_user_settings->settings().cbegin(); it != m_user_settings->settings().cend(); ++it)
-            {
-                old_user_keys << it.key();
-            }
-            setUserSettings(createUserProfileCoverSettings(m_machineName, m_profileFileName, getCurrentMaterialName()));
-            for (const auto& key : old_user_keys)
-            {
-                if (!m_user_settings->hasKey(key))
-                {
-                    m_profileParameterModel->resetValue(key);
-                }
-            }
+            setUserSettings(createDefaultProfileCoverSettings(m_machineName, m_profileFileName, getCurrentMaterialName()));
+            getDataModel()->setModifyedSettings(m_user_settings);
         }
-        m_profileParameterModel->applyUserSetting(m_user_settings);
-            
-        return m_profileParameterModel;
+
+        return nullptr;
     }
 
-    void PrintProfile::setparameterValue(QString key, QString value)
+    QObject* PrintProfile::basicDataModel()
     {
-        m_settings->findSetting(QString(key));
-        if (m_settings->hasKey(key))
-        {
-            m_settings->findSetting(key)->setValue(value);
-        }
-        else
-        {
-            m_settings->add(key, value);
-        }
+        return getDataModel();
     }
 
-    QVariantList PrintProfile::parameterList(const QString key)
+    ParameterDataModel* PrintProfile::getDataModel()
     {
-        us::USetting* _setting = m_settings->findSetting(key);
-        QVariantList list;
-        if (_setting)
+        if (!m_BasicDataModel)
         {
-            QMap<QString, QString> _options = _setting->def()->options;
-
-            for (const auto& key : _options.keys())
-            {
-                list.append(_options.value(key));
-            }
+            m_BasicDataModel = new ParameterDataModel(m_settings, m_user_settings, this);
+            QQmlEngine::setObjectOwnership(m_BasicDataModel, QQmlEngine::QQmlEngine::CppOwnership);
         }
-        return list;
+        return m_BasicDataModel;
     }
 }

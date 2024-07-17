@@ -21,7 +21,7 @@ Rectangle {
     property alias fontfamily: idText.font.family
     property alias fontsize: idText.font.pointSize
     property alias text: idText.text
-    property var textConfig : {}
+    property var textConfig
 
     property var hasError: false
     //height: idText.contentHeight+10
@@ -61,7 +61,7 @@ Rectangle {
         font.pointSize: textConfig.textSize
         font.weight: Font.Normal
         text: toUtf8(textConfig.textName)
-        color: "red"
+        color: "#fff600"
         opacity: 1
         readOnly: true
 
@@ -210,8 +210,9 @@ Rectangle {
             }
             onMouseXChanged: {
                 if(drag.active){
+                    if(mouseX>0 && idText.font.pointSize <= 20)return
                     var newWidth = rectRoi.width - mouseX
-                    if (newWidth < 30)
+                    if (newWidth < 45)
                         return
                     if(mouseX>0)
                         idText.font.pointSize-=1
@@ -260,9 +261,11 @@ Rectangle {
             }
             onMouseXChanged: {
                 if(drag.active) {
+                     if(mouseX>0 && idText.font.pointSize <= 20)return;
                     var newWidth = rectRoi.width - mouseX
-                    if (newWidth < 30)
+                    if (newWidth < 45)
                         return
+
                     if(mouseX>0)
                         idText.font.pointSize-=1
                     else
@@ -305,9 +308,9 @@ Rectangle {
             }
             onMouseXChanged: {
                 if(drag.active){
-
+                    if(mouseX<0 && idText.font.pointSize <= 20)return;
                     var newWidth = rectRoi.width + mouseX
-                    if (newWidth < 30)
+                    if (newWidth < 45)
                         return
                     if(mouseX>0)
                         idText.font.pointSize+=1
@@ -348,9 +351,9 @@ Rectangle {
             }
             onMouseXChanged: {
                 if(drag.active){
-
+                     if(mouseX<0 && idText.font.pointSize <= 20)return;
                     var newWidth = rectRoi.width + mouseX
-                    if (newWidth < 30)
+                    if (newWidth < 45)
                         return
                     if(mouseX>0)
                         idText.font.pointSize+=1

@@ -9,18 +9,18 @@ flat in vec4 color;
 uniform int showType = 0;
 
 uniform vec3 light_direction = vec3(0.0, 0.0, 1.0);
-uniform vec4 front_ambient = vec4(0.8, 0.8, 0.8, 1.0);
-uniform vec4 front_diffuse = vec4(0.6, 0.6, 0.6, 1.0);
+uniform vec4 front_ambient = vec4(0.3, 0.3, 0.3, 1.0);
+uniform vec4 front_diffuse = vec4(0.9, 0.9, 0.9, 1.0);
 uniform vec4 back_ambient = vec4(0.3, 0.3, 0.3, 1.0);
 uniform vec4 back_diffuse = vec4(0.3, 0.3, 0.3, 1.0);
 uniform vec4 specular = vec4(0.5, 0.5, 0.5, 1.0);
 
-uniform int typecolorsshow[18];
+uniform int typecolorsshow[53];
 uniform vec4 clipValue;
 
 uniform vec2 layershow;
 
-uniform float specularPower = 32.0;
+uniform float specularPower = 8.0;
 
 vec4 directLight(vec4 core_color)
 {

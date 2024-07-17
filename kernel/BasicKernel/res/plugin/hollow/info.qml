@@ -3,7 +3,8 @@ import QtQuick.Layouts 1.3
 import QtQuick.Controls 2.0
 import "qrc:/CrealityUI"
 import "qrc:/CrealityUI/qml"
-
+import "qrc:/CrealityUI/secondqml"
+import "qrc:/CrealityUI/components"
 LeftPanelDialog {
   id: root
 
@@ -56,27 +57,20 @@ LeftPanelDialog {
           hAlign: 0
         }
 
-        StyledSpinBox {
-          id: thinkness_spin_box
-
-          Layout.alignment: Qt.AlignRight | Qt.AlignHCenter
-          Layout.preferredWidth: 153 * screenScaleFactor
-          Layout.preferredHeight: 28 * screenScaleFactor
-          radius: 5 * screenScaleFactor
-
-          unitchar: "mm"
-          realFrom: 2
-          realTo: com.minLengthInSelectionms / 2
-          realStepSize: 0.5
-          realValue: 2
-
-          onValueEdited: {
-            if (thinkness_spin_box.realValue > (com.minLengthInSelectionms / 2)) {
-              hollow_button.enabled = false;
-            } else {
-              hollow_button.enabled = true;
-            }
-          }
+        CusStyledSpinBox
+        {
+            id: thinkness_spin_box
+            Layout.preferredWidth: 153 * screenScaleFactor
+            Layout.preferredHeight: 28 * screenScaleFactor
+            decimals: 2
+            from: kernel_parameter_manager.currentMachineObject.currentNozzleSize() * Math.pow(10, decimals)
+            to: (com ? com.minLengthInSelectionms / 2  > 0 ?  com.minLengthInSelectionms / 2 : 100* Math.pow(10, decimals)
+                    : 100) * Math.pow(10, decimals)
+            value: 2 * Math.pow(10, decimals)
+            stepSize: 0.5 * Math.pow(10, decimals)
+            unitchar: "mm"
+            isBindingValue : false
+            needTextEditing : false
         }
       }
 
@@ -113,12 +107,6 @@ LeftPanelDialog {
 
             if (thinkness_spin_box.realValue < 0.01) {
               thinkness_spin_box.realValue = 0.01
-            }
-
-            if (thinkness_spin_box.realValue > (com.minLengthInSelectionms / 2)) {
-              hollow_button.enabled = false;
-            } else {
-              hollow_button.enabled = true;
             }
           }
         }
@@ -171,6 +159,15 @@ LeftPanelDialog {
       BasicDialogButton {
         id: hollow_button
 
+        enabled: {
+          if ((thinkness_spin_box.realValue > (com.minLengthInSelectionms / 2)) ||
+              (thinkness_spin_box.realValue > (com.minLengthInSelectionms / 2))) {
+            return false;
+          } else {
+            return true;
+          }
+        }
+
         Layout.alignment: Qt.AlignCenter
         Layout.minimumWidth: 258 * screenScaleFactor
         Layout.minimumHeight: 28 * screenScaleFactor
@@ -182,10 +179,11 @@ LeftPanelDialog {
         defaultBtnBgColor: Constants.leftToolBtnColor_normal
         hoveredBtnBgColor: Constants.leftToolBtnColor_hovered
         onSigButtonClicked: {
+            fill_ratio_spin_box.focus = false
           console.log("thinkness_spin_box.value =" + thinkness_spin_box.realValue);
           console.log("fill_ratio_spin_box.value =" + fill_ratio_spin_box.realValue / 100);
 
-          com.hollow(thinkness_spin_box.realValue,
+          com.hollow(thinkness_spin_box.value / 100,
                      fill_ratio_spin_box.realValue / 100,
                      fill_enabled_combo_box.currentIndex === 1);
         }

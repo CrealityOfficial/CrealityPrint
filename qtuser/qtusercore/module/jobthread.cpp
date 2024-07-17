@@ -101,6 +101,11 @@ namespace qtuser_core
 		emit jobMessage(msg);
 	}
 
+	QString JobThread::getFailReason()
+	{
+		return m_details->get("reason");
+	}
+
 	void JobThread::setJobInterrupt()
 	{
 		m_jobInterrupt = true;

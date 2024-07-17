@@ -1,58 +1,71 @@
-import QtQuick 2.0
-import QtQuick.Window 2.1
-import QtQuick.Controls 2.3
-import QtGraphicalEffects 1.12
+import QtQuick 2.15
+import QtQuick.Window 2.15
+import QtQuick.Layouts 1.15
+
+// import CrealityUI 1.0
+
+// import "qrc:/CrealityUI"
+
 Window {
-    id: splash
-    color: "transparent"
-    title: qsTr("Splash Window")
+    id: root
+
+    x: (Screen.width - root.width) / 2
+    y: (Screen.height - root.height) / 2
+    width: 860 * screenScaleFactor
+    height: 480 * screenScaleFactor
+
     modality: Qt.ApplicationModal
     flags: Qt.SplashScreen
-    property int timeoutInterval: 2000
-    signal timeout
-    x: (Screen.width - splash.width) / 2
-    y: (Screen.height - splash.height) / 2
+    color: "transparent"
 
-    width: 876 * screenScaleFactor//splashImage.width
-    height: 480 * screenScaleFactor//splashImage.height
-    //property alias versionText: idVersion.text
-
-    readonly property string context: cxkernel_const.translateContext
-    readonly property string introduction: qsTranslate(context, "Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R & D and production of 3D printers.")
-    readonly property bool introductionVisible: introduction !== "Shenzhen Creality 3D Technology Co., Ltd. is an internationally renowned 3D printer manufacturer, focusing on the R & D and production of 3D printers."
-
-    Rectangle{
-        id: mainWindowRext
-        color: "transparent"
+    Image {
+        id: image
         anchors.fill: parent
-        Image {
-            id: splashImage
-            source: "qrc:/scence3d/res/splash.png"
-            width: 876 * screenScaleFactor
-            height: 480 * screenScaleFactor
-            // MouseArea {
-            //     anchors.horizontalCenter: parent.horizontalCenter
-            //     anchors.verticalCenter: parent.verticalCenter
-            //     onClicked: Qt.quit()
-            // }
+        sourceSize.width: width
+        sourceSize.height: height
+        source: "qrc:/scence3d/res/splash.png"
+    }
 
-            TextEdit {//by TCJ
-                anchors.left: parent.left
-                anchors.leftMargin: 20* screenScaleFactor
-                anchors.top: parent.top
-                anchors.topMargin: 200* screenScaleFactor
-                id: idTextLine4
-                visible: splash.introductionVisible
-                text: splash.introduction
-                color: "#a3c2d4"
-                font.pointSize: Constants.labelFontPointSize_9
-                font.family: "Microsoft YaHei UI"//"Source Han Sans CN"
-                width: 174 * screenScaleFactor
-                height: 60 * screenScaleFactor
-                wrapMode: TextEdit.Wrap
-                textFormat: TextEdit.AutoText
-            }
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.topMargin: 211 * screenScaleFactor
+        anchors.bottomMargin: 29 * screenScaleFactor
+        anchors.leftMargin: 33 * screenScaleFactor
+        anchors.rightMargin: 631 * screenScaleFactor
+
+        spacing: 30 * screenScaleFactor
+
+        Text {
+            id: description_text
+
+            readonly property string introduction: qsTranslate(cxkernel_const.translateContext,
+                                                               "offical_brief_introduction")
+
+            visible: introduction !== "offical_brief_introduction"
+
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            verticalAlignment: Qt.AlignTop
+            horizontalAlignment: Qt.AlignHCenter
+
+            wrapMode: Text.WordWrap
+            // font: Constants.font
+            color: "#666666"
+            text: introduction
+        }
+
+        Text {
+            id: version_text
+
+            Layout.fillWidth: true
+            Layout.minimumHeight: contentHeight
+            verticalAlignment: Qt.AlignVCenter
+            horizontalAlignment: Qt.AlignHCenter
+
+            wrapMode: Text.NoWrap
+            // font: Constants.font
+            color: "#666666"
+            text: "%1: %2".arg(qsTr("Version")).arg(cxkernel_const.version)
         }
     }
-    Component.onCompleted: visible = true
 }

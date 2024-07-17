@@ -12,7 +12,7 @@ namespace topomesh
 		std::vector<int> edges;
 		mesh.SelectIndividualEdges(edges);
         std::vector<std::vector<int>> sequences;
-        if (mesh.GetSequentialPoints(edges, sequences)) {
+        if (!mesh.GetSequentialPoints(edges, sequences)) {
             return;
         }
         holes.swap(sequences);

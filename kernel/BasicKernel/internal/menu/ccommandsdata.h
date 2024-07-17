@@ -16,17 +16,12 @@ namespace creative_kernel
     public:
         explicit CCommandsData(QObject* parent = nullptr);
         virtual ~CCommandsData();
-        void createMenuNameMap();
         Q_INVOKABLE void addCommads(ActionCommand* pAction);
-        //    QString getMenuNameFromEType(eMenuType eType);
-        Q_INVOKABLE QString getMenuNameFromKey(QString key);
+
         Q_INVOKABLE QVariantList  getCommandsList(void);
-        Q_INVOKABLE QVariantMap getCommandsMap(void);
 
         Q_INVOKABLE QVariant getFileOpenOpt();
         Q_INVOKABLE QVariant getOpt(const QString& optName);
-
-        void initMapData(QVariantMap& map);
 
     private:
         void addCommonCommand();

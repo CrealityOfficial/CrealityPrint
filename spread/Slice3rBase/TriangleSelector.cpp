@@ -398,6 +398,24 @@ void TriangleSelector::precompute_all_neighbors_recursive(const int facet_idx, c
     }
 }
 
+
+std::vector<int> TriangleSelector::get_all_touching_triangles(int facet_idx, const Slic3r::Vec3i& neighbors, const Slic3r::Vec3i& neighbors_propagated)
+{
+    assert(facet_idx != -1 && facet_idx < int(m_triangles.size()));
+    assert(this->verify_triangle_neighbors(m_triangles[facet_idx], neighbors));
+    std::vector<int> touching_triangles;
+    Vec3i            vertices = { m_triangles[facet_idx].verts_idxs[0], m_triangles[facet_idx].verts_idxs[1], m_triangles[facet_idx].verts_idxs[2] };
+    append_touching_subtriangles(neighbors(0), vertices(1), vertices(0), touching_triangles);
+    append_touching_subtriangles(neighbors(1), vertices(2), vertices(1), touching_triangles);
+    append_touching_subtriangles(neighbors(2), vertices(0), vertices(2), touching_triangles);
+
+    for (int neighbor_idx : neighbors_propagated)
+        if (neighbor_idx != -1 && !m_triangles[neighbor_idx].is_split())
+            touching_triangles.emplace_back(neighbor_idx);
+
+    return touching_triangles;
+}
+
 std::pair<std::vector<Vec3i>, std::vector<Vec3i>> TriangleSelector::precompute_all_neighbors() const
 {
     std::vector<Vec3i> neighbors(m_triangles.size(), Vec3i(-1, -1, -1));
@@ -435,6 +453,170 @@ void TriangleSelector::append_touching_subtriangles(int itriangle, int vertexi, 
 
     if (touching.second != -1)
         process_subtriangle(touching.second, Partition::Second);
+}
+
+int TriangleSelector::get_triangles_size()
+{
+    return m_triangles.size();
+}
+
+bool TriangleSelector::get_triangle_isvalid(int facet)
+{
+    return m_triangles[facet].valid();
+}
+bool TriangleSelector::get_triangle_issplit(int facet)
+{
+    return m_triangles[facet].is_split();
+}
+
+EnforcerBlockerType TriangleSelector::get_triangle_state(int facet)
+{
+    return m_triangles[facet].get_state();
+}
+int TriangleSelector::get_triangle_vert_idx(int facet, int vert)
+{
+    return m_triangles[facet].verts_idxs[vert];
+}
+float TriangleSelector::get_vertices_coord(int vert, int idx)
+{
+    return m_vertices[vert].v(idx);
+}
+int TriangleSelector::get_source_triangle(int facet)
+{
+    return m_triangles[facet].source_triangle;
+}
+void TriangleSelector::set_triangle_state(int facet, EnforcerBlockerType type)
+{
+    m_triangles[facet].set_state(type);
+}
+
+bool TriangleSelector::get_source_triangles(int facet)
+{
+    return m_dirty_source_triangles[facet];
+}
+
+void TriangleSelector::get_height_lines(float z_bot, float z_top, std::vector<std::vector<Vec3f>>& contour)
+{
+    const int height_chunks = 20; 
+    if (height_triangles.empty())
+    {
+        max_z = std::numeric_limits<float>::min();
+        min_z = std::numeric_limits<float>::max();
+        for (const Vertex& tv : m_vertices)
+        {
+            if (tv.v(2) > max_z)
+                max_z = tv.v(2);
+            if (tv.v(2) < min_z)
+                min_z = tv.v(2);
+        }
+        chunk_span = (max_z - min_z) / height_chunks;
+
+        height_triangles.resize(height_chunks, std::vector<int>());
+        int idx = 0;
+        int tri_size = m_dirty_source_triangles.size();
+        for (const Triangle& tr : m_triangles)
+        {
+            if (idx >= tri_size) break;
+            float v0_z = m_vertices[tr.verts_idxs[0]].v(2);
+            float v1_z = m_vertices[tr.verts_idxs[1]].v(2);
+            float v2_z = m_vertices[tr.verts_idxs[2]].v(2);
+            float max_zz = std::max({ v0_z,v1_z ,v2_z })-min_z;
+            float min_zz = std::min({ v0_z,v1_z ,v2_z })-min_z;
+
+            int max_zi = (int)(max_zz / chunk_span);
+            int min_zi = (int)(min_zz / chunk_span);
+            if (max_zi == height_chunks)
+                max_zi--;
+            if (min_zi == height_chunks)
+                min_zi--;
+            for (int zi = min_zi; zi <= max_zi; zi++)
+                height_triangles[zi].push_back(idx);
+
+            idx++;
+        }
+    }
+
+
+    float zt = std::clamp(z_top, min_z, max_z);
+    float zb = std::clamp(z_bot, min_z, max_z);
+
+    int topi = (int)((zt - min_z)/ chunk_span);
+    int boti = (int)((zb - min_z) / chunk_span);
+    if (topi == height_chunks)
+        topi--;
+    if (boti == height_chunks)
+        boti--;
+
+    std::vector<int> container;
+    container.insert(container.end(), height_triangles[boti].begin(), height_triangles[boti].end());
+    container.insert(container.end(), height_triangles[topi].begin(), height_triangles[topi].end());
+
+    auto zf = [&](Vec3f v_0, Vec3f v_1, float z) ->Vec3f {
+        float c = v_1[2] - v_0[2];       
+        if (std::abs(c) < 1e-5) return Vec3f(0, 0, 0);
+        float zc = z - v_0[2];
+        float t = (zc * 1.f) / (c * 1.f);
+        if (t < 0 || t>1) return Vec3f(0, 0, 0);
+        if (t == 0) return v_0;
+        if (t == 1) return v_1;
+        Vec3f dir = v_1 - v_0;
+        return v_0 + t * dir;
+    };
+
+    for (int fi:container) 
+    {
+        const Triangle& tr = m_triangles[fi];
+        if (/*tr.is_split()||*/!tr.valid()) continue;       
+        Vec3f v0 = Vec3f(m_vertices[tr.verts_idxs[0]].v(0), m_vertices[tr.verts_idxs[0]].v(1), m_vertices[tr.verts_idxs[0]].v(2));
+        Vec3f v1 = Vec3f(m_vertices[tr.verts_idxs[1]].v(0), m_vertices[tr.verts_idxs[1]].v(1), m_vertices[tr.verts_idxs[1]].v(2));
+        Vec3f v2 = Vec3f(m_vertices[tr.verts_idxs[2]].v(0), m_vertices[tr.verts_idxs[2]].v(1), m_vertices[tr.verts_idxs[2]].v(2));
+        float max_z = std::max({ v0[2],v1[2] ,v2[2] });
+        if (z_bot > max_z)
+        {            
+            continue;
+        }
+        float min_z = std::min({ v0[2],v1[2] ,v2[2] });
+        if (z_top < min_z) 
+        {          
+            continue;
+        }
+       
+        std::vector<Vec3f> container_b;
+        Vec3f z1(0,0,0), z2(0,0,0),z3(0,0,0);
+        z1 = zf(v0, v1, z_bot);       
+        if (z1 != Vec3f(0, 0, 0))
+            container_b.push_back(z1);
+        z2 = zf(v1, v2, z_bot);       
+        if (z2 != Vec3f(0, 0, 0))
+            container_b.push_back(z2);
+        if (container_b.size() != 2)
+        {
+            z3 = zf(v2, v0, z_bot);           
+            if (z3 != Vec3f(0, 0, 0))
+                container_b.push_back(z3);
+        }
+        if(container_b.size()==2)
+            contour.push_back(container_b);
+
+        std::vector<Vec3f> container_t;
+        z1= Vec3f(0, 0, 0), z2= Vec3f(0, 0, 0), z3= Vec3f(0, 0, 0);
+        z1 = zf(v0, v1, z_top);
+        if (z1 != Vec3f(0, 0, 0))
+            container_t.push_back(z1);
+        z2 = zf(v1, v2, z_top);
+        if (z2 != Vec3f(0, 0, 0))
+            container_t.push_back(z2);
+        if (container_t.size() != 2)
+        {
+            z3 = zf(v2, v0, z_top);
+            if (z3 != Vec3f(0, 0, 0))
+                container_t.push_back(z3);
+        }
+        if (container_t.size() == 2)
+            contour.push_back(container_t);
+        
+    }
+
 }
 
 // It appends all edges that are touching the edge (vertexi, vertexj) of the triangle and are not selected by seed fill
@@ -508,12 +690,12 @@ void TriangleSelector::bucket_fill_select_triangles(const Vec3f& hit, int facet_
                 touching_triangles.emplace_back(neighbor_idx);
 
         return touching_triangles;
-    };
-
+    };  
+ 
     auto [neighbors, neighbors_propagated] = this->precompute_all_neighbors();
     std::vector<bool>  visited(m_triangles.size(), false);
     std::queue<int>    facet_queue;
-
+    
     facet_queue.push(start_facet_idx);
     while (!facet_queue.empty()) {
         int current_facet = facet_queue.front();
@@ -1896,14 +2078,24 @@ bool TriangleSelector::has_facets(const std::pair<std::vector<std::pair<int, int
 }
 
 void TriangleSelector::seed_fill_unselect_all_triangles()
-{
+{    
     for (Triangle &triangle : m_triangles)
         if (!triangle.is_split())
-            triangle.unselect_by_seed_fill();
+            triangle.unselect_by_seed_fill();    
+}
+
+bool TriangleSelector::judge_select_triangles()
+{
+    for (Triangle& triangle : m_triangles)
+        if (!triangle.is_split() && triangle.is_selected_by_seed_fill())
+        {
+            return true;
+        }
+    return false;
 }
 
 void TriangleSelector::seed_fill_apply_on_triangles(EnforcerBlockerType new_state)
-{
+{   
     for (Triangle &triangle : m_triangles)
         if (!triangle.is_split() && triangle.is_selected_by_seed_fill())
         {

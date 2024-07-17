@@ -9,47 +9,104 @@ import "components"
 LeftPanelDialog {
     id: idRoot
     width: (317 * screenScaleFactor) + (idOverHangs.title.length > 6 ? (43 * screenScaleFactor) : 0)
-    // height: 380 * screenScaleFactor
     visible: (!kernel_kernel.isDefaultVisScene) || (com ? com.isRunning : false)
-    // height: 346 * screenScaleFactor + 36 * screenScaleFactor * idPenSize.visible
-    height: 436 * screenScaleFactor + 36 * screenScaleFactor * idPenSize.visible
+    height: idBottom.y + idBottom.height + 68 * screenScaleFactor
+
     title: qsTr("Support Painting")
     property var com
-    property var parameterSetting: kernel_parameter_manager.currentMachineObj.currentProfileObj.profileParameterModel(true)
-	property var currentProfile: kernel_parameter_manager.currentMachineObj.currentProfileObj
+    property var parameterSetting: kernel_ui_parameter.processOverrideContext.dataModel
+    property var supportAngleItem
+    property var supportEnableItem
+    property var supportStructureItem
+
+    onTitleChanged: {
+        idBottom.updateCopywriting()
+    }
 
     function execute() {
         idToolSeletor.setMethodEnable(0, false)
-        
+        idToolSeletor.setMethodEnable(3, false)
+
         idToolSeletor.method = com.colorMethod
-        idPenSize.value = com.colorRadius * 100.0
-        idSectionView.value = com.sectionRate * 100.0
-        idCanvas.penSize = idPenSize.value * 2
-        idOverHangs.value = parseInt(parameterSetting.value("support_angle")) * 100.0
+        idSectionView.value = com.sectionRate
+        idCanvas.screenRadius = com.screenRadius
+
+        supportAngleItem = parameterSetting.getDataItem(apdateEngine("support_angle"))
+        supportEnableItem = parameterSetting.getDataItem(apdateEngine("support_enable"))
+        supportStructureItem = parameterSetting.getDataItem(apdateEngine("support_structure"))
+
+        idOverHangs.value = parseInt(supportAngleItem.value)
         idOverHangsEnable.checked = com.overHangsEnable
-        idEnableSupport.checked = (parameterSetting.value("support_enable") == "true")
-        com.setSupportEnabled(idEnableSupport.checked)
+
+        let type = supportStructureItem.value
+        if (type == apdateEngine("normal")) {
+            idSupportType.currentIndex = 0
+        } else if (type == apdateEngine("thomastree")) {
+            idSupportType.currentIndex = 1
+        } else if (type == apdateEngine("normal_manual")) {
+            idSupportType.currentIndex = 2
+        } else if (type == apdateEngine("thomastree_manual")) {
+            idSupportType.currentIndex = 3
+        }
+
+        idEnableSupport.checked = (supportEnableItem.value == apdateEngine("true"))
+
+        idToolConfigPanel.update();
+        com.setOperateModeEnable(idEnableSupport.checked)
 
         idCanvas.update();
         idToolSeletor.update();
     }
 
+    function apdateEngine(key) {
+        let type = kernel_global_const.getEngineIntType()
+        if (type == 1) { //ORCA
+            if (key == "support_angle") {
+                key = "support_threshold_angle"
+            } else if (key == "support_enable") {
+                key = "enable_support"
+            } else if (key == "support_structure") {
+                key = "support_type"
+            } else if (key == "normal") {
+                key = "normal(auto)"
+            } else if (key == "thomastree") {
+                key = "tree(auto)"
+            } else if (key == "normal_manual") {
+                key = "normal(manual)"
+            } else if (key == "thomastree_manual") {
+                key = "tree(manual)"
+            } else if (key == "true") {
+                key = "1"
+            } else if (key == "false") {
+                key = "0"
+            }
+        }
+        return key
+    }
+
     function updateParameterSettting() {
-        let type = parameterSetting.value("support_structure")
-        if (type == "normal") {
+        if (!idRoot.visible)
+            return;
+
+        idOverHangs.value = parseInt(supportAngleItem.value)
+        idOverHangsEnable.checked = com.overHangsEnable
+
+        let structureItem = idRoot.supportStructureItem
+        let type = structureItem.value
+        if (type == apdateEngine("normal")) {
             idSupportType.currentIndex = 0
-        } else if (type == "thomastree") {
+        } else if (type == apdateEngine("thomastree")) {
             idSupportType.currentIndex = 1
-        } else if (type == "normal_manual") {
+        } else if (type == apdateEngine("normal_manual")) {
             idSupportType.currentIndex = 2
-        } else if (type == "thomastree_manual") {
+        } else if (type == apdateEngine("thomastree_manual")) {
             idSupportType.currentIndex = 3
         }
 
-        idEnableSupport.checked = (parameterSetting.value("support_enable") == "true")
+        let enableItem = idRoot.supportEnableItem
+        idEnableSupport.checked = (enableItem.value == apdateEngine("true"))
         if (com)
-            com.setSupportEnabled(idEnableSupport.checked)
-        console.log("value changed " + parameterSetting.value("support_enable") + " " + parameterSetting.value("support_structure"))
+            com.setOperateModeEnable(idEnableSupport.checked)
     }
 
     onParameterSettingChanged: {
@@ -60,22 +117,46 @@ LeftPanelDialog {
     {
         target: com
 
-        onColorRadiusChanged: {
-            idPenSize.value = com.colorRadius * 100.0;
+        onScreenRadiusChanged: {
+            idCanvas.screenRadius = com.screenRadius
+            idCanvas.update();
         }
 
         onSectionRateChanged: {
-            idSectionView.value = com.sectionRate * 100.0;
+            idSectionView.value = com.sectionRate;
         }
     }
 
     Connections
     {
-        target: parameterSetting
+        target: supportAngleItem
 
-        onDataChanged: {
+        function onValueChanged() {
             updateParameterSettting()
         }
+    }
+
+    Connections
+    {
+        target: supportEnableItem
+
+        function onValueChanged() {
+            updateParameterSettting()
+        }
+    }
+
+    Connections
+    {
+        target: supportStructureItem
+
+        function onValueChanged() {
+            updateParameterSettting()
+        }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
     }
 
     ColorCanvas {
@@ -91,33 +172,40 @@ LeftPanelDialog {
         anchors.fill: parent.panelArea
         anchors.margins: 20
 
-        CusCheckBox {
+        StyleCheckBox {
             id: idEnableSupport
-            // height: 16 * screenScaleFactor  
+            // height: 16 * screenScaleFactor
             anchors.top: parent.top
             height: 30 * screenScaleFactor
             width: 145 * screenScaleFactor
             textColor: Constants.textColor
-            text: qsTr("Enable Support") 
+            text: qsTr("Enable Support")
             font.pointSize: Constants.labelFontPointSize_9
 
             onCheckedChanged: {
                 let value = ""
-                if (checked) 
-                    value = "true"
-                else  
-                    value = "false"
+                if (checked)
+                    value = apdateEngine("true")
+                else
+                    value = apdateEngine("false")
 
-                if (parameterSetting.value("support_enable") != value)
-                    parameterSetting.setValue("support_enable", value)
+                let enableItem = idRoot.supportEnableItem
+                // console.log("set support enable *************")
+                // console.log(enableItem)
+                // console.log("old: " + enableItem.value)
+                // console.log("new: " + value)
 
-                com.setSupportEnabled(checked)
+                if (enableItem.value != value) {
+                    enableItem.value = value
+                }
+
+                com.setOperateModeEnable(checked)
             }
 
             Component.onCompleted: {
-                checked = (parameterSetting.value("support_enable") == "true")
+                checked = (parameterSetting.value(apdateEngine("support_enable")) == apdateEngine("true"))
                 if (com)
-                    com.setSupportEnabled(checked)
+                    com.setOperateModeEnable(checked)
             }
 
         }
@@ -140,9 +228,9 @@ LeftPanelDialog {
                 fontPointSize: Constants.labelFontPointSize_9
                 fontText: qsTr("Support Type")
                 fontColor: Constants.textColor
-            }        
-            
-            BasicCombobox
+            }
+
+            CustomComboBox
             {
                 id: idSupportType
                 width: 150 * screenScaleFactor
@@ -151,25 +239,28 @@ LeftPanelDialog {
                 anchors.rightMargin: 55
                 font.pointSize: Constants.labelFontPointSize_9
                 model: [
-                    qsTr("normal(auto)"),
-                    qsTr("tree(auto)"),
-                    qsTr("normal(manual)"),
-                    qsTr("tree(manual)")
+                    qsTranslate("ParameterComponent", "normal(auto)"),
+                    qsTranslate("ParameterComponent", "tree(auto)"),
+                    qsTranslate("ParameterComponent", "normal(manual)"),
+                    qsTranslate("ParameterComponent", "tree(manual)")
                 ]
 
-                onCurrentIndexChanged: {  
+                onCurrentIndexChanged: {
                     let value = ""
                     if (currentIndex == 0) {
-                        value = "normal"
+                        value = apdateEngine("normal")
                     } else if (currentIndex == 1) {
-                        value = "thomastree"
+                        value = apdateEngine("thomastree")
                     } else if (currentIndex == 2) {
-                        value = "normal_manual"
+                        value = apdateEngine("normal_manual")
                     } else if (currentIndex == 3) {
-                        value = "thomastree_manual"
+                        value = apdateEngine("thomastree_manual")
                     }
-                    if (parameterSetting.value("support_structure") != value)
-                        parameterSetting.setValue("support_structure", value)
+
+                    let structureItem = idRoot.supportStructureItem
+                    if (structureItem.value != value) {
+                        structureItem.value = value
+                    }
                 }
             }
         }
@@ -183,21 +274,49 @@ LeftPanelDialog {
             enabled: idEnableSupport.checked
 
             onMethodChanged: {
-                if (com)
-                    com.colorMethod = method        
-                idCanvas.update();
+                if (!com || com.colorMethod == method)
+                    return
+
+                com.colorMethod = method
+                idCanvas.update()
+                idBottom.updateCopywriting()
             }
         }
 
-        CusCheckBox {
-            id: idOverHangsEnable
+        SliderWithSpinBox {
+            id: idOverHangs
             anchors.top: idToolSeletor.bottom
-            anchors.topMargin: 12
-            height: 16 * screenScaleFactor  
+            width: parent.width
+            height: 30 * screenScaleFactor
+            anchors.topMargin: 12 * screenScaleFactor
+            title: qsTr("Highlight overhangs")
+            // unit: '°'
+            enabled: idEnableSupport.checked
+
+            from: 0
+            to: 90
+            value: 0
+
+            onValueChanged: {
+                com.highlightOverhangsDeg = idOverHangs.value
+            }
+
+            onSliderPressedChanged: {
+                const value =  Math.floor(idOverHangs.value)
+                if (!sliderPressed && supportAngleItem.value != value) {
+                    supportAngleItem.value = value
+                }
+            }
+        }
+
+        StyleCheckBox {
+            id: idOverHangsEnable
+            anchors.top: idOverHangs.bottom
+            height: 16 * screenScaleFactor
             strToolTip: qsTr("Drawing only takes effect on the selected faces in the highlighted and suspended area")
             text: qsTr("On overhangs only")
             textColor: Constants.textColor
-            font.pointSize: Constants.labelFontPointSize_9
+
             enabled: idEnableSupport.checked
 
             onCheckedChanged: {
@@ -205,60 +324,31 @@ LeftPanelDialog {
             }
         }
 
-        SliderWithSpinBox {
-            id: idPenSize
+        ToolConfigPanel {
+            id: idToolConfigPanel
             anchors.top: idOverHangsEnable.bottom
+            anchors.topMargin: 12 * screenScaleFactor
             width: parent.width
-            height: 30 * screenScaleFactor
-            anchors.topMargin: 30 * screenScaleFactor
-            title: qsTr("Pen Size")
-            visible: com ? com.colorMethod == 1 : false
+            com: idRoot.com
             enabled: idEnableSupport.checked
-            
-            from: 10
-            to: 800
-            value: 100
-
-            onValueChanged: {
-                idCanvas.penSize = idPenSize.value * 2
-                com.colorRadius = idPenSize.value / 100
-            }
-        }
-
-        SliderWithSpinBox {
-            id: idOverHangs
-            anchors.top: idPenSize.visible ? idPenSize.bottom : idOverHangsEnable.bottom
-            width: parent.width
-            height: 30 * screenScaleFactor
-            anchors.topMargin: (idPenSize.visible ? 6 : 30) * screenScaleFactor
-            title: qsTr("Highlight overhangs")
-            enabled: idEnableSupport.checked
-            
-            from: 0
-            to: 9000
-            value: 0
-
-            onValueChanged: {
-                com.highlightOverhangsDeg = idOverHangs.value / 100
-            }
         }
 
         SliderWithSpinBox {
             id: idSectionView
-            anchors.top: idOverHangs.bottom
+            anchors.top: idToolConfigPanel.bottom
             width: parent.width
-            anchors.topMargin: 30 * screenScaleFactor
-            // anchors.topMargin: 30
+            anchors.topMargin: 12 * screenScaleFactor
             height: 30 * screenScaleFactor
             title: qsTr("Section")
             enabled: idEnableSupport.checked
 
             from: 0
-            to: 100
-            value: 100
+            to: 1
+            value: 1
+            stepSize: 0.05
 
             onValueChanged: {
-                var rate = value / 100.0
+                var rate = value
                 com.sectionRate = rate
             }
         }
@@ -269,7 +359,7 @@ LeftPanelDialog {
             anchors.left: idSectionView.left
             anchors.topMargin: 2
             height: idBottom.height
-            width: (text.length > 5 ? 95 : 60) * screenScaleFactor
+            width: (text.length > 5 ? 95 : 70) * screenScaleFactor
             text : qsTr("Reset Direction")
             enabled: idEnableSupport.checked
 
@@ -297,18 +387,85 @@ LeftPanelDialog {
             com: idRoot.com
             enabled: idEnableSupport.checked
 
-            contextList: [
-                qsTr("Left mouse button") + ":",
-                qsTr("Enforce supports"),
-                qsTr("Right mouse button") + ":",
-                qsTr("Block supports"),
-                qsTr("Shift + Left mouse button") + ":",
-                qsTr("Erase"),
-                qsTr("Ctrl + Wheel") + ":",
-                qsTr("Pen size"),
-                qsTr("Alt + Wheel") + ":",
-                qsTr("Section view")
-            ]
+            // contextList: [
+            //     qsTr("Left mouse button") + ":",
+            //     qsTr("Enforce supports"),
+            //     qsTr("Right mouse button") + ":",
+            //     qsTr("Block supports"),
+            //     qsTr("Shift + Left mouse button") + ":",
+            //     qsTr("Erase"),
+            //     qsTr("Ctrl + Wheel") + ":",
+            //     qsTr("Pen size"),
+            //     qsTr("Alt + Wheel") + ":",
+            //     qsTr("Section view")
+            // ]
+
+
+            contextList: []
+
+            function updateCopywriting() {
+                let method = idToolSeletor.method
+                if (method == 0) {
+                    contextList = [
+                        qsTr("Left mouse button") + ":",
+                        qsTr("Enforce supports"),
+                        qsTr("Right mouse button") + ":",
+                        qsTr("Block supports"),
+                        qsTr("Shift + Left mouse button") + ":",
+                        qsTr("Erase"),
+                        qsTr("Alt + Wheel") + ":",
+                        qsTr("Section view")
+                    ]
+                } else if (method == 1) {
+                    contextList = [
+                        qsTr("Left mouse button") + ":",
+                        qsTr("Enforce supports"),
+                        qsTr("Right mouse button") + ":",
+                        qsTr("Block supports"),
+                        qsTr("Shift + Left mouse button") + ":",
+                        qsTr("Erase"),
+                        qsTr("Ctrl + Wheel") + ":",
+                        qsTr("Pen size"),
+                        qsTr("Alt + Wheel") + ":",
+                        qsTr("Section view")
+                    ]
+                } else if (method == 2) {
+                    contextList = [
+                        qsTr("Left mouse button") + ":",
+                        qsTr("Enforce supports"),
+                        qsTr("Right mouse button") + ":",
+                        qsTr("Block supports"),
+                        qsTr("Shift + Left mouse button") + ":",
+                        qsTr("Erase"),
+                        qsTr("Ctrl + Wheel") + ":",
+                        qsTr("Smart Fill Angle"),
+                        qsTr("Alt + Wheel") + ":",
+                        qsTr("Section view")
+                    ]
+                } else if (method == 5) {
+                    contextList = [
+                        qsTr("Left mouse button") + ":",
+                        qsTr("Enforce supports"),
+                        qsTr("Right mouse button") + ":",
+                        qsTr("Block supports"),
+                        qsTr("Shift + Left mouse button") + ":",
+                        qsTr("Erase"),
+                        qsTr("Ctrl + Wheel") + ":",
+                        qsTr("Height Range"),
+                        qsTr("Alt + Wheel") + ":",
+                        qsTr("Section view")
+                    ]
+                } else if (method == 3) {
+                    contextList = [
+                        qsTr("Shift + Left mouse button") + ":",
+                        qsTr("Erase"),
+                        qsTr("Ctrl + Wheel") + ":",
+                        qsTr("Gap Area"),
+                        qsTr("Alt + Wheel") + ":",
+                        qsTr("Section view")
+                    ]
+                }
+            }
         }
     }
 

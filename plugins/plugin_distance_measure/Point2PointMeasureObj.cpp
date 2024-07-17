@@ -13,6 +13,7 @@
 #include <Qt3DRender/QDepthTest>
 
 #include "dismeasureop.h"
+#include "qtuser3d/refactor/xeffect.h"
 
 using namespace qtuser_3d;
 using namespace creative_kernel;
@@ -28,14 +29,18 @@ Point2PointMeasureObj::Point2PointMeasureObj(QObject* object)
 
 	Qt3DRender::QGeometry *geometry = qtuser_3d::BasicShapeCreateHelper::createBall(QVector3D(0, 0, 0), 0.5, 30);
 	
-	Qt3DRender::QDepthTest* state = new Qt3DRender::QDepthTest(geometry);
-	state->setDepthFunction(Qt3DRender::QDepthTest::Always);
+	/*Qt3DRender::QDepthTest* state = new Qt3DRender::QDepthTest(geometry);
+	state->setDepthFunction(Qt3DRender::QDepthTest::Always);*/
 
 	for (int i = 0; i < 2; i++)
 	{
+		m_measureBall[i].xeffect()->removePassFilter(0, "view", 0);
+		m_measureBall[i].xeffect()->addPassFilter(0, "overlay");
+		m_measureBall[i].xeffect()->setPassDepthTest(0);
 		m_measureBall[i].setGeometry(geometry);
 		m_measureBall[i].setColor(QVector4D(0.2f, 0.2f, 0.8f, 1.0));
-		m_measureBall[i].addRenderState(0, state);
+		//m_measureBall[i].addRenderState(0, state);
+
 	}
 
 	m_normal = QVector3D(0, 0, 1);

@@ -20,6 +20,7 @@ public:
 	virtual ~DistanceMeasureOp();
 
 	bool getShowPop();
+	virtual bool isGlobalMode() { return true; }
 
 protected:
 	void onAttach() override;

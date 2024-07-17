@@ -20,12 +20,13 @@ public:
     bool isMax() const;
     bool isFull() const;
     QQuickItem* titleItem() const;
-
+    Q_INVOKABLE void showLessViewMinimized();
     static QRect calcCenterGeo(const QRect& screenGeo, const QSize& normalSize);
 public slots:
     void setIsMax(bool isMax);
     void setIsFull(bool isFull);
     void setTitleItem(QQuickItem* item);
+    void setMaskItem(QQuickItem* item);
 
 signals:
     void isMaxChanged(bool isMax);

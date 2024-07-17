@@ -8,17 +8,10 @@ import "../qml"
 BasicGroupBox{
     property var smodel
 
-    ParameterContext {
-        id : idParameterContext
-    }
-    function update(model,settings)
-    {
-
-        idParameterContext.settings = settings
-        idParameterContext.currentProfile = model
+    function update(model,settings) {
         smodel = model
-
     }
+
     defaultBgColor: "transparent"
     textBgColor: Constants.custom_tabview_panel_color
     width: 800* screenScaleFactor
@@ -42,8 +35,7 @@ BasicGroupBox{
         }
     }
 
-    ParameterGeneralCom{
+    ParameterComponent{
         id:gCom
-        parameterContext: idParameterContext
     }
 }

@@ -43,7 +43,7 @@ namespace creative_kernel
     }
 
 
-    SliceResultPointer DLLAnsycSlicer52CF::doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer, crslice::PathData* _fDebugger)
+    SliceResultPointer DLLAnsycSlicer52CF::doSlice(SliceInput& input, qtuser_core::ProgressorTracer& tracer, SliceAttain* _fDebugger)
     {
         float progressStep = 0.8f;
         tracer.resetProgressScope(0.0f, progressStep);

@@ -3,7 +3,7 @@
 
 #include "basickernelexport.h"
 #include "qtusercore/module/singleton.h"
-#include "RemotePrinter.h"
+//#include "RemotePrinter.h"
 #include "RemotePrinterSession.h"
 #include <functional>
 #include <mutex>
@@ -11,17 +11,22 @@
 #include "LanPrinterInterface.h"
 #include "OctoPrintInterface.h"
 #include "KlipperInterface.h"
-#include "Klipper4408Interface.h"
+//#include "Klipper4408Interface.h"
 #include "cpr/cpr.h"
+
+struct RemotePrinter;
 
 //�������Ƕ����ûص��ķ�ʽ��֪ͨUI���Ʋ㣬����Qt�ź���۵����������ں�����ֲ
 
 namespace creative_kernel
 {
+	class Klipper4408Interface;
+
 	using FuncSearchCb = std::function<void(const RemotePrinter&)>;
 	using FuncGetPreviewCb = std::function<void(std::string, std::string, std::string)>;
 	using FuncGetFileListCb = std::function<void(std::string, std::string, RemotePrinerType)>;
 	using FuncGetPrinterInfoCb = std::function<void(const RemotePrinter&)>;
+	using FuncGetMaterialBoxCb = std::function<void(std::string, std::string, RemotePrinerType)>;
 
 	class BASIC_KERNEL_API RemotePrinterManager
 	{
@@ -50,7 +55,7 @@ namespace creative_kernel
 		void getPreviewImg(const RemotePrinter& printer, const std::string& filePath);
 		void deleteFile(const std::string& strIp, const std::string& value, RemotePrinerType printerType, const OpPrinerFileType& fileType = OpPrinerFileType::GCODE_FILE);
 		void renameFile(const std::string& strIp, const std::string& value, const std::string& targetName, RemotePrinerType printerType, const OpPrinerFileType& fileType = OpPrinerFileType::GCODE_FILE);
-		//void deleteFileFromAllPrinters(const std::string& filePath);
+		void materialColorMap(const QString& ip, QString path, const QList<QVariantMap>& colorMap);
 
 		//void getCurrentJob(RemotePrinter& printer);
 		//void controlJob(RemotePrinter& printer, const int& controlType);//0:start 1:cancel 2:restart 3:pause 4:resume
@@ -67,6 +72,7 @@ namespace creative_kernel
 		void setGetHistoryListCb(FuncGetFileListCb callback) { m_pfnGetHistoryListCb = callback; }
 		void setGetVideoListCb(FuncGetFileListCb callback) { m_pfnGetVideoListCb = callback; }
 		void setGetPrinterInfoCb(FuncGetPrinterInfoCb callback) { m_pfnGetPrinterInfoCb = callback; }
+		void setGetMaterialBoxCb(FuncGetMaterialBoxCb callback) { m_pfnGetMaterialBoxCb = callback; }
 
 	private:
 		void updateSessitonActive(const std::string& uuid, const time_t& tmActive = 0);
@@ -78,6 +84,7 @@ namespace creative_kernel
 		FuncGetFileListCb m_pfnGetHistoryListCb = nullptr;
 		FuncGetFileListCb m_pfnGetVideoListCb = nullptr;
 		FuncGetPrinterInfoCb m_pfnGetPrinterInfoCb = nullptr;
+		FuncGetMaterialBoxCb m_pfnGetMaterialBoxCb = nullptr;
 
 	private:
 		bool m_bExit = false;

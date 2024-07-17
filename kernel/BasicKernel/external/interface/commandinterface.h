@@ -25,7 +25,7 @@ namespace creative_kernel
 	BASIC_KERNEL_API void openFileLocation(const QString& file);
 	BASIC_KERNEL_API void openUrl(const QString& web);
 	class UIVisualTracer;
-	BASIC_KERNEL_API void addUIVisualTracer(UIVisualTracer* tracer);
+	BASIC_KERNEL_API void addUIVisualTracer(UIVisualTracer* tracer,QObject* base);
 	BASIC_KERNEL_API void removeUIVisualTracer(UIVisualTracer* tracer);
 	BASIC_KERNEL_API void changeTheme(ThemeCategory theme);
 	BASIC_KERNEL_API void changeLanguage(MultiLanguage language);

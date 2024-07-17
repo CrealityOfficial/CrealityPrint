@@ -10,7 +10,7 @@ namespace creative_kernel
         , m_operation(operation)
     {
         m_eParentMenu = eMenuType_View;
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     MirrorActionCommand::~MirrorActionCommand()

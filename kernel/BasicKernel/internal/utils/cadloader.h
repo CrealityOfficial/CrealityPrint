@@ -19,7 +19,10 @@ namespace creative_kernel
 		void handle(const QString& fileName) override;
 		void handle(const QStringList& fileNames) override;
 
+		void setModelNDataProcessor(cxkernel::ModelNDataProcessor* processor);
+
 	protected:
+		cxkernel::ModelNDataProcessor* m_processor;
 	};
 }
 #endif // _NULLSPACE_CADLoaderWRAPPER_1590982007351_H

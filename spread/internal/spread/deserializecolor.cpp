@@ -276,29 +276,7 @@ namespace spread
 		return out;
 	}
 
-
-	inline uint16_t next_highest_power_of_2(uint16_t v)
-	{
-		if (v != 0)
-			--v;
-		v |= v >> 1;
-		v |= v >> 2;
-		v |= v >> 4;
-		v |= v >> 8;
-		return ++v;
-	}
-	inline uint32_t next_highest_power_of_2(uint32_t v)
-	{
-		if (v != 0)
-			--v;
-		v |= v >> 1;
-		v |= v >> 2;
-		v |= v >> 4;
-		v |= v >> 8;
-		v |= v >> 16;
-		return ++v;
-	}
-	inline uint64_t next_highest_power_of_2(uint64_t v)
+	inline uint64_t next_highest_power_of_64(uint64_t v)
 	{
 		if (v != 0)
 			--v;
@@ -453,9 +431,9 @@ namespace spread
 
 		// Reserve space for the new triangles upfront, so that the reference to this triangle will not change.
 		{
-			size_t num_triangles_new = m_triangles.size() + m_triangles[facet_idx].number_of_split_sides() + 1;
+			int num_triangles_new = m_triangles.size() + m_triangles[facet_idx].number_of_split_sides() + 1;
 			if (m_triangles.capacity() < num_triangles_new)
-				m_triangles.reserve(next_highest_power_of_2(num_triangles_new));
+				m_triangles.reserve(next_highest_power_of_64((uint64_t)num_triangles_new));
 		}
 
 		Triangle& tr = m_triangles[facet_idx];

@@ -11,6 +11,8 @@ namespace creative_kernel
 	{
 		Q_OBJECT
 		Q_PROPERTY(int selectedNum READ selectedNum NOTIFY selectedNumChanged)
+		Q_PROPERTY(QList<QObject*> selectionmObjects READ selectionmObjects)
+		Q_PROPERTY(bool wipeTowerSelected READ wipeTowerSelected NOTIFY wipeTowerSelectedChanged)
 	public:
 		ModelNSelector(QObject* parent = nullptr);
 		virtual ~ModelNSelector();
@@ -19,11 +21,24 @@ namespace creative_kernel
 		QList<ModelN*> selectionms();
 		int selectedNum();
 		Q_INVOKABLE QVector3D selectionmsSize();
+
+		bool wipeTowerSelected() { return m_wipeTowerSelected; }
+
+		void selectRect(const QRect& rect, bool exclude = true) override;
+		void selectGroup(qtuser_3d::Pickable* pickable) override;
+
+	private:
+		QList<QObject*> selectionmObjects();
+
 	protected:
 		void onSelectionsChanged() override;
 		void selectChanged(qtuser_3d::Pickable* pickable) override;
 	signals:
 		void selectedNumChanged();
+		void wipeTowerSelectedChanged();
+
+	private:
+		bool m_wipeTowerSelected { false };
 	};
 }
 #endif // CREATIVE_KERNEL_MODELNSELECTOR_1595659762117_H

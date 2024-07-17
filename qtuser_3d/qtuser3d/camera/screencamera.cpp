@@ -2,7 +2,7 @@
 #include "qtuser3d/math/rectutil.h"
 #include "qtuser3d/math/angles.h"
 #include "qtuser3d/math/space3d.h"
-
+#include <cmath>
 #include <QtMath>
 
 namespace qtuser_3d
@@ -470,6 +470,8 @@ namespace qtuser_3d
 		m_camera->setViewCenter(viewCenter);
 		m_camera->setUpVector(newUp);
 		m_camera->setPosition(newPosition);
+
+		notifyCameraChanged();
 	}
 
 	QVector3D ScreenCamera::horizontal()
@@ -579,5 +581,20 @@ namespace qtuser_3d
 	void ScreenCamera::setUpdateNearFarRuntime(bool update)
 	{
 		m_updateNearFarRuntime = update;
+	}
+
+	QPoint ScreenCamera::mapToScreen(const QVector3D& position)
+	{
+		const QMatrix4x4 vp = projectionMatrix() * viewMatrix();
+		QVector4D clip = vp * QVector4D(position, 1.0);
+		QVector3D ndc = QVector3D(clip) / clip.w();
+		QVector2D uv(ndc);
+		uv = uv * 0.5 + QVector2D( 0.5, 0.5);
+		uv = QVector2D(uv.x(), 1.0 - uv.y());
+		QSize screenSize = size();
+		uv = uv * QVector2D(screenSize.width(), screenSize.height());
+		QPoint screenPos(uv.x(), uv.y());
+	
+		return screenPos;
 	}
 }

@@ -5,7 +5,8 @@
 
 namespace msbase
 {
-	MSBASE_API bool checkDegenerateFace(trimesh::TriMesh* mesh, bool remove = false);
+	MSBASE_API bool checkDegenerateFace(trimesh::TriMesh* mesh, std::vector<bool>& valid, bool remove = false);
+	MSBASE_API void mantainValids(std::vector<std::string>& datas, std::vector<bool>& valid);
 
 	MSBASE_API void checkLargetPlanar(trimesh::TriMesh* mesh, const std::vector<trimesh::vec3>& normals, const std::vector<float>& areas, float threshold,
 		/*out*/std::vector<int>& faces);

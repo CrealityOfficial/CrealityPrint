@@ -85,7 +85,7 @@ LeftPanelDialog {
                     property color normalBorder: Constants.currentTheme ? "#DDDDE1" : "#6E6E72"
                     property color selectBorder: Constants.currentTheme ? "#009CFF" : "#00A0E9"
 
-                    onClicked: com.layoutByType(layout_type)
+                    onClicked: com.layoutByType(index)
 
                     background: Rectangle {
                         color: "transparent"

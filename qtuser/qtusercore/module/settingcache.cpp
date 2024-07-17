@@ -1,6 +1,7 @@
 #include "settingcache.h"
 #include <QtCore/QSettings>
 #include <QtCore/QDebug>
+#include <qtusercore/util/settings.h>
 
 namespace qtuser_core
 {
@@ -27,7 +28,7 @@ namespace qtuser_core
 			return;
 		qDebug() << "QSettings -------------cacheString/groupName";
 		qDebug() << groupName << key << value;
-		QSettings setting;
+		qtuser_core::VersionSettings setting;
 		setting.beginGroup(groupName);
 		setting.setValue(key, value);
 		setting.endGroup();
@@ -39,7 +40,7 @@ namespace qtuser_core
 
 		qDebug() << "QSettings -------------traitString/groupName";
 		qDebug() << groupName << key << defaultStr;
-		QSettings setting;
+		qtuser_core::VersionSettings setting;
 		setting.beginGroup(groupName);
 		str = setting.value(key, defaultStr).toString();
 		setting.endGroup();
@@ -55,7 +56,7 @@ namespace qtuser_core
 			return;
 		}
 
-		QSettings settings;
+		qtuser_core::VersionSettings settings;
 		settings.remove(key);
 		settings.beginWriteArray(key);
 		for (int i = 0; i < values.size(); ++i)
@@ -72,7 +73,7 @@ namespace qtuser_core
 	{
 		QStringList values;
 
-		QSettings settings;
+		qtuser_core::VersionSettings settings;
 		int size = settings.beginReadArray(key);
 		for (int i = 0; i < size; ++i)
 		{
@@ -94,7 +95,7 @@ namespace qtuser_core
 
 		qDebug() << "QSettings -------------cacheInt/groupName";
 		qDebug() << groupName << key << value;
-		QSettings setting;
+		qtuser_core::VersionSettings setting;
 		setting.beginGroup(groupName);
 		setting.setValue(key, value);
 		setting.endGroup();
@@ -106,11 +107,11 @@ namespace qtuser_core
 
 		qDebug() << "QSettings -------------traitInt/groupName";
 		qDebug() << groupName << key << defaultValue;
-		QSettings setting;
+		qtuser_core::VersionSettings setting;
 		setting.beginGroup(groupName);
 		value = setting.value(key, defaultValue).toInt();
 		setting.endGroup();
-		
+
 		return value;
 	}
 }

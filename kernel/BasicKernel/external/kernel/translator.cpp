@@ -4,8 +4,9 @@
 #include <QtCore/QDebug>
 #include <QtQml/QQmlEngine>
 #include <QtQml/QQmlApplicationEngine>
-#include <QtCore/QSettings>
 #include <QtWidgets/QApplication>
+
+#include <qtusercore/util/settings.h>
 
 #include "data/interface.h"
 #include "interface/appsettinginterface.h"
@@ -19,6 +20,8 @@ namespace creative_kernel
         , m_theme(creative_kernel::ThemeCategory::tc_dark)
     {
         m_translator = new QTranslator(this);
+        m_ParameterTranslator = new QTranslator(this);
+
         auto lang = QLocale().language();
         if (QLocale::Chinese == lang)
         {
@@ -64,7 +67,7 @@ namespace creative_kernel
         }
 
         m_theme = theme;
-        QSettings setting;
+        qtuser_core::VersionSettings setting;
         setting.beginGroup("themecolor_config");
         setting.setValue("themecolor_config", (int)m_theme);
         setting.endGroup();
@@ -81,7 +84,7 @@ namespace creative_kernel
     void Translator::loadUserSettings()
     {
         {
-            QSettings setting;
+            qtuser_core::VersionSettings setting;
             setting.beginGroup("themecolor_config");
             int nThemeType = setting.value("themecolor_config", 0).toInt();
             setting.endGroup();
@@ -90,7 +93,7 @@ namespace creative_kernel
         }
 
         {
-            QSettings setting;
+            qtuser_core::VersionSettings setting;
             setting.beginGroup("language_perfer_config");
             QString lanTsFile = setting.value("language_type", "").toString();
             if (lanTsFile == "")
@@ -123,12 +126,27 @@ namespace creative_kernel
 
     void Translator::loadLanguage_ts(QString strFileName)
     {
-        if (m_translator->load(strFileName))
-        {
-            QApplication::installTranslator(m_translator);
-        }
+       //加载参数相关翻译
+       EngineType type = getEngineType();
+       QString engineType = type == EngineType::ET_CURA ? "c3d" : "orca";
+       QString transPath = QString("%1_%2").arg(strFileName).arg(engineType);
+
+       bool pLoadRes = m_ParameterTranslator->load(transPath);
+       if (pLoadRes)
+       {
+           QApplication::removeTranslator(m_ParameterTranslator);
+           QApplication::installTranslator(m_ParameterTranslator);
+       }
+           
+       //加载软件自带翻译
+       pLoadRes = m_translator->load(strFileName);
+       if (pLoadRes)
+       {
+           QApplication::removeTranslator(m_translator);
+           QApplication::installTranslator(m_translator);
+       }  
     }
-    
+
     void Translator::changeLanguage(MultiLanguage language, bool force)
     {
         if (language == m_language && !force)
@@ -140,7 +158,7 @@ namespace creative_kernel
         m_language = language;
         QString tsFile = languageTsFile(m_language);
 
-        QSettings setting;
+        qtuser_core::VersionSettings setting;
         setting.beginGroup("language_perfer_config");
         setting.setValue("language_type", tsFile);
         setting.endGroup();
@@ -155,10 +173,10 @@ namespace creative_kernel
             //QObject* p1 = p->parent();
             //if (p1 == nullptr)
             //{
-                
+
             //}
         }
-            
+
 
         if (m_engine)
             m_engine->retranslate();

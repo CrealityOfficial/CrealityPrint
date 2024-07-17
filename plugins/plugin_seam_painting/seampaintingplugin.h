@@ -3,7 +3,7 @@
 #include "qtusercore/module/creativeinterface.h"
 #include "data/interface.h"
 
-class SeamPaintingCommand;
+class PaintCommand;
 class SeamPaintingPlugin : public QObject, public CreativeInterface
 	, public creative_kernel::UIVisualTracer
 {
@@ -25,7 +25,7 @@ protected:
 	void onThemeChanged(creative_kernel::ThemeCategory category) override;
 	void onLanguageChanged(creative_kernel::MultiLanguage language) override;
 protected:
-	SeamPaintingCommand* m_command;
+	PaintCommand* m_command;
 };
 
 #endif // _NULLSPACE_SEAM_PAINTING_PLUGIN_1591235079966_H

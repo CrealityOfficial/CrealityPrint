@@ -25,10 +25,14 @@ Rectangle {
     property var deviceItem: ""
 
     property string object_current: "qrc:/UI/photo/lanPrinterSource/object_current.svg"
+    property string material: "qrc:/UI/photo/lanPrinterSource/material.svg"
+    property string materialBoxUpdate: "qrc:/UI/photo/lanPrinterSource/materialBoxUpdate.svg"
+    property string materialBoxSetting: "qrc:/UI/photo/lanPrinterSource/materialBoxSetting.svg"
+    property string dry: "qrc:/UI/photo/lanPrinterSource/dry.svg"
+    property string showBoxMsg: "qrc:/UI/photo/lanPrinterSource/showBoxMsg.svg"
     property string object_default: "qrc:/UI/photo/lanPrinterSource/object_default.svg"
     property string object_delete: "qrc:/UI/photo/lanPrinterSource/object_delete.svg"
     property string object_hover: "qrc:/UI/photo/lanPrinterSource/object_hover.svg"
-    property string object_title: "qrc:/UI/photo/lanPrinterSource/object_title.svg"
 
     property string file_sort_default: "qrc:/UI/photo/lanPrinterSource/file_sort_default.svg"
     property string file_sort_hover: "qrc:/UI/photo/lanPrinterSource/file_sort_hover.svg"
@@ -39,7 +43,7 @@ Rectangle {
     property int printerStatus: deviceItem ? deviceItem.pcPrinterStatus : 0
     property int printerMethod: deviceItem ? deviceItem.pcPrinterMethod : 0
     property int curImportProgress: deviceItem ? deviceItem.gCodeImportProgress : 0
-    property int maxTryTimes : 0    // 加载图片失败时，自动重新加载的最大次数
+    property int maxTryTimes : 2    // 加载图片失败时，自动重新加载的最大次数
 
     property bool hasCamera: deviceItem ? deviceItem.pcHasCamera : false
     property bool zAutohome: deviceItem ? (isKlipper_4408 ? deviceItem.zAutohome : true) : false
@@ -57,13 +61,15 @@ Rectangle {
     property string macAddress: deviceItem ? deviceItem.pcPrinterID : ""
     property string curGcodeName: deviceItem ? deviceItem.pcGCodeName : ""
     property string errorMessage: deviceItem ? deviceItem.errorMessage : ""
-//    property string previewImage: (isKlipper_4408 && !isDeviceIdle) ? `http://${ipAddress}:80/downloads/original/current_print_image.png` : `image://preview/icons/${deviceID}`
+    //    property string previewImage: (isKlipper_4408 && !isDeviceIdle) ? `http://${ipAddress}:80/downloads/original/current_print_image.png` : `image://preview/icons/${deviceID}`
 
     property string previewImage: root.isDeviceIdle ? "" : `http://${ipAddress}:80/downloads/original/current_print_image.png`
     property string defaultImage: Constants.currentTheme ? "qrc:/UI/images/default_preview_light.svg" : "qrc:/UI/images/default_preview_dark.svg"
     property string modelItemImagePrefix: needLoadModelItem ? "http://" + ipAddress : ""
 
-     property string printObjectName: ""
+    property string printObjectName: ""
+
+    property string fileDefaultPrefixPath: "/usr/data/printer_data/gcodes"
 
     onDeviceIDChanged: {
         imagePreview_min.init()
@@ -194,7 +200,8 @@ Rectangle {
         Continue,
         Stop,
         NotExist,
-        ObjectDelete
+        ObjectDelete,
+        ObjectNotDelete
     }
 
     enum ListViewType
@@ -202,6 +209,12 @@ Rectangle {
         GcodeListView,
         HistoryListView,
         VideoListView
+    }
+
+    enum ListViewControlType
+    {
+        ControlListView,
+        MaterialListView
     }
 
     enum ListViewFieldType
@@ -225,6 +238,7 @@ Rectangle {
         E_GCodeImportProgress,
         E_GCodeExportProgress
     }
+
 
     ListModel {
         id: themeModel
@@ -322,6 +336,10 @@ Rectangle {
             img_led_open: "qrc:/UI/photo/lanPrinterSource/led_open.svg"
             img_led_close: "qrc:/UI/photo/lanPrinterSource/led_close.svg"
 
+            axis_plusIcon: "qrc:/UI/photo/lanPrinterSource/axis_plusIcon.svg"
+
+
+
             fan_block_bgColor: "#212124"
         }
         ListElement {
@@ -413,6 +431,8 @@ Rectangle {
             img_label_offline: "qrc:/UI/photo/lanPrinterSource/offline_detail_light.svg"
             img_camera_connection: "qrc:/UI/photo/lanPrinterSource/camera_connection_light.svg"
             fan_block_bgColor: "#ffffff"
+
+            axis_plusIcon: "qrc:/UI/photo/lanPrinterSource/axis_plusIcon_light.svg"
         }
     }
 
@@ -466,6 +486,11 @@ Rectangle {
                 curMessageText = qsTr("Whether to continue deleting the selected object")
                 showCancelBtn = true
                 break;
+            case LanPrinterDetail.MessageType.ObjectNotDelete:
+                title = qsTr("Object deletion")
+                curMessageText = qsTr("Exclusion is not supported when only a single model is left")
+                showCancelBtn = false
+                break;
             default:
                 break;
             }
@@ -500,6 +525,8 @@ Rectangle {
                     printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.CONTROL_CMD_EXCLUDEOBJECTS, printObjectName, deviceType)
 
                 }
+                break;
+             case LanPrinterDetail.MessageType.ObjectNotDelete:
                 break;
             default:
                 break;
@@ -799,18 +826,18 @@ Rectangle {
         Component.onDestruction: stop()
     }
 
-    ScrollView {
+    BasicScrollView {
         clip: true
         width: root.width
         height: root.height
         anchors.centerIn: parent
-//        vpolicyVisible: contentHeight > height
-//        vpolicyindicator: Rectangle {
-//            color: "#737378"
-//            radius: width / 2
-//            implicitWidth: 6 * screenScaleFactor
-//            implicitHeight: 630 * screenScaleFactor
-//        }
+        vpolicyVisible: contentHeight > height
+        vpolicyindicator: Rectangle {
+            color: "#737378"
+            radius: width / 2
+            implicitWidth: 6 * screenScaleFactor
+            implicitHeight: 630 * screenScaleFactor
+        }
 
         RowLayout {
             spacing: 0
@@ -974,7 +1001,7 @@ Rectangle {
                                         font.family: Constants.mySystemFont.name
                                         font.pointSize: Constants.labelFontPointSize_9
                                         verticalAlignment: Text.AlignVCenter
-                                        color: sourceTheme.text_method_color
+                                        color: Constants.themeGreenColor
                                         text: getPrinterMethodText(printerMethod)
                                     }
                                 }
@@ -987,7 +1014,7 @@ Rectangle {
 
                             RowLayout {
                                 id: errorLayout
-                                visible: errorCode != 0
+                                visible:  errorCode != 0
                                 spacing: 10 * screenScaleFactor
                                 Layout.alignment: Qt.AlignRight
                                 property bool isRepoPlrStatus: errorCode == 2000
@@ -1053,7 +1080,7 @@ Rectangle {
                                                         font.pointSize: Constants.labelFontPointSize_9
                                                         verticalAlignment: Text.AlignVCenter
                                                         color: errorLayout.displayTextColor
-                                                        text: (errorLayout.isRepoPlrStatus || errorLayout.isMaterialStatus) ? errorMessage : (qsTr("Description:") + "Key" + errorKey + errorMessage) 
+                                                        text: (errorLayout.isRepoPlrStatus || errorLayout.isMaterialStatus) ? errorMessage : (qsTr("Description:") + "Key" + errorKey + errorMessage)
                                                     }
                                                 }
 
@@ -1104,7 +1131,7 @@ Rectangle {
                                 Button {
                                     Layout.preferredWidth: 73 * screenScaleFactor
                                     Layout.preferredHeight: 24 * screenScaleFactor
-                                    visible: !printerItem.isStopping && ((errorCode >= 101 && errorCode <= 200) || errorLayout.isRepoPlrStatus || errorLayout.isMaterialStatus)
+                                    visible: (errorCode >= 101 && errorCode <= 200) || errorLayout.isRepoPlrStatus || errorLayout.isMaterialStatus
 
                                     background: Rectangle {
                                         border.width: 1
@@ -1141,7 +1168,7 @@ Rectangle {
                                 Button {
                                     Layout.preferredWidth: 73 * screenScaleFactor
                                     Layout.preferredHeight: 24 * screenScaleFactor
-                                    visible:!printerItem.isStopping && ((errorCode >= 101 && errorCode <= 200) || errorLayout.isRepoPlrStatus || errorLayout.isMaterialStatus)
+                                    visible: (errorCode >= 101 && errorCode <= 200) || errorLayout.isRepoPlrStatus || errorLayout.isMaterialStatus
 
                                     background: Rectangle {
                                         border.width: 1
@@ -1158,7 +1185,7 @@ Rectangle {
                                         font.family: Constants.mySystemFont.name
                                         font.pointSize: Constants.labelFontPointSize_9
                                         color: sourceTheme.text_normal_color
-                                        text: qsTr("Stop")
+                                        text: qsTr("Cancel")
                                     }
 
                                     onClicked:
@@ -1386,7 +1413,7 @@ Rectangle {
                                         id: maximizeBtn
                                         width: 14 * screenScaleFactor
                                         height: 14 * screenScaleFactor
-//                                        visible: !root.isDeviceIdle && imagePreview_min.status == Image.Ready
+                                        //                                        visible: !root.isDeviceIdle && imagePreview_min.status == Image.Ready
 
                                         anchors.verticalCenter: parent.verticalCenter
 
@@ -1407,7 +1434,7 @@ Rectangle {
                                         id: refreshBtn
                                         width: 14 * screenScaleFactor
                                         height: 14 * screenScaleFactor
-//                                        visible: imagePreview_min.status == Image.Error && !root.isDeviceIdle
+                                        //                                        visible: imagePreview_min.status == Image.Error && !root.isDeviceIdle
 
                                         anchors.verticalCenter: parent.verticalCenter
 
@@ -1463,7 +1490,7 @@ Rectangle {
                                         if (status === Image.Error) {
                                             if (reloadTimes) {
                                                 reloadTimes--
-                                                refresh()
+                                                delayLoadModelItem.start()
                                             } else {
                                                 /* 加载不成功时使用默认图标 */
                                                 source = defaultImage
@@ -1478,7 +1505,7 @@ Rectangle {
                                             } else {
                                                 if (reloadTimes) {
                                                     reloadTimes--
-                                                    refresh()
+                                                    delayLoadModelItem.start()
                                                 } else {
                                                     refreshBtn.visible = false
                                                     maximizeBtn.visible = true && !root.isDeviceIdle
@@ -1488,15 +1515,14 @@ Rectangle {
                                         }
                                     }
 
-//                                    Timer {
-//                                        /* 当前打印的预览图加载完了再加载ModelItem（列表）
-//                                           qml的Image不能多个同时加载，同时加载存在图片混淆的问题，因此这里需要做加载顺序的处理 */
-//                                        id: delayLoadModelItem
-//                                        interval: 600
-//                                        repeat: false
-//                                        onTriggered: {
-//                                        }
-//                                    }
+                                    Timer {
+                                        /* 当前打印的预览图加载完了再加载ModelItem（列表）
+                                            qml的Image不能多个同时加载，同时加载存在图片混淆的问题，因此这里需要做加载顺序的处理 */
+                                        id: delayLoadModelItem
+                                        interval: 600
+                                        repeat: false
+                                        onTriggered: imagePreview_min.refresh()
+                                    }
 
                                 }
 
@@ -1694,7 +1720,7 @@ Rectangle {
                                             anchors.left: parent.left
                                             anchors.verticalCenter: parent.verticalCenter
 
-                                            color: "#1E9BE2"
+                                            color: Constants.themeGreenColor
                                             radius: 1
                                         }
                                     }
@@ -1832,28 +1858,26 @@ Rectangle {
                             spacing: 10 * screenScaleFactor
 
                             Image {
-                                Layout.preferredWidth: 14 * screenScaleFactor
+                                Layout.preferredWidth: 11 * screenScaleFactor
                                 Layout.preferredHeight: 14 * screenScaleFactor
                                 source: "qrc:/UI/photo/lanPrinterSource/controlIcon.svg"
                             }
 
                             Text {
-                                Layout.preferredWidth: contentWidth * screenScaleFactor
-                                Layout.preferredHeight: 14 * screenScaleFactor
-
-                                verticalAlignment: Text.AlignVCenter
                                 font.weight: Font.Bold
                                 font.family: Constants.mySystemFont.name
                                 font.pointSize: Constants.labelFontPointSize_9
-                                text: qsTr("Control")
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
                                 color: sourceTheme.text_normal_color
+                                text: qsTr("Control")
                             }
 
                             Item {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                             }
-
+                            
                             Item {
                                 Layout.preferredWidth: 20 * screenScaleFactor
                                 Layout.preferredHeight: 12 * screenScaleFactor
@@ -1893,7 +1917,7 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 626 * screenScaleFactor
                         Layout.maximumWidth: 932 * screenScaleFactor
-                        implicitHeight:colLayoutItem.height + 30 * screenScaleFactor
+                        implicitHeight: 220* screenScaleFactor + flowItem.height //colLayoutItem.height + 30 * screenScaleFactor
 
 
                         MouseArea {
@@ -1902,11 +1926,13 @@ Rectangle {
                             onClicked: parent.forceActiveFocus()
                         }
 
+
                         ColumnLayout {
                             anchors.topMargin: 10 * screenScaleFactor
                             anchors.bottomMargin: 10 * screenScaleFactor
                             width: parent.width
-                            id: colLayoutItem
+                            id: controlListView
+                            clip:true
                             Item {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
@@ -1936,7 +1962,7 @@ Rectangle {
 
                                         border.width: 1
                                         border.color: sourceTheme.btn_border_color
-                                        color: y_plusArea.containsMouse ? "#1E9BE2" : sourceTheme.btn_default_color
+                                        color: y_plusArea.containsMouse ? Constants.themeGreenColor : sourceTheme.btn_default_color
 
                                         Layout.preferredWidth: 40 * screenScaleFactor
                                         Layout.preferredHeight: 40 * screenScaleFactor
@@ -1950,7 +1976,7 @@ Rectangle {
                                                 width: 10 * screenScaleFactor
                                                 height: 8 * screenScaleFactor
                                                 anchors.horizontalCenter: parent.horizontalCenter
-                                                source: "qrc:/UI/photo/lanPrinterSource/axis_plusIcon.svg"
+                                                source: sourceTheme.axis_plusIcon
                                             }
 
                                             Text {
@@ -2008,7 +2034,7 @@ Rectangle {
                                                 width: 10 * screenScaleFactor
                                                 height: 8 * screenScaleFactor
                                                 anchors.horizontalCenter: parent.horizontalCenter
-                                                source: "qrc:/UI/photo/lanPrinterSource/axis_plusIcon.svg"
+                                                source: sourceTheme.axis_plusIcon
                                             }
 
                                             Text {
@@ -2029,18 +2055,17 @@ Rectangle {
                                             cursorShape: containsMouse?Qt.PointingHandCursor:Qt.ArrowCursor
 
                                             onClicked: {
-                                                var curUnit = parseFloat(controlItem.currentUnit)
                                                 var targetValue
                                                 var targetCmd
                                                 var targetValueLimit
-                                                if(deviceItem && deviceItem.machinePlatformMotionEnable === "true")
+                                                var curUnit = parseFloat(controlItem.currentUnit)
+                                                if(deviceItem && deviceItem.machinePlatformMotionEnable)
                                                 {
                                                     targetValue  = parseFloat(idZPostion.text) - curUnit
                                                     targetCmd = `Z-${curUnit} F600`
                                                     targetValueLimit = targetValue < 0
 
                                                 }else {
-
                                                     targetValue  =parseFloat(idZPostion.text) + curUnit
                                                     targetCmd = `Z${curUnit} F600`
                                                     targetValueLimit = targetValue > deviceItem.machineDepth
@@ -2063,7 +2088,7 @@ Rectangle {
 
                                         border.width: 1
                                         border.color: sourceTheme.btn_border_color
-                                        color: x_minusArea.containsMouse ? "#1E9BE2" : sourceTheme.btn_default_color
+                                        color: x_minusArea.containsMouse ? Constants.themeGreenColor : sourceTheme.btn_default_color
 
                                         Layout.preferredWidth: 40 * screenScaleFactor
                                         Layout.preferredHeight: 40 * screenScaleFactor
@@ -2077,7 +2102,7 @@ Rectangle {
                                                 width: 8 * screenScaleFactor
                                                 height: 10 * screenScaleFactor
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                source: "qrc:/UI/photo/lanPrinterSource/x_minusIcon.svg"
+                                                source:Constants.currentTheme?"qrc:/UI/photo/lanPrinterSource/x_minusIcon_light.svg": "qrc:/UI/photo/lanPrinterSource/x_minusIcon.svg"
                                             }
 
                                             Text {
@@ -2116,7 +2141,7 @@ Rectangle {
 
                                         border.width: 1
                                         border.color: sourceTheme.btn_border_color
-                                        color: xy_homeArea.containsMouse ? "#1E9BE2" : sourceTheme.btn_default_color
+                                        color: xy_homeArea.containsMouse ? Constants.themeGreenColor : sourceTheme.btn_default_color
 
                                         Layout.preferredWidth: 40 * screenScaleFactor
                                         Layout.preferredHeight: 40 * screenScaleFactor
@@ -2125,7 +2150,7 @@ Rectangle {
                                             anchors.centerIn: parent
                                             width: 14 * screenScaleFactor
                                             height: 14 * screenScaleFactor
-                                            source: "qrc:/UI/photo/lanPrinterSource/axis_homeIcon.svg"
+                                            source: Constants.currentTheme? "qrc:/UI/photo/lanPrinterSource/axis_homeIcon_light.svg" : "qrc:/UI/photo/lanPrinterSource/axis_homeIcon.svg"
                                         }
 
                                         MouseArea {
@@ -2147,7 +2172,7 @@ Rectangle {
 
                                         border.width: 1
                                         border.color: sourceTheme.btn_border_color
-                                        color: x_plusArea.containsMouse ? "#1E9BE2" : sourceTheme.btn_default_color
+                                        color: x_plusArea.containsMouse ? Constants.themeGreenColor : sourceTheme.btn_default_color
 
                                         Layout.preferredWidth: 40 * screenScaleFactor
                                         Layout.preferredHeight: 40 * screenScaleFactor
@@ -2161,7 +2186,7 @@ Rectangle {
                                                 width: 8 * screenScaleFactor
                                                 height: 10 * screenScaleFactor
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                source: "qrc:/UI/photo/lanPrinterSource/x_plusIcon.svg"
+                                                source: Constants.currentTheme ? "qrc:/UI/photo/lanPrinterSource/x_plusIcon_light.svg"  : "qrc:/UI/photo/lanPrinterSource/x_plusIcon.svg"
                                             }
 
                                             Text {
@@ -2209,7 +2234,7 @@ Rectangle {
                                             anchors.centerIn: parent
                                             width: 14 * screenScaleFactor
                                             height: 14 * screenScaleFactor
-                                            source: "qrc:/UI/photo/lanPrinterSource/axis_homeIcon.svg"
+                                            source: Constants.currentTheme? "qrc:/UI/photo/lanPrinterSource/axis_homeIcon_light.svg" : "qrc:/UI/photo/lanPrinterSource/axis_homeIcon.svg"
                                         }
 
                                         MouseArea {
@@ -2236,7 +2261,7 @@ Rectangle {
 
                                         border.width: 1
                                         border.color: sourceTheme.btn_border_color
-                                        color: y_minusArea.containsMouse ? "#1E9BE2" : sourceTheme.btn_default_color
+                                        color: y_minusArea.containsMouse ? Constants.themeGreenColor : sourceTheme.btn_default_color
 
                                         Layout.preferredWidth: 40 * screenScaleFactor
                                         Layout.preferredHeight: 40 * screenScaleFactor
@@ -2250,7 +2275,7 @@ Rectangle {
                                                 width: 10 * screenScaleFactor
                                                 height: 8 * screenScaleFactor
                                                 anchors.horizontalCenter: parent.horizontalCenter
-                                                source: "qrc:/UI/photo/lanPrinterSource/axis_minusIcon.svg"
+                                                source: Constants.currentTheme ? "qrc:/UI/photo/lanPrinterSource/axis_minusIcon_light.svg":"qrc:/UI/photo/lanPrinterSource/axis_minusIcon.svg"
                                             }
 
                                             Text {
@@ -2308,7 +2333,7 @@ Rectangle {
                                                 width: 10 * screenScaleFactor
                                                 height: 8 * screenScaleFactor
                                                 anchors.horizontalCenter: parent.horizontalCenter
-                                                source: "qrc:/UI/photo/lanPrinterSource/axis_minusIcon.svg"
+                                                source: Constants.currentTheme?"qrc:/UI/photo/lanPrinterSource/axis_minusIcon_light.svg": "qrc:/UI/photo/lanPrinterSource/axis_minusIcon.svg"
                                             }
 
                                             Text {
@@ -2326,13 +2351,14 @@ Rectangle {
                                             id: z_minusArea
                                             hoverEnabled: true
                                             anchors.fill: parent
-                                            cursorShape: containsMouse?Qt.PointingHandCursor:Qt.ArrowCursor  
+                                            cursorShape: containsMouse?Qt.PointingHandCursor:Qt.ArrowCursor
+
                                             onClicked: {
-                                                var curUnit = parseFloat(controlItem.currentUnit)
                                                 var targetValue
                                                 var targetCmd
                                                 var targetValueLimit
-                                                if(deviceItem && deviceItem.machinePlatformMotionEnable === "true")
+                                                var curUnit = parseFloat(controlItem.currentUnit)
+                                                if(deviceItem && deviceItem.machinePlatformMotionEnable)
                                                 {
                                                     targetValue  =parseFloat(idZPostion.text) + curUnit
                                                     targetCmd = `Z${curUnit} F600`
@@ -2509,7 +2535,7 @@ Rectangle {
 
                                                     border.width: 1
                                                     border.color: sourceTheme.btn_border_color
-                                                    color: parent.checked?"#1E9BE2":(parent.hovered ? sourceTheme.btn_hovered_color : sourceTheme.btn_default_color)
+                                                    color: parent.checked?Constants.themeGreenColor:(parent.hovered ? sourceTheme.btn_hovered_color : sourceTheme.btn_default_color)
                                                 }
 
                                                 Text {
@@ -2756,7 +2782,6 @@ Rectangle {
                                                         var value = checked ? "1" : "0"
                                                         if(ipAddress !== "")
                                                         {
-                                                             console.log(deviceItem.machineChamberFanExist,deviceItem.machineCdsFanExist,deviceItem.machineLEDLightExist,"machineLEDLightExist")
                                                             fanSwitch.delayShow = true
                                                             fanSwitchDelayShow.start()
                                                             printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.CONTROL_CMD_FAN, value, deviceType)
@@ -2769,15 +2794,18 @@ Rectangle {
 
                                                         border.width: fanSwitch.checked ? 0 : 1
                                                         border.color: sourceTheme.switch_border_color
-                                                        color: fanSwitch.checked ? sourceTheme.switch_checked_background : sourceTheme.switch_unchecked_background
+
+                                                        
+                                                        property var checkColor:Constants.currentTheme?Constants.themeGreenColor: "#047832"
+                                                        color: fanSwitch.checked ? checkColor : sourceTheme.switch_unchecked_background
 
                                                         Rectangle {
                                                             radius: height / 2
                                                             width: 26 * screenScaleFactor
                                                             height: 26 * screenScaleFactor
                                                             anchors.verticalCenter: parent.verticalCenter
-
-                                                            color: fanSwitch.checked ? "#00A3FF" : sourceTheme.switch_indicator_color
+                                                            property var checkColor:Constants.currentTheme?"#FFFFFF": Constants.themeGreenColor
+                                                            color: fanSwitch.checked ? checkColor : sourceTheme.switch_indicator_color
                                                             x: fanSwitch.checked ? (parent.width - width - 3 * screenScaleFactor) : 3 * screenScaleFactor
 
                                                             Behavior on x {
@@ -2855,7 +2883,7 @@ Rectangle {
                                                             Rectangle {
                                                                 width: fanSpeedId.visualPosition * parent.width
                                                                 height: parent.height
-                                                                color: "#144F71"
+                                                                color: Constants.themeGreenColor
                                                                 radius: 2* screenScaleFactor
                                                             }
                                                         }
@@ -2866,7 +2894,7 @@ Rectangle {
                                                             implicitWidth: 10* screenScaleFactor
                                                             implicitHeight: 10* screenScaleFactor
                                                             radius: 5* screenScaleFactor
-                                                            color: "#00A3FF"
+                                                            color: Constants.themeGreenColor
 
                                                         }
                                                         onPressedChanged: {
@@ -2885,7 +2913,7 @@ Rectangle {
                                         }
                                     }
                                     Rectangle {
-                                        visible: deviceItem && deviceItem.machineCdsFanExist === "true"
+                                        visible: deviceItem && deviceItem.machineCdsFanExist
                                         width: 207 * screenScaleFactor
                                         height: 109 * screenScaleFactor
                                         color: sourceTheme.fan_block_bgColor
@@ -2954,15 +2982,16 @@ Rectangle {
 
                                                         border.width: auxiliaryFan.checked ? 0 : 1
                                                         border.color: sourceTheme.switch_border_color
-                                                        color: auxiliaryFan.checked ? sourceTheme.switch_checked_background : sourceTheme.switch_unchecked_background
+                                                        property var checkColor:Constants.currentTheme?Constants.themeGreenColor: "#047832"
+                                                        color: auxiliaryFan.checked ? checkColor : sourceTheme.switch_unchecked_background
 
                                                         Rectangle {
                                                             radius: height / 2
                                                             width: 26 * screenScaleFactor
                                                             height: 26 * screenScaleFactor
                                                             anchors.verticalCenter: parent.verticalCenter
-
-                                                            color: auxiliaryFan.checked ? "#00A3FF" : sourceTheme.switch_indicator_color
+                                                            property var checkColor:Constants.currentTheme?"#FFFFFF": Constants.themeGreenColor
+                                                            color: auxiliaryFan.checked ? checkColor : sourceTheme.switch_indicator_color
                                                             x: auxiliaryFan.checked ? (parent.width - width - 3 * screenScaleFactor) : 3 * screenScaleFactor
 
                                                             Behavior on x {
@@ -3039,7 +3068,7 @@ Rectangle {
                                                         Rectangle {
                                                             width: auxiliaryFanSpeedId.visualPosition * parent.width
                                                             height: parent.height
-                                                            color: "#144F71"
+                                                            color: Constants.themeGreenColor
                                                             radius: 2* screenScaleFactor
                                                         }
                                                     }
@@ -3050,7 +3079,7 @@ Rectangle {
                                                         implicitWidth: 10* screenScaleFactor
                                                         implicitHeight: 10* screenScaleFactor
                                                         radius: 5* screenScaleFactor
-                                                        color: "#00A3FF"
+                                                        color: Constants.themeGreenColor
                                                     }
                                                     onPressedChanged: {
                                                         if(!pressed)
@@ -3065,7 +3094,7 @@ Rectangle {
                                         }
                                     }
                                     Rectangle {
-                                         visible: deviceItem && deviceItem.machineChamberFanExist === "true"
+                                        visible: deviceItem && deviceItem.machineChamberFanExist
                                         width: 207 * screenScaleFactor
                                         height: 109 * screenScaleFactor
                                         color: sourceTheme.fan_block_bgColor
@@ -3131,15 +3160,16 @@ Rectangle {
 
                                                         border.width: cavityFan.checked ? 0 : 1
                                                         border.color: sourceTheme.switch_border_color
-                                                        color: cavityFan.checked ? sourceTheme.switch_checked_background : sourceTheme.switch_unchecked_background
+                                                        property var checkColor:Constants.currentTheme?Constants.themeGreenColor: "#047832"
+                                                        color: cavityFan.checked ? checkColor : sourceTheme.switch_unchecked_background
 
                                                         Rectangle {
                                                             radius: height / 2
                                                             width: 26 * screenScaleFactor
                                                             height: 26 * screenScaleFactor
                                                             anchors.verticalCenter: parent.verticalCenter
-
-                                                            color: cavityFan.checked ? "#00A3FF" : sourceTheme.switch_indicator_color
+                                                            property var checkColor:Constants.currentTheme?"#FFFFFF": Constants.themeGreenColor
+                                                            color: cavityFan.checked ? checkColor : sourceTheme.switch_indicator_color
                                                             x: cavityFan.checked ? (parent.width - width - 3 * screenScaleFactor) : 3 * screenScaleFactor
 
                                                             Behavior on x {
@@ -3223,7 +3253,7 @@ Rectangle {
                                                         Rectangle {
                                                             width: cavityFanSpeedId.visualPosition * parent.width
                                                             height: parent.height
-                                                            color: "#144F71"
+                                                            color: Constants.themeGreenColor
                                                             radius: 2* screenScaleFactor
                                                         }
                                                     }
@@ -3234,16 +3264,16 @@ Rectangle {
                                                         implicitWidth: 10* screenScaleFactor
                                                         implicitHeight: 10* screenScaleFactor
                                                         radius: 5* screenScaleFactor
-                                                        color: "#00A3FF"
+                                                        color: Constants.themeGreenColor
                                                     }
                                                     onPressedChanged: {
                                                         if(!pressed)
-                                                           printerListModel.cSourceModel.sendUIControlCmdToDevice(
-                                                               ipAddress,
-                                                               LanPrinterListLocal.PrintControlType.CONTROL_CMD_CASEFANPCT,
-                                                               parseInt(cavityFanSpeedId.value*100,10),
-                                                               deviceType
-                                                               )
+                                                            printerListModel.cSourceModel.sendUIControlCmdToDevice(
+                                                                        ipAddress,
+                                                                        LanPrinterListLocal.PrintControlType.CONTROL_CMD_CASEFANPCT,
+                                                                        parseInt(cavityFanSpeedId.value*100,10),
+                                                                        deviceType
+                                                                        )
                                                     }
                                                 }
                                             }
@@ -3259,8 +3289,7 @@ Rectangle {
                                         radius: 5 * screenScaleFactor
                                         border.width: 1 * screenScaleFactor
                                         border.color: Constants.currentTheme ? sourceTheme.btn_border_color : "transparent"
-                                        visible: deviceItem && deviceItem.machineLEDLightExist === "true"
-
+                                        visible: deviceItem && deviceItem.machineLEDLightExist
                                         ColumnLayout{
                                             y:15* screenScaleFactor
                                             x:15* screenScaleFactor
@@ -3293,8 +3322,6 @@ Rectangle {
                                                     Layout.preferredWidth: 50 * screenScaleFactor
                                                     Layout.preferredHeight: 32 * screenScaleFactor
 
-
-
                                                     Binding on checked {
                                                         when: !ledSwitch.delayShow
                                                         value: ledSwitch.led_checked
@@ -3323,15 +3350,16 @@ Rectangle {
 
                                                         border.width: ledSwitch.checked ? 0 : 1
                                                         border.color: sourceTheme.switch_border_color
-                                                        color: ledSwitch.checked ? sourceTheme.switch_checked_background : sourceTheme.switch_unchecked_background
+                                                         property var checkColor:Constants.currentTheme?Constants.themeGreenColor: "#047832"
+                                                        color: ledSwitch.checked ? checkColor : sourceTheme.switch_unchecked_background
 
                                                         Rectangle {
                                                             radius: height / 2
                                                             width: 26 * screenScaleFactor
                                                             height: 26 * screenScaleFactor
                                                             anchors.verticalCenter: parent.verticalCenter
-
-                                                            color: ledSwitch.checked ? "#00A3FF" : sourceTheme.switch_indicator_color
+                                                            property var checkColor:Constants.currentTheme?"#FFFFFF": Constants.themeGreenColor
+                                                            color: ledSwitch.checked ? checkColor : sourceTheme.switch_indicator_color
                                                             x: ledSwitch.checked ? (parent.width - width - 3 * screenScaleFactor) : 3 * screenScaleFactor
 
                                                             Behavior on x {
@@ -3363,8 +3391,10 @@ Rectangle {
                                 }
                             }
                         }
+                        
                     }
                 }
+
 
                 ColumnLayout {
                     spacing: 0
@@ -3402,11 +3432,10 @@ Rectangle {
                                 checkable: false
                                 property bool isChecked: idSwipeview.currentIndex === LanPrinterDetail.ListViewType.GcodeListView
 
-                                Layout.preferredWidth: file.contentWidth + 20 * screenScaleFactor //80 * screenScaleFactor
+                                Layout.preferredWidth: 80 * screenScaleFactor
                                 Layout.preferredHeight: 32 * screenScaleFactor
 
                                 contentItem: Text {
-                                    id: file
                                     font.weight: Font.Bold
                                     font.family: Constants.mySystemFont.name
                                     font.pointSize: Constants.labelFontPointSize_9
@@ -3432,11 +3461,10 @@ Rectangle {
                                 visible: isKlipper_4408
                                 property bool isChecked: idSwipeview.currentIndex === LanPrinterDetail.ListViewType.HistoryListView
 
-                                Layout.preferredWidth: records.contentWidth +20 * screenScaleFactor //80 * screenScaleFactor
+                                Layout.preferredWidth: 80 * screenScaleFactor
                                 Layout.preferredHeight: 32 * screenScaleFactor
 
                                 contentItem: Text {
-                                    id:records
                                     font.weight: Font.Bold
                                     font.family: Constants.mySystemFont.name
                                     font.pointSize: Constants.labelFontPointSize_9
@@ -3462,11 +3490,10 @@ Rectangle {
                                 visible: isKlipper_4408
                                 property bool isChecked: idSwipeview.currentIndex === LanPrinterDetail.ListViewType.VideoListView
 
-                                Layout.preferredWidth: timelapse.contentWidth + 20 * screenScaleFactor //80 * screenScaleFactor
+                                Layout.preferredWidth: 80 * screenScaleFactor
                                 Layout.preferredHeight: 32 * screenScaleFactor
 
                                 contentItem: Text {
-                                    id: timelapse
                                     font.weight: Font.Bold
                                     font.family: Constants.mySystemFont.name
                                     font.pointSize: Constants.labelFontPointSize_9
@@ -3494,18 +3521,18 @@ Rectangle {
                             RowLayout {
                                 id: importProgress
                                 visible: curImportProgress != 0
-                                spacing: 10 * screenScaleFactor      
+                                spacing: 10 * screenScaleFactor
                                 Text {
                                     // 限制显示长度
                                     function limitFilename(name){
-                                       let path = deviceItem.sendingFileName
-                                       let idx = path.lastIndexOf("/") + 1
-                                       let fileName = path.substring(idx)
-                                       let result = fileName.length > 10?(fileName.substring(0,7)+"..."):fileName
+                                        let path = deviceItem.sendingFileName
+                                        let idx = path.lastIndexOf("/") + 1
+                                        let fileName = path.substring(idx)
+                                        let result = fileName.length > 10?(fileName.substring(0,7)+"..."):fileName
                                         return result
                                     }
                                     id:uploadFileName
-                                    Layout.preferredWidth: contentWidth * screenScaleFactor
+                                    Layout.preferredWidth: 120 * screenScaleFactor
                                     Layout.preferredHeight: 14 * screenScaleFactor
                                     verticalAlignment: Text.AlignVCenter
                                     font.weight: Font.Medium
@@ -3537,7 +3564,7 @@ Rectangle {
                                         width: parent.width * curImportProgress / 100.0
                                         height: parent.height
                                         radius: parent.radius
-                                        color: "#1E9BE2"
+                                        color: Constants.themeGreenColor
                                     }
                                 }
 
@@ -3563,7 +3590,7 @@ Rectangle {
                             Rectangle {
                                 opacity: enabled ? 1.0 : 0.5
                                 enabled: isDeviceOnline && !fatalErrorCode && curImportProgress <= 0
-                                visible: idSwipeview.currentIndex === LanPrinterDetail.ListViewType.GcodeListView
+                                visible: idSwipeview.currentIndex === LanPrinterDetail.ListViewType.GcodeListView && !importProgress.visible
 
                                 border.width: 1
                                 border.color: sourceTheme.btn_border_color
@@ -3634,11 +3661,12 @@ Rectangle {
 
                         FileDialog {
                             id: fileDialog
-                            title: qsTr("Open File")
+                            title: qsTr("Open File1")
                             folder: shortcuts.desktop
                             nameFilters: ["*.gcode"]
                             fileMode : FileDialog.OpenFiles
                             options: if(Qt.platform.os == "linux") return FileDialog.DontUseNativeDialog
+                            property string fileName: ""
                             onAccepted: {
                                 var fileUrls = fileDialog.files
                                 if(deviceID !== "" && fileUrls.length)
@@ -3702,7 +3730,7 @@ Rectangle {
                                             let viewGlobalPos = gcodeListView.mapToGlobal(0, 0)
                                             /* 判断当前选中的Item是否在显示范围内 */
                                             if (itemGlobalPos.y + currentItem.height <= viewGlobalPos.y ||
-                                                itemGlobalPos.y >= viewGlobalPos.y + gcodeListView.height) {
+                                                    itemGlobalPos.y >= viewGlobalPos.y + gcodeListView.height) {
                                                 currentItem.closeMenu() // 超出显示范围时关闭菜单
                                             }
                                         }
@@ -3725,13 +3753,12 @@ Rectangle {
                                         color: sourceTheme.popup_background_color
 
                                         Row {
-
                                             ListModel {
                                                 id:file_table_header
-                                                ListElement{ title:qsTr("File name"); type:0; sort:true}
+                                                ListElement{ title:qsTr("File name"); type:0;sort:true }
                                                 ListElement{ title:qsTr("File size"); type:1;sort:true }
-                                                ListElement{ title:qsTr("Layer height"); type:3 }
-                                                ListElement{ title:qsTr("Creation time"); type:2;sort:true }
+                                                ListElement{ title:qsTr("Layer height"); type:2 }
+                                                ListElement{ title:qsTr("Creation time"); type:3;sort:true }
                                                 ListElement{ title:qsTr("Material length"); type:4 }
                                             }
 
@@ -3780,13 +3807,13 @@ Rectangle {
                                                             }
                                                         }
                                                     }
-//                                                    MouseArea {
-//                                                    anchors.fill: parent
-//                                                    acceptedButtons: Qt.LeftButton
-//                                                    onClicked: {
-//                                                        gcodeRootItem.forceActiveFocus()
-//                                                    }
-//                                                    }
+                                                    //                                                    MouseArea {
+                                                    //                                                    anchors.fill: parent
+                                                    //                                                    acceptedButtons: Qt.LeftButton
+                                                    //                                                    onClicked: {
+                                                    //                                                        gcodeRootItem.forceActiveFocus()
+                                                    //                                                    }
+                                                    //                                                    }
                                                 }
                                             }
                                         }
@@ -3871,8 +3898,10 @@ Rectangle {
 
                                                             onClicked:
                                                             {
-                                                                var printerPath = editGcodeName.text
-
+                                                                
+                                                                let prefixPath = gCodePrefixPath?gCodePrefixPath:fileDefaultPrefixPath
+                                                                var printerPath = prefixPath+ "/"+ id_FileName.text 
+                                                                
                                                                 if(ipAddress !== "" && printerPath !== "")
                                                                 {
                                                                     printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.PRINT_START, printerPath, deviceType)
@@ -3912,11 +3941,13 @@ Rectangle {
 
                                                             onClicked:
                                                             {
-                                                                var printerPath = editGcodeName.text
+                                                                var printerPath = id_FileName.text // editGcodeName.text
 
                                                                 if(ipAddress !== "" && printerPath !== "")
                                                                 {
-                                                                    printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.PRINT_WITH_CALIBRATION, printerPath, deviceType)
+                                                                    let prefixPath = gCodePrefixPath?gCodePrefixPath:fileDefaultPrefixPath
+                                                                    var path = prefixPath+ "/"+ id_FileName.text
+                                                                    printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.PRINT_WITH_CALIBRATION, path, deviceType)
                                                                 }
 
                                                                 gcodeFileMenu.close()
@@ -4002,11 +4033,13 @@ Rectangle {
 
                                                             onClicked:
                                                             {
-                                                                var printerPath = editGcodeName.text
+                                                                var printerPath = id_FileName.text
 
                                                                 if(ipAddress !== "" && printerPath !== "")
                                                                 {
-                                                                    gcodeFileListModel.cSourceModel.deleteGcodeFile(ipAddress, printerPath, deviceType)
+                                                                    let prefixPath = gCodePrefixPath?gCodePrefixPath:fileDefaultPrefixPath
+                                                                    var path = prefixPath+ "/"+ id_FileName.text 
+                                                                    gcodeFileListModel.cSourceModel.deleteGcodeFile(ipAddress, path, deviceType)
                                                                 }
 
                                                                 gcodeFileMenu.close()
@@ -4096,7 +4129,64 @@ Rectangle {
                                                                     }
                                                                 }
                                                             }
+                                                            id:gCodeThumbnailImageId
+                                                            property bool isHover:false
+                                                            MouseArea{
+                                                                anchors.fill:parent
+                                                                hoverEnabled:true
+                                                                cursorShape:Qt.PointingHandCursor
+                                                                onEntered:parent.isHover = true
+                                                                onExited:parent.isHover = false
+                                                            }
+
+                                                         Popup {
+                                                            width: 110 * screenScaleFactor
+                                                            height: 110 * screenScaleFactor
+                                                            visible:gCodeThumbnailImageId.isHover
+                                                            background: Rectangle {
+                                                                color: "#000000"
+                                                                border.color: sourceTheme.right_submenu_border
+                                                                border.width: 1 * screenScaleFactor
+                                                                radius:5
+                                                            }
+                                                            x: gCodeThumbnailImageId.width
+                                                            y: -height
+                                                               
+                                                                Image {
+                                                                    id:gCodeThumbnailSource
+                                                                     anchors.fill:parent
+                                                                      anchors.centerIn:parent
+                                                                    cache: false
+                                                                    mipmap: true
+                                                                    smooth: true
+                                                                    asynchronous: true
+                                                                    fillMode: Image.PreserveAspectFit
+                                                                    sourceSize: Qt.size(width, height)
+                                                                    source: modelItemImagePrefix + gCodeThumbnailImage
+                                                                    property int tryCount: 0
+                                                                    onStatusChanged: {
+                                                                        console.log("gCodeThumbnailSourceStatus",status,Image.Error)
+                                                                        if (status === Image.Error) {
+                                                                            if (!needLoadModelItem)
+                                                                                return
+                                                                            if (tryCount < maxTryTimes) {
+                                                                                /* 重新加载 */
+                                                                                let tempSrc = source
+                                                                                source = ''
+                                                                                source = tempSrc
+                                                                                tryCount++
+                                                                            } else {
+                                                                                /* 加载不成功直接用默认图标 */
+                                                                                source = defaultImage
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
                                                         }
+
+                                                        }
+                                               
+
 
                                                         ColumnLayout {
                                                             spacing: 6 * screenScaleFactor
@@ -4129,6 +4219,8 @@ Rectangle {
                                                             }
 
                                                             TextField {
+                                                                property var ext: gcodeFileName.substring(gcodeFileName.lastIndexOf("."))
+                                                                property var name: gcodeFileName.substring(0,gcodeFileName.lastIndexOf("."))
                                                                 id: editGcodeName
                                                                 visible: false
                                                                 property var delayShow: false
@@ -4144,7 +4236,7 @@ Rectangle {
                                                                 background: null
                                                                 Binding on text {
                                                                     when: !editGcodeName.activeFocus && !editGcodeName.delayShow
-                                                                    value: gcodeFileName
+                                                                    value: editGcodeName
                                                                 }
                                                                 
                                                                 Timer {
@@ -4165,11 +4257,13 @@ Rectangle {
                                                                 onEditingFinished: {
                                                                     editGcodeName.delayShow = true
                                                                     gcodeNameDelayShow.start()
-                                                                    if(gcodeFileName != editGcodeName.text){
-                                                                        gcodeFileListModel.cSourceModel.renameGcodeFile(ipAddress, gcodeFileName, editGcodeName.text, deviceType)
+                                                                    if(name !== editGcodeName.text){
+                                                                        let prefixPath = gCodePrefixPath?gCodePrefixPath:fileDefaultPrefixPath
+                                                                        let path = prefixPath+ "/"+gcodeFileName
+                                                                        var targetName = prefixPath+ "/"+ editGcodeName.text+ext
+                                                                        gcodeFileListModel.cSourceModel.renameGcodeFile(ipAddress, path, targetName, deviceType)
                                                                     }
                                                                 }
-
                                                                 onActiveFocusChanged:{
                                                                     if(!activeFocus)
                                                                         gcodeNameDelayShow.triggered()
@@ -4193,7 +4287,7 @@ Rectangle {
                                                                         width: parent.width * gCodeImportProgress / 100.0
                                                                         height: parent.height
                                                                         radius: parent.radius
-                                                                        color: "#1E9BE2"
+                                                                        color: Constants.themeGreenColor
                                                                     }
                                                                 }
 
@@ -4297,7 +4391,7 @@ Rectangle {
                                             let viewGlobalPos = historyListView.mapToGlobal(0, 0)
                                             /* 判断当前选中的Item是否在显示范围内 */
                                             if (itemGlobalPos.y + currentItem.height <= viewGlobalPos.y ||
-                                                itemGlobalPos.y >= viewGlobalPos.y + historyListView.height) {
+                                                    itemGlobalPos.y >= viewGlobalPos.y + historyListView.height) {
                                                 currentItem.closeMenu() // 超出显示范围时关闭菜单
                                             }
                                         }
@@ -4389,7 +4483,7 @@ Rectangle {
                                                 Column {
                                                     id: historyMenuContent
                                                     anchors.centerIn: parent
-                                                    
+
                                                     Rectangle {
                                                         width: 160 * screenScaleFactor
                                                         height: 28 * screenScaleFactor
@@ -4476,7 +4570,9 @@ Rectangle {
 
                                                                     if(exist && ipAddress !== "")
                                                                     {
-                                                                        printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.PRINT_START, printerPath, deviceType)
+                                                                        let prefixPath = gCodePrefixPath?gCodePrefixPath:fileDefaultPrefixPath
+                                                                        var path = prefixPath+ "/"+ printerPath 
+                                                                        printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.PRINT_START, path, deviceType)
                                                                     }
                                                                     else {
                                                                         idMessageDialog.showMessageDialog(LanPrinterDetail.MessageType.NotExist)
@@ -4525,7 +4621,9 @@ Rectangle {
 
                                                                     if(exist && ipAddress !== "")
                                                                     {
-                                                                        printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.PRINT_WITH_CALIBRATION, printerPath, deviceType)
+                                                                        let prefixPath = gCodePrefixPath?gCodePrefixPath:fileDefaultPrefixPath
+                                                                        var path = prefixPath+ "/"+ printerPath
+                                                                        printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddress, LanPrinterListLocal.PrintControlType.PRINT_WITH_CALIBRATION, path, deviceType)
                                                                     }
                                                                     else {
                                                                         idMessageDialog.showMessageDialog(LanPrinterDetail.MessageType.NotExist)
@@ -4713,7 +4811,7 @@ Rectangle {
                                             let viewGlobalPos = videoListView.mapToGlobal(0, 0)
                                             /* 判断当前选中的Item是否在显示范围内 */
                                             if (itemGlobalPos.y + currentItem.height <= viewGlobalPos.y ||
-                                                itemGlobalPos.y >= viewGlobalPos.y + videoListView.height) {
+                                                    itemGlobalPos.y >= viewGlobalPos.y + videoListView.height) {
                                                 currentItem.closeMenu() // 超出显示范围时关闭菜单
                                             }
                                         }
@@ -4755,11 +4853,11 @@ Rectangle {
                                                     }
                                                     
                                                     MouseArea {
-                                                    anchors.fill: parent
-                                                    acceptedButtons: Qt.LeftButton
-                                                    onClicked: {
-                                                        videoRootItem.forceActiveFocus()
-                                                    }
+                                                        anchors.fill: parent
+                                                        acceptedButtons: Qt.LeftButton
+                                                        onClicked: {
+                                                            videoRootItem.forceActiveFocus()
+                                                        }
                                                     }
                                                 }
                                             }
@@ -4881,7 +4979,7 @@ Rectangle {
 
                                                                 if(ipAddress !== "" && printerPath !== "")
                                                                 {
-                                                                    videoListModel.deleteVideoFile(ipAddress, videoFileName, deviceType)
+                                                                    videoListModel.deleteVideoFile(ipAddress, videoFilePath, deviceType)
                                                                 }
 
                                                                 videoFileMenu.close()
@@ -4972,75 +5070,27 @@ Rectangle {
                                                             {
                                                                 copyLinkAction.link = "http://" + ipAddress + ":80/downloads/video/" + videoFileName
                                                                 kernel_ui.copyString2Clipboard(copyLinkAction.link)
-                                                                idMessageDlg.open()
-                                                                idMessageDlg.visible = true
+                                                                idMessageDlg.show()
                                                                 videoFileMenu.close()
                                                             }
                                                         }
 
-                                                            BasicDialogV4 {
-                                                                    id: idMessageDlg
-                                                                    width: 400* screenScaleFactor
-                                                                    height: 200* screenScaleFactor
-                                                                    visible: false
-                                                                    title: qsTr("Warning")
-                                                                    maxBtnVis: false
-                                                                    parent:root
-                                                                    bdContentItem:Rectangle {
-                                                                        color: Constants.lpw_bgColor
-                                                                        ColumnLayout{
-                                                                            anchors.centerIn: parent
-                                                                            spacing: 30* screenScaleFactor
-                                                                            StyledLabel{
-                                                                                color: Constants.textColor
-                                                                                wrapMode: Text.WordWrap
-                                                                                horizontalAlignment: Text.AlignHCenter
-                                                                                Layout.preferredWidth: 250 * screenScaleFactor
-                                                                                text: qsTr("Copy link successfully!")
-                                                                            }
 
-                                                                            RowLayout{
-                                                                                Layout.alignment: Qt.AlignHCenter
-                                                                                spacing: 20* screenScaleFactor
-                                                                                BasicDialogButton {
-                                                                                    text: qsTr("OK")
-                                                                                    Layout.minimumWidth: 120 * screenScaleFactor
-                                                                                    Layout.fillHeight: true
-                                                                                    btnRadius: height / 2
-                                                                                    btnBorderW: 1 * screenScaleFactor
-                                                                                    btnTextColor: Constants.manager_printer_button_text_color
-                                                                                    borderColor: Constants.manager_printer_button_border_color
-                                                                                    defaultBtnBgColor: Constants.manager_printer_button_default_color
-                                                                                    hoveredBtnBgColor: Constants.manager_printer_button_checked_color
-                                                                                    selectedBtnBgColor: Constants.manager_printer_button_checked_color
+                                                        UploadMessageDlg {
+                                                            id: idMessageDlg
+                                                            visible: false
+                                                            cancelBtnVisible: true
+                                                            ignoreBtnVisible: false
+                                                            okBtnText: qsTr("OK")
+                                                            cancelBtnText: qsTr("Open Browser")
+                                                            msgText: qsTr("Copy link successfully!")
 
-                                                                                    onSigButtonClicked: {
-                                                                                        if(idMessageDlg.visible)
-                                                                                            idMessageDlg.close()
-                                                                                    }
-                                                                                }
-                                                                                BasicDialogButton {
-                                                                                    text: qsTr("Open Browser")
-                                                                                    Layout.minimumWidth: 120 * screenScaleFactor
-                                                                                    Layout.fillHeight: true
-                                                                                    btnRadius: height / 2
-                                                                                    btnBorderW: 1 * screenScaleFactor
-                                                                                    btnTextColor: Constants.manager_printer_button_text_color
-                                                                                    borderColor: Constants.manager_printer_button_border_color
-                                                                                    defaultBtnBgColor: Constants.manager_printer_button_default_color
-                                                                                    hoveredBtnBgColor: Constants.manager_printer_button_checked_color
-                                                                                    selectedBtnBgColor: Constants.manager_printer_button_checked_color
-
-                                                                                    onSigButtonClicked: {
-                                                                                        idMessageDlg.close()
-                                                                                        Qt.openUrlExternally(copyLinkAction.link)
-                                                                                        idMessageDlg.close()
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
+                                                            onSigOkButtonClicked: idMessageDlg.close()
+                                                            onSigCancelButtonClicked: {
+                                                                Qt.openUrlExternally(copyLinkAction.link)
+                                                                idMessageDlg.close()
+                                                            }
+                                                        }
 
                                                     }
                                                 }
@@ -5124,6 +5174,7 @@ Rectangle {
 
                                                 TextField {
                                                     id: editVideoName
+                                                    property var ext: videoFileShowName.substring(videoFileShowName.lastIndexOf("."))
                                                     property var delayShow: false
                                                     width: widthProvider(LanPrinterDetail.ListViewFieldType.FieldLayerHeight)
                                                     height: 40 * screenScaleFactor
@@ -5139,7 +5190,7 @@ Rectangle {
                                                         when: !editVideoName.activeFocus && !editVideoName.delayShow
                                                         value: videoFileShowName
                                                     }
-                                                    
+
                                                     Timer {
                                                         repeat: false
                                                         interval: 10000
@@ -5153,8 +5204,10 @@ Rectangle {
                                                     onEditingFinished: {
                                                         editVideoName.delayShow = true
                                                         videoNameDelayShow.start()
-                                                        if(videoFileShowName != editVideoName.text){
-                                                            videoListModel.renameVideoFile(ipAddress, videoFileName, editVideoName.text, deviceType)
+                                                        let textName = editVideoName.text
+                                                        if(videoFileName !== textName){
+                                                            let resultName = textName.endsWith(ext)?textName:textName+ext
+                                                            videoListModel.renameVideoFile(ipAddress, videoFilePath, resultName, deviceType)
                                                         }
                                                     }
                                                 }
@@ -5195,10 +5248,11 @@ Rectangle {
                         }
                     }
                 }
+
                 ColumnLayout{
                     id: objectDeleteItem
                     spacing: 0
-                    visible: deviceItem&&!!deviceItem.printObjects
+                    visible: deviceItem&&deviceItem.printObjects !== undefined
                     property bool showPopup: true //deviceItem&&!!deviceItem.printObjects
                     CusRoundedBg {
                         leftTop: true
@@ -5223,7 +5277,7 @@ Rectangle {
                             Image {
                                 Layout.preferredWidth: 14 * screenScaleFactor
                                 Layout.preferredHeight: 14 * screenScaleFactor
-                                source: object_title
+                                source: "qrc:/UI/photo/lanPrinterSource/object_title.svg"
                             }
 
                             Text {
@@ -5284,10 +5338,7 @@ Rectangle {
                         Layout.maximumWidth: 932 * screenScaleFactor
                         Layout.minimumHeight: 626 * screenScaleFactor
                         Layout.maximumHeight: 932 * screenScaleFactor
-                       // Layout.preferredHeight: width
-//                        onWidthChanged: {
-//                            height = width
-//                        }
+                        Layout.preferredHeight: width
 
                         Item {
                             anchors.fill: parent
@@ -5349,6 +5400,7 @@ Rectangle {
                                     function clean()
                                     {
                                         if(visible){
+                                            getContext("2d").reset();
                                             getContext("2d").clearRect(0, 0, object_delete_canvas.width, object_delete_canvas.height);
                                         }
                                     }
@@ -5399,7 +5451,12 @@ Rectangle {
                                         anchors.fill: parent
                                         onClicked: {
                                             let  canvas = object_delete_canvas
-                                            for (var s = 0; s < canvas.shapes.length; s++) {
+                                            let printArr = JSON.parse(canvas.printObjects)
+                                            let excludedArr = JSON.parse(canvas.excludedObjects) || []
+                                            if(printArr.length - excludedArr.length ===1){
+                                                idMessageDialog.showMessageDialog(LanPrinterDetail.MessageType.ObjectNotDelete)
+                                            }else {
+                                               for (var s = 0; s < canvas.shapes.length; s++) {
                                                 var shape = canvas.shapes[s];
                                                 if (canvas.isPointInPolygon( mouse.x,  mouse.y, shape.polygon)&& shape.type !== 1) {
                                                     printObjectName = shape.name
@@ -5407,6 +5464,8 @@ Rectangle {
                                                     break;
                                                 }
                                             }
+                                            }
+                                        
                                         }
                                     }
 
@@ -5465,6 +5524,7 @@ Rectangle {
                                                 ctx.moveTo(startPoint[0], startPoint[1]);
                                                 for (var p = 1; p < icon.polygon.length; p++) {
                                                     var point = icon.polygon[p];
+                                                    console.log("polygonpoint", point)
                                                     ctx.lineTo(point[0], point[1]);
                                                 }
                                             }
@@ -5472,6 +5532,7 @@ Rectangle {
                                             ctx.lineWidth = 2;  // 设置边框宽度
                                             ctx.strokeStyle = "gray";  // 设置边框颜色
 
+                                            console.log("rectLong",image.width,image.height)
                                             image.width = icon.rectLong*2; // 设置图片宽度
                                             image.height = icon.rectLong*2; // 设置图片高度
                                             image.x = icon.center[0] - image.width / 2; // 计算图片的左上角x坐标
@@ -5490,10 +5551,7 @@ Rectangle {
                         }
                     }
                 }
-
-
             }
-
             Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -5589,11 +5647,12 @@ Rectangle {
                         radius: 5
 
                         Layout.fillWidth: true
-                        Layout.fillHeight: true
+                        // Layout.fillHeight: true
                         Layout.minimumWidth: 626 * screenScaleFactor
                         Layout.maximumWidth: 932 * screenScaleFactor
-                        Layout.minimumHeight: 330 * screenScaleFactor
-                        Layout.maximumHeight: 680 * screenScaleFactor
+                        // Layout.minimumHeight: 330 * screenScaleFactor
+                        // Layout.maximumHeight: 680 * screenScaleFactor
+                        implicitHeight: 500 * screenScaleFactor
 
                         MouseArea {
                             width: 20 * screenScaleFactor
@@ -5619,6 +5678,659 @@ Rectangle {
                         }
                     }
                 }
+
+                ColumnLayout {
+                    spacing: 0
+                    id: mateialItem
+                    visible:!!deviceItem.materialBoxList
+                    property bool showPopup: true
+                    property string currentUnit: "10"
+
+                    CusRoundedBg {
+                        leftTop: true
+                        rightTop: true
+                        clickedable: false
+                        borderWidth: 1
+                        borderColor: sourceTheme.background_border
+                        color: sourceTheme.title_background_color
+                        radius: 5
+
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 626 * screenScaleFactor
+                        Layout.maximumWidth: 932 * screenScaleFactor
+                        Layout.preferredHeight: 40 * screenScaleFactor
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 20 * screenScaleFactor
+                            anchors.rightMargin: 20 * screenScaleFactor
+                            spacing: 10 * screenScaleFactor
+
+                            Image {
+                                Layout.preferredWidth: 11 * screenScaleFactor
+                                Layout.preferredHeight: 14 * screenScaleFactor
+                                source: "qrc:/UI/photo/lanPrinterSource/material.svg"
+                            }
+
+                            Text {
+                                Layout.preferredWidth: contentWidth * screenScaleFactor
+                                Layout.preferredHeight: 14 * screenScaleFactor
+
+                                verticalAlignment: Text.AlignVCenter
+                                font.weight: Font.Bold
+                                font.family: Constants.mySystemFont.name
+                                font.pointSize: Constants.labelFontPointSize_9
+                                text: qsTr("耗材")
+                                color: sourceTheme.text_normal_color
+                            }
+
+                            Item {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 20 * screenScaleFactor
+                                Layout.preferredHeight: 12 * screenScaleFactor
+
+                                Image {
+                                    anchors.centerIn: parent
+                                    width: 10 * screenScaleFactor
+                                    height: 6 * screenScaleFactor
+                                    source: mateialItem.showPopup ? sourceTheme.img_upArrow : sourceTheme.img_downArrow
+                                }
+
+                                MouseArea {
+                                    hoverEnabled: true
+                                    anchors.fill: parent
+                                    cursorShape: containsMouse?Qt.PointingHandCursor:Qt.ArrowCursor
+
+                                    onClicked: {
+                                        mateialItem.showPopup = !mateialItem.showPopup
+                                        materialPopup.visible = mateialItem.showPopup
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+
+                    CusRoundedBg {
+                        id: materialPopup
+                        visible: true
+                        leftBottom: true
+                        rightBottom: true
+                        clickedable: false
+                        borderWidth: 1
+                        borderColor: sourceTheme.background_border
+                        color: sourceTheme.popup_background_color
+                        radius: 5
+
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 626 * screenScaleFactor
+                        Layout.maximumWidth: 932 * screenScaleFactor
+                        implicitHeight: 330* screenScaleFactor //colLayoutItem.height + 30 * screenScaleFactor
+
+
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            onClicked: parent.forceActiveFocus()
+                        }
+                        Rectangle
+                        {
+                            color: "transparent"
+                            anchors.fill:parent
+                            ColumnLayout{
+                                anchors.left:parent.left
+                                anchors.leftMargin:60 * screenScaleFactor
+                                anchors.top:parent.top
+                                anchors.topMargin:60 * screenScaleFactor
+                                RowLayout{
+                                    id:boxList
+                                    spacing:10 * screenScaleFactor
+                                    Rectangle{
+                                        color: "#37373B"
+                                        radius:5 * screenScaleFactor
+                                        border.width:1
+                                        border.color: "#515157"
+                                        width:89* screenScaleFactor
+                                        height:209* screenScaleFactor
+                                        ColumnLayout{
+                                            anchors.fill:parent
+                                            Text {
+                                                id:boxName
+                                                font.weight: Font.Bold
+                                                font.family: Constants.mySystemFont.name
+                                                font.pointSize: Constants.labelFontPointSize_9
+                                                horizontalAlignment: Text.AlignHCenter
+                                                anchors.top:parent.top
+                                                anchors.topMargin:27* screenScaleFactor
+                                                color: sourceTheme.text_normal_color
+                                                text: qsTr("料架")
+                                                anchors.horizontalCenter:parent.horizontalCenter
+                                            }
+                                            Rectangle{
+                                                id:materialBox
+                                                width:57* screenScaleFactor
+                                                height:57* screenScaleFactor
+                                                radius:height/2
+                                                color: "#505156"
+                                                border.width:2
+                                                border.color: "#686870"
+                                                anchors.top:boxName.bottom
+                                                anchors.topMargin:27* screenScaleFactor
+                                                anchors.horizontalCenter:parent.horizontalCenter
+                                                Rectangle{
+                                                    width:57* screenScaleFactor
+                                                    height:57* screenScaleFactor
+                                                    color: "#07C877"
+                                                    anchors.centerIn:parent
+                                                    radius:height/2
+                                                    Rectangle{
+                                                        anchors.centerIn:parent
+                                                        width:13
+                                                        height:13
+                                                        radius:height/2
+                                                        color: "#37373B"
+                                                    }
+                                                }
+                                            }
+
+
+
+                                            Text {
+                                                font.weight: Font.Bold
+                                                font.family: Constants.mySystemFont.name
+                                                font.pointSize: Constants.labelFontPointSize_9
+                                                horizontalAlignment: Text.AlignHCenter
+                                                anchors.top:materialBox.bottom
+                                                anchors.topMargin:18* screenScaleFactor
+                                                color: sourceTheme.text_normal_color
+                                                text: qsTr("PLA")
+                                                anchors.horizontalCenter:parent.horizontalCenter
+                                            }
+
+                                        }
+                                    }
+                                    Rectangle{
+                                        id:boxMap
+                                        color: "#37373B"
+                                        radius:5 * screenScaleFactor
+                                        border.width:1
+                                        border.color: "#515157"
+                                        height:209*screenScaleFactor
+                                        width:353*screenScaleFactor
+                                        clip:true
+                                        RowLayout{
+                                            anchors.fill:parent
+                                            ListModel{
+                                                id:materialBoxModel
+                                                ListElement{ type: 0;name: "1A" }
+                                                ListElement{ type: 1;name: "1B";color: "#1DAEFF" }
+                                                ListElement{ type: 2;name: "1C";color: "#1DAEFF" }
+                                                ListElement{ type: 3;name: "1D";color: "#FFEB36";count:0.2 }
+                                            }
+                                            Repeater{
+                                                model:materialBoxModel
+                                                delegate: Rectangle{
+                                                    color: "#37373B"
+                                                    width:80* screenScaleFactor
+                                                    height:204* screenScaleFactor
+                                                    ColumnLayout{
+                                                        anchors.fill:parent
+                                                        Image{
+                                                            id:boxName
+                                                            anchors.top:parent.top
+                                                            anchors.topMargin:27* screenScaleFactor
+                                                            width:28* screenScaleFactor
+                                                            height:28* screenScaleFactor
+                                                            source: root.materialBoxUpdate
+                                                            sourceSize:Qt.size(width,height)
+                                                            anchors.horizontalCenter:parent.horizontalCenter
+                                                            Text {
+                                                                font.weight: Font.Bold
+                                                                font.family: Constants.mySystemFont.name
+                                                                font.pointSize: Constants.labelFontPointSize_8
+                                                                color: sourceTheme.text_normal_color
+                                                                text: name
+                                                                anchors.centerIn: parent
+                                                            }
+
+                                                        }
+                                                        Rectangle{
+                                                            id:materialBox
+                                                            width:57* screenScaleFactor
+                                                            height:57* screenScaleFactor
+                                                            radius:height/2
+                                                            color: "#505156"
+                                                            border.width:2
+                                                            border.color: "#686870"
+                                                            anchors.top:boxName.bottom
+                                                            anchors.topMargin:8* screenScaleFactor
+                                                            anchors.horizontalCenter:parent.horizontalCenter
+                                                            Rectangle{
+                                                                visible:type === 1
+                                                                width:parent.width
+                                                                height:width
+                                                                color: "#1DAEFF"
+                                                                anchors.centerIn:parent
+                                                                radius:height/2
+                                                                Rectangle{
+                                                                    anchors.centerIn:parent
+                                                                    width:13
+                                                                    height:13
+                                                                    radius:height/2
+                                                                    color: "#37373B"
+                                                                }
+                                                            }
+                                                            Rectangle{
+                                                                visible:type === 3
+                                                                width:30
+                                                                height:width
+                                                                color: "#FFEB36"
+                                                                anchors.centerIn:parent
+                                                                radius:height/2
+                                                                Rectangle{
+                                                                    anchors.centerIn:parent
+                                                                    width:13
+                                                                    height:13
+                                                                    radius:height/2
+                                                                    color: "#37373B"
+                                                                }
+                                                            }
+                                                            Text {
+                                                                visible:type === 0
+                                                                font.weight: Font.Bold
+                                                                font.family: Constants.mySystemFont.name
+                                                                font.pointSize: Constants.labelFontPointSize_12
+                                                                color: sourceTheme.text_normal_color
+                                                                text: qsTr("/")
+                                                                anchors.centerIn:parent
+                                                            }
+
+                                                            Text {
+                                                                visible:type === 2
+                                                                font.weight: Font.Bold
+                                                                font.family: Constants.mySystemFont.name
+                                                                font.pointSize: Constants.labelFontPointSize_12
+                                                                color: sourceTheme.text_normal_color
+                                                                text: qsTr("?")
+                                                                anchors.centerIn:parent
+                                                            }
+
+                                                        }
+                                                        Canvas {
+                                                            anchors.top: materialBox.bottom
+                                                            anchors.topMargin: 4 * screenScaleFactor
+                                                            anchors.horizontalCenter:parent.horizontalCenter
+                                                            visible:type === 3
+                                                            width: 14 * screenScaleFactor
+                                                            height: 8 * screenScaleFactor
+
+                                                            contextType: "2d"
+
+                                                            onPaint: {
+                                                                const context = getContext("2d")
+                                                                context.clearRect(0, 0, width, height);
+                                                                context.beginPath();
+                                                                if (!root.down) {
+                                                                    context.moveTo(0, 0);
+                                                                    context.lineTo(width, 0);
+                                                                    context.lineTo(width / 2, height);
+                                                                } else {
+                                                                    context.moveTo(0, height);
+                                                                    context.lineTo(width, height);
+                                                                    context.lineTo(width / 2, 0);
+                                                                }
+                                                                context.closePath();
+                                                                context.fillStyle = "#FFEB36"
+                                                                context.fill();
+                                                            }
+                                                        }
+                                                        Text {
+                                                            id:materialName
+                                                            font.weight: Font.Bold
+                                                            font.family: Constants.mySystemFont.name
+                                                            font.pointSize: Constants.labelFontPointSize_9
+                                                            horizontalAlignment: Text.AlignHCenter
+                                                            anchors.top:materialBox.bottom
+                                                            anchors.topMargin:18* screenScaleFactor
+                                                            color: sourceTheme.text_normal_color
+                                                            text: qsTr("PLA")
+                                                            anchors.horizontalCenter:parent.horizontalCenter
+                                                        }
+                                                        Image{
+                                                            visible:type === 3
+                                                            anchors.top:materialName.bottom
+                                                            anchors.topMargin:14* screenScaleFactor
+                                                            width:21* screenScaleFactor
+                                                            height:16* screenScaleFactor
+                                                            source: root.showBoxMsg
+                                                            sourceSize:Qt.size(width,height)
+                                                            anchors.horizontalCenter:parent.horizontalCenter
+                                                            MouseArea{
+                                                                anchors.fill:parent
+                                                                onClicked:boxMsg.visible = true
+                                                            }
+                                                        }
+
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        CusRoundedBg{
+                                            Layout.preferredHeight:22 * screenScaleFactor
+                                            Layout.preferredWidth: 44 * screenScaleFactor
+                                            rightBottom:true
+                                            color: "red"
+                                        }
+
+                                    }
+                                    ColumnLayout{
+                                        anchors.left:boxMap.right
+                                        anchors.leftMargin:10 * screenScaleFactor
+                                        anchors.top:parent.top
+                                        anchors.topMargin:10* screenScaleFactor
+                                        spacing:20 * screenScaleFactor
+                                        ListModel{
+                                            id:listBox
+                                            ListElement{ current:0;color:"#FFFFFF,#1DAEFF,#000000,#FFEB36" }
+                                            ListElement{ current:1;color:"#FFFFFF,#1DAEFF,#000000,#FFEB36"}
+                                            ListElement{ current:2;color:"#FFFFFF,#1DAEFF,#000000,#FFEB36"}
+                                            ListElement{ current:3;color:"#FFFFFF,#1DAEFF,#000000,#FFEB36" }
+                                        }
+                                        Repeater{
+                                            model:listBox
+                                            delegate:ColumnLayout{
+                                                spacing:4 * screenScaleFactor
+                                                Canvas {
+                                                    anchors.top: materialBox.bottom
+                                                    anchors.topMargin: 4 * screenScaleFactor
+
+                                                    visible:current === 3
+                                                    width: 11 * screenScaleFactor
+                                                    height: 6 * screenScaleFactor
+                                                    contextType: "2d"
+                                                    onPaint: {
+                                                        const context = getContext("2d")
+                                                        context.clearRect(0, 0, width, height);
+                                                        context.beginPath();
+                                                        if (!root.down) {
+                                                            context.moveTo(0, 0);
+                                                            context.lineTo(width, 0);
+                                                            context.lineTo(width / 2, height);
+                                                        } else {
+                                                            context.moveTo(0, height);
+                                                            context.lineTo(width, height);
+                                                            context.lineTo(width / 2, 0);
+                                                        }
+                                                        context.closePath();
+                                                        context.fillStyle = "#FFFFFF"
+                                                        context.fill();
+                                                    }
+                                                }
+                                                Rectangle{
+                                                    width:62 * screenScaleFactor
+                                                    height:24 * screenScaleFactor
+                                                    color:"#37373B"
+                                                    radius:5 * screenScaleFactor
+                                                    border.width: 1 * screenScaleFactor
+                                                    border.color:isHover? Constants.themeGreenColor :"#515157"
+                                                    property bool isHover:false
+                                                    MouseArea{
+                                                        anchors.fill:parent
+                                                        hoverEnabled:true
+                                                        onEntered:parent.isHover = true
+                                                        onExited:parent.isHover = false
+                                                    }
+                                                    RowLayout{
+                                                        anchors.fill:parent
+                                                        spacing: 3 * screenScaleFactor
+                                                        anchors.left:parent.left
+                                                        anchors.leftMargin:3* screenScaleFactor
+                                                        anchors.right:parnet.right
+                                                        anchors.rightMargin:3* screenScaleFactor
+                                                        property var colorModel
+                                                        Component.onCompleted:{
+                                                            colorModel = color.split(",")
+                                                        }
+                                                        Repeater{
+                                                            model:parent.colorModel
+                                                            delegate:Rectangle{
+                                                                width:10 * screenScaleFactor
+                                                                height:width
+                                                                radius:width/2
+                                                                color:modelData
+                                                            }
+
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                    }
+
+                                }
+                                RowLayout{
+
+                                    anchors.top:boxList.bottom
+                                    anchors.topMargin:10* screenScaleFactor
+                                    RowLayout{
+                                        spacing:5 * screenScaleFactor
+                                        Layout.alignment:Qt.AlignTop
+                                        Rectangle{
+                                            width:10 * screenScaleFactor
+                                            height:width
+                                            color: Constants.themeGreenColor
+                                            radius:height/2
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: qsTr("喷嘴加热（170-220℃）")
+                                        }
+                                    }
+                                    Item{
+                                        Layout.fillWidth:true
+                                    }
+                                    RowLayout{
+                                        spacing:10 * screenScaleFactor
+                                        CusImglButton{
+                                            Layout.preferredWidth: 48 * screenScaleFactor
+                                            Layout.preferredHeight: 32 * screenScaleFactor
+                                            imgWidth: 26 * screenScaleFactor
+                                            imgHeight: 24 * screenScaleFactor
+                                            defaultBtnBgColor: "transparent"
+                                            hoveredBtnBgColor: "transparent"
+                                            selectedBtnBgColor: "transparent"
+                                            opacity: 1
+                                            borderWidth: 0
+                                            state: "imgOnly"
+                                            enabledIconSource: root.materialBoxSetting
+                                            pressedIconSource:root.materialBoxSetting
+                                            highLightIconSource: root.materialBoxSetting
+
+                                        }
+                                        BasicDialogButton {
+                                            Layout.preferredWidth: 80*screenScaleFactor
+                                            Layout.preferredHeight: 32*screenScaleFactor
+                                            text: qsTr("指南")
+                                            btnRadius:5*screenScaleFactor
+                                            btnBorderW:0
+                                            defaultBtnBgColor:"#515157"
+                                            hoveredBtnBgColor: Qt.lighter(defaultBtnBgColor,1.2)
+                                        }
+                                        BasicDialogButton {
+                                            Layout.preferredWidth: 80*screenScaleFactor
+                                            Layout.preferredHeight: 32*screenScaleFactor
+                                            text: qsTr("进料")
+                                            btnRadius:5*screenScaleFactor
+                                            btnBorderW:0
+                                            defaultBtnBgColor: Constants.themeGreenColor
+                                            hoveredBtnBgColor: Qt.lighter(Constants.themeGreenColor,1.2)
+
+                                        }
+                                        BasicDialogButton {
+                                            Layout.preferredWidth: 80*screenScaleFactor
+                                            Layout.preferredHeight: 32*screenScaleFactor
+                                            text: qsTr("退料")
+                                            btnRadius:5*screenScaleFactor
+                                            btnBorderW:0
+                                            defaultBtnBgColor: Constants.themeGreenColor
+                                            hoveredBtnBgColor: Qt.lighter(Constants.themeGreenColor,1.2)
+
+                                        }
+                                    }
+                                }
+                            }
+                            Rectangle{
+                                id:boxMsg
+                                // width:524* screenScaleFactor
+                                // height:255* screenScaleFactor
+                                anchors.fill:parent
+                                color:sourceTheme.popup_background_color
+                                visible:false
+                                Rectangle{
+                                    width:524* screenScaleFactor
+                                    height:255* screenScaleFactor
+                                    color: "#37373B"
+                                    radius:5* screenScaleFactor
+                                    border.width:1
+                                    border.color: "#515157"
+                                    anchors.left:parent.left
+                                    anchors.leftMargin:60 * screenScaleFactor
+                                    anchors.top:parent.top
+                                    anchors.topMargin:35 * screenScaleFactor
+
+                                    Grid{
+                                        anchors.fill:parent
+                                        columns:2
+                                        columnSpacing:280* screenScaleFactor
+                                        rowSpacing:15* screenScaleFactor
+                                        anchors.left:parent.left
+                                        anchors.leftMargin:20* screenScaleFactor
+                                        anchors.top:parent.top
+                                        anchors.topMargin:20* screenScaleFactor
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "品牌"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "Creality"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "类型"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "PLA"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "名称"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "Hyper PLA"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "颜色"
+                                        }
+                                        Rectangle{
+                                            width:40
+                                            height:20
+                                            radius:height/2
+                                            color: "#CBD04B"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "喷嘴问题"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "200°C-240°C"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "压力提前距离"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: sourceTheme.text_normal_color
+                                            text: "0.04"
+                                        }
+                                        Text {
+                                            font.weight: Font.Bold
+                                            font.family: Constants.mySystemFont.name
+                                            font.pointSize: Constants.labelFontPointSize_9
+                                            color: "#CBCBCC"
+                                            text: "RFID耗材信息不支持修改"
+                                            y:50
+                                        }
+
+
+                                        BasicDialogButton {
+                                            width: 80*screenScaleFactor
+                                            height: 32*screenScaleFactor
+                                            text: qsTr("返回")
+                                            btnRadius:5*screenScaleFactor
+                                            btnBorderW:0
+                                            defaultBtnBgColor: Constants.themeGreenColor
+                                            hoveredBtnBgColor: Qt.lighter(Constants.themeGreenColor,1.2)
+                                            onSigButtonClicked:boxMsg.visible = false
+
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+                    }
+                }
+
 
                 ColumnLayout {
                     spacing: 0
@@ -6147,7 +6859,7 @@ Rectangle {
                                     }
                                 }
                             }
-                            
+
                             Rectangle {
                                 color: sourceTheme.item_splitline_color
                                 Layout.preferredWidth: parent.width - 2 * screenScaleFactor
@@ -6229,15 +6941,14 @@ Rectangle {
                                             property alias boxValue: __editBedDstTempBox.text
 
                                             function decrease() {
-                                                if( !boxValue&&boxValue > minValue)
+                                                if(boxValue != "" && boxValue > minValue)
                                                 {
                                                     var value = parseInt(boxValue) - 1
                                                     boxValue = value
                                                 }
                                             }
                                             function increase() {
-                                                console.log()
-                                                if(!boxValue&&boxValue < maxValue)
+                                                if(boxValue != "" && boxValue < maxValue)
                                                 {
                                                     var value = parseInt(boxValue) + 1
                                                     boxValue = value

@@ -710,11 +710,59 @@ SectionEnd
   LangString DESC_continue_install ${LANG_SIMPCHINESE} "是否需要继续安装？"
   LangString DESC_continue_install ${LANG_TradChinese} "是否需要繼續安裝？"
 
-
-
   LicenseLangString LNG_License ${LANG_ENGLISH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
   LicenseLangString LNG_License ${LANG_SIMPCHINESE} "@CPACK_RESOURCE_FILE_LICENSE@"
-  LicenseLangString LNG_License ${LANG_TradChinese} "@CPACK_RESOURCE_FILE_LICENSE_TD@"
+  LicenseLangString LNG_License ${LANG_TRADCHINESE} "@CPACK_RESOURCE_FILE_LICENSE_TD@"
+
+  LicenseLangString LNG_License ${LANG_ALBANIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_ARABIC} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_BASQUE} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_BELARUSIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_BOSNIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_BRETON} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_BULGARIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_CROATIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_CZECH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_DANISH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_DUTCH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_ESTONIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_FARSI} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_FINNISH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_FRENCH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_GERMAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_GREEK} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_HEBREW} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_HUNGARIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_ICELANDIC} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_INDONESIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_IRISH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_ITALIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_JAPANESE} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_KOREAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_KURDISH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_LATVIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_LITHUANIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_LUXEMBOURGISH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_MACEDONIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_MALAY} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_MONGOLIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_NORWEGIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_POLISH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_PORTUGUESE} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_PORTUGUESEBR} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_ROMANIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_RUSSIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_SERBIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_SERBIANLATIN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_SLOVAK} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_SLOVENIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_SPANISH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_SWEDISH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_THAI} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_TURKISH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_UKRAINIAN} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+  LicenseLangString LNG_License ${LANG_WELSH} "@CPACK_RESOURCE_FILE_LICENSE_EN@"
+
 ;--------------------------------
 ;Reserve Files
 
@@ -1125,9 +1173,8 @@ Function .onInit
   ;Sleep 1000
 
 readUninstall:
-  StrCmp "@CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL@" "ON" 0 inst
-  IfSilent inst 0
-  !insertmacro uninstallVersion "${APP_NAME}" "@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "latest"
+  ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${_VERSION}" "UninstallString"
+  ${CharStrip} '"' $0 $0
 
 inst:
 
@@ -1138,9 +1185,12 @@ inst:
   ; the install directory by comparing it to the
   ; install directory that is expected to be the
   ; default
+  ReadRegStr $0 HKLM "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" ""
+  StrCmp "$0" "" +2 +1
+  StrCpy $INSTDIR "$0"
   StrCpy $IS_DEFAULT_INSTALLDIR 0
   StrCmp "$INSTDIR" "@CPACK_NSIS_INSTALL_ROOT@\@CPACK_PACKAGE_INSTALL_DIRECTORY@" 0 +2
-    StrCpy $IS_DEFAULT_INSTALLDIR 1
+  StrCpy $IS_DEFAULT_INSTALLDIR 1
 
   StrCpy $SV_ALLUSERS "JustMe"
   ; if default install dir then change the default

@@ -12,11 +12,6 @@
 
 namespace creative_kernel
 {
-	PrinterEntity* getCachedPrinterEntity()
-	{
-		return getKernel()->reuseableCache()->getCachedPrinterEntity();
-	}
-
 	void cacheReuseable(Qt3DCore::QNode* parent)
 	{
 		getKernel()->reuseableCache()->setParent(parent);
@@ -33,6 +28,21 @@ namespace creative_kernel
 		return getKernel()->reuseableCache()->getCachedModelEffect();
 	}
 
+	qtuser_3d::XEffect* getCachedModelOffscreenEffect()
+	{
+		return getKernel()->reuseableCache()->getCachedModelOffscreenEffect();
+	}
+
+	qtuser_3d::XEffect* getCachedModelCombindEffect()
+	{
+		return getKernel()->reuseableCache()->getCachedModelCombindEffect();
+	}
+
+	qtuser_3d::XEffect* getCacheModelLayerEffect()
+	{
+		return getKernel()->reuseableCache()->getCacheModelLayerEffect();
+	}
+
 	qtuser_3d::XEffect* getCachedSupportEffect()
 	{
 		return getKernel()->reuseableCache()->getCachedSupportEffect();
@@ -44,10 +54,10 @@ namespace creative_kernel
 		requestVisUpdate();
     }
 
-	void setModelEffectBottomZ(float bottomZ)
+	/*void setModelEffectBottomZ(float bottomZ)
 	{
 		getKernel()->reuseableCache()->setBottom(bottomZ);
-	}
+	}*/
 	
 	void setModelEffectClipBottomZSceneBottom() {
 		qtuser_3d::Box3D box = sceneBoundingBox();
@@ -75,6 +85,11 @@ namespace creative_kernel
 		setModelEffectClipMaxZ(box.max.z() + 0.5f);
 	}
 
+	void setPreviewEffectSpecificColorLayers(const QVariantList& specificColorLayers)
+	{
+		getKernel()->reuseableCache()->setSpecificColorLayers(specificColorLayers);
+	}
+
 	void setModelZProjectColor(const QVector4D& color)
 	{
 		getKernel()->reuseableCache()->setModelZProjectColor(color);
@@ -93,6 +108,11 @@ namespace creative_kernel
 	void resetModelSection()
 	{
 		getKernel()->reuseableCache()->resetSection();
+	}
+
+	void setModelOffset(const QVector2D& offset)
+	{
+		getKernel()->reuseableCache()->setOffset(offset);
 	}
 
 	void setPrinterVisible(bool visible)
@@ -124,5 +144,10 @@ namespace creative_kernel
 			box = qtuser_3d::Box3D(QVector3D(-MAX_X, -MAX_Y, 0), QVector3D(MAX_X, MAX_Y, _height));
 		}
 		return getKernel()->reuseableCache()->updatePrinterBox(box);
+	}
+
+	qtuser_3d::CacheTexture* getCacheTexture()
+	{
+		return getKernel()->reuseableCache()->getCacheTexture();
 	}
 }

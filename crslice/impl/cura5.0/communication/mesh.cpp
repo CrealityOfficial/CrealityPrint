@@ -27,13 +27,37 @@ namespace cura52
     {
     }
 
-    void Mesh::addFace(Point3& v0, Point3& v1, Point3& v2)
-    {
-        int vi0 = findIndexOfVertex(v0);
-        int vi1 = findIndexOfVertex(v1);
-        int vi2 = findIndexOfVertex(v2);
-        if (vi0 == vi1 || vi1 == vi2 || vi0 == vi2)
-            return; // the face has two vertices which get assigned the same location. Don't add the face.
+void Mesh::addFace(Point3& v0, Point3& v1, Point3& v2,int color)
+{
+    int vi0 = findIndexOfVertex(v0);
+    int vi1 = findIndexOfVertex(v1);
+    int vi2 = findIndexOfVertex(v2);
+    if (vi0 == vi1 || vi1 == vi2 || vi0 == vi2)
+        return; // the face has two vertices which get assigned the same location. Don't add the face.
+
+    int idx = faces.size(); // index of face to be added
+    faces.emplace_back();
+    MeshFace& face = faces[idx];
+    face.color = color;
+    if(!std::count(colors.begin(),colors.end(),color)){
+        colors.push_back(color);
+    }
+    
+    face.vertex_index[0] = vi0;
+    face.vertex_index[1] = vi1;
+    face.vertex_index[2] = vi2;
+    vertices[face.vertex_index[0]].connected_faces.push_back(idx);
+    vertices[face.vertex_index[1]].connected_faces.push_back(idx);
+    vertices[face.vertex_index[2]].connected_faces.push_back(idx);
+}
+
+void Mesh::addFace(Point3& v0, Point3& v1, Point3& v2)
+{
+    int vi0 = findIndexOfVertex(v0);
+    int vi1 = findIndexOfVertex(v1);
+    int vi2 = findIndexOfVertex(v2);
+    if (vi0 == vi1 || vi1 == vi2 || vi0 == vi2)
+        return; // the face has two vertices which get assigned the same location. Don't add the face.
 
         int idx = faces.size(); // index of face to be added
         faces.emplace_back();

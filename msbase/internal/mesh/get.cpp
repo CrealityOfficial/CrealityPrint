@@ -4,9 +4,15 @@
 #include <limits.h>
 #include <math.h>
 #include <set>
+#include <map>
 
 namespace msbase
 {
+	constexpr double _EPSILON = 1e-4;
+	const std::map<float, float> _min_depth_per_height = {
+		{100.f, 20.f}, {250.f, 40.f}
+	};
+
 	trimesh::vec3 getFaceNormal(trimesh::TriMesh* mesh, int faceIndex, bool normalized)
 	{
 		trimesh::vec3 n = trimesh::vec3(0.0f, 0.0f, 0.0f);
@@ -92,5 +98,60 @@ namespace msbase
 			return 0.0f;
 
 		return count_triangle_area(vs[face[0]], vs[face[1]], vs[face[2]]);
+	}
+
+	trimesh::vec3 estimate_wipe_tower_size(const double w, const double wipe_volume
+		, std::vector<int>& plate_extruders, double layer_height
+		, double max_height)
+	{
+		trimesh::vec3 wipe_tower_size;
+		wipe_tower_size.set(0,0,0);
+		wipe_tower_size.x = w;
+
+		// empty plate
+		if (plate_extruders.empty())
+			return wipe_tower_size;
+
+		wipe_tower_size.z = max_height;
+		auto timelapse_type = 0;
+		bool timelapse_enabled =  false;
+
+		double depth = wipe_volume * (plate_extruders.size() - 1) / (layer_height * w);
+		if (timelapse_enabled || depth > _EPSILON) {
+			float min_wipe_tower_depth = 0.f;
+			auto iter = _min_depth_per_height.begin();
+			while (iter != _min_depth_per_height.end()) {
+				auto curr_height_to_depth = *iter;
+
+				// This is the case that wipe tower height is lower than the first min_depth_to_height member.
+				if (curr_height_to_depth.first >= max_height) {
+					min_wipe_tower_depth = curr_height_to_depth.second;
+					break;
+				}
+
+				iter++;
+
+				// If curr_height_to_depth is the last member, use its min_depth.
+				if (iter == _min_depth_per_height.end()) {
+					min_wipe_tower_depth = curr_height_to_depth.second;
+					break;
+				}
+
+				// If wipe tower height is between the current and next member, set the min_depth as linear interpolation between them
+				auto next_height_to_depth = *iter;
+				if (next_height_to_depth.first > max_height) {
+					float height_base = curr_height_to_depth.first;
+					float height_diff = next_height_to_depth.first - curr_height_to_depth.first;
+					float min_depth_base = curr_height_to_depth.second;
+					float depth_diff = next_height_to_depth.second - curr_height_to_depth.second;
+
+					min_wipe_tower_depth = min_depth_base + (max_height - curr_height_to_depth.first) / height_diff * depth_diff;
+					break;
+				}
+			}
+			depth = std::max((double)min_wipe_tower_depth, depth);
+		}
+		wipe_tower_size.y = depth;
+		return wipe_tower_size;
 	}
 }

@@ -1,6 +1,7 @@
 #include "modelshowcommand.h"
 #include "interface/modelinterface.h"
 #include "interface/commandinterface.h"
+#include <qtusercore/util/settings.h>
 
 namespace creative_kernel
 {
@@ -9,7 +10,14 @@ namespace creative_kernel
         , m_mode(mode)
     {
         m_eParentMenu = eMenuType_View;
-        addUIVisualTracer(this);
+        qtuser_core::VersionSettings setting;
+        setting.beginGroup("view_show");
+        int nRender = setting.value("render_type").toInt();
+        if (!nRender) {
+            setting.setValue("render_type", (int)ModelVisualMode::mvm_face);
+        }
+        setting.endGroup();
+        addUIVisualTracer(this,this);
     }
 
     ModelShowCommand::~ModelShowCommand()
@@ -19,6 +27,20 @@ namespace creative_kernel
     void ModelShowCommand::execute()
     {
         setModelVisualMode(m_mode);
+        qtuser_core::VersionSettings setting;
+        setting.beginGroup("view_show");
+        setting.setValue("render_type", (int)m_mode);
+        setting.endGroup();
+    }
+    bool ModelShowCommand::enabled() {
+        qtuser_core::VersionSettings setting;
+        setting.beginGroup("view_show");
+        int nRender = setting.value("render_type").toInt();
+        setting.endGroup();
+        return nRender == (int)m_mode;
+    }
+    void ModelShowCommand::updateCheck() {
+        update();
     }
 
     void ModelShowCommand::onThemeChanged(ThemeCategory category)

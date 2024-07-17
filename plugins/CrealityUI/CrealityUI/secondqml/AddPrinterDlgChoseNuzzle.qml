@@ -1,43 +1,37 @@
-﻿import "../qml"
-import "../secondqml"
-import QtQml 2.13
-import QtQuick 2.10
+﻿import QtQuick 2.10
 import QtQuick.Controls 2.5
-import QtQuick.Controls 1.4 as Control14
-import QtQuick.Controls.Styles 1.4
 import QtQuick.Layouts 1.13
+import QtQuick.Controls.Styles 1.4
+import QtQuick.Controls 1.4 as Control14
+import QtQml 2.13
 
-BasicDialogV4 {
-    id: idAddPrinterDlg
+import "../qml"
+import "../secondqml"
+
+BasicDialogV4
+{
+    signal choseAccepted()
+    signal choseCanceled()
 
     property string machineName: "Ender-3"
     property int nozzleNum: 1
     property bool isGranular: false
-    property int nozzle1Index: 0
-    property int nozzle2Index: 0
 
-    signal choseAccepted()
-    signal choseCanceled()
-
+    id: idAddPrinterDlg
     title: machineName
     width: 800 * screenScaleFactor
-    height: 600 * screenScaleFactor
+    height: 540* screenScaleFactor
     maxBtnVis: false
-
-    bdContentItem: Rectangle {
+    bdContentItem: Rectangle{
         color: Constants.lpw_bgColor
-
-        ButtonGroup {
-            id: btnGroup1
+        ButtonGroup{
+            id:btnGroup1
         }
-
-        ButtonGroup {
-            id: btnGroup2
+        ButtonGroup{
+            id:btnGroup2
         }
-
-        StyledLabel {
+        StyledLabel{
             id: machineLabel
-
             anchors.top: parent.top
             anchors.topMargin: 30 * screenScaleFactor
             anchors.left: parent.left
@@ -47,18 +41,18 @@ BasicDialogV4 {
             font.weight: Font.Medium
         }
 
-        Connections {
+        Connections{
             target: idAddPrinterDlg
-            onVisibleChanged: {
-                if (visible) {
-                    nozzleList.model = kernel_parameter_manager.extruderSupportDiameters(idAddPrinterDlg.machineName, 0);
-                    nozzleList1.model = kernel_parameter_manager.extruderSupportDiameters(idAddPrinterDlg.machineName, 0);
-                    nozzleList2.model = kernel_parameter_manager.extruderSupportDiameters(idAddPrinterDlg.machineName, 1);
+            onVisibleChanged:{
+                if(visible){
+                    nozzleList.model = kernel_parameter_manager.extruderSupportDiameters(idAddPrinterDlg.machineName, 0)
+                    nozzleList1.model = kernel_parameter_manager.extruderSupportDiameters(idAddPrinterDlg.machineName, 0)
+                    nozzleList2.model = kernel_parameter_manager.extruderSupportDiameters(idAddPrinterDlg.machineName, 1)
                 }
             }
         }
 
-        StackLayout {
+        StackLayout{
             anchors.top: parent.top
             anchors.topMargin: 0
             anchors.left: parent.left
@@ -67,58 +61,50 @@ BasicDialogV4 {
             anchors.rightMargin: 30 * screenScaleFactor
             anchors.bottom: btnsRow.top
             anchors.bottomMargin: 30 * screenScaleFactor
+
             currentIndex: idAddPrinterDlg.nozzleNum - 1
-            anchors.margins: 20 * screenScaleFactor
-
-            Item {
-                id: norzzle1Stack
-
-                Image {
-                    height: 340 * screenScaleFactor
-                    width: 718 * screenScaleFactor
+            anchors.margins: 20*screenScaleFactor
+            Item{
+                id:norzzle1Stack
+                Image{
+                    height: 340*screenScaleFactor
+                    width: 718*screenScaleFactor
                     anchors.top: parent.top
-                    anchors.topMargin: 50 * screenScaleFactor
+                    anchors.topMargin: 50*screenScaleFactor
                     anchors.horizontalCenter: parent.horizontalCenter
-                    source: idAddPrinterDlg.isGranular ? "qrc:/UI/photo/addPrinterSource/extruder1_granular_1.png" : "qrc:/UI/photo/addPrinterSource/extruder1_1.png"
+                    source:  idAddPrinterDlg.isGranular ? "qrc:/UI/photo/addPrinterSource/extruder1_granular_1.png"
+                                                       : "qrc:/UI/photo/addPrinterSource/extruder1_1.png"
 
-                    StyledLabel {
+                    StyledLabel{
                         id: no1
-
                         text: qsTr("Nozzle Diameter") + "(mm)"
                         anchors.right: parent.right
                         anchors.rightMargin: 113 * screenScaleFactor
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 65 * screenScaleFactor
                     }
-
                 }
-
-                Row {
-                    id: nozzleGroup
-
-                    property string nozzleDiameter: "0.4"
-
+                Row{
+                    property string nozzleDiameter: !!nozzleList.model.length ? nozzleList.model[0] : ""
+                    id:nozzleGroup
                     spacing: 10 * screenScaleFactor
                     anchors.bottom: parent.bottom
                     anchors.horizontalCenter: norzzle1Stack.horizontalCenter
-
-                    StyledLabel {
+                    StyledLabel{
                         anchors.verticalCenter: parent.verticalCenter
                         text: qsTr("Nozzle Diameter") + ": "
                     }
 
-                    Repeater {
-                        //property int currentIndex: idAddPrinterDlg.nozzle1Index
+                    Repeater{
+                        property int currentIndex: 0
                         id: nozzleList
-
                         model: []
                         anchors.verticalCenter: parent.verticalCenter
-
-                        delegate: CusImglButton {
-                            width: 100 * screenScaleFactor
-                            height: 40 * screenScaleFactor
-                            btnRadius: 5 * screenScaleFactor
-                            bottonSelected: idAddPrinterDlg.nozzle1Index === model.index
+                        delegate: CusImglButton{
+                            width: 100*screenScaleFactor
+                            height : 40*screenScaleFactor
+                            btnRadius : 5*screenScaleFactor
+                            bottonSelected: nozzleList.currentIndex === model.index
                             state: "wordsOnly"
                             checkable: true
                             textAlign: 1
@@ -128,34 +114,26 @@ BasicDialogV4 {
                             ButtonGroup.group: btnGroup1
                             text: qsTr(modelData) + "mm"
                             onClicked: {
-                                //nozzleList.currentIndex = model.index
-                                idAddPrinterDlg.nozzle1Index = model.index;
-                                nozzleGroup.nozzleDiameter = modelData;
+                                    nozzleList.currentIndex = model.index
+                                    nozzleGroup.nozzleDiameter = modelData
                             }
                         }
-
                     }
-
                 }
-
             }
-
-            Item {
-                id: norzzle2Stack
-
-                Image {
+            Item{
+                id:norzzle2Stack
+                Image{
                     id: nozzleImg2
-
-                    height: 340 * screenScaleFactor
-                    width: 718 * screenScaleFactor
+                    height: 340*screenScaleFactor
+                    width: 718*screenScaleFactor
                     anchors.top: parent.top
                     anchors.topMargin: 0
                     anchors.horizontalCenter: parent.horizontalCenter
-                    source: idAddPrinterDlg.isGranular ? "qrc:/UI/photo/addPrinterSource/extruder2_granular_1.png" : "qrc:/UI/photo/addPrinterSource/extruder2_1.png"
-
-                    StyledLabel {
+                    source: idAddPrinterDlg.isGranular ? "qrc:/UI/photo/addPrinterSource/extruder2_granular_1.png"
+                                                       : "qrc:/UI/photo/addPrinterSource/extruder2_1.png"
+                    StyledLabel{
                         id: no2_1
-
                         text: qsTr("Nozzle 1 Diameter") + "(mm)"
                         anchors.right: parent.right
                         anchors.rightMargin: 75 * screenScaleFactor
@@ -163,48 +141,39 @@ BasicDialogV4 {
                         anchors.bottomMargin: 82 * screenScaleFactor
                     }
 
-                    StyledLabel {
+                    StyledLabel{
                         id: no2_2
-
                         text: qsTr("Nozzle 2 Diameter") + "(mm)"
                         anchors.right: parent.right
                         anchors.rightMargin: 60 * screenScaleFactor
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 52 * screenScaleFactor
                     }
-
                 }
-
-                Column {
+                Column{
                     anchors.top: nozzleImg2.bottom
                     anchors.horizontalCenter: nozzleImg2.horizontalCenter
                     anchors.bottom: parent.bottom
                     anchors.bottomMargin: 30 * screenScaleFactor
-                    spacing: 20 * screenScaleFactor
-
-                    Row {
-                        id: nozzleGroup1
-
+                    spacing: 20 *screenScaleFactor
+                    Row{
                         property string nozzleDiameter: "0.4"
-
+                        id:nozzleGroup1
                         spacing: 10 * screenScaleFactor
-
-                        StyledLabel {
+                        StyledLabel{
                             anchors.verticalCenter: parent.verticalCenter
                             text: qsTr("Nozzle 1 Diameter") + ": "
                         }
 
-                        Repeater {
-                            //property int currentIndex: idAddPrinterDlg.nozzle1Index
+                        Repeater{
+                            property int currentIndex: 0
                             id: nozzleList1
-
                             model: []
-
-                            delegate: CusImglButton {
-                                width: 100 * screenScaleFactor
-                                height: 40 * screenScaleFactor
-                                btnRadius: 5 * screenScaleFactor
-                                bottonSelected: idAddPrinterDlg.nozzle1Index === model.index
+                            delegate: CusImglButton{
+                                width: 100*screenScaleFactor
+                                height : 40*screenScaleFactor
+                                btnRadius : 5*screenScaleFactor
+                                bottonSelected: nozzleList1.currentIndex === model.index
                                 state: "wordsOnly"
                                 checkable: true
                                 textAlign: 1
@@ -214,38 +183,31 @@ BasicDialogV4 {
                                 ButtonGroup.group: btnGroup1
                                 text: qsTr(modelData) + "mm"
                                 onClicked: {
-                                    idAddPrinterDlg.nozzle1Index = model.index;
-                                    nozzleGroup1.nozzleDiameter = modelData;
+                                    nozzleList1.currentIndex = model.index
+                                    nozzleGroup1.nozzleDiameter = modelData
                                 }
                             }
-
                         }
-
                     }
 
-                    Row {
-                        id: nozzleGroup2
-
+                    Row{
                         property string nozzleDiameter: "0.4"
-
+                        id:nozzleGroup2
                         spacing: 10 * screenScaleFactor
-
-                        StyledLabel {
+                        StyledLabel{
                             anchors.verticalCenter: parent.verticalCenter
                             text: qsTr("Nozzle 2 Diameter") + ": "
                         }
 
-                        Repeater {
-                            //property int currentIndex: idAddPrinterDlg.nozzle2Index
+                        Repeater{
+                            property int currentIndex: 0
                             id: nozzleList2
-
                             model: []
-
-                            delegate: CusImglButton {
-                                width: 100 * screenScaleFactor
-                                height: 40 * screenScaleFactor
-                                btnRadius: 5 * screenScaleFactor
-                                bottonSelected: idAddPrinterDlg.nozzle2Index === model.index
+                            delegate: CusImglButton{
+                                width: 100*screenScaleFactor
+                                height : 40*screenScaleFactor
+                                btnRadius : 5*screenScaleFactor
+                                bottonSelected: nozzleList2.currentIndex === model.index
                                 state: "wordsOnly"
                                 checkable: true
                                 textAlign: 1
@@ -255,33 +217,28 @@ BasicDialogV4 {
                                 ButtonGroup.group: btnGroup2
                                 text: qsTr(modelData) + "mm"
                                 onClicked: {
-                                    idAddPrinterDlg.nozzle2Index = model.index;
-                                    nozzleGroup2.nozzleDiameter = modelData;
+                                    nozzleList2.currentIndex = model.index
+                                    nozzleGroup2.nozzleDiameter = modelData
                                 }
                             }
-
                         }
-
                     }
-
                 }
-
             }
-
         }
 
-        Row {
+        Row{
             id: btnsRow
-
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 40 * screenScaleFactor
+            anchors.bottomMargin: 40* screenScaleFactor
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 10 * screenScaleFactor
+            spacing: 10* screenScaleFactor
 
             BasicDialogButton {
                 text: qsTr("Ok")
-                width: 120 * screenScaleFactor
-                height: 28 * screenScaleFactor
+                width: 120*screenScaleFactor
+                height: 28*screenScaleFactor
+
                 btnRadius: height / 2
                 btnBorderW: 1 * screenScaleFactor
                 btnTextColor: Constants.manager_printer_button_text_color
@@ -289,19 +246,23 @@ BasicDialogV4 {
                 defaultBtnBgColor: Constants.manager_printer_button_default_color
                 hoveredBtnBgColor: Constants.manager_printer_button_checked_color
                 selectedBtnBgColor: Constants.manager_printer_button_checked_color
+
                 onSigButtonClicked: {
-                    var nozzleString = idAddPrinterDlg.nozzleNum == 2 ? nozzleList.model[idAddPrinterDlg.nozzle1Index] + "-" + nozzleList.model[idAddPrinterDlg.nozzle2Index] : nozzleList.model[idAddPrinterDlg.nozzle1Index]; //"0.4-0.4" : "0.4"
-                    console.log("---Name = ", idAddPrinterDlg.machineName, " ", nozzleString);
-                    kernel_parameter_manager.addMachine(idAddPrinterDlg.machineName, nozzleString);
-                    idAddPrinterDlg.close();
-                    idAddPrinterDlg.choseAccepted();
+                    var nozzleString = idAddPrinterDlg.nozzleNum == 2 ? nozzleGroup1.nozzleDiameter + "-" + nozzleGroup2.nozzleDiameter : nozzleGroup.nozzleDiameter //"0.4-0.4" : "0.4"
+                    console.log("---Name = ", idAddPrinterDlg.machineName, " ",  nozzleString)
+                    kernel_parameter_manager.addMachine(idAddPrinterDlg.machineName, nozzleString)
+
+                    idAddPrinterDlg.close()
+                    idAddPrinterDlg.choseAccepted()
                 }
             }
+
 
             BasicDialogButton {
                 text: qsTr("Cancel")
-                width: 120 * screenScaleFactor
-                height: 28 * screenScaleFactor
+                width: 120*screenScaleFactor
+                height: 28*screenScaleFactor
+
                 btnRadius: height / 2
                 btnBorderW: 1 * screenScaleFactor
                 btnTextColor: Constants.manager_printer_button_text_color
@@ -309,14 +270,12 @@ BasicDialogV4 {
                 defaultBtnBgColor: Constants.manager_printer_button_default_color
                 hoveredBtnBgColor: Constants.manager_printer_button_checked_color
                 selectedBtnBgColor: Constants.manager_printer_button_checked_color
+
                 onSigButtonClicked: {
-                    idAddPrinterDlg.close();
-                    idAddPrinterDlg.choseCanceled();
+                    idAddPrinterDlg.close()
+                    idAddPrinterDlg.choseCanceled()
                 }
             }
-
         }
-
     }
-
 }

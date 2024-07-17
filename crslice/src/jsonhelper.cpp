@@ -69,7 +69,7 @@ namespace crslice
 
         if (value.HasMember("unit"))
             meta.unit = value["unit"].GetString();
-        
+
         if (value.HasMember(META_TYPE))
             meta.type = (value[META_TYPE].GetString());
 
@@ -84,7 +84,10 @@ namespace crslice
             meta.minimum_value_warning = (value["minimum_value_warning"].GetString());
         if (value.HasMember("maximum_value_warning"))
             meta.maximum_value_warning = (value["maximum_value_warning"].GetString());
-        
+
+        if (value.HasMember("settable_per_mesh"))
+            meta.settable_per_mesh = value["settable_per_mesh"].GetString();
+
         if (value.HasMember(META_VALUE))
             meta.value = (value[META_VALUE].GetString());
 
@@ -116,7 +119,7 @@ namespace crslice
             {
                 std::string name = child->name.GetString();
                 std::string values = child->value.GetString();
-        
+
                 meta.options.insert(OptionValue(name, values));
             }
         }

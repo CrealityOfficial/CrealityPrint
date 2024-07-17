@@ -36,7 +36,7 @@ Rectangle {
         anchors.verticalCenter: root.verticalCenter
         height: 24 * screenScaleFactor
         width: 24 * screenScaleFactor
-        source: "qrc:/res/img/logo.png"
+        source: "qrc:/res/img/logo.svg"
         objectName: "blankItem"
     }
 

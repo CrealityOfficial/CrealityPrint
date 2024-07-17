@@ -42,10 +42,11 @@ LONG ApplicationCrashHandler(EXCEPTION_POINTERS* pException)
 
 	QString version = creative_kernel::version();
 	std::string strDumpPath = DUMP_PATH.toStdString();
-	sprintf(szDumpFile, ("%s/%04d%02d%02d_%02d%02d%02d_%s %s.dmp"),
+	sprintf(szDumpFile, ("%s/%04d%02d%02d_%02d%02d%02d_%s_%s %s.dmp"),
 		strDumpPath.c_str(),
 		stTime.wYear, stTime.wMonth, stTime.wDay,
 		stTime.wHour, stTime.wMinute, stTime.wSecond,
+		MAIN_GIT_HASH,
 		BUNDLE_NAME,
 		version.toStdString().c_str());
 

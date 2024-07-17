@@ -19,22 +19,26 @@ namespace creative_kernel
         , public UIVisualTracer
     {
         Q_OBJECT
+        Q_PROPERTY(bool projectDirty READ spaceDirty NOTIFY spaceDirtyChanged)
     public:
         ProjectInfoUI(QObject* parent = nullptr);
         virtual ~ProjectInfoUI();
 
         static ProjectInfoUI* instance();
         static ProjectInfoUI* createInstance(QObject* parent);
-        float getMinutes();
-        void setMinute(float fMinute);
+        Q_INVOKABLE void setSpaceDirty(bool _spaceDirty);
+        bool spaceDirty();
 
+
+        Q_INVOKABLE QString getProjectNameNoSuffix();
+        bool is3mf();
 
         QString getProjectName();
         void setProjectName(QString strProName);
 
         QString getProjectPath();
         void setProjectPath(QString strProPath);
-        void deleteTempProjectDirectory();
+        Q_INVOKABLE void deleteTempProjectDirectory();
 
         void setSettingsData(QString file);
         QString getAutoProjectPath();
@@ -42,7 +46,7 @@ namespace creative_kernel
         void updateProjectNameUI();
         QString getNameFromPath(QString path);
 
-        void clearSecen();
+        Q_INVOKABLE void clearSecen(bool clearModel = true);
         void requestMenuDialog(ProjectOpenCallback* callback);
 
         void updateFileStateUI();
@@ -50,21 +54,27 @@ namespace creative_kernel
         Q_INVOKABLE QString getMessageText();
         Q_INVOKABLE void accept();
         Q_INVOKABLE void cancel();
-    signals:
-        void minutesChanged(float fMinute);
+
+        bool availablePath();
     protected:
         void onThemeChanged(ThemeCategory category) override;
         void onLanguageChanged(MultiLanguage language) override;
+
+    signals:
+        void projectNameChanged();
+        void spaceDirtyChanged();
     private:
-        float m_fMinutes = 0.0;
         QString m_strProjectPath;
         QString m_strProjectName;
         QString m_strMessageText;
         QString m_strTempFilePath;
 
+        QString m_strTmpCacheProjectPath;
+
         static ProjectInfoUI* m_info;
 
         ProjectOpenCallback* m_callback;
+        bool m_spaceDirty;
     };
 }
 

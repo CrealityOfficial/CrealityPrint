@@ -20,6 +20,8 @@ namespace qtuser_3d
 namespace creative_kernel
 {
 	class VisSceneHandler;
+	class WipeTowerHandler;
+
 	class BASIC_KERNEL_API VisualScene : public qtuser_3d::RenderGraph
 		, public KernelPhase
 	{
@@ -52,8 +54,7 @@ namespace creative_kernel
 		void dismissRectangleSelector();
 
 		void delayCapture(int msec);
-		void showPrimeTower(float x, float y, float radius);
-		void hidePrimeTower();
+		
 		Qt3DRender::QFrameGraphNode* getCameraViewportFrameGraphNode();
 
 		QSize surfaceSize();
@@ -64,6 +65,7 @@ namespace creative_kernel
 
 	public slots:
 		void updateRender(bool updatePick = false);
+
 	public:
 		Qt3DCore::QEntity* sceneGraph() override;
 
@@ -77,17 +79,20 @@ namespace creative_kernel
 		bool showDebugOverlay() override;
 		void setShowDebugOverlay(bool showDebugOverlay) override;
 #endif
+
+		qtuser_3d::XEntity* heightReferEntity();
 	private:
 		qtuser_3d::Surface* m_surface;
 		qtuser_3d::ColorPicker* m_colorPicker;
 		qtuser_3d::TextureRenderTarget* m_textureRenderTarget;
 		qtuser_3d::RectLineEntity* m_rectLine;
-		qtuser_3d::XEntity* m_sphereEntity;
+		qtuser_3d::XEntity* m_heightReferEntity;
 
 		Qt3DCore::QEntity* m_rootEntity;
 		Qt3DCore::QEntity* m_customRootEntity;
 
 		VisSceneHandler* m_handler;
+		WipeTowerHandler* m_towerHandler;
 
 		bool m_handlerEnabled;
 

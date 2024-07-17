@@ -23,7 +23,9 @@ public:
   	virtual ~ColorWorker() = default;
 
 	void setTriangleParameter(int triangleID);
-	void setCircleParameter(spread::SceneData& data, bool isFirstCircle);
+	void setCircleParameter(const spread::SceneData& data, bool isFirstCircle);
+	void setHeightRangeParameter(const spread::SceneData& data, float height);
+	void setGapFillParameter(float size);
 	std::vector<int> execute();
 
 private:
@@ -42,8 +44,12 @@ private:
 	trimesh::vec m_planeNormal;	//剖面法线
 	float m_planeOffset { 0 };
 
+	float m_height;
+
 	/* Fill参数 */
 
+	/* Gap Fill参数 */
+	float m_gapFillAreaSize;
 };
 
 #endif // _NULLSPACE_COLOR_WORKER_1591235079966_H

@@ -14,7 +14,7 @@ namespace creative_kernel
         m_actionNameWithout = "Reset All Model";
         m_strMessageText = tr("Do you Want to Reset All Model?");
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     ResetAllAction::~ResetAllAction()

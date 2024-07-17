@@ -287,8 +287,8 @@ Item{
                         width : 160* screenScaleFactor
                         height : 30* screenScaleFactor
                         text: qsTr("Standby Temperature") + ":"
-                        fontNormalColor: Constants.right_panel_item_text_default_color
-                        fontDisableColor: Constants.right_panel_item_text_default_color
+//                        fontNormalColor: Constants.right_panel_item_text_default_color
+//                        fontDisableColor: Constants.right_panel_item_text_default_color
                         font.pointSize:Constants.labelFontPointSize
                         strToolTip: qsTr(SettingJson.getDescription("material_print_temperature"))
                         verticalAlignment: Qt.AlignVCenter
@@ -319,8 +319,6 @@ Item{
                         width : 160* screenScaleFactor
                         height : 30* screenScaleFactor
                         text: qsTr("Prime Tower Flow") + ":"
-                        fontNormalColor: Constants.right_panel_item_text_default_color
-                        fontDisableColor: Constants.right_panel_item_text_default_color
                         font.pointSize:Constants.labelFontPointSize
                         strToolTip: qsTr(SettingJson.getDescription("material_print_temperature"))
                         verticalAlignment: Qt.AlignVCenter
@@ -353,8 +351,8 @@ Item{
                         width : 160* screenScaleFactor
                         height : 30* screenScaleFactor
                         text: qsTr("Nozzle Switch Retraction Distance") + ":"
-                        fontNormalColor: Constants.right_panel_item_text_default_color
-                        fontDisableColor: Constants.right_panel_item_text_default_color
+//                        fontNormalColor: Constants.right_panel_item_text_default_color
+//                        fontDisableColor: Constants.right_panel_item_text_default_color
                         font.pointSize:Constants.labelFontPointSize
                         strToolTip: qsTr(SettingJson.getDescription("material_print_temperature"))
                         verticalAlignment: Qt.AlignVCenter
@@ -385,8 +383,8 @@ Item{
                         width : 160* screenScaleFactor
                         height : 30* screenScaleFactor
                         text: qsTr("Nozzle Switch Retraction Speed") + ":"
-                        fontNormalColor: Constants.right_panel_item_text_default_color
-                        fontDisableColor: Constants.right_panel_item_text_default_color
+//                        fontNormalColor: Constants.right_panel_item_text_default_color
+//                        fontDisableColor: Constants.right_panel_item_text_default_color
                         font.pointSize:Constants.labelFontPointSize
                         strToolTip: qsTr(SettingJson.getDescription("material_print_temperature"))
                         verticalAlignment: Qt.AlignVCenter

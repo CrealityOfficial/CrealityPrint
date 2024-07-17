@@ -4,7 +4,9 @@
 
 DrillCommand::DrillCommand(QObject* parent)
     : ToolCommand(parent)
-    , operate_mode_(nullptr) {}
+    , operate_mode_(nullptr) {
+      orderindex = 5;
+    }
 
 DrillCommand::~DrillCommand() {
   if (operate_mode_) {

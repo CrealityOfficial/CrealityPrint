@@ -9,7 +9,7 @@
 namespace cxkernel
 {
 	MeshLoadJob::MeshLoadJob(QObject* parent)
-		: Job(parent)
+		: MeshJob(parent)
 	{
 	}
 
@@ -32,9 +32,20 @@ namespace cxkernel
 		return "Load Mesh.";
 	}
 
+	void MeshLoadJob::setModelNDataProcessor(ModelNDataProcessor* processor)
+	{
+		m_processor = processor;
+	}
+
 	void MeshLoadJob::failed()
 	{
 		qDebug() << "MeshLoadJob::failed.";
+		if (m_processor)
+		{
+			m_processor->onMeshLoadFail();
+		}
+
+		notifyObserver(&MeshJobObserver::onFinished);
 	}
 
 	void MeshLoadJob::successed(qtuser_core::Progressor* progressor)
@@ -50,6 +61,8 @@ namespace cxkernel
 		input.name = shortName;
 		input.type = ModelNDataType::mdt_file;
 		addModelFromCreateInput(input);
+
+		notifyObserver(&MeshJobObserver::onFinished);
 	}
 
 	void MeshLoadJob::work(qtuser_core::Progressor* progressor)

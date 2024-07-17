@@ -5,6 +5,9 @@
 #include <thread>
 #include <cpr/api.h>
 #include <external/interface/machineinterface.h>
+#include "us/usettingwrapper.h"
+#include "localnetworkinterface/RemotePrinter.h"
+#include "Klipper4408Interface.h"
 
 #include "cxmdns.h"
 
@@ -212,8 +215,7 @@ namespace creative_kernel
 									printer.printState = atoi(ret["state"].c_str());
 									printer.fanSwitchState = atoi(ret["fan"].c_str());
 									printer.printProgress = atoi(ret["printProgress"].c_str());
-
-									QSharedPointer<us::USettings> settings = createDefaultMachineSetting(printer.printerName);
+									QSharedPointer<us::USettings> settings = createMachineSettings(printer.printerName);
 									printer.nozzleCount = settings->value(QStringLiteral("machine_extruder_count"), "1").toInt();
 									if (printer.nozzleCount == 1)
 									{
@@ -229,9 +231,9 @@ namespace creative_kernel
 										printer.chamberTemp = atof(ret["chamberTemp"].c_str());
 										printer.chamberTempTarget = atof(ret["chamberTemp2"].c_str());
 									}
-									printer.machineHeight = settings->value(QStringLiteral("machine_height"), "0").toFloat();
-									printer.machineWidth = settings->value(QStringLiteral("machine_width"), "0").toFloat();
-									printer.machineDepth = settings->value(QStringLiteral("machine_depth"), "0").toFloat();
+									printer.machineHeight = get_machine_height(settings.data());
+									printer.machineWidth = get_machine_width(settings.data());
+									printer.machineDepth = get_machine_depth(settings.data());
 
 									printer.bedTemp = atof(ret["bedTemp"].c_str());
 									printer.bedTempTarget = atof(ret["bedTemp2"].c_str());
@@ -721,6 +723,13 @@ namespace creative_kernel
 				}
 			};
 
+			// auto materialBoxListCb = [=](std::string ipAddrClient, std::string boxList) {
+			// 	if (m_pfnGetMaterialBoxCb)
+			// 	{
+			// 		m_pfnGetMaterialBoxCb(ipAddrClient, boxList, RemotePrinerType::REMOTE_PRINTER_TYPE_KLIPPER4408);
+			// 	}
+			// };
+
 			m_pKlipper4408Interface->addClient(printer.ipAddress.toStdString(), printer.macAddress.toStdString(), 9999, infoCallback, fileCallback, historyCallback, videoCallback);
 			return;
 		}
@@ -940,6 +949,11 @@ namespace creative_kernel
 		default:
 			break;
 		}
+	}
+
+	void RemotePrinterManager::materialColorMap(const QString& ip, QString path, const QList<QVariantMap>& colorMap)
+	{
+		m_pKlipper4408Interface->setMaterialColorMap(ip, path, colorMap);
 	}
 
 	void RemotePrinterManager::controlPrinter(const RemotePrinter& printer, const PrintControlType& cmdType, const std::string& value)

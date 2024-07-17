@@ -27,7 +27,7 @@ namespace creative_kernel
 		static MoveOperateMode* defaultOperateMode = new MoveOperateMode;
 		if (operateMode == NULL)
 			getKernel()->visScene()->setOperateMode(defaultOperateMode);
-		else 
+		else
 			getKernel()->visScene()->setOperateMode(operateMode);
 	}
 
@@ -110,12 +110,10 @@ namespace creative_kernel
 
 	void showPrimeTower(float x, float y, float radius)
 	{
-		getKernel()->visScene()->showPrimeTower(x, y, radius);
 	}
 
 	void hidePrimeTower()
 	{
-		getKernel()->visScene()->hidePrimeTower();
 	}
 
 	QSize surfaceSize()

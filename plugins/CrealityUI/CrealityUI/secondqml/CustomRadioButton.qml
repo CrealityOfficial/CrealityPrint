@@ -3,8 +3,9 @@ import QtQuick.Controls 2.12
 import "../qml"
  RadioButton {
       id: control
-      text: "RadioButton"
+      text: ""
       checked: true
+      leftPadding: 0
       font.family:Constants.labelFontFamily
       font.pointSize: Constants.labelFontPointSize_12
       indicator: Rectangle {
@@ -30,7 +31,7 @@ import "../qml"
           text: control.text
           font: control.font
           opacity: enabled ? 1.0 : 0.3
-          color: control.down ? "#FFFFFF" : "#FDFDFD"
+          color: Constants.textColor // control.down ? "#FFFFFF" : "#FDFDFD"
           verticalAlignment: Text.AlignVCenter
           leftPadding: control.indicator.width + control.spacing
       }

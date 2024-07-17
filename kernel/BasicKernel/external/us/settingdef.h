@@ -31,7 +31,6 @@ namespace us
 		void writeKeys(const QString& fileName);
 		void writeAllKeys();
 
-		QList<us::SettingGroupDef*> profileCategoryGroup(const bool& isSingleExtruder = false);
 		QVariantList parameterGroupList();
 		QVariantList parameterList(const QString& type = QString(""));
 		QVariantList profileParameterList(int index);  // 0 1 -1
@@ -46,6 +45,11 @@ namespace us
 		QMap<QString, SettingGroupDef*> m_settingGroupDefs;
 		QHash<QString, SettingItemDef*> m_hashItemDef;
 	};
+
+	BASIC_KERNEL_API void loadMetaMachineKeys(QStringList& keys);
+	BASIC_KERNEL_API void loadMetaExtruderKeys(QStringList& keys);
+	BASIC_KERNEL_API void loadMetaMaterialKeys(QStringList& keys);
+	BASIC_KERNEL_API void loadMetaProfileKeys(QStringList& keys);
 }
 
 #define SETTING(x) us::SettingDef::instance().create(x)

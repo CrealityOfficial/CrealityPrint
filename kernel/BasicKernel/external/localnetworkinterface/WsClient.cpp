@@ -2,9 +2,12 @@
 #include "rapidjson/writer.h"
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
+#include "materialboxmodellist.h"
 
 #include <cpr/cpr.h>
 #include <unordered_map>
+#include <iostream>
+#include <regex>
 
 namespace creative_kernel
 {
@@ -84,10 +87,12 @@ namespace creative_kernel
 
 		doc.AddMember("method", "get", allocator);
 		rapidjson::Value paramObject(rapidjson::kObjectType);
-		paramObject.AddMember("reqGcodeFile", 1, allocator);
+		paramObject.AddMember("reqGcodeFile", 1, allocator);		
 		paramObject.AddMember("reqHistory", 1, allocator);
 		paramObject.AddMember("reqElapseVideoList", 1, allocator);
 		paramObject.AddMember("reqPrintObjects", 1, allocator);
+		paramObject.AddMember("reqMaterialBoxsInfo", 1, allocator);
+		paramObject.AddMember("boxsInfo", 1, allocator);
 		doc.AddMember("params", paramObject, allocator);
 
 
@@ -205,6 +210,10 @@ namespace creative_kernel
 		{
 			m_printer.printerName = doc["model"].GetString();
 		}
+		if (doc.HasMember("hostname") && doc["hostname"].IsString())
+		{
+			m_printer.deviceName = doc["hostname"].GetString();
+		}
 		if (doc.HasMember("state") && doc["state"].IsInt())
 		{
 			m_printer.printState = doc["state"].GetInt();
@@ -302,11 +311,25 @@ namespace creative_kernel
 			if (retGcodeFileInfo.HasMember("fileInfo") && retGcodeFileInfo["fileInfo"].IsString())
 			{
 				auto fileList = retGcodeFileInfo["fileInfo"].GetString();
+				QString from_std_list = QString::fromStdString(fileList);
+				QStringList splitList = from_std_list.split(":", QString::SkipEmptyParts);
+				if(splitList.size()){
+					std::string firstValue = splitList[0].toStdString();
+					std::regex pattern("^\\/[a-zA-Z0-9_]+(\\/[a-zA-Z0-9_]+)*$");
+					if (std::regex_match(firstValue, pattern))
+					{
+						m_printer.filePrefixPath = splitList[0];
+					}
+					else {
+						m_printer.filePrefixPath = "";
+					}
+				}
+
 				if (fileCallback)
 				{
 					fileCallback(m_printer.macAddress.toStdString(), fileList);
 				}
-			}
+			} 
 		}
 		if (doc.HasMember("historyList") && doc["historyList"].IsArray())
 		{
@@ -471,6 +494,69 @@ namespace creative_kernel
 		{
 			m_printer.maxBedTemp = doc["maxBedTemp"].GetInt();
 		}
+		if (doc.HasMember("boxsInfo") && doc["boxsInfo"].IsObject())
+		{
+			std::string boxList;
+			auto info = doc["boxsInfo"].GetObj();
+			auto boxInfo = info["materialBoxs"].GetArray();
+			if (boxInfo.Size() > 0) {
+				for (rapidjson::SizeType i = 0; i < boxInfo.Size(); i++) {
+					std::string boxItem = "";
+					const rapidjson::Value& item = boxInfo[i];
+					//&& item.HasMember("state")
+					if (item.HasMember("id")  && item.HasMember("type")&& item.HasMember("materials")) {
+						const rapidjson::Value& id = item["id"];		
+						//const rapidjson::Value& state = item["state"];
+						const rapidjson::Value& type = item["type"];
+						int boxId = id.GetInt();
+						//int boxState = state.GetInt(); 
+						int boxType = type.GetInt();
+						boxItem += std::to_string(boxId); boxItem += ":";
+						//boxItem += std::to_string(boxState); boxItem += ":";
+						boxItem += std::to_string(boxType); boxItem += ":";
+						auto materialInfo = item["materials"].GetArray();						
+						for (rapidjson::SizeType i = 0; i < materialInfo.Size(); i++) {
+							std::string materilItem = "";
+							const rapidjson::Value& materialItem = materialInfo[i];
+							// && materialItem.HasMember("state") && materialItem.HasMember("name")
+							if (materialItem.HasMember("id") && materialItem.HasMember("rfid") && materialItem.HasMember("color")&& materialItem.HasMember("type"))
+							{
+								const rapidjson::Value& materialId = materialItem["id"];
+								//const rapidjson::Value& materialState = materialItem["state"];
+								const rapidjson::Value& filamentId = materialItem["rfid"];
+								const rapidjson::Value& materialColor = materialItem["color"];
+								const rapidjson::Value& materialType = materialItem["type"];
+								//const rapidjson::Value& materialName = materialItem["name"];
+								int materialIdStr = materialId.GetInt();
+								//int materialStateStr = materialState.GetInt();
+								std::string filamentIdStr = filamentId.GetString();
+								std::string materialColorStr = materialColor.GetString();
+								std::string materialTypeStr = materialType.GetString();
+								//std::string materialNameStr = materialName.GetString();
+								materilItem += std::to_string(materialIdStr); materilItem += ":";
+								//materilItem += std::to_string(materialStateStr); materilItem += ":";
+								materilItem += filamentIdStr; materilItem += ":";
+								materilItem += materialColorStr; materilItem += ":";
+								materilItem += materialTypeStr; materilItem += ";";
+								boxList += boxItem + materilItem;
+							}
+						}					
+					}
+				}
+			}
+			if (m_printer.materialboxList == nullptr) {
+				m_printer.materialboxList = new MaterialBoxListModel();
+			}
+			m_printer.materialboxList->onGetMaterialBoxList(m_printer.macAddress.toStdString(), boxList, m_printer.type);
+
+
+			// if (materialBoxCb)
+			// {
+			// 	materialBoxCb(m_printer.macAddress.toStdString(), boxList);
+			// }
+    	}
+			
+		
 
 		m_printer.printerStatus = 1;
 		if (infoCallback && !needStop) infoCallback(m_printer);

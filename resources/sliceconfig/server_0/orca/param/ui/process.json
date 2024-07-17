@@ -1,0 +1,1256 @@
+{
+  "name": "FDM Printer Process Description",
+  "version": 2,
+  "children": [
+    {
+      "label": "Quality",
+      "children": [
+        {
+          "label": "Layer Height",
+          "children": [
+            {
+              "key": "layer_height",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "initial_layer_print_height",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Line Width",
+          "children": [
+            {
+              "key": "line_width",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "initial_layer_line_width",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "outer_wall_line_width",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "inner_wall_line_width",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "top_surface_line_width",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "sparse_infill_line_width",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "internal_solid_infill_line_width",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "support_line_width",
+              "component": "text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Seam",
+          "children": [
+            {
+              "key": "seam_position",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "staggered_inner_seams",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "seam_gap",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "seam_slope_type",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "seam_slope_conditional",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "scarf_joint_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "seam_slope_start_height",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "seam_slope_entire_loop",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "seam_slope_min_length",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "seam_slope_steps",
+              "component": "int_text_field",
+              "level": 1
+            },
+            {
+              "key": "seam_slope_inner_walls",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "role_based_wipe_speed",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "wipe_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "wipe_on_loops",
+              "component": "check_box",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Precision",
+          "children": [
+            {
+              "key": "slice_closing_radius",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "resolution",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "enable_arc_fitting",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "arc_tolerance",
+              "component": "int_text_field",
+              "level": 1
+            },
+            {
+              "key": "xy_hole_compensation",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "xy_contour_compensation",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "elefant_foot_compensation",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "elefant_foot_compensation_layers",
+              "component": "int_text_field",
+              "level": 1
+            },
+            {
+              "key": "precise_outer_wall",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "hole_to_polyhole",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "hole_to_polyhole_threshold",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "hole_to_polyhole_twisted",
+              "component": "check_box",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Ironing",
+          "children": [
+            {
+              "key": "ironing_type",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "ironing_pattern",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "ironing_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "ironing_flow",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "ironing_spacing",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "ironing_angle",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Wall generator",
+          "children": [
+            {
+              "key": "wall_generator",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "wall_transition_angle",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "wall_transition_filter_deviation",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "wall_transition_length",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "wall_distribution_count",
+              "component": "int_text_field",
+              "level": 1
+            },
+            {
+              "key": "initial_layer_min_bead_width",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "min_bead_width",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "min_feature_size",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "min_length_factor",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Wall and surface",
+          "children": [
+            {
+              "key": "wall_sequence",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "is_infill_first",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "wall_direction",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "top_solid_infill_flow_ratio",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "bottom_solid_infill_flow_ratio",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "only_one_wall_top",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "only_one_wall_first_layer",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "min_width_top_surface",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "small_area_infill_flow_compensation",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "small_area_infill_flow_compensation_model",
+              "component": "text_edit",
+              "level": 1
+            },
+            {
+              "key": "reduce_crossing_wall",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "max_travel_detour_distance",
+              "component": "text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Bridge",
+          "children": [
+            {
+              "key": "bridge_flow",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "internal_bridge_flow",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "bridge_density",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "thick_bridges",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "thick_internal_bridges",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "dont_filter_internal_bridges",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "counterbore_hole_bridging",
+              "component": "combo_box",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Drape",
+          "children": [
+            {
+              "key": "detect_overhang_wall",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "make_overhang_printable",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "make_overhang_printable_angle",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "make_overhang_printable_hole_size",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "extra_perimeters_on_overhangs",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "overhang_reverse",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "overhang_reverse_threshold",
+              "component": "text_field",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Strength",
+      "children": [
+        {
+          "label": "Wall",
+          "children": [
+            {
+              "key": "wall_loops",
+              "component": "int_text_field",
+              "level": 2
+            },
+            {
+              "key": "detect_thin_wall",
+              "component": "check_box",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Top/bottom shells",
+          "children": [
+            {
+              "key": "top_surface_pattern",
+              "component": "image_combo_box",
+              "level": 2
+            },
+            {
+              "key": "top_shell_layers",
+              "component": "int_text_field",
+              "level": 2
+            },
+            {
+              "key": "top_shell_thickness",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "bottom_surface_pattern",
+              "component": "image_combo_box",
+              "level": 2
+            },
+            {
+              "key": "bottom_shell_layers",
+              "component": "int_text_field",
+              "level": 2
+            },
+            {
+              "key": "bottom_shell_thickness",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Infill",
+          "children": [
+            {
+              "key": "sparse_infill_density",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "ai_infill",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "sparse_infill_pattern",
+              "component": "image_combo_box",
+              "level": 2
+            },
+            {
+              "key": "infill_anchor",
+              "component": "text_field_combo_box",
+              "level": 1
+            },
+            {
+              "key": "infill_anchor_max",
+              "component": "text_field_combo_box",
+              "level": 1
+            },
+            {
+              "key": "internal_solid_infill_pattern",
+              "component": "image_combo_box",
+              "level": 2
+            },
+            {
+              "key": "gap_fill_target",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "filter_out_gap_fill",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "infill_wall_overlap",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Advanced",
+          "children": [
+            {
+              "key": "infill_direction",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "bridge_angle",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "minimum_sparse_infill_area",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "infill_combination",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "detect_narrow_internal_solid_infill",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "ensure_vertical_shell_thickness",
+              "component": "check_box",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Speed",
+      "children": [
+        {
+          "label": "First layer speed",
+          "children": [
+            {
+              "key": "initial_layer_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "initial_layer_infill_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "initial_layer_travel_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "slow_down_layers",
+              "component": "int_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Other layer speed",
+          "children": [
+            {
+              "key": "inner_wall_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "outer_wall_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "small_perimeter_threshold",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "small_perimeter_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "sparse_infill_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "internal_solid_infill_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "top_surface_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "gap_infill_speed",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Overhang speed",
+          "children": [
+            {
+              "key": "enable_overhang_speed",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "overhang_speed_classic",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "slowdown_for_curled_perimeters",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "overhang_1_4_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "overhang_2_4_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "overhang_3_4_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "overhang_4_4_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "internal_bridge_speed",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "bridge_speed",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Travel speed",
+          "children": [
+            {
+              "key": "travel_speed",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Acceleration",
+          "children": [
+            {
+              "key": "default_acceleration",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "inner_wall_acceleration",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "outer_wall_acceleration",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "bridge_acceleration",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "sparse_infill_acceleration",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "internal_solid_infill_acceleration",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "initial_layer_acceleration",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "top_surface_acceleration",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "travel_acceleration",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "accel_to_decel_enable",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "accel_to_decel_factor",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "acceleration_limit_mess_enable",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "acceleration_limit_mess",
+              "component": "array_text_edit",
+              "level": 1
+            },
+            {
+              "key": "speed_limit_to_height_enable",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "speed_limit_to_height",
+              "component": "array_text_edit",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Jerk(XY)",
+          "children": [
+            {
+              "key": "default_jerk",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "outer_wall_jerk",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "inner_wall_jerk",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "infill_jerk",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "top_surface_jerk",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "initial_layer_jerk",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "travel_jerk",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Advanced",
+          "children": [
+            {
+              "key": "max_volumetric_extrusion_rate_slope",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Support",
+      "children": [
+        {
+          "label": "Support",
+          "children": [
+            {
+              "key": "enable_support",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "support_type",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "support_style",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "support_threshold_angle",
+              "component": "int_text_field",
+              "level": 2
+            },
+            {
+              "key": "raft_first_layer_density",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "raft_first_layer_expansion",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "support_on_build_plate_only",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "support_remove_small_overhang",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "support_critical_regions_only",
+              "component": "check_box",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Raft",
+          "children": [
+            {
+              "key": "raft_layers",
+              "component": "int_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Filament for Supports",
+          "children": [
+            {
+              "key": "support_filament",
+              "component": "material_combo_box",
+              "level": 2
+            },
+            {
+              "key": "support_interface_filament",
+              "component": "material_combo_box",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Advanced",
+          "children": [
+            {
+              "key": "support_top_z_distance",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "support_bottom_z_distance",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "support_base_pattern",
+              "component": "image_combo_box",
+              "level": 1
+            },
+            {
+              "key": "support_base_pattern_spacing",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "support_angle",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "support_interface_top_layers",
+              "component": "int_text_field_combo_box",
+              "level": 1
+            },
+            {
+              "key": "support_interface_bottom_layers",
+              "component": "int_text_field_combo_box",
+              "level": 1
+            },
+            {
+              "key": "support_interface_loop_pattern",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "support_interface_spacing",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "bottom_interface_spacing",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "support_expansion",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "support_object_xy_distance",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "bridge_no_support",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "independent_support_layer_height",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "support_interface_pattern",
+              "component": "image_combo_box",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Tree Support",
+          "children": [
+            {
+              "key": "tree_support_tip_diameter",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "tree_support_branch_distance",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "tree_support_branch_distance_organic",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "tree_support_top_rate",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "tree_support_branch_diameter",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "tree_support_branch_diameter_organic",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "tree_support_branch_diameter_angle",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "tree_support_branch_angle",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "tree_support_branch_angle_organic",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "tree_support_branch_diameter_double_wall",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Other",
+      "children": [
+        {
+          "label": "Bed adhension",
+          "children": [
+            {
+              "key": "skirt_loops",
+              "component": "int_text_field",
+              "level": 2
+            },
+            {
+              "key": "skirt_distance",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "skirt_height",
+              "component": "int_text_field",
+              "level": 2
+            },
+            {
+              "key": "skirt_speed",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "brim_type",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "brim_width",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "brim_object_gap",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "brim_ears_max_angle",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "brim_ears_detection_length",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Prime Tower",
+          "children": [
+            {
+              "key": "enable_prime_tower",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "prime_tower_width",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "prime_tower_brim_width",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "wipe_tower_rotation_angle",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "wipe_tower_bridging",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "wipe_tower_cone_angle",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "wipe_tower_extra_spacing",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "wipe_tower_no_sparse_layers",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "prime_volume",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Flush Options",
+          "children": [
+            {
+              "key": "flush_into_infill",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "flush_into_support",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "flush_into_objects",
+              "component": "check_box",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Special Mode",
+          "children": [
+            {
+              "key": "slicing_mode",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "print_sequence",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "print_order",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "spiral_mode",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "fuzzy_skin",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "fuzzy_skin_point_distance",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "fuzzy_skin_thickness",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "G-code output",
+          "children": [
+            {
+              "key": "reduce_infill_retraction",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "gcode_comments",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "gcode_label_objects",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "exclude_object",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "filename_format",
+              "component": "text_edit",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

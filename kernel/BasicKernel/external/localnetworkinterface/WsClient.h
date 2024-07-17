@@ -31,6 +31,7 @@ namespace creative_kernel
 		std::function<void(const std::string&, const std::string&)> fileCallback = nullptr;
 		std::function<void(std::string, std::string)> historyFileListCb = nullptr;
 		std::function<void(const std::string&, const std::string&)> videoCallback = nullptr;
+		//std::function<void(const std::string&, const std::string&)> materialBoxCb = nullptr;
 
 	private:
 		void onResolve(beast::error_code ec, tcp::resolver::results_type results);

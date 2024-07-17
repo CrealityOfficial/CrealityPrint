@@ -30,6 +30,7 @@ class BASIC_KERNEL_API ActionCommand : public QObject
     Q_PROPERTY(bool visible READ visible NOTIFY sourceChanged)
     Q_PROPERTY(bool checked READ bChecked WRITE setChecked NOTIFY checkedChanged)
     Q_PROPERTY(bool checkable READ bCheckable NOTIFY sourceChanged)
+    Q_PROPERTY(QString location READ location WRITE setLocation NOTIFY locationChanged)
 public:
     explicit ActionCommand(QObject *parent = nullptr);
     virtual ~ActionCommand();
@@ -78,6 +79,9 @@ public:
     QString insertKey() const {return m_insertKey;}
     void setInsertKey(QString key){m_insertKey = key;}
 
+    QString location() const {return m_location;}
+    void setLocation(const QString& location) { m_location = location; }
+
 signals:
     void enabledChanged();
     void sourceChanged();
@@ -89,6 +93,7 @@ signals:
     void visibleChanged();
     void checkedChanged();
     void checkableChanged();
+    void locationChanged();
 
 protected:
     bool m_enabled;
@@ -106,6 +111,8 @@ protected:
     bool m_bChecked;
     bool m_bCheckable;
     QString m_insertKey;    //use to find and insert
+    QString m_location;
+
 };
 
 

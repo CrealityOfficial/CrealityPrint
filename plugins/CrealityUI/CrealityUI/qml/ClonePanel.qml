@@ -48,7 +48,7 @@ LeftPanelDialog {
                     radius: 5
                     text: "1"
                     font.pointSize: 9
-                    validator: IntValidator {bottom: 1; top: 100;}//by TCJ
+                    validator: IntValidator {bottom: 1; top: 99;}//by TCJ
                     Layout.alignment: Qt.AlignVCenter
 
                     onAccepted: {

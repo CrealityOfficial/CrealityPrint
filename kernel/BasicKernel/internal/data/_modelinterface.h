@@ -18,8 +18,7 @@ namespace creative_kernel
 	void _setModelRotation(ModelN* model, const QQuaternion& end, bool update = false);
 	void _setModelScale(ModelN* model, const QVector3D& end, bool update = false);
 	void _setModelPosition(ModelN* model, const QVector3D& end, bool update = false);
-	void _setModelsInitPosition(const QList<ModelN*>& models, const QList<QVector3D>& tEnds);
-	
+
 	void _requestUpdate();
 	void _updateModel(ModelN* model);
 
@@ -28,7 +27,6 @@ namespace creative_kernel
 	void _mirrorY(ModelN* model, bool update);
 	void _mirrorZ(ModelN* model, bool update);
 	void _mirrorSet(ModelN* model, const QMatrix4x4& matrix, bool update);
-	void _batchMirrorModel(ModelN* model, const MirrorOperation& operation);
 }
 
 #endif // CREATIVE_KERNEL_INTERNAL_MODELINTERFACE_1592788083031_H

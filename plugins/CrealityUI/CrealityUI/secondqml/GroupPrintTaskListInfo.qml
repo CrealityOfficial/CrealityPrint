@@ -385,7 +385,7 @@ Rectangle{
                 height: parent.height - 150 - 40 - 12
                 border.width: 1
                 border.color: "#DDDDDD"
-               ScrollView{
+                BasicScrollView{
                     x: 1
                     y: 1
                     width: parent.width - 2
@@ -408,7 +408,7 @@ Rectangle{
                         //GroupPrintTaskFoldingPanel{}
                     }
                 }
-                ScrollView{
+                BasicScrollView{
                     x: 1
                     y: 1
                     width: parent.width - 2

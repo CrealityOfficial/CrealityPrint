@@ -12,6 +12,7 @@
 #include "interface/camerainterface.h"
 #include "qtuser3d/camera/screencamera.h"
 #include "qtuser3d/trimesh2/conv.h"
+#include "us/usettings.h"
 
 LetterJob::LetterJob(QObject* parent)
 	:m_letterModel(nullptr)
@@ -91,21 +92,8 @@ void LetterJob::work(qtuser_core::Progressor* progressor)
 
 		cxkernel::ModelCreateInput input;
 		input.mesh = mesh;
-		QString oldName = m_pModel->objectName();
-
-		QString newName = oldName;
-		int suffixRightIndex = newName.length() - newName.lastIndexOf(".");
-		QString suffix = newName.right(suffixRightIndex);
-		newName.chop(suffixRightIndex);
-		if (!newName.endsWith("_l"))
-		{
-			newName = newName + "_l" + suffix;
-		}
-		else
-		{
-			newName = oldName;
-		}
-		input.name = newName;
+		input.defaultColor = m_pModel->defaultColorIndex();
+		input.name = m_pModel->objectName();
 
 		cxkernel::ModelNDataCreateParam param;
 		param.toCenter = false;
@@ -115,7 +103,7 @@ void LetterJob::work(qtuser_core::Progressor* progressor)
 
 void LetterJob::failed()
 {
-
+	emit finished();
 }
 
 void LetterJob::successed(qtuser_core::Progressor* progressor)
@@ -132,8 +120,10 @@ void LetterJob::successed(qtuser_core::Progressor* progressor)
 
 		QList<creative_kernel::ModelN*> newModels;
 		newModels.push_back(newModel);
+		newModel->setting()->merge(m_pModel->setting());
 
 		creative_kernel::modifySpace(models, newModels, true);
 		creative_kernel::selectOne(newModel);
 	}
+	emit finished();
 }

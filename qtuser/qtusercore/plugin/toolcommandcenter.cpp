@@ -36,6 +36,12 @@ bool variantLessThan(const ToolCommand* v1, const ToolCommand* v2)
 {
     return v1->orderindex < v2->orderindex;
 }
+void ToolCommandCenter::orderModel()
+{
+    qSort(m_toolCommands.begin(), m_toolCommands.end(), variantLessThan);
+    beginResetModel();
+    endResetModel();
+}
 void ToolCommandCenter::addCommand(ToolCommand* command)
 {
     if (command)
@@ -61,10 +67,10 @@ void ToolCommandCenter::addCommand(ToolCommand* command,int index)
     {
 
         const QModelIndex& modelindex = QModelIndex();
-        beginInsertRows(modelindex, 0, 0);
+        //beginInsertRows(modelindex, 0, 0);
         m_toolCommandsMap[index] = command;
         m_toolCommands = m_toolCommandsMap.values();
-        endInsertRows();
+        //endInsertRows();
         if (!command->parent())
             command->setParent(this);
     }

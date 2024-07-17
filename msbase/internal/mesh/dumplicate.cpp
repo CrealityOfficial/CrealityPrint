@@ -1,7 +1,7 @@
 #include "msbase/mesh/dumplicate.h"
 
 #include "internal/utils/uniformpoints.h"
-
+#include "msbase/mesh/checker.h"
 #include <unordered_map>
 #include <map>
 #include <unordered_set>
@@ -127,7 +127,8 @@ namespace msbase
 
         if (mesh->flags.size() != mesh->faces.size())
             mesh->flags.clear();
-
+        
+        //msbase::checkDegenerateFace(mesh, true);
         mesh->clear_bbox();
         mesh->need_bbox();
 

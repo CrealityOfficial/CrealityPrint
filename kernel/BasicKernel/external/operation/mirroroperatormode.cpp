@@ -7,8 +7,13 @@
 #include "interface/selectorinterface.h"
 #include "interface/visualsceneinterface.h"
 #include "kernel/kernel.h"
+#include "kernel/kernelui.h"
 #include "qtuser3d/module/pickable.h"
 #include "external/kernel/modelnselector.h"
+#include "interface/visualsceneinterface.h"
+#include "cxkernel/data/header.h"
+#include "qtusercore/module/job.h"
+#include "trimesh2/TriMesh.h"
 
 namespace {
 
@@ -40,34 +45,46 @@ MirrorOperateMode::MirrorOperateMode(QObject* parent)
       { WeakToRaw(entity_->zNegativePickable()), Z_MIRROR_HANDLER },
     }) {
   
-    m_operateTimer.setSingleShot(true);
-    connect(&m_operateTimer, &QTimer::timeout, this, [=]()
-    {
-        m_canOperate = true;
-        creative_kernel::getModelSelect()->setEnabled(true);          
-    });
+	    m_type = qtuser_3d::SceneOperateMode::FixedMode;
 
   for (const auto& pair : pickable_callback_map_) {
     creative_kernel::tracePickable(pair.first);
   }
 
-  connect(this, &MoveOperateMode::moving, this, [=] ()
-  {
-    updateEntity();
-  });
+  // connect(this, &MoveOperateMode::moving, this, [=] ()
+  // {
+  //   updateEntity();
+  // });
 }
 
 void MirrorOperateMode::updateEntity()
 {
   const auto selected_model_list = creative_kernel::selectionms();
   if (!selected_model_list.empty()) {
-      entity_->setSpaceBox(selected_model_list.last()->globalSpaceBox());
+      float minX, minY, minZ, maxX, maxY, maxZ;
+      minX = minY = minZ = 100000;
+      maxX = maxY = maxZ = -100000;
+      for (auto m : selected_model_list)
+      {
+        auto box = m->boxWithSup();
+        minX = box.min.x() < minX ? box.min.x() : minX;
+        minY = box.min.y() < minY ? box.min.y() : minY;
+        minZ = box.min.z() < minZ ? box.min.z() : minZ;
+        maxX = box.max.x() > maxX ? box.max.x() : maxX;
+        maxY = box.max.y() > maxY ? box.max.y() : maxY;
+        maxZ = box.max.z() > maxZ ? box.max.z() : maxZ;
+      }
+      qtuser_3d::Box3D box(QVector3D(minX, minY, minZ), QVector3D(maxX, maxY, maxZ));
+
+      // entity_->setSpaceBox(selected_model_list.last()->globalSpaceBox());
+      entity_->setSpaceBox(box);
       entity_->setScaleFactor(CaculateCurrentScaleFactor());
       creative_kernel::visShow(entity_.get());
   }
   else {
       creative_kernel::visHide(entity_.get());
   }
+  creative_kernel::requestVisUpdate(true);
 }
 
 void MirrorOperateMode::onAttach() {
@@ -100,9 +117,6 @@ void MirrorOperateMode::onWheelEvent(QWheelEvent* event) {
 }
 
 void MirrorOperateMode::onLeftMouseButtonClick(QMouseEvent* event) {
-  if (!m_canOperate)
-    return;
-
   auto iter = pickable_callback_map_.find(creative_kernel::checkPickable(event->pos(), nullptr));
   if (iter == pickable_callback_map_.cend()) 
   { 
@@ -111,16 +125,16 @@ void MirrorOperateMode::onLeftMouseButtonClick(QMouseEvent* event) {
 
   iter->second();
 
-  m_canOperate = false;
-  creative_kernel::getModelSelect()->setEnabled(false);
-  m_operateTimer.start(200);
 }
 
 void MirrorOperateMode::onSelectionsChanged() {
+  auto selections = creative_kernel::selectionms();
   updateEntity();
   creative_kernel::requestVisPickUpdate(true);
 }
 
 void MirrorOperateMode::selectChanged(qtuser_3d::Pickable* pickable) {
   std::ignore = pickable;
+
+  updateEntity();
 }

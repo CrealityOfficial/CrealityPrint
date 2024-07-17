@@ -130,8 +130,11 @@ namespace cura52
   
                     crslice::pressureE(inputGcodes, outputGcodes, filament_diameter, extrusion_rate, segment_length, relative_e_distances);
 
-                    std::string previewImageString = "";
-                    gcode::_SaveGCode(scene->gcodeFile.c_str(), previewImageString, outputGcodes, sr.prefixCode(), sr.tailCode());
+                    std::string fileNameOutput = "overhang_splitfaceNOfan1sss11.gcode";
+                    std::string previewImageString = "imgPreview.png";
+                    std::string prefixString = sr.prefixCode();
+                    std::string tailCode = sr.tailCode();
+                    gcode::_SaveGCode(scene->gcodeFile.c_str(), previewImageString, outputGcodes, prefixString, tailCode);
                 }
                 tick("slice 1");
 
@@ -262,6 +265,13 @@ namespace cura52
 
     void Application::compute()
     {
+        // add ams extruders
+        size_t material_boxes_size = scene->settings.get<size_t>("asm_material_count");
+        scene->extruders.reserve(material_boxes_size);
+
+        for(int j = scene->extruders.size() ;j<=material_boxes_size;j++){
+            scene->extruders.push_back(ExtruderTrain(scene->extruders.size(), &scene->extruders[0].settings));
+        }
         //build setting
         size_t numExtruder = scene->extruders.size();
         for (size_t i = 0; i < numExtruder; ++i)

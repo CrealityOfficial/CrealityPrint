@@ -12,9 +12,12 @@
 #include "trimesh2/quaternion.h"
 #include "qtuser3d/trimesh2/conv.h"
 
+#include "interface/printerinterface.h"
+
 PickBottomOp::PickBottomOp(QObject* parent)
 	:MoveOperateMode(parent)
 {
+	m_type = qtuser_3d::SceneOperateMode::FixedMode;
 }
 
 PickBottomOp::~PickBottomOp()
@@ -74,6 +77,7 @@ void PickBottomOp::reGenerateFaces()
 	if (selections.size() < 1)
 		return;
 
+	QList<qtuser_3d::Pickable*> pickables;
 	for (creative_kernel::ModelN* model : selections)
 	{
 		QVector4D hoverColor = CONFIG_PLUGIN_VEC4(pickbottom_hover_color, pickbottom_group);
@@ -89,26 +93,32 @@ void PickBottomOp::reGenerateFaces()
 			faceEntity->setHoverColor(hoverColor);
 			faceEntity->setColor(noHoverColor);
 			faceEntity->setParent(model->getModelEntity());
-			creative_kernel::tracePickable(faceEntity->pickable());
+			// creative_kernel::tracePickable(faceEntity->pickable());
+			pickables << faceEntity->pickable();
 			pickFaces.push_back(faceEntity);
 		}
-
 		m_pickFaces.push_back(pickFaces);
 	}
+	creative_kernel::addPickables(pickables);
 }
 
 void PickBottomOp::removeFaces()
 {
-	for (auto pickFaces : m_pickFaces)
-	{
-		for (PickFace* apickFace : pickFaces)
-		{
-			creative_kernel::unTracePickable(apickFace->pickable());
-		}
-		qDeleteAll(pickFaces);
-		pickFaces.clear();
-	}
-	m_pickFaces.clear();
+	 QList<qtuser_3d::Pickable*> pickables;
+	 for (auto pickFaces : m_pickFaces)
+	 {
+	 	for (PickFace* apickFace : pickFaces)
+	 		pickables << apickFace->pickable();
+	 }
+	 creative_kernel::removePickables(pickables);
+
+	 for (auto pickFaces : m_pickFaces)
+	 {
+	 	qDeleteAll(pickFaces);
+	 	pickFaces.clear();
+	 }
+	 m_pickFaces.clear();
+
 }
 
 void PickBottomOp::executeFace(PickFace* face)
@@ -122,14 +132,16 @@ void PickBottomOp::executeFace(PickFace* face)
 
 void PickBottomOp::setMaxFaceBottom()
 {
-	for (auto pickFaces : m_pickFaces)
+	/*for (auto pickFaces : m_pickFaces)
 	{
 		if (pickFaces.size() > 0)
 		{
 			PickFace* face = pickFaces.at(0);
 			executeFace(face);
 		}
-	}
+	}*/
+
+	creative_kernel::setModelsMaxFaceBottomExceptLock();
 
 	creative_kernel::delayCapture(50);
 }
@@ -140,15 +152,13 @@ void PickBottomOp::selectChanged(qtuser_3d::Pickable* pickable)
 
 bool PickBottomOp::getMessage()
 {
-	return creative_kernel::haveSupports(creative_kernel::selectionms());
+	return false;
 }
 
 void PickBottomOp::setMessage(bool isRemove)
 {
 	if (isRemove)
 	{
-		QList<creative_kernel::ModelN*> models = creative_kernel::selectionms();
-		creative_kernel::deleteSupports(models);
 		creative_kernel::requestVisUpdate(true);
 	}
 }

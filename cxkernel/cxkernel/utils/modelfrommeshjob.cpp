@@ -7,7 +7,7 @@
 namespace cxkernel
 {
 	ModelFromMeshJob::ModelFromMeshJob(ModelNDataProcessor* processor, QObject* parent)
-		: Job(parent)
+		: MeshJob(parent)
 		, m_processor(processor)
 	{
 	}
@@ -39,12 +39,18 @@ namespace cxkernel
 	void ModelFromMeshJob::failed()
 	{
 		qDebug() << "ModelFromMeshJob::failed";
+
+		notifyObserver(&MeshJobObserver::onFinished);
 	}
 
 	void ModelFromMeshJob::successed(qtuser_core::Progressor* progressor)
 	{
 		if (m_data && m_processor)
+		{
 			m_processor->process(m_data);
+		}
+
+		notifyObserver(&MeshJobObserver::onFinished);
 	}
 
 	void ModelFromMeshJob::work(qtuser_core::Progressor* progressor)

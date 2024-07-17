@@ -44,7 +44,8 @@ Rectangle {
         CONTROL_CMD_MODELFANPCT,
         CONTROL_CMD_CASEFANPCT,
         CONTROL_CMD_AUXILIARYFANPCT,
-        CONTROL_CMD_EXCLUDEOBJECTS
+        CONTROL_CMD_EXCLUDEOBJECTS,
+        CONTROL_CMD_HOSTNAME
     }
 
     enum RemotePrinterType {
@@ -61,10 +62,12 @@ Rectangle {
     property var ipAddrList: ""
     property var sourceTheme: ""
     property string curGcodeFileName: ""
+    property string curGcodeFilePath: ""
     property string skipWebUrl: "https://www.crealitycloud.cn/post-detail/639857d26a069d622233f814"
     property bool oneClickPrintAble: true
 
     signal clickDetail(var printerID, var printerName, var printerType)
+    signal clickDelete(var printerID)
 
     function setRealEntry(value) {
         realEntry = value;
@@ -83,11 +86,12 @@ Rectangle {
     height: parent.height
     color: sourceTheme.background_color
     onVisibleChanged: {
+        printerListModel.cSourceModel.findDeviceList()//发现设备
+        // historyFileListModel.findHistoryFileList()//历史记录
+        // gcodeFileListModel.cSourceModel.findGcodeFileList()//文件列表
+        // videoListModel.findVideoFileList()//延时摄影文件列表
+
         if (visible) {
-            printerListModel.cSourceModel.findDeviceList(); //发现设备
-            historyFileListModel.findHistoryFileList(); //历史记录
-            gcodeFileListModel.cSourceModel.findGcodeFileList(); //文件列表
-            videoListModel.findVideoFileList(); //延时摄影文件列表
         }
     }
     onThemeTypeChanged: sourceTheme = themeModel.get(themeType) //切换主题
@@ -236,18 +240,21 @@ Rectangle {
     }
 
     Connections {
-        onSigConnectedIpSuccessed: {
+        function onSigConnectedIpSuccessed() {
             if (checkTimer.running) {
                 checkTimer.stop();
                 idAddPrinterPopup.curPopupType = 2; //Successful
             }
         }
-        onRowsInserted: function(parent, first, last) {
+
+        function onRowsInserted(parent, first, last) {
             idEmptyText.visible = (printerListModel.cSourceModel.deviceCount() <= 0);
         }
-        onRowsRemoved: function(parent, first, last) {
+
+        function onRowsRemoved(parent, first, last) {
             idEmptyText.visible = (printerListModel.cSourceModel.deviceCount() <= 0);
         }
+
         target: printerListModel.cSourceModel
     }
 
@@ -274,7 +281,7 @@ Rectangle {
             show();
         }
 
-        title: qsTr("Warning")
+        ctitle: qsTr("Warning")
         width: 500 * screenScaleFactor
         height: 200 * screenScaleFactor
         shadowColor: sourceTheme.dialog_shadow_color
@@ -388,8 +395,6 @@ Rectangle {
     }
 
     LanPrinterDialog {
-        //刷新列表
-
         id: idAddPrinterScan
 
         property real timerCount: 5
@@ -400,12 +405,15 @@ Rectangle {
             extraBtnEnabled = !trigger;
             extraBtnTimer.running = trigger;
             idAddPrinterScan.maskEnabled = trigger;
-            if (trigger)
-                searchMacListModel.searchDevice();
-
+            if (trigger){
+                 searchMacListModel.searchDevice();
+                
+            }
+               
+ //刷新列表
         }
 
-        title: qsTr("Add printer")
+        ctitle: qsTr("Add printer")
         width: 900 * screenScaleFactor
         height: 530 * screenScaleFactor
         shadowColor: sourceTheme.dialog_shadow_color
@@ -438,7 +446,7 @@ Rectangle {
             }
         }
 
-        csContentItem: Item {
+        bdContentItem: Item {
             Column {
                 anchors.fill: parent
                 anchors.margins: 20 * screenScaleFactor
@@ -620,9 +628,9 @@ Rectangle {
 
                                     Image {
                                         anchors.centerIn: parent
-                                        width: (scanItem.klipperType ? 60 : 64) * screenScaleFactor
-                                        height: (scanItem.klipperType ? 35 : 70) * screenScaleFactor
-                                        source: scanItem.klipperType ? "qrc:/UI/photo/addPrinter_SonicPad.png" : (printerModel != "" ? `qrc:/UI/photo/machineImage/machineImage_${kernel_add_printer_model.getModelNameByCodeName(printerModel)}.png` : "qrc:/UI/photo/crealityIcon.png")
+                                        width: (scanItem.klipperType ? 60 : 85) * screenScaleFactor
+                                        height: (scanItem.klipperType ? 35 : 85) * screenScaleFactor
+                                        source: scanItem.klipperType ? "qrc:/UI/photo/addPrinter_SonicPad.png" : (printerModel != "" ? kernel_add_printer_model.getThumbByCodeName(printerModel) : "qrc:/UI/photo/crealityIcon.png")
                                     }
 
                                 }
@@ -773,30 +781,62 @@ Rectangle {
                     color: sourceTheme.item_crossline_color
                 }
 
-                Button {
-                    width: 124 * screenScaleFactor
-                    height: 28 * screenScaleFactor
+                Row{
                     anchors.horizontalCenter: parent.horizontalCenter
-                    onClicked: searchMacListModel.addSearchDevice()
+                    width:260 * screenScaleFactor
+                    height:28* screenScaleFactor
+                    spacing:10* screenScaleFactor
+                       Button {
+                        width: 124 * screenScaleFactor
+                        height: 28 * screenScaleFactor
+                       
+                        onClicked: searchMacListModel.addSearchDevice()
 
-                    background: Rectangle {
-                        border.width: 1
-                        border.color: sourceTheme.add_printer_border
-                        color: parent.hovered ? sourceTheme.innerBtn_hovered_color : sourceTheme.innerBtn_default_color
-                        radius: height / 2
+                        background: Rectangle {
+                            border.width: 1
+                            border.color: sourceTheme.add_printer_border
+                            color: parent.hovered ? sourceTheme.innerBtn_hovered_color : sourceTheme.innerBtn_default_color
+                            radius: height / 2
+                        }
+
+                        contentItem: Text {
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.weight: Font.Medium
+                            font.family: Constants.mySystemFont.name
+                            font.pointSize: Constants.labelFontPointSize_9
+                            text: qsTr("Add")
+                            color: sourceTheme.text_weight_color
+                        }
+
                     }
+                       Button {
+                        width: 124 * screenScaleFactor
+                        height: 28 * screenScaleFactor
+                       
+                        onClicked: idAddPrinterScan.refreshDevice(true)
 
-                    contentItem: Text {
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.weight: Font.Medium
-                        font.family: Constants.mySystemFont.name
-                        font.pointSize: Constants.labelFontPointSize_9
-                        text: qsTr("Add")
-                        color: sourceTheme.text_weight_color
+                        background: Rectangle {
+                            border.width: 1
+                            border.color: sourceTheme.add_printer_border
+                            color: parent.hovered ? sourceTheme.innerBtn_hovered_color : sourceTheme.innerBtn_default_color
+                            radius: height / 2
+                        }
+
+                        contentItem: Text {
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.weight: Font.Medium
+                            font.family: Constants.mySystemFont.name
+                            font.pointSize: Constants.labelFontPointSize_9
+                            text: qsTr("Refresh")
+                            color: sourceTheme.text_weight_color
+                        }
+
                     }
-
                 }
+
+             
 
             }
 
@@ -835,7 +875,7 @@ Rectangle {
 
         id: idAddPrinterManual
 
-        title: qsTr("Add printer")
+        ctitle: qsTr("Add printer")
         width: 500 * screenScaleFactor
         height: 300 * screenScaleFactor
         shadowColor: sourceTheme.dialog_shadow_color
@@ -845,7 +885,7 @@ Rectangle {
         backgroundColor: sourceTheme.dialog_background_color
         visible: false
 
-        csContentItem: Item {
+        bdContentItem: Item {
             Row {
                 id: rowPrinterType
 
@@ -864,9 +904,9 @@ Rectangle {
                     height: 90 * screenScaleFactor
                     Component.onCompleted: checked = true
                     onCheckedChanged: {
-                        if (checked)
+                        if (checked) {
                             rowPrinterType.curPrinterType = LanPrinterListLocal.RemotePrinterType.REMOTE_PRINTER_TYPE_LAN;
-
+                        }
                     }
 
                     background: Rectangle {
@@ -908,9 +948,9 @@ Rectangle {
                     width: 178 * screenScaleFactor
                     height: 90 * screenScaleFactor
                     onCheckedChanged: {
-                        if (checked)
+                        if (checked) {
                             rowPrinterType.curPrinterType = LanPrinterListLocal.RemotePrinterType.REMOTE_PRINTER_TYPE_KLIPPER;
-
+                        }
                     }
 
                     background: Rectangle {
@@ -1271,7 +1311,7 @@ Rectangle {
             return sourceText;
         }
 
-        title: qsTr("Add printer")
+        ctitle: qsTr("Add printer")
         width: 500 * screenScaleFactor
         height: 152 * screenScaleFactor
         shadowColor: sourceTheme.dialog_shadow_color
@@ -1360,7 +1400,7 @@ Rectangle {
             show();
         }
 
-        title: qsTr("Warning")
+        ctitle: qsTr("Warning")
         width: 500 * screenScaleFactor
         height: 205 * screenScaleFactor
         shadowColor: sourceTheme.dialog_shadow_color
@@ -1425,7 +1465,7 @@ Rectangle {
                             anchors.fill: parent
                             cursorShape: containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: {
-                                printerListModel.cSourceModel.batch_command(curGcodeFileName, false);
+                                printerListModel.cSourceModel.batch_command(curGcodeFileName, curGcodeFilePath, false);
                                 if (idPrintTipShow.checked)
                                     printerListModel.cSourceModel.checkAutoPrint(true);
 
@@ -1598,9 +1638,9 @@ Rectangle {
                     Keys.onEnterPressed: editGroupReadOnly = true
                     Keys.onReturnPressed: editGroupReadOnly = true
                     onActiveFocusChanged: {
-                        if (!activeFocus)
+                        if (!activeFocus) {
                             editGroupReadOnly = true;
-
+                        }
                     }
                     onEditingFinished: {
                         if (text !== "" && text !== parent.currentText) {
@@ -2062,7 +2102,7 @@ Rectangle {
 
                 anchors.verticalCenter: parent.verticalCenter
                 checked: true
-                text: qsTr("Printer Match")
+                text: qsTr("Printer Matching")
                 textColor: Constants.right_panel_item_text_default_color
                 font.pointSize: Constants.labelFontPointSize_10
                 onClicked: printerListModel.setDeviceMapCheck(checked)
@@ -2188,7 +2228,7 @@ Rectangle {
 
         Text {
             id: idEmptyText
-
+            visible:false
             anchors.centerIn: parent
             font.weight: Font.Medium
             font.family: Constants.mySystemFont.name
@@ -2199,35 +2239,20 @@ Rectangle {
             text: qsTr("Device list is empty, you can add devices by scanning or manually.")
         }
 
-        ScrollView {
-            //            hpolicyVisible: contentWidth > width
-            //            vpolicyVisible: contentHeight > height
-            //            hpolicyindicator: Rectangle {
-            //                radius: height / 2
-            //                color: sourceTheme.scrollbar_color
-            //                implicitWidth: 180 * screenScaleFactor
-            //                implicitHeight: 6 * screenScaleFactor
-            //            }
-            //            vpolicyindicator: Rectangle {
-            //                radius: width / 2
-            //                color: sourceTheme.scrollbar_color
-            //                implicitWidth: 6 * screenScaleFactor
-            //                implicitHeight: 180 * screenScaleFactor
-            //            }
-
+        BasicScrollView {
             id: idScrollView
 
             clip: true
             width: parent.width
             height: visualHeight(parent.height)
+            hpolicyVisible: contentWidth > width
+            vpolicyVisible: contentHeight > height
 
             Column {
                 anchors.fill: parent
                 spacing: 10 * screenScaleFactor
 
                 Repeater {
-                    //打印成功 or 失败
-
                     model: printerListModel
 
                     //                    Component.onCompleted: {
@@ -2316,7 +2341,7 @@ Rectangle {
 
                             if (curTransProgress == 100 && (currentState == 1 || currentState == 3))
                                 mItem.gCodeTransProgress = 0;
-
+ //打印成功 or 失败
                         }
 
                         MouseArea {
@@ -2410,7 +2435,10 @@ Rectangle {
 
                             Action {
                                 text: qsTr("Remove device")
-                                onTriggered: printerListModel.cSourceModel.deleteConnect(printerID)
+                                onTriggered: {
+                                    printerListModel.cSourceModel.deleteConnect(printerID);
+                                    clickDelete(printerID);
+                                }
                             }
 
                             delegate: MenuItem {
@@ -2564,10 +2592,14 @@ Rectangle {
                                 border.width: 1
 
                                 Image {
+                                    id:deviceImgId
                                     anchors.centerIn: parent
-                                    width: 64 * screenScaleFactor
-                                    height: 70 * screenScaleFactor
-                                    source: (printerModel != "") ? `qrc:/UI/photo/machineImage/machineImage_${kernel_add_printer_model.getModelNameByCodeName(printerModel)}.png` : "qrc:/UI/photo/crealityIcon.png"
+                                    width: 80 * screenScaleFactor
+                                    height: 80 * screenScaleFactor
+                                    sourceSize: Qt.size(width,height)
+                                    source: (printerModel != "") ? printerImageUrl : "qrc:/UI/photo/crealityIcon.png"
+                                    Component.onCompleted: deviceImgId.scale = 1.3
+                                    smooth: true
                                 }
 
                             }
@@ -2587,7 +2619,7 @@ Rectangle {
 
                                     RowLayout {
                                         spacing: 10 * screenScaleFactor
-                                        visible: rootItem.isStopping || !rootItem.fatalErrorCode
+                                        visible: !rootItem.fatalErrorCode
 
                                         Rectangle {
                                             color: "transparent"
@@ -2598,6 +2630,7 @@ Rectangle {
                                                 //id: cameraImage
                                                 anchors.centerIn: parent
                                                 source: cameraImagePath.arg(hasCamera ? "online" : "offline")
+                                                sourceSize:Qt.size(11,14)
                                             }
 
                                             ToolTip {
@@ -2690,7 +2723,7 @@ Rectangle {
                                                 font.family: Constants.mySystemFont.name
                                                 font.pointSize: Constants.labelFontPointSize_9
                                                 verticalAlignment: Text.AlignVCenter
-                                                color: sourceTheme.text_method_color
+                                                color: Constants.themeGreenColor
                                                 text: getPrinterMethodText(printerMethod)
                                             }
 
@@ -2705,13 +2738,13 @@ Rectangle {
                                         property bool isMaterialStatus: errorCode == 2001
                                         property color displayTextColor: fatalErrorCode ? "#FD265A" : (themeType ? "#333333" : "#FCE100")
 
-                                        visible:  !rootItem.isStopping && errorCode != 0
+                                        visible: errorCode != 0
                                         spacing: 10 * screenScaleFactor
                                         Layout.alignment: Qt.AlignRight
                                         onVisibleChanged: {
-                                            if (!visible)
+                                            if (!visible) {
                                                 errorTooltip.close();
-
+                                            }
                                         }
 
                                         Item {
@@ -2724,9 +2757,9 @@ Rectangle {
                                                 hoverEnabled: true
                                                 anchors.fill: parent
                                                 onContainsMouseChanged: {
-                                                    if (containsMouse && !errorTooltip.opened)
+                                                    if (containsMouse && !errorTooltip.opened) {
                                                         errorTooltip.open();
-
+                                                    }
                                                 }
 
                                                 Image {
@@ -2942,8 +2975,8 @@ Rectangle {
 
                                     Rectangle {
                                         Layout.minimumWidth: 100 * screenScaleFactor
-                                        Layout.maximumWidth: 200 * screenScaleFactor
-                                        Layout.preferredHeight: 28 * screenScaleFactor
+                                        Layout.maximumWidth: screenScaleFactor> 1?100* screenScaleFactor : 200 * screenScaleFactor
+                                        Layout.preferredHeight: 28 * screenScaleFactor 
                                         Layout.fillWidth: true
                                         color: sourceTheme.item_background_color
                                         border.color: sourceTheme.item_border_color
@@ -2977,15 +3010,22 @@ Rectangle {
                                             background: null
                                             Keys.onEnterPressed: rootItem.forceActiveFocus()
                                             Keys.onReturnPressed: rootItem.forceActiveFocus()
+                                            onTextChanged: {
+                                                var filteredText = text.replace(/[^\u0000-\u00FF]/g, "")
+                                                if (text !== filteredText) {
+                                                    text = filteredText
+                                                }
+                                            }
                                             onActiveFocusChanged: {
-                                                if (!activeFocus)
+                                                if (!activeFocus) {
                                                     editReadOnly = true;
-
+                                                }
                                             }
                                             onEditingFinished: {
                                                 editDeviceName.delayShow = true;
                                                 deviceNameDelayShow.start();
                                                 printerListModel.cSourceModel.editDeviceName(printerID, displayText);
+                                                printerListModel.cSourceModel.sendUIControlCmdToDevice(ipAddr, LanPrinterListLocal.PrintControlType.CONTROL_CMD_HOSTNAME, displayText, printerType);
                                             }
 
                                             Timer {
@@ -2998,7 +3038,7 @@ Rectangle {
 
                                             Binding on text {
                                                 when: !editDeviceName.activeFocus && !editDeviceName.delayShow
-                                                value: kernel_add_printer_model.getModelNameByCodeName(mItem.pcDeviceName)
+                                                value: mItem.deviceName != "" ? mItem.deviceName : kernel_add_printer_model.getModelNameByCodeName(mItem.pcPrinterModel)
                                             }
 
                                         }
@@ -3070,7 +3110,7 @@ Rectangle {
                                         MouseArea {
                                             hoverEnabled: true
                                             anchors.fill: parent
-                                            //      cursorShape: containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            //                                            cursorShape: containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor
                                             onClicked: printerListModel.cSourceModel.copyContent(ipAddr)
                                         }
 
@@ -3179,6 +3219,8 @@ Rectangle {
                                         Layout.minimumWidth: 100 * screenScaleFactor
                                         Layout.maximumWidth: 200 * screenScaleFactor
                                         Layout.preferredHeight: 14 * screenScaleFactor
+                                        anchors.top: parent.top
+                                        anchors.topMargin: -10 * screenScaleFactor
                                         ToolTip.text: id_GcodeName.text
                                         ToolTip.visible: id_GcodeNameArea.containsMouse && id_GcodeName.truncated //elide set
 
@@ -3231,7 +3273,7 @@ Rectangle {
                                             height: 2 * screenScaleFactor
                                             anchors.left: parent.left
                                             anchors.top: parent.top
-                                            color: "#1E9BE2"
+                                            color: Constants.themeGreenColor
                                             radius: 1
                                         }
 
@@ -3342,10 +3384,87 @@ Rectangle {
                                 Layout.minimumWidth: 0
                                 Layout.maximumWidth: 50 * screenScaleFactor - parent.spacing * 2
                             }
+                            ScrollView{
+                                Layout.minimumWidth: 320 * screenScaleFactor
+                                Layout.maximumWidth: 460 * screenScaleFactor
+                                Layout.preferredHeight:100* screenScaleFactor
+                                clip:true
+                                visible:realEntry && !!materialList
+                                ScrollBar.horizontal.policy: contentWidth > width ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                                ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+
+                                Grid{
+                                    id:materialColor
+                                    height: parent.height     
+                                    clip: true
+                                    rows:2
+                                    columnSpacing: 10
+                                    rowSpacing: 10
+                                    onVisibleChanged:{
+                                        if(visible)materialMap.model =kernel_slice_model.extruderTableModel   
+                                    }
+                                    property int printerIndex:model.index
+                                    Repeater {
+                                        // model: kernel_parameter_manager.currentMachineObject.extrudersModel
+                                        id:materialMap
+                                        delegate: RowLayout {
+                                            function setTextColor(color){
+                                                let result = ""
+                                                let bgColor = [color.r * 255, color.g * 255, color.b * 255]
+                                                let whiteContrast = Constants.getContrast(bgColor, [255, 255, 255])
+                                                let blackContrast = Constants.getContrast(bgColor, [0, 0, 0])
+                                                if(whiteContrast > blackContrast)
+                                                    result = "#ffffff"
+                                                else
+                                                    result =  "#000000"
+
+                                                return result
+                                            }
+                                            BasicDialogButton{
+                                                id:curMaterialColor
+                                                Layout.preferredWidth: 60*screenScaleFactor
+                                                Layout.preferredHeight: 24*screenScaleFactor
+                                                text:kernel_parameter_manager.currentMachineObject.extrudersModel.get(model.ctModel.getMaterialIndex()+1).curMaterialObj.materialType
+                                                btnRadius:height/2
+                                                defaultBtnBgColor: model.ctModel.getMaterialColor()
+                                                hoveredBtnBgColor:defaultBtnBgColor
+                                                btnBorderW:0
+                                                btnTextColor: parent.setTextColor(defaultBtnBgColor)
+
+                                            }
+                                            Canvas {
+                                                width: 7 * screenScaleFactor
+                                                height: 10 * screenScaleFactor
+                                                contextType: "2d"
+                                                onPaint: {
+                                                const context = getContext("2d")
+                                                context.clearRect(0, 0, width, height);
+                                                context.beginPath();
+                                                context.moveTo(0, 0);
+                                                context.lineTo(0,height)
+                                                context.lineTo(width,height/2)
+                                                context.closePath();
+                                                context.fillStyle = "#9F9FA2"
+                                                context.fill();
+                                                }
+                                            }
+                                            // MaterialComboBox{
+                                            //     width:70 * screenScaleFactor
+                                            //     height:43* screenScaleFactor
+                                            //     id:testBox
+                                            //     pcPrinterID: printerListModel.getDeviceObject(materialColor.printerIndex).pcPrinterID
+                                            //     materialmodel:printerListModel.getDeviceObject(materialColor.printerIndex).materialBoxList
+                                            // }   
+
+                                        }
+                                    }
+                                }
+                            }
+
 
                             ColumnLayout {
                                 spacing: 15 * screenScaleFactor
-
+                                visible: realEntry ? !materialList : true               
                                 RowLayout {
                                     spacing: 6 * screenScaleFactor
 
@@ -3417,7 +3536,7 @@ Rectangle {
 
                             ColumnLayout {
                                 spacing: 15 * screenScaleFactor
-
+                                visible:realEntry ? !materialList : true
                                 Text {
                                     Layout.preferredWidth: contentWidth * screenScaleFactor
                                     Layout.preferredHeight: 14 * screenScaleFactor
@@ -3456,7 +3575,7 @@ Rectangle {
                                             height: 2 * screenScaleFactor
                                             anchors.left: parent.left
                                             anchors.top: parent.top
-                                            color: "#1E9BE2"
+                                            color: Constants.themeGreenColor
                                             radius: 1
                                         }
 
@@ -3479,6 +3598,7 @@ Rectangle {
                             }
 
                             Item {
+                                visible: realEntry ? !materialList : true 
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumWidth: 0
@@ -3486,12 +3606,14 @@ Rectangle {
                             }
 
                             Rectangle {
+                                 visible: realEntry ? !materialList : true 
                                 color: sourceTheme.item_crossline_color
                                 Layout.preferredWidth: 1 * screenScaleFactor
                                 Layout.preferredHeight: 96 * screenScaleFactor
                             }
 
                             Item {
+                                 visible:realEntry ? !materialList : true 
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumWidth: 0
@@ -3500,7 +3622,7 @@ Rectangle {
 
                             ColumnLayout {
                                 spacing: 6 * screenScaleFactor
-                                visible: screenScaleFactor <= 1
+                                visible: realEntry ? !materialList : true  //screenScaleFactor <= 1 &&
 
                                 RowLayout {
                                     spacing: 6 * screenScaleFactor
@@ -3582,7 +3704,7 @@ Rectangle {
 
                             ColumnLayout {
                                 spacing: 6 * screenScaleFactor
-                                visible: screenScaleFactor <= 1
+                                visible:  realEntry ? !materialList : true  //screenScaleFactor <= 1&&
 
                                 RowLayout {
                                     spacing: 6 * screenScaleFactor
@@ -3626,7 +3748,7 @@ Rectangle {
                                         opacity: enabled ? 1 : 0.5
                                         Layout.fillWidth: true
                                         Layout.minimumWidth: 60 * screenScaleFactor
-                                        Layout.maximumWidth: 140 * screenScaleFactor
+                                        Layout.maximumWidth: screenScaleFactor> 1?60 * screenScaleFactor: 140 * screenScaleFactor
                                         Layout.preferredHeight: 28 * screenScaleFactor
                                         color: sourceTheme.item_background_color
                                         border.color: sourceTheme.item_border_color
@@ -3772,7 +3894,7 @@ Rectangle {
                                         opacity: enabled ? 1 : 0.5
                                         Layout.fillWidth: true
                                         Layout.minimumWidth: 60 * screenScaleFactor
-                                        Layout.maximumWidth: 140 * screenScaleFactor
+                                        Layout.maximumWidth: screenScaleFactor>1? 60 * screenScaleFactor: 140 * screenScaleFactor
                                         Layout.preferredHeight: 28 * screenScaleFactor
                                         color: sourceTheme.item_background_color
                                         border.color: sourceTheme.item_border_color
@@ -3924,7 +4046,7 @@ Rectangle {
                                         opacity: enabled ? 1 : 0.5
                                         Layout.fillWidth: true
                                         Layout.minimumWidth: 60 * screenScaleFactor
-                                        Layout.maximumWidth: 140 * screenScaleFactor
+                                        Layout.maximumWidth: screenScaleFactor>1? 60 * screenScaleFactor: 140 * screenScaleFactor
                                         Layout.preferredHeight: 28 * screenScaleFactor
                                         color: sourceTheme.item_background_color
                                         border.color: sourceTheme.item_border_color
@@ -4044,7 +4166,6 @@ Rectangle {
                             }
 
                             Item {
-                                visible: screenScaleFactor <= 1
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumWidth: 0
@@ -4052,7 +4173,6 @@ Rectangle {
                             }
 
                             Rectangle {
-                                visible: screenScaleFactor <= 1
                                 color: sourceTheme.item_crossline_color
                                 Layout.preferredWidth: 1 * screenScaleFactor
                                 Layout.preferredHeight: 96 * screenScaleFactor
@@ -4126,7 +4246,7 @@ Rectangle {
                                             font.family: Constants.mySystemFont.name
                                             font.pointSize: Constants.labelFontPointSize_9
                                             color: sourceTheme.text_weight_color
-                                            text: qsTr("Fluidd")
+                                            text: "Fluidd"
                                         }
 
                                     }
@@ -4198,6 +4318,20 @@ Rectangle {
 
             }
 
+            hpolicyindicator: Rectangle {
+                radius: height / 2
+                color: sourceTheme.scrollbar_color
+                implicitWidth: 180 * screenScaleFactor
+                implicitHeight: 6 * screenScaleFactor
+            }
+
+            vpolicyindicator: Rectangle {
+                radius: width / 2
+                color: sourceTheme.scrollbar_color
+                implicitWidth: 6 * screenScaleFactor
+                implicitHeight: 180 * screenScaleFactor
+            }
+
         }
 
     }
@@ -4214,7 +4348,7 @@ Rectangle {
             width: 200 * screenScaleFactor
             height: 36 * screenScaleFactor
             visible: realEntry
-            onClicked: printerListModel.cSourceModel.batch_command(curGcodeFileName, true)
+            onClicked: printerListModel.cSourceModel.batch_command(curGcodeFileName, curGcodeFilePath, true)
 
             background: Rectangle {
                 border.width: 1
@@ -4243,7 +4377,7 @@ Rectangle {
                 if (printerListModel.cSourceModel.showAutoPrintTip())
                     idPrintTipDlg.visible = true;
                 else
-                    printerListModel.cSourceModel.batch_command(curGcodeFileName, false);
+                    printerListModel.cSourceModel.batch_command(curGcodeFileName, curGcodeFilePath, false);
             }
 
             background: Rectangle {

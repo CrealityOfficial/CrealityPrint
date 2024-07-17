@@ -9,8 +9,8 @@ class ZSliderInfo;
 class LaserPlugin: public QObject, public CreativeInterface
 {
 	Q_OBJECT
-	Q_PLUGIN_METADATA(IID "creative.InfoPlugin")
-	Q_INTERFACES(CreativeInterface)
+	//Q_PLUGIN_METADATA(IID "creative.InfoPlugin")
+	//Q_INTERFACES(CreativeInterface)
 public:
     LaserPlugin(QObject* parent = nullptr);
     virtual ~LaserPlugin();

@@ -14,7 +14,7 @@ namespace creative_kernel
         m_actionname = tr("Merge Model");
         m_actionNameWithout = "Merge Model";
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     MergeModelAction::~MergeModelAction()

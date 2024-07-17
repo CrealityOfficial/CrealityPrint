@@ -16,6 +16,9 @@ namespace creative_kernel
 
 class LetterJob : public qtuser_core::Job
 {
+	Q_OBJECT
+signals:
+	void finished();
 public:
 	LetterJob(QObject* parent = nullptr);
 	virtual ~LetterJob();

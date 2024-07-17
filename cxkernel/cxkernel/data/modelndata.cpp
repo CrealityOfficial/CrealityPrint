@@ -7,6 +7,7 @@
 #include "msbase/mesh/checker.h"
 #include "msbase/mesh/dumplicate.h"
 #include "msbase/mesh/tinymodify.h"
+#include "msbase/mesh/merge.h"
 
 #include "qtusercore/module/progressortracer.h"
 
@@ -16,36 +17,50 @@
 
 namespace cxkernel
 {
-	ModelNData::ModelNData()
+	ModelNData::ModelNData() 
+		: defaultColor(0)
 	{
-
+	
 	}
 
 	ModelNData::~ModelNData()
 	{
+	}
 
+	ModelNDataPtr ModelNData::clone()
+	{
+		ModelNData* clones = new ModelNData;
+
+		trimesh::TriMesh* tempMesh = new trimesh::TriMesh;
+		msbase::copyTrimesh2Trimesh(mesh.get(), tempMesh);
+		clones->mesh.reset(tempMesh);
+
+		tempMesh = new trimesh::TriMesh;
+		msbase::copyTrimesh2Trimesh(hull.get(), tempMesh);
+		clones->hull.reset(tempMesh);
+
+		clones->colors =  colors;
+		clones->defaultColor = defaultColor;
+		clones->spreadFaces = spreadFaces;
+		clones->spreadFaceCount = spreadFaceCount;
+		clones->seams = seams;
+		clones->supports = supports;
+		clones->offset = offset;
+		clones->input.mesh = clones->mesh;
+		clones->input.colors = clones->colors;
+		clones->input.seams = clones->seams;
+		clones->input.supports = clones->supports;
+		clones->input.fileName = input.fileName;
+		clones->input.name = input.name;
+		clones->input.description = input.description;
+		clones->input.type = input.type;
+
+		return ModelNDataPtr(clones);
 	}
 
 	int ModelNData::primitiveNum()
 	{
 		return mesh ? (int)mesh->faces.size() : 0;
-	}
-
-	void ModelNData::updateRenderData()
-	{
-		if (mesh && ((int)mesh->faces.size() != renderData.fcount))
-			generateGeometryDataFromMesh(mesh.get(), renderData);
-	}
-
-	void ModelNData::updateRenderDataForced()
-	{
-		generateGeometryDataFromMesh(mesh.get(), renderData);
-	}
-
-	void ModelNData::updateIndexRenderData()
-	{
-		if (mesh && ((int)mesh->faces.size() != renderData.fcount))
-			cxkernel::generateIndexGeometryDataFromMesh(mesh.get(), renderData);
 	}
 
 	trimesh::box3 ModelNData::calculateBox(const trimesh::fxform& matrix)
@@ -98,7 +113,7 @@ namespace cxkernel
 		{
 			std::vector<qhullWrapper::HullFace> _faces;
 			qhullWrapper::hullFacesFromConvexMesh(hull.get(), _faces);
-
+			qhullWrapper::hullFacesFromMeshNear(mesh, _faces);
 			int size = _faces.size();
 			if (size > 0)
 			{
@@ -121,6 +136,41 @@ namespace cxkernel
 		{
 			hull.reset(qhullWrapper::convex_hull_3d(mesh.get()));
 		}
+	}
+
+	void ModelNData::adaptSmallBox(const trimesh::box3& box)
+	{
+		if (!box.valid)
+			return;
+
+		trimesh::xform xf = trimesh::xform::scale(1000.0);
+
+		if (mesh)
+			trimesh::apply_xform(mesh.get(), xf);
+		if (hull)
+			trimesh::apply_xform(hull.get(), xf);
+	}
+
+	void ModelNData::adaptBigBox(const trimesh::box3& box)
+	{
+		trimesh::box3 _box = box;
+		trimesh::box3 _b = calculateBox();
+
+		if (!_box.valid)
+			return;
+
+		if (!_b.valid)
+			return;
+
+		trimesh::vec3 bsize = 0.9f * _box.size();
+		trimesh::vec3 scale = bsize / _b.size();
+		float s = scale.min();
+		trimesh::xform xf = trimesh::xform::scale(s);
+
+		if (mesh)
+			trimesh::apply_xform(mesh.get(), xf);
+		if (hull)
+			trimesh::apply_xform(hull.get(), xf);
 	}
 
 	void ModelNData::convex(const trimesh::fxform& matrix, std::vector<trimesh::vec3>& datas)
@@ -226,8 +276,8 @@ namespace cxkernel
 	{
 		if (input.mesh)
 		{
-			if (tracer)
-				tracer->resetProgressScope();
+			//if (tracer)
+			//	tracer->resetProgressScope();
 
 			input.mesh->normals.clear();
 
@@ -241,9 +291,13 @@ namespace cxkernel
 				}
 			}
 
-			bool have = msbase::checkDegenerateFace(input.mesh.get(), true);
+			std::vector<bool> valids;
+			bool have = msbase::checkDegenerateFace(input.mesh.get(), valids, true);
 			if (have)
 			{
+				msbase::mantainValids(input.colors, valids);
+				msbase::mantainValids(input.seams, valids);
+				msbase::mantainValids(input.supports, valids);
 				qDebug() << QString("msbase::checkDegenerateFace true : [have degenerate face]");
 			}
 
@@ -256,21 +310,17 @@ namespace cxkernel
 
 			ModelNDataPtr data(new ModelNData());
 			data->mesh = input.mesh;
-			data->input = input;
 			data->offset = offset;
-			data->colors = input.colors;
-			data->seams = input.seams;
-			data->supports = input.supports;
+			data->defaultColor = input.defaultColor;
+			data->colors.swap(input.colors);
+			data->seams.swap(input.seams);
+			data->supports.swap(input.supports);
+			data->input = input;
 
-			trimesh::TriMesh* hull = qhullWrapper::convex_hull_3d(input.mesh.get());
+			trimesh::TriMesh* hull = qhullWrapper::convex_hull_3d(input.mesh.get());  
 			msbase::dumplicateMesh(hull);
 
 			data->hull.reset(hull);
-			
-			if (param.indexRender && input.mesh->colors.size() == 0)
-				data->updateIndexRenderData();
-			else
-				data->updateRenderData();
 
 			return data;
 		}

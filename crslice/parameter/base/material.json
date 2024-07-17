@@ -935,5 +935,82 @@
 		"settable_per_mesh": "true",
 		"settable_per_extruder": "true",
 		"settable_per_meshgroup": "true"
+	},
+	"asm_material_count":
+	{
+		"label": "ASM Material Count",
+		"description": "ASM Material Count",
+		"type": "int",
+		"default_value": "1",
+		"minimum_value": "1",
+		"maximum_value": "18",
+		"enabled": "false",
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "true"
+	},
+	"model_color_count":
+	{
+		"label": "Model Color Count",
+		"description": "Model Color Count",
+		"type": "int",
+		"default_value": "4",
+		"minimum_value": "1",
+		"maximum_value": "18",
+		"enabled": "false",
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "true"
+	},
+	"flush_volumes_matrix":
+	{
+		"label": "Flush Volumes Matrix",
+		"description": "Flush Volumes Matrix",
+		"type": "str",
+		"default_value": "280",
+		"enabled": "false",
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "true",
+		"settable_per_meshgroup": "false"
+	},
+	"filament_colour":
+	{
+		"label": "Filament Colour",
+		"description": "Filament Colour",
+		"type": "str",
+		"default_value": "#00FF00",
+		"enabled": "false",
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "true",
+		"settable_per_meshgroup": "false"
+	},
+	"flush_into_objects":
+	{
+		"label": "Flush into objects",
+		"description": "Flush into objects",
+		"type": "bool",
+		"enabled": "true",
+		"default_value": "true",
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "true"
+	},
+	"flush_into_infill":
+	{
+		"label": "Flush into objects",
+		"description": "Flush into objects",
+		"type": "bool",
+		"enabled": "true",
+		"default_value": "true",
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "true"
+	},
+	"filament_minimal_purge_on_wipe_tower":
+	{
+		"label": "Filament minimal purge on wipe tower",
+		"description": "Filament minimal purge on wipe tower",
+		"type": "float",
+		"unit": "mm/s",
+		"default_value": "15",
+		"minimum_value": "0",
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "false"
 	}
 }

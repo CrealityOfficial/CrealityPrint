@@ -1,8 +1,8 @@
-import QtQuick 2.10
-import QtQuick.Layouts 1.0
-import QtQuick.Controls 2.12
+import QtQuick 2.15
+import QtQuick.Layouts 1.15
+import QtQuick.Controls 2.15
 
-import QtGraphicalEffects 1.13
+import QtGraphicalEffects 1.15
 
 import "."
 import "../qml"
@@ -16,6 +16,8 @@ Item {
     property int    modelCount: 0
     property string authorName: ""
     property string authorHead: ""
+
+    property string authorId:""
     property int    totalPrice: 0
     property bool   collected: false
     property int    createdTimestamp: 0
@@ -26,7 +28,7 @@ Item {
     signal sigButtonDownClicked(var group_id)
     signal sigDownloadedTip()
     signal sigLoginTip()
-
+    signal sigAuthorClicked(var author_id)
     function onResetDownloadButton() {
         download_button.visible = true
         download_button.checked = false
@@ -70,7 +72,7 @@ Item {
 
             radius: 10 * screenScaleFactor
             border.width: 3 * screenScaleFactor
-            border.color: parent.hovered ? "#1E9BE2" : Constants.themeColor_primary
+            border.color: parent.hovered ?  Constants.themeGreenColor : Constants.themeColor_primary
 
             ColumnLayout {
                 anchors.fill: parent
@@ -92,12 +94,14 @@ Item {
                     Layout.fillWidth: true
                     Layout.margins: 10 * screenScaleFactor
 
-                    Label {
+                    Text {
                         Layout.alignment: Qt.AlignLeft | Qt.AlignTop
                         Layout.fillWidth: true
 
                         text: groupName
                         elide: Text.ElideRight
+                        wrapMode: Text.WrapAnywhere
+                        maximumLineCount: 1
                         font.weight: Font.Bold
                         font.family: Constants.labelFontFamily
                         font.pointSize: Constants.labelFontPointSize_12
@@ -115,15 +119,25 @@ Item {
 
                             radiusImg: button_content.radius
                             img_src: imageVisible ? authorHead : null
+
+                            MouseArea{
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: sigAuthorClicked(authorId)
+
+                            }
                         }
 
-                        Label {
+                        Text {
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                             Layout.leftMargin: 2 * screenScaleFactor
                             Layout.fillWidth: true
 
                             text: authorName
                             elide: Text.ElideRight
+                            wrapMode: Text.WrapAnywhere
+                            maximumLineCount: 1
                             font.family: Constants.labelFontFamily
                             font.pointSize: Constants.labelFontPointSize_9
                             color: "#666666"
@@ -148,7 +162,7 @@ Item {
                             background: Rectangle {
                                 anchors.fill: parent
                                 radius: height / 2
-                                color: download_button.hovered ? "#00A3FF" : "#E2F5FF"
+                                color: download_button.hovered ? Constants.themeGreenColor : "#D6FFE6"
 
                                 Image {
                                     anchors.centerIn: parent
@@ -156,7 +170,7 @@ Item {
                                     height: 14 * screenScaleFactor
                                     source: download_button.checked ? "qrc:/UI/photo/loading_g.gif"
                                                                     : download_button.hovered ? "qrc:/UI/photo/model_library_download_h.png"
-                                                                                              : "qrc:/UI/photo/model_library_download_l.png"
+                                                                                              : "qrc:/UI/photo/model_library_download_l.svg"
                                 }
                             }
 

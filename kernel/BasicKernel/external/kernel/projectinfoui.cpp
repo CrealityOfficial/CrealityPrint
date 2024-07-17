@@ -9,6 +9,7 @@
 #include "interface/modelinterface.h"
 #include "interface/commandinterface.h"
 #include "interface/uiinterface.h"
+#include "interface/spaceinterface.h"
 
 namespace creative_kernel
 {
@@ -17,22 +18,20 @@ namespace creative_kernel
         : QObject(parent)
         , m_callback(nullptr)
     {
+        m_spaceDirty = false;
         QString tmpProject = qtuser_core::getOrCreateAppDataLocation("tmpProject");
         QDir tempDir;
         if (!tempDir.exists(tmpProject))
         {
             tempDir.mkpath(tmpProject);
         }
-        m_strTempFilePath = qtuser_core::getOrCreateAppDataLocation("tmpProject") + "/default.cxprj";
-        setSettingsData(m_strTempFilePath);
-
+        
+        m_strTmpCacheProjectPath = ":/cx3d/cx3d_exporter/NewProject.cxprj";
+        
         QSettings setting;
         setting.beginGroup("AutoSave_Path");
-        m_fMinutes = setting.value("saveminutes", "10.0").toFloat();
-        setting.endGroup();
-        //    m_fMinutes = 5.0;
-        m_strProjectName = "";
-        m_strProjectPath = "";
+        m_strProjectName = "NewProject.cxprj";
+        m_strProjectPath = m_strTmpCacheProjectPath;
         m_strMessageText = tr("Do you Want to Save LastProject?");
 
         QString strFileName = setting.value("filePath", "default").toString();
@@ -40,9 +39,14 @@ namespace creative_kernel
         if (!strFileName.contains("default"))
         {
             m_strTempFilePath = strFileName;
+            m_strProjectName = m_strTempFilePath.mid(m_strTempFilePath.lastIndexOf("/")+1);
         }
+        else {
+            m_strTempFilePath = qtuser_core::getOrCreateAppDataLocation("tmpProject") + "/NewProject.cxprj";
+        }
+        setSettingsData(m_strTempFilePath);
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     ProjectInfoUI::~ProjectInfoUI()
@@ -61,29 +65,34 @@ namespace creative_kernel
         m_info = new ProjectInfoUI(parent);
         return m_info;
     }
-
-    float ProjectInfoUI::getMinutes()
+    void ProjectInfoUI::setSpaceDirty(bool _spaceDirty)
     {
-        if (m_fMinutes == 0.0)
-        {
-            m_fMinutes = 10.0;
-        }
-        return m_fMinutes;
+        if(modelns().size() == 0)
+            _spaceDirty = false;
+        if (m_spaceDirty == _spaceDirty)return;
+        m_spaceDirty = _spaceDirty;
+        emit spaceDirtyChanged();
     }
 
-    void ProjectInfoUI::setMinute(float fMinute)
+    bool ProjectInfoUI::spaceDirty()
     {
-        if (m_fMinutes != fMinute)
-        {
-            emit minutesChanged(fMinute);
-        }
-        m_fMinutes = fMinute;
-        QSettings setting;
-        setting.beginGroup("AutoSave_Path");
-        setting.setValue("saveminutes", m_fMinutes);
-        setting.endGroup();
+        return m_spaceDirty;
     }
 
+    QString ProjectInfoUI::getProjectNameNoSuffix()
+    {
+        int index = m_strProjectName.lastIndexOf(".");
+        return m_strProjectName.left(index);
+    }
+    bool ProjectInfoUI::is3mf()
+    {
+        QFileInfo file(m_strProjectPath);
+        if (file.exists())
+        {
+            return QString(file.suffix()).toLower() == "3mf";
+        }
+        return false;
+    }
     QString ProjectInfoUI::getProjectName()
     {
         return m_strProjectName;
@@ -91,7 +100,18 @@ namespace creative_kernel
 
     void ProjectInfoUI::setProjectName(QString strProName)
     {
+        if(strProName == m_strProjectName)
+            return;
         m_strProjectName = strProName;
+        if(QFileInfo(m_strProjectPath).exists())
+        {
+            QDir dir(m_strTempFilePath);
+            dir.rename(m_strTempFilePath,qtuser_core::getOrCreateAppDataLocation("tmpProject") + "/" + m_strProjectName);
+        }
+            
+        m_strTempFilePath = qtuser_core::getOrCreateAppDataLocation("tmpProject") + "/" + m_strProjectName;
+        setSettingsData(m_strTempFilePath);
+        emit projectNameChanged();
     }
 
     QString ProjectInfoUI::getProjectPath()
@@ -102,6 +122,7 @@ namespace creative_kernel
     void ProjectInfoUI::setProjectPath(QString strProPath)
     {
         m_strProjectPath = strProPath;
+        emit projectNameChanged();
     }
 
     void ProjectInfoUI::deleteTempProjectDirectory()
@@ -144,10 +165,10 @@ namespace creative_kernel
         return strName;
     }
 
-    void ProjectInfoUI::clearSecen()
+    void ProjectInfoUI::clearSecen(bool clearModel)
     {
         using namespace creative_kernel;
-        removeAllModel(true);
+        clearProjectCache(clearModel);
     }
 
     void ProjectInfoUI::requestMenuDialog(ProjectOpenCallback* callback)
@@ -170,7 +191,13 @@ namespace creative_kernel
     {
         m_strMessageText = tr("Do you Want to Save LastProject?");
     }
+    bool ProjectInfoUI::availablePath()
+    {
 
+        QFile file(m_strProjectPath);
+        if (file.exists() && m_strProjectPath != m_strTmpCacheProjectPath) return true;
+        return false;
+    }
     void ProjectInfoUI::accept()
     {
         if (m_callback)

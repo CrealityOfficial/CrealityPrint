@@ -32,7 +32,7 @@ Item {
             anchors.fill: parent
             radius: btnRadius
             border.width: btnBorderW
-            border.color: propertyButton.focused ? "#1E9BE2" : "#DBDBDB"
+            border.color: propertyButton.focused ? Constants.themeGreenColor : "#DBDBDB"
             color: propertyButton.focused ? "#E9E9E9" : "#DBDBDB"
 
             Image {

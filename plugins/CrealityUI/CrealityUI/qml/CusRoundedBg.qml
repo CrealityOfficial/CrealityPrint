@@ -59,7 +59,7 @@ Item{
         property int rectHeight: height
         property color strokeStyle:  Qt.darker(fillStyle, 1.0)
         property color fillStyle: roundBtn.color
-        property int lineWidth: 1
+        property int lineWidth: 2
         property bool fill: true
         property bool stroke: true
         property real alpha: 1.0

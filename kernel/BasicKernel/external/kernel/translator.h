@@ -31,7 +31,8 @@ namespace creative_kernel
     private:
         QQmlEngine* m_engine;
         QTranslator* m_translator;
-
+        QTranslator* m_ParameterTranslator;
+        
         MultiLanguage m_language;
 
         QList<creative_kernel::UIVisualTracer*> m_uiVisualTracers;

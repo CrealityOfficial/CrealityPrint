@@ -1,5 +1,6 @@
 #include <QSettings>
 #include "parameterbase.h"
+#include <QFile>
 
 namespace creative_kernel
 {
@@ -21,6 +22,11 @@ namespace creative_kernel
 		return m_settings;
 	}
 
+	QObject* ParameterBase::userSettingsObject()
+	{
+		return m_user_settings;
+	}
+
 	us::USettings* ParameterBase::settings()
 	{
 		return m_settings;
@@ -28,37 +34,39 @@ namespace creative_kernel
 
 	void ParameterBase::setSettings(us::USettings* settings)
 	{
-		if (m_settings)
+		if (m_settings) {
 			delete m_settings;
-		
+		}
+
 		m_settings = settings;
-		if (m_settings)
+		if (m_settings) {
 			m_settings->setParent(this);
+			QString v = settings->vvalue("acceleration_infill").toString();
+			int a = 5;
+		}
+
+		settingsChanged();
 	}
 
 	void ParameterBase::setUserSettings(us::USettings* settings)
 	{
-		if (m_user_settings)
+		if (m_user_settings) {
 			delete m_user_settings;
+		}
 
 		m_user_settings = settings;
-		if (m_user_settings)
+		if (m_user_settings) {
 			m_user_settings->setParent(this);
+		}
+
+		userSettingsChanged();
 	}
 
 	void ParameterBase::exportSetting(const QString& fileName)
 	{
 		us::USettings* settings = m_settings->copy();
-		//å‰”é™¤overide
-		QList<us::USetting*> override_settings = settings->materialParameters("override");
-		Q_FOREACH(us::USetting* us,override_settings)
-		{
-			settings->deleteValueByKey(us->key());
-		}
-
 		if (m_user_settings)
 			settings->merge(m_user_settings);
-
 		settings->saveAsDefault(fileName);
 		delete settings;
 	}
@@ -70,6 +78,44 @@ namespace creative_kernel
 			settings->merge(m_user_settings);
 		settings->saveAsDefaultIni(fileName);
 		delete settings;
+	}
+
+	//±È½ÏÁ½¸ö²»Í¬ÅäÖÃ£¬·µ»Øvalue²»Í¬µÄkeyµÄÁÐ±í
+	QStringList ParameterBase::compareSettings(ParameterBase* const param)
+	{
+		if (!param)
+			return QStringList();
+
+		QStringList diffKeys;
+
+		us::USettings* compare1 = m_settings->copy();
+		compare1->merge(m_user_settings);
+
+		us::USettings* compare2 = param->settings()->copy();
+		compare2->merge(param->userSettings());
+
+		const QHash<QString, us::USetting*>& settings = compare1->settings();
+		auto it = settings.begin();
+		while (it != settings.end())
+		{
+			QString value1 = it.value()->str();
+			QString value2 = compare2->value(it.key(), "");
+			if (it.key() == "acceleration_infill")
+			{
+				int a = 5;
+			}
+			if (it.key() == "bridge_skin_speed")
+			{
+				int a = 5;
+			}
+			if (it.value()->str() != compare2->value(it.key(), ""))
+			{
+				diffKeys << it.key();
+			}
+			it++;
+		}
+
+		return diffKeys;
 	}
 
 	QString ParameterBase::readIniByKey(const QString& key, const QString& path)
@@ -87,11 +133,20 @@ namespace creative_kernel
 
 	void ParameterBase::saveSetting(const QString& fileName)
 	{
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¬ï¿½Ï¼ï¿½ï¿½ØµÄ£ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ã£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½áµ¼ï¿½ï¿½Ã¿ï¿½Î¶ï¿½Ê§ï¿½ï¿½
+		//²»±£´æÄ¬ÈÏ¼ÓÔØµÄ£¬ÒòÎª»áÁª¶¯¼ÆËã£¬¼ÆËã´íÎó»áµ¼ÖÂÃ¿´Î¶¼Ê§°Ü
 		//if (m_settings)
 		//	m_settings->saveAsDefault(fileName);
-		if(m_user_settings)
-			m_user_settings->saveAsDefault(fileName+".cover");
+		if (m_user_settings)
+		{
+			if (m_user_settings->hashSettings().isEmpty())
+			{
+				QFile(fileName).remove();
+			}
+			else
+			{
+				m_user_settings->saveAsDefault(fileName);
+			}
+		}
 	}
 
 	us::USettings* ParameterBase::userSettings()
@@ -101,6 +156,14 @@ namespace creative_kernel
 			return nullptr;
 		}
 		return m_user_settings;
+	}
+
+	QString ParameterBase::settingsValue(const QString &key, const QString& defaultValue) const
+	{
+		if (m_user_settings->hasKey(key))
+			return m_user_settings->value(key, defaultValue);
+
+		return m_settings->value(key, defaultValue);
 	}
 
 	bool ParameterBase::dirty()
@@ -117,13 +180,53 @@ namespace creative_kernel
 	{
 		m_dirty = false;
 	}
+	void ParameterBase::enableChanged(const QString& key, bool enabled)
+	{
+	}
+	void ParameterBase::strChanged(const QString& key, const QString& str)
+	{
+	}
 	void ParameterBase::save()
 	{
 
 	}
 	void ParameterBase::reset()
 	{
-		m_user_settings->clear();
+		if (m_user_settings) {
+			m_user_settings->clear();
+		}
 		save();
+	}
+
+	void ParameterBase::mergeAndSave()
+	{
+		m_settings->merge(m_user_settings);
+		reset();
+	}
+
+	QString ParameterBase::inheritsFrom() const
+	{
+		return m_inherits_from;
+	}
+
+	void ParameterBase::setInheritFrom(const QString& factoryName)
+	{
+		if (m_inherits_from != factoryName)
+		{
+			m_inherits_from = factoryName;
+		}
+	}
+
+	QStringList ParameterBase::differentKeysToFactory() const
+	{
+		return m_different_keys_to_factory;
+	}
+
+	void ParameterBase::setDifferentKeysToFactory(const QStringList& keys)
+	{
+		if (m_different_keys_to_factory != keys)
+		{
+			m_different_keys_to_factory = keys;
+		}
 	}
 }

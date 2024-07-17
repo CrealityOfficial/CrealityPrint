@@ -17,6 +17,7 @@ namespace creative_kernel
 
         QAbstractListModel* subMenuActionmodel();
         Q_INVOKABLE void setNozzleCount(int nCount);
+        Q_INVOKABLE void setExtruderColors(QList<QColor> colors);
         void updateNozzleCheckStatus(int index, bool checked);
         bool enabled() override;
     protected:
@@ -26,6 +27,7 @@ namespace creative_kernel
 
     protected:
         int m_nNozzleCount=0;
+        QList<QColor> m_ExtruderColors;
         ActionCommandModel* m_actionModelList = nullptr;
     };
 }

@@ -37,7 +37,7 @@ ColumnLayout {
         CusText {
             id: idText
             anchors.left: idImage.right
-            anchors.leftMargin: 10
+            anchors.leftMargin: 10 * screenScaleFactor
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height
             fontPointSize: Constants.labelFontPointSize_12
@@ -51,9 +51,9 @@ ColumnLayout {
 
         Rectangle {
             anchors.left: idText.right
-            anchors.leftMargin: 10
+            anchors.leftMargin: 10 * screenScaleFactor
             anchors.right: parent.right
-            anchors.rightMargin: 8
+            anchors.rightMargin: 8 * screenScaleFactor
             anchors.verticalCenter: parent.verticalCenter
             height: 1
             color: Constants.rectBorderColor

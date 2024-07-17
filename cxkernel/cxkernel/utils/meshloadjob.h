@@ -2,16 +2,21 @@
 #define _CREATIVE_KERNEL_MESHLOADJOB_1590984808257_H
 #include "qtusercore/module/job.h"
 #include "cxkernel/kernel/data.h"
+#include "cxkernel/data/modelndata.h"
+#include "cxkernel/utils/meshjob.h"
 
 namespace cxkernel
 {
-	class MeshLoadJob: public qtuser_core::Job
+	class MeshLoadJob: public MeshJob
 	{
 	public:
 		MeshLoadJob(QObject* parent = nullptr);
 		virtual ~MeshLoadJob();
 
 		void setFileName(const QString& fileName);
+
+		void setModelNDataProcessor(ModelNDataProcessor* processor);
+
 	protected:
 		QString name();
 		QString description();
@@ -22,6 +27,7 @@ namespace cxkernel
 	protected:
 		QString m_fileName;
 		TriMeshPtr m_mesh;
+		ModelNDataProcessor* m_processor;
 	};
 }
 #endif // _CREATIVE_KERNEL_MESHLOADJOB_1590984808257_H

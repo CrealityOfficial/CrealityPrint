@@ -1,5 +1,5 @@
 #include "topomesh/interface/geometry.h"
-#include "internal/alg/volumeMesh.h"
+#include "topomesh/interface/volumeMesh.h"
 
 namespace topomesh
 {

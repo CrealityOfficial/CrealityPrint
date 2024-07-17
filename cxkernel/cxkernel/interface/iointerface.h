@@ -29,7 +29,7 @@ namespace cxkernel
 	);
 
 	CXKERNEL_API void openFile(qtuser_core::CXHandleBase* handler = nullptr,
-		const QString& title = QString()
+		const QString& title = QString(),bool isSingleFile = false
 	);
 
 	CXKERNEL_API bool openFileWithName(const QString& fileName);

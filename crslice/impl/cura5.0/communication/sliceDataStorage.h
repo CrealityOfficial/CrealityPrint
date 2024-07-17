@@ -71,6 +71,7 @@ namespace cura52
         std::vector<SkinPart> skin_parts;  //!< The skin parts which are filled for 100% with lines and/or insets.
         std::vector<VariableWidthLines> wall_toolpaths; //!< toolpaths for walls, will replace(?) the insets. Binned by inset_idx.
         std::vector<VariableWidthLines> infill_wall_toolpaths; //!< toolpaths for the walls of the infill areas. Binned by inset_idx.
+        int color = 0;
 
         /*!
          * The areas inside of the mesh.
@@ -169,6 +170,7 @@ namespace cura52
         coord_t thickness;  //!< The thickness of this layer. Can be different when using variable layer heights.
         std::vector<SliceLayerPart> parts;  //!< An array of LayerParts which contain the actual data. The parts are printed one at a time to minimize travel outside of the 3D model.
         Polygons openPolyLines; //!< A list of lines which were never hooked up into a 2D polygon. (Currently unused in normal operation)
+        std::vector<size_t> colorused;
 
         /*!
          * \brief The parts of the model that are exposed at the very top of the
@@ -250,6 +252,7 @@ namespace cura52
         SliceContext* appliction = nullptr;
         Settings& settings;
         std::vector<SliceLayer> layers;
+        std::vector<int> colors;
         std::string mesh_name;
 
         LayerIndex layer_nr_max_filled_layer; //!< the layer number of the uppermost layer with content (modified while infill meshes are processed)
@@ -311,6 +314,7 @@ namespace cura52
         Settings& settings;
         SliceContext* application = nullptr;
         size_t print_layer_count; //!< The total number of layers (except the raft and filler layers)
+
         std::vector<std::string> m_Object_Exclude_FileName;
         Point3 model_size, model_min, model_max;
         AABB3D machine_size; //!< The bounding box with the width, height and depth of the printer.

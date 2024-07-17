@@ -21,7 +21,7 @@ Rectangle {
 
     text: "%1 (%2)".arg(root.title).arg(root.unit)
     // text: root.title
-    color: Constants.textColor
+    color: "#ffffff"
     font.family: Constants.labelFontFamily
     font.weight: Constants.labelFontWeight
     font.pointSize: Constants.labelFontPointSize_9
@@ -60,7 +60,7 @@ Rectangle {
 
         text: String((model_value * 100.0).toFixed(0))
         // text: "%1 %2".arg((model_value * 100.0).toFixed(0)).arg(root.unit)
-        color: Constants.textColor
+        color: "#ffffff"
         font.family: Constants.labelFontFamily
         font.weight: Constants.labelFontWeight
         font.pointSize: Constants.labelFontPointSize_9

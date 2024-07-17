@@ -1,23 +1,11 @@
 <svg 
  xmlns="http://www.w3.org/2000/svg"
  xmlns:xlink="http://www.w3.org/1999/xlink"
- width="28px" height="32px">
-<defs>
-<filter id="Filter_0">
-                <feOffset in="SourceAlpha" dx="0" dy="2" />
-                <feGaussianBlur result="blurOut" stdDeviation="2.828" />
-                <feFlood flood-color="rgb(118, 59, 7)" result="floodOut" />
-                <feComposite operator="out" in="floodOut" in2="blurOut" result="compOut" />
-                <feComposite operator="in" in="compOut" in2="SourceAlpha" />
-                <feComponentTransfer><feFuncA type="linear" slope="1"/></feComponentTransfer>
-                <feBlend mode="normal" in2="SourceGraphic" />
-            </filter>
-
-</defs>
-<g filter="url(#Filter_0)">
-<path fill-rule="evenodd"  fill="rgb(245, 130, 29)"
- d="M14.000,27.000 C9.029,27.000 5.000,23.642 5.000,19.500 C5.000,19.341 5.018,19.027 5.018,19.027 L8.000,8.000 C8.000,8.000 8.118,7.911 8.312,7.786 C9.087,6.174 11.326,5.000 14.000,5.000 C16.563,5.000 18.734,6.076 19.594,7.584 C19.842,7.823 20.000,8.000 20.000,8.000 L22.985,19.070 C22.985,19.070 23.000,19.356 23.000,19.500 C23.000,23.642 18.971,27.000 14.000,27.000 Z"/>
-</g>
-<path fill-rule="evenodd"  fill="rgb(245, 130, 29)"
- d="M14.000,5.000 C17.314,5.000 20.000,6.791 20.000,9.000 C20.000,11.209 17.314,13.000 14.000,13.000 C10.686,13.000 8.000,11.209 8.000,9.000 C8.000,6.791 10.686,5.000 14.000,5.000 Z"/>
+ width="20px" height="20px">
+<path fill-rule="evenodd"  fill="rgb(57, 212, 119)"
+ d="M10.000,20.000 C5.581,20.000 1.999,16.947 1.999,13.182 C1.999,13.037 2.015,12.751 2.015,12.751 L4.666,2.727 C4.666,2.727 4.771,2.646 4.944,2.532 C5.633,1.067 7.623,-0.000 10.000,-0.000 C12.279,-0.000 14.209,0.979 14.973,2.350 C15.192,2.567 15.333,2.727 15.333,2.727 L17.987,12.790 C17.987,12.790 18.000,13.050 18.000,13.182 C18.000,16.947 14.418,20.000 10.000,20.000 Z"/>
+<path fill-rule="evenodd"  fill="rgb(86, 255, 154)"
+ d="M10.000,-0.000 C12.761,-0.000 15.000,1.343 15.000,3.000 C15.000,4.657 12.761,6.000 10.000,6.000 C7.238,6.000 5.000,4.657 5.000,3.000 C5.000,1.343 7.238,-0.000 10.000,-0.000 Z"/>
+<path fill-rule="evenodd"  fill="none"
+ d="M0.000,0.000 L20.000,0.000 L20.000,20.000 L0.000,20.000 L0.000,0.000 Z"/>
 </svg>

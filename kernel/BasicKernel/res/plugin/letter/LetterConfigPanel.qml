@@ -20,20 +20,19 @@ Rectangle {
 
         clip: true
         anchors.fill: parent
-        anchors.margins: 10
-        ScrollBar.vertical.policy: ScrollBar.AlwaysOn
+        anchors.margins: 10 * screenScaleFactor
+        ScrollBar.vertical.policy:   (contentHeight > height) ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
 
         Column {
             anchors.fill: parent
-            spacing: 10
+            spacing: 10 * screenScaleFactor
             height: idFontSettings.height + 10 + idLaserShapeItem.height
 
             LetterConfigGroup {
                 id: idFontSettings
 
                 title: qsTr("Word")
-                icon: "qrc:/UI/photo/font.png"
-                width: idScrollView.width - 10
+                width: idScrollView.width - 10 * screenScaleFactor
                 enabled: parent.enabled
 
                 accordionContent: Rectangle {
@@ -69,8 +68,7 @@ Rectangle {
                 id: idLaserShapeItem
 
                 title: qsTr("Parameter")
-                icon: "qrc:/UI/photo/config.png"
-                width: idScrollView.width - 10
+                width: idScrollView.width - 10 * screenScaleFactor
                 height: 240 * screenScaleFactor
                 enabled: parent.enabled
 

@@ -7,7 +7,7 @@ in vec2 stepsFlag;
 out vec2 flags;
 
 // uniform mat4 modelViewProjection;
-uniform mat4 modelMatrix;
+uniform mat4 model_matrix;
 uniform mat4 viewProjectionMatrix;
 
 uniform vec3 eyePosition;
@@ -19,7 +19,7 @@ void main()
 {
    flags = stepsFlag;
    
-   vec4 worldPos =  modelMatrix * vec4(vertexPosition, 1.0);
+   vec4 worldPos =  model_matrix * vec4(vertexPosition, 1.0);
    vec3 dir = normalize(eyePosition - worldPos.xyz);
 
    float d = abs( dot(dir, vec3(0.0, 0.0, 1.0)) );

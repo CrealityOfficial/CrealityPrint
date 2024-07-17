@@ -48,6 +48,9 @@ QVariant VideoListModel::data(const QModelIndex& index, int role) const
 		case VideoModelItem::E_VideoFileName:
 			value = modelItem->videoFileName();
 			break;
+		case VideoModelItem::E_VideoFilePath:
+			value = modelItem->videoFilePath();
+			break;
 		case VideoModelItem::E_StartTime:
 			value = modelItem->startTime();
 			break;
@@ -75,6 +78,7 @@ QHash<int, QByteArray> VideoListModel::roleNames() const
 	roles[VideoModelItem::E_GCodeFileName]		 = "gcodeFileName";
 	roles[VideoModelItem::E_VideoFileSize]		 = "videoFileSize";
 	roles[VideoModelItem::E_VideoFileName]		 = "videoFileName";
+	roles[VideoModelItem::E_VideoFilePath]		 = "videoFilePath";
 	roles[VideoModelItem::E_StartTime]	 = "startTime";
 	roles[VideoModelItem::E_PrintTime] = "printTime";
 	roles[VideoModelItem::E_VideoCover] = "videoCover";
@@ -179,7 +183,6 @@ void VideoListModel::slotGetVideoFileList(const QString& from_std_macAddr, const
 				if (m_webInfoRegExp.exactMatch(fullInfo))
 				{
 					VideoModelItem* modelItem = new VideoModelItem(this);
-
 					QString gcodeFileName  = m_webInfoRegExp.cap(2).split("/", QString::SkipEmptyParts).last();
 					QString videoFileSize  = QString::number(m_webInfoRegExp.cap(3).toDouble() / 1024.0 / 1024.0, 'f', 2);
 					QString videoFileName = m_webInfoRegExp.cap(4).split("/", QString::SkipEmptyParts).last();
@@ -188,10 +191,12 @@ void VideoListModel::slotGetVideoFileList(const QString& from_std_macAddr, const
 					QString starttime = QDateTime::fromSecsSinceEpoch(m_webInfoRegExp.cap(7).toLongLong()).toString("yyyy-MM-dd hh:mm:ss");
 					QString printtime = m_webInfoRegExp.cap(8);
 					QString videoFileShowName = m_webInfoRegExp.cap(9);
+					QString videoFilePath = m_webInfoRegExp.cap(4);
 
 					modelItem->setGcodeFileName(gcodeFileName);
 					modelItem->setVideoFileSize(videoFileSize);
 					modelItem->setVideoFileName(videoFileName);
+					modelItem->setVideoFilePath(videoFilePath);
 					modelItem->setStartTime(starttime);
 					modelItem->setPrintTime(printtime);
 					modelItem->setVideoCover(cover);
@@ -282,6 +287,22 @@ void VideoModelItem::setVideoFileName(const QString& fileName)
 	}
 	m_videoFileName = fileName;
 	emit videoFileNameChanged();
+}
+
+
+const QString& VideoModelItem::videoFilePath() const
+{
+	return m_videoFilePath;
+}
+
+void VideoModelItem::setVideoFilePath(const QString& path)
+{
+	if (m_videoFilePath == path)
+	{
+		return;
+	}
+	m_videoFilePath = path;
+	emit videoFilePathChanged();
 }
 
 const QString& VideoModelItem::startTime() const

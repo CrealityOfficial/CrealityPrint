@@ -9,6 +9,12 @@ namespace qtuser_3d
 		:QObject(parent)
 	{
 		m_clickEventChecker = new ClickEventChecker(this);
+
+		connect(&m_releaseTimer, &QTimer::timeout, this, [=] ()
+		{
+			m_spaceModifier = false;
+		});
+
 	}
 
 	EventSubdivide::~EventSubdivide()
@@ -33,16 +39,32 @@ namespace qtuser_3d
 	{
 		if ((event->button() == Qt::LeftButton))
 		{
-			for (LeftMouseEventHandler* handler : m_leftMouseEventHandlers)
+			if (!m_spaceModifier)
 			{
-				handler->onLeftMouseButtonPress(event);
-				if (!handler->m_leftPressStatus)
+				for (LeftMouseEventHandler* handler : m_leftMouseEventHandlers)
 				{
-					handler->m_leftPressStatus = true;
-					break;
+					handler->onLeftMouseButtonPress(event);
+					if (!handler->m_leftPressStatus)
+					{
+						handler->m_leftPressStatus = true;
+						break;
+					}
+				}
+			}
+			else 
+			{	/* 空格+左键 = 中键 */
+				for (MidMouseEventHandler* handler : m_midMouseEventHandlers)
+				{
+					handler->onMidMouseButtonPress(event);
+					if (!handler->m_midPressStatus)
+					{
+						handler->m_midPressStatus = true;
+						break;
+					}
 				}
 			}
 		}
+
 		if ((event->button() == Qt::MiddleButton))
 		{
 			for (MidMouseEventHandler* handler : m_midMouseEventHandlers)
@@ -101,13 +123,28 @@ namespace qtuser_3d
 		}
 		if ((event->buttons() == Qt::LeftButton))
 		{
-			for (LeftMouseEventHandler* handler : m_leftMouseEventHandlers)
+			if (!m_spaceModifier)
 			{
-				handler->onLeftMouseButtonMove(event);
-				if (!handler->m_leftMoveStatus)
+				for (LeftMouseEventHandler* handler : m_leftMouseEventHandlers)
 				{
-					handler->m_leftMoveStatus = true;
-					break;
+					handler->onLeftMouseButtonMove(event);
+					if (!handler->m_leftMoveStatus)
+					{
+						handler->m_leftMoveStatus = true;
+						break;
+					}
+				}
+			}
+			else
+			{	/* 空格+左键 = 中键 */
+				for (MidMouseEventHandler* handler : m_midMouseEventHandlers)
+				{
+					handler->onMidMouseButtonMove(event);
+					if (!handler->m_midMoveStatus)
+					{
+						handler->m_midMoveStatus = true;
+						break;
+					}
 				}
 			}
 		}
@@ -143,13 +180,28 @@ namespace qtuser_3d
 		}
 		if ((event->button() == Qt::LeftButton))
 		{
-			for (LeftMouseEventHandler* handler : m_leftMouseEventHandlers)
+			if (!m_spaceModifier)
 			{
-				handler->onLeftMouseButtonRelease(event);
-				if (!handler->m_leftReleaseStatus)
+				for (LeftMouseEventHandler* handler : m_leftMouseEventHandlers)
 				{
-					handler->m_leftReleaseStatus = true;
-					break;
+					handler->onLeftMouseButtonRelease(event);
+					if (!handler->m_leftReleaseStatus)
+					{
+						handler->m_leftReleaseStatus = true;
+						break;
+					}
+				}
+			}
+			else
+			{	/* 空格+左键 = 中键 */
+				for (MidMouseEventHandler* handler : m_midMouseEventHandlers)
+				{
+					handler->onMidMouseButtonRelease(event);
+					if (!handler->m_midReleaseStatus)
+					{
+						handler->m_midReleaseStatus = true;
+						break;
+					}
 				}
 			}
 		}
@@ -247,6 +299,12 @@ namespace qtuser_3d
 
 	void EventSubdivide::keyPressEvent(QKeyEvent* event)
 	{
+		if (event->key() == Qt::Key_Space)
+		{
+			m_spaceModifier = true;
+			m_releaseTimer.start(1000);	// 100毫秒后自动释放状态，避免release事件被吸收导致状态无法退出的问题。
+		}
+
 		for (KeyEventHandler* handler : m_KeyEventHandlers)
 		{
 			handler->onKeyPress(event);
@@ -262,6 +320,12 @@ namespace qtuser_3d
 
 	void EventSubdivide::keyReleaseEvent(QKeyEvent* event)
 	{
+		if (event->key() == Qt::Key_Space)
+		{
+			m_spaceModifier = false;
+			m_releaseTimer.stop();
+		}
+
 		for (KeyEventHandler* handler : m_KeyEventHandlers)
 		{
 			handler->onKeyRelease(event);

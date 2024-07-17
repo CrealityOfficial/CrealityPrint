@@ -7,7 +7,7 @@
 
 namespace gcode
 {
-    	enum class GCodeVisualType
+    enum class GCodeVisualType
 	{
 		gvt_speed,
 		gvt_structure,
@@ -18,7 +18,15 @@ namespace gcode
 		gvt_layerTime,   //层时间
 		gvt_fanSpeed,    //风扇速度
 		gvt_temperature, //温度
+		gvt_acc,         //加速度
 		gvt_num,
+	};
+
+	enum class GProducer
+	{
+		Unknown,
+		OrcaSlicer,
+		Cura
 	};
 
 	struct TimeParts {
@@ -53,8 +61,18 @@ namespace gcode
 		bool adaptiveLayers;
 		std::string exportFormat;//QString exportFormat;
 		std::string	screenSize;//QString screenSize;
+		int total_filamentchanges;//change color count
+		std::vector<std::pair<int,double>> volumes_per_extruder;
+		std::vector<std::pair<int, double>> flush_per_filament;
+		std::vector<std::pair<int, double>> volumes_per_tower;
+		GProducer producer;
 
 		TimeParts timeParts;
+
+		bool have_roles_time;
+		std::vector<std::pair<int, float>> roles_time;
+		//std::vector<std::pair<int,float>> moves_time;
+		std::vector<std::pair<int, float>> layers_time;
 	
 		int beltType;  // 1 creality print belt  2 creality slicer belt
 		float beltOffset;
@@ -65,6 +83,7 @@ namespace gcode
 	
 		GCodeParseInfo()
 		{
+			producer = GProducer::Cura;
 			machine_height = 250.0f;
 			machine_width = 220.0f;
 			machine_depth = 220.0f;
@@ -77,6 +96,7 @@ namespace gcode
 			exportFormat = "png";
 			screenSize = "Sermoon D3";
 			spiralMode = false;
+			total_filamentchanges = 0;
 
 			timeParts = TimeParts();
 			cost = 0.0f;
@@ -87,6 +107,11 @@ namespace gcode
 			xf4 = trimesh::fxform();
 			relativeExtrude = false;
 			adaptiveLayers = false;
+			have_roles_time = false;
+
+			volumes_per_extruder.clear();
+			flush_per_filament.clear();
+			volumes_per_tower.clear();
 		}
 	};
 
@@ -96,20 +121,26 @@ namespace gcode
 		virtual ~GcodeTracer() {}
 
 		virtual void tick(const std::string& tag) = 0;
-		virtual void getPathData(const trimesh::vec3 point, float e, int type) = 0;
-		virtual void getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type, bool isG2 = true) = 0;
+		virtual void getPathData(const trimesh::vec3 point, float e, int type, bool isOrca = false, bool isseam = false) = 0;
+		virtual void getPathDataG2G3(const trimesh::vec3 point, float i, float j, float e, int type, int p,bool isG2 = true, bool isOrca = false, bool isseam = false) = 0;
 		virtual void setParam(GCodeParseInfo& pathParam) = 0;
 		virtual void setLayer(int layer) = 0;
 		virtual void setLayers(int layer) = 0;
 		virtual void setSpeed(float s) = 0;
+		virtual void setAcc(float acc) = 0;
 		virtual void setTEMP(float temp) = 0;
 		virtual void setExtruder(int nr) = 0;
 		virtual void setTime(float time) = 0;
 		virtual void setFan(float fan) = 0;
 		virtual void setZ(float z, float h = -1) = 0;
 		virtual void setE(float e) = 0;
+		virtual void setWidth(float width) = 0;
+		virtual void setLayerHeight(float height) = 0;
+		virtual void setLayerPause(int pause) = 0;
 		virtual void getNotPath() = 0;
 		virtual void set_data_gcodelayer(int layer, const std::string& gcodelayer) = 0;
+		virtual void setNozzleColorList(std::string& colorList) = 0;
+		virtual void writeImages(const std::vector<std::pair<trimesh::ivec2, std::vector<unsigned char>>>& images) =0;
 
 		//for cloud : preview image
 		virtual void onSupports(int layerIdx, float z, float thickness, const std::vector<std::vector<trimesh::vec3>>& paths) = 0;
@@ -129,7 +160,7 @@ namespace gcode
 
     enum class SliceCompany
     {
-        none,creality, cura, prusa, bambu, ideamaker, superslicer, ffslicer, simplify
+        none,creality, cura, prusa, bambu, ideamaker, superslicer, ffslicer, simplify,craftware
     };
 
 }

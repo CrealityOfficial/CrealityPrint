@@ -1,10 +1,10 @@
 #include "commandinterface.h"
 
+#include <QFileInfo>
 #include "data/modeln.h"
-#include "data/fdmsupportgroup.h"
 
 #include "utils/modelpositioninitializer.h"
-#include "job/nest2djob.h"
+#include "job/nest2djobex.h"
 #include "cxkernel/interface/jobsinterface.h"
 
 #include "qtuser3d/trimesh2/conv.h"
@@ -12,6 +12,8 @@
 #include "operation/rotateop.h"
 #include "interface/spaceinterface.h"
 #include "interface/machineinterface.h"
+#include "interface/layoutinterface.h"
+#include "interface/printerinterface.h"
 
 #include "spaceinterface.h"
 #include "modelinterface.h"
@@ -172,23 +174,31 @@ namespace creative_kernel
         bool isBelt = currentMachineIsBelt();
         int nameIndex = 0;
         QString sname;
+        QList<ModelN*> newModels;
         for (size_t i = 0; i < selections.size(); i++)
         {
             ModelN* m = selections.at(i);
             creative_kernel::ModelNEntity* mEntity = qobject_cast<creative_kernel::ModelNEntity*>(m->getModelEntity());
 
             QString objectName = m->objectName();
-            objectName.chop(4);
+
+            QFileInfo file(objectName);
+            QString suffix = file.suffix().isEmpty() ? "" : "." + file.suffix();
+            objectName = file.baseName();
+                
+            //objectName.chop(4);
             for (int j = 0; j < num; ++j)
             {
                 creative_kernel::ModelN* model = new creative_kernel::ModelN();
                 model->setRenderData(m->renderData());
-                //model->setData(m->data());
+                model->setting()->merge(m->setting());
+                // model->setData(m->data());
 
                 model->copyNestData(m);
 
-                nameIndex = j;
-                QString name = QString("%1-%2").arg(objectName).arg(nameIndex) + ".stl";
+                nameIndex = j + 1;
+                //QString name = QString("%1-%2").arg(objectName).arg(nameIndex) + ".stl";
+                QString name = QString("%1-%2").arg(objectName).arg(nameIndex) + suffix;
                 //---                
                 QList<ModelN*> models = modelns();
                 for (int k = 0; k < models.size(); ++k)
@@ -197,23 +207,20 @@ namespace creative_kernel
                     if (name == sname)
                     {
                         nameIndex++;
-                        name = QString("%1-%2").arg(objectName).arg(nameIndex) + ".stl";
+                        //name = QString("%1-%2").arg(objectName).arg(nameIndex) + ".stl";
+                        name = QString("%1-%2").arg(objectName).arg(nameIndex) + suffix;
                         k = -1;
                     }
                 }
                 //---
                 model->setObjectName(name);
+                model->data()->input.name = name;
+
                 if (!isBelt)
                 {
                     model->setLocalPosition(m->localPosition(), true);
                     model->setLocalScale(m->localScale(), true);
                     model->setLocalQuaternion(m->localQuaternion(), true);
-                }
-                if (m->hasFDMSupport())
-                {
-                    FDMSupportGroup* fdmSup = model->fdmSupport();
-                    fdmSup->buildFDMSup(m->fdmSupport()->FDMSupports());
-                    model->setFDMSup(fdmSup);
                 }
                 if (isBelt)
                 {
@@ -223,11 +230,19 @@ namespace creative_kernel
                 }
                 else
                 {
-                    Nest2DJob* job = new Nest2DJob();
-                    job->setInsert(model);
-                    cxkernel::executeJob(qtuser_core::JobPtr(job), true);
+                    newModels << model;
                 }
+                model->setLayerHeightProfile(m->layerHeightProfile());
+                model->updateMatrix();
+            }
+        }
 
+        if (!isBelt)
+        {
+            creative_kernel::layoutModels(newModels, currentPrinterIndex(), false);
+
+            for (auto model : newModels)
+            {
                 model->updateMatrix();
             }
         }
@@ -235,6 +250,7 @@ namespace creative_kernel
         requestVisUpdate(true);
         checkModelRange();
         checkBedRange();
+        checkModelCollision();
         return selections.size();
     }
 
@@ -278,8 +294,9 @@ namespace creative_kernel
         getKernel()->commandCenter()->openUrl(web);
     }
 
-    void addUIVisualTracer(UIVisualTracer* tracer)
+    void addUIVisualTracer(UIVisualTracer* tracer, QObject* base)
     {
+        QQmlEngine::setObjectOwnership(base, QQmlEngine::ObjectOwnership::CppOwnership);
         getKernelUI()->translator()->addUIVisualTracer(tracer);
     }
 

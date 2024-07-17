@@ -47,6 +47,7 @@ Window {
     function saveAndFinishConfig() {
         cxkernel_cxcloud.serverType = idServerComboBox.currentIndex
         kernel_ui.changeLanguage(idLanguageComboBox.currentIndex)
+        cxkernel_cxcloud.profileService.updateProfileLanguage()
         kernel_ui.firstStartConfigFinished()
         kernel_ui.requestQmlDialog("idAddPrinterDlgNew")
         root.hide()
@@ -54,10 +55,11 @@ Window {
 
     Component.onCompleted: updateLanguage(kernel_ui.currentLanguage)
 
+
     ListModel {
         id: languageServerModel
         ListElement {
-            title_text: "Please select language and server"
+            title_text: "Please select language and locale"
             text_language: "Language:"
             text_server: "Locale:"
             text_confirm: "OK"
@@ -206,15 +208,15 @@ Window {
                 onClicked: idAskSaveDlg.show()
             }
         }
-        
-        UploadMessageDlg {
+
+        UploadMessageDlg2 {
             id: idAskSaveDlg
             visible: false
             cancelBtnVisible: true
             ignoreBtnVisible: false
-            okBtnText: "OK"
-            cancelBtnText: "Cancel"
-            msgText: "Do you want to save the current settings?"
+            okBtnText:  qsTr("OK")
+            cancelBtnText:qsTr("Cancel")
+            msgText: qsTr("Do you want to save the current settings?")
             onSigOkButtonClicked: {
                 idAskSaveDlg.hide()
                 saveAndFinishConfig()
@@ -261,7 +263,7 @@ Window {
                         onCurrentIndexChanged: updateLanguage(currentIndex)
                         currentIndex: kernel_ui.currentLanguage
 
-                        model: ["English", "简体中文", "繁體中文","한국어/Korean"]
+                        model: ["English", "简体中文", "繁體中文"]
 
                         delegate: ItemDelegate {
                             width: idLanguageComboBox.width

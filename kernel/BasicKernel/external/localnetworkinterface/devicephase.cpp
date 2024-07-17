@@ -1,5 +1,6 @@
 #include "localnetworkinterface/devicephase.h"
-
+#include "data/interface.h"
+#include <interface/commandinterface.h>
 namespace creative_kernel
 {
 	DevicePhase::DevicePhase(QObject* parent)
@@ -21,5 +22,9 @@ namespace creative_kernel
 	void DevicePhase::onStopPhase()
 	{
 
+	}
+	void DevicePhase::onModelAdded(ModelN* model)
+	{
+		setKernelPhase(KernelPhaseType::kpt_prepare);
 	}
 }

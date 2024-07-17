@@ -41,11 +41,11 @@ void DrillPlugin::initialize() {
   getKernelUI()->addToolCommand(command_,
     qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_OTHER,
     qtuser_qml::ToolCommandType::DRILL);
-  creative_kernel::addUIVisualTracer(this);
+  creative_kernel::addUIVisualTracer(this,this);
 }
 
 void DrillPlugin::uninitialize() {
-  getKernelUI()->removeToolCommand(command_, qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_MAIN);
+  getKernelUI()->removeToolCommand(command_, qtuser_qml::ToolCommandGroupType::LEFT_TOOLBAR_OTHER);
   creative_kernel::removeUIVisualTracer(this);
 }
 
@@ -56,16 +56,16 @@ void DrillPlugin::onThemeChanged(creative_kernel::ThemeCategory theme) {
 
   switch (theme) {
     case creative_kernel::ThemeCategory::tc_dark:
-      command_->setDisabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/drill_dark.svg"));
-      command_->setEnabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/drill_dark.svg"));
-      command_->setHoveredIcon(QStringLiteral("qrc:/UI/photo/leftBar/drill_pressed.svg"));
-      command_->setPressedIcon(QStringLiteral("qrc:/UI/photo/leftBar/drill_pressed.svg"));
+      command_->setDisabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/drill_dark_disable.svg"));
+      command_->setEnabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/drill_dark_default.svg"));
+      command_->setHoveredIcon(QStringLiteral("qrc:/UI/photo/cToolBar/drill_dark_default.svg"));
+      command_->setPressedIcon(QStringLiteral("qrc:/UI/photo/cToolBar/drill_dark_press.svg"));
       break;
     case creative_kernel::ThemeCategory::tc_light:
-      command_->setDisabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/drill_lite.svg"));
-      command_->setEnabledIcon(QStringLiteral("qrc:/UI/photo/leftBar/drill_lite.svg"));
-      command_->setHoveredIcon(QStringLiteral("qrc:/UI/photo/leftBar/drill_lite.svg"));
-      command_->setPressedIcon(QStringLiteral("qrc:/UI/photo/leftBar/drill_pressed.svg"));
+      command_->setDisabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/drill_dark_disable.svg"));
+      command_->setEnabledIcon(QStringLiteral("qrc:/UI/photo/cToolBar/drill_light_default.svg"));
+      command_->setHoveredIcon(QStringLiteral("qrc:/UI/photo/cToolBar/drill_light_default.svg"));
+      command_->setPressedIcon(QStringLiteral("qrc:/UI/photo/cToolBar/drill_dark_press.svg"));
       break;
     case creative_kernel::ThemeCategory::tc_num:
       break;

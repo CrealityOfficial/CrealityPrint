@@ -15,7 +15,7 @@ namespace creative_kernel
         m_actionname = actionName;// tr("Upload Select Model");
         m_actionNameWithout = "Upload Select Model";
         m_bCheckable = false;
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     UploadModelSubAction::~UploadModelSubAction()
@@ -67,7 +67,7 @@ namespace creative_kernel
 
     QString UploadModelSubAction::filter()
     {
-        QString _filter = "Mesh File (*.stl *.obj *.dae *.3mf *.3ds *.wrl *.cxbin *.off *.ply)";
+        QString _filter = "Mesh File (*.stl *.obj *.dae *.3mf *.3ds *.wrl *.off *.ply)";
         return _filter;
     }
 

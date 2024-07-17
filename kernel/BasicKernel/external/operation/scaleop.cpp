@@ -11,9 +11,10 @@
 #include "interface/spaceinterface.h"
 #include "interface/reuseableinterface.h"
 #include "kernel/kernelui.h"
+#include "kernel/kernel.h"
+#include "data/modelspaceundo.h"
+#include "internal/undo/modelndataserialcommand.h"
 #include <QQmlProperty>
-
-#include "data/fdmsupportgroup.h"
 
 using namespace creative_kernel;
 ScaleOp::ScaleOp(QObject* parent)
@@ -29,53 +30,25 @@ ScaleOp::ScaleOp(QObject* parent)
 		HELPERTYPE_PLANE_YZ | \
 		HELPERTYPE_PLANE_ZX;
 
+    m_type = qtuser_3d::SceneOperateMode::ReusableMode;
 	m_helperEntity = new qtuser_3d::TranslateHelperEntity(nullptr, types, qtuser_3d::TranslateHelperEntity::IndicatorType::CUBE);
 	m_helperEntity->setCameraController(cameraController());
-
-	m_originFovy = 60.0;
-	traceSpace(this);
 }
 
 ScaleOp::~ScaleOp()
 {
-	unTraceSpace(this);
 }
 
 void ScaleOp::setMessage(bool isRemove)
 {
 	if (isRemove)
 	{
-		QList<creative_kernel::ModelN*> selections = selectionms();
-		foreach(creative_kernel::ModelN * model, selections)
-		{
-			if (model->hasFDMSupport())
-			{
-				FDMSupportGroup* p_support = model->fdmSupport();
-				p_support->clearSupports();
-			}
-		}
 		requestVisUpdate(true);
 	}
 }
 
 bool ScaleOp::getMessage()
 {
-	//if (!m_bShowPop)
-	//{
-	//	return false;
-	//}
-	QList<creative_kernel::ModelN*> selections = selectionms();
-	foreach(creative_kernel::ModelN * model, selections)
-	{
-		if (model->hasFDMSupport())
-		{
-			FDMSupportGroup* p_support = model->fdmSupport();
-			if (p_support->fdmSupportNum())
-			{
-				return true;
-			}
-		}
-	}
 	return false;
 }
 
@@ -136,7 +109,6 @@ void ScaleOp::onDettach()
 void ScaleOp::onLeftMouseButtonPress(QMouseEvent* event)
 {
 	MoveOperateMode::onLeftMouseButtonPress(event);
-
 	m_mode = TMode::null;
 
 	if (m_selectedModel)
@@ -154,9 +126,6 @@ void ScaleOp::onLeftMouseButtonPress(QMouseEvent* event)
 		m_saveScale = m_selectedModel->localScale();
 		m_savePosition = m_selectedModel->localPosition();
 		m_spacePoint = operationProcessCoord(event->pos(), m_selectedModel, 0, m_mode);
-
-
-		//m_selectedModel->setNeedCheckScope(0);
 	}
 	setNeedCheckScope(0);
 
@@ -176,6 +145,7 @@ void ScaleOp::perform(const QPoint& point, bool reversible)
 	for(creative_kernel::ModelN * model : selections)
 	{
 		model->setLocalScale(newScale);
+		model->dirtyNestData();
 
 		qtuser_3d::Box3D box = model->globalSpaceBox();
 		QVector3D zoffset = QVector3D(0.0f, 0.0f, 0.0f);  // QVector3D(0.0f, 0.0f, -box.min.z());
@@ -189,7 +159,6 @@ void ScaleOp::perform(const QPoint& point, bool reversible)
 void ScaleOp::onLeftMouseButtonRelease(QMouseEvent* event)
 {
 	MoveOperateMode::onLeftMouseButtonRelease(event);
-	setNeedCheckScope(1);
 
 	if (m_selectedModel && m_mode != TMode::null && m_mode != TMode::sp)
 	{
@@ -205,20 +174,14 @@ void ScaleOp::onLeftMouseButtonRelease(QMouseEvent* event)
 			QVector3D newPosition = model->localPosition() + zoffset;
 			moveModel(model, oldPosition, newPosition, false);
 
-			//m_selectedModel->setNeedCheckScope(1);
+			model->updateSweepAreaPath();
+			
 		}
 
 		emit scaleChanged();
 		emit sizeChanged();
 
         m_bShowPop = false;
-
-		/*QList<creative_kernel::ModelN*> alls = creative_kernel::modelns();
-		for (size_t i = 0; i < alls.size(); i++)
-		{
-			alls[i]->setNeedCheckScope(1);
-		}*/
-		
 
 		fillChangeStructs(m_changes, false);
 		mixUnions(m_changes, true);
@@ -239,6 +202,7 @@ void ScaleOp::onLeftMouseButtonMove(QMouseEvent* event)
             m_bShowPop=true;
         }
 	}
+	setNeedCheckScope(0);
 }
 
 void ScaleOp::onLeftMouseButtonClick(QMouseEvent* event)
@@ -248,9 +212,6 @@ void ScaleOp::onLeftMouseButtonClick(QMouseEvent* event)
 
 void ScaleOp::onWheelEvent(QWheelEvent* event)
 {
-	Qt3DRender::QCamera* mainCamera = getCachedCameraEntity();
-	float curFovy = mainCamera->fieldOfView();
-	m_helperEntity->setScale(curFovy / m_originFovy);
 }
 
 void ScaleOp::onSelectionsChanged()
@@ -401,10 +362,12 @@ void ScaleOp::setScale(QVector3D scale)
 
 		mixTSModel(model, oldLocalPosition, newLocalPosition, oldLocalScale, newLocalScale, true);
 
+		model->updateSweepAreaPath();
 		//emit scaleChanged();
 	 }
 	creative_kernel::checkModelRange();
 	creative_kernel::checkBedRange();
+	creative_kernel::checkModelCollision();
 }
 
 bool ScaleOp::uniformCheck()
@@ -425,28 +388,25 @@ void ScaleOp::setUniformCheck(bool check)
 	{
 		m_helperEntity->setRotation(m_selectedModel->localQuaternion());
 	}
-	/*else
+	else
 	{
-		QList<creative_kernel::ModelN*> selections = selectionms();
-		foreach(creative_kernel::ModelN * model, selections)
-		{
-			QMatrix4x4 srMatrix = model->embedScaleNRot();
-			model->updateMatrix();
-
-			//qtuser_3d::Box3D box = model->globalSpaceBox();
-			//QVector3D zoffset = QVector3D(0.0f, 0.0f, 0.0f);  // QVector3D(0.0f, 0.0f, -box.min.z());
-			//QVector3D localPosition = model->localPosition();
-			//QVector3D newPosition = localPosition + zoffset;
-
-			//mixTSModel(model, m_savePosition, newPosition, m_saveScale, newScale, reversible);
-		}
-
-		m_helperEntity->setRotation(QQuaternion());
-
-		buildFromSelections();
-	}*/
+		onUniformUnCheck();
+	}
 
 	emit checkChanged();
+}
+
+void ScaleOp::onUniformUnCheck()
+{
+	QList<creative_kernel::ModelN*> selections = selectionms();
+
+	QList<cxkernel::ModelNDataPtr> modelnDatas;
+	for (int i = 0; i < selections.size(); i++)
+	{
+		modelnDatas.push_back(selections.at(i)->getScaledUniformUnCheckData());
+	}
+
+	getKernel()->modelSpaceUndo()->push(new ModelNDataSerialCommand(selections, modelnDatas, true));
 }
 
 QVector3D ScaleOp::process(const QPoint& point)
@@ -511,13 +471,56 @@ void ScaleOp::getProperPlane(QVector3D& planeCenter, QVector3D& planeDir, qtuser
 		}
 	}
 }
+float ScaleOp::deltaXY(float centerVal, float pressVal, float moveVal)
+{
+	float delta = 1.0f;
+	//if (pressVal == 0.0 || moveVal == 0.0)
+	//{
+	//	return 1.0f;
+	//}
+	//1. ����ģ�͵��������
+	if (abs(pressVal - centerVal) == 0.0)return 1.0f;
+	if (pressVal > centerVal && moveVal > centerVal)
+	{
+		delta = abs(((moveVal - pressVal) + abs(pressVal - centerVal)) / abs(pressVal - centerVal)); // moveVal > pressVal ? abs(moveVal / pressVal) : abs(pressVal / moveVal);
+	}
+	//2.����ĵ���ģ��������࣬�ƶ��㵽�˸������
+	if (pressVal > centerVal && moveVal < centerVal)
+	{
+		//if (centerVal == 0.0)return 1.0f;
+		//delta = abs(moveVal / centerVal);
+	}
+
+	//3.���µĵ����ƶ�����ģ�͵ĸ�����
+	if (pressVal < centerVal && moveVal < centerVal)
+	{
+		delta = abs(((pressVal - moveVal) + abs(pressVal - centerVal)) / abs(pressVal - centerVal));
+		//delta = abs(((pressVal - moveVal) + abs(pressVal)) / pressVal);
+	}
+
+	//2.����ĵ���ģ��������࣬�ƶ��㵽�˸������
+	if (pressVal < centerVal && moveVal > centerVal)
+	{
+		//if (centerVal == 0.0)return 1.0f;
+		//delta = abs(moveVal / centerVal);
+	}
+
+
+	return delta;
+}
 
 QVector3D ScaleOp::getScale(const QVector3D& c)
 {
 	QVector3D scaleDelta = QVector3D(1.0f, 1.0f, 1.0f);
-	scaleDelta.setX(m_spacePoint.x() == 0.0 ? 1.0 : abs(c.x() / m_spacePoint.x()));
-	scaleDelta.setY(m_spacePoint.y() == 0.0 ? 1.0 : abs(c.y() / m_spacePoint.y()));
-	scaleDelta.setZ(m_spacePoint.z() == 0.0 ? 1.0 : abs(c.z() / m_spacePoint.z()));
+	qtuser_3d::Box3D qbox = m_selectedModel->globalSpaceBox();
+	//scaleDelta.setX(m_spacePoint.x() == 0.0 ? 1.0 : abs(c.x() / m_spacePoint.x()));
+	//scaleDelta.setY(m_spacePoint.y() == 0.0 ? 1.0 : abs(c.y() / m_spacePoint.y()));
+	//scaleDelta.setZ(m_spacePoint.z() == 0.0 ? 1.0 : abs(c.z() / m_spacePoint.z()));
+
+	scaleDelta.setX(deltaXY(qbox.center().x(), m_spacePoint.x(), c.x()));
+	scaleDelta.setY(deltaXY(qbox.center().y(), m_spacePoint.y(), c.y())); 
+	scaleDelta.setZ(deltaXY(qbox.center().z(), m_spacePoint.z(), c.z())); 
+
 
 	if (m_mode == TMode::x)  // x
 	{
@@ -525,7 +528,7 @@ QVector3D ScaleOp::getScale(const QVector3D& c)
 	}
 	else if (m_mode == TMode::y)
 	{
-		scaleDelta = m_uniformCheck ? QVector3D(scaleDelta.y(), scaleDelta.y(), scaleDelta.y()) : QVector3D(1.0, scaleDelta.x(), 1.0);
+		scaleDelta = m_uniformCheck ? QVector3D(scaleDelta.y(), scaleDelta.y(), scaleDelta.y()) : QVector3D(1.0, scaleDelta.y(), 1.0);
 	}
 	else if (m_mode == TMode::z)
 	{
@@ -559,19 +562,8 @@ void ScaleOp::updateHelperEntity()
 {
 	if (m_selectedModel)
 	{
-		qtuser_3d::Box3D box = m_selectedModel->globalSpaceBox();
-		/*
-		m_helperEntity->setDirColor(QVector4D(1.0f, 0.0f, 0.0f, 0.8f), 0);
-		m_helperEntity->setDirColor(QVector4D(0.0f, 1.0f, 0.0f, 0.8f), 1);
-		m_helperEntity->setDirColor(QVector4D(0.0f, 0.0f, 1.0f, 0.8f), 2);
-		*/
+		qtuser_3d::Box3D box = creative_kernel::modelsBox(creative_kernel::selectionms());
 		m_helperEntity->updateBox(box);
-		
-		Qt3DRender::QCamera* mainCamera = getCachedCameraEntity();
-		float curFovy = mainCamera->fieldOfView();
-		m_helperEntity->setScale(curFovy / m_originFovy);
-
-		m_helperEntity->setRotation(m_selectedModel->localQuaternion());
 	}
 }
 
@@ -583,19 +575,6 @@ bool ScaleOp::getShowPop()
 bool ScaleOp::shouldMultipleSelect()
 {
 	return true;
-}
-
-void ScaleOp::onBoxChanged(const qtuser_3d::Box3D& box)
-{
-	const QVector3D size = box.size();
-	float length = size.length();
-	float s = fmin(length / 6.0, 200.0);
-	m_helperEntity->setEntitiesLocalScale(s);
-}
-
-void ScaleOp::onSceneChanged(const qtuser_3d::Box3D& box)
-{
-
 }
 
 void ScaleOp::onModelDestroyed()

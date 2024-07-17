@@ -388,6 +388,15 @@ namespace qtuser_qml {
   }
 
   template<typename _Data>
+  auto DataListModel<_Data>::syncRawData(size_t begin_index,
+                                         size_t end_index,
+                                         const std::vector<int>& roles) -> void {
+    Q_EMIT dataChanged(createIndex(begin_index, 0),
+                       createIndex(end_index, 0),
+                       QVector<int>{ roles.cbegin(), roles.cend() });
+  }
+
+  template<typename _Data>
   auto DataListModel<_Data>::rowCount(const QModelIndex& parent) const -> int {
     std::ignore = parent;
     return static_cast<int>(getVaildSize());

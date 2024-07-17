@@ -1,4 +1,5 @@
 #include "formattracer.h"
+#include <QtCore/QCoreApplication>
 
 namespace qtuser_core
 {
@@ -35,14 +36,29 @@ namespace qtuser_core
 	{
 		if (m_progressor)
 		{
-			//QString lan(msg);
-			//if (indexCount() > 0)
-			//{
-			//	int count = indexCount();
-			//	for (int i = 0; i < count; ++i)
-			//		lan.replace(QString("{%1}").arg(i), indexStr(i));
-			//}
-			//m_progressor->message(lan);
+			QString qstrMsg = msg;
+			if (qstrMsg.contains("layer"))
+			{
+				QStringList list = qstrMsg.split("layer");
+				if (list.size() !=2)
+				{
+					QString lan = QCoreApplication::translate("ParameterComponent", msg);
+					m_progressor->message(lan);
+				}
+				else
+				{
+					QString msg2 = list[0] + "layer %1";
+					QByteArray ba = msg2.toLatin1();
+					int layer = list[1].toInt();
+					QString lan = QCoreApplication::translate("ParameterComponent", ba.data()).arg(layer);
+					m_progressor->message(lan);
+				}
+			}
+			else
+			{
+				QString lan = QCoreApplication::translate("ParameterComponent", msg);
+				m_progressor->message(lan);
+			}
 		}
 	}
 

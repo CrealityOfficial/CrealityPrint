@@ -11,7 +11,7 @@ namespace creative_kernel
         m_actionNameWithout = "Unit As One";
         m_eParentMenu = eMenuType_View;
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     MergeModelCommand::~MergeModelCommand()
@@ -20,7 +20,7 @@ namespace creative_kernel
 
     void MergeModelCommand::execute()
     {
-        alignAllModels2BaseCenter(true);
+        mergePosition(true);
     }
 
     void MergeModelCommand::onThemeChanged(ThemeCategory category)

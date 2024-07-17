@@ -1,5 +1,7 @@
 #ifndef _CREATIVE_BASE_UI_KERNEL_1589720896794_H
 #define _CREATIVE_BASE_UI_KERNEL_1589720896794_H
+
+#include <memory>
 #include "basickernelexport.h"
 #include "cxkernel/kernel/cxkernel.h"
 
@@ -51,11 +53,17 @@ namespace creative_kernel
 	class KernelPhase;
 	class SliceFlow;
 	class RClickMenuList;
-	class CusAddPrinterModel;
 	class ParameterManager;
+	class UiParameterManager;
 	class MaterialCenter;
 	class SnapShot;
 	class CADLoader;
+	class PlatesDataManager;
+	class PresetCenter;
+	class PreferenceManager;
+	class CX3DManager;
+	class MessageNotify;
+	class UnitTestFlow;
 	class BASIC_KERNEL_API Kernel : public cxkernel::CXKernel
 	{
 		Q_OBJECT
@@ -66,7 +74,9 @@ namespace creative_kernel
 		Kernel(QObject* parent = nullptr);
 		virtual ~Kernel();
 
+		bool useFrameless() override { return true; }
 		QString entryQmlFile() override;
+		QStringList pluginFilter() override;
 		void initializeContext() override;
 		void initialize() override;
 		void uninitialize() override;
@@ -96,15 +106,19 @@ namespace creative_kernel
 
 		qtuser_core::ApplicationConfiguration* appConfiguration();
 		ParameterManager* parameterManager();
+		UiParameterManager* uiParameterManager();
 		MaterialCenter* materialCenter();
 		SnapShot* snapShot();
-
+		MessageNotify* messageNotify();
+		CX3DManager* cx3dManager();
+		UnitTestFlow* unitTest();
 		KernelUI* kernelUI();
 		void setSceneClearColor(const QColor &color);
 
 		Q_INVOKABLE void openFile();
 		Q_INVOKABLE bool checkUnsavedChanges();
 		Q_INVOKABLE void processCommandLine();
+		Q_INVOKABLE bool blTestEnabled();
 		//Q_INVOKABLE void setGLQuickItem(GLQuickItem* quickItem);
 		Q_INVOKABLE void setScene3DWrapper(qtuser_3d::QuickScene3DWrapper* item);
 
@@ -113,9 +127,28 @@ namespace creative_kernel
 
 		Q_INVOKABLE void captureSceneByZproject();
 		Q_SIGNAL void scenceVerticalViewUpdated();
+		Q_INVOKABLE bool addPrinter();
 
+		Q_INVOKABLE bool isMaterialUsed(int materialIndex);
+		Q_INVOKABLE void selectModelByMaterial(int materialIndex);
+		Q_INVOKABLE void discardMaterial(int materialIndex);
+		Q_INVOKABLE void changeMaterial(int materialIndex);
+
+		Q_INVOKABLE void restartApplication();
+		Q_INVOKABLE void restartApplication(bool keep_arguments);
+
+        enum ClickType {
+            NoModelMenu = 0,
+            SingleModelMenu,
+            MultiModelsMenu
+        };
+		void setRightClickType(ClickType type);
+		bool canUndo();
 	public slots:
 		void viewChanged(bool requestUpdate);
+		void onMachineChanged();
+		void onModelMaterialUpdate();
+
 	protected:
 		void setKernelPhase(KernelPhase* phase);
 
@@ -127,7 +160,7 @@ namespace creative_kernel
 		ReuseableCache* m_reusableCache;
 		ModelSpace* m_modelSpace;
 		CusModelListModel* m_modelListModel;
-		CusAddPrinterModel* m_addPrinterModel;
+		PlatesDataManager* m_platesDataManager;
 
 		qtuser_3d::RenderCenter* m_renderCenter;
 		GlobalConst* m_globalConst;
@@ -157,12 +190,16 @@ namespace creative_kernel
 
 		RClickMenuList* m_rclickMenuList;
 		ParameterManager* m_parameterManager;
-		MaterialCenter* m_materialCenter;
+		std::unique_ptr<UiParameterManager> ui_parameter_manager_{ nullptr };
 
 		SnapShot* m_snapShot;
 		KernelUI* m_kernelUI;
 
 		CaptureModelN *m_capture;
+		PreferenceManager* m_preferenceMng;
+		CX3DManager* m_cx3dManager;
+		UnitTestFlow* m_unitTest;
+		MessageNotify* m_message_notifier;
 	};
 
 	BASIC_KERNEL_API Kernel* getKernel();

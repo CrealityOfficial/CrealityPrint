@@ -1,9 +1,8 @@
 import QtQuick 2.0
-import QtQuick.Controls 2.1
+import QtQuick.Controls 2.5
 import QtQuick.Layouts 1.13
-import QtQuick.Controls 2.0 as QQC2
 import "../qml"
-QQC2.ComboBox {
+ComboBox {
     id: control
     font.family: Constants.labelFontFamily
     height: cmbHeight
@@ -17,20 +16,26 @@ QQC2.ComboBox {
     property color backgroundColor: Constants.right_panel_combobox_background_color
 
     property color itemNormalColor: Constants.right_panel_item_default_color
-    property color itemHighlightColor: Constants.currentTheme ?"#d6d6dc": "#4E7992"   // Constants.right_panel_item_checked_color
+    property color itemHighlightColor: Constants.themeGreenColor  // Constants.currentTheme ?"#d6d6dc": "#4E7992"   // Constants.right_panel_item_checked_color
     property color itemBorderColor: Constants.right_panel_border_default_color
-    property color popupColor: "#1E9BE2"
+    property color popupColor: Constants.themeGreenColor // "#1E9BE2"
     property int showCount: 7             //最多显示的item个数
+    property string sectionProperty: ""
     property int cmbHeight: 28 * screenScaleFactor
     property int popHeight: 28 * screenScaleFactor
-    property var mysource : "qrc:/UI/photo/downBtn.svg"
-    property var mysource_d : "qrc:/UI/photo/downBtn_d.svg"
+    property real textLeftMargin: 10 *screenScaleFactor
+    property var mysource :  Constants.downBtnImgSource
+    property var mysource_d : Constants.downBtnImgSource_d
     property var keyStr: ""
     property bool hasImg: false
+    property var currentModelData
+    property real widthMultiple: 1
+    property real radius: 5 * screenScaleFactor
     property Component slotItem
     signal comboBoxIndexChanged(var key, var value)
     signal currentContentChanged(var ctext)
     signal styleComboBoxIndexChanged(var key, var item)
+    hoverEnabled: true
     //property var modelText: "modelData"
     function findTranslate(key)/*by TCJ*/
     {
@@ -45,13 +50,14 @@ QQC2.ComboBox {
         {
             tranlateValue = key
         }
-
         return tranlateValue
     }
+    displayText: qsTr(currentText)
     delegate: ItemDelegate
     {
         property bool currentItem: control.highlightedIndex === index
-        width: control.width
+        enabled: !listview.ScrollBar.vertical.active
+        width: control.width * widthMultiple
         height : popHeight
         contentItem: Rectangle
         {
@@ -67,7 +73,7 @@ QQC2.ComboBox {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: parent.left
                 anchors.leftMargin: 5*screenScaleFactor
-                source: shapeImg
+                source: model.shapeImg !== undefined ? model.shapeImg : ""
             }
 
             Text {
@@ -93,12 +99,20 @@ QQC2.ComboBox {
         }
         hoverEnabled: control.hoverEnabled
         onCurrentItemChanged: {
+            currentModelData = model
             if(currentItem && hasImg){
                 imgPop.show("")
                 imgPop.imgSource = shapeImg
             }
         }
+        onClicked:{
+        }
 
+        Component.onCompleted:{
+            if(model.index === currentIndex){
+                currentModelData = model
+            }
+        }
     }
     indicator:Item
     {
@@ -120,9 +134,8 @@ QQC2.ComboBox {
     contentItem: Text {
         id:idContent
         anchors.left: control.left
-        anchors.leftMargin: 10* screenScaleFactor
+        anchors.leftMargin: textLeftMargin
         anchors.right: control.indicator.left
-        anchors.rightMargin: control.indicator.width + control.spacing
         text: findTranslate(control.displayText)
         font: control.font
         color: textColor
@@ -132,16 +145,19 @@ QQC2.ComboBox {
         onTextChanged: currentContentChanged(text)
 
     }
-    background: Rectangle {
-        border.color: control.popup.visible? popupColor: itemBorderColor
-        border.width:   1
+    background: CusRoundedBg {
+        borderColor: (control.popup.visible || control.hovered) ? popupColor: itemBorderColor
+        borderWidth: 1
+//        border.color: (control.popup.visible || control.hovered) ? popupColor: itemBorderColor
+//        border.width:   1
+        allRadius: true
         color: "transparent"
-        radius: 5* screenScaleFactor
+        radius: control.radius
     }
     popup: Popup {
         id: popCom
         y: control.height
-        width: control.width
+        width: control.width * widthMultiple
         horizontalPadding: 1
         verticalPadding: 2* screenScaleFactor
         implicitHeight:  __col.height + 5* screenScaleFactor
@@ -158,6 +174,24 @@ QQC2.ComboBox {
                     model: control.popup.visible ? control.delegateModel : null
                     currentIndex: control.highlightedIndex
                     snapMode: ListView.SnapToItem
+                    section.property: sectionProperty
+                    section.criteria: ViewSection.FullString
+                    section.delegate: Item{
+                        width: parent.width
+                        height: control.popHeight
+                        Text{
+                            color: textColor
+                            font: control.font
+//                            elide: Text.ElideMiddle
+                            verticalAlignment: Text.AlignVCenter
+                            horizontalAlignment: Text.AlignLeft
+                            anchors.left: parent.left
+                            anchors.leftMargin: 5 * screenScaleFactor
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: section === "true" ? "------" + qsTr("Default configuration") + "------" :
+                                                      "------" + qsTr("User configuration") + "------"
+                        }
+                    }
                     ScrollBar.vertical: ScrollBar {
                         id :box_bar
                         implicitWidth: 10 * screenScaleFactor
@@ -171,6 +205,8 @@ QQC2.ComboBox {
                     }
                 }
                 Loader{
+                    width: parent.width - 4* screenScaleFactor
+                    anchors.horizontalCenter: parent.horizontalCenter
                     sourceComponent: slotItem
                 }
             }
@@ -206,6 +242,11 @@ QQC2.ComboBox {
     }
     onCurrentIndexChanged:
     {
+        //        comboBoxIndexChanged(keyStr, currentIndex)
+        //        styleComboBoxIndexChanged(keyStr, this)
+    }
+    onActivated: {
+        console.log("currentindex = ", currentIndex)
         comboBoxIndexChanged(keyStr, currentIndex)
         styleComboBoxIndexChanged(keyStr, this)
     }

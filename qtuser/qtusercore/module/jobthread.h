@@ -30,6 +30,7 @@ namespace qtuser_core
 		void progress(float r) override;
 		void failed(const QString& message) override;
 		void message(const QString& msg) override;
+		QString getFailReason() override;
 	signals:
 		void jobProgress(float r);
 		void jobMessage(const QString& message);

@@ -30,6 +30,8 @@ namespace creative_kernel
         explicit Nest2DJob(QObject* parent = nullptr);
         virtual ~Nest2DJob();
 
+        void setSpaceBox(const qtuser_3d::Box3D& box);
+        void setSpecialModels(const QList<ModelN*>& models);
         void setInsert(ModelN* model);
     protected:
         void successed(qtuser_core::Progressor* progressor) override;                     // invoke from main thread
@@ -41,6 +43,8 @@ namespace creative_kernel
 
         QString m_md5Name = "";
         bool m_bCapture = false;
+
+        QList<ModelN*> m_specialModels;
     };
 }
 

@@ -986,7 +986,7 @@
 		"type": "bool",
 		"default_value": "false",
 		"parameter_level": "1",
-		"settable_per_mesh": true
+		"settable_per_mesh": "true"
 	},
 	"layer_deceleration_length": 
 	{
@@ -998,7 +998,7 @@
 	  "default_value": "10",
 	  "enabled": "eval(contex.value(\"layer_initial_deceleration_enable\"))",
 	  "parameter_level": "2",
-	  "settable_per_mesh": true
+	  "settable_per_mesh": "true"
 	},
 	"layer_deceleration_speed": 
 	{
@@ -1011,6 +1011,6 @@
 	  "default_value": "5",
 	  "enabled": "eval(contex.value(\"layer_initial_deceleration_enable\"))",
 	  "parameter_level": "2",
-	  "settable_per_mesh": true
+	  "settable_per_mesh": "true"
 	}
 }

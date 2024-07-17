@@ -15,6 +15,7 @@ namespace qtuser_core
 		virtual ~CreativePluginCenter();
 
 		void load();
+		void loadByFilter(const QStringList& pluginFilters);
 		void initialize();
 		void uninitialize();
 		CreativeInterface* getPluginByName(QString name);

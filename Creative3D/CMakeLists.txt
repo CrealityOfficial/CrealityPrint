@@ -1,4 +1,4 @@
-find_package(Qt5 COMPONENTS Core SerialPort LinguistTools Svg WebSockets REQUIRED)
+find_package(Qt5 COMPONENTS Core Xml SerialPort LinguistTools Svg WebSockets REQUIRED)
 
 if(WIN32)
 	#message(STATUS "Using windres")
@@ -16,7 +16,7 @@ endif(WIN32)
 
 set(SRCS src/main.cpp
 		 )
-		 
+
 if (WIN32)
     list(APPEND SRCS ${RES_FILES})
 endif(WIN32)
@@ -26,42 +26,36 @@ if(NOT TS_FILES)
 	../locales/en.ts
 	../locales/zh_CN.ts
 	../locales/zh_TW.ts
-	../locales/ko.ts
-	../locales/jp.ts
-	../locales/de.ts
-	../locales/es.ts
-	../locales/fr.ts
-	../locales/it.ts
-	../locales/pt.ts
-	../locales/ru.ts
-	../locales/tr.ts
-	../locales/pl.ts
-	../locales/nl.ts
-	../locales/cz.ts
-	../locales/hu.ts
-	../locales/se.ts
-	../locales/ua.ts
+	../locales/parameter_c3d/en_c3d.ts
+	../locales/parameter_c3d/zh_CN_c3d.ts
+	../locales/parameter_c3d/zh_TW_c3d.ts
+	../locales/paremeter_orca/en_orca.ts
+	../locales/paremeter_orca/zh_CN_orca.ts
+	../locales/paremeter_orca/zh_TW_orca.ts
 	)
 endif()
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/res/)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/scence3d.qrc ${CMAKE_CURRENT_BINARY_DIR}/scence3d.qrc COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/main.qml ${CMAKE_CURRENT_BINARY_DIR}/res/main.qml COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/MainWindow.qml ${CMAKE_CURRENT_BINARY_DIR}/res/MainWindow.qml COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/Creative3D.ico ${CMAKE_CURRENT_BINARY_DIR}/res/Creative3D.ico COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/splashLogo.png ${CMAKE_CURRENT_BINARY_DIR}/res/splashLogo.png COPYONLY)
-if(SPLASH_URL)
-	configure_file(${SPLASH_URL} ${CMAKE_CURRENT_BINARY_DIR}/res/splash.png COPYONLY)
-else()
-	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/splash.png ${CMAKE_CURRENT_BINARY_DIR}/res/splash.png COPYONLY)
-endif()
-if(LOGO_URL)
-	configure_file(${LOGO_URL} ${CMAKE_CURRENT_BINARY_DIR}/res/logo.png COPYONLY)
-else()
-	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/logo.png ${CMAKE_CURRENT_BINARY_DIR}/res/logo.png COPYONLY)
-endif()
+if (NOT ${CUSTOM_TYPE} STREQUAL "")
+	file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/res/)
+	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/scence3d.qrc ${CMAKE_CURRENT_BINARY_DIR}/scence3d.qrc COPYONLY)
+	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/main.qml ${CMAKE_CURRENT_BINARY_DIR}/res/main.qml COPYONLY)
+	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/MainWindow.qml ${CMAKE_CURRENT_BINARY_DIR}/res/MainWindow.qml COPYONLY)
+	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/Creative3D.ico ${CMAKE_CURRENT_BINARY_DIR}/res/Creative3D.ico COPYONLY)
+	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/splashLogo.png ${CMAKE_CURRENT_BINARY_DIR}/res/splashLogo.png COPYONLY)
+	if(SPLASH_URL)
+		configure_file(${SPLASH_URL} ${CMAKE_CURRENT_BINARY_DIR}/res/splash.png COPYONLY)
+	else()
+		configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/splash.png ${CMAKE_CURRENT_BINARY_DIR}/res/splash.png COPYONLY)
+	endif()
+	if(LOGO_URL)
+		configure_file(${LOGO_URL} ${CMAKE_CURRENT_BINARY_DIR}/res/logo.png COPYONLY)
+	else()
+		configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/logo.png ${CMAKE_CURRENT_BINARY_DIR}/res/logo.png COPYONLY)
+	endif()
 
-qt5_add_resources(QT_QRC ${CMAKE_CURRENT_BINARY_DIR}/scence3d.qrc)
-
+	qt5_add_resources(QT_QRC ${CMAKE_CURRENT_BINARY_DIR}/scence3d.qrc)
+else()
+	qt5_add_resources(QT_QRC ${CMAKE_CURRENT_SOURCE_DIR}/scence3d.qrc)
+endif()
 #find_package(Qt5QuickCompiler)
 #qtquick_compiler_add_resources(RESOURCES ${CMAKE_CURRENT_BINARY_DIR}/scence3d.qrc)
 
@@ -87,7 +81,7 @@ qt5_add_resources(MAIN_QRC ${CMAKE_CURRENT_BINARY_DIR}/translations.qrc)
 
 if(CC_BC_LINUX)
 	set(AppDir ${CMAKE_INSTALL_PREFIX})
-	
+
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/default.desktop DESTINATION ${AppDir})
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/default.png DESTINATION ${AppDir})
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources" DESTINATION ${AppDir})
@@ -97,17 +91,18 @@ if(CC_BC_LINUX)
 endif()
 
 
-set(LIBS BasicKernel cxkernel Qt5::Svg Qt5::WebSockets)
+set(LIBS BasicKernel cxkernel Qt5::Svg Qt5::WebSockets Qt5::Xml)
 if(CC_BC_LINUX)
 list(APPEND LIBS -pthread)
 endif()
 __add_real_target(${PROJECT_NAME} exe SOURCE ${SRCS} ${MAIN_QRC} ${QT_QRC}
-											  LIB ${LIBS} 
+											  LIB ${LIBS}
 											  INC ${PROJECT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src
 											  MAC_OUTPUT_NAME ${BUNDLE_NAME}
 											  MAC_GUI_IDENTIFIER com.creality.crealityprint
 											  QML_PLUGINS CrealityUI
 											  DEPLOYQT
+											  OPENMP
 											  )
 
 list(APPEND QML_IMPORT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../plugins")
@@ -116,8 +111,7 @@ set(QML_IMPORT_PATH ${QML_IMPORT_PATH}
     FORCE
 )
 
-	
-if(CC_BC_WIN)	
+if(CC_BC_WIN)
 	target_sources(${PROJECT_NAME} PRIVATE dpi-aware.manifest)
 	if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 		TARGET_COMPILE_DEFINITIONS(${PROJECT_NAME}
@@ -128,12 +122,40 @@ if(CC_BC_WIN)
     			${CMAKE_SOURCE_DIR}/resources/
     			"$<TARGET_FILE_DIR:${PROJECT_NAME}>/resources/"
     			)
+	if(EXISTS ${CMAKE_SOURCE_DIR}/build/resources/sliceconfig/server_0/orca/default/machineList.json)
+		add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    			COMMAND ${CMAKE_COMMAND} -E copy_directory
+    			${CMAKE_SOURCE_DIR}/build/resources/sliceconfig/server_0/
+    			"$<TARGET_FILE_DIR:${PROJECT_NAME}>/resources/sliceconfig/server_0/"
+    			)
+	endif()
+	if(EXISTS ${CMAKE_SOURCE_DIR}/build/resources/sliceconfig/server_1/orca/default/machineList.json)
+		add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    			COMMAND ${CMAKE_COMMAND} -E copy_directory
+    			${CMAKE_SOURCE_DIR}/build/resources/sliceconfig/server_1/
+    			"$<TARGET_FILE_DIR:${PROJECT_NAME}>/resources/sliceconfig/server_1/"
+    			)
+	endif()
 elseif(CC_BC_MAC)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_SOURCE_DIR}/resources/
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/../Resources/resources/"
             )
+	if(EXISTS ${CMAKE_BINARY_DIR}/resources/sliceconfig/server_0/orca/default/machineList.json)
+		add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_BINARY_DIR}/resources/sliceconfig/server_0/
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/../Resources/resources/sliceconfig/server_0/"
+    			)
+	endif()
+	if(EXISTS ${CMAKE_BINARY_DIR}/resources/sliceconfig/server_1/orca/default/machineList.json)
+		add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_BINARY_DIR}/resources/sliceconfig/server_1/
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/../Resources/resources/sliceconfig/server_1/"
+    			)
+	endif()
 endif()
 
 foreach(plugin ${Creative3D_plugins})

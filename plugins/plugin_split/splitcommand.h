@@ -13,7 +13,9 @@ class SplitCommand: public ToolCommand
     Q_PROPERTY(QVector3D dir READ dir  NOTIFY onRotateAngleChanged)
     //Q_PROPERTY(QVector3D defauletPos READ defauletPos WRITE setDefauletPos)
     Q_PROPERTY(QVector3D defauletDir READ defauletDir WRITE setDefauletDir)
-    Q_PROPERTY(float offsetVal READ getOffset NOTIFY onOffsetChanged)
+    Q_PROPERTY(float offsetVal READ getOffset WRITE changeOffset NOTIFY onOffsetChanged)
+
+    Q_PROPERTY(bool bCutToParts READ getCutToParts WRITE setCutToParts CONSTANT)
 public:
 	SplitCommand(QObject* parent = nullptr);
 	virtual ~SplitCommand();
@@ -27,14 +29,12 @@ public:
 
     Q_INVOKABLE void accept();
     Q_INVOKABLE void cancel();
-
-    //Q_INVOKABLE void setQmlPosition(float val, int nXYZFlag);
-    //Q_INVOKABLE void setQmlRotate(float val, int nXYZFlag);
-    //// ÖØÖÃpos ºÍ rotate
-    //Q_INVOKABLE void resetCmd();
-
     Q_INVOKABLE void changeAxisType(int type);
     Q_INVOKABLE void changeOffset(float off);
+    Q_INVOKABLE void indicateEnabled(bool bRet);
+    Q_INVOKABLE void modelGap(float gap);
+    Q_INVOKABLE void setCutToParts(bool bRet);
+    bool getCutToParts()const;
 
     void setMessage(bool isRemove);
     bool message();
@@ -48,7 +48,7 @@ protected:
     void onLanguageChanged(creative_kernel::MultiLanguage language) override;
 protected:
 	SplitOp* m_op;
-    int m_AxisType = 2;     //Æ«ÒÆµÄÀàÐÍ 0 : x ;1 : y ; z:2
+    int m_AxisType = 2;     //ƫ�Ƶ����� 0 : x ;1 : y ; z:2
 
     QVector3D position();
     QVector3D dir();

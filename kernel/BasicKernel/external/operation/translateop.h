@@ -9,10 +9,9 @@
 #include "qtuser3d/math/box3d.h"
 #include "data/modeln.h"
 #include "../utils/operationutil.h"
-#include "interface/spaceinterface.h"
 #include "moveoperatemode.h"
 
-#define PosMax 1000
+#define PosMax 10000
 
 namespace creative_kernel
 {
@@ -20,7 +19,7 @@ namespace creative_kernel
 }
 
 class BASIC_KERNEL_API TranslateOp : public MoveOperateMode
-	, public qtuser_3d::SelectorTracer , public creative_kernel::SpaceTracer
+	, public qtuser_3d::SelectorTracer
 {
 	Q_OBJECT
 public:
@@ -35,6 +34,7 @@ public:
 	QVector3D position();
 	void setPosition(QVector3D position);
 	void setBottom();
+
 signals:
 	void positionChanged();
 	void mouseLeftClicked();
@@ -62,12 +62,7 @@ protected:
 
     void movePositionToinit(QList<creative_kernel::ModelN*>& selections);
 
-protected:
-	void onBoxChanged(const qtuser_3d::Box3D& box) override;
-	void onSceneChanged(const qtuser_3d::Box3D& box) override;
-
 private:
 	qtuser_3d::TranslateHelperEntity* m_helperEntity;
-	double m_originFovy;
 };
 #endif // _NULLSPACE_TRANSLATEOP_1589770383921_H

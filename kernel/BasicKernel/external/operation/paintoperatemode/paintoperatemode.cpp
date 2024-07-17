@@ -17,6 +17,7 @@
 #include "interface/modelinterface.h"
 #include "cxkernel/interface/jobsinterface.h"
 #include "interface/visualsceneinterface.h"
+#include "interface/printerinterface.h"
 
 #include "qtuser3d/camera/cameracontroller.h"
 #include "qtuser3d/camera/screencamera.h"
@@ -38,7 +39,7 @@
 #include "spread/meshspread.h"
 #include "spreadmodel/spreadmodel.h"
 #include "msbase/space/angle.h"
-
+#include "external/kernel/kernelui.h"
 
 PaintOperateMode::PaintOperateMode(QObject* parent)
     : qtuser_3d::SceneOperateMode(parent)
@@ -58,6 +59,12 @@ PaintOperateMode::PaintOperateMode(QObject* parent)
 			creative_kernel::setVisOperationMode(NULL);
 		}
 	});
+	connect(this, &PaintOperateMode::colorMethodChanged, this, [=] ()
+	{
+		m_spreadModel->setNeedMixEnabled(m_colorMethod == 3);
+	});
+	connect(this, &PaintOperateMode::colorMethodChanged, this, &PaintOperateMode::onTriggerGapFill);
+	connect(this, &PaintOperateMode::gapAreaChanged, this, &PaintOperateMode::onTriggerGapFill);
 
 	setHighlightOverhangsDeg(m_highlightOverhangsDeg);
   }
@@ -76,9 +83,19 @@ bool PaintOperateMode::isRunning()
 void PaintOperateMode::restore(creative_kernel::ModelN* model, const std::vector<std::string>& data)
 {
 	m_lastSpreadData = data;
+	// qDebug() << "******* restore *******";
+	// for (int i = 0, count = m_lastSpreadData.size(); i < count; ++i) 
+	// {
+	// 	if (m_lastSpreadData[i].size() > 0) 
+	// 	{
+	// 		qDebug() << i << m_lastSpreadData[i].data();
+	// 	}
+	// }
 	m_meshSpreadWrapper->set_triangle_from_data(data);
 	m_meshSpreadWrapper->updateTriangle();
 	updateSpreadModel();
+
+	onTriggerGapFill();
 }
 
 std::vector<std::string> PaintOperateMode::getPaintData() const
@@ -116,11 +133,12 @@ bool PaintOperateMode::pressed()
 
 float PaintOperateMode::sectionRate()
 {
-	return m_sectionRate;
+	return 1.0 - m_sectionRate;
 }
 
 void PaintOperateMode::setSectionRate(float rate)
 {
+	rate = 1.0 - rate;
 	if (m_sectionRate != rate)
 	{
 		m_sectionRate = rate;
@@ -140,9 +158,16 @@ void PaintOperateMode::setColorRadius(float radius)
 	if (m_colorRadius != radius)
 	{
 		m_colorRadius = radius;
-
 		emit colorRadiusChanged();
+
+		if (m_originModel)
+			radiusMapToScreen(m_originModel->localPosition());
 	}
+}
+
+float PaintOperateMode::screenRadius()
+{
+	return m_screenRadius;
 }
 
 int PaintOperateMode::colorMethod()
@@ -156,7 +181,7 @@ void PaintOperateMode::setColorMethod(int method)
 		return;
 
 	m_colorMethod = method;
-	// m_originFillData = m_colorModel->getColors2Facets();
+	emit colorMethodChanged();
 }
 
 int PaintOperateMode::colorIndex()
@@ -166,8 +191,13 @@ int PaintOperateMode::colorIndex()
 
 void PaintOperateMode::setColorIndex(int index)
 {
-	m_colorIndex = index + 1;
-	m_colorExecutor->setColorIndex(index + 1);
+	index = index + 1;
+	if (m_colorIndex != index) 
+	{
+		m_colorIndex = index;
+		m_colorExecutor->setColorIndex(index);
+		emit colorIndexChanged();
+	}
 }
 
 QVariantList PaintOperateMode::colorsList()
@@ -181,18 +211,19 @@ QVariantList PaintOperateMode::colorsList()
 
 void PaintOperateMode::setColorsList(const QVariantList& datasList)
 {
-	m_colorsList.clear();
+	std::vector<trimesh::vec3> colors;
 	for (QVariant data : datasList)
 	{
 		QColor color = data.value<QColor>();
-		m_colorsList.push_back(trimesh::vec(color.red() / 255.0, color.green() / 255.0, color.blue() / 255.0));
+		colors.push_back(trimesh::vec(color.red() / 255.0, color.green() / 255.0, color.blue() / 255.0));
 	}
+	handleColorsListChanged(colors);
   	onColorsListChanged();
 }
 
 void PaintOperateMode::setColorsList(const std::vector<trimesh::vec>& datasList)
 {
-	m_colorsList = datasList;
+	handleColorsListChanged(datasList);
   	onColorsListChanged();
 }
 
@@ -210,7 +241,10 @@ void PaintOperateMode::setHighlightOverhangsDeg(float rate)
 {
 	m_highlightOverhangsDeg = rate;
 	m_spreadModel->setHighlightOverhangsDeg(m_highlightOverhangsDeg);
-	m_meshSpreadWrapper->set_paint_on_overhangs_only(m_overHangsEnable ? m_highlightOverhangsDeg : 0);
+
+	float deg = actualUsedHighlightHangsAngle();
+	m_meshSpreadWrapper->set_paint_on_overhangs_only(deg);
+	
 	emit highlightOverhangsDegChanged();
 }
 
@@ -222,8 +256,103 @@ bool PaintOperateMode::overHangsEnable()
 void PaintOperateMode::setOverHangsEnable(bool enable)
 {
 	m_overHangsEnable = enable;
-	m_meshSpreadWrapper->set_paint_on_overhangs_only(m_overHangsEnable ? m_highlightOverhangsDeg : 0);
+	float deg = actualUsedHighlightHangsAngle();
+	m_meshSpreadWrapper->set_paint_on_overhangs_only(deg);
 	emit overHangsEnableChanged();
+}
+
+float PaintOperateMode::smartFillAngle()
+{
+	return m_smartFillAngle;
+}
+
+void PaintOperateMode::setSmartFillAngle(float angle)
+{
+	m_smartFillAngle = angle;
+	emit smartFillAngleChanged();
+}
+
+bool PaintOperateMode::smartFillEnable()
+{
+	return m_smartFillEnable;
+}
+
+void PaintOperateMode::setSmartFillEnable(bool enable)
+{
+	m_smartFillEnable = enable;
+	emit smartFillEnableChanged();
+}
+
+float PaintOperateMode::heightRange()
+{
+	return m_heightRange;
+}
+
+void PaintOperateMode::setHeightRange(float heightRange)
+{
+	m_heightRange = heightRange;
+	emit heightRangeChanged();
+}
+
+float PaintOperateMode::gapArea()
+{
+	return m_gapArea;
+}
+
+void PaintOperateMode::setGapArea(float areaSize)
+{
+	m_gapArea = areaSize;
+	emit gapAreaChanged();
+}
+
+float PaintOperateMode::radiusMapToScreen(QVector3D center)
+{
+	if (!m_hoverOnModel) 
+	{
+		if (m_screenRadius != 0)
+		{
+			m_screenRadius = 0;
+			emit screenRadiusChanged();
+		}
+		return 0;
+	}
+
+	auto camera = creative_kernel::cameraController()->screenCamera()->camera();
+	QVector3D viewPos = creative_kernel::cameraController()->getviewCenter();
+	QVector3D viewDir = creative_kernel::cameraController()->getViewDir();
+	//QVector3D position = ray.start;
+	//QVector3D dir = ray.dir.normalized();
+	QVector3D nearCenter = viewPos + viewDir * camera->nearPlane();
+	QVector3D leftDir = QVector3D::crossProduct(viewDir, camera->upVector()).normalized();
+	QVector3D leftPos = center + leftDir * m_colorRadius;
+
+	qtuser_3d::ScreenCamera* sc = creative_kernel::visCamera();
+	const QMatrix4x4 vp = sc->projectionMatrix() * sc->viewMatrix();
+
+	QVector4D clipO = vp * QVector4D(center, 1.0);
+	QVector3D ndcO = QVector3D(clipO) / clipO.w();
+	QVector2D uvO = QVector2D(ndcO);
+
+	QVector4D clipP = vp * QVector4D(leftPos, 1.0);
+	QVector3D ndcP = QVector3D(clipP) / clipP.w();
+	QVector2D uvP = QVector2D(ndcP);
+
+	QVector2D screenCross = uvO * QVector2D(sc->size().width(), sc->size().height());
+	QVector2D radiusLine = (uvP - uvO) * QVector2D(sc->size().width(), sc->size().height());
+
+	m_screenRadius = radiusLine.length() / 2;
+	emit screenRadiusChanged();
+	return m_screenRadius;
+}
+
+float PaintOperateMode::actualUsedHighlightHangsAngle()
+{
+	float deg = 0;
+	if (m_overHangsEnable)
+	{
+		deg = (m_highlightOverhangsDeg == 90 ? 89.9 : m_highlightOverhangsDeg);
+	}
+	return deg;
 }
 
 void PaintOperateMode::resize()
@@ -231,6 +360,9 @@ void PaintOperateMode::resize()
   auto camera = creative_kernel::visCamera()->camera();
   m_scale = camera->fieldOfView();
   emit scaleChanged();
+
+  if (m_originModel)
+  	choose(pos());
 }
 
 /* 剖面功能 */
@@ -277,7 +409,7 @@ void PaintOperateMode::updateSectionBoundary()
         }
     }
 	m_frontPos = boxCorners[minIndex];
-	m_backPos = boxCorners[maxIndex];
+	m_backPos = boxCorners[maxIndex]; //偏移5避免误差
 	m_sectionPos = m_frontPos;
 }
 
@@ -286,31 +418,28 @@ void PaintOperateMode::updateSection()
 	if (m_sectionNormal.isNull()) 
 		resetDirection();
 
+	/* 
+	 * note: The following "sectionPosOffset" and "backPosOffset"
+	 * are to avoid errors in boundary value calculation. 
+	 */
 	float distance = m_backPos.distanceToPlane(m_frontPos, m_sectionNormal);
 	m_sectionPos = m_frontPos + distance * (1.0 - m_sectionRate) * m_sectionNormal;
-	m_spreadModel->setSection(m_sectionPos, m_backPos, m_sectionNormal);	
 
-	qtuser_3d::Box3D localBox = m_originModel->localBox();
-	qtuser_3d::Box3D globalBox = m_originModel->globalSpaceBox();
-	float x = localBox.max.x() - localBox.min.x();
-	float y = localBox.max.y() - localBox.min.y();
-	float z = localBox.max.z() - localBox.min.z();
-	float radius = 0.5 * sqrt(x * x + y * y + z * z);
-	QVector3D center = globalBox.center();
-	float dist = QVector3D::dotProduct(m_sectionNormal, center);
-	//m_offset = (dist - (-radius) - (-0.25) * 2* radius);
-	float clpOffset = (dist - (-radius) - m_sectionRate * 2 * radius);
+	float sectionPosOffset = 0;
+	if (m_sectionRate == 1.0)
+		sectionPosOffset = -5;
 
-	const QMatrix4x4 trafo = m_originModel->pose();
-	const QMatrix4x4 trafo_normal(trafo.normalMatrix());
-	const QMatrix4x4 trafo_inv = trafo.inverted();
+	float backPosOffset = 5;
+	if (m_sectionRate == 0.0)
+		backPosOffset = 0;
 
-	QVector3D point_on_plane = m_sectionNormal * clpOffset;
-	QVector3D point_on_plane_transformed = trafo_inv * point_on_plane;
-	QVector3D normal_transformed = trafo_normal * m_sectionNormal;
-	m_sectionNormal = normal_transformed;
-	m_offset = float(QVector3D::dotProduct(point_on_plane_transformed, (normal_transformed)));
+	m_spreadModel->setSection(m_sectionPos + sectionPosOffset * m_sectionNormal, m_backPos + backPosOffset * m_sectionNormal, m_sectionNormal);
 
+	QVector3D _m_sectionNormal = -m_sectionNormal;
+	float d1 = QVector3D::dotProduct(_m_sectionNormal, m_frontPos);
+	float d2 = QVector3D::dotProduct(_m_sectionNormal, m_backPos);
+	m_offset = d2 + (d1 - d2) * m_sectionRate;
+	m_normal = _m_sectionNormal;
 }
 
 /* 渲染 */
@@ -334,16 +463,59 @@ void PaintOperateMode::updateScene()
 	if (m_enabled)
 	{
 		creative_kernel::useCustomScene();
-		creative_kernel::setPrinterVisible(false);
+		creative_kernel::hidePrinter();
+		updateSectionBoundary();
+		updateSection();
 		installEventHandlers();
+		
+		static bool firstStart = true;
+		if (firstStart)
+		{
+			///* trigger render */
+			firstStart = false;
+
+			std::vector<trimesh::vec3> line;
+			line.push_back(trimesh::vec3(0, 0, 0));
+			line.push_back(trimesh::vec3(1, 1, 1));
+
+			std::vector<std::vector<trimesh::vec3>> routes;
+			routes.push_back(line);
+
+			updateRoute(routes);
+			hideRoute();
+		}
 	}
 	else
 	{
 		creative_kernel::useDefaultScene();
-		creative_kernel::setPrinterVisible(true);
+		creative_kernel::showPrinter();
 		uninstallEventHandlers();
 	}
+	
 	creative_kernel::requestVisUpdate(true);
+}
+
+void PaintOperateMode::handleColorsListChanged(const std::vector<trimesh::vec>& newColors)
+{
+	int oldSize = m_colorsList.size(), newSize = newColors.size();
+	if (newSize == 0 || !m_originModel || !m_isWrapperReady)
+		return;
+
+	if (newSize < m_colorIndex) //m_colorIndex start from 1
+	{
+		setColorIndex(0);
+	}
+
+	int deleteCount = oldSize - newSize;
+	while (deleteCount > 0)
+	{	
+		std::vector<int> chunks;
+		m_meshSpreadWrapper->change_state_all_triangles(oldSize + deleteCount - 1, 1, chunks);
+		deleteCount--;
+		onGotNewData(chunks);
+	}
+
+	m_colorsList = newColors;
 }
 
 void PaintOperateMode::resetRouteNum(int number)
@@ -356,6 +528,17 @@ void PaintOperateMode::resetRouteNum(int number)
 
 	while (m_outlineEntitys.size() > number)
 		m_outlineEntitys.takeLast()->deleteLater();
+
+	qtuser_3d::ScreenCamera* screenCamera = creative_kernel::visCamera();
+	Qt3DRender::QCamera* camera = screenCamera->camera();
+	bool isOrth = camera->projectionType() == Qt3DRender::QCameraLens::ProjectionType::OrthographicProjection;
+	for (auto entity : m_outlineEntitys)
+	{
+		if (isOrth)
+			entity->setOffset(0.0);
+		else 
+			entity->setOffset(0.1);
+	}
 }
 
 void PaintOperateMode::updateRoute(const std::vector<trimesh::vec3>& route)
@@ -370,8 +553,14 @@ void PaintOperateMode::updateRoute(const std::vector<trimesh::vec3>& route)
 
 void PaintOperateMode::updateRoute(const std::vector<std::vector<trimesh::vec3>>& routes)
 {
+	routeFlag = true;
 	if (routes.size() == 0)
+	{
+		if (m_meshSpreadWrapper->judge_select_triangles())
+			return;
+		hideRoute();
 		return;
+	}
 
 	resetRouteNum(1);
 	auto entity = m_outlineEntitys.first();
@@ -382,11 +571,13 @@ void PaintOperateMode::updateRoute(const std::vector<std::vector<trimesh::vec3>>
 
 void PaintOperateMode::hideRoute()
 {
+	routeFlag = false;
 	m_meshSpreadWrapper->seed_fill_unselect_all_triangles();
 	for (auto entity : m_outlineEntitys)
 		creative_kernel::visHideCustom(entity);
-}
 
+	getKernelUI()->hideToolTip();
+}
 
 void PaintOperateMode::chooseTriangle()
 {
@@ -397,8 +588,8 @@ void PaintOperateMode::chooseTriangle()
 		return;
 	}
 	std::vector<std::vector<trimesh::vec3>> contour;
-	trimesh::vec normal(-m_sectionNormal.x(), -m_sectionNormal.y(), -m_sectionNormal.z());
-	m_meshSpreadWrapper->bucket_fill_select_triangles_preview(data.center, data.faceId, m_colorIndex, contour, normal, m_offset, false);
+	trimesh::vec normal(m_sectionNormal.x(), m_sectionNormal.y(), m_sectionNormal.z());
+	m_meshSpreadWrapper->bucket_fill_select_triangles_preview(data.center, data.faceId, m_colorIndex, contour, normal, m_offset, 30, false, false);
 	updateRoute(contour);
 }
 
@@ -412,8 +603,55 @@ void PaintOperateMode::chooseFillArea()
 	}
 	std::vector<std::vector<trimesh::vec3>> contour;
 	trimesh::vec normal(-m_sectionNormal.x(), -m_sectionNormal.y(), -m_sectionNormal.z());
-	m_meshSpreadWrapper->bucket_fill_select_triangles_preview(data.center, data.faceId, m_colorIndex, contour, normal, m_offset);
+	m_meshSpreadWrapper->bucket_fill_select_triangles_preview(data.center, data.faceId, m_colorIndex, contour, normal, m_offset, m_smartFillEnable ? m_smartFillAngle : 90, true, true, m_overHangsEnable);
 	updateRoute(contour);
+}
+
+void PaintOperateMode::chooseCircle()
+{
+	spread::SceneData data;
+	if (!getSceneData(pos(), data))
+	{
+		if (m_screenRadius != 0)
+		{
+			m_screenRadius = 0;
+			emit screenRadiusChanged();
+		}
+		m_hoverOnModel = false;
+		hideRoute();
+		return;
+	}
+	m_hoverOnModel = true;
+	radiusMapToScreen(QVector3D(data.center.x, data.center.y, data.center.z));
+}
+
+void PaintOperateMode::chooseHeightRange()
+{
+	spread::SceneData data;
+	if (!getSceneData(pos(), data))
+	{
+		hideRoute();
+		return;
+	}
+
+	std::vector<std::vector<trimesh::vec3>> contour;
+	m_meshSpreadWrapper->get_height_contour(data.center, m_heightRange, contour);
+	updateRoute(contour);
+}
+
+void PaintOperateMode::chooseGapFillArea()
+{
+	spread::SceneData data;
+	if (!m_hasGap || !getSceneData(pos(), data))
+	{
+		m_spreadModel->setNeedHighlightEnabled(false);
+		hideRoute();
+		return;
+	}
+
+	m_spreadModel->setNeedHighlightEnabled(true);
+	getKernelUI()->showToolTip(pos() + QPoint(15, -9), tr("click to gap fill"));
+		
 }
 
 QVector3D PaintOperateMode::getTriangleNormal(const QVector3D& v1, const QVector3D& v2, const QVector3D& v3) const
@@ -462,7 +700,9 @@ bool PaintOperateMode::getSceneData(const QPoint& pos, spread::SceneData& data)
 	trimesh::vec cross;
     int faceID = m_meshSpreadWrapper->getFacet(rayOrigin, rayDirection, cross);
 	if (faceID == -1)
+	{		
 		return false;
+	}
 
 	/* 配置SceneData参数 */ 
 	data.center = cross;
@@ -470,11 +710,27 @@ bool PaintOperateMode::getSceneData(const QPoint& pos, spread::SceneData& data)
 	data.cameraPos = trimesh::vec(cameraPos.x(), cameraPos.y(), cameraPos.z());
 	data.radius = colorRadius();
 	data.faceId = faceID;// 获取原始的faceID
-	data.planeNormal = trimesh::vec(-m_sectionNormal.x(), -m_sectionNormal.y(), -m_sectionNormal.z());	
+	data.planeNormal = trimesh::vec(m_normal.x(), m_normal.y(), m_normal.z());
 	data.planeOffset = m_offset;
+	data.support_angle_threshold_deg = actualUsedHighlightHangsAngle();
 
-	data.support_angle_threshold_deg = m_overHangsEnable ? m_highlightOverhangsDeg : 0;
+	/* 检验faceID是否有效 */
+	TriMeshPtr mesh = m_originModel->globalMesh();
+	if (faceID >= mesh->faces.size())
+	{
+		return false;
+	}
 
+	/* 检验是否背面 */
+	auto face = mesh->faces[faceID];
+	trimesh::vec3 edge1 = mesh->vertices[face[1]] - mesh->vertices[face[0]];
+	trimesh::vec3 edge2 = mesh->vertices[face[2]] - mesh->vertices[face[1]];
+	trimesh::vec3 normal = edge1.cross(edge2);
+	if (normal.dot(rayDirection) > 0)
+	{
+		return false;
+	}
+	
 	return true;
 }
 
@@ -482,7 +738,7 @@ void PaintOperateMode::color(const QPoint &pos, int colorIndex, bool isFirstColo
 {
 	m_colorExecutor->setColorIndex(colorIndex);
 
-	if (m_colorMethod == spread::CursorType::POINTER)
+	if (m_colorMethod == spread::CursorType::TRIANGLE)
 	{
 		m_colorExecutor->triangleColor();
 	}
@@ -493,9 +749,21 @@ void PaintOperateMode::color(const QPoint &pos, int colorIndex, bool isFirstColo
 			return;
 		m_colorExecutor->circleColor(data, isFirstColor);
 	}
-	else if (m_colorMethod == spread::CursorType::GAP_FILL)
+	else if (m_colorMethod == spread::CursorType::FILL)
 	{
 		m_colorExecutor->fillColor();
+	}
+	else if (m_colorMethod == spread::CursorType::HEIGHT_RANGE)
+	{
+		spread::SceneData data;
+		if (!getSceneData(pos, data))
+			return;
+		m_colorExecutor->heightRangeColor(data, m_heightRange);
+	}
+	else if (m_colorMethod == spread::CursorType::GAP_FILL)
+	{
+		m_colorExecutor->fillGapColor();
+		onTriggerGapFill();
 	}
 }
 
@@ -529,16 +797,24 @@ void PaintOperateMode::updateSpreadModel(int chunkId)
 }
 
 void PaintOperateMode::choose(const QPoint& pos)
-{
-	if (m_colorMethod == spread::CursorType::POINTER)
+{	
+	if (m_colorMethod == spread::CursorType::TRIANGLE)
 		chooseTriangle();
-	else if(m_colorMethod == spread::CursorType::GAP_FILL)
+	else if(m_colorMethod == spread::CursorType::FILL)
 		chooseFillArea();
+	else if (m_colorMethod == spread::CursorType::CIRCLE)
+		chooseCircle();
+	else if (m_colorMethod == spread::CursorType::HEIGHT_RANGE)
+		chooseHeightRange();
+	else if (m_colorMethod == spread::CursorType::GAP_FILL)
+		chooseGapFillArea();
 	else 
 		hideRoute();
 
+	// if (pressed())
+	// 	color(pos, m_erase ? m_spreadModel->defaultFlag() : m_colorIndex, false);
 	if (pressed())
-		color(pos, m_erase ? 1 : m_colorIndex, false);
+		color(pos, m_erase ? 0 : m_colorIndex, false);
 }
 
 void PaintOperateMode::onColorsListChanged()
@@ -559,30 +835,96 @@ void PaintOperateMode::onGotNewData(std::vector<int> dirtyChunks)
 	}
 }
 
+void PaintOperateMode::onTriggerGapFill()
+{
+	if (m_colorMethod == spread::CursorType::GAP_FILL)
+	{
+		std::vector<int> dirtyChunks;
+		m_hasGap = m_meshSpreadWrapper->get_triangles_per_patch(m_gapArea, dirtyChunks);
+		for (int i = 0; i < dirtyChunks.size(); ++i)
+		{
+			std::vector<trimesh::vec3> positions;
+			std::vector<int> flags;
+			std::vector<int> flags_before;
+			std::vector<int> splitIndices;
+
+			int id = dirtyChunks[i];
+			m_meshSpreadWrapper->chunk_gap_fill(dirtyChunks[i], positions, flags_before, flags, splitIndices);
+
+			m_spreadModel->updateChunkData(id, positions, flags, flags_before);
+			m_spreadModel->setChunkIndexMap(id, splitIndices);
+		}
+	}
+}
+
+void PaintOperateMode::refreshRender()
+{
+	int count = m_meshSpreadWrapper->chunkCount();	
+	for (int chunkId = 0; chunkId < count; ++chunkId)
+	{
+		std::vector<trimesh::vec3> positions; 
+		std::vector<int> flags;
+		std::vector<int> indexMap;
+		m_meshSpreadWrapper->chunk(chunkId, positions, flags, indexMap);
+		m_spreadModel->updateChunkData(chunkId, positions, flags);
+		m_spreadModel->setChunkIndexMap(chunkId, indexMap);
+	}
+}
+
+void PaintOperateMode::setDefaultFlag(int flag)
+{
+	m_spreadModel->setDefaultFlag(flag);
+}
+
+bool PaintOperateMode::paintDataEqual(std::vector<std::string> data1, std::vector<std::string> data2)
+{
+	bool isChanged = false;
+	if (data1.size() != data2.size())
+	{
+		isChanged = true;
+	}
+	else
+	{
+		for (int i = 0, count = data1.size(); i < count; ++i)
+		{
+			if (data1[i] != data2[i])
+			{
+				isChanged = true;
+				break;
+			}
+		}
+	}
+
+	return !isChanged;
+}
+
 /**** override ***/
 void PaintOperateMode::installEventHandlers()
 {
 	creative_kernel::addHoverEventHandler(this);
-	creative_kernel::addLeftMouseEventHandler(this);
+	creative_kernel::prependLeftMouseEventHandler(this);
+	creative_kernel::prependKeyEventHandler(this);
 	creative_kernel::prependRightMouseEventHandler(this);
 	creative_kernel::prependMidMouseEventHandler(this);
 	creative_kernel::prependWheelEventHandler(this);
+	connect(creative_kernel::cameraController(), &qtuser_3d::CameraController::signalViewChanged, this, &PaintOperateMode::resize);
 }
 
 void PaintOperateMode::uninstallEventHandlers()
 {
 	creative_kernel::removeHoverEventHandler(this);
 	creative_kernel::removeLeftMouseEventHandler(this);
+	creative_kernel::removeKeyEventHandler(this);
 	creative_kernel::removeRightMouseEventHandler(this);
 	creative_kernel::removeMidMouseEventHandler(this);
 	creative_kernel::removeWheelEventHandler(this);
+	disconnect(creative_kernel::cameraController(), &qtuser_3d::CameraController::signalViewChanged, this, &PaintOperateMode::resize);
 }
 
 void PaintOperateMode::onAttach() 
 {
+	creative_kernel::setContinousRender();
 	creative_kernel::addSelectTracer(this);
-	connect(creative_kernel::cameraController(), &qtuser_3d::CameraController::signalViewChanged, this, &PaintOperateMode::resize);	
-
 	creative_kernel::setContinousRender();
 
 	resize();
@@ -596,7 +938,6 @@ void PaintOperateMode::onAttach()
 
 	m_spreadModel->init();
 	m_spreadModel->setPalette(m_colorsList);
-	m_spreadModel->setRenderModel(m_originModel->getVisualMode());
 
 	/* 初始化m_meshSpreadWrapper */
 	m_colorLoadJob = new ColorLoadJob(this);
@@ -607,7 +948,7 @@ void PaintOperateMode::onAttach()
 	cxkernel::executeJob(qtuser_core::JobPtr(m_colorLoadJob));
 	connect(m_colorLoadJob, &ColorLoadJob::sig_finished, this, [=] ()
 	{		
-		int count = m_meshSpreadWrapper->chunkCount();
+		int count = m_meshSpreadWrapper->chunkCount();		
 		for (int i = 0; i < count; ++i)
 		{
 			std::vector<trimesh::vec3> positions;
@@ -618,12 +959,14 @@ void PaintOperateMode::onAttach()
 			m_spreadModel->setChunkIndexMap(i, indexMap);
 		}
 		m_isWrapperReady = true;
-		
+
 		updateScene();
 		updateSectionBoundary();
 		updateSection();
 		creative_kernel::updateFaceBases();
+		// creative_kernel::requestVisPickUpdate(true);
 		creative_kernel::requestVisUpdate(true);
+		creative_kernel::setCommandRender();
 	});
 	if (m_waitForLoadModel)
 		m_colorLoadJob->wait();
@@ -633,18 +976,18 @@ void PaintOperateMode::onAttach()
 }
 
 void PaintOperateMode::onDettach() 
-{
+{	
 	uninstallEventHandlers();
 
 	creative_kernel::removeSelectorTracer(this);
 	// creative_kernel::setSelectorEnable(true);
 	creative_kernel::useDefaultScene();
-	creative_kernel::setPrinterVisible(true);
+	creative_kernel::showPrinter();
+	creative_kernel::updateWipeTowers();
 	creative_kernel::resetModelSection();	
 
-  	disconnect(creative_kernel::cameraController(), &qtuser_3d::CameraController::signalViewChanged, this, &PaintOperateMode::resize);
-
 	creative_kernel::setCommandRender();
+	m_meshSpreadWrapper->clearBuffer();
 	m_spreadModel->clear();
 	hideRoute();
 	m_originModel = NULL;
@@ -668,6 +1011,7 @@ void PaintOperateMode::onHoverMove(QHoverEvent* event)
 
 void PaintOperateMode::onLeftMouseButtonMove(QMouseEvent* event) 
 {
+	m_leftMoveStatus = false;
   	if (m_pos == event->pos()) 
 		return;
 	// m_pressed = event->buttons() == Qt::LeftButton || event->buttons() == Qt::RightButton;
@@ -679,15 +1023,19 @@ void PaintOperateMode::onLeftMouseButtonMove(QMouseEvent* event)
 
 void PaintOperateMode::onLeftMouseButtonPress(QMouseEvent* event) 
 {
+	m_leftPressStatus = false;
 	m_pressed = true;
 	m_erase = event->modifiers() == Qt::ShiftModifier;
 
 	QPoint pos = event->pos();
-	color(pos, m_erase ? 1 : m_colorIndex, true);
+	// color(pos, m_erase ? m_spreadModel->defaultFlag() : m_colorIndex, true);
+	color(pos, m_erase ? 0 : m_colorIndex, true);
+
 }
 	
 void PaintOperateMode::onLeftMouseButtonRelease(QMouseEvent* event) 
 {
+	m_leftReleaseStatus = false;
 	creative_kernel::updateFaceBases();
 	creative_kernel::requestVisPickUpdate(true);
 	m_pressed = false;
@@ -699,6 +1047,7 @@ void PaintOperateMode::onLeftMouseButtonRelease(QMouseEvent* event)
 	bool isModified = false;
 	if (currentSpreadData.size() != m_lastSpreadData.size())
 		return;
+
 	for (int i = 0, count = m_lastSpreadData.size(); i < count; ++i)
 	{
 		const std::string& s1 = m_lastSpreadData[i];
@@ -716,6 +1065,15 @@ void PaintOperateMode::onLeftMouseButtonRelease(QMouseEvent* event)
 	ColorUndoCommand* command = new ColorUndoCommand();
 	command->setObjects(this, m_originModel);
 	command->setData(m_lastSpreadData, currentSpreadData);
+
+	// qDebug() << "******* push *******";
+	// for (int i = 0, count = m_lastSpreadData.size(); i < count; ++i) 
+	// {
+	// 	if (m_lastSpreadData[i].size() > 0) 
+	// 	{
+	// 		qDebug() << i << m_lastSpreadData[i].data();
+	// 	}
+	// }
 
 	m_lastSpreadData = currentSpreadData;
 
@@ -760,22 +1118,52 @@ void PaintOperateMode::onWheelEvent(QWheelEvent* event)
 		setSectionRate(rate);
 		m_wheelStatus = false;
 	}
-	else if (event->modifiers() == Qt::ControlModifier && m_colorMethod == spread::CursorType::CIRCLE)
+	else if (event->modifiers() == Qt::ControlModifier)
 	{
 		bool plus = event->angleDelta().y() > 0;
-		float radius = colorRadius();
-		if (plus)
+		std::function<float(float value, bool plus, float stepSize, float min, float max)> getResult = 
+		[] (float value, bool plus, float stepSize, float min, float max) {
+			if (plus)
+			{
+				value += stepSize;
+				value = value > max ? max : value;
+			}
+			else 
+			{
+				value -= stepSize;
+				value = value < min ? min : value;
+			}
+			return value;
+		};
+
+		if (m_colorMethod == spread::CursorType::CIRCLE) 
 		{
-			radius += 0.5;
-			radius = radius > 8.0 ? 8.0 : radius;
+			float radius = colorRadius();
+			radius = getResult(radius, plus, 0.1, 0.4, 8.0);
+			setColorRadius(radius);
+			m_wheelStatus = false;
 		}
-		else 
+		else if (m_colorMethod == spread::CursorType::HEIGHT_RANGE)
 		{
-			radius -= 0.5;
-			radius = radius < 0.1 ? 0.1 : radius;
+			float range = heightRange();
+			range = getResult(range, plus, 0.1, 0.1, 8.0);
+			setHeightRange(range);
+			m_wheelStatus = false;
 		}
-		setColorRadius(radius);
-		m_wheelStatus = false;
+		else if (m_colorMethod == spread::CursorType::FILL && smartFillEnable())
+		{
+			float angle = smartFillAngle();
+			angle = getResult(angle, plus, 1.0, 0.0, 90.0);
+			setSmartFillAngle(angle);
+			m_wheelStatus = false;
+		}
+		else if (m_colorMethod == spread::CursorType::GAP_FILL)
+		{
+			float area = gapArea();
+			area = getResult(area, plus, 0.1, 0.0, 5.0);
+			setGapArea(area);
+			m_wheelStatus = false;
+		}
 	}
 }
 

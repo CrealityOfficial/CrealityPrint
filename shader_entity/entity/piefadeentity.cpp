@@ -24,7 +24,7 @@ namespace qtuser_3d
 		setParameter("specularPower", 4.5);
 
 		m_viewPass = new XRenderPass("piefade", this);
-		m_viewPass->addFilterKeyMask("alpha", 0);
+		m_viewPass->addFilterKeyMask("alpha2nd", 0);
 		m_viewPass->setPassDepthTest(Qt3DRender::QDepthTest::Always);
 		m_viewPass->setPassCullFace(Qt3DRender::QCullFace::CullingMode::Back);
 

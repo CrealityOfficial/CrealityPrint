@@ -1,32 +1,48 @@
-#ifndef CREATIVE_KERNEL_PROFILELISTMODEL_1675918310093_H
-#define CREATIVE_KERNEL_PROFILELISTMODEL_1675918310093_H
-#include <QtCore/QObject>
+#pragma once
+
 #include <QtCore/QAbstractListModel>
+#include <QtCore/QPointer>
 
-namespace creative_kernel
-{
-    class PrintMachine;
-    class PrintProfile;
-    class PrintProfileListModel : public QAbstractListModel
-    {
-        Q_OBJECT
-    public:
-        explicit PrintProfileListModel(PrintMachine* machine, QObject* parent = nullptr);
-        ~PrintProfileListModel();
+#include "internal/parameter/printprofile.h"
 
-        Q_INVOKABLE void notifyReset();
-    protected:
-        QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
-        bool setData(const QModelIndex& index, const QVariant& value, int role) override;
-        virtual QHash<int, QByteArray> roleNames() const override;
-        int rowCount(const QModelIndex& parent = QModelIndex()) const override;
+namespace creative_kernel {
 
-    private:
-        QVariant getProfileValue(PrintProfile* profile, const QString& key, const QVariant& defaultValue) const;
+  class PrintMachine;
 
-    protected:
-        PrintMachine* m_machine;
+  class PrintProfileListModel : public QAbstractListModel {
+    Q_OBJECT;
+
+   public:
+    enum class Role : int {
+      NAME = Qt::ItemDataRole::UserRole,
+      DEFAULT,
+      MODIFYED,
+      OBJECT,
     };
-}
 
-#endif // CREATIVE_KERNEL_PROFILELISTMODEL_1675918310093_H
+   public:
+    explicit PrintProfileListModel(PrintMachine* machine, QObject* parent = nullptr);
+    virtual ~PrintProfileListModel() override = default;
+
+   public:
+    Q_INVOKABLE QVariantMap get(int row) const;
+
+    auto insertProfile(PrintProfile* profile, size_t index) -> void;
+    auto removeProfile(PrintProfile* profile, size_t index) -> void;
+
+    Q_SIGNAL void profileInserted(int index);
+    Q_SIGNAL void profileRemoved(int index);
+
+   protected:
+    auto roleNames() const -> QHash<int, QByteArray> override;
+    auto rowCount(const QModelIndex& parent = QModelIndex{}) const -> int override;
+    auto data(const QModelIndex& index, int role) const -> QVariant override;
+
+   private:
+    Q_SLOT void onSettingsModifyedChanged();
+
+   protected:
+    QPointer<PrintMachine> machine_{ nullptr };
+  };
+
+}  // namespace creative_kernel

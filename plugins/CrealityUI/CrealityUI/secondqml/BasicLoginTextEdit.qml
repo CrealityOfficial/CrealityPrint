@@ -50,10 +50,10 @@ TextField{
                              implicitBackgroundHeight + topInset + bottomInset,
                              placeholder.implicitHeight + topPadding + bottomPadding)
 
-    padding: 8
-    leftPadding: padding + 8 + headImage.width
-    rightPadding: padding + 8 + idtailBtn.width
-    property var radius : 0
+    // padding: 8
+    leftPadding: 16 * screenScaleFactor + headImage.width
+    rightPadding: 16 * screenScaleFactor + idtailBtn.width
+    property var radius : 8
 	property var keyStr: ""
 	property var errorCode: 0x0000
     property var headImageSrc: ""

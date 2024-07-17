@@ -10,7 +10,7 @@ Rectangle{
     property alias fontWeight: idContentText.font.weight
     property alias fontFamily: idContentText.font.family
     property alias fontElide: idContentText.elide
-    property real fontWidth: 150
+    property real fontWidth: 150 * screenScaleFactor
     property alias fontBold: idContentText.font.bold
     property alias fontHeight: idContentText.height
     property alias fontText: idContentText.text
@@ -24,6 +24,7 @@ Rectangle{
     property alias font: idContentText.font
     property alias aliasText: idContentText
 
+    property bool needRuningManual: false
     property bool needRuning: false
     property bool isDefault: false
 
@@ -35,7 +36,7 @@ Rectangle{
     opacity: enabled ? 1 : 0.7
     Text {
         id: idContentText
-        width: fontWidth
+        width: isDefault ? contentWidth : fontWidth
         x: hAlign == 1 ? Math.abs(idContentText.width - idContentText.contentWidth)/2 :
                          (hAlign == 0 ? 0:idContentText.width - idContentText.contentWidth)
         font.family: Constants.labelFontFamily
@@ -46,7 +47,8 @@ Rectangle{
         opacity: parent.opacity
         //动画解释 1. 左对齐 2. 等待两秒 3.然后开始滚动 4. 等待一秒，归零 5. 等待3秒
         SequentialAnimation on x {//内容长度大于设置的text的长度才滚动
-            running: needRuning
+            id: textAnimation
+            running: needRuning && needRuningManual
             loops: Animation.Infinite
             PropertyAnimation { to: 0; duration: 0 }
             PropertyAnimation { duration: 2000 }
@@ -65,7 +67,19 @@ Rectangle{
         Component.onCompleted:{
             needRuning = idContentText.width - idContentText.contentWidth < 0
         }
+    }
 
+    onFontWidthChanged:{
+        if(idContentText.contentWidth !== 0){
+            idContentText.width = width
+            needRuning = idContentText.width - idContentText.contentWidth < 0
+            if(!needRuning)
+                idContentText.x = 0
+            else{
+                textAnimation.stop()
+                textAnimation.restart()
+            }
+        }
     }
 }
 

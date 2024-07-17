@@ -7,13 +7,13 @@
 #include "interface/selectorinterface.h"
 #include "interface/camerainterface.h"
 #include "interface/modelinterface.h"
+#include "interface/printerinterface.h"
 
 #include "interface/eventinterface.h"
 #include "interface/reuseableinterface.h"
 #include "kernel/kernelui.h"
 
-#include "data/fdmsupportgroup.h"
-
+#include "internal/multi_printer/printer.h"
 
 using namespace creative_kernel;
 TranslateOp::TranslateOp(QObject* parent)
@@ -26,50 +26,27 @@ TranslateOp::TranslateOp(QObject* parent)
 		HELPERTYPE_PLANE_XY | \
 		HELPERTYPE_PLANE_YZ | \
 		HELPERTYPE_PLANE_ZX;
+
+    m_type = qtuser_3d::SceneOperateMode::ReusableMode;
 	m_helperEntity = new qtuser_3d::TranslateHelperEntity(nullptr, types);
 	m_helperEntity->setCameraController(cameraController());
 
-	m_originFovy = 60.0;
-	traceSpace(this);
 }
 
 TranslateOp::~TranslateOp()
 {
-	//unTraceSpace(this);
 }
 
 void TranslateOp::setMessage(bool isRemove)
 {
 	if (isRemove)
 	{
-		auto models = selectionms();
-		for (auto m : models)
-		{
-			if (m->hasFDMSupport())
-			{
-				FDMSupportGroup* p_support = m->fdmSupport();
-				p_support->clearSupports();
-			}
-		}
 		requestVisUpdate(true);
 	}
 }
 
 bool TranslateOp::getMessage()
 {
-	//if (m_selectedModels.size())
-	auto models = selectionms();
-	for (auto m : models)
-	{
-		if (m->hasFDMSupport())
-		{
-			FDMSupportGroup* p_support = m->fdmSupport();
-			if (p_support->fdmSupportNum())
-			{
-				return true;
-			}
-		}
-	}
 	return false;
 }
 
@@ -122,6 +99,7 @@ void TranslateOp::onDettach()
 void TranslateOp::onLeftMouseButtonPress(QMouseEvent* event)
 {
 	MoveOperateMode::onLeftMouseButtonPress(event);
+	setNeedCheckScope(0);
 
 	auto models = selectionms();
 	if (models.isEmpty())
@@ -151,6 +129,7 @@ void TranslateOp::onLeftMouseButtonRelease(QMouseEvent* event)
 void TranslateOp::onLeftMouseButtonMove(QMouseEvent* event)
 {
 	MoveOperateMode::onLeftMouseButtonMove(event);
+	setNeedCheckScope(0);
 }
 
 void TranslateOp::onLeftMouseButtonClick(QMouseEvent* event)
@@ -159,51 +138,48 @@ void TranslateOp::onLeftMouseButtonClick(QMouseEvent* event)
 
 void TranslateOp::onWheelEvent(QWheelEvent* event)
 {
-	Qt3DRender::QCamera* mainCamera = getCachedCameraEntity();
-	float curFovy = mainCamera->fieldOfView();
-	m_helperEntity->setScale(curFovy / m_originFovy);
 }
 
 void TranslateOp::onKeyPress(QKeyEvent* event)
 {
-	QList<creative_kernel::ModelN*> selections = selectionms();
-	if (selections.size() == 0)
-		return;
+	// QList<creative_kernel::ModelN*> selections = selectionms();
+	// if (selections.size() == 0)
+	// 	return;
 
-	QVector3D delta;
-	bool needUpdate = false;
+	// QVector3D delta;
+	// bool needUpdate = false;
 
-	if (event->key() == Qt::Key_Right)
-	{
-		delta = QVector3D(1.0f, 0.0f, 0.0f);
-		needUpdate = true;
-	}
-	else if (event->key() == Qt::Key_Left)
-	{
-		delta = QVector3D(-1.0f, 0.0f, 0.0f);
-		needUpdate = true;
-	}
-	else if (event->key() == Qt::Key_Up)
-	{
-		delta = QVector3D(0.0f, 1.0f, 0.0f);
-		needUpdate = true;
-	}
-	else if (event->key() == Qt::Key_Down)
-	{
-		delta = QVector3D(0.0f, -1.0f, 0.0f);
-		needUpdate = true;
-	}
+	// if (event->key() == Qt::Key_D)
+	// {
+	// 	delta = QVector3D(1.0f, 0.0f, 0.0f);
+	// 	needUpdate = true;
+	// }
+	// else if (event->key() == Qt::Key_A)
+	// {
+	// 	delta = QVector3D(-1.0f, 0.0f, 0.0f);
+	// 	needUpdate = true;
+	// }
+	// else if (event->key() == Qt::Key_W)
+	// {
+	// 	delta = QVector3D(0.0f, 1.0f, 0.0f);
+	// 	needUpdate = true;
+	// }
+	// else if (event->key() == Qt::Key_S)
+	// {
+	// 	delta = QVector3D(0.0f, -1.0f, 0.0f);
+	// 	needUpdate = true;
+	// }
 
-	if (needUpdate)
-	{
-		for (size_t i = 0; i < selections.size(); i++)
-		{
-			QVector3D localPosition = selections.at(i)->localPosition();
-			moveModel(selections.at(i), localPosition, localPosition + delta);
-		}
-		requestVisUpdate(true);
-		emit positionChanged();
-	}
+	// if (needUpdate)
+	// {
+	// 	for (size_t i = 0; i < selections.size(); i++)
+	// 	{
+	// 		QVector3D localPosition = selections.at(i)->localPosition();
+	// 		moveModel(selections.at(i), localPosition, localPosition + delta);
+	// 	}
+	// 	requestVisUpdate(true);
+	// 	emit positionChanged();
+	// }
 }
 
 void TranslateOp::onKeyRelease(QKeyEvent* event)
@@ -274,6 +250,7 @@ void TranslateOp::buildFromSelections()
 	}
 
 	requestVisPickUpdate(true);
+	requestVisUpdate(true);
 	if (models.size())
 	{
 		emit positionChanged();
@@ -293,7 +270,8 @@ void TranslateOp::center()
 	float newZ = 0;
 	if (modelsbox.valid)
 	{
-		qtuser_3d::Box3D box = creative_kernel::baseBoundingBox();
+		Printer* printer = getSelectedPrinter();
+		qtuser_3d::Box3D box = printer->globalBox();
 		QVector3D size = box.size();
 		QVector3D center = box.center();
 		newZ = center.z() - size.z() / 2.0f;
@@ -315,6 +293,7 @@ void TranslateOp::center()
 	}
 
 	emit positionChanged();
+	creative_kernel::checkModelCollision();
 }
 
 void TranslateOp::movePositionToinit(QList<creative_kernel::ModelN*>& selections)
@@ -349,6 +328,8 @@ void TranslateOp::reset()
 	updateHelperEntity();
 	requestVisUpdate(true);
 	emit positionChanged();
+
+	creative_kernel::checkModelCollision();
 }
 
 QVector3D TranslateOp::position()
@@ -396,6 +377,8 @@ void TranslateOp::setPosition(QVector3D position)
 		requestVisUpdate(true);
 		emit positionChanged();
 	}
+
+	creative_kernel::checkModelCollision();
 }
 
 void TranslateOp::setBottom()
@@ -418,6 +401,8 @@ void TranslateOp::setBottom()
         requestVisUpdate(true);
         emit positionChanged();
     }
+
+	creative_kernel::checkModelCollision();
 }
 
 void TranslateOp::updateHelperEntity()
@@ -425,28 +410,12 @@ void TranslateOp::updateHelperEntity()
 	auto models = selectionms();
 	if (models.size())
 	{
-		qtuser_3d::Box3D box = models[models.size()-1]->globalSpaceBox();
+		qtuser_3d::Box3D box = creative_kernel::modelsBox(models);
 		m_helperEntity->updateBox(box);
-
-		Qt3DRender::QCamera* mainCamera = getCachedCameraEntity();
-		float curFovy = mainCamera->fieldOfView();
-		m_helperEntity->setScale(curFovy / m_originFovy);
 	}
 }
 
 bool TranslateOp::shouldMultipleSelect()
 {
 	return true;
-}
-
-void TranslateOp::onBoxChanged(const qtuser_3d::Box3D& box)
-{
-	const QVector3D size = box.size();
-	float length = size.length();
-	float s = fmin(length / 6.0, 200.0);
-	m_helperEntity->setEntitiesLocalScale(s);
-}
-
-void TranslateOp::onSceneChanged(const qtuser_3d::Box3D& box)
-{
 }

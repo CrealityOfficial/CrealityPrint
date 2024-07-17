@@ -4,14 +4,14 @@ import QtQml 2.13
 import "../qml"
 
 
-ScrollView{
+BasicScrollView{
     property var funcs:[]
     readonly property real maxHeight: 280*screenScaleFactor
     id: tipsView
     width: 560*screenScaleFactor
     height: 100*screenScaleFactor
-//    hpolicyVisible: false
-//    vpolicyVisible: contentHeight > height
+    hpolicyVisible: false
+    vpolicyVisible: contentHeight > height
     clip: true
 
     background: Item{
@@ -116,14 +116,15 @@ ScrollView{
         tipsView.height = tipsView.height < maxHeight ? tipsView.height : maxHeight
     }
 
+    ListModel{
+        id: supportModel
+        ListElement{content1: qsTr("The model has not been supported and may fail to print. Do you want to continue adding supports before slicing?");  content2: qsTr("Add Support"); func: ""}
+    }
+
     //临时
     function addMsgTipTemp(func){
-        scrollViewModel.append({"content1" : qsTr("The model has not been supported and may fail to print. Do you want to continue adding supports before slicing?"),
-                                   "content2" :qsTr("Add Support"), "func" : ""})
-        funcs[scrollViewModel.count - 1] = func
-
         rep.model = null
-        rep.model = scrollViewModel
+        rep.model = supportModel
         tipsView.height = tipsView.height < maxHeight ? tipsView.height : maxHeight
     }
 

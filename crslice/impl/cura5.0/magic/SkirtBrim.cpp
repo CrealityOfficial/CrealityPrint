@@ -25,7 +25,7 @@ namespace cura52
 		if (is_skirt)
 		{
 			constexpr bool include_support = true;
-			constexpr bool include_prime_tower = false;
+			constexpr bool include_prime_tower = true;
 			first_layer_outline = storage.getLayerOutlines(layer_nr, include_support, include_prime_tower, external_only);
 			first_layer_outline = first_layer_outline.approxConvexHull();
 		}

@@ -21,7 +21,7 @@ CusRoundedBg{
     signal maxClicked()
     clickedable: false
     radius: 5
-    borderColor: "#0a0a0a"
+    borderColor: "transparent"
 
     CusText{
         id: ct

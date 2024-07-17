@@ -5,6 +5,7 @@
 #include <QtGui/QMouseEvent>
 #include <QtGui/QHoverEvent>
 #include <QtGui/QWheelEvent>
+#include <QTimer>
 
 namespace qtuser_3d
 {
@@ -82,7 +83,11 @@ namespace qtuser_3d
 		QList<KeyEventHandler*> m_KeyEventHandlers;
 		QSize m_size;
 
-        bool m_bLastMove = false;
+		QTimer m_releaseTimer;
+
+        bool m_bLastMove { false };
+		bool m_spaceModifier { false };
+
 	};
 }
 #endif // _qtuser_3d_EVENTSUBDIVIDE_1588737572858_H

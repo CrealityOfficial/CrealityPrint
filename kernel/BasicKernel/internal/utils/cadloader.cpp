@@ -9,6 +9,7 @@ namespace creative_kernel
 {
 	CADLoader::CADLoader(QObject* parent)
 		: QObject(parent)
+		, m_processor(nullptr)
 	{
 	}
 
@@ -35,8 +36,17 @@ namespace creative_kernel
 		load(fileNames);
     }
 
+	void CADLoader::setModelNDataProcessor(cxkernel::ModelNDataProcessor* processor)
+	{
+		m_processor = processor;
+	}
+
 	void CADLoader::load(const QStringList& fileNames)
 	{
+		// fix me ;  can not emit signal here
+		if (m_processor)
+			m_processor->modelMeshLoadStarted(fileNames.size());
+
 		QList<qtuser_core::JobPtr> jobs;
 		for (const QString& fileName : fileNames)
 		{
@@ -48,4 +58,5 @@ namespace creative_kernel
 
 
 	}
+
 }

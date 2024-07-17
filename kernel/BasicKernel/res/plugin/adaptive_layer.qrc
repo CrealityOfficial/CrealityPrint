@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/adaptive_layer">
+        <file>adaptive_layer/AdaptivePanel.qml</file>
+        <file>adaptive_layer/KeyboardPanel.qml</file>
+        <file>adaptive_layer/LiSpinBox.qml</file>
+    </qresource>
+</RCC>

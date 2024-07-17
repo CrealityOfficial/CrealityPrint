@@ -24,7 +24,7 @@ else()
 endif()
 
 set(INTERFACE_DEFS USE_TOPOMESH)
-set(DEFS DLP_USE_UM)
+#set(DEFS DLP_USE_UM)
 
 #set(TOPOMESH_STATIC 1)
 __add_common_library(topomesh OPENMP)

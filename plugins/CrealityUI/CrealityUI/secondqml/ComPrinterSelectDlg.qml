@@ -25,7 +25,7 @@ BasicDialog
         //leftPadding: 20
         topPadding: 50
         width: parent.width - 40
-        height: parent.height-50
+        height: parent.height - 50
         spacing: 20
         Item
         {

@@ -1,7 +1,6 @@
 #ifndef QTUSER_3D_MODELNENTITY_1595161543232_H
 #define QTUSER_3D_MODELNENTITY_1595161543232_H
 #include "qtuser3d/refactor/xentity.h"
-#include "entity/pureentity.h"
 #include "qtuser3d/math/box3d.h"
 #include "trimesh2/Vec.h"
 #include <Qt3DRender/QTexture>
@@ -9,6 +8,8 @@
 namespace qtuser_3d 
 {
 	class BoxEntity;
+	class NozzleRegionEntity;
+	class PureEntity;
 }
 
 namespace creative_kernel
@@ -20,10 +21,10 @@ namespace creative_kernel
 		ModelNEntity(Qt3DCore::QNode* parent = nullptr);
 		virtual ~ModelNEntity();
 
-		void update();
+		
+		void setBoxEnabled(bool enabled);
 		void setBoxVisibility(bool visible);
 		void updateBoxLocal(const qtuser_3d::Box3D& box, const QMatrix4x4& parentMatrix);
-		void updateLines(const std::vector<trimesh::vec3>& lines);
 		void setBoxColor(QVector4D color);
 
 		/*
@@ -42,18 +43,31 @@ namespace creative_kernel
 
 		void setNozzle(int nozzle);
 
-		void setRenderMode(int mode);
-		int getRenderMode();
-
 		void setTDiffuse(Qt3DRender::QTexture2D* aDiffuse);
 		void setTAmbient(Qt3DRender::QTexture2D* aAmbient);
 		void setTSpecular(Qt3DRender::QTexture2D* aSpecular);
 		void setTNormal(Qt3DRender::QTexture2D* aNormal);
 
+		void setAssociatePrinterBox(const qtuser_3d::Box3D& box);
+
+		//print by object
+		void setLinesPose(const QMatrix4x4& pose);
+		void updateLines(const std::vector<trimesh::vec3>& lines);
+		void setOuterLinesColor(const QVector4D& color);
+		void setOuterLinesVisibility(bool visible);
+		void setNozzleRegionVisibility(bool visible);
+
+		void setLayerHeightProfile(const std::vector<double>& layers, float minLayerHeight, float maxLayerHeight, float uniqueLayerHeight);
+		void setLayersTexture(Qt3DRender::QTexture2D* tex);
+
 	protected:
 
 		qtuser_3d::BoxEntity* m_boxEntity;
+		qtuser_3d::NozzleRegionEntity* m_nozzleRegionEntity;
 		qtuser_3d::PureEntity* m_lineEntity;
+
+		bool m_nozzleRegionVisible{ false };
+		bool m_lineEntityVisible{ false };
 
 		Qt3DRender::QParameter* m_stateParameter;
 
@@ -67,12 +81,14 @@ namespace creative_kernel
 		
 		Qt3DRender::QParameter* m_nozzleParameter;
 
-		Qt3DRender::QParameter* m_renderModeParameter;
-
 		Qt3DRender::QParameter* m_textureDiffuse;
 		Qt3DRender::QParameter* m_textureAmbient;
 		Qt3DRender::QParameter* m_textureSpecular;
 		Qt3DRender::QParameter* m_textureNormal;
+
+		//for valiable layer height
+		Qt3DRender::QParameter* m_layersTextureParameter;
+		Qt3DRender::QParameter* m_modelHeightParameter;
 	};
 }
 #endif // QTUSER_3D_MODELNENTITY_1595161543232_H

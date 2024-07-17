@@ -22,6 +22,8 @@ public:
     Q_INVOKABLE void removeAllCommand();
     void removeCommandButLastIndex();
     ActionCommand* getData(int index);
+
+    QList<ActionCommand*> actionCommands();
 protected:
     int rowCount(const QModelIndex& parent) const override;
     int columnCount(const QModelIndex& parent) const override;

@@ -26,6 +26,12 @@ void FliterProxyModel::setCurrentDevice(QString deviceName) {
     setDeviceMapCheck(true);
 }
 
+QObject* FliterProxyModel::getDeviceObject(int index) {
+    QObject* object = nullptr;
+    QMetaObject::invokeMethod(m_cSourceModel, "getDeviceObject", Q_RETURN_ARG(QObject*, object), Q_ARG(int, this->index(index, 0).row()));
+    return object;
+}
+
 bool FliterProxyModel::isDeviceMapCheck() const
 {
     return m_deviceMapCheck;
@@ -57,10 +63,10 @@ bool FliterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &source
 	int remoteType = sourceModel()->data(groupIndex, ListModelItem::E_PrinterType).toInt();
     QString name = sourceModel()->data(nameIndex, ListModelItem::E_PrinterModelName).toString();
 	bool stateFliter = true;
-	if (m_state) stateFliter = m_state - 1 ? (state == 1 || state == 5) : (state != 1 && state != 5);//1:´òÓ¡ÖÐ(°üÀ¨ÔÝÍ£) 0:¿ÕÏÐ(°üÀ¨´òÓ¡Íê³É/Ê§°Ü/Í£Ö¹)
+	if (m_state) stateFliter = m_state - 1 ? (state == 1 || state == 5) : (state != 1 && state != 5);//1:ï¿½ï¿½Ó¡ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£) 0:ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¡ï¿½ï¿½ï¿½/Ê§ï¿½ï¿½/Í£Ö¹)
 
 	if (remoteType == 3) remoteType = 0;//Klipper4408 -> Lan Printer
-	bool remoteFilter = (m_remoteType != 1) ? (remoteType == m_remoteType) : true;//0:Lan Printer(°üÀ¨Klipper4408) 1:All 2:Sonic Pad
+	bool remoteFilter = (m_remoteType != 1) ? (remoteType == m_remoteType) : true;//0:Lan Printer(ï¿½ï¿½ï¿½ï¿½Klipper4408) 1:All 2:Sonic Pad
     bool nameFilter = (m_deviceName == "") ||(name == m_deviceName);
 
     bool filterCondition;

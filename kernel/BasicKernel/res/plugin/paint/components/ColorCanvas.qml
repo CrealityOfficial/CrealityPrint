@@ -7,14 +7,26 @@ Item {
     property var color: Qt.rgba(1.0, 0.5, 0.0, 1.0)
     property var cursorPos
     property var screenScale: 1
-    property int realPenSize: penSize / screenScale
+    property var realPenSize: penSize * 100.0 / screenScale
+    property var screenRadius: 10
+    property int lineWidth: 2
+    property int inRadius: Math.floor(screenRadius - lineWidth / 2)
     
     function update() {
         // circle.requestPaint()
     }
 
-    onRealPenSizeChanged: {
+    onInRadiusChanged: {
+        circle.width = inRadius * 2 + 2
+        circle.height = inRadius * 2 + 2
+        circle.x = cursorPos.x - inRadius - 1 
+        circle.y = cursorPos.y - inRadius - 1
         circle.requestPaint()
+    }
+
+    onCursorPosChanged: {
+        circle.x = cursorPos.x - inRadius - 1
+        circle.y = cursorPos.y - inRadius - 1
     }
 
     onColorChanged: {
@@ -23,33 +35,26 @@ Item {
 
     Canvas {
         id: circle
-        width: realPenSize
-        height: realPenSize
-        visible: true
-        property int radius: realPenSize / 2
+        visible: radius != 0
+        property int radius: screenRadius
         property int dash: radius < 10 ? 50 : 5
-        x: cursorPos ? cursorPos.x - radius : 0
-        y: cursorPos ? cursorPos.y - radius : 0
-
 
         onPaint: {
+            if (radius == 0)
+                return
+
             var ctx = getContext("2d")
+            ctx.clearRect(0, 0, width, height);
             ctx.strokeStyle = root.color
-            ctx.lineWidth = 2
+            ctx.lineWidth = lineWidth
             ctx.setLineDash([dash, dash])
 
-            var r = radius
-            if (radius < 2)
-                r = 2
-            
-            var centerX = r
-            var centerY = r
-            var inRadius = r - ctx.lineWidth / 2
+            var centerX = root.inRadius + 1
+            var centerY = root.inRadius + 1
 
             // console.log("paint circle: ", radius, ", screenScale ", screenScale, ", penSize ", penSize)
-
             ctx.beginPath()
-            ctx.arc(centerX, centerY, Math.floor(inRadius), 0, 2 * Math.PI)
+            ctx.arc(centerX, centerY, root.inRadius, 0, 2 * Math.PI)
             ctx.closePath()
 
             ctx.stroke()

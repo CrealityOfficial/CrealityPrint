@@ -12,6 +12,7 @@
 
 #include "qtuser3d/module/facepicker.h"
 #include <QtCore/QTimer>
+#include "rendercaptor.h"
 
 namespace qtuser_3d
 {
@@ -46,6 +47,7 @@ namespace qtuser_3d
 		void resize(const QSize& size);
 
 		void requestCapture();
+		void requestCapture(Qt3DRender::QCamera* camera, QObject* receiver, RenderCaptor::ReceiverHandleReplyFunc func);
 		void requestSyncCapture(int timeout = 500);
 		void requestNamedCapture(namedReplyFunc callback);
 
@@ -80,6 +82,8 @@ namespace qtuser_3d
 
 		void use();
 		void unUse();
+		
+		float renderTargetRatio();
 
 	public slots:
 		void captureCompleted();
@@ -112,6 +116,12 @@ namespace qtuser_3d
 		bool m_createImageFinished;
 		bool m_capturing;
 		
+#ifdef Q_OS_OSX
+		const float m_renderTargetRatio{ 0.5f };
+#else
+		const float m_renderTargetRatio{ 1.0f };
+#endif
+
 		selfPickerFunc m_pickerFunc;
 		requestCallFunc m_requestCallback;
 #ifdef _DEBUG

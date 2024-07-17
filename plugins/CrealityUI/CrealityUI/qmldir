@@ -24,7 +24,6 @@ ModelsTree 1.0 qml/ModelsTree.qml
 PartPanel 1.0 qml/PartPanel.qml
 LayoutPanel 1.0 qml/LayoutPanel.qml
 singleton ParameterJS 1.0 qml/ParameterJS.qml
-ParameterContext 1.0 qml/ParameterContext.qml
 
 BasicCombobox_Metarial 1.0 qml/BasicCombobox_Metarial.qml
 BasicImageButton 1.0 qml/BasicImageButton.qml
@@ -33,7 +32,7 @@ CusButton 1.0 qml/CusButton.qml
 CusImage 1.0 qml/CusImage.qml
 CusImglButton 1.0 qml/CusImglButton.qml
 CusRoundedBg 1.0 qml/CusRoundedBg.qml
-PanelComponent 1.0 qml/PanelComponent.qml
+PanelTitle 1.0 qml/PanelTitle.qml
 GlobalShortcut 1.0 qml/GlobalShortcut
 
 SliceStart 1.0 qml/SliceStart.qml
@@ -47,7 +46,6 @@ CusTabBar 1.0 secondqml/CusTabBar.qml
 
 AddPrinterDlgChoseNuzzle 1.0 AddPrinterDlgChoseNuzzle/ColorPanel.qml
 TipsManageCom 1.0 secondqml/TipsManageCom.qml
-ManageGCodeTabItem 1.0 secondqml/ManageGCodeTabItem.qml
 RightBtns 1.0 secondqml/viewConverter/RightBtns.qml
 ColorPanel 1.0 secondqml/ColorPanel.qml
 ManageMaterialDlg 1.0 secondqml/ManageMaterialDlg.qml
@@ -59,14 +57,11 @@ AddPrinterDlgNew 1.0 secondqml/AddPrinterDlgNew.qml
 AddPrinterButton 1.0 secondqml/AddPrinterButton.qml
 AddPrinterViewItem 1.0 secondqml/AddPrinterViewItem.qml
 SelectPrinter 1.0 secondqml/SelectPrinter.qml
-ModelList 1.0 secondqml/ModelList.qml
 SelectPrinterModel 1.0 secondqml/SelectPrinterModel.qml
 SliceExecute 1.0 secondqml/SliceExecute.qml
 AddPrinterDlg  1.0  secondqml/AddPrinterDlg.qml
 BasicScrollView 1.0 secondqml/BasicScrollView.qml
 BasicSplitView 1.0 secondqml/BasicSplitView.qml
-ManagerPrinterDlg 1.0 secondqml/ManagerPrinterDlg.qml
-ManagerFdmGroupShow 1.0 secondqml/ManagerFdmGroupShow.qml
 CusSkinButton_Image 1.0 secondqml/CusSkinButton_Image.qml
 ModelAlwaysShowPopupDlg 1.0 secondqml/ModelAlwaysShowPopupDlg.qml
 StyleCheckBox 1.0 qml/StyleCheckBox.qml
@@ -76,14 +71,17 @@ SpeedColorPanel 1.0 qml/SpeedColorPanel.qml
 StructureColorPanel 1.0 qml/StructureColorPanel.qml
 NozzleColorPanel 1.0 qml/NozzleColorPanel.qml
 
-HalotBoxTotalRightUIPanel 1.0 secondqml/HalotBoxTotalRightUIPanel.qml
+PrintParameterPanel 1.0 secondqml/PrintParameterPanel.qml
 FDMColorPanel 1.0 secondqml/FDMColorPanel.qml
 FDMFooterPanel 1.0 secondqml/FDMFooterPanel.qml
 FDMPreviewButtonBox 1.0 secondqml/FDMPreviewButtonBox.qml
 StyledSlider 1.0 qml/StyledSlider.qml
 
+CusBackground 1.0 secondqml/frameless/CusBackground.qml
+CusDragItem 1.0 secondqml/frameless/CusDragItem.qml
+CusResizeBorder 1.0 secondqml/frameless/CusResizeBorder.qml
 
-ParameterGeneralCom 1.0 secondqml/ParameterGeneralCom.qml
+ParameterComponent 1.0 secondqml/ParameterComponent.qml
 MouseCombo 1.0 secondqml/MouseCombo.qml
 ManageMaterialDlgData 1.0 secondqml/ManageMaterialDlgData.qml
 ModelListCombo 1.0 secondqml/ModelListCombo.qml
@@ -130,9 +128,18 @@ UploadMessageDlg 1.0 secondqml/UploadMessageDlg.qml
 CusProgressBar 1.0 secondqml/CusProgressBar.qml
 BasicShadowRect 1.0 qml/BasicShadowRect.qml
 ParameterProfilePanel 1.0 secondqml/ParameterProfilePanel.qml
-
+LeftPanelDialog 1.0 qml/LeftPanelDialog.qml
 UsbControlDlg 1.0 usbControlQml/UsbControlDlg.qml
 LanPrinterPanel 1.0 lanprinterqml/LanPrinterPanel.qml
 LanPrinterDialog 1.0 lanprinterqml/LanPrinterDialog.qml
 LanPrinterDetail 1.0 lanprinterqml/LanPrinterDetail.qml
 LanPrinterListLocal 1.0 lanprinterqml/LanPrinterListLocal.qml
+
+CustomComboBox 1.0 components/CustomComboBox.qml
+CustomTabView 1.0 components/CustomTabView.qml
+CustomTabViewItem 1.0 components/CustomTabViewItem.qml
+CustomTreeView 1.0 components/CustomTreeView.qml
+DockContext 1.0 components/DockContext.qml
+DockItem 1.0 components/DockItem.qml
+GridTabView 1.0 components/GridTabView.qml
+ScrollFlowView 1.0 components/ScrollFlowView.qml

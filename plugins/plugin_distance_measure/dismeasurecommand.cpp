@@ -4,7 +4,9 @@
 
 DistanceMeasureCommand::DistanceMeasureCommand(QObject* parent)
     : ToolCommand(parent),
-		operate_mode_(nullptr) {}
+		operate_mode_(nullptr) {
+      orderindex = 8;
+    }
 
 DistanceMeasureCommand::~DistanceMeasureCommand() {
 	if (operate_mode_) {

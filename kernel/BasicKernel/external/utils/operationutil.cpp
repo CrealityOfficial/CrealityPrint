@@ -56,6 +56,7 @@ void getTSProperPlane(QVector3D& planeCenter, QVector3D& planeDir, qtuser_3d::Ra
 		float dd = QVector3D::dotProduct(n, ray.dir);
 		if (qAbs(dd) > d)
 		{
+			d = qAbs(dd);
 			planeDir = n;
 //			d = dd;
 		}
@@ -95,7 +96,7 @@ void getRProperPlane(QVector3D& planeCenter, QVector3D& planeDir, qtuser_3d::Ray
 	}
 }
 
-QVector3D operationProcessCoord(const QPoint& point, ModelN* model, int op_type, TMode m)
+QVector3D operationProcessCoord(const QPoint& point, ModelN* model, int op_type, TMode m, bool isBackward)
 {
 	qtuser_3d::Ray ray = visRay(point);
 	QVector3D planeCenter;
@@ -118,6 +119,8 @@ QVector3D operationProcessCoord(const QPoint& point, ModelN* model, int op_type,
 
 	QVector3D c;
 	qtuser_3d::lineCollidePlane(planeCenter, planeDir, ray, c);
+	if (!isBackward && QVector3D::dotProduct((c - ray.start).normalized(), ray.dir) <= 0)
+		c = QVector3D(NAN, NAN, NAN);
 	if (c.x() > VALUE_MAX) { c.setX(VALUE_MAX); }
 	if (c.y() > VALUE_MAX) { c.setY(VALUE_MAX); }
 	if (c.z() > VALUE_MAX) { c.setZ(VALUE_MAX); }

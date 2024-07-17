@@ -1,8 +1,5 @@
 import QtQuick 2.0
-
-import QtQuick.Controls 1.4
-import QtQuick.Controls.Styles 1.4
-import QtQuick.Controls 2.0 as QQC2
+import QtQuick.Controls 2.0
 
 CheckBox {
     id:control
@@ -14,12 +11,12 @@ CheckBox {
     property var isGroupPrintUsed: false
     property var checkBoxVisible: true
     property string indicatorImage: isGroupPrintUsed ? "qrc:/UI/images/check3.png"
-                                                     : checked ? "qrc:/UI/images/check2.png" : ""
-    property color indicatorColor: isGroupPrintUsed ? "#F9F9F9"
-                                                    : checked ? "#009CFF" : "transparent"
+                                                     : checkState==Qt.Checked ? "qrc:/UI/images/check2.png" : ""
+    property color indicatorColor: isGroupPrintUsed ? Constants.themeGreenColor
+                                                    : checkState==Qt.Checked ? Constants.themeGreenColor : "transparent"
     property color indicatorBorderColor:
-        isGroupPrintUsed && hovered ? "#828790"
-                                    : checked || hovered ? Constants.textRectBgHoveredColor
+        isGroupPrintUsed && hovered ? Constants.themeGreenColor
+                                    : checkState==Qt.Checked || hovered ? Constants.themeGreenColor
                                                          : Constants.dialogItemRectBgBorderColor
 
     property int indicatorWidth: 16* screenScaleFactor
@@ -27,11 +24,13 @@ CheckBox {
 
     property int indicatorTextSpacing: 4 * screenScaleFactor
 
-    signal styleCheckClicked(var key, var value)
     signal styleCheckedChanged(var key, var value)
-	signal styleCheckChanged(var key, var item)
+    signal styleCheckChanged(var key, var item)
 
-    QQC2.ToolTip {
+    font.family: Constants.labelFontFamily
+    font.weight: Constants.labelFontWeight
+    font.pointSize: Constants.labelFontPointSize_9
+    ToolTip {
         id: tipCtrl
         visible: hovered&&strToolTip ? true : false
         //timeout: 2000
@@ -44,14 +43,13 @@ CheckBox {
             color: "transparent"
         }
 
-        contentItem: QQC2.TextArea{
+        contentItem: TextArea{
             id: idTextArea
             text: strToolTip
             wrapMode: TextEdit.WordWrap
             color: Constants.textColor
-            font.family: Constants.labelFontFamily
-            font.weight: Constants.labelFontWeight
-            font.pointSize: Constants.labelFontPointSize_9
+            font : control.font
+
             readOnly: true
             background: Rectangle
             {
@@ -63,63 +61,47 @@ CheckBox {
         }
     }
 
-    style: CheckBoxStyle {
-
-        spacing: control.indicatorTextSpacing
-
-        label: Text {
+    background: Item{
+        Text {
+            anchors.left: parent.left
+            anchors.leftMargin: checkbox_indicator.width + indicatorTextSpacing
+            anchors.verticalCenter: parent.verticalCenter
             color: enabled ? textColor : "gray"
             text: control.text;
             font.family: Constants.labelFontFamily
             font.pointSize: control.fontSize
             font.weight: control.fontWeight
         }
-
-        indicator: Rectangle {
-            id: checkbox_indicator
-            implicitWidth: checkBoxVisible ? control.indicatorWidth : 0
-            implicitHeight:checkBoxVisible ? control.indicatorHeight : 0
-            radius: 3
-            opacity: control.enabled ? 1 : 0.7
-            border.color: control.indicatorBorderColor
-            border.width: 1
-            color: control.indicatorColor
-            visible: checkBoxVisible
-            /*Canvas{
-                  anchors.fill: parent;
-                  anchors.margins: 3;
-                  visible: control.checked;
-                  onPaint: {
-                      var ctx = getContext("2d");
-                      ctx.save();
-                      ctx.strokeStyle = "#FFFFFF"//"#42BDD8"
-                      ctx.lineWidth = 2;
-                      ctx.beginPath();
-                      ctx.moveTo(2,height/2);
-                      ctx.lineTo(width/2 , height-2);
-                      ctx.moveTo(width/2 , height-2);
-                      ctx.lineTo(width-2 , 2);
-                      ctx.stroke();
-                      ctx.restore();
-                  }
-              }*/
-            Image {
-                id: checkbox_image
-                width: 9* screenScaleFactor
-                height: 6* screenScaleFactor
-                anchors.centerIn: parent
-                source: control.indicatorImage
-                visible: control.checked
-            }
-        }
     }
 
-    onClicked: {
-        styleCheckClicked(keyStr, checked.toString())
+    contentItem:Item{
+
+    }
+
+    indicator: Rectangle {
+        id: checkbox_indicator
+        implicitWidth: checkBoxVisible ? control.indicatorWidth : 0
+        implicitHeight:checkBoxVisible ? control.indicatorHeight : 0
+        anchors.verticalCenter: parent.verticalCenter
+        radius: 3
+        opacity: control.enabled ? 1 : 0.7
+        border.color: control.indicatorBorderColor
+        border.width: 1
+        color: control.indicatorColor
+        visible: checkBoxVisible
+
+        Image {
+            id: checkbox_image
+            width: 9* screenScaleFactor
+            height: 6* screenScaleFactor
+            anchors.centerIn: parent
+            source: control.indicatorImage
+            visible: control.checked
+        }
     }
 
     onCheckedChanged: {
         styleCheckedChanged(keyStr, checked.toString())
-		styleCheckChanged(keyStr, this)
+        styleCheckChanged(keyStr, this)
     }
 }

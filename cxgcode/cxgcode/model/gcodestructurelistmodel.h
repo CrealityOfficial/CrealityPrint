@@ -31,7 +31,7 @@ public:
 public:
   void setDataList(const QList<GcodeStructureData>& data_list);
   void setTimeParts(const gcode::TimeParts& time_parts);
-
+  void setOrcaTimeParts(std::vector<std::pair<int, float>> time_parts,int total_time);
   Q_INVOKABLE void checkItem(int type, bool checked);
   Q_SIGNAL void itemCheckedChanged(int type, bool checked);
 

@@ -1,0 +1,923 @@
+{
+	"speed_slowtofast_slowdown":
+	{
+		"label": "Sudden flow speed gradient",
+		"description": "control the next path speed for sudden flow",
+		"type": "bool",
+		"default_value": "false",
+		"parameter_level": "3",
+		"settable_per_mesh": true,
+		"settable_per_extruder": true
+	},
+	"speed_slowtofast_slowdown_revise_distance":
+	{
+		"label": "Sudden flow gradient distance",
+		"description": "gradient distance for sudden flow",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "55",
+		"minimum_value": "1",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "100",
+		"maximum_value": "100",
+		"parameter_level": "4",
+		"enabled": "eval(contex.value(\"speed_slowtofast_slowdown\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"speed_slowtofast_slowdown_revise_speed_factor":
+	{
+		"label": "Sudden flow boost speed factor",
+		"description": "boost speed factor for sudden flow",
+		"unit": "%",
+		"type": "float",
+		"default_value": "30",
+		"minimum_value": "1",
+		"minimum_value_warning": "1",
+		"maximum_value_warning": "100",
+		"maximum_value": "100",
+		"parameter_level": "4",
+		"enabled": "eval(contex.value(\"speed_slowtofast_slowdown\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"speed_slowtofast_slowdown_revise_acceleration":
+	{
+		"label": "Sudden flow acceleration",
+		"description": "acceleration for sudden flow",
+		"unit": "mm/s²",
+		"type": "float",
+		"default_value": "1500",
+		"minimum_value": "10",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "5000",
+		"maximum_value": "5000",
+		"parameter_level": "4",
+		"enabled": "eval(contex.value(\"speed_slowtofast_slowdown\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"default_material_print_temperature":
+	{
+		"label": "Default Printing Temperature",
+		"description": "The default temperature used for printing. This should be the [base] temperature of a material. All other print temperatures should use offsets based on this value",
+		"unit": "°C",
+		"type": "float",
+		"default_value": "200",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "285",
+		"maximum_value": "365",
+		"enabled": false,
+		"settable_per_extruder": true,
+		"settable_per_mesh": false,
+		"minimum_value": "-273.15"
+	},
+	"build_volume_temperature":
+	{
+		"label": "Build Volume Temperature",
+		"description": "The temperature of the environment to print in. If this is 0, the build volume temperature will not be adjusted.",
+		"unit": "°C",
+		"type": "float",
+		"default_value": "0",
+		"resolve": "min(extruderValues('build_volume_temperature'))",
+		"minimum_value": "-273.15",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "285",
+		"enabled": "eval(contex.value(\"machine_heated_build_volume\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"have_band":
+	{
+		"label": "have band",
+		"description": "The G12 model has a heating plate on the top",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": false,
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_heater_band":
+	{
+		"label": "Upper heating plate",
+		"description": "Used for heating plate at upper end of nozzle.",
+		"unit": "°C",
+		"type": "float",
+		"default_value": "200",
+		"minimum_value": "-273.15",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "500",
+		"maximum_value": "500",
+		"parameter_level": "1",
+		"enabled": "eval(contex.value(\"have_band\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_print_temperature":
+	{
+		"label": "Printing Temperature",
+		"description": "The temperature used for printing.",
+		"unit": "°C",
+		"type": "float",
+		"default_value": "200",
+		"value": "eval(contex.value(\"default_material_print_temperature\"))",
+		"minimum_value": "-273.15",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "500",
+		"maximum_value": "500",
+		"parameter_level": "1",
+		"enabled": "eval(contex.value(\"machine_nozzle_temp_enabled\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_print_temperature_layer_0":
+	{
+		"label": "Printing Temperature Initial Layer",
+		"description": "The temperature used for printing the first layer. Set at 0 to disable special handling of the initial layer.",
+		"unit": "°C",
+		"type": "float",
+		"default_value": "200",
+		"value": "eval(contex.value(\"material_print_temperature\"))",
+		"minimum_value": "-273.15",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "500",
+		"maximum_value": "500",
+		"parameter_level": "2",
+		"enabled": "eval(contex.value(\"machine_nozzle_temp_enabled\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_initial_print_temperature":
+	{
+		"label": "Initial Printing Temperature",
+		"description": "The minimal temperature while heating up to the Printing Temperature at which printing can already start.",
+		"unit": "°C",
+		"type": "float",
+		"default_value": "210",
+		"value": "Math.max(-273.15, eval(contex.value(\"material_print_temperature\")) - 10)",
+		"minimum_value": "-273.15",
+		"minimum_value_warning": "eval(contex.value(\"material_standby_temperature\"))",
+		"maximum_value_warning": "eval(contex.value(\"material_print_temperature\"))",
+		"maximum_value": "365",
+		"parameter_level": "2",
+		"enabled": "eval(contex.value(\"machine_nozzle_temp_enabled\")) && !(eval(contex.value(\"machine_extruders_share_heater\")))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_final_print_temperature":
+	{
+		"label": "Final Printing Temperature",
+		"description": "The temperature to which to already start cooling down just before the end of printing.",
+		"unit": "°C",
+		"type": "float",
+		"default_value": "200",
+		"value": "Math.max(-273.15, eval(contex.value(\"material_print_temperature\")) - 15)",
+		"minimum_value": "-273.15",
+		"minimum_value_warning": "eval(contex.value(\"material_standby_temperature\"))",
+		"maximum_value_warning": "eval(contex.value(\"material_print_temperature\"))",
+		"maximum_value": "365",
+		"parameter_level": "2",
+		"enabled": "eval(contex.value(\"machine_nozzle_temp_enabled\")) && !(eval(contex.value(\"machine_extruders_share_heater\")))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_extrusion_cool_down_speed":
+	{
+		"label": "Extrusion Cool Down Speed Modifier",
+		"description": "The extra speed by which the nozzle cools while extruding. The same value is used to signify the heat up speed lost when heating up while extruding.",
+		"unit": "°C/s",
+		"type": "float",
+		"default_value": "0.7",
+		"minimum_value": "0",
+		"maximum_value_warning": "10.0",
+		"maximum_value": "machine_nozzle_heat_up_speed",
+		"enabled": "(eval(contex.value(\"extruders_enabled_count\")) > 1 && eval(contex.value(\"material_final_print_temperature\")) != eval(contex.value(\"material_print_temperature\")))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"default_material_bed_temperature":
+	{
+		"label": "Default Build Plate Temperature",
+		"description": "The default temperature used for the heated build plate. This should be the [base] temperature of a build plate. All other print temperatures should use offsets based on this value",
+		"unit": "°C",
+		"type": "float",
+		"resolve": "max(extruderValues('default_material_bed_temperature'))",
+		"default_value": "60",
+		"minimum_value": "-273.15",
+		"minimum_value_warning": "eval(contex.value(\"build_volume_temperature\"))",
+		"maximum_value_warning": "200",
+		"maximum_value": "200",
+		"parameter_level": "2",
+		"enabled": false,
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": false
+	},
+	"material_bed_temperature":
+	{
+		"label": "Build Plate Temperature",
+		"description": "The temperature used for the heated build plate. If this is 0, the bed temperature will not be adjusted.",
+		"unit": "°C",
+		"type": "float",
+		"default_value": "60",
+		"value": "eval(contex.value(\"default_material_bed_temperature\"))",
+		"resolve": "max(extruderValues('material_bed_temperature'))",
+		"minimum_value": "-273.15",
+		"minimum_value_warning": "eval(contex.value(\"build_volume_temperature\"))",
+		"maximum_value_warning": "200",
+		"maximum_value": "200",
+		"parameter_level": "1",
+		"enabled": "eval(contex.value(\"machine_heated_bed\")) && getEnumValue(\"machine_gcode_flavor\") != 'UltiGCode'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": false
+	},
+	"material_bed_temperature_layer_0":
+	{
+		"label": "Build Plate Temperature Initial Layer",
+		"description": "The temperature used for the heated build plate at the first layer.",
+		"unit": "°C",
+		"type": "float",
+		"resolve": "max(extruderValues('material_bed_temperature_layer_0'))",
+		"default_value": "60",
+		"value": "eval(contex.value(\"material_bed_temperature\"))",
+		"minimum_value": "-273.15",
+		"maximum_value_warning": "200",
+		"maximum_value": "200",
+		"parameter_level": "2",
+		"enabled": "eval(contex.value(\"machine_heated_bed\")) && getEnumValue(\"machine_gcode_flavor\") != 'UltiGCode'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": false
+	},
+	"material_flow_dependent_temperature":
+	{
+		"label": "Auto Temperature",
+		"description": "Change the temperature for each layer automatically with the average flow speed of that layer.",
+		"type": "bool",
+		"default_value": "false",
+		"parameter_level": "3",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"material_flow_temp_graph":
+	{
+		"label": "Flow Temperature Graph",
+		"description": "Data linking material flow (in mm3 per second) to temperature (degrees Celsius).",
+		"unit": "[[mm³,°C]]",
+		"type": "str",
+		"default_value": "[[3.5,200],[7.0,240]]",
+		"parameter_level": "4",
+		"enabled": "eval(contex.value(\"material_flow_dependent_temperature\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},		
+	"material_adhesion_tendency":
+	{
+		"label": "Adhesion Tendency",
+		"description": "Surface adhesion tendency.",
+		"type": "int",
+		"default_value": "10",
+		"minimum_value": "0",
+		"maximum_value": "10",
+		"enabled": false,
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_surface_energy":
+	{
+		"label": "Surface Energy",
+		"description": "Surface energy.",
+		"unit": "%",
+		"type": "int",
+		"default_value": "100",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"enabled": false,
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_shrinkage_percentage":
+	{
+		"label": "Scaling Factor Shrinkage Compensation",
+		"description": "To compensate for the shrinkage of the material as it cools down, the model will be scaled with this factor.",
+		"unit": "%",
+		"type": "float",
+		"parameter_level": "1",
+		"default_value": "100.0",
+		"enabled": true,
+		"minimum_value": "0.001",
+		"minimum_value_warning": "100",
+		"maximum_value_warning": "120",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"resolve": "sum(extruderValues(\"material_shrinkage_percentage\")) / len(extruderValues(\"material_shrinkage_percentage\"))"
+	},
+	"material_shrinkage_percentage_xy":
+	{
+		"label": "Horizontal Scaling Factor Shrinkage Compensation",
+		"description": "To compensate for the shrinkage of the material as it cools down, the model will be scaled with this factor in the XY-direction (horizontally).",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100.0",
+		"enabled": true,
+		"minimum_value": "0.001",
+		"minimum_value_warning": "100",
+		"maximum_value_warning": "120",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"resolve": "sum(extruderValues(\"material_shrinkage_percentage_xy\")) / len(extruderValues(\"material_shrinkage_percentage_xy\"))",
+		"value": "eval(contex.value(\"material_shrinkage_percentage\"))"
+	},
+	"material_shrinkage_percentage_z":
+	{
+		"label": "Vertical Scaling Factor Shrinkage Compensation",
+		"description": "To compensate for the shrinkage of the material as it cools down, the model will be scaled with this factor in the Z-direction (vertically).",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100.0",
+		"enabled": true,
+		"minimum_value": "0.001",
+		"minimum_value_warning": "100",
+		"maximum_value_warning": "120",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"resolve": "sum(extruderValues(\"material_shrinkage_percentage_z\")) / len(extruderValues(\"material_shrinkage_percentage_z\"))",
+		"value": "eval(contex.value(\"material_shrinkage_percentage\"))"
+	},
+	"material_crystallinity":
+	{
+		"label": "Crystalline Material",
+		"description": "Is this material the type that breaks off cleanly when heated (crystalline), or is it the type that produces long intertwined polymer chains (non-crystalline)?",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": false,
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_anti_ooze_retracted_position":
+	{
+		"label": "Anti-ooze Retracted Position",
+		"description": "How far the material needs to be retracted before it stops oozing.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "-4",
+		"enabled": false,
+		"minimum_value_warning": "-1 * eval(contex.value(\"switch_extruder_retraction_amount\"))",
+		"maximum_value_warning": "0",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_anti_ooze_retraction_speed":
+	{
+		"label": "Anti-ooze Retraction Speed",
+		"description": "How fast the material needs to be retracted during a filament switch to prevent oozing.",
+		"type": "float",
+		"unit": "mm/s",
+		"default_value": "5",
+		"enabled": false,
+		"minimum_value": "0",
+		"maximum_value": "eval(contex.value(\"machine_max_feedrate_e\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_break_preparation_retracted_position":
+	{
+		"label": "Break Preparation Retracted Position",
+		"description": "How far the filament can be stretched before it breaks, while heated.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "-16",
+		"enabled": false,
+		"minimum_value_warning": "eval(contex.value(\"retraction_amount\")) * -4",
+		"maximum_value_warning": "0",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_break_preparation_speed":
+	{
+		"label": "Break Preparation Retraction Speed",
+		"description": "How fast the filament needs to be retracted just before breaking it off in a retraction.",
+		"type": "float",
+		"unit": "mm/s",
+		"default_value": "2",
+		"enabled": false,
+		"minimum_value": "0",
+		"maximum_value": "eval(contex.value(\"machine_max_feedrate_e\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_break_preparation_temperature":
+	{
+		"label": "Break Preparation Temperature",
+		"description": "The temperature used to purge material, should be roughly equal to the highest possible printing temperature.",
+		"type": "float",
+		"unit": "°C",
+		"default_value": "50",
+		"value": "eval(contex.value(\"material_print_temperature\"))",
+		"enabled": false,
+		"minimum_value": "-273.15",
+		"maximum_value_warning": "300",
+		"maximum_value": "365",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_break_retracted_position":
+	{
+		"label": "Break Retracted Position",
+		"description": "How far to retract the filament in order to break it cleanly.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "-50",
+		"enabled": false,
+		"minimum_value_warning": "-100",
+		"maximum_value_warning": "0",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_break_speed":
+	{
+		"label": "Break Retraction Speed",
+		"description": "The speed at which to retract the filament in order to break it cleanly.",
+		"type": "float",
+		"unit": "mm/s",
+		"default_value": "25",
+		"enabled": false,
+		"minimum_value": "0",
+		"maximum_value": "eval(contex.value(\"machine_max_feedrate_e\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_break_temperature":
+	{
+		"label": "Break Temperature",
+		"description": "The temperature at which the filament is broken for a clean break.",
+		"type": "float",
+		"unit": "°C",
+		"default_value": "50",
+		"enabled": false,
+		"minimum_value": "-273.15",
+		"maximum_value": "365",
+		"maximum_value_warning": "300",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_flush_purge_speed":
+	{
+		"label": "Flush Purge Speed",
+		"description": "Material Station internal value",
+		"type": "float",
+		"default_value": "0.5",
+		"enabled": false
+	},
+	"material_flush_purge_length":
+	{
+		"label": "Flush Purge Length",
+		"description": "Material Station internal value",
+		"type": "float",
+		"default_value": "60",
+		"enabled": false
+	},
+	"material_end_of_filament_purge_speed":
+	{
+		"label": "End Of Filament Purge Speed",
+		"description": "Material Station internal value",
+		"type": "float",
+		"default_value": "0.5",
+		"enabled": false
+	},
+	"material_end_of_filament_purge_length":
+	{
+		"label": "End Of Filament Purge Length",
+		"description": "Material Station internal value",
+		"type": "float",
+		"default_value": "20",
+		"enabled": false
+	},
+	"material_maximum_park_duration":
+	{
+		"label": "Maximum Park Duration",
+		"description": "Material Station internal value",
+		"type": "float",
+		"default_value": "300",
+		"enabled": false
+	},
+	"material_no_load_move_factor":
+	{
+		"label": "No Load Move Factor",
+		"description": "Material Station internal value",
+		"type": "float",
+		"default_value": "0.940860215",
+		"enabled": false
+	},
+	"material_flow_ratio":
+	{
+		"label": "Material Flow Ratio",
+		"description": "Volume differences may occur as the material is melted and then solidified. This setting changes all of the flow compensations proportionally.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"minimum_value": "0.0001",
+		"minimum_value_warning": "50",
+		"maximum_value_warning": "150",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"material_flow":
+	{
+		"label": "Flow",
+		"description": "Flow compensation: the amount of material extruded is multiplied by this value.",
+		"unit": "%",
+		"default_value": "100",
+		"type": "float",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "300",
+		"parameter_level": "-2",
+		"enabled": "getEnumValue(\"machine_gcode_flavor\") != 'UltiGCode'",
+		"settable_per_mesh": true
+	},
+	"wall_material_flow":
+	{
+		"label": "Wall Flow",
+		"description": "Flow compensation on wall lines.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"material_flow\"))",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "300",
+		"parameter_level": "-1",
+		"limit_to_extruder": "wall_0_extruder_nr if wall_x_extruder_nr == wall_0_extruder_nr else -1",
+		"settable_per_mesh": true
+	},
+	"wall_0_material_flow":
+	{
+		"label": "Outer Wall Flow",
+		"description": "Flow compensation on the outermost wall line.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"wall_material_flow\"))",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "300",
+		"parameter_level": "2",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"wall_x_material_flow":
+	{
+		"label": "Inner Wall(s) Flow",
+		"description": "Flow compensation on wall lines for all wall lines except the outermost one.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"wall_material_flow\"))",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "200",
+		"parameter_level": "2",
+		"limit_to_extruder": "wall_x_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skin_material_flow":
+	{
+		"label": "Top/Bottom Flow",
+		"description": "Flow compensation on top/bottom lines.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"material_flow\"))",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "200",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"parameter_level": "1",
+		"settable_per_mesh": true
+	},
+	"roofing_material_flow":
+	{
+		"label": "Top Surface Skin Flow",
+		"description": "Flow compensation on lines of the areas at the top of the print.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"skin_material_flow\"))",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "200",
+		"limit_to_extruder": "roofing_extruder_nr",
+		"settable_per_mesh": true,
+		"enabled": "eval(contex.value(\"roofing_layer_count\")) > 0 && eval(contex.value(\"top_layers\")) > 0"
+	},
+	"infill_material_flow":
+	{
+		"label": "Infill Flow",
+		"description": "Flow compensation on infill lines.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"material_flow\"))",
+		"parameter_level": "1",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "300",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skirt_brim_material_flow":
+	{
+		"label": "Skirt/Brim Flow",
+		"description": "Flow compensation on skirt or brim lines.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"material_flow\"))",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "200",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'skirt' || getEnumValue(\"adhesion_type\") == 'brim'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_material_flow":
+	{
+		"label": "Support Flow",
+		"description": "Flow compensation on support structure lines.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "80",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "200",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"parameter_level": "1",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_interface_material_flow":
+	{
+		"label": "Support Interface Flow",
+		"description": "Flow compensation on lines of support roof or floor.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"support_material_flow\"))",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "200",
+		"enabled": "eval(contex.value(\"support_enable\")) && eval(contex.value(\"support_interface_enable\"))",
+		"limit_to_extruder": "support_interface_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_roof_material_flow":
+	{
+		"label": "Support Roof Flow",
+		"description": "Flow compensation on support roof lines.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"support_interface_material_flow\"))",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "200",
+		"enabled": "eval(contex.value(\"support_enable\")) && eval(contex.value(\"support_roof_enable\"))",
+		"limit_to_extruder": "support_roof_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_bottom_material_flow":
+	{
+		"label": "Support Floor Flow",
+		"description": "Flow compensation on support floor lines.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"support_interface_material_flow\"))",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "200",
+		"enabled": "eval(contex.value(\"support_enable\")) && eval(contex.value(\"support_bottom_enable\"))",
+		"limit_to_extruder": "support_bottom_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"prime_tower_flow":
+	{
+		"label": "Prime Tower Flow",
+		"description": "Flow compensation on prime tower lines.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"material_flow\"))",
+		"minimum_value": "5",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "200",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_flow_layer_0":
+	{
+		"label": "Initial Layer Flow",
+		"description": "Flow compensation for the first layer: the amount of material extruded on the initial layer is multiplied by this value.",
+		"unit": "%",
+		"default_value": "110",
+		"type": "float",
+		"minimum_value": "0.0001",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "200",
+		"settable_per_mesh": true
+	},
+	"wall_x_material_flow_layer_0":
+	{
+		"label": "Initial Layer Inner Wall Flow",
+		"description": "Flow compensation on wall lines for all wall lines except the outermost one, but only for the first layer",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"material_flow_layer_0\"))",
+		"minimum_value": "0.0001",
+		"minimum_value_warning": "50",
+		"maximum_value_warning": "150",
+		"limit_to_extruder": "wall_x_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"wall_0_material_flow_layer_0":
+	{
+		"label": "Initial Layer Outer Wall Flow",
+		"description": "Flow compensation on the outermost wall line of the first layer.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"material_flow_layer_0\"))",
+		"minimum_value": "0.0001",
+		"minimum_value_warning": "50",
+		"maximum_value_warning": "150",
+		"limit_to_extruder": "wall_0_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skin_material_flow_layer_0":
+	{
+		"label": "Initial Layer Bottom Flow",
+		"description": "Flow compensation on bottom lines of the first layer",
+		"unit": "%",
+		"type": "float",
+		"default_value": "100",
+		"value": "eval(contex.value(\"material_flow_layer_0\"))",
+		"minimum_value": "0.0001",
+		"minimum_value_warning": "50",
+		"maximum_value_warning": "150",
+		"enabled": "bottom_layers > 0",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"material_standby_temperature":
+	{
+		"label": "Standby Temperature",
+		"description": "The temperature of the nozzle when another nozzle is currently used for printing.",
+		"type": "float",
+		"unit": "°C",
+		"default_value": "150",
+		"minimum_value": "-273.15",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "260",
+		"maximum_value": "365",
+		"parameter_level": "2",
+		"enabled": "eval(contex.value(\"extruders_enabled_count\")) > 1 && eval(contex.value(\"machine_nozzle_temp_enabled\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"material_name":
+	{
+		"label": "Material Name",
+		"description": "",
+		"type": "str",
+		"default_value": "PLA",
+		"enabled": false
+	},
+	"material_brand":
+	{
+		"label": "Brand",
+		"description": "",
+		"type": "str",
+		"default_value": "Generic",
+		"enabled": false
+	},
+	"material_color":
+	{
+		"label": "Color",
+		"description": "",
+		"type": "str",
+		"default_value": "",
+		"enabled": false
+	},
+	"filament_material_type":
+	{
+		"label": "Material Type",
+		"description": "",
+		"type": "str",
+		"default_value": "PLA",
+		"enabled": false
+	},
+	"material_density":
+	{
+		"label": "Density",
+		"description": "",
+		"unit": "g/cm3",
+		"type": "float",
+		"default_value": "1.24",
+		"parameter_level": "1",
+		"enabled": true
+	},
+	"material_max_volumetric_speed":
+	{
+		"label": "Max volumetric speed",
+		"description": "This setting is the volume of filament that can be melted andextruded per second. Printing speed is limited by max volumetric speed.",
+		"unit": "mm3/s",
+		"type": "float",
+		"default_value": "10",
+		"parameter_level": "1",
+		"enabled": true
+	},
+	"filament_cost":
+	{
+		"label": "Filament Cost",
+		"description": "",
+		"unit": "money",
+		"type": "float",
+		"default_value": "20",
+		"parameter_level": "1",
+		"enabled": true
+	},
+	"filament_weight":
+	{
+		"label": "Filament Weight",
+		"description": "",
+		"unit": "g",
+		"type": "float",
+		"default_value": "1000",
+		"enabled": true
+	},
+	"filament_length":
+	{
+		"label": "Filament Length",
+		"description": "",
+		"unit": "m",
+		"type": "float",
+		"default_value": "0",
+		"enabled": false
+	},
+	"cost_per_meter":
+	{
+		"label": "Cost Per Meter",
+		"description": "",
+		"unit": "€/m",
+		"type": "float",
+		"default_value": "0.00",
+		"parameter_level": "1",
+		"enabled": false
+	},
+	"material_description":
+	{
+		"label": "Description",
+		"description": "",
+		"type": "str",
+		"default_value": "",
+		"parameter_level": "1",
+		"enabled": true
+	},
+	"material_pressure_advance":
+	{
+		"label": "Enable pressure advance",
+		"description": "Enable pressure advance,auto calibration result will be overwriten once enabled",
+		"default_value": "false",
+		"type": "bool",
+		"parameter_level": "1",
+		"settable_per_mesh": true,
+		"settable_per_extruder": true,
+		"settable_per_meshgroup": true
+	},
+	"material_advance_length":
+	{
+		"label": "Material pressure advance length",
+		"description": "Pressure advance(Klipper) AKA Linear advance(Marlin).",
+		"type": "float",
+		"minimum_value": "0.001",
+		"maximum_value": "0.5",
+		"maximum_value_warning": "0.2",
+		"parameter_level": "1",
+		"default_value": "0.04",
+		"enabled": "eval(contex.value(\"material_pressure_advance\"))",
+		"settable_per_mesh": true,
+		"settable_per_extruder": true,
+		"settable_per_meshgroup": true
+	}
+}

@@ -1,6 +1,6 @@
 #include "layoutcommand.h"
 #include "interface/spaceinterface.h"
-#include "job/nest2djob.h"
+#include "job/nest2djobex.h"
 #include "cxkernel/interface/jobsinterface.h"
 #include "interface/commandinterface.h"
 #include "interface/machineinterface.h"
@@ -14,7 +14,7 @@ namespace creative_kernel
         m_actionname = tr("Auto arrange");
         m_actionNameWithout = "Auto arrange";
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     LayoutCommand::~LayoutCommand()
@@ -23,12 +23,13 @@ namespace creative_kernel
 
     void LayoutCommand::execute()
     {
-        creative_kernel::Nest2DJob* job = new creative_kernel::Nest2DJob();
+        // creative_kernel::Nest2DJob* job = new creative_kernel::Nest2DJob();
+        creative_kernel::Nest2DJobEx* job = new creative_kernel::Nest2DJobEx();
         QList<JobPtr> jobs;
-        if (currentMachineIsBelt())
-        {
-            job->setNestType(cxkernel::NestPlaceType::ONELINE);
-        }
+        //if (currentMachineIsBelt())
+        //{
+        //    job->setNestType(cxkernel::NestPlaceType::ONELINE);
+        //}
         jobs.push_back(JobPtr(job));
         cxkernel::executeJobs(jobs);
     }

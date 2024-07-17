@@ -12,10 +12,13 @@ echo "ZIP_PATH=$ZIP_PATH"
 function uploadFileAndNotarized()
 {
 	echo "start notarized $1 ..."
-	xcrun altool --notarize-app --primary-bundle-id "$BUNDLE_ID" --username "$USERNAME" --password "$PASSWORD" --file "$1" &> tmp
+	#1.存储凭证
+	xcrun notarytool store-credentials "$BUNDLE_ID" --apple-id "$USERNAME" --team-id "DMR5SZUGP9" --password "$PASSWORD"
+	#2.根据凭证申请公证
+	xcrun notarytool submit $1  --keychain-profile "$BUNDLE_ID" &> tmp
 	# 从日志文件中读取UUID,并隔一段时间检查一次公证结果
 	# 只有成功的格式是 RequestUUID = 
-	uuid=`cat tmp | grep -Eo 'RequestUUID = [[:alnum:]]{8}-([[:alnum:]]{4}-){3}[[:alnum:]]{12}' | grep -Eo '[[:alnum:]]{8}-([[:alnum:]]{4}-){3}[[:alnum:]]{12}' | sed -n "1p"`
+	uuid=`cat tmp | grep -Eo 'id: [[:alnum:]]{8}-([[:alnum:]]{4}-){3}[[:alnum:]]{12}' | grep -Eo '[[:alnum:]]{8}-([[:alnum:]]{4}-){3}[[:alnum:]]{12}' | sed -n "1p"`
 	# 如果上传过了，则会返回 The upload ID is 
 	if [[ "$uuid" == "" ]];then
 		uuid=`cat tmp | grep -Eo 'The upload ID is [[:alnum:]]{8}-([[:alnum:]]{4}-){3}[[:alnum:]]{12}' | grep -Eo '[[:alnum:]]{8}-([[:alnum:]]{4}-){3}[[:alnum:]]{12}' | sed -n "1p"`
@@ -32,12 +35,14 @@ function uploadFileAndNotarized()
 	while true; do
 	    echo "checking for notarization..."
 	 
-	    xcrun altool --notarization-info "$uuid" --username "$USERNAME" --password "$PASSWORD" &> tmp
+	    #3.查询公证进度
+		xcrun notarytool info "$uuid" --keychain-profile "$BUNDLE_ID"   &> tmp  
 	    r=`cat tmp`
-	    t=`echo "$r" | grep "success"`
+	    t=`echo "$r" | grep "Accepted"`
 	    f=`echo "$r" | grep "invalid"`
 	    if [[ "$t" != "" ]]; then
 	        echo "notarization done!"
+			#4.公证注入到安装包中
 	        xcrun stapler staple "$1"
 	        # xcrun stapler staple "Great.dmg"
 	        echo "stapler done!"

@@ -6,6 +6,7 @@ import QtQuick.Controls 2.0
 
 import Qt.labs.platform 1.1
 
+import "../components"
 import "../qml"
 import "./"
 

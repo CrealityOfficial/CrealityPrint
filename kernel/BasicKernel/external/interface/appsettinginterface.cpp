@@ -88,4 +88,18 @@ namespace creative_kernel
 	{
 		return getKernel()->globalConst()->getResourcePath(resource);
 	}
+
+	QString getEnginePathPrefix()
+	{
+		return getKernel()->globalConst()->getEnginePathPrefix();
+	}
+
+	EngineType getEngineType()
+	{
+		return getKernel()->globalConst()->getEngineType();
+	}
+	QString getEngineVersion()
+	{
+		return getKernel()->globalConst()->getEngineVersion();
+	}
 }

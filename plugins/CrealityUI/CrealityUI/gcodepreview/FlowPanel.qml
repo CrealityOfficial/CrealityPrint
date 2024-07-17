@@ -20,7 +20,7 @@ Rectangle {
     anchors.right: parent.right
 
     text: "%1 (%2)".arg(root.title).arg(root.unit)
-    color: Constants.textColor
+    color:"#ffffff"
     font.family: Constants.labelFontFamily
     font.weight: Constants.labelFontWeight
     font.pointSize: Constants.labelFontPointSize_9
@@ -37,7 +37,7 @@ Rectangle {
 
     model: kernel_slice_model.flowModel
     delegate: RowLayout {
-      width: parent.width
+      width: title_label.width
       height: 20 * screenScaleFactor
       spacing: 5 * screenScaleFactor
 
@@ -58,7 +58,7 @@ Rectangle {
         Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
 
         text: String(model_value.toFixed(1))
-        color: Constants.textColor
+        color:"#ffffff"
         font.family: Constants.labelFontFamily
         font.weight: Constants.labelFontWeight
         font.pointSize: Constants.labelFontPointSize_9

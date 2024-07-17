@@ -12,8 +12,10 @@ namespace creative_kernel
         m_actionname = tr("Clear All");
         m_actionNameWithout = "Clear All";
         m_strMessageText = tr("Do you Want to Clear All Model?");
+        m_source = "qrc:/UI/photo/menuImg/delete_all_n.svg";
+        m_icon = "qrc:/UI/photo/menuImg/delete_all_p.svg";
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     ClearAllAction::~ClearAllAction()

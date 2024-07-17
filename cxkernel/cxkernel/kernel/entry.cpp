@@ -1,6 +1,6 @@
 #include "entry.h"
 #include <QtWidgets/QApplication>
-
+#include <QResource>
 #include <QtCore/QDebug>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlContext>
@@ -19,7 +19,7 @@
 #include "buildinfo.h"
 #include "qtusercore/string/resourcesfinder.h"
 #include <QTextCodec>
-
+#include <QFontMetrics>
 namespace cxkernel
 {
 	void outputMessage(QtMsgType type, const QMessageLogContext& context, const QString& msg)
@@ -35,9 +35,11 @@ namespace cxkernel
 #endif
 		switch (type)//log ��Ϣ����
 		{
+#ifdef QT_DEBUG
 		case QtDebugMsg:
 			LOGD("%s", text.toLocal8Bit().constData());
 			break;
+#endif
 		case QtInfoMsg:
 			LOGI("%s", text.toLocal8Bit().constData());
 			break;
@@ -58,11 +60,16 @@ namespace cxkernel
 
 	void initializeLog(int argc, char* argv[])
 	{
-#ifdef QT_NO_DEBUG
 
-		qApp->setOrganizationName(ORGANIZATION);
-		qApp->setOrganizationDomain("FDM");
-		qApp->setApplicationName(PROJECT_NAME);//by TCJ "Creative3D"
+
+		QCoreApplication::setOrganizationName(QStringLiteral(ORGANIZATION));
+    	QCoreApplication::setOrganizationDomain(QStringLiteral("FDM"));
+#ifdef Q_OS_LINUX
+    	QCoreApplication::setApplicationName(
+      	QStringLiteral(BUNDLE_NAME).replace(QStringLiteral("_"), QStringLiteral(" ")));
+#else
+    	QCoreApplication::setApplicationName(QStringLiteral("Creative3D"));
+#endif
 
 		QString logDirectory = qtuser_core::getOrCreateAppDataLocation("Log");
 
@@ -74,7 +81,7 @@ namespace cxkernel
 
 		LOGNAMEFUNC(func);
 		LOGDIR(logDirectory.toLocal8Bit().data());
-#else
+#ifdef QT_DEBUG
 		LOGCONSOLE();
 #endif
 		LOGLEVEL(1);
@@ -148,7 +155,23 @@ namespace cxkernel
 
 		engine.setImportPathList(qmlPathList);
 	}
-
+	float getScreenScaleFactor()
+	{
+#ifdef __APPLE__
+		QFont font = qApp->font();
+		font.setPointSize(12);
+		qApp->setFont(font);
+		return 1;
+#else
+		QFont font = qApp->font();
+		font.setPointSize(10);
+		qApp->setFont(font);
+		//int ass = QFontMetrics(font).ascent();
+		float fontPixelRatio = QFontMetrics(qApp->font()).ascent() / 11.0;
+		fontPixelRatio = int(fontPixelRatio * 4) / 4.0;
+		return fontPixelRatio;
+#endif
+	}
 	int appMain(int argc, char* argv[], AppModuleCreateFunc func)
 	{
 		initializeLog(argc, argv);
@@ -162,6 +185,23 @@ namespace cxkernel
 
 		QApplication app(argc, argv);
 		setlocale(LC_NUMERIC, "C");
+#ifdef Q_OS_WIN
+		if (GetACP() != GetOEMCP())
+		{
+			QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
+		}
+
+#endif // Q_OS_WIN
+		QString rcc = qApp->applicationDirPath() + "/CrealityUIRes.rcc";
+    #ifdef Q_OS_OSX
+        rcc = qApp->applicationDirPath() + "/../Resources/CrealityUIRes.rcc";
+    #endif
+    #ifdef Q_OS_LINUX
+    #endif
+		if(QResource::registerResource(rcc))
+		{
+			qDebug() << "success";
+		}
 		app.setWindowIcon(QIcon(":/scence3d/res/logo.png"));
 
 #ifdef Q_OS_OSX
@@ -183,20 +223,28 @@ namespace cxkernel
 				QObject* object = nullptr;
 				if (useFrameless)
 				{
+//#ifdef Q_OS_OSX
+					setDefaultAfterApp();
+//#endif
 					FrameLessView* view = new FrameLessView();
-					view->setMinimumSize({ 1280, 720 });
+					view->setMinimumSize({ static_cast<int>(1280* getScreenScaleFactor()), static_cast<int>(720* getScreenScaleFactor()) });
 					view->setColor(QColor("transparent"));
+					view->setTitle(QStringLiteral(BUNDLE_NAME).replace(QStringLiteral("_"), QStringLiteral(" ")));
 					engine = view->engine();
+					QObject::connect(engine,&QQmlEngine::quit,[&](){QCoreApplication::quit();});
 					object = view;
+//#ifdef Q_OS_WIN
+//						setDefaultAfterApp();
+//#endif
 				}
 				else
 				{
 					QQmlApplicationEngine* qEngine = new QQmlApplicationEngine();
 					engine = qEngine;
 					object = qEngine;
+					setDefaultAfterApp();
 				}
 
-				setDefaultAfterApp();
 				setDefaultQmlAfterApp(*engine);
 
 				showDetailSystemInfo();

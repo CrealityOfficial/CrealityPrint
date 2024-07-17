@@ -5,6 +5,7 @@
 #define SLICER_H
 
 #include <queue>
+#include <map>
 #include <unordered_map>
 #include "utils/polygon.h"
 #include "types/EnumSettings.h"
@@ -38,6 +39,7 @@ namespace cura52
     class SlicerSegment
     {
     public:
+        int color;
         Point start, end;
         int faceIndex = -1;
         // The index of the other face connected via the edge that created end
@@ -69,9 +71,16 @@ namespace cura52
     class SlicerLayer
     {
     public:
+        ClipperLib::Paths skinpath;
         std::vector<SlicerSegment> segments;
+        //?? ??
+        std::vector<SlicerSegment> skinsegments;
+        std::map<int, ClipperLib::Paths> skincolorpaths;
         std::unordered_map<int, int> face_idx_to_segment_idx; // topology
 
+        int inner = 0;
+        bool isSkin = false;
+        std::map<int,std::vector<SlicerLayer>> slicerLayers;
         int z = -1;
         Polygons polygons;
         Polygons openPolylines;
@@ -84,6 +93,18 @@ namespace cura52
         void makePolygons(const Mesh* mesh);
 
     protected:
+        /**
+         * @brief 分割表面的线段
+         * 
+         * @param open_polylines 
+         */
+        void SplitSlicerTopAndBottomSegmentBycolor(Polygons& open_polylines);
+        /**
+         * @brief 
+         * 
+         * @param open_polylines 
+         */
+        void SplitSlicerSegmentBycolor(Polygons& open_polylines);
         /*!
          * Connect the segments into loops which correctly form polygons (don't perform stitching here)
          *
@@ -504,11 +525,15 @@ namespace cura52
     {
     public:
         std::vector<SlicerLayer> layers;
+
+        std::map<int,std::vector<SlicerLayer>> slicerLayers;
         SliceContext* application = nullptr;
 
         const Mesh* mesh = nullptr; //!< The sliced mesh
 
         Slicer(SliceContext* application, Mesh* mesh, const coord_t thickness, const size_t slice_layer_count, bool use_variable_layer_heights, std::vector<AdaptiveLayer>* adaptive_layers);
+
+
     private:
 
         /*!
@@ -539,6 +564,8 @@ namespace cura52
          */
         static SlicerSegment project2D(const Point3& p0, const Point3& p1, const Point3& p2, const coord_t z);
 
+        static SlicerSegment project2D(const Point3& p0, const Point3& p1, const Point3& p2, const coord_t z, int color);
+
         /*! Creates an array of "z bounding boxes" for each face.
         * \param[in] mesh The mesh which is analyzed.
         * \return z heights aka z bounding boxes of the faces.
@@ -551,6 +578,8 @@ namespace cura52
         * \param[in, out] layers The polygon are created here.
         */
         static void makePolygons(SliceContext* application, Mesh& mesh, SlicingTolerance slicing_tolerance, std::vector<SlicerLayer>& layers);
+
+        static void makePolygons(SliceContext* application, Mesh& mesh, SlicingTolerance slicing_tolerance, std::vector<SlicerLayer>& layers,std::map<int,std::vector<SlicerLayer>>& slicerLayers);
 
         /*! Creates a vector of layers and set their z value.
         * \param[in] mesh The mesh which is analyzed.

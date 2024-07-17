@@ -57,7 +57,7 @@ void DrillJob::work(qtuser_core::Progressor* progressor) {
   memcpy(&param, &param_, sizeof(msbase::DrillParam));
 
   TriMeshPtr omesh_(msbase::drillCylinder(imesh_.get(), param, &tracer, nullptr, true));
-  if (omesh_ == nullptr) {
+  if (omesh_ == nullptr || omesh_->faces.size() <= 0) {
     return;
   }
 
@@ -65,10 +65,14 @@ void DrillJob::work(qtuser_core::Progressor* progressor) {
   omesh_->clear_bbox();
   omesh_->need_bbox();
 
-  data_ = cxkernel::createModelNData(omesh_, model_->objectName(), cxkernel::ModelNDataType::mdt_algrithm);
+  data_ = cxkernel::createModelNData(omesh_, QStringLiteral("%1").arg(model_->objectName()), cxkernel::ModelNDataType::mdt_algrithm);
+  data_->defaultColor = model_->defaultColorIndex();
 }
 
 void DrillJob::successed(qtuser_core::Progressor* progressor) {
+    if (!data_.get())
+        return;
+
   auto newModels = creative_kernel::replaceModelsMesh({ model_ }, { data_ }, true);
   creative_kernel::requestVisUpdate();
   Q_EMIT finished(newModels.empty() ? NULL : newModels.first());

@@ -15,6 +15,10 @@ namespace creative_kernel
 {
 	class ModelN;
 	class ModelNSelector;
+
+	BASIC_KERNEL_API bool wipeTowerSelected();
+	BASIC_KERNEL_API void setSelectorEnable(bool enable);
+
 	BASIC_KERNEL_API void addSelectTracer(qtuser_3d::SelectorTracer* tracer);
 	BASIC_KERNEL_API void removeSelectorTracer(qtuser_3d::SelectorTracer* tracer);
 	BASIC_KERNEL_API void disableReverseSelect(bool disable);
@@ -24,6 +28,10 @@ namespace creative_kernel
 
 	BASIC_KERNEL_API void tracePickable(qtuser_3d::Pickable* pickable);
 	BASIC_KERNEL_API void unTracePickable(qtuser_3d::Pickable* pickable);
+
+	BASIC_KERNEL_API void addPickables(QList<qtuser_3d::Pickable*> pickables);
+	BASIC_KERNEL_API void removePickables(QList<qtuser_3d::Pickable*> pickables);
+
 	BASIC_KERNEL_API qtuser_3d::Pickable* checkPickable(const QPoint& point, int* primitiveID);
 	BASIC_KERNEL_API ModelN* checkPickModel(const QPoint& point, QVector3D& position, QVector3D& normal, int* primitiveID = nullptr);
 

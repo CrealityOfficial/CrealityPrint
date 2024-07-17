@@ -47,9 +47,10 @@
         <file>qml/RotatePanel.qml</file>
         <file>qml/ScalePanel.qml</file>
         <file>qml/Clone.qml</file>
-		<file>qml/ModelShowPanel.qml</file>
+        <file>qml/ModelShowPanel.qml</file>
         <file>qml/NoSelect.qml</file>
         <file>images/reset.png</file>
-	<file>menuQml/aboutUs.qml</file>
+        <file>menuQml/aboutUs.qml</file>
+        <file>qml/LayoutPanel.qml</file>
     </qresource>
 </RCC>

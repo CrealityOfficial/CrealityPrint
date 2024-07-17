@@ -573,9 +573,9 @@
         "description": "Whether Cds Fan Exist in the machine.",
         "default_value": "false",
         "type": "bool",
-        "settable_per_mesh": false,
-        "settable_per_extruder": true,
-        "settable_per_meshgroup": false
+        "settable_per_mesh": "false",
+        "settable_per_extruder": "true",
+        "settable_per_meshgroup": "false"
     },
 	"machine_platform_motion_enable":
     {
@@ -583,9 +583,9 @@
         "description": "Whether to fix the printing platform in the Y-axis direction.",
         "default_value": "false",
         "type": "bool",
-        "settable_per_mesh": false,
-        "settable_per_extruder": true,
-        "settable_per_meshgroup": false
+        "settable_per_mesh": "false",
+        "settable_per_extruder": "true",
+        "settable_per_meshgroup": "false"
     },
     "machine_LED_light_exist":
      {
@@ -593,9 +593,9 @@
          "description": "Whether LED Light Exist in the machine.",
          "default_value": "false",
          "type": "bool",
-         "settable_per_mesh": false,
-         "settable_per_extruder": true,
-         "settable_per_meshgroup": false
+         "settable_per_mesh": "false",
+         "settable_per_extruder": "true",
+         "settable_per_meshgroup": "false"
     },
 	"machine_gcode_flavor":
 	{

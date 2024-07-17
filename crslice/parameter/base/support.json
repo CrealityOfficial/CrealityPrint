@@ -546,7 +546,7 @@
 					"default_value": "false",
                     "limit_to_extruder": "support_infill_extruder_nr",
                     "enabled": "eval(contex.value(\"support_enable\"))",
-                    "settable_per_mesh": true
+                    "settable_per_mesh": "true"
 	},
 	"support_offset":
 	{
@@ -1058,10 +1058,10 @@
                     "type": "bool",
                     "default_value": "false",
                     "enabled": "false",
-                    "settable_per_mesh": true,
-                    "settable_per_extruder": false,
-                    "settable_per_meshgroup": false,
-                    "settable_globally": false
+                    "settable_per_mesh": "true",
+                    "settable_per_extruder": "false",
+                    "settable_per_meshgroup": "false",
+                    "settable_globally": "false"
                 },
 	"support_meshes_present":
 	{

@@ -26,6 +26,7 @@ MoveOperateMode::~MoveOperateMode()
 void MoveOperateMode::onAttach()
 {
 	addLeftMouseEventHandler(this);
+	requestVisPickUpdate(true);
 }
 
 void MoveOperateMode::onDettach()
@@ -43,13 +44,11 @@ void MoveOperateMode::onLeftMouseButtonPress(QMouseEvent* event)
 		return;
 
 	qtuser_3d::Pickable* pickable = checkPickable(event->pos(), nullptr);
-	if (pickable != NULL)
+	ModelN* model = dynamic_cast<ModelN*>(pickable);
+	if (models.contains(model))
 	{
-		if (models.contains((ModelN*)pickable))
-		{
-			setMode(TMode::sp); 
-			resetSpacePoint(event->pos());
-		}
+		setMode(TMode::sp); 
+		resetSpacePoint(event->pos());
 	}
 }
 
@@ -64,11 +63,19 @@ void MoveOperateMode::onLeftMouseButtonRelease(QMouseEvent* event)
 
 	if (!m_tempLocal.isNull())
 	{
+		QList<QVector3D> starts;
+		QList<QVector3D> ends;
+
 		for (auto m : models)
 		{
 			QVector3D originLocalPosition = m->localPosition() - m_tempLocal;
-			moveModel(m, originLocalPosition, m->localPosition(), true);
+
+			starts << originLocalPosition;
+
+			ends << m->localPosition();
 		}
+
+		moveModels(models, starts, ends, true);
 	}
 
 	m_mode = TMode::null;
@@ -88,11 +95,17 @@ void MoveOperateMode::onLeftMouseButtonMove(QMouseEvent* event)
 	QVector3D moveDelta = delta - m_tempLocal;
 	m_tempLocal = delta;
 
+	QList<QVector3D> starts;
+	QList<QVector3D> ends;
 	for (auto m : models)
 	{
 		QVector3D newLocalPosition = m->localPosition() + moveDelta;
-		moveModel(m, m->localPosition(), newLocalPosition, false);
+		//moveModel(m, m->localPosition(), newLocalPosition, false);	
+		starts.push_back(m->localPosition());
+		ends.push_back(newLocalPosition);
 	}
+	//yy
+	moveModels(models, starts, ends,false);
 	requestVisUpdate(true);
 	emit moving();
 }

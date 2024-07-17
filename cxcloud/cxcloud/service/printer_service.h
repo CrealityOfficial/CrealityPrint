@@ -4,34 +4,42 @@
 #define CXCLOUD_SERVICE_PRINTER_SERVICE_H_
 
 #include <functional>
+#include <map>
+#include <memory>
 
+#include "cxcloud/define.h"
 #include "cxcloud/interface.hpp"
-#include "cxcloud/service/base_service.hpp"
+#include "cxcloud/model/printer_model.h"
+#include "cxcloud/service/base_service.h"
 
 namespace cxcloud {
 
-class CXCLOUD_API PrinterService : public BaseService {
-  Q_OBJECT;
+  class CXCLOUD_API PrinterService : public BaseService {
+    Q_OBJECT;
 
-public:
-  explicit PrinterService(std::weak_ptr<HttpSession> http_session, QObject* parent = nullptr);
-  virtual ~PrinterService() = default;
+   public:
+    explicit PrinterService(std::weak_ptr<HttpSession> http_session, QObject* parent = nullptr);
+    virtual ~PrinterService() = default;
 
-public:
-  Q_INVOKABLE void loadPrinterList(int page_index, int page_size);
-  Q_SIGNAL void loadPrinterListSuccessed(const QVariant& json_string);
-  Q_SIGNAL void printerListInfoBotained(const QVariant& json_string);
-  Q_SIGNAL void printerBaseInfoBotained(const QVariant& json_string, const QVariant& printer_name);
-  Q_SIGNAL void printerRealtimeInfoBotained(const QVariant& json_string,
-                                            const QVariant& printer_name);
-  Q_SIGNAL void printerPostitonInfoBotained(const QVariant& json_string,
-                                            const QVariant& printer_name);
-  Q_SIGNAL void printerStateInfoBotained(const QVariant& json_string, const QVariant& printer_name);
+   public:
+    auto initialize() -> void override;
 
-  Q_INVOKABLE void openCloudPrintWebpage();
+    auto getServerTypeGetter() const -> std::function<ServerType()>;
+    auto setServerTypeGetter(std::function<ServerType()> getter) -> void;
 
-private:
-};
+   public:
+    auto getPrinterListModel() const -> QAbstractItemModel*;
+    Q_PROPERTY(QAbstractItemModel* printerListModel READ getPrinterListModel CONSTANT);
+    Q_INVOKABLE void loadPrinterList(int page_index, int page_size);
+    Q_INVOKABLE void clearPrinterListModel() const;
+
+    Q_INVOKABLE void openCloudPrintWebpage();
+
+   private:
+    std::function<ServerType()> server_type_getter_{ nullptr };
+    std::unique_ptr<PrinterListModel> printer_list_model_{ nullptr };
+    std::map<QString, QString> device_name_image_map_{};
+  };
 
 }  // namespace cxcloud
 

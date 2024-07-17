@@ -7,7 +7,7 @@ namespace msbase
     static const int g_flush_volume_to_support = 230;
     static const float g_min_flush_multiplier = 0.f;
     static const float g_max_flush_multiplier = 3.f;
-    const int m_min_flush_volume = 107;
+    //const int m_min_flush_volume = 107;
     const int m_max_flush_volume = 800;
 
     static float to_radians(float degree)
@@ -67,7 +67,7 @@ namespace msbase
         return std::sqrt(edge_a * edge_a + edge_b * edge_b - 2 * edge_a * edge_b * std::cos(to_radians(degree_ab)));
     }
 
-    int calc_flushing_volume(const trimesh::vec3& from, const trimesh::vec3& to)
+    int calc_flushing_volume(const trimesh::vec3& from, const trimesh::vec3& to,float extra_flush_volume)
     {
         float from_hsv_h, from_hsv_s, from_hsv_v;
         float to_hsv_h, to_hsv_s, to_hsv_v;
@@ -97,11 +97,11 @@ namespace msbase
         flush_volume = std::max(flush_volume, 60.f);
 
         //float flush_multiplier = std::atof(m_flush_multiplier_ebox->GetValue().c_str());
-        flush_volume += m_min_flush_volume;
+        flush_volume += extra_flush_volume;
         return std::min((int)flush_volume, m_max_flush_volume);
     }
 
-    void calc_flushing_volumes(std::vector<trimesh::vec3>& m_colours, std::vector<bool>& filament_is_support,std::vector<float>& m_matrix,float flush_multiplier)
+    void calc_flushing_volumes(std::vector<trimesh::vec3>& m_colours, std::vector<bool>& filament_is_support,std::vector<float>& m_matrix,float flush_multiplier,float extra_flush_volume)
     {
         int _size = m_colours.size();
         if (_size <= 0 )
@@ -135,7 +135,7 @@ namespace msbase
                     }
                     else {
                         const trimesh::vec3& to = m_colours[to_idx];
-                        flushing_volume = calc_flushing_volume(from, to);
+                        flushing_volume = calc_flushing_volume(from, to, extra_flush_volume);
                         if (is_from_support) {
                             flushing_volume = std::max(g_min_flush_volume_from_support, flushing_volume);
                         }

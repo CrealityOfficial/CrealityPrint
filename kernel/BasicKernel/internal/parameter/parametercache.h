@@ -1,10 +1,15 @@
 #ifndef CREATIVE_KERNEL_PARAMETERCACHE_1675854796608_H
 #define CREATIVE_KERNEL_PARAMETERCACHE_1675854796608_H
 #include <QtCore/QStringList>
+#include <QColor>
 
 namespace creative_kernel
 {
 	QStringList readCacheMachineUniqueNames();
+	int readCacheMachineExtruders(const QString& machineUniqueNames, std::vector<QColor>& extruderColors, std::vector<bool>& extruderPhysicals);
+	void writeCacheMachineExtruder(const QString& machineUniqueNames, const QColor& extruderColor, const bool& extruderPhysical);
+	void modifyCacheMachineExtruder(const QString& machineUniqueNames, const int& index, const QColor& extruderColor);
+	void removeCacheMachineExtruder(const QString& machineUniqueNames);
 	void removeCacheMachine(const QString& machineUniqueNames);
 
 	int readCacheCurrentMachineIndex();
@@ -14,11 +19,6 @@ namespace creative_kernel
 	QString readCacheCurrentProfile(const QString& machineName);
 	void writeCacheCurrentProfile(const QString& machineName, int index);
 	void writeCacheCurrentProfile(const QString& machineName, const QString& profileName);
-
-	QStringList readCacheSelectMaterials(const QString& machineName, const int& index);
-	void writeCacheSelectMaterials(const QString& machineName, const QStringList& materials, const int& index);
-	bool removeMachineMaterials(const QString& machineName, const QStringList& materials, const int& index);
-	bool reNameMachineMaterial(const QString& machineName, const QString& oldMaterialName, const QString& newMaterialName, const int& extruderIndex);
 
 	QString readCacheExtruderMaterialIndex(const QString& machineName, int extruderIndex);
 	void writeCacheExtruderMaterialIndex(const QString& machineName, int extruderIndex, const QString& materialName);

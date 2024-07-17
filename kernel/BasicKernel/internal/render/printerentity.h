@@ -3,19 +3,23 @@
 #include "data/header.h"
 
 #include <Qt3DCore/QEntity>
+#include "qtuser3d/refactor/xentity.h"
 #include "qtuser3d/math/box3d.h"
-#include "entity/boxentity.h"
-#include "entity/printerskirtentity.h"
-//#include "entity/printergrid.h"
-#include "entity/printertext.h"
-#include "entity/axisentity.h"
 #include "entity/faceentity.h"
-#include "entity/texfaces.h"
 #include "entity/hotbedentity.h"
-#include "plateentity.h"
+
+namespace qtuser_3d
+{
+	class BoxEntity;
+	class AxisEntity;
+}
 
 namespace creative_kernel
 {
+	class WipeTowerEntity;
+	class PlateEntity;
+	class SimplePlateEntity;
+
 	struct PrinterColorConfig
 	{
 		QVector4D skirt;
@@ -30,7 +34,7 @@ namespace creative_kernel
 		QVector4D skirtVerticalBottom;
 	};
 
-	class BASIC_KERNEL_API PrinterEntity : public Qt3DCore::QEntity
+	class BASIC_KERNEL_API PrinterEntity : public qtuser_3d::XEntity
 	{
 	public:
 		PrinterEntity(Qt3DCore::QNode* parent = nullptr);
@@ -38,35 +42,44 @@ namespace creative_kernel
 
 		void updateBox(const qtuser_3d::Box3D& box);
 
-		void onModelChanged(qtuser_3d::Box3D basebox, bool hasModel, 
-			bool bleft, bool bright, bool bfront, bool bback, bool bup, bool bdown);
+		//void onModelChanged(qtuser_3d::Box3D basebox, bool hasModel, 
+		//	bool bleft, bool bright, bool bfront, bool bback, bool bup, bool bdown);
 
 		void showPrinterEntity(bool isShow);
 
 		void enableSkirt(bool enable);
 		void setSkirtHighlight(bool highlight);
 
-		void updateFace(qtuser_3d::Box3D& box, qtuser_3d::faceType type);
-		void setVisibility(int type, bool visibility);
+		//void updateFace(qtuser_3d::Box3D& box, qtuser_3d::faceType type);
+		//void setVisibility(int type, bool visibility);
 
-		void drawBedFaces(qtuser_3d::bedType _bedType);
+		//void drawBedFaces(qtuser_3d::bedType _bedType);
 		void updatePrinterColor(const PrinterColorConfig& config);
 		void setTheme(int theme);
 
-		void onCheckBed(QList<qtuser_3d::Box3D>& boxes);
+		void setIndex(int idx);
+
+		//void onCheckBed(QList<qtuser_3d::Box3D>& boxes);
+
+		void switchPrinterStyle(bool isSimple);
+
+		PlateEntity* plateEntity();
+		WipeTowerEntity* wipeTowerEntity();
+
 	protected:
 		qtuser_3d::BoxEntity* m_boxEntity;
-		//qtuser_3d::PrinterGrid* m_printerGrid;
-		//qtuser_3d::PrinterSkirtEntity* m_printerSkirt;
-		qtuser_3d::PrinterText* m_printerText;
+		
 		qtuser_3d::AxisEntity* m_axisEntity;
-		qtuser_3d::FaceEntity* m_faceEntity;
-		qtuser_3d::TexFaces* m_bottom;
+		//qtuser_3d::FaceEntity* m_faceEntity;
+		
 		bool m_bShowEntity;
 
-		qtuser_3d::HotbedEntity* m_hotbed;
-		//ImageEntity* m_imageEntity;
+		//qtuser_3d::HotbedEntity* m_hotbed;
+		
 		PlateEntity* m_plateEntity;
+		SimplePlateEntity* m_simplePlateEntity;
+
+		WipeTowerEntity* m_wipeTowerEntity;
 	};
 
 }

@@ -1,9 +1,6 @@
 #ifndef DUMPTOOL_DUMPTOOL_H_
 #define DUMPTOOL_DUMPTOOL_H_
 
-#include <list>
-#include <functional>
-
 #include <QVariant>
 #include <QObject>
 #include <QString>

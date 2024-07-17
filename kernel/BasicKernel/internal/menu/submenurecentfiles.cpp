@@ -1,4 +1,7 @@
 #include "submenurecentfiles.h"
+
+#include <qtusercore/util/settings.h>
+
 #include "menu/actioncommand.h"
 #include "openfilecommand.h"
 #include "clearrecentfilecommand.h"
@@ -28,7 +31,7 @@ namespace creative_kernel
         m_insertKey = "subMenuFile";
         initActionModel();
 
-        QSettings settings;
+        qtuser_core::VersionSettings settings;
 
         if (!settings.value(recentFileCount).isValid())
             settings.setValue(recentFileCount, QVariant(4));
@@ -39,7 +42,7 @@ namespace creative_kernel
         }
         updateRecentFiles(settings);
 
-        addUIVisualTracer(this);
+        addUIVisualTracer(this,this);
     }
 
     SubMenuRecentFiles::~SubMenuRecentFiles()
@@ -80,7 +83,7 @@ namespace creative_kernel
     {
         setEnabled(false);
         m_actionModelList->removeCommandButLastIndex();
-        QSettings settings;
+        qtuser_core::VersionSettings settings;
         QStringList recentFileList = settings.value(recentFileListId).toStringList();
         recentFileList.clear();
         settings.setValue(recentFileListId, QVariant(recentFileList));
@@ -117,7 +120,7 @@ namespace creative_kernel
     //recentfile max size
     void SubMenuRecentFiles::setNumOfRecentFiles(int n)
     {
-        QSettings settings;
+        qtuser_core::VersionSettings settings;
         settings.setValue(recentFileCount, QVariant(n));
         QStringList MyRecentFileList = settings.value(recentFileListId).toStringList();
         updateRecentFiles(settings);
@@ -128,7 +131,7 @@ namespace creative_kernel
     {
         if (fileName.isEmpty())
             return;
-        QSettings settings;
+        qtuser_core::VersionSettings settings;
         QStringList recentFileList = settings.value(recentFileListId).toStringList();
         recentFileList.removeOne(fileName);
         recentFileList.append(fileName);

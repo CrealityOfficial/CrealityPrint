@@ -39,7 +39,8 @@ See the [wiki](http://wiki.creality.com) and the documentation directory for mor
 ## How to compile
 ```
 cmake, git, python3.7+, conan 1.50, compiler toolchains should be installed
-
+remember call "git submodule update --init" to update the submodules after clone
+ 
 build project as follow for the first time:
 windows .\cmake\ci\cmake.py -c -b -e --channel_name=opensource
 linux or mac python3 ./cmake/ci/cmake.py -c -b -e --channel_name=opensource

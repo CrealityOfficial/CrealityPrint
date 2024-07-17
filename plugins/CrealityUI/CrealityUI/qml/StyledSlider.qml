@@ -2,7 +2,7 @@ import QtQuick 2.0
 import QtQuick.Controls 2.0
 import QtQuick.Controls 1.4 as T
 import QtQuick.Controls.Styles 1.4
-import QtGraphicalEffects 1.12
+import QtGraphicalEffects 1.15
 
 T.Slider
 {
@@ -18,12 +18,13 @@ T.Slider
     property real handleHeight: 10
     property real handleBorderWidth: 0
 
-    //property color grooveColor: Constants.grooveColor
-    property color handleColor: "#1E9BE2"
-    property color handleBorderColor: Constants.handleBorderColor
+    property bool popTipVisible: true
 
+    //property color grooveColor: Constants.grooveColor
+    property color handleColor: Constants.themeGreenColor
+    property color handleBorderColor: Qt.darker(Constants.themeGreenColor,1.2)
     //property color completeColor: "cadetblue"
-    property color incompleteColor: Constants.progressBarBgColor
+    property color incompleteColor: Constants.lpw_BtnBorderColor
 
     value: valueText
     stepSize: realStepSize
@@ -42,17 +43,18 @@ T.Slider
                 width: __handlePos / maximumValue * parent.width
                 implicitHeight: parent.implicitHeight
                 radius: 3
-
-                LinearGradient {
-                    anchors.fill: parent
-                    gradient: Gradient {
-                        GradientStop { position: 1; color: "#1E9BE2" }
-                        GradientStop { position: 0; color: "#1E9BE2" }
-                    }
-                    source: idbackgroud
-                    start: Qt.point(0, 0)
-                    end: Qt.point(idbackgroud.width, 0)
-                }
+                color: Constants.themeGreenColor
+//                LinearGradient {
+//                    anchors.fill: parent
+//                    gradient: Gradient {
+//                        GradientStop { position: 1; color: Constants.themeGreenColor }
+//                        GradientStop { position: 0; color: Constants.themeGreenColor }
+//                    }
+//                    cached : true
+//                    source: idbackgroud
+//                    start: Qt.point(0, 0)
+//                    end: Qt.point(idbackgroud.width, 0)
+//                }
             }
         }
         //保存滑块句柄的项。可以通过控件属性访问滑块
@@ -69,7 +71,7 @@ T.Slider
 
     ToolTip {
         parent: control.handle
-        visible: control.pressed
+        visible: control.pressed && popTipVisible
         text: control.value.toFixed(1)
     }
 }

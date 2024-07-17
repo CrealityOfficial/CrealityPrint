@@ -207,27 +207,6 @@ LayerResult PressureEqualizer::process_layer(LayerResult &input)
         m_layer_results.emplace(new LayerResult(input));
     }
 
-    if (debugger && is_first_layer)
-    {
-        debugger->onStartLayer(0);
-        for (size_t line_idx = 0; line_idx < (int)m_gcode_lines.size(); ++line_idx)
-        {
-            const GCodeLine& line = m_gcode_lines[line_idx];
-
-            if (line.type == GCODELINETYPE_EXTRUDE)
-            {
-                crslice::GCodeLine gline;
-                gline.currentE = line.volumetric_extrusion_rate;
-                gline.startE = line.volumetric_extrusion_rate_start;
-                gline.endE = line.volumetric_extrusion_rate_end;
-                gline.start = trimesh::vec3(line.pos_start[0], line.pos_start[1], line.pos_start[2]);
-                gline.end = trimesh::vec3(line.pos_end[0], line.pos_end[1], line.pos_end[2]);
-
-                debugger->onLine(gline);
-            }
-        }
-    }
-
     if (is_first_layer) // Buffer previous input result and output NOP.
         return LayerResult::make_nop_layer_result();
 
