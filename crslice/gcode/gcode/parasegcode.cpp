@@ -238,9 +238,9 @@ namespace gcode
     
     void Stringsplit(std::string str, const char split, std::vector<std::string>& res)
     {
-        std::istringstream iss(str);	// ÊäÈëÁ÷
-        std::string token;			// ½ÓÊÕ»º³åÇø
-        while (getline(iss, token, split))	// ÒÔsplitÎª·Ö¸ô·û
+        std::istringstream iss(str);	// è¾“å…¥æµ
+        std::string token;			// æ¥æ”¶ç¼“å†²åŒº
+        while (getline(iss, token, split))	// ä»¥splitä¸ºåˆ†éš”ç¬¦
         {
             removeSpace(token);
             res.push_back(token);
@@ -264,7 +264,7 @@ namespace gcode
 
     void getKvs(const std::string& comment, const SliceCompany& sliceCompany, std::unordered_map<std::string, std::string>& kvs)
     {
-        //ÊÕ¼¯ËùÓĞµÄ²ÎÊıĞÅÏ¢
+        //æ”¶é›†æ‰€æœ‰çš„å‚æ•°ä¿¡æ¯
         std::vector<std::string> _kvs;
         switch (sliceCompany)
         {
@@ -2026,7 +2026,7 @@ namespace gcode
         iter = kvs.find("LAYER_HEIGHT");
         if (iter != kvs.end())
         {
-            ////orcaµ±Ã¿Ò»²ãÓĞ¶à¸ö²ã¸ßĞŞ¸ÄÊ±£¬Ö»È¡µÚÒ»´ÎµÄ²ã¸ßÖµ£¬ ±íÏÖ£ºĞü¿Õ²ãÔ¤ÀÀ¶Ï²ã
+            ////orcaå½“æ¯ä¸€å±‚æœ‰å¤šä¸ªå±‚é«˜ä¿®æ”¹æ—¶ï¼Œåªå–ç¬¬ä¸€æ¬¡çš„å±‚é«˜å€¼ï¼Œ è¡¨ç°ï¼šæ‚¬ç©ºå±‚é¢„è§ˆæ–­å±‚
             //if (gCodeProcessor.sliceCompany == SliceCompany::bambu)
             //{
             //    if (gCodeProcessor.isFirstLayerHeight)
@@ -2303,7 +2303,7 @@ namespace gcode
                     if (v.find("x") != std::string::npos)
                     {
                         std::vector<std::string> _vs;
-                        Stringsplit(v, '*', _vs);
+                        Stringsplit(v, 'x', _vs);
                         if (_vs.size() > 1)
                         {
                             imageSize.x = std::atoi(_vs[0].c_str());
@@ -2499,10 +2499,10 @@ namespace gcode
     std::string removeTrailingNewline(std::string str) {
         if (!str.empty() && str[str.size() - 1] == '\n') {
             if (str.size() > 1 && str[str.size() - 2] == '\r') {
-                str.erase(str.size() - 2); // È¥³ı"\r\n"
+                str.erase(str.size() - 2); // å»é™¤"\r\n"
             }
             else {
-                str.erase(str.size() - 1); // Ö»È¥³ı"\n"
+                str.erase(str.size() - 1); // åªå»é™¤"\n"
             }
         }
         return str;
@@ -2596,7 +2596,7 @@ namespace gcode
                 process_filaments(gcodeProcessor, GCodeType::ToolChange);
                 gcodeProcessor.m_extruder_id = extruder_id;
 
-                //todo  ¼ÓÔØºÄ²ÄÊ±¼ä
+                //todo  åŠ è½½è€—ææ—¶é—´
             }
         }
         pathData->getNotPath();
@@ -3443,7 +3443,7 @@ namespace gcode
         }
     }
 
-    //ÉèÖÃ²ÎÊı
+    //è®¾ç½®å‚æ•°
     void _setParam(GCodeProcessor& gcodeProcessor)
     {
         std::unordered_map<std::string, std::string>& kvs = gcodeProcessor.kvs;
@@ -3459,13 +3459,13 @@ namespace gcode
         //float machine_width;
         //float machine_depth;
         float materialLenth;
-        float materialDensity;//µ¥Î»Ãæ»ıÃÜ¶È
-        float material_diameter = { 1.75f }; //²ÄÁÏÖ±¾¶
-        float material_density = { 1.24f };  //²ÄÁÏÃÜ¶È
+        float materialDensity;//å•ä½é¢ç§¯å¯†åº¦
+        float material_diameter = { 1.75f }; //ææ–™ç›´å¾„
+        float material_density = { 1.24f };  //ææ–™å¯†åº¦
         pathParam.materialLenth =  std::atof(getValue(kvs, "filament_used").c_str());
         pathParam.material_diameter = std::atof(getValue(kvs, "material_diameter").c_str());
         pathParam.material_density = std::atof(getValue(kvs, "material_density").c_str()); 
-        pathParam.materialDensity = M_PI * (pathParam.material_diameter * 0.5) * (pathParam.material_diameter * 0.5) * pathParam.material_density;//µ¥Î»Ãæ»ıÃÜ¶È
+        pathParam.materialDensity = M_PI * (pathParam.material_diameter * 0.5) * (pathParam.material_diameter * 0.5) * pathParam.material_density;//å•ä½é¢ç§¯å¯†åº¦
         pathParam.lineWidth = std::atof(getValue(kvs, "wall_line_width").c_str());
         pathParam.layerHeight = std::atof(getValue(kvs, "layer_height").c_str());
         pathParam.cost = std::atof(getValue(kvs, "gcode_filament_cost").c_str());
@@ -3596,13 +3596,13 @@ namespace gcode
     {
         SliceCompany sliceCompany = SliceCompany::none;
 
-        //»ñÈ¡Ô­Ê¼Êı¾İ
+        //è·å–åŸå§‹æ•°æ®
         _paraseGcode(sliceCompany,gCodeFile,box,m_sliceLayers,kvs);
 
-        //½âÎö³ÉÍ¨ÓÃ²ÎÊı
+        //è§£ææˆé€šç”¨å‚æ•°
         //_paraseKvs(sliceCompany, box, kvs);
 
-        //¹ıÂËÆäËû²ÎÊı
+        //è¿‡æ»¤å…¶ä»–å‚æ•°
         _removeOthersKvs(kvs);
     }
 
@@ -3619,14 +3619,14 @@ namespace gcode
         //double weight = volume.second * extruder->filament_density() * 0.001;
         //total_used_filament += volume.second / s;
 
-        //»ñÈ¡Ô­Ê¼Êı¾İ
+        //è·å–åŸå§‹æ•°æ®
         trimesh::box3 box;
         _paraseGcodeAndPreview(gCodeFile, gcodeProcessor, pathData, tracer);
 
-        //½âÎö³ÉÍ¨ÓÃ²ÎÊı
+        //è§£ææˆé€šç”¨å‚æ•°
         _paraseKvs(gcodeProcessor, box);
 
-        //ÉèÖÃ²ÎÊı
+        //è®¾ç½®å‚æ•°
         _setParam(gcodeProcessor);
         pathData->setParam(gcodeProcessor.gcodeParaseInfo);
     }
