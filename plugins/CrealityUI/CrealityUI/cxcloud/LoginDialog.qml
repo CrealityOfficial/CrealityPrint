@@ -31,7 +31,7 @@ Window
     property bool globalAutoLogin: true
     property string phoneRegExp: "^[0-9]{1,15}$"
     property string emailRegExp: "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,30})$"
-    property string passwordExp: showQuickLogin ? "^[\\d]{4}$" : "^.{6,18}$"
+    property string passwordExp: showQuickLogin ? "^[\\d]{4}$" : "^.{6,32}$"
 
     onCurLoginTypeChanged: {
         showQuickLogin = false
