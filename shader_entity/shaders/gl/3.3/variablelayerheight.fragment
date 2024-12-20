@@ -1,0 +1,14 @@
+#version 330 core 
+
+in vec4 worldPosition;
+
+out vec4 fragColor;
+
+uniform sampler2D layersTexture;
+uniform vec2 modelHeightRange;
+
+void main( void )
+{
+	float y = (worldPosition.z - modelHeightRange.x)/ (modelHeightRange.y - modelHeightRange.x);
+	fragColor = vec4(texture(layersTexture, vec2(0.5, y)).rgb, 1.0);
+}

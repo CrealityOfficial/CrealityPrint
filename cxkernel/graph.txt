@@ -1,0 +1,10 @@
+cxlog/0.0.2
+boost_static/1.0.0
+cxbin/2.0.0
+openssl/0.0.2
+enchase/0.0.3
+qhullwrapper/0.0.4
+sensors_analytics_sdk/0.0.2
+libtess2/0.0.1
+nestplacer/3.0.0
+topomesh/1.1.0

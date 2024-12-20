@@ -1,0 +1,17 @@
+message(STATUS "build Zhongxing project")
+
+AppendCustomizedMarco(CUSTOM_MACHINE_LIST)
+AppendCustomizedMarco(CUSTOM_UN_UPGRADEABLE)
+AppendCustomizedMarco(CUSTOM_UN_FEEDBACKABLE)
+AppendCustomizedMarco(CUSTOM_UN_TEACHABLE)
+
+set(PROJECT_NAME "FDMSlicer")
+#set(CPACK_ORGANIZATION "Zhongxing")
+set(BUNDLE_NAME "FDM Slicer")
+set(DESKTOP_LINK_NAME "FDM Slicer")
+set(myApp_ICON ${CMAKE_SOURCE_DIR}/customized/Zhongxing/FDMSlicer.icns)
+set(RES_FILES ${CMAKE_SOURCE_DIR}/customized/Zhongxing/FDMSlicer.rc)
+set(PACKAGE_CONF ${CMAKE_SOURCE_DIR}/customized/Zhongxing/Package.cmake)
+set(SPLASH_URL ${CMAKE_SOURCE_DIR}/customized/Zhongxing/splash.png)
+set(LOGO_URL ${CMAKE_SOURCE_DIR}/customized/Zhongxing/logo.png)
+set(MACHINE_LIST ${CMAKE_SOURCE_DIR}/customized/Zhongxing/machineList_custom.json)

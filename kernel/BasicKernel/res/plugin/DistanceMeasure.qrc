@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/distance_measure">
+        <file>distance_measure/info.qml</file>
+    </qresource>
+</RCC>

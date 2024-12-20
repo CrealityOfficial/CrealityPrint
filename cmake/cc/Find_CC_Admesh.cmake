@@ -1,0 +1,21 @@
+# This sets the following variables:
+# ADMESH_INCLUDE_DIRS
+# Cereal_FOUND
+
+if(HEADER_INSTALL_ROOT)
+	message(STATUS "Admesh Specified HEADER_INSTALL_ROOT : ${HEADER_INSTALL_ROOT}")
+	set(ADMESH_INSTALL_ROOT ${HEADER_INSTALL_ROOT})
+	find_path(ADMESH_INCLUDE_DIRS stl.h
+				HINTS "${ADMESH_INSTALL_ROOT}"
+				PATHS "/usr/local/include/"
+				NO_SYSTEM_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH
+				)
+else()
+endif()
+	
+if(ADMESH_INCLUDE_DIRS)
+	set(Admesh_FOUND 1)
+	message(STATUS "ADMESH_INCLUDE_DIRS : ${ADMESH_INCLUDE_DIRS}")
+else()
+	message(STATUS "Find Admesh Failed")
+endif()

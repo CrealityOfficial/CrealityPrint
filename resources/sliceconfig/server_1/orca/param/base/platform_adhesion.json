@@ -1,0 +1,744 @@
+{
+	"prime_blob_enable":
+	{
+		"label": "Enable Prime Blob",
+		"description": "Whether to prime the filament with a blob before printing. Turning this setting on will ensure that the extruder will have material ready at the nozzle before printing. Printing Brim or Skirt can act like priming too, in which case turning this setting off saves some time.",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"enabled": false,
+		"warning_value": "True if resolveOrValue('print_sequence') == 'one_at_a_time' else None"
+	},
+	"extruder_prime_pos_x":
+	{
+		"label": "Extruder Prime X Position",
+		"description": "The X coordinate of the position where the nozzle primes at the start of printing.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"machine_center_is_zero\")) ? eval(contex.value(\"machine_width\")) / -2 : 0",
+		"maximum_value_warning": "eval(contex.value(\"machine_center_is_zero\")) ? eval(contex.value(\"machine_width\")) / 2 : eval(contex.value(\"machine_width\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"enabled": false
+	},
+	"extruder_prime_pos_y":
+	{
+		"label": "Extruder Prime Y Position",
+		"description": "The Y coordinate of the position where the nozzle primes at the start of printing.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"machine_center_is_zero\")) ? eval(contex.value(\"machine_depth\")) / -2 : 0",
+		"maximum_value_warning": "eval(contex.value(\"machine_center_is_zero\")) ? eval(contex.value(\"machine_depth\")) / 2 : eval(contex.value(\"machine_depth\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"enabled": false
+	},
+	"adhesion_type":
+	{
+		"label": "Build Plate Adhesion Type",
+		"description": "Different options that help to improve both priming your extrusion and adhesion to the build plate. Brim adds a single layer flat area around the base of your model to prevent warping. Raft adds a thick grid with a roof below the model. Skirt is a line printed around the model, but not connected to the model.",
+		"type": "enum",
+		"options":
+		{
+			"lace": "Lace",
+			"skirt": "skirt",
+			"brim": "brim",
+			"autobrim": "autobrim",
+			"raft": "raft",
+			"none": "none"
+		},
+		"default_value": "autobrim",
+		"parameter_level": "1",
+		"resolve": "extruderValue(adhesion_extruder_nr, 'adhesion_type')",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"adhesion_extruder_nr":
+	{
+		"label": "Build Plate Adhesion Extruder",
+		"description": "The extruder train to use for printing the skirt/brim/raft. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"value": "0",
+		"enabled": "eval(contex.value('extruders_enabled_count'))>1 && eval(contex.value('extruders_enabled_count'))!='none' || eval(contex.value('prime_tower_brim_enable'))",
+		"resolve": "max(extruderValues('adhesion_extruder_nr'))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"skirt_brim_extruder_nr":
+	{
+		"label": "Skirt/Brim Extruder",
+		"description": "The extruder train to use for printing the skirt or brim. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"value": "eval(contex.value('adhesion_extruder_nr'))",
+		"enabled": "eval(contex.value('extruders_enabled_count'))>1 && (eval(contex.value('adhesion_type'))!='skirt' || eval(contex.value('adhesion_type'))== 'brim' || eval(contex.value('prime_tower_brim_enable')))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"raft_base_extruder_nr":
+	{
+		"label": "Raft Base Extruder",
+		"description": "The extruder train to use for printing the first layer of the raft. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"value": "eval(contex.value('adhesion_extruder_nr'))",
+		"enabled": "eval(contex.value('extruders_enabled_count'))>1 && eval(contex.value('adhesion_type')) == 'raft'",
+		"resolve": "max(extruderValues('raft_base_extruder_nr'))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"raft_interface_extruder_nr":
+	{
+		"label": "Raft Middle Extruder",
+		"description": "The extruder train to use for printing the middle layer of the raft. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"value": "eval(contex.value('adhesion_extruder_nr'))",
+		"enabled": "eval(contex.value('extruders_enabled_count'))>1 &&  contex.value('adhesion_type') == 'raft'",
+		"resolve": "max(extruderValues('raft_interface_extruder_nr'))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"raft_surface_extruder_nr":
+	{
+		"label": "Raft Top Extruder",
+		"description": "The extruder train to use for printing the top layer(s) of the raft. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"value": "eval(contex.value('adhesion_extruder_nr'))",
+		"enabled": "eval(contex.value('extruders_enabled_count'))>1 &&  contex.value('adhesion_type') == 'raft'",
+		"resolve": "max(extruderValues('raft_surface_extruder_nr'))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"skirt_line_count":
+	{
+		"label": "Skirt Line Count",
+		"description": "Multiple skirt lines help to prime your extrusion better for small models. Setting this to 0 will disable the skirt.",
+		"type": "int",
+		"default_value": "1",
+		"minimum_value": "0",
+		"maximum_value_warning": "10",
+		"parameter_level": "2",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'skirt'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"skirt_gap":
+	{
+		"label": "Skirt Distance",
+		"description": "The horizontal distance between the skirt and the first layer of the print.This is the minimum distance. Multiple skirt lines will extend outwards from this distance.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "3",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "10",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'skirt'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"skirt_brim_minimal_length":
+	{
+		"label": "Skirt/Brim Minimum Length",
+		"description": "The minimum length of the skirt or brim. If this length is not reached by all skirt or brim lines together, more skirt or brim lines will be added until the minimum length is reached. Note: If the line count is set to 0 this is ignored.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "250",
+		"minimum_value": "0",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "2500",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'skirt' || getEnumValue(\"adhesion_type\") == 'brim' || eval(contex.value(\"prime_tower_brim_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"brim_width":
+	{
+		"label": "Brim Width",
+		"description": "The distance from the model to the outermost brim line. A larger brim enhances adhesion to the build plate, but also reduces the effective print area.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "8.0",
+		"minimum_value": "0.0",
+		"maximum_value_warning": "50.0",
+		"maximum_value": "0.5 * Math.min(eval(contex.value(\"machine_width\")), eval(contex.value(\"machine_depth\")))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'brim' || eval(contex.value(\"prime_tower_brim_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"brim_line_count":
+	{
+		"label": "Brim Line Count",
+		"description": "The number of lines used for a brim. More brim lines enhance adhesion to the build plate, but also reduces the effective print area.",
+		"type": "int",
+		"default_value": "20",
+		"minimum_value": "0",
+		"maximum_value_warning": "50 / eval(contex.value(\"skirt_brim_line_width\"))",
+		"maximum_value": "0.5 * Math.min(eval(contex.value(\"machine_width\")), eval(contex.value(\"machine_depth\"))) / eval(contex.value(\"skirt_brim_line_width\"))",
+		"value": "Math.ceil(eval(contex.value(\"brim_width\")) / (eval(contex.value(\"skirt_brim_line_width\")) * (eval(contex.value(\"initial_layer_line_width_factor\")) / 100.0)))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'brim' || eval(contex.value(\"prime_tower_brim_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"brim_gap":
+	{
+		"label": "Brim Distance",
+		"description": "The horizontal distance between the first brim line and the outline of the first layer of the print. A small gap can make the brim easier to remove while still providing the thermal benefits.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0",
+		"minimum_value": "0",
+		"maximum_value_warning": "20.0",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'brim'",
+		"settable_per_mesh": true,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"brim_replaces_support":
+	{
+		"label": "Brim Replaces Support",
+		"description": "Enforce brim to be printed around the model even if that space would otherwise be occupied by support. This replaces some regions of the first layer of support by brim regions.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'brim' && (eval(contex.value(\"support_enable\")) || eval(contex.value(\"support_tree_enable\")))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "support_infill_extruder_nr"
+	},
+	"brim_outside_only":
+	{
+		"label": "Brim Only on Outside",
+		"description": "Only print the brim on the outside of the model. This reduces the amount of brim you need to remove afterwards, while it doesn't reduce the bed adhesion unduly.",
+		"type": "bool",
+		"default_value": "true",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'brim'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_init_layer_num":
+	{
+		"label": "SimpleRaft Init Layers",
+		"description": "The number of SimpleRaft Init Layers. ",
+		"type": "int",
+		"default_value": "1",
+		"minimum_value": "1",
+		"maximum_value_warning": "5",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'simpleraft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_top_layer_num":
+	{
+		"label": "SimpleRaft Top Layers",
+		"description": "The number of SimpleRaft Top Layers. ",
+		"type": "int",
+		"default_value": "2",
+		"minimum_value": "1",
+		"maximum_value_warning": "5",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'simpleraft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_init_flow_ratio":
+	{
+		"label": "SimpleRaft Init Layers  FlowRate",
+		"description": "The Init Layers  FlowRate. ",
+		"unit": "%",
+		"type": "float",
+		"default_value": "110",
+		"minimum_value": "100",
+		"maximum_value_warning": "200",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'simpleraft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_margin":
+	{
+		"label": "Raft Extra Margin",
+		"description": "If the raft is enabled, this is the extra raft area around the model which is also given a raft. Increasing this margin will create a stronger raft while using more material and leaving less area for your print.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "10",
+		"minimum_value_warning": "eval(contex.value(\"raft_interface_line_width\"))",
+		"maximum_value_warning": "20",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"limit_to_extruder": "adhesion_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"raft_smoothing":
+	{
+		"label": "Raft Smoothing",
+		"description": "This setting controls how much inner corners in the raft outline are rounded. Inward corners are rounded to a semi circle with a radius equal to the value given here. This setting also removes holes in the raft outline which are smaller than such a circle.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "5",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"raft_interface_line_width\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"limit_to_extruder": "adhesion_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"raft_airgap":
+	{
+		"label": "Raft Air Gap",
+		"description": "The gap between the final raft layer and the first layer of the model. Only the first layer is raised by this amount to lower the bonding between the raft layer and the model. Makes it easier to peel off the raft.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.25",
+		"minimum_value": "0",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\"))*2",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"layer_0_z_overlap":
+	{
+		"label": "Initial Layer Z Overlap",
+		"description": "Make the first and second layer of the model overlap in the Z direction to compensate for the filament lost in the airgap. All models above the first model layer will be shifted down by this amount.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.13",
+		"value": "eval(contex.value(\"raft_airgap\")) / 2",
+		"minimum_value": "0",
+		"maximum_value_warning": "eval(contex.value(\"raft_airgap\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_surface_layers":
+	{
+		"label": "Raft Top Layers",
+		"description": "The number of top layers on top of the 2nd raft layer. These are fully filled layers that the model sits on. 2 layers result in a smoother top surface than 1.",
+		"type": "int",
+		"default_value": "2",
+		"minimum_value": "0",
+		"maximum_value_warning": "20",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_surface_thickness":
+	{
+		"label": "Raft Top Layer Thickness",
+		"description": "Layer thickness of the top raft layers.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.15",
+		"value": "eval(contex.value(\"layer_height\"))",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.04",
+		"maximum_value_warning": "0.75 * eval(contex.value(\"machine_nozzle_size\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_surface_line_width":
+	{
+		"label": "Raft Top Line Width",
+		"description": "Width of the lines in the top surface of the raft. These can be thin lines so that the top of the raft becomes smooth.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.4",
+		"value": "eval(contex.value(\"line_width\"))",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "eval(contex.value(\"machine_nozzle_size\")) * 0.1",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\")) * 2",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_surface_line_spacing":
+	{
+		"label": "Raft Top Spacing",
+		"description": "The distance between the raft lines for the top raft layers. The spacing should be equal to the line width, so that the surface is solid.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.4",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"raft_surface_line_width\"))",
+		"maximum_value_warning": "eval(contex.value(\"raft_surface_line_width\")) * 3",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"value": "eval(contex.value(\"raft_surface_line_width\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_interface_layers":
+	{
+		"label": "Raft Middle Layers",
+		"description": "The number of layers between the base and the surface of the raft. These comprise the main thickness of the raft. Increasing this creates a thicker, sturdier raft.",
+		"type": "int",
+		"default_value": "1",
+		"minimum_value": "0",
+		"maximum_value_warning": "10",
+		"enabled": "resolveOrValue('adhesion_type') == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "raft_interface_extruder_nr"
+	},
+	"raft_interface_thickness":
+	{
+		"label": "Raft Middle Thickness",
+		"description": "Layer thickness of the middle raft layer.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.23",
+		"value": "eval(contex.value(\"layer_height\")) * 1.5",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.04",
+		"maximum_value_warning": "0.75 * eval(contex.value(\"machine_nozzle_size\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_interface_line_width":
+	{
+		"label": "Raft Middle Line Width",
+		"description": "Width of the lines in the middle raft layer. Making the second layer extrude more causes the lines to stick to the build plate.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.7",
+		"value": "eval(contex.value(\"line_width\")) * 2",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "eval(contex.value(\"machine_nozzle_size\")) * 0.5",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\")) * 3",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_interface_line_spacing":
+	{
+		"label": "Raft Middle Spacing",
+		"description": "The distance between the raft lines for the middle raft layer. The spacing of the middle should be quite wide, while being dense enough to support the top raft layers.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.9",
+		"value": "eval(contex.value(\"raft_interface_line_width\")) + 0.2",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"raft_interface_line_width\"))",
+		"maximum_value_warning": "15.0",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_base_thickness":
+	{
+		"label": "Raft Base Thickness",
+		"description": "Layer thickness of the base raft layer. This should be a thick layer which sticks firmly to the printer build plate.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.18",
+		"value": "eval(contex.value(\"layer_height_0\")) * 1.2",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "0.04",
+		"maximum_value_warning": "0.75 * eval(contex.value(\"raft_base_line_width\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_base_line_width":
+	{
+		"label": "Raft Base Line Width",
+		"description": "Width of the lines in the base raft layer. These should be thick lines to assist in build plate adhesion.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.8",
+		"minimum_value": "0.001",
+		"value": "eval(contex.value(\"machine_nozzle_size\")) * 2",
+		"minimum_value_warning": "eval(contex.value(\"machine_nozzle_size\")) * 0.5",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\")) * 3",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_base_line_spacing":
+	{
+		"label": "Raft Base Line Spacing",
+		"description": "The distance between the raft lines for the base raft layer. Wide spacing makes for easy removal of the raft from the build plate.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1.6",
+		"value": "eval(contex.value(\"raft_base_line_width\")) * 2",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"raft_base_line_width\"))",
+		"maximum_value_warning": "100",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_speed":
+	{
+		"label": "Raft Print Speed",
+		"description": "The speed at which the raft is printed.",
+		"unit": "mm/s",
+		"type": "float",
+		"default_value": "40",
+		"minimum_value": "0.1",
+		"maximum_value": "eval(Math.sqrt(Math.pow(contex.value(\"machine_max_feedrate_x\"), 2) + Math.pow(contex.value(\"machine_max_feedrate_y\"), 2)))",
+		"maximum_value_warning": "200",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_surface_speed":
+	{
+		"label": "Raft Top Print Speed",
+		"description": "The speed at which the top raft layers are printed. These should be printed a bit slower, so that the nozzle can slowly smooth out adjacent surface lines.",
+		"unit": "mm/s",
+		"type": "float",
+		"default_value": "25",
+		"minimum_value": "0.1",
+		"maximum_value": "eval(Math.sqrt(Math.pow(contex.value(\"machine_max_feedrate_x\"), 2) + Math.pow(contex.value(\"machine_max_feedrate_y\"), 2)))",
+		"maximum_value_warning": "100",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"value": "eval(contex.value(\"raft_speed\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_interface_speed":
+	{
+		"label": "Raft Middle Print Speed",
+		"description": "The speed at which the middle raft layer is printed. This should be printed quite slowly, as the volume of material coming out of the nozzle is quite high.",
+		"unit": "mm/s",
+		"type": "float",
+		"default_value": "25",
+		"value": "eval(contex.value(\"raft_speed\")) * 0.75",
+		"minimum_value": "0.1",
+		"maximum_value": "eval(Math.sqrt(Math.pow(contex.value(\"machine_max_feedrate_x\"), 2) + Math.pow(contex.value(\"machine_max_feedrate_y\"), 2)))",
+		"maximum_value_warning": "150",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_base_speed":
+	{
+		"label": "Raft Base Print Speed",
+		"description": "The speed at which the base raft layer is printed. This should be printed quite slowly, as the volume of material coming out of the nozzle is quite high.",
+		"unit": "mm/s",
+		"type": "float",
+		"default_value": "20",
+		"minimum_value": "0.1",
+		"maximum_value": "eval(Math.sqrt(Math.pow(contex.value(\"machine_max_feedrate_x\"), 2) + Math.pow(contex.value(\"machine_max_feedrate_y\"), 2)))",
+		"maximum_value_warning": "200",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"value": "0.5 * eval(contex.value(\"raft_speed\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_acceleration":
+	{
+		"label": "Raft Print Acceleration",
+		"description": "The acceleration with which the raft is printed.",
+		"unit": "mm/s²",
+		"type": "float",
+		"default_value": "3000",
+		"minimum_value": "0.1",
+		"minimum_value_warning": "100",
+		"maximum_value_warning": "10000",
+		"value": "eval(contex.value(\"acceleration_print\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft' && eval(contex.value(\"acceleration_enabled\"))",
+		"settable_per_mesh": false,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_surface_acceleration":
+	{
+		"label": "Raft Top Print Acceleration",
+		"description": "The acceleration with which the top raft layers are printed.",
+		"unit": "mm/s²",
+		"type": "float",
+		"default_value": "3000",
+		"value": "eval(contex.value(\"raft_acceleration\"))",
+		"minimum_value": "0.1",
+		"minimum_value_warning": "100",
+		"maximum_value_warning": "10000",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft' && eval(contex.value(\"acceleration_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_interface_acceleration":
+	{
+		"label": "Raft Middle Print Acceleration",
+		"description": "The acceleration with which the middle raft layer is printed.",
+		"unit": "mm/s²",
+		"type": "float",
+		"default_value": "3000",
+		"value": "eval(contex.value(\"raft_acceleration\"))",
+		"minimum_value": "0.1",
+		"minimum_value_warning": "100",
+		"maximum_value_warning": "10000",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft' && eval(contex.value(\"acceleration_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_base_acceleration":
+	{
+		"label": "Raft Base Print Acceleration",
+		"description": "The acceleration with which the base raft layer is printed.",
+		"unit": "mm/s²",
+		"type": "float",
+		"default_value": "3000",
+		"value": "eval(contex.value(\"raft_acceleration\"))",
+		"minimum_value": "0.1",
+		"minimum_value_warning": "100",
+		"maximum_value_warning": "10000",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft' && eval(contex.value(\"acceleration_enabled\"))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_jerk":
+	{
+		"label": "Raft Print Jerk",
+		"description": "The jerk with which the raft is printed.",
+		"unit": "mm/s",
+		"type": "float",
+		"default_value": "20",
+		"minimum_value": "0",
+		"minimum_value_warning": "5",
+		"maximum_value_warning": "50",
+		"value": "eval(contex.value(\"jerk_print\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft' && eval(contex.value(\"jerk_enabled\"))",
+		"settable_per_mesh": false,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_surface_jerk":
+	{
+		"label": "Raft Top Print Jerk",
+		"description": "The jerk with which the top raft layers are printed.",
+		"unit": "mm/s",
+		"type": "float",
+		"default_value": "20",
+		"value": "eval(contex.value(\"raft_jerk\"))",
+		"minimum_value": "0",
+		"minimum_value_warning": "5",
+		"maximum_value_warning": "100",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft' && eval(contex.value(\"jerk_enabled\"))",
+		"settable_per_mesh": false,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_interface_jerk":
+	{
+		"label": "Raft Middle Print Jerk",
+		"description": "The jerk with which the middle raft layer is printed.",
+		"unit": "mm/s",
+		"type": "float",
+		"default_value": "20",
+		"value": "eval(contex.value(\"raft_jerk\"))",
+		"minimum_value": "0",
+		"minimum_value_warning": "5",
+		"maximum_value_warning": "50",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft' && eval(contex.value(\"jerk_enabled\"))",
+		"settable_per_mesh": false,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_base_jerk":
+	{
+		"label": "Raft Base Print Jerk",
+		"description": "The jerk with which the base raft layer is printed.",
+		"unit": "mm/s",
+		"type": "float",
+		"default_value": "20",
+		"value": "eval(contex.value(\"raft_jerk\"))",
+		"minimum_value": "0",
+		"minimum_value_warning": "5",
+		"maximum_value_warning": "50",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft' && eval(contex.value(\"jerk_enabled\"))",
+		"settable_per_mesh": false,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_fan_speed":
+	{
+		"label": "Raft Fan Speed",
+		"description": "The fan speed for the raft.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "0",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_surface_fan_speed":
+	{
+		"label": "Raft Top Fan Speed",
+		"description": "The fan speed for the top raft layers.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "0",
+		"value": "eval(contex.value(\"raft_fan_speed\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_interface_fan_speed":
+	{
+		"label": "Raft Middle Fan Speed",
+		"description": "The fan speed for the middle raft layer.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "0",
+		"value": "eval(contex.value(\"raft_fan_speed\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	},
+	"raft_base_fan_speed":
+	{
+		"label": "Raft Base Fan Speed",
+		"description": "The fan speed for the base raft layer.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"default_value": "0",
+		"value": "eval(contex.value(\"raft_fan_speed\"))",
+		"enabled": "getEnumValue(\"adhesion_type\") == 'raft'",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"limit_to_extruder": "adhesion_extruder_nr"
+	}
+}

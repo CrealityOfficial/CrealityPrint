@@ -1,0 +1,32 @@
+#version 300 es
+/* sceneindicator.fragment */
+precision mediump float;
+
+layout (location = 0) out vec4 fragColor;
+
+in vec2 texCoord;
+in float dirIndex;
+in vec3 normal;
+
+uniform sampler2D colorMap;
+uniform sampler2D selectMap;
+
+uniform float diffuseLowerLimit;
+uniform float diffuseUpperLimit;
+
+uniform float highlightFaces;
+
+void main() 
+{	
+	float diffuse = dot(normalize(normal), normalize(vec3(1.0, 1.0, 1.0)));
+	diffuse = clamp(diffuse, 0.0, 1.0);
+	diffuse = mix(diffuseLowerLimit, diffuseUpperLimit, diffuse);
+
+	vec4 texColor = texture(colorMap, texCoord);
+
+	if (abs(highlightFaces - dirIndex) < 0.0001) {
+		texColor = texture(selectMap, texCoord);
+	}
+
+	fragColor = vec4(texColor.rgb * diffuse, 1.0);
+} 

@@ -1,0 +1,99 @@
+{
+	"name": "yunque",
+	"version": "1.0.0",
+	"description": "yunque namespace",
+	"piocreatad": {
+		"changeLogTemplate": {
+			"namespace": "xlvgsc/gkggv8",
+			"slug": "rklawt",
+			"comment":"软件发布模板"
+		},
+		"releaseInnerChangeLog": {
+			"namespace": "xlvgsc/pnsl1p",
+			"comment":"软件发布"
+		},
+		"releaseChangeLog": {
+			"namespace": "xlvgsc/cget8s",
+			"comment":"软件发布维护"
+		},
+		"prereleaseChangeLog": {
+			"namespace": "xlvgsc/pnsl1p",
+			"comment":"内部软件发布"
+		}
+	},
+	"creative3d": {
+		"changeLogTemplate": {
+			"namespace": "xlvgsc/gkggv8",
+			"slug": "vncgva"
+		},
+		"releaseInnerChangeLog": {
+			"namespace": "xlvgsc/xo7nm7"
+		},
+		"releaseChangeLog": {
+			"namespace": "xlvgsc/lsm275"
+		},
+		"prereleaseChangeLog": {
+			"namespace": "xlvgsc/rp4lpd"
+		}
+	},
+	"creativedlp": {
+		"changeLogTemplate": {
+			"namespace": "xlvgsc/gkggv8",
+			"slug": "guv325"
+		},
+		"releaseInnerChangeLog": {
+			"namespace": "xlvgsc/wv4168"
+		},
+		"releaseChangeLog": {
+			"namespace": "xlvgsc/ikny0w"
+		},
+		"prereleaseChangeLog": {
+			"namespace": "xlvgsc/wv4168"
+		}
+	},
+	"halotbox": {
+		"changeLogTemplate": {
+			"namespace": "xlvgsc/gkggv8",
+			"slug": "guv325"
+		},
+		"releaseInnerChangeLog": {
+			"namespace": "xlvgsc/zi44ez"
+		},
+		"releaseChangeLog": {
+			"namespace": "xlvgsc/sgtcp9"
+		},
+		"prereleaseChangeLog": {
+			"namespace": "xlvgsc/wv4168"
+		}
+	},
+	"cloudslicer": {
+		"changeLogTemplate": {
+			"namespace": "xlvgsc/gkggv8",
+			"slug": "guv325"
+		},
+		"releaseInnerChangeLog": {
+			"namespace": "xlvgsc/zi44ez"
+		},
+		"releaseChangeLog": {
+			"namespace": "xlvgsc/ikny0w"
+		},
+		"prereleaseChangeLog": {
+			"namespace": "xlvgsc/rva0zh"
+		}
+	},
+	"cl_h7_firmware": {
+		"changeLogTemplate": {
+			"namespace": "xlvgsc/gkggv8",
+			"slug": "osp163"
+		},
+		"releaseInnerChangeLog": {
+			"namespace": "xlvgsc/tziiz3"
+		},
+		"releaseChangeLog": {
+			"namespace": "xlvgsc/kdnl7z"
+		},
+		"prereleaseChangeLog": {
+			"namespace":"xlvgsc/prdrlr"
+		}
+	}
+}

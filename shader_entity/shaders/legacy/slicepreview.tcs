@@ -1,0 +1,134 @@
+#version 410 core
+
+layout(vertices = 4) out;
+
+flat in vec4 vertexFlag_vs_out[];
+flat in vec4 vertexDrawFlag_vs_out[];
+in vec4 vertexSmoothFlag_vs_out[];
+in vec3 worldPos_vs_out[];
+
+patch out int sideCount_cs_out;
+
+patch out float segmentLength_cs_out;
+patch out vec3 segmentMidPos_cs_out;
+patch out vec3 segmentNDir_cs_out;
+
+patch out float VOPNCosValue_cs_out;
+patch out vec3 planeNormalNDir_cs_out;
+patch out vec3 worldViewNDir_cs_out;
+
+out vec3 worldPos_cs_out[];
+// out vec3 worldNormal_cs_out[];
+out vec4 vertexFlag_cs_out[];
+out vec4 vertexDrawFlag_cs_out[];
+out vec4 vertexSmoothFlag_cs_out[];
+
+uniform vec3 eyePosition;
+
+
+void main()
+{
+	float r = 0.1;
+	// sideCount_cs_out should be 2 or 3
+	sideCount_cs_out = 2;
+	int faceCount = sideCount_cs_out - 1;
+
+	int vertexIndex = gl_InvocationID / sideCount_cs_out;
+	int inIndex = gl_InvocationID % sideCount_cs_out;
+	inIndex = int((1.0 * inIndex / (sideCount_cs_out - 1.0) * 2.0) + (-1.0));
+
+	segmentMidPos_cs_out = (worldPos_vs_out[1] + worldPos_vs_out[0]) / 2.0;
+	segmentLength_cs_out = distance(worldPos_vs_out[0], worldPos_vs_out[1]);
+	segmentNDir_cs_out = normalize(worldPos_vs_out[1] - worldPos_vs_out[0]);
+
+	float lineWidthR = vertexFlag_vs_out[0].z / 2;
+	float thicknessR = vertexFlag_vs_out[0].w / 2;
+	float halfHeight = segmentLength_cs_out / 2;
+
+	vec3 patchNDirection = segmentNDir_cs_out;
+	vec3 viewNDirection = normalize(eyePosition - segmentMidPos_cs_out);
+
+	vec3 upDirection = (2 * step(0, dot(viewNDirection, vec3(0.0, 0.0, 1.0))) - 1) * vec3(0.0, 0.0, 1.0);
+
+	vec3 xoyDirection = normalize(cross(patchNDirection, upDirection));
+	vec3 radiusUpperDirection = normalize(xoyDirection * lineWidthR + upDirection * thicknessR);
+	float cosValueRUpper2Up = dot(radiusUpperDirection, upDirection);
+	vec3 radiusLowerDirection = normalize(xoyDirection * lineWidthR - upDirection * thicknessR);
+	float cosValueRLower2Up = dot(radiusLowerDirection, upDirection);
+	// vec3 lengthUpperDirection = normalize(patchDirFlag * patchNDirection * halfHeight + upDirection * thicknessR);
+	// float cosValueLUpper2Up = dot(lengthUpperDirection, patchDirFlag * patchNDirection);
+	// vec3 lengthLowerDirection = normalize(patchDirFlag * patchNDirection * halfHeight - upDirection * thicknessR);
+	// float cosValueLLower2Up = dot(lengthLowerDirection, patchDirFlag * patchNDirection);
+
+	vec3 radiusNDirection;
+	float pvCosValue = abs(dot(patchNDirection, viewNDirection));
+	float pvCosValueFlag = step(1.0, pvCosValue);
+	vec3 tempNDirection = (1 - pvCosValueFlag) * viewNDirection + pvCosValueFlag * vec3(0.0, 0.0, 1.0);
+	
+	radiusNDirection = normalize(cross(patchNDirection, tempNDirection));
+
+	float cosValueR2Up = dot(radiusNDirection, upDirection);
+
+	float cosValueUpperFlag = step(cosValueRUpper2Up, cosValueR2Up);
+	float cosValueLowerFlag = step(cosValueRLower2Up, cosValueR2Up);
+	radiusNDirection = cosValueUpperFlag * radiusUpperDirection + (1 - cosValueLowerFlag) * radiusLowerDirection + (1 - cosValueUpperFlag) * cosValueLowerFlag * radiusNDirection;
+
+	cosValueR2Up = abs(dot(radiusNDirection, upDirection));
+
+	vec3 ropUpNDirection = normalize(cross(radiusNDirection, patchNDirection));
+
+	float patchDirFlag = 2 * step(0, dot(viewNDirection, ropUpNDirection)) - 1;
+
+	// float rotateLimit = pvCosValue;
+	// vec3 lengthUpperDirection = normalize(patchDirFlag * patchNDirection * halfHeight + ropUpNDirection * thicknessR * rotateLimit);
+	// float cosValueLUpper2Up = dot(lengthUpperDirection, ropUpNDirection);
+	// vec3 lengthLowerDirection = normalize(patchDirFlag * patchNDirection * halfHeight - ropUpNDirection * thicknessR * rotateLimit);
+	// float cosValueLLower2Up = dot(lengthLowerDirection, ropUpNDirection);
+
+	// vec3 lengthDirection = normalize(cross(viewNDirection, radiusNDirection));
+	// float cosValueL2Up = dot(lengthDirection, ropUpNDirection);
+
+	// if (cosValueL2Up > cosValueLUpper2Up)
+	// {	
+	// 	lengthDirection = lengthUpperDirection;
+	// 	cosValueL2Up = cosValueLUpper2Up;
+	// }
+	// else if (cosValueL2Up < cosValueLLower2Up)
+	// {
+	// 	lengthDirection = lengthLowerDirection;
+	// 	cosValueL2Up = cosValueLLower2Up;
+	// }
+	vec3 lengthDirection = patchNDirection;
+	
+	// vec3 normalDirection = normalize(cross(radiusNDirection, patchNDirection));
+
+	// planeNormalNDir_cs_out = normalize(cross(radiusNDirection, lengthDirection));
+	planeNormalNDir_cs_out = ropUpNDirection;
+	worldViewNDir_cs_out = viewNDirection;
+	VOPNCosValue_cs_out = dot(worldViewNDir_cs_out, planeNormalNDir_cs_out);
+		
+
+	radiusNDirection = radiusNDirection * inIndex;
+	lengthDirection = lengthDirection * (1 - vertexIndex * 2);
+
+	float sinValueR2Horizon = cosValueR2Up;
+
+	float halfLength = sqrt(lineWidthR * lineWidthR + halfHeight * halfHeight) * 0.99;	
+
+	r = lineWidthR * inversesqrt(1 - sinValueR2Horizon * sinValueR2Horizon);
+
+	// r = sqrt(lineWidthR * lineWidthR + thicknessR * thicknessR);
+
+	worldPos_cs_out[gl_InvocationID] = segmentMidPos_cs_out + halfLength * lengthDirection + r * radiusNDirection;
+
+	vertexFlag_cs_out[gl_InvocationID] = vertexFlag_vs_out[0];
+	vertexDrawFlag_cs_out[gl_InvocationID] = vertexDrawFlag_vs_out[0];
+	vertexSmoothFlag_cs_out[gl_InvocationID] = vertexSmoothFlag_vs_out[vertexIndex];
+	
+	gl_TessLevelOuter[0] = 1;
+	gl_TessLevelOuter[1] = faceCount;
+	gl_TessLevelOuter[2] = 1;
+	gl_TessLevelOuter[3] = faceCount;
+	gl_TessLevelInner[0] = 1;
+	gl_TessLevelInner[1] = faceCount;
+}

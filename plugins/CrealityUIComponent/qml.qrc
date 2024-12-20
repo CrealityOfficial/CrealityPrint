@@ -1,0 +1,19 @@
+<RCC>
+    <qresource prefix="/res"/>
+    <qresource prefix="/qml">
+        <file>CrealityUIComponent/CusButton/CusButton.qml</file>
+        <file>CrealityUIComponent/CusBackground/CusRoundedBg.qml</file>
+        <file>CrealityUIComponent/CusText/CusText.qml</file>
+        <file>CrealityUIComponent/Constants.qml</file>
+        <file>CrealityUIComponent/CusListView/CusListView.qml</file>
+        <file>CrealityUIComponent/qmldir</file>
+        <file>CrealityUIComponent/CusImage/CusImage.qml</file>
+        <file>CrealityUIComponent/CusTip/BasicTooltip.qml</file>
+        <file>CrealityUIComponent/CusButton/CXButton.qml</file>
+        <file>CrealityUIComponent/CusSlider/CusSlider.qml</file>
+        <file>CrealityUIComponent/CusSpinBox/CusSpinBox.qml</file>
+        <file>CrealityUIComponent/CusMenu/CusMenu.qml</file>
+        <file>CrealityUIComponent/CusMenu/CusMenuItem.qml</file>
+    </qresource>
+    <qresource prefix="/"/>
+</RCC>

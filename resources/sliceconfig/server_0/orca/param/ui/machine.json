@@ -1,0 +1,631 @@
+{
+  "name": "FDM Printer Machine Description",
+  "version": 2,
+  "children": [
+    {
+      "label": "Basic information",
+      "children": [
+        {
+          "label": "Printable space",
+          "children": [
+            {
+              "key": "printable_area",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "bed_exclude_area",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "printable_height",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "nozzle_volume",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "best_object_pos",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "z_offset",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Advanced",
+          "children": [
+            {
+              "key": "gcode_flavor",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "thumbnails",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "thumbnails_format",
+              "component": "combo_box",
+              "level": 1
+            },
+            {
+              "key": "use_relative_e_distances",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "use_firmware_retraction",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "time_cost",
+              "component": "float_text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Cooling Fan",
+          "children": [
+            {
+              "key": "fan_speedup_time",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "fan_speedup_overhangs",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "fan_kickstart",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Extruder Clearance",
+          "children": [
+            {
+              "key": "extruder_clearance_radius",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "extruder_clearance_height_to_rod",
+              "component": "float_text_field",
+              "level": 2
+            },
+            {
+              "key": "extruder_clearance_height_to_lid",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Accessory",
+          "children": [
+            {
+              "key": "nozzle_type",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "auxiliary_fan",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "support_air_filtration",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "machine_LED_light_exist",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "machine_platform_motion_enable",
+              "component": "check_box",
+              "level": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "G-code",
+      "children": [
+        {
+          "label": "G-code",
+          "children": [
+            {
+              "key": "machine_start_gcode",
+              "component": "text_edit",
+              "level": 2
+            },
+            {
+              "key": "machine_end_gcode",
+              "component": "text_edit",
+              "level": 2
+            },
+            {
+              "key": "before_layer_change_gcode",
+              "component": "text_edit",
+              "level": 1
+            },
+            {
+              "key": "layer_change_gcode",
+              "component": "text_edit",
+              "level": 1
+            },
+            {
+              "key": "time_lapse_gcode",
+              "component": "text_edit",
+              "level": 1
+            },
+            {
+              "key": "change_filament_gcode",
+              "component": "text_edit",
+              "level": 1
+            },
+            {
+              "key": "change_extrusion_role_gcode",
+              "component": "text_edit",
+              "level": 1
+            },
+            {
+              "key": "machine_pause_gcode",
+              "component": "text_edit",
+              "level": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Multimaterial",
+      "children": [
+        {
+          "label": "Single extruder multimaterial setup",
+          "children": [
+            {
+              "key": "single_extruder_multi_material",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "manual_filament_change",
+              "component": "check_box",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Wipe tower",
+          "children": [
+            {
+              "key": "purge_in_prime_tower",
+              "component": "check_box",
+              "level": 1
+            },
+            {
+              "key": "enable_filament_ramming",
+              "component": "check_box",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Single extruder multimaterial parameters",
+          "children": [
+            {
+              "key": "cooling_tube_retraction",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "cooling_tube_length",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "parking_pos_retraction",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "extra_loading_move",
+              "component": "float_text_field",
+              "level": 1
+            },
+            {
+              "key": "high_current_on_filament_swap",
+              "component": "check_box",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Extruder_1",
+      "children": [
+        {
+          "label": "Size",
+          "children": [
+            {
+              "key": "nozzle_diameter",
+              "component": "text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Layer height limits",
+          "children": [
+            {
+              "key": "min_layer_height",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "max_layer_height",
+              "component": "text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Position",
+          "children": [
+            {
+              "key": "extruder_offset",
+              "component": "text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Retraction",
+          "children": [
+            {
+              "key": "retraction_length",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "retract_restart_extra",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "z_hop",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "z_hop_types",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "retraction_speed",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "deretraction_speed",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "retraction_minimum_travel",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "retract_when_changing_layer",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "wipe",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "wipe_distance",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "retract_before_wipe",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Lift Z Enforcement",
+          "children": [
+            {
+              "key": "retract_lift_above",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "retract_lift_below",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "retract_lift_enforce",
+              "component": "combo_box",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Retraction when switching material",
+          "children": [
+            {
+              "key": "retract_length_toolchange",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "retract_restart_extra",
+              "component": "text_field",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Extruder_2",
+      "children": [
+        {
+          "label": "Size",
+          "children": [
+            {
+              "key": "nozzle_diameter",
+              "component": "text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Layer height limits",
+          "children": [
+            {
+              "key": "min_layer_height",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "max_layer_height",
+              "component": "text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Position",
+          "children": [
+            {
+              "key": "extruder_offset",
+              "component": "text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Retraction",
+          "children": [
+            {
+              "key": "retraction_length",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "retract_restart_extra",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "z_hop",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "z_hop_types",
+              "component": "combo_box",
+              "level": 2
+            },
+            {
+              "key": "retraction_speed",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "deretraction_speed",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "retraction_minimum_travel",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "retract_when_changing_layer",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "wipe",
+              "component": "check_box",
+              "level": 2
+            },
+            {
+              "key": "wipe_distance",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "retract_before_wipe",
+              "component": "float_text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Lift Z Enforcement",
+          "children": [
+            {
+              "key": "retract_lift_above",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "retract_lift_below",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "retract_lift_enforce",
+              "component": "combo_box",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Retraction when switching material",
+          "children": [
+            {
+              "key": "retract_length_toolchange",
+              "component": "text_field",
+              "level": 1
+            },
+            {
+              "key": "retract_restart_extra",
+              "component": "text_field",
+              "level": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Motion ability",
+      "children": [
+        {
+          "label": "Speed limitation",
+          "children": [
+            {
+              "key": "machine_max_speed_x",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_speed_y",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_speed_z",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_speed_e",
+              "component": "text_field",
+              "level": 2
+            }
+          ]
+        },
+        {
+          "label": "Acceleration limitation",
+          "children": [
+            {
+              "key": "machine_max_acceleration_x",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_acceleration_y",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_acceleration_z",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_acceleration_e",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_acceleration_extruding",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_acceleration_retracting",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_acceleration_travel",
+              "component": "text_field",
+              "level": 1
+            }
+          ]
+        },
+        {
+          "label": "Jerk limitation",
+          "children": [
+            {
+              "key": "machine_max_jerk_x",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_jerk_y",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_jerk_z",
+              "component": "text_field",
+              "level": 2
+            },
+            {
+              "key": "machine_max_jerk_e",
+              "component": "text_field",
+              "level": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

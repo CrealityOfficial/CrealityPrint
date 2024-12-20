@@ -1,0 +1,23 @@
+set(COLLECT_FILTER_SOURCE_ALL "*.cpp" "*.h" "*.c" "*.cc" "*.hpp" "*.CPP" "*.hxx" "*.cxx")
+
+function(__filter_string_list INPUTS FILTERS OUTPUTS)
+	#message(STATUS "__filter_string_list : ${${INPUTS}}")
+	#message(STATUS "__filter_string_list : ${${FILTERS}}")
+	
+	set(FINAL_FILES)
+	foreach(source ${${INPUTS}})
+		set(EXCLUDED 0)
+		foreach(reg ${${FILTERS}})
+			if(${source} MATCHES ${reg})
+				#message(STATUS "__filter_string_list exclude -> ${source}")
+				set(EXCLUDED 1)
+				break()
+			endif()
+		endforeach()
+		
+		if(NOT EXCLUDED)
+			list(APPEND FINAL_FILES ${source})
+		endif()
+	endforeach()
+	set(${OUTPUTS} ${FINAL_FILES} PARENT_SCOPE)
+endfunction()

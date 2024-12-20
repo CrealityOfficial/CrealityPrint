@@ -1,0 +1,8 @@
+license: "<GLP>"
+author: "<zenggui> <anoob@sina.cn>"
+url: "<xxxxxx>"
+repository: "http://172.20.180.12:8050/yanfa4/thirdparty/spdlog"
+external_repository: "https://github.com/CrealityOfficial/spdlog"
+description: "<cxlog>"
+topics: "<log>,<cx>,<cxlog>"
+

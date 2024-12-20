@@ -1,0 +1,131 @@
+#version 150 core
+out vec4 fragmentColor;
+
+in vec3 viewDirection;
+in vec3 normal;
+in vec3 gnormal;
+in vec3 worldPosition;
+in vec3 worldWater;
+in vec3 barycentric;
+in float colorFlag;
+in float highlightFlag;
+
+uniform bool needHighLight;
+uniform bool needMix;
+uniform vec4 palette[16];
+uniform vec4 internalColor;
+const vec4 highlightOverhangsColor = vec4(0.50, 0.26, 0.26, 1.0);
+uniform float highlightOverhangsRadian;
+
+/* 剖面图参数 */
+uniform vec3 sectionNormal;
+uniform vec3 sectionFrontPos;
+uniform vec3 sectionBackPos;
+
+const vec3 wireframeColor = vec3(0.1);
+const vec3 clearColor = vec3(0.27);
+uniform int renderModel;
+
+bool frontFacing()
+{
+	vec3 fdx = dFdx(worldPosition);
+	vec3 fdy = dFdy(worldPosition);
+	return dot(gnormal, cross(fdx, fdy)) > 0.0;
+} 
+
+float brightness(vec3 color) {
+    float bn = color.r * 0.3 + color.g * 0.59 + color.b * 0.11;
+	return bn;
+}
+
+vec2 lightIntensity()
+{
+	vec2 intensity;
+	float INTENSITY_CORRECTION = 0.6;
+
+	/* 环境光 */
+	vec3 LIGHT_TOP_DIR = vec3(-0.4574957, 0.4574957, 0.7624929);	
+	float LIGHT_TOP_DIFFUSE = (0.8 * INTENSITY_CORRECTION);
+	float LIGHT_TOP_SPECULAR  = (0.125 * INTENSITY_CORRECTION) * 2;
+	float LIGHT_TOP_SHININESS = 10.0;
+
+	/* 反射光 */
+	// vec3 LIGHT_FRONT_DIR = vec3(0.6985074, 0.1397015, 0.6985074);
+	vec3 LIGHT_FRONT_DIR = vec3(0.6985074, 0.1397015, 0.5985074);
+	float LIGHT_FRONT_DIFFUSE = (0.3 * INTENSITY_CORRECTION) * 3;
+	float LIGHT_FRONT_SPECULAR = (0.0 * INTENSITY_CORRECTION);
+	float LIGHT_FRONT_SHININESS = 5.0;
+
+	vec3 LIGHT_BACK_DIR = vec3(0.1397015, 0.6985074,0.6985074);
+	float LIGHT_BACK_DIFFUSE = (0.3 * INTENSITY_CORRECTION);
+
+	float INTENSITY_AMBIENT  =  0.3;
+
+	vec3 eye_normal = normal;
+
+	// Compute the cos of the angle between the normal and lights direction. The light is directional so the direction is constant for every vertex.
+	// Since these two are normalized the cosine is the dot product. We also need to clamp the result to the [0,1] range.
+	float NdotL = max(dot(eye_normal, LIGHT_TOP_DIR), 0.0);
+
+	intensity.x = INTENSITY_AMBIENT + NdotL * LIGHT_TOP_DIFFUSE;
+	vec3 position = worldPosition.xyz;
+	intensity.y = LIGHT_TOP_SPECULAR * pow(max(dot(-normalize(position), reflect(LIGHT_TOP_DIR, eye_normal)), 0.0), LIGHT_TOP_SHININESS);
+
+	// Perform the same lighting calculation for the 2nd light source (no specular applied).
+	NdotL = max(dot(eye_normal, LIGHT_FRONT_DIR), 0.0);
+	intensity.x += NdotL * LIGHT_FRONT_DIFFUSE;
+	
+	return intensity;
+}
+
+void main( void )
+{
+	/* 剖面 */
+	float distanceToFrontPlane = dot(sectionNormal, worldPosition - sectionFrontPos);
+	float distanceToBackPlane = dot(sectionNormal, worldPosition - sectionBackPos);
+	if (distanceToFrontPlane < 0.0 || distanceToBackPlane > 0.0) 
+		discard;
+
+	vec4 color;
+	if(!frontFacing())
+	{
+		fragmentColor = internalColor;
+	}
+	else 
+	{
+		int cf = int(round(colorFlag));
+		color = palette[cf];
+		if (acos(dot(gnormal, vec3(0.0, 0.0, -1.0))) < highlightOverhangsRadian)
+		{
+			color = mix(color, highlightOverhangsColor, 0.5);
+		}
+
+		if (renderModel != 1) {
+			vec3 baryDelta = fwidth(barycentric);
+			vec3 edgeFactor = smoothstep(vec3(0.0), baryDelta * 1.0, barycentric);
+			float minEdgeFactor = min(min(edgeFactor.x, edgeFactor.y), edgeFactor.z);
+			color.rgb = mix(wireframeColor, color.rgb, minEdgeFactor);
+		}
+
+		vec3 posNormal = normalize(worldPosition);
+		
+		/* 高亮效果 */
+		int hg = int(round(highlightFlag));
+		if (needMix && cf != hg) 
+		{
+			color = mix(color, palette[hg], 0.7);
+			if (needHighLight)
+			{
+				color = color * 1.15;
+			}
+		}
+		
+		vec3 coreColor = color.rgb;
+		vec2 intensity = lightIntensity();	//获取 环境光x 和 反射光y 强度
+		float bn = brightness(coreColor);	
+		float gainFactor = pow((1 - bn * 0.14), 2);	// 根据颜色亮度添加增益，避免暗色系太暗，亮色系太亮。(b - bn * k)中b越大, 暗色系越亮, k越大, 亮色系越暗
+		vec3 gain = vec3(gainFactor, gainFactor, gainFactor);
+		coreColor = mix(coreColor, gain, 0.17);	
+		fragmentColor = vec4(vec3(intensity.y) + (coreColor * intensity.x), 1.0);
+	}
+}

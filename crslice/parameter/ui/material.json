@@ -1,0 +1,118 @@
+{
+    "name": "FDM Printer Material Description",
+    "version": 2,
+    "categorys": [
+        {
+            "label": "Filament",
+            "groups": [
+                {
+                    "label": "Base information",
+                    "children": [
+                        "material_name",
+                        "filament_material_type",
+                        "material_brand",
+                        "material_color",
+                        "material_shrinkage_percentage",
+                        "material_shrinkage_percentage_xy",
+                        "material_shrinkage_percentage_z",
+                        "material_density",
+                        "material_diameter",
+                        "filament_cost",
+                        "filament_weight",
+                        "material_pressure_advance",
+                        "material_advance_length",
+                        "material_description"
+                    ]
+                },
+                {
+                    "label": "print temperature",
+                    "children": [
+                        "material_print_temperature",
+                        "material_print_temperature_layer_0",
+                        "material_final_print_temperature",
+                        "material_bed_temperature",
+                        "material_bed_temperature_layer_0"
+                    ]
+                },
+                {
+                    "label": "Volumetric speed limitation",
+                    "children": [
+                        "material_max_volumetric_speed"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "Flow",
+            "groups": [
+                {
+                    "label": "Flow",
+                    "children": [
+                        "wall_0_material_flow",
+                        "wall_x_material_flow",
+                        "skin_material_flow",
+                        "infill_material_flow",
+                        "prime_tower_flow",
+                        "material_flow_layer_0"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "Cools",
+            "groups": [
+                {
+                    "label": "Cooling for specific layer",
+                    "children": []
+                },
+                {
+                    "label": "Part cooling fan",
+                    "children": [
+                        "cool_fan_enabled",
+                        "cool_fan_speed_min",
+                        "cool_fan_speed_max",
+                        "cool_min_layer_time_fan_speed_max",
+                        "cool_overhang_bridge_force_cooling",
+                        "cool_overhang_threshold",
+                        "cool_overhang_fan_speed",
+                        "cool_small_feature_fan_speed_factor",
+                        "bridge_fan_speed",
+                        "support_supported_skin_fan_speed",
+                        "cool_fan_speed_0",
+                        "cool_fan_full_layer",
+                        "cool_min_layer_time",
+                        "cool_infill_speed_slowdown_first",
+                        "cool_min_speed",
+                        "cool_lift_head"
+                    ]
+                },
+                {
+                    "label": "Auxiliary part cooling fan",
+                    "children": []
+                }
+            ]
+        },
+        {
+            "label": "Overides",
+            "groups": [
+                {
+                    "label": "Extruder",
+                    "children": [
+                        "retraction_enable",
+                        "retraction_amount",
+                        "retraction_hop_enabled",
+                        "retraction_hop",
+                        "retraction_retract_speed",
+                        "retraction_prime_speed",
+                        "retraction_extra_prime_amount",
+                        "travel_avoid_distance",
+                        "retract_at_layer_change",
+                        "retraction_wipe",
+                        "wipe_length",
+                        "before_wipe_retraction_amount_percent"
+                    ]
+                }
+            ]
+        }
+    ]
+}

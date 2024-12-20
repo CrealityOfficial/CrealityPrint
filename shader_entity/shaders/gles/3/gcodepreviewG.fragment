@@ -1,0 +1,65 @@
+#version 300 es
+/* gcodepreviewG.fragment */
+precision mediump float;
+out vec4 fragColor;
+
+in vec3 normal;
+flat in vec2 step;
+flat in float visualType;
+in vec3 viewDirection;
+flat in vec4 color;
+uniform int showType = 0;
+
+uniform vec3 light_direction = vec3(0.0, 0.0, 1.0);
+uniform vec4 front_ambient = vec4(0.8, 0.8, 0.8, 1.0);
+uniform vec4 front_diffuse = vec4(0.6, 0.6, 0.6, 1.0);
+uniform vec4 back_ambient = vec4(0.3, 0.3, 0.3, 1.0);
+uniform vec4 back_diffuse = vec4(0.3, 0.3, 0.3, 1.0);
+uniform vec4 specular = vec4(0.5, 0.5, 0.5, 1.0);
+
+uniform int typecolorsshow[18];
+uniform vec4 clipValue;
+
+uniform vec2 layershow;
+
+uniform float specularPower = 32.0;
+
+vec4 directLight(vec4 core_color)
+{
+	vec4 ambient_color 	  = front_ambient * core_color;	
+	vec4 diffuse_color    = front_diffuse;
+	vec3 light_dir = normalize(light_direction);
+	vec3 fnormal          =	normalize(normal); 
+	float NdotL 		  = max(dot(fnormal, light_dir), 0.0);
+	diffuse_color         = diffuse_color * core_color;
+	vec4 total_diffuse    = NdotL * diffuse_color;
+	
+	vec3 freflection      = reflect(-light_dir, fnormal);
+	vec3 fViewDirection   = normalize(viewDirection);
+	float RdotV           = max(0.0, dot(freflection, fViewDirection)); 
+	vec4 specularColor    = specular * pow( RdotV, specularPower) * core_color;
+	
+	vec4 resultColor = total_diffuse + ambient_color;
+	resultColor.a = 1.0;
+	return resultColor;
+}
+
+void main( void )
+{
+	if(visualType < 0.0)
+		discard;
+		
+	if(showType == 1 && typecolorsshow[int(visualType)] == 0)
+		discard;
+
+	if(step.x > clipValue.y)
+		discard;
+		
+	if((step.x == clipValue.y) && (step.y > clipValue.w))
+		discard;
+		
+	if(step.x < layershow.x || step.x > layershow.y)
+		discard;
+
+	fragColor = directLight(color);
+}

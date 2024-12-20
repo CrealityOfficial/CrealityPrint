@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/qtuserqml">
+        <file>res/demo.qml</file>
+        <file>res/demo1.qml</file>
+        <file>res/simulation.qml</file>
+        <file>res/PythonConsole.qml</file>
+        <file>res/markdown/css/markdown.css</file>
+        <file>res/markdown/css/markdown1.css</file>
+        <file>res/markdown/js/demo.js</file>
+        <file>res/markdown/js/markdown-it-ins.js</file>
+        <file>res/markdown/js/markdown-it-mark.js</file>
+        <file>res/markdown/js/markdown-it-sub.js</file>
+        <file>res/markdown/js/markdown-it-sup.js</file>
+        <file>res/markdown/js/markdown-it.js</file>
+        <file>res/markdown/js/markdown-js-Qt.js</file>
+        <file>res/markdown/example.md</file>
+    </qresource>
+</RCC>

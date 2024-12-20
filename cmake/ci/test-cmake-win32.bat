@@ -1,0 +1,73 @@
+@echo off
+
+@REM example: VS_VERSION=Visual Studio 17 2022 in system PATH
+set Generator=%VS_VERSION%
+if not "%VS_VERSION%" == "" (
+    goto :find_path
+)
+
+set Generator=Visual Studio 16 2019
+
+:find_path
+echo "find_path"
+
+if "%1" == "Ninja" ^
+(
+
+set VSENV="%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
+if not "%VS_PATH%" == "" (
+  if exist %VSENV% (
+    call %VSENV%
+    goto :build
+  ) else (echo "not find vs in" %VSENV%)
+) else (echo "not find vs in" %VSENV%)
+
+set VSENV="C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+if exist %VSENV% (
+call %VSENV%
+goto :build
+) else (echo "not find vs in" %VSENV%)
+
+set VSENV="C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+if exist %VSENV% (
+call %VSENV%
+goto :build
+) else (echo "not find vs in" %VSENV%)
+
+set VSENV="D:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+if exist %VSENV% (call %VSENV% ) else (exit /B)
+
+)
+else ^
+(
+
+call "%~dp0\find-msvcinfo.bat"
+if not %errorlevel%==0 (exit /b 1)
+
+call "%VSDir%\VC\Auxiliary\Build\vcvars64.bat"
+
+REM 从注册表查询 win10 SDK 安装目录，主要用于判断注册表查询是否被禁，如果被禁 vcvars64.bat 将无法正常配置环境，需要手动配置环境依赖
+call "%~dp0\check-vcvars64.bat"
+
+)
+:build
+echo "build"
+
+cd %~dp0
+
+cd ../../
+
+echo Generator : %Generator%
+mkdir test-build
+cd test-build
+mkdir build
+cd build
+
+echo "Release"
+cmake ^
+    -G "%Generator%" ^
+    -DCMAKE_BUILD_TYPE=Release ^
+	-DCC_UNIT_TESTING=ON ^
+    ..\..\ || exit /b
+
+cd ../../

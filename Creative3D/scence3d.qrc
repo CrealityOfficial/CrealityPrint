@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/scence3d">
+        <file>res/InfosPanel.qml</file>
+        <file>res/CSliceSeletorPanel.qml</file>
+        <file>res/CSliceButton.qml</file>
+        <file>res/CMachineTab.qml</file>
+        <file>res/CToolBar.qml</file>
+        <file>res/CWinMenu.qml</file>
+        <file>res/CMacMenu.qml</file>
+        <file>res/MainWindow2.qml</file>
+        <file>res/Creative3D.ico</file>
+        <file>res/main.qml</file>
+        <file>res/splash.png</file>
+        <file>res/logo.png</file>
+        <file>res/splashLogo.png</file>
+        <file>res/logo.svg</file>
+    </qresource>
+</RCC>

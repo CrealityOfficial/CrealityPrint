@@ -1,0 +1,9 @@
+license: GLP
+author: zenggui,anoob@sina.cn
+url: xxxxxx
+repository: http://172.20.180.12:8050/yanfa4/c3d/c3d
+external_repository: http://172.20.180.12:8050/CrealityOfficial/c3d
+description: dumptool
+topics: dumptool
+build_deps: aliyunoss_static/1.0.0,boost_static/1.0.0,quazip_static/1.0.0,rapidjson/1.0.0
+search_deps: 

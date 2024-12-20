@@ -1,0 +1,3 @@
+cxlog/0.0.2
+trimesh2/0.0.3
+opencascade_static/1.0.0

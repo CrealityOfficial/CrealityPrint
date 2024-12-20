@@ -1,0 +1,95 @@
+#version 410 core
+
+layout(quads, equal_spacing, ccw) in;
+
+patch in int sideCount_cs_out;
+
+patch in float segmentLength_cs_out;
+patch in vec3 segmentMidPos_cs_out;
+patch in vec3 segmentNDir_cs_out;
+
+patch in float VOPNCosValue_cs_out;
+patch in vec3 planeNormalNDir_cs_out;
+patch in vec3 worldViewNDir_cs_out;
+
+in vec3 worldPos_cs_out[];
+// in vec3 worldNormal_cs_out[];
+in vec4 vertexFlag_cs_out[];
+in vec4 vertexDrawFlag_cs_out[];
+in vec4 vertexSmoothFlag_cs_out[];
+
+flat out vec4 vertexFlag_es_out;
+flat out vec4 vertexDrawFlag_es_out;
+out vec4 vertexSmoothFlag_es_out;
+
+out vec3 viewDirection;
+out vec3 worldPos_es_out;
+// out vec3 worldNormal_es_out;
+
+flat out float segmentLength_es_out;
+flat out vec3 segmentMidPos_es_out;
+flat out vec3 segmentNDir_es_out;
+
+flat out float VOPNCosValue_es_out;
+flat out vec3 planeNormalNDir_es_out;
+flat out vec3 worldViewNDir_es_out;
+
+out vec4 color_test;
+
+uniform mat4 modelMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 projectionMatrix;
+
+uniform vec3 eyePosition;
+
+
+void main()
+{
+	int faceCount = sideCount_cs_out - 1;
+	float faceWidth = 1.0 / faceCount;
+	int areaIndex = int(floor(gl_TessCoord.x / faceWidth));
+
+	if (areaIndex >= faceCount)
+		areaIndex--;
+
+	int areaIndexNext = areaIndex + 1;
+	float areaCoord = (gl_TessCoord.x - faceWidth * areaIndex) / faceWidth;
+
+	vec3 topLeft = worldPos_cs_out[areaIndex + sideCount_cs_out];
+	vec3 topRight = worldPos_cs_out[areaIndexNext + sideCount_cs_out];
+	vec3 bottomLeft = worldPos_cs_out[areaIndex];
+	vec3 bottomRight = worldPos_cs_out[areaIndexNext];
+
+	worldPos_es_out = bottomLeft + gl_TessCoord.y * (topLeft - bottomLeft) + areaCoord * (bottomRight - bottomLeft);
+
+	// vec3 topLeftNormal = worldNormal_cs_out[areaIndex + sideCount_cs_out];
+	// vec3 topRightNormal = worldNormal_cs_out[areaIndexNext + sideCount_cs_out];
+	// vec3 bottomLeftNormal = worldNormal_cs_out[areaIndex];
+	// vec3 bottomRightNormal = worldNormal_cs_out[areaIndexNext];
+
+	// worldNormal_es_out = normalize(mix(normalize(mix(topLeftNormal, bottomLeftNormal, gl_TessCoord.y)), normalize(mix(topRightNormal, bottomRightNormal, gl_TessCoord.y)), areaCoord));
+	// // worldNormal_es_out = mat3(viewMatrix) * worldNormal_es_out;
+
+	vec4 viewPos = viewMatrix * vec4(worldPos_es_out, 1.0);
+	viewDirection  = normalize(-(viewPos.xyz));
+	
+	// planeNormalNDir_es_out = normalize(eyePosition - segmentMidPos_cs_out);
+	planeNormalNDir_es_out = planeNormalNDir_cs_out;
+	worldViewNDir_es_out = worldViewNDir_cs_out;
+	VOPNCosValue_es_out = VOPNCosValue_cs_out;
+
+	segmentLength_es_out = segmentLength_cs_out;
+	segmentMidPos_es_out = segmentMidPos_cs_out;
+	segmentNDir_es_out = segmentNDir_cs_out;
+	
+	color_test = vec4(gl_TessCoord.xy, 0.0, 1.0);
+
+	vertexFlag_es_out = vertexFlag_cs_out[0];
+	vertexDrawFlag_es_out = vertexDrawFlag_cs_out[0];
+
+	vec4 topSmoothFlag = vertexSmoothFlag_cs_out[areaIndex + sideCount_cs_out];
+	vec4 bottomSmoothFlag = vertexSmoothFlag_cs_out[areaIndex];
+	vertexSmoothFlag_es_out = bottomSmoothFlag + (1 - gl_TessCoord.y) * (topSmoothFlag - bottomSmoothFlag);
+
+	gl_Position = projectionMatrix * viewMatrix * vec4(worldPos_es_out, 1.0);
+}

@@ -1,0 +1,39 @@
+#version 300 es
+/* phong.fragment */
+precision mediump float;
+
+in vec3 normalDir;
+in vec3 viewDir;
+in vec3 lightDir;
+
+out vec4 fragColor;
+
+uniform vec4 color;
+
+/* factor */
+uniform vec4 ambient;
+uniform vec4 diffuse;
+uniform vec4 specular;
+uniform float specularPower;
+
+vec4 directLight(vec4 core_color)
+{
+    /* ambient */
+	vec4 ambient_color 	  = ambient * core_color;
+
+	/* diffuse */
+	float NdotL 		  = max(dot(normalDir, lightDir), 0.0);
+	vec4 diffuse_color    = NdotL * diffuse * core_color;
+
+    /* specular */
+	vec3 freflection      = reflect(-lightDir, normalDir);
+	float RdotV           = max(0.0, dot(freflection, viewDir)); 
+	vec4 specular_color   = specular * pow(RdotV, specularPower) * core_color;
+	
+	return ambient_color + diffuse_color + specular_color;
+}
+
+void main() 
+{
+	fragColor = directLight(color);
+}

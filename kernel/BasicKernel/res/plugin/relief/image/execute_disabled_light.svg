@@ -1,0 +1,11 @@
+<svg 
+ xmlns="http://www.w3.org/2000/svg"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ width="34.75px" height="34.75px">
+<path fill-rule="evenodd"  fill="none"
+ d="M-0.000,-0.000 L34.000,-0.000 L34.000,34.000 L-0.000,34.000 L-0.000,-0.000 Z"/>
+<path fill-rule="evenodd"  stroke="rgb(214, 214, 220)" stroke-width="1.5px" stroke-linecap="butt" stroke-linejoin="miter" fill="none"
+ d="M16.540,6.000 L8.000,28.000 L14.459,28.000 L15.189,24.270 L21.810,24.270 L23.540,28.000 L29.000,28.000 L20.568,6.000 L16.540,6.000 Z"/>
+<path fill-rule="evenodd"  stroke="rgb(214, 214, 220)" stroke-width="1.5px" stroke-linecap="butt" stroke-linejoin="miter" fill="none"
+ d="M18.003,19.001 L17.002,16.003 L16.001,19.001 L18.003,19.001 ZM15.540,6.000 L7.000,28.000 L12.459,28.000 L14.189,23.270 L19.811,23.270 L21.540,28.000 L27.000,28.000 L18.567,6.000 L15.540,6.000 Z"/>
+</svg>

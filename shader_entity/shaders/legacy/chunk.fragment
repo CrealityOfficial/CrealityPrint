@@ -1,0 +1,13 @@
+#version 150 core 
+out vec4 fragmentColor;
+
+uniform vec4 color = vec4(1.0, 0.0, 0.0, 1.0);
+flat in float flag;
+
+void main( void )
+{
+	if(flag == 0.0)
+		discard;	
+
+	fragmentColor = color;
+}

@@ -1,0 +1,9 @@
+{
+    "name": "FDM Printer Base Description",
+    "version": "2.2.3",
+	"subs":[
+		"fdm_filament_common.json",
+		"fdm_machine_common.json",
+		"fdm_process_common.json"
+	]
+}

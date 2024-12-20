@@ -1,0 +1,36 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>menuBanner/CusMenuBanner.qml</file>
+        <file>res/img/cmb_delete.png</file>
+        <file>res/img/downBtn.png</file>
+        <file>res/img/downBtn.svg</file>
+        <file>res/img/downBtn_d.svg</file>
+        <file>res/img/downBtn_hover.svg</file>
+        <file>res/img/downBtn_white.png</file>
+        <file>res/img/downBtn_white_d.png</file>
+        <file>res/img/logo.png</file>
+        <file>res/img/materialPanel.png</file>
+        <file>res/img/paramPanel.png</file>
+        <file>res/img/printerPanel.png</file>
+        <file>res/img/profile_fast.png</file>
+        <file>res/img/profile_high.png</file>
+        <file>res/img/profile_normal.png</file>
+        <file>res/img/profile_sfast.png</file>
+        <file>res/img/profile_usr.png</file>
+        <file>res/img/redo_hover.svg</file>
+        <file>res/img/redo_normal.svg</file>
+        <file>res/img/right_export.png</file>
+        <file>res/img/right_import.png</file>
+        <file>res/img/undo_hover.svg</file>
+        <file>res/img/undo_normal.svg</file>
+        <file>res/img/upBtn.svg</file>
+        <file>res/img/upBtn_d.svg</file>
+        <file>res/img/upBtn_hover.svg</file>
+        <file>res/img/upBtn_white.png</file>
+        <file>res/img/upBtn_white_d.png</file>
+        <file>res/img/warning_icon.svg</file>
+        <file>mainwindowCom/ResizeItem.qml</file>
+        <file>menuBanner/CusMenuBar.qml</file>
+    </qresource>
+</RCC>

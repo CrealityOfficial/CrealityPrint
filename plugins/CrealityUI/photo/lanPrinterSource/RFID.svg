@@ -1,0 +1,8 @@
+<svg 
+ xmlns="http://www.w3.org/2000/svg"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ width="28px" height="15px">
+<path fill-rule="evenodd"  fill="rgb(104, 104, 112)"
+ d="M6.000,-0.000 L22.000,-0.000 C25.313,-0.000 28.000,2.686 28.000,6.000 C28.000,9.314 25.313,12.000 22.000,12.000 L15.788,12.000 L10.000,15.000 L10.805,12.000 L6.000,12.000 C2.686,12.000 -0.000,9.314 -0.000,6.000 C-0.000,2.686 2.686,-0.000 6.000,-0.000 Z"/>
+<text kerning="auto" font-family="Adobe Heiti Std" fill="rgb(0, 0, 0)" font-size="8px" x="6px" y="9.048px"><tspan font-size="8px" font-family="Source Han Sans CN" font-weight="bold" fill="#FFFFFF">RFID</tspan></text>
+</svg>

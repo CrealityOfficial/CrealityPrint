@@ -1,0 +1,28 @@
+#version 330 core
+
+in vec3 vertexPosition;
+in vec3 vertexNormal;
+in vec2 vertexTexCoord;
+in float facesIndex;
+
+out vec2 texCoord;
+out float dirIndex;
+out vec3 normal;
+
+uniform mat4 modelViewProjection;
+uniform mat4 model_matrix;
+uniform mat4 view_matrix;
+uniform mat4 projection_matrix;
+uniform mat4 viewport_matrix;
+
+void main() 
+{
+   texCoord = vertexTexCoord;
+   dirIndex = facesIndex;
+   
+   gl_Position = viewport_matrix * projection_matrix * view_matrix * model_matrix * vec4(vertexPosition, 1.0);
+
+   normal = mat3(view_matrix * model_matrix ) * vertexNormal;
+   // gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(vertexPosition, 1.0);
+
+}

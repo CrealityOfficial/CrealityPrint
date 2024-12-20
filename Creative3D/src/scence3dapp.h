@@ -1,0 +1,5 @@
+#ifndef _NULLSPACE_SCENCE3DAPP_1589947266830_H
+#define _NULLSPACE_SCENCE3DAPP_1589947266830_H
+class QQmlApplicationEngine;
+void scene3dapp_startEngine(QQmlApplicationEngine& engine);
+#endif // _NULLSPACE_SCENCE3DAPP_1589947266830_H

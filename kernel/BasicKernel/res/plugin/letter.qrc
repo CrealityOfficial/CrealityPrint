@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/letter">
+        <file>letter/info.qml</file>
+        <file>letter/DragText.qml</file>
+        <file>letter/DrawPanel.qml</file>
+        <file>letter/LetterScene.qml</file>
+        <file>letter/LetterConfigPanel.qml</file>
+        <file>letter/LetterConfigGroup.qml</file>
+        <file>letter/LetterFontConfigs.qml</file>
+        <file>letter/LetterShapeConfigs.qml</file>
+    </qresource>
+</RCC>

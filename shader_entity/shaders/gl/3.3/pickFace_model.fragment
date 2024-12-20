@@ -1,0 +1,54 @@
+#version 330 core
+
+in vec3 passVert;
+in vec3 passNormal;
+
+layout (location = 0) out vec4 fragColor;
+layout (location = 1) out vec3 worldPosion;
+layout (location = 2) out vec3 worldNormal;
+
+uniform vec4 clipPlane1;
+uniform vec4 clipPlane2;
+uniform int check = 0;
+
+uniform ivec2 vertexBase;
+
+float distance2Plane(vec3 position, vec4 plane)
+{
+	vec3 p = position - vec3(0.0, 0.0, plane.w);
+	return dot(p, plane.xyz);
+}
+
+void main()
+{
+	if(1 == check)
+	{
+		if(distance2Plane(passVert, clipPlane1) < 0.0)
+			discard;
+
+		if(distance2Plane(passVert, clipPlane2) < 0.0)
+			discard;
+	}
+		
+	int ids[2];
+	ids[0] = int(gl_PrimitiveID) + int(vertexBase.x / 3);
+	ids[1] = int(vertexBase.x / 3);
+	
+	int _faceId = ids[vertexBase.y];
+	int i3 = _faceId / 0x1000000;
+	_faceId = _faceId - i3 * 0x1000000;
+	int i2 = _faceId / 0x10000;
+	_faceId = _faceId - i2 * 0x10000;
+	int i1 = _faceId / 0x100;
+	_faceId = _faceId - i1 * 0x100;
+	int i0 = _faceId;
+	
+	fragColor = vec4(
+					float(i0) / 255.0,
+					float(i1) / 255.0,
+					float(i2) / 255.0,
+					float(i3) / 255.0);
+					
+	worldPosion = passVert;
+	worldNormal = passNormal;
+}

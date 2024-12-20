@@ -1,0 +1,423 @@
+{
+	"special_travelFlow_enable": 
+	{
+		"label": "Turn-off Retraction",
+		"description": "The particle machine is suitable for this function: if this function is enabled, the empty path length is within the specified range, and the empty path can be converted into a print path, which is executed with a small flow rate",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"special_material_flow_travel": 
+	{
+		"label": "Turn-off Retraction Flow",
+		"description": "Extrusion flow ratio",
+		"unit": "%",
+		"default_value": "20",
+		"type": "float",
+		"enabled": "eval(contex.value(\"special_travelFlow_enable\"))",
+		"minimum_value": "0.0001",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "100",
+		"settable_per_mesh": true
+	},
+	"special_travelFlow_length": 
+	{
+		"label": "Turn-off Retraction Length",
+		"description": "retraction length for travel flow",
+		"type": "float",
+		"default_value": "0",
+		"enabled": "eval(contex.value(\"special_travelFlow_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"special_advance_enable": 
+	{
+		"label": "Advance Enable",
+		"description": "If it is pellet machine, then have advance function",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"special_advance_flow": 
+	{
+		"label": "Advance Flow",
+		"description": "Advance Flow Ratio",
+		"unit": "%",
+		"default_value": "50",
+		"type": "float",
+		"enabled": "eval(contex.value(\"special_advance_enable\"))",
+		"minimum_value": "0.0001",
+		"minimum_value_warning": "10",
+		"maximum_value_warning": "100",
+		"settable_per_mesh": true
+	},
+	"special_advance_length": 
+	{
+		"label": "Advance Length",
+		"description": "Retraction length flow in advance",
+		"type": "float",
+		"default_value": "0",
+		"enabled": "eval(contex.value(\"special_advance_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"special_model_centric": 
+	{
+		"label": "Model Centric",
+		"description": "Take the center of the model as the origin of the coordinate axis",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": false,
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"special_mold_evacuation": 
+	{
+		"label": "Mold Evacuation",
+		"description": "mold Evacuation",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},		
+	"set_small_feature_grading": 
+	{
+		"label": "Set Small Feature Grading",
+		"description": "Whether To Set Graded Treatment Of Small Feature.",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": true
+	},
+	"small_feature_grading": 
+	{
+		"label": "Small Feature Grading",
+		"default_value": "A_First",
+		"type": "enum",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\"))",
+		"options":
+		{
+			"A_First": "Grade_1",
+			"B_Second": "Grade_2",
+			"C_Third": "Grade_3",
+			"D_Fourth": "Grade_4"
+		},
+		"settable_per_mesh": true
+	},	
+	"special_small_feature_max_length_1":
+	{
+		"label": "Small Feature Max Length 1",
+		"description": "Feature outlines that are shorter than this length will be printed using Small Feature Speed.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"default_value": "3",
+		"value": "eval(contex.value(\"small_hole_max_size\")) * Math.PI",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'A_First'",
+		"settable_per_mesh": true
+	},	
+	"special_small_feature_speed_factor_1": 
+	{
+		"label": "Small Feature Speed 1",
+		"description": "Small features will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "35",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "100",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'A_First'",
+		"settable_per_mesh": true
+	},
+	"special_small_feature_speed_factor_0_1": 
+	{
+		"label": "Small Feature Initial Layer Speed 1",
+		"description": "Small features on the first layer will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "35",
+		"value": "eval(contex.value(\"special_small_feature_speed_factor_1\"))",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "100",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'A_First'",
+		"settable_per_mesh": true
+	},
+	"special_cool_min_layer_time_1":
+	{
+		"label": "Minimum Layer Time 1",
+		"description": "The minimum time spent in a layer. This forces the printer to slow down, to at least spend the time set here in one layer. This allows the printed material to cool down properly before printing the next layer. Layers may still take shorter than the minimal layer time if Lift Head is disabled and if the Minimum Speed would otherwise be violated.",
+		"unit": "s",
+		"type": "float",
+		"default_value": "5",
+		"minimum_value": "0",
+		"maximum_value": "600",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'A_First'",
+		"settable_per_mesh": true
+	},	
+	"special_small_feature_max_length_2":
+	{
+		"label": "Small Feature Max Length 2",
+		"description": "Feature outlines that are shorter than this length will be printed using Small Feature Speed.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"default_value": "3",
+		"value": "eval(contex.value(\"small_hole_max_size\")) * Math.PI",
+		"maximum_value_warning": "eval(contex.value(\"special_small_feature_max_length_1\"))",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'B_Second'",
+		"settable_per_mesh": true
+	},			
+	"special_small_feature_speed_factor_2": 
+	{
+		"label": "Small Feature Speed 2",
+		"description": "Small features will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "35",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "eval(contex.value(\"special_small_feature_speed_factor_1\"))",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'B_Second'",
+		"settable_per_mesh": true
+	},
+	"special_small_feature_speed_factor_0_2": 
+	{
+		"label": "Small Feature Initial Layer Speed 2",
+		"description": "Small features on the first layer will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "35",
+		"value": "eval(contex.value(\"special_small_feature_speed_factor_2\"))",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "eval(contex.value(\"special_small_feature_speed_factor_0_1\"))",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'B_Second'",
+		"settable_per_mesh": true
+	},	
+	"special_cool_min_layer_time_2":
+	{
+		"label": "Minimum Layer Time 2",
+		"description": "The minimum time spent in a layer. This forces the printer to slow down, to at least spend the time set here in one layer. This allows the printed material to cool down properly before printing the next layer. Layers may still take shorter than the minimal layer time if Lift Head is disabled and if the Minimum Speed would otherwise be violated.",
+		"unit": "s",
+		"type": "float",
+		"default_value": "5",
+		"minimum_value": "0",
+		"maximum_value": "600",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'B_Second'",
+		"settable_per_mesh": true
+	},
+	"special_small_feature_max_length_3":
+	{
+		"label": "Small Feature Max Length 3",
+		"description": "Feature outlines that are shorter than this length will be printed using Small Feature Speed.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"default_value": "3",
+		"value": "eval(contex.value(\"small_hole_max_size\")) * Math.PI",
+		"maximum_value_warning": "eval(contex.value(\"special_small_feature_max_length_2\"))",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'C_Third'",
+		"settable_per_mesh": true
+	},
+	"special_small_feature_speed_factor_3": 
+	{
+		"label": "Small Feature Speed 3",
+		"description": "Small features will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "35",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "eval(contex.value(\"special_small_feature_speed_factor_2\"))",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'C_Third'",
+		"settable_per_mesh": true
+	},
+	"special_small_feature_speed_factor_0_3": 
+	{
+		"label": "Small Feature Initial Layer Speed 3",
+		"description": "Small features on the first layer will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "35",
+		"value": "eval(contex.value(\"special_small_feature_speed_factor_3\"))",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "eval(contex.value(\"special_small_feature_speed_factor_0_2\"))",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'C_Third'",
+		"settable_per_mesh": true
+	},
+	"special_cool_min_layer_time_3":
+	{
+		"label": "Minimum Layer Time 3",
+		"description": "The minimum time spent in a layer. This forces the printer to slow down, to at least spend the time set here in one layer. This allows the printed material to cool down properly before printing the next layer. Layers may still take shorter than the minimal layer time if Lift Head is disabled and if the Minimum Speed would otherwise be violated.",
+		"unit": "s",
+		"type": "float",
+		"default_value": "5",
+		"minimum_value": "0",
+		"maximum_value": "600",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'C_Third'",
+		"settable_per_mesh": true
+	},
+	"special_small_feature_max_length_4":
+	{
+		"label": "Small Feature Max Length 4",
+		"description": "Feature outlines that are shorter than this length will be printed using Small Feature Speed.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"default_value": "3",
+		"value": "eval(contex.value(\"small_hole_max_size\")) * Math.PI",
+		"maximum_value_warning": "eval(contex.value(\"special_small_feature_max_length_3\"))",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'D_Fourth'",
+		"settable_per_mesh": true
+	},				
+	"special_small_feature_speed_factor_4": 
+	{
+		"label": "Small Feature Speed 4",
+		"description": "Small features will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "35",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "eval(contex.value(\"special_small_feature_speed_factor_3\"))",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'D_Fourth'",
+		"settable_per_mesh": true
+	},
+	"special_small_feature_speed_factor_0_4": 
+	{
+		"label": "Small Feature Initial Layer Speed 4",
+		"description": "Small features on the first layer will be printed at this percentage of their normal print speed. Slower printing can help with adhesion and accuracy.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "35",
+		"value": "eval(contex.value(\"special_small_feature_speed_factor_4\"))",
+		"minimum_value": "1",
+		"minimum_value_warning": "25",
+		"maximum_value_warning": "eval(contex.value(\"special_small_feature_speed_factor_0_3\"))",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'D_Fourth'",
+		"settable_per_mesh": true
+	},
+	"special_cool_min_layer_time_4":
+	{
+		"label": "Minimum Layer Time 4",
+		"description": "The minimum time spent in a layer. This forces the printer to slow down, to at least spend the time set here in one layer. This allows the printed material to cool down properly before printing the next layer. Layers may still take shorter than the minimal layer time if Lift Head is disabled and if the Minimum Speed would otherwise be violated.",
+		"unit": "s",
+		"type": "float",
+		"default_value": "5",
+		"minimum_value": "0",
+		"maximum_value": "600",
+		"enabled": "eval(contex.value(\"set_small_feature_grading\")) && getEnumValue(\"small_feature_grading\") == 'D_Fourth'",
+		"settable_per_mesh": true
+	},					
+	"special_angle_per_step": 
+	{
+		"label": "Angle Per Step",
+		"description": "Angle Per Step of 4axis 3DP Slice Rotation.",
+		"unit": "°",
+		"type": "float",
+		"default_value": "0",
+		"minimum_value": "-90",
+		"minimum_value_warning": "-90",
+		"maximum_value_warning": "90",
+		"settable_per_mesh": true
+	},
+	"special_mold_support_infill_line_distance": 
+	{
+		"label": "Mold Line Distance",
+		"description": "Mold Line Distance",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "30",
+		"minimum_value": "0",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "100",
+		"settable_per_mesh": true
+	},
+	"special_mold_top_layers": 
+	{
+		"label": "Mold Roof Layers",
+		"description": "Mold Roof Layers",
+		"type": "int",
+		"default_value": "32",
+		"minimum_value": "15",
+		"minimum_value_warning": "15",
+		"maximum_value_warning": "100",
+		"settable_per_mesh": true
+	},
+	"special_mold_high_option": 
+	{
+		"label": "Mold High Option",
+		"description": "Mold High Option",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"special_mold_No_bottom": 
+	{
+		"label": "Mold No Bottom",
+		"description": "Mold No Bottom",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"special_mold_support_Xnumbers": 
+	{
+		"label": "Mold Infill Support X Numbers",
+		"description": "Mold Infill Support X Numbers",
+		"type": "int",
+		"default_value": "6",
+		"minimum_value": "5",
+		"minimum_value_warning": "3",
+		"maximum_value_warning": "100",
+		"settable_per_mesh": true
+	},
+	"special_mold_support_Ynumbers": 
+	{
+		"label": "Mold Infill Support Y Numbers",
+		"description": "Mold Infill Support Y Numbers",
+		"type": "int",
+		"default_value": "8",
+		"minimum_value": "5",
+		"minimum_value_warning": "3",
+		"maximum_value_warning": "100",
+		"settable_per_mesh": true
+	},
+	"special_dynamic_point_flow": 
+	{
+		"label": "Dynamic Point Flow Enable",
+		"description": "Dynamic Point Flow Enable",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": true,
+		"settable_per_extruder": true
+	},
+	"special_dynamic_point_flow_angle": 
+	{
+		"label": "Dynamic Point Flow Angle",
+		"description": "Dynamic Point Flow Angle",
+		"unit": "°",
+		"type": "int",
+		"default_value": "45",
+		"minimum_value": "20",
+		"minimum_value_warning": "20",
+		"maximum_value_warning": "90",
+		"settable_per_mesh": true
+	},
+	"special_dynamic_point_flow_factor": 
+	{
+		"label": "Dynamic Point Flow Factor",
+		"description": "Dynamic Point Flow Factor",
+		"unit": "%",
+		"type": "int",
+		"default_value": "100",
+		"minimum_value": "100",
+		"minimum_value_warning": "80",
+		"maximum_value_warning": "200",
+		"settable_per_mesh": true
+	}
+}

@@ -1,0 +1,4 @@
+/build
+/.vs
+/.vscode
+/win32-build

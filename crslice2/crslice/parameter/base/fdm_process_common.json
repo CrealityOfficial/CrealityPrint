@@ -1,0 +1,14 @@
+{
+	    "software_version": {
+        "default_value": "V0.0.1.0",
+        "description": "",
+        "enabled": "true",
+        "label": "software version",
+        "settable_globally": "false",
+        "settable_per_extruder": "false",
+        "settable_per_mesh": "false",
+        "settable_per_meshgroup": "false",
+        "type": "coString",
+        "unit": ""
+    }
+}

@@ -1,0 +1,9 @@
+license: GLP
+author: zenggui,anoob@sina.cn
+url: xxxxxx
+repository: http://172.20.180.12:8050/yanfa4/core/cxkernel
+external_repository: http://172.20.180.12:8050/CrealityOfficial/cxkernel
+description: cxkernel
+topics: cxkernel,service
+build_deps: boost_static/1.0.0,expat/0.0.1,topomesh/1.1.0,tbb_static/2.0.0
+search_deps: 

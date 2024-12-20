@@ -1,0 +1,9 @@
+license: GLP
+author: zenggui,anoob@sina.cn
+url: xxxxxx
+repository: http://172.20.180.12:8050/yanfa4/corelib/qtuser
+external_repository: http://172.20.180.12:8050/CrealityOfficial/qtuser
+description: qtuser
+topics: qtuser,qtuser
+build_deps: quazip_static/1.0.0
+search_deps: 

@@ -1,0 +1,9 @@
+license: GLP
+author: zenggui,anoob@sina.cn
+url: xxxxxx
+repository: http://172.20.180.12:8050/yanfa4/core/cxcloud
+external_repository: http://172.20.180.12:8050/CrealityOfficial/cxcloud
+description: cxgcode
+topics: cxgcode,cxgcode
+build_deps: rapidjson/1.0.0,trimesh2/0.0.3
+search_deps: trimesh2/0.0.3

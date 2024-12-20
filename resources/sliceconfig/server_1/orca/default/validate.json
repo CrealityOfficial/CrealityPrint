@@ -1,0 +1,1539 @@
+{
+  "layer_height": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "maximum_value": "Math.min(extruder.value('max_layer_height'), extruder.value('nozzle_diameter'))",
+    "minimum_value": "extruder.value('min_layer_height')"
+  },
+  "initial_layer_print_height": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "maximum_value": "extruder.value('nozzle_diameter')",
+    "minimum_value": "0.001"
+  },
+  "line_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "maximum_value": "2 * extruder.value('nozzle_diameter')",
+    "minimum_value": "0.1 + 0.4*extruder.value('nozzle_diameter')"
+  },
+  "initial_layer_line_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "maximum_value": "3 * extruder.value('nozzle_diameter')",
+    "minimum_value": "process.value('initial_layer_print_height') < '0.02'? process.value('initial_layer_print_height') + 0.001 : process.value('initial_layer_print_height')"
+  },
+  "resolution": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "minimum_value": "0"
+  },
+  "xy_hole_compensation": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "maximum_value": "2",
+    "minimum_value": "-2"
+  },
+  "xy_contour_compensation": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "maximum_value": "2",
+    "minimum_value": "-2"
+  },
+  "sparse_infill_pattern": {
+    "settable_per_meshgroup": "true",
+    "settable_globally": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('sparse_infill_density') != '0'",
+    "default_value": "cubic"
+  },
+  "infill_anchor": {
+    "settable_per_meshgroup": "true",
+    "settable_globally": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('infill_anchor_max') != '0' || context.value('sparse_infill_density') != '0'",
+    "default_value": "400%"
+  },
+  "infill_anchor_max": {
+    "settable_per_meshgroup": "true",
+    "settable_globally": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('sparse_infill_density') != '0'",
+    "default_value": "20"
+  },
+  "default_acceleration": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "default_value": "500"
+  },
+  "inner_wall_acceleration": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_acceleration') != '0'",
+    "default_value": "10000"
+  },
+  "outer_wall_acceleration": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_acceleration') != '0'",
+    "default_value": "500"
+  },
+  "bridge_acceleration": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_acceleration') != '0'",
+    "default_value": "50%"
+  },
+  "sparse_infill_acceleration": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_acceleration') != '0'",
+    "default_value": "100%"
+  },
+  "internal_solid_infill_acceleration": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_acceleration') != '0'",
+    "default_value": "100%"
+  },
+  "initial_layer_acceleration": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_acceleration') != '0'",
+    "default_value": "300"
+  },
+  "top_surface_acceleration": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_acceleration') != '0'",
+    "default_value": "500"
+  },
+  "travel_acceleration": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_acceleration') != '0'",
+    "default_value": "10000"
+  },
+  "default_jerk": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "outer_wall_jerk": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_jerk') != '0' ",
+    "default_value": "9"
+  },
+  "inner_wall_jerk": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_jerk') != '0' ",
+    "default_value": "9"
+  },
+  "infill_jerk": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_jerk') != '0' ",
+    "default_value": "9"
+  },
+  "top_surface_jerk": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_jerk') != '0' ",
+    "default_value": "9"
+  },
+  "initial_layer_jerk": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_jerk') != '0' ",
+    "default_value": "9"
+  },
+  "travel_jerk": {
+    "settable_per_meshgroup": "false",
+    "settable_globally": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('default_jerk') != '0' ",
+    "default_value": "12"
+  },
+  "skirt_loops": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "maximum_value": "10",
+    "minimum_value": "0",
+    "default_value": "1"
+  },
+  "skirt_distance": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "process.value('skirt_loops') != '0'",
+    "default_value": "2"
+  },
+  "skirt_height": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "process.value('skirt_loops') != '0'",
+    "default_value": "1"
+  },
+  "prime_tower_brim_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1'",
+    "default_value": "3"
+  },
+  "wipe_tower_rotation_angle": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1'",
+    "default_value": "0"
+  },
+  "wipe_tower_bridging": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1'",
+    "default_value": "10"
+  },
+  "wipe_tower_cone_angle": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1' && context.value('prime_tower_enhance_type') == 'cone'",
+    "default_value": "0"
+  },
+  "wipe_tower_extra_spacing": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1'",
+    "default_value": "100%"
+  },
+  "wipe_tower_no_sparse_layers": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1'",
+    "default_value": "0"
+  },
+  "flush_into_infill": {
+    "settable_globally": "false",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1'",
+    "default_value": "0"
+  },
+  "flush_into_support": {
+    "settable_globally": "false",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1'",
+    "default_value": "1"
+  },
+  "flush_into_objects": {
+    "settable_globally": "false",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "wall_loops": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "minimum_value": "0",
+    "default_value": "2"
+  },
+  "top_shell_layers": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "minimum_value": "0",
+    "default_value": "4"
+  },
+  "bottom_shell_layers": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "minimum_value": "0",
+    "default_value": "3"
+  },
+  "sparse_infill_density": {
+    "settable_per_meshgroup": "true",
+    "settable_globally": "true",
+    "settable_per_mesh": "true",
+    "maximum_value": "100%",
+    "minimum_value": "0%",
+    "default_value": "20%"
+  },
+  "bridge_flow": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "maximum_value": "2",
+    "minimum_value": "0",
+    "default_value": "1"
+  },
+  "outer_wall_line_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "maximum_value": "2 * extruder.value('nozzle_diameter')",
+    "minimum_value": "0.1 + 0.4*extruder.value('nozzle_diameter')"
+  },
+  "inner_wall_line_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "maximum_value": "2 * extruder.value('nozzle_diameter')",
+    "minimum_value": "0.1 + 0.4*extruder.value('nozzle_diameter')"
+  },
+  "sparse_infill_line_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "maximum_value": "2 * extruder.value('nozzle_diameter')",
+    "minimum_value": "0.1 + 0.4*extruder.value('nozzle_diameter')"
+  },
+  "internal_solid_infill_line_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "maximum_value": "2 * extruder.value('nozzle_diameter')",
+    "minimum_value": "0.1 + 0.4*extruder.value('nozzle_diameter')"
+  },
+  "top_surface_line_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "maximum_value": "2 * extruder.value('nozzle_diameter')",
+    "minimum_value": "0.1 + 0.4*extruder.value('nozzle_diameter')"
+  },
+  "support_line_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "maximum_value": "process.value('layer_height') * 10",
+    "minimum_value": "process.value('layer_height') + 0.001"
+  },
+  "wipe_speed": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "enabled": "context.value('role_based_wipe_speed') == '0'",
+    "minimum_value": "0"
+  },
+  "slice_closing_radius": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "minimum_value": "0"
+  },
+  "prime_volume": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1'",
+    "default_value": "45"
+  },
+  "prime_tower_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1'",
+    "default_value": "60"
+  },
+  "ironing_pattern": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('ironing_type') == 'topmost' || context.value('ironing_type') == 'solid' || context.value('ironing_type') == 'top'",
+    "default_value": "zig-zag"
+  },
+  "ironing_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('ironing_type') == 'topmost' || context.value('ironing_type') == 'solid' || context.value('ironing_type') == 'top'"
+  },
+  "ironing_flow": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('ironing_type') == 'topmost' || context.value('ironing_type') == 'solid' || context.value('ironing_type') == 'top'"
+  },
+  "ironing_spacing": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('ironing_type') == 'topmost' || context.value('ironing_type') == 'solid' || context.value('ironing_type') == 'top'",
+    "maximum_value": "1",
+    "minimum_value": "0.1"
+  },
+  "ironing_angle": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "enabled": "context.value('ironing_type') == 'topmost' || context.value('ironing_type') == 'solid' || context.value('ironing_type') == 'top'"
+  },
+  "wall_transition_angle": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('wall_generator') == 'arachne'",
+    "maximum_value": "59",
+    "minimum_value": "0",
+    "default_value": "10"
+  },
+  "wall_transition_filter_deviation": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('wall_generator') == 'arachne'",
+    "default_value": "25%"
+  },
+  "wall_transition_length": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('wall_generator') == 'arachne'",
+    "default_value": "100%"
+  },
+  "wall_distribution_count": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('wall_generator') == 'arachne'",
+    "default_value": "1"
+  },
+  "min_bead_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('wall_generator') == 'arachne'",
+    "default_value": "85%"
+  },
+  "min_feature_size": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('wall_generator') == 'arachne'",
+    "default_value": "25%"
+  },
+  "overhang_1_4_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('enable_overhang_speed') = '1'",
+    "default_value": "0"
+  },
+  "overhang_2_4_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('enable_overhang_speed') = '1'",
+    "default_value": "0"
+  },
+  "overhang_3_4_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('enable_overhang_speed') = '1'",
+    "default_value": "0"
+  },
+  "overhang_4_4_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('enable_overhang_speed') = '1'",
+    "default_value": "0"
+  },
+  "support_type": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "normal(auto)"
+  },
+  "support_style": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "default"
+  },
+  "support_threshold_angle": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "maximum_value": "90",
+    "minimum_value": "1",
+    "default_value": "30"
+  },
+  "raft_first_layer_density": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "maximum_value": "100%",
+    "minimum_value": "0%",
+    "default_value": "90%"
+  },
+  "raft_layers": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "maximum_value": "100",
+    "minimum_value": "0",
+    "default_value": "0"
+  },
+  "raft_first_layer_expansion": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "2"
+  },
+  "support_on_build_plate_only": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "0"
+  },
+  "support_critical_regions_only": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && context.value('support_type') == 'tree(auto)'",
+    "default_value": "0"
+  },
+  "support_remove_small_overhang": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "1"
+  },
+  "support_filament": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "1"
+  },
+  "support_interface_filament": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "1"
+  },
+  "tree_support_tip_diameter": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && (context.value('support_type') == 'tree(manual)' || context.value('support_type') == 'tree(auto)')",
+    "maximum_value": "10",
+    "minimum_value": "Math.min(context.value('line_width'), context.value('initial_layer_line_width'), context.value('outer_wall_line_width'), context.value('inner_wall_line_width'), context.value('top_surface_line_width'), context.value('sparse_infill_line_width'), context.value('internal_solid_infill_line_width'), context.value('support_line_width'))",
+    "default_value": "0.8"
+  },
+  "tree_support_top_rate": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && (context.value('support_type') == 'tree(manual)' || context.value('support_type') == 'tree(auto)')",
+    "default_value": "30%"
+  },
+  "tree_support_branch_distance": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && (context.value('support_type') == 'tree(manual)' || context.value('support_type') == 'tree(auto)') && context.value('support_style') != 'organic'",
+    "default_value": "5"
+  },
+  "tree_support_branch_distance_organic": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && (context.value('support_type') == 'tree(manual)' || context.value('support_type') == 'tree(auto)') && context.value('support_style') == 'organic'",
+    "default_value": "5"
+  },
+  "tree_support_branch_angle": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && (context.value('support_type') == 'tree(manual)' || context.value('support_type') == 'tree(auto)') && context.value('support_style') != 'organic'",
+    "default_value": "40"
+  },
+  "tree_support_branch_angle_organic": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && (context.value('support_type') == 'tree(manual)' || context.value('support_type') == 'tree(auto)') && context.value('support_style') == 'organic'",
+    "default_value": "40"
+  },
+  "tree_support_branch_diameter": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && (context.value('support_type') == 'tree(manual)' || context.value('support_type') == 'tree(auto)') && context.value('support_style') != 'organic'",
+    "maximum_value": "10",
+    "minimum_value": "Math.max(context.value('tree_support_tip_diameter'), 1)",
+    "default_value": "2"
+  },
+  "tree_support_branch_diameter_organic": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && (context.value('support_type') == 'tree(manual)' || context.value('support_type') == 'tree(auto)') && context.value('support_style') == 'organic'",
+    "maximum_value": "10",
+    "minimum_value": "Math.max(context.value('tree_support_tip_diameter'), 1)",
+    "default_value": "2"
+  },
+  "tree_support_branch_diameter_angle": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && (context.value('support_type') == 'tree(manual)' || context.value('support_type') == 'tree(auto)')",
+    "default_value": "5"
+  },
+  "tree_support_branch_diameter_double_wall": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1' && (context.value('support_type') == 'tree(manual)' || context.value('support_type') == 'tree(auto)')",
+    "default_value": "3"
+  },
+  "support_top_z_distance": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "0.2"
+  },
+  "support_bottom_z_distance": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "0.2"
+  },
+  "support_base_pattern": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "rectilinear"
+  },
+  "support_base_pattern_spacing": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "2.5"
+  },
+  "support_angle": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "maximum_value": "359",
+    "minimum_value": "0",
+    "default_value": "25"
+  },
+  "support_interface_top_layers": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "3"
+  },
+  "support_interface_bottom_layers": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "0"
+  },
+  "support_interface_loop_pattern": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "0"
+  },
+  "bottom_interface_spacing": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "0.5"
+  },
+  "support_expansion": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "0"
+  },
+  "support_object_xy_distance": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "maximum_value": "10",
+    "minimum_value": "0",
+    "default_value": "0.35"
+  },
+  "bridge_no_support": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "0"
+  },
+  "fuzzy_skin_point_distance": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('fuzzy_skin') != 'none'",
+    "default_value": "0.8"
+  },
+  "fuzzy_skin_thickness": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('fuzzy_skin') != 'none'",
+    "default_value": "0.3"
+  },
+  "curr_bed_type": {
+    "default_value": "High Temp Plate"
+  },
+  "thumbnails_format": {
+    "default_value": "CR_PNG"
+  },
+  "acceleration_limit_mess": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "process.value('acceleration_limit_mess_enable') != '0'",
+    "default_value": "[[0.5,1.0,100,6000,210],[1.0,1.5,80,5500,200],[1.5,2.0,60,5000,190]]"
+  },
+  "speed_limit_to_height": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "process.value('speed_limit_to_height_enable') != '0'",
+    "default_value": "[[100,150,100,6000,210],[150,200,80,5500,200],[200,250,60,5000,190]]"
+  },
+  "internal_solid_infill_pattern": {
+    "settable_per_meshgroup": "true",
+    "settable_globally": "true",
+    "settable_per_mesh": "true",
+    "default_value": "monotonic"
+  },
+  "filter_out_gap_fill": {
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "default_value": "0"
+  },
+  "brim_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('brim_type') != 'auto_brim' && context.value('brim_type') != 'no_brim'",
+    "default_value": "0"
+  },
+  "brim_object_gap": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('brim_type') != 'no_brim'",
+    "maximum_value": "2",
+    "minimum_value": "0",
+    "default_value": "0"
+  },
+  "brim_ears_max_angle": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('brim_type') == 'brim_ears'",
+    "default_value": "125"
+  },
+  "brim_ears_detection_length": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('brim_type') == 'brim_ears'",
+    "default_value": "1"
+  },
+  "seam_gap": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true"
+  },
+  "role_based_wipe_speed": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true"
+  },
+  "wipe_on_loops": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true"
+  },
+  "precise_outer_wall": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true"
+  },
+  "hole_to_polyhole": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true"
+  },
+  "hole_to_polyhole_threshold": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "enabled": "context.value('hole_to_polyhole') == '1'"
+  },
+  "hole_to_polyhole_twisted": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "enabled": "context.value('hole_to_polyhole') == '1'"
+  },
+  "wall_sequence": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "inner wall/outer wall"
+  },
+  "is_infill_first": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "0"
+  },
+  "internal_bridge_flow": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "1"
+  },
+  "bridge_density": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "100%"
+  },
+  "top_solid_infill_flow_ratio": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "1"
+  },
+  "bottom_solid_infill_flow_ratio": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "1"
+  },
+  "only_one_wall_first_layer": {
+    "settable_per_mesh": "false",
+    "default_value": "0",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true"
+  },
+  "only_one_wall_top": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "0"
+  },
+  "min_width_top_surface": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "enabled": "context.value('only_one_wall_top') == '1'",
+    "default_value": "300%"
+  },
+  "detect_overhang_wall": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "1"
+  },
+  "make_overhang_printable": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "0"
+  },
+  "extra_perimeters_on_overhangs": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "0"
+  },
+  "overhang_reverse": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "enabled": "context.value('detect_overhang_wall') == '1'",
+    "default_value": "0"
+  },
+  "overhang_reverse_threshold": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "enabled": "context.value('overhang_reverse') == '1'",
+    "default_value": "50%"
+  },
+  "overhang_speed_classic": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "default_value": "0"
+  },
+  "slowdown_for_curled_perimeters": {
+    "settable_per_mesh": "false",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "enabled": "context.value('overhang_speed_classic') == '0'",
+    "default_value": "0"
+  },
+  "seam_position": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "staggered_inner_seams": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "enable_arc_fitting": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('max_volumetric_extrusion_rate_slope') == '0'"
+  },
+  "elefant_foot_compensation": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "elefant_foot_compensation_layers": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('elefant_foot_compensation') != '0'"
+  },
+  "ironing_type": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "no ironing"
+  },
+  "wall_generator": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "arachne"
+  },
+  "initial_layer_min_bead_width": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('wall_generator') == 'arachne'",
+    "default_value": "85%"
+  },
+  "thick_bridges": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "thick_internal_bridges": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "1"
+  },
+  "make_overhang_printable_angle": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('make_overhang_printable') == '1'",
+    "default_value": "55"
+  },
+  "make_overhang_printable_hole_size": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('make_overhang_printable') == '1'",
+    "default_value": "0"
+  },
+  "reduce_crossing_wall": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "max_travel_detour_distance": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('reduce_crossing_wall') == '1'",
+    "default_value": "0"
+  },
+  "detect_thin_wall": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "0"
+  },
+  "top_surface_pattern": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "monotonic"
+  },
+  "top_shell_thickness": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('top_shell_layers') != '0'",
+    "default_value": "0.6"
+  },
+  "bottom_surface_pattern": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "monotonic"
+  },
+  "bottom_shell_thickness": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "enabled": "context.value('bottom_shell_layers') != '0'",
+    "default_value": "0"
+  },
+  "infill_wall_overlap": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "15%"
+  },
+  "infill_direction": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "45"
+  },
+  "bridge_angle": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "0"
+  },
+  "minimum_sparse_infill_area": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "true",
+    "default_value": "15"
+  },
+  "infill_combination": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "true",
+    "default_value": "0"
+  },
+  "detect_narrow_internal_solid_infill": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "1"
+  },
+  "ensure_vertical_shell_thickness": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "ensure_all"
+  },
+  "initial_layer_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "30"
+  },
+  "initial_layer_infill_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "60"
+  },
+  "initial_layer_travel_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "100%"
+  },
+  "slow_down_layers": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "inner_wall_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "60"
+  },
+  "outer_wall_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "60"
+  },
+  "small_perimeter_threshold": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "0"
+  },
+  "small_perimeter_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "50%"
+  },
+  "sparse_infill_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "100"
+  },
+  "internal_solid_infill_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "100"
+  },
+  "top_surface_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "100"
+  },
+  "gap_infill_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "30"
+  },
+  "enable_overhang_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "1"
+  },
+  "internal_bridge_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "150%"
+  },
+  "bridge_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "25"
+  },
+  "travel_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "120"
+  },
+  "accel_to_decel_enable": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "1"
+  },
+  "accel_to_decel_factor": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('accel_to_decel_enable') == '1' ",
+    "default_value": "50%"
+  },
+  "acceleration_limit_mess_enable": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "speed_limit_to_height_enable": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "max_volumetric_extrusion_rate_slope": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "enable_support": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "support_interface_spacing": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "0.5"
+  },
+  "independent_support_layer_height": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "1"
+  },
+  "support_interface_pattern": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_support') == '1'",
+    "default_value": "0"
+  },
+  "skirt_speed": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "maximum_value": "10000",
+    "minimum_value": "0",
+    "default_value": "50"
+  },
+  "brim_type": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "auto_brim"
+  },
+  "enable_prime_tower": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "slicing_mode": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "regular"
+  },
+  "print_sequence": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "by layer"
+  },
+  "spiral_mode": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "fuzzy_skin": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true",
+    "default_value": "none"
+  },
+  "reduce_infill_retraction": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "gcode_comments": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "gcode_label_objects": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "1"
+  },
+  "exclude_object": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "0"
+  },
+  "filename_format": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false",
+    "default_value": "{input_filename_base}_{filament_type[initial_tool]}_{print_time}.gcode"
+  },
+  "z_offset": {
+    "maximum_value": "99999",
+    "minimum_value": "-99999"
+  },
+  "extra_loading_move": {
+    "maximum_value": "9999",
+    "minimum_value": "-9999"
+  },
+  "min_layer_height": {
+    "maximum_value": "extruder.value('nozzle_diameter')",
+    "minimum_value": "0"
+  },
+  "max_layer_height": {
+    "maximum_value": "extruder.value('nozzle_diameter')",
+    "minimum_value": "extruder.value('min_layer_height')"
+  },
+  "pressure_advance": {
+    "enabled": "context.value('enable_pressure_advance') == '1'",
+    "default_value": "0.02"
+  },
+  "cool_special_cds_fan_speed": {
+    "enabled": "context.value('enable_special_area_additional_cooling_fan') == '1'"
+  },
+  "overhang_fan_threshold": {
+    "enabled": "context.value('enable_overhang_bridge_fan') == '1'"
+  },
+  "overhang_fan_speed": {
+    "enabled": "context.value('enable_overhang_bridge_fan') == '1'"
+  },
+  "material_flow_temp_graph": {
+    "enabled": "context.value('material_flow_dependent_temperature') == '1'"
+  },
+  "filament_type": {
+    "default_value": "PLA"
+  },
+  "filament_vendor": {
+    "default_value": "Creality"
+  },
+  "filament_soluble": {
+    "default_value": "0"
+  },
+  "filament_is_support": {
+    "default_value": "0"
+  },
+  "required_nozzle_HRC": {
+    "default_value": "0"
+  },
+  "default_filament_colour": {
+    "default_value": ""
+  },
+  "filament_diameter": {
+    "default_value": "1.75"
+  },
+  "filament_flow_ratio": {
+    "default_value": "1"
+  },
+  "enable_pressure_advance": {
+    "default_value": "0"
+  },
+  "filament_density": {
+    "default_value": "0"
+  },
+  "filament_shrink": {
+    "default_value": "100%"
+  },
+  "filament_cost": {
+    "default_value": "0"
+  },
+  "temperature_vitrification": {
+    "default_value": "100"
+  },
+  "nozzle_temperature_range_high": {
+    "default_value": "240"
+  },
+  "nozzle_temperature_range_low": {
+    "default_value": "190"
+  },
+  "seam_slope_type": {
+    "default_value": "none",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "seam_slope_conditional": {
+    "enabled": "context.value('seam_slope_type') != 'none'",
+    "default_value": "0",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "scarf_joint_speed": {
+    "enabled": "context.value('seam_slope_type') != 'none'",
+    "default_value": "100%",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "seam_slope_start_height": {
+    "enabled": "context.value('seam_slope_type') != 'none'",
+    "default_value": "0",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "seam_slope_entire_loop": {
+    "enabled": "context.value('seam_slope_type') != 'none'",
+    "default_value": "0",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "seam_slope_min_length": {
+    "enabled": "context.value('seam_slope_type') != 'none'",
+    "default_value": "20",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "seam_slope_steps": {
+    "enabled": "context.value('seam_slope_type') != 'none'",
+    "default_value": "10",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "seam_slope_inner_walls": {
+    "enabled": "context.value('seam_slope_type') != 'none'",
+    "default_value": "0",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "has_scarf_joint_seam": {
+    "default_value": "0",
+    "settable_globally": "false",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false"
+  },
+  "scarf_angle_threshold": {
+    "default_value": "155",
+    "settable_globally": "false",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false"
+  },
+  "scarf_joint_flow_ratio": {
+    "default_value": "1",
+    "settable_globally": "false",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false"
+  },
+  "scarf_overhang_threshold": {
+    "default_value": "40%",
+    "settable_globally": "false",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false"
+  },
+  "arc_tolerance": {
+    "default_value": "12",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false"
+  },
+  "min_length_factor": {
+    "default_value": "0.5",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "wall_direction": {
+    "default_value": "auto",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "small_area_infill_flow_compensation": {
+    "default_value": "0",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "small_area_infill_flow_compensation_model": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false"
+  },
+  "dont_filter_internal_bridges": {
+    "default_value": "disabled",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "counterbore_hole_bridging": {
+    "default_value": "none",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true"
+  },
+  "gap_fill_target": {
+    "default_value": "everywhere",
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "false"
+  },
+  "ai_infill": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "true",
+    "settable_per_mesh": "true"
+  },
+  "print_order": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false"
+  },
+  "prime_tower_enhance_type": {
+    "settable_globally": "true",
+    "settable_per_meshgroup": "false",
+    "settable_per_mesh": "false",
+    "enabled": "context.value('enable_prime_tower') == '1'"
+  }
+}

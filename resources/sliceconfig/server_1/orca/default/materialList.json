@@ -1,0 +1,340 @@
+{
+  "materials": [
+    {
+      "id": "00014",
+      "name": "Generic PETG-CF",
+      "type": "PETG-CF",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 37
+    },
+    {
+      "id": "00007",
+      "name": "Generic ASA",
+      "type": "ASA",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 3
+    },
+    {
+      "id": "01002",
+      "name": "Hyper PLA",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 2
+    },
+    {
+      "id": "00021",
+      "name": "Generic PC",
+      "type": "PC",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 4
+    },
+    {
+      "id": "00020",
+      "name": "Generic PET",
+      "type": "PET",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 5
+    },
+    {
+      "id": "00019",
+      "name": "Generic PP",
+      "type": "PP",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 6
+    },
+    {
+      "id": "00018",
+      "name": "Generic PPS-CF",
+      "type": "PPS-CF",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 7
+    },
+    {
+      "id": "00017",
+      "name": "Generic PPS",
+      "type": "PPS",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 8
+    },
+    {
+      "id": "00016",
+      "name": "Generic PAHT-CF",
+      "type": "PAHT-CF",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 9
+    },
+    {
+      "id": "00015",
+      "name": "Generic PA6-CF",
+      "type": "PA6-CF",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 10
+    },
+    {
+      "id": "00013",
+      "name": "Generic PET-CF",
+      "type": "PET-CF",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 12
+    },
+    {
+      "id": "00012",
+      "name": "Generic HIPS",
+      "type": "HIPS",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 13
+    },
+    {
+      "id": "00011",
+      "name": "Generic PVA",
+      "type": "PVA",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 14
+    },
+    {
+      "id": "00010",
+      "name": "Generic BVOH",
+      "type": "BVOH",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 15
+    },
+    {
+      "id": "00009",
+      "name": "Generic PA-CF",
+      "type": "PA-CF",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 16
+    },
+    {
+      "id": "00008",
+      "name": "Generic PA",
+      "type": "PA",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 17
+    },
+    {
+      "id": "20001",
+      "name": "HP-HIPS",
+      "type": "HIPS",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 18
+    },
+    {
+      "id": "19001",
+      "name": "HP-ASA",
+      "type": "ASA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 19
+    },
+    {
+      "id": "18001",
+      "name": "HP Ultra PLA",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 20
+    },
+    {
+      "id": "17001",
+      "name": "CR-Wood",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 21
+    },
+    {
+      "id": "16001",
+      "name": "CR-TPU",
+      "type": "TPU",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 22
+    },
+    {
+      "id": "15001",
+      "name": "CR-PLA Fluo",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 23
+    },
+    {
+      "id": "14001",
+      "name": "CR-PLA Matte",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 24
+    },
+    {
+      "id": "13001",
+      "name": "CR-PLA Carbon",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 25
+    },
+    {
+      "id": "12001",
+      "name": "CR-PA Carbon",
+      "type": "PA-CF",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 26
+    },
+    {
+      "id": "11001",
+      "name": "CR-Nylon",
+      "type": "PA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 27
+    },
+    {
+      "id": "10001",
+      "name": "HP-TPU",
+      "type": "TPU",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 28
+    },
+    {
+      "id": "09001",
+      "name": "EN-PLA+",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 29
+    },
+    {
+      "id": "08001",
+      "name": "Ender-PLA",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 30
+    },
+    {
+      "id": "00006",
+      "name": "Generic PLA-CF",
+      "type": "PLA-CF",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 31
+    },
+    {
+      "id": "00005",
+      "name": "Generic TPU",
+      "type": "TPU",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 32
+    },
+    {
+      "id": "00004",
+      "name": "Generic ABS",
+      "type": "ABS",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 33
+    },
+    {
+      "id": "00003",
+      "name": "Generic PETG",
+      "type": "PETG",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 33
+    },
+    {
+      "id": "00002",
+      "name": "Generic PLA-Silk",
+      "type": "PLA",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 34
+    },
+    {
+      "id": "00001",
+      "name": "Generic PLA",
+      "type": "PLA",
+      "brand": "Generic",
+      "supportDiameters": "1.75",
+      "rank": 35
+    },
+    {
+      "id": "07001",
+      "name": "CR-ABS",
+      "type": "ABS",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 36
+    },
+    {
+      "id": "06001",
+      "name": "CR-PETG",
+      "type": "PETG",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 37
+    },
+    {
+      "id": "05001",
+      "name": "CR-Silk",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 38
+    },
+    {
+      "id": "04001",
+      "name": "CR-PLA",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 39
+    },
+    {
+      "id": "03001",
+      "name": "Hyper ABS",
+      "type": "ABS",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 40
+    },
+    {
+      "id": "02001",
+      "name": "Hyper PLA-CF",
+      "type": "PLA-CF",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 41
+    },
+    {
+      "id": "01001",
+      "name": "Hyper PLA RFID",
+      "type": "PLA",
+      "brand": "CREALITY",
+      "supportDiameters": "1.75",
+      "rank": 42
+    }
+  ]
+}

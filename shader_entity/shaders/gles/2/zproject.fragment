@@ -1,0 +1,10 @@
+/* zproject.fragment */
+
+uniform int cameraDir;
+void main( void )
+{
+	if(cameraDir == 0)
+		discard;
+		
+	gl_FragColor = vec4(0.1451, 0.1569, 0.1647, 1.0);
+}

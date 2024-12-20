@@ -1,0 +1,11 @@
+/* pickFaceChunk.fragment */
+
+varying vec4 passColor;
+varying float flag;
+
+void main()
+{
+	if(flag == 0.0)
+		discard;
+	gl_FragColor = passColor;
+}

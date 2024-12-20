@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/split">
+        <file>split/split.qml</file>
+    </qresource>
+</RCC>

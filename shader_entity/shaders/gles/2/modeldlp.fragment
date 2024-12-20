@@ -1,0 +1,106 @@
+/* modeldlp.fragment */
+precision mediump float;
+varying vec3 viewDirection;
+varying vec3 normal;
+varying vec3 gnormal;
+varying vec3 worldPosition;
+
+uniform int state;
+uniform float error;
+
+const vec4 ambient = vec4(0.8, 0.8, 0.8, 1.0);
+const vec4 diffuse = vec4(0.5, 0.5, 0.5, 1.0);
+const vec4 specular = vec4(0.8, 0.8, 0.8, 1.0);
+const float specularPower = 12.0;
+const vec3 lightDirection = vec3(0.0, 0.0, 1.0);
+
+uniform vec4 clipPlane1;
+uniform vec4 clipPlane2;
+
+const int checkScope = 1;
+
+uniform vec3 minSpace;
+uniform vec3 maxSpace;
+uniform float supportCos; // = 0.5;
+
+uniform int hoverState; // = 0;
+uniform int waterState; // = 0;
+
+const float zcha = 0.1;
+
+uniform vec4 stateColors[6];
+uniform vec3 water;
+
+float distance2Plane(vec3 position, vec4 plane)
+{
+	vec3 p = position - vec3(0.0, 0.0, plane.w);
+	return dot(p, plane.xyz);
+}
+
+vec4 directLight(vec3 light_dir, vec3 fnormal, vec4 core_color, vec4 ambient_color, vec4 diffuse_color, vec4 specular_color)
+{
+	float NdotL 		  = max(dot(fnormal, light_dir), 0.0);
+	ambient_color 	  	  = ambient_color * core_color;
+
+	vec3 freflection      = reflect(-light_dir, fnormal);
+	vec3 fViewDirection   = normalize(viewDirection);
+	float RdotV           = max(0.0, dot(freflection, fViewDirection)); 
+	
+	diffuse_color		  = NdotL * diffuse_color * core_color;
+	specular_color        = specular_color * pow( RdotV, specularPower) * core_color;
+	
+	return ambient_color + diffuse_color + specular_color;
+}
+
+void main( void )
+{
+	if(distance2Plane(worldPosition, clipPlane1) < 0.0)
+		discard;
+
+	if(distance2Plane(worldPosition, clipPlane2) < 0.0)
+		discard;
+		
+	vec4 color = stateColors[state];
+	color = error * stateColors[3] + (1.0 - error) * color;	
+	
+	vec3 fnormal 		  =	normalize(normal);
+	vec3 fgnormal 		  =	normalize(gnormal);
+		
+	vec3 lightDir = normalize(lightDirection);
+
+	if(!gl_FrontFacing)
+	{
+		color = vec4(stateColors[5].xyz, 1.0);
+		fnormal = - fnormal;
+	}
+	
+	vec4 coreColor = directLight(lightDir, fnormal, color, ambient, diffuse, specular);	
+	if(checkScope > 0)
+	{
+		if(worldPosition.x < minSpace.x || worldPosition.y < minSpace.y || worldPosition.z < 0.1 || worldPosition.x > maxSpace.x || worldPosition.y > maxSpace.y || worldPosition.z > maxSpace.z)
+		{
+			coreColor *= 0.3;
+			coreColor.r += 0.6;
+		}
+	}
+	
+	
+	if(hoverState > 0)
+	{
+		float v = dot(fgnormal, vec3(0.0, 0.0, -1.0));
+		if(v >= supportCos)
+		{
+			coreColor.r += 0.8 * v;
+		}
+		
+		if(waterState == 1)
+		{
+			if(abs(worldPosition.z - water.z) < zcha)
+			{
+				coreColor = vec4(0.1, 0.1, 0.1, 1.0);
+			}
+		}
+	}
+	
+	gl_FragColor = vec4(coreColor.rgb, 1.0);
+}

@@ -1,0 +1,33 @@
+#version 150 core
+ 
+out vec4 fragColor;
+flat in vec2 flag;
+uniform float visible;
+uniform vec4 xshowcolor;
+uniform vec4 yshowcolor;
+uniform vec4 linecolor;
+uniform vec4 xyIndexcolor;
+uniform float highlight_index_x;
+uniform float highlight_index_y;
+void main() 
+{
+	if(int(flag.x) == 0)
+	{
+		fragColor = yshowcolor;
+	}
+	else if(int(flag.y) == 0)
+	{
+		fragColor = xshowcolor;
+	}
+	else
+	{
+		if(int(highlight_index_x) == int(flag.x) || int(highlight_index_y) == int(flag.y))
+		{
+			fragColor = xyIndexcolor;
+		}
+		else
+		{
+			fragColor = linecolor;
+		}
+	}
+}

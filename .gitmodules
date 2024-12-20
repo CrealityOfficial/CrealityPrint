@@ -1,0 +1,63 @@
+[submodule "cmake"]
+	path = cmake
+	url = http://172.20.180.12:8050/yanfa4/shared/cmake
+[submodule "qtuser"]
+	path = qtuser
+	url = http://172.20.180.12:8050/yanfa4/corelib/qtuser
+[submodule "scripts/build"]
+	path = scripts/build
+	url = http://172.20.180.12:8050/yanfa4/shared/jenkins-build
+[submodule "plugins/plugin_laser/laserclip"]
+	path = plugins/plugin_laser/laserclip
+	url = http://172.20.180.12:8050/yanfa4/corelib/laserclip
+[submodule "resources/sliceconfig"]
+	path = resources/sliceconfig
+	url = http://172.20.180.12:8050/yanfa4/c3d/sliceconfig
+[submodule "qcxffmpeg"]
+	path = qcxffmpeg
+	url = http://172.20.180.12:8050/yanfa4/corelib/qcxffmpeg
+[submodule "cxcloud"]
+	path = cxcloud
+	url = http://172.20.180.12:8050/yanfa4/core/cxcloud
+[submodule "cxkernel"]
+	path = cxkernel
+	url = http://172.20.180.12:8050/yanfa4/core/cxkernel
+[submodule "cxgcode"]
+	path = cxgcode
+	url = http://172.20.180.12:8050/yanfa4/core/cxgcode
+[submodule "qtuser_3d"]
+	path = qtuser_3d
+	url = http://172.20.180.12:8050/yanfa4/core/qtuser_3d
+[submodule "cadcore"]
+	path = cadcore
+	url = http://172.20.180.12:8050/yanfa4/corelib/cadcore
+[submodule "shader_entity"]
+	path = shader_entity
+	url = http://172.20.180.12:8050/yanfa4/core/shader_entity
+[submodule "msbase"]
+	path = msbase
+	url = http://172.20.180.12:8050/yanfa4/core/msbase
+[submodule "crslice"]
+	path = crslice
+	url = http://172.20.180.12:8050/yanfa4/core/crslice
+[submodule "nestplacer"]
+	path = nestplacer
+	url = http://172.20.180.12:8050/yanfa4/corelib/nestplacer
+[submodule "crslice2/crslice"]
+	path = crslice2/crslice
+	url = http://172.20.180.12:8050/yanfa4/core/crslice
+[submodule "spread"]
+	path = spread
+	url = http://172.20.180.12:8050/yanfa4/core/spread
+[submodule "modelModule"]
+	path = modelModule
+	url = http://172.20.180.12:8050/yanfa4/alg/modelModule
+[submodule "common_3mf"]
+	path = common_3mf
+	url = http://172.20.180.12:8050/yanfa4/core/common_3mf
+[submodule "topomesh"]
+	path = topomesh
+	url = http://172.20.180.12:8050/yanfa4/alg/topomesh
+[submodule "UnitTest"]
+	path = UnitTest
+	url = http://172.20.180.12:8050/UnitTest

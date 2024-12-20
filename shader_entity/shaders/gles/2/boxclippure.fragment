@@ -1,0 +1,31 @@
+/* boxclippure.fragment */
+precision mediump float;
+varying vec3 worldPosition;
+uniform vec4 color;
+uniform vec3 clip[2];
+
+uniform float intensity; // = 5.0;
+
+void main() 
+{
+	gl_FragColor = color;
+	#if 0
+	if ( worldPosition.z < clip[0].z || worldPosition.z > clip[1].z
+        || worldPosition.x < clip[0].x || worldPosition.x > clip[1].x
+        || worldPosition.y < clip[0].y || worldPosition.y > clip[1].y) 
+	{
+		discard;
+	} else {
+	
+		float x = min( abs(worldPosition.x - clip[0].x), abs(worldPosition.x - clip[1].x) );
+		float y = min( abs(worldPosition.y - clip[0].y), abs(worldPosition.y - clip[1].y) );
+		float z = min( abs(worldPosition.z - clip[0].z), abs(worldPosition.z - clip[1].z) );
+		
+		x = min(x, y);
+		x = min(x, z);
+
+		float k = clamp(x * intensity, 0.0, 1.0);
+		gl_FragColor = vec4(color.rgb, color.a * k);
+	}
+	#endif
+}

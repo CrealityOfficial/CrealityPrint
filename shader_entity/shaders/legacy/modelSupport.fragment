@@ -1,0 +1,39 @@
+#version 150 core 
+out vec4 fragmentColor;
+
+in vec3 viewDirection;
+in vec3 normal;
+in vec3 worldPosition;
+flat in vec3 gnormal;
+
+uniform vec4 ambient = vec4(0.0, 0.0, 0.0, 1.0);
+uniform vec4 diffuse = vec4(1.0, 1.0, 1.0, 1.0);
+uniform vec4 specular = vec4(0.125, 0.125, 0.125, 1.0);
+uniform float specularPower = 12.0;
+uniform float supportCos = 0.707;
+
+uniform vec3 lightDirection = vec3(0.0, 0.0, 1.0);
+
+uniform float state;
+uniform vec4 stateColors[4];
+
+void main( void )
+{
+	vec4 color = stateColors[int(state)];	
+	
+	vec3 fnormal 		  =	normalize(normal);
+	vec3 fgnormal		  = normalize(gnormal);
+	vec4 specular_color   = specular;
+	if(dot(fgnormal, vec3(0.0, 0.0, -1.0)) > supportCos)
+		color = stateColors[3];
+		
+	float NdotL 		  = max(dot(fnormal, lightDirection), 0.0);
+	vec4 ambientColor 	  = ambient * color;
+	vec3 freflection      = reflect(-lightDirection, fnormal);
+	vec3 fViewDirection   = normalize(viewDirection);
+	float RdotV           = max(0.0, dot(freflection, fViewDirection)); 
+	vec4 diffuseColor     = NdotL * diffuse * color;
+	vec4 specularColor    = specular * pow( RdotV, specularPower);
+	vec4 coreColor = ambientColor + diffuseColor + specularColor;
+	fragmentColor = vec4(coreColor.rgb, 1.0);
+}

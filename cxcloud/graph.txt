@@ -1,0 +1,6 @@
+cxlog/0.0.2
+boost_static/1.0.0
+rapidjson/1.0.0
+libqrencode_static/2.0.0
+cpr_static/1.0.0
+osswrapper_static/1.0.0

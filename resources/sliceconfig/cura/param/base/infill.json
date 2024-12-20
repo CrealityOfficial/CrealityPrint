@@ -1,0 +1,608 @@
+{
+	"change_color":
+	{
+		"label": "Change Print Color",
+		"description": "Check this option to change the print material according to the specified mode.",
+		"type": "bool",
+		"default_value": "false",
+		"resolve": "any(extruderValues('change_color'))",
+		"settable_per_mesh": "false",
+		"settable_per_extruder": "false"
+	},
+	"change_color_mode":
+	{
+		"label": "Change Color Mode",
+		"description": "You can specify which layer to change the printed material, or specify how many colors are in total, and finally automatically calculate which layer to change the material in.",
+		"type": "enum",
+		"options":
+		{
+			"back_list": "Back List",
+			"two_color_print": "Two-Color Printing",
+			"three_color_printing": "Three-Color Printing",
+			"four_color_printing": "Four-Color Printing",
+			"five_color_printing": "Five-Color Printing"
+		},
+		"default_value": "back_list",
+		"enabled": "eval(contex.value(\"change_color\"))",
+		"settable_per_mesh": "true"
+	},
+	"first_change_color":
+	{
+		"label": "First Change Color",
+		"description": "The number of layers of the first exchange of printed materials.",
+		"unit": "layer",
+		"type": "int",
+		"default_value": "0",
+		"enabled": "eval(contex.value(\"change_color\")) && getEnumValue(\"change_color_mode\") == 'back_list'",
+		"settable_per_mesh": "true"
+	},
+	"second_change_color":
+	{
+		"label": "Second Change Color",
+		"description": "The number of layers of the Second exchange of printed materials.",
+		"unit": "layer",
+		"type": "int",
+		"default_value": "0",
+		"enabled": "eval(contex.value(\"change_color\")) && getEnumValue(\"change_color_mode\") == 'back_list'",
+		"settable_per_mesh": "true"
+	},
+	"third_change_color":
+	{
+		"label": "Third Change Color",
+		"description": "The number of layers of the Third exchange of printed materials.",
+		"unit": "layer",
+		"type": "int",
+		"default_value": "0",
+		"enabled": "eval(contex.value(\"change_color\")) && getEnumValue(\"change_color_mode\") == 'back_list'",
+		"settable_per_mesh": "true"
+	},
+	"infill_extruder_nr":
+	{
+		"label": "Infill Extruder",
+		"description": "The extruder train used for printing infill. This is used in multi-extrusion.",
+		"type": "optional_extruder",
+		"default_value": "-1",
+		"parameter_level": "2",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": true,
+		"settable_globally": true,
+		"enabled": "eval(contex.value(\"extruders_enabled_count\")) > 1"
+	},
+	"infill_sparse_density":
+	{
+		"label": "Infill Density",
+		"description": "Adjusts the density of infill of the print.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "20",
+		"minimum_value": "0",
+		"maximum_value_warning": "100",
+		"parameter_level": "1",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_line_distance":
+	{
+		"label": "Infill Line Distance",
+		"description": "Distance between the printed infill lines. This setting is calculated by the infill density and the infill line width.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "2",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"infill_sparse_density\")) == 0 ? 0 : eval(contex.value(\"infill_line_width\"))",
+		"parameter_level": "2",
+		"value": "eval(contex.value(\"infill_sparse_density\")) == 0 && eval(contex.value(\"infill_pattern\")) !='' ? 0 : (eval(contex.value(\"infill_line_width\")) * 100) / eval(contex.value(\"infill_sparse_density\")) * getValueByInfillPattern()",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_pattern":
+	{
+		"label": "Infill Pattern",
+		"description": "The pattern of the infill material of the print. The line and zig zag infill swap direction on alternate layers, reducing material cost. The grid, triangle, tri-hexagon, cubic, octet, quarter cubic, cross and concentric patterns are fully printed every layer. Gyroid, cubic, quarter cubic and octet infill change with every layer to provide a more equal distribution of strength over each direction.",
+		"type": "enum",
+		"options":
+		{
+			"grid": "Grid",
+			"lines": "Lines",
+			"aligned_rectilinear": "Aligned Rectilinear",
+			"triangles": "Triangles",
+			"trihexagon": "Tri-Hexagon",
+			"cubic": "Cubic",
+			"cubicsubdiv": "Cubic Subdivision",
+			"tetrahedral": "Octet",
+			"quarter_cubic": "Quarter Cubic",
+			"concentric": "Concentric",
+			"zigzag": "Zig Zag",
+			"cross": "Cross",
+			"cross_3d": "Cross 3D",
+			"gyroid": "Gyroid",
+			"onewall": "Onewall",
+			"honeycomb": "Honeycomb",
+			"lightning": "Lightning"
+		},
+		"default_value": "grid",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0",
+		"value": "eval(contex.value(\"infill_sparse_density\")) > 80 ? 'lines' : 'grid'",
+		"parameter_level": "1",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"zig_zaggify_infill":
+	{
+		"label": "Connect Infill Lines",
+		"description": "Connect the ends where the infill pattern meets the inner wall using a line which follows the shape of the inner wall. Enabling this setting can make the infill adhere to the walls better and reduce the effects of infill on the quality of vertical surfaces. Disabling this setting reduces the amount of material used.",
+		"type": "bool",
+		"default_value": "true",
+		"value": "getEnumValue(\"infill_pattern\") == 'cross' || getEnumValue(\"infill_pattern\") == 'cross_3d' || getEnumValue(\"infill_pattern\") == 'grid'",
+		"enabled": "getEnumValue(\"infill_pattern\") == 'lines' || getEnumValue(\"infill_pattern\") == 'grid' || getEnumValue(\"infill_pattern\") == 'triangles' || getEnumValue(\"infill_pattern\") == 'trihexagon' || getEnumValue(\"infill_pattern\") == 'cubic' || getEnumValue(\"infill_pattern\") == 'tetrahedral' || getEnumValue(\"infill_pattern\") == 'quarter_cubic' || getEnumValue(\"infill_pattern\") == 'cross' || getEnumValue(\"infill_pattern\") == 'cross_3d' || getEnumValue(\"infill_pattern\") == 'gyroid'",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"connect_infill_polygons":
+	{
+		"label": "Connect Infill Polygons",
+		"description": "Connect infill paths where they run next to each other. For infill patterns which consist of several closed polygons, enabling this setting greatly reduces the travel time.",
+		"type": "bool",
+		"default_value": "true",
+		"value": "(getEnumValue(\"infill_pattern\") == 'cross' || getEnumValue(\"infill_pattern\") == 'cross_3d' || eval(contex.value(\"infill_multiplier\")) % 2 == 0) && eval(contex.value(\"infill_wall_line_count\")) > 0",
+		"enabled": "getEnumValue(\"infill_pattern\") == 'cross' || getEnumValue(\"infill_pattern\") == 'lightning' ||getEnumValue(\"infill_pattern\") == 'cross_3d' || getEnumValue(\"infill_pattern\") == 'concentric' || eval(contex.value(\"infill_multiplier\")) % 2 == 0 || eval(contex.value(\"infill_wall_line_count\")) > 1",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_angles":
+	{
+		"label": "Infill Line Directions",
+		"description": "A list of integer line directions to use. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the traditional default angles (45 and 135 degrees for the lines and zig zag patterns and 45 degrees for all other patterns).",
+		"type": "[int]",
+		"default_value": "[90,180]",
+		"enabled": "getEnumValue(\"infill_pattern\") != 'concentric' && getEnumValue(\"infill_pattern\") != 'lightning'&& getEnumValue(\"infill_pattern\") != 'cubicsubdiv' && eval(contex.value(\"infill_sparse_density\")) > 0",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_offset_x":
+	{
+		"label": "Infill X Offset",
+		"description": "The infill pattern is moved this distance along the X axis.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0",
+		"enabled": "getEnumValue(\"infill_pattern\") != 'lightning' && getEnumValue(\"infill_pattern\") == 'grid' || getEnumValue(\"infill_pattern\") == 'lines' || getEnumValue(\"infill_pattern\") == 'triangles' || getEnumValue(\"infill_pattern\") == 'cubic' || getEnumValue(\"infill_pattern\") == 'tetrahedral' || getEnumValue(\"infill_pattern\") == 'quarter_cubic' || getEnumValue(\"infill_pattern\") == 'zigzag'",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_offset_y":
+	{
+		"label": "Infill Y Offset",
+		"description": "The infill pattern is moved this distance along the Y axis.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0",
+		"enabled": "getEnumValue(\"infill_pattern\") != 'lightning' && getEnumValue(\"infill_pattern\") == 'grid' || getEnumValue(\"infill_pattern\") == 'lines' || getEnumValue(\"infill_pattern\") == 'triangles' || getEnumValue(\"infill_pattern\") == 'cubic' || getEnumValue(\"infill_pattern\") == 'tetrahedral' || getEnumValue(\"infill_pattern\") == 'quarter_cubic' || getEnumValue(\"infill_pattern\") == 'zigzag'",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_randomize_start_location":
+	{
+		"label": "Randomize Infill Start",
+		"description": "Randomize which infill line is printed first. This prevents one segment becoming the strongest, but it does so at the cost of an additional travel move.",
+		"type": "bool",
+		"default_value": "false",
+		"warning_value": "True if infill_pattern not in ('grid', 'triangles', 'trihexagon', 'cubic', 'cubicsubdiv', 'tetrahedral', 'quarter_cubic') else None",
+		"enabled": "!((getEnumValue(\"infill_pattern\") == 'cross' && getEnumValue(\"infill_pattern\") == 'lightning' && eval(contex.value(\"connect_infill_polygons\"))) || getEnumValue(\"infill_pattern\") == 'concentric')",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_multiplier":
+	{
+		"label": "Infill Line Multiplier",
+		"description": "Convert each infill line to this multiple lines. The extra lines do not cross over each other, but avoid each other. This makes the infill stiffer, but increases print time and material usage.",
+		"default_value": "1",
+		"type": "int",
+		"minimum_value": "1",
+		"maximum_value_warning": "eval(contex.value(\"infill_line_distance\")) / eval(contex.value(\"infill_line_width\"))",
+		"parameter_level": "1",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && !(eval(contex.value(\"spaghetti_infill_enabled\"))) && getEnumValue(\"infill_pattern\") != 'aligned_rectilinear' && getEnumValue(\"infill_pattern\") != 'zigzag' ",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_step_layers":
+	{
+		"label": "Infill Step Layers",
+		"description": "The step of the infill",
+		"default_value": "1",
+		"type": "int",
+		"minimum_value": "1",
+		"maximum_value_warning": "3",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && !(eval(contex.value(\"spaghetti_infill_enabled\")))",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_wall_line_count":
+	{
+		"label": "Extra Infill Wall Count",
+		"description": "Add extra walls around the infill area. Such walls can make top/bottom skin lines sag down less which means you need less top/bottom skin layers for the same quality at the cost of some extra material.This feature can combine with the Connect Infill Polygons to connect all the infill into a single extrusion path without the need for travels or retractions if configured right.",
+		"default_value": "0",
+		"type": "int",
+		"minimum_value": "0",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && !(eval(contex.value(\"spaghetti_infill_enabled\")))",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"sub_div_rad_add":
+	{
+		"label": "Cubic Subdivision Shell",
+		"description": "An addition to the radius from the center of each cube to check for the boundary of the model, as to decide whether this cube should be subdivided. Larger values lead to a thicker shell of small cubes near the boundary of the model.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.4",
+		"value": "eval(contex.value(\"wall_line_width_x\"))",
+		"minimum_value_warning": "-1 * eval(contex.value(\"infill_line_distance\"))",
+		"maximum_value_warning": "5 * eval(contex.value(\"infill_line_distance\"))",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && getEnumValue(\"infill_pattern\") == 'cubicsubdiv'",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_overlap":
+	{
+		"label": "Infill Overlap Percentage",
+		"description": "The amount of overlap between the infill and the walls as a percentage of the infill line width. A slight overlap allows the walls to connect firmly to the infill.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "30",
+		"value": "eval(contex.value(\"infill_sparse_density\")) < 95 && getEnumValue(\"infill_pattern\") != 'concentric' ? 30 : 0",
+		"minimum_value_warning": "-50",
+		"maximum_value_warning": "100",
+		"parameter_level": "1",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && getEnumValue(\"infill_pattern\") != 'concentric'",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_overlap_mm":
+	{
+		"label": "Infill Overlap",
+		"description": "The amount of overlap between the infill and the walls. A slight overlap allows the walls to connect firmly to the infill.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.16",
+		"minimum_value_warning": "-0.5 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\"))",
+		"value": "eval(contex.value(\"infill_sparse_density\")) < 95 && getEnumValue(\"infill_pattern\") != 'concentric' ? 0.5 * (eval(contex.value(\"infill_line_width\")) + (eval(contex.value(\"wall_line_count\")) > 1 ? eval(contex.value(\"wall_line_width_x\")) : eval(contex.value(\"wall_line_width_0\")))) * eval(contex.value(\"infill_overlap\")) / 100 : 0",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && getEnumValue(\"infill_pattern\") != 'concentric'",
+		"parameter_level": "2",
+		"settable_per_mesh": true
+	},
+	"infill_wipe_dist":
+	{
+		"label": "Infill Wipe Distance",
+		"description": "Distance of a travel move inserted after every infill line, to make the infill stick to the walls better. This option is similar to infill overlap, but without extrusion and only on one end of the infill line.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.1",
+		"value": "eval(contex.value(\"wall_line_count\")) == 1 ? eval(contex.value(\"wall_line_width_0\")) /4 : eval(contex.value(\"wall_line_width_x\")) /4",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\"))",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_has_default_inset":
+	{
+		"label": "Infill Has Inset",
+		"description": "Infill And Skin Has Inset",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_combination":
+	{
+		"label": "Infill Layers Combination",
+		"description": "Automatically combine several layers of sparse fill to print together, which can shorten the time. The inner and outer walls still maintain the original layer height printing.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && !(eval(contex.value(\"spaghetti_infill_enabled\")))",
+		"parameter_level": "1",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_sparse_thickness":
+	{
+		"label": "Infill Layer Thickness",
+		"description": "The thickness per layer of infill material. This value should always be a multiple of the layer height and is otherwise rounded.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.1",
+		"minimum_value": "eval(contex.value(\"layer_height\")) / (eval(contex.value(\"infill_line_distance\")) > 0 ? 2 : -999999)",
+		"maximum_value_warning": "0.75 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value": "eval(contex.value(\"layer_height\")) * eval(contex.value(\"infill_line_distance\")) > 0 ? (eval(contex.value(\"spaghetti_infill_enabled\")) == true ? 1.45 : 8) : 999999",
+		"parameter_level": "2",
+		"value": "eval(contex.value(\"infill_combination\")) ? 0.4 : eval(contex.value(\"layer_height\"))",
+		"enabled": "eval(contex.value(\"infill_combination\"))",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"gradual_infill_steps":
+	{
+		"label": "Gradual Infill Steps",
+		"description": "Number of times to reduce the infill density by half when getting further below top surfaces. Areas which are closer to top surfaces get a higher density, up to the Infill Density.",
+		"default_value": "0",
+		"type": "int",
+		"minimum_value": "0",
+		"maximum_value_warning": "(getEnumValue(\"infill_pattern\") == 'cross' || getEnumValue(\"infill_pattern\") == 'cross_3d' || getEnumValue(\"support_pattern\") == 'concentric') ? 1 : 5",
+		"maximum_value": "eval(contex.value(\"spaghetti_infill_enabled\")) ? 0 : (eval(contex.value(\"infill_line_distance\")) == 0 ? 999999 : (20 - (Math.log(eval(contex.value(\"infill_line_distance\"))) / Math.log(2))))",
+		"parameter_level": "1",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && getEnumValue(\"infill_pattern\") != 'cubicsubdiv' && !(eval(contex.value(\"spaghetti_infill_enabled\")))",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"gradual_infill_step_height":
+	{
+		"label": "Gradual Infill Step Height",
+		"description": "The height of infill of a given density before switching to half the density.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1.5",
+		"minimum_value": "0.0001",
+		"minimum_value_warning": "3 * eval(contex.value(\"layer_height\"))",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && eval(contex.value(\"gradual_infill_steps\")) > 0 && getEnumValue(\"infill_pattern\") != 'cubicsubdiv'",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_before_walls":
+	{
+		"label": "Infill Before Walls",
+		"description": "Print the infill before printing the walls. Printing the walls first may lead to more accurate walls, but overhangs print worse. Printing the infill first leads to sturdier walls, but the infill pattern might sometimes show through the surface.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && eval(contex.value(\"wall_x_extruder_nr\")) == eval(contex.value(\"infill_extruder_nr\"))",
+		"settable_per_mesh": true
+	},
+	"min_infill_area":
+	{
+		"label": "Minimum Infill Area",
+		"description": "Don't generate areas of infill smaller than this (use skin instead).",
+		"unit": "mm²",
+		"type": "float",
+		"minimum_value": "0",
+		"default_value": "15",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_support_enabled":
+	{
+		"label": "Infill Support",
+		"description": "Print infill structures only where tops of the model should be supported. Enabling this reduces print time and material usage, but leads to ununiform object strength.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"infill_support_angle":
+	{
+		"label": "Infill Overhang Angle",
+		"description": "The minimum angle of internal overhangs for which infill is added. At a value of 0° objects are totally filled with infill, 90° will not provide any infill.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value": "0",
+		"minimum_value_warning": "2",
+		"maximum_value": "90",
+		"default_value": "40",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0 && eval(contex.value(\"infill_support_enabled\"))",
+		"limit_to_extruder": "infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"skin_preshrink":
+	{
+		"label": "Skin Removal Width",
+		"description": "The largest width of skin areas which are to be removed. Every skin area smaller than this value will disappear. This can help in limiting the amount of time and material spent on printing top/bottom skin at slanted surfaces in the model.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1.2",
+		"value": "eval(contex.value(\"wall_line_width_0\")) + (eval(contex.value(\"wall_line_count\")) - 1) * eval(contex.value(\"wall_line_width_x\"))",
+		"minimum_value": "0",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"top_skin_preshrink":
+	{
+		"label": "Top Skin Removal Width",
+		"description": "The largest width of top skin areas which are to be removed. Every skin area smaller than this value will disappear. This can help in limiting the amount of time and material spent on printing top skin at slanted surfaces in the model.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1.7",
+		"value": "eval(contex.value(\"skin_preshrink\"))",
+		"minimum_value": "0",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bottom_skin_preshrink":
+	{
+		"label": "Bottom Skin Removal Width",
+		"description": "The largest width of bottom skin areas which are to be removed. Every skin area smaller than this value will disappear. This can help in limiting the amount of time and material spent on printing bottom skin at slanted surfaces in the model.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1",
+		"value": "eval(contex.value(\"skin_preshrink\"))",
+		"minimum_value": "0",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"expand_skins_expand_distance":
+	{
+		"label": "Skin Expand Distance",
+		"description": "The distance the skins are expanded into the infill. Higher values makes the skin attach better to the infill pattern and makes the walls on neighboring layers adhere better to the skin. Lower values save amount of material used.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1.2",
+		"value": "eval(contex.value(\"wall_line_width_0\")) + (eval(contex.value(\"wall_line_count\")) - 1) * eval(contex.value(\"wall_line_width_x\"))",
+		"minimum_value": "-1* eval(contex.value(\"skin_preshrink\"))",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"settable_per_mesh": true
+	},
+	"top_skin_expand_distance":
+	{
+		"label": "Top Skin Expand Distance",
+		"description": "The distance the top skins are expanded into the infill. Higher values makes the skin attach better to the infill pattern and makes the walls on the layer above adhere better to the skin. Lower values save amount of material used.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1.2",
+		"value": "eval(contex.value(\"expand_skins_expand_distance\"))",
+		"minimum_value": "-1* eval(contex.value(\"top_skin_preshrink\"))",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"bottom_skin_expand_distance":
+	{
+		"label": "Bottom Skin Expand Distance",
+		"description": "The distance the bottom skins are expanded into the infill. Higher values makes the skin attach better to the infill pattern and makes the skin adhere better to the walls on the layer below. Lower values save amount of material used.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1.2",
+		"value": "eval(contex.value(\"expand_skins_expand_distance\"))",
+		"minimum_value": "-1 * eval(contex.value(\"bottom_skin_preshrink\"))",
+		"enabled": "eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"max_skin_angle_for_expansion":
+	{
+		"label": "Maximum Skin Angle for Expansion",
+		"description": "Top and/or bottom surfaces of your object with an angle larger than this setting, won't have their top/bottom skin expanded. This avoids expanding the narrow skin areas that are created when the model surface has a near vertical slope. An angle of 0° is horizontal, while an angle of 90° is vertical.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value": "0",
+		"minimum_value_warning": "2",
+		"maximum_value": "90",
+		"default_value": "90",
+		"enabled": "(eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0) && (eval(contex.value(\"top_skin_expand_distance\")) > 0 || eval(contex.value(\"bottom_skin_expand_distance\")) > 0)",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"min_skin_width_for_expansion":
+	{
+		"label": "Minimum Skin Width for Expansion",
+		"description": "Skin areas narrower than this are not expanded. This avoids expanding the narrow skin areas that are created when the model surface has a slope close to the vertical.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "2.24",
+		"value": "eval(contex.value(\"top_layers\")) * eval(contex.value(\"layer_height\")) / Math.tan(eval(contex.value(\"max_skin_angle_for_expansion\")) * Math.PI / 180)",
+		"minimum_value": "0",
+		"enabled": "(eval(contex.value(\"top_layers\")) > 0 || eval(contex.value(\"bottom_layers\")) > 0) && (eval(contex.value(\"top_skin_expand_distance\")) > 0 || eval(contex.value(\"bottom_skin_expand_distance\")) > 0)",
+		"limit_to_extruder": "top_bottom_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"skin_edge_support_thickness":
+	{
+		"label": "Skin Edge Support Thickness",
+		"description": "The thickness of the extra infill that supports skin edges.",
+		"unit": "mm",
+		"default_value": "0",
+		"minimum_value": "0",
+		"maximum_value": "eval(contex.value(\"machine_height\"))",
+		"type": "float",
+		"value": "0",
+		"limit_to_extruder": "infill_extruder_nr",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0",
+		"parameter_level": "-2",
+		"settable_per_mesh": true
+	},
+	"skin_edge_support_layers":
+	{
+		"label": "Skin Edge Support Layers",
+		"description": "The number of infill layers that supports skin edges.",
+		"default_value": "0",
+		"minimum_value": "0",
+		"type": "int",
+		"value": "Math.ceil((eval(contex.value(\"skin_edge_support_thickness\")) / eval(contex.value(\"infill_sparse_thickness\"))).toFixed(4))",
+		"limit_to_extruder": "infill_extruder_nr",
+		"enabled": "eval(contex.value(\"infill_sparse_density\")) > 0",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"lightning_infill_support_angle":
+	{
+		"label": "Lightning Infill Support Angle",
+		"description": "Determines when a lightning infill layer has to support anything above it. Measured in the angle given the thickness of a layer.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "90",
+		"maximum_value_warning": "75",
+		"default_value": "40",
+		"limit_to_extruder": "infill_extruder_nr",
+		"enabled": "infill_pattern == 'lightning'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"lightning_infill_overhang_angle":
+	{
+		"label": "Lightning Infill Overhang Angle",
+		"description": "Determines when a lightning infill layer has to support the model above it. Measured in the angle given the thickness.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "90",
+		"maximum_value_warning": "75",
+		"default_value": "40",
+		"limit_to_extruder": "infill_extruder_nr",
+		"enabled": "infill_pattern == 'lightning'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"value": "eval(contex.value(\"lightning_infill_support_angle\"))"
+	},
+	"lightning_infill_prune_angle":
+	{
+		"label": "Lightning Infill Prune Angle",
+		"description": "The endpoints of infill lines are shortened to save on material. This setting is the angle of overhang of the endpoints of these lines.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "90",
+		"maximum_value_warning": "75",
+		"default_value": "40",
+		"limit_to_extruder": "infill_extruder_nr",
+		"enabled": "infill_pattern == 'lightning'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"value": "eval(contex.value(\"lightning_infill_support_angle\"))"
+	},
+	"lightning_infill_straightening_angle":
+	{
+		"label": "Lightning Infill Straightening Angle",
+		"description": "The infill lines are straightened out to save on printing time. This is the maximum angle of overhang allowed across the length of the infill line.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "90",
+		"maximum_value_warning": "75",
+		"default_value": "40",
+		"limit_to_extruder": "infill_extruder_nr",
+		"enabled": "infill_pattern == 'lightning'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"value": "eval(contex.value(\"lightning_infill_support_angle\"))"
+	},
+	"special_narrow_area_concentric_infill": 
+	{
+		"label": "Narrow Area Concentric Infill",
+		"description": "Narrow Area Concentric Infill",
+		"type": "bool",
+		"default_value": "false",
+		"settable_per_mesh": true,
+		"settable_per_extruder": true,
+		"parameter_level": "1"
+	}
+}

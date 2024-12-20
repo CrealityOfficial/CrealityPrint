@@ -1,0 +1,3 @@
+[submodule "cmake"]
+	path = cmake
+	url = http://172.20.180.12:8050/yanfa4/shared/cmake

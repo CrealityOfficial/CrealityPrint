@@ -1,0 +1,11 @@
+[settings]
+os=Emscripten
+arch=wasm
+arch_build=x86_64
+os_build=Windows
+compiler=clang
+compiler.version=14
+build_type=Release
+[build_requires]
+emsdk_installer/3.1.0@pc/wasm
+

@@ -1,0 +1,45 @@
+<RCC>
+    <qresource prefix="/translations">
+		<file>en.qm</file>
+		<file>zh_TW.qm</file>
+		<file>zh_CN.qm</file>
+		<file>ja.qm</file>
+		<file>ko.qm</file>
+		<file>uk.qm</file>
+		<file>fr.qm</file>
+		<file>ru.qm</file>
+		<file>es.qm</file>
+		<file>pt.qm</file>
+		<file>tr.qm</file>
+		<file>pl.qm</file>
+		
+		<file>en_new.qm</file>
+		<file>zh_TW_new.qm</file>
+		<file>zh_CN_new.qm</file>
+		<file>ja_new.qm</file>
+		<file>ko_new.qm</file>
+		<file>uk_new.qm</file>
+		<file>fr_new.qm</file>
+		<file>ru_new.qm</file>
+		<file>es_new.qm</file>
+		<file>pt_new.qm</file>
+		<file>tr_new.qm</file>
+		<file>pl_new.qm</file>
+					
+		<file>zh_CN_c3d.qm</file>
+		<file>zh_TW_c3d.qm</file>
+		
+		<file>en_orca.qm</file>
+		<file>zh_CN_orca.qm</file>
+		<file>zh_TW_orca.qm</file>
+		<file>ja_orca.qm</file>
+		<file>ko_orca.qm</file>
+		<file>uk_orca.qm</file>
+		<file>fr_orca.qm</file>
+		<file>ru_orca.qm</file>
+		<file>es_orca.qm</file>
+		<file>pt_orca.qm</file>
+		<file>tr_orca.qm</file>
+		<file>pl_orca.qm</file>
+    </qresource>
+</RCC>

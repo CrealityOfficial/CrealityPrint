@@ -1,0 +1,54 @@
+#version 330 core
+
+in vec2 texcoord;
+out vec4 fragColor;
+
+uniform sampler2D colorMap;
+uniform int primiveId = 10;
+
+
+
+float insideCircle(vec2 ori, float radius)
+{
+	vec2 vectorUV = texcoord - ori;
+	float dis = sqrt(pow(vectorUV.x, 2) + pow(vectorUV.y, 2));
+	float isIn = step(radius, dis);
+	return isIn;
+}
+
+void main() 
+{
+	fragColor = texture(colorMap, texcoord);
+	
+	vec2 oriUV = vec2(0.0);
+	if( 0 == primiveId )
+	{
+		oriUV = vec2(0.5, 0.165);
+		//if(texcoord.y >= 0.0 && texcoord.y < 0.33)
+		if( 0.0 == insideCircle(oriUV, 0.2) )
+		{
+			fragColor += vec4(0.2, 0.2, 0.3, 1.0);
+			
+			//fragColor += vec4(vec3(circle(texcoord,0.5)), 1.0);
+		}
+			
+	}
+	else if( 1 == primiveId )
+	{
+		oriUV = vec2(0.5, 0.5);
+		//if(texcoord.y >= 0.33 && texcoord.y < 0.66)
+		if( 0.0 == insideCircle(oriUV, 0.2) )
+		{
+			fragColor += vec4(0.2, 0.2, 0.3, 1.0);
+		}
+			
+	}
+	else if( 2 == primiveId )
+	{
+		oriUV = vec2(0.5, 0.835);
+		//if(texcoord.y >= 0.66)
+		if( 0.0 == insideCircle(oriUV, 0.2) )
+			fragColor += vec4(0.2, 0.2, 0.3, 1.0);
+	}
+}
+	

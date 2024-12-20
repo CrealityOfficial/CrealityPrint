@@ -1,0 +1,425 @@
+
+set(CMAKE_CXX_STANDARD 17)
+__enable_bigobj()
+
+__cc_find(boost_static)
+__cc_find(eigen)
+__cc_find(cereal)
+__cc_find(admesh)
+__cc_find(tbb_static)
+__cc_find(clipper2)
+__cc_find(png_static)
+
+__assert_target(clipper2)
+__assert_target(cereal)
+__assert_target(eigen)
+__assert_target(admesh)
+__assert_target(tbb_static)
+
+set(items
+	Slice3rBase/libslic3r_version.h
+	Slice3rBase/clonable_ptr.hpp
+	Slice3rBase/Exception.hpp
+	Slice3rBase/wrapper/orcaslicewrapper.h
+	Slice3rBase/wrapper/orcaslicewrapper.cpp
+	Slice3rBase/MultiPoint.cpp
+    Slice3rBase/MultiPoint.hpp
+    Slice3rBase/ArcFitter.cpp
+    Slice3rBase/ArcFitter.hpp
+	Slice3rBase/I18N.hpp
+    #pchheader.cpp
+    #pchheader.hpp
+    Slice3rBase/AABBTreeIndirect.hpp
+    Slice3rBase/AABBTreeLines.hpp
+    Slice3rBase/BoundingBox.cpp
+    Slice3rBase/BoundingBox.hpp
+    #BridgeDetector.cpp
+    #BridgeDetector.hpp
+    #FaceDetector.cpp
+    #FaceDetector.hpp
+    #Brim.cpp
+    #Brim.hpp
+    #BuildVolume.cpp
+    #BuildVolume.hpp
+    Slice3rBase/Circle.cpp
+    Slice3rBase/Circle.hpp
+    Slice3rBase/clipper.cpp
+    Slice3rBase/clipper.hpp
+    Slice3rBase/ClipperUtils.cpp
+    Slice3rBase/ClipperUtils.hpp
+    Slice3rBase/Clipper2Utils.cpp
+    Slice3rBase/Clipper2Utils.hpp
+    Slice3rBase/Config.cpp
+    Slice3rBase/Config.hpp
+    #CurveAnalyzer.cpp
+    #CurveAnalyzer.hpp
+    Slice3rBase/EdgeGrid.cpp
+    Slice3rBase/EdgeGrid.hpp
+    #ElephantFootCompensation.cpp
+    #ElephantFootCompensation.hpp
+    Slice3rBase/enum_bitmask.hpp
+    Slice3rBase/ExPolygon.cpp
+    Slice3rBase/ExPolygon.hpp
+    #Extruder.cpp
+    #Extruder.hpp
+    Slice3rBase/ExtrusionEntity.cpp
+    Slice3rBase/ExtrusionEntity.hpp
+    Slice3rBase/ExtrusionEntityCollection.cpp
+    Slice3rBase/ExtrusionEntityCollection.hpp
+    #ExtrusionSimulator.cpp
+    #ExtrusionSimulator.hpp
+    #FileParserError.hpp
+    #Fill/Fill.cpp
+    #Fill/Fill.hpp
+    #Fill/Fill3DHoneycomb.cpp
+    #Fill/Fill3DHoneycomb.hpp
+    #Fill/FillAdaptive.cpp
+    #Fill/FillAdaptive.hpp
+    #Fill/FillBase.cpp
+    #Fill/FillBase.hpp
+    #Fill/FillConcentric.cpp
+    #Fill/FillConcentric.hpp
+    #Fill/FillConcentricInternal.cpp
+    #Fill/FillConcentricInternal.hpp
+    #Fill/FillHoneycomb.cpp
+    #Fill/FillHoneycomb.hpp
+    #Fill/FillGyroid.cpp
+    #Fill/FillGyroid.hpp
+    #Fill/FillPlanePath.cpp
+    #Fill/FillPlanePath.hpp
+    #Fill/FillLine.cpp
+    #Fill/FillLine.hpp
+    #Fill/FillLightning.cpp
+    #Fill/FillLightning.hpp
+    #Fill/Lightning/DistanceField.cpp
+    #Fill/Lightning/DistanceField.hpp
+    #Fill/Lightning/Generator.cpp
+    #Fill/Lightning/Generator.hpp
+    #Fill/Lightning/Layer.cpp
+    #Fill/Lightning/Layer.hpp
+    #Fill/Lightning/TreeNode.cpp
+    #Fill/Lightning/TreeNode.hpp
+    #Fill/FillRectilinear.cpp
+    #Fill/FillRectilinear.hpp
+    Slice3rBase/Flow.cpp
+    Slice3rBase/Flow.hpp
+    Slice3rBase/format.hpp
+	#Format/3mf.cpp
+	#Format/3mf.hpp
+	#Format/bbs_3mf.cpp
+	#Format/bbs_3mf.hpp
+    #Format/AMF.cpp
+    #Format/AMF.hpp
+    #Format/OBJ.cpp
+    #Format/OBJ.hpp
+    #Format/objparser.cpp
+    #Format/objparser.hpp
+    #Format/STEP.cpp
+    #Format/STEP.hpp
+    #Format/STL.cpp
+    #Format/STL.hpp
+	#Format/SL1.hpp
+	#Format/SL1.cpp
+	#Format/svg.hpp
+    #Format/svg.cpp
+	Slice3rBase/GCode/ThumbnailData.cpp
+	Slice3rBase/GCode/ThumbnailData.hpp
+    Slice3rBase/GCode/CoolingBuffer.cpp
+    Slice3rBase/GCode/CoolingBuffer.hpp
+	Slice3rBase/GCode/FanMover.cpp
+    Slice3rBase/GCode/FanMover.hpp
+    Slice3rBase/GCode/PostProcessor.cpp
+    Slice3rBase/GCode/PostProcessor.hpp
+	Slice3rBase/GCode/PressureEqualizer.cpp
+	Slice3rBase/GCode/PressureEqualizer.hpp
+    Slice3rBase/GCode/PrintExtents.cpp
+    Slice3rBase/GCode/PrintExtents.hpp
+    Slice3rBase/GCode/RetractWhenCrossingPerimeters.cpp
+    Slice3rBase/GCode/RetractWhenCrossingPerimeters.hpp
+    Slice3rBase/GCode/SpiralVase.cpp
+    Slice3rBase/GCode/SpiralVase.hpp
+    Slice3rBase/GCode/SeamPlacer.cpp
+    Slice3rBase/GCode/SeamPlacer.hpp
+    Slice3rBase/GCode/ToolOrdering.cpp
+    Slice3rBase/GCode/ToolOrdering.hpp
+    Slice3rBase/GCode/WipeTower.cpp
+    Slice3rBase/GCode/WipeTower.hpp
+    Slice3rBase/GCode/GCodeProcessor.cpp
+    Slice3rBase/GCode/GCodeProcessor.hpp
+    Slice3rBase/GCode/AvoidCrossingPerimeters.cpp
+    Slice3rBase/GCode/AvoidCrossingPerimeters.hpp
+    Slice3rBase/GCode/ExtrusionProcessor.hpp
+    Slice3rBase/GCode/ConflictChecker.cpp
+    Slice3rBase/GCode/ConflictChecker.hpp
+    Slice3rBase/GCode.cpp
+    Slice3rBase/GCode.hpp
+    #GCodeReader.cpp
+    #GCodeReader.hpp
+    ## GCodeSender.cpp
+    ## GCodeSender.hpp
+    Slice3rBase/GCodeWriter.cpp
+    Slice3rBase/GCodeWriter.hpp
+    Slice3rBase/Geometry.cpp
+    Slice3rBase/Geometry.hpp
+    Slice3rBase/Geometry/Bicubic.hpp
+    Slice3rBase/Geometry/Circle.cpp
+    Slice3rBase/Geometry/Circle.hpp
+    Slice3rBase/Geometry/ConvexHull.cpp
+    Slice3rBase/Geometry/ConvexHull.hpp
+    Slice3rBase/Geometry/Curves.hpp
+    Slice3rBase/Geometry/MedialAxis.cpp
+    Slice3rBase/Geometry/MedialAxis.hpp
+    Slice3rBase/Geometry/Voronoi.hpp
+    Slice3rBase/Geometry/VoronoiOffset.cpp
+    Slice3rBase/Geometry/VoronoiOffset.hpp
+    #Geometry/VoronoiUtilsCgal.cpp
+    #Geometry/VoronoiUtilsCgal.hpp
+    Slice3rBase/Geometry/VoronoiVisualUtils.hpp
+    Slice3rBase/Int128.hpp
+    #InternalBridgeDetector.cpp
+    #InternalBridgeDetector.hpp
+    Slice3rBase/KDTreeIndirect.hpp
+    Slice3rBase/Layer.cpp
+    Slice3rBase/Layer.hpp
+    Slice3rBase/LayerRegion.cpp
+    Slice3rBase/libslic3r.h
+    Slice3rBase/Line.cpp
+    Slice3rBase/Line.hpp
+    #BlacklistedLibraryCheck.cpp
+    #BlacklistedLibraryCheck.hpp
+    Slice3rBase/LocalesUtils.cpp
+    Slice3rBase/LocalesUtils.hpp
+    Slice3rBase/Model.cpp
+    Slice3rBase/Model.hpp
+    #ModelArrange.hpp
+    #ModelArrange.cpp
+    Slice3rBase/MultiMaterialSegmentation.cpp
+    Slice3rBase/MultiMaterialSegmentation.hpp
+    Slice3rBase/CustomGCode.cpp
+    Slice3rBase/CustomGCode.hpp
+    #Arrange.hpp
+    #Arrange.cpp
+    #NormalUtils.cpp
+    #NormalUtils.hpp
+    #Orient.hpp
+    #Orient.cpp
+    Slice3rBase/MutablePriorityQueue.hpp
+    Slice3rBase/ObjectID.cpp
+    Slice3rBase/ObjectID.hpp
+    #PerimeterGenerator.cpp
+    #PerimeterGenerator.hpp
+    Slice3rBase/PlaceholderParser.cpp
+    Slice3rBase/PlaceholderParser.hpp
+    Slice3rBase/Platform.cpp
+    Slice3rBase/Platform.hpp
+    Slice3rBase/Point.cpp
+    Slice3rBase/Point.hpp
+    Slice3rBase/Polygon.cpp
+    Slice3rBase/Polygon.hpp
+    Slice3rBase/MutablePolygon.cpp
+    Slice3rBase/MutablePolygon.hpp
+    #PolygonTrimmer.cpp
+    #PolygonTrimmer.hpp
+    Slice3rBase/Polyline.cpp
+    Slice3rBase/Polyline.hpp
+    #Preset.cpp
+    #Preset.hpp
+    #PresetBundle.cpp
+    #PresetBundle.hpp
+    #ProjectTask.cpp
+    #ProjectTask.hpp
+    #PrincipalComponents2D.hpp
+    #PrincipalComponents2D.cpp
+	#AppConfig.cpp
+	#AppConfig.hpp
+    Slice3rBase/Print.cpp
+    Slice3rBase/Print.hpp
+    Slice3rBase/PrintApply.cpp
+    Slice3rBase/PrintBase.cpp
+    Slice3rBase/PrintBase.hpp
+    Slice3rBase/PrintConfig.cpp
+    Slice3rBase/PrintConfig.hpp
+    #PrintObject.cpp
+    #PrintObjectSlice.cpp
+    #PrintRegion.cpp
+    Slice3rBase/PNGReadWrite.hpp
+    Slice3rBase/PNGReadWrite.cpp
+    #QuadricEdgeCollapse.cpp
+    #QuadricEdgeCollapse.hpp
+    Slice3rBase/Semver.hpp
+	Slice3rBase/Semver.cpp
+	Slice3rBase/Semver.h
+	Slice3rBase/Semver.c
+    #ShortEdgeCollapse.cpp
+    #ShortEdgeCollapse.hpp
+    Slice3rBase/ShortestPath.cpp
+    Slice3rBase/ShortestPath.hpp
+    #SLAPrint.cpp
+    #SLAPrintSteps.cpp
+    #SLAPrintSteps.hpp
+    #SLAPrint.hpp
+    #Slicing.cpp
+    #Slicing.hpp
+    #SlicesToTriangleMesh.hpp
+    #SlicesToTriangleMesh.cpp
+    #SlicingAdaptive.cpp
+    #SlicingAdaptive.hpp
+    #SupportMaterial.cpp
+    #SupportMaterial.hpp
+    #PrincipalComponents2D.cpp
+    #PrincipalComponents2D.hpp
+    #SupportSpotsGenerator.cpp
+    #SupportSpotsGenerator.hpp
+    #TreeSupport.hpp
+    #TreeSupport.cpp
+    #MinimumSpanningTree.hpp
+    #MinimumSpanningTree.cpp
+    Slice3rBase/Surface.cpp
+    Slice3rBase/Surface.hpp
+    Slice3rBase/SurfaceCollection.cpp
+    Slice3rBase/SurfaceCollection.hpp
+    #SVG.cpp
+    #SVG.hpp
+    Slice3rBase/Technologies.hpp
+    Slice3rBase/Tesselate.cpp
+    Slice3rBase/Tesselate.hpp
+    Slice3rBase/TriangleMesh.cpp
+    Slice3rBase/TriangleMesh.hpp
+    Slice3rBase/TriangleMeshSlicer.cpp
+    Slice3rBase/TriangleMeshSlicer.hpp
+    #MeshSplitImpl.hpp
+    #TriangulateWall.hpp
+    #TriangulateWall.cpp
+    Slice3rBase/utils.cpp
+    Slice3rBase/Utils.hpp
+    Slice3rBase/Time.cpp
+    Slice3rBase/Time.hpp
+    #Thread.cpp
+    #Thread.hpp
+    #TriangleSelector.cpp
+    #TriangleSelector.hpp
+    #TriangleSetSampling.cpp
+    #TriangleSetSampling.hpp
+    Slice3rBase/MTUtils.hpp
+    #VariableWidth.cpp
+    #VariableWidth.hpp
+    #Zipper.hpp
+    #Zipper.cpp
+    Slice3rBase/MinAreaBoundingBox.hpp
+    Slice3rBase/MinAreaBoundingBox.cpp
+    #miniz_extension.hpp
+    #miniz_extension.cpp
+    #MarchingSquares.hpp
+    Slice3rBase/Execution/Execution.hpp
+    Slice3rBase/Execution/ExecutionSeq.hpp
+    Slice3rBase/Execution/ExecutionTBB.hpp
+    #Optimize/Optimizer.hpp
+    #Optimize/NLoptOptimizer.hpp
+    #Optimize/BruteforceOptimizer.hpp
+    #Slice3rBase/SLA/Pad.hpp
+    #Slice3rBase/SLA/Pad.cpp
+    #Slice3rBase/SLA/SupportTreeBuilder.hpp
+    #Slice3rBase/SLA/SupportTreeMesher.hpp
+    #Slice3rBase/SLA/SupportTreeMesher.cpp
+    #Slice3rBase/SLA/SupportTreeBuildsteps.hpp
+    #Slice3rBase/SLA/SupportTreeBuildsteps.cpp
+    #Slice3rBase/SLA/SupportTreeBuilder.cpp
+    Slice3rBase/SLA/Concurrency.hpp
+    #SLA/SupportTree.hpp
+    #SLA/SupportTree.cpp
+#    SLA/SupportTreeIGL.cpp
+    #SLA/Rotfinder.hpp
+    #SLA/Rotfinder.cpp
+    Slice3rBase/SLA/BoostAdapter.hpp
+    Slice3rBase/SLA/SpatIndex.hpp
+    Slice3rBase/SLA/SpatIndex.cpp
+    #SLA/RasterBase.hpp
+    #SLA/RasterBase.cpp
+    #SLA/AGGRaster.hpp
+    #SLA/RasterToPolygons.hpp
+    #SLA/RasterToPolygons.cpp
+    #SLA/ConcaveHull.hpp
+    #SLA/ConcaveHull.cpp
+    #SLA/Hollowing.hpp
+    #SLA/Hollowing.cpp
+    Slice3rBase/SLA/JobController.hpp
+    Slice3rBase/SLA/SupportPoint.hpp
+    Slice3rBase/SLA/SupportPointGenerator.hpp
+    Slice3rBase/SLA/SupportPointGenerator.cpp
+    Slice3rBase/SLA/IndexedMesh.hpp
+    Slice3rBase/SLA/IndexedMesh.cpp
+    Slice3rBase/SLA/Clustering.hpp
+    Slice3rBase/SLA/Clustering.cpp
+    #Slice3rBase/SLA/ReprojectPointsOnMesh.hpp
+    #Arachne/BeadingStrategy/BeadingStrategy.hpp
+    #Arachne/BeadingStrategy/BeadingStrategy.cpp
+    #Arachne/BeadingStrategy/BeadingStrategyFactory.hpp
+    #Arachne/BeadingStrategy/BeadingStrategyFactory.cpp
+    #Arachne/BeadingStrategy/DistributedBeadingStrategy.hpp
+    #Arachne/BeadingStrategy/DistributedBeadingStrategy.cpp
+    #Arachne/BeadingStrategy/LimitedBeadingStrategy.hpp
+    #Arachne/BeadingStrategy/LimitedBeadingStrategy.cpp
+    #Arachne/BeadingStrategy/OuterWallInsetBeadingStrategy.hpp
+    #Arachne/BeadingStrategy/OuterWallInsetBeadingStrategy.cpp
+    #Arachne/BeadingStrategy/RedistributeBeadingStrategy.hpp
+    #Arachne/BeadingStrategy/RedistributeBeadingStrategy.cpp
+    #Arachne/BeadingStrategy/WideningBeadingStrategy.hpp
+    #Arachne/BeadingStrategy/WideningBeadingStrategy.cpp
+    #Arachne/utils/ExtrusionJunction.hpp
+    #Arachne/utils/ExtrusionJunction.cpp
+    #Arachne/utils/ExtrusionLine.hpp
+    #Arachne/utils/ExtrusionLine.cpp
+    #Arachne/utils/HalfEdge.hpp
+    #Arachne/utils/HalfEdgeGraph.hpp
+    #Arachne/utils/HalfEdgeNode.hpp
+    #Arachne/utils/SparseGrid.hpp
+    #Arachne/utils/SparsePointGrid.hpp
+    #Arachne/utils/SparseLineGrid.hpp
+    #Arachne/utils/SquareGrid.hpp
+    #Arachne/utils/SquareGrid.cpp
+    #Arachne/utils/PolygonsPointIndex.hpp
+    #Arachne/utils/PolygonsSegmentIndex.hpp
+    #Arachne/utils/PolylineStitcher.hpp
+    #Arachne/utils/PolylineStitcher.cpp
+    #Arachne/utils/VoronoiUtils.hpp
+    #Arachne/utils/VoronoiUtils.cpp
+    #Arachne/SkeletalTrapezoidation.hpp
+    #Arachne/SkeletalTrapezoidation.cpp
+    #Arachne/SkeletalTrapezoidationEdge.hpp
+    #Arachne/SkeletalTrapezoidationGraph.hpp
+    #Arachne/SkeletalTrapezoidationGraph.cpp
+    #Arachne/SkeletalTrapezoidationJoint.hpp
+    #Arachne/WallToolPaths.hpp
+    #Arachne/WallToolPaths.cpp
+    #Shape/TextShape.hpp
+    #Shape/TextShape.cpp
+    #Slice3rBase/calib.hpp
+    #Slice3rBase/calib.cpp
+	Slice3rBase/clipper/clipper_z.cpp
+	Slice3rBase/clipper/clipper_z.hpp
+	Slice3rBase/fast_float/fast_float.h
+    Slice3rBase/overhangquality/extrusionerocessor.hpp
+	Slice3rBase/overhangquality/overhanghead.hpp
+)
+
+foreach(item ${items})
+	list(APPEND SRCS ${CMAKE_CURRENT_SOURCE_DIR}/${item})
+endforeach()
+
+if(WIN32)
+    list(APPEND LIBS Psapi.lib)
+endif()
+
+list(APPEND LIBS eigen clipper2 admesh boost_filesystem boost_nowide 
+			 boost_regex cereal png_static)
+list(APPEND DEFS BOOST_ALL_NO_LIB TBB_USE_CAPTURED_EXCEPTION=0
+	_CRT_SECURE_NO_WARNINGS _USE_MATH_DEFINES NOMINMAX UNICODE)
+
+if(TARGET tbb_static)
+	list(APPEND DEFS SLICE3R_USE_TBB)
+	list(APPEND LIBS tbb_static)
+endif()
+
+
+
+

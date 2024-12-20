@@ -1,0 +1,1192 @@
+{
+	"support_enable":
+	{
+		"label": "Generate Support",
+		"description": "Generate structures to support parts of the model which have overhangs. Without these structures, such parts would collapse during printing.",
+		"type": "bool",
+		"default_value": "true",
+		"parameter_level": "1",
+		"settable_per_mesh": true,
+		"settable_per_extruder": false
+	},
+	"support_tree_enable":
+	{
+		"label": "Tree Support",
+		"description": "Generate a tree-like support with branches that support your print. This may reduce material usage and print time, but greatly increases slicing time.",
+		"type": "bool",
+		"default_value": "false",
+		"value": "eval(contex.value(\"support_structure\") == 'tree') || eval(contex.value(\"support_structure\") == 'thomastree')",
+		"enabled": "false",
+		"settable_per_mesh": true,
+		"settable_per_extruder": false
+	},
+	"support_structure":
+	{
+		"label": "Support Structure",
+		"description": "Chooses between the techniques available to generate support. \"Normal\" support creates a support structure directly below the overhanging parts and drops those areas straight down. \"Tree\" support creates branches towards the overhanging areas that support the model on the tips of those branches, and allows the branches to crawl around the model to support it from the build plate as much as possible.",
+		"type": "enum",
+		"options":
+		{
+			"normal": "Normal",
+			"tree": "Tree",
+			"thomastree":"ThomasTree"
+		},
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"default_value": "normal",
+		"settable_per_mesh": false,
+		"parameter_level": "1",
+		"settable_per_extruder": false
+	},
+	"support_tree_angle":
+	{
+		"label": "Tree Support Branch Angle",
+		"description": "The angle of the branches. Use a lower angle to make them more vertical and more stable. Use a higher angle to be able to have more reach.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "90",
+		"maximum_value_warning": "60",
+		"default_value": "40",
+		"value": "getEnumValue(\"support_structure\") == 'thomastree' ? 45 : 40",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_tree_branch_distance":
+	{
+		"label": "Tree Support Branch Distance",
+		"description": "How far apart the branches need to be when they touch the model. Making this distance small will cause the tree support to touch the model at more points, causing better overhang but making support harder to remove.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0.001",
+		"default_value": "1",
+		"value": "getEnumValue(\"support_structure\") == 'thomastree' ? 5 : 1",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "getEnumValue(\"support_structure\") == 'tree' && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_tree_top_rate": 
+	{
+		"label": "Tree Support Branch Density",
+		"description": "Adjusts the density of the support structure used to generate the tips of the branches. A higher value results in better overhangs, but the supports are harder to remove. Use Support Roof for very high values or ensure support density is similarly high at the top.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0.1",
+		"minimum_value_warning": "5",
+		"maximum_value_warning": "35",
+		"default_value": "10",
+		"enabled": "getEnumValue(\"support_structure\") == 'thomastree' && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_tree_branch_diameter":
+	{
+		"label": "Tree Support Branch Diameter",
+		"description": "The diameter of the thinnest branches of tree support. Thicker branches are more sturdy. Branches towards the base will be thicker than this.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "eval(contex.value(\"support_line_width\")) * 2",
+		"default_value": "2",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_tree_max_diameter":
+	{
+		"label": "Tree Support Trunk Diameter",
+		"description": "The diameter of the widest branches of tree support. A thicker trunk is more sturdy; a thinner trunk takes up less space on the build plate.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "eval(contex.value(\"support_tree_branch_diameter\"))",
+		"minimum_value_warning": "eval(contex.value(\"support_tree_branch_diameter\")) * 5",
+		"default_value": "15",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	
+	"support_tree_branch_diameter_angle":
+	{
+		"label": "Tree Support Branch Diameter Angle",
+		"description": "The angle of the branches' diameter as they gradually become thicker towards the bottom. An angle of 0 will cause the branches to have uniform thickness over their length. A bit of an angle can increase stability of the tree support.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "89.9999",
+		"maximum_value_warning": "15",
+		"default_value": "5",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_tree_collision_resolution":
+	{
+		"label": "Tree Support Collision Resolution",
+		"description": "Resolution to compute collisions with to avoid hitting the model. Setting this lower will produce more accurate trees that fail less often, but increases slicing time dramatically.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0.001",
+		"minimum_value_warning": "eval(contex.value(\"support_line_width\")) / 4",
+		"maximum_value_warning": "eval(contex.value(\"support_line_width\")) * 2",
+		"default_value": "0.4",
+		"value": "eval(contex.value(\"support_line_width\")) / 2",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\")) && eval(contex.value(\"support_tree_branch_diameter_angle\")) > 0",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_extruder_nr":
+	{
+		"label": "Support Extruder",
+		"description": "The extruder train to use for printing the support. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"parameter_level": "1",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && (eval(contex.value(\"extruders_enabled_count\")) > 1)",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"support_infill_extruder_nr":
+	{
+		"label": "Support Infill Extruder",
+		"description": "The extruder train to use for printing the infill of the support. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"value": "eval(contex.value(\"support_extruder_nr\"))",
+		"parameter_level": "2",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && (eval(contex.value(\"extruders_enabled_count\")) > 1)",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"support_extruder_nr_layer_0":
+	{
+		"label": "First Layer Support Extruder",
+		"description": "The extruder train to use for printing the first layer of support infill. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"value": "eval(contex.value(\"support_extruder_nr\"))",
+		"parameter_level": "2",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && (eval(contex.value(\"extruders_enabled_count\")) > 1)",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"support_interface_extruder_nr":
+	{
+		"label": "Support Interface Extruder",
+		"description": "The extruder train to use for printing the roofs and floors of the support. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"value": "eval(contex.value(\"support_extruder_nr\"))",
+		"parameter_level": "2",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && (eval(contex.value(\"extruders_enabled_count\")) > 1)",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"support_roof_extruder_nr":
+	{
+		"label": "Support Roof Extruder",
+		"description": "The extruder train to use for printing the roofs of the support. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"value": "eval(contex.value(\"support_interface_extruder_nr\"))",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && (eval(contex.value(\"extruders_enabled_count\")) > 1)",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"support_bottom_extruder_nr":
+	{
+		"label": "Support Floor Extruder",
+		"description": "The extruder train to use for printing the floors of the support. This is used in multi-extrusion.",
+		"type": "extruder",
+		"default_value": "0",
+		"value": "eval(contex.value(\"support_interface_extruder_nr\"))",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && (eval(contex.value(\"extruders_enabled_count\")) > 1)",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"support_type":
+	{
+		"label": "Support Placement",
+		"description": "Adjusts the placement of the support structures. The placement can be set to touching build plate or everywhere. When set to everywhere the support structures will also be printed on the model.",
+		"type": "enum",
+		"options":
+		{
+			"buildplate": "Touching Build Plate",
+			"everywhere": "Support Everywhere"
+		},
+		"default_value": "everywhere",
+		"parameter_level": "1",
+		"resolve": "'everywhere' if 'everywhere' in extruderValues('support_type') else 'buildplate'",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": false
+	},
+	"support_angle":
+	{
+		"label": "Support Overhang Angle",
+		"description": "The minimum angle of overhangs for which support is added. At a value of 0° all overhangs are supported, 90° will not provide any support.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "90",
+		"maximum_value_warning": "80",
+		"default_value": "60",
+		"parameter_level": "1",
+		"limit_to_extruder": "support_roof_extruder_nr if support_roof_enable else support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_pattern":
+	{
+		"label": "Support Pattern",
+		"description": "The pattern of the support structures of the print. The different options available result in sturdy or easy to remove support.",
+		"type": "enum",
+		"options":
+		{
+			"lines": "Lines",
+			"grid": "Grid",
+			"triangles": "Triangles",
+			"concentric": "Concentric",
+			"zigzag": "Zig Zag",
+			"cross": "Cross",
+			"gyroid": "Gyroid"
+		},
+		"default_value": "zigzag",
+		"parameter_level": "1",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_wall_count":
+	{
+		"label": "Support Wall Line Count",
+		"description": "The number of walls with which to surround support infill. Adding a wall can make support print more reliably and can support overhangs better, but increases print time and material used.",
+		"default_value": "0",
+		"minimum_value": "0",
+		"minimum_value_warning": "getEnumValue(\"support_pattern\") == 'concentric' ? 1 : 0",
+		"maximum_value_warning": "3",
+		"type": "int",
+		"value": "getEnumValue(\"support_structure\") == 'thomastree' ? 2: eval(contex.value(\"support_tree_enable\")) == true ? 1 : (getEnumValue(\"support_pattern\") == 'grid' || getEnumValue(\"support_pattern\") == 'triangles' || getEnumValue(\"support_pattern\") == 'concentric' ? 1 : 0)",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"zig_zaggify_support":
+	{
+		"label": "Connect Support Lines",
+		"description": "Connect the ends of the support lines together. Enabling this setting can make your support more sturdy and reduce underextrusion, but it will cost more material.",
+		"type": "bool",
+		"default_value": "false",
+		"value": "getEnumValue(\"support_pattern\") == 'cross' || getEnumValue(\"support_pattern\") == 'gyroid'",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && (getEnumValue(\"support_pattern\") == 'grid' || getEnumValue(\"support_pattern\") == 'triangles' || getEnumValue(\"support_pattern\") == 'cross' || getEnumValue(\"support_pattern\") == 'gyroid'|| getEnumValue(\"support_pattern\") == 'line')",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_connect_zigzags":
+	{
+		"label": "Connect Support ZigZags",
+		"description": "Connect the ZigZags. This will increase the strength of the zig zag support structure.",
+		"type": "bool",
+		"default_value": "true",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && getEnumValue(\"support_pattern\") == 'zigzag'",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_infill_rate":
+	{
+		"label": "Support Density",
+		"description": "Adjusts the density of the support structure. A higher value results in better overhangs, but the supports are harder to remove.",
+		"unit": "%",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value_warning": "100",
+		"default_value": "30",
+		"value": "eval(contex.value(\"support_tree_enable\")) == true ? 0:30",
+		"parameter_level": "1",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_line_distance":
+	{
+		"label": "Support Line Distance",
+		"description": "Distance between the printed support structure lines. This setting is calculated by the support density.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"support_tree_enable\")) == true ? 0:eval(contex.value(\"support_line_width\"))",
+		"default_value": "1.33",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"value": "eval(contex.value(\"support_infill_rate\")) == 0 ? 0 : (eval(contex.value(\"support_line_width\")) * 100) / eval(contex.value(\"support_infill_rate\")) * (getEnumValue(\"support_pattern\") == 'grid' ? 2 : (getEnumValue(\"support_pattern\") == 'triangles' ? 3 : 1))",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_initial_layer_line_distance":
+	{
+		"label": "Initial Layer Support Line Distance",
+		"description": "Distance between the printed initial layer support structure lines. This setting is calculated by the support density.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"support_tree_enable\")) == true ? 0:eval(contex.value(\"support_line_width\"))",
+		"default_value": "2.66",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"value": "eval(contex.value(\"support_line_distance\"))",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_infill_angles":
+	{
+		"label": "Support Infill Line Directions",
+		"description": "A list of integer line directions to use. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the default angle 0 degrees.",
+		"type": "[int]",
+		"default_value": "[ ]",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && getEnumValue(\"support_pattern\") != 'concentric' && eval(contex.value(\"support_infill_rate\")) > 0",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_brim_enable":
+	{
+		"label": "Enable Support Brim",
+		"description": "Generate a brim within the support infill regions of the first layer. This brim is printed underneath the support, not around it. Enabling this setting increases the adhesion of support to the build plate.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_brim_width":
+	{
+		"label": "Support Brim Width",
+		"description": "The width of the brim to print underneath the support. A larger brim enhances adhesion to the build plate, at the cost of some extra material.",
+		"type": "float",
+		"unit": "mm",
+		"default_value": "4.0",
+		"minimum_value": "0.0",
+		"maximum_value_warning": "50.0",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && eval(contex.value(\"support_brim_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"parameter_level": "-2",
+		"limit_to_extruder": "support_infill_extruder_nr"
+	},
+	"support_brim_line_count":
+	{
+		"label": "Support Brim Line Count",
+		"description": "The number of lines used for the support brim. More brim lines enhance adhesion to the build plate, at the cost of some extra material.",
+		"type": "int",
+		"default_value": "10",
+		"minimum_value": "0",
+		"maximum_value_warning": "50 / eval(contex.value(\"skirt_brim_line_width\"))",
+		"value": "Math.ceil(eval(contex.value(\"support_brim_width\")) / (eval(contex.value(\"skirt_brim_line_width\")) * eval(contex.value(\"initial_layer_line_width_factor\")) / 100.0))",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && eval(contex.value(\"support_brim_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true,
+		"parameter_level": "4",
+		"limit_to_extruder": "support_infill_extruder_nr"
+	},
+	"support_z_distance":
+	{
+		"label": "Support Z Distance",
+		"description": "Distance from the top/bottom of the support structure to the print. This gap provides clearance to remove the supports after the model is printed. This value is rounded up to a multiple of the layer height.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\"))",
+		"default_value": "0.0",
+		"limit_to_extruder": "support_interface_extruder_nr if support_interface_enable else support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"parameter_level": "-1",
+		"settable_per_mesh": true
+	},
+	"support_top_distance":
+	{
+		"label": "Support Top Distance",
+		"description": "Distance from the top of the support to the print.",
+		"unit": "mm",
+		"minimum_value": "0",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\"))",
+		"default_value": "0.2",
+		"type": "float",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"limit_to_extruder": "support_roof_extruder_nr if support_roof_enable else support_infill_extruder_nr",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"support_bottom_distance":
+	{
+		"label": "Support Bottom Distance",
+		"description": "Distance from the print to the bottom of the support.",
+		"unit": "mm",
+		"minimum_value": "0",
+		"maximum_value_warning": "eval(contex.value(\"machine_nozzle_size\")*2)",
+		"default_value": "0.4",
+		"limit_to_extruder": "support_bottom_extruder_nr if support_bottom_enable else support_infill_extruder_nr",
+		"type": "float",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && getEnumValue(\"support_type\") == 'everywhere'",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"support_xy_distance":
+	{
+		"label": "Support X/Y Distance",
+		"description": "Distance of the support structure from the print in the X/Y directions.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value_warning": "1.5 * eval(contex.value(\"machine_nozzle_tip_outer_diameter\"))",
+		"default_value": "0.8",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_xy_overrides_z":
+	{
+		"label": "Support Distance Priority",
+		"description": "Whether the Support X/Y Distance overrides the Support Z Distance or vice versa. When X/Y overrides Z the X/Y distance can push away the support from the model, influencing the actual Z distance to the overhang. We can disable this by not applying the X/Y distance around overhangs.",
+		"type": "enum",
+		"options":
+		{
+			"xy_overrides_z": "X/Y overrides Z",
+			"z_overrides_xy": "Z overrides X/Y"
+		},
+		"default_value": "xy_overrides_z",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_xy_distance_overhang":
+	{
+		"label": "Minimum Support X/Y Distance",
+		"description": "Distance of the support structure from the overhang in the X/Y directions. ",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"support_xy_distance\")) - eval(contex.value(\"support_line_width\")) * 2",
+		"maximum_value_warning": "eval(contex.value(\"support_xy_distance\"))",
+		"default_value": "0.2",
+		"value": "eval(contex.value(\"machine_nozzle_size\")) / 2",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_enable\")) && getEnumValue(\"support_xy_overrides_z\") == 'z_overrides_xy'",
+		"settable_per_mesh": true
+	},
+	"support_bottom_stair_step_height":
+	{
+		"label": "Support Stair Step Height",
+		"description": "The height of the steps of the stair-like bottom of support resting on the model. A low value makes the support harder to remove, but too high values can lead to unstable support structures. Set to zero to turn off the stair-like behaviour.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.3",
+		"limit_to_extruder": "support_bottom_extruder_nr if support_bottom_enable else support_infill_extruder_nr",
+		"minimum_value": "0",
+		"maximum_value_warning": "1.0",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_bottom_stair_step_width":
+	{
+		"label": "Support Stair Step Maximum Width",
+		"description": "The maximum width of the steps of the stair-like bottom of support resting on the model. A low value makes the support harder to remove, but too high values can lead to unstable support structures.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "5.0",
+		"limit_to_extruder": "support_interface_extruder_nr if support_interface_enable else support_infill_extruder_nr",
+		"minimum_value": "0",
+		"maximum_value_warning": "10.0",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_bottom_stair_step_min_slope":
+	{
+		"label": "Support Stair Step Minimum Slope Angle",
+		"description": "The minimum slope of the area for stair-stepping to take effect. Low values should make support easier to remove on shallower slopes, but really low values may result in some very counter-intuitive results on other parts of the model.",
+		"unit": "°",
+		"type": "float",
+		"default_value": "10.0",
+		"limit_to_extruder": "support_bottom_extruder_nr if support_bottom_enable else support_infill_extruder_nr",
+		"minimum_value": "0.01",
+		"maximum_value": "89.99",
+		"enabled": "support_enable or support_meshes_present",
+		"settable_per_mesh": true
+	},
+	"support_join_distance":
+	{
+		"label": "Support Join Distance",
+		"description": "The maximum distance between support structures in the X/Y directions. When separate structures are closer together than this value, the structures merge into one.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "2.0",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"minimum_value_warning": "0",
+		"maximum_value_warning": "10",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_offset":
+	{
+		"label": "Support Horizontal Expansion",
+		"description": "Amount of offset applied to all support polygons in each layer. Positive values can smooth out the support areas and result in more sturdy support.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.0",
+		"parameter_level": "1",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"minimum_value_warning": "-1 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "10 * eval(contex.value(\"machine_nozzle_size\"))",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_infill_sparse_thickness":
+	{
+		"label": "Support Infill Layer Thickness",
+		"description": "The thickness per layer of support infill material. This value should always be a multiple of the layer height and is otherwise rounded.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.15",
+		"minimum_value": "eval(contex.value(\"layer_height\"))",
+		"maximum_value_warning": "0.75 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value": "eval(contex.value(\"layer_height\")) * 8",
+		"parameter_level": "1",
+		"value": "eval(contex.value(\"layer_height\"))",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && eval(contex.value(\"support_infill_rate\")) > 0",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false
+	},
+	"gradual_support_infill_steps":
+	{
+		"label": "Gradual Support Infill Steps",
+		"description": "Number of times to reduce the support infill density by half when getting further below top surfaces. Areas which are closer to top surfaces get a higher density, up to the Support Infill Density.",
+		"default_value": "0",
+		"type": "int",
+		"minimum_value": "0",
+		"maximum_value_warning": "(getEnumValue(\"support_pattern\") == 'cross' || getEnumValue(\"support_pattern\") == 'lines' || getEnumValue(\"support_pattern\") == 'zigzag' || getEnumValue(\"support_pattern\") == 'concentric') ? 1 : 5",
+		"maximum_value": "eval(contex.value(\"support_line_distance\")) == 0 ? 999999 : (20 - (Math.log(eval(contex.value(\"support_line_distance\"))) / Math.log(2)))",
+		"parameter_level": "1",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && eval(contex.value(\"support_infill_rate\")) > 0",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false
+	},
+	"gradual_support_infill_step_height":
+	{
+		"label": "Gradual Support Infill Step Height",
+		"description": "The height of support infill of a given density before switching to half the density.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1",
+		"minimum_value": "0.0001",
+		"minimum_value_warning": "3 * eval(contex.value(\"layer_height\"))",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && eval(contex.value(\"support_infill_rate\")) > 0 && eval(contex.value(\"gradual_support_infill_steps\")) > 0",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": false
+	},
+	"minimum_support_area": 
+	{
+		"label": "Minimum Support Area",
+		"description": "Minimum area size for support polygons. Polygons which have an area smaller than this value will not be generated.",
+		"unit": "mm²",
+		"type": "float",
+		"default_value": "5",
+		"minimum_value": "0.0",
+		"maximum_value_warning": "getEnumValue(\"support_structure\") == 'thomastree' ? 5 : 10",
+		"value": "getEnumValue(\"support_structure\") == 'thomastree' ? 0 : 5",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"settable_per_mesh": true
+	},
+	"support_interface_enable":
+	{
+		"label": "Enable Support Interface",
+		"description": "Generate a dense interface between the model and the support. This will create a skin at the top of the support on which the model is printed and at the bottom of the support, where it rests on the model.",
+		"type": "bool",
+		"default_value": "true",
+		"parameter_level": "2",
+		"limit_to_extruder": "support_interface_extruder_nr",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_roof_enable":
+	{
+		"label": "Enable Support Roof",
+		"description": "Generate a dense slab of material between the top of support and the model. This will create a skin between the model and support.",
+		"type": "bool",
+		"default_value": "true",
+		"value": "eval(contex.value(\"support_interface_enable\"))",
+		"parameter_level": "2",
+		"limit_to_extruder": "support_roof_extruder_nr",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_bottom_enable":
+	{
+		"label": "Enable Support Floor",
+		"description": "Generate a dense slab of material between the bottom of the support and the model. This will create a skin between the model and support.",
+		"type": "bool",
+		"default_value": "true",
+		"value": "eval(contex.value(\"support_interface_enable\"))",
+		"parameter_level": "2",
+		"limit_to_extruder": "support_bottom_extruder_nr",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_interface_height":
+	{
+		"label": "Support Interface Thickness",
+		"description": "The thickness of the interface of the support where it touches with the model on the bottom or the top.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.8",
+		"minimum_value": "0",
+		"minimum_value_warning": "0.2 + eval(contex.value(\"layer_height\"))",
+		"maximum_value_warning": "10",
+		"limit_to_extruder": "support_interface_extruder_nr",
+		"enabled": "eval(contex.value(\"support_interface_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "-1",
+		"settable_per_mesh": true
+	},
+	"support_roof_height":
+	{
+		"label": "Support Roof Thickness",
+		"description": "The thickness of the support roofs. This controls the amount of dense layers at the top of the support on which the model rests.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.8",
+		"minimum_value": "0",
+		"minimum_value_warning": "0.2 + eval(contex.value(\"layer_height\"))",
+		"maximum_value_warning": "10",
+		"value": "eval(contex.value(\"support_interface_height\"))",
+		"limit_to_extruder": "support_roof_extruder_nr",
+		"enabled": "eval(contex.value(\"support_roof_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"support_bottom_height":
+	{
+		"label": "Support Floor Thickness",
+		"description": "The thickness of the support floors. This controls the number of dense layers that are printed on top of places of a model on which support rests.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1",
+		"value": "eval(contex.value(\"support_interface_height\"))",
+		"minimum_value": "0",
+		"minimum_value_warning": "Math.min(0.2 + eval(contex.value(\"layer_height\")), eval(contex.value(\"support_bottom_stair_step_height\")))",
+		"maximum_value_warning": "10",
+		"limit_to_extruder": "support_bottom_extruder_nr",
+		"enabled": "eval(contex.value(\"support_bottom_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"support_interface_skip_height": 
+	{
+		"label": "Support Interface Resolution",
+		"description": "When checking whether there's a model above or below the support, take steps of the given height. The lower the value, the slower the slicing speed, while higher values may cause normal support to be printed in some places where there should have been support interface.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.2",
+		"minimum_value": "0",
+		"maximum_value_warning": "eval(contex.value(\"support_interface_height\"))",
+		"limit_to_extruder": "support_interface_extruder_nr",
+		"enabled": "eval(contex.value(\"support_interface_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"settable_per_mesh": true
+	},
+	"support_interface_density":
+	{
+		"label": "Support Interface Density",
+		"description": "Adjusts the density of the roofs and floors of the support structure. A higher value results in better overhangs, but the supports are harder to remove.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "33.3",
+		"minimum_value": "0",
+		"maximum_value_warning": "100",
+		"limit_to_extruder": "support_interface_extruder_nr",
+		"value": "getEnumValue(\"support_structure\") == 'thomastree' ? 10 : 33.3",
+		"enabled": "eval(contex.value(\"support_interface_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "-2",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_roof_density":
+	{
+		"label": "Support Roof Density",
+		"description": "The density of the roofs of the support structure. A higher value results in better overhangs, but the supports are harder to remove.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "40",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"limit_to_extruder": "support_roof_extruder_nr",
+		"enabled": "eval(contex.value(\"support_roof_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"value": "eval(contex.value(\"support_interface_density\"))",
+		"parameter_level": "3",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_roof_line_distance":
+	{
+		"label": "Support Roof Line Distance",
+		"description": "Distance between the printed support roof lines. This setting is calculated by the Support Roof Density, but can be adjusted separately.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1.2",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"support_roof_line_width\")) - 0.0001",
+		"value": "eval(contex.value(\"support_roof_density\")) == 0 ? 0 : (eval(contex.value(\"support_roof_line_width\")) * 100) / eval(contex.value(\"support_roof_density\")) * (getEnumValue(\"support_roof_pattern\") == 'grid' ? 2 : (getEnumValue(\"support_roof_pattern\") == 'triangles' ? 3 : 1))",
+		"limit_to_extruder": "support_roof_extruder_nr",
+		"enabled": "eval(contex.value(\"support_roof_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_bottom_density":
+	{
+		"label": "Support Floor Density",
+		"description": "The density of the floors of the support structure. A higher value results in better adhesion of the support on top of the model.",
+		"unit": "%",
+		"type": "float",
+		"default_value": "33.3",
+		"minimum_value": "0",
+		"maximum_value": "100",
+		"limit_to_extruder": "support_bottom_extruder_nr",
+		"enabled": "eval(contex.value(\"support_bottom_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"value": "eval(contex.value(\"support_interface_density\"))",
+		"parameter_level": "3",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_bottom_line_distance":
+	{
+		"label": "Support Floor Line Distance",
+		"description": "Distance between the printed support floor lines. This setting is calculated by the Support Floor Density, but can be adjusted separately.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "1.2",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"support_bottom_line_width\")) - 0.0001",
+		"value": "eval(contex.value(\"support_bottom_density\")) == 0 ? 0 : (eval(contex.value(\"support_bottom_line_width\")) * 100) / eval(contex.value(\"support_bottom_density\")) * (getEnumValue(\"support_bottom_pattern\") == 'grid' ? 2 : (getEnumValue(\"support_bottom_pattern\") == 'triangles' ? 3 : 1))",
+		"limit_to_extruder": "support_bottom_extruder_nr",
+		"enabled": "eval(contex.value(\"support_bottom_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_interface_pattern":
+	{
+		"label": "Support Interface Pattern",
+		"description": "The pattern with which the interface of the support with the model is printed.",
+		"type": "enum",
+		"options":
+		{
+			"lines": "Lines",
+			"grid": "Grid",
+			"triangles": "Triangles",
+			"concentric": "Concentric",
+			"zigzag": "Zig Zag"
+		},
+		"default_value": "lines",
+		"limit_to_extruder": "support_interface_extruder_nr",
+		"enabled": "eval(contex.value(\"support_interface_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_roof_pattern":
+	{
+		"label": "Support Roof Pattern",
+		"description": "The pattern with which the roofs of the support are printed.",
+		"type": "enum",
+		"options":
+		{
+			"lines": "Lines",
+			"grid": "Grid",
+			"triangles": "Triangles",
+			"concentric": "Concentric",
+			"zigzag": "Zig Zag"
+		},
+		"default_value": "lines",
+		"value": "getEnumValue(\"support_interface_pattern\")",
+		"limit_to_extruder": "support_roof_extruder_nr",
+		"enabled": "eval(contex.value(\"support_roof_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_bottom_pattern":
+	{
+		"label": "Support Floor Pattern",
+		"description": "The pattern with which the floors of the support are printed.",
+		"type": "enum",
+		"options":
+		{
+			"lines": "Lines",
+			"grid": "Grid",
+			"triangles": "Triangles",
+			"concentric": "Concentric",
+			"zigzag": "Zig Zag"
+		},
+		"default_value": "lines",
+		"value": "getEnumValue(\"support_interface_pattern\")",
+		"limit_to_extruder": "support_bottom_extruder_nr",
+		"enabled": "eval(contex.value(\"support_bottom_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"minimum_interface_area": 
+	{
+		"label": "Minimum Support Interface Area",
+		"description": "Minimum area size for support interface polygons. Polygons which have an area smaller than this value will be printed as normal support.",
+		"unit": "mm²",
+		"type": "float",
+		"default_value": "10",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"minimum_support_area\"))",
+		"limit_to_extruder": "support_interface_extruder_nr",
+		"enabled": "eval(contex.value(\"support_interface_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"settable_per_mesh": true
+	},
+	"minimum_roof_area": 
+	{
+		"label": "Minimum Support Roof Area",
+		"description": "Minimum area size for the roofs of the support. Polygons which have an area smaller than this value will be printed as normal support.",
+		"unit": "mm²",
+		"type": "float",
+		"default_value": "10",
+		"value": "eval(contex.value(\"minimum_interface_area\"))",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"minimum_support_area\"))",
+		"limit_to_extruder": "support_roof_extruder_nr",
+		"enabled": "eval(contex.value(\"support_roof_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"minimum_bottom_area": 
+	{
+		"label": "Minimum Support Floor Area",
+		"description": "Minimum area size for the floors of the support. Polygons which have an area smaller than this value will be printed as normal support.",
+		"unit": "mm²",
+		"type": "float",
+		"default_value": "10",
+		"value": "eval(contex.value(\"minimum_interface_area\"))",
+		"minimum_value": "0",
+		"minimum_value_warning": "eval(contex.value(\"minimum_support_area\"))",
+		"limit_to_extruder": "support_bottom_extruder_nr",
+		"enabled": "eval(contex.value(\"support_bottom_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "4",
+		"settable_per_mesh": true
+	},
+	"support_interface_offset": 
+	{
+		"label": "Support Interface Horizontal Expansion",
+		"description": "Amount of offset applied to the support interface polygons.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.0",
+		"maximum_value": "eval(contex.value(\"support_offset\"))",
+		"limit_to_extruder": "support_interface_extruder_nr",
+		"enabled": "eval(contex.value(\"support_interface_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_roof_offset": 
+	{
+		"label": "Support Roof Horizontal Expansion",
+		"description": "Amount of offset applied to the roofs of the support.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.0",
+		"value": "eval(contex.value(\"support_interface_offset\"))",
+		"maximum_value": "eval(contex.value(\"support_offset\"))",
+		"limit_to_extruder": "support_roof_extruder_nr",
+		"enabled": "eval(contex.value(\"support_roof_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_bottom_offset": 
+	{
+		"label": "Support Floor Horizontal Expansion",
+		"description": "Amount of offset applied to the floors of the support.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "0.0",
+		"value": "eval(contex.value(\"support_interface_offset\"))",
+		"maximum_value": "eval(contex.value(\"support_offset\"))",
+		"limit_to_extruder": "support_bottom_extruder_nr",
+		"enabled": "eval(contex.value(\"support_bottom_enable\")) && (eval(contex.value(\"support_enable\")))",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_interface_angles":
+	{
+		"label": "Support Interface Line Directions",
+		"description": "A list of integer line directions to use. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the default angles (alternates between 45 and 135 degrees if interfaces are quite thick or 90 degrees).",
+		"type": "[int]",
+		"default_value": "[ ]",
+		"limit_to_extruder": "support_interface_extruder_nr",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && eval(contex.value(\"support_interface_enable\")) && getEnumValue(\"support_interface_pattern\") != 'concentric'",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_roof_angles":
+	{
+		"label": "Support Roof Line Directions",
+		"description": "A list of integer line directions to use. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the default angles (alternates between 45 and 135 degrees if interfaces are quite thick or 90 degrees).",
+		"type": "[int]",
+		"default_value": "[ ]",
+		"value": "getEnumValue(\"support_interface_angles\")",
+		"limit_to_extruder": "support_roof_extruder_nr",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && eval(contex.value(\"support_roof_enable\")) && getEnumValue(\"support_roof_pattern\") != 'concentric'",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_bottom_angles":
+	{
+		"label": "Support Floor Line Directions",
+		"description": "A list of integer line directions to use. Elements from the list are used sequentially as the layers progress and when the end of the list is reached, it starts at the beginning again. The list items are separated by commas and the whole list is contained in square brackets. Default is an empty list which means use the default angles (alternates between 45 and 135 degrees if interfaces are quite thick or 90 degrees).",
+		"type": "[int]",
+		"default_value": "[ ]",
+		"value": "getEnumValue(\"support_interface_angles\")",
+		"limit_to_extruder": "support_bottom_extruder_nr",
+		"enabled": "(eval(contex.value(\"support_enable\"))) && eval(contex.value(\"support_bottom_enable\")) && getEnumValue(\"support_bottom_pattern\") != 'concentric'",
+		"parameter_level": "4",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_fan_enable":
+	{
+		"label": "Fan Speed Override",
+		"description": "When enabled, the print cooling fan speed is altered for the skin regions immediately above the support.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false
+	},
+	"support_use_towers":
+	{
+		"label": "Use Towers",
+		"description": "Use specialized towers to support tiny overhang areas. These towers have a larger diameter than the region they support. Near the overhang the towers' diameter decreases, forming a roof.",
+		"type": "bool",
+		"default_value": "false",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": true
+	},
+	"support_tower_diameter":
+	{
+		"label": "Tower Diameter",
+		"description": "The diameter of a special tower.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "3.0",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"minimum_value": "0",
+		"minimum_value_warning": "2 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "20",
+		"enabled": "eval(contex.value(\"support_enable\")) && eval(contex.value(\"support_use_towers\"))",
+		"settable_per_mesh": true
+	},
+	"support_tower_maximum_supported_diameter":
+	{
+		"label": "Maximum Tower-Supported Diameter",
+		"description": "Maximum diameter in the X/Y directions of a small area which is to be supported by a specialized support tower.",
+		"unit": "mm",
+		"type": "float",
+		"default_value": "3.0",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"minimum_value": "0",
+		"minimum_value_warning": "2 * eval(contex.value(\"machine_nozzle_size\"))",
+		"maximum_value_warning": "20",
+		"maximum_value": "support_tower_diameter",
+		"enabled": "eval(contex.value(\"support_enable\")) && eval(contex.value(\"support_use_towers\"))",
+		"settable_per_mesh": true
+	},
+	"support_tower_roof_angle":
+	{
+		"label": "Tower Roof Angle",
+		"description": "The angle of a rooftop of a tower. A higher value results in pointed tower roofs, a lower value results in flattened tower roofs.",
+		"unit": "°",
+		"type": "int",
+		"minimum_value": "0",
+		"maximum_value": "90",
+		"default_value": "65",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_enable\")) && eval(contex.value(\"support_use_towers\"))",
+		"settable_per_mesh": true
+	},
+	"support_mesh_drop_down":
+	{
+		"label": "Drop Down Support Mesh",
+		"description": "Make support everywhere below the support mesh, so that there's no overhang in the support mesh.",
+		"type": "bool",
+		"default_value": "true",
+		"enabled": "eval(contex.value(\"support_mesh\"))",
+		"settable_per_mesh": true,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": false,
+		"settable_globally": false
+	},
+	"support_meshes_present":
+	{
+		"label": "Scene Has Support Meshes",
+		"description": "There are support meshes present in the scene. This setting is controlled by Cura.",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": false,
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": false
+	},
+	"support_mesh_clip":
+	{
+		"label": "Support Mesh Clip",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"support_mesh\"))",
+		"settable_per_mesh": true,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": false,
+		"settable_globally": false
+	},
+	"support_tree_tip_diameter": 
+	{
+		"label": "Tree Support Tip Diameter",
+		"description": "The diameter of the top of the tip of the branches of tree support.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "min_wall_line_width",
+		"minimum_value_warning": "min_wall_line_width+0.05",
+		"maximum_value": "support_tree_branch_diameter",
+		"default_value": "0.8",
+		"value": "eval(contex.value(\"support_line_width\"))*2.25*eval(contex.value(\"support_wall_count\"))",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_tree_angle_slow": 
+	{
+		"label": "Tree Support Branch Angle Slow",
+		"description": "The preferred angle of the branches, when they do not have to avoid the model. Use a lower angle to make them more vertical and more stable. Use a higher angle for branches to merge faster.",
+		"unit": "°",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value": "support_tree_angle",
+		"maximum_value_warning": "support_tree_angle-1",
+		"default_value": "40",
+		"value": "eval(contex.value(\"support_tree_angle\")) * 0.7",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_tree_max_diameter_increase_by_merges_when_support_to_model": 
+	{
+		"label": "The Support Diameter Increase To Model",
+		"description": "The most the diameter of a branch that has to connect to the model may increase by merging with branches that could reach the buildplate. Increasing this reduces print time, but increases the area of support that rests on model",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"default_value": "1",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_tree_min_height_to_model": 
+	{
+		"label": "Tree Support Minimum Height To Model",
+		"description": "How tall a branch hasto be if it is placed on the model.on the model. Prevents small blobs of support. This setting is ignored when a branch is supporting a support roof.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value_warning": "5",
+		"default_value": "1",
+		"limit_to_extruder": "support_infill_extruder_nr",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_tree_rest_preference": 
+	{
+		"label": "Tree Support Rest Preference",
+		"description": "The preferred placement of the support structure. If structures cant be placed at the preferred location,they will be place everywhere.",
+		"type": "enum",
+		"options": 
+		{
+			"buildplate": "Buildplate",
+			"graceful": "Graceful"
+		},
+		"default_value": "buildplate",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_tree_bp_diameter": 
+	{
+		"label": "Tree Support Inital Layer Diameter",
+		"description": "Diameter every branch tries to achieve when reaching the buildplate. Improves bed adhesion.",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "0",
+		"maximum_value_warning": "20",
+		"default_value": "7.5",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_interface_priority": 
+	{
+		"label": "Support interface priority.",
+		"description": "How support interface and support will interact when they overlap. Currently only implemented for support roof.",
+		"type": "enum",
+		"options": 
+		{
+		"support_area_overwrite_interface_area": "SUPPORT_AREA_OVERWRITES_INTERFACE",
+		"interface_area_overwrite_support_area": "INTERFACE_AREA_OVERWRITES_SUPPORT",
+		"support_lines_overwrite_interface_area": "SUPPORT_LINES_OVERWRITE_INTERFACE",
+		"interface_lines_overwrite_support_area": "INTERFACE_LINES_OVERWRITE_SUPPORT",
+		"nothing": "NOTHING"
+		},
+		"default_value": "interface_area_overwrite_support_area",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	},
+	"support_tree_limit_branch_reach":
+	{
+		"label": "The Support Tree Branch Reach.",
+		"description": "Limit how far each branch should travel from the point it supports. This can make the support more sturdy, but will increase the amount of branches (and because of that material usage/print time)",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false
+	},
+	"support_tree_branch_reach_limit": 
+	{
+		"label": "The Support Tree Branch Reach Limit",
+		"description": "A recomendation to how far branches can move from the points they support. Branches can violate this value to reach their destination (buildplate or a flat part of the model). Lowering this value will make the support more sturdy, but increase the amount of branches (and because of that material usage/print time)",
+		"unit": "mm",
+		"type": "float",
+		"minimum_value": "1",
+		"minimum_value_warning": "10",
+		"default_value": "50",
+		"enabled": "eval(contex.value(\"support_tree_enable\")) && eval(contex.value(\"support_enable\"))",
+		"settable_per_mesh": false,
+		"settable_per_extruder": true
+	}
+}

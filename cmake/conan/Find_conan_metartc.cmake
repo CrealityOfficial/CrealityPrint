@@ -1,0 +1,1 @@
+__conan_import(metartc lib COMPONENT metartc6 metartccore6 yangwincodec6)

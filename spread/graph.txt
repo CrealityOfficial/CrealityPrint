@@ -1,0 +1,8 @@
+boost_static/1.0.0
+rapidjson/1.0.0
+stb/0.0.2
+polyclipping/0.0.1
+clipper2/0.0.1
+admesh/0.0.1
+tbb_static/2.0.0
+cereal/0.0.1

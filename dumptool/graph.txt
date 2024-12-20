@@ -1,0 +1,4 @@
+aliyunoss_static/1.0.0
+boost_static/1.0.0
+quazip_static/1.0.0
+rapidjson/1.0.0 

@@ -1,0 +1,1 @@
+__sub_build_info_string("TRANSLATE_CONTEXT" "cxTranslation")

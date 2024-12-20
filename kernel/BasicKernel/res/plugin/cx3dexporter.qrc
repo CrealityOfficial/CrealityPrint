@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/cx3d">
+        <file>cx3d_exporter/export.qml</file>
+        <file>cx3d_exporter/import.qml</file>
+        <file>cx3d_exporter/.cxprj</file>
+    </qresource>
+</RCC>

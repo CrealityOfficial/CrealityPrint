@@ -1,0 +1,22 @@
+{
+    "name": "FDM Printer Base Description",
+    "version": 2,
+	"subs":[
+		"machine.json",
+		"resolution.json",
+		"shell.json",
+		"infill.json",
+		"material.json",
+		"speed.json",
+		"travel.json",
+		"cooling.json",
+		"support.json",
+		"platform_adhesion.json",
+		"dual.json",
+		"meshfix.json",
+		"blackmagic.json",
+		"experimental.json",
+		"command_line_settings.json",
+		"special.json"
+	]
+}

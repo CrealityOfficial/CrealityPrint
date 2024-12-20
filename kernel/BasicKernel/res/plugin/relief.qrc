@@ -1,0 +1,60 @@
+<RCC>
+  <qresource>
+    <file>relief/info.qml</file>
+    <file>relief/ReliefIndicator.qml</file>
+
+    <file>relief/image/execute_disabled.svg</file>
+    <file>relief/image/execute_enabled.svg</file>
+    <file>relief/image/execute_hovered.svg</file>
+    <file>relief/image/execute_pressed.svg</file>
+
+    <file>relief/image/text.svg</file>
+    <file>relief/image/text_checked.svg</file>
+    <file>relief/image/shape.svg</file>
+    <file>relief/image/shape_checked.svg</file>
+
+    <file>relief/image/rectangle.svg</file>
+    <file>relief/image/rectangle_checked.svg</file>
+    <file>relief/image/circle.svg</file>
+    <file>relief/image/circle_checked.svg</file>
+    <file>relief/image/triangle.svg</file>
+    <file>relief/image/triangle_checked.svg</file>
+    <file>relief/image/load.svg</file>
+    <file>relief/image/load_checked.svg</file>
+    <file>relief/image/tip.svg</file>
+    <file>relief/image/tip_checked.svg</file>
+
+    <file>relief/image/font_bold.svg</file>
+    <file>relief/image/font_bold_checked.svg</file>
+    <file>relief/image/font_italic.svg</file>
+    <file>relief/image/font_italic_checked.svg</file>
+
+
+
+    <file>relief/image/execute_disabled_light.svg</file>
+    <file>relief/image/execute_enabled_light.svg</file>
+    <file>relief/image/execute_hovered_light.svg</file>
+    <file>relief/image/execute_pressed_light.svg</file>
+
+    <file>relief/image/text_light.svg</file>
+    <file>relief/image/text_light_checked.svg</file>
+    <file>relief/image/shape_light.svg</file>
+    <file>relief/image/shape_light_checked.svg</file>
+
+    <file>relief/image/rectangle_light.svg</file>
+    <file>relief/image/rectangle_light_checked.svg</file>
+    <file>relief/image/circle_light.svg</file>
+    <file>relief/image/circle_light_checked.svg</file>
+    <file>relief/image/triangle_light.svg</file>
+    <file>relief/image/triangle_light_checked.svg</file>
+    <file>relief/image/load_light.svg</file>
+    <file>relief/image/load_light_checked.svg</file>
+    <file>relief/image/tip_light.svg</file>
+    <file>relief/image/tip_light_checked.svg</file>
+
+    <file>relief/image/font_bold_light.svg</file>
+    <file>relief/image/font_bold_light_checked.svg</file>
+    <file>relief/image/font_italic_light.svg</file>
+    <file>relief/image/font_italic_light_checked.svg</file>
+  </qresource>
+</RCC>

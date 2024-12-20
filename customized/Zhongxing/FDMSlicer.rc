@@ -1,0 +1,29 @@
+IDI_ICON1 				ICON    DISCARDABLE		"FDMSlicer.ico"
+IDI_ICON2               ICON    DISCARDABLE     "stl.ico"
+IDI_ICON3               ICON    DISCARDABLE     "obj.ico"
+IDI_ICON4               ICON    DISCARDABLE     "cx3d.ico"
+IDI_ICON5               ICON    DISCARDABLE     "gcode.ico"
+
+1 VERSIONINFO
+FILEVERSION     1,0,0,0
+PRODUCTVERSION  1,0,0,0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "080904E4"
+    BEGIN
+      VALUE "CompanyName", "CREALITY"
+      VALUE "FileDescription", "FDMSlicer"//
+      VALUE "FileVersion", "1.0"
+      VALUE "InternalName", "FDM Slicer"
+      VALUE "LegalCopyright", "Creality Company"
+      VALUE "OriginalFilename", "FDMSlicer.exe"//by TCJ
+      VALUE "ProductName", "FDMSlicer"//
+      VALUE "ProductVersion", "1.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x809, 1252
+  END
+END

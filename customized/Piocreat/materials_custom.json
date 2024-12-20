@@ -1,0 +1,346 @@
+{
+  "materials": [
+    {
+      "name": "Ender-PLA",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75,2.85"
+    },
+    {
+      "name": "Ender-PLA+",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-PLA",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-PLA Carbon",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PLA-CF",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PP",
+      "type": "PP",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PA-CF",
+      "type": "PA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-PA-CF",
+      "type": "PA-CF",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-PA",
+      "type": "PA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-PA Carbon",
+      "type": "PA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-Carbon",
+      "type": "Carbon",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PA66",
+      "type": "PA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PA",
+      "type": "PA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PLA-CarbonFiber",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-PLA Matte",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "HP ULTRA PLA",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Ender-ABS",
+      "type": "ABS",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75,2.85"
+    },
+    {
+      "name": "Ender-ABS+",
+      "type": "ABS",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75,2.85"
+    },
+    {
+      "name": "CR-wood",
+      "type": "Wood",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Silk-PLA",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-Silk",
+      "type": "Silk",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PA6-CF15",
+      "type": "CF15",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-PETG",
+      "type": "PETG",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-PETG",
+      "type": "PETG",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-Nylon",
+      "type": "Nylon",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-ABS",
+      "type": "ABS",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "HP ULTRA ABS",
+      "type": "ABS",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "HP-ASA",
+      "type": "ASA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PolyLite ASA",
+      "type": "ASA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PolyLite PC",
+      "type": "PC",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PolySupport S1",
+      "type": "Support",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "HP-TPU",
+      "type": "TPU",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-TPU",
+      "type": "TPU",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "TPC",
+      "type": "TPC",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-PC",
+      "type": "PC",
+      "brand": "Polymaker",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-PC",
+      "type": "PC",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "CR-HIPS",
+      "type": "HIPS",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "HP-HIPS",
+      "type": "HIPS",
+      "brand": "Polymaker",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-ABS",
+      "type": "ABS",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-PLA",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-PLA-CF",
+      "type": "PLA-CF",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-TPU",
+      "type": "TPU",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-PC-ABS",
+      "type": "PC-ABS",
+      "brand": "Polymaker",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "PC-ABS",
+      "type": "PC-ABS",
+      "brand": "Polymaker",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-ASA",
+      "type": "ASA",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-PET",
+      "type": "PET",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Ultrafuse PET",
+      "type": "PET",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Ultrafuse 316L",
+      "type": "316L",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Ultrafuse ABSfusion+",
+      "type": "ABSfusion+",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Ultrafuse ASA",
+      "type": "ASA",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Ultrafuse BVOH",
+      "type": "BVOH",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Ultrafuse HiPS",
+      "type": "HiPS",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Ultrafuse PETG",
+      "type": "PETG",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Ultrafuse Support",
+      "type": "Support",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Ultrafuse PET CF15",
+      "type": "PET",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Hyper PLA",
+      "type": "PLA",
+      "brand": "PIOCREAT",
+      "supportDiameters": "1.75"
+    },
+    {
+      "name": "Generic-PET-CF",
+      "type": "PET-CF",
+      "brand": "BASF",
+      "supportDiameters": "1.75"
+    }
+  ]
+}

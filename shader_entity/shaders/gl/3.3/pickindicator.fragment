@@ -1,0 +1,11 @@
+#version 330 core
+
+flat in vec4 passColor;
+
+layout (location = 0) out vec4 fragColor;
+
+void main()
+{
+	fragColor = passColor;
+}
+ 

@@ -1,0 +1,14 @@
+/* texshape.fragment */
+
+uniform sampler2D shapeTexture;
+
+varying vec2 texcoord;
+void main() 
+{
+	vec4 color = texture2D(shapeTexture, texcoord);
+	if(color.a == 0.0)
+	{
+		color = vec4(0.44, 0.44, 0.44, 1.0);
+	}
+	gl_FragColor = vec4(color.rgb, 1.0);  
+}

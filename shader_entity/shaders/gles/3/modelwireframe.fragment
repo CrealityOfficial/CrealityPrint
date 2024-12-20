@@ -1,0 +1,174 @@
+#version 300 es
+/* modelwireframe.fragment */
+precision mediump float;
+out vec4 fragmentColor;
+
+in vec3 viewDirection;
+in vec3 normal;
+in vec3 gnormal;
+in vec3 worldPosition;
+in vec3 worldWater;
+in vec3 barycentric;
+//in vec3 gcolor;
+
+uniform vec4 ambient;
+uniform vec4 diffuse;
+uniform vec4 specular;
+const float specularPower = 4.5;
+const vec3 lightDirection = vec3(1.0, 0.0, 1.0);
+
+uniform int lightingEnable;
+uniform float transparency;
+
+uniform vec3 minSpace;
+uniform vec3 maxSpace;
+uniform float bottom; 
+uniform float topVisibleHeight;
+uniform float bottomVisibleHeight;
+uniform float error;
+uniform float supportCos;
+
+uniform int hoverState;
+uniform int fanzhuan;
+uniform int checkscope;
+
+uniform float state;
+uniform float nozzle;
+uniform vec4 stateColors[6];
+uniform vec4 customColor;
+
+const vec3 wireframeColor = vec3(0.1);
+const vec3 clearColor = vec3(0.27);
+uniform int renderModel;
+const int useVertexColor = 0;
+
+uniform sampler2D textureDiffuse;
+uniform sampler2D textureAmbient;
+uniform sampler2D textureSpecular;
+uniform sampler2D textureNormal;
+
+in vec2 varyUV;
+
+bool frontFacing()
+{
+        vec3 fdx = dFdx(worldPosition);
+        vec3 fdy = dFdy(worldPosition);
+        return dot(gnormal, cross(fdx, fdy)) > 0.0;
+} 
+
+vec4 directLight(vec3 light_dir, vec3 fnormal, vec4 core_color, vec4 ambient_color, vec4 diffuse_color, vec4 specular_color)
+{
+	float NdotL 		  = max(dot(fnormal, light_dir), 0.0);
+	ambient_color 	  	  = ambient_color * core_color;
+
+	vec3 freflection      = reflect(-light_dir, fnormal);
+	vec3 fViewDirection   = normalize(viewDirection);
+	float RdotV           = max(0.0, dot(freflection, fViewDirection)); 
+	
+	diffuse_color		  = NdotL * diffuse_color * core_color;
+	specular_color        = specular_color * pow( RdotV, specularPower) * core_color;
+	
+	if (lightingEnable > 0)
+		return ambient_color + diffuse_color + specular_color;
+	else
+		return core_color;
+}
+
+void main( void )
+{
+	if(checkscope > 0 && (worldPosition.z < bottomVisibleHeight || worldPosition.z > topVisibleHeight))
+		discard;
+
+	int stateInt = int(state);
+	vec4 color;
+	
+	if(varyUV.x<0.0||varyUV.y<0.0)
+	{
+		if (stateInt < 5)
+		{
+			color = stateColors[stateInt];
+			//if (useVertexColor == 1 && stateInt == 0) {
+			//	color = vec4(gcolor, 1.0);
+			//}			
+		}
+			
+		else
+			color = customColor;
+	}
+	else
+	{
+		vec4 textColor = texture(textureDiffuse, varyUV);
+		if(textColor.r < 0.0 || textColor.g < 0.0 || textColor.b < 0.0)
+		{
+			textColor=stateColors[0];
+		}
+		color = textColor;
+	}
+
+	vec4 coreColor = color;
+	vec3 fgnormal =	normalize(gnormal);
+	
+	if(checkscope > 0)
+	{
+		if(worldPosition.x < minSpace.x || worldPosition.y < minSpace.y || worldPosition.z < minSpace.z 
+		|| worldPosition.x > maxSpace.x || worldPosition.y > maxSpace.y || worldPosition.z > maxSpace.z
+		|| abs(worldPosition.z - bottom) < 0.05 )
+		{
+			// coreColor = vec4(0.649, 0.516, 0.504, 1.0);
+			coreColor = stateColors[4];
+		}
+	}
+	
+	if(hoverState > 0)
+	{
+		float v = dot(fgnormal, vec3(0.0, 0.0, -1.0));
+		if(v >= supportCos)
+		{
+			coreColor.r += 0.8 * v;
+		}
+	}
+	
+	coreColor.rgb = coreColor.rgb + vec3(0.1, -0.1, 0.0) * nozzle;
+
+	vec3 fnormal 		  =	normalize(normal);
+	vec4 ambient_color 	  = ambient;
+	vec4 diffuse_color    = diffuse;
+	vec4 specular_color   = specular;
+	
+	vec3 lightDir = normalize(lightDirection);
+	float normalCos = dot(fnormal, lightDir);
+	if (normalCos >= 0.0)
+		coreColor = directLight(lightDir, fnormal, coreColor, ambient_color, diffuse_color, specular_color);
+	else
+		coreColor = directLight(-lightDir, fnormal, coreColor, ambient_color, diffuse_color, specular_color);
+
+	if(!frontFacing())
+	{
+		color = stateColors[5];   
+		vec3 fbnormal = -fnormal;
+		vec4 ambient_color_t 	= ambient + vec4(0.2, 0.2, 0.2, 0.0);
+		vec4 diffuse_color_t    = diffuse + vec4(0.08, 0.08, 0.08, 0.0);
+		vec4 specular_color_t   = specular;
+		coreColor = directLight(lightDir, fbnormal, color, ambient_color_t, diffuse_color_t, specular_color_t);
+	}
+
+	if (renderModel != 1) {
+		vec3 baryDelta = fwidth(barycentric);
+			
+		vec3 edgeFactor = smoothstep(vec3(0.0), baryDelta * 1.0, barycentric);
+		float minEdgeFactor = min(min(edgeFactor.x, edgeFactor.y), edgeFactor.z);
+
+		if (renderModel == 2) {
+			
+			if (minEdgeFactor >= 1.0) {
+                discard;
+            }
+            coreColor.rgb = mix(wireframeColor, clearColor, minEdgeFactor);
+
+		} else if (renderModel == 3) {
+			coreColor.rgb = mix(wireframeColor, coreColor.rgb, minEdgeFactor);
+		}
+	}
+
+	fragmentColor = vec4(coreColor.rgb, transparency);
+}

@@ -1,0 +1,57 @@
+#version 150 core
+in vec2 texCoord0;
+uniform int ssa; 
+uniform int need_thres; 
+uniform vec2 img_size; 
+uniform vec2 clrThreshold;
+uniform sampler2D samplerTexture0;
+uniform sampler2D samplerTexture1;
+uniform sampler2D samplerTexture2;
+out vec4 fragData0;
+out vec4 fragData1;
+out vec4 fragData2;
+
+vec4 blur(sampler2D postTexture, int lpos, int rpos, float bili)
+{
+	vec4 retOutput = vec4(0.0, 0.0, 0.0, 0.0);
+	vec4 clrtemp = vec4(0.0, 0.0, 0.0, 0.0); 
+	for(int i = -lpos; i <= rpos; i++) 
+	{ 
+		for(int j = -lpos; j <= rpos; j++) 
+		{ 
+			vec2 offset = vec2(float(i)/img_size.x, float(j)/img_size.y); 
+			vec4 temp = texture(postTexture, texCoord0+offset) / bili; 
+			clrtemp += temp; 
+		} 
+	} 
+	clrtemp.a = 1.0;  
+	if(need_thres > 0) { 
+		vec2 thresholdvalue = vec2(clrThreshold.x, clrThreshold.y);
+		float rangratio = thresholdvalue.y-thresholdvalue.x;
+		if(clrtemp.r >= 0.003 && clrtemp.r <= 0.997)
+			retOutput = vec4(thresholdvalue.x + clrtemp.r * rangratio, 0.0, 0.0, 1.0);
+			//retOutput = texture(postTexture, texCoord0);
+		else 
+			retOutput = clrtemp; 
+	} 
+	else if(need_thres == 0) { 
+		retOutput = clrtemp;  
+	} 
+	else { 
+		clrtemp = texture(postTexture, texCoord0); 
+		clrtemp.a = 1.0; 
+		retOutput = clrtemp;  
+	} 
+	
+	return retOutput;
+}
+
+void main()
+{
+	float bbili = float(ssa * ssa); 
+	int llpos = ssa/2; 
+	int rrpos = (ssa-1)/2; 
+	fragData0 = blur(samplerTexture0, llpos, rrpos, bbili);
+	fragData1 = blur(samplerTexture1, llpos, rrpos, bbili);
+	fragData2 = blur(samplerTexture2, llpos, rrpos, bbili);
+}

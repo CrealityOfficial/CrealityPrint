@@ -1,0 +1,337 @@
+{
+	"hole_xy_offset": 
+	{
+		"description": "Offset applied to the object in the hole xy direction.",
+		"type": "float",
+		"label": "Mesh Position X",
+		"default_value": "0",
+		"enabled": false
+	},
+	"center_object": 
+	{
+		"description": "Whether to center the object on the middle of the build platform (0,0), instead of using the coordinate system in which the object was saved.",
+		"type": "bool",
+		"label": "Center Object",
+		"default_value": "false",
+		"enabled": false
+	},
+	"mesh_position_x": 
+	{
+		"description": "Offset applied to the object in the x direction.",
+		"type": "float",
+		"label": "Mesh Position X",
+		"default_value": "0",
+		"enabled": false
+	},
+	"mesh_position_y": 
+	{
+		"description": "Offset applied to the object in the y direction.",
+		"type": "float",
+		"label": "Mesh Position Y",
+		"default_value": "0",
+		"enabled": false
+	},
+	"mesh_position_z": 
+	{
+		"description": "Offset applied to the object in the z direction. With this you can perform what was used to be called 'Object Sink'.",
+		"type": "float",
+		"label": "Mesh Position Z",
+		"default_value": "0",
+		"enabled": false
+	},
+	"mesh_rotation_matrix": 
+	{
+		"label": "Mesh Rotation Matrix",
+		"description": "Transformation matrix to be applied to the model when loading it from file.",
+		"type": "str",
+		"default_value": "[[1,0,0], [0,1,0], [0,0,1]]",
+		"enabled": false
+	},
+	"first_exposure_time": 
+	{
+		"description": "",
+		"type": "float",
+		"label": "Mesh Position Z",
+		"default_value": "40",
+		"enabled": false
+	},
+	"first_lift_distance": 
+	{
+		"description": "",
+		"type": "float",
+		"label": "Mesh Position Z",
+		"default_value": "5",
+		"enabled": false
+	},
+	"lifting_speed": 
+	{
+		"description": "",
+		"type": "float",
+		"label": "Mesh Position Z",
+		"default_value": "60",
+		"enabled": false
+	},
+	"first_layer_count": 
+	{
+		"description": "",
+		"type": "float",
+		"label": "Mesh Position Z",
+		"default_value": "4",
+		"enabled": false
+	},
+	"light_off_delay": 
+	{
+		"description": "",
+		"type": "float",
+		"label": "Mesh Position Z",
+		"default_value": "0",
+		"enabled": false
+	},
+	"exposure_time": 
+	{
+		"description": "",
+		"type": "float",
+		"label": "Mesh Position Z",
+		"default_value": "20",
+		"enabled": false
+	},
+	"retract_speed": 
+	{
+		"description": "",
+		"type": "float",
+		"label": "Mesh Position Z",
+		"default_value": "150",
+		"enabled": false
+	},
+	"first_lift_speed": 
+	{
+		"description": "",
+		"type": "float",
+		"label": "Mesh Position Z",
+		"default_value": "60",
+		"enabled": false
+	},
+	"first_lightoff_delay": 
+	{
+		"description": "",
+		"type": "float",
+		"label": "Mesh Position Z",
+		"default_value": "0",
+		"enabled": false
+	},
+	"anti_aliasing": 
+	{
+		"description": "",
+		"type": "bool",
+		"label": "Mesh Position Z",
+		"default_value": "false",
+		"enabled": false
+	},
+	"gcode_start": 
+	{
+		"description": "",
+		"type": "str",
+		"label": "G21;\nG90;\nM106 S0;\n G28 Z0;\n",
+		"default_value": "G21;\nG90;\nM106 S0;\n G28 Z0;\n",
+		"enabled": false
+	},
+	"inter_layer": 
+	{
+		"description": "",
+		"type": "str",
+		"default_value": "M6054 {image};show Image\nG0 Z{rise_pos} F{rise_speed};\nG0 Z{fall_pos} F{fall_speed};\nG4 P{light_delay};\nM106 S{light_pwm};light on\nG4P{exposure_time};\nM106 S0; light off\n",
+		"enabled": false
+	},
+	"gcode_end": 
+	{
+		"description": "",
+		"type": "str",
+		"default_value": "M106 S0;\nG1 Z{machine_height} F25;\nM18;\n",
+		"enabled": false
+	},
+	"export_format": 
+	{
+		"description": "",
+		"type": "str",
+		"default_value": "gcode",
+		"enabled": false
+	},
+	"format_version": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "2",
+		"enabled": false
+	},
+	"mirror_type": 
+	{
+		"description": "",
+		"type": "str",
+		"default_value": "LCD_mirror",
+		"enabled": false
+	},
+	"has_preview_img": 
+	{
+		"description": "",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": false
+	},           
+	"preview_img_type": 
+	{        
+		"label":"Preview Image",       
+		"description": "",
+		"default_value": "png",
+		"type": "enum",
+		"options":
+		{
+			"bmp": "bmp",
+			"png": "png",
+			"jpg": "jpg"
+		},
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": false
+	},
+	"screen_size": 
+	{               
+		"description": "",
+		"default_value": "Sermoon D3",
+		"type": "enum",
+		"options":
+		{
+			"Sermoon D3": "480*800",
+			"CR-200B Pro": "480*272",
+			"CR-10 Inspire": "600*1024"
+		},
+		"settable_per_mesh": false,
+		"settable_per_extruder": false,
+		"settable_per_meshgroup": false
+	},
+	"thumbnail_w": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "48",
+		"enabled": false
+	},
+	"thumbnail_h": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "48",
+		"enabled": false
+	},
+	"preImg_w": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "200",
+		"enabled": false
+	},
+	"preImg_h": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "200",
+		"enabled": false
+	},
+	"laser_open_type": 
+	{               
+		"description": "",
+		"default_value": "",
+		"type": "str",
+		"enabled": false
+	},
+	"laser_close_type": 
+	{               
+		"description": "",
+		"default_value": "",
+		"type": "str",
+		"enabled": false
+	},
+	"laser_work_speed": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "1800",
+		"enabled": false
+	},
+	"xy_offset_enable": 
+	{
+		"description": "",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": false
+	},
+	"zdeep_enable": 
+	{
+		"description": "",
+		"type": "bool",
+		"default_value": "false",
+		"enabled": false
+	},
+	"zthrough_deep_value": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "1",
+		"enabled": false
+	},
+	"basic_offset_thickness": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "0.5",
+		"enabled": false
+	},
+	"basic_ofsset_focal_length": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "100",
+		"enabled": false
+	},
+	"minimum_grayscale": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "10",
+		"enabled": false
+	},
+	"maximum_grayscale": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "200",
+		"enabled": false
+	},
+	"lifting_distance": 
+	{
+		"description": "",
+		"type": "int",
+		"default_value": "5",
+		"enabled": false
+	},
+	"material_type": 
+	{
+		"description": "",
+		"type": "str",
+		"default_value": "cxsw",
+		"enabled": false
+	},
+	"machine_support_slicer_type": 
+	{
+		"description": "",
+		"type": "str",
+		"default_value": "FDM",
+		"enabled": false
+	},
+	"software_version": 
+	{
+		"description": "software version",
+		"type": "str",
+		"default_value": "V0.0.1.0",
+		"enabled": false
+	}	
+}

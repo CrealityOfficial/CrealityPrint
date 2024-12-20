@@ -1,0 +1,24 @@
+[
+  {
+    "name": "G series",
+    "level": 0,
+    "subnodes": [
+      {
+        "name": "G5",
+        "level": 1
+      },
+      {
+        "name": "G5 Pro",
+        "level": 1
+      },
+      {
+        "name": "G12",
+        "level": 1
+      },
+      {
+        "name": "G40",
+        "level": 1
+      }
+    ]
+  }
+]

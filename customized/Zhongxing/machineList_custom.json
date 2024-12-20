@@ -1,0 +1,12 @@
+[
+  {
+    "name": "CT series",
+    "level": 0,
+    "subnodes": [
+      {
+        "name": "CT-400D",
+        "level": 1
+      }
+    ]
+  }
+]

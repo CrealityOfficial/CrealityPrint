@@ -1,0 +1,125 @@
+{
+    "version": 3,
+    "configurePresets": [
+      {
+        "name": "base",
+        "description": "For more information: http://aka.ms/cmakepresetsvs",
+        "hidden": true,
+        "generator": "Ninja",
+        "binaryDir": "${sourceDir}/out/${presetName}/build/",
+        "installDir": "${sourceDir}/out/${presetName}/install/",
+        "environment": {
+          "VCPKG_FEATURE_FLAGS": "manifests,versions,binarycaching,registries"
+        },
+        "cacheVariables": {
+          "CMAKE_CONFIGURE_TYPE": "${presetName}"
+        },
+        "condition": {
+          "type": "equals",
+          "lhs": "${hostSystemName}",
+          "rhs": "Windows"
+        }
+      },
+      {
+        "name": "x64-debug",
+        "displayName": "x64 Debug",
+        "description": "Sets debug build type and x64 arch",
+        "inherits": "base",
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Debug"
+        }
+      },
+      {
+        "name": "x64-release",
+        "displayName": "x64 Release",
+        "description": "Sets release build type",
+        "inherits": "x64-debug",
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Release"
+        }
+      },
+      {
+        "name": "x86-debug",
+        "displayName": "x86 Debug ",
+        "description": "Sets debug build type and x86 arch",
+        "inherits": "base",
+        "architecture": {
+          "value": "x86",
+          "strategy": "external"
+        },
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Debug"
+        }
+      },
+      {
+        "name": "x86-release",
+        "displayName": "x86 Release",
+        "description": "Sets release build type",
+        "inherits": "x86-debug",
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Release"
+        }
+      },
+      {
+        "name": "linux-debug",
+        "displayName": "Linux Debug",
+        "description": "Sets GCC",
+        "inherits": "base",
+        "cacheVariables": {
+          "CMAKE_C_COMPILER": "gcc",
+          "CMAKE_CXX_COMPILER": "g++",
+          "CMAKE_BUILD_TYPE": "Debug"
+        },
+        "condition": {
+          "type": "equals",
+          "lhs": "${hostSystemName}",
+          "rhs": "Linux"
+        },
+        "vendor": {
+          "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
+            "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}",
+            "copyAdditionalIncludeDirectoriesList": [ "$env{HOME}/.vs/box2d-lite-actions/out/build/linux-debug/vcpkg_installed/x64-linux/include" ]
+          }
+        }
+      },
+      {
+        "name": "linux-release",
+        "displayName": "Linux Release",
+        "description": "Sets release build type",
+        "inherits": "linux-debug",
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Release"
+        }
+      }
+    ],
+    "buildPresets": [
+      {
+        "name": "x64-debug",
+        "displayName": "x64 Debug",
+        "configurePreset": "x64-debug",
+        "description": "Windows Debug Build"
+      },
+      {
+        "name": "x64-release",
+        "displayName": "x64 Release",
+        "configurePreset": "x64-release",
+        "inherits": "x64-debug",
+        "description": "Windows Release Build"
+      }
+    ],
+    "testPresets": [
+      {
+        "name": "core-test-linux",
+        "description": "Enable output on failure",
+        "configurePreset": "linux-debug",
+        "output": {
+          "outputOnFailure": true
+        }
+      },
+      {
+        "name": "core-test-windows",
+        "inherits": "core-test-linux",
+        "configurePreset": "x64-debug"
+      }
+    ]
+  }

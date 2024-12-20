@@ -1,0 +1,12 @@
+message(STATUS "include render/RenderEntry.cmake")
+
+if(WIN32 OR NOT CC_BUILD_IPHONE_PLATFORM)
+	set(FORCE_OPENGL_CORE_PROFILE3 1)
+endif()
+
+option(CC_BUILD_OSG_GLES3 "Build OpenGL GLES3" ON) 
+if(ANDROID OR CC_BUILD_IPHONE_PLATFORM)
+	if(CC_BUILD_OSG_GLES3)
+		set(MOBILE_FORCE_GLES3 1)
+	endif()
+endif()

@@ -1,0 +1,28 @@
+stages:
+  - before_script
+  - build
+  - package
+  
+before_script:
+    - git submodule update --init --recursive
+
+windowbuild:
+    stage: build
+    script:
+        - docker/install-dep.bat
+        - docker/build-vs2019.bat v${RELEASE_TAG}
+    tags:
+       - windows
+   
+windowpackage:
+    stage: package
+    script:
+        - echo ${RELEASE_TAG}
+        - docker/build-vs2019.bat v${RELEASE_TAG} package ${RELEASE_TYPE}
+        - scp out/Creative3D-${RELEASE_TAG}-win64-x64-${RELEASE_TYPE}.exe cxsw@172.16.33.10:/vagrant_data/www/shared/build/Creative3DAutoRelease
+    only:
+        - triggers
+    tags:
+        - windows
+    
+

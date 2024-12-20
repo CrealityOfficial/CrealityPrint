@@ -1,0 +1,125 @@
+{
+    "name": "FDM Printer Material Description",
+    "version": 2,
+    "categorys": [
+        {
+            "label": "Basic information",
+            "groups": [
+                {
+                    "label": "Information",
+                    "children": [
+                        "machine_name",
+                        "machine_shape",
+                        "machine_chamber_fan_exist",
+                        "machine_cds_fan_exist",
+                        "machine_LED_light_exist",
+                        "extruders_enabled_count",
+                        "machine_nozzle_temp_enabled",
+                        "machine_heated_bed",
+                        "machine_center_is_zero"
+                    ]
+                },
+                {
+                    "label": "Printable space",
+                    "children": [
+                        "machine_height",
+                        "machine_width",
+                        "machine_depth",
+                        "machine_head_with_fans_polygon"
+                    ]
+                },
+                {
+                    "label": "Advanced",
+                    "children": [
+                        "machine_gcode_flavor",
+                        "machine_nozzle_heat_up_speed",
+                        "machine_nozzle_cool_down_speed"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "Motion ablility",
+            "groups": [
+                {
+                    "label": "Speed limitation",
+                    "children": [
+                        "machine_max_feedrate_x",
+                        "machine_max_feedrate_y",
+                        "machine_max_feedrate_z",
+                        "machine_max_feedrate_e"
+                    ]
+                },
+                {
+                    "label": "Acceleration limitation",
+                    "children": [
+                        "machine_max_acceleration_x",
+                        "machine_max_acceleration_y",
+                        "machine_max_acceleration_z",
+                        "machine_max_acceleration_e"
+                    ]
+                },
+                {
+                    "label": "Jerk limitation",
+                    "children": [
+                        "machine_max_jerk_xy",
+                        "machine_max_jerk_z",
+                        "machine_max_jerk_e"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "G-code",
+            "children": [
+                "machine_start_gcode",
+                "machine_end_gcode",
+                "machine_extruder_start_code",
+                "machine_extruder_end_code"
+            ]
+        },
+        {
+            "label": "Extruder",
+            "children": [
+                {
+                    "label": "Information",
+                    "children": [
+                        "machine_nozzle_size",
+                        "machine_nozzle_offset_x",
+                        "machine_nozzle_offset_y",
+                        "machine_extruder_cooling_fan_number",
+                        "switch_extruder_retraction_amount",
+                        "switch_extruder_retraction_speed",
+                        "switch_extruder_prime_speed",
+                        "switch_extruder_extra_prime_amount"
+                    ]
+                },
+                {
+                    "label": "Retraction",
+                    "children": [
+                        "retraction_enable",
+                        "retraction_wipe",
+                        "wipe_length",
+                        "before_wipe_retraction_amount_percent",
+                        "retract_at_layer_change",
+                        "retraction_amount",
+                        "retraction_speed",
+                        "retraction_retract_speed",
+                        "retraction_prime_speed",
+                        "retraction_extra_prime_amount",
+                        "retraction_min_travel",
+                        "retraction_count_max",
+                        "retraction_extrusion_window",
+                        "retraction_during_traveling",
+                        "retraction_hop_enabled",
+                        "retraction_hop_only_when_collides",
+                        "retraction_hop",
+                        "retraction_hop_type",
+                        "retraction_hop_after_extruder_switch",
+                        "retraction_hop_after_extruder_switch_height"
+                    ]
+                }
+            ]
+        }
+    ]
+}
