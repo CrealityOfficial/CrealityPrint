@@ -3,309 +3,157 @@ The current Creality Print slicing software is still iterating rapidly. We have 
 
 ## Creality Print 6.0.0 Release Notes
 
-We are delighted to announce that the brand new version 5.0 has been released officially, with all upgrades aimed at improving user experience.  
-Firstly, with a new user interface and interaction experience, the process settings system has become simpler, and the slicer has become more user-friendly and intelligent. The K series/v3 high-speed machines now support 42 kinds of official filaments and general parameters. We have not only readjusted the machine process parameters, but all parameters can be saved and exported for sharing.  
-Moreover, through our ongoing efforts, version 5.0 has faster printing speed and better printing quality.Now let's see together what other surprises there.
+We are excited to announce the official release of **Creality Print 6.0**! This update is designed to enhance user experience, offering smoother, more comprehensive, and more user-friendly features while significantly improving the quality of printed models.
 
-## 1\. Key Improvements
+# 1. Enhanced Slicing Experience
 
-## 1.1 Revolutionary User Experience
+## 1.1 Significantly Improved Slicing Efficiency
 
-### Comprehensive Upgrade of UI
+Creality Print 6.0 has undergone software reconstruction and framework upgrades, greatly improving operating efficiency and resource utilization.
 
--   With the upgrading of the company's Corporate Identity (VI) system to version 5.0, we have rolled out a fully revamped UI system. A brand-new logo, theme color, icons, and page layout will be introduced to provide users with a fresh visual experience.
+Testing shows that both initial and repeat slicing speeds have increased substantially compared to version 5.1.7. Initial slicing speeds are up by **10%-70%**, while repeat slicing speeds are approximately **50% faster**. The exact improvement depends on your computer configuration and model size.
 
-![](https://wiki.creality.com/crealityprint/500release/pic1.png)
+For example, models like multi-color dinosaurs and crystal dragons no&#x77;**&#x20;slice 2-3 times faster than in previous versions.**
 
--   We adjusted the UI layout after the upgrade according to mainstream visual habits: we repositioned the toolbar and prioritized the process setting systems. This made the operation interface clearer, not only reducing the operation steps for settings, but also greatly enhancing the smoothness of the user experience.
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=NzYyZmFlZmU5OTM0NzJiOTQwNTczMmNiMTNjMjU2YTFfNjNvV3l5T1BIQjFzQ1RrbXJqRW5JdmtGdmlTVzM4WG1fVG9rZW46UVJwS2JrUkxyb1J6eFJ4Ums4eWNrMU9JbkhoXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-![](https://wiki.creality.com/crealityprint/500release/pic2.png)
+## 1.2 Streamlined Workflow
 
-### Printing Becomes a Piece of Cake
+Creality Print now enables users to complete the entire process of **model acquisition, slicing, and printing** in one platform, eliminating the need for frequent switching. A new **“My Downloads”** section has also been added, allowing users to easily view and manage all downloaded models and print configurations, significantly improving workflow efficiency.
 
--   After extensive model testing and parameter adjustment, we have developed several configurations for different machines and nozzle types. You can conveniently select an appropriate configuration for one-click printing. For instance, we offer four configurations for the K1C-0.4 nozzle.
--   We constantly monitor the processing status of the model to minimize any factors that could negatively affect print quality. Should there be any issues, our user interface will promptly provide friendly cues in the bottom-left corner, assisting users in promptly identifying and resolving the issue to minimize any potential losses.
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=MjJjNTdhZDM2YTNhNjI3ZjI4ZjhmNmMzNzM5OWJjMzRfT0gzWEhtdE5CcmlrRGw4RWp6SXl0dmpMWU1pbVNGRlVfVG9rZW46T1I3QWJOQWFWbzZJYjJ4QWFvM2NpRmJIbnhiXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-![](https://wiki.creality.com/crealityprint/500release/pic3.gif)
+# 2. Comprehensive Management
 
--   The variety of settings often causes confusion. For this reason, we have selected a set of commonly used parameters as the basic settings, enabling you to quickly adjust common parameters and diminish the impact of unnecessary information.
+## 2.1 Manage All Machines in One Place
 
-![](https://wiki.creality.com/crealityprint/500release/pic4.png)
+Over 100 new third-party printer models have been added, along with optimized corresponding filament and process parameters. Users can now select the desired printer, filament, and process for **“one-click printing.”**
 
--   5.0 Version introduces a wealth of diagrams for parameters, illustrating complex parameters in an intuitive way. Along with these diagrams and elaborate descriptions, you can quickly understand the meaning of each parameter.
+Additionally, the newly added **Fluidd connection** allows users to manage all their printers through one interface, reducing the hassle of switching between different programs.
 
-![](https://wiki.creality.com/crealityprint/500release/pic5.gif)
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=YjcwYzdmMjY0MDI0YWFhMDliOTJkMjQ3YzdiOWQ2NzJfeHV5dWp4cTVIS3dITWdQdU1pSEVrVFRPalhtSjA2M0tfVG9rZW46WUkzaGI3b2J6b09lcW94QktRc2NGWHU0bnNVXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-![](https://wiki.creality.com/crealityprint/500release/pic6.png)
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=NmE0ZWMyMTJlNTA1ZGM4MjAxYjBkMDlkZDA2MzY0YWFfUXVhSm9pUVZ4dklGNlYyYlZrYk5sVWhxSTdwemlwVVpfVG9rZW46RVRlcGJvaDhTb1U2UGd4VmlHcWN6WkhZbk9oXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-### More Efficient Process Tuning
+## 2.2 Clear Preset Relationships
 
--   Indeed, we also accommodate more extensive parameter configurations. Simply switch to the advanced settings mode to access comprehensive parameter information, facilitating broad and meticulous adjustment.
+Users can now view and manage the relationships between their printer, filament, and process profiles in one place.
 
-![](https://wiki.creality.com/crealityprint/500release/pic7.png)
+Previously, transferring optimized filament or process parameters between similar printer models required manual recording and reconfiguration—a tedious and error-prone process. The new **“Add Related Filament”** and **“Add Related Process”** features solve this issue, enabling users to quickly copy optimized settings from one printer to another, improving efficiency and reducing errors.
 
-Normal
+![Relations](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=Nzk0Nzk1MzY4MjgyMTY5NjFkOTNjOTc3MjliMGRmMGZfdHFVUndSRmNka0Rwb0ZWVHJNalBwOE1xVkVMRzQ0UnhfVG9rZW46VmdSYWJKUk4wb3RNTzV4eWRxNGNRV1dUbnlkXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-![](https://wiki.creality.com/crealityprint/500release/pic8.png)
+![Add K1C-0.4 filament preset to K1Max-0.4](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=MTgxMWRhYWFmOTI3YWNkOGUwNzg4MmY4NDkxY2RmYjVfQUNDSlY3bW9ESFdVVDVIdGdvZWliUUdIM1RKaG55MjRfVG9rZW46WENOZGJlbTZ1b3hWa1B4emdMOGM2cUU0bmViXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-Advance
+# 3. Superior Print Quality
 
--   Evidently, the valid range of parameters is closely associated with various factors such as the types of consumables and the device model. This often makes it challenging for users to accurately judge the validity of settings. To address this issue, we have established a suitable range for each parameter and provided a color-coded input box. This allows users to easily determine the status of parameters while making changes.
+## 3.1 Refined Print Quality
 
-![](https://wiki.creality.com/crealityprint/500release/pic9.png)
+### 3.1.1 Z-Seam assemble Mode
 
--   Previewing slices has now become WYSIWYG - what you see is what you get. We now support real-time parameter modifications during previews, enabling you to rapidly observe the effects of your adjustments.
+When making print in place (PIP) models like extendable swords, users often encountered issues with Z-seam adhesion, preventing smooth operation. To address this, the **“Assemble”** option has been introduced. Enabling this feature adds a clearance zone (2mm radius) around Z-seam points, preventing overlap and ensuring proper model functionality.
 
-![](https://wiki.creality.com/crealityprint/500release/pic10.gif)
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=MjJkMGFjNWI0OWU4ZmUxZGJjYTFiYTc0NDM0OTg1MzhfMU1TbDFkM1I1a09vV0htMURBVWtPcVhFQmRJazZtWVJfVG9rZW46TVNTYWJ5M1hLb1JkWWd4RkhPTGNPZFNHbmdHXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-### More Convenient Professional Settings
 
--   We not only support global settings but also offer flexible and detailed solutions. When printing multiple models in the same job, you can use object settings to apply individual parameters to each model. Each model is sliced with the parameters that suit it best, effectively enhancing the print quality and efficiency.
 
-![](https://wiki.creality.com/crealityprint/500release/pic11.gif)
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=NzM4NTBlNTgxZTBjMjYzZjQ3NmQ4M2E2OTk1NzU2YWFfckRUenBPZXhXOXlaMm9XRkdWUGZkVHFmQThIdzhib3RfVG9rZW46QVgyYmJ3ekxBbzJEYzd4cWdOSGM0YVh6bmNiXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
--   Supports the comparison of different types of machines, materials, and process parameters. By using this feature, you can thoroughly compare the differences，to find out the key parameters affecting quality, providing guidance on the optimal direction for your printing tasks.
 
-![](https://wiki.creality.com/crealityprint/500release/pic12.png)
 
-## 1.2 Settings Configuration Upgrade
+### 3.1.2 Overhang Optimization (Beta)
 
--   **Upgrade Of Default Parameter Configuration**  
-    Creality Print provides an array of tested and official print configurations, encompassing aspects like printers, filaments, and process settings. These configurations, verified through extensive testing, are designed to guarantee successful printing in the majority of cases, and simultaneously meet essential printing needs.
+A new **“Overhang Optimization(Beta)”** feature has been added, which automatically identifies overhang areas and adjust&#x73;**&#x20;layer height and line width** for improved print quality. This feature is enabled with a single click, delivering optimal overhang performance.
 
-![](https://wiki.creality.com/crealityprint/500release/pic13.png)
+![adjust layer height](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=ZjMyNmIyMDk0NTA5MzhmZGE5N2M0ZGNiMDBlY2ZiYjBfRnYyTXRpU1NldjZIM2JlSVpNNjRaVXdsZFVLd2F5N3FfVG9rZW46U2s3Y2J6dDh4bzlLMlp4cGdTOGM2MXBHbkNmXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-（Printer）
+![adjust line width](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=YjFiYjc0ODg4NWMxYjllNTY3YjNmYTMyZjA3NWRhYzNfZW8xQmFHNXZVRWY2M0h0c0hxbHRuZ0ozdFN5QnR1eHNfVG9rZW46VlpQT2JkelJ5b0JZSW14UmZOR2NCemdnbnlkXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-![](https://wiki.creality.com/crealityprint/500release/pic14.png)
+![Print results](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=MDNlMzVkOWE0OGRmZmUwN2YwZmIzZTQ1MDE4NzBjZDVfYkFETVVlU2pvOEtXVDE5MUtQUXdMbEJkRHh0eHJjcHlfVG9rZW46V0pYZGJyeHJsb2dpNXJ4Ynk4U2NLZDBobk5kXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-（Filament）
+## 3.2 Accurate Printing Targets
 
-![](https://wiki.creality.com/crealityprint/500release/pic15.png)
+### 3.2.1 Smart Cooling Zones(Beta)
 
-（Process）
+This feature analyzes the geometry of a model and automatically disables cooling slowdowns for layers where it isn’t necessary, significantly reducing printing time while maintaining quality.
 
-A noteworthy update in the brand new 5.0 version is that we've upgraded and made great efforts to the printing configurations, with the aim of enhancing your printing experience. For instance, when printing the model in the following model on the same printer，using the default process settings of 0.2mm Standard process parameters, the print quality in version 5.0 is noticeably superior to that in version 4.3.8.
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=YjUxNTc1NDllNmRlZDcxYjdjNDhkOGY5NmUwM2NiYjRfSzFWdzA2bXkxWTBuNWMwZzN6RXByQzNva2pYRkt1bnNfVG9rZW46TVZUR2JaQTc0b0szend4RkZUT2NmaUhMbmtrXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-![](https://wiki.creality.com/crealityprint/500release/pic16.jpg)
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=MzY1YmFhZGEwNjA4NmQxZDg1YThkNTVjMWViOGYyNGRfbFB1elhpWGZ1akIwR1NTS1F6ejFCYTB0Z25sWXc5WTJfVG9rZW46Tm1PZGJLSzRibzZSVUV4UEViSGNXS3cxbm5iXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-（5.0）                        （4.3.8）
 
-![](https://wiki.creality.com/crealityprint/500release/pic17.jpg)
 
-（5.0）                              （4.3.8）
+*Note: Currently supports PLA filaments; additional filaments will be supported in future updates.*
 
--   **Upgrade Of User Preset Configuration**  
-    Simplify your printing process by creating custom slicing parameter presets for regular use according to your distinct print demands and habits, such as settings for other filaments. You can base these on official configurations, and save them to Creality Print, or export them as a Zip for reuse or sharing with friends.
+### 3.2.2 Auto Orientation
 
-![](https://wiki.creality.com/crealityprint/500release/pic18.png)
+Previously, users had to manually adjust model orientation to reduce print time or support usage, often with suboptimal results. The new **Auto Orientation** feature uses intelligent algorithms to optimize either print time or support volume with a single click.
 
-（Printer）
+* **Minimize print time:** For example, reduces print time by **24.1%** compared to default settings.
 
-![](https://wiki.creality.com/crealityprint/500release/pic19.png)
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=MzQxZWFkMzdkZGQzYWE2NTEzYzVlZThkYTJmNmNiYWFfdGZXTG5lcWVTejhhM3JZRDRkbnlvam5GMjBNdUFKbnhfVG9rZW46QTdaYWJEYjRTb3dSd1R4cGhkRWNkeFFNblpkXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-（Filament）
+* **Minimize support volume:** For example, reduces support volume by 60.36%.
 
-![](https://wiki.creality.com/crealityprint/500release/pic20.png)
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=N2FhY2MzNGM4MWU2MzYxOGJhMjMxMmJmZGY4ZTRiNDRfOFJpaVI1QmkxbDJHMXVvM3NpdnUxc0hWWkwzRFY2dGdfVG9rZW46SDRsV2I0eGhyb1NhOEd4MHB3S2N4SkJTbllLXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-（Process）
+Users can access this feature via the toolbar and choose the desired optimization option.
 
-The noteworthy aspect is the 5.0 version's compatibility with other slicer software exported user presets, such as Prusa and Orca. This allows for a variety of configurations from different software.  
-Furthermore, you can share and exchange your parameter configurations using 3mf project files. As a universal third-party standard file, 3mf offers richer and more accurate data descriptions compared to other formats. When using 3mf project files, not only printers, filaments, process settings, but also your databank for support coatings, Z-Seam drawing data, adaptive layer heights, etc., can be seamlessly used across multiple software platforms.
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=OGJhNTI0Mjc2ZDA5MDcxMzIxNzQ1MjA4NTU2ZTZjOTRfZXZkQzhPdkNCbjJVbGwwNFBRUTlvWE9aYTl5WktDcmVfVG9rZW46RVNIRmJ5T0xwb3N4Nlh4SUluNmNRTXVWblFiXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-## 1.3 Efficient Multi-Plates Management
+## 3.3 Stronger Printed Models
 
-In the past, when printing splicing structural models, we had to manually group a large number of models on a print plate and store them in multiple files for printing. This process was somewhat cumbersome, prone to error, and very time-consuming. Now, with multi-plates management, you can consolidate all the parts need to be printed in one file to increase convenience and operation efficiency in classifying models, making it easy to handle the printing tasks of multiple models.  
-primary functions：
+To address the challenges of balancing strength, print time, and filament usage, Creality Print introduces the **TPMS-D Cell infill pattern**.
 
--   Supports regular operations of the plate, such as adding/removing/selecting/customizing names/locking, etc.;
--   Supports automatic layout and orientation of the current tray model, and you can also manually drag to adjust;
+Compared to traditional CrossCatch or Grid infill patterns, **the TPMS-D cell provides tighter structures while consuming less filament and reducing print time, thanks to its advanced geometric design.**
 
-![](https://wiki.creality.com/crealityprint/500release/pic21.png)
+For example, this pattern reduces filament consumption and shortens print time compared to cross-layer infill.
 
--   Supports saving the plates to 3MF and CXPRJ files for easy subsequent editing;
--   Supports quick switching between different trays to perform slicing, previewing, and printing.
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=NDNlMGQ1MGFlMmI4ZTM3MjcwOTYwMGJmYmUzMmYyYTZfdmx3eWgxVG5VZHNneTJlQTV6WlEzRExCQTlnODBEVjVfVG9rZW46S0o4bWJtaGVGb3ZBNjF4VDZpR2NjUEVMbkdkXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-![](https://wiki.creality.com/crealityprint/500release/pic22.png)
+*Special thanks to Professor Lü Lin from Shandong University for their paper, "Path-driven Shell Lattices Designed for Continuous Fiber Composite 3D Printing," which provided valuable insights.*
 
-## 2\. Performance and Quality
+# 4. Enhanced User Experience
 
-### 2.1 Faster Printing Speed
+## 4.1 Auto-Sync User Presets
 
-The printing speed of the model is influenced by not only the hardware but also the slicing algorithm optimization. Thanks to algorithm improvements in version 5.0, a very apparent enhancement of printing speed, ranging potentially between 20% and 50%, though the exact percentage would vary based on model structure and printing process.  
-There are two key factors contributing to these speed improvements.  
-First, efforts have been made to greatly increase the speed of certain types of lines, specifically the inner and outer walls, while still ensuring printing quality. As the graphic shows below, version 5.0 presents a visibly higher speed (indicated by color) for the lines of the inner and outer walls on each level compared with the previous versions.
+Users can now enable the **“Sync User Presets”** option in Preferences. Once activated, all user-created presets are automatically synced to Creality Cloud. When switching devices, **simply log in to your account and enable this option to retrieve all your presets.**
 
-![](https://wiki.creality.com/crealityprint/500release/pic23.png)
+Additionally, you can view synced presets in the **“My Presets”** section, complete with details like upload times and modified parameters for easy management and tracking.
 
-（Printing Time of 5.0：7h 24m 24s）
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=NGY4MDU5ZjE4NzMxNDNiNzNjZTEzZjAxOTY4ZTk5MGRfOHEyQ3JFUGRCWWl2a01aUk1OZTZ1Z2VsV1JiYmJ3dGlfVG9rZW46Q1hTQmJxSmlxb3pCUTF4RWw5d2NVdHBMbjljXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-![](https://wiki.creality.com/crealityprint/500release/pic24.png)
+## 4.2 Slice and Print Anytime, Anywhere
 
-（Printing Time of 4.3.8：9h 4m 15s）
+With the ability to manage local and remote devices in one user interface, users can enjoy stable LAN/Wifi printing at home and convenient Creality Cloud printing while on the go.  With added remote monitoring, we're combining stability, flexibility and security.
 
-Next, we have improved the continuity of 3D-printing paths and attempted to follow the shortest routes in the printings. Below you will see the printing pathways of both the old and new versions in the same layer. You may intuitively find that the path planning in the newer version has become considerably more efficient.
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=NTkzMmVmOGNmZGVkZWY2MjhmYzYyZWVmNTQ3ODQ0ZTRfN1ZEUTFJdnh3WVE5RURSbFlRZjJpUndoMEg4OHoydDVfVG9rZW46VWk1TGJlb3JGb0J1SGp4bWNJa2N3Nk8wbktmXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-![](https://wiki.creality.com/crealityprint/500release/pic25.gif)
+## 4.3 Easily Track Your Devices
 
-（5.0）
+Users can now mark their most-used devices as **favorites**, displaying them on the workbench for quick access. Favorite devices are synced across accounts, eliminating the hassle of switching computers.
 
-![](https://wiki.creality.com/crealityprint/500release/pic26.gif)
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=NGY4MjExODNiZjA3ZTA0Yzc0ZTVhNzgwNTIwNDRlNWJfSHV6Vm45VXR4eVZ0NExMdHlpYmxYZGRUVk1ZdkhxVHFfVG9rZW46SGNxRWJYOW5Cb09UR0F4WDUxSmNsOGxZblFiXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-(4.3.8)
+## 4.4 Simplified Multi-Color Printing
 
-### 2.2 Higher Slicing Efficiency
+Previously, filament colors and types were automatically mapped to models, often overriding original colors. For this purpose, the new **manual mapping** feature has been added, which allows the user to manually map and change model colours **when the current device is multicolour printer.**
 
-Not only that, we've optimized the slicing algorithm from a software engineering standpoint. Specifically, we have decoupled the geometric handling and process computations within the algorithm and leveraged multi-core parallel processing. This enables geometric handling and process calculations to occur concurrently, thereby greatly enhancing slicing efficiency.  
-The extent to which slicing efficiency improves depends on your computer settings and the magnitude of the model. For instance, as per the displayed model, it only takes a quarter of the previous slicing duration, so no more waiting for long periods!
+![](https://gcmomk3i2c.feishu.cn/space/api/box/stream/download/asynccode/?code=ZTExNWIzN2JiZTk1MjIxNTgyZDZlZjA2ZGM3NTg5YmRfbFB2NVBNb21tWXB5SzJJaDM4cG4zRzhyNUtXc2I0MFpfVG9rZW46UWxnVmJCb3lGb2NySml4ZXZyMGN6QmFzbmFnXzE3MzU2NjEyMzA6MTczNTY2NDgzMF9WNA)
 
-![](https://wiki.creality.com/crealityprint/500release/pic27.png)
+# 5. Other Updates
 
-### 2.3 Better Quality
+Additional new features include:
 
-Indeed, in terms of print quality, which everyone cares about most, version 5.0 has demonstrated significant improvements, particularly in the aspects of 'overhang', 'Z-seam', and 'support'.Among them, 'Z-seam' and 'support' stand out.  
-These advancements originate from our comprehensive technical innovations, with the optimization of our path planning algorithm being a paramount element. Simultaneously, we have also made more precise adjustments in parameter settings. When these two efforts work together, they improve the print quality of our models.
+* **Embedded Community**: Added badge customization, tutorial guides, and optimized online resources and personal center content.
 
--   **Overhang: The outer wall becomes more delicate and smooth.**
+* **Custom Presets**: Added user mode switching, printer/nozzle creation, and filament creation, with an improved interface for editing printer and filament presets.
 
-![](https://wiki.creality.com/crealityprint/500release/pic28.png)
+* **Print Quality Improvements**: Added parameters for overhang area size, support distance priority selection, hybrid tree-cross supports, monotonic support contact patterns, surface ironing, travel lift angles, and ignore internal colors.
 
-4.3.8
 
-![](https://wiki.creality.com/crealityprint/500release/pic29.png)
 
-5.0
 
--   **Z Seam: Higher precision, richer styles, such as alignment, nearest, back, random. For example, the model in the following picture utilizes the alignment style.**
-
-![](https://wiki.creality.com/crealityprint/500release/pic30.png)
-
-4.3.8
-
-![](https://wiki.creality.com/crealityprint/500release/pic31.png)
-
-5.0
-
--   **Support: The generation of support is more rational.**  
-    There are many aspects to optimizing support, among which the key is that we have achieved fewer supports and more effective contact surfaces, making the supports easier to remove and the contact surface less likely to collapse. This greatly improves the surface quality of the model while reducing printing time and materials used.
-
-![](https://wiki.creality.com/crealityprint/500release/pic32.jpg)
-
-![](https://wiki.creality.com/crealityprint/500release/pic33.png)
-
-（4.3.8-Supporting Results and Print Quality）
-
-![](https://wiki.creality.com/crealityprint/500release/pic34.jpg)
-
-![](https://wiki.creality.com/crealityprint/500release/pic35.jpg)
-
-  
-
-（5.0-Supporting Results and Print Quality）
-
-## 3\. Others
-
-### 3.1 Multi-color Printing
-
-**1）Model Import**  
-• Users can easily import a variety of common 3D model file formats, such as STL, OBJ, and 3mf, preparing for subsequent operations.  
-**2）Model Coloring**  
-• Intuitive model coloring tools are provided, allowing users to assign required filament colors to different parts or surfaces.  
-**3）Preview**  
-• The software provides real-time 3D preview functionality, enabling users to clearly view the color distribution and structure of each layer before printing, ensuring satisfactory print results.  
-**4）Slicing File Export**  
-• The software supports converting colored models into slice files, generating G-codes for multi-color printing, thereby preparing the final steps for print preparation.  
-**5）Local Area Network for Software to Filament Mapping**  
-• Through a local area network connection, the software can easily communicate with a multi-color printer and map materials, thereby enabling remote operation and monitoring of the print process.  
-**6）Controlling the printer to start printing**  
-• Users can directly control the multi-color printer through the software interface, initiate the print job, monitor the print process, and adjust and intervene as needed.  
-The series of functionalities greatly simplifies and optimizes the workflow of FDM multi-color printing, helping users more effortlessly realize intricate multi-color print works.
-
-### 3.2 Synchronizing Configuration by the Cloud
-
-We are continuously researching and optimizing parameter settings to better adapt to different printer types and printing scenarios, consistently providing more efficient and suitable printing solutions.  
-Previously, users needed to update the slice to obtain new configurations, which was rather cumbersome. But now, we have enhanced the parameter synchronization method - with just one click, users can complete updates. As long as you are connected to the internet, we will instantly push the latest configurations to better assist you in completing printing tasks.
-
-![](https://wiki.creality.com/crealityprint/500release/pic39.png)
-
-### 3.3 Adaptive Layer
-
-We have also launched the feature of adaptive layer height slicing. You might wonder why this feature is necessary. As you can see from the picture on the right, models printed with adaptive layer height slicing are of a higher quality than those produced with uniform layer heights. This method reduces layer lines, achieves finer detail handling, and also saves time.  
-Adaptive layer height slicing devises a layer height strategy based on the model's geometry, employing thinner layers for detailed areas and thicker layers for smoother regions. This approach enhances quality while also reducing printing time.
-
-![](https://wiki.creality.com/crealityprint/500release/pic40.png)
-
-![](https://wiki.creality.com/crealityprint/500release/pic41.png)
-
-PS：Each color on the model means a different layer height.
-
-### 3.4 Support Painting
-
-The newly introduced manual support feature in Version 5.0 facilitates the addition and blocking of support positions using three methods--a paintbrush, fill, or gap fill. You can leverage the manual support feature to make specific adjustments when automatic support doesn't yield the desired results.
-
-![](https://wiki.creality.com/crealityprint/500release/pic42.png)
-
-![](https://wiki.creality.com/crealityprint/500release/pic43.png)
-
-PS：The green color represents the position of the generated support while the red color indicates the position of blocked-off supports.
-
-### 3.5 Z Seam Painting
-
-With the newly introduced Z-Seam painting feature, you now have the freedom to modify the Z-seam positions, enabling you to adjust the surface effect according to the model's requirements.
-
-![](https://wiki.creality.com/crealityprint/500release/pic44.png)
-
-Before
-
-![](https://wiki.creality.com/crealityprint/500release/pic45.png)
-
-Seam Painting
-
-![](https://wiki.creality.com/crealityprint/500release/pic46.png)
-
-After
-
-## 4\. Bug Fixing
-
-Beyond feature enhancements, version 5.0 also fixes several issues of interest to users, highlighted below:  
-• Generative support algorithm optimized to ensure print quality while reducing the automated support generation area.  
-• The fill algorithm is honed to rectify anomalies under specific scenarios.  
-• The auto layout algorithm improved to solve model auto-flip issues and layout outside the plate problem.  
-• Slicing performance enhanced, amplifying slicing efficiency for massive or multiple model slicing to shorten the slicing time.  
-• Function added for choosing the path for model downloads, resolving the issue of memory usage in the C drive.  
-• A shortcut key is added to the operation bar.  
-• Skirt parameters amended to solve difficulty in removing the skirt.  
-• Added a feature for space + left click platform drag to solve the Magic Mouse platform dragging issue.  
-• Fixed a bug where the nozzle path dynamic view skipped the first layer and jumped directly to the second.  
-• Rectified bug related to auto layout not automatically avoiding multiple objects when printing in order.  
-• A print preview issue resulting in the non-display of estimated consumption weight has been addressed.  
-• Bug resolved, where slicing a single-line print configuration could cause a crash.  
-• Fixed an anomaly in the traversing path in hollow areas after support activation.  
-• An established issue fixed where an interval parameter setting in slicing would not function correctly.  
-• LAN device details page file list fix allows deletion of listed file.  
-• Rectified bug where you don't stop slicing after clicking the prompt, "Add support."  
-• A bug causing screen flash when clicking undo in specific scenarios has been corrected.  
-• The hitch where filling is generated where the model has been shelled has been fixed.  
-• The inability to engrave after pressing the delete key to cancel the engraving box bug was remedied.  
-• Fixed the bug where the shell-removed area of the model was being cured and also created a patch.  
-• A bug fixed where layer values were not displayed when moving the control layer slider.  
-• Fixed program crashes when the set angle value for overhang exceeds the limit bug.  
-• Z-axis inconsistency post model rotation issue solved.  
-• Solved the problem of low sensitivity while right-click rotary platform with the mouse.  
-• Anomalies resolved associated with lining in overhang printing.  
-• The disappearing print platform bug resolved.  
-• Fixed a bug where a model doesn't inherit original data after rotation and invoke undo clone/copy.  
-• Rectified page flash issue when importing large models.  
-• Strange font usage on UI is fixed.  
-• Other known issues have been addressed.
-
-## Download Instructions
-
-Download link for Creality Print version 5.0:
-
-Currently, Creality Print 5.0 is compatible with the following models: K1, K1C, K1Max, Ender-3 V3, Ender-3 V3 KE, Ender-3 V3 SE and Ender-3 S1. We are actively working to enhance compatibility with more models, so stay tuned for more updates.
-
-For users of the K1 Max, please ensure to update your machine's firmware to version \[1.3.3.26\]or higher to maximize the software experience.
 
 We're making progress toward guaranteeing firmware compatibility for the K1,K1C,Ender V3 KE and Ender3 V3 units. The updated firmware is anticipated to be out in May, so please keep an eye out for update announcements.
 
