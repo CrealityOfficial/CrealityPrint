@@ -1,7 +1,7 @@
 ## Important
-The current Creality Print slicing software is still iterating rapidly. We have not yet uploaded the source code to Github for all users who follow Creality Print to download and compile freely. We plan to improve the code and submit it to GitHub before July 31st. Please stay tuned
+The current Creality Print slicing software is still iterating rapidly. We have not yet uploaded the source code to Github for all users who follow Creality Print to download and compile freely. We plan to improve the code and submit it to GitHub before February 2025. Please stay tuned
 
-## Creality Print 5.0.0 Release Notes
+## Creality Print 6.0.0 Release Notes
 
 We are delighted to announce that the brand new version 5.0 has been released officially, with all upgrades aimed at improving user experience.  
 Firstly, with a new user interface and interaction experience, the process settings system has become simpler, and the slicer has become more user-friendly and intelligent. The K series/v3 high-speed machines now support 42 kinds of official filaments and general parameters. We have not only readjusted the machine process parameters, but all parameters can be saved and exported for sharing.  
