@@ -1,0 +1,12 @@
+{
+    "config": {
+        "3mf dir": "C:/Users/Administrator/Desktop/UnitTest/Source/3MF",
+        "baseline dir": "C:/Users/Administrator/Desktop/UnitTest/Source/",
+        "exe path": "C:/myrepo/c3d_2/c3d/win32-build/bin/Debug/CrealityPrint.exe",
+        "result dir": "C:/Users/Administrator/Desktop/UnitTest/Result",
+        "scp dir": "C:/Users/Administrator/Desktop/UnitTest/Marco"
+    },
+    "runStatus": true,
+    "testTypeName": "SlicerBaseline",
+    "version": "CP2.0"
+}

@@ -1,0 +1,13 @@
+{
+    "type": "machine_model",
+    "name": "Creality CR-10 SE",
+    "nozzle_diameter": "0.4",
+    "bed_model": "Creality CR-10 SE_buildplate_model.stl",
+    "default_bed_type": "High Temp Plate",
+    "bed_texture": "Creality CR-10 SE_buildplate_texture.png",
+    "family": "Creality",
+    "hotend_model": "",
+    "machine_tech": "FFF",
+    "model_id": "Creality_CR_10_SE",
+    "default_materials": "Generic PLA-Silk;CR-PETG;Generic TPU;Generic ABS;Generic PLA;Hyper PLA"
+}

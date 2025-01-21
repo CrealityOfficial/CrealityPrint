@@ -1,0 +1,11 @@
+{
+  "type": "filament",
+  "from": "system",
+  "instantiation": "false",
+  "name": "Snapmaker J1 TPU @base",
+  "filament_id": "4092268632",
+  "inherits": "fdm_filament_tpu",
+  "filament_end_gcode": [
+    "M104 S{temperature_vitrification[current_extruder]} ;standby T{current_extruder}"
+  ]
+}

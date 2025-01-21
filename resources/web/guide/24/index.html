@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="max-age=7200" />
+<title>引导_P21</title>
+<!-- <link rel="stylesheet" type="text/css" href="../css/common.css" />	 -->
+<link rel="stylesheet" type="text/css" href="24.css" />
+<link rel="stylesheet" type="text/css" href="../css/dark.css" />	
+<!-- <script type="text/javascript" src="test.js"></script> -->
+<script type="text/javascript" src="../js/jquery-3.6.0.min.js"></script>
+<script type="text/javascript" src="../js/json2.js"></script>	
+<script type="text/javascript" src="../../data/text.js"></script>	
+<script type="text/javascript" src="../js/globalapi.js"></script>	
+<!-- <script type="text/javascript" src="../js/common.js"></script> -->
+<script type="text/javascript" src="24.js"></script>		
+</head>
+<body onLoad="OnInit()">
+	<div class="toggle-user-type" id="toggle-user-type">
+		<div class="button-wrapper">
+			<button type="button" onclick="toggleSys()" class="toggle-button toggle-button-isChecked trans" id="sysBtn" tid="t114">System</button>
+			<button type="button" onclick="toggleUser()" class="toggle-button trans" id="userBtn" tid="t115">User</button>
+		</div>
+	</div>
+	<!-- // 系统设置 -->
+	<div class="wrap">
+		<div class="search">
+			<label for="searchPrinterAll">
+				<svg class="printer-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<path fill-rule="evenodd" clip-rule="evenodd" d="M10.5523 3.95261C8.72983 2.13016 5.77506 2.13016 3.95261 3.95261C2.13016 5.77506 2.13016 8.72983 3.95261 10.5523C5.77506 12.3747 8.72983 12.3747 10.5523 10.5523C12.3747 8.72983 12.3747 5.77506 10.5523 3.95261ZM3.0098 3.0098C5.35295 0.666655 9.15194 0.666655 11.4951 3.0098C13.6789 5.19361 13.8274 8.64199 11.9406 10.9978L14.3235 13.3807L13.3807 14.3235L10.9978 11.9406C8.64199 13.8274 5.19361 13.6789 3.0098 11.4951C0.666655 9.15194 0.666655 5.35295 3.0098 3.0098Z" fill="white"/>
+				</svg>
+				<svg 
+					onclick="clearSearch()"
+					class="printer-search-remove"
+					xmlns="http://www.w3.org/2000/svg"
+					xmlns:xlink="http://www.w3.org/1999/xlink"
+					width="10px" height="10px">
+					<path fill-rule="evenodd"  fill="rgb(255, 255, 255)"
+					d="M5.863,4.994 L9.822,8.953 C10.059,9.191 10.059,9.582 9.820,9.820 C9.581,10.059 9.191,10.059 8.952,9.820 L4.994,5.863 L1.036,9.820 C0.798,10.059 0.407,10.059 0.168,9.820 C-0.071,9.582 -0.071,9.191 0.168,8.952 L4.125,4.994 L0.168,1.037 C-0.071,0.798 -0.071,0.407 0.168,0.168 C0.407,-0.070 0.798,-0.070 1.036,0.168 L4.994,4.126 L8.953,0.167 C9.191,-0.070 9.581,-0.070 9.820,0.168 C10.059,0.407 10.059,0.798 9.820,1.037 L5.863,4.994 Z"/>
+				</svg>
+			</label>
+			<input type="text" class="searchTerm trans" id="searchPrinterAll" tid="t116" placeholder="请输入......" oninput="searchPrinterModel(this)">
+		</div>
+	</div>
+	<div class="content-wrapper">
+		<div id="main-container" class="main-container">
+			<!-- 左侧导航树 -->
+			<div class="search-tip is-selected trans" id="search-result" tid="t127">Search Results</div>
+			<div id="tree-container">
+				<!-- 树数据 -->
+			</div>
+			<!-- 右侧内容区域 -->
+			<div class="card-content-area">
+				<div class="selectAllBtn">
+					<input type="checkbox" class="switch" id="checkAllPrinter" onchange="selectAllPrinter(this)">
+					<label for="checkAllPrinter" class="trans" tid='t118'>All</label>
+				</div>
+				<div class="card-wrapper">
+					<!-- 卡片 -->
+				</div>
+				<div class="search-printer-empty">
+					<img src="./../../image/empty.png" alt="">
+					<div class="trans" tid="t128">没有搜索到您想要的机型，请重新搜索~</div>
+				 </div>
+			</div>
+		</div>
+			<!-- <div id="Content">
+			</div> -->
+			<div class="dialog">
+				<div class="dialog-wrapper">
+					<span class="trans" tid="creality3">Please select at least one printer.</span>
+					<div class="confirm-btn trans" tid="t39" onclick="confirmSelectDialog()">Confirm</div>	
+				</div>
+			</div>
+		<!-- 用户设置 -->
+		<div id="userContainer" style="display: none;" >
+			<div class="select-container">
+				<div>
+					<label for="brand" class="trans" tid="t119"">品牌</label>
+					<select name="brand" id="brand" style="width: 180px;" onchange="changeBrand(this)">
+						<option value="all" class="trans" tid="t126">全部</option>
+					</select>
+				</div>
+				<div>
+					<label for="machine" class="trans" tid="t120">机型</label>
+					<select name="machine" id="machine" style="width: 180px;" onchange="changeMachine(this)">
+						<option value="all"  class="trans" tid="t126">全部</option>
+					</select>
+				</div>
+				<div class="machine-search">
+					<label for="site-search">
+						<svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path fill-rule="evenodd" clip-rule="evenodd" d="M10.5523 3.95261C8.72983 2.13016 5.77506 2.13016 3.95261 3.95261C2.13016 5.77506 2.13016 8.72983 3.95261 10.5523C5.77506 12.3747 8.72983 12.3747 10.5523 10.5523C12.3747 8.72983 12.3747 5.77506 10.5523 3.95261ZM3.0098 3.0098C5.35295 0.666655 9.15194 0.666655 11.4951 3.0098C13.6789 5.19361 13.8274 8.64199 11.9406 10.9978L14.3235 13.3807L13.3807 14.3235L10.9978 11.9406C8.64199 13.8274 5.19361 13.6789 3.0098 11.4951C0.666655 9.15194 0.666655 5.35295 3.0098 3.0098Z" fill="white"/>
+						</svg>
+					</label>
+					<input type="search" id="site-search" name="q" class="trans" tid="t116" placeholder="请输入......" style="width: 180px;" oninput="searchMachine(this)" />
+				</div>
+				<div class="check-all-area">
+					<input type="checkbox" id="checkAll" onchange="selectAll()">
+					<label for="checkAll" class="trans" tid="t118">Select All</label>
+				</div>
+				<div class="add-printer-setting-area">
+				</div>
+			</div>
+			<div class="card-container" id="cardContainer">
+			</div>
+		</div>
+		<!-- button区域 -->
+		<div class="acceptArea">
+			<div  class="toggle-button toggle-button-isChecked trans" tid="t39" id="AcceptBtn"  onclick="submit()">Confirm</div>	
+			<div class="toggle-button trans" tid="t38" id="PreBtn"  onclick="CancelSelect()">Cancel</div>
+		</div>
+	</div>
+</body>
+
+<script>
+	document.onkeydown = function (event) {
+		var e = event || window.event || arguments.callee.caller.arguments[0];
+
+		if (e.keyCode == 27)
+			ClosePage();
+
+		if (window.event) {
+			try { e.keyCode = 0; } catch (e) { }
+			e.returnValue = true;
+		}
+	};
+	let pModel = {};
+	let ModelNozzleSelected = {};
+	function textInput(obj) {
+		FilterModelList(obj.value);
+	}
+	// 禁用鼠标右键事件
+	document.oncontextmenu = function(){
+    	event.returnValue = false;
+	}
+	document.addEventListener("dragenter", function( event ) {
+		event.preventDefault();//禁止浏览器默认行为
+		return false;//禁止浏览器默认行为
+	}, false);
+	document.addEventListener("dragover", function( event ) {
+		event.preventDefault();//禁止浏览器默认行为
+		return false;//禁止浏览器默认行为
+	}, false);
+	document.addEventListener("drop", function( event ) {
+		event.preventDefault();//禁止浏览器默认行为
+		return false;//禁止浏览器默认行为
+	}, false);
+	document.addEventListener("dragend", function( event ) {
+		event.preventDefault();//禁止浏览器默认行为
+		return false;//禁止浏览器默认行为
+	}, false);
+</script>
+</html>

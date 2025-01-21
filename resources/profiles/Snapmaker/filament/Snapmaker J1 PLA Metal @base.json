@@ -1,0 +1,26 @@
+{
+  "type": "filament",
+  "from": "system",
+  "instantiation": "false",
+  "name": "Snapmaker J1 PLA Metal @base",
+  "filament_id": "4012961186",
+  "inherits": "fdm_filament_pla",
+  "filament_end_gcode": [
+    "M104 S{temperature_vitrification[current_extruder]} ;standby T{current_extruder}"
+  ],
+  "filament_cost": [
+    "90"
+  ],
+  "filament_density": [
+    "1.25"
+  ],
+  "filament_max_volumetric_speed": [
+    "16"
+  ],
+  "nozzle_temperature": [
+    "220"
+  ],
+  "default_filament_colour": [
+    "#767A7E"
+  ]
+}

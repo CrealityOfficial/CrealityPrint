@@ -1,0 +1,595 @@
+{
+    "version":"1.0",
+    "config_options_group": 
+    {
+        "url":"https://wiki.creality.com/zh/software/",
+        "data":
+        [
+       
+            {
+                "page":"Quality",
+
+                "option_group":[
+                        {
+                            "name":"Seam",
+                            "icon":"param_seam",
+                            "options":
+                            [
+                                {
+                                    "key":"seam_position",
+                                    "tooltip":"",
+                                    "tooltip_img":"seam_position",
+                                    "url":"update-released/toolbar-introduction/seam"
+                                }                        
+                            ]
+                        },
+                        {
+                            "name":"Layer height",
+                            "icon":"param_layer_height",
+                            "options":
+                            [
+                                {
+                                    "key":"layer_height",
+                                    "tooltip":"",
+                                    "tooltip_img":"layer_height",
+                                    "url":"update-released/toolbar-introduction/seam"
+                                },
+                                {
+                                    "key":"initial_layer_print_height",
+                                    "tooltip":"",
+                                    "tooltip_img":"initial_layer_print_height",
+                                    "url":"update-released/toolbar-introduction/seam"
+                                }                        
+                            ]
+                        },
+                        {
+                            "name":"Walls and surfaces",
+                            "icon":"param_wall_surface",
+                            "options":
+                            [
+                                {
+                                    "key":"only_one_wall_first_layer",
+                                    "tooltip":"",
+                                    "tooltip_img":"only_one_wall_first_layer",
+                                    "url":""
+                                }                      
+                            ]
+                        }
+                        
+
+                ]
+            },
+
+            {
+                "page":"Strength",
+                "option_group":[
+                        {
+                            "name":"Walls",
+                            "icon":"param_wall",
+                            "options":
+                            [
+                                {
+                                    "key":"wall_loops",
+                                    "tooltip":"",
+                                    "tooltip_img":"wall_loops",
+                                    "url":"update-released/Strength/wall"
+                                },
+                                {
+                                    "key":"alternate_extra_wall",
+                                    "tooltip":"",
+                                    "tooltip_img":"alternate_extra_wall",
+                                    "url":"update-released/Strength/wall"
+                                } ,
+                                {
+                                    "key":"detect_thin_wall",
+                                    "tooltip":"",
+                                    "tooltip_img":"detect_thin_wall",
+                                    "url":"update-released/Strength/wall"
+                                }                                              
+                            ]
+                        },
+
+                        {
+                            "name":"Top/bottom shells",
+                            "icon":"param_shell",
+                            "options":
+                            [
+                                {
+                                    "key":"top_surface_pattern",
+                                    "tooltip":"",
+                                    "tooltip_img":"top_surface_pattern",
+                                    "url":"update-released/Strength/shells"
+                                } ,
+                                {
+                                    "key":"top_shell_layers",
+                                    "tooltip":"",
+                                    "tooltip_img":"top_shell_layers",
+                                    "url":"update-released/Strength/shells"
+                                } ,
+                                {
+                                    "key":"top_shell_thickness",
+                                    "tooltip":"",
+                                    "tooltip_img":"top_shell_thickness",
+                                    "url":"update-released/Strength/shells"
+                                } , 
+                                {
+                                    "key":"bottom_surface_pattern",
+                                    "tooltip":"",
+                                    "tooltip_img":"bottom_surface_pattern",
+                                    "url":"update-released/Strength/shells"
+                                } , 
+                                {
+                                    "key":"bottom_shell_layers",
+                                    "tooltip":"",
+                                    "tooltip_img":"bottom_shell_layers",
+                                    "url":"update-released/Strength/shells"
+                                } , 
+                                {
+                                    "key":"bottom_shell_thickness",
+                                    "tooltip":"",
+                                    "tooltip_img":"bottom_shell_thickness",
+                                    "url":"update-released/Strength/shells"
+                                }                         
+                            ]
+                        },
+
+                        {
+                            "name":"Infill",
+                            "icon":"",
+                            "options":
+                            [
+                                {
+                                    "key":"sparse_infill_density",
+                                    "tooltip":"",
+                                    "tooltip_img":"sparse_infill_density",
+                                    "url":"update-released/Strength/infill"
+                                } ,
+                                {
+                                    "key":"ai_infill",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/infill"
+                                } ,
+                                {
+                                    "key":"sparse_infill_pattern",
+                                    "tooltip":"",
+                                    "tooltip_img":"sparse_infill_pattern",
+                                    "url":"update-released/Strength/infill"
+                                } , 
+                                {
+                                    "key":"infill_anchor",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/infill"
+                                } , 
+                                {
+                                    "key":"infill_anchor_max",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/infill"
+                                } , 
+                                {
+                                    "key":"internal_solid_infill_pattern",
+                                    "tooltip":"",
+                                    "tooltip_img":"internal_solid_infill_pattern",
+                                    "url":"update-released/Strength/infill"
+                                }  ,   
+                                {
+                                    "key":"gap_fill_target",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/infill"
+                                }  ,  
+                                {
+                                    "key":"filter_out_gap_fill",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/infill"
+                                }  ,     
+                                {
+                                    "key":"infill_wall_overlap",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/infill"
+                                }                 
+                            ]
+                        },
+                        
+                        {
+                            "name":"Advanced",
+                            "icon":"",
+                            "options":
+                            [
+                                {
+                                    "key":"infill_direction",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/advanced"
+                                },
+                                {
+                                    "key":"bridge_angle",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/advanced"
+                                } ,
+                                {
+                                    "key":"minimum_sparse_infill_area",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/advanced"
+                                } ,    
+                                {
+                                    "key":"infill_combination",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/advanced"
+                                } , 
+                                {
+                                    "key":"detect_narrow_internal_solid_infill",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/advanced"
+                                } , 
+                                {
+                                    "key":"ensure_vertical_shell_thickness",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/advanced"
+                                }  
+
+                            ]
+                        }
+
+                ]
+            },
+            
+            {
+                "page":"Support",
+                "option_group":[
+                        {
+                            "name":"Support",
+                            "icon":"",
+                            "options":
+                            [
+                                {
+                                    "key":"enable_support",
+                                    "tooltip":"",
+                                    "tooltip_img":"enable_support",
+                                    "url":"update-released/Support/support-settings"
+                                },
+                                {
+                                    "key":"support_type",
+                                    "tooltip":"",
+                                    "tooltip_img":"support_type",
+                                    "url":"update-released/Support/support-settings"
+                                }, 
+                                {
+                                    "key":"support_style",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/support-settings"
+                                },   
+                                {
+                                    "key":"support_threshold_angle",
+                                    "tooltip":"",
+                                    "tooltip_img":"support_threshold_angle",
+                                    "url":"update-released/Support/support-settings"
+                                }, 
+                                {
+                                    "key":"raft_first_layer_density",
+                                    "tooltip":"",
+                                    "tooltip_img":"raft_first_layer_density",
+                                    "url":"update-released/Support/support-settings"
+                                }, 
+                                {
+                                    "key":"raft_first_layer_expansion",
+                                    "tooltip":"",
+                                    "tooltip_img":"raft_first_layer_expansion",
+                                    "url":"update-released/Support/support-settings"
+                                },   
+                                {
+                                    "key":"support_on_build_plate_only",
+                                    "tooltip":"",
+                                    "tooltip_img":"support_on_build_plate_only",
+                                    "url":"update-released/Support/support-settings"
+                                },   
+                                {
+                                    "key":"support_critical_regions_only",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/support-settings"
+                                },  
+                                {
+                                    "key":"support_remove_small_overhang",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/support-settings"
+                                }                  
+                            ]
+                        },
+                        {
+                            "name":"Raft",
+                            "icon":"",
+                            "options":
+                            [
+                                {
+                                    "key":"raft_layers",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/raft"
+                                },
+                                {
+                                    "key":"raft_contact_distance",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/raft"
+                                }
+                            ]            
+                        },                
+                        {
+                            "name":"Support filament",
+                            "icon":"",
+                            "options":
+                            [
+                                {
+                                    "key":"support_filament",
+                                    "tooltip":"",
+                                    "tooltip_img":"support_filament",
+                                    "url":"update-released/Support/Filament"
+                                },
+                                {
+                                    "key":"support_interface_filament",
+                                    "tooltip":"",
+                                    "tooltip_img":"support_interface_filament",
+                                    "url":"update-released/Support/Filament"
+                                } ,
+                                {
+                                    "key":"support_interface_not_for_body",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Filament"
+                                } 
+                            ]         
+                        },
+                        {
+                            "name":"Advanced",
+                            "icon":"",
+                            "options":
+                            [
+                                {
+                                    "key":"support_top_z_distance",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                },
+                                {
+                                    "key":"support_bottom_z_distance",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                } ,
+                                {
+                                    "key":"support_base_pattern",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                } ,
+                                {
+                                    "key":"support_base_pattern_spacing",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                } , 
+                                {
+                                    "key":"support_angle",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                }  , 
+                                {
+                                    "key":"support_interface_top_layers",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                }  ,  
+                                {
+                                    "key":"support_interface_bottom_layers",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                }  ,  
+                                {
+                                    "key":"support_interface_pattern",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                }  ,
+                                {
+                                    "key":"support_expansion",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                }  ,
+                                {
+                                    "key":"support_object_xy_distance",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                }  , 
+                                {
+                                    "key":"bridge_no_support",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                } , 
+                                {
+                                    "key":"independent_support_layer_height",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Advanced"
+                                } 
+                            ]    
+                        },
+                        {
+                            "name":"Tree supports",
+                            "icon":"",
+                            "options":
+                            [
+                                {
+                                    "key":"tree_support_tip_diameter",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Tree-support"
+                                },
+                                {
+                                    "key":"tree_support_branch_distance",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Tree-support"
+                                } ,
+                                {
+                                    "key":"tree_support_branch_diameter",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Tree-support"
+                                },
+                                {
+                                    "key":"tree_support_branch_diameter_angle",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Tree-support"
+                                },
+                                {
+                                    "key":"tree_support_branch_angle",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Support/Tree-support"
+                                }
+                            ]
+                        }
+
+                    ]
+                },
+               {
+                "page":"Others",
+                "option_group":[
+                        {
+                            "name":"Skirt",
+                            "icon":"param_skirt",
+                            "options":
+                            [
+                                {
+                                    "key":"skirt_loops",
+                                    "tooltip":"",
+                                    "tooltip_img":"skirt_loops",
+                                    "url":""
+                                },
+                                {
+                                    "key":"skirt_height",
+                                    "tooltip":"",
+                                    "tooltip_img":"skirt_height",
+                                    "url":""
+                                }                         
+                            ]
+                        },
+                        {
+                            "name":"Brim",
+                            "icon":"param_adhension",
+                            "options":
+                            [
+                                {
+                                    "key":"brim_type",
+                                    "tooltip":"",
+                                    "tooltip_img":"brim_type",
+                                    "url":""
+                                },
+                                {
+                                    "key":"brim_width",
+                                    "tooltip":"",
+                                    "tooltip_img":"brim_width",
+                                    "url":""
+                                }                         
+                            ]
+                        },
+                        {
+                            "name":"Prime tower",
+                            "icon":"param_tower",
+                            "options":
+                            [
+                                {
+                                    "key":"enable_prime_tower",
+                                    "tooltip":"",
+                                    "tooltip_img":"enable_prime_tower",
+                                    "url":""
+                                },
+                                {
+                                    "key":"prime_tower_width",
+                                    "tooltip":"",
+                                    "tooltip_img":"prime_tower_width",
+                                    "url":""
+                                },
+                               {
+                                    "key":"prime_volume",
+                                    "tooltip":"",
+                                    "tooltip_img":"prime_volume",
+                                    "url":""
+                                }
+                                                       
+                            ]
+                        },
+                       {
+                            "name":"Flush options",
+                            "icon":"param_flush",
+                            "options":
+                            [
+                                {
+                                    "key":"flush_into_infill",
+                                    "tooltip":"",
+                                    "tooltip_img":"flush_into_infill",
+                                    "url":""
+                                },
+                                {
+                                    "key":"flush_into_support",
+                                    "tooltip":"",
+                                    "tooltip_img":"flush_into_support",
+                                    "url":""
+                                }                         
+                            ]
+                        },
+                         {
+                            "name":"Special mode",
+                            "icon":"param_special",
+                            "options":
+                            [
+                                {
+                                    "key":"print_sequence",
+                                    "tooltip":"",
+                                    "tooltip_img":"print_sequence",
+                                    "url":""
+                                },
+                                {
+                                    "key":"fuzzy_skin",
+                                    "tooltip":"",
+                                    "tooltip_img":"fuzzy_skin",
+                                    "url":""
+                                },
+                               {
+                                    "key":"spiral_mode",
+                                    "tooltip":"",
+                                    "tooltip_img":"spiral_mode",
+                                    "url":""
+                                }
+                            ]
+                        }
+
+                ]
+
+            }
+
+
+            ]    
+        }
+    }
+                    
+            
+                        

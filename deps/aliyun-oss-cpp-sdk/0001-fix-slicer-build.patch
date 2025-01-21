@@ -1,0 +1,55 @@
+From 6408ac8875ea65923a0e6052e2f9365bc2445cfb Mon Sep 17 00:00:00 2001
+From: hemiao <hemiao@creality.com>
+Date: Wed, 27 Nov 2024 22:08:16 +0800
+Subject: [PATCH] fix slicer build
+
+---
+ CMakeLists.txt | 25 ++++++++++---------------
+ 1 file changed, 10 insertions(+), 15 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ea0d8d6..5940da7 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -28,7 +28,7 @@ set(TARGET_OUTPUT_NAME_PREFIX "alibabacloud-oss-" CACHE STRING "The target's out
+ 
+ #Options
+ option(BUILD_SHARED_LIBS  "Enable shared library" OFF)
+-option(BUILD_SAMPLE "Build sample" ON)
++option(BUILD_SAMPLE "Build sample" OFF)
+ option(BUILD_TESTS "Build unit and perfermence tests" OFF)
+ option(ENABLE_COVERAGE "Flag to enable/disable building code with -fprofile-arcs and -ftest-coverage. Gcc only" OFF)
+ option(ENABLE_RTTI "Flag to enable/disable building code with RTTI information" ON)
+@@ -63,20 +63,15 @@ add_definitions(-DPLATFORM_${TARGET_OS})
+ 
+ #Find dependency Library, curl, openssl
+ if (${TARGET_OS} STREQUAL "WINDOWS")
+-	set(WLIB_TARGET "Win32")
+-	if (CMAKE_CL_64)
+-	set(WLIB_TARGET "x64")
+-	endif()
+-	set(CRYPTO_LIBS 
+-		${CMAKE_SOURCE_DIR}/third_party/lib/${WLIB_TARGET}/ssleay32.lib 
+-		${CMAKE_SOURCE_DIR}/third_party/lib/${WLIB_TARGET}/libeay32.lib)
+-	set(CRYPTO_INCLUDE_DIRS 
+-		${CMAKE_SOURCE_DIR}/third_party/include) 
+-
+-	set(CLIENT_LIBS 
+-		${CMAKE_SOURCE_DIR}/third_party/lib/${WLIB_TARGET}/libcurl.lib) 
+-	set(CLIENT_INCLUDE_DIRS 
+-		${CMAKE_SOURCE_DIR}/third_party/include) 
++	find_package(OpenSSL PATHS $CMAKE_PREFIX_PATH REQUIRED)
++	find_package(CURL REQUIRED)
++	set(CRYPTO_LIBS OpenSSL::SSL OpenSSL::Crypto)
++	set(CRYPTO_INCLUDE_DIRS ${OPENSSL_INCLUDE_DIR}) 
++	#set(CRYPTO_LIBS_ABSTRACT_NAME crypto ssl)
++
++	set(CLIENT_LIBS ${CURL_LIBRARIES})
++	set(CLIENT_INCLUDE_DIRS ${CURL_INCLUDE_DIRS}) 
++	set(CLIENT_LIBS_ABSTRACT_NAME curl)
+ else()
+ 	include(FindCURL)
+ 	include(FindOpenSSL)
+-- 
+2.27.0.windows.1
+

@@ -1,0 +1,10 @@
+diff a/src/slic3r/GUI/GUI_App.cpp b/src/slic3r/GUI/GUI_App.cpp	(rejected hunks)
+@@ -4198,6 +4198,8 @@
+                 }
+                 if (input_files.size()) {
+                     auto   filePath = input_files[0];
++                    size_t endPos   = filePath.find_last_of("\\");             // 找到倒数第一个反斜杠的位�?
++                    size_t startPos = filePath.find_last_of("\\", endPos - 1); // 找到倒数第二个反斜杠的位�?
+ 
+                     if (startPos != std::string::npos && endPos != std::string::npos) {
+                         std::string modelGroupId = filePath.substr(startPos + 1, endPos - startPos - 1);

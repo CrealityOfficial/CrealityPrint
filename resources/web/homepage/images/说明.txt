@@ -1,0 +1,30 @@
+图片保存规则，请遵循文档：
+https://gcmomk3i2c.feishu.cn/docx/KBC0d3zdqoIVdxxOG21cOg0Qnmg
+
+Community => 放置社区用到的图片
+  common => 不区分 theme 的图片
+  dark
+    layout
+    PersonalCenter
+  light
+
+icon => 放置常见的图标
+    dark
+    light
+
+my-project-name/
+├─ .husky                             # husky 配置文件
+├─ .vscode                            # VSCode 推荐配置
+├─ build                              # Vite 配置项
+├─ public                             # 静态资源文件
+├─ docs                               # 项目的细化文档目录（可选）
+├─ node_modules                       # 下载的依赖包
+├─ src                                # 源码目录
+│  ├─ api                             # http 请求目录
+│  │  ├─ config                       # http 配置项
+│  │  ├─ helper                       # http 封装
+-----------------------------------
+
+
+
+

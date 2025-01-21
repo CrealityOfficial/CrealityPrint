@@ -1,0 +1,13 @@
+{
+    "version": "cx5.2",
+    "type": "Compare",
+    "input": {
+		"baseline dir": "C:/Users/Administrator/Desktop/UnitTest/BaseLine",
+        "3mf dir": "C:/Users/Administrator/Desktop/UnitTest/Source/3MF",
+        "script dir": "C:/Users/Administrator/Desktop/UnitTest/Marco",
+        "script running way": "setup once"
+    },
+    "output": {
+        "result dir": "C:/Users/Administrator/Desktop/UnitTest/Result"
+    }
+}

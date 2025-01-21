@@ -1,0 +1,13 @@
+{
+    "type": "machine_model",
+    "name": "Creality Ender-3 V3 SE",
+    "nozzle_diameter": "0.4",
+    "bed_model": "Creality Ender-3 V3 SE_buildplate_model.stl",
+    "default_bed_type": "High Temp Plate",
+    "bed_texture": "Creality Ender-3 V3 SE_buildplate_texture.png",
+    "family": "Creality",
+    "hotend_model": "",
+    "machine_tech": "FFF",
+    "model_id": "Creality_Ender_3_V3_SE",
+    "default_materials": "Hyper PLA;Generic TPU;Generic PETG;CR-PLA"
+}

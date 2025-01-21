@@ -1,0 +1,9 @@
+#ifndef ${BUILD_INFO_HEAD}
+#define ${BUILD_INFO_HEAD}
+
+#define SOURCE_ROOT "@CMAKE_SOURCE_DIR@"
+#define BUILD_ROOT "@CMAKE_BINARY_DIR@"
+
+#define MAIN_GIT_HASH "@MAIN_GIT_HASH@"
+
+#endif // ${BUILD_INFO_HEAD}

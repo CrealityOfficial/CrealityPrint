@@ -1,0 +1,13 @@
+{
+    "type": "machine_model",
+    "name": "Creality Hi",
+    "nozzle_diameter": "0.4",
+    "bed_model": "creality_k1_buildplate_model.stl",
+    "default_bed_type": "Epoxy Resin Plate",
+    "bed_texture": "",
+    "family": "Creality",
+    "hotend_model": "",
+    "machine_tech": "FFF",
+    "model_id": "Creality_Hi",
+    "default_materials": "Hyper PETG;CR-Silk;CR-PLA;Hyper PLA-CF;Hyper PLA;Hyper ABS;HP-TPU;Generic PLA;Generic PETG;Generic ABS;Ender-PLA;CR-PETG;CR-ABS;Soleyin Ultra PLA"
+}

@@ -1,0 +1,13 @@
+{
+    "type": "machine_model",
+    "name": "Creality Ender-5 S1",
+    "nozzle_diameter": "0.4",
+    "bed_model": "Creality Ender-5 S1_buildplate_model.stl",
+    "default_bed_type": "High Temp Plate",
+    "bed_texture": "Creality Ender-5 S1_buildplate_texture.png",
+    "family": "Creality",
+    "hotend_model": "",
+    "machine_tech": "FFF",
+    "model_id": "Creality_Ender_5_S1",
+    "default_materials": "Hyper PLA;CR-PETG;HP-ASA;CR-ABS;HP-TPU;CR-PLA"
+}

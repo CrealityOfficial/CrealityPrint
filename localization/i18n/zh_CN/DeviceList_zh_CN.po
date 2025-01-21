@@ -1,0 +1,1189 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "All"
+msgstr "所有的"
+
+msgid "Idle"
+msgstr "空闲"
+
+msgid "Loading"
+msgstr "加载中"
+
+msgid "Blanking"
+msgstr "断料"
+
+msgid "Printer"
+msgstr "打印机"
+
+msgid "Printer(WiFi)"
+msgstr "打印机(WiFi)"
+
+msgid "Creality"
+msgstr "创想"
+
+msgid "Bambu"
+msgstr "拓竹"
+
+msgid "Sonic Pad"
+msgstr "音速屏"
+
+msgid "Other"
+msgstr "其它"
+
+msgid "Name Address File"
+msgstr "名称 地址 文件名"
+
+msgid "Device group"
+msgstr "设备分组"
+
+msgid "Device State"
+msgstr "设备状态"
+
+msgid "Device Type"
+msgstr "设备类型"
+
+msgid "Add Group"
+msgstr "添加分组"
+
+msgid "Scan Add"
+msgstr "扫描添加"
+
+msgid "Manual Add"
+msgstr "手动添加"
+
+msgid "Edit Name"
+msgstr "编辑名称"
+
+msgid "Remove"
+msgstr "移除"
+
+msgid "Device Model"
+msgstr "设备型号"
+
+msgid "Current Device"
+msgstr "当前设备"
+
+msgid "Device Name"
+msgstr "设备名称"
+
+msgid "Device Address"
+msgstr "设备地址"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "Print File"
+msgstr "打印文件"
+
+msgid "Operation"
+msgstr "操作"
+
+msgid "Details"
+msgstr "详情"
+
+msgid "English"
+msgstr "英文"
+
+msgid "Simplified Chinese"
+msgstr "简体中文"
+
+msgid "Create Device Group"
+msgstr "新建设备分组"
+
+msgid "Ok"
+msgstr "确定"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Reset"
+msgstr "重置"
+
+msgid "Rename Device Group"
+msgstr "设备分组重命名"
+
+msgid "Rename Device Name"
+msgstr "设备重命名"
+
+msgid "Printing Progress"
+msgstr "打印进度"
+
+msgid "Add Device"
+msgstr "添加设备"
+
+msgid "Add multiple devices"
+msgstr "添加多台设备"
+
+msgid "How to find an IP address?"
+msgstr "如何查找IP地址?"
+
+msgid "The device already exists"
+msgstr "打印机已经存在"
+
+msgid "The device does not exist"
+msgstr "打印机不存在"
+
+msgid "Device added successfully"
+msgstr "添加打印机成功"
+
+msgid "Test"
+msgstr "测试"
+
+msgid "Back"
+msgstr "返回"
+
+msgid "Warning"
+msgstr "警告"
+
+msgid "Filament Status"
+msgstr "耗材映射"
+
+msgid "Filament Match"
+msgstr "耗材映射"
+
+msgid "Confirm"
+msgstr "确定"
+
+msgid "Upload GCode file name"
+msgstr "上传GCode文件名"
+
+msgid "Print calibration"
+msgstr "打印校准"
+
+msgid "Enable CFS"
+msgstr "启用CFS"
+
+msgid "Printing Information"
+msgstr "打印机信息"
+
+msgid "Control"
+msgstr "控制"
+
+msgid "File"
+msgstr "文件"
+
+msgid "Records"
+msgstr "历史记录"
+
+msgid "Timelapse Video"
+msgstr "延时摄影"
+
+msgid "Object deletion"
+msgstr "对象排除"
+
+msgid "Camera"
+msgstr "摄像头"
+
+msgid "Temperature"
+msgstr "温度"
+
+msgid "Layer"
+msgstr "层"
+
+msgid "Printing time"
+msgstr "打印时间"
+
+msgid "Remaining time"
+msgstr "剩余时间"
+
+msgid "Finish Time"
+msgstr "结束时间"
+
+msgid "Ultrafast"
+msgstr "急速"
+
+msgid "Standard"
+msgstr "标准"
+
+msgid "Stable"
+msgstr "平稳"
+
+msgid "Silent"
+msgstr "静音"
+
+msgid "Cannot be empty"
+msgstr "不能为空"
+
+msgid "Already exists"
+msgstr "已经存在"
+
+msgid "Copy successful"
+msgstr "拷贝成功"
+
+msgid ""
+"Removing a group will delete the devices in the group. Are you sure you want "
+"to remove it?"
+msgstr "移除组会删除该组设备，是否确定移除？"
+
+msgid "Printing"
+msgstr "正在打印"
+
+msgid "Printing Complete"
+msgstr "打印完成"
+
+msgid "Printing Failed"
+msgstr "打印失败"
+
+msgid "Print Abort"
+msgstr "打印终止"
+
+msgid "Printing Paused"
+msgstr "打印已暂停"
+
+msgid "Printing Pausing"
+msgstr "暂停中"
+
+msgid "Printing Stopping"
+msgstr "停止中"
+
+msgid "Printing Restoring"
+msgstr "恢复中"
+
+msgid "Executing print termination command"
+msgstr "正在执行终止打印命令"
+
+msgid "Executing pause command"
+msgstr "正在执行暂停打印命令"
+
+msgid "Executing the command to continue printing"
+msgstr "正在执行继续打印命令"
+
+msgid "Pause"
+msgstr "暂停"
+
+msgid "Stop"
+msgstr "终止"
+
+msgid "Continue"
+msgstr "继续"
+
+msgid "Printing speed"
+msgstr "打印速度"
+
+msgid "OK"
+msgstr "确定"
+
+msgid "Retry"
+msgstr "重试"
+
+msgid "Printing Speed:"
+msgstr "打印速度: "
+
+msgid "Wind Speed"
+msgstr "风速"
+
+msgid "Model fan"
+msgstr "模型风扇"
+
+msgid "Case fan"
+msgstr "机箱风扇"
+
+msgid "Side fan"
+msgstr "辅助风扇"
+
+msgid "LED light"
+msgstr "LED灯开关"
+
+msgid "Millimetre"
+msgstr "毫米"
+
+msgid "Extrusion distance"
+msgstr "挤出距离"
+
+msgid "Extrusion speed"
+msgstr "挤出速度"
+
+msgid "Mm/sec"
+msgstr "毫米 / 秒"
+
+msgid "Please check"
+msgstr "请您检查"
+
+msgid "Does the printer camera device work properly."
+msgstr "打印机摄像设备是否正常工作"
+
+msgid ""
+"Chuangxiang Cloud devices will soon support this feature in the future, stay "
+"tuned!"
+msgstr "创想云设备在未来即将支持该功能，敬请期待！"
+
+msgid "Relate to my account"
+msgstr "关联我的账户"
+
+msgid "My Device"
+msgstr "我的设备"
+
+msgid "Continue Print"
+msgstr "继续打印"
+
+msgid "Cancel Print"
+msgstr "取消打印"
+
+msgid "Reconnecting"
+msgstr "正在重连..."
+
+msgid "IP Address"
+msgstr "IP 地址"
+
+msgid "Add Status"
+msgstr "添加状态"
+
+msgid "Add"
+msgstr "添加"
+
+msgid "Rescan"
+msgstr "再次扫描"
+
+msgid "Device Total"
+msgstr "设备总数"
+
+msgid "Device added"
+msgstr "已添加设备"
+
+msgid "No device added"
+msgstr "未添加设备"
+
+msgid "All Device"
+msgstr "所有设备"
+
+msgid "Selected devices"
+msgstr "已选中设备"
+
+msgid "Searching for device..."
+msgstr "设备搜索中..."
+
+msgid "Verification..."
+msgstr "校验中..."
+
+msgid "Connecting..."
+msgstr "连接中..."
+
+msgid "Device Details"
+msgstr "设备详情"
+
+msgid "Remove Device"
+msgstr "移除设备"
+
+msgid "Move To"
+msgstr "移动到"
+
+msgid "Remove Group"
+msgstr "移除组"
+
+msgid "Edit Group"
+msgstr "编辑组"
+
+msgid "Debug"
+msgstr "调试"
+
+msgid "Offline"
+msgstr "离线"
+
+msgid "Creality Cloud binds devices"
+msgstr "创想云绑定设备"
+
+msgid "Merge with existing devices"
+msgstr "与已存在的设备合并"
+
+msgid "Update success"
+msgstr "更新成功"
+
+msgid "Import"
+msgstr "导入"
+
+msgid "File Name"
+msgstr "文件名称"
+
+msgid "Video Name"
+msgstr "视频名称"
+
+msgid "File Size"
+msgstr "文件大小"
+
+msgid "Storey"
+msgstr "层高"
+
+msgid "Create Time"
+msgstr "创建时间"
+
+msgid "Consumable Length"
+msgstr "耗材长度"
+
+msgid "Name"
+msgstr "名称"
+
+msgid "Start Time"
+msgstr "开始时间"
+
+msgid "End Time"
+msgstr "结束时间"
+
+msgid "Total Duration"
+msgstr "总时长"
+
+msgid "Size"
+msgstr "大小"
+
+msgid "Historical Records"
+msgstr "历史记录"
+
+msgid "Delayed Photography"
+msgstr "延迟摄影"
+
+msgid "Start printing"
+msgstr "开始打印"
+
+msgid "Start Printing (Calibrate First)"
+msgstr "开始打印（先校准）"
+
+msgid "Restart printing"
+msgstr "重新打印"
+
+msgid "Reprint (Calibrate First)"
+msgstr "重新打印（先校准）"
+
+msgid "Delete File"
+msgstr "删除文件"
+
+msgid "Delete succeeded!"
+msgstr "删除成功!"
+
+msgid "Cancel Delete"
+msgstr "取消删除"
+
+msgid "Rename"
+msgstr "重命名"
+
+msgid "Please enter a file name"
+msgstr "请输入文件名"
+
+msgid "File name cannot be empty!"
+msgstr "文件名不能为空!"
+
+msgid "Rename succeeded!"
+msgstr "重命名成功!"
+
+msgid "Rename Cancel"
+msgstr "重命名取消"
+
+msgid "Are you sure you want to delete this file?"
+msgstr "你确定删除该文件吗?"
+
+msgid "Please return to the printer before starting the printing operation!"
+msgstr "请您先归位打印机,再进行开始打印操作!"
+
+msgid "Please import a Gcode slice file!"
+msgstr "请导入Gcode切片文件!"
+
+msgid "The file is being printed, please import after printing"
+msgstr "该文件正在打印中，请打印完成后再导入"
+
+msgid "Import succeeded"
+msgstr "导入成功"
+
+msgid "Import failed"
+msgstr "导入失败"
+
+msgid "MultiColor"
+msgstr "是否多色"
+
+msgid "Yes"
+msgstr "是"
+
+msgid "No"
+msgstr "否"
+
+msgid "Selected Files"
+msgstr "已选文件"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Export"
+msgstr "导出"
+
+msgid "Copy link"
+msgstr "拷贝链接"
+
+msgid "G-code file has been deleted and cannot be printed"
+msgstr "G-code文件被删除，不能执行重新打印操作"
+
+msgid "Copy link successfully"
+msgstr "复制链接成功"
+
+msgid "Project"
+msgstr "项目"
+
+msgid "Current"
+msgstr "当前"
+
+msgid "Target"
+msgstr "目标"
+
+msgid "Nozzle"
+msgstr "喷嘴"
+
+msgid "HotBed"
+msgstr "热床"
+
+msgid "Chamber"
+msgstr "腔体"
+
+msgid "The temperature range is unreasonable"
+msgstr "温度范围不合理"
+
+msgid "Exclusion succeeded!"
+msgstr "排除对象成功!"
+
+msgid "Whether to exclude selected models?"
+msgstr "是否要排除选中模型?"
+
+msgid "Exclude object"
+msgstr "排除对象"
+
+msgid "This object is excluded!"
+msgstr "此对象已排除!"
+
+msgid "Only a single model remains and does not support exclusion"
+msgstr "仅剩单个模型不支持排除"
+
+msgid "Consumables"
+msgstr "耗材"
+
+msgid "Spool Holder"
+msgstr "料架"
+
+msgid "Guide"
+msgstr "指南"
+
+msgid "Feed"
+msgstr "进料"
+
+msgid "Retract"
+msgstr "退料"
+
+msgid "RFID consumables information does not support modification"
+msgstr "RFID耗材信息不支持修改"
+
+msgid "It does not support setting consumables information during printing."
+msgstr "不支持在打印过程中设置耗材信息"
+
+msgid "Material box setting"
+msgstr "料盒设置"
+
+msgid "Try Again"
+msgstr "重试"
+
+msgid "CFS Humidity"
+msgstr "CFS 湿度"
+
+msgid "Scope"
+msgstr "范围说明"
+
+msgid "Unit"
+msgstr "单位"
+
+msgid "Normal"
+msgstr "正常"
+
+msgid "High"
+msgstr "高"
+
+msgid "Too high"
+msgstr "过高"
+
+msgid "Detection on insertion"
+msgstr "插入时检测"
+
+msgid ""
+"When a new material line is inserted, the system automatically reads the "
+"material line information, which takes about 20 seconds."
+msgstr "当插入新的料线时，系统自动读取料线信息，大约需要20秒。"
+
+msgid "Detection at startup"
+msgstr "开机时检测"
+
+msgid ""
+"Each time the machine is turned on, the system automatically reads the "
+"material line information, which takes about 1 minute."
+msgstr "每次开机时，系统自动读取料线信息，大约需要1分钟。"
+
+msgid "Automatic feeding system"
+msgstr "系统自动续料"
+
+msgid ""
+"When the material line is exhausted, it will automatically switch to a "
+"consumable with exactly the same properties."
+msgstr "料线用尽后将自动切换到属性完全相同的耗材。"
+
+msgid "Automatic refill"
+msgstr "自动续料"
+
+msgid "Brand"
+msgstr "品牌"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "Color"
+msgstr "颜色"
+
+msgid "Nozzle temperature"
+msgstr "喷嘴温度"
+
+msgid "Pressure in advance"
+msgstr "压力提前"
+
+msgid "Temperature range invalide,please reset"
+msgstr "温度范围不合理，请重新设置"
+
+msgid ""
+"The printer parameters have been modified. If you continue, it will "
+"overwrite the current parameters of the printer"
+msgstr "打印机参数已被修改。如果继续，它将覆盖打印机的当前参数"
+
+msgid "The color can not be empty."
+msgstr "耗材颜色不能为空."
+
+msgid "Please select a material for feed handling"
+msgstr "请选择一个材料进行进料处理"
+
+msgid "All Plates Stats"
+msgstr "所有盘状态"
+
+msgid "One-Click Printing"
+msgstr "一键打印"
+
+msgid "Send G-code"
+msgstr "发送G-code文件"
+
+msgid "Do not send empty disk data"
+msgstr "请勿发送空盘数据"
+
+msgid "Print"
+msgstr "打印"
+
+msgid "CFS slot selection"
+msgstr "CFS槽位选择"
+
+msgid "The printing status does not allow machine operation!"
+msgstr "打印中状态不允许机器操作"
+
+msgid "Please re-enter the target value!"
+msgstr "请重新输入目标值!"
+
+msgid "The file cannot be restored after deletion. Are you sure to continue?"
+msgstr "文件删除后不能恢复，确定继续吗？"
+
+msgid ""
+"This operation cannot be undone. Are you sure to continue sending the "
+"termination command?"
+msgstr "该操作不能撤销,确定继续发送终止命令？"
+
+msgid ""
+"Creality Print camera function does not currently support devices that are "
+"only bound to Creality Cloud"
+msgstr "Creality Print摄像头功能暂不支持仅绑定创想云的设备"
+
+msgid "Select a slot and click the 'Feed'/'Retract' button"
+msgstr "选择一个槽位，然后点击\"进料\"/\"退料\"按钮"
+
+msgid "Temperature will heat up to 240°C before feed"
+msgstr "进料前温度将自动加热至240℃"
+
+msgid "Extruding"
+msgstr "进料中"
+
+msgid "Finish"
+msgstr "进料完成"
+
+msgid "Temperature will heat up to 240°C before retreat"
+msgstr "退料前温度将自动加热至240℃"
+
+msgid "Retract Prepare"
+msgstr "退料准备"
+
+msgid "Retracting"
+msgstr "退料中"
+
+msgid "Retract Finish"
+msgstr "退料完成"
+
+msgid ""
+"Feed nozzle heating (220℃) 220℃ is an example, the actual operating "
+"temperature is based on the maximum temperature of the consumables"
+msgstr "进料喷嘴加热(220℃)220℃为示例,实际运行温度以耗材最大温度为准"
+
+msgid "Feeding inspection line position"
+msgstr "进料检查料线位置"
+
+msgid "Feeding and cutting line"
+msgstr "进料切断料线"
+
+msgid "Feed back to the current material line"
+msgstr "进料抽回当前料线"
+
+msgid "Feeding and delivering new material line"
+msgstr "进料送出新料线"
+
+msgid "Feeding and biting line"
+msgstr "进料咬入料线"
+
+msgid "Feed flushing old material line"
+msgstr "进料冲刷旧料线"
+
+msgid "Check the feed line position"
+msgstr "检查料线位置"
+
+msgid "Cutting line"
+msgstr "切断料线"
+
+msgid "Retract the current material line"
+msgstr "抽回当前料线"
+
+msgid "Flushing old material line"
+msgstr "冲刷旧料线"
+
+msgid "An unknown error was detected in printing"
+msgstr "检测到打印发生未知错误"
+
+msgid "Motor drive abnormality"
+msgstr "电机驱动异常"
+
+msgid "internal error"
+msgstr "内部错误"
+
+msgid "Communication abnormality"
+msgstr "通讯异常"
+
+msgid "Not heating as expected"
+msgstr "未按预期加热"
+
+msgid "Unknown exception"
+msgstr "未知异常"
+
+msgid "Extruder abnormality"
+msgstr "挤出机异常"
+
+msgid "Print file coordinates are abnormal"
+msgstr "打印文件坐标异常"
+
+msgid "Chatter optimization sensor abnormality"
+msgstr "振纹优化传感器异常"
+
+msgid "Fan abnormality"
+msgstr "风扇异常"
+
+msgid "A print quality issue has been detected and printing has been paused"
+msgstr "检测到打印质量问题，已暂停打印"
+
+msgid "Unknown error"
+msgstr "未知错误"
+
+msgid "Foreign object detected on the printing platform, printing paused"
+msgstr "检测到打印平台板异物，已暂停打印"
+
+msgid "Motherboard Connection Failure"
+msgstr "主板连接异常"
+
+msgid "Nozzle connection abnormal"
+msgstr "喷头连接异常"
+
+msgid "Hotbed Connection Abnormal"
+msgstr "热床连接异常"
+
+msgid "Detected unfinished task, do you wish to continue printing"
+msgstr "检测到未完成的任务，是否继续打印"
+
+msgid "Filament runout, printing paused, please refill"
+msgstr "当前耗材用尽，打印已暂停，请更换耗材"
+
+msgid "A model warping issue has been detected，printing has been paused"
+msgstr "检测到打印过程中有翘曲现象，已暂停打印"
+
+msgid "Detected waste chute is block. Please clean it up and try again."
+msgstr "检测到废料槽堵塞，请清理后重试"
+
+msgid ""
+"Belt tension abnormal. Please rerun the Input Shaping before using the "
+"printer."
+msgstr "皮带张紧力异常，请重新运行振纹优化后再使用打印机"
+
+msgid ""
+"FR2357: CFS filament in use. To print with spool holder, unload CFS filament "
+"and reload spool holder before printing."
+msgstr ""
+"CFS耗材使用中，如需使用外置料架进行打印，请退出CFS耗材后装载外置料架耗材后重"
+"新发起打印"
+
+msgid ""
+"FR2358: Spool holder filament in use. To print with CFS, unload spool holder "
+"filament and reload CFS filament before printing."
+msgstr ""
+"外置料架耗材使用中，如需使用CFS进行打印，请先退出外置料架耗材后重新发起打印"
+
+msgid "Abnormal temperature of the temperature chamber"
+msgstr "温度室温度异常"
+
+msgid "network anomaly"
+msgstr "网络异常"
+
+msgid "AI detected print quality issues"
+msgstr "AI检测到打印质量问题"
+
+msgid "z-Touch abnormality"
+msgstr "z-Touch异常"
+
+msgid "File anomaly"
+msgstr "文件异常"
+
+msgid "Abnormal hot bed temperature"
+msgstr "热床温度异常"
+
+msgid "Printing quality issues detected by AI"
+msgstr "检测到打印质量问题"
+
+msgid "TF0501: Heat break fan speed detected to be too low."
+msgstr "检测到喉管风扇转速过低"
+
+msgid "Mainboard fan exception"
+msgstr "主板风扇异常"
+
+msgid "Detected a issue with the print quality of the first layer"
+msgstr "检测到首层打印质量问题"
+
+msgid "Current file does not support flow detection"
+msgstr "当前文件不支持流量校准"
+
+msgid "AI LiDAR anomaly"
+msgstr "AI激光雷达异常"
+
+msgid "AI LiDAR calibration failure"
+msgstr "AI激光雷达标定失败"
+
+msgid "AI LiDAR alignment failure"
+msgstr "AI激光雷达校准失败"
+
+msgid "Current storage space usage has reached %s, please clean up in time"
+msgstr "当前存储空间占用已达 %s,请及时清理"
+
+msgid "Chamber temp too high, camera off. It'll auto-on when temp normalizes"
+msgstr "腔体温度过高，摄像头已关闭，温度恢复正常后自动开启"
+
+msgid "Camera failed to start, try restarting"
+msgstr "摄像头打开失败，可尝试重启"
+
+msgid ""
+"Current file does not support flow ratio calibration, printing with default "
+"values."
+msgstr "当前文件不支持流量比例校准，将用默认值进行打印"
+
+msgid ""
+"Current filament does not support flow ratio calibration, printing with "
+"default values."
+msgstr "不支持流量比例校准的耗材类型，将用默认值进行打印"
+
+msgid "Auto PA calibration image anomaly, printing with default values."
+msgstr "流量PA值校准图片异常，将用默认值进行打印"
+
+msgid "Auto PA calibration failed, printing with default values."
+msgstr "流量PA值校准失败，将用默认值进行打印"
+
+msgid "A model warping issue has been detected."
+msgstr "检测到打印过程中有翘曲现象"
+
+msgid "TF0526: Model fan speed detected to be too low."
+msgstr "检测到模型风扇转速过低"
+
+msgid "FO0528: rinter seems to be printing without extruding."
+msgstr "检测到可能出现空打"
+
+msgid "Axis movement error"
+msgstr "轴移动错误"
+
+msgid "Machine preparation"
+msgstr "机器准备中"
+
+msgid "System error, try restarting"
+msgstr "系统错误，可尝试重启"
+
+msgid "The nozzle temperature is below the minimum extrusion temperature"
+msgstr "喷嘴温度低于挤出温度"
+
+msgid "Unable to obtain nozzle temperature, the thermistor may be disconnected"
+msgstr "喷嘴热敏可能开路"
+
+msgid "Hotbed thermistor open circuit"
+msgstr "热床热敏开路"
+
+msgid "The chamber thermistor may be open circuit"
+msgstr "腔体热敏可能开路"
+
+msgid "The motherboard temperature is abnormal"
+msgstr "主板温度异常"
+
+msgid "Nozzle temperature exceeds limit, thermistor may be short-circuited"
+msgstr "喷嘴温度超限，热敏可能短路"
+
+msgid "Hotbed thermistor short circuit"
+msgstr "热床热敏短路"
+
+msgid "The chamber thermistor may be short circuit"
+msgstr "腔体热敏可能短路"
+
+msgid "Chamber heating issue, please ensure the printer is sealed"
+msgstr "腔体未按预期加热，请保持打印机密闭"
+
+msgid "The nozzle is not heating as expected"
+msgstr "喷嘴未按预期加热"
+
+msgid "The heat bed is not heating as expected"
+msgstr "热床未按预期加热"
+
+msgid "Print file is corrupted"
+msgstr "当前打印文件损坏"
+
+msgid "X-axis homing abnormality"
+msgstr "X轴回零异常"
+
+msgid "Y-axis homing abnormality"
+msgstr "Y轴回零异常"
+
+msgid "Z-axis homing abnormality"
+msgstr "Z轴回零异常"
+
+msgid "X-axis print coordinates out of range"
+msgstr "X轴打印坐标超出范围"
+
+msgid "Y-axis print coordinates out of range"
+msgstr "Y轴打印坐标超出范围"
+
+msgid "Z-axis print coordinates out of range"
+msgstr "Z轴打印坐标超出范围"
+
+msgid "Z Offset Exceeds Limit"
+msgstr "Z_offset偏移值超限"
+
+msgid "Belt tension module abnormal."
+msgstr "皮带张紧模块异常"
+
+msgid "Auto belt tension failure"
+msgstr "自动皮带张紧失败"
+
+msgid "The nozzle leveling sensor may have a hardware failure."
+msgstr "挤出机调平传感器可能出现硬件故障"
+
+msgid ""
+"The nozzle leveling sensor may be damaged or the wiping module may have "
+"fallen off. Please check or try restarting."
+msgstr "挤出机应变片可能损坏或擦料模块脱落，请检查或尝试重启"
+
+msgid "Z-axis homing issue,may have an external disturbance "
+msgstr "Z轴回零异常，可能存在外部干扰"
+
+msgid ""
+"[Printing] XY Motor: XY motor speed limit exceeded. The motor will be "
+"released. Please reduce the print speed or re-slice and print again.Z Motor: "
+"Z motor speed limit exceeded. The motor will be released. Please reduce the "
+"print speed or re-slice and print again.E Motor: Extruder speed limit "
+"exceeded. The motor will be released. Please reduce the print speed or re-"
+"slice and print again.[Not Printing] XY Motor: XY motor speed limit "
+"exceeded. The motor will be released. Please reduce the XY motor movement "
+"speed.Z Motor: Z motor speed limit exceeded. The motor will be released. "
+"Please reduce the Z motor movement speed.E Motor: Extruder speed limit "
+"exceeded. The motor will be released. Please reduce the extruder movement "
+"speed."
+msgstr ""
+"【打印中】xy轴电机：检测到xy电机速度超限，将释放电机，请降低打印速度或重新切"
+"片后打印。z轴电机：检测到z电机速度超限，将释放电机，请降低打印速度或重新切片"
+"后打印。e轴电机：检测到e电机速度超限，将释放电机，请降低打印速度或重新切片后"
+"打印【非打印中】xy轴电机：检测到xy电机速度超限，将释放电机，请降低xy电机移动"
+"速度。z轴电机：检测到z电机速度超限，将释放电机，请降低z电机移动速度。e轴电"
+"机：检测到挤出机速度超限，将释放电机，请降低挤出机移动速度"
+
+msgid ""
+"[X/Y/E/Z1/Z2] step-servo position issue, please try again after resolving"
+msgstr "[x或y或e]轴伺服电机硬件异常/[z1或z2]轴伺服电机硬件异常，平台板将下降"
+
+msgid ""
+"[Printing] XY Motor: An obstacle was detected during the extruder's "
+"movement. This print has been canceled and the motor is released.Z Motor: An "
+"obstacle was detected during the heated bed's movement. This print has been "
+"canceled and the motor is released.E Motor: An extrusion anomaly was "
+"detected, possibly a clog, tangle, or jam. Printing has been paused.[Not "
+"Printing] XY Motorstep-servo: An obstacle was detected during the nozzle's "
+"movement. The motor will be released.Z Motor: An obstacle was detected "
+"during the heated bed's movement. The motor will be released.E Motor: An "
+"extrusion anomaly was detected, possibly a clog, tangle, or jam. The motor "
+"will be released."
+msgstr ""
+"x轴电机：x轴运动方向存在异常阻力，将释放电机，请处理故障后重启打印机。y轴电"
+"机：y轴运动方向存在异常阻力，将释放电机，请处理故障后重启打印机。z1轴电机: 热"
+"床下方存在异常阻力（z1），将释放电机，请处理故障后重启打印机。z2轴电机：热床"
+"下方存在异常阻力（z2），将释放电机，请处理故障后重启打印机。e轴电机：挤出机挤"
+"出异常，可能出现堵头、缠料、卡料，将释放电机"
+
+msgid ""
+"X Motor: X motor identification error detected. The motor wire may be "
+"connected improperly or the motor may be damaged.Y Motor: Y motor "
+"identification error detected. The motor wire may be connected improperly or "
+"the motor may be damaged.Z1 Motor: Z1 motor identification error detected. "
+"The motor wire may be connected improperly or the motor may be damaged.Z2 "
+"Motor: Z2 motor identification error detected. The motor wire may be "
+"connected improperly or the motor may be damaged.E Motor: Extruder motor "
+"identification error detected. The motor wire may be connected improperly or "
+"the motor may be damaged."
+msgstr ""
+"x轴电机：检测到x电机识别异常，电机线可能连接异常或电机损坏。y轴电机：检测到y"
+"电机识别异常，电机线可能连接异常或电机损坏。z1轴电机：检测到z1电机识别异常，"
+"电机线可能连接异常或电机损坏。z2轴电机：检测到z2电机识别异常，电机线可能连接"
+"异常或电机损坏。e轴电机：检测到e电机识别异常，电机线可能连接异常或电机损坏"
+
+msgid ""
+"X/Y/Z/E axis step-servo motor initialization error, motor communication line "
+"may be connected incorrectly"
+msgstr "[x或y或z1或z2]轴伺服电机初始化异常，电机通讯线可能连接异常"
+
+msgid "communication issue, please try again after resolving."
+msgstr "CFS通信异常，请排除故障后重试"
+
+msgid ""
+"Retract issue, check for filament or spool jams. Click &quot;Retry&quot; "
+"after resolving."
+msgstr ""
+"退料异常，请检查是否发生堵头或耗材及料盘卡住，排除异常后点击“重试”按钮”"
+
+msgid ""
+"Feed issue, check for filament or spool jams. Click &quot;Retry&quot; after "
+"resolving."
+msgstr ""
+"进料异常，请检查是否发生堵头或耗材及料盘卡住，排除异常后点击“重试”按钮”"
+
+msgid "System error."
+msgstr "CFS系统出现异常错误"
+
+msgid ""
+"Feed issue , filament may be stuck from loader to CFS hub. Please resolve "
+"the issue and click the &quot;Retry&quot; button."
+msgstr "进料异常，耗材可能堵在上料器到五通位置，请排除异常后点击“重试”按钮"
+
+msgid ""
+"Feed issue , filament may be blocked between the CFS hub and extruder "
+"filament detector. Please resolve the issue and click &quot;Retry&quot; "
+"button."
+msgstr ""
+"进料异常，耗材可能堵在五通到挤出机断料检测器位置，请排除异常后点击“重试”按钮"
+
+msgid ""
+"Feed issue , filament may be jammed between the extruder sensor and the "
+"extruder gear. Please resolve the issue and click the &quot;Retry&quot; "
+"button."
+msgstr ""
+"进料异常，耗材可能堵在挤出机断料检测器到挤出齿轮位置，请排除异常后点击“重"
+"试”按钮"
+
+msgid ""
+"Feed issue , filament may be stuck between the CFS hub sensor and the gear. "
+"Please resolve the issue and click the &quot;Retry&quot; button."
+msgstr ""
+"进料异常，耗材可能堵在五通耗材检测器到五通齿轮位置，请排除异常后点击“重试”按"
+"钮"
+
+msgid "filament runs out, please refill."
+msgstr "耗材用尽，请尽快插入耗材"
+
+msgid "Command failed, current scenario does not support this command."
+msgstr "指令发送失败，当前场景不支持该指令"
+
+msgid "Cutter issue, cutter might be jammed, please try again after resolving"
+msgstr "切刀异常，切刀可能被卡住或切刀缺失，请排除故障后重试"
+
+msgid "RFID cannot be read, please manually edit filament"
+msgstr "RFID读取异常，可手动编辑耗材"
+
+msgid ""
+"PTFE tube may have detached from the pneumatic fitting, Printing paused, "
+"please try again after resolving"
+msgstr "检测到铁氟龙管可能从气动接头脱落，打印已暂停，请排除故障后重试"
+
+msgid "Extruder may be clogged. Click &quot;Retry&quot; after resolving."
+msgstr "检测到挤出机可能堵头，请排除故障后点击“重试”按钮"
+
+msgid ""
+"The filament buffer signal is abnormal,the buffer may be stuck or the "
+"filament may be tangle."
+msgstr "缓冲器信号异常，可能是缓冲器卡住或耗材缠住"
+
+msgid "Filament may tangled, please try again after resolving"
+msgstr "检测到可能缠料，请及时处理"
+
+msgid "filament may be broken in CFS."
+msgstr "耗材可能断在五通内部，请排查故障后重试"
+
+msgid ""
+"Retract issue, filament cannot be returned to CFS hub. Please resolve the "
+"issue and click the &quot;Retry&quot; button."
+msgstr "退料异常，耗材无法退回到五通，请排除异常后点击“重试”按钮"
+
+msgid ""
+"Retract issue, filaments may be inserted into the CFS hub. Remove and click "
+"the &quot;Retry&quot; button."
+msgstr "退料异常，可能有其他耗材插入到五通处，可适当拔出后点击“重试”按钮"
+
+msgid ""
+"Retract issue, Filament Buffer failure. Please resolve and click &quot;"
+"Retry&quot; button."
+msgstr "退料异常，缓冲器故障，请排除异常后点击“重试”按钮"
+
+msgid ""
+"TR2852: Filament detector triggered abnormally, possibly due to an external "
+"material rack being used with CFS."
+msgstr "断料检测异常触发，耗材可能断在挤出机内或有外置料架耗材插入"
+
+msgid "CFS temperature and humidity sensor abnormal."
+msgstr "CFS 温湿度传感器异常"
+
+msgid ""
+"TC2854: Filament detected in the extruder, affecting the cutter calibration. "
+"Please remove the filament and try again."
+msgstr "检测到挤出机有耗材，影响切刀校准，请退出耗材后重试"
+
+msgid "TC2855: Cutter calibrat failed. Please try again after resolving."
+msgstr "切刀校准失败，请排除故障后重试"
+
+msgid ""
+"TC2856: Cutter issue, the cutter may be jammed or missing. Click &quot;"
+"Retry&quot; after resolving."
+msgstr "切刀异常，切刀可能被卡住或切刀缺失，请排除故障后重试"
+
+msgid ""
+"CFS feeding motor overload, maybe excessive load or unload resistance or the "
+"filament tangled or stuck."
+msgstr "CFS送料电机过载，可能是进退料阻力过大或耗材缠绕或卡住"
+
+msgid "FS2858: CFS EEPROM abnormal."
+msgstr "CFS EEPROM异常"
+
+msgid "FO2859: CFS filament odometry abnormal."
+msgstr "CFS 里程计异常"
+
+msgid "FB2860: CFS filament buffer abnormal."
+msgstr "CFS 缓冲器异常"
+
+msgid "FS2861: CFS left RFID board abnormal."
+msgstr "CFS 左侧RFID读写器异常"
+
+msgid "FS2862: CFS right RFID board abnormal."
+msgstr "CFS 右侧RFID读写器异常"
+
+msgid "The file where the last unexpected stop was detected"
+msgstr "检测到上次意外停止的文件"
+
+msgid "No consumables detected, do you want to continue printing?"
+msgstr "未检测到耗材,是否继续打印"
+
+msgid "There is no consumables in the current rack"
+msgstr "当前料架不存在耗材"

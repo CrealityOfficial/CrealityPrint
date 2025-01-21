@@ -1,0 +1,13 @@
+{
+    "type": "machine_model",
+    "name": "Creality Ender-3 V3 Plus",
+    "nozzle_diameter": "0.8;0.6;0.4",
+    "bed_model": "Creality Ender-3 V3 Plus_buildplate_model.stl",
+    "default_bed_type": "High Temp Plate",
+    "bed_texture": "Creality Ender-3 V3 Plus_buildplate_texture.png",
+    "family": "Creality",
+    "hotend_model": "",
+    "machine_tech": "FFF",
+    "model_id": "Creality_Ender_3_V3_Plus",
+    "default_materials": "Hyper PLA;Hyper PLA-CF;Hyper ABS;CR-PLA;CR-Silk;CR-PETG;CR-ABS;Generic PLA;Generic PLA-Silk;Generic PETG;Generic TPU;Generic ABS;Generic PLA-CF;Generic ASA;Generic PC"
+}

@@ -1,0 +1,2 @@
+project_build.bat AllGenerate Release
+pause
