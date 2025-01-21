@@ -1,14 +1,13 @@
-[![Build all](https://github.com/CrealityOfficial/CrealityPrint/actions/workflows/build_all.yml/badge.svg?branch=main)](https://github.com/SoftFever/OrcaSlicer/actions/workflows/build_all.yml)
 # Creality Print 6.0  
-Creality Print 6.0 is an open source slicer for FDM printers.   
+Creality Print 6.0 is an open source slicer for FDM printers.   [Offical Wiki](https://wiki.creality.com/en/software) 
 
 # Join community
-![discord-mark-blue](https://wiki.creality.com/en/software) 
+
 Welcome to join the Discord channel "creality-print-tester" and engage with us in discussions about everything related to Creality Print. Please follow the instructions below to help you find the "creality-print-tester" group.
 - Click the "Join Creality 3D" button.
 ![alt text](Creality_doc/discord_step1.PNG)
 - At the 4th question select the “Invite by April” button.
-![alt text](Creality_doc/discord_step2.PNG)
+![alt text](Creality_doc/discord_step2.jpg)
 - The left navigation bar shows all channels, scroll down until you find "creality-print-tester".
 ![alt text](Creality_doc/discord_step3.PNG)
 
