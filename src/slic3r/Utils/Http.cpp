@@ -577,6 +577,16 @@ Http& Http::auth_digest(const std::string &user, const std::string &password)
 	return *this;
 }
 
+Http& Http::clear_header()
+{
+    if(p){
+        curl_slist_free_all(p->headerlist);
+        p->headerlist = nullptr;
+    }
+    
+    return *this;
+}
+
 Http& Http::auth_basic(const std::string &user, const std::string &password)
 {
     curl_easy_setopt(p->curl, CURLOPT_USERNAME, user.c_str());

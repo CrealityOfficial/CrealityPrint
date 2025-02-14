@@ -9,6 +9,7 @@ namespace DM{
 class AppUtils{
 public:
     static void PostMsg(wxWebView*browse, const std::string&data);
+    static std::string MD5(const std::string&file);
 };
 }
 #endif

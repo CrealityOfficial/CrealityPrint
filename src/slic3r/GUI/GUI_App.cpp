@@ -4698,6 +4698,33 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 return "";
             } else if (command_str.compare("update_preset_params") == 0) {
                 pt::ptree data_node = root.get_child("data");
+                auto filament_file = fs::path(data_dir()).append("system").append("Creality").append("materialList.json");
+                
+                if (!fs::exists(filament_file)) {
+                    std::string base_url              = get_cloud_api_url();
+                    auto        material_profile_url = "/api/cxy/v2/slice/profile/official/materialList";
+                    Http http2 = Http::post(base_url + material_profile_url);
+                    json        j2;
+                    j2["engineVersion"]  = "3.0.0";
+                    j2["pageSize"] = 1000;
+                    boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                    http2.header("Content-Type", "application/json").header("__CXY_REQUESTID_", to_string(uuid)).set_post_body(j2.dump()).on_complete([=](std::string body, unsigned status) {
+                                    if(status!=200){
+                                        return false;
+                                    }
+                                     json j = json::parse(body);
+                                        json printer_list = j["result"]["list"];
+                                        if(printer_list.empty()){
+                                            return false;
+                                        }
+                                        json list;
+                                        list["materials"] = printer_list;
+                                        boost::nowide::ofstream c;
+                                        c.open(filament_file.string(), std::ios::out | std::ios::trunc);
+                                        c << std::setw(4) << list << std::endl;
+                                        return true;
+                                }).perform_sync();
+                }
                 for (auto& v : data_node) {
                     std::string printer_model  = v.second.get_child("name").data();
                     if(printer_model.find("Creality") == std::string::npos){
@@ -4715,7 +4742,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     bool bHasUpdateMachine = false;
                     boost::replace_all(zipUrl, " ", url_encode(" "));
                     auto http = Http::get(zipUrl);
-                    http.on_complete([&bHasUpdateMachine,tmp_path, printer_model, nozzleDiameters](std::string body, unsigned /* http_status */) {
+                    http.on_complete([&bHasUpdateMachine,tmp_path, printer_model, nozzleDiameters,filament_file](std::string body, unsigned /* http_status */) {
                             fs::fstream file(tmp_path, std::ios::out | std::ios::binary | std::ios::trunc);
                             file.write(body.c_str(), body.size());
                             file.close();
@@ -4733,10 +4760,12 @@ std::string GUI_App::handle_web_request(std::string cmd)
                             std::string              machine_name;
                             std::string              out_machine_name = printer_model + " " + nozzle + " nozzle";
                             json materials_json;
-                            auto filament_file = fs::path(data_dir()).append("system").append("Creality").append("materialList.json");
+                            
                             if (fs::exists(filament_file)) {
                                     boost::nowide::ifstream ifs(filament_file.string());
                                     ifs >> materials_json;
+                                }else{
+                                    return;
                                 }
                             auto updateProfile = [](std::string type, json element) {
                                 json profile_json;

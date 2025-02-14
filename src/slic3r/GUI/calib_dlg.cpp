@@ -233,7 +233,7 @@ void PA_Calibration_Dlg::reset_params() {
             if (currentType != iExtruderTypeSeletion || currentMethod != imethod || isempty) {
                 if (currentType == 0) { //近端
                     m_tiStartPA->GetTextCtrl()->SetValue(wxString::FromDouble(0.0));
-                    m_tiEndPA->GetTextCtrl()->SetValue(wxString::FromDouble(0.008));
+                    m_tiEndPA->GetTextCtrl()->SetValue(wxString::FromDouble(0.08));
                     m_tiPAStep->GetTextCtrl()->SetValue(wxString::FromDouble(0.005));
                 } else { //远端
                     m_tiStartPA->GetTextCtrl()->SetValue(wxString::FromDouble(0.0));

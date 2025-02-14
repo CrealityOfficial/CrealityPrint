@@ -232,7 +232,8 @@ void GLGizmoMeshBoolean::on_render_input_window(float x, float y, float bottom_l
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGuiWrapper::COL_CREALITY);
         }
 
-        bool res = ImGui::Button(label.c_str(), ImVec2(60,24));
+        float view_scale = wxGetApp().plater()->get_current_canvas3D()->get_scale();
+        bool res = ImGui::Button(label.c_str(), ImVec2(60*view_scale, 24*view_scale));
 
         if (selected || hovered) {
             ImGui::PopStyleColor(4);

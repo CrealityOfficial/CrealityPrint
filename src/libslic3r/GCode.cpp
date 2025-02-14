@@ -1876,7 +1876,7 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
         throw;
     }
     file.close();
-    file.write_md5(path_tmp);
+    //file.write_md5(path_tmp);
     check_placeholder_parser_failed();
 
 #if ORCA_CHECK_GCODE_PLACEHOLDERS
@@ -2344,6 +2344,8 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
             }
         }
         // _bbox 范围包括擦拭塔
+        
+        Vec3d plate_origin = print.get_plate_origin();
         if (print.has_wipe_tower())
         {
             FakeWipeTower& towerdata = print.m_fake_wipe_tower;
@@ -2352,13 +2354,28 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
             _bbox.merge(WipeTowerMini.cast<double>());
             _bbox.merge(WipeTowerMax.cast<double>());
         }
+        _bbox.translate(-plate_origin);
 
-        file.write_format("; MINX = %0.2f\n", _bbox.min.x());
-        file.write_format("; MINY = %0.2f\n", _bbox.min.y());
-        file.write_format("; MINZ = %0.2f\n", _bbox.min.z());
-        file.write_format("; MAXX = %0.2f\n", _bbox.max.x());
-        file.write_format("; MAXY = %0.2f\n", _bbox.max.y());
-        file.write_format("; MAXZ = %0.2f\n\n", _bbox.max.z());
+        BoundingBoxf bbox_bed(m_config.printable_area.values);
+        float box_max_z = m_config.printable_height.value;
+        
+        float minx = (_bbox.min.x()>bbox_bed.min.x() && _bbox.min.x()<bbox_bed.max.x())?_bbox.min.x():bbox_bed.min.x();
+        file.write_format("; MINX = %0.2f\n", minx);
+
+        float miny = (_bbox.min.y()>bbox_bed.min.y() && _bbox.min.y()<bbox_bed.max.y())?_bbox.min.y():bbox_bed.min.y();
+        file.write_format("; MINY = %0.2f\n", miny);
+
+        float minz = (_bbox.min.z()>0 && _bbox.min.z()<box_max_z)?_bbox.min.z():0;
+        file.write_format("; MINZ = %0.2f\n", minz);
+
+        float maxx = (_bbox.max.x()>bbox_bed.min.x() && _bbox.max.x()<bbox_bed.max.x())?_bbox.max.x():bbox_bed.max.x();
+        file.write_format("; MAXX = %0.2f\n", maxx);
+
+        float maxy = (_bbox.max.y()>bbox_bed.min.y() && _bbox.max.x()<bbox_bed.max.y())?_bbox.max.y():bbox_bed.max.y();
+        file.write_format("; MAXY = %0.2f\n", maxy);
+
+        float maxz = (_bbox.max.z()>0 && _bbox.max.z()<box_max_z)?_bbox.max.z():box_max_z;
+        file.write_format("; MAXZ = %0.2f\n\n", maxz);
     }
 
 

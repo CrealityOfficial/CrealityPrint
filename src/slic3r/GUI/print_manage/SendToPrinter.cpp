@@ -107,6 +107,7 @@ CxSentToPrinterDialog::CxSentToPrinterDialog(Plater *plater)
     wxString encodedUrl = uri.BuildURI();
     encodedUrl = wxT("file://")+encodedUrl;
     this->load_url(encodedUrl, wxString());
+    m_browser->EnableAccessToDevTools();
 #endif
 
     if (m_plater)
@@ -675,10 +676,12 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
     if (plate) {
         std::string gcodeFilePath;
         if (m_plater->only_gcode_mode()) {
-            gcodeFilePath = m_plater->get_last_loaded_gcode().ToStdString();
+            boost::filesystem::path filePath = std::string(m_plater->get_last_loaded_gcode().utf8_str());
+            //if(boost::filesystem::exists(filePath))
+            gcodeFilePath = filePath.string();
         }
         else{
-            gcodeFilePath = _L(plate->get_tmp_gcode_path()).data();
+            gcodeFilePath = _L(plate->get_tmp_gcode_path()).ToUTF8();
         }
         
         m_uploadingIp = ipAddress;

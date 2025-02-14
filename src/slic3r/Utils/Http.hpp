@@ -109,6 +109,7 @@ public:
 	Http& header(std::string name, const std::string &value);
 	// Removes a header field.
 	Http& remove_header(std::string name);
+	Http& clear_header();
 	// Authorization by HTTP digest, based on RFC2617.
 	Http& auth_digest(const std::string &user, const std::string &password);
     // Basic HTTP authorization

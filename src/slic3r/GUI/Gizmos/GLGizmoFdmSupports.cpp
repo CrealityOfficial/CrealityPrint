@@ -283,6 +283,7 @@ void GLGizmoFdmSupports::on_render_input_window(float x, float y, float bottom_l
     else
         icons = { ImGui::CircleButtonIcon, ImGui::SphereButtonIcon, ImGui::FillButtonIcon, ImGui::GapFillIcon };
 
+    float view_scale = wxGetApp().plater()->get_current_canvas3D()->get_scale();
     std::array<wxString, 4> tool_tips = { _L("Circle"), _L("Sphere"), _L("Fill"), _L("Gap Fill") };
     for (int i = 0; i < tool_ids.size(); i++) {
         std::string  str_label = std::string("##");
@@ -302,7 +303,7 @@ void GLGizmoFdmSupports::on_render_input_window(float x, float y, float bottom_l
             ImGui::PushStyleColor(ImGuiCol_Button, ImGuiWrapper::COL_CREALITY);	// ORCA use orca color for selected tool / brush
  
         }
-        bool btn_clicked = ImGui::Button(into_u8(btn_name).c_str(), ImVec2(28, 28));
+        bool btn_clicked = ImGui::Button(into_u8(btn_name).c_str(), ImVec2(28*view_scale, 28*view_scale));
         if (m_current_tool == tool_ids[i])
         {
             ImGui::PopStyleColor(1);

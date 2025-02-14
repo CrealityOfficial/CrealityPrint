@@ -4,6 +4,8 @@
 #include <curl/curl.h>
 #include <string>
 #include "slic3r/GUI/I18N.hpp"
+#include "AppUtils.hpp"
+#include <wx/string.h>
 namespace RemotePrint {
 Klipper4408Interface::Klipper4408Interface() {
     curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -25,9 +27,12 @@ std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serv
     m_pHttp   = &http;
 
     std::string temp_upload_name = uploadFileName;
-    // std::string temp_upload_name = temp_test_name;
-    //http.mime_form_add_file(temp_upload_name, _L(localFilePath).data()) 
-    http.mime_form_add_file(temp_upload_name, localFilePath.c_str())
+    std::string md5 = DM::AppUtils::MD5(localFilePath); 
+    http.clear_header();
+    http.header("MD5", md5);
+    std::string filePath =  wxString::FromUTF8(localFilePath.c_str()).ToStdString();
+    http.header("Content-Type", "multipart/form-data")
+        .mime_form_add_file(temp_upload_name, filePath.c_str())
         .on_complete([&](std::string body, unsigned status) {
             BOOST_LOG_TRIVIAL(debug) << boost::format("%1%: File uploaded: HTTP %2%: %3%") % uploadFileName % status % body;
             res = boost::icontains(body, "OK");
