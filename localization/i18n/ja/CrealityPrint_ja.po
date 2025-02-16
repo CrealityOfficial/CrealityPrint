@@ -1717,7 +1717,7 @@ msgstr ""
 "転・停止の頻度を減らします。"
 
 msgid "Don't slow down outer walls"
-msgstr ""
+msgstr "外壁印刷時に印刷速度を落とさない"
 
 msgid ""
 "If enabled, this setting will ensure external perimeters are not slowed down "
@@ -1754,7 +1754,7 @@ msgid ""
 msgstr "パーツ冷却ファンは、積層造形時間がこの値より短い時に作動します。"
 
 msgid "s"
-msgstr "s"
+msgstr "秒"
 
 msgid "Default color"
 msgstr "デフォルト色"
@@ -1763,10 +1763,10 @@ msgid "Default filament color"
 msgstr "フィラメントのデフォルト色"
 
 msgid "Default type"
-msgstr ""
+msgstr "初期設定タイプ"
 
 msgid "Default filament type"
-msgstr ""
+msgstr "初期設定フィラメントタイプ"
 
 msgid "Color"
 msgstr "色"
@@ -1775,10 +1775,10 @@ msgid "Filament notes"
 msgstr "Filament notes"
 
 msgid "You can put your notes regarding the filament here."
-msgstr "You can put your notes regarding the filament here."
+msgstr "フィラメントに関するメモを記入可能です"
 
 msgid "Required nozzle HRC"
-msgstr "ノズルHRC"
+msgstr "硬化鋼ノズルが必要"
 
 msgid ""
 "Minimum HRC of nozzle required to print the filament. Zero means no checking "
@@ -2070,7 +2070,7 @@ msgid "money/kg"
 msgstr "USD/kg"
 
 msgid "Vendor"
-msgstr "Vendor"
+msgstr "製造業者"
 
 msgid "Vendor of filament. For show only"
 msgstr "Filament Vendor (Only for show)"
@@ -2495,7 +2495,7 @@ msgid "Brass"
 msgstr "真鍮"
 
 msgid "Nozzle HRC"
-msgstr "ノズルHRC"
+msgstr "ノズル硬度"
 
 msgid ""
 "The nozzle's hardness. Zero means no checking for nozzle's hardness during "
@@ -2512,16 +2512,16 @@ msgid "The physical arrangement and components of a printing device"
 msgstr "The physical arrangement and components of a printing device"
 
 msgid "CoreXY"
-msgstr ""
+msgstr "コアXY"
 
 msgid "I3"
-msgstr ""
+msgstr "i3"
 
 msgid "Hbot"
-msgstr ""
+msgstr "Hボット"
 
 msgid "Delta"
-msgstr ""
+msgstr "デルタ"
 
 msgid "Best object position"
 msgstr "Best object position"
@@ -2573,10 +2573,10 @@ msgid "The printer cost per hour"
 msgstr ""
 
 msgid "money/h"
-msgstr ""
+msgstr "円/時間"
 
 msgid "Support control chamber temperature"
-msgstr "Support controlling chamber temperature"
+msgstr "庫内温度制御が可能"
 
 msgid ""
 "This option is enabled if machine support controlling chamber temperature\n"
@@ -2598,7 +2598,7 @@ msgid "What kind of gcode the printer is compatible with"
 msgstr "プリンターが対応するG-code"
 
 msgid "Klipper"
-msgstr ""
+msgstr "Klipper"
 
 msgid "Tower Position"
 msgstr ""
@@ -2607,7 +2607,7 @@ msgid "The position of the Prime Tower on the platform."
 msgstr ""
 
 msgid "Pellet Modded Printer"
-msgstr ""
+msgstr "ペレット式3Dプリントヘッド"
 
 msgid "Enable this option if your printer uses pellets instead of filaments"
 msgstr ""
@@ -2629,7 +2629,7 @@ msgid ""
 msgstr ""
 
 msgid "Exclude objects"
-msgstr "Exclude objects"
+msgstr "オブジェクトを除外"
 
 msgid "Enable this option to add EXCLUDE OBJECT command in g-code"
 msgstr ""
@@ -2787,10 +2787,10 @@ msgid "All solid layer"
 msgstr "全てのソリッド積層"
 
 msgid "Ironing Pattern"
-msgstr "Ironing Pattern"
+msgstr "アイロンパターン"
 
 msgid "The pattern that will be used when ironing"
-msgstr ""
+msgstr "アイロン時に使用されるパターン"
 
 msgid "Ironing flow"
 msgstr "アイロン時の流量比率"
@@ -2813,7 +2813,7 @@ msgid "Print speed of ironing lines"
 msgstr "アイロン時の造形速度です。"
 
 msgid "Ironing angle"
-msgstr ""
+msgstr "アイロン角度"
 
 msgid ""
 "The angle ironing is done at. A negative number disables this function and "
@@ -12000,7 +12000,7 @@ msgstr ""
 "このファイルにはG-codeのみが入っており、「準備」ページで表示できません"
 
 msgid "Multimaterial"
-msgstr ""
+msgstr "マルチマテリアル"
 
 msgid "You can keep the modified presets to the new project or discard them"
 msgstr "変更したプリセットをプロジェクト内に保存するか、破棄もできます"
