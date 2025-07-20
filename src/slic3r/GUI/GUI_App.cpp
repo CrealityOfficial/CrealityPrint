@@ -5408,8 +5408,6 @@ std::string GUI_App::handle_web_request(std::string cmd)
 
         boost::optional<std::string> sequence_id = root.get_optional<std::string>("sequence_id");
         boost::optional<std::string> command = root.get_optional<std::string>("command");
-
-        wxString strInput  = cmd;
         
 
         if (command.has_value()) {
@@ -6221,7 +6219,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                    wxString strJS = wxString::Format("window.handleStudioCmd('%s');", commandJson.dump());
                    wxGetApp().CallAfter([this, strJS] { run_script(strJS.ToStdString()); });
             } else if (command_str.compare("set_deviceAdd_end") == 0) {
-                json     printersData         = json::parse(strInput);
+                json     printersData         = json::parse(cmd);
                 json     selectedPrintersJson            = printersData["selected_printers"];
                 
                 for (auto it = selectedPrintersJson.begin(); it != selectedPrintersJson.end(); ++it) {
