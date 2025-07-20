@@ -6301,7 +6301,7 @@ void ObjectList::render_plate(ObjectDataViewModelNode* plate)
         if (ImGui::IsItemHovered()) {
             ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
             ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-            ImGui::SetTooltip(_u8L("Click the icon to reset all settings of the object").c_str());
+            ImGui::SetTooltip("Click the icon to reset all settings of the object");
             ImGui::PopStyleColor();
         }
 
