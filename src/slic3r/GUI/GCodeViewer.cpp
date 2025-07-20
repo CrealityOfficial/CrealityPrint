@@ -4917,7 +4917,7 @@ public:
             ImGui::Dummy(ImVec2(0, 3));
             auto timestr = short_time(get_time_dhms(time_mode.time));
             ::sprintf(buf, "%s:%s", _u8L("Printing Time").c_str(), (char*)timestr.c_str());
-            ImGui::Text(buf);
+            ImGui::Text("%s", buf);
 
             ImGui::SameLine(160 * view_scale);
             ::sprintf(buf, imperial_units ? " %s:%.2f oz" : " %s:%.2f g", _u8L("Material Wt").c_str(), ps.total_weight / unit_conver);
@@ -5742,7 +5742,7 @@ void GCodeViewer::render(int canvas_width, int canvas_height)
 						ImVec2 p_start = window->DC.CursorPos;
 						bool hover_text = ImGui::IsMouseHoveringRect(p_start, ImVec2(p_start.x + labelsz.x, p_start.y + labelsz.y));
 						ImVec4 text_color = hover_text ? ImGuiWrapper::COL_CREALITY : ImGui::GetStyleColorVec4(ImGuiCol_Text);
-						ImGui::TextColored(text_color, label.c_str());
+						ImGui::TextColored(text_color, "%s", label.c_str());
 
 						ImVec2 textPos = ImGui::GetItemRectMin();
                         ImGui::GetWindowDrawList()->AddLine(ImVec2(textPos.x, textPos.y + labelsz.y),
@@ -5774,7 +5774,7 @@ void GCodeViewer::render(int canvas_width, int canvas_height)
                         ImGui::RenderFrame(p_min, p_max, sw_bg, true, h * 0.5f);
                         
                         if (ImGui::IsMouseHoveringRect(p_start, p_max)) {
-                            ImGui::SetTooltip(_u8L("In lite mode, only the essential toolpath data is displayed.\nIf you need to view internal parameters such as infill, please disable this mode and re-slice the model.").c_str());
+                            ImGui::SetTooltip("In lite mode, only the essential toolpath data is displayed.\nIf you need to view internal parameters such as infill, please disable this mode and re-slice the model.");
                         }
 
                         if (is_lite_mode) {
