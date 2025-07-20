@@ -10797,7 +10797,10 @@ void GLCanvas3D::_render_imgui_select_plate_toolbar()
 
         // draw text
         ImVec2 text_start_pos = ImVec2(start_pos.x + 10.0f, start_pos.y + 8.0f);
-        ImGui::RenderText(text_start_pos, "%d", i + 1);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+        ImGui::RenderText(text_start_pos, std::to_string(i + 1).c_str());
+#pragma GCC diagnostic pop
 
         ImGui::PopID();
     }
@@ -11137,12 +11140,12 @@ void GLCanvas3D::_render_paint_toolbar() const
         ImGui::TextColored(text_color, std::to_string(i + 1).c_str());
         imgui.pop_bold_font();
 
-        ImVec2 filament_first_line_label_size = ImGui::CalcTextSize("%s", filament_text_first_line[i].c_str());
+        ImVec2 filament_first_line_label_size = ImGui::CalcTextSize(filament_text_first_line[i].c_str());
         ImGui::SetCursorPosY(cursor_y + text_offset_y + number_label_size.y);
         ImGui::SetCursorPosX(spacing + i * (spacing + button_size.x) + (button_size.x - filament_first_line_label_size.x) / 2);
         ImGui::TextColored(text_color, "%s", filament_text_first_line[i].c_str());
 
-        ImVec2 filament_second_line_label_size = ImGui::CalcTextSize("%s", filament_text_second_line[i].c_str());
+        ImVec2 filament_second_line_label_size = ImGui::CalcTextSize(filament_text_second_line[i].c_str());
         ImGui::SetCursorPosY(cursor_y + text_offset_y + number_label_size.y + filament_first_line_label_size.y);
         ImGui::SetCursorPosX(spacing + i * (spacing + button_size.x) + (button_size.x - filament_second_line_label_size.x) / 2);
         ImGui::TextColored(text_color, "%s", filament_text_second_line[i].c_str());
