@@ -198,10 +198,10 @@ void DownPluginFrame::OnFullScreenChanged(wxWebViewEvent &evt)
 void DownPluginFrame::OnScriptMessage(wxWebViewEvent &evt)
 {
     try {
-        wxString strInput = evt.GetString();
+        std::string strInput = evt.GetString().ToStdString();
         json     j        = json::parse(strInput);
 
-        wxString strCmd = j["command"];
+        std::string strCmd = j["command"];
 
         if (strCmd == "Begin_Download_network_plugin") {
             wxGetApp().CallAfter([this] { DownloadPlugin(); });
