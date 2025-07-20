@@ -491,9 +491,9 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
             scan_device();
         }
 
-        else if (m_commandHandlers.find(strCmd.ToStdString()) != m_commandHandlers.end())
+        else if (m_commandHandlers.find(strCmd) != m_commandHandlers.end())
         {
-            m_commandHandlers[strCmd.ToStdString()](j);
+            m_commandHandlers[strCmd](j);
         }
         else if (strCmd == "req_device_move_direction")
         {
