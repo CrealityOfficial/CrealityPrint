@@ -36,7 +36,10 @@ public:
 
     int GetLastError() const { return m_error; }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wenum-constexpr-conversion"
     static constexpr wxMediaState MEDIASTATE_BUFFERING = (wxMediaState) 6;
+#pragma GCC diagnostic pop
 
 protected:
     void DoSetSize(int x, int y, int width, int height, int sizeFlags) override;
