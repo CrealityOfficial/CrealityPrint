@@ -666,7 +666,7 @@ void ObjectList::set_tooltip_for_item(const wxPoint& pt)
         }
     }
 
-    GetMainWindow()->SetToolTip("%s", tooltip);
+    GetMainWindow()->SetToolTip(tooltip);
 }
 
 int ObjectList::get_selected_obj_idx() const
