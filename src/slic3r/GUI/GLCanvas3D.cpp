@@ -253,10 +253,10 @@ void GLCanvas3D::LayersEditing::render_variable_layer_height_dialog(const GLCanv
 #if 1
 
     std::string quality_speed_text      = _u8L("Quality / Speed");
-    ImVec2      quality_speed_text_size = ImGui::CalcTextSize("%s", quality_speed_text.c_str());
+    ImVec2      quality_speed_text_size = ImGui::CalcTextSize(quality_speed_text.c_str());
 
     std::string smooth_text      = _u8L("Smooth");
-    ImVec2      smooth_text_size = ImGui::CalcTextSize("%s", smooth_text.c_str());
+    ImVec2      smooth_text_size = ImGui::CalcTextSize(smooth_text.c_str());
 
     std::string apply_text = _u8L("Apply");
 
@@ -264,7 +264,7 @@ void GLCanvas3D::LayersEditing::render_variable_layer_height_dialog(const GLCanv
 
     ImGui::PushItemWidth(max_text_size);
     ImGui::AlignTextToFramePadding();
-    ImGui::Text(quality_speed_text.c_str());
+    ImGui::Text("%s", quality_speed_text.c_str());
 
     ImGui::SameLine(max_text_size + ImGui::GetStyle().ItemSpacing.x + ImGui::GetStyle().WindowPadding.x);
 
@@ -328,7 +328,7 @@ void GLCanvas3D::LayersEditing::render_variable_layer_height_dialog(const GLCanv
 
     ImGui::PushItemWidth(max_text_size);
     ImGui::AlignTextToFramePadding();
-    ImGui::Text(smooth_text.c_str());
+    ImGui::Text("%s", smooth_text.c_str());
 
     ImGui::SameLine(max_text_size + ImGui::GetStyle().ItemSpacing.x + ImGui::GetStyle().WindowPadding.x);
 
