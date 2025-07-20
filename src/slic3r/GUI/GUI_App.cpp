@@ -6648,7 +6648,7 @@ void GUI_App::on_http_error(wxCommandEvent &evt)
     wxString result;
     if (status >= 400 && status < 500) {
         try {
-        json j = json::parse(evt.GetString());
+        json j = json::parse(evt.GetString().ToStdString());
         if (j.contains("code")) {
             if (!j["code"].is_null())
                 code = j["code"].get<int>();
