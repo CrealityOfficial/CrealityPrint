@@ -10797,10 +10797,7 @@ void GLCanvas3D::_render_imgui_select_plate_toolbar()
 
         // draw text
         ImVec2 text_start_pos = ImVec2(start_pos.x + 10.0f, start_pos.y + 8.0f);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-security"
         ImGui::RenderText(text_start_pos, std::to_string(i + 1).c_str());
-#pragma GCC diagnostic pop
 
         ImGui::PopID();
     }
