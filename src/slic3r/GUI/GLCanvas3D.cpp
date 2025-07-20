@@ -253,10 +253,10 @@ void GLCanvas3D::LayersEditing::render_variable_layer_height_dialog(const GLCanv
 #if 1
 
     std::string quality_speed_text      = _u8L("Quality / Speed");
-    ImVec2      quality_speed_text_size = ImGui::CalcTextSize(quality_speed_text.c_str());
+    ImVec2      quality_speed_text_size = ImGui::CalcTextSize("%s", quality_speed_text.c_str());
 
     std::string smooth_text      = _u8L("Smooth");
-    ImVec2      smooth_text_size = ImGui::CalcTextSize(smooth_text.c_str());
+    ImVec2      smooth_text_size = ImGui::CalcTextSize("%s", smooth_text.c_str());
 
     std::string apply_text = _u8L("Apply");
 
@@ -11137,15 +11137,15 @@ void GLCanvas3D::_render_paint_toolbar() const
         ImGui::TextColored(text_color, std::to_string(i + 1).c_str());
         imgui.pop_bold_font();
 
-        ImVec2 filament_first_line_label_size = ImGui::CalcTextSize(filament_text_first_line[i].c_str());
+        ImVec2 filament_first_line_label_size = ImGui::CalcTextSize("%s", filament_text_first_line[i].c_str());
         ImGui::SetCursorPosY(cursor_y + text_offset_y + number_label_size.y);
         ImGui::SetCursorPosX(spacing + i * (spacing + button_size.x) + (button_size.x - filament_first_line_label_size.x) / 2);
-        ImGui::TextColored(text_color, filament_text_first_line[i].c_str());
+        ImGui::TextColored(text_color, "%s", filament_text_first_line[i].c_str());
 
-        ImVec2 filament_second_line_label_size = ImGui::CalcTextSize(filament_text_second_line[i].c_str());
+        ImVec2 filament_second_line_label_size = ImGui::CalcTextSize("%s", filament_text_second_line[i].c_str());
         ImGui::SetCursorPosY(cursor_y + text_offset_y + number_label_size.y + filament_first_line_label_size.y);
         ImGui::SetCursorPosX(spacing + i * (spacing + button_size.x) + (button_size.x - filament_second_line_label_size.x) / 2);
-        ImGui::TextColored(text_color, filament_text_second_line[i].c_str());
+        ImGui::TextColored(text_color, "%s", filament_text_second_line[i].c_str());
     }
 
     if (ImGui::GetWindowWidth() == constraint_window_width) {
@@ -11298,10 +11298,10 @@ void GLCanvas3D::_render_assemble_info() const
     double size1 = m_selection.get_bounding_box().size()(1);
     double size2 = m_selection.get_bounding_box().size()(2);
     if (!m_selection.is_empty()) {
-        ImGui::Text(_L("Volume:").ToUTF8());
+        ImGui::Text("Volume:");
         ImGui::SameLine(caption_max);
         ImGui::Text("%.2f", size0 * size1 * size2);
-        ImGui::Text(_L("Size:").ToUTF8());
+        ImGui::Text("Size:");
         ImGui::SameLine(caption_max);
         ImGui::Text("%.2f x %.2f x %.2f", size0, size1, size2);
     }
