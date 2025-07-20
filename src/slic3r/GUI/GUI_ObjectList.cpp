@@ -6648,7 +6648,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
         if (ImGui::IsItemHovered()) {
             ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
             ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-            ImGui::SetTooltip(node_name);
+            ImGui::SetTooltip("%s", node_name);
             ImGui::PopStyleColor();
         }
 
@@ -7045,7 +7045,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
                 float x = pos.x + (item_width - text_size.x) * 0.5f;
                 ImGui::SetCursorPos(ImVec2(x, pos.y + style.FramePadding.y));
 
-                ImGui::Text(ext_name.c_str());
+                ImGui::Text("%s", ext_name.c_str());
 
                 if (need_tooltips) {
                     if (ImGui::IsItemHovered()) {
@@ -7215,7 +7215,7 @@ void GUI::ObjectList::render_current_device_name(const float max_right)
     std::string show_text   = _u8L("Current device:") + " " + device_name;
     std::string remake_text = remake_text_to_fit_size(show_text);
 
-    ImGui::TextColored(ImGuiWrapper::COL_CREALITY, remake_text.c_str());
+    ImGui::TextColored(ImGuiWrapper::COL_CREALITY, "%s", remake_text.c_str());
 
     if (ImGui::IsItemHovered()) {
         bool   is_dark    = wxGetApp().dark_mode();
@@ -7625,7 +7625,7 @@ void ObjectList::render_printer_preset_by_ImGui()
     if (!bed_types.empty()) {
         // Bed type
         ImGui::AlignTextToFramePadding();
-        ImGui::Text(_u8L("Bed type").c_str());
+        ImGui::Text("Bed type");
         ImGui::SameLine();
         float bed_type_combo_width = 280 * scale - ImGui::GetItemRectSize().x - style.FramePadding.x * 2;
         {
@@ -8121,9 +8121,9 @@ void ObjectList::draw_device_list_popup()
         auto winWidth = ImGui::GetCurrentWindow()->Size.x;
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + winWidth / 2 - label_size1.x / 2);
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 40 * scale / 2 - ImGui::GetFontSize() / 2);
-        ImGui::Text(label1.c_str());
+        ImGui::Text("%s", label1.c_str());
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + winWidth / 2 - (label_size11.x + label_size2.x) / 2);
-        ImGui::Text(label11.c_str());
+        ImGui::Text("%s", label11.c_str());
         ImGui::SameLine();
         
         ImVec4 label_color = {0.0824, 0.7529, 0.3490, 1.0000};
@@ -8279,13 +8279,13 @@ void ObjectList::draw_device_list_content()
             auto textSize2  = ImGui::CalcTextSize(showText2);
             ImGui::SameLine(curWidth + colDesigneWidth[col] / 2 - textSize.x / 2);
             ImGui::SetCursorPosY(originCursorY + rowHeight / 2 - textSize.y);
-            ImGui::TextColored(is_dark ? ImVec4{1.0f, 1.0f, 1.0f, 1.0f} : ImVec4{0.1686f, 0.1686f, 0.1765f, 1.0f}, showText);
+            ImGui::TextColored(is_dark ? ImVec4{1.0f, 1.0f, 1.0f, 1.0f} : ImVec4{0.1686f, 0.1686f, 0.1765f, 1.0f}, "%s", showText);
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("%s", it.second.name.c_str());
             }
             ImGui::SameLine(curWidth + colDesigneWidth[col] / 2 - textSize2.x / 2);
             ImGui::SetCursorPosY(originCursorY + rowHeight / 2);
-            ImGui::TextColored(is_dark ? ImVec4{0.6824, 0.6824, 0.6980, 1.0f} : ImVec4{0.3059f, 0.3490f, 0.4118f, 1.0f}, showText2);
+            ImGui::TextColored(is_dark ? ImVec4{0.6824, 0.6824, 0.6980, 1.0f} : ImVec4{0.3059f, 0.3490f, 0.4118f, 1.0f}, "%s", showText2);
             curWidth += colDesigneWidth[col];
 
             ++col;
@@ -8304,7 +8304,7 @@ void ObjectList::draw_device_list_content()
             textSize = ImGui::CalcTextSize(stateList[stateText].c_str());
             ImGui::SameLine(curWidth + colDesigneWidth[col] / 2 - ImGui::CalcTextSize(stateList[stateText].c_str()).x / 2);
             ImGui::SetCursorPosY(originCursorY + rowHeight / 2 - textSize.y / 2);
-            ImGui::TextColored(colorList[stateColor], stateList[stateText].c_str());
+            ImGui::TextColored(colorList[stateColor], "%s", stateList[stateText].c_str());
 
             ImGui::SetCursorPosY(originCursorY + rowHeight);
             ImGui::Separator();
