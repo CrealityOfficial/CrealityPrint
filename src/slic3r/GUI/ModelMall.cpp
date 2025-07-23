@@ -123,7 +123,7 @@ namespace GUI {
     void ModelMallDialog::OnScriptMessage(wxWebViewEvent& evt)
     {
         try {
-            std::string strInput = evt.GetString().toStdString();
+            std::string strInput = evt.GetString().ToStdString();
             json     j = json::parse(strInput);
 
             std::string strCmd = j["command"];
