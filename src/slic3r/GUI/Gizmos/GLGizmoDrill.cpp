@@ -641,7 +641,7 @@ void GLGizmoDrill::draw_cp_input_double(const std::string& label, double* v, dou
     ImGui::PushItemWidth(size.x() - updown_button_size.x - text_size - space * 3.0);
     ImGui::BBLInputDouble(label.c_str(), v, 0.0f, 0.0f, "%.2f", disable);
     ImGui::SameLine(0, space);
-    ImGui::Text(text);
+    ImGui::Text("%s", text);
     ImGui::SameLine(0, space);
     {
         ImGui::BeginGroup();

@@ -415,7 +415,7 @@ int DispConfig::popupButton(const std::string& name, ButtonConfig bcfg
 ImVec2 DispConfig::boldText(const std::string&str,float scale) {
     Loc_pushBoldStyle(scale);
     auto sz = ImGui::CalcTextSize(str.c_str());
-    ImGui::Text(str.c_str());
+    ImGui::Text("%s", str.c_str());
     Loc_popBoldStyle(scale);
     return sz;
 }
