@@ -57,13 +57,13 @@ def collection_win_id_from_wm_class_name(win_class_name):
 
 if __name__ == '__main__':
 
-    if os.environ.get('PRUSA_SLICER_DARK_THEME', 'false') != 'true':
+    if os.environ.get('ORCA_SLICER_DARK_THEME', 'false') != 'true':
         sys.exit(0)
 
     # Listen for X Property Change events.
     root.change_attributes(event_mask=Xlib.X.PropertyChangeMask)
     # the class name of the slicer window
-    win_class_name = 'prusa-slicer'
+    win_class_name = 'orcaslicer'
     # the variant to set
     variant = 'dark'
 
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     while True:
         # collect all of the window ids
         collect = collection_win_id_from_wm_class_name(win_class_name)
-        # give PrusaSlicer window 2 secs to
+        # give Orca Slicer window 2 secs to
         # collect the wanted window ids
         # set the theme variant and exit
         if time.time() - start <= 2:

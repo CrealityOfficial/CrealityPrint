@@ -493,7 +493,7 @@ void GLGizmoMeshBoolean::on_render_input_window(float x, float y, float bottom_l
 
      if (m_show_warning) {
             ImGui::PushTextWrapPos(200);
-            ImGui::TextWrapped(_u8L(warning_text.c_str()).c_str());
+            ImGui::TextWrapped( "%s", _u8L(warning_text.c_str()).c_str());
             ImGui::PopTextWrapPos();
             ImGui::SameLine(0, 0);
         }

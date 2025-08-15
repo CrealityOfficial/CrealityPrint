@@ -325,7 +325,9 @@ if (NOT MSVC AND ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMP
     # we finally get rid of the deprecated code.
     if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
         add_compile_options(-Wno-deprecated-declarations)
-        add_compile_options(-glldb)
+        if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+            add_compile_options(-glldb)
+        endif()
     endif()
 
     if (${CMAKE_CXX_COMPILER_ID} STREQUAL "AppleClang" AND ${CMAKE_CXX_COMPILER_VERSION} VERSION_GREATER 15)
@@ -860,8 +862,11 @@ configure_file(${LIBDIR}/platform/unix/fhs.hpp.in ${LIBDIR_BIN}/platform/unix/fh
 message(STATUS "CMAKE_INSTALL_PREFIX333=${CMAKE_INSTALL_PREFIX}")
 
 message(STATUS "SLIC3R_RESOURCES_DIR222=${SLIC3R_RESOURCES_DIR}")
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 # if (WIN32)
 # include(package/package.cmake)
 # elseif( APPLE)
-add_subdirectory(package)
+if (NOT FLATPAK)
+    add_subdirectory(package)
+endif()
 # endif()

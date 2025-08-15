@@ -1,551 +1,540 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: \n"
-"POT-Creation-Date: \n"
-"PO-Revision-Date: \n"
-"Last-Translator: \n"
-"Language-Team: \n"
-"Language: en\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 3.5\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 msgid "All"
-msgstr "All"
+msgstr ""
 
 msgid "Start Print"
-msgstr "Start Print"
+msgstr ""
 
 msgid "Send Only"
-msgstr "Send Only"
+msgstr ""
 
 msgid "Print Device"
-msgstr "Print Device"
+msgstr ""
 
 msgid "My Device"
-msgstr "My Device"
+msgstr ""
 
 msgid "Filament Device"
-msgstr "Filament Device"
+msgstr ""
 
 msgid "Please Select"
-msgstr "Please Select"
+msgstr ""
 
-msgid "CFS"
-msgstr "CFS"
+msgid "Have CFS"
+msgstr ""
+
+msgid "CFS-C"
+msgstr ""
+
+msgid "No CFS"
+msgstr ""
 
 msgid "Spool Holder"
-msgstr "Spool Holder"
+msgstr ""
 
 msgid "Print Calibration"
-msgstr "Print Calibration"
+msgstr ""
 
 msgid "Sliced Plate"
-msgstr "Sliced Plate"
+msgstr ""
 
 msgid "Upload Success"
-msgstr "Upload Success"
+msgstr ""
 
 msgid "Upload Failed"
-msgstr "Upload Failed"
+msgstr ""
+
+msgid "Waiting"
+msgstr ""
+
+msgid "Sending"
+msgstr ""
 
 msgid "Print Filter"
-msgstr "Print Filter"
+msgstr ""
 
 msgid "Single Plate"
-msgstr "Single Plate"
+msgstr ""
 
 msgid "This plate is for printing after sending"
-msgstr "This plate is for printing after sending"
+msgstr ""
 
 msgid "All Plates"
-msgstr "All Plates"
+msgstr ""
 
 msgid "Model Color / Filament"
-msgstr "Model Color / Filament"
+msgstr ""
 
 msgid "Box Color / Filament"
-msgstr "Box Color / Filament"
+msgstr ""
 
 msgid "Local Network"
-msgstr "Local Network"
+msgstr ""
 
 msgid "Internet(Creality Cloud)"
-msgstr "Internet(Creality Cloud)"
+msgstr ""
 
 msgid "Local Device"
-msgstr "Local Device"
+msgstr ""
 
 msgid "Creality Cloud Device"
-msgstr "Creality Cloud Device"
+msgstr ""
 
 msgid "Uploading"
-msgstr "Uploading"
+msgstr ""
 
 msgid "Offline"
-msgstr "Offline"
+msgstr ""
 
 msgid "Other"
-msgstr "Other"
+msgstr ""
 
 msgid "File Name"
-msgstr "File Name"
+msgstr ""
 
 msgid "Please check"
-msgstr "Please check"
+msgstr ""
 
 msgid "Does the printer camera device work properly"
-msgstr "Does the printer camera device work properly."
+msgstr ""
 
 msgid "This feature will be launched soon"
-msgstr "This feature will be launched soon"
+msgstr ""
 
 msgid "Insufficient cloud storage space"
-msgstr "Insufficient cloud storage space"
+msgstr ""
 
 msgid "Executing print command"
-msgstr "Executing print command..."
+msgstr ""
 
 msgid "Executing print command over"
-msgstr "Executing print command over..."
+msgstr ""
 
 msgid "Parsing GCode file"
-msgstr "Parsing GCode file..."
+msgstr ""
 
 msgid "Download GCode"
-msgstr "Download GCode..."
+msgstr ""
 
 msgid ""
 "Please make sure that there are no models on the printing platform, "
 "otherwise it will cause fatal damage to the device after startup"
 msgstr ""
-"Please make sure that there are no models on the printing platform, "
-"otherwise it will cause fatal damage to the device after startup"
 
 msgid "Idle"
-msgstr "Idle"
+msgstr ""
 
 msgid "Printing"
-msgstr "Printing"
+msgstr ""
 
 msgid "Printing Complete"
-msgstr "Printing Complete"
+msgstr ""
 
 msgid "Printing Failed"
-msgstr "Printing Failed"
+msgstr ""
 
 msgid "Print Abort"
-msgstr "Print Abort"
+msgstr ""
 
 msgid "Printing Paused"
-msgstr "Printing Paused"
+msgstr ""
 
 msgid "Printing Pausing"
-msgstr "Printing Pausing"
+msgstr ""
 
 msgid "Printing Stopping"
-msgstr "Printing Stopping"
+msgstr ""
 
 msgid "Printing Restoring"
-msgstr "Printing Restoring"
+msgstr ""
 
 msgid "Executing print termination command"
-msgstr "Executing print termination command"
+msgstr ""
 
 msgid "Executing pause command"
-msgstr "Executing pause command"
+msgstr ""
 
 msgid "Executing the command to continue printing"
-msgstr "Executing the command to continue printing"
+msgstr ""
 
 msgid "Pause"
-msgstr "Pause"
+msgstr ""
 
 msgid "Stop"
-msgstr "Stop"
+msgstr ""
 
 msgid "Continue"
-msgstr "Continue"
+msgstr ""
 
 msgid "Printing Speed"
-msgstr "Printing Speed"
+msgstr ""
 
 msgid "Warning"
-msgstr "Warning"
+msgstr ""
 
 msgid "Ok"
-msgstr "Ok"
+msgstr ""
 
 msgid "Cancel"
-msgstr "Cancel"
+msgstr ""
 
 msgid "Please select the CFS slot corresponding to the consumables"
-msgstr "Please select the CFS slot corresponding to the filaments"
+msgstr ""
+
+msgid "Please select the CFS-C slot corresponding to the consumables"
+msgstr ""
+
+msgid "Please select the CFS-lite slot corresponding to the consumables"
+msgstr ""
 
 msgid "There are consumables without mapping, only support sending"
-msgstr "There are filaments without mapping, only support sending"
+msgstr ""
 
 msgid "Model color/consumables"
-msgstr "Model color/filaments"
+msgstr ""
 
 msgid "Printing colors/consumables"
-msgstr "Printing colors/filaments"
+msgstr ""
 
 msgid "Printing will be done using rack colors"
-msgstr "Printing will be done using Spool Holder colors"
+msgstr ""
 
 msgid "The slot has no consumables and cannot be mapped"
-msgstr "The slot has no filament and cannot be mapped"
+msgstr ""
 
 msgid "Consumables exist, but have not been edited"
-msgstr "filaments exist, but have not been edited"
+msgstr ""
 
 msgid "Current Device"
-msgstr "Current Device"
+msgstr ""
 
 msgid "Enable CFS"
-msgstr "Enable CFS"
+msgstr ""
+
+msgid "Enable CFS-C"
+msgstr ""
+
+msgid "Enable CFS-lite"
+msgstr ""
 
 msgid "Printing using consumables in CFS"
-msgstr "Printing using filaments in CFS"
+msgstr ""
+
+msgid "Printing using consumables in CFS-C"
+msgstr ""
+
+msgid "Printing using consumables in CFS-lite"
+msgstr ""
 
 msgid "Enable material rack"
-msgstr "Enable filament rack"
+msgstr ""
 
 msgid "Printing with consumables attached to the back of the machine"
-msgstr "Printing with filament attached to the back of the machine"
+msgstr ""
 
 msgid ""
 "The current printer does not match the preset settings of the selected "
 "printer"
 msgstr ""
-"The current printer does not match the preset settings of the selected "
-"printer"
 
 msgid "Prepare to jump to details"
-msgstr "Prepare to jump to details"
+msgstr ""
 
 msgid "Under decompression"
-msgstr "Under decompression..."
+msgstr ""
 
 msgid "Cancel sending"
-msgstr "Cancel sending"
+msgstr ""
 
 msgid "Cancel Successfully"
-msgstr "Cancel Successfully"
+msgstr ""
 
 msgid "The file name is too long [cannot exceed 80 characters]"
-msgstr "The file name is too long [cannot exceed 80 characters]"
+msgstr ""
 
 msgid "Unknow error"
-msgstr "Unknow error"
+msgstr ""
 
 msgid "Continue Print"
-msgstr "Continue Print"
+msgstr ""
 
 msgid "Cancel Print"
-msgstr "Cancel Print"
+msgstr ""
 
 msgid "Retry"
-msgstr "Retry"
+msgstr ""
 
 msgid "OK"
-msgstr "OK"
+msgstr ""
 
 msgid ""
-"The current printer's material rack consumables do not exist. Do you want to "
-"continue printing"
+"The current printer's material rack consumables do not exist. Do you want "
+"to continue printing?"
 msgstr ""
-"The current printer's filament rack filament do not exist. Do you want to "
-"continue printing?"
 
 msgid "Login information is invalid, please log in again"
-msgstr "Login information is invalid, please log in again"
+msgstr ""
 
 msgid "An unknown error was detected in printing"
-msgstr "An unknown error was detected in printing"
+msgstr ""
 
 msgid "Motor drive abnormality"
-msgstr "Motor drive abnormality"
+msgstr ""
 
 msgid "internal error"
-msgstr "internal error"
+msgstr ""
 
 msgid "Communication abnormality"
-msgstr "Communication abnormality"
+msgstr ""
 
 msgid "Not heating as expected"
-msgstr "Not heating as expected"
+msgstr ""
 
 msgid "Unknown exception"
-msgstr "Unknown exception"
+msgstr ""
 
 msgid "Extruder abnormality"
-msgstr "Extruder abnormality"
+msgstr ""
 
 msgid "Print file coordinates are abnormal"
-msgstr "Print file coordinates are abnormal"
+msgstr ""
 
 msgid "Chatter optimization sensor abnormality"
-msgstr "Chatter optimization sensor abnormality"
+msgstr ""
 
 msgid "Fan abnormality"
-msgstr "Fan abnormality"
+msgstr ""
 
 msgid "A print quality issue has been detected and printing has been paused"
-msgstr "A print quality issue has been detected and printing has been paused"
+msgstr ""
 
 msgid "Unknown error"
-msgstr "Unknown error"
+msgstr ""
 
 msgid "Foreign object detected on the printing platform, printing paused"
-msgstr "Foreign object detected on the printing platform, printing paused"
+msgstr ""
 
 msgid "Motherboard Connection Failure"
-msgstr "Motherboard Connection Failure"
+msgstr ""
 
 msgid "Nozzle connection abnormal"
-msgstr "Nozzle connection abnormal"
+msgstr ""
 
 msgid "Hotbed Connection Abnormal"
-msgstr "Hotbed Connection Abnormal"
+msgstr ""
 
 msgid "Detected unfinished task, do you wish to continue printing"
-msgstr "Detected unfinished task, do you wish to continue printing"
+msgstr ""
 
 msgid "Filament runout, printing paused, please refill"
-msgstr "Filament runout, printing paused, please refill"
+msgstr ""
 
 msgid "A model warping issue has been detected，printing has been paused"
-msgstr "A model warping issue has been detected，printing has been paused"
+msgstr ""
 
 msgid "Detected waste chute is block. Please clean it up and try again."
-msgstr "Detected waste chute is block. Please clean it up and try again."
+msgstr ""
 
 msgid ""
 "Belt tension abnormal. Please rerun the Input Shaping before using the "
 "printer."
 msgstr ""
-"Belt tension abnormal. Please rerun the Input Shaping before using the "
-"printer."
 
 msgid ""
-"FR2357: CFS filament in use. To print with spool holder, unload CFS filament "
-"and reload spool holder before printing."
+"FR2357: CFS filament in use. To print with spool holder, unload CFS "
+"filament and reload spool holder before printing."
 msgstr ""
-"FR2357: CFS filament in use. To print with spool holder, unload CFS filament "
-"and reload spool holder before printing."
 
 msgid ""
-"FR2358: Spool holder filament in use. To print with CFS, unload spool holder "
-"filament and reload CFS filament before printing."
+"FR2358: Spool holder filament in use. To print with CFS, unload spool "
+"holder filament and reload CFS filament before printing."
 msgstr ""
-"FR2358: Spool holder filament in use. To print with CFS, unload spool holder "
-"filament and reload CFS filament before printing."
 
 msgid "Abnormal temperature of the temperature chamber"
-msgstr "Abnormal temperature of the temperature chamber"
+msgstr ""
 
 msgid "network anomaly"
-msgstr "network anomaly"
+msgstr ""
 
 msgid "AI detected print quality issues"
-msgstr "AI detected print quality issues"
+msgstr ""
 
 msgid "z-Touch abnormality"
-msgstr "z-Touch abnormality"
+msgstr ""
 
 msgid "File anomaly"
-msgstr "File anomaly"
+msgstr ""
 
 msgid "Abnormal hot bed temperature"
-msgstr "Abnormal hot bed temperature"
+msgstr ""
 
 msgid "Printing quality issues detected by AI"
-msgstr "Printing quality issues detected by AI"
+msgstr ""
 
 msgid "TF0501: Heat break fan speed detected to be too low."
-msgstr "TF0501: Heat break fan speed detected to be too low."
+msgstr ""
 
 msgid "Mainboard fan exception"
-msgstr "Mainboard fan exception"
+msgstr ""
 
 msgid "Detected a issue with the print quality of the first layer"
-msgstr "Detected a issue with the print quality of the first layer"
+msgstr ""
 
 msgid "Current file does not support flow detection"
-msgstr "Current file does not support flow detection"
+msgstr ""
 
 msgid "AI LiDAR anomaly"
-msgstr "AI LiDAR anomaly"
+msgstr ""
 
 msgid "AI LiDAR calibration failure"
-msgstr "AI LiDAR calibration failure"
+msgstr ""
 
 msgid "AI LiDAR alignment failure"
-msgstr "AI LiDAR alignment failure"
+msgstr ""
 
 msgid "Current storage space usage has reached %s, please clean up in time"
-msgstr "Current storage space usage has reached %s, please clean up in time"
+msgstr ""
 
 msgid "Chamber temp too high, camera off. It'll auto-on when temp normalizes"
-msgstr "Chamber temp too high, camera off. It'll auto-on when temp normalizes"
+msgstr ""
 
 msgid "Camera failed to start, try restarting"
-msgstr "Camera failed to start, try restarting"
+msgstr ""
 
 msgid ""
 "Current file does not support flow ratio calibration, printing with default "
 "values."
 msgstr ""
-"Current file does not support flow ratio calibration, printing with default "
-"values."
 
 msgid ""
 "Current filament does not support flow ratio calibration, printing with "
 "default values."
 msgstr ""
-"Current filament does not support flow ratio calibration, printing with "
-"default values."
 
 msgid "Auto PA calibration image anomaly, printing with default values."
-msgstr "Auto PA calibration image anomaly, printing with default values."
+msgstr ""
 
 msgid "Auto PA calibration failed, printing with default values."
-msgstr "Auto PA calibration failed, printing with default values."
+msgstr ""
 
 msgid "A model warping issue has been detected."
-msgstr "A model warping issue has been detected."
+msgstr ""
 
 msgid "TF0526: Model fan speed detected to be too low."
-msgstr "TF0526: Model fan speed detected to be too low."
+msgstr ""
 
 msgid "FO0528: rinter seems to be printing without extruding."
-msgstr "FO0528: rinter seems to be printing without extruding."
+msgstr ""
 
 msgid "Axis movement error"
-msgstr "Axis movement error"
+msgstr ""
 
 msgid "Machine preparation"
-msgstr "Machine preparation"
+msgstr ""
 
 msgid "System error, try restarting"
-msgstr "System error, try restarting"
+msgstr ""
 
 msgid "The nozzle temperature is below the minimum extrusion temperature"
-msgstr "The nozzle temperature is below the minimum extrusion temperature"
+msgstr ""
 
 msgid "Unable to obtain nozzle temperature, the thermistor may be disconnected"
 msgstr ""
-"Unable to obtain nozzle temperature, the thermistor may be disconnected"
 
 msgid "Hotbed thermistor open circuit"
-msgstr "Hotbed thermistor open circuit"
+msgstr ""
 
 msgid "The chamber thermistor may be open circuit"
-msgstr "The chamber thermistor may be open circuit"
+msgstr ""
 
 msgid "The motherboard temperature is abnormal"
-msgstr "The motherboard temperature is abnormal"
+msgstr ""
 
 msgid "Nozzle temperature exceeds limit, thermistor may be short-circuited"
-msgstr "Nozzle temperature exceeds limit, thermistor may be short-circuited"
+msgstr ""
 
 msgid "Hotbed thermistor short circuit"
-msgstr "Hotbed thermistor short circuit"
+msgstr ""
 
 msgid "The chamber thermistor may be short circuit"
-msgstr "The chamber thermistor may be short circuit"
+msgstr ""
 
 msgid "Chamber heating issue, please ensure the printer is sealed"
-msgstr "Chamber heating issue, please ensure the printer is sealed"
+msgstr ""
 
 msgid "The nozzle is not heating as expected"
-msgstr "The nozzle is not heating as expected"
+msgstr ""
 
 msgid "The heat bed is not heating as expected"
-msgstr "The heat bed is not heating as expected"
+msgstr ""
 
 msgid "Print file is corrupted"
-msgstr "Print file is corrupted"
+msgstr ""
 
 msgid "X-axis homing abnormality"
-msgstr "X-axis homing abnormality"
+msgstr ""
 
 msgid "Y-axis homing abnormality"
-msgstr "Y-axis homing abnormality"
+msgstr ""
 
 msgid "Z-axis homing abnormality"
-msgstr "Z-axis homing abnormality"
+msgstr ""
 
 msgid "X-axis print coordinates out of range"
-msgstr "X-axis print coordinates out of range"
+msgstr ""
 
 msgid "Y-axis print coordinates out of range"
-msgstr "Y-axis print coordinates out of range"
+msgstr ""
 
 msgid "Z-axis print coordinates out of range"
-msgstr "Z-axis print coordinates out of range"
+msgstr ""
 
 msgid "Z Offset Exceeds Limit"
-msgstr "Z Offset Exceeds Limit"
+msgstr ""
 
 msgid "Belt tension module abnormal."
-msgstr "Belt tension module abnormal."
+msgstr ""
 
 msgid "Auto belt tension failure"
-msgstr "Auto belt tension failure"
+msgstr ""
 
 msgid "The nozzle leveling sensor may have a hardware failure."
-msgstr "The nozzle leveling sensor may have a hardware failure."
+msgstr ""
 
 msgid ""
 "The nozzle leveling sensor may be damaged or the wiping module may have "
 "fallen off. Please check or try restarting."
 msgstr ""
-"The nozzle leveling sensor may be damaged or the wiping module may have "
-"fallen off. Please check or try restarting."
 
 msgid "Z-axis homing issue,may have an external disturbance "
-msgstr "Z-axis homing issue,may have an external disturbance "
+msgstr ""
 
 msgid ""
 "[Printing] XY Motor: XY motor speed limit exceeded. The motor will be "
-"released. Please reduce the print speed or re-slice and print again.Z Motor: "
-"Z motor speed limit exceeded. The motor will be released. Please reduce the "
-"print speed or re-slice and print again.E Motor: Extruder speed limit "
-"exceeded. The motor will be released. Please reduce the print speed or re-"
-"slice and print again.[Not Printing] XY Motor: XY motor speed limit "
+"released. Please reduce the print speed or re-slice and print again.Z "
+"Motor: Z motor speed limit exceeded. The motor will be released. Please "
+"reduce the print speed or re-slice and print again.E Motor: Extruder speed "
+"limit exceeded. The motor will be released. Please reduce the print speed "
+"or re-slice and print again.[Not Printing] XY Motor: XY motor speed limit "
 "exceeded. The motor will be released. Please reduce the XY motor movement "
 "speed.Z Motor: Z motor speed limit exceeded. The motor will be released. "
 "Please reduce the Z motor movement speed.E Motor: Extruder speed limit "
 "exceeded. The motor will be released. Please reduce the extruder movement "
 "speed."
 msgstr ""
-"[Printing] XY Motor: XY motor speed limit exceeded. The motor will be "
-"released. Please reduce the print speed or re-slice and print again.Z Motor: "
-"Z motor speed limit exceeded. The motor will be released. Please reduce the "
-"print speed or re-slice and print again.E Motor: Extruder speed limit "
-"exceeded. The motor will be released. Please reduce the print speed or re-"
-"slice and print again.[Not Printing] XY Motor: XY motor speed limit "
-"exceeded. The motor will be released. Please reduce the XY motor movement "
-"speed.Z Motor: Z motor speed limit exceeded. The motor will be released. "
-"Please reduce the Z motor movement speed.E Motor: Extruder speed limit "
-"exceeded. The motor will be released. Please reduce the extruder movement "
-"speed."
 
-msgid ""
-"[X/Y/E/Z1/Z2] step-servo position issue, please try again after resolving"
+msgid "[X/Y/E/Z1/Z2] step-servo position issue, please try again after resolving"
 msgstr ""
-"[X/Y/E/Z1/Z2] step-servo position issue, please try again after resolving"
 
 msgid ""
 "[Printing] XY Motor: An obstacle was detected during the extruder's "
-"movement. This print has been canceled and the motor is released.Z Motor: An "
-"obstacle was detected during the heated bed's movement. This print has been "
-"canceled and the motor is released.E Motor: An extrusion anomaly was "
+"movement. This print has been canceled and the motor is released.Z Motor: "
+"An obstacle was detected during the heated bed's movement. This print has "
+"been canceled and the motor is released.E Motor: An extrusion anomaly was "
 "detected, possibly a clog, tangle, or jam. Printing has been paused.[Not "
 "Printing] XY Motorstep-servo: An obstacle was detected during the nozzle's "
 "movement. The motor will be released.Z Motor: An obstacle was detected "
@@ -553,234 +542,352 @@ msgid ""
 "extrusion anomaly was detected, possibly a clog, tangle, or jam. The motor "
 "will be released."
 msgstr ""
-"[Printing] XY Motor: An obstacle was detected during the extruder's "
-"movement. This print has been canceled and the motor is released.Z Motor: An "
-"obstacle was detected during the heated bed's movement. This print has been "
-"canceled and the motor is released.E Motor: An extrusion anomaly was "
-"detected, possibly a clog, tangle, or jam. Printing has been paused.[Not "
-"Printing] XY Motorstep-servo: An obstacle was detected during the nozzle's "
-"movement. The motor will be released.Z Motor: An obstacle was detected "
-"during the heated bed's movement. The motor will be released.E Motor: An "
-"extrusion anomaly was detected, possibly a clog, tangle, or jam. The motor "
-"will be released."
 
 msgid ""
 "X Motor: X motor identification error detected. The motor wire may be "
 "connected improperly or the motor may be damaged.Y Motor: Y motor "
-"identification error detected. The motor wire may be connected improperly or "
-"the motor may be damaged.Z1 Motor: Z1 motor identification error detected. "
-"The motor wire may be connected improperly or the motor may be damaged.Z2 "
-"Motor: Z2 motor identification error detected. The motor wire may be "
-"connected improperly or the motor may be damaged.E Motor: Extruder motor "
-"identification error detected. The motor wire may be connected improperly or "
-"the motor may be damaged."
+"identification error detected. The motor wire may be connected improperly "
+"or the motor may be damaged.Z1 Motor: Z1 motor identification error "
+"detected. The motor wire may be connected improperly or the motor may be "
+"damaged.Z2 Motor: Z2 motor identification error detected. The motor wire "
+"may be connected improperly or the motor may be damaged.E Motor: Extruder "
+"motor identification error detected. The motor wire may be connected "
+"improperly or the motor may be damaged."
 msgstr ""
-"X Motor: X motor identification error detected. The motor wire may be "
-"connected improperly or the motor may be damaged.Y Motor: Y motor "
-"identification error detected. The motor wire may be connected improperly or "
-"the motor may be damaged.Z1 Motor: Z1 motor identification error detected. "
-"The motor wire may be connected improperly or the motor may be damaged.Z2 "
-"Motor: Z2 motor identification error detected. The motor wire may be "
-"connected improperly or the motor may be damaged.E Motor: Extruder motor "
-"identification error detected. The motor wire may be connected improperly or "
-"the motor may be damaged."
 
 msgid ""
-"X/Y/Z/E axis step-servo motor initialization error, motor communication line "
-"may be connected incorrectly"
+"X/Y/Z/E axis step-servo motor initialization error, motor communication "
+"line may be connected incorrectly"
 msgstr ""
-"X/Y/Z/E axis step-servo motor initialization error, motor communication line "
-"may be connected incorrectly"
 
 msgid "communication issue, please try again after resolving."
-msgstr "communication issue, please try again after resolving."
+msgstr ""
 
 msgid ""
 "Retract issue, check for filament or spool jams. Click &quot;Retry&quot; "
 "after resolving."
 msgstr ""
-"Retract issue, check for filament or spool jams. Click &quot;Retry&quot; "
-"after resolving."
 
 msgid ""
 "Feed issue, check for filament or spool jams. Click &quot;Retry&quot; after "
 "resolving."
 msgstr ""
-"Feed issue, check for filament or spool jams. Click &quot;Retry&quot; after "
-"resolving."
 
 msgid "System error."
-msgstr "System error."
+msgstr ""
 
 msgid ""
 "Feed issue , filament may be stuck from loader to CFS hub. Please resolve "
 "the issue and click the &quot;Retry&quot; button."
 msgstr ""
-"Feed issue , filament may be stuck from loader to CFS hub. Please resolve "
-"the issue and click the &quot;Retry&quot; button."
 
 msgid ""
 "Feed issue , filament may be blocked between the CFS hub and extruder "
 "filament detector. Please resolve the issue and click &quot;Retry&quot; "
 "button."
 msgstr ""
-"Feed issue , filament may be blocked between the CFS hub and extruder "
-"filament detector. Please resolve the issue and click &quot;Retry&quot; "
-"button."
 
 msgid ""
 "Feed issue , filament may be jammed between the extruder sensor and the "
 "extruder gear. Please resolve the issue and click the &quot;Retry&quot; "
 "button."
 msgstr ""
-"Feed issue , filament may be jammed between the extruder sensor and the "
-"extruder gear. Please resolve the issue and click the &quot;Retry&quot; "
-"button."
 
 msgid ""
 "Feed issue , filament may be stuck between the CFS hub sensor and the gear. "
 "Please resolve the issue and click the &quot;Retry&quot; button."
 msgstr ""
-"Feed issue , filament may be stuck between the CFS hub sensor and the gear. "
-"Please resolve the issue and click the &quot;Retry&quot; button."
 
 msgid "filament runs out, please refill."
-msgstr "filament runs out, please refill."
+msgstr ""
 
 msgid "Command failed, current scenario does not support this command."
-msgstr "Command failed, current scenario does not support this command."
+msgstr ""
 
 msgid "Cutter issue, cutter might be jammed, please try again after resolving"
-msgstr "Cutter issue, cutter might be jammed, please try again after resolving"
+msgstr ""
 
 msgid "RFID cannot be read, please manually edit filament"
-msgstr "RFID cannot be read, please manually edit filament"
+msgstr ""
 
 msgid ""
 "PTFE tube may have detached from the pneumatic fitting, Printing paused, "
 "please try again after resolving"
 msgstr ""
-"PTFE tube may have detached from the pneumatic fitting, Printing paused, "
-"please try again after resolving"
 
 msgid "Extruder may be clogged. Click &quot;Retry&quot; after resolving."
-msgstr "Extruder may be clogged. Click &quot;Retry&quot; after resolving."
+msgstr ""
 
 msgid ""
 "The filament buffer signal is abnormal,the buffer may be stuck or the "
 "filament may be tangle."
 msgstr ""
-"The filament buffer signal is abnormal,the buffer may be stuck or the "
-"filament may be tangle."
 
 msgid "Filament may tangled, please try again after resolving"
-msgstr "Filament may tangled, please try again after resolving"
+msgstr ""
 
 msgid "filament may be broken in CFS."
-msgstr "filament may be broken in CFS."
+msgstr ""
 
 msgid ""
 "Retract issue, filament cannot be returned to CFS hub. Please resolve the "
 "issue and click the &quot;Retry&quot; button."
 msgstr ""
-"Retract issue, filament cannot be returned to CFS hub. Please resolve the "
-"issue and click the &quot;Retry&quot; button."
 
 msgid ""
 "Retract issue, filaments may be inserted into the CFS hub. Remove and click "
 "the &quot;Retry&quot; button."
 msgstr ""
-"Retract issue, filaments may be inserted into the CFS hub. Remove and click "
-"the &quot;Retry&quot; button."
 
 msgid ""
-"Retract issue, Filament Buffer failure. Please resolve and click &quot;"
-"Retry&quot; button."
+"Retract issue, Filament Buffer failure. Please resolve and click "
+"&quot;Retry&quot; button."
 msgstr ""
-"Retract issue, Filament Buffer failure. Please resolve and click &quot;"
-"Retry&quot; button."
 
 msgid ""
 "TR2852: Filament detector triggered abnormally, possibly due to an external "
 "material rack being used with CFS."
 msgstr ""
-"TR2852: Filament detector triggered abnormally, possibly due to an external "
-"filament rack being used with CFS."
 
 msgid "CFS temperature and humidity sensor abnormal."
-msgstr "CFS temperature and humidity sensor abnormal."
+msgstr ""
 
 msgid ""
-"TC2854: Filament detected in the extruder, affecting the cutter calibration. "
-"Please remove the filament and try again."
+"TC2854: Filament detected in the extruder, affecting the cutter "
+"calibration. Please remove the filament and try again."
 msgstr ""
-"TC2854: Filament detected in the extruder, affecting the cutter calibration. "
-"Please remove the filament and try again."
 
 msgid "TC2855: Cutter calibrat failed. Please try again after resolving."
-msgstr "TC2855: Cutter calibrat failed. Please try again after resolving."
+msgstr ""
 
 msgid ""
-"TC2856: Cutter issue, the cutter may be jammed or missing. Click &quot;"
-"Retry&quot; after resolving."
+"TC2856: Cutter issue, the cutter may be jammed or missing. Click "
+"&quot;Retry&quot; after resolving."
 msgstr ""
-"TC2856: Cutter issue, the cutter may be jammed or missing. Click &quot;"
-"Retry&quot; after resolving."
 
 msgid ""
-"CFS feeding motor overload, maybe excessive load or unload resistance or the "
-"filament tangled or stuck."
+"CFS feeding motor overload, maybe excessive load or unload resistance or "
+"the filament tangled or stuck."
 msgstr ""
-"CFS feeding motor overload, maybe excessive load or unload resistance or the "
-"filament tangled or stuck."
 
 msgid "FS2858: CFS EEPROM abnormal."
-msgstr "FS2858: CFS EEPROM abnormal."
+msgstr ""
 
 msgid "FO2859: CFS filament odometry abnormal."
-msgstr "FO2859: CFS filament odometry abnormal."
+msgstr ""
 
 msgid "FB2860: CFS filament buffer abnormal."
-msgstr "FB2860: CFS filament buffer abnormal."
+msgstr ""
 
 msgid "FS2861: CFS left RFID board abnormal."
-msgstr "FS2861: CFS left RFID board abnormal."
+msgstr ""
 
 msgid "FS2862: CFS right RFID board abnormal."
-msgstr "FS2862: CFS right RFID board abnormal."
+msgstr ""
 
 msgid "The file where the last unexpected stop was detected"
-msgstr "The file where the last unexpected stop was detected"
+msgstr ""
 
 msgid "No consumables detected, do you want to continue printing?"
-msgstr "No filament detected, do you want to continue printing?"
+msgstr ""
 
 msgid "There is no consumables in the current rack"
-msgstr "There is no filament in the current rack"
+msgstr ""
 
 msgid "Axis movement exceeded limit"
-msgstr "Axis movement exceeded limit"
+msgstr ""
 
 msgid "Cannot contain special characters"
-msgstr "Cannot contain special characters"
+msgstr ""
 
-msgid "Please add the device to the device list"
-msgstr "Please add the device to the device list"
+msgid "There is currently no printer added. Please go to the device page to add it"
+msgstr ""
 
 msgid "Reconnecting"
-msgstr "Reconnecting"
+msgstr ""
 
-msgid "Creality Print camera function does not currently support devices that are only bound to Creality Cloud"
-msgstr "Creality Print摄像头功能暂不支持仅绑定创想云的设备"
+msgid ""
+"Creality Print camera function does not currently support devices that are "
+"only bound to Creality Cloud"
+msgstr ""
 
-msgid "Feed issue, filament failed to exit extruder.Please resolve and click "Retry" button."
-msgstr "Feed issue, filament failed to exit extruder.Please resolve and click "Retry" button."
+msgid ""
+"Feed issue, filament failed to exit extruder.Please resolve and click "
+"'Retry' button."
+msgstr ""
 
 msgid "During device self-test, printing and sending files are not supported"
-msgstr "During device self-test, printing and sending files are not supported"
+msgstr ""
 
-msgid "The current printer's material rack consumables do not exist. Do you want to continue printing?"
-msgstr "The current printer's material rack consumables do not exist. Do you want to continue printing?"
+msgid "Self checking"
+msgstr ""
 
-msgid "The machine consumables do not match the printed file. Please check and restart printing"
-msgstr "The machine consumables do not match the printed file. Please check and restart printing"
+msgid ""
+"The machine consumables do not match the printed file. Please check and "
+"restart printing"
+msgstr ""
+
+msgid ""
+"Hotbed failed to return to the maximum Z-axis position or tilt calibration "
+"at this position failed,please try again after resolving."
+msgstr ""
+
+msgid ""
+"Abnormal resistance in the Y-axis movement direction,  motor released. Fix "
+"issue and restart."
+msgstr ""
+
+msgid "Abnormal resistance under the hotbed, motor released. Fix issue and restart."
+msgstr ""
+
+msgid "Extruder extrusion anomaly, possible clog or blockage. motor released."
+msgstr ""
+
+msgid ""
+"Extruder speed limit exceeded. The motor will be released. Please reduce "
+"the extruder movement speed."
+msgstr ""
+
+msgid ""
+"Y motor identification error detected. The motor wire may be connected "
+"improperly or the motor may be damaged."
+msgstr ""
+
+msgid ""
+"Z1 motor identification error detected. The motor wire may be connected "
+"improperly or the motor may be damaged."
+msgstr ""
+
+msgid ""
+"Z2 motor identification error detected. The motor wire may be connected "
+"improperly or the motor may be damaged."
+msgstr ""
+
+msgid ""
+"E motor identification error detected. The motor wire may be connected "
+"improperly or the motor may be damaged."
+msgstr ""
+
+msgid ""
+"[x or y or e] axis servo motor hardware abnormality/[z1 or z2] axis servo "
+"motor hardware abnormality, the platform plate will drop"
+msgstr ""
+
+msgid "Chamber heater fan abnormal, chamber heating closed."
+msgstr ""
+
+msgid ""
+"Belt tension module error, left side belt communication line may be "
+"connected improperly. "
+msgstr ""
+
+msgid ""
+"Belt tension module error, right side belt tension module not calibrated, "
+"please recalibrate the module."
+msgstr ""
+
+msgid ""
+"Belt tension module error, left side belt tension module not calibrated, "
+"please recalibrate the module. "
+msgstr ""
+
+msgid "Belt tension module error, please troubleshoot and try recalibrating. "
+msgstr ""
+
+msgid "Belt tension timeout failure, please try retightening or restarting. "
+msgstr ""
+
+msgid ""
+"Abnormal belt tensioning module, right belt tensioning module calibration "
+"value abnormal, please recalibrate the module."
+msgstr ""
+
+msgid ""
+"Abnormal belt tensioning module, left belt tensioning module calibration "
+"value abnormal, please recalibrate the module."
+msgstr ""
+
+msgid ""
+"Hotbed failed to reach the maximum position. Check for sensor issues or bed "
+"tilt.Please check and retry."
+msgstr ""
+
+msgid "Abnormal heat break fan"
+msgstr ""
+
+msgid ""
+"MCU task scheduling failed, possibly due to high load or communication "
+"issues."
+msgstr ""
+
+msgid ""
+"Extruder MCU temperature is too high, possibly due to high chamber "
+"temperature or delayed cooling of the extruder motherboard."
+msgstr ""
+
+msgid "Cutter not detected."
+msgstr ""
+
+msgid ""
+"Feed issue, filament buffer failure. Please resolve and click \"Retry\" "
+"button."
+msgstr ""
+
+msgid "Detected printing plate is missing, printing paused"
+msgstr ""
+
+msgid ""
+"Detected printing plate is missing and foreign object on the printing "
+"plate, printing paused"
+msgstr ""
+
+msgid "Flow ratio calibration image anomaly, printing with default values."
+msgstr ""
+
+msgid "Flow ratio calibration failed, printing with default values."
+msgstr ""
+
+msgid "Detected waste chute is block. "
+msgstr ""
+
+msgid "Nozzle  camera failed to start, try restarting."
+msgstr ""
+
+msgid "Select All"
+msgstr ""
+
+msgid "Send"
+msgstr ""
+
+msgid "Wait"
+msgstr ""
+
+msgid "Send option"
+msgstr ""
+
+msgid ""
+"Printers at the same time. (It depends on how many devices can undergo "
+"heating at the same time.)"
+msgstr ""
+
+msgid "Minute each batch. (It depends on how long it takes to complete heating.)"
+msgstr ""
+
+msgid ""
+"There's a consumable issue on the highlighted machine. Please check and try "
+"again!"
+msgstr ""
+
+msgid ""
+"CFS box counts are inconsistent. Printing will use the lowest count. To "
+"print fully, please ensure all box counts are the same"
+msgstr ""
+
+msgid ""
+"The currently selected printer ({printer}) is not compatible with the print "
+"preset ({preset}). Please reselect the printer on the preparation page or "
+"select a compatible printer on that page"
+msgstr ""
+
+msgid "Please select a printer"
+msgstr ""

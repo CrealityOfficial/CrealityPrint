@@ -1834,7 +1834,7 @@ wxBoxSizer* MainFrame::create_side_tools()
                 SideButton* send_to_printer_btn = new SideButton(p, _L("Send"), "");
                 send_to_printer_btn->SetCornerRadius(0);
 
-                SideButton* export_sliced_file_btn = new SideButton(p, _L("Export plate sliced file"), "");
+                SideButton* export_sliced_file_btn = new SideButton(p,/* _L("Export plate sliced file"),*/ _L("Export G-code"), "");
                 export_sliced_file_btn->SetCornerRadius(0);
 
                 SideButton* export_all_sliced_file_btn = new SideButton(p, _L("Export all sliced file"), "");
@@ -1881,7 +1881,7 @@ wxBoxSizer* MainFrame::create_side_tools()
                     });
 
                 export_sliced_file_btn->Bind(wxEVT_BUTTON, [this, p](wxCommandEvent&) {
-                    m_print_btn->SetLabel(_L("Export plate sliced file"));
+                    m_print_btn->SetLabel(/*_L("Export plate sliced file")*/ _L("Export G-code"));
                     m_print_select = eExportSlicedFile;
                     m_print_enable = get_enable_print_status();
                     m_print_btn->Enable(m_print_enable);
@@ -2421,8 +2421,11 @@ static wxMenu* generate_help_menu(MainFrame* mainframe)
             // if (const std::string country_code = wxGetApp().app_config->get_country_code(); country_code == "CN") {
             //     url = "https://wiki.creality.com/zh/software/update-released";
             // }
-             if (wxGetApp().app_config->get("language") == "zh_CN" || wxGetApp().app_config->get("language") == "zh_TW"){
-                url = "https://wiki.creality.com/zh/software/update-released";
+             if (wxGetApp().app_config->get("language") == "zh_CN"){
+                url = "https://wiki.creality.com/zh/software/6-0";
+             }
+             else {
+                 url = "https://wiki.creality.com/en/software/6-0";
              }
             wxLaunchDefaultBrowser(url, wxBROWSER_NEW_WINDOW);
         });
@@ -2669,17 +2672,21 @@ void MainFrame::init_menubar_as_editor()
             [this,&report_file_menu_event](wxCommandEvent&) { if (m_plater) m_plater->export_core_3mf(); report_file_menu_event(12); }, "menu_export_sliced_file", nullptr,
             [this](){return can_export_model(); }, this);
         // BBS export .gcode.3mf
-        append_menu_item(export_menu, wxID_ANY, _L("Export plate sliced file") + dots + "\t" + ctrl + "G", _L("Export current sliced file"),
-            [this, &report_file_menu_event](wxCommandEvent&) { if (m_plater) wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_EXPORT_SLICED_FILE)); report_file_menu_event(13); }, "menu_export_sliced_file", nullptr,
+        //append_menu_item(export_menu, wxID_ANY, _L("Export plate sliced file") + dots + "\t" + ctrl + "G", _L("Export current sliced file"),
+        //    [this, &report_file_menu_event](wxCommandEvent&) { if (m_plater) wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_EXPORT_SLICED_FILE)); report_file_menu_event(13); }, "menu_export_sliced_file", nullptr,
+        //    [this](){return can_export_gcode(); }, this);
+
+        append_menu_item(export_menu, wxID_ANY, _L("Export G-code") + dots + "\t" + ctrl + "G", _L("Export current plate as G-code"),
+            [this, &report_file_menu_event](wxCommandEvent&) { if (m_plater) wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_EXPORT_SLICED_FILE)); report_file_menu_event(13); }, "menu_export_gcode", nullptr,
             [this](){return can_export_gcode(); }, this);
 
         append_menu_item(export_menu, wxID_ANY, _L("Export all plate sliced file") + dots/* + "\tCtrl+G"*/, _L("Export all plate sliced file"),
             [this, &report_file_menu_event](wxCommandEvent&) { if (m_plater) wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_EXPORT_ALL_SLICED_FILE)); report_file_menu_event(14); }, "menu_export_sliced_file", nullptr,
             [this]() {return can_export_all_gcode(); }, this);
 
-        append_menu_item(export_menu, wxID_ANY, _L("Export G-code") + dots/* + "\tCtrl+G"*/, _L("Export current plate as G-code"),
-            [this,&report_file_menu_event](wxCommandEvent&) { if (m_plater) m_plater->export_gcode(false); report_file_menu_event(15); }, "menu_export_gcode", nullptr,
-            [this]() {return can_export_gcode(); }, this);
+        //append_menu_item(export_menu, wxID_ANY, _L("Export G-code") + dots/* + "\tCtrl+G"*/, _L("Export current plate as G-code"),
+        //    [this,&report_file_menu_event](wxCommandEvent&) { if (m_plater) m_plater->export_gcode(false); report_file_menu_event(15); }, "menu_export_gcode", nullptr,
+        //    [this]() {return can_export_gcode(); }, this);
 
         append_menu_item(
             export_menu, wxID_ANY, _L("Export Presets") + dots /* + "\tCtrl+E"*/, _L("Export current configuration to files"),
@@ -4571,8 +4578,8 @@ bool MainFrame::is_printer_view() const { return m_tabpanel->GetSelection() == T
 
 void MainFrame::refresh_plugin_tips()
 {
-    if (m_webview != nullptr)
-        m_webview->ShowNetpluginTip();
+    //if (m_webview != nullptr)
+    //    m_webview->ShowNetpluginTip();
 }
 
 void MainFrame::RunScript(wxString js)

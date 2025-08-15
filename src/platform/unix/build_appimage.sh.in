@@ -1,5 +1,5 @@
 #!/bin/sh
-APPIMAGETOOLURL="https://github.com/AppImage/AppImageKit/releases/latest/download/appimagetool-$(uname -m).AppImage"
+APPIMAGETOOLURL="https://github.com/AppImage/appimagetool/releases/latest/download/appimagetool-$(uname -m).AppImage"
 
 
 APP_IMAGE="@SLIC3R_APP_NAME@-V@CREALITYPRINT_VERSION@-x86_64-@PROJECT_VERSION_EXTRA@.AppImage"

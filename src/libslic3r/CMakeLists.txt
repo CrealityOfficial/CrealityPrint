@@ -30,7 +30,6 @@ set(AUTOMATION_TOOL OFF)
 #if(${PROJECT_VERSION_EXTRA} STREQUAL "Alpha")
 #    set(AUTOMATION_TOOL ON)
 #endif()
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/libslic3r_version.h.in ${CMAKE_CURRENT_BINARY_DIR}/libslic3r_version.h)
 
 if (TARGET openvdb_libs)
     set(OpenVDBUtils_SOURCES OpenVDBUtils.cpp OpenVDBUtils.hpp)

@@ -348,8 +348,13 @@ private:
         assert(this->id() != this->supported_facets.id());
         assert(this->id() != this->seam_facets.id());
         assert(this->id() != this->mmu_segmentation_facets.id());
-        if (mesh.facets_count() > 1)
+        if (mesh.facets_count() > 1) {
             calculate_convex_hull();
+        }
+        else {
+            // fix crash problem when mesh.facets_count() <= 1
+            m_convex_hull = std::make_shared<TriangleMesh>();
+        }
     }
     ModelVolume(ModelObject *object, const std::shared_ptr<const TriangleMesh> &mesh, ModelVolumeType type = ModelVolumeType::MODEL_PART) : m_mesh(mesh), m_type(type), object(object)
     {
@@ -362,6 +367,13 @@ private:
         assert(this->id() != this->supported_facets.id());
         assert(this->id() != this->seam_facets.id());
         assert(this->id() != this->mmu_segmentation_facets.id());
+        if (mesh && mesh->facets_count() > 1) {
+            calculate_convex_hull();
+        }
+        else {
+            // fix crash problem when mesh.facets_count() <= 1
+            m_convex_hull = std::make_shared<TriangleMesh>();
+        }
     }
     ModelVolume(ModelObject *object, TriangleMesh &&mesh, TriangleMesh &&convex_hull, ModelVolumeType type = ModelVolumeType::MODEL_PART) :
 		m_mesh(new TriangleMesh(std::move(mesh))), m_convex_hull(new TriangleMesh(std::move(convex_hull))), m_type(type), object(object) {
@@ -420,6 +432,10 @@ private:
         this->config.set_new_unique_id();
         if (m_mesh->facets_count() > 1)
             calculate_convex_hull();
+        else {
+            // fix crash problem when mesh.facets_count() <= 1
+            m_convex_hull = std::make_shared<TriangleMesh>();
+        }
 		assert(this->config.id().valid()); 
         assert(this->config.id() != other.config.id()); 
         assert(this->supported_facets.id() != other.supported_facets.id());
@@ -442,6 +458,9 @@ private:
         assert(this->supported_facets.id().invalid());
         assert(this->seam_facets.id().invalid());
         assert(this->mmu_segmentation_facets.id().invalid());
+
+        // if m_convex_hull is null,  would cause crash problem when calling "ModelObject::instance_convex_hull_bounding_box"
+        m_convex_hull = std::make_shared<TriangleMesh>();
 	}
 	template<class Archive> void load(Archive &ar) {
 		bool has_convex_hull;

@@ -105,6 +105,7 @@
 #include "../Utils/MacDarkMode.hpp"
 #include "../Utils/Http.hpp"
 #include "../Utils/UndoRedo.hpp"
+#include "../Utils/ProfileFamilyLoader.hpp"
 #include "slic3r/Config/Snapshot.hpp"
 #include "Preferences.hpp"
 #include "ConfigRelateDialog.hpp"
@@ -702,7 +703,7 @@ static const FileWildcards file_wildcards_by_type[FT_SIZE] = {
     /* FT_AMF */     { "AMF files"sv,       { ".amf"sv, ".zip.amf"sv, ".xml"sv } },
     /* FT_3MF */     { "3MF files"sv,       { ".3mf"sv } },
     /* FT_GCODE */   { "G-code files"sv,    { ".gcode"sv, ".3mf"sv } },
-    /* FT_GCODE_3MF */   { "G-code 3MF files"sv,    { ".3mf"sv } },
+    /* FT_GCODE_3MF */   { "Gcode 3MF files"sv,    { ".gcode.3mf"sv } },
 #ifdef __APPLE__
     /* FT_MODEL */
     {"All"sv, {".3mf"sv, ".stl"sv, ".oltp"sv, ".stp"sv, ".step"sv, ".svg"sv, ".amf"sv, ".obj"sv, ".usd"sv, ".usda"sv, ".usdc"sv, ".usdz"sv, ".abc"sv, ".ply"sv,".dae"sv,".3ds"sv,".off"sv}},
@@ -1106,6 +1107,27 @@ void GUI_App::post_openlink_cmd(std::string link)
 
     }
 }
+void GUI_App::post_login_status_cmd(bool isSuccess, UserInfo user)
+{
+    json m_Res = json::object();
+    json user_info        = json::object();
+    
+    m_Res["command"] = "login_status_cmd";
+    m_Res["login_status"] = isSuccess;
+    std::string region    = wxGetApp().app_config->get("region");
+
+    if (isSuccess) {
+        m_Res["user_info"] = 
+        {
+            {"token", user.token}, {"nickName", user.nickName}, {"userId", user.userId}, {"avatar", user.avatar}, { "region", region }
+        };
+    }
+    else {
+        m_Res["user_info"] = nullptr;
+    }
+    wxString strJS        = wxString::Format("window.handleStudioCmd(%s)", m_Res.dump(-1, ' ', false, json::error_handler_t::ignore));
+    GUI::wxGetApp().run_script(strJS);
+}
 
 // param_set 参数集合页
 // token_expired token过期
@@ -1495,7 +1517,6 @@ GUI_App::GUI_App(bool enable_test /*= false*/)
 #if wxUSE_WEBVIEW_EDGE
     this->init_webview_runtime();
 #endif
-
     reset_to_active();
 }
 
@@ -2378,7 +2399,7 @@ void GUI_App::init_app_config()
 	if (!app_config)
         app_config = new AppConfig();
         //app_config = new AppConfig(is_editor() ? AppConfig::EAppMode::Editor : AppConfig::EAppMode::GCodeViewer);
-
+    
     m_config_corrupted = false;
 	// load settings
 	m_app_conf_exists = app_config->exists();
@@ -2669,7 +2690,8 @@ std::string GUI_App::get_client_id()
 
 void GUI_App::startTour(int startIndex)
 {
-    m_UITour = std::make_unique<UITour>(this->mainframe);
+    if (!m_UITour)
+        m_UITour = new UITour(this->mainframe);
     wxRect size = this->mainframe->GetRect();
 
     if (startIndex == 0)
@@ -2847,7 +2869,17 @@ bool GUI_App::OnInit()
         boost::interprocess::file_lock fl(from_u8(data_dir.string().c_str()));
         fl.lock();
         #endif
-        bool res = on_init_inner();
+        bool isDumpLauncher = false;
+        if (!this->init_params->input_files.empty())
+        {
+            const auto url = this->init_params->input_files.front();
+            if (boost::starts_with(url, "minidump://file=")) {
+#ifdef _WIN32
+                isDumpLauncher = true;
+#endif // _WIN32   
+            }
+        }
+        bool res = on_init_inner(isDumpLauncher);
         if (!this->init_params->input_files.empty())
         {
             const auto url = this->init_params->input_files.front();
@@ -2945,7 +2977,11 @@ int GUI_App::OnExit()
         BOOST_LOG_TRIVIAL(error) << "Failed to clean up encrypt bbl network log file";
     }
 
-    return wxApp::OnExit();
+    int result = wxApp::OnExit();
+    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " end";
+    boost::log::core::get()->flush();
+    std::exit(0);
+    return 0;
 }
 
 void GUI_App::OnUnhandledException()
@@ -2975,7 +3011,7 @@ class wxBoostLog : public wxLog
     }
 };
 
-bool GUI_App::on_init_inner()
+bool GUI_App::on_init_inner(bool isdump_launcher)
 {
     wxLog::SetActiveTarget(new wxBoostLog());
 #if BBL_RELEASE_TO_PUBLIC
@@ -3006,7 +3042,7 @@ bool GUI_App::on_init_inner()
     
     //CBaseException::set_log_folder(data_dir());
 #endif
-
+    
     wxGetApp().Bind(wxEVT_QUERY_END_SESSION, [this](auto & e) {
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__<< "received wxEVT_QUERY_END_SESSION";
         if (mainframe) {
@@ -3061,7 +3097,7 @@ bool GUI_App::on_init_inner()
                 dlg.IsCheckBoxChecked() ? Slic3r::Http::tls_system_cert_store() : "");
         }
     }
-
+    on_init_custom_config();
     // !!! Initialization of UI settings as a language, application color mode, fonts... have to be done before first UI action.
     // Like here, before the show InfoDialog in check_older_app_config()
 
@@ -3087,7 +3123,11 @@ bool GUI_App::on_init_inner()
     init_label_colours();
     init_fonts();
     wxGetApp().Update_dark_mode_flag();
-
+    if (isdump_launcher)
+    {
+        return true;
+    }
+    //return true;
 
 #ifdef _MSW_DARK_MODE
     // app_config can be updated in check_older_app_config(), so check if dark_color_mode and sys_menu_enabled was changed
@@ -3167,6 +3207,7 @@ bool GUI_App::on_init_inner()
     }
 
     BOOST_LOG_TRIVIAL(info) << "loading systen presets...";
+    
     preset_bundle = new PresetBundle();
 
     // just checking for existence of Slic3r::data_dir is not enough : it may be an empty directory
@@ -3194,6 +3235,10 @@ bool GUI_App::on_init_inner()
 //#endif // __WXMSW__
 
         preset_updater = new PresetUpdater();
+
+        // start load profile family after preset updater finished
+        ProfileFamilyLoader::init();
+
 #if CUSTOM_CXCLOUD
         Bind(EVT_SLIC3R_VERSION_ONLINE, [this](const wxCommandEvent& evt) {
             if (this->plater_ != nullptr) {
@@ -3224,6 +3269,8 @@ bool GUI_App::on_init_inner()
                     UpdateVersionDialog dialog(this->mainframe);
                     wxString            extmsg = wxString::FromUTF8(version_info.description);
                     dialog.update_version_info(extmsg, version_info.version_str);
+                    int isUser = evt.GetInt();
+                    dialog.isUser(isUser);
                     //dialog.update_version_info(version_info.description);
                     if (evt.GetInt() != 0) {
                         dialog.m_button_skip_version->Hide();
@@ -3474,8 +3521,9 @@ bool GUI_App::on_init_inner()
             update_publish_status();
             
         }
-
+        
         if (m_post_initialized && app_config->dirty()) {
+            save_user_default_filaments(app_config);
             app_config->save();
             SyncUserPresets::getInstance().syncConfigToCXCloud();
         }
@@ -3503,6 +3551,28 @@ bool GUI_App::on_init_inner()
     SyncUserPresets::getInstance().startup();
 
     return true;
+}
+void  GUI_App::on_init_custom_config()
+{
+    auto config_file = fs::path(resources_dir() + "/data/customized_config.json");
+    json j;
+    if (fs::exists(config_file))
+    {
+        try{
+            boost::nowide::ifstream ifs(config_file.string());
+            ifs >> j;
+        }catch (const std::exception& e) {
+            BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(",  parse json failed, %1%.") % e.what();
+        }
+    }else{
+        return;
+    }
+    m_customize_config.cur_language = j["language"];
+    std::string language = app_config->get("language");
+    if (language.empty() && !m_customize_config.cur_language.empty())
+    {
+        app_config->set("language", m_customize_config.cur_language);
+    }
 }
 void  GUI_App::track_event(const std::string& event, const std::string& data)
 {
@@ -3727,7 +3797,7 @@ bool GUI_App::dark_mode()
         return wxPlatformInfo::Get().CheckOSVersion(10, 14) && mac_dark_mode();
     #elif __linux__
         // return false;
-        return wxSystemSettings::GetAppearance().IsDark();
+        return check_dark_mode();
         // return wxGetApp().app_config->get("dark_color_mode") == "1" ? true : false;
     #else 
         return wxGetApp().app_config->get("dark_color_mode") == "1" ? true : check_dark_mode();
@@ -4754,7 +4824,7 @@ bool GUI_App::check_machine_list()
 #endif
     bool result = false;
     auto printer_list_file = fs::path(data_dir()).append("system").append("Creality").append("machineList.json").string();
-    boost::filesystem::remove(printer_list_file);
+    //boost::filesystem::remove(printer_list_file);
     std::string base_url              = get_cloud_api_url();
                         auto        preupload_profile_url = "/api/cxy/v2/slice/profile/official/printerList";
                         std::map<std::string, std::string> extra_headers = get_extra_header();
@@ -5780,8 +5850,9 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     std::string fileId     = v.get_child("fileId").data();
                     std::string fileFormat = v.get_child("fileFormat").data();
                     std::string name = v.get_child("name").data();
-                    if (!name.empty() && name.back() == '\n') {
-                        name.pop_back();
+                    if (!name.empty()) {
+                        name = std::regex_replace(name, std::regex("\n"), "");
+                        //name.pop_back();
                     }
                     wxString    wxUrl      = wxString::FromUTF8(url.c_str());
                     
@@ -6923,7 +6994,7 @@ void GUI_App::check_new_version_cx(bool show_tips, int by_user)
         })
         .timeout_connect(2)
         .timeout_max(10)
-        .on_complete([&,show_tips,palform_](std::string body, unsigned status) {
+        .on_complete([&, show_tips, palform_, by_user](std::string body, unsigned status) {
                 if (status != 200)
                     return;
                
@@ -6961,6 +7032,7 @@ void GUI_App::check_new_version_cx(bool show_tips, int by_user)
                              if (bigest_version > current_version) {
                                 wxCommandEvent* evt = new wxCommandEvent(EVT_SLIC3R_VERSION_ONLINE);
                                 evt->SetString(bigest_version.to_string());
+                                evt->SetInt(by_user);
                                 GUI::wxGetApp().QueueEvent(evt);
                                 return;
                              }else{
@@ -8002,6 +8074,73 @@ bool GUI_App::wait_cloud_token()
     }
     return true;
 }
+void GUI_App::save_user_default_filaments(AppConfig *new_app_config)
+{
+    auto add_filament_to_sessiton = [this,new_app_config](std::string machine_name,std::string default_materials){
+        std::string section_name = AppConfig::SECTION_FILAMENTS;
+            if (new_app_config->has_section(section_name)) {
+            const std::map<std::string, std::string> &installed = new_app_config->get_section(section_name);
+            auto has = [&installed](const std::string &name) {
+                auto it = installed.find(name);
+                return it != installed.end() && ! it->second.empty();
+            };
+            std::vector<std::string> materials;
+            boost::algorithm::split(materials, default_materials, boost::is_any_of(";"));
+            bool bInstalled = false;
+            for (const auto& str : materials) {
+                std::string basename =  str + " @"+machine_name;
+                    bool is_visible = has(basename);
+                    if (is_visible) {
+                        bInstalled = true;
+                    }
+            }
+            if(bInstalled)
+                return;
+            for (const auto& str : materials) {
+                std::string basename =  str + " @"+machine_name;
+                        new_app_config->set(section_name, basename, "true");
+            }
+             //app_config->save();
+             
+        }
+    };
+    fs::path creality_file = fs::path(resources_dir()).append("profiles").append("Creality.json");
+    if(fs::exists(creality_file))
+    {
+        try{
+        boost::nowide::ifstream t(creality_file.string());
+        std::stringstream buffer;
+        buffer << t.rdbuf();
+        json jLocal = json::parse(buffer.str());
+        auto machine_list = jLocal["machine_model_list"];
+        for (const auto& item : machine_list)
+        {
+            std::string sub_path = item["sub_path"];
+            fs::path machine_file = fs::path(resources_dir()).append("profiles").append("Creality").append(sub_path);
+            boost::nowide::ifstream m(machine_file.string());
+            std::stringstream buffer2;
+            buffer2 << m.rdbuf();
+            json j = json::parse(buffer2.str());
+            std::string nozzle_diameter = j["nozzle_diameter"];
+            std::vector<std::string> diameters;
+            boost::algorithm::split(diameters, nozzle_diameter, boost::is_any_of(";"));
+            auto default_materials = j["default_materials"];
+            std::string name = j["name"];
+            for (const auto& diameter : diameters) {
+                std::string machine_name = (boost::format( "%1% %2% nozzle") % name % diameter).str();
+                add_filament_to_sessiton(machine_name,default_materials);
+            }
+        
+        }
+        
+        
+    }catch(std::exception e){
+
+        }
+   
+    }
+
+}
 void GUI_App::start_sync_user_preset(bool with_progress_dlg)
 {
     if (!is_login()) {
@@ -8019,7 +8158,6 @@ void GUI_App::start_sync_user_preset(bool with_progress_dlg)
         return;
     }
     auto user_id = app_config->get("cloud", "user_id");
-
     SyncUserPresets::getInstance().startSync();
     SyncUserPresets::getInstance().syncUserPresetsToLocal();
     return;
@@ -9685,7 +9823,7 @@ void GUI_App::SaveProfile(json profileJson)
         }
     }
     m_appconfig_new->set_section(section_name, section_new);
-
+    save_user_default_filaments(m_appconfig_new);
     // set vendors to app_config
     Slic3r::AppConfig::VendorMap empty_vendor_map;
     m_appconfig_new->set_vendors(empty_vendor_map);

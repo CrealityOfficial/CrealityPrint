@@ -1275,25 +1275,6 @@ void FilamentPanel::restore_prev_extruder_colors()
 	Slic3r::GUI::wxGetApp().plater()->update_all_plate_thumbnails(true);
 }
 
-//bool FilamentPanel::LoadFile(std::string jPath, std::string &sContent)
-//{
-//    try 
-//    {
-//        boost::nowide::ifstream t(jPath);
-//        std::stringstream buffer;
-//        buffer << t.rdbuf();
-//        sContent=buffer.str();
-//        BOOST_LOG_TRIVIAL(trace) << __FUNCTION__ << boost::format(", load %1% into buffer")% jPath;
-//    }
-//    catch (std::exception &e)
-//    {
-//        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ",  got exception: "<<e.what();
-//        return false;
-//    }
-//
-//    return true;
-//}
-
 std::vector<FilamentItem*> FilamentPanel::get_filament_items() 
 {
     return m_vt_filament; 
@@ -1340,283 +1321,12 @@ std::string getPrefix(const std::string& str)
     return str.substr(0, atPos);
 }
 
-//int FilamentPanel::GetFilamentInfo( std::string VendorDirectory, json & pFilaList, std::string filepath, std::string &sVendor, std::string &sType)
-//{
-//    try {
-//        std::string contents;
-//        LoadFile(filepath, contents);
-//        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": Json Contents: " << contents;
-//        json jLocal = json::parse(contents);
-//
-//        if (sVendor == "") {
-//            if (jLocal.contains("filament_vendor"))
-//                sVendor = jLocal["filament_vendor"][0];
-//            else {
-//                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << filepath << " - Not Contains filament_vendor";
-//            }
-//        }
-//
-//        if (sType == "") {
-//            if (jLocal.contains("filament_type"))
-//                sType = jLocal["filament_type"][0];
-//            else {
-//                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << filepath << " - Not Contains filament_type";
-//            }
-//        }
-//
-//        if (sVendor == "" || sType == "")
-//        {
-//            if (jLocal.contains("inherits")) {
-//                std::string FName = jLocal["inherits"];
-//
-//                if (!pFilaList.contains(FName)) { 
-//                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "pFilaList - Not Contains inherits filaments: " << FName;
-//                    return -1; 
-//                }
-//
-//                std::string FPath = pFilaList[FName]["sub_path"];
-//                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " Before Format Inherits Path: VendorDirectory - " << VendorDirectory << ", sub_path - " << FPath;
-//                wxString strNewFile = wxString::Format("%s%c%s", wxString(VendorDirectory.c_str(), wxConvUTF8), boost::filesystem::path::preferred_separator, FPath);
-//                boost::filesystem::path inherits_path(w2s(strNewFile));
-//
-//                //boost::filesystem::path nf(strNewFile.c_str());
-//                if (boost::filesystem::exists(inherits_path))
-//                    return GetFilamentInfo(VendorDirectory,pFilaList, inherits_path.string(), sVendor, sType);
-//                else {
-//                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " inherits File Not Exist: " << inherits_path;
-//                    return -1;
-//                }
-//            } else {
-//                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << filepath << " - Not Contains inherits";
-//                if (sType == "") {
-//                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "sType is Empty";
-//                    return -1;
-//                }
-//                else
-//                    sVendor = "Generic";
-//                    return 0;
-//            }
-//        }
-//        else
-//            return 0;
-//    }
-//    catch(nlohmann::detail::parse_error &err) {
-//        BOOST_LOG_TRIVIAL(error) << __FUNCTION__<< ": parse "<<filepath <<" got a nlohmann::detail::parse_error, reason = " << err.what();
-//        return -1;
-//    }
-//    catch (std::exception &e)
-//    {
-//        BOOST_LOG_TRIVIAL(error) << __FUNCTION__<< ": parse " << filepath <<" got exception: "<<e.what();
-//        return -1;
-//    }
-//
-//    return 0;
-//}
-
-//int FilamentPanel::LoadProfileFamily(std::string strVendor, std::string strFilePath)
-//{
-//    // wxString strFolder = strFilePath.BeforeLast(boost::filesystem::path::preferred_separator);
-//    boost::filesystem::path file_path(strFilePath);
-//    boost::filesystem::path vendor_dir = boost::filesystem::absolute(file_path.parent_path() / strVendor).make_preferred();
-//    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(",  vendor path %1%.") % vendor_dir.string();
-//    try {
-//        // wxLogMessage("GUIDE: json_path1  %s", w2s(strFilePath));
-//
-//        std::string contents;
-//        LoadFile(strFilePath, contents);
-//        // wxLogMessage("GUIDE: json_path1 content: %s", contents);
-//        json jLocal = json::parse(contents);
-//        // wxLogMessage("GUIDE: json_path1 Loaded");
-//
-//        // BBS:Machine
-//        // BBS:models
-//
-//        // BBS:Filament
-//        json pFilament = jLocal["filament_list"];
-//        json tFilaList = json::object();
-//        int nsize          = pFilament.size();
-//
-//        for (int n = 0; n < nsize; n++) 
-//        {
-//            json OneFF = pFilament.at(n);
-//
-//            std::string s1    = OneFF["name"];
-//            std::string s2    = OneFF["sub_path"];
-//
-//            tFilaList[s1] = OneFF;
-//            BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "Vendor: " << strVendor <<", tFilaList Add: " << s1;
-//        }
-//
-//        int nFalse  = 0;
-//        int nModel  = 0;
-//        int nFinish = 0;
-//        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(",  got %1% filaments") % nsize;
-//        for (int n = 0; n < nsize; n++) {
-//            json OneFF = pFilament.at(n);
-//
-//            std::string s1 = OneFF["name"];
-//            std::string s2 = OneFF["sub_path"];
-//
-//            if (!m_FilamentProfileJson["filament"].contains(s1)) {
-//                // wxString ModelFilePath = wxString::Format("%s\\%s\\%s", strFolder, strVendor, s2);
-//                boost::filesystem::path sub_path = boost::filesystem::absolute(vendor_dir / s2).make_preferred();
-//                std::string             sub_file = sub_path.string();
-//                LoadFile(sub_file, contents);
-//                json pm = json::parse(contents);
-//                
-//                std::string strInstant = pm["instantiation"];
-//                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "Load Filament:" << s1 << ",Path:" << sub_file << ",instantiation?" << strInstant;
-//
-//                if (strInstant == "true") {
-//                    std::string sV;
-//                    std::string sT;
-//
-//                    int nRet = GetFilamentInfo(vendor_dir.string(),tFilaList, sub_file, sV, sT);
-//                    if (nRet != 0) { 
-//                        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "Load Filament:" << s1 << ",GetFilamentInfo Failed, Vendor:" << sV << ",Type:"<< sT;
-//                        continue; 
-//                    }
-//
-//                    OneFF["vendor"] = sV;
-//                    OneFF["type"]   = sT;
-//
-//                    OneFF["models"]   = "";
-//
-//                    json pPrinters = pm["compatible_printers"];
-//                    int nPrinter   = pPrinters.size();
-//                    std::string ModelList = "";
-//                    for (int i = 0; i < nPrinter; i++)
-//                    {
-//                        std::string sP = pPrinters.at(i);
-//                        if (m_FilamentProfileJson["machine"].contains(sP))
-//                        {
-//                            std::string mModel = m_FilamentProfileJson["machine"][sP]["model"];
-//                            std::string mNozzle = m_FilamentProfileJson["machine"][sP]["nozzle"];
-//                            std::string NewModel = mModel + "++" + mNozzle;
-//
-//                            ModelList = (boost::format("%1%[%2%]") % ModelList % NewModel).str();
-//                        }
-//                    }
-//
-//                    OneFF["models"]    = ModelList;
-//                    OneFF["selected"] = 0;
-//
-//                    m_FilamentProfileJson["filament"][s1] = OneFF;
-//                } else
-//                    continue;
-//
-//            }
-//        }
-//
-//    } catch (nlohmann::detail::parse_error &err) {
-//        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << strFilePath << " got a nlohmann::detail::parse_error, reason = " << err.what();
-//        return -1;
-//    } catch (std::exception &e) {
-//        // wxMessageBox(e.what(), "", MB_OK);
-//        // wxLogMessage("GUIDE: LoadFamily Error: %s", e.what());
-//        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << strFilePath << " got exception: " << e.what();
-//        return -1;
-//    }
-//
-//    return 0;
-//}
-
 int FilamentPanel::LoadFilamentProfile(bool isCxVedor)
 {
-    //m_FilamentProfileJson = json::parse("{}");
-    //m_FilamentProfileJson["filament"] = json::object();
-
-    //boost::filesystem::path vendor_dir;
-    //boost::filesystem::path rsrc_vendor_dir;
-    //vendor_dir = (boost::filesystem::path(Slic3r::data_dir()) / PRESET_SYSTEM_DIR).make_preferred();
-    //rsrc_vendor_dir = (boost::filesystem::path(Slic3r::resources_dir()) / "profiles").make_preferred();
-
-    //auto bbl_bundle_path = vendor_dir;
-    //bool bbl_bundle_rsrc = false;
-    //if (!boost::filesystem::exists((vendor_dir / Slic3r::PresetBundle::BBL_BUNDLE).replace_extension(".json")))
-    //{
-    //    bbl_bundle_path = rsrc_vendor_dir;
-    //    bbl_bundle_rsrc = true;
-    //}
-
-    //string                                targetPath = bbl_bundle_path.make_preferred().string();
-    //boost::filesystem::path               myPath(targetPath);
-    //boost::filesystem::directory_iterator endIter;
-    //for (boost::filesystem::directory_iterator iter(myPath); iter != endIter; iter++)
-    //{
-    //    if (boost::filesystem::is_directory(*iter))
-    //    {
-    //        //cout << "is dir" << endl;
-    //        //cout << iter->path().string() << endl;
-    //    }
-    //    else
-    //    {
-    //        //cout << "is a file" << endl;
-    //        //cout << iter->path().string() << endl;
-
-    //        wxString strVendor = Slic3r::GUI::from_u8(iter->path().string()).BeforeLast('.');
-    //        strVendor = strVendor.AfterLast('\\');
-    //        strVendor = strVendor.AfterLast('\/');
-    //        wxString strExtension = Slic3r::GUI::from_u8(iter->path().string()).AfterLast('.').Lower();
-    //        if(isCxVedor)
-    //        {
-    //            if(strVendor == "Creality")
-    //            {
-    //                if (w2s(strVendor) == Slic3r::PresetBundle::BBL_BUNDLE && strExtension.CmpNoCase("json") == 0)
-    //                    LoadProfileFamily(w2s(strVendor), iter->path().string());
-    //            }
-    //        }else{
-    //            if(strVendor != "Creality")
-    //            {
-    //                if (w2s(strVendor) == Slic3r::PresetBundle::BBL_BUNDLE && strExtension.CmpNoCase("json") == 0)
-    //                    LoadProfileFamily(w2s(strVendor), iter->path().string());
-    //            }
-    //        }
-    //    }
-    //}
-
-    ////string                                others_targetPath = rsrc_vendor_dir.string();
-    //boost::filesystem::directory_iterator others_endIter;
-    //for (boost::filesystem::directory_iterator iter(rsrc_vendor_dir); iter != others_endIter; iter++)
-    //{
-    //    if (boost::filesystem::is_directory(*iter))
-    //    {
-    //        //cout << "is dir" << endl;
-    //        //cout << iter->path().string() << endl;
-    //    }
-    //    else
-    //    {
-    //        //cout << "is a file" << endl;
-    //        //cout << iter->path().string() << endl;
-    //        wxString strVendor = Slic3r::GUI::from_u8(iter->path().string()).BeforeLast('.');
-    //        strVendor = strVendor.AfterLast('\\');
-    //        strVendor = strVendor.AfterLast('\/');
-    //        wxString strExtension = Slic3r::GUI::from_u8(iter->path().string()).AfterLast('.').Lower();
-    //        if(isCxVedor)
-    //        {
-    //            if(strVendor == "Creality")
-    //            {
-    //                if (w2s(strVendor) != Slic3r::PresetBundle::BBL_BUNDLE && strExtension.CmpNoCase("json") == 0)
-    //                    LoadProfileFamily(w2s(strVendor), iter->path().string());
-    //            }
-    //            
-    //        }else{
-    //            if(strVendor != "Creality")
-    //            {
-    //                if (w2s(strVendor) != Slic3r::PresetBundle::BBL_BUNDLE && strExtension.CmpNoCase("json") == 0)
-    //                    LoadProfileFamily(w2s(strVendor), iter->path().string());
-    //            }
-    //        }
-    //        
-    //    }
-    //}
-
     bool bbl_bundle_rsrc = false;
     json empty;
-    Slic3r::ProfileFamilyLoader().ParallelLoadProfileJson(
-        m_FilamentProfileJson, empty, 
-        bbl_bundle_rsrc, "Creality", 
-        Slic3r::ProfileFamilyLoader::LOAD_MODEL::FILAMENT);
+    Slic3r::ProfileFamilyLoader::get_instance()->request_and_wait();
+    Slic3r::ProfileFamilyLoader::get_instance()->get_result(m_FilamentProfileJson, empty, bbl_bundle_rsrc);
 
     const auto enabled_filaments = Slic3r::GUI::wxGetApp().app_config->has_section(Slic3r::AppConfig::SECTION_FILAMENTS) 
                                    ? Slic3r::GUI::wxGetApp().app_config->get_section(Slic3r::AppConfig::SECTION_FILAMENTS) 
@@ -1692,11 +1402,12 @@ void FilamentPanel::SetFilamentProfile(std::vector<std::pair<int, DM::Material>>
 
 void FilamentPanel::on_auto_mapping_filament(const DM::Device& deviceData)
 {
+    bool isCfsMini = false;
     // 计算 materialBoxes 数组中 box_type == 0 的 Material 项，并且 Material 里 color 的值不为空的项
     std::vector<std::pair<int, DM::Material>> validMaterials;
     for (const auto materialBox : deviceData.materialBoxes)
     {
-        if (materialBox.box_type == 0)
+        if (materialBox.box_type == 0 || materialBox.box_type == 2)
         {
             for (const auto& material : materialBox.materials)
             {
@@ -1704,6 +1415,9 @@ void FilamentPanel::on_auto_mapping_filament(const DM::Device& deviceData)
                 {
                     validMaterials.emplace_back(materialBox.box_id, material);
                 }
+            }
+            if (materialBox.box_type == 2) {
+                isCfsMini = true;
             }
         }
     }
@@ -1785,6 +1499,11 @@ void FilamentPanel::on_auto_mapping_filament(const DM::Device& deviceData)
 
         char     index_char          = 'A' + (validMaterials[i].second.material_id % 4); // Calculate the letter part (A, B, C, D)
         wxString material_sync_label = wxString::Format("%d%c", validMaterials[i].first, index_char);
+
+        if (isCfsMini && validMaterials[i].first == 5) 
+        {
+            material_sync_label = "CFS";
+        }
 
         if (filamentUserMaterialRet != 0 && filamentUserMaterialRet != 1 && filamentUserMaterialRet != (int) wxID_YES) {
             new_filament_name = "";
@@ -2126,7 +1845,8 @@ void BoxColorPopPanel::OnFirstColumnButtonClicked(wxCommandEvent& event)
         const DM::MaterialBox* ext_material_box_info = nullptr;
     
         for (const auto& box_info : m_device_data.materialBoxes) {
-            if (box_info.box_id == boxId) {
+
+            if (box_info.box_id == boxId || box_info.box_type == 2) {
                 material_box_info = &box_info;
                 //break;
             }
@@ -2174,10 +1894,11 @@ void BoxColorPopPanel::OnFirstColumnButtonClicked(wxCommandEvent& event)
                         box_id = material_box_info->box_id;
                         is_ext_material = false;
                         for (const auto& material : material_box_info->materials) {
-                            if (material.material_id == material_id && material_box_info->box_type == 0 && !material.color.empty()) {
+                            if (material.material_id == material_id && (material_box_info->box_type == 0 ||
+                                material_box_info->box_type == 2) && !material.color.empty()) {
                                 filament_item->set_sync_state(true);
                                 filament_item->set_is_ext(is_ext_material);
-                                filament_item->update_item_info_by_material(material_box_info->box_id, material);
+                                filament_item->update_item_info_by_material(material_box_info->box_id, material,material_box_info->box_type);
                                 has_exact_material = true;
                                 break;
                             }
@@ -2385,7 +2106,7 @@ wxString FilamentColorSelectionItem::get_material_index_info()
 	return m_material_index_info;
 }
 
-void FilamentColorSelectionItem::update_item_info_by_material(int box_id, const DM::Material& material_info)
+void FilamentColorSelectionItem::update_item_info_by_material(int box_id, const DM::Material& material_info, int box_type)
 {
     m_box_id  = box_id;
 	m_filament_type_label = material_info.type;
@@ -2403,6 +2124,9 @@ void FilamentColorSelectionItem::update_item_info_by_material(int box_id, const 
         if(m_sync)
         {
             m_material_index_info = wxString::Format("%d%c", m_box_id, index_char);
+            if (box_type == 2) {
+                m_material_index_info = "CFS";
+            }
         }
         else 
         {

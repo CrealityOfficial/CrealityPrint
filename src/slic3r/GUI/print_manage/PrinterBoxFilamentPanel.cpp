@@ -56,7 +56,7 @@ wxColour OneFilamentColorItem::GetColor()
     return m_bk_color;
 }
 
-void OneFilamentColorItem::update_item_info_by_material(int box_id, const DM::Material& material_info)
+void OneFilamentColorItem::update_item_info_by_material(int box_id, const DM::Material& material_info, int box_type)
 {
     m_box_id  = box_id;
     m_bk_color = RemotePrint::Utils::hex_string_to_wxcolour(material_info.color);
@@ -70,6 +70,10 @@ void OneFilamentColorItem::update_item_info_by_material(int box_id, const DM::Ma
         if(m_sync)
         {
             m_material_index_info = wxString::Format("%d%c", m_box_id, index_char);
+            if (box_type == 2) 
+            {
+                m_material_index_info = "";
+            }
         }
         else 
         {
@@ -274,6 +278,51 @@ void OneBoxFilamentColorItem::update_ui_item_info_by_material_box_info(const DM:
             m_box_sizer->AddSpacer(FromDIP(3)); // Add some space before each filament_item
 	        m_box_sizer->Layout();
         }
+    } 
+    else if (2 == material_box_info.box_type) // cfs-mini
+    {
+        m_cfs_index_info        = wxString::Format("CFS");
+        wxStaticText* cfs_label = new wxStaticText(this, wxID_ANY, m_cfs_index_info);
+        m_cfs_label             = cfs_label;
+        cfs_label->SetFont(Label::Body_12);
+        if (Slic3r::GUI::wxGetApp().dark_mode())
+            cfs_label->SetForegroundColour(wxColour("#FFFFFF"));
+        else
+            cfs_label->SetForegroundColour(wxColour("#000000"));
+        // m_box_sizer->AddSpacer(FromDIP(8));
+        m_box_sizer->Add(cfs_label, 0, wxALIGN_CENTRE_VERTICAL);
+        m_box_sizer->AddSpacer(FromDIP(8));
+
+        OneFilamentColorItem* filament_item = new OneFilamentColorItem(this, wxSize(FromDIP(24), FromDIP(24)));
+        assert(filament_item);
+        if (material_box_info.materials.size() > 0)
+            filament_item->setOriginMaterial(material_box_info.materials[0]);
+
+        // check whether the array has the exact material
+        has_exact_material = false;
+        for (const auto& material : material_box_info.materials) {
+            if (material.material_id == 0 && material_box_info.box_type == 2 && !material.color.empty()) {
+                filament_item->set_sync_state(true);
+                filament_item->set_is_ext(false);
+                filament_item->update_item_info_by_material(material_box_info.box_id, material, 2);
+                has_exact_material = true;
+                break;
+            }
+        }
+
+        if (!has_exact_material) {
+            DM::Material tmp_material;
+            tmp_material.material_id = 0;
+            tmp_material.color       = "#808080"; // grey
+            filament_item->set_sync_state(false);
+            filament_item->set_is_ext(false);
+            filament_item->update_item_info_by_material(material_box_info.box_id, tmp_material);
+        }
+
+        m_filament_color_items.push_back(filament_item);
+        m_box_sizer->Add(filament_item, 0, wxALIGN_CENTRE_VERTICAL);
+        m_box_sizer->AddSpacer(FromDIP(30));
+        m_box_sizer->Layout();
     }
 
     // 重新布局面板
@@ -417,7 +466,7 @@ void PrinterBoxFilamentPanel::update_box_filament_items()
 
             m_filament_box_items.push_back(one_box_item);
             for (const auto& material : materialBox.materials) {
-                if (materialBox.box_type == 0 && !material.color.empty()) {
+                if ((materialBox.box_type == 0 || materialBox.box_type == 2) && !material.color.empty()) {
                     has_exact_material = true;
                     break;
                 }

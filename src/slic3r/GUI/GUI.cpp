@@ -618,11 +618,14 @@ std::string get_cloud_api_url()
     std::string version_type = get_vertion_type();
 	std::string country_code = wxGetApp().app_config->get_country_code();
 	// url = "https://api-dev.crealitycloud.cn";//for dev
+	#ifdef _DEBUG1
+		version_type = "Beta";
+	#endif
     if (version_type == "Alpha") {
         if (country_code == "CN") {
             url = "https://admin-pre.crealitycloud.cn";
         } else {
-            url = "https://admin-pre.crealitycloud.com";
+            url = "https://admin-pre.crealitycloud.cn";
         }
     } else {
         if (country_code == "CN") {

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+    <id>io.github.crealityofficial.CrealityPrint</id>
+    <launchable type="desktop-id">io.github.crealityofficial.CrealityPrint.desktop</launchable>
+    <provides>
+        <id>io.github.crealityofficial.CrealityPrint.desktop</id>
+    </provides>
+    <name>CrealityPrint</name>
+    <!-- hehe hadess @ppd 
+    ... seriously though, thanks -->
+    <summary>Get even more perfect prints!</summary>
+    <developer_name>Creality</developer_name>
+    <url type="homepage">https://github.com/CrealityOfficial/CrealityPrint</url>
+    <url type="help">https://github.com/CrealityOfficial/CrealityPrint/wiki</url>
+    <url type="bugtracker">https://github.com/CrealityOfficial/CrealityPrint/issues/</url>
+    <url type="donation"></url>
+    <metadata_license>0BSD</metadata_license>
+    <project_license>AGPL-3.0-only</project_license>
+    <content_rating type="oars-1.1" />
+    <requires>
+        <display_length compare="gt">768</display_length>
+    </requires>
+    <recommends>
+        <control>keyboard</control>
+        <control>pointing</control>
+    </recommends>
+    <screenshots>
+	    <screenshot type="default">
+		    <image>https://pic2-cdn.creality.com/plug/imgs/f7c7444213f1c18da6017221d73b3bac.webp</image>
+		    <caption>A model ready to be sliced on a buildplate.</caption>
+	    </screenshot>
+    </screenshots>
+    <description>
+	    <p>A 3D printer slicer forked from Bambu Studio, PrusaSlicer, and SuperSlicer with many more printer profiles, helpful calibration prints, and many more features to get your 3D printer printing perfectly!</p>
+    </description>
+    <branding>
+	  <color type="primary" scheme_preference="light">#009688</color>
+	</branding>
+    <releases>
+	    <release version="6.2.0" date="2025-06-30"> <url>https://github.com/CrealityOfficial/CrealityPrint/commit/5d2ac094fe3f37ce446a0ee1390a44e6b8649d46</url>
+        </release>
+    </releases>
+</component>

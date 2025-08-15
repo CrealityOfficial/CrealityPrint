@@ -540,6 +540,8 @@ void GLGizmoDrill::generate_new_volume(bool delete_input, const TriangleMesh& me
     // generate new volume
     ModelVolume* new_volume = curr_model_object->add_volume(std::move(mesh_result));
 
+    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << boost::format(": new_volume->facets_count() = %1%") % new_volume->mesh().facets_count();
+
     // assign to new_volume from old_volume
     new_volume->name = old_volume->name;
     new_volume->set_new_unique_id();
@@ -641,7 +643,7 @@ void GLGizmoDrill::draw_cp_input_double(const std::string& label, double* v, dou
     ImGui::PushItemWidth(size.x() - updown_button_size.x - text_size - space * 3.0);
     ImGui::BBLInputDouble(label.c_str(), v, 0.0f, 0.0f, "%.2f", disable);
     ImGui::SameLine(0, space);
-    ImGui::Text(text);
+    ImGui::Text("%s", text);
     ImGui::SameLine(0, space);
     {
         ImGui::BeginGroup();

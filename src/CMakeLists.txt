@@ -366,8 +366,9 @@ else ()
 
     message("SLIC3R_RESOURCES_DIR_Mac=${SLIC3R_RESOURCES_DIR}")
     message("BIN_RESOURCES_DIR=${BIN_RESOURCES_DIR}")
-    if(APPLE AND TARGET_BUNDLE_CONTENT_DIR)
+    if(APPLE)
         add_custom_command(TARGET ${PROJECT_DLL} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_DLL}>/Resources"
             COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_DLL}>/Resources"
             COMMAND ${CMAKE_COMMAND} -E copy_directory "${SLIC3R_RESOURCES_DIR}" "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_DLL}>/Resources"
             COMMENT "Copying resources to .app bundle"

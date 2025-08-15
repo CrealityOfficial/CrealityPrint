@@ -450,6 +450,15 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
 
     std::string WipeTowerIntegration::append_tcr_creality(GCode &gcodegen, const WipeTower::ToolChangeResult &tcr, int new_extruder_id, double z) const
     {
+        auto extractXY = [](const std::string& text) -> Slic3r::Vec2f {
+            std::regex  pattern(R"(G1\s+[^;]*X([-+]?\d*\.?\d*)\s+Y([-+]?\d*\.?\d*))");
+            std::smatch match;
+            if (std::regex_search(text, match, pattern)) {
+                return {std::stof(match[1].str()), std::stof(match[2].str())};
+            }
+            return {0.f, 0.f}; // 没找到则返回默认点
+        };
+
         if (new_extruder_id != -1 && new_extruder_id != tcr.new_tool)
             throw Slic3r::InvalidArgument("Error: WipeTowerIntegration::append_tcr was asked to do a toolchange it didn't expect.");
 
@@ -519,34 +528,46 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
                 // if no corresponding lift type, use normal lift
                 auto_lift_type = LiftType::NormalLift;
             }
-
+              
             gcode += gcodegen.retract(false, false, auto_lift_type);
             //gcode += tcr.muti_lapse;
-            
-           if (!gcodegen.config().time_lapse_gcode.value.empty() && gcodegen.config().enable_prime_tower && m_tool_change_idx == 1 &&
-                gcodegen.config().timelapse_type != TimelapseType::tlClose) {
-                DynamicConfig config;
-               config.set_key_value("layer_num", new ConfigOptionInt(gcodegen.m_layer_index));
-                config.set_key_value("layer_z", new ConfigOptionFloat(current_z));
-               config.set_key_value("max_layer_z", new ConfigOptionFloat(gcodegen.m_max_layer_z));
-                config.set_key_value("enable_prime_tower", new ConfigOptionBool(gcodegen.config().enable_prime_tower));
-                gcode += gcodegen.placeholder_parser_process("timelapse_gcode", gcodegen.config().time_lapse_gcode.value,
-                                                          gcodegen.writer().extruder()->id(), &config) +"\n";
-            }
-
-
-
-
+            bool is_time_lapse = !gcodegen.config().time_lapse_gcode.value.empty() && gcodegen.config().enable_prime_tower &&m_tool_change_idx == 1 && gcodegen.config().timelapse_type != TimelapseType::tlClose ;
             // add for CFS
-            if (!hasToolChange)
-            {
-                gcodegen.m_avoid_crossing_perimeters.use_external_mp_once();
-                gcode += gcodegen.travel_to(wipe_tower_point_to_object_point(gcodegen, start_pos + plate_origin_2d), erMixed, "Travel to a Wipe Tower");
-                gcode += gcodegen.unretract();
+            if (!hasToolChange) {
+                if (is_time_lapse) {
+                    Vec2f time_lapse_pos = extractXY(gcodegen.config().time_lapse_gcode.value);
+                    gcodegen.m_avoid_crossing_perimeters.use_external_mp_once();
+                    gcode += gcodegen.travel_to(wipe_tower_point_to_object_point(gcodegen, time_lapse_pos + plate_origin_2d), erMixed,
+                                                "Travel to is_time_lapse");
+
+                } 
+                else{
+                        gcodegen.m_avoid_crossing_perimeters.use_external_mp_once();
+                        gcode += gcodegen.travel_to(wipe_tower_point_to_object_point(gcodegen, start_pos + plate_origin_2d), erMixed,
+                                                    "Travel to a Wipe Tower");
+                        gcode += gcodegen.unretract();
+                    }
+                
             } else {
                 // for cfs 'EXCLUDE_OBJECT_END'
                 gcodegen.m_writer.add_object_change_labels(gcode);
             }
+            
+            if (is_time_lapse) {
+                DynamicConfig config;
+                config.set_key_value("layer_num", new ConfigOptionInt(gcodegen.m_layer_index));
+                config.set_key_value("layer_z", new ConfigOptionFloat(current_z));
+                config.set_key_value("max_layer_z", new ConfigOptionFloat(gcodegen.m_max_layer_z));
+                config.set_key_value("enable_prime_tower", new ConfigOptionBool(gcodegen.config().enable_prime_tower));
+                gcode += gcodegen.placeholder_parser_process("timelapse_gcode", gcodegen.config().time_lapse_gcode.value,
+                                                             gcodegen.writer().extruder()->id(), &config) + "\n";
+                
+                if (!hasToolChange) {
+                    gcode += gcodegen.writer().travel_to_xy((start_pos + plate_origin_2d).cast<double>());
+                    gcode += gcodegen.unretract();
+                }
+            }
+
         } 
 
         std::string toolchange_gcode_str;
@@ -2842,12 +2863,26 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
         auto center = bbox_wo_wt.center();
         this->placeholder_parser().set("first_layer_center_no_wipe_tower", new ConfigOptionFloats{ {center.x(),center.y()}});
     }
+    //bool activate_chamber_temp_control = false;
+    //auto max_chamber_temp              = 0;
+    //for (const auto &extruder : m_writer.extruders()) {
+    //    activate_chamber_temp_control |= m_config.activate_chamber_temp_control.get_at(extruder.id());
+    //    max_chamber_temp = std::max(max_chamber_temp, m_config.chamber_temperature.get_at(extruder.id()));
+    //}
     bool activate_chamber_temp_control = false;
-    auto max_chamber_temp              = 0;
-    for (const auto &extruder : m_writer.extruders()) {
+    int max_chamber_temp = 0;
+    int max_extruder_id  = -1;
+    for (const auto& extruder : m_writer.extruders()) {
         activate_chamber_temp_control |= m_config.activate_chamber_temp_control.get_at(extruder.id());
-        max_chamber_temp = std::max(max_chamber_temp, m_config.chamber_temperature.get_at(extruder.id()));
+        int current_value = m_config.chamber_temperature.get_at(extruder.id());
+        // 如果当前值大于记录的最大值，更新最大值和对应的ID
+        if (current_value > max_chamber_temp) {
+            max_chamber_temp = current_value;
+            max_extruder_id  = extruder.id();
+        }
     }
+
+
     float outer_wall_volumetric_speed = 0.0f;
     {
         int curr_bed_type = m_config.curr_bed_type.getInt();
@@ -2914,7 +2949,9 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
     file.write_format(";%s%s\n", GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Role).c_str(), ExtrusionEntity::role_to_string(erCustom).c_str());
 
     // Orca: set chamber temperature at the beginning of gcode file
-    if (activate_chamber_temp_control && max_chamber_temp > 0)
+    int max_activate_chamber_layer = m_config.activate_chamber_layer.get_at(max_extruder_id);
+
+    if (activate_chamber_temp_control && max_chamber_temp > 0 && max_activate_chamber_layer == 1)
     {
         if (print.is_CX_printer())
             file.write(m_writer.set_chamber_temperature(max_chamber_temp, false)); // for creality 
@@ -4297,6 +4334,39 @@ LayerResult GCode::process_layer(
         m_wipe_tower->set_creality_cfs(print.getCrealityCFS());
 
 
+    int max_chamber_temp = 0;
+    int max_extruder_id            = -1;
+    for (const auto& extruder : m_writer.extruders()) {
+        int current_value = m_config.chamber_temperature.get_at(extruder.id());
+        // 如果当前值大于记录的最大值，更新最大值和对应的ID
+        if (current_value > max_chamber_temp) {
+            max_chamber_temp = current_value;
+            max_extruder_id            = extruder.id();
+        }
+    }
+    int max_activate_chamber_layer = m_config.activate_chamber_layer.get_at(max_extruder_id);
+
+
+    if (max_activate_chamber_layer > 1 && max_activate_chamber_layer == m_layer_index + 2)
+    {
+        bool activate_chamber_temp_control = false;
+        auto max_chamber_temp = 0;
+        for (const auto& extruder : m_writer.extruders()) {
+            activate_chamber_temp_control |= m_config.activate_chamber_temp_control.get_at(extruder.id());
+            max_chamber_temp = std::max(max_chamber_temp, m_config.chamber_temperature.get_at(extruder.id()));
+        }
+
+        //
+        if (activate_chamber_temp_control)
+        {
+            if (print.is_CX_printer())
+                gcode += m_writer.set_chamber_temperature(max_chamber_temp, false); // for creality
+            else
+                gcode +=m_writer.set_chamber_temperature(max_chamber_temp, true); // set chamber_temperature
+        }
+    }
+
+
     // add tag for processor
     gcode += ";" + GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Layer_Change) + "\n";
     // export layer z
@@ -5326,7 +5396,11 @@ std::string GCode::change_layer(coordf_t print_z)
     }
 
     m_nominal_z = z;
-
+   // if(m_layer_index == 0)
+   // {
+       // m_writer.set_position(Vec3d{m_writer.get_position().x(), m_writer.get_position().y(), z});
+   // }
+    
     // forget last wiping path as wiping after raising Z is pointless
     // BBS. Dont forget wiping path to reduce stringing.
     //m_wipe.reset_path();

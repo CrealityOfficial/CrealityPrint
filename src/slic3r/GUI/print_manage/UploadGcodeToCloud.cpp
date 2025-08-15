@@ -786,9 +786,13 @@ void UploadGcodeToCloudDialog::update_3mf_info()
         GCodeProcessorResult* current_result = m_plater->get_partplate_list().get_current_slice_result();
         wxStrPreset = current_result->printer_model;
     }
-    m_stext_printer->SetLabel(wxStrPreset);
-    m_stext_printer2->SetLabel(wxStrPreset);
-    m_stext_printer2_tip->SetTip(wxStrPreset);
+    if(m_stext_printer!=nullptr)
+        m_stext_printer->SetLabel(wxStrPreset);
+    if(m_stext_printer2!=nullptr)
+        m_stext_printer2->SetLabel(wxStrPreset);
+    if(m_stext_printer2_tip!=nullptr)
+        m_stext_printer2_tip->SetTip(wxStrPreset);
+    
     double              layer_height          = print_config.config.opt_float("layer_height");
     auto                wall_loops            = print_config.config.opt_int("wall_loops");
     DynamicPrintConfig* config                = &wxGetApp().preset_bundle->prints.get_edited_preset().config;
@@ -1531,7 +1535,11 @@ void UploadGcodeToCloudDialog::set_plate_info(int plate_idx)
 {
     // project name
     m_rename_switch_panel->SetSelection(0);
-    Slic3r::GUI::wxGetApp().plater()->update_all_plate_thumbnails(true);
+    if (!m_plater->only_gcode_mode()) 
+    {
+        Slic3r::GUI::wxGetApp().plater()->update_all_plate_thumbnails(true);
+    }
+    
     PartPlate* plate = wxGetApp().plater()->get_partplate_list().get_plate(plate_idx);
     if (!plate)
         return;

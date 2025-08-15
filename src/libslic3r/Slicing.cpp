@@ -299,7 +299,7 @@ std::vector<double> layer_height_profile_adaptive(const SlicingParameters& slici
 {
     // 1) Initialize the SlicingAdaptive class with the object meshes.
     SlicingAdaptive as;
-    as.set_slicing_parameters(slicing_params);
+    as.set_slicing_parameters(slicing_params,-1.0f);
     as.prepare(object);
 
     // 2) Generate layers using the algorithm of @platsch 
@@ -572,11 +572,15 @@ void smooth_layer_width_profile_gaussian(std::vector<double>& layer_width_profil
     layer_width_profile = smoothed_profile;
 }
 
-std::vector<double> layer_width_profile_adaptive(const SlicingParameters& slicing_params, const ModelObject& object, std::vector<coordf_t> layer_height_profile, Transform3d trafo)
+std::vector<double> layer_width_profile_adaptive(const SlicingParameters& slicing_params,
+                                                 const ModelObject&       object,
+                                                 std::vector<coordf_t>    layer_height_profile,
+                                                 const double             ow_width,
+                                                 Transform3d              trafo)
 {
     layer_height_profile = generate_object_layers(slicing_params, layer_height_profile, false);
     SlicingAdaptive as;
-    as.set_slicing_parameters(slicing_params, trafo);
+    as.set_slicing_parameters(slicing_params, ow_width, trafo);
     as.prepare(object);
     std::vector<coordf_t> layer_width_profile;
     size_t current_facet = 0;
@@ -590,6 +594,8 @@ std::vector<double> layer_width_profile_adaptive(const SlicingParameters& slicin
 
         print_z_idx += 2;
         layer_width_profile.push_back(width);
+        if (print_z_idx >= layer_height_profile.size())
+            break;
     }
     smooth_layer_width_profile_gaussian(layer_width_profile, LAYER_WIDTH_SMOOTH_WINDOW);
     return layer_width_profile;

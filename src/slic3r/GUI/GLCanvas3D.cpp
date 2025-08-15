@@ -264,7 +264,7 @@ void GLCanvas3D::LayersEditing::render_variable_layer_height_dialog(const GLCanv
 
     ImGui::PushItemWidth(max_text_size);
     ImGui::AlignTextToFramePadding();
-    ImGui::Text(quality_speed_text.c_str());
+    ImGui::Text("%s", quality_speed_text.c_str());
 
     ImGui::SameLine(max_text_size + ImGui::GetStyle().ItemSpacing.x + ImGui::GetStyle().WindowPadding.x);
 
@@ -328,7 +328,7 @@ void GLCanvas3D::LayersEditing::render_variable_layer_height_dialog(const GLCanv
 
     ImGui::PushItemWidth(max_text_size);
     ImGui::AlignTextToFramePadding();
-    ImGui::Text(smooth_text.c_str());
+    ImGui::Text("%s", smooth_text.c_str());
 
     ImGui::SameLine(max_text_size + ImGui::GetStyle().ItemSpacing.x + ImGui::GetStyle().WindowPadding.x);
 
@@ -3224,6 +3224,9 @@ void GLCanvas3D::load_gcode_preview(const GCodeProcessorResult&     gcode_result
     }
 #endif
 
+    //尝试修复m_gcode_viewer被析构导致闪退的问题
+    if(!m_gcode_viewer.get_moves_slider())
+        return;
     m_gcode_viewer.get_moves_slider()->SetHigherValue(m_gcode_viewer.get_moves_slider()->GetMaxValue());
 
     if (wxGetApp().is_editor()) {
@@ -4146,8 +4149,10 @@ void GLCanvas3D::on_mouse_wheel(wxMouseEvent& evt)
 {
 #ifdef WIN32
     // Try to filter out spurious mouse wheel events comming from 3D mouse.
-    if (wxGetApp().plater()->get_mouse3d_controller().process_mouse_wheel())
+    if (wxGetApp().plater()->get_mouse3d_controller().process_mouse_wheel()) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ":" << __LINE__ << "filter 3D mouse process_mouse_wheel";
         return;
+    }
 #endif
 
     if (!m_initialized)
@@ -6740,7 +6745,8 @@ bool GLCanvas3D::_render_object_clone_options(float left, float right, float bot
 
     // bool slider_number_change = imgui->bbl_slider_int_style("##Number of copies:", &m_clone_settings.clone_num, 1, 100, "%d", true,
     // _L("Copies of the selected object"));
-    bool slider_number_change = ImGui::BBLSliderScalar("##Number of copies:", ImGuiDataType_S32, &m_clone_settings.clone_num, &v_min,
+    // fix bug:[#8878], "##Number of copies" is the same with "draw_input_int_v2" would cause ui cover problem.
+    bool slider_number_change = ImGui::BBLSliderScalar("##Number of copies1:", ImGuiDataType_S32, &m_clone_settings.clone_num, &v_min,
                                                        &v_max);
 
     ImGui::PopStyleColor(4);
@@ -6751,7 +6757,7 @@ bool GLCanvas3D::_render_object_clone_options(float left, float right, float bot
     // bool b_spacing_input = ImGui::BBLDragFloat("##spacing_input", &settings.distance, 0.05f, 0.0f, 0.0f, "%.2f");
 
     ImGui::SameLine(0.f);
-    bool input_number_change = draw_input_int_v2("##Number of copies:", &m_clone_settings.clone_num, 1, &v_min, &v_max,
+    bool input_number_change = draw_input_int_v2("##Number of copies2:", &m_clone_settings.clone_num, 1, &v_min, &v_max,
                                                  Vec2d(70.f * get_scale(), 30.f));
 
     if (slider_number_change || input_number_change) {
@@ -9842,11 +9848,12 @@ void GLCanvas3D::_render_slice_control() const
         static int s_pst = 0;
             std::vector<std::string> s_print_string{_u8L("Send print"), 
                                                     _u8L("Send to Multi-device"),
-                                                    _u8L("Export plate sliced file"), 
+                                                    /*_u8L("Export plate sliced file"), */
+                                                    _u8L("Export G-code"), 
                                                     _u8L("Export all sliced file"),
                                                     _u8L("Upload to CrealityCloud")};
         if (!Slic3r::CxBuildInfo::isEnabledCxCloud()) {
-                s_print_string = {_u8L("Send print"), _u8L("Export plate sliced file"), _u8L("Export all sliced file")};
+                s_print_string = {_u8L("Send print"),/* _u8L("Export plate sliced file"),*/ _u8L("Export G-code"), _u8L("Export all sliced file")};
         
         }
 
@@ -9898,7 +9905,7 @@ void GLCanvas3D::_render_slice_control() const
             else if (s_print_string[s_pst] == _u8L("Send to Multi-device")) {
                 wxGetApp().mainframe->m_print_select = MainFrame::eSendToMultLocalNetPrinter;
             }
-            else if (s_print_string[s_pst] == _u8L("Export plate sliced file"))
+            else if (s_print_string[s_pst] == /*_u8L("Export plate sliced file")*/_u8L("Export G-code"))
             {
                 wxGetApp().mainframe->m_print_select = MainFrame::eExportSlicedFile;
             }
@@ -10501,20 +10508,20 @@ void GLCanvas3D::_render_imgui_select_plate_toolbar()
 
             m_sel_plate_toolbar.m_items[i]->percent = plate_list.get_plate(i)->get_slicing_percent();
 
-            if (plate_list.get_plate(i)->is_slice_result_valid()) {
+            if (plate_list.get_plate(i)->is_slice_result_valid_and_loaded()) {
                 if (plate_list.get_plate(i)->is_slice_result_ready_for_print())
                     m_sel_plate_toolbar.m_items[i]->slice_state = IMToolbarItem::SliceState::SLICED;
                 else
                     m_sel_plate_toolbar.m_items[i]->slice_state = IMToolbarItem::SliceState::SLICE_FAILED;
             } else {
-                if (!plate_list.get_plate(i)->can_slice())
-                    m_sel_plate_toolbar.m_items[i]->slice_state = IMToolbarItem::SliceState::SLICE_FAILED;
-                else {
-                    if (plate_list.get_plate(i)->get_slicing_percent() < 0.0f)
-                        m_sel_plate_toolbar.m_items[i]->slice_state = IMToolbarItem::SliceState::UNSLICED;
-                    else
-                        m_sel_plate_toolbar.m_items[i]->slice_state = IMToolbarItem::SliceState::SLICING;
-                }
+                    if (!plate_list.get_plate(i)->can_slice() && !wxGetApp().plater()->only_gcode_mode())
+                        m_sel_plate_toolbar.m_items[i]->slice_state = IMToolbarItem::SliceState::SLICE_FAILED;
+                    else {
+                        if (plate_list.get_plate(i)->get_slicing_percent() < 0.0f)
+                            m_sel_plate_toolbar.m_items[i]->slice_state = IMToolbarItem::SliceState::UNSLICED;
+                        else
+                            m_sel_plate_toolbar.m_items[i]->slice_state = IMToolbarItem::SliceState::SLICING;
+                    }
             }
         }
     }
@@ -10523,7 +10530,7 @@ void GLCanvas3D::_render_imgui_select_plate_toolbar()
 
         size_t sliced_plates_cnt = 0;
         for (auto plate : plate_list.get_nonempty_plate_list()) {
-            if (plate->is_slice_result_valid() && plate->is_slice_result_ready_for_print())
+            if (plate->is_slice_result_valid_and_loaded() && plate->is_slice_result_ready_for_print())
                 sliced_plates_cnt++;
         }
         all_plates_stats_item->percent = (float) (sliced_plates_cnt) / (float) (plate_list.get_nonempty_plate_list().size()) * 100.0f;
@@ -11134,18 +11141,18 @@ void GLCanvas3D::_render_paint_toolbar() const
         ImVec2 number_label_size = ImGui::CalcTextSize(std::to_string(i + 1).c_str());
         ImGui::SetCursorPosY(cursor_y + text_offset_y);
         ImGui::SetCursorPosX(spacing + i * (spacing + button_size.x) + (button_size.x - number_label_size.x) / 2);
-        ImGui::TextColored(text_color, std::to_string(i + 1).c_str());
+        ImGui::TextColored(text_color, "%d", i + 1);
         imgui.pop_bold_font();
 
         ImVec2 filament_first_line_label_size = ImGui::CalcTextSize(filament_text_first_line[i].c_str());
         ImGui::SetCursorPosY(cursor_y + text_offset_y + number_label_size.y);
         ImGui::SetCursorPosX(spacing + i * (spacing + button_size.x) + (button_size.x - filament_first_line_label_size.x) / 2);
-        ImGui::TextColored(text_color, filament_text_first_line[i].c_str());
+        ImGui::TextColored(text_color, "%s", filament_text_first_line[i].c_str());
 
         ImVec2 filament_second_line_label_size = ImGui::CalcTextSize(filament_text_second_line[i].c_str());
         ImGui::SetCursorPosY(cursor_y + text_offset_y + number_label_size.y + filament_first_line_label_size.y);
         ImGui::SetCursorPosX(spacing + i * (spacing + button_size.x) + (button_size.x - filament_second_line_label_size.x) / 2);
-        ImGui::TextColored(text_color, filament_text_second_line[i].c_str());
+        ImGui::TextColored(text_color, "%s", filament_text_second_line[i].c_str());
     }
 
     if (ImGui::GetWindowWidth() == constraint_window_width) {

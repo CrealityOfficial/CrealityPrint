@@ -70,7 +70,7 @@ wxMenuItem* append_menu_item(wxMenu* menu, int id, const wxString& string, const
         id = wxNewId();
 
     auto *item = new wxMenuItem(menu, id, string, description);
-    if (icon.IsOk()) {
+    if (icon.IsOk()&&icon.GetWidth()>0 && icon.GetHeight()>0) {
         item->SetBitmap(icon);
     }
     if (insert_pos == wxNOT_FOUND)
@@ -595,7 +595,6 @@ std::vector<wxBitmap*> get_extruder_color_icons(bool thin_icon/* = false*/)
 wxBitmap *get_extruder_color_icon(std::string color, std::string label, int icon_width, int icon_height)
 {
     static Slic3r::GUI::BitmapCache bmp_cache;
-
     std::string bitmap_key = color + "-h" + std::to_string(icon_height) + "-w" + std::to_string(icon_width) + "-i" + label;
 
     wxBitmap *bitmap = bmp_cache.find(bitmap_key);

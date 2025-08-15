@@ -415,7 +415,7 @@ std::string Http::priv::body_size_error()
 void Http::priv::http_perform()
 {
 	::curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
-	::curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 15L);
+	::curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 60L);
 	::curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 	::curl_easy_setopt(curl, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL);
 	::curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writecb);

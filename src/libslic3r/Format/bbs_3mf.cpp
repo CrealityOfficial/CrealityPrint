@@ -2321,12 +2321,14 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         int file_index = mz_zip_reader_locate_file(&archive, model_file, nullptr, 0);
         if (file_index < 0)
         {
+            close_zip_reader(&archive);
             return false;
         }
 
         mz_zip_archive_file_stat stat;
         if (!mz_zip_reader_file_stat(&archive, file_index, &stat))
         {
+            close_zip_reader(&archive);
             return false;
         }
 
@@ -2334,6 +2336,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         XML_Parser parser = XML_ParserCreate(nullptr);
         if (!parser)
         {
+            close_zip_reader(&archive);
             return false;
         }
 
@@ -2353,26 +2356,30 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         // 检查解压大小是否合理,不超过 XML_Parser 的限制
         if ((stat.m_uncomp_size <= 0) || (stat.m_uncomp_size > 100 * 1024 * 1024) || (stat.m_uncomp_size > INT_MAX))
         {  
+            close_zip_reader(&archive);
             return false;
         }
 
         void* buffer = XML_GetBuffer(parser, (int)stat.m_uncomp_size);
         if (!buffer)
         {
+            close_zip_reader(&archive);
             return false;
         }
 
         if (!mz_zip_reader_extract_file_to_mem(&archive, model_file,
             buffer, (size_t)stat.m_uncomp_size, 0))
         {
+            close_zip_reader(&archive);
             return false;
         }
 
         if (!XML_ParseBuffer(parser, (int)stat.m_uncomp_size, 1))
         {
+            close_zip_reader(&archive);
             return false;
         }
-
+        close_zip_reader(&archive);
         return has_metadata && state.has_valid_objectid;
     }
 

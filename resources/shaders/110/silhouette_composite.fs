@@ -29,7 +29,7 @@ void main()
     float deltaWidth = 1.0 / u_viewport_size_alpha.x;
     float deltaHeight = 1.0 / u_viewport_size_alpha.y;
     float alpha = u_viewport_size_alpha.z;
-    float effect_width = 2.0;
+    float effect_width = 1.0;
     deltaWidth = deltaWidth * effect_width;
     deltaHeight = deltaHeight * effect_width;
     pixels[0] = sample(-deltaWidth, deltaHeight );

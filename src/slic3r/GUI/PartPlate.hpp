@@ -432,6 +432,8 @@ public:
         return m_slice_result_valid;
     }
 
+    bool is_slice_result_valid_and_loaded() const;
+
     //is slice result ready for print
     bool is_slice_result_ready_for_print() const
     {

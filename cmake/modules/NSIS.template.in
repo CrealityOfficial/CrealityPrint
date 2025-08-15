@@ -1020,6 +1020,15 @@ Jump_Del_Thumb:
 
   ;Remove the installation directory if it is empty.
   RMDir "$INSTDIR"
+    ; 判断上级目录是否为 Creality
+  GetFullPathName $R0 "$INSTDIR\.."
+  Push $R0
+  Push "Creality"
+  Call un.StrStr
+  Pop $R1
+  StrCmp "$R1" "Creality" 0 skipCrealityDelete
+      RMDir "$INSTDIR\.."
+  skipCrealityDelete:
 
   ; Remove the registry entries.
   DeleteRegKey SHCTX "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
@@ -1067,6 +1076,7 @@ Jump_Del_Thumb:
   secondStartMenuDeleteLoopDone:
 
   DeleteRegKey /ifempty SHCTX "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
+  DeleteRegKey /ifempty HKLM "Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
 
   Push $INSTDIR\bin
   StrCmp $DO_NOT_ADD_TO_PATH_ "1" doNotRemoveFromPath 0

@@ -32,7 +32,7 @@ public:
     void SetColor(const wxColour& color);
     wxColour GetColor();
 
-    void update_item_info_by_material(int box_id, const DM::Material& material_info);
+    void update_item_info_by_material(int box_id, const DM::Material& material_info, int box_type = 0); //0=多色盒子 1=外置料架 2=cfsMini
     void set_sync_state(bool bSync);
     void set_is_ext(bool is_ext);
     void setOriginMaterial(const DM::Material& material_info);

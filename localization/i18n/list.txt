@@ -1462,6 +1462,7 @@ src/slic3r/GUI/FileDownloader.hpp
 src/slic3r/GUI/format.hpp
 src/slic3r/GUI/GCodeViewer.hpp
 src/slic3r/GUI/GLCanvas3D.hpp
+src/slic3r/GUI/GLEnums.hpp
 src/slic3r/GUI/GLModel.hpp
 src/slic3r/GUI/GLSelectionRectangle.hpp
 src/slic3r/GUI/GLShader.hpp
@@ -1818,6 +1819,7 @@ src/slic3r/Utils/OctoPrint.cpp
 src/slic3r/Utils/PresetUpdater.cpp
 src/slic3r/Utils/PrintHost.cpp
 src/slic3r/Utils/Process.cpp
+src/slic3r/Utils/ProfileFamilyLoader.cpp
 src/slic3r/Utils/RaycastManager.cpp
 src/slic3r/Utils/Repetier.cpp
 src/slic3r/Utils/Serial.cpp
@@ -1855,6 +1857,7 @@ src/slic3r/Utils/PrintHost.hpp
 src/slic3r/Utils/Process.hpp
 src/slic3r/Utils/Profile.hpp
 src/slic3r/Utils/ProfileDescription.hpp
+src/slic3r/Utils/ProfileFamilyLoader.hpp
 src/slic3r/Utils/RaycastManager.hpp
 src/slic3r/Utils/Repetier.hpp
 src/slic3r/Utils/RetinaHelper.hpp
@@ -1865,8 +1868,6 @@ src/slic3r/Utils/SimplyPrint.hpp
 src/slic3r/Utils/TCPConsole.hpp
 src/slic3r/Utils/UndoRedo.hpp
 src/slic3r/Utils/WxFontUtils.hpp
-src/slic3r/Utils/ProfileFamilyLoader.hpp
-src/slic3r/Utils/ProfileFamilyLoader.cpp
 src/video/WebRTCDecoder.cpp
 src/video/YangPlayerBase.cpp
 src/video/YangPlayerDecoder.cpp

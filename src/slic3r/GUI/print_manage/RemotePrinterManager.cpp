@@ -144,6 +144,9 @@ void RemotePrinterManager::cancelUpload(const std::string& ipAddress) {
     case RemotePrinerType::REMOTE_PRINTER_TYPE_KLIPPER:
         m_pKlipperInterface->cancelSendFileToDevice();
         break;
+    case RemotePrinerType::REMOTE_PRINTER_TYPE_CX:
+        m_pKlipperCXInterface->cancelSendFileToDevice();
+        break;
     default: break;
     }
 }

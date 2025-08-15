@@ -2057,35 +2057,78 @@ void SkeletalTrapezoidation::generateLocalMaximaSingleBeads()
 {
     std::vector<VariableWidthLines> &generated_toolpaths = *p_generated_toolpaths;
 
-    for (auto& node : graph.nodes)
-    {
-        if (! node.data.hasBeading())
-        {
+    const auto add_circle_to_toolpath = [&generated_toolpaths](const Point& center, const coord_t width, const size_t inset_index) -> void {
+        constexpr bool is_odd = true;
+
+        if (inset_index >= generated_toolpaths.size()) {
+            generated_toolpaths.resize(inset_index + 1);
+        }
+
+        generated_toolpaths[inset_index].emplace_back(inset_index, is_odd);
+        ExtrusionLine& line = generated_toolpaths[inset_index].back();
+        // total area to be extruded is pi*(w/2)^2 = pi*w*w/4
+        // Width a constant extrusion width w, that would be a length of pi*w/4
+        // If we make a small circle to fill up the hole, then that circle would have a circumference of 2*pi*r
+        // So our circle needs to be such that r=w/8
+        const coord_t     radius     = width / 8;
+        constexpr coord_t n_segments = 6;
+        for (coord_t segment = 0; segment < n_segments; segment++) {
+            double a = 2. * M_PI / n_segments * segment;
+            line.junctions.emplace_back(center + Point(radius * cos(a), radius * sin(a)), width, inset_index);
+        }
+    };
+
+    const auto should_replace_with_local_maxima = [&generated_toolpaths]() -> bool {
+        if (generated_toolpaths.empty() || generated_toolpaths[0].empty()) {
+            return true;
+        }
+
+        coord_t total_path_length = 0;
+        coord_t min_width         = std::numeric_limits<coord_t>::max();
+        for (const auto& line : generated_toolpaths[0]) {
+            total_path_length += static_cast<coord_t>(line.getLength());
+            for (const ExtrusionJunction& j : line) {
+                min_width = std::min(min_width, j.w);
+            }
+        }
+
+        return total_path_length <= (min_width / 2);
+    };
+
+    Vec2i64 local_maxima_accumulator = Vec2i64::Zero();
+    coord_t width_accumulator        = 0;
+    size_t  accumulator_count        = 0;
+
+    for (const auto& node : graph.nodes) {
+        if (!node.data.hasBeading()) {
             continue;
         }
-        Beading& beading = node.data.getBeading()->beading;
-        if (beading.bead_widths.size() % 2 == 1 && node.isLocalMaximum(true) && !node.isCentral())
-        {
-            const size_t inset_index = beading.bead_widths.size() / 2;
-            constexpr bool is_odd = true;
-            if (inset_index >= generated_toolpaths.size())
-            {
-                generated_toolpaths.resize(inset_index + 1);
-            }
-            generated_toolpaths[inset_index].emplace_back(inset_index, is_odd);
-            ExtrusionLine& line = generated_toolpaths[inset_index].back();
-            const coord_t width = beading.bead_widths[inset_index];
-            // total area to be extruded is pi*(w/2)^2 = pi*w*w/4
-            // Width a constant extrusion width w, that would be a length of pi*w/4
-            // If we make a small circle to fill up the hole, then that circle would have a circumference of 2*pi*r
-            // So our circle needs to be such that r=w/8
-            const coord_t     r          = width / 8;
-            constexpr coord_t n_segments = 6;
-            for (coord_t segment = 0; segment < n_segments; segment++) {
-                float a = 2.0 * M_PI / n_segments * segment;
-                line.junctions.emplace_back(node.p + Point(r * cos(a), r * sin(a)), width, inset_index);
+
+        const Beading& beading = node.data.getBeading()->beading;
+        if (beading.bead_widths.size() % 2 == 1 && node.isLocalMaximum(true)) {
+            const size_t  inset_index = beading.bead_widths.size() / 2;
+            const coord_t width       = beading.bead_widths[inset_index];
+
+            local_maxima_accumulator += node.p.cast<int64_t>();
+            width_accumulator += width;
+            ++accumulator_count;
+
+            if (!node.isCentral()) {
+                add_circle_to_toolpath(node.p, width, inset_index);
             }
         }
+    }
+
+    if (accumulator_count > 0 && should_replace_with_local_maxima()) {
+        if (generated_toolpaths.empty()) {
+            generated_toolpaths.emplace_back();
+        } else {
+            generated_toolpaths[0].clear();
+        }
+
+        const coord_t width  = static_cast<coord_t>(width_accumulator / accumulator_count);
+        const Point   center = (local_maxima_accumulator / accumulator_count).cast<coord_t>();
+        add_circle_to_toolpath(center, width, 0);
     }
 }
 

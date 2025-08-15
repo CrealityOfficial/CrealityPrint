@@ -258,6 +258,8 @@ private:
     IconManager::VIcons m_icons;
     void init_icons();
 
+    std::atomic<bool> m_is_updating_volume{false};
+
     // only temporary solution
     static const std::string M_ICON_FILENAME;
 };

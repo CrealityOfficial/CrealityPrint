@@ -9,6 +9,7 @@
 #include "Plater.hpp"
 #include "BitmapComboBox.hpp"
 #include "MainFrame.hpp"
+
 #include "slic3r/Utils/UndoRedo.hpp"
 
 #include "OptionsGroup.hpp"
@@ -65,6 +66,7 @@ wxDEFINE_EVENT(EVT_OBJ_LIST_OBJECT_SELECT, SimpleEvent);
 wxDEFINE_EVENT(EVT_OBJ_LIST_COLUMN_SELECT, IntEvent);
 wxDEFINE_EVENT(EVT_PARTPLATE_LIST_PLATE_SELECT, IntEvent);
 wxDEFINE_EVENT(EVT_UPDATE_DEVICES, wxCommandEvent);
+wxDEFINE_EVENT(EVT_OPEN_DEVICE_LIST, wxCommandEvent);
 
 static PrinterTechnology printer_technology() { return wxGetApp().preset_bundle->printers.get_selected_preset().printer_technology(); }
 
@@ -343,7 +345,16 @@ ObjectList::ObjectList(wxWindow* parent) : wxDataViewCtrl(parent, wxID_ANY, wxDe
         // mark to update device list
         m_device_list_dirty_mark = true;
         if (m_device_list_popup_opened) {
-            wxGetApp().plater()->get_view3D_canvas3D()->render();
+            wxGetApp().plater()->get_current_canvas3D()->render();
+        }
+    });
+
+    Bind(EVT_OPEN_DEVICE_LIST, [this](wxCommandEvent& evt) {
+        // open device list
+        if (!m_device_list_popup_opened) {
+            m_device_list_popup_open_request = true;
+            wxGetApp().plater()->set_current_canvas_as_dirty();
+            wxGetApp().plater()->get_current_canvas3D()->render();
         }
     });
 
@@ -6496,7 +6507,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
         if (tooltip.length() > 0 && ImGui::IsItemHovered()) {
             ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
             ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-            ImGui::SetTooltip(tooltip.ToUTF8().data());
+            ImGui::SetTooltip("%s", tooltip.ToUTF8().data());
             ImGui::PopStyleColor();
         }
         ImGui::SameLine(0, 0);
@@ -6579,7 +6590,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
             if (ImGui::IsItemHovered()) {
                 ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
                 ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-                ImGui::SetTooltip(node_name);
+                ImGui::SetTooltip("%s", node_name);
                 ImGui::PopStyleColor();
             }
 
@@ -6615,7 +6626,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
         if (ImGui::IsItemHovered()) {
             ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
             ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-            ImGui::SetTooltip(node_name);
+            ImGui::SetTooltip("%s", node_name);
             ImGui::PopStyleColor();
         }
 
@@ -6641,14 +6652,21 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
                                                                            m_texture.get_texture_uv0(name, node_selected),
                                                                            m_texture.get_texture_uv1(name, node_selected), 0);
             ImGui::PopID();
-        } else {
-            left_clicked = ImGui::Button((node_name + node_label + "name_button").c_str());
+        } 
+        else {
+            // Preserve the original alignment
+            ImVec2 originalAlign = ImGui::GetStyle().ButtonTextAlign;
+            // Set left alignment (0.0f = left alignment, 0.5f = center)
+            ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0f, 0.5f));
+            // The button size is based on the window size.
+            left_clicked = ImGui::Button((node_name + node_label + "name_button").c_str(),
+                                          ImVec2(ImGui::GetWindowSize().x, 0));
         }
 
         if (ImGui::IsItemHovered()) {
             ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
             ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-            ImGui::SetTooltip(node_name);
+            ImGui::SetTooltip("%s", node_name);
             ImGui::PopStyleColor();
         }
 
@@ -7045,14 +7063,14 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
                 float x = pos.x + (item_width - text_size.x) * 0.5f;
                 ImGui::SetCursorPos(ImVec2(x, pos.y + style.FramePadding.y));
 
-                ImGui::Text(ext_name.c_str());
+                ImGui::Text("%s", ext_name.c_str());
 
                 if (need_tooltips) {
                     if (ImGui::IsItemHovered()) {
                         ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
                         ImGui::PushStyleColor(ImGuiCol_Text, text_color);
 
-                        ImGui::SetTooltip(ext_names[ext_idx].c_str());
+                        ImGui::SetTooltip("%s", ext_names[ext_idx].c_str());
 
                         ImGui::PopStyleColor();
                     }
@@ -7215,7 +7233,7 @@ void GUI::ObjectList::render_current_device_name(const float max_right)
     std::string show_text   = _u8L("Current device:") + " " + device_name;
     std::string remake_text = remake_text_to_fit_size(show_text);
 
-    ImGui::TextColored(ImGuiWrapper::COL_CREALITY, remake_text.c_str());
+    ImGui::TextColored(ImGuiWrapper::COL_CREALITY, "%s", remake_text.c_str());
 
     if (ImGui::IsItemHovered()) {
         bool   is_dark    = wxGetApp().dark_mode();
@@ -7403,14 +7421,15 @@ void ObjectList::render_printer_preset_by_ImGui()
         } else {
             const char* ellipsis       = "...";
             const float ellipsis_width = ImGui::CalcTextSize(ellipsis).x;
-            size_t      name_length    = input_text.length();
+            wxString wxText = from_u8(input_text);
+            size_t      name_length    = wxText.length();
 
             for (size_t i = name_length - 1; i >= 0; i--) {
-                std::string sub_name           = input_text.substr(0, i);
-                std::string name_with_ellipsis = sub_name + ellipsis;
-                const float sub_width          = ImGui::CalcTextSize((name_with_ellipsis).c_str()).x;
+                wxText.erase(wxText.end() - 1);
+                wxString name_with_ellipsis = wxText + ellipsis;
+                const float sub_width          = ImGui::CalcTextSize(name_with_ellipsis.ToUTF8().data()).x;
                 if (sub_width <= device_label_max_width) {
-                    return name_with_ellipsis;
+                    return name_with_ellipsis.ToStdString();
                 }
             }
         }
@@ -7488,7 +7507,7 @@ void ObjectList::render_printer_preset_by_ImGui()
 
     {
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip(combo_preview_value);
+            ImGui::SetTooltip("%s", combo_preview_value);
             ImGui::PushStyleColor(ImGuiCol_Border, ImGuiWrapper::COL_CREALITY);
         } else {
             ImGui::PushStyleColor(ImGuiCol_Border, border_color);
@@ -7541,9 +7560,13 @@ void ObjectList::render_printer_preset_by_ImGui()
         wifiTexture->load_from_png_file(Slic3r::resources_dir() + "/images/wifi.png", true, GLTexture::None, false);
         update_printer_device_list_data("Creality", true);
     }
-    auto& wifiTextureGray = m_png_textures->get(ObjList_Png_Texture_Wrapper::pngTexOnlineDeviceGray);
+
+    auto  texture_type = is_dark ? ObjList_Png_Texture_Wrapper::pngTexOnlineDeviceDarkGray :
+                                   ObjList_Png_Texture_Wrapper::pngTexOnlineDeviceGray;
+    auto  png_path = is_dark ? Slic3r::resources_dir() + "/images/wifi_dark_gray.png" : Slic3r::resources_dir() + "/images/wifi_gray.png";
+    auto& wifiTextureGray = m_png_textures->get(texture_type);
     if (!wifiTextureGray->vaild()) {
-        wifiTextureGray->load_from_png_file(Slic3r::resources_dir() + "/images/wifi_gray.png", true, GLTexture::None, false);
+        wifiTextureGray->load_from_png_file(png_path, true, GLTexture::None, false);
     }
      
     auto deviceListID = "##DeviceList";
@@ -7566,6 +7589,13 @@ void ObjectList::render_printer_preset_by_ImGui()
             // update printer list
             ImGui::OpenPopup(deviceListID);
         }
+
+        if (m_device_list_popup_open_request)
+        {
+            if (!(current_device.valid && !current_device.address.empty()))
+                ImGui::OpenPopup(deviceListID);
+            m_device_list_popup_open_request = false;
+        }
    
         if (m_device_list_popup_opened)
         {
@@ -7574,8 +7604,11 @@ void ObjectList::render_printer_preset_by_ImGui()
             ImGui::GetCurrentWindow()->DrawList->AddRectFilled(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), mask_colu32, 4.0 * scale);
         }
         ImGui::PopStyleVar(1);
-        if (ImGui::IsItemHovered() && current_device.valid)
-            ImGui::SetTooltip((current_device.name.empty()? current_device.address : current_device.name).c_str());
+        if (ImGui::IsItemHovered())
+            if (current_device.valid)
+                ImGui::SetTooltip(("%s", current_device.name.empty() ? current_device.address : current_device.name).c_str());
+            else
+                ImGui::SetTooltip(_u8L("Click to bind the device").c_str());
         
         // draw device list popup
         ImVec2 popupSize{(336 + 15) * scale, 360 * scale};
@@ -7709,7 +7742,7 @@ void ObjectList::render_printer_preset_by_ImGui()
                     boost::log::core::get()->flush();
                 }
 
-                ImGui::SetTooltip(combo_preview_value);
+                ImGui::SetTooltip("%s", combo_preview_value);
                 ImGui::PushStyleColor(ImGuiCol_Border, ImGuiWrapper::COL_CREALITY);
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Border, border_color);
@@ -8121,9 +8154,9 @@ void ObjectList::draw_device_list_popup()
         auto winWidth = ImGui::GetCurrentWindow()->Size.x;
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + winWidth / 2 - label_size1.x / 2);
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 40 * scale / 2 - ImGui::GetFontSize() / 2);
-        ImGui::Text(label1.c_str());
+        ImGui::Text("%s", label1.c_str());
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + winWidth / 2 - (label_size11.x + label_size2.x) / 2);
-        ImGui::Text(label11.c_str());
+        ImGui::Text("%s", label11.c_str());
         ImGui::SameLine();
         
         ImVec4 label_color = {0.0824, 0.7529, 0.3490, 1.0000};
@@ -8153,6 +8186,8 @@ void ObjectList::draw_device_list_popup()
 
 void ObjectList::draw_device_list_content()
 {
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {0, 0});
+
     float scale   = wxGetApp().plater()->get_current_canvas3D()->get_scale();
     bool  is_dark = wxGetApp().dark_mode();
     // radio texture
@@ -8163,6 +8198,7 @@ void ObjectList::draw_device_list_content()
     if (!radio_unsel_texture->vaild())
         radio_unsel_texture->load_from_png_file(Slic3r::resources_dir() + "/images/radio_unsel.png", true, GLTexture::None, false);
 
+    auto rowHeight               = 64 * scale;
     auto max_width               = 152.0f * scale;
     auto remake_text_to_fit_size = [max_width](const std::string& input_text) {
         const float device_label_max_width   = max_width;
@@ -8187,12 +8223,34 @@ void ObjectList::draw_device_list_content()
         return input_text;
     };
 
+    // device not connect warning
+    const DM::Device& current_device = DM::DataCenter::Ins().get_current_device_data();
+    if (!(current_device.valid && !current_device.address.empty())) {
+        auto originCursorY = ImGui::GetCursorPosY();
+        auto label         = _u8L("Device List Not Connect Warning").c_str();
+
+        // ver center
+        ImVec2 lab_size = ImGui::CalcTextSize(label);
+        float  wrap_width    = (336 + 15 - 2.0f) * scale;
+        float  line_height   = ImGui::GetTextLineHeight();                         
+        int    line_count    = 1 + (int) (lab_size.x / wrap_width);
+        float  text_height   = line_count * line_height;
+        ImGui::SetCursorPosY(originCursorY + rowHeight / 2 - text_height / 2);
+
+        auto text_color = is_dark
+                            ? ImVec4{1.0f, 0.5294f, 0.0392f, 1.0f} 
+                            : ImVec4{1.0f, 0.4902f, 0.0f, 1.0f};
+        ImGui::PushStyleColor(ImGuiCol_Text, text_color);
+        ImGui::TextWrapped(label);
+        ImGui::PopStyleColor(1);
+        ImGui::SetCursorPosY(originCursorY + rowHeight);
+        ImGui::Separator();
+    }
+
     //******************Device Info, Scroll Area*********************
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {0, 0});
     ImGui::BeginChild("##ScrollableContent");
     ImGui::SetItemDefaultFocus();
-    auto rowHeight = 64 * scale;
-
+    
     float colDesigneWidth[] = {56.0f * scale, 56.0f * scale, 152.0f * scale, 72.0f * scale};
     int   col               = 0;
     float curWidth          = 0;
@@ -8279,13 +8337,13 @@ void ObjectList::draw_device_list_content()
             auto textSize2  = ImGui::CalcTextSize(showText2);
             ImGui::SameLine(curWidth + colDesigneWidth[col] / 2 - textSize.x / 2);
             ImGui::SetCursorPosY(originCursorY + rowHeight / 2 - textSize.y);
-            ImGui::TextColored(is_dark ? ImVec4{1.0f, 1.0f, 1.0f, 1.0f} : ImVec4{0.1686f, 0.1686f, 0.1765f, 1.0f}, showText);
+            ImGui::TextColored(is_dark ? ImVec4{1.0f, 1.0f, 1.0f, 1.0f} : ImVec4{0.1686f, 0.1686f, 0.1765f, 1.0f}, "%s", showText);
             if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip(it.second.name.c_str());
+                ImGui::SetTooltip("%s", it.second.name.c_str());
             }
             ImGui::SameLine(curWidth + colDesigneWidth[col] / 2 - textSize2.x / 2);
             ImGui::SetCursorPosY(originCursorY + rowHeight / 2);
-            ImGui::TextColored(is_dark ? ImVec4{0.6824, 0.6824, 0.6980, 1.0f} : ImVec4{0.3059f, 0.3490f, 0.4118f, 1.0f}, showText2);
+            ImGui::TextColored(is_dark ? ImVec4{0.6824, 0.6824, 0.6980, 1.0f} : ImVec4{0.3059f, 0.3490f, 0.4118f, 1.0f}, "%s", showText2);
             curWidth += colDesigneWidth[col];
 
             ++col;
@@ -8304,7 +8362,7 @@ void ObjectList::draw_device_list_content()
             textSize = ImGui::CalcTextSize(stateList[stateText].c_str());
             ImGui::SameLine(curWidth + colDesigneWidth[col] / 2 - ImGui::CalcTextSize(stateList[stateText].c_str()).x / 2);
             ImGui::SetCursorPosY(originCursorY + rowHeight / 2 - textSize.y / 2);
-            ImGui::TextColored(colorList[stateColor], stateList[stateText].c_str());
+            ImGui::TextColored(colorList[stateColor], "%s", stateList[stateText].c_str());
 
             ImGui::SetCursorPosY(originCursorY + rowHeight);
             ImGui::Separator();

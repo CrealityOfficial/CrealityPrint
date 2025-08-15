@@ -656,7 +656,11 @@ bool GLGizmoEmboss::on_mouse(const wxMouseEvent &mouse_event)
 
     if (on_mouse_for_rotation(mouse_event)) return true;
     if (on_mouse_for_translate(mouse_event)) return true;
+    
+    if(m_is_updating_volume) return true;
+
     on_mouse_change_selection(mouse_event);
+
     return false;
 }
 
@@ -952,6 +956,8 @@ void GLGizmoEmboss::on_set_state()
         // where one could distiguish undo/redo serialization from opening by letter 'T'
         // set_volume_by_selection();
     }
+
+    m_is_updating_volume = false;
 }
 
 void GLGizmoEmboss::data_changed(bool is_serializing) {
@@ -1311,8 +1317,18 @@ bool GLGizmoEmboss::process(bool make_snapshot)
     // check valid count of text lines
     assert(data.base->text_lines.empty() || data.base->text_lines.size() == get_count_lines(m_text));
 
-    if (!start_update_volume(std::move(data), *m_volume, selection, m_raycast_manager))
+    if(m_style_manager.get_style().projection.use_surface) {
+        m_is_updating_volume = true;
+    }
+    
+    auto on_complete = [this](bool canceled) {
+        m_is_updating_volume = false;
+    };
+
+    if (!start_update_volume(std::move(data), *m_volume, selection, m_raycast_manager, on_complete)) {
+        m_is_updating_volume = false;
         return false;
+    }
 
     // notification is removed befor object is changed by job
     remove_notification_not_valid_font();

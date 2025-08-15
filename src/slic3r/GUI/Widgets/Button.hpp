@@ -54,6 +54,7 @@ public:
 
     void SetValue(bool state);
     void SetValue(StateHandler::State state);
+    void SetValue(StateHandler::State state, StateHandler::State preState);
 
     bool GetValue() const;
 

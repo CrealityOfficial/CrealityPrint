@@ -3611,6 +3611,7 @@ void TabFilament::build()
         optgroup = page->new_optgroup(L("Print chamber temperature"), L"param_chamber_temp");
         optgroup->append_single_option_line("chamber_temperature", "chamber-temperature");
         optgroup->append_single_option_line("activate_chamber_temp_control", "chamber-temperature");
+        optgroup->append_single_option_line("activate_chamber_layer", "chamber-temperature");
         
 
         optgroup->append_separator();
@@ -5885,7 +5886,7 @@ bool Tab::select_preset(std::string preset_name, bool delete_current /*=false*/,
 
         // check if there is something in the cache to move to the new selected preset
         apply_config_from_cache();
-
+        
         // Orca: update presets for the selected printer
         if (m_type == Preset::TYPE_PRINTER && wxGetApp().app_config->get_bool("remember_printer_config")) {
           m_preset_bundle->update_selections(*wxGetApp().app_config);
@@ -5925,6 +5926,7 @@ bool Tab::select_preset(std::string preset_name, bool delete_current /*=false*/,
         
     }
 
+    wxGetApp().plater()->sidebar().show_auto_mapping(true);
     if (technology_changed)
         wxGetApp().mainframe->technology_changed();
     BOOST_LOG_TRIVIAL(info) << boost::format("select preset, exit");

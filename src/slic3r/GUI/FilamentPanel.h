@@ -255,10 +255,6 @@ public:
 private:
     json m_FilamentProfileJson;
     int LoadFilamentProfile(bool isCxVedor=true);
-    // Replace it with ProfileFamilyLoader
-    //bool LoadFile(std::string jPath, std::string& sContent);
-    //int LoadProfileFamily(std::string strVendor, std::string strFilePath);
-    //int GetFilamentInfo(std::string VendorDirectory, json& pFilaList, std::string filepath, std::string& sVendor, std::string& sType);
     void SetFilamentProfile(std::vector<std::pair<int, DM::Material>>& validMaterials);
 
 protected:
@@ -288,7 +284,7 @@ public:
     void SetColor(const wxColour& color);
     wxColour GetColor();
 
-    void update_item_info_by_material(int box_id, const DM::Material& material_info);
+    void update_item_info_by_material(int box_id, const DM::Material& material_info,int box_type = 0);  //0=多色盒子 1=外置料架 2=cfsMini
     void set_sync_state(bool bSync);
 	bool get_sync_state();
     void set_is_ext(bool is_ext);

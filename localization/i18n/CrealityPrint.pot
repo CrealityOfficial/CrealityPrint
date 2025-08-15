@@ -13771,7 +13771,10 @@ msgstr ""
 msgid "Select all connectors"
 msgstr ""
 
-msgid "non-manifold edges be caused by cut tool, do you want to fix it now?"
+msgid "Non-manifold edges be caused by cut tool, do you want to fix it now?"
+msgstr ""
+
+msgid "Non-manifold edges be caused by drill tool, do you want to fix it now?"
 msgstr ""
 
 msgid "Connector"
@@ -15966,3 +15969,9 @@ msgstr ""
 
 msgid "appears to have floating areas, which may cause print failure.\nPlease reorient the model or enable supports.\n\n "
 msgstr ""
+
+msgid "Current version: %s"
+msgstr "当前软件版本：%s"
+
+msgid "Check out the release notes to learn more."
+msgstr "前往更新日志了解更多"

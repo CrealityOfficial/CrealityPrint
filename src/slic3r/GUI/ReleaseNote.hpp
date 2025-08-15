@@ -63,6 +63,7 @@ public:
     void update_release_note(wxString release_note, std::string version);
 
     Label *    m_text_up_info{nullptr};
+    Label*            m_text_up_subInfo{nullptr};
     wxScrolledWindow *m_vebview_release_note {nullptr};
 };
 
@@ -80,6 +81,20 @@ public:
     wxScrolledWindow* m_vebview_release_note{ nullptr };
 };
 
+class CustomScrolledWindow : public wxScrolledWindow
+{
+public:
+    CustomScrolledWindow(wxWindow*      parent,
+                         wxWindowID     id    = wxID_ANY,
+                         const wxPoint& pos   = wxDefaultPosition,
+                         const wxSize&  size  = wxDefaultSize,
+                         long           style = wxVSCROLL);
+
+protected:
+    // ÷ÿ–¥OnDraw∑Ω∑®
+    void OnDraw(wxDC& dc) override;
+};
+
 class UpdateVersionDialog : public DPIDialog
 {
 public:
@@ -87,6 +102,7 @@ public:
     ~UpdateVersionDialog();
 
     wxWebView* CreateTipView(wxWindow* parent);
+    void                     isUser(bool isUser);
     void OnLoaded(wxWebViewEvent& event);
     void OnTitleChanged(wxWebViewEvent& event);
     void OnError(wxWebViewEvent& event);
@@ -98,6 +114,7 @@ public:
 
     wxStaticBitmap*   m_brand{nullptr};
     Label *           m_text_up_info{nullptr};
+    Label *           m_text_up_subInfo{nullptr};
     wxWebView*        m_vebview_release_note{nullptr};
     wxSimplebook*     m_simplebook_release_note{nullptr};
     wxScrolledWindow* m_scrollwindows_release_note{nullptr};

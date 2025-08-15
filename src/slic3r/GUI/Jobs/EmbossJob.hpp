@@ -181,10 +181,15 @@ class UpdateSurfaceVolumeJob : public Job
     TriangleMesh            m_result;
 
 public:
+    using FinalizeCallback = std::function<void(bool)>;
+
     // move params to private variable
-    explicit UpdateSurfaceVolumeJob(UpdateSurfaceVolumeData &&input);
+    explicit UpdateSurfaceVolumeJob(UpdateSurfaceVolumeData &&input, FinalizeCallback callback);
     void process(Ctl &ctl) override;
     void finalize(bool canceled, std::exception_ptr &eptr) override;
+
+private:
+    FinalizeCallback m_callback;
 };
 
 /// <summary>
@@ -256,8 +261,9 @@ bool start_create_volume_without_position(CreateVolumeParams &input, DataBasePtr
 /// <param name="volume">Volume to be updated</param>
 /// <param name="selection">Keep model and gl_volumes - when start use surface volume must be selected</param>
 /// <param name="raycaster">Could cast ray to scene</param>
+/// <param name="on_complete">Callback when job is finished</param>
 /// <returns>True when start job otherwise false</returns>
-bool start_update_volume(DataUpdate &&data, const ModelVolume &volume, const Selection &selection, RaycastManager &raycaster);
+bool start_update_volume(DataUpdate &&data, const ModelVolume &volume, const Selection &selection, RaycastManager &raycaster, std::function<void(bool)> on_complete = nullptr);
 
 } // namespace Slic3r::GUI
 

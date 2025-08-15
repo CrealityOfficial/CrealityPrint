@@ -672,14 +672,19 @@ template<typename T> bool shorterThan(const T &shape, const coord_t check_length
 
 void WallToolPaths::removeSmallLines(std::vector<VariableWidthLines> &toolpaths)
 {
-    for (VariableWidthLines &inset : toolpaths) {
-        for (size_t line_idx = 0; line_idx < inset.size(); line_idx++) {
-            ExtrusionLine &line      = inset[line_idx];
-            coord_t        min_width = std::numeric_limits<coord_t>::max();
-            for (const ExtrusionJunction &j : line)
+    for (VariableWidthLines& inset : toolpaths) {
+        for (size_t line_idx = 0; line_idx < inset.size(); ++line_idx) {
+            ExtrusionLine& line = inset[line_idx];
+            if (line.is_external_perimeter()) {
+                continue;
+            }
+
+            coord_t min_width = std::numeric_limits<coord_t>::max();
+            for (const ExtrusionJunction& j : line) {
                 min_width = std::min(min_width, j.w);
-            // Only use min_length_factor for non-topmost, to prevent top gaps. Otherwise use default value.
-            if (line.is_odd && !line.is_closed && shorterThan(line, m_params.is_top_or_bottom_layer ? (min_width / 2) : (min_width * m_params.min_length_factor))) { // remove line
+            }
+
+            if (line.is_odd && !line.is_closed && shorterThan(line, min_width / 2)) { // remove line
                 line = std::move(inset.back());
                 inset.erase(--inset.end());
                 line_idx--; // reconsider the current position

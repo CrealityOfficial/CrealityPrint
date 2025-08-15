@@ -36,6 +36,7 @@
 #include "slic3r/GUI/Notebook.hpp"
 #include "cereal/external/base64.hpp"
 #include "libslic3r/Time.hpp"
+#include "wx/stringimpl.h"
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -170,14 +171,14 @@ void CxSentToPrinterDialog::OnCloseWindow(wxCloseEvent& event)
 {
     // need to reopen the detail-page Video when close the send page
     wxGetApp().mainframe->get_printer_mgr_view()->request_reopen_detail_video();
-
+    m_isClosed = true;
     if(m_uploadingIp!=wxEmptyString)
-        RemotePrint::RemotePrinterManager::getInstance().cancelUpload(m_uploadingIp.ToStdString());
-    while (m_uploadingIp!=wxEmptyString)
     {
-        wxMilliSleep(100);
+        RemotePrint::RemotePrinterManager::getInstance().cancelUpload(m_uploadingIp.ToStdString());
+        event.Skip(false);
+    }else{
+        event.Skip();
     }
-    event.Skip();
 }
 void CxSentToPrinterDialog::bind_events()
 {
@@ -352,6 +353,7 @@ void CxSentToPrinterDialog::OnScriptMessage(wxWebViewEvent& evt)
     } catch (std::exception &e) {
        // wxMessageBox(e.what(), "json Exception", MB_OK);
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;Error:" << e.what();
+        m_uploadingIp = wxEmptyString;
     }
     
 
@@ -740,7 +742,14 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
             nlohmann::json top_level_json;
             top_level_json["printer_ip"]  = ip;
             top_level_json["status_code"] = statusCode;
-
+            if(m_isClosed)
+            {
+                m_uploadingIp = wxEmptyString;
+                wxTheApp->CallAfter([this]() {
+                        Close(false);
+                    });
+                    return;
+                }
             std::string json_str = top_level_json.dump();
 
             // create command to send to the webview
@@ -749,7 +758,7 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
             commandJson["data"]    = RemotePrint::Utils::url_encode(json_str);
 
             wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
-
+            
             wxTheApp->CallAfter([this, strJS]() {
                 try
                 {
@@ -926,6 +935,14 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
                 });
             },
             [this](std::string ip, int statusCode) {
+                if(m_isClosed)
+                {
+                    m_uploadingIp = wxEmptyString;
+                    wxTheApp->CallAfter([this]() {
+                        Close(false);
+                    });
+                    return;
+                }
                 nlohmann::json top_level_json;
                 top_level_json["status_code"]  = statusCode;
                 std::string json_str = top_level_json.dump();
@@ -934,7 +951,7 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
                 commandJson["command"] = "notify_upload_status";
                 commandJson["data"] = RemotePrint::Utils::url_encode(json_str);
                 wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
-
+                
                 wxTheApp->CallAfter([this, strJS]() {
                     try
                     {
@@ -1122,6 +1139,9 @@ std::string CxSentToPrinterDialog::get_onlygcode_plate_data_on_show()
     float       nozzle_diameter = 0.0f;
 
     m_backup_extruder_colors.clear();
+    std::string project_name = wxGetApp().plater()->get_preview_only_filename();
+    std::regex  pattern(R"(.*\.(gcode))", std::regex::icase);
+    m_is_only_gcode_mode = std::regex_match(project_name, pattern);
 
     for (int i = 0; i < wxGetApp().plater()->get_partplate_list().get_plate_count(); i++) 
     {
@@ -1246,6 +1266,7 @@ std::string CxSentToPrinterDialog::get_onlygcode_plate_data_on_show()
     top_level_json["extruder_colors"] = std::move(colors_json);
     top_level_json["filament_types"]    = std::move(filament_types_json);
     top_level_json["plates"]          = std::move(json_array);
+    top_level_json["is_only_gcode_mode"] = m_is_only_gcode_mode;
 
     int cur_plate_index                   = m_plater->get_partplate_list().get_curr_plate_index();
     top_level_json["current_plate_index"] = cur_plate_index;
@@ -1436,6 +1457,7 @@ std::string CxSentToPrinterDialog::get_plate_data_on_show()
             get_gcode_display_info(total_weight_str, print_time_str, plate);
             json_data["total_weight"] = total_weight_str.ToStdString();
             json_data["print_time"] = print_time_str.ToStdString();
+            m_is_only_gcode_mode = false;
 
             json_array.push_back(json_data);
         }
@@ -1446,6 +1468,7 @@ std::string CxSentToPrinterDialog::get_plate_data_on_show()
     top_level_json["filament_types"]    = std::move(filament_types_json);
     top_level_json["filament_maps"]    = std::move(filament_maps_json);
     top_level_json["plates"]          = std::move(json_array);
+    top_level_json["is_only_gcode_mode"] = m_is_only_gcode_mode;
 
 
     bool is_all_plates = wxGetApp().plater()->get_preview_canvas3D()->is_all_plates_selected();

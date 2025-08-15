@@ -496,6 +496,35 @@ void MenuFactory::append_menu_item_delete(wxMenu* menu)
 #endif
 }
 
+//fix bug[9853]:add functions of  copy and paste to the menu.
+void MenuFactory::append_menu_item_copy(wxMenu* menu)
+{
+#ifdef __WINDOWS__
+    append_menu_item(menu, wxID_ANY, _L("Copy") + "\t" + _L("Ctrl+C"), _L("Copy the selected object"),
+        [](wxCommandEvent&) { plater()->copy_selection_to_clipboard(); }, "", nullptr,
+        []() { return plater()->can_copy_to_clipboard(); }, m_parent);
+#else
+    append_menu_item(
+        menu, wxID_ANY, _L("Copy") + "\tCmd+C", _L("Copy the selected object"),
+        [](wxCommandEvent&) { plater()->copy_selection_to_clipboard(); }, "", nullptr, []() { return plater()->can_copy_to_clipboard(); },
+        m_parent);
+#endif
+}
+
+void MenuFactory::append_menu_item_paste(wxMenu* menu)
+{
+#ifdef __WINDOWS__
+    append_menu_item(menu, wxID_ANY, _L("Paste") + "\t" + _L("Ctrl+V"), _L("Paste the selected object"),
+        [](wxCommandEvent&) { plater()->paste_from_clipboard(); }, "", nullptr,
+        []() { return plater()->can_paste_from_clipboard(); }, m_parent);
+#else
+    append_menu_item(
+        menu, wxID_ANY, _L("Paste") + "\tCmd+V", _L("Paste the selected object"),
+        [](wxCommandEvent&) { plater()->paste_from_clipboard(); }, "", nullptr, []() { return plater()->can_paste_from_clipboard(); },
+        m_parent);
+#endif
+}
+
 wxMenu* MenuFactory::append_submenu_add_generic(wxMenu* menu, ModelVolumeType type) {
     auto sub_menu = new wxMenu;
 
@@ -1537,6 +1566,10 @@ void MenuFactory::create_extra_object_menu()
     append_menu_items_mirror(&m_object_menu);
     // Delete
     append_menu_item_delete(&m_object_menu);
+    // copy
+    append_menu_item_copy(&m_object_menu);
+    // paste
+    append_menu_item_paste(&m_object_menu);
     m_object_menu.AppendSeparator();
     // Modifier Part
     // BBS
@@ -1637,6 +1670,10 @@ void MenuFactory::create_bbl_part_menu()
     wxMenu* menu = &m_part_menu;
 
     append_menu_item_delete(menu);
+    // copy
+    append_menu_item_copy(menu);
+    // paste
+    append_menu_item_paste(menu);
     append_menu_item_edit_text(menu);
     append_menu_item_fix_through_netfabb(menu);
     append_menu_item_simplify(menu);
@@ -1793,7 +1830,8 @@ void MenuFactory::create_plate_menu()
         []() { return plater()->can_delete_plate(); }, m_parent);
 #endif
 
-
+    // paste objects to the plate
+    append_menu_item_paste(menu);
     // add shapes
     menu->AppendSeparator();
     /*wxMenu* sub_menu_primitives = append_submenu_add_generic(menu, ModelVolumeType::INVALID);
@@ -1950,6 +1988,8 @@ wxMenu* MenuFactory::multi_selection_menu()
         append_menu_item_fix_through_netfabb(menu);
         //append_menu_item_simplify(menu);
         append_menu_item_delete(menu);
+        append_menu_item_copy(menu);
+        append_menu_item_paste(menu);
         menu->AppendSeparator();
 
         append_menu_item_set_printable(menu);
@@ -1966,6 +2006,10 @@ wxMenu* MenuFactory::multi_selection_menu()
         append_menu_item_fix_through_netfabb(menu);
         //append_menu_item_simplify(menu);
         append_menu_item_delete(menu);
+        // copy
+        append_menu_item_copy(menu);
+        // paste
+        append_menu_item_paste(menu);
         append_menu_items_convert_unit(menu);
         append_menu_item_change_filament(menu);
         wxMenu* split_menu = new wxMenu();

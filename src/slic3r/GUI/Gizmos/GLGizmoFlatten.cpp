@@ -200,7 +200,8 @@ void GLGizmoFlatten::update_planes()
             }
         if (facet_idx == num_of_facets)
             break; // Everything was visited already
-
+        std::vector<Vec3d> normals;
+        Vec3d              avg_normal(0.0, 0.0, 0.0);
         while (facet_queue_cnt > 0) {
             int facet_idx = facet_queue[-- facet_queue_cnt];
             const stl_normal& this_normal = face_normals[facet_idx];
@@ -209,13 +210,18 @@ void GLGizmoFlatten::update_planes()
                 for (int j=0; j<3; ++j)
                     m_planes.back().vertices.emplace_back(ch.its.vertices[face[j]].cast<double>());
 
+                avg_normal += face_normals[facet_idx].cast<double>();
+                //normals.emplace_back(face_normals[facet_idx].cast<double>());
                 facet_visited[facet_idx] = true;
                 for (int j = 0; j < 3; ++ j)
                     if (int neighbor_idx = face_neighbors[facet_idx][j]; neighbor_idx >= 0 && ! facet_visited[neighbor_idx])
                         facet_queue[facet_queue_cnt ++] = neighbor_idx;
             }
         }
-        m_planes.back().normal = normal_ptr->cast<double>();
+        avg_normal.normalize();
+        m_planes.back().normal = avg_normal;
+
+       // m_planes.back().normal = normal_ptr->cast<double>();
 
         Pointf3s& verts = m_planes.back().vertices;
         // Now we'll transform all the points into world coordinates, so that the areas, angles and distances

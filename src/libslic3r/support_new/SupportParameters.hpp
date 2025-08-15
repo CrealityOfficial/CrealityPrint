@@ -286,6 +286,6 @@ struct SupportParameters {
     	{ return this->raft_angle_interface + ((interface_id & 1) ? float(- M_PI / 4.) : float(+ M_PI / 4.)); }
 		
     bool independent_layer_height = false;
-    const double thresh_big_overhang = Slic3r::sqr(scale_(10));
+    const double thresh_big_overhang =/*Slic3r::sqr(scale_(10))*/scale_(10);
 };
 } // namespace Slic3r

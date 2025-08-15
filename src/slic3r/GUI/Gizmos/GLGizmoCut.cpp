@@ -3347,7 +3347,14 @@ void GLGizmoCut3D::perform_cut(const Selection& selection)
     if (!mo)
         return;
 
+    //the "m_plane_center" and "m_rotation_m" will be reset to default value if model is repaired
+    Vec3d tmp_plane_center = m_plane_center;
+    Transform3d tmp_rotation_m = m_rotation_m;
+
     wxGetApp().plater()->check_object_need_repair(object_idx);
+
+    m_plane_center = tmp_plane_center;
+    m_rotation_m = tmp_rotation_m;
 
     // deactivate CutGizmo and than perform a cut
     m_parent.reset_all_gizmos();
@@ -3403,7 +3410,7 @@ void GLGizmoCut3D::perform_cut(const Selection& selection)
                     if (its_num_open_edges(new_objects[i]->volumes[j]->mesh().its) > 0) {
                         if (!is_showed_dialog) {
                             is_showed_dialog = true;
-                            MessageDialog dlg(nullptr, _L("non-manifold edges be caused by cut tool, do you want to fix it now?"), "", wxYES | wxCANCEL);
+                            MessageDialog dlg(nullptr, _L("Non-manifold edges be caused by cut tool, do you want to fix it now?"), "", wxYES | wxCANCEL);
                             int           ret = dlg.ShowModal();
                             if (ret == wxID_YES) {
                                 user_fix_model = true;

@@ -11,7 +11,7 @@
 #include "../Utils/Http.hpp"
 #include "../Utils/json_diff.hpp"
 
-#include "alibabacloud/oss/OssClient.h"
+
 #include <iostream>
 #include <fstream>
 #include <boost/iostreams/filtering_streambuf.hpp>
@@ -166,6 +166,7 @@ int UploadFile::uploadGcodeToCXCloud(const std::string& name, const std::string&
     http.header("Content-Type", "application/json")
         .header("Connection", "keep-alive")
         .header("__CXY_REQUESTID_", to_string(uuid))
+        .timeout_max(15)
         .set_post_body(body)
         .on_complete([&](std::string body, unsigned status) {
             json jBody = json::parse(body);
@@ -200,7 +201,7 @@ int UploadFile::uploadGcodeToCXCloud(const std::string& name, const std::string&
         .on_error([&](std::string body, std::string error, unsigned status) { nRet = -4;
         })
         .on_progress([&](Http::Progress progress, bool& cancel) {
-
+            
         })
         .perform_sync();
 
@@ -211,11 +212,109 @@ void UploadFile::setProcessCallback(std::function<void(int,double)> funcProcessC
 {
     m_funcProcessCb = funcProcessCb;
 }
+void UploadFile::UploadProgressCallback(int partNumber, int totalParts, double percentage) {
+    int i = (int)(percentage * 100);
+    if (m_funcProcessCb != nullptr) {
+        m_funcProcessCb(i,0);
+    }
+}
+
 void UploadFile::ProgressCallback(size_t increment, int64_t transfered, int64_t total, void* userData) {
     int i = (int)((transfered * 1.0 / total * 1.0) * 100);
     if (m_funcProcessCb != nullptr) {
         m_funcProcessCb(i,0);
     }
+}
+
+const int64_t PART_SIZE = 1024 * 1024; // 1MB per part
+string initiateUploadWithMeta(AlibabaCloud::OSS::OssClient& client, 
+                            const string& bucketName, 
+                            const string& objectName,
+                            const AlibabaCloud::OSS::ObjectMetaData& metaData) {
+    AlibabaCloud::OSS::InitiateMultipartUploadRequest request(bucketName, objectName,metaData);
+    
+
+    
+    auto outcome = client.InitiateMultipartUpload(request);
+    
+    if (!outcome.isSuccess()) {
+        throw runtime_error("InitiateMultipartUpload fail: " + 
+                          outcome.error().Code() + ", " + 
+                          outcome.error().Message());
+    }
+    
+    return outcome.result().UploadId();
+}
+
+vector<AlibabaCloud::OSS::Part> UploadFile::uploadParts(AlibabaCloud::OSS::OssClient& client,
+                       const string& bucketName,
+                       const string& objectName,
+                       const string& uploadId,
+                       const string& filePath,
+                       Slic3r::GUI::ProgressCallback callback) {
+    vector<AlibabaCloud::OSS::Part> partList;
+    ifstream file(filePath, ios::binary | ios::ate);
+    
+    if (!file.is_open()) {
+        throw runtime_error("Failed to open file: " + filePath);
+    }
+    
+    int64_t fileSize = file.tellg();
+    file.seekg(0, ios::beg);
+    int partCount = static_cast<int>((fileSize + PART_SIZE - 1) / PART_SIZE);
+    
+    for (int i = 1; i <= partCount; i++) {
+        int64_t partSize = min(PART_SIZE, fileSize - (i - 1) * PART_SIZE);
+    
+        char* buffer = new char[partSize];
+        file.read(buffer, partSize);
+        size_t bytesRead = file.gcount();
+        shared_ptr<std::iostream> streambuffer = make_shared<std::stringstream>(std::string(buffer,bytesRead));
+        
+        AlibabaCloud::OSS::UploadPartRequest request(bucketName, objectName,i, uploadId, streambuffer);
+        
+        auto outcome = client.UploadPart(request);
+        
+        if (!outcome.isSuccess()) {
+            file.close();
+            throw runtime_error("UploadPart fail: " + 
+                              outcome.error().Code() + ", " + 
+                              outcome.error().Message());
+        }
+        
+        partList.emplace_back(i, outcome.result().ETag());
+        
+        if (callback) {
+            double percentage = 70.0 * i / partCount/100;
+            callback(i, partCount, 0.3+percentage);
+        }
+        if(m_cancel)
+        {
+            file.close();
+            throw runtime_error("Upload canceled");
+        }
+    }
+    
+    file.close();
+    return partList;
+}
+
+void completeMultipartUpload(AlibabaCloud::OSS::OssClient& client,
+                           const string& bucketName,
+                           const string& objectName,
+                           const string& uploadId,
+                           const vector<AlibabaCloud::OSS::Part>& partList) {
+    AlibabaCloud::OSS::CompleteMultipartUploadRequest request(bucketName, objectName, partList,uploadId);
+    auto outcome = client.CompleteMultipartUpload(request);
+    
+    if (!outcome.isSuccess()) {
+        throw runtime_error("CompleteMultipartUpload fail: " + 
+                          outcome.error().Code() + ", " + 
+                          outcome.error().Message());
+    }
+    
+    cout << "\nMultipart upload completed. ETag: " 
+         << outcome.result().ETag() << endl;
 }
 
 int UploadFile::uploadFileToAliyun(const std::string& local_path, const std::string& target_path, const std::string& fileName) {
@@ -226,11 +325,15 @@ int UploadFile::uploadFileToAliyun(const std::string& local_path, const std::str
             std::cerr << "无法打开输入文件。" << std::endl;
             return 1;
         }
+        auto call_back = std::bind(&UploadFile::UploadProgressCallback, this,
+        std::placeholders::_1, std::placeholders::_2,
+        std::placeholders::_3);
+        call_back(0, 0, 0.01);
         // 创建输出文件，文件名后缀为.gz
         boost::filesystem::path temp_path = boost::filesystem::temp_directory_path();
         boost::filesystem::path outputfile("output.gz");
         boost::filesystem::path joined_path = temp_path / outputfile;
-        std::ofstream file_out(joined_path.string(), std::ios_base::binary);
+        boost::nowide::ofstream file_out(joined_path.string(), boost::nowide::ofstream::binary);
         if (!file_out)
         {
             std::cerr << "无法打开输出文件。" << std::endl;
@@ -243,30 +346,48 @@ int UploadFile::uploadFileToAliyun(const std::string& local_path, const std::str
         // 将压缩后的数据写入输出文件
         boost::iostreams::copy(out, file_out);
         file_out.close();
+        if(m_cancel)
+        {
+            return 601;
+        }
         std::string upload_path = target_path;// + ".gz";
-    auto call_back = std::bind(&UploadFile::ProgressCallback, this,
-        std::placeholders::_1, std::placeholders::_2,
-        std::placeholders::_3, std::placeholders::_4);
-    AlibabaCloud::OSS::TransferProgress progress_callback = { call_back, nullptr };
+    
+    //AlibabaCloud::OSS::TransferProgress progress_callback = { call_back, nullptr };
 
-    std::shared_ptr<std::iostream> content = std::make_shared<std::fstream>(joined_path.string().c_str(), std::ios::in | std::ios::binary);
-    AlibabaCloud::OSS::PutObjectRequest request(m_bucket, upload_path, content);
-    request.MetaData().addHeader("Content-Disposition", "attachment;filename=\"" + wxGetApp().url_encode(fileName+".gcode.gz") + "\"");
-    request.MetaData().addHeader("Content-Type", "application/x-www-form-urlencoded");
-    request.MetaData().addHeader("disabledMD5", "false");
-    request.setTransferProgress(progress_callback);
-
+    //std::shared_ptr<std::iostream> content = std::make_shared<std::fstream>(joined_path.string().c_str(), std::ios::in | std::ios::binary);
+    //AlibabaCloud::OSS::PutObjectRequest request(m_bucket, upload_path, content);
+    string uploadId;
     AlibabaCloud::OSS::ClientConfiguration conf;
     AlibabaCloud::OSS::OssClient oss_client(m_endPoint, m_accessKeyId, m_secretAccessKey, m_token, conf);
-    auto outcome = oss_client.PutObject(request);
+    try{
+    AlibabaCloud::OSS::ObjectMetaData metaData;
+    metaData.addHeader("Content-Disposition", "attachment;filename=\"" + wxGetApp().url_encode(fileName+".gcode.gz") + "\"");
+    metaData.addHeader("Content-Type", "application/x-www-form-urlencoded");
+    metaData.addHeader("disabledMD5", "false");
+    //request.setTransferProgress(progress_callback);
 
-    if (!outcome.isSuccess()) {
-        m_lastError.code = outcome.error().Code();
-        m_lastError.message = outcome.error().Message();
-        m_lastError.requestId = outcome.error().RequestId();
-        nRet = 1;
-        return nRet;
+
+    call_back(0, 0, 0.3);
+    uploadId = initiateUploadWithMeta(oss_client, m_bucket, upload_path, metaData);
+    auto partList = uploadParts(oss_client, m_bucket, upload_path, uploadId, joined_path.string(),call_back);
+        
+    cout << "Completing upload..." << endl;
+    completeMultipartUpload(oss_client, m_bucket, upload_path, uploadId, partList);
+    }catch(const exception& e)
+    {
+        cerr << "Error: " << e.what() << endl;
+        if (!uploadId.empty()) {
+            AlibabaCloud::OSS::AbortMultipartUploadRequest request(m_bucket, upload_path, uploadId);
+            oss_client.AbortMultipartUpload(request);
+        }
+    
     }
+    //auto outcome = oss_client.PutObject(request);
+    if(m_cancel)
+    {
+        return 601;
+    }
+    
 
     return nRet; 
 }

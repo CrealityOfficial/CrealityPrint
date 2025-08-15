@@ -199,6 +199,8 @@ struct ExtrusionLine
     bool is_contour() const;
 
     double area() const;
+
+    bool is_external_perimeter() const { return this->inset_idx == 0; }
 };
 
 template<class PathType>

@@ -2165,7 +2165,6 @@ void PrintConfigDef::init_fff_params()
     def->enum_values.push_back("PA11-CF");
     def->enum_values.push_back("PC");
     def->enum_values.push_back("PC-CF");
-    def->enum_values.push_back("PCTG");
     def->enum_values.push_back("PE");
     def->enum_values.push_back("PE-CF");
     def->enum_values.push_back("PET-CF");
@@ -2185,6 +2184,15 @@ void PrintConfigDef::init_fff_params()
     def->enum_values.push_back("PVA");
     def->enum_values.push_back("PVB");
     def->enum_values.push_back("TPU");
+    def->enum_values.push_back("Carbon");
+    def->enum_values.push_back("PET");
+    def->enum_values.push_back("TPC");
+    def->enum_values.push_back("PAHT-CF");
+    def->enum_values.push_back("PA12-CF");
+    def->enum_values.push_back("PPA-CE");
+    def->enum_values.push_back("PA612-CF");
+    def->enum_values.push_back("PC-ABS");
+    def->enum_values.push_back("ASA-CF");
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionStrings { "PLA" });
 
@@ -5158,6 +5166,15 @@ void PrintConfigDef::init_fff_params()
     def->min = 0;
     def->max = max_temp;
     def->set_default_value(new ConfigOptionInts{0});
+
+
+    def             = this->add("activate_chamber_layer", coInts);
+    def->label   = L("Activate chamber layer");
+    def->tooltip = L("The number of layers for opening the cavity temperature");
+    def->sidetext   = L("");
+    def->full_label = L("Activate chamber layer");
+    def->min        = 1;
+    def->set_default_value(new ConfigOptionInts{1});
     
 
     def = this->add("nozzle_temperature", coInts);

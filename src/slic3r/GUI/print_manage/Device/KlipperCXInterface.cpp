@@ -15,8 +15,12 @@ KlipperCXInterface::KlipperCXInterface() {
 KlipperCXInterface::~KlipperCXInterface() {
     curl_global_cleanup();
 }
-
+void KlipperCXInterface::cancelSendFileToDevice()
+{
+    m_upload_file.setCancel(true);
+}
 std::future<void> KlipperCXInterface::sendFileToDevice(const std::string& serverIp, int port, const std::string& uploadFileName, const std::string& localFilePath, std::function<void(float,double)> progressCallback, std::function<void(int)> uploadStatusCallback, std::function<void(std::string)> onCompleteCallback) {
+    m_upload_file.setCancel(false);
     return std::async(std::launch::async, [=]() {
         try{
         m_upload_file.setProcessCallback(progressCallback);
@@ -44,7 +48,7 @@ std::future<void> KlipperCXInterface::sendFileToDevice(const std::string& server
             nRet                    = m_upload_file.uploadFileToAliyun(localFilePath, target_path, target_name);
             if (nRet != 0)
             {
-                uploadStatusCallback(3);
+                uploadStatusCallback(nRet);
                 return;
             }
 

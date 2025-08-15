@@ -185,6 +185,15 @@ bool overlaps(const ExPolygons& expolys1, const ExPolygons& expolys2)
     return false;
 }
 
+bool overlaps(const ExPolygons& expolys, const ExPolygon& expoly)
+{
+    for (const ExPolygon& el : expolys) {
+        if (el.overlaps(expoly))
+            return true;
+    }
+    return false;
+}
+
 Point projection_onto(const ExPolygons& polygons, const Point& from)
 {
     Point projected_pt;
@@ -359,6 +368,47 @@ void ExPolygon::medial_axis(double min_width, double max_width, Polylines* polyl
     polylines->reserve(polylines->size() + tp.size());
     for (auto &pl : tp)
         polylines->emplace_back(pl.points);
+}
+
+ExPolygons ExPolygon::split_expoly_with_holes(coord_t gap_width, const ExPolygons& collision) const
+{
+    ExPolygons sub_overhangs;
+    Polygon    max_hole;
+    coordf_t   max_area    = 0;
+    bool       is_collided = false;
+    for (const auto& hole : this->holes) {
+        if (!is_collided && Slic3r::overlaps({ExPolygon(hole)}, collision)) {
+            max_area    = abs(hole.area());
+            max_hole    = hole;
+            is_collided = true;
+        } else if (is_collided && Slic3r::overlaps({ExPolygon(hole)}, collision) && abs(hole.area()) > max_area) {
+            max_area = abs(hole.area());
+            max_hole = hole;
+        } else if (!is_collided && !Slic3r::overlaps({ExPolygon(hole)}, collision) && abs(hole.area()) > max_area) {
+            max_area = abs(hole.area());
+            max_hole = hole;
+        }
+    }
+    Point cent;
+    if (max_hole.size() > 0) {
+        auto overhang_bbx = get_extents(*this);
+        cent              = max_hole.centroid();
+        append(sub_overhangs,
+               intersection_ex(ExPolygon(BoundingBox(overhang_bbx.min, Point(cent.x() - gap_width, cent.y() - gap_width)).polygon()),
+                               *this));
+        append(sub_overhangs,
+               intersection_ex(ExPolygon(BoundingBox(Point(cent.x() + gap_width, cent.y() + gap_width), overhang_bbx.max).polygon()),
+                               *this));
+        append(sub_overhangs, intersection_ex(ExPolygon(BoundingBox(Point(overhang_bbx.min(0), cent.y() + gap_width),
+                                                                    Point(cent.x() - gap_width, overhang_bbx.max(1)))
+                                                            .polygon()),
+                                              *this));
+        append(sub_overhangs, intersection_ex(ExPolygon(BoundingBox(Point(cent.x() + gap_width, overhang_bbx.min(1)),
+                                                                    Point(overhang_bbx.max(0), cent.y() - gap_width))
+                                                            .polygon()),
+                                              *this));
+    }
+    return sub_overhangs;
 }
 
 Lines ExPolygon::lines() const

@@ -236,6 +236,8 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "speed_limit_to_height",
         "material_flow_dependent_temperature",
         "material_flow_temp_graph"
+        // creality
+        "activate_chamber_layer",
     };
 
     static std::unordered_set<std::string> steps_ignore;
@@ -1932,6 +1934,9 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         //if (!object1->config().equals(object2->config()))
         //    return false;
         if (model_obj1->config.get() != model_obj2->config.get())
+            return false;
+        //fix bug: ModelObject clone , set variable-layer-height not work
+        if(model_obj1->layer_height_profile.get() != model_obj2->layer_height_profile.get())
             return false;
         return true;
     };

@@ -1,15 +1,15 @@
 msgid ""
 msgstr ""
+"Content-Type: text/plain; charset=utf-8\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Project-Id-Version: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2025-05-13 09:29+0900\n"
+"PO-Revision-Date: 2025-07-09T02:36:14.774Z\n"
 "Last-Translator: crwusiz <crwusiz@gmail.com>\n"
 "Language-Team: Korean (https://app.transifex.com/jmtechn/teams/205284/ko/)\n"
 "Language: ko_KR\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "X-Generator: Poedit 3.6\n"
 
 msgid "Submit"
@@ -146,17 +146,14 @@ msgstr "사용 가능한 선반 데이터 없음"
 
 msgid ""
 "The number of printer presets cached in the cloud has reached the upper "
-"limit (20). Newly created user presets will not be synchronized to the cloud."
-msgstr ""
-"클라우드에 캐시된 프린터 프리셋의 수가 상한(20개)에 도달했습니다. 새로 생성"
-"된 사용자 프리셋은 클라우드에 동기화되지 않습니다."
+"limit (20). Newly created user presets will not be synchronized to the "
+"cloud."
+msgstr "클라우드에 캐시된 프린터 프리셋의 수가 상한(20개)에 도달했습니다. 새로 생성된 사용자 프리셋은 클라우드에 동기화되지 않습니다."
 
 msgid ""
-"The presets have not been synced to Creality Cloud yet. Click here to enable "
-"it."
-msgstr ""
-"프리셋이 아직 Creality Cloud와 동기화되지 않았습니다. 활성화하려면 여기를 클"
-"릭하십시오."
+"The presets have not been synced to Creality Cloud yet. Click here to "
+"enable it."
+msgstr "프리셋이 아직 Creality Cloud와 동기화되지 않았습니다. 활성화하려면 여기를 클릭하십시오."
 
 msgid "Please Input"
 msgstr "입력하세요"
@@ -795,55 +792,42 @@ msgid ""
 "Creality Cloud adopts the internationally recognized Copyright License 4.0 "
 "to protect the rights and interests of model owners. The models of "
 "Chuangxiang Cloud platform are shared by a large number of enthusiasts in "
-"the community. If you find any violations of relevant laws and infringement, "
-"please contact us in a timely manner. "
+"the community. If you find any violations of relevant laws and "
+"infringement, please contact us in a timely manner. "
 msgstr ""
-"Creality Cloud는 모델 소유자의 권리와 이익을 보호하기 위해 국제적으로 인정받"
-"는 저작권 라이선스 4.0을 채택하고 있습니다. Chuangxiang 클라우드 플랫폼의 모"
-"델은 커뮤니티의 많은 애호가들이 공유하고 있습니다. 관련 법률 위반 및 침해 사"
-"항을 발견한 경우 적시에 당사에 연락해 주시기 바랍니다. "
+"Creality Cloud는 모델 소유자의 권리와 이익을 보호하기 위해 국제적으로 인정받는 저작권 라이선스 4.0을 채택하고 있습니다. "
+"Chuangxiang 클라우드 플랫폼의 모델은 커뮤니티의 많은 애호가들이 공유하고 있습니다. 관련 법률 위반 및 침해 사항을 발견한 "
+"경우 적시에 당사에 연락해 주시기 바랍니다. "
 
 msgid ""
 "Indicates that the original work is created by the creator, and users can "
 "freely use the creator's work"
-msgstr ""
-"원본 저작물이 창작자가 만든 것이며, 사용자가 창작자의 저작물을 자유롭게 사용"
-"할 수 있음을 나타냅니다"
+msgstr "원본 저작물이 창작자가 만든 것이며, 사용자가 창작자의 저작물을 자유롭게 사용할 수 있음을 나타냅니다"
 
 msgid ""
 "Indicate that the original work is the creator. If changes are made to the "
 "original work, the revised work must still indicate the original author"
-msgstr ""
-"원본 저작물이 창작자임을 표시합니다. 원본 저작물을 변경한 경우에도 수정된 저"
-"작물에는 원저작자를 표시해야 합니다"
+msgstr "원본 저작물이 창작자임을 표시합니다. 원본 저작물을 변경한 경우에도 수정된 저작물에는 원저작자를 표시해야 합니다"
 
 msgid ""
 "Indicate that the original work is created by the creator, and users can "
 "freely use the creator's work (except for commercial purposes)"
-msgstr ""
-"원본 저작물이 창작자가 만든 것이며, 사용자는 창작자의 저작물을 자유롭게 사용"
-"할 수 있음을 표시합니다(상업적 목적 제외)."
+msgstr "원본 저작물이 창작자가 만든 것이며, 사용자는 창작자의 저작물을 자유롭게 사용할 수 있음을 표시합니다(상업적 목적 제외)."
 
 msgid ""
 "Indicate that the original work is created by the creator, and the user "
 "cannot change the work or use it for commercial purposes"
-msgstr ""
-"원본 저작물은 창작자가 만든 것이며, 사용자는 저작물을 변경하거나 상업적 목적"
-"으로 사용할 수 없음을 표시합니다"
+msgstr "원본 저작물은 창작자가 만든 것이며, 사용자는 저작물을 변경하거나 상업적 목적으로 사용할 수 없음을 표시합니다"
 
 msgid ""
 "Indicate that the original work is created by the creator and the user "
 "cannot change the work"
-msgstr ""
-"원본 저작물은 창작자가 만든 것이며 사용자가 저작물을 변경할 수 없음을 표시합"
-"니다"
+msgstr "원본 저작물은 창작자가 만든 것이며 사용자가 저작물을 변경할 수 없음을 표시합니다"
 
 msgid ""
 "Abandon copyright and publicly disclose that anyone can use my work at any "
 "time without permission"
-msgstr ""
-"저작권을 포기하고 누구나 언제든지 내 저작물을 허가 없이 사용할 수 있음을 공개"
-"적으로 공개합니다"
+msgstr "저작권을 포기하고 누구나 언제든지 내 저작물을 허가 없이 사용할 수 있음을 공개적으로 공개합니다"
 
 msgid ""
 "The 3D model files sold on Creality Cloud have standard licenses and are "
@@ -853,11 +837,9 @@ msgid ""
 "modified, copied, or resold in the form of files or items, including 3D "
 "models or any parts of models"
 msgstr ""
-"Creality Cloud에서 판매되는 3D 모델 파일에는 표준 라이선스가 적용되며 구매 "
-"및 다운로드 시 특정 제한 사항이 적용됩니다. 특히 이러한 파일은 상업적 목적으"
-"로 사용할 수 없으며 개인 용도로만 사용할 수 있습니다. 3D 모델 또는 모델의 일"
-"부를 포함하여 파일이나 아이템의 형태로 공유, 전송, 배포, 수정, 복사 또는 재판"
-"매할 수 없습니다"
+"Creality Cloud에서 판매되는 3D 모델 파일에는 표준 라이선스가 적용되며 구매 및 다운로드 시 특정 제한 사항이 적용됩니다. "
+"특히 이러한 파일은 상업적 목적으로 사용할 수 없으며 개인 용도로만 사용할 수 있습니다. 3D 모델 또는 모델의 일부를 포함하여 "
+"파일이나 아이템의 형태로 공유, 전송, 배포, 수정, 복사 또는 재판매할 수 없습니다"
 
 msgid "No Data"
 msgstr "데이터 없음"
@@ -884,7 +866,8 @@ msgid "You haven't collected the model yet, go collect the model~"
 msgstr "아직 모델을 수집하지 않으셨다면 가서 모델을 수집하세요~"
 
 msgid ""
-"You haven't created a creative work yet, go ahead and create a creative work~"
+"You haven't created a creative work yet, go ahead and create a creative "
+"work~"
 msgstr "아직 창작물을 만들지 않으셨다면, 지금 바로 창작물을 만들어 보세요~"
 
 msgid ""
@@ -895,8 +878,7 @@ msgstr "아직 출력 설정을 업로드하지 않으셨나요? 출력 설정�
 msgid "You haven't printed the model yet, go ahead and print it~"
 msgstr "아직 모델을 출력하지 않으셨나요? 어서 출력해 보세요~"
 
-msgid ""
-"You haven't uploaded the print file yet, go ahead and upload the print file~"
+msgid "You haven't uploaded the print file yet, go ahead and upload the print file~"
 msgstr "아직 출력 파일을 업로드하지 않으셨는데요, 지금 바로 업로드하세요~"
 
 msgid "You haven't download the model yet, go ahead and download it~"
@@ -925,8 +907,7 @@ msgstr "구매처"
 msgid "off"
 msgstr "꺼짐"
 
-msgid ""
-"Start downloading. Please go to \"Personal Center-My Downloads\" to view."
+msgid "Start downloading. Please go to \"Personal Center-My Downloads\" to view."
 msgstr "다운로드를 시작합니다. 보려면 '개인 센터-내 다운로드'로 이동하세요."
 
 msgid "System Preset Parameters"
@@ -943,12 +924,6 @@ msgstr "설명"
 
 msgid "Update"
 msgstr "업데이트"
-
-msgid "Ender Series"
-msgstr "엔더 시리즈"
-
-msgid "CR Series"
-msgstr "CR 시리즈"
 
 msgid "Start updating, please wait a moment"
 msgstr "업데이트 시작, 잠시만 기다려주세요"
@@ -1028,24 +1003,20 @@ msgstr "6.0 업데이트 설명"
 msgid ""
 "Introduce the basic usage of Creality Print and guide users to complete the "
 "first printing task."
-msgstr ""
-"크리얼리티 프린트의 기본 사용법을 소개하고 사용자가 첫 번째 인쇄 작업을 완료"
-"하도록 안내합니다."
+msgstr "크리얼리티 프린트의 기본 사용법을 소개하고 사용자가 첫 번째 인쇄 작업을 완료하도록 안내합니다."
 
 msgid ""
 "After obtaining a multi-color printer, use Creality Print for the first "
 "color printing."
-msgstr ""
-"멀티 컬러 프린터를 구한 후 첫 번째 컬러 출력에는 크리얼리티 프린트를 사용합니"
-"다."
+msgstr "멀티 컬러 프린터를 구한 후 첫 번째 컬러 출력에는 크리얼리티 프린트를 사용합니다."
 
 msgid ""
 "Briefly introduce the parameter settings for Creality Print slicing, "
 "including the selection of preset parameters, parameter settings, and "
 "saving, to help you better complete 3D printing."
 msgstr ""
-"프리셋 파라미터 선택, 파라미터 설정, 저장 등 3D 프린팅을 더 잘 완성할 수 있도"
-"록 Creality Print 슬라이싱의 파라미터 설정에 대해 간략하게 소개합니다."
+"프리셋 파라미터 선택, 파라미터 설정, 저장 등 3D 프린팅을 더 잘 완성할 수 있도록 Creality Print 슬라이싱의 파라미터 "
+"설정에 대해 간략하게 소개합니다."
 
 msgid "By adjusting various parameters to achieve the best printing effect."
 msgstr "다양한 매개변수를 조정하여 최상의 출력 효과를 얻을 수 있습니다."
@@ -1053,15 +1024,12 @@ msgstr "다양한 매개변수를 조정하여 최상의 출력 효과를 얻을
 msgid ""
 "Creality Print 6.0 has been upgraded to provide you with a better user "
 "experience."
-msgstr ""
-"Creality Print 6.0은 더 나은 사용자 경험을 제공하기 위해 업그레이드되었습니"
-"다."
+msgstr "Creality Print 6.0은 더 나은 사용자 경험을 제공하기 위해 업그레이드되었습니다."
 
 msgid ""
 "You can select one as the current device on the 'My Devices' or 'Multiple "
 "Devices' pages"
-msgstr ""
-"'내 장치' 또는 '여러 장치' 페이지에서 현재 장치로 하나를 선택할 수 있습니다"
+msgstr "'내 장치' 또는 '여러 장치' 페이지에서 현재 장치로 하나를 선택할 수 있습니다"
 
 msgid "System"
 msgstr "시스템"
@@ -1115,7 +1083,7 @@ msgid "Create New"
 msgstr "새로 만들기"
 
 msgid "AI Modeling"
-msgstr "AI 모델링"
+msgstr "MakeNow"
 
 msgid "Vast"
 msgstr "방대한"
@@ -1144,8 +1112,178 @@ msgstr "프린터를 하나 이상 선택해 주세요."
 msgid "The filament you want is not found"
 msgstr "원하는 필라멘트를 찾을 수 없습니다."
 
-#~ msgid "Please search for the printer you want..."
-#~ msgstr "원하는 프린터를 검색하세요..."
+# generated by robot
+msgid "Model not downloaded, click to download the model"
+msgstr "모델을 다운로드하지 않았습니다, 모델을 다운로드하려면 클릭하십시오."
 
-#~ msgid "Update All"
-#~ msgstr "모두 업데이트"
+# generated by robot
+msgid "Download the model"
+msgstr "모델 다운로드"
+
+# generated by robot
+msgid "Tips"
+msgstr "팁"
+
+# generated by robot
+msgid "Your login status has expired, please login again!"
+msgstr "로그인 상태가 만료되었습니다. 다시 로그인하십시오!"
+
+# generated by robot
+msgid ""
+"Note: Different accounts have different user presets (printers, filament, "
+"processes), device lists, personal centers and other data. Please select "
+"the account you need to login."
+msgstr ""
+"참고: 다른 계정에는 다른 사용자 미리 설정 (프린터, 필라멘트, 프로세스), 장치 목록, 개인 센터 및 기타 데이터가 "
+"있습니다.로그인하려면 필요한계정을 선택하십시오."
+
+# generated by robot
+msgid "Do you want to sync your user presets from Creality Cloud?"
+msgstr "Creality Cloud에서 사용자 미리 설정을 동기화하고 싶으십니까?"
+
+# generated by robot
+msgid "Contains the following information"
+msgstr "다음 정보를 포함합니다."
+
+# generated by robot
+msgid "Printer User Presets"
+msgstr "프린터 사용자 미리 설정"
+
+# generated by robot
+msgid "Filament User Settings"
+msgstr "필라멘트 사용자 설정"
+
+# generated by robot
+msgid "Process User Presets"
+msgstr "프로세스 사용자 미리 설정"
+
+# generated by robot
+msgid "Welcome to Creality Print"
+msgstr "Creality Print에 오신 것을 환영합니다"
+
+# generated by robot
+msgid "Add printers and manage print jobs from the cloud"
+msgstr "프린터 추가 및 클라우드에서 인쇄 작업을 관리"
+
+# generated by robot
+msgid "Connect Printer via LAN"
+msgstr "LAN을 통해 프린터 연결"
+
+# generated by robot
+msgid "Skip Printer Connection for Now"
+msgstr "지금 프린터 연결을 Skip"
+
+# generated by robot
+msgid "Scan Devices"
+msgstr "스캔 장치"
+
+# generated by robot
+msgid "Creality Printer"
+msgstr "Creality 프린터"
+
+# generated by robot
+msgid "How to check IP address?"
+msgstr "어떻게 IP 주소를 확인합니까?"
+
+# generated by robot
+msgid "Scanning..."
+msgstr "스캔.."
+
+# generated by robot
+msgid "Confirm Add"
+msgstr "추가 확인"
+
+# generated by robot
+msgid "Please enter an integer between 0 and 255"
+msgstr "0에서 255 사이의 정수를 입력하십시오."
+
+# generated by robot
+msgid "Added successfully"
+msgstr "성공적으로 추가"
+
+# generated by robot
+msgid "Scanning device failed, please check if the IP address is correct"
+msgstr "스캔 장치가 실패했습니다. IP 주소가 올바른지 확인하십시오."
+
+# generated by robot
+msgid "Add devices"
+msgstr "장치 추가"
+
+# generated by robot
+msgid "Added"
+msgstr "추가"
+
+# generated by robot
+msgid "Not added"
+msgstr "추가되지 않았습니다."
+
+# generated by robot
+msgid "Total number of devices"
+msgstr "전체 장치 수"
+
+# generated by robot
+msgid "Scan again"
+msgstr "다시 스캔"
+
+# generated by robot
+msgid "Connect via IP"
+msgstr "IP를 통해 연결"
+
+# generated by robot
+msgid "Add"
+msgstr "추가"
+
+# generated by robot
+msgid "Add Status"
+msgstr "상태 추가"
+
+# generated by robot
+msgid "Login expired, please log out and log in again"
+msgstr "로그인이 만료되었습니다. 로그아웃하고 다시 로그인하십시오."
+
+# generated by robot
+msgid "Speed"
+msgstr "속도"
+
+# generated by robot
+msgid "Failed to add the printer"
+msgstr "프린터 추가 실패"
+
+# generated by robot
+msgid "Update All"
+msgstr "모든 업데이트"
+
+# generated by robot
+msgid "Flagship Series"
+msgstr "플래그십 시리즈"
+
+# generated by robot
+msgid "Hi Series"
+msgstr "Hi 시리즈"
+
+msgid "CR Series"
+msgstr "CR 시리즈"
+
+msgid "Ender Series"
+msgstr "엔더 시리즈"
+
+# generated by robot
+msgid "Sermoon Series"
+msgstr "Sermoon 시리즈"
+
+# generated by robot
+msgid "Sonic Pad"
+msgstr "소니크 패드"
+
+# generated by robot
+msgid "HALOT Series"
+msgstr "HALOT 시리즈"
+
+# generated by robot
+msgid "Others"
+msgstr "다른"
+
+# generated by robot
+msgid "Custom"
+msgstr "사용자 정의"
+

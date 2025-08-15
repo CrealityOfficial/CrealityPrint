@@ -289,13 +289,13 @@ void ImGui::TextAlignCenter(const char *label)
     ImGui::SameLine(ImGui::GetCursorPos().x + (item_width - font_size) / 2);
 
     if ('X' == *label)
-        ImGui::TextColored(ImVec4(1.0, 0.0, 0.0, 1.0),label);
+        ImGui::TextColored(ImVec4(1.0, 0.0, 0.0, 1.0), "%s", label);
     else if ('Y' == *label)
-        ImGui::TextColored(ImVec4(0.0, 0.6, 0.2, 1.0),label);
+        ImGui::TextColored(ImVec4(0.0, 0.6, 0.2, 1.0), "%s", label);
     else if ('Z' == *label)
-        ImGui::TextColored(ImVec4(0.0, 0.0, 1.0, 1.0),label);
+        ImGui::TextColored(ImVec4(0.0, 0.0, 1.0, 1.0), "%s", label);
     else
-        ImGui::Text(label);
+        ImGui::Text("%s", label);
 }
 
 void ImGui::TextV(const char* fmt, va_list args)

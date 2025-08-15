@@ -150,6 +150,14 @@ void Button::SetValue(bool state)
     Refresh();
 }
 
+void Button::SetValue(StateHandler::State state, StateHandler::State preState) 
+{
+    int preState1 = GetState();
+    state_handler.set_state(state, preState1);
+    Refresh();
+    Update();
+}
+
 bool Button::GetValue() const { return state_handler.states() & StateHandler::Checked; }
 
 void Button::SetCenter(bool isCenter)

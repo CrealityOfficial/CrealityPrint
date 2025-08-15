@@ -179,7 +179,8 @@ void KBShortcutsDialog::fill_shortcuts()
             // File>Import
             { ctrl + "I", L("Import geometry data from STL/STEP/3MF/OBJ/AMF files") },
             // File>Export
-            { ctrl + "G", L("Export plate sliced file")},
+            //{ ctrl + "G", L("Export plate sliced file")},
+            { ctrl + "G", L("Export G-code")},
             // Slice plate
             { ctrl + "R", L("Slice plate")},
             // Send to Print

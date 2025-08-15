@@ -15,10 +15,11 @@ class SlicingAdaptive
 {
 public:
     void clear();
-    void set_slicing_parameters(SlicingParameters params, Transform3d trafo = Transform3d::Identity())
+    void set_slicing_parameters(SlicingParameters params, double ow_width,Transform3d trafo = Transform3d::Identity())
     {
         m_slicing_params = params;
         m_trafo          = trafo;
+        outwall_width    = ow_width;
     }
     void prepare(const ModelObject& object);
     // Return next layer height starting from the last print_z, using a quality measure
@@ -41,7 +42,7 @@ protected:
 	SlicingParameters 		m_slicing_params;
 
 	std::vector<FaceZ>		m_faces;
-
+    double             outwall_width;
     Transform3d        m_trafo;
     std::vector<float> overhang_ratio;
 };

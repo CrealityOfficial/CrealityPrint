@@ -46,7 +46,7 @@ public:
     {
         beading = storage;
     }
-    std::shared_ptr<BeadingPropagation> getBeading()
+    std::shared_ptr<BeadingPropagation> getBeading() const
     {
         return beading.lock();
     }

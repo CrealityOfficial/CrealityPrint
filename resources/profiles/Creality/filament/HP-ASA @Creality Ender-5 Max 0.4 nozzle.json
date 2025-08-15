@@ -84,7 +84,7 @@
     "full_fan_speed_layer": "0",
     "hot_plate_temp": "90",
     "hot_plate_temp_initial_layer": "90",
-    "material_flow_dependent_temperature": "1",
+    "material_flow_dependent_temperature": "0",
     "material_flow_temp_graph": "[[3.0,240],[8.0,250],[12.0,260]]",
     "nozzle_temperature": "260",
     "nozzle_temperature_initial_layer": "260",

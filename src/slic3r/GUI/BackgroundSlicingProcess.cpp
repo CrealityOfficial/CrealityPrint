@@ -1047,6 +1047,14 @@ void BackgroundSlicingProcess::finalize_gcode()
 	}
 
 	m_print->set_status(100, GUI::format(_L("G-code file exported to %1%"), export_path));
+
+	char* path = new char[export_path.length() + 1];
+    memset(path, 0, export_path.length() + 1);
+    strcpy(path, export_path.c_str());
+
+    wxCommandEvent event(Slic3r::GUI::EVT_EXPORT_GCODE_FINISHED);
+    event.SetClientData(path);
+    wxPostEvent(Slic3r::GUI::wxGetApp().plater(), event);
 }
 
 // G-code is generated in m_temp_output_path.

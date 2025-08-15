@@ -902,7 +902,7 @@ PRINT_CONFIG_CLASS_DEFINE(
 
     //yy
     ((ConfigOptionBool, overhang_optimization))
-
+    //((ConfigOptionFloatOrPercent, outer_wall_line_width))
     ((ConfigOptionFloat,              default_jerk))
     ((ConfigOptionFloat,              outer_wall_jerk))
     ((ConfigOptionFloat,              inner_wall_jerk))
@@ -1376,6 +1376,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionString,              printer_notes))
 
     ((ConfigOptionBools,               activate_chamber_temp_control))
+    ((ConfigOptionInts,                 activate_chamber_layer))
     ((ConfigOptionInts ,               chamber_temperature))
     
     // Orca: support adaptive bed mesh

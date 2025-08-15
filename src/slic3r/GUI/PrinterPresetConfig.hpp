@@ -31,12 +31,7 @@ public:
     }
 
 private:
-    // Replace it with ProfileFamilyLoader
-    /*int LoadProfileFamily(std::string strVendor, std::string strFilePath);
-    int LoadMachineJson(std::string strVendor, std::string strFilePath);*/
-
     bool LoadFile(std::string jPath, std::string& sContent);
-    //int  GetFilamentInfo(std::string VendorDirectory, json& pFilaList, std::string filepath, std::string& sVendor, std::string& sType);
 
 private:
     json m_ProfileJson;

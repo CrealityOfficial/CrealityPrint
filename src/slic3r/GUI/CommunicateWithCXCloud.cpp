@@ -436,11 +436,12 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
                             outJsonFile = fs::path(pathMachine).append(outputName + ".json").string();
                             outInfoFile = fs::path(pathMachine).append(outputName + ".info").string();
                         }
-                        collection = &GUI::wxGetApp().preset_bundle->printers;
+                        collection = &GUI::wxGetApp().preset_bundle->printers;                        
                         if (collection->get_selected_preset_name() == j["name"].get<std::string>()) {
                             Preset* p         = collection->find_preset(j["name"].get<std::string>());
                             Preset* pInherits = collection->find_preset(j["inherits"].get<std::string>());
                             if (p != nullptr && pInherits != nullptr) {
+                                
                                 collection->lock();
                                 DynamicPrintConfig dcRemote = pInherits->config;
                                 ForwardCompatibilitySubstitutionRule rule = ForwardCompatibilitySubstitutionRule::Enable;
@@ -803,6 +804,9 @@ int CommunicateWithCXCloud::saveSyncDataToLocal(const UserInfo&            userI
         outInfoFile = fs::path(folder_local).append("sync_data.info").string();
 
         if (fs::exists(outJsonFile)) {
+            auto file_time = fs::last_write_time(outJsonFile);
+            if(file_time==userProfileListItem.lastModifyTime)
+                return 0;
             fs::remove(outJsonFile);
         }
         json j = json();
@@ -819,6 +823,7 @@ int CommunicateWithCXCloud::saveSyncDataToLocal(const UserInfo&            userI
             c << std::setw(4) << body << std::endl;
             c.close();
         }
+        fs::last_write_time(outJsonFile, userProfileListItem.lastModifyTime);
         saveJsonFile = outJsonFile;
 
         //  保存info文件
@@ -835,7 +840,7 @@ int CommunicateWithCXCloud::saveSyncDataToLocal(const UserInfo&            userI
             c2 << "updated_time =" << userProfileListItem.lastModifyTime << std::endl;
             c2.close();
         }
-
+        fs::last_write_time(outInfoFile, userProfileListItem.lastModifyTime);
         PreUpdateProfileRetInfo retInfo;
         retInfo.settingId = userProfileListItem.id;
         retInfo.updateTime = userProfileListItem.lastModifyTime;

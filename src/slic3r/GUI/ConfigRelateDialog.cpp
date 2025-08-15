@@ -2584,6 +2584,9 @@ public:
                             CXCloudDataCenter::getInstance().setTokenInvalid(true);
                         } 
                     }
+                    m_addMaterialButton->SetValue(StateHandler::State::Enabled, StateHandler::State::Enabled);
+                    m_addMaterialButton->Update();
+                    m_addMaterialButton->Refresh();
                 });
 
                 wxBoxSizer* rmSizer = new wxBoxSizer(wxVERTICAL);  
@@ -2627,6 +2630,10 @@ public:
                             CXCloudDataCenter::getInstance().setTokenInvalid(true);
                         }
                     }
+
+                    m_addProcessButton->SetValue(StateHandler::State::Enabled, StateHandler::State::Enabled);
+                    m_addProcessButton->Update();
+                    m_addProcessButton->Refresh();
                 });
 
                 wxBoxSizer* amSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -3110,6 +3117,10 @@ public:
                                 CXCloudDataCenter::getInstance().setTokenInvalid(true);
                             } 
                         }
+
+                        m_addPrinterButton->SetValue(StateHandler::State::Enabled, StateHandler::State::Enabled);
+                        m_addPrinterButton->Update();
+                        m_addPrinterButton->Refresh();
                     });
 
                     m_copyMaterialButton = new _Button(relatePrinterPage, _L("Copy the filament to other printers"), wxSize(FromDIP(160), FromDIP(28)));
@@ -3127,6 +3138,10 @@ public:
                             _sync();
                             CXCloudDataCenter::getInstance().setTokenInvalid(true);
                         }
+
+                        m_copyMaterialButton->SetValue(StateHandler::State::Enabled, StateHandler::State::Enabled);
+                        m_copyMaterialButton->Update();
+                        m_copyMaterialButton->Refresh();
                     });
                     btSizer->Add(m_copyMaterialButton, 0, wxLEFT, 0);
                     btSizer->Add(m_addPrinterButton, 0, wxLEFT, 20);
@@ -3293,7 +3308,7 @@ void ConfigRelateDialog::create()
     Refresh();
     //Update();
 
-    //Bind(wxEVT_SIZE, [=](wxSizeEvent& evt) { Refresh(); });
+    Bind(wxEVT_SIZE, [=](wxSizeEvent& evt) { Refresh(); });
 
 }
 

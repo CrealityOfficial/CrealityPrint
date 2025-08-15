@@ -24,25 +24,6 @@
                             ]
                         },
                         {
-                            "name":"Layer height",
-                            "icon":"param_layer_height",
-                            "options":
-                            [
-                                {
-                                    "key":"layer_height",
-                                    "tooltip":"",
-                                    "tooltip_img":"layer_height",
-                                    "url":"update-released/toolbar-introduction/seam"
-                                },
-                                {
-                                    "key":"initial_layer_print_height",
-                                    "tooltip":"",
-                                    "tooltip_img":"initial_layer_print_height",
-                                    "url":"update-released/toolbar-introduction/seam"
-                                }                        
-                            ]
-                        },
-                        {
                             "name":"Walls and surfaces",
                             "icon":"param_wall_surface",
                             "options":

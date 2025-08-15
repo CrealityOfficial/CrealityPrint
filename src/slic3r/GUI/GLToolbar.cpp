@@ -714,7 +714,7 @@ bool GLToolbar::on_mouse(wxMouseEvent& evt, GLCanvas3D& parent)
                 //}
 
                 // mouse is inside an icon
-                do_action(GLToolbarItem::Left, item_id, parent, false);
+                do_action(GLToolbarItem::Left, item_id, parent, true);
                 parent.set_as_dirty();
             }
         }
@@ -898,7 +898,8 @@ void GLToolbar::do_action(GLToolbarItem::EActionType type, int item_id, GLCanvas
 
                     if (m_type == Normal && item->get_state() != GLToolbarItem::Disabled) {
                         // the item may get disabled during the action, if not, set it back to normal state
-                        item->set_state(GLToolbarItem::Normal);
+                        // When the user clicks on the control and completes the action, the control state should be set to Hover
+                        item->set_state(GLToolbarItem::Hover);
                         parent.render();
                     }
                 }

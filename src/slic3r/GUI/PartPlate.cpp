@@ -2907,7 +2907,7 @@ void PartPlate::update_slice_result_valid_state(bool valid)
 {
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": plate %1% , update slice result from %2% to %3%") % m_plate_index %m_slice_result_valid %valid;
     m_slice_result_valid = valid;
-    if (valid)
+    if (valid && m_gcode_result && m_gcode_result->moves.size() > 0)
         m_slice_percent = 100.0f;
     else {
         m_slice_percent = -1.0f;
@@ -3244,6 +3244,16 @@ void PartPlate::print() const
 	}*/
 
 	return;
+}
+
+//when in the only gcode mode, the gcode_result may be possibly not loaded in memory
+bool PartPlate::is_slice_result_valid_and_loaded() const
+{
+	if(m_slice_result_valid && m_gcode_result) {
+		return m_gcode_result->moves.size() > 0;
+	}
+
+	return false;
 }
 
 /* PartPlate List related functions*/

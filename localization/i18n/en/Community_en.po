@@ -1,15 +1,15 @@
 msgid ""
 msgstr ""
+"Content-Type: text/plain; charset=utf-8\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Project-Id-Version: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: \n"
+"PO-Revision-Date: 2025-07-09T02:36:14.745Z\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "Language: en\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Poedit 3.5\n"
 
 msgid "Submit"
@@ -146,17 +146,19 @@ msgstr "No shelf data available"
 
 msgid ""
 "The number of printer presets cached in the cloud has reached the upper "
-"limit (20). Newly created user presets will not be synchronized to the cloud."
+"limit (20). Newly created user presets will not be synchronized to the "
+"cloud."
 msgstr ""
 "The number of printer presets cached in the cloud has reached the upper "
-"limit (20). Newly created user presets will not be synchronized to the cloud."
+"limit (20). Newly created user presets will not be synchronized to the "
+"cloud."
 
 msgid ""
-"The presets have not been synced to Creality Cloud yet. Click here to enable "
-"it."
+"The presets have not been synced to Creality Cloud yet. Click here to "
+"enable it."
 msgstr ""
-"The presets have not been synced to Creality Cloud yet. Click here to enable "
-"it."
+"The presets have not been synced to Creality Cloud yet. Click here to "
+"enable it."
 
 msgid "Please Input"
 msgstr "Please Input"
@@ -795,14 +797,14 @@ msgid ""
 "Creality Cloud adopts the internationally recognized Copyright License 4.0 "
 "to protect the rights and interests of model owners. The models of "
 "Chuangxiang Cloud platform are shared by a large number of enthusiasts in "
-"the community. If you find any violations of relevant laws and infringement, "
-"please contact us in a timely manner. "
+"the community. If you find any violations of relevant laws and "
+"infringement, please contact us in a timely manner. "
 msgstr ""
 "Creality Cloud adopts the internationally recognized Copyright License 4.0 "
 "to protect the rights and interests of model owners. The models of "
 "Chuangxiang Cloud platform are shared by a large number of enthusiasts in "
-"the community. If you find any violations of relevant laws and infringement, "
-"please contact us in a timely manner. "
+"the community. If you find any violations of relevant laws and "
+"infringement, please contact us in a timely manner. "
 
 msgid ""
 "Indicates that the original work is created by the creator, and users can "
@@ -886,9 +888,11 @@ msgid "You haven't collected the model yet, go collect the model~"
 msgstr "You haven't collected the model yet, go collect the model~"
 
 msgid ""
-"You haven't created a creative work yet, go ahead and create a creative work~"
+"You haven't created a creative work yet, go ahead and create a creative "
+"work~"
 msgstr ""
-"You haven't created a creative work yet, go ahead and create a creative work~"
+"You haven't created a creative work yet, go ahead and create a creative "
+"work~"
 
 msgid ""
 "You haven't uploaded the print configuration yet, go uploaded the print "
@@ -900,10 +904,8 @@ msgstr ""
 msgid "You haven't printed the model yet, go ahead and print it~"
 msgstr "You haven't printed the model yet, go ahead and print it~"
 
-msgid ""
-"You haven't uploaded the print file yet, go ahead and upload the print file~"
-msgstr ""
-"You haven't uploaded the print file yet, go ahead and upload the print file~"
+msgid "You haven't uploaded the print file yet, go ahead and upload the print file~"
+msgstr "You haven't uploaded the print file yet, go ahead and upload the print file~"
 
 msgid "You haven't download the model yet, go ahead and download it~"
 msgstr "You haven't download the model yet, go ahead and download it~"
@@ -933,10 +935,8 @@ msgstr "Purchased At"
 msgid "off"
 msgstr "off"
 
-msgid ""
-"Start downloading. Please go to \"Personal Center-My Downloads\" to view."
-msgstr ""
-"Start downloading. Please go to \"Personal Center-My Downloads\" to view."
+msgid "Start downloading. Please go to \"Personal Center-My Downloads\" to view."
+msgstr "Start downloading. Please go to \"Personal Center-My Downloads\" to view."
 
 msgid "System Preset Parameters"
 msgstr "System Preset Parameters"
@@ -952,12 +952,6 @@ msgstr "Description"
 
 msgid "Update"
 msgstr "Update"
-
-msgid "Ender Series"
-msgstr "Ender Series"
-
-msgid "CR Series"
-msgstr "CR Series"
 
 msgid "Start updating, please wait a moment"
 msgstr "Start updating, please wait a moment"
@@ -1126,7 +1120,7 @@ msgid "Create New"
 msgstr "Create New"
 
 msgid "AI Modeling"
-msgstr "AI Modeling"
+msgstr "MakeNow"
 
 msgid "Vast"
 msgstr "Vast"
@@ -1155,14 +1149,177 @@ msgstr "Please select at least one printer."
 msgid "The filament you want is not found"
 msgstr "The filament you want is not found"
 
-#~ msgid "Please search for the printer you want..."
-#~ msgstr "Please search for the printer you want..."
-
-#~ msgid "Update All"
-#~ msgstr "Update All"
-
 msgid "Model not downloaded, click to download the model"
 msgstr "Model not downloaded, click to download the model"
 
 msgid "Download the model"
 msgstr "Download the model"
+
+# generated by robot
+msgid "Tips"
+msgstr "Tips"
+
+# generated by robot
+msgid "Your login status has expired, please login again!"
+msgstr "Your login status has expired, please login again!"
+
+# generated by robot
+msgid ""
+"Note: Different accounts have different user presets (printers, filament, "
+"processes), device lists, personal centers and other data. Please select "
+"the account you need to login."
+msgstr ""
+"Note: Different accounts have different user presets (printers, filament, "
+"processes), device lists, personal centers and other data. Please selectthe "
+"account you need to login."
+
+# generated by robot
+msgid "Do you want to sync your user presets from Creality Cloud?"
+msgstr "Do you want to sync your user presets from Creality Cloud?"
+
+# generated by robot
+msgid "Contains the following information"
+msgstr "Contains the following information"
+
+# generated by robot
+msgid "Printer User Presets"
+msgstr "Printer User Presets"
+
+# generated by robot
+msgid "Filament User Settings"
+msgstr "Filament User Settings"
+
+# generated by robot
+msgid "Process User Presets"
+msgstr "Process User Presets"
+
+# generated by robot
+msgid "Welcome to Creality Print"
+msgstr "Welcome to Creality Print"
+
+# generated by robot
+msgid "Add printers and manage print jobs from the cloud"
+msgstr "Add printers and manage print jobs from the cloud"
+
+# generated by robot
+msgid "Connect Printer via LAN"
+msgstr "Connect Printer via LAN"
+
+# generated by robot
+msgid "Skip Printer Connection for Now"
+msgstr "Skip Printer Connection for Now"
+
+# generated by robot
+msgid "Scan Devices"
+msgstr "Scan Devices"
+
+# generated by robot
+msgid "Creality Printer"
+msgstr "Creality Printer"
+
+# generated by robot
+msgid "How to check IP address?"
+msgstr "How to check IP address?"
+
+# generated by robot
+msgid "Scanning..."
+msgstr "Scanning..."
+
+# generated by robot
+msgid "Confirm Add"
+msgstr "Confirm Add"
+
+# generated by robot
+msgid "Please enter an integer between 0 and 255"
+msgstr "Please enter an integer between 0 and 255"
+
+# generated by robot
+msgid "Added successfully"
+msgstr "Added successfully"
+
+# generated by robot
+msgid "Scanning device failed, please check if the IP address is correct"
+msgstr "Scanning device failed, please check if the IP address is correct"
+
+# generated by robot
+msgid "Add devices"
+msgstr "Add devices"
+
+# generated by robot
+msgid "Added"
+msgstr "Added"
+
+# generated by robot
+msgid "Not added"
+msgstr "Not added"
+
+# generated by robot
+msgid "Total number of devices"
+msgstr "Total number of devices"
+
+# generated by robot
+msgid "Scan again"
+msgstr "Scan again"
+
+# generated by robot
+msgid "Connect via IP"
+msgstr "Connect via IP"
+
+# generated by robot
+msgid "Add"
+msgstr "Add"
+
+# generated by robot
+msgid "Add Status"
+msgstr "Add Status"
+
+# generated by robot
+msgid "Login expired, please log out and log in again"
+msgstr "Login expired, please log out and log in again"
+
+# generated by robot
+msgid "Speed"
+msgstr "Speed"
+
+# generated by robot
+msgid "Failed to add the printer"
+msgstr "Failed to add the printer"
+
+# generated by robot
+msgid "Update All"
+msgstr "Update All"
+
+# generated by robot
+msgid "Flagship Series"
+msgstr "Flagship Series"
+
+# generated by robot
+msgid "Hi Series"
+msgstr "Hi Series"
+
+msgid "CR Series"
+msgstr "CR Series"
+
+msgid "Ender Series"
+msgstr "Ender Series"
+
+# generated by robot
+msgid "Sermoon Series"
+msgstr "Sermoon Series"
+
+# generated by robot
+msgid "Sonic Pad"
+msgstr "Sonic Pad"
+
+# generated by robot
+msgid "HALOT Series"
+msgstr "HALOT Series"
+
+# generated by robot
+msgid "Others"
+msgstr "Others"
+
+# generated by robot
+msgid "Custom"
+msgstr "Custom"
+

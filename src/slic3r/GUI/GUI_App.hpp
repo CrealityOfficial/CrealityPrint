@@ -188,7 +188,10 @@ struct UserInfo
     std::string avatar;
     std::string userId;
 };
-
+struct Customize_Config
+{
+    std::string cur_language = "";
+};
 class GUI_App : public wxApp
 {
 public:
@@ -210,7 +213,7 @@ private:
     bool            m_opengl_initialized{ false };
 #endif
 
-   
+    Customize_Config m_customize_config;
 //#ifdef _WIN32
     wxColour        m_color_label_modified;
     wxColour        m_color_label_sys;
@@ -367,6 +370,7 @@ private:
 
     void            init_download_path();
     void            post_openlink_cmd(std::string link);  //CP
+    void            post_login_status_cmd(bool isSuccess, UserInfo user); // cp login status
     void            swith_community_sub_page(const std::string& pageName);
     void            switch_to_tab(const std::string& tabName);
 #if wxUSE_WEBVIEW_EDGE
@@ -510,6 +514,7 @@ private:
     void            remove_user_presets();
     void            sync_preset(Preset* preset);
     void            start_sync_user_preset(bool with_progress_dlg = false);
+    void            save_user_default_filaments(AppConfig *new_app_config);
     bool            wait_cloud_token();
     void            stop_sync_user_preset();
     void            start_http_server();
@@ -735,11 +740,11 @@ private:
     const ColorRGB& get_picking_color() const;
 
 private:
-    std::unique_ptr<UITour> m_UITour = nullptr;
+    UITour* m_UITour = nullptr;
     int             updating_bambu_networking();
-    bool            on_init_inner();
+    bool            on_init_inner(bool isdump_launcher = false);
     void            parse_args();
-
+    void            on_init_custom_config();
     void            copy_network_if_available();
     bool            on_init_network(bool try_backup = false);
     void            init_networking_callbacks();

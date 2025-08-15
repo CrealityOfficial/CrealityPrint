@@ -364,9 +364,9 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
 
     //-----output------stTop
     long long aaarree = surface->expolygon.contour.area();
-
-    // while(0)
-    while (1 /*&&aaarree>2e15*/ && surface->is_top() && !surface->is_internal()) {
+    float     sclae_width = params.flow.width() / 0.45f;
+    //while(0){
+    while (1 /*&&aaarree>2e15*/ && surface->is_top() && !surface->is_internal() && params.config->top_surface_pattern.value!=16) {
         if (polylines.empty())
             break;
 
@@ -1400,7 +1400,7 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
         for (size_t i = 0; i < polyline_baseline.size(); i++) {
             poly_vec.push_back(Polyline());
             return_polylines.push_back(Polyline());
-            for (size_t j = 0; j < polyline_baseline[i].size(); j++) {
+            for (size_t j = 0; j < polyline_baseline[i].size()-1; j++) {
                 if (j == 0) {
                     poly_vec.back().points.push_back(polyline_baseline[i][j]);
                     poly_vec.back().points.push_back(polyline_baseline[i][j + 1]);
@@ -1408,7 +1408,7 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
                     return_polylines.back().points.push_back(polylines[i][j + 1]);
                     j++;
                     continue;
-                } else if (!poly_vec.back().empty() && std::abs(polyline_baseline[i][j].y() - polyline_baseline[i][j + 1].y()) < 10) {
+                } else if (!poly_vec.back().empty() && std::abs(polyline_baseline[i][j].y() - polyline_baseline[i][j + 1].y()) < 10 * sclae_width) {
                     long long              d1   = std::abs(polyline_baseline[i][j].x() - polyline_baseline[i][j + 1].x());
                     long long              d2   = std::abs(poly_vec.back().points.back().x() -
                                             poly_vec.back().points[poly_vec.back().points.size() - 2].x());
@@ -1422,17 +1422,17 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
                     poly_vec.back().points.push_back(polyline_baseline[i][j + 1]);
                     return_polylines.back().points.push_back(polylines[i][j]);
                     return_polylines.back().points.push_back(polylines[i][j + 1]);
-                    if (d >= d1 + d2 + 1800000 || std::abs(d1 - d2) > 2000000) {
+                    if (d >= d1 + d2 + 1800000 /** sclae_width*/ || std::abs(d1 - d2) > 2000000 /** sclae_width*/) {
                         poly_vec.push_back(Polyline());
                     }
                     j++;
-                } else if (poly_vec.back().empty() && std::abs(polyline_baseline[i][j].y() - polyline_baseline[i][j + 1].y()) < 10) {
+                } else if (poly_vec.back().empty() && std::abs(polyline_baseline[i][j].y() - polyline_baseline[i][j + 1].y()) < 10 * sclae_width) {
                     poly_vec.back().points.push_back(polyline_baseline[i][j]);
                     poly_vec.back().points.push_back(polyline_baseline[i][j + 1]);
                     return_polylines.back().points.push_back(polylines[i][j]);
                     return_polylines.back().points.push_back(polylines[i][j + 1]);
                     j++;
-                } else if (std::abs(polyline_baseline[i][j].y() - polyline_baseline[i][j + 1].y()) > 5) {
+                } else if (std::abs(polyline_baseline[i][j].y() - polyline_baseline[i][j + 1].y()) > 5 * sclae_width) {
                     poly_vec.back().points.push_back(polyline_baseline[i][j]);
                     return_polylines.back().points.push_back(polylines[i][j]);
                 } else {
@@ -1462,14 +1462,14 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
                 if (!poly_vec_mark[i]) {
                     int pi        = 0;
                     int back_size = poly_vec[index_ptr].size();
-                    for (int j = 0; j < poly_vec[i].size(); j++) {
-                        if (std::abs(poly_vec[i][j].y() - poly_vec[i][j + 1].y()) < 20) {
+                    for (int j = 0; j < poly_vec[i].size()-1; j++) {
+                        if (std::abs(poly_vec[i][j].y() - poly_vec[i][j + 1].y()) < 20 * sclae_width) {
                             pi = j;
                             break;
                         }
                     }
 
-                    if (std::abs(poly_vec[i][pi].y() - poly_vec[index_ptr].back().y()) < LINE_WIDTH * 1000.) {
+                    if (std::abs(poly_vec[i][pi].y() - poly_vec[index_ptr].back().y()) < LINE_WIDTH * sclae_width * 1000.) {
                         pi_c.push_back(pi);
                         save_poly.push_back(i);
                     }
@@ -1482,19 +1482,19 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
             long long left  = poly_vec[index_ptr].back().x();
             long long right = poly_vec[index_ptr][poly_vec[index_ptr].size() - 2].x();
             if (p_size >= 4) {
-                if (std::abs(poly_vec[index_ptr][p_size - 3].y() - poly_vec[index_ptr][p_size - 4].y()) < 20) {
+                if (std::abs(poly_vec[index_ptr][p_size - 3].y() - poly_vec[index_ptr][p_size - 4].y()) < 20 * sclae_width) {
                     std::vector<long long> x1 = {poly_vec[index_ptr][p_size - 1].x(), poly_vec[index_ptr][p_size - 2].x()};
                     std::sort(x1.begin(), x1.end());
                     std::vector<long long> x2 = {poly_vec[index_ptr][p_size - 3].x(), poly_vec[index_ptr][p_size - 4].x()};
                     std::sort(x2.begin(), x2.end());
-                    if (std::abs(x1.front() - x2.front()) > 2800 * 1000) {
+                    if (std::abs(x1.front() - x2.front()) > 2800 * 1000 /** sclae_width*/) {
                         if (std::abs(x1.front() - x2.front()) >
                             std::abs(poly_vec[index_ptr].back().x() - poly_vec[index_ptr][poly_vec[index_ptr].size() - 2].x())) {
                             left  = x1.front() > x2.front() ? x2.front() : x1.front();
                             right = x1.front() > x2.front() ? x1.front() : x2.front();
                         }
                     }
-                    if (std::abs(x1.back() - x2.back()) > 2800 * 1000) {
+                    if (std::abs(x1.back() - x2.back()) > 2800 * 1000 /** sclae_width*/) {
                         if (std::abs(x1.back() - x2.back()) >
                             std::abs(poly_vec[index_ptr].back().x() - poly_vec[index_ptr][poly_vec[index_ptr].size() - 2].x())) {
                             left  = x1.back() > x2.back() ? x2.back() : x1.back();
@@ -1614,7 +1614,7 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
                         {
                             float by = poly_vec[path_demo[i][n]].points[0].y(); //...
                             float ty = poly_vec[path_demo[j].back()].points.back().y();
-                            if ((by - ty) < LINE_WIDTH * 1000 && (by - ty) > 0) {
+                            if ((by - ty) < LINE_WIDTH * sclae_width * 1000 && (by - ty) > 0) {
                                 //----is cover----------
                                 long long bs = std::abs(poly_vec[path_demo[i][n]].points[0].x() - poly_vec[path_demo[i][n]].points[1].x());
                                 long long ts = std::abs(

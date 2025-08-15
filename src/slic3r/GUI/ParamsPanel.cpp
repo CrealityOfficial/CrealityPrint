@@ -1721,7 +1721,7 @@ void ParamsPanel::notify_config_changed()
             if (cat_options.size() > 0) {
                 has_config = true;
                 break;
-            }
+            }                       
         }
         for (auto volume : obj->volumes) {
             if (!volume->config.empty()) {
@@ -1739,6 +1739,7 @@ void ParamsPanel::notify_config_changed()
     if (has_config)//
         is_dirt = true;
 
+    is_dirt = false;
     if (!is_dirt)
     {
         Tab* pTab = dynamic_cast<Tab*>(m_current_tab);

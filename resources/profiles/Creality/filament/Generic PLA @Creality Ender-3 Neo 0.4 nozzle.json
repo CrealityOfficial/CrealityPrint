@@ -42,7 +42,7 @@
     "filament_deretraction_speed": "nil",
     "filament_diameter": "1.75",
     "filament_end_gcode": [
-        " "
+        ";filament end gcode"
     ],
     "filament_flow_ratio": "1",
     "filament_is_support": "0",
@@ -72,7 +72,7 @@
     "filament_stamping_distance": "0",
     "filament_stamping_loading_speed": "0",
     "filament_start_gcode": [
-        " "
+        ";filament start gcode"
     ],
     "filament_toolchange_delay": "0",
     "filament_type": [

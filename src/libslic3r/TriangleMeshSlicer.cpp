@@ -2116,7 +2116,8 @@ std::vector<float> get_mesh_overhang(
     std::vector<Vec3i32> face_edge_ids = its_face_edge_ids(mesh);
 
     slice_count_overhang_lines(
-       transform_mesh_vertices_for_slicing_overhang(mesh, params.trafo),
+        //transform_mesh_vertices_for_slicing_overhang(mesh, params.trafo),
+        transform_mesh_vertices_for_slicing(mesh, params.trafo),
        [](const Vec3f& p) { return p; }, mesh.indices, face_edge_ids, zs,
         &overhang_ratio);
 

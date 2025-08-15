@@ -4,6 +4,8 @@
 #include "GUI.hpp"
 #include "I18N.hpp"
 #include "3DScene.hpp"
+#include "GUI_App.hpp"
+#include "MainFrame.hpp"
 
 #include "libslic3r/Platform.hpp"
 
@@ -392,6 +394,13 @@ bool OpenGLManager::init_gl(bool popup_error)
                 message += "\n";
                 message += _L("Please upgrade your graphics card driver.");
                 wxMessageBox(message, _L("Unsupported OpenGL version"), wxOK | wxICON_ERROR);
+
+                if(wxGetApp().mainframe) {
+                    wxCloseEvent close_evt(wxEVT_CLOSE_WINDOW);
+                    close_evt.SetCanVeto(false);
+                    wxPostEvent(wxGetApp().mainframe, close_evt);
+                }
+
             }
         }
 

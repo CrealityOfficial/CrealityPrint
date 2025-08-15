@@ -245,6 +245,7 @@ wxDEFINE_EVENT(EVT_CURRENT_DEVICE_CHANGED, wxCommandEvent);
 wxDEFINE_EVENT(EVT_AUTO_SYNC_CURRENT_DEVICE_FILAMENT, wxCommandEvent);
 wxDEFINE_EVENT(EVT_ON_MAPPING_DEVICE_FILAMENT, wxCommandEvent);
 wxDEFINE_EVENT(EVT_ON_SHOW_BOX_COLOR_SELECTION, wxCommandEvent);
+wxDEFINE_EVENT(EVT_EXPORT_GCODE_FINISHED, wxCommandEvent);
 
 bool Plater::has_illegal_filename_characters(const wxString& wxs_name)
 {
@@ -973,10 +974,13 @@ Sidebar::Sidebar(Plater* parent) : wxPanel(parent, wxID_ANY, wxDefaultPosition, 
         p->m_auto_mapping_btn->Bind(wxEVT_LEFT_DOWN, [this](auto& e) {
             if (p->m_cx_panel_box_filament) {
                 p->m_cx_panel_box_filament->on_auto_device_filament_mapping();
+                if (obj_list()) {
+                    wxPostEvent(obj_list(), wxCommandEvent(EVT_OPEN_DEVICE_LIST));
+                }
             }
         });
         bSizer39->Add(p->m_auto_mapping_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, BUTTON_DIP_GAP);
-        bSizer39->Hide(p->m_auto_mapping_btn);
+        //bSizer39->Hide(p->m_auto_mapping_btn);
         bSizer39->Add(BUTTON_SPACE_GAP, 0, 0, 0, 0);
         // add wiping dialog
         p->m_flushing_volume_btn = new HoverBorderIcon(p->m_panel_filament_title, wxEmptyString,
@@ -1109,7 +1113,10 @@ Sidebar::Sidebar(Plater* parent) : wxPanel(parent, wxID_ANY, wxDefaultPosition, 
         // add device box filament content
         p->m_cx_panel_box_filament = new RemotePrint::PrinterBoxFilamentPanel(p->scrolled);
         p->m_cx_panel_box_filament->setExactMaterialCb(
-            [&](bool has_exact_material) { p->m_auto_mapping_btn->setEnable(has_exact_material); });
+            [&](bool has_exact_material) { 
+                /*p->m_auto_mapping_btn->setEnable(has_exact_material);*/
+                p->m_auto_mapping_btn->Show(has_exact_material);
+            });
         if (nullptr != p->m_cx_panel_box_filament) {
             p->m_cx_panel_box_filament->SetBackgroundColour(wxColour(255, 255, 255));
         }
@@ -1673,10 +1680,6 @@ void Sidebar::jump_to_option(size_t selected)
 // BBS. Move logic from Plater::on_extruders_change() to Sidebar::on_filaments_change().
 void Sidebar::on_filaments_change(size_t num_filaments)
 {
-    if (!wxGetApp().preset_bundle->is_cx_vendor()) {
-        p->m_auto_mapping_btn->Show(false);
-    }
-
     p->m_cx_panel_filament_content->resetFilamentToCFS();
     if (num_filaments == p->m_cx_panel_filament_content->size())
         return;
@@ -2014,9 +2017,15 @@ void Sidebar::show_SEMM_buttons(bool bshow)
         p->m_bpButton_del_filament->Show(bshow);
     if (p->m_flushing_volume_btn)
         p->m_flushing_volume_btn->Show(bshow);
-    if (p->m_auto_mapping_btn)
-        p->m_auto_mapping_btn->Show(bshow);
     Layout();
+}
+
+void Sidebar::show_auto_mapping(bool bshow) 
+{
+    if (p->m_auto_mapping_btn) {
+        p->m_auto_mapping_btn->Show(bshow);
+        //Layout();
+    }
 }
 
 void Sidebar::update_dynamic_filament_list()
@@ -2173,6 +2182,17 @@ std::string& Sidebar::get_search_line() { return p->searcher.search_string(); }
 void Sidebar::on_current_device_changed(wxCommandEvent& event)
 {
     DM::Device device_data = DM::DataCenter::Ins().get_current_device_data();
+    // if empty device, show auto mapping btn, and return
+    if (!device_data.valid) {
+        wxGetApp().app_config->set("is_currentMachine_Colors", "0"); // Influence add_filament action
+        show_auto_mapping(true);
+        show_box_filament_content(false);
+        if (p->m_cx_panel_box_filament) {
+            p->m_cx_panel_box_filament->setMultiColorDevice(false);
+        }
+        return;
+    }
+
     if (!device_data.isMultiColorDevice) {
         wxGetApp().app_config->set("is_currentMachine_Colors", "0");
         show_box_filament_content(false);
@@ -2199,11 +2219,11 @@ void Sidebar::on_current_device_changed(wxCommandEvent& event)
         }
 
         if (p->m_auto_mapping_btn) {
-            p->m_auto_mapping_btn->Show(true);
+            //p->m_auto_mapping_btn->Show(true);
             bool has_exact_material = false;
             for (const auto& materialBox : device_data.materialBoxes) {
                 for (const auto& material : materialBox.materials) {
-                    if (materialBox.box_type == 0 && !material.color.empty()) {
+                    if ((materialBox.box_type == 0 || materialBox.box_type == 2) && !material.color.empty()) {
                         has_exact_material = true;
                         break;
                     }
@@ -2211,7 +2231,7 @@ void Sidebar::on_current_device_changed(wxCommandEvent& event)
                 if (has_exact_material)
                     break;
             }
-            p->m_auto_mapping_btn->setEnable(has_exact_material);
+            p->m_auto_mapping_btn->Show(has_exact_material);
         }
 
         if (m_scrolled_sizer) {
@@ -2926,6 +2946,7 @@ struct Plater::priv
     void on_auto_sync_current_device_filament(wxCommandEvent& event);
     void on_mapping_device_filament(wxCommandEvent& event);
     void on_show_box_color_selection(wxCommandEvent& event);
+    void on_export_gcode_finished(wxCommandEvent& event);
 
     // Set the bed shape to a single closed 2D polygon(array of two element arrays),
     // triangulate the bed and store the triangles into m_bed.m_triangles,
@@ -3218,6 +3239,7 @@ Plater::priv::priv(Plater* q, MainFrame* main_frame)
     this->q->Bind(EVT_ON_MAPPING_DEVICE_FILAMENT, &priv::on_mapping_device_filament, this);
     this->q->Bind(EVT_ON_SHOW_BOX_COLOR_SELECTION, &priv::on_show_box_color_selection, this);
     main_frame->m_tabpanel->Bind(wxEVT_NOTEBOOK_PAGE_CHANGING, &priv::on_tab_selection_changing, this);
+    this->q->Bind(EVT_EXPORT_GCODE_FINISHED, &priv::on_export_gcode_finished, this);
 
     auto* panel_3d = new wxPanel(q);
     view3D         = new View3D(panel_3d, bed, &model, config, &background_process);
@@ -6476,7 +6498,7 @@ void Plater::priv::export_gcode(fs::path output_path, bool output_path_on_remova
     show_warning_dialog = true;
     if (!output_path.empty()) {
         background_process.schedule_export(output_path.string(), output_path_on_removable_media);
-        notification_manager->push_delayed_notification(NotificationType::ExportOngoing, []() { return true; }, 1000, 0);
+        //notification_manager->push_delayed_notification(NotificationType::ExportOngoing, []() { return true; }, 1000, 0);
     } else {
         BOOST_LOG_TRIVIAL(info) << "output_path  is empty";
     }
@@ -6508,7 +6530,7 @@ void Plater::priv::export_gcode(fs::path output_path, bool output_path_on_remova
     show_warning_dialog = true;
     if (!output_path.empty()) {
         background_process.schedule_export(output_path.string(), output_path_on_removable_media);
-        notification_manager->push_delayed_notification(NotificationType::ExportOngoing, []() { return true; }, 1000, 0);
+        //notification_manager->push_delayed_notification(NotificationType::ExportOngoing, []() { return true; }, 1000, 0);
     } else {
         background_process.schedule_upload(std::move(upload_job));
     }
@@ -7811,7 +7833,7 @@ void Plater::priv::on_slicing_began()
 {
     clear_warnings(m_cur_slice_plate);
     notification_manager->close_notification_of_type(NotificationType::SignDetected);
-    notification_manager->close_notification_of_type(NotificationType::ExportFinished);
+    //notification_manager->close_notification_of_type(NotificationType::ExportFinished);
     notification_manager->close_plate_critical_slicing_notification(m_cur_slice_plate, true);
     bool is_first_plate        = m_cur_slice_plate == 0;
     bool slice_all             = q->m_only_gcode ? m_slice_all_only_has_gcode : m_slice_all;
@@ -7898,20 +7920,20 @@ bool Plater::priv::warnings_dialog(int plate_index)
     std::string ssWarning = _u8L("has floating regions. Please re-orient the object or enable support generation.");
     std::string ssWarning2 = _u8L("appears to have floating areas, which may cause print failure.\nPlease reorient the model or enable supports.\n\n ");
     if (text.find(ssWarning) != std::string::npos) {
-        bool bShow = wxGetApp().app_config->get_bool("show_floating_regions_warning");
-        int  showValue = atoi(wxGetApp().app_config->get("show_floating_regions_warning_value").c_str());
-        if (!bShow && (showValue == wxID_OK || showValue == wxID_CANCEL)) {
-            return showValue == wxID_CANCEL;
-        }
+        //bool bShow = wxGetApp().app_config->get_bool("show_floating_regions_warning");
+        //int  showValue = atoi(wxGetApp().app_config->get("show_floating_regions_warning_value").c_str());
+        //if (!bShow && (showValue == wxID_OK || showValue == wxID_CANCEL)) {
+        //    return showValue == wxID_CANCEL;
+        //}
         boost::replace_all(text, ssWarning, ssWarning2);
         ChangeBtnRichMsgDlg msg_window(this->q, from_u8(text), false, _L("warnings"), wxOK | wxCANCEL);
-        msg_window.ShowCheckBox(_L("Don't show again"), false);
+        //msg_window.ShowCheckBox(_L("Don't show again"), false);
         const auto res = msg_window.ShowModal();
-        bool b = msg_window.get_checkbox_state();
-        if (b) {
-            wxGetApp().app_config->set_bool("show_floating_regions_warning", false);
-            wxGetApp().app_config->set("show_floating_regions_warning_value", std::to_string(res));
-        }
+        //bool b = msg_window.get_checkbox_state();
+        //if (b) {
+        //    wxGetApp().app_config->set_bool("show_floating_regions_warning", false);
+        //    wxGetApp().app_config->set("show_floating_regions_warning_value", std::to_string(res));
+        //}
         return res == wxID_CANCEL;
     }
 
@@ -8429,6 +8451,22 @@ void Plater::priv::on_auto_sync_current_device_filament(wxCommandEvent& event)
 void Plater::priv::on_mapping_device_filament(wxCommandEvent& event) { wxGetApp().sidebar().on_mapping_device_filament(event); }
 
 void Plater::priv::on_show_box_color_selection(wxCommandEvent& event) { wxGetApp().sidebar().on_show_box_color_selection(event); }
+void Plater::priv::on_export_gcode_finished(wxCommandEvent& event) { 
+    char* path = (char*) event.GetClientData();
+    if (path == nullptr)
+        return;
+    std::string ssPath(path);
+    fs::path               output_path(ssPath);
+    RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
+
+    bool on_removable = removable_drive_manager.is_path_on_removable_drive(Slic3r::GUI::wxGetApp().plater()->p->last_output_dir_path);
+
+    // update last output dir
+    Slic3r::GUI::wxGetApp().app_config->update_last_output_dir(output_path.parent_path().string(), false);
+    notification_manager->push_exporting_finished_notification(output_path.string(), Slic3r::GUI::wxGetApp().plater()->p->last_output_dir_path,
+                                                               on_removable);
+    delete[] path;
+}
 
 void Plater::priv::on_notify_update_plate_thumbnail(wxCommandEvent& event)
 {
@@ -10580,6 +10618,7 @@ int Plater::new_project(bool skip_confirm, bool silent, const wxString& project_
     get_notification_manager()->close_notification_of_type(NotificationType::SlicingError);
     get_notification_manager()->close_notification_of_type(NotificationType::SlicingSeriousWarning);
     get_notification_manager()->close_notification_of_type(NotificationType::SlicingWarning);
+    get_notification_manager()->close_notification_of_type(NotificationType::ExportFinished);
     get_notification_manager()->clear_all_plate_critical_slicing_notification();
 
     if (!silent)
@@ -10824,9 +10863,20 @@ int Plater::save_project(bool saveAs, FileType ft, En3mfType type_3mf)
     reset_project_dirty_after_save();
     // MessageDialog(this, _L("Succeeded to save the project."), _L("Save project"), wxOK).ShowModal();
 
-    MessageDialog msg(this, _L("Saved successfully. Open Local Folder"), _L("Information"), wxYES_NO | wxYES_DEFAULT);
-    if (msg.ShowModal() == wxID_YES) {
-        wxLaunchDefaultApplication(from_u8(into_path(filename).parent_path().string()));
+    //MessageDialog msg(this, _L("Saved successfully. Open Local Folder"), _L("Information"), wxYES_NO | wxYES_DEFAULT);
+    //if (msg.ShowModal() == wxID_YES) {
+    //    wxLaunchDefaultApplication(from_u8(into_path(filename).parent_path().string()));
+    //}
+
+    fs::path output_path = into_path(filename);
+    if (!output_path.empty()) {
+        p->last_output_path                            = output_path.string();
+        p->last_output_dir_path                        = output_path.parent_path().string();
+        RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
+        bool                   on_removable            = removable_drive_manager.is_path_on_removable_drive(p->last_output_dir_path);
+        wxGetApp().app_config->update_last_output_dir(output_path.parent_path().string(), false);
+        p->notification_manager->push_exporting_finished_notification(output_path.string(), p->last_output_dir_path, on_removable);
+        wxGetApp().plater()->get_view3D_canvas3D()->render();
     }
 
     try {
@@ -10896,9 +10946,19 @@ int Plater::save_project_nogcode(bool saveAs, FileType ft, En3mfType type_3mf)
     reset_project_dirty_after_save();
     // MessageDialog(this, _L("Succeeded to save the project."), _L("Save project"), wxOK).ShowModal();
 
-    MessageDialog msg(this, _L("Saved successfully. Open Local Folder"), _L("Information"), wxYES_NO | wxYES_DEFAULT);
-    if (msg.ShowModal() == wxID_YES) {
-        wxLaunchDefaultApplication(from_u8(into_path(filename).parent_path().string()));
+    //MessageDialog msg(this, _L("Saved successfully. Open Local Folder"), _L("Information"), wxYES_NO | wxYES_DEFAULT);
+    //if (msg.ShowModal() == wxID_YES) {
+    //    wxLaunchDefaultApplication(from_u8(into_path(filename).parent_path().string()));
+    //}
+
+    fs::path output_path = into_path(filename);
+    if (!output_path.empty()) {
+        p->last_output_path                            = output_path.string();
+        p->last_output_dir_path                        = output_path.parent_path().string();
+        RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
+        bool                   on_removable            = removable_drive_manager.is_path_on_removable_drive(p->last_output_dir_path);
+        wxGetApp().app_config->update_last_output_dir(output_path.parent_path().string(), false);
+        p->notification_manager->push_exporting_finished_notification(output_path.string(), p->last_output_dir_path, on_removable);
     }
 
     try {
@@ -11092,34 +11152,42 @@ void Plater::import_model_id(wxString download_info)
                     }
                 })
                 .on_complete([&cont, &download_ok, tmp_path, &target_path, extension](std::string body, unsigned /* http_status */) {
-                    fs::fstream file(tmp_path, std::ios::out | std::ios::binary | std::ios::trunc);
-                    file.write(body.c_str(), body.size());
-                    file.close();
-                    if (extension.Contains(".gz")) {
-                        boost::filesystem::ifstream infile(boost::filesystem::path(tmp_path), std::ios_base::in | std::ios_base::binary);
-                        if (!file) {
-                            download_ok = true;
+                    try{
+                        fs::fstream file(tmp_path, std::ios::out | std::ios::binary | std::ios::trunc);
+                        file.write(body.c_str(), body.size());
+                        file.close();
+                        if (extension.Contains(".gz")) {
+                            boost::filesystem::ifstream infile(boost::filesystem::path(tmp_path), std::ios_base::in | std::ios_base::binary);
+                            if (!file) {
+                                download_ok = true;
+                                return;
+                            }
+
+                            boost::iostreams::filtering_streambuf<boost::iostreams::input> in;
+                            in.push(boost::iostreams::gzip_decompressor());
+                            in.push(infile);
+                            boost::filesystem::path stem = boost::filesystem::path(target_path).parent_path() /
+                                                        boost::filesystem::path(target_path).stem();
+                            boost::filesystem::ofstream out(stem, std::ios_base::out | std::ios_base::binary);
+                            if (!out) {
+                                download_ok = true;
+                                return;
+                            }
+
+                            boost::iostreams::copy(in, out);
+                        } else {
+
+                                fs::rename(tmp_path, target_path);
+                            
+                        }
+                        cont        = false;
+                        download_ok = true;
+                        boost::filesystem::remove(boost::filesystem::path(tmp_path));
+                    } catch (const std::exception& /*e*/) {
+                            cont        = false;
+                            download_ok = false;
                             return;
                         }
-
-                        boost::iostreams::filtering_streambuf<boost::iostreams::input> in;
-                        in.push(boost::iostreams::gzip_decompressor());
-                        in.push(infile);
-                        boost::filesystem::path stem = boost::filesystem::path(target_path).parent_path() /
-                                                       boost::filesystem::path(target_path).stem();
-                        boost::filesystem::ofstream out(stem, std::ios_base::out | std::ios_base::binary);
-                        if (!out) {
-                            download_ok = true;
-                            return;
-                        }
-
-                        boost::iostreams::copy(in, out);
-                    } else {
-                        fs::rename(tmp_path, target_path);
-                    }
-                    cont        = false;
-                    download_ok = true;
-                    boost::filesystem::remove(boost::filesystem::path(tmp_path));
                 })
                 .perform_sync();
 
@@ -14253,10 +14321,10 @@ void Plater::export_gcode(bool prefer_removable)
         // the external drives while the dialog was open.
         appconfig.update_last_output_dir(output_path.parent_path().string(), path_on_removable_media);
 
-        MessageDialog msg(this, _L("Saved successfully. Open Local Folder"), _L("Information"), wxYES_NO | wxYES_DEFAULT);
-        if (msg.ShowModal() == wxID_YES) {
-            wxLaunchDefaultApplication(from_u8(output_path.parent_path().string()));
-        }
+        //MessageDialog msg(this, _L("Saved successfully. Open Local Folder"), _L("Information"), wxYES_NO | wxYES_DEFAULT);
+        //if (msg.ShowModal() == wxID_YES) {
+        //    wxLaunchDefaultApplication(from_u8(output_path.parent_path().string()));
+        //}
         p->show_warning_dialog_popup_window = true;
 
         try
@@ -14306,6 +14374,19 @@ void Plater::upload_3mf(bool isall) { p->on_action_upload_3mf(isall); }
 
 void Plater::upload_gcode(bool isall) { p->on_action_upload_gcode(); }
 
+bool delete_file_name_redundant_suffix(fs::path& path, const std::wstring& suffix)
+{
+    auto temp_str = path.filename().wstring();
+    boost::ireplace_last(temp_str, suffix, "");
+    if (boost::icontains(temp_str, suffix)) {
+        boost::ireplace_all(temp_str, suffix, "");
+        std::wstring temp = L"/";
+        path              = (path.parent_path().wstring() + temp + temp_str + suffix);
+        return true;
+    }
+    return false;
+}
+
 // BBS export gcode 3mf to file
 void Plater::export_gcode_3mf(bool export_all)
 {
@@ -14336,10 +14417,10 @@ void Plater::export_gcode_3mf(bool export_all)
     }
 
     wxString wildcard;
-    wildcard = GUI::format_wxstr("%s|%s", file_wildcards(FT_ONLY_GCODE), file_wildcards(FT_3MF));
+    wildcard = GUI::format_wxstr("%s", file_wildcards(FT_ONLY_GCODE));
     if (export_all) {
-        wildcard = file_wildcards(FT_3MF);
-        default_output_file.replace_extension(".3mf");
+        wildcard = file_wildcards(FT_GCODE_3MF);
+        default_output_file.replace_extension(".gcode.3mf");
     }
     // default_output_file.replace_extension(".3mf");
 
@@ -14357,10 +14438,61 @@ void Plater::export_gcode_3mf(bool export_all)
         if (dlg.ShowModal() == wxID_OK) {
             output_path = into_path(dlg.GetPath());
             ext         = output_path.extension().string();
-            if ((ext != ".3mf") && (ext != ".gcode"))
-                output_path = output_path.string() + ".3mf";
+            if (!export_all && ext != ".gcode")
+                output_path = output_path.string() + ".gcode";
+            else if (export_all) {
+                //if (ext != ".3mf") {
+                //    output_path = output_path.string() + ".gcode.3mf";
+                //} else {
+                //    fs::path path2 = output_path;
+                //    path2.replace_extension("");
+                //    ext = path2.extension().string();
+                //    if (ext != ".gcode") {
+                //        output_path = output_path.string() + ".gcode.3mf";
+                //    }
+                //}
+                delete_file_name_redundant_suffix(output_path, L".gcode.3mf");
+                if (boost::iends_with(output_path.string(), ".gcode")) {
+                    std::wstring temp_path = output_path.wstring();
+                    temp_path              = temp_path.substr(0, temp_path.size() - 6);
+                    output_path            = temp_path + L".gcode.3mf";
+                } else if (boost::iends_with(output_path.string(), ".gcode.gcode.3mf")) { // for mac
+                    std::wstring temp_path = output_path.wstring();
+                    temp_path              = temp_path.substr(0, temp_path.size() - 16);
+                    output_path            = temp_path + L".gcode.3mf";
+                } else if (!boost::iends_with(output_path.string(), ".gcode.3mf")) {
+                    output_path = output_path.replace_extension(".gcode.3mf");
+                }
+            }
         }
     }
+
+    // wxString wildcard;
+    //wildcard = GUI::format_wxstr("%s|%s", file_wildcards(FT_ONLY_GCODE), file_wildcards(FT_3MF));
+    //if (export_all) {
+    //    wildcard = file_wildcards(FT_3MF);
+    //    default_output_file.replace_extension(".3mf");
+    //}
+    //// default_output_file.replace_extension(".3mf");
+
+    //default_output_file = fs::path(Slic3r::fold_utf8_to_ascii(default_output_file.string()));
+
+    //// Get a last save path
+    //start_dir = appconfig.get_last_output_dir(default_output_file.parent_path().string(), false);
+
+    //fs::path output_path;
+    //{
+    //    std::string  ext = default_output_file.extension().string();
+    //    wxFileDialog dlg(this, _L("Save Sliced file as:"), start_dir, from_path(default_output_file.filename()),
+    //                     /*GUI::file_wildcards(FT_3MF, ext),*/
+    //                     wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    //    if (dlg.ShowModal() == wxID_OK) {
+    //        output_path = into_path(dlg.GetPath());
+    //        ext         = output_path.extension().string();
+    //        if ((ext != ".3mf") && (ext != ".gcode"))
+    //            output_path = output_path.string() + ".3mf";
+    //    }
+    //}
 
     // wxString wildcard;
     // wildcard = GUI::format_wxstr("%s|%s", file_wildcards(FT_ONLY_GCODE), file_wildcards(FT_GCODE_3MF));
@@ -14483,6 +14615,7 @@ void Plater::export_gcode_3mf(bool export_all)
         string extension = output_path.extension().string();
         if (extension == ".gcode") {
             if (p->warnings_dialog(plate_idx)) {
+                p->show_warning_dialog_popup_window = false;
                 p->export_gcode(output_path, false);
                 p->show_warning_dialog_popup_window = false;
             } else {
@@ -14491,20 +14624,24 @@ void Plater::export_gcode_3mf(bool export_all)
         } else {
             export_3mf(output_path, SaveStrategy::Silence | SaveStrategy::SplitModel | SaveStrategy::WithGcode | SaveStrategy::SkipModel,
                        plate_idx); // BBS: silence
+            RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
+            bool on_removable = removable_drive_manager.is_path_on_removable_drive(p->last_output_dir_path);
+            appconfig.update_last_output_dir(output_path.parent_path().string(), false);
+            p->notification_manager->push_exporting_finished_notification(output_path.string(), p->last_output_dir_path, on_removable);
         }
 
-        RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
+        //RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
 
-        bool on_removable = removable_drive_manager.is_path_on_removable_drive(p->last_output_dir_path);
+        //bool on_removable = removable_drive_manager.is_path_on_removable_drive(p->last_output_dir_path);
 
-        // update last output dir
-        appconfig.update_last_output_dir(output_path.parent_path().string(), false);
+        //// update last output dir
+        //appconfig.update_last_output_dir(output_path.parent_path().string(), false);
         // p->notification_manager->push_exporting_finished_notification(output_path.string(), p->last_output_dir_path, on_removable);
-        MessageDialog msg(this, _L("Saved successfully. Open Local Folder"), _L("Information"), wxYES_NO | wxYES_DEFAULT);
-        if (msg.ShowModal() == wxID_YES) {
-            wxLaunchDefaultApplication(from_u8(output_path.parent_path().string()));
-        }
-        p->show_warning_dialog_popup_window = true;
+        //MessageDialog msg(this, _L("Saved successfully. Open Local Folder"), _L("Information"), wxYES_NO | wxYES_DEFAULT);
+        //if (msg.ShowModal() == wxID_YES) {
+        //    wxLaunchDefaultApplication(from_u8(output_path.parent_path().string()));
+        //}
+        //p->show_warning_dialog_popup_window = true;
 
         try
         {
@@ -14544,7 +14681,16 @@ void Plater::export_core_3mf()
     const std::string path_u8 = into_u8(path);
     int               ret     = export_3mf(path_u8, SaveStrategy::Silence);
     if (0 == ret) {
-        save_the_popup_successfully(path_u8);
+        //save_the_popup_successfully(path_u8);
+        fs::path output_path = path_u8;
+        if (!output_path.empty()) {
+            p->last_output_path                            = output_path.string();
+            p->last_output_dir_path                        = output_path.parent_path().string();
+            RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
+            bool                   on_removable            = removable_drive_manager.is_path_on_removable_drive(p->last_output_dir_path);
+            wxGetApp().app_config->update_last_output_dir(output_path.parent_path().string(), false);
+            p->notification_manager->push_exporting_finished_notification(output_path.string(), p->last_output_dir_path, on_removable);
+        }
         try
         {
             if(wxGetApp().is_privacy_checked()) {
@@ -14657,7 +14803,7 @@ void Plater::save_the_popup_successfully(const string& strPath)
 }
 
 // BBS export with/without boolean, however, stil merge mesh
-#define EXPORT_WITH_BOOLEAN 1
+#define EXPORT_WITH_BOOLEAN 0
 void Plater::export_stl(bool extended, bool selection_only, bool multi_stls)
 {
     if (p->model.objects.empty()) {
@@ -14875,12 +15021,30 @@ void Plater::export_stl(bool extended, bool selection_only, bool multi_stls)
             Slic3r::store_stl(get_save_file(path_u8, o->name).c_str(), &mesh, true);
         }
 
-        save_the_popup_successfully(path_u8);
+        //save_the_popup_successfully(path_u8);
+        fs::path output_path = path_u8;
+        if (!output_path.empty()) {
+            p->last_output_path                            = output_path.string();
+            p->last_output_dir_path                        = output_path.parent_path().string();
+            RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
+            bool                   on_removable            = removable_drive_manager.is_path_on_removable_drive(p->last_output_dir_path);
+            wxGetApp().app_config->update_last_output_dir(output_path.parent_path().string(), false);
+            p->notification_manager->push_exporting_finished_notification(output_path.string(), p->last_output_dir_path, on_removable);
+        }
         return;
     }
 
     Slic3r::store_stl(path_u8.c_str(), &mesh, true);
-    save_the_popup_successfully(path_u8);
+    //save_the_popup_successfully(path_u8);
+    fs::path output_path = path_u8;
+    if (!output_path.empty()) {
+        p->last_output_path                            = output_path.string();
+        p->last_output_dir_path                        = output_path.parent_path().string();
+        RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
+        bool                   on_removable            = removable_drive_manager.is_path_on_removable_drive(p->last_output_dir_path);
+        wxGetApp().app_config->update_last_output_dir(output_path.parent_path().string(), false);
+        p->notification_manager->push_exporting_finished_notification(output_path.string(), p->last_output_dir_path, on_removable);
+    }
 }
 
 // BBS: remove amf export
@@ -15475,7 +15639,7 @@ int Plater::start_next_slice()
         this->p->view3D->reload_scene(false);
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": update_background_process returns %1%") % state;
-    if (!p->partplate_list.get_curr_plate()->can_slice()) {
+    if (!p->partplate_list.get_curr_plate()->can_slice() && !m_only_gcode) {
         p->process_completed_with_error = p->partplate_list.get_curr_plate_index();
         BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << boost::format(": found invalidated apply in update_background_process.");
         return -1;
@@ -17189,6 +17353,7 @@ void Plater::show_object_info()
         t   = model_object->instances[inst_idx]->get_matrix() * vol->get_matrix();
         info_text += (boost::format(_utf8(L("Part name: %1%\n"))) % vol->name).str();
         face_count = static_cast<int>(vol->mesh().facets_count());
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << boost::format(": vol->mesh().facets_count() = %1%") % face_count;
         size       = vol->get_convex_hull().transformed_bounding_box(t).size();
     } else {
         // int obj_idx, vol_idx;
@@ -17199,6 +17364,7 @@ void Plater::show_object_info()
         // }
         info_text += (boost::format(_utf8(L("Object name: %1%\n"))) % model_object->name).str();
         face_count = static_cast<int>(model_object->facets_count());
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << boost::format(": model_object->facets_count() = %1%") % face_count;
         size       = model_object->instance_convex_hull_bounding_box(inst_idx).size();
     }
 

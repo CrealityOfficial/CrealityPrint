@@ -654,12 +654,19 @@ std::shared_ptr<HttpServer::Response> HttpServer::creality_handle_request(const 
                                     c.open(user_file.string(), std::ios::out | std::ios::trunc);
                                     c << std::setw(4) << r << std::endl;
                                     c.close();
-                                        GUI::wxGetApp().CallAfter([=] { wxGetApp().reload_homepage(); });
+                                    UserInfo user;
+                                    user.token = data_node["token"];
+                                    user.nickName = data_node["user_info"]["nickName"];
+                                    user.avatar = data_node["user_info"]["avatar"];
+                                    user.userId = data_node["userId"];
+                                    GUI::wxGetApp().CallAfter([user]() { wxGetApp().post_login_status_cmd(true, user); });
                                 }else{
+                                    GUI::wxGetApp().CallAfter([]() { wxGetApp().post_login_status_cmd(false, {}); });
                                     location_str = (boost::format("%1%?result=fail&code=%2%") % result_url % code).str();
                                 }
                             }catch(std::exception& e)
                             {
+                                GUI::wxGetApp().CallAfter([]() { wxGetApp().post_login_status_cmd(false, {}); });
                                 location_str = (boost::format("%1%?result=fail") % result_url).str();
                                 return false;
                             }

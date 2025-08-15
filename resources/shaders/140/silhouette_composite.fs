@@ -18,7 +18,7 @@ void main()
     float deltaWidth = 1.0 / u_viewport_size_alpha.x;
     float deltaHeight = 1.0 / u_viewport_size_alpha.y;
     float alpha = u_viewport_size_alpha.z;
-    float effect_width = 2.0;
+    float effect_width = 1.0; // This is the width of the effect, can be adjusted as needed
     deltaWidth = deltaWidth * effect_width;
     deltaHeight = deltaHeight * effect_width;
 

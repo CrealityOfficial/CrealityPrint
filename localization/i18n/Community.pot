@@ -1,1145 +1,1228 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: \n"
-"POT-Creation-Date: \n"
-"PO-Revision-Date: \n"
-"Last-Translator: \n"
-"Language-Team: \n"
-"Language: en\n"
-"MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 3.5\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Submit"
-msgstr "Submit"
+msgstr ""
 
 msgid "The file cannot be larger than 0.5M, please choose another SVG"
-msgstr "The file cannot be larger than 0.5M, please choose another SVG"
+msgstr ""
 
 msgid "Export 3mf"
-msgstr "Export 3mf"
+msgstr ""
 
 msgid "Export stl"
-msgstr "Export stl"
+msgstr ""
 
 msgid "project saved"
-msgstr "project saved"
+msgstr ""
 
 msgid "signage work"
-msgstr "signage work"
+msgstr ""
 
 msgid "Corner Radius"
-msgstr "Corner Radius"
+msgstr ""
 
 msgid "Select"
-msgstr "Select"
+msgstr ""
 
 msgid "Pan"
-msgstr "Pan"
+msgstr ""
 
 msgid "Copy(ctr+c)"
-msgstr "Copy(ctr+c)"
+msgstr ""
 
 msgid "Paste(ctr+v)"
-msgstr "Paste(ctr+v)"
+msgstr ""
 
 msgid "Undo(ctr+z)"
-msgstr "Undo(ctr+z)"
+msgstr ""
 
 msgid "Redo(ctr+shift+z)"
-msgstr "Redo(ctr+shift+z)"
+msgstr ""
 
 msgid "Delete(Del)"
-msgstr "Delete(Del)"
+msgstr ""
 
 msgid "Reached the limit of 30 works per person"
-msgstr "Reached the limit of 30 works per person"
+msgstr ""
 
 msgid "Comming Soon"
-msgstr "Comming Soon"
+msgstr ""
 
 msgid "Current Device"
-msgstr "Current Device"
+msgstr ""
 
 msgid "Recently Printed Files"
-msgstr "Recently Printed Files"
+msgstr ""
 
 msgid "My Devices"
-msgstr "My Devices"
+msgstr ""
 
 msgid "Type"
-msgstr "Type"
+msgstr ""
 
 msgid "Device Name"
-msgstr "Device Name"
+msgstr ""
 
 msgid "Idle"
-msgstr "Idle"
+msgstr ""
 
 msgid "Printing"
-msgstr "Printing"
+msgstr ""
 
 msgid "Complete"
-msgstr "Complete"
+msgstr ""
 
 msgid "Print complete"
-msgstr "Print complete"
+msgstr ""
 
 msgid "Printing failed"
-msgstr "Printing failed"
+msgstr ""
 
 msgid "Print termination"
-msgstr "Print termination"
+msgstr ""
 
 msgid "Printing paused"
-msgstr "Printing paused"
+msgstr ""
 
 msgid "Pause in progress"
-msgstr "Pause in progress"
+msgstr ""
 
 msgid "STOPPING"
-msgstr "STOPPING"
+msgstr ""
 
 msgid "In recovery"
-msgstr "In recovery"
+msgstr ""
 
 msgid "Executing print termination command"
-msgstr "Executing print termination command"
+msgstr ""
 
 msgid "Executing pause printing command"
-msgstr "Executing pause printing command"
+msgstr ""
 
 msgid "Executing the command to continue printing"
-msgstr "Executing the command to continue printing"
+msgstr ""
 
 msgid "Off Line"
-msgstr "Off Line"
+msgstr ""
 
 msgid "Printing File"
-msgstr "Printing File"
+msgstr ""
 
 msgid "Printing Progress"
-msgstr "Printing Progress"
+msgstr ""
 
 msgid "Layer Height"
-msgstr "Layer Height"
+msgstr ""
 
 msgid "Consumables Length"
-msgstr "Filament Length"
+msgstr ""
 
 msgid "Sync Consumables"
-msgstr "Sync Filament"
+msgstr ""
 
 msgid "Time required"
-msgstr "Time required"
+msgstr ""
 
 msgid "Material Rack"
-msgstr "Material Rack"
+msgstr ""
 
 msgid "Connection method"
-msgstr "Connection method"
+msgstr ""
 
 msgid "No shelf data available"
-msgstr "No shelf data available"
+msgstr ""
 
 msgid ""
-"The number of printer presets cached in the cloud has reached the upper limit "
-"(20). Newly created user presets will not be synchronized to the cloud."
+"The number of printer presets cached in the cloud has reached the upper "
+"limit (20). Newly created user presets will not be synchronized to the "
+"cloud."
 msgstr ""
-"The number of printer presets cached in the cloud has reached the upper limit "
-"(20). Newly created user presets will not be synchronized to the cloud."
 
 msgid ""
-"The presets have not been synced to Creality Cloud yet. Click here to enable it."
+"The presets have not been synced to Creality Cloud yet. Click here to "
+"enable it."
 msgstr ""
-"The presets have not been synced to Creality Cloud yet. Click here to enable it."
 
 msgid "Please Input"
-msgstr "Please Input"
+msgstr ""
 
 msgid "Consumables"
-msgstr "Filament"
+msgstr ""
 
 msgid "Technology"
-msgstr "Technology"
+msgstr ""
 
 msgid "Printer"
-msgstr "Printer"
+msgstr ""
 
 msgid "Parameter Name"
-msgstr "Parameter Name"
+msgstr ""
 
 msgid "Update Time"
-msgstr "Update Time"
+msgstr ""
 
 msgid "Modifications"
-msgstr "Modifications"
+msgstr ""
 
 msgid "Operation"
-msgstr "Operation"
+msgstr ""
 
 msgid "There are currently no presets synced to Creality Cloud~"
-msgstr "There are currently no presets synced to Creality Cloud~"
+msgstr ""
 
 msgid "Are you sure delete this preset?"
-msgstr "Are you sure delete this preset?"
+msgstr ""
 
 msgid "No"
-msgstr "No"
+msgstr ""
 
 msgid "Yes"
-msgstr "Yes"
+msgstr ""
 
 msgid "The current search results are empty~"
-msgstr "The current search results are empty~"
+msgstr ""
 
 msgid "You haven't added a device yet"
-msgstr "You haven't added a device yet"
+msgstr ""
 
 msgid "The current account is not associated with any devices"
-msgstr "The current account is not associated with any devices"
+msgstr ""
 
 msgid "Please follow the instructions below to add a new device"
-msgstr "Please follow the instructions below to add a new device"
+msgstr ""
 
 msgid "Mode One"
-msgstr "Mode One"
+msgstr ""
 
 msgid "Mode Two"
-msgstr "Mode Two"
+msgstr ""
 
 msgid "Scan the QR code below"
-msgstr "Scan the QR code below"
+msgstr ""
 
 msgid "Add new device"
-msgstr "Add new device"
+msgstr ""
 
 msgid "If you have already downloaded it"
-msgstr "If you have already downloaded it"
+msgstr ""
 
 msgid "Download Creality Cloud App"
-msgstr "Download Creality Cloud App"
+msgstr ""
 
 msgid "Open the Creality Cloud App"
-msgstr "Open the Creality Cloud App"
+msgstr ""
 
 msgid "Click on the status bar"
-msgstr "Click on the status bar"
+msgstr ""
 
 msgid "Multiple devices"
-msgstr "Multiple devices"
+msgstr ""
 
 msgid "Through the multi device list interface"
-msgstr "Through the multi device list interface"
+msgstr ""
 
 msgid "Scan and Add"
-msgstr "Scan and Add"
+msgstr ""
 
 msgid "OR"
-msgstr "OR"
+msgstr ""
 
 msgid "Manually Add"
-msgstr "Manually Add"
+msgstr ""
 
 msgid "Add a new device and click"
-msgstr "Add a new device and click"
+msgstr ""
 
 msgid "Associate my device"
-msgstr "Associate my device"
+msgstr ""
 
 msgid "Add to your account"
-msgstr "Add to your account"
+msgstr ""
 
 msgid "Default Grouping"
-msgstr "Default Grouping"
+msgstr ""
 
 msgid "Equipment Model"
-msgstr "Equipment Model"
+msgstr ""
 
 msgid "Equipment Name"
-msgstr "Equipment Name"
+msgstr ""
 
 msgid "IP Address"
-msgstr "IP Address"
+msgstr ""
 
 msgid "Equipment Status"
-msgstr "Equipment Status"
+msgstr ""
 
 msgid "Print Document"
-msgstr "Print Document"
+msgstr ""
 
 msgid "Printing Speed"
-msgstr "Printing Speed"
+msgstr ""
 
 msgid "Action"
-msgstr "Action"
+msgstr ""
 
 msgid "Prepare"
-msgstr "Prepare"
+msgstr ""
 
 msgid "Preview"
-msgstr "Preview"
+msgstr ""
 
 msgid "Genshin Impact Kerry"
-msgstr "Genshin Impact Kerry"
+msgstr ""
 
 msgid "CFS data temporarily unavailable"
-msgstr "CFS data temporarily unavailable"
+msgstr ""
 
 msgid "Success"
-msgstr "Success"
+msgstr ""
 
 msgid "Time"
-msgstr "Time"
+msgstr ""
 
 msgid "Lan"
-msgstr "Lan"
+msgstr ""
 
 msgid "Wan"
-msgstr "Wan"
+msgstr ""
 
 msgid "Last Sync"
-msgstr "Last Sync"
+msgstr ""
 
 msgid "Connected"
-msgstr "Connected"
+msgstr ""
 
 msgid "Not connected"
-msgstr "Not connected"
+msgstr ""
 
 msgid "Rack"
-msgstr "Rack"
+msgstr ""
 
 msgid "Refresh"
-msgstr "Refresh"
+msgstr ""
 
 msgid "Please first"
-msgstr "Please first"
+msgstr ""
 
 msgid "Internet unavailable, please try reconnecting!"
-msgstr "Internet unavailable, please try reconnecting!"
+msgstr ""
 
 msgid "obtain account binding device"
-msgstr "obtain account binding device"
+msgstr ""
 
 msgid "New Project"
-msgstr "New Project"
+msgstr ""
 
 msgid "Open Project"
-msgstr "Open Project"
+msgstr ""
 
 msgid "Home Page"
-msgstr "Home Page"
+msgstr ""
 
 msgid "Workbench"
-msgstr "Workbench"
+msgstr ""
 
 msgid "Online Resource"
-msgstr "Online Resource"
+msgstr ""
 
 msgid "Online Models"
-msgstr "Online Models"
+msgstr ""
 
 msgid "Online Params"
-msgstr "Online Params"
+msgstr ""
 
 msgid "Modeling Tools"
-msgstr "Modeling Tools"
+msgstr ""
 
 msgid "Guide Forum"
-msgstr "Guide Forum"
+msgstr ""
 
 msgid "Personal Center"
-msgstr "Personal Center"
+msgstr ""
 
 msgid "My Models"
-msgstr "My Models"
+msgstr ""
 
 msgid "My Presets"
-msgstr "My Presets"
+msgstr ""
 
 msgid "My Downloads"
-msgstr "My Downloads"
+msgstr ""
 
 msgid "Recently opened"
-msgstr "Recently opened"
+msgstr ""
 
 msgid "More"
-msgstr "More"
+msgstr ""
 
 msgid "Login"
-msgstr "Login"
+msgstr ""
 
 msgid "Logout"
-msgstr "Logout"
+msgstr ""
 
 msgid "Register"
-msgstr "Register"
+msgstr ""
 
 msgid "Mobile Login"
-msgstr "Mobile Login"
+msgstr ""
 
 msgid "Email Login"
-msgstr "Email Login"
+msgstr ""
 
 msgid "Password Login"
-msgstr "Password Login"
+msgstr ""
 
 msgid "scan code to login"
-msgstr "scan code to login"
+msgstr ""
 
 msgid "Have no account?"
-msgstr "Have no account?"
+msgstr ""
 
 msgid "Please click"
-msgstr "Please click"
+msgstr ""
 
 msgid "Verification Code Login"
-msgstr "Verification Code Login"
+msgstr ""
 
 msgid "Forgot password?"
-msgstr "Forgot password?"
+msgstr ""
 
 msgid "Other login methods"
-msgstr "Other login methods"
+msgstr ""
 
 msgid "Open the Creality Cloud App - Personal Center Scan"
-msgstr "Open the Creality Cloud App - Personal Center Scan"
+msgstr ""
 
 msgid "You are currently on the"
-msgstr "You are currently on the"
+msgstr ""
 
 msgid "Chinese website (+86),"
-msgstr "Chinese website (+86),"
+msgstr ""
 
 msgid "please use"
-msgstr "please use"
+msgstr ""
 
 msgid "Chinese version App"
-msgstr "Chinese version App"
+msgstr ""
 
 msgid "scan then login"
-msgstr "scan then login"
+msgstr ""
 
 msgid "Register Now"
-msgstr "Register Now"
+msgstr ""
 
 msgid "Input Phone Number"
-msgstr "Input Phone Number"
+msgstr ""
 
 msgid "Mobile Register"
-msgstr "Mobile Register"
+msgstr ""
 
 msgid "Email Register"
-msgstr "Email Register"
+msgstr ""
 
 msgid "Already have account?"
-msgstr "Already have account?"
+msgstr ""
 
 msgid "Input Verification Code"
-msgstr "Input Verification Code"
+msgstr ""
 
 msgid "Send Verification Code"
-msgstr "Send Verification Code"
+msgstr ""
 
 msgid "6-18 characters"
-msgstr "6-18 characters"
+msgstr ""
 
 msgid "I have read and agree"
-msgstr "I have read and agree"
+msgstr ""
 
 msgid "Creality Cloud User Registration Agreement"
-msgstr "Creality Cloud User Registration Agreement"
+msgstr ""
 
 msgid "And"
-msgstr "And"
+msgstr ""
 
 msgid "Privacy Policy"
-msgstr "Privacy Policy"
+msgstr ""
 
 msgid "Reset Password"
-msgstr "Reset Password"
+msgstr ""
 
 msgid "Email Password Retrieval"
-msgstr "Email Password Retrieval"
+msgstr ""
 
 msgid "Return To Login"
-msgstr "Return To Login"
+msgstr ""
 
 msgid "Cancel"
-msgstr "Cancel"
+msgstr ""
 
 msgid "Confirm"
-msgstr "Confirm"
+msgstr ""
 
 msgid "Tip"
-msgstr "Tip"
+msgstr ""
 
 msgid "Confirm to logout?"
-msgstr "Confirm to logout?"
+msgstr ""
 
 msgid "Model Details"
-msgstr "Model Details"
+msgstr ""
 
 msgid "Category"
-msgstr "Category"
+msgstr ""
 
 msgid "models total"
-msgstr "models total"
+msgstr ""
 
 msgid "Print Settings"
-msgstr "Print Settings"
+msgstr ""
 
 msgid "Files"
-msgstr "Files"
+msgstr ""
 
 msgid "No Print Settings"
-msgstr "No Print Settings"
+msgstr ""
 
 msgid "No Print Models"
-msgstr "No Print Models"
+msgstr ""
 
 msgid "Download All"
-msgstr "Download All"
+msgstr ""
 
 msgid "Download Then Load"
-msgstr "Download Then Load"
+msgstr ""
 
 msgid "Upload"
-msgstr "Upload"
+msgstr ""
 
 msgid "Recommend"
-msgstr "Recommend"
+msgstr ""
 
 msgid "VIP Free"
-msgstr "VIP Free"
+msgstr ""
 
 msgid "Exclusive"
-msgstr "Exclusive"
+msgstr ""
 
 msgid "Multi Color"
-msgstr "Multi Color"
+msgstr ""
 
 msgid "All"
-msgstr "All"
+msgstr ""
 
 msgid "Format"
-msgstr "Format"
+msgstr ""
 
 msgid "Price"
-msgstr "Price"
+msgstr ""
 
 msgid "Sort"
-msgstr "Sort"
+msgstr ""
 
 msgid "Free model"
-msgstr "Free model"
+msgstr ""
 
 msgid "Fee model"
-msgstr "Fee model"
+msgstr ""
 
 msgid "Comprehensive Trends"
-msgstr "Comprehensive Trends"
+msgstr ""
 
 msgid "Latest Upload"
-msgstr "Latest Upload"
+msgstr ""
 
 msgid "Browse"
-msgstr "Browse"
+msgstr ""
 
 msgid "Like"
-msgstr "Like"
+msgstr ""
 
 msgid "Favorites"
-msgstr "Favorites"
+msgstr ""
 
 msgid "Download"
-msgstr "Download"
+msgstr ""
 
 msgid "Purchase"
-msgstr "Purchase"
+msgstr ""
 
 msgid "History"
-msgstr "History"
+msgstr ""
 
 msgid "Clear History"
-msgstr "Clear History"
+msgstr ""
 
 msgid "Popular Search"
-msgstr "Popular Search"
+msgstr ""
 
 msgid "Models"
-msgstr "Models"
+msgstr ""
 
 msgid "Print Files"
-msgstr "Print Files"
+msgstr ""
 
 msgid "My Upload"
-msgstr "My Upload"
+msgstr ""
 
 msgid "My Like"
-msgstr "My Like"
+msgstr ""
 
 msgid "My Purchase"
-msgstr "My Purchase"
+msgstr ""
 
 msgid "My Favorites"
-msgstr "My Favorites"
+msgstr ""
 
 msgid "Creative Works"
-msgstr "Creative Works"
+msgstr ""
 
 msgid "Print Config"
-msgstr "Print Config"
+msgstr ""
 
 msgid "Main Page"
-msgstr "Main Page"
+msgstr ""
 
 msgid "Project List"
-msgstr "Project List"
+msgstr ""
 
 msgid "Project Editing"
-msgstr "Project Editing"
+msgstr ""
 
 msgid "Make My Sign"
-msgstr "Make My Sign"
+msgstr ""
 
 msgid "Name plate, badge, sign, anything flat"
-msgstr "Name plate, badge, sign, anything flat"
+msgstr ""
 
 msgid "Make My Sign Feedback Collection Form"
-msgstr "Make My Sign Feedback Collection Form"
+msgstr ""
 
 msgid "Details"
-msgstr "Details"
+msgstr ""
 
 msgid "Cloud Slicing"
-msgstr "Cloud Slicing"
+msgstr ""
 
 msgid "Start"
-msgstr "Start"
+msgstr ""
 
 msgid "Input Project Name"
-msgstr "Input Project Name"
+msgstr ""
 
 msgid "Name Can Not Be Empty"
-msgstr "Name Can Not Be Empty"
+msgstr ""
 
 msgid "Confirm To Delete?"
-msgstr "Confirm To Delete?"
+msgstr ""
 
 msgid "Last Modified Time"
-msgstr "Last Modified Time"
+msgstr ""
 
 msgid "Input New Name"
-msgstr "Input New Name"
+msgstr ""
 
 msgid "Load"
-msgstr "Load"
+msgstr ""
 
 msgid "Duplicate"
-msgstr "Duplicate"
+msgstr ""
 
 msgid "Rename"
-msgstr "Rename"
+msgstr ""
 
 msgid "Delete"
-msgstr "Delete"
+msgstr ""
 
 msgid "Confirm to delete?"
-msgstr "Confirm to delete?"
+msgstr ""
 
 msgid "Confirm to cancel favorite?"
-msgstr "Confirm to cancel favorite?"
+msgstr ""
 
 msgid "Confirm to cancel like?"
-msgstr "Confirm to cancel like?"
+msgstr ""
 
 msgid "Please Login First"
-msgstr "Please Login First"
+msgstr ""
 
 msgid "Verification code sent successfully"
-msgstr "Verification code sent successfully"
+msgstr ""
 
 msgid "Please agree the User Agreement and Privacy Policy"
-msgstr "Please agree the User Agreement and Privacy Policy"
+msgstr ""
 
 msgid "Please enter the correct email address"
-msgstr "Please enter the correct email address"
+msgstr ""
 
 msgid "Please enter a password that meets the requirements"
-msgstr "Please enter a password that meets the requirements"
+msgstr ""
 
 msgid "successfully"
-msgstr "successfully"
+msgstr ""
 
 msgid "Reset password successfully"
-msgstr "Reset password successfully"
+msgstr ""
 
 msgid "Saved successfully"
-msgstr "Saved successfully"
+msgstr ""
 
 msgid "Please enter email"
-msgstr "Please enter email"
+msgstr ""
 
 msgid "Please enter password"
-msgstr "Please enter password"
+msgstr ""
 
 msgid "Chinese Mainland"
-msgstr "Chinese Mainland"
+msgstr ""
 
 msgid "Click to refresh"
-msgstr "Click to refresh"
+msgstr ""
 
 msgid "The QR code has expired"
-msgstr "The QR code has expired"
+msgstr ""
 
 msgid "Please confirm login on your phone"
-msgstr "Please confirm login on your phone"
+msgstr ""
 
 msgid "Retrieve password by phone"
-msgstr "Retrieve password by phone"
+msgstr ""
 
 msgid "File Name"
-msgstr "File Name"
+msgstr ""
 
 msgid "Open Time"
-msgstr "Open Time"
+msgstr ""
 
 msgid "Remove"
-msgstr "Remove"
+msgstr ""
 
 msgid "Open Containing Folder"
-msgstr "Open Containing Folder"
+msgstr ""
 
 msgid "Print"
-msgstr "Print"
+msgstr ""
 
 msgid "Characters"
-msgstr "Characters"
+msgstr ""
 
 msgid "3D printer"
-msgstr "3D printer"
+msgstr ""
 
 msgid "Animals"
-msgstr "Animals"
+msgstr ""
 
 msgid "Nature&Plants"
-msgstr "Nature&Plants"
+msgstr ""
 
 msgid "Vehicle"
-msgstr "Vehicle"
+msgstr ""
 
 msgid "Biomedical"
-msgstr "Biomedical"
+msgstr ""
 
 msgid "Ships"
-msgstr "Ships"
+msgstr ""
 
 msgid "Aircraft/Plane"
-msgstr "Aircraft/Plane"
+msgstr ""
 
 msgid "Architecture"
-msgstr "Architecture"
+msgstr ""
 
 msgid "Entertainment/Toys"
-msgstr "Entertainment/Toys"
+msgstr ""
 
 msgid "Sculpture/Cultural Relics"
-msgstr "Sculpture/Cultural Relics"
+msgstr ""
 
 msgid "Mechanical Drawing"
-msgstr "Mechanical Drawing"
+msgstr ""
 
 msgid "Electronic appliances"
-msgstr "Electronic appliances"
+msgstr ""
 
 msgid "Daily Home Furnishings"
-msgstr "Daily Home Furnishings"
+msgstr ""
 
 msgid "Clothing and jewelry"
-msgstr "Clothing and jewelry"
+msgstr ""
 
 msgid "Sports"
-msgstr "Sports"
+msgstr ""
 
 msgid "Food"
-msgstr "Food"
+msgstr ""
 
 msgid "DIY"
-msgstr "DIY"
+msgstr ""
 
 msgid "Plate"
-msgstr "Plate"
+msgstr ""
 
 msgid "Tag"
-msgstr "Tag"
+msgstr ""
 
 msgid "Uploaded"
-msgstr "Uploaded"
+msgstr ""
 
 msgid "Purchase Now"
-msgstr "Purchase Now"
+msgstr ""
 
 msgid "You can’t collect your own models!"
-msgstr "You can’t collect your own models!"
+msgstr ""
 
 msgid "Knowledge Sharing (CC) License Agreement"
-msgstr "Knowledge Sharing (CC) License Agreement"
+msgstr ""
 
 msgid ""
-"Creality Cloud adopts the internationally recognized Copyright License 4.0 to "
-"protect the rights and interests of model owners. The models of Chuangxiang Cloud "
-"platform are shared by a large number of enthusiasts in the community. If you find "
-"any violations of relevant laws and infringement, please contact us in a timely "
-"manner. "
+"Creality Cloud adopts the internationally recognized Copyright License 4.0 "
+"to protect the rights and interests of model owners. The models of "
+"Chuangxiang Cloud platform are shared by a large number of enthusiasts in "
+"the community. If you find any violations of relevant laws and "
+"infringement, please contact us in a timely manner. "
 msgstr ""
-"Creality Cloud adopts the internationally recognized Copyright License 4.0 to "
-"protect the rights and interests of model owners. The models of Chuangxiang Cloud "
-"platform are shared by a large number of enthusiasts in the community. If you find "
-"any violations of relevant laws and infringement, please contact us in a timely "
-"manner. "
 
 msgid ""
-"Indicates that the original work is created by the creator, and users can freely "
-"use the creator's work"
+"Indicates that the original work is created by the creator, and users can "
+"freely use the creator's work"
 msgstr ""
-"Indicates that the original work is created by the creator, and users can freely "
-"use the creator's work"
 
 msgid ""
 "Indicate that the original work is the creator. If changes are made to the "
 "original work, the revised work must still indicate the original author"
 msgstr ""
-"Indicate that the original work is the creator. If changes are made to the "
-"original work, the revised work must still indicate the original author"
 
 msgid ""
-"Indicate that the original work is created by the creator, and users can freely "
-"use the creator's work (except for commercial purposes)"
+"Indicate that the original work is created by the creator, and users can "
+"freely use the creator's work (except for commercial purposes)"
 msgstr ""
-"Indicate that the original work is created by the creator, and users can freely "
-"use the creator's work (except for commercial purposes)"
 
 msgid ""
-"Indicate that the original work is created by the creator, and the user cannot "
-"change the work or use it for commercial purposes"
+"Indicate that the original work is created by the creator, and the user "
+"cannot change the work or use it for commercial purposes"
 msgstr ""
-"Indicate that the original work is created by the creator, and the user cannot "
-"change the work or use it for commercial purposes"
 
 msgid ""
-"Indicate that the original work is created by the creator and the user cannot "
-"change the work"
+"Indicate that the original work is created by the creator and the user "
+"cannot change the work"
 msgstr ""
-"Indicate that the original work is created by the creator and the user cannot "
-"change the work"
 
 msgid ""
-"Abandon copyright and publicly disclose that anyone can use my work at any time "
-"without permission"
+"Abandon copyright and publicly disclose that anyone can use my work at any "
+"time without permission"
 msgstr ""
-"Abandon copyright and publicly disclose that anyone can use my work at any time "
-"without permission"
 
 msgid ""
-"The 3D model files sold on Creality Cloud have standard licenses and are subject "
-"to certain restrictions upon purchase and download. In particular, these files "
-"cannot be used for any commercial purposes; they are for personal use only. They "
-"may not be shared, transmitted, distributed, modified, copied, or resold in the "
-"form of files or items, including 3D models or any parts of models"
+"The 3D model files sold on Creality Cloud have standard licenses and are "
+"subject to certain restrictions upon purchase and download. In particular, "
+"these files cannot be used for any commercial purposes; they are for "
+"personal use only. They may not be shared, transmitted, distributed, "
+"modified, copied, or resold in the form of files or items, including 3D "
+"models or any parts of models"
 msgstr ""
-"The 3D model files sold on Creality Cloud have standard licenses and are subject "
-"to certain restrictions upon purchase and download. In particular, these files "
-"cannot be used for any commercial purposes; they are for personal use only. They "
-"may not be shared, transmitted, distributed, modified, copied, or resold in the "
-"form of files or items, including 3D models or any parts of models"
 
 msgid "No Data"
-msgstr "No Data"
+msgstr ""
 
 msgid "No results were found for"
-msgstr "No results were found for"
+msgstr ""
 
 msgid "Select All"
-msgstr "Select All"
+msgstr ""
 
 msgid "Import"
-msgstr "Import"
+msgstr ""
 
 msgid "You haven't uploaded the model yet, go ahead and upload it~"
-msgstr "You haven't uploaded the model yet, go ahead and upload it~"
+msgstr ""
 
 msgid "You haven't liked the model yet, go ahead and like the model~"
-msgstr "You haven't liked the model yet, go ahead and like the model~"
+msgstr ""
 
 msgid "You haven't purchased the model yet, go ahead and buy the model~"
-msgstr "You haven't purchased the model yet, go ahead and buy the model~"
+msgstr ""
 
 msgid "You haven't collected the model yet, go collect the model~"
-msgstr "You haven't collected the model yet, go collect the model~"
-
-msgid "You haven't created a creative work yet, go ahead and create a creative work~"
 msgstr ""
-"You haven't created a creative work yet, go ahead and create a creative work~"
+
+msgid ""
+"You haven't created a creative work yet, go ahead and create a creative "
+"work~"
+msgstr ""
 
 msgid ""
 "You haven't uploaded the print configuration yet, go uploaded the print "
 "configuration~"
 msgstr ""
-"You haven't uploaded the print configuration yet, go uploaded the print "
-"configuration~"
 
 msgid "You haven't printed the model yet, go ahead and print it~"
-msgstr "You haven't printed the model yet, go ahead and print it~"
+msgstr ""
 
 msgid "You haven't uploaded the print file yet, go ahead and upload the print file~"
-msgstr "You haven't uploaded the print file yet, go ahead and upload the print file~"
+msgstr ""
 
 msgid "You haven't download the model yet, go ahead and download it~"
-msgstr "You haven't download the model yet, go ahead and download it~"
+msgstr ""
 
 msgid ""
 "You haven't download the print configuration yet, go download the print "
 "configuration~"
 msgstr ""
-"You haven't download the print configuration yet, go download the print "
-"configuration~"
 
 msgid "Approving..."
-msgstr "Approving..."
+msgstr ""
 
 msgid "Approved"
-msgstr "Approved"
+msgstr ""
 
 msgid "Rejected"
-msgstr "Rejected"
+msgstr ""
 
 msgid "Removed"
-msgstr "Removed"
+msgstr ""
 
 msgid "Purchased At"
-msgstr "Purchased At"
+msgstr ""
 
 msgid "off"
-msgstr "off"
+msgstr ""
 
 msgid "Start downloading. Please go to \"Personal Center-My Downloads\" to view."
-msgstr "Start downloading. Please go to \"Personal Center-My Downloads\" to view."
+msgstr ""
 
 msgid "System Preset Parameters"
-msgstr "System Preset Parameters"
+msgstr ""
 
 msgid "Current Version"
-msgstr "Current Version"
+msgstr ""
 
 msgid "Latest Version"
-msgstr "Latest Version"
+msgstr ""
 
 msgid "Description"
-msgstr "Description"
+msgstr ""
 
 msgid "Update"
-msgstr "Update"
-
-msgid "Ender Series"
-msgstr "Ender Series"
-
-msgid "CR Series"
-msgstr "CR Series"
+msgstr ""
 
 msgid "Start updating, please wait a moment"
-msgstr "Start updating, please wait a moment"
+msgstr ""
 
 msgid "Text"
-msgstr "Text"
+msgstr ""
 
 msgid "Shape"
-msgstr "Shape"
+msgstr ""
 
 msgid "Emoji"
-msgstr "Emoji"
+msgstr ""
 
 msgid "SVG"
-msgstr "SVG"
+msgstr ""
 
 msgid "Holes"
-msgstr "Holes"
+msgstr ""
 
 msgid "Thickness"
-msgstr "Thickness"
+msgstr ""
 
 msgid "3D View"
-msgstr "3D View"
+msgstr ""
 
 msgid "Base Plate & Border"
-msgstr "Base Plate & Border"
+msgstr ""
 
 msgid "Uniform Scale"
-msgstr "Uniform Scale"
+msgstr ""
 
 msgid "Width"
-msgstr "Width"
+msgstr ""
 
 msgid "Height"
-msgstr "Height"
+msgstr ""
 
 msgid "Position"
-msgstr "Position"
+msgstr ""
 
 msgid "Rotation"
-msgstr "Rotation"
+msgstr ""
 
 msgid "Fill"
-msgstr "Fill"
+msgstr ""
 
 msgid "Content"
-msgstr "Content"
+msgstr ""
 
 msgid "FontFamily"
-msgstr "FontFamily"
+msgstr ""
 
 msgid "FontSize"
-msgstr "FontSize"
+msgstr ""
 
 msgid "Size"
-msgstr "Size"
+msgstr ""
 
 msgid "Wiki Tutorial"
-msgstr "Wiki Tutorial"
+msgstr ""
 
 msgid "Slice parameter setting guide"
-msgstr "Slice parameter setting guide"
+msgstr ""
 
 msgid "Calibration Guide"
-msgstr "Calibration Guide"
+msgstr ""
 
 msgid "Quick Start Guide"
-msgstr "Quick Start Guide"
+msgstr ""
 
 msgid "Multi color Printing Guide"
-msgstr "Multi color Printing Guide"
+msgstr ""
 
 msgid "6.0 Update Description"
-msgstr "6.0 Update Description"
+msgstr ""
 
 msgid ""
-"Introduce the basic usage of Creality Print and guide users to complete the first "
-"printing task."
+"Introduce the basic usage of Creality Print and guide users to complete the "
+"first printing task."
 msgstr ""
-"Introduce the basic usage of Creality Print and guide users to complete the first "
-"printing task."
 
 msgid ""
-"After obtaining a multi-color printer, use Creality Print for the first color "
-"printing."
+"After obtaining a multi-color printer, use Creality Print for the first "
+"color printing."
 msgstr ""
-"After obtaining a multi-color printer, use Creality Print for the first color "
-"printing."
 
 msgid ""
-"Briefly introduce the parameter settings for Creality Print slicing, including the "
-"selection of preset parameters, parameter settings, and saving, to help you better "
-"complete 3D printing."
+"Briefly introduce the parameter settings for Creality Print slicing, "
+"including the selection of preset parameters, parameter settings, and "
+"saving, to help you better complete 3D printing."
 msgstr ""
-"Briefly introduce the parameter settings for Creality Print slicing, including the "
-"selection of preset parameters, parameter settings, and saving, to help you better "
-"complete 3D printing."
 
 msgid "By adjusting various parameters to achieve the best printing effect."
-msgstr "By adjusting various parameters to achieve the best printing effect."
+msgstr ""
 
 msgid ""
-"Creality Print 6.0 has been upgraded to provide you with a better user experience."
+"Creality Print 6.0 has been upgraded to provide you with a better user "
+"experience."
 msgstr ""
-"Creality Print 6.0 has been upgraded to provide you with a better user experience."
 
 msgid ""
-"You can select one as the current device on the 'My Devices' or 'Multiple Devices' "
-"pages"
+"You can select one as the current device on the 'My Devices' or 'Multiple "
+"Devices' pages"
 msgstr ""
-"You can select one as the current device on the 'My Devices' or 'Multiple Devices' "
-"pages"
 
 msgid "System"
-msgstr "System"
+msgstr ""
 
 msgid "User"
-msgstr "User"
+msgstr ""
 
 msgid "Diameter"
-msgstr "Diameter"
+msgstr ""
 
 msgid "Vender"
-msgstr "Vender"
+msgstr ""
 
 msgid "Model"
-msgstr "Model"
+msgstr ""
 
 msgid "Configuration Name"
-msgstr "Configuration Name"
+msgstr ""
 
 msgid "Firmware Type"
-msgstr "Firmware Type"
+msgstr ""
 
 msgid "Search Results"
-msgstr "Search Results"
+msgstr ""
 
 msgid "The model you want is not found. Please search again."
-msgstr "The model you want is not found. Please search again."
+msgstr ""
 
 msgid "System Filaments"
-msgstr "System Filaments"
+msgstr ""
 
 msgid "Custom Filaments"
-msgstr "Custom Filaments"
+msgstr ""
 
 msgid "Material Type"
-msgstr "Material Type"
+msgstr ""
 
 msgid "Brand Supplier"
-msgstr "Brand Supplier"
+msgstr ""
 
 msgid "Error"
-msgstr "Error"
+msgstr ""
 
 msgid "At least one material must be selected."
-msgstr "At least one material must be selected."
+msgstr ""
 
 msgid "Do you want to use the default material list?"
-msgstr "Do you want to use the default material list?"
+msgstr ""
 
 msgid "Create New"
-msgstr "Create New"
+msgstr ""
 
 msgid "AI Modeling"
-msgstr "AI Modeling"
+msgstr ""
 
 msgid "Vast"
-msgstr "Vast"
+msgstr ""
 
 msgid "Deemos"
-msgstr "Deemos"
+msgstr ""
 
 msgid "Record"
-msgstr "Record"
+msgstr ""
 
 msgid "Filament Type"
-msgstr "Filament Type"
+msgstr ""
 
 msgid "At least one filament must be selected."
-msgstr "At least one filament must be selected."
+msgstr ""
 
 msgid "Do you want to use default filament?"
-msgstr "Do you want to use default filament?"
+msgstr ""
 
 msgid "Add New Filament"
-msgstr "Add New Filament"
+msgstr ""
 
 msgid "Please select at least one printer."
-msgstr "Please select at least one printer."
+msgstr ""
 
 msgid "The filament you want is not found"
-msgstr "The filament you want is not found"
+msgstr ""
+
+msgid "Model not downloaded, click to download the model"
+msgstr ""
+
+msgid "Download the model"
+msgstr ""
+
+msgid "Tips"
+msgstr ""
+
+msgid "Your login status has expired, please login again!"
+msgstr ""
+
+msgid ""
+"Note: Different accounts have different user presets (printers, filament, "
+"processes), device lists, personal centers and other data. Please select "
+"the account you need to login."
+msgstr ""
+
+msgid "Do you want to sync your user presets from Creality Cloud?"
+msgstr ""
+
+msgid "Contains the following information"
+msgstr ""
+
+msgid "Printer User Presets"
+msgstr ""
+
+msgid "Filament User Settings"
+msgstr ""
+
+msgid "Process User Presets"
+msgstr ""
+
+msgid "Welcome to Creality Print"
+msgstr ""
+
+msgid "Add printers and manage print jobs from the cloud"
+msgstr ""
+
+msgid "Connect Printer via LAN"
+msgstr ""
+
+msgid "Skip Printer Connection for Now"
+msgstr ""
+
+msgid "Scan Devices"
+msgstr ""
+
+msgid "Creality Printer"
+msgstr ""
+
+msgid "How to check IP address?"
+msgstr ""
+
+msgid "Scanning..."
+msgstr ""
+
+msgid "Confirm Add"
+msgstr ""
+
+msgid "Please enter an integer between 0 and 255"
+msgstr ""
+
+msgid "Added successfully"
+msgstr ""
+
+msgid "Scanning device failed, please check if the IP address is correct"
+msgstr ""
+
+msgid "Add devices"
+msgstr ""
+
+msgid "Added"
+msgstr ""
+
+msgid "Not added"
+msgstr ""
+
+msgid "Total number of devices"
+msgstr ""
+
+msgid "Scan again"
+msgstr ""
+
+msgid "Connect via IP"
+msgstr ""
+
+msgid "Add"
+msgstr ""
+
+msgid "Add Status"
+msgstr ""
+
+msgid "Login expired, please log out and log in again"
+msgstr ""
+
+msgid "Speed"
+msgstr ""
+
+msgid "Failed to add the printer"
+msgstr ""
+
+msgid "Update All"
+msgstr ""
+
+msgid "Flagship Series"
+msgstr ""
+
+msgid "Hi Series"
+msgstr ""
+
+msgid "CR Series"
+msgstr ""
+
+msgid "Ender Series"
+msgstr ""
+
+msgid "Sermoon Series"
+msgstr ""
+
+msgid "Sonic Pad"
+msgstr ""
+
+msgid "HALOT Series"
+msgstr ""
+
+msgid "Others"
+msgstr ""
+
+msgid "Custom"
+msgstr ""

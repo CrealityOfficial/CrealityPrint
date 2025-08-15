@@ -17,7 +17,7 @@
     "emit_machine_limits_to_gcode": "1",
     "enable_filament_ramming": "1",
     "extra_loading_move": "-2",
-    "extruder_clearance_height_to_lid": "350",
+    "extruder_clearance_height_to_lid": "330",
     "extruder_clearance_height_to_rod": "60",
     "extruder_clearance_radius": "50",
     "fan_kickstart": "0",
@@ -105,5 +105,5 @@
     "z_hop": "0.4",
     "z_hop_types": "Auto Lift",
     "name": "Creality Ender-3 V3 Plus 0.8 nozzle",
-    "setting_id": "45114"
+    "setting_id": "37386"
 }

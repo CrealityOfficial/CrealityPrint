@@ -1,6 +1,7 @@
 #include "ReleaseNote.hpp"
 #include "I18N.hpp"
 
+#include "libslic3r/GlobalConfig.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Thread.hpp"
 #include "GUI.hpp"
@@ -73,6 +74,10 @@ ReleaseNoteDialog::ReleaseNoteDialog(Plater *plater /*= nullptr*/)
     m_text_up_info = new Label(this, Label::Head_14, wxEmptyString, LB_AUTO_WRAP);
     m_text_up_info->SetForegroundColour(wxColour(0x26, 0x2E, 0x30));
     m_sizer_right->Add(m_text_up_info, 0, wxEXPAND, 0);
+
+    m_text_up_subInfo = new Label(this, Label::Head_14, wxEmptyString, LB_AUTO_WRAP);
+    m_text_up_subInfo->SetForegroundColour(wxColour(0x26, 0x2E, 0x30));
+    m_sizer_right->Add(m_text_up_subInfo, 0, wxEXPAND, 0);
 
     m_sizer_right->Add(0, 0, 1, wxTOP, FromDIP(15));
 
@@ -255,48 +260,88 @@ void UpdatePluginDialog::update_info(std::string json_path)
     Layout();
     Fit();
 }
+CustomScrolledWindow::CustomScrolledWindow(wxWindow* parent,
+                     wxWindowID     id,
+                     const wxPoint& pos,
+                     const wxSize&  size,
+                     long           style)
+    : wxScrolledWindow(parent, id, pos, size, style)
+{}
+void CustomScrolledWindow::OnDraw(wxDC& dc)
+{
+    // 先调用基类的绘制
+    // wxScrolledWindow::OnDraw(dc);
+
+    // 自定义滚动条绘制
+    wxRect rect = GetClientRect();
+
+    // 绘制垂直滚动条
+    if (HasScrollbar(wxVERTICAL)) {
+        int thumbPos  = GetScrollThumb(wxVERTICAL);
+        int thumbSize = GetScrollThumb(wxVERTICAL);
+        int range     = GetScrollRange(wxVERTICAL);
+
+        // 计算滚动条位置和大小
+        int scrollWidth  = FromDIP(8);
+        int scrollX      = rect.GetRight() - scrollWidth;
+        int scrollHeight = rect.GetHeight();
+
+        // 绘制滚动条背景
+        dc.SetPen(*wxTRANSPARENT_PEN);
+        dc.SetBrush(wxColour(220, 220, 220));
+        dc.DrawRectangle(scrollX, 0, scrollWidth, scrollHeight);
+
+        // 绘制滚动条滑块
+        if (range > 0) {
+            int thumbHeight = (scrollHeight * thumbSize) / range;
+            thumbHeight     = wxMax(thumbHeight, FromDIP(20)); // 最小高度
+            int thumbY      = (scrollHeight * thumbPos) / range;
+
+            dc.SetBrush(wxColour(150, 150, 150));
+            dc.DrawRoundedRectangle(scrollX, thumbY, scrollWidth, thumbHeight, FromDIP(4));
+        }
+    }
+}
 
 UpdateVersionDialog::UpdateVersionDialog(wxWindow *parent)
-    : DPIDialog(parent, wxID_ANY, _L("New version of Creality Print"), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX | wxRESIZE_BORDER)
+    : DPIDialog(parent, wxID_ANY, _L("New version of Creality Print"), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX)
 {
     std::string icon_path = (boost::format("%1%/images/%2%.ico") % resources_dir() % Slic3r::CxBuildInfo::getIconName()).str();
     SetIcon(wxIcon(encode_path(icon_path.c_str()), wxBITMAP_TYPE_ICO));
-
+    SetSize(FromDIP(760), FromDIP(736));
     SetBackgroundColour(*wxWHITE);
-
     wxBoxSizer *m_sizer_main = new wxBoxSizer(wxVERTICAL);
     auto        m_line_top   = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(-1, 1));
     m_line_top->SetBackgroundColour(wxColour(166, 169, 170));
-    
-
-    wxBoxSizer *m_sizer_body = new wxBoxSizer(wxHORIZONTAL);
-
-    
-
-    auto sm    = create_scaled_bitmap("CrealityPrint", nullptr, 70);
-    m_brand = new wxStaticBitmap(this, wxID_ANY, sm, wxDefaultPosition, wxSize(FromDIP(70), FromDIP(70)));
-
-    
 
     wxBoxSizer *m_sizer_right = new wxBoxSizer(wxVERTICAL);
 
-    m_text_up_info = new Label(this, Label::Head_14, wxEmptyString, LB_AUTO_WRAP);
+    m_text_up_info = new Label(this, Label::Head_20, wxEmptyString, LB_AUTO_WRAP);
     m_text_up_info->SetForegroundColour(wxColour(0x26, 0x2E, 0x30));
+    wxFont existingFont = m_text_up_info->GetFont();
+    existingFont.SetWeight(wxFONTWEIGHT_MEDIUM);
+    m_text_up_info->SetFont(existingFont);
+
+    m_text_up_subInfo = new Label(this, Label::Body_14, wxEmptyString, LB_AUTO_WRAP);
+    m_text_up_subInfo->SetForegroundColour(wxColour(0x26, 0x2E, 0x30));
+    existingFont = m_text_up_subInfo->GetFont();
+    existingFont.SetWeight(wxFONTWEIGHT_BOLD);
+    m_text_up_subInfo->SetFont(existingFont);
 
     m_simplebook_release_note = new wxSimplebook(this);
-    m_simplebook_release_note->SetSize(wxSize(FromDIP(560), FromDIP(430)));
-    m_simplebook_release_note->SetMinSize(wxSize(FromDIP(560), FromDIP(430)));
+    //m_simplebook_release_note->SetSize(wxSize(FromDIP(560), FromDIP(430)));
+    //m_simplebook_release_note->SetMinSize(wxSize(FromDIP(560), FromDIP(430)));
     m_simplebook_release_note->SetBackgroundColour(wxColour(0xF8, 0xF8, 0xF8));
 
-    m_scrollwindows_release_note = new wxScrolledWindow(m_simplebook_release_note, wxID_ANY, wxDefaultPosition, wxSize(FromDIP(560), FromDIP(430)), wxVSCROLL);
+    m_scrollwindows_release_note = new wxScrolledWindow(m_simplebook_release_note, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL);
     m_scrollwindows_release_note->SetScrollRate(5, 5);
     m_scrollwindows_release_note->SetBackgroundColour(wxColour(0xF8, 0xF8, 0xF8));
 
     //webview
     m_vebview_release_note = CreateTipView(m_simplebook_release_note);
     m_vebview_release_note->SetBackgroundColour(wxColour(0xF8, 0xF8, 0xF8));
-    m_vebview_release_note->SetSize(wxSize(FromDIP(560), FromDIP(430)));
-    m_vebview_release_note->SetMinSize(wxSize(FromDIP(560), FromDIP(430)));
+    //m_vebview_release_note->SetSize(wxSize(FromDIP(560), FromDIP(430)));
+    //m_vebview_release_note->SetMinSize(wxSize(FromDIP(560), FromDIP(430)));
     //m_vebview_release_note->SetMaxSize(wxSize(FromDIP(560), FromDIP(430)));
     m_vebview_release_note->Bind(wxEVT_WEBVIEW_NAVIGATING,[=](wxWebViewEvent& event){
         static bool load_url_first = false;
@@ -324,10 +369,12 @@ UpdateVersionDialog::UpdateVersionDialog(wxWindow *parent)
     m_simplebook_release_note->AddPage(m_scrollwindows_release_note, wxEmptyString, false);
     m_simplebook_release_note->AddPage(m_vebview_release_note, wxEmptyString, false);
 
-
-    
+    wxPanel* btnsBg       = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(-1, FromDIP(48)));
+    btnsBg->SetSize(wxSize(-1, FromDIP(48)));
+    btnsBg->SetMinSize(wxSize(-1, FromDIP(48)));
+    btnsBg->SetBackgroundColour(m_simplebook_release_note->GetBackgroundColour());
     auto sizer_button = new wxBoxSizer(wxHORIZONTAL);
-
+    btnsBg->SetSizer(sizer_button);
 
     StateColor btn_bg_green(std::pair<wxColour, int>(wxColour(21, 191, 89), StateColor::Pressed), std::pair<wxColour, int>(wxColour(21, 191, 89), StateColor::Hovered),
                             std::pair<wxColour, int>(wxColour(142, 142, 159), StateColor::Normal));
@@ -335,51 +382,51 @@ UpdateVersionDialog::UpdateVersionDialog(wxWindow *parent)
     StateColor btn_bg_white(std::pair<wxColour, int>(wxColour(206, 206, 206), StateColor::Pressed), std::pair<wxColour, int>(wxColour(238, 238, 238), StateColor::Hovered),
                             std::pair<wxColour, int>(*wxWHITE, StateColor::Normal));
 
-    m_button_download = new Button(this, _L("Download"));
-    m_button_download->SetBackgroundColor(btn_bg_green);
-    m_button_download->SetBorderColor(*wxWHITE);
-    m_button_download->SetTextColor(wxColour("#FFFFFE"));
+    m_button_download = new Button(btnsBg, _L("Download"));
+    m_button_download->SetBackgroundColor(btn_bg_white);
+    m_button_download->SetBorderColor(wxColour(38, 46, 48));
     m_button_download->SetFont(Label::Body_12);
-    m_button_download->SetSize(wxSize(FromDIP(58), FromDIP(24)));
-    m_button_download->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
-    m_button_download->SetCornerRadius(FromDIP(12));
+    m_button_download->SetSize(wxSize(FromDIP(104), FromDIP(32)));
+    m_button_download->SetMinSize(wxSize(FromDIP(104), FromDIP(32)));
+    m_button_download->SetCornerRadius(FromDIP(4));
 
     m_button_download->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
         EndModal(wxID_YES);
     });
 
-    m_button_skip_version = new Button(this, _L("Skip this Version"));
+    m_button_skip_version = new Button(btnsBg, _L("Skip this Version"));
     m_button_skip_version->SetBackgroundColor(btn_bg_white);
     m_button_skip_version->SetBorderColor(wxColour(38, 46, 48));
     m_button_skip_version->SetFont(Label::Body_12);
-    m_button_skip_version->SetSize(wxSize(FromDIP(58), FromDIP(24)));
-    m_button_skip_version->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
-    m_button_skip_version->SetCornerRadius(FromDIP(12));
+    m_button_skip_version->SetSize(wxSize(FromDIP(104), FromDIP(32)));
+    m_button_skip_version->SetMinSize(wxSize(FromDIP(104), FromDIP(32)));
+    m_button_skip_version->SetCornerRadius(FromDIP(4));
 
     m_button_skip_version->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) { 
         wxGetApp().set_skip_version(true);
         EndModal(wxID_NO);
     });
 
-    m_cb_stable_only = new CheckBox(this);
+    m_cb_stable_only = new CheckBox(btnsBg);
     m_cb_stable_only->SetValue(wxGetApp().app_config->get_bool("check_stable_update_only"));
     m_cb_stable_only->Bind(wxEVT_TOGGLEBUTTON, [this](wxCommandEvent& e) {
         wxGetApp().app_config->set_bool("check_stable_update_only", m_cb_stable_only->GetValue());
         e.Skip();
     });
 
-    auto stable_only_label = new Label(this, _L("Check for stable updates only"));
-    stable_only_label->SetFont(Label::Body_13);
+    auto stable_only_label = new Label(btnsBg, _L("Check for stable updates only"));
     stable_only_label->SetForegroundColour(wxColour(38, 46, 48));
-    stable_only_label->SetFont(Label::Body_12);
+    stable_only_label->SetFont(Label::Body_14);
+    m_cb_stable_only->Hide();
+    stable_only_label->Hide();
 
-    m_button_cancel = new Button(this, _L("Cancel"));
+    m_button_cancel = new Button(btnsBg, _L("Cancel"));
     m_button_cancel->SetBackgroundColor(btn_bg_white);
     m_button_cancel->SetBorderColor(wxColour(38, 46, 48));
     m_button_cancel->SetFont(Label::Body_12);
-    m_button_cancel->SetSize(wxSize(FromDIP(58), FromDIP(24)));
-    m_button_cancel->SetMinSize(wxSize(FromDIP(58), FromDIP(24)));
-    m_button_cancel->SetCornerRadius(FromDIP(12));
+    m_button_cancel->SetSize(wxSize(FromDIP(104), FromDIP(32)));
+    m_button_cancel->SetMinSize(wxSize(FromDIP(104), FromDIP(32)));
+    m_button_cancel->SetCornerRadius(FromDIP(4));
 
     m_button_cancel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &e) {
         EndModal(wxID_NO);
@@ -388,28 +435,51 @@ UpdateVersionDialog::UpdateVersionDialog(wxWindow *parent)
     m_sizer_main->Add(m_line_top, 0, wxEXPAND | wxBOTTOM, 0);
     
     //sizer_button->Add(m_remind_choice, 0, wxALL | wxEXPAND, FromDIP(5));
+    sizer_button->Add(stable_only_label, 0, wxALIGN_CENTRE_VERTICAL | wxLEFT, FromDIP(16));
+    sizer_button->Add(m_cb_stable_only, 0, wxALIGN_CENTRE_VERTICAL | wxLEFT, FromDIP(5));
     sizer_button->AddStretchSpacer();
-    sizer_button->Add(stable_only_label, 0, wxALIGN_CENTER | wxLEFT, FromDIP(7));
-    sizer_button->Add(m_cb_stable_only, 0, wxALIGN_CENTER | wxLEFT, FromDIP(5));
-    sizer_button->Add(m_button_download, 0, wxALL, FromDIP(5));
-    sizer_button->Add(m_button_skip_version, 0, wxALL, FromDIP(5));
-    sizer_button->Add(m_button_cancel, 0, wxALL, FromDIP(5));
+    sizer_button->Add(m_button_cancel, 0, wxALIGN_CENTRE_VERTICAL| wxALL, FromDIP(5));
+    sizer_button->Add(m_button_skip_version, 0, wxALIGN_CENTRE_VERTICAL | wxALL, FromDIP(5));
+    sizer_button->Add(m_button_download, 0, wxALIGN_CENTRE_VERTICAL | wxRIGHT, FromDIP(5));
 
-    m_sizer_right->Add(m_text_up_info, 0, wxEXPAND | wxBOTTOM | wxTOP, FromDIP(15));
+    std::string lang = GlobalConfig::getInstance()->getCurrentLanguage();
+    wxString    externUrl;
+    if (lang == "zh_CN") {
+        externUrl = "https://wiki.creality.com/zh/software/6-0/release-notes-6-x-x";
+    } else {
+        externUrl = "https://wiki.creality.com/en/software/6-0/release-notes-6-x-x";
+    }
+
+    wxHyperlinkCtrl* link = new wxHyperlinkCtrl(this, wxID_ANY, _L("Check out the release notes to learn more."), externUrl, wxDefaultPosition,
+                                                wxDefaultSize,
+                                                wxHL_ALIGN_LEFT);
+    link->SetVisitedColour(wxColour(0, 0, 255));
+    link->SetFont(Label::Body_14);
+
+    wxFont font = link->GetFont();
+    font.SetUnderlined(false);
+    link->SetFont(font);
+    link->SetNormalColour(wxColour(255, 0, 0));
+    link->SetVisitedColour(wxColour(255, 0, 0));
+
+    m_sizer_right->Add(m_text_up_info, 0, wxEXPAND | wxTOP, FromDIP(0));
+    m_sizer_right->Add(m_text_up_subInfo, 0, wxEXPAND | wxBOTTOM, FromDIP(6));
     m_sizer_right->Add(m_simplebook_release_note, 1, wxEXPAND | wxRIGHT, 0);
-    m_sizer_right->Add(sizer_button, 0, wxEXPAND | wxRIGHT, FromDIP(20));
+    m_sizer_right->Add(link, 0, wxEXPAND | wxTOP, FromDIP(10));
+    //m_sizer_right->Add(btnsBg, 1, wxEXPAND | wxTOP, FromDIP(20));
 
-    m_sizer_body->Add(m_brand, 0, wxTOP|wxRIGHT|wxLEFT, FromDIP(15));
-    m_sizer_body->Add(0, 0, 0, wxRIGHT, 0);
-    m_sizer_body->Add(m_sizer_right, 1, wxBOTTOM | wxEXPAND, FromDIP(8));
-    m_sizer_main->Add(m_sizer_body, 1, wxEXPAND, 0);
-    m_sizer_main->Add(0, 0, 0, wxBOTTOM, 10);
+    //m_sizer_body->Add(m_brand, 0, wxTOP|wxRIGHT|wxLEFT, FromDIP(15));
+    //m_sizer_body->Add(0, 0, 0, wxRIGHT, 0);
+    //m_sizer_body->Add(m_sizer_right, 1, wxBOTTOM | wxEXPAND, FromDIP(8));
+    m_sizer_main->Add(m_sizer_right, 2, wxEXPAND | wxALL, 16);
+    m_sizer_main->Add(btnsBg, 0, wxEXPAND, 0);
 
     SetSizer(m_sizer_main);
     Layout();
     Fit();
 
-    SetMinSize(GetSize());
+    SetSize(wxSize(FromDIP(760), FromDIP(736)));
+    SetMinSize(wxSize(FromDIP(760), FromDIP(736)));
 
     Centre(wxBOTH);
     wxGetApp().UpdateDlgDarkUI(this);
@@ -425,6 +495,11 @@ wxWebView* UpdateVersionDialog::CreateTipView(wxWindow* parent)
 	tipView->Bind(wxEVT_WEBVIEW_NAVIGATED, &UpdateVersionDialog::OnTitleChanged, this);
 	tipView->Bind(wxEVT_WEBVIEW_ERROR, &UpdateVersionDialog::OnError, this);
 	return tipView;
+}
+
+void UpdateVersionDialog::isUser(bool isUser) 
+{ 
+    m_button_skip_version->Show(!isUser); 
 }
 
 void UpdateVersionDialog::OnLoaded(wxWebViewEvent& event)
@@ -527,19 +602,28 @@ void UpdateVersionDialog::update_version_info(wxString release_note, wxString ve
         m_vebview_release_note->LoadURL(from_u8(url_line));
     }
     else {
-        m_simplebook_release_note->SetMaxSize(wxSize(FromDIP(560), FromDIP(430)));
+        //m_simplebook_release_note->SetMaxSize(wxSize(FromDIP(560), FromDIP(430)));
+        auto current_version = _L("Creality Print ") + " V" + std::string(CREALITYPRINT_VERSION) + " " + get_vertion_type();
+
         m_simplebook_release_note->SetSelection(0);
-        m_text_up_info->SetLabel(wxString::Format(_L("Click to download new version in default browser: %s"), version));
+        m_text_up_info->SetLabel(wxString::Format(_L("New version found: %s, it's recommended to update"), version));
+        m_text_up_subInfo->SetLabel(wxString::Format(_L("Current version: %s"), current_version));
         wxBoxSizer* sizer_text_release_note = new wxBoxSizer(wxVERTICAL);
-        auto        m_staticText_release_note = new ::Label(m_scrollwindows_release_note, release_note, LB_AUTO_WRAP);
-        m_staticText_release_note->SetMinSize(wxSize(FromDIP(560), -1));
-        m_staticText_release_note->SetMaxSize(wxSize(FromDIP(560), -1));
-        sizer_text_release_note->Add(m_staticText_release_note, 0, wxALL, 5);
+        auto        m_staticText_release_note = new ::Label(m_scrollwindows_release_note, release_note);
+
+        wxSize      size                      = m_scrollwindows_release_note->GetSize();
+        m_staticText_release_note->SetMinSize(wxSize(size.GetWidth() - FromDIP(30), -1));
+        m_staticText_release_note->SetMaxSize(wxSize(size.GetWidth() - FromDIP(30), -1));
+        m_staticText_release_note->Wrap(size.GetWidth() - FromDIP(25));
+
+        sizer_text_release_note->Add(m_staticText_release_note, 0, wxALL, 5); 
         m_scrollwindows_release_note->SetSizer(sizer_text_release_note);
         m_scrollwindows_release_note->Layout();
         m_scrollwindows_release_note->Fit();
-        SetMinSize(GetSize());
-        SetMaxSize(GetSize());
+        SetMinSize(wxSize(FromDIP(720), FromDIP(680)));
+        SetMaxSize(wxSize(FromDIP(720), FromDIP(680)));
+        SetSize(wxSize(720, 680));
+        Centre(wxBOTH);
     }
 
     wxGetApp().UpdateDlgDarkUI(this);
@@ -751,12 +835,12 @@ void SecondaryCheckDialog::update_text(wxString text)
     m_staticText_release_note->SetLabelText(text);
     m_vebview_release_note->Layout();
 
-    auto text_size = m_staticText_release_note->GetBestSize();
-    if (text_size.y < FromDIP(360))
-        m_vebview_release_note->SetMinSize(wxSize(FromDIP(360), text_size.y + FromDIP(25)));
-    else {
-        m_vebview_release_note->SetMinSize(wxSize(FromDIP(360), FromDIP(360)));
-    }
+    //auto text_size = m_staticText_release_note->GetBestSize();
+    //if (text_size.y < FromDIP(360))
+    //    m_vebview_release_note->SetMinSize(wxSize(FromDIP(360), text_size.y + FromDIP(25)));
+    //else {
+    //    m_vebview_release_note->SetMinSize(wxSize(FromDIP(360), FromDIP(360)));
+    //}
 
     Layout();
     Fit();

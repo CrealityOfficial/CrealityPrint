@@ -104,7 +104,7 @@ SavePresetDialog::Item::Item(Preset::Type type, const std::string &suffix, wxBox
     /*m_input_ctrl = new wxTextCtrl(this, wxID_ANY, from_u8(preset_name), wxDefaultPosition, wxDefaultSize,wxBORDER_NONE);*/
 
     const Preset* existing = m_presets->find_preset(preset_name, false);
-    wxString presetName = preset_name;
+    wxString presetName = from_u8(preset_name);
     if (!m_parent->m_IsSave)
     {
         do {
@@ -114,10 +114,10 @@ SavePresetDialog::Item::Item(Preset::Type type, const std::string &suffix, wxBox
                     break;
                 }
                 presetName = addIncrementedNumberInParentheses(presetName.ToStdString());
-                preset_name = presetName.ToStdString();
+                preset_name = presetName.ToUTF8();
             }
             else {
-                presetName = preset_name;
+                presetName = from_u8(preset_name);
             }
         } while (m_presets->find_preset(presetName.ToStdString(), false));
     }

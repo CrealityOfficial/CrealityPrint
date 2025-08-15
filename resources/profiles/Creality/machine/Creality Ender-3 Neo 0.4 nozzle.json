@@ -14,7 +14,6 @@
     "bed_mesh_probe_distance": "50,50",
     "before_layer_change_gcode": ";BEFORE_LAYER_CHANGE\n;[layer_z]\nG92 E0\n",
     "best_object_pos": "0.5,0.5",
-    "change_filament_gcode": "M600",
     "cooling_tube_length": "5",
     "cooling_tube_retraction": "91.5",
     "default_print_profile": "0.20mm Standard @Creality Ender-3 Neo 0.4 nozzle",
@@ -115,5 +114,5 @@
     "z_hop": "0.4",
     "z_hop_types": "Auto Lift",
     "name": "Creality Ender-3 Neo 0.4 nozzle",
-    "setting_id": "69801"
+    "setting_id": "30531"
 }

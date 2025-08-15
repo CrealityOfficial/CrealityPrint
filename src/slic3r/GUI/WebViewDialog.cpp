@@ -4,6 +4,7 @@
 #include "slic3r/GUI/wxExtensions.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
+#include "slic3r/GUI/print_manage/Utils.hpp"
 #include "libslic3r_version.h"
 #include "../Utils/Http.hpp"
 
@@ -272,7 +273,6 @@ wxString WebViewPanel::GetURL()
 
     int port = wxGetApp().get_server_port();
     wxGetApp().check_creality_privacy_version(false); // 检查隐私政策版本
-    //type = std::string("Beta");
     // for pro
     #ifdef _DEBUG1
     type = std::string("Beta");
@@ -739,7 +739,7 @@ void WebViewPanel::OnNavigationComplete(wxWebViewEvent& evt)
     if (wxGetApp().get_mode() == comDevelop)
         wxLogMessage("%s", "Navigation complete; url='" + evt.GetURL() + "'");
     UpdateState();
-    ShowNetpluginTip();
+    //ShowNetpluginTip();
 }
 
 /**
@@ -822,12 +822,13 @@ void WebViewPanel::OnScriptMessage(wxWebViewEvent& evt)
 
     /* remove \n in response string */
     response.erase(std::remove(response.begin(), response.end(), '\n'), response.end());
-    boost::replace_all(response, "\\n", "");
+    //boost::replace_all(response, "\\n", "");
     if (!response.empty()) {
         // m_response_js = wxString::Format("window.handleStudioCmd('%s')", response);
         wxString        wxResponse = from_u8(response.c_str());
         wxCommandEvent* event      = new wxCommandEvent(EVT_RESPONSE_MESSAGE, this->GetId());
-        event->SetClientData(new wxString(wxString::Format("window.handleStudioCmd('%s')", wxResponse)));
+        event->SetClientData(new wxString(
+            wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(std::string(wxResponse.utf8_str())))));
         wxQueueEvent(this, event);
     } else {
         m_response_js.clear();

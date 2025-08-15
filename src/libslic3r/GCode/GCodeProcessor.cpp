@@ -1787,7 +1787,7 @@ static inline const char* remove_eols(const char *begin, const char *end) {
 void GCodeProcessor::process_file(const std::string& filename, std::function<void()> cancel_callback)
 {
     CNumericLocalesSetter locales_setter;
-
+    m_manual_filament_change = true;
 #if ENABLE_GCODE_VIEWER_STATISTICS
     m_start_time = std::chrono::high_resolution_clock::now();
 #endif // ENABLE_GCODE_VIEWER_STATISTICS
@@ -1851,7 +1851,17 @@ void GCodeProcessor::process_file(const std::string& filename, std::function<voi
         this->process_gcode_line(line, true);
     }, m_result.lines_ends);
 
-    // Don't post-process the G-code to update time stamps.
+   
+        //没有解析出来耗材
+    if(m_result.creality_extruder_colors.size()==0)
+    {
+        m_result.creality_extruder_colors.push_back("#FFFFFF");
+    }
+    if(m_result.creality_complete_extruder_colors.size()==0)
+    {
+        m_result.creality_complete_extruder_colors.push_back("#FFFFFF");
+    }
+     // Don't post-process the G-code to update time stamps.
     this->finalize(false);
 }
 
@@ -3102,6 +3112,7 @@ bool GCodeProcessor::process_creality_tags(const std::string_view comment)
     }
 
     if (boost::starts_with(comment, " filament_type = ")) {
+        this->m_result.creality_extruder_types.clear();
         auto data                          = comment.substr(strlen(" filament_type = "));
         std::istringstream iss(data.data());
         boost::split(this->m_result.creality_extruder_types, data.data(), boost::algorithm::is_any_of(";"));
@@ -3115,6 +3126,8 @@ bool GCodeProcessor::process_creality_tags(const std::string_view comment)
         while (std::getline(iss, item, ';')) {
             if (!item.empty())
                 m_result.creality_extruder_colors.push_back(item);
+            else
+                m_result.creality_extruder_colors.push_back("#FF0000");
         }
         boost::split(this->m_result.creality_default_extruder_colors, data.data(), boost::algorithm::is_any_of(";"));
         return true;
@@ -3132,7 +3145,10 @@ bool GCodeProcessor::process_creality_tags(const std::string_view comment)
         }
         return true;
     }
-
+    if (boost::starts_with(comment, "Material Type:")) {
+        auto data = comment.substr(strlen("Material Type:"));
+        this->m_result.creality_extruder_types.push_back(data.data());
+    }
     if (boost::starts_with(comment, "TYPE:")) {
         auto data = comment.substr(strlen("TYPE:"));
         if (data == "Prime tower")
@@ -7158,6 +7174,29 @@ void GCodeProcessor::update_slice_warnings()
         }
     }
 
+
+    //std::vector<std::string> extruder_colors;
+    std::vector<std::string> default_extruder_colors;
+
+    for (size_t i = 0; i < m_result.creality_extruder_colors.size(); i++) {
+       std::string default_color = m_result.creality_extruder_colors[i];
+       bool used_flag = false;
+       for(size_t j=0;j < used_extruders.size();j++)
+       {
+            size_t used_index = used_extruders[j];
+            if(i == used_index)
+            {
+                used_flag = true;
+                break;
+            }
+       }
+       if(used_flag)
+            default_extruder_colors.push_back(default_color);
+        else
+            default_extruder_colors.push_back("");
+    }
+    //m_result.creality_extruder_colors = extruder_colors;
+    m_result.creality_default_extruder_colors = default_extruder_colors;
     m_result.warnings.shrink_to_fit();
 }
 

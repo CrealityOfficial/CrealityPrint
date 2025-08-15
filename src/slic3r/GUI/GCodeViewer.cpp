@@ -2508,9 +2508,12 @@ void GCodeViewer::load_toolpaths(const GCodeProcessorResult& gcode_result, const
     }
         
     //BBS: add only gcode mode
-    ProgressDialog *          progress_dialog    = m_only_gcode_in_preview ?
-        new ProgressDialog(_L("Loading G-codes"), "...",
-            100, wxGetApp().mainframe, wxPD_AUTO_HIDE | wxPD_APP_MODAL) : nullptr;
+    //ProgressDialog *          progress_dialog    = m_only_gcode_in_preview ?
+    //    new ProgressDialog(_L("Loading G-codes"), "...",
+    //        100, wxGetApp().mainframe, wxPD_AUTO_HIDE | wxPD_APP_MODAL) : nullptr;
+
+    // in only gcode mode, the UI update event would cause exception
+    ProgressDialog *          progress_dialog = nullptr;
 
     wxBusyCursor busy;
 
@@ -4917,7 +4920,7 @@ public:
             ImGui::Dummy(ImVec2(0, 3));
             auto timestr = short_time(get_time_dhms(time_mode.time));
             ::sprintf(buf, "%s:%s", _u8L("Printing Time").c_str(), (char*)timestr.c_str());
-            ImGui::Text(buf);
+            ImGui::Text("%s", buf);
 
             ImGui::SameLine(160 * view_scale);
             ::sprintf(buf, imperial_units ? " %s:%.2f oz" : " %s:%.2f g", _u8L("Material Wt").c_str(), ps.total_weight / unit_conver);
@@ -5742,7 +5745,7 @@ void GCodeViewer::render(int canvas_width, int canvas_height)
 						ImVec2 p_start = window->DC.CursorPos;
 						bool hover_text = ImGui::IsMouseHoveringRect(p_start, ImVec2(p_start.x + labelsz.x, p_start.y + labelsz.y));
 						ImVec4 text_color = hover_text ? ImGuiWrapper::COL_CREALITY : ImGui::GetStyleColorVec4(ImGuiCol_Text);
-						ImGui::TextColored(text_color, label.c_str());
+                        ImGui::TextColored(text_color, "%s", label.c_str());
 
 						ImVec2 textPos = ImGui::GetItemRectMin();
                         ImGui::GetWindowDrawList()->AddLine(ImVec2(textPos.x, textPos.y + labelsz.y),

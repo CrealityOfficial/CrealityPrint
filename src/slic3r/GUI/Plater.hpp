@@ -110,6 +110,7 @@ wxDECLARE_EVENT(EVT_CURRENT_DEVICE_CHANGED, wxCommandEvent);
 wxDECLARE_EVENT(EVT_AUTO_SYNC_CURRENT_DEVICE_FILAMENT, wxCommandEvent);
 wxDECLARE_EVENT(EVT_ON_MAPPING_DEVICE_FILAMENT, wxCommandEvent);
 wxDECLARE_EVENT(EVT_ON_SHOW_BOX_COLOR_SELECTION, wxCommandEvent);
+wxDECLARE_EVENT(EVT_EXPORT_GCODE_FINISHED, wxCommandEvent);
 
 const wxString DEFAULT_PROJECT_NAME = "Untitled";
 
@@ -165,6 +166,7 @@ public:
     // Creality
     void update_filament_panel();
     void show_flushDialog();
+    void show_auto_mapping(bool bshow);
     ObjectList*             obj_list();
     ObjectSettings*         obj_settings();
     ObjectLayers*           obj_layers();
@@ -310,6 +312,7 @@ public:
     void extract_config_from_project();
     void load_gcode();
     void load_gcode(const wxString& filename);
+    bool isLoadingGCode() { return m_isLoadingGCode; }
     void reload_gcode_from_disk();
     void refresh_print();
 

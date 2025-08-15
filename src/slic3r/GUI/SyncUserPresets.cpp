@@ -155,6 +155,10 @@ void SyncUserPresets::onRun()
                     CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOAD_FAILED);
                     continue;
                 }
+                while (wxGetApp().plater()->isLoadingGCode()) {
+                    BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets isLoadingGCode...";
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                }
                 wxGetApp().CallAfter([=] { 
                     //delLocalUserPresetsInUiThread(syncToLocalRetInfo);
                     reloadPresetsInUiThread();

@@ -680,6 +680,10 @@ void annotate_inside_outside(VD &vd, const Lines &lines)
                new_vertex_category == VertexCategory::Outside ||
                new_vertex_category == VertexCategory::OnContour);
 #endif // NDEBUG
+        if (vertex == nullptr) {
+            BOOST_LOG_TRIVIAL(error) << "annotate_vertex called with null vertex";
+            return;
+        }
         set_vertex_category(const_cast<VD::vertex_type*>(vertex), new_vertex_category);
     };
 
@@ -774,9 +778,9 @@ void annotate_inside_outside(VD &vd, const Lines &lines)
                 assert(v0_category != VertexCategory::OnContour || v1_category != VertexCategory::OnContour);
                 assert(! (on_contour(v0) && on_contour(v1)));
 #endif // NDEBUG
-                if (on_contour(v0))
+                if (v0 !=nullptr && on_contour(v0))
                     annotate_vertex(v0, VertexCategory::OnContour);
-                else {
+                else if (v1 != nullptr) {
                     assert(on_contour(v1));
                     annotate_vertex(v1, VertexCategory::OnContour);
                 }
@@ -802,6 +806,7 @@ void annotate_inside_outside(VD &vd, const Lines &lines)
             annotate_edge(&edge, EdgeCategory::PointsOutside);
             // Opposite edge of an infinite edge is certainly not active.
             annotate_edge(edge.twin(), edge.is_secondary() ? EdgeCategory::PointsToContour : EdgeCategory::PointsOutside);
+
             annotate_vertex(edge.vertex0(), edge.is_secondary() ? VertexCategory::OnContour : VertexCategory::Outside);
             // edge.vertex1() is null, it is implicitely outside.
             if (cell->contains_segment())

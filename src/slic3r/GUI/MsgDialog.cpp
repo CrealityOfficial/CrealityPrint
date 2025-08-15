@@ -225,7 +225,8 @@ void MsgDialog::apply_style(long style)
     logo->SetBitmap( create_scaled_bitmap(style & wxAPPLY        ? "completed" :
                                           style & wxICON_WARNING        ? "exclamation" : // ORCA "exclamation" used for dialogs "obj_warning" used for 16x16 areas
                                           style & wxICON_INFORMATION    ? "info"        :
-                                          style & wxICON_QUESTION       ? "question"    : Slic3r::CxBuildInfo::getIconName(), this, 64, style & wxICON_ERROR));
+                                          style & wxICON_ERROR    ? "error_message"        :
+                                          style & wxICON_QUESTION       ? "question"    : Slic3r::CxBuildInfo::getIconName(), this, 64, false));
 }
 
 void MsgDialog::finalize()
@@ -435,7 +436,8 @@ void ChangeBtnRichMsgDlg::apply_style(long style) {
     logo->SetBitmap( create_scaled_bitmap(style & wxAPPLY        ? "completed" :
                                           style & wxICON_WARNING        ? "exclamation" : // ORCA "exclamation" used for dialogs "obj_warning" used for 16x16 areas
                                           style & wxICON_INFORMATION    ? "info"        :
-                                          style & wxICON_QUESTION       ? "question"    : Slic3r::CxBuildInfo::getIconName(), this, 64, style & wxICON_ERROR));
+                                          style & wxICON_ERROR    ? "error_message"        :
+                                          style & wxICON_QUESTION       ? "question"    : Slic3r::CxBuildInfo::getIconName(), this, 64, false));
 }
 
 #endif
@@ -721,7 +723,7 @@ void AutoMappingLoginMsgDialog::apply_style(long style) {
     logo->SetBitmap( create_scaled_bitmap(style & wxAPPLY        ? "completed" :
                                           style & wxICON_WARNING        ? "exclamation" : // ORCA "exclamation" used for dialogs "obj_warning" used for 16x16 areas
                                           style & wxICON_INFORMATION    ? "info"        :
-                                          style & wxICON_QUESTION       ? "question"    : "Creality3D", this, 64, style & wxICON_ERROR));
+                                          style & wxICON_QUESTION       ? "question"    : Slic3r::CxBuildInfo::getIconName(), this, 64, false));
 }
 
 } // namespace GUI

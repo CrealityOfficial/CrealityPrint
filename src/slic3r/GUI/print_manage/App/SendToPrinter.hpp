@@ -108,6 +108,8 @@ private:
 
     std::unordered_map<std::string, std::function<void(const nlohmann::json&)>> m_commandHandlers;
     std::string m_mapString;
+    bool m_isClosed = false;
+    bool m_is_only_gcode_mode = false;
 };
 
 } // namespace GUI

@@ -13,7 +13,7 @@ public:
 	virtual ~KlipperCXInterface();
 
 	std::future<void> sendFileToDevice(const std::string& serverIp, int port, const std::string& uploadFileName, const std::string& localFilePath, std::function<void(float,double)> progressCallback, std::function<void(int)> uploadStatusCallback, std::function<void(std::string)> onCompleteCallback);
-
+	void cancelSendFileToDevice();
 private:
 	const std::string urlSuffixUpload = "/upload/";
     Slic3r::GUI::UploadFile m_upload_file;

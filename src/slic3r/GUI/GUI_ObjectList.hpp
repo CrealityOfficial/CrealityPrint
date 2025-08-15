@@ -60,6 +60,7 @@ wxDECLARE_EVENT(EVT_OBJ_LIST_OBJECT_SELECT, SimpleEvent);
 wxDECLARE_EVENT(EVT_OBJ_LIST_COLUMN_SELECT, IntEvent);
 wxDECLARE_EVENT(EVT_PARTPLATE_LIST_PLATE_SELECT, IntEvent);
 wxDECLARE_EVENT(EVT_UPDATE_DEVICES, wxCommandEvent);
+wxDECLARE_EVENT(EVT_OPEN_DEVICE_LIST, wxCommandEvent);
 
 class BitmapComboBox;
 
@@ -185,6 +186,7 @@ public:
             pngTexPrinterModel = 0,
             pngTexOnlineDevice,
             pngTexOnlineDeviceGray,
+            pngTexOnlineDeviceDarkGray,
             pngTexRadioSel,
             pngTexRadioUnSel,
             pngTexDeviceListIItem,
@@ -339,7 +341,8 @@ private:
 
     } m_device_list_data;
     friend device_list_data;
-
+    
+    bool                       m_device_list_popup_open_request = false;
     bool                       m_device_list_popup_opened = false;
     bool                       m_device_list_dirty_mark = true;
     std::string                m_last_printer_model;
@@ -640,7 +643,6 @@ public:
     // search objectlist
     void assembly_plate_object_name();
     void selected_object(ObjectDataViewModelNode* item);
-
     bool get_left_panel_fold() { return m_left_panel_fold; }
     void set_left_panel_fold(bool fold) { m_left_panel_fold = fold; }
     void render_printer_preset_by_ImGui();

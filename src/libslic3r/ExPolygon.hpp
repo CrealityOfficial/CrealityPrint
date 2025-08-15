@@ -76,6 +76,8 @@ public:
     size_t   		num_contours() const { return this->holes.size() + 1; }
     Polygon& 		contour_or_hole(size_t idx) 		{ return (idx == 0) ? this->contour : this->holes[idx - 1]; }
     const Polygon& 	contour_or_hole(size_t idx) const 	{ return (idx == 0) ? this->contour : this->holes[idx - 1]; }
+    // split expolygon-support with holes to help remove
+    ExPolygons split_expoly_with_holes(coord_t gap_width, const ExPolygons& collision) const;
 };
 
 inline bool operator==(const ExPolygon &lhs, const ExPolygon &rhs) { return lhs.contour == rhs.contour && lhs.holes == rhs.holes; }
@@ -463,6 +465,7 @@ inline ExPolygons expolygons_simplify(const ExPolygons &expolys, double toleranc
 bool expolygons_match(const ExPolygon &l, const ExPolygon &r);
 
 bool overlaps(const ExPolygons& expolys1, const ExPolygons& expolys2);
+bool overlaps(const ExPolygons& expolys, const ExPolygon& expoly);
 
 Point projection_onto(const ExPolygons& expolys, const Point& pt);
 

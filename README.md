@@ -6,13 +6,24 @@ Creality Print 6.0 is an open source slicer for FDM printers.   [Offical Wiki](h
 <a href="https://discord.gg/agTqDNyJNY"><img src="https://img.shields.io/static/v1?message=Discord&logo=discord&label=&color=7289DA&logoColor=white&labelColor=&style=for-the-badge" height="35" alt="discord logo"/> </a>
 
 Welcome to join the Discord channel "creality-print-tester" and engage with us in discussions about everything related to Creality Print. Please follow the instructions below to help you find the "creality-print-tester" group.
+
+If you are an interested developer, please follow these steps to join the Discord CP-GitHub-Develop channel.
+
 - Click the "Join Creality 3D" button.
 ![alt text](Creality_doc/discord_step1.PNG)
 - At the 4th question select the “Invite by April” button.
 ![alt text](Creality_doc/discord_step2.jpg)
-- The left navigation bar shows all channels, scroll down until you find "creality-print-tester".
-![alt text](Creality_doc/discord_step3.PNG)
+- Read and accept the rules in the **#rules** channel to to gain full server access and enable role selection.
 
+<img width="1766" height="1238" alt="img_v3_02p3_99db2dd4-4eff-4b67-993b-35c643f0784g" src="https://github.com/user-attachments/assets/11ce826d-9441-49a6-9756-e3e60d84812c" />
+
+- Go to the #roles channel and react with the corresponding emoji to get the CP Developer role — this will grant you access to the channel.
+  
+<img width="1778" height="1264" alt="img_v3_02p3_43b5c52c-5eb8-4692-b2b2-641d0803989g" src="https://github.com/user-attachments/assets/e7dfa57f-c88a-4f7d-86f8-db32db69d794" />
+
+- The left navigation bar shows all channels, scroll down until you find "creality-print-tester"and"cp-github_developer"
+
+![img_v3_02p3_43c88f9d-53bf-45a1-a29f-9e3a77a4f33g](https://github.com/user-attachments/assets/3cf6f57b-79bf-45ec-8e48-ee79de437538)
 
 # Main features
 - Auto calibrations for all printers

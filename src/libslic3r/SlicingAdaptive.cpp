@@ -155,8 +155,10 @@ float SlicingAdaptive::next_layer_width(const float print_z, float layer_height,
 {
     int idx = std::min(std::max(int(print_z / slice_step), 0), int(overhang_ratio.size() - 1));
     if (!overhang_ratio.empty() && overhang_ratio[idx] < LAYER_OVERHANG_RATIO)
-        return LINE_WIDTH_0;
-    float width = LINE_WIDTH_0;
+        // return LINE_WIDTH_0;
+        return outwall_width;
+   // float width = LINE_WIDTH_0;
+    float width = outwall_width;
     // find all facets intersecting the slice-layer
     size_t ordered_id = current_facet;
     {

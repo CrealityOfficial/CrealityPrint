@@ -43,7 +43,7 @@
     "machine_max_speed_e": "50",
     "machine_max_speed_x": "800",
     "machine_max_speed_y": "800",
-    "machine_max_speed_z": "10",
+    "machine_max_speed_z": "30",
     "machine_min_extruding_rate": "0,0",
     "machine_min_travel_rate": "0,0",
     "machine_pause_gcode": "PAUSE",
@@ -103,5 +103,5 @@
     "z_hop": "0.4",
     "z_hop_types": "Auto Lift",
     "name": "Creality K2 Plus 0.6 nozzle",
-    "setting_id": "90362"
+    "setting_id": "57357"
 }

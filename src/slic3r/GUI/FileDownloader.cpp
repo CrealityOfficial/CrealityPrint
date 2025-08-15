@@ -1,4 +1,5 @@
 #include "slic3r/GUI/FileDownloader.hpp"
+#include <exception>
 // 实现部分
 CurlConnectionPool::CurlConnectionPool(int max_connections)
     : multi_handle_(curl_multi_init()),
@@ -119,10 +120,14 @@ size_t CurlConnectionPool::writeDataCallback(void* ptr, size_t size, size_t nmem
     auto* stream = static_cast<std::ofstream*>(userdata);
     size_t written = 0;
     
-    if (stream->is_open()) {
+    try{
         stream->write(static_cast<char*>(ptr), size * nmemb);
         written = size * nmemb;
+    }catch(std::exception e)
+    {
+        
     }
+
     return written;
 }
 

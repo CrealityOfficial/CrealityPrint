@@ -120,7 +120,7 @@ void DownloadService::priv::get_perform()
     Http::set_extra_headers({});
     Http::get(m_url)
         .size_limit(DOWNLOAD_SIZE_LIMIT) // more?
-        .set_range(range_string)
+        //.set_range(range_string)
         .on_header_callback([&](std::string header) {
             //if (dest_path.empty()) {
             //    std::string filename = extract_remote_filename(header);

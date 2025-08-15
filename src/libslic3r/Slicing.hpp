@@ -175,6 +175,7 @@ std::vector<double> smooth_height_profile(
 std::vector<double> layer_width_profile_adaptive(const SlicingParameters& slicing_params,
                                                  const ModelObject&       object,
                                                  std::vector<coordf_t>    layer_height_profile,
+                                                 const double ow_width,
                                                  Transform3d              trafo = {});
 enum LayerHeightEditActionType : unsigned int {
     LAYER_HEIGHT_EDIT_ACTION_INCREASE = 0,

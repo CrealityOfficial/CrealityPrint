@@ -1,6 +1,7 @@
 #include "EmbossJob.hpp"
-
+#include <stdint.h>
 #include <stdexcept>
+#include <cstdint>
 #include <type_traits>
 #include <boost/log/trivial.hpp>
 
@@ -29,12 +30,33 @@
 #include "slic3r/Utils/UndoRedo.hpp"
 #include "slic3r/Utils/RaycastManager.hpp"
 
+// the L macro is defined in the "I18N.hpp", which would cause macro definition conflict when include CGAL headers,
+// in some CGAL headers:
+//    MappedMatrixBlock L(tempv.data()+w*ldu+offset, nrow, u_cols, OuterStride<>(ldl));
+#ifdef L
+    #undef L
+#endif
+
+#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
+#include <CGAL/Surface_mesh.h>
+#include <CGAL/Polygon_mesh_processing/repair.h>
+
 // #define EXECUTE_UPDATE_ON_MAIN_THREAD // debug execution on main thread
 
 using namespace Slic3r;
 using namespace Slic3r::Emboss;
 using namespace Slic3r::GUI;
 using namespace Slic3r::GUI::Emboss;
+
+using CGALUCException = CGAL::Uncertain_conversion_exception;
+using CGALCTException = CGAL::Constrained_triangulation_2<
+    CGAL::Projection_traits_3<CGAL::Epeck,1>,
+    CGAL::Triangulation_data_structure_2<
+        CGAL::Triangulation_vertex_base_with_info_2<uint64_t, CGAL::Projection_traits_3<CGAL::Epeck,1>>,
+        CGAL::Constrained_triangulation_face_base_2<CGAL::Projection_traits_3<CGAL::Epeck,1>>
+    >,
+    CGAL::Default
+>::Intersection_of_constraints_exception;
 
 // Private implementation for create volume and objects jobs
 namespace {
@@ -475,8 +497,8 @@ void CreateSurfaceVolumeJob::finalize(bool canceled, std::exception_ptr &eptr) {
 
 /////////////////
 /// Cut Surface
-UpdateSurfaceVolumeJob::UpdateSurfaceVolumeJob(UpdateSurfaceVolumeData &&input)
-    : m_input(std::move(input))
+UpdateSurfaceVolumeJob::UpdateSurfaceVolumeJob(UpdateSurfaceVolumeData &&input, FinalizeCallback callback)
+    : m_input(std::move(input)), m_callback(std::move(callback))
 {
     assert(check(m_input, true));
 }
@@ -490,12 +512,22 @@ void UpdateSurfaceVolumeJob::process(Ctl &ctl)
 
 void UpdateSurfaceVolumeJob::finalize(bool canceled, std::exception_ptr &eptr)
 {
-    if (!::finalize(canceled, eptr, *m_input.base))
+    if (!::finalize(canceled, eptr, *m_input.base)) {
+
+        if (m_callback) {
+            m_callback(canceled);
+        }
+
         return;
+    }
 
     // when start using surface it is wanted to move text origin on surface of model
     // also when repeteadly move above surface result position should match
     ::update_volume(std::move(m_result), m_input, &m_input.transform);
+
+    if (m_callback) {
+        m_callback(canceled);
+    }
 }
 
 namespace {
@@ -637,7 +669,7 @@ static inline bool execute_job(std::shared_ptr<Job> j)
 } // namespace
 #endif
 
-bool start_update_volume(DataUpdate &&data, const ModelVolume &volume, const Selection &selection, RaycastManager& raycaster)
+bool start_update_volume(DataUpdate &&data, const ModelVolume &volume, const Selection &selection, RaycastManager& raycaster, std::function<void(bool)> on_complete)
 {
     assert(data.volume_id == volume.id());
 
@@ -647,6 +679,7 @@ bool start_update_volume(DataUpdate &&data, const ModelVolume &volume, const Sel
         use_surface = false;
 
     std::unique_ptr<Job> job = nullptr;
+
     if (use_surface) {
         // Model to cut surface from.
         SurfaceVolumeData::ModelSources sources = create_volume_sources(volume);
@@ -666,7 +699,7 @@ bool start_update_volume(DataUpdate &&data, const ModelVolume &volume, const Sel
         }
 
         UpdateSurfaceVolumeData surface_data{std::move(data), {volume_tr, std::move(sources)}};
-        job = std::make_unique<UpdateSurfaceVolumeJob>(std::move(surface_data));
+        job = std::make_unique<UpdateSurfaceVolumeJob>(std::move(surface_data), on_complete);
     } else {
         job = std::make_unique<UpdateJob>(std::move(data));
     }
@@ -1160,8 +1193,13 @@ void create_volume(TriangleMesh                    &&mesh,
     
     // update model and redraw scene
     //canvas->reload_scene(true);
-    //¸ù¾Ý¸¸Ä£ÐÍµÄºÄ²ÄÑÕÉ«¶ÔÓ¦ºÅÂë£¬Ð´Èë¸¡µñÖÐ
+    //ï¿½ï¿½ï¿½Ý¸ï¿½Ä£ï¿½ÍµÄºÄ²ï¿½ï¿½ï¿½É«ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ë£¬Ð´ï¿½ë¸¡ï¿½ï¿½ï¿½ï¿½
     int modelExtruder = obj->config.extruder();
+
+    if(sel.IsEmpty()) {
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " wxDataViewItemArray sel is empty, could possibly cause exception! ";
+        return;
+    }
     
     ModelConfig &config=obj_list->get_item_config(sel.front());
     if (config.has("extruder"))
@@ -1281,7 +1319,34 @@ indexed_triangle_set cut_surface_to_its(const ExPolygons &shapes, const Transfor
     }
 
     // Use CGAL to cut surface from triangle mesh
-    SurfaceCut cut = cut_surface(*shapes_ptr, itss, cut_projection, projection_ratio);
+    //SurfaceCut cut = cut_surface(*shapes_ptr, itss, cut_projection, projection_ratio);
+
+    SurfaceCut cut;
+    try {
+        // Use CGAL to cut surface from triangle mesh
+        cut = cut_surface(*shapes_ptr, itss, cut_projection, projection_ratio);
+    }
+    catch (const CGALUCException& e) {
+        BOOST_LOG_TRIVIAL(error) << "CGAL Uncertain_conversion_exception: " << e.what();
+        return {};
+    }
+    catch (const CGALCTException& e) {
+        BOOST_LOG_TRIVIAL(error) << "CGAL Intersection_of_constraints_exception: " /*<< e.what()*/;
+        return {};
+    }
+    catch (const CGAL::Failure_exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "CGAL generic exception: " << e.what();
+        return {};
+    }
+    catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "Standard exception in cut_surface: " << e.what();
+        return {};
+    }
+    catch (...) {
+        BOOST_LOG_TRIVIAL(error) << "Unknown exception in cut_surface";
+        return {};
+    }
+
 
     if (is_text_reflected) {
         for (SurfaceCut::Contour &c : cut.contours)
