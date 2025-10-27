@@ -237,16 +237,16 @@ void ProjectPanel::on_navigated(wxWebViewEvent& event)
 void ProjectPanel::OnScriptMessage(wxWebViewEvent& evt)
 {
     try {
-        wxString strInput = evt.GetString();
+        std::string strInput = evt.GetString().ToStdString();
         json     j = json::parse(strInput);
 
-        wxString strCmd = j["command"];
+        std::string strCmd = j["command"];
 
         if (strCmd == "open_3mf_accessory") {
-            wxString accessory_path =  j["accessory_path"];
+            std::string accessory_path =  j["accessory_path"];
 
             if (!accessory_path.empty()) {
-                std::string decode_path = wxGetApp().url_decode(accessory_path.ToStdString());
+                std::string decode_path = wxGetApp().url_decode(accessory_path);
                 fs::path path(decode_path);
 
                 if (fs::exists(path)) {

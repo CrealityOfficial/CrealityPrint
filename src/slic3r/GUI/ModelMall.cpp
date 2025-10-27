@@ -123,10 +123,10 @@ namespace GUI {
     void ModelMallDialog::OnScriptMessage(wxWebViewEvent& evt)
     {
         try {
-            wxString strInput = evt.GetString();
+            std::string strInput = evt.GetString().ToStdString();
             json     j = json::parse(strInput);
 
-            wxString strCmd = j["command"];
+            std::string strCmd = j["command"];
             
             if(strCmd == "request_close_publish_window") {
                 this->Hide();

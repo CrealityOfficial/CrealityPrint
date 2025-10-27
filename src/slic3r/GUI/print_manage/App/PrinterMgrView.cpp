@@ -464,29 +464,29 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
             return;
         }
 
-        wxString strInput = evt.GetString();
+        std::string strInput = evt.GetString().ToStdString();
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;OnRecv:" << strInput.c_str();
         json     j = json::parse(strInput);
 
-        wxString strCmd = j["command"];
+        std::string strCmd = j["command"];
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;Command:" << strCmd;
 
         if (strCmd == "send_gcode")
         {
             int plateIndex = j["plateIndex"];
-            wxString ipAddress = j["ipAddress"];
-            wxString uploadName = j["uploadName"];
+            std::string ipAddress = j["ipAddress"];
+            std::string uploadName = j["uploadName"];
             bool oldPrinter = j["oldPrinter"];
             int  moonrakerPort = j["moonrakerPort"];
 
             if (oldPrinter)
             {
-                std::string strIpAddr = ipAddress.ToStdString();
+                std::string strIpAddr = ipAddress;
                 RemotePrint::RemotePrinterManager::getInstance().setOldPrinterMap(strIpAddr);
             }
             if (moonrakerPort > 0)
             {
-                std::string strIpAddr = ipAddress.ToStdString();
+                std::string strIpAddr = ipAddress;
                 if (strIpAddr.find('(') != std::string::npos)
                 {
                     RemotePrint::RemotePrinterManager::getInstance().setKlipperPrinterMap(strIpAddr, moonrakerPort);
@@ -508,7 +508,7 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
 
                 }
 
-                RemotePrint::RemotePrinterManager::getInstance().pushUploadMultTasks(ipAddress.ToStdString(), uploadName.ToStdString(), gcodeFilePath,
+                RemotePrint::RemotePrinterManager::getInstance().pushUploadMultTasks(ipAddress, uploadName, gcodeFilePath,
                     [this](std::string ip, float progress, double speed) {
                         // BOOST_LOG_TRIVIAL(info) << "Progress: " << progress << "% for IP: " << ip;
                         //进度发送太快会导致浏览器卡死，所以这里限制一下
@@ -634,9 +634,9 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
              setMqttDeviceDN(address);
         }
 
-        else if (m_commandHandlers.find(strCmd.ToStdString()) != m_commandHandlers.end())
+        else if (m_commandHandlers.find(strCmd) != m_commandHandlers.end())
         {
-            m_commandHandlers[strCmd.ToStdString()](j);
+            m_commandHandlers[strCmd](j);
         }
         else if (strCmd == "req_device_move_direction")
         {

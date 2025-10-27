@@ -445,18 +445,18 @@ static std::vector<std::string> Loc_GetMaterials(const std::string& materials)
 void GuideFrame::OnScriptMessage(wxWebViewEvent &evt)
 {
     try {
-        wxString strInput = evt.GetString();
+        std::string strInput = evt.GetString().ToStdString();
         BOOST_LOG_TRIVIAL(trace) << "GuideFrame::OnScriptMessage;OnRecv:" << strInput.c_str();
         json     j        = json::parse(strInput);
 
-        wxString strCmd = j["command"];
+        std::string strCmd = j["command"];
         BOOST_LOG_TRIVIAL(trace) << "GuideFrame::OnScriptMessage;Command:" << strCmd;
 
         if (strCmd == "close_page") {
             this->EndModal(wxID_CANCEL);
         }
         if (strCmd == "user_clause") {
-            wxString strAction = j["data"]["action"];
+            std::string strAction = j["data"]["action"];
 
             if (strAction == "refuse") {
                 // CloseTheApp
@@ -465,7 +465,7 @@ void GuideFrame::OnScriptMessage(wxWebViewEvent &evt)
                 m_MainPtr->mainframe->Close(); // Refuse Clause, App quit immediately
             }
         } else if (strCmd == "user_private_choice") {
-            wxString strAction = j["data"]["action"];
+            std::string strAction = j["data"]["action"];
 
             if (strAction == "agree") {
                 PrivacyUse = true;

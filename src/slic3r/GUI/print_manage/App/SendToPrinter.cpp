@@ -320,10 +320,10 @@ void CxSentToPrinterDialog::UnregisterHandler(const std::string& command)
 void CxSentToPrinterDialog::OnScriptMessage(wxWebViewEvent& evt)
 {
     try {
-        wxString strInput = evt.GetString();
+        std::string strInput = evt.GetString().ToStdString();
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;OnRecv:" << strInput.c_str();
         json     j = json::parse(strInput);
-        wxString strCmd = j["command"];
+        std::string strCmd = j["command"];
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;Command:" << strCmd;
         if(strCmd == "forward_device_detail"){
             wxPostEvent(this, wxCloseEvent(wxEVT_CLOSE_WINDOW));
@@ -358,8 +358,8 @@ void CxSentToPrinterDialog::OnScriptMessage(wxWebViewEvent& evt)
 
         
 
-        if (m_commandHandlers.find(strCmd.ToStdString()) != m_commandHandlers.end()) {
-            m_commandHandlers[strCmd.ToStdString()](j);
+        if (m_commandHandlers.find(strCmd) != m_commandHandlers.end()) {
+            m_commandHandlers[strCmd](j);
         } else {
             BOOST_LOG_TRIVIAL(trace) << "CxSentToPrinterDialog::OnScriptMessage;Unknown Command:" << strCmd;
         }
