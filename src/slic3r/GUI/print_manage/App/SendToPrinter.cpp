@@ -28,6 +28,7 @@
 #include "slic3r/GUI/PartPlate.hpp"
 #include "slic3r/GUI/AnalyticsDataUploadManager.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/GCode/PostProcessor.hpp"
 #include <wx/variant.h>
 #include <wx/datstrm.h>
 #include "../data/DataCenter.hpp"
@@ -915,6 +916,20 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
         }
         else{
             gcodeFilePath = _L(plate->get_tmp_gcode_path()).ToUTF8();
+        }
+
+		// Run post-processing scripts before sending to printer
+        if (!m_plater->only_gcode_mode()) {
+            try {
+                Slic3r::Print* print = nullptr;
+                plate->get_print((Slic3r::PrintBase**)&print, nullptr, nullptr);
+                if (print) {
+                    std::string output_name = gcodeFilePath;
+                    run_post_process_scripts(gcodeFilePath, false, "File", output_name, print->full_print_config());
+                }
+            } catch (const std::exception& e) {
+                BOOST_LOG_TRIVIAL(error) << "Post-processing script failed when sending to printer: " << e.what();
+            }
         }
         
         m_uploadingIp = ipAddress;
