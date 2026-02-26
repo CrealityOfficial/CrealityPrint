@@ -38,6 +38,12 @@ echo -n "[9/9] Generating Linux app..."
 cat << EOF >@SLIC3R_APP_CMD@
 #!/bin/bash
 DIR=\$(readlink -f "\$0" | xargs dirname)
+
+# Support for previously defined LD_LIBRARY_PATH.
+EXT_LIB_PATH=""
+if [ "x\$LD_LIBRARY_PATH" != "x" ]; then
+	EXT_LIB_PATH=":\$LD_LIBRARY_PATH"
+fi
 export LD_LIBRARY_PATH="\$DIR/bin:\$DIR/usr/lib"
 
 # FIXME: CrealityPrint segfault workarounds
