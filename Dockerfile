@@ -1,4 +1,4 @@
-FROM docker.io/ubuntu:22.04
+FROM docker.io/ubuntu:24.04
 LABEL maintainer "DeftDawg <DeftDawg@gmail.com>"
 
 # Disable interactive package configuration
@@ -11,6 +11,7 @@ RUN echo deb-src http://archive.ubuntu.com/ubuntu \
 
 RUN apt-get update && apt-get install  -y \
     autoconf \
+    bc \
     build-essential \
     cmake \
     curl \
@@ -34,13 +35,13 @@ RUN apt-get update && apt-get install  -y \
     libgtk-3-dev \
     libosmesa6-dev \
     libsecret-1-dev \
-    libsoup2.4-dev \
-    libssl3 \
+    libsoup-3.0-dev \
     libssl-dev \
     libtool \
     libudev-dev \
     libwayland-dev \
-    libwebkit2gtk-4.0-dev \
+    libwebkit2gtk-4.1-dev \
+    libjavascriptcoregtk-4.1-dev \
     libxkbcommon-dev \
     locales \
     locales-all \
@@ -69,6 +70,12 @@ RUN ./BuildLinux.sh -u
 
 # Build dependencies in ./deps
 RUN ./BuildLinux.sh -d
+
+# Static libtiff from ./deps pulls in -lLerc and -ldeflate at final link time,
+# but those dev libraries are not in the apt list above. Install before linking.
+# libdeflate-dev provides the /usr/lib/.../libdeflate.so symlink referenced by
+# the CMAKE_CXX_STANDARD_LIBRARIES fix in src/CMakeLists.txt.
+RUN apt-get update && apt-get install -y liblerc-dev libdeflate-dev
 
 # Build slic3r
 RUN ./BuildLinux.sh -s

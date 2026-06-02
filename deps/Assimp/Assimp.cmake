@@ -8,7 +8,11 @@ orcaslicer_add_cmake_project(Assimp
   URL                 https://github.com/assimp/assimp/archive/refs/tags/v5.4.3.zip
   URL_HASH            SHA256=795C29716F4AC123B403E53B677E9F32A8605C4A7B2D9904BFAAE3F4053B506D
   PATCH_COMMAND ${patch_command}
-#  CMAKE_ARGS
+  CMAKE_ARGS
+        # Assimp forces -Wall -Werror (ASSIMP_WARNINGS_AS_ERRORS defaults ON).
+        # GCC 13 emits new warnings (-Wdangling-reference, -Wstringop-overflow,
+        # ...) that would become fatal. Turn the promotion off.
+        -DASSIMP_WARNINGS_AS_ERRORS=OFF
 #        -DASSIMP_BUILD_ZLIB=OFF
 		
 )

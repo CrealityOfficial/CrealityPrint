@@ -1,7 +1,11 @@
 #set(patch_command git init && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-fix-slicer-build.patch)
 set(_build_static ON)
 set(_build_with_ssl ON)
-if(LINUX)
+# Build paho WITHOUT SSL on Linux: otherwise paho compiles against the system
+# OpenSSL 3.x headers but links the static OpenSSL 1.1.1 from ./deps, an ABI
+# mismatch. Use "UNIX AND NOT APPLE" because the LINUX variable only exists in
+# CMake >= 3.25 (the 22.04 image had 3.22, where if(LINUX) silently never fired).
+if(UNIX AND NOT APPLE)
     set(_build_with_ssl OFF)
 endif()
 
