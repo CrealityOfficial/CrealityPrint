@@ -72,7 +72,16 @@ ParamsDialog::ParamsDialog(wxWindow * parent)
     adjust_dialog_in_screen(this, 1300, 650);
     Bind(wxEVT_SHOW, [this](auto &event) {
         if (IsShown()) {
+#ifndef __linux__
+            // On GTK a wxWindowDisabler that excludes this dialog still ends up
+            // making the dialog itself insensitive (the dialog is transient-for
+            // the mainframe, which gets gtk_widget_set_sensitive(FALSE)). The
+            // custom-drawn Creality widgets keep their normal look but stop
+            // receiving any mouse/keyboard events, so every parameter input
+            // appears read-only. See CrealityOfficial/CrealityPrint#565 / #552.
+            // Skip the modal-style disabler on Linux; the dialog stays usable.
             m_winDisabler = new wxWindowDisabler(this);
+#endif
         } else {
             delete m_winDisabler;
             m_winDisabler = nullptr;
