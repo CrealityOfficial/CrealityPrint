@@ -158,12 +158,13 @@ else()
 endif()
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/osx/Info.plist.in ${CMAKE_CURRENT_BINARY_DIR}/Info.plist @ONLY)
 message("PROJECT_DLL_NAME_WIN32=${PROJECT_DLL_NAME_WIN32}")
-# Static libtiff from ./deps pulls in libdeflate symbols, but libtiff.a appears
-# twice in the link line and the transitive -ldeflate lands before its last
-# occurrence, so the symbols go unresolved. Append libdeflate at the very end of
-# every link line (CMAKE_CXX_STANDARD_LIBRARIES is emitted last and not deduped).
+# Static libtiff from ./deps pulls in libdeflate and libLerc symbols, but
+# libtiff.a appears twice in the link line and the transitive -ldeflate/-lLerc
+# land before its last occurrence, so the symbols go unresolved. Append both
+# libraries at the very end of every link line (CMAKE_CXX_STANDARD_LIBRARIES is
+# emitted last and not deduped).
 if (UNIX AND NOT APPLE)
-    set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} /usr/lib/x86_64-linux-gnu/libdeflate.so")
+    set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} /usr/lib/x86_64-linux-gnu/libdeflate.so /usr/lib/x86_64-linux-gnu/libLerc.so")
 endif()
 set(PROJECT_DLL ${PROJECT_DLL_NAME_WIN32})
 if(WIN32)
