@@ -42,6 +42,8 @@ dep_Debug
 out
 .history/
 scripts/__pycache__
+.translation-cache/
+*.po.bak
 web_sync_tag
 version.txt
 var.prop
