@@ -25,6 +25,29 @@
 
 namespace Slic3r { namespace GUI {
 
+namespace
+{
+wxString url_encode_query(const wxString& value)
+{
+    wxScopedCharBuffer utf8 = value.utf8_str();
+    const unsigned char* bytes = reinterpret_cast<const unsigned char*>(utf8.data());
+    if (!bytes)
+        return wxEmptyString;
+
+    wxString encoded;
+    for (size_t i = 0; bytes[i] != 0; ++i) {
+        const unsigned char ch = bytes[i];
+        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' || ch == '_' ||
+            ch == '.' || ch == '~') {
+            encoded.Append(static_cast<char>(ch));
+        } else {
+            encoded.Append(wxString::Format("%%%02X", ch));
+        }
+    }
+    return encoded;
+}
+} // namespace
+
 wxBEGIN_EVENT_TABLE(WebModelLibraryView, wxPanel) EVT_WEBVIEW_NAVIGATING(wxID_ANY, WebModelLibraryView::OnNavigating)
     EVT_WEBVIEW_NAVIGATED(wxID_ANY, WebModelLibraryView::OnNavigated) EVT_WEBVIEW_LOADED(wxID_ANY, WebModelLibraryView::OnLoaded)
         EVT_WEBVIEW_ERROR(wxID_ANY, WebModelLibraryView::OnError) EVT_WEBVIEW_NEWWINDOW(wxID_ANY, WebModelLibraryView::OnNewWindow)
@@ -160,6 +183,23 @@ void WebModelLibraryView::load_url(const wxString& url)
     }
 }
 
+void WebModelLibraryView::open_default_page()
+{
+    load_url(get_cloud_webaddress() + "model-category/3d-print-all");
+}
+
+void WebModelLibraryView::search(const wxString& query)
+{
+    wxString trimmed = query;
+    trimmed.Trim(true).Trim(false);
+    if (trimmed.IsEmpty()) {
+        open_default_page();
+        return;
+    }
+
+    load_url(get_cloud_webaddress() + "search/models?q=" + url_encode_query(trimmed));
+}
+
 void WebModelLibraryView::SetStartPage(const wxString& url)
 {
     m_start_url   = url;
@@ -234,9 +274,9 @@ void WebModelLibraryView::OnNavigated(wxWebViewEvent& evt)
 
 void WebModelLibraryView::OnLoaded(wxWebViewEvent& evt)
 {
-    // Page loaded successfully
-    BOOST_LOG_TRIVIAL(info) << "DEBUG: ModelLibrary page loaded, requesting account info";
-    // Linux: 通过 JS 注入 Cookie 同步登录态，避免 UA 携带自定义段触发 WebKit 断言
+    BOOST_LOG_TRIVIAL(info) << "ModelLibrary page loaded: " << evt.GetURL().ToStdString();
+
+    // Linux/Mac: inject cookies via JS to sync login state
 #if defined(__linux__) || defined(__WXMAC__)
     if (m_browser) {
         wxString current_url = m_browser->GetCurrentURL();
@@ -422,9 +462,8 @@ bool WebModelLibraryView::handleLinkType404(std::string cmd)
 }
 void WebModelLibraryView::OnScriptMessage(wxWebViewEvent& evt)
 {
-    // Handle script messages from web page
     std::string request = evt.GetString().ToUTF8().data();
-    BOOST_LOG_TRIVIAL(info) << "DEBUG: OnScriptMessage received: " << request;
+    BOOST_LOG_TRIVIAL(info) << "OnScriptMessage: " << request;
 
     if (needLogin(request)) {
         return;
@@ -444,11 +483,10 @@ void WebModelLibraryView::OnScriptMessage(wxWebViewEvent& evt)
 
     // Fallback to original method if Routes system didn't handle it
     std::string response = wxGetApp().handle_web_request(request);
-    BOOST_LOG_TRIVIAL(info) << "DEBUG: OnScriptMessage response: " << response;
+    BOOST_LOG_TRIVIAL(info) << "OnScriptMessage response: " << response;
 
     if (!response.empty()) {
         wxString strJS = wxString::Format("window.handleStudioCmd(%s)", response);
-        BOOST_LOG_TRIVIAL(info) << "DEBUG: OnScriptMessage sending JS: " << strJS.ToStdString();
         m_browser->RunScript(strJS);
     }
     evt.Skip();

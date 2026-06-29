@@ -207,6 +207,7 @@ namespace GUI {
         void set_render_data_share_state(bool share_state) { m_render_data->share_state = share_state; }
 
         void init_from(Geometry&& data);
+        void init_from(Geometry&& data, bool generate_mesh);
         void init_from(const TriangleMesh& mesh);
         void init_from(const indexed_triangle_set& its);
         void init_from(const Polygons& polygons, float z);
@@ -223,6 +224,9 @@ namespace GUI {
         bool send_instance_data_to_gpu(const std::vector<Vec3f>& instances_offsets);
         void render_instanced_ex();
         void render_single(const Vec3f& single_offset);
+        void bind_mats_vbo(unsigned int instance_mats_vbo, unsigned int instances_count, const std::vector<int>& locations);
+        void render_geometry_instance(unsigned int instance_mats_vbo, unsigned int instances_count);
+        void render_geometry_instance(unsigned int instance_mats_vbo, unsigned int instances_count, const std::pair<size_t, size_t>& range);
         void release_instance_data_from_gpu();
 
         bool is_initialized() const { return vertices_count() > 0 && indices_count() > 0; }

@@ -479,6 +479,10 @@ void GLGizmoAdvancedCut::on_dragging(const UpdateData &data)
 
 void GLGizmoAdvancedCut::on_render()
 {
+    const auto* selection_info = m_c->selection_info();
+    if (selection_info == nullptr || selection_info->model_object() == nullptr)
+        return;
+
     update_clipper();
     if (m_connectors_editing) {
         render_connectors();
@@ -557,6 +561,10 @@ void GLGizmoAdvancedCut::on_render_for_picking()
 */
 void GLGizmoAdvancedCut::on_render_input_window(float x, float y, float bottom_limit)
 {
+    const auto* selection_info = m_c->selection_info();
+    if (selection_info == nullptr || selection_info->model_object() == nullptr)
+        return;
+
     GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f);
     ImGuiWrapper::push_toolbar_style(m_parent.get_scale());
     GizmoImguiBegin(on_get_name(),
@@ -659,8 +667,8 @@ void GLGizmoAdvancedCut::perform_cut(const Selection& selection)
                                              cut_with_groove ? cut.perform_with_groove(m_groove, m_rotate_matrix) :
                                                                cut.perform_with_plane();
         // fix_non_manifold_edges
-#ifdef HAS_WIN10SDK
-        if (is_windows10()) {
+#if defined(HAS_WIN10SDK) || defined(HAS_IMATISTL)
+        if (has_mesh_repair_backend()) {
             bool is_showed_dialog = false;
             bool user_fix_model   = false;
             for (size_t i = 0; i < new_objects.size(); i++) {
@@ -687,10 +695,10 @@ void GLGizmoAdvancedCut::perform_cut(const Selection& selection)
                             wxString msg = _L("Repairing model object");
                             msg += ": " + from_u8(model_name) + "\n";
                             std::string res;
-                            if (!fix_model_by_win10_sdk_gui(*model_object, vol_idx, progress_dlg, msg, res)) return false;
+                            if (!fix_model(*model_object, vol_idx, progress_dlg, msg, res)) return false;
                             return true;
                         };
-                        ProgressDialog progress_dlg(_L("Repairing model object"), "", 100, find_toplevel_parent(plater), wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT, true);
+                        ProgressDialog progress_dlg(_L("Repairing model object"), "", 100, find_toplevel_parent(plater), wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT);
 
                         auto model_name = new_objects[i]->name;
                         if (!fix_and_update_progress(new_objects[i], j, model_name, progress_dlg, succes_models, failed_models)) {
@@ -819,10 +827,18 @@ void GLGizmoAdvancedCut::finish_rotation()
 
 void GLGizmoAdvancedCut::put_connectors_on_cut_plane(const Vec3d &cp_normal, double cp_offset)
 {
-    ModelObject *mo = m_c->selection_info()->model_object();
+    const auto *selection_info = m_c->selection_info();
+    if (selection_info == nullptr)
+        return;
+
+    ModelObject *mo = selection_info->model_object();
+    const int active_instance = selection_info->get_active_instance();
+    if (mo == nullptr || active_instance < 0 || active_instance >= int(mo->instances.size()))
+        return;
+
     if (CutConnectors &connectors = mo->cut_connectors; !connectors.empty()) {
-        const float  sla_shift       = m_c->selection_info()->get_sla_shift();
-        const Vec3d &instance_offset = mo->instances[m_c->selection_info()->get_active_instance()]->get_offset();
+        const float  sla_shift       = selection_info->get_sla_shift();
+        const Vec3d &instance_offset = mo->instances[active_instance]->get_offset();
 
         for (auto &connector : connectors) {
             // convert connetor pos to the world coordinates
@@ -1048,6 +1064,8 @@ void GLGizmoAdvancedCut::render_connectors()
     ::glEnable(GL_DEPTH_TEST);
 
     const ModelObject *mo      = m_c->selection_info()->model_object();
+    if (mo == nullptr)
+        return;
     auto               inst_id = m_c->selection_info()->get_active_instance();
     if (inst_id < 0)
         return;
@@ -1207,7 +1225,12 @@ void GLGizmoAdvancedCut::set_connectors_editing(bool connectors_editing)
 
 void GLGizmoAdvancedCut::reset_connectors()
 {
-    m_c->selection_info()->model_object()->cut_connectors.clear();
+    const auto* selection_info = m_c->selection_info();
+    ModelObject* mo = selection_info ? selection_info->model_object() : nullptr;
+    if (mo == nullptr)
+        return;
+
+    mo->cut_connectors.clear();
     clear_selection();
 }
 

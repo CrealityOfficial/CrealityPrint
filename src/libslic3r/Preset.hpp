@@ -749,6 +749,8 @@ public:
     static std::vector<std::string> dirty_options(const Preset *edited, const Preset *reference, const bool deep_compare = false);
     //BBS: add function for dirty_options_without_option_list
     static std::vector<std::string> dirty_options_without_option_list(const Preset *edited, const Preset *reference, const std::set<std::string>& option_ignore_list, const bool deep_compare = false);
+    const std::map<std::string, std::vector<std::string>>& map_alias_to_profile_name() { return m_map_alias_to_profile_name; }
+
 private:
     // Type of this PresetCollection: TYPE_PRINT, TYPE_FILAMENT or TYPE_PRINTER.
     Preset::Type            m_type;
@@ -1016,7 +1018,6 @@ private:
     // Path to the directory to store the config files into.
     std::string                 m_dir_path;
 };
-
 
 } // namespace Slic3r
 

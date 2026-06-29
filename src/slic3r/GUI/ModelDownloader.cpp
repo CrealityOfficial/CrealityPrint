@@ -78,15 +78,16 @@ void ModelDownloader::start_download_model_group(const std::string& full_url,
         std::lock_guard<std::mutex> lock_guard(cache_json_mutex_);
         if (cache_json_.is_object() && cache_json_.contains("models")) {
             for (auto& model : cache_json_["models"]) {
-                std::string model_id = model["modelId"];
-                if (model_id != modelId) {
-                    continue;
-                }
+                try {
+                    if (!model.contains("modelId") || model["modelId"].is_null()) continue;
+                    if (model["modelId"].get<std::string>() != modelId) continue;
+                } catch (...) { continue; }
+                if (!model.contains("files") || !model["files"].is_array()) continue;
                 for (auto& file : model["files"]) {
-                    std::string file_id = file["fileId"];
-                    if (file_id != fileId) {
-                        continue;
-                    }
+                    try {
+                        if (!file.contains("fileId") || file["fileId"].is_null()) continue;
+                        if (file["fileId"].get<std::string>() != fileId) continue;
+                    } catch (...) { continue; }
                     auto& cache_progress = file["progress"];
                     if (cache_progress < progress) {
                         cache_progress = progress;
@@ -94,7 +95,6 @@ void ModelDownloader::start_download_model_group(const std::string& full_url,
                             file["path"]    = file_path;
                             save_cache_to_storage();
                         }
-                        
                         return;
                     }
                 }
@@ -240,10 +240,14 @@ void ModelDownloader::start_download_3mf_group(const std::string& full_url,
 
     auto progress_cb = [&, modelId, fileId, file_path = std::move(file_path)](int progress) {
         std::lock_guard<std::mutex> lock_guard(cache_json_mutex_);
+        // Skip if this fileId is being cancelled — the cache entry is about to be erased.
+        if (cancelled_ids_.count(fileId)) return;
         if (cache_json_.is_object() && cache_json_.contains("3mfs")) {
             for (auto& file : cache_json_["3mfs"]) {
-                if (file["fileId"] != fileId)
-                    continue;
+                try {
+                    if (!file.contains("fileId") || file["fileId"].is_null()) continue;
+                    if (file["fileId"].get<std::string>() != fileId) continue;
+                } catch (...) { continue; }
                 auto& cache_progress = file["progress"];
                 if (cache_progress < progress) {
                     cache_progress = progress;
@@ -296,18 +300,19 @@ void ModelDownloader::start_download_3mf_group(const std::string& full_url,
     if (cache_json_.is_object() && cache_json_.contains("3mfs")) {
         bool found = false;
         for (auto& file : cache_json_["3mfs"]) {
-            std::string file_id = file["fileId"];
-            if (file_id == fileId) {
-                found = true;
-                // Reset progress and clear path so UI shows download progress again
-                file["fileId"]       = fileId;
-                file["progress"]     = 0;
-                file["path"]         = "";
-                file["name"]         = name;
-                file["modelGroupId"] = modelId;
-                
-                break;
-            }
+            try {
+                if (!file.contains("fileId") || file["fileId"].is_null()) continue;
+                std::string file_id = file["fileId"].get<std::string>();
+                if (file_id == fileId) {
+                    found = true;
+                    file["fileId"]       = fileId;
+                    file["progress"]     = 0;
+                    file["path"]         = "";
+                    file["name"]         = name;
+                    file["modelGroupId"] = modelId;
+                    break;
+                }
+            } catch (...) { continue; }
         }
         if (!found) {
             auto&          model_array = cache_json_["3mfs"];
@@ -355,27 +360,30 @@ void ModelDownloader::cancel_download_model_group(const std::string& modelId)
     if (cache_json_.is_object() && cache_json_.contains("models")) {
         bool found = false;
         int  idx   = -1;
-        std::string removePath = "";
         for (auto& model : cache_json_["models"]) {
             idx++;
-            std::string model_id = model["modelId"];
-           
-        
-            if (model_id == modelId) {
-                auto model_files = model["files"];
-                std::string path = "";
-                if (model_files.size()) 
-                    path = model_files.at(0)["path"];
-                if (path != "") {
-                    size_t pos = path.find_last_of('\\');
-                    if (pos != std::string::npos) {
-                        path = path.substr(0, pos);
+            try {
+                if (!model.contains("modelId") || model["modelId"].is_null()) continue;
+                std::string model_id = model["modelId"].get<std::string>();
+                if (model_id == modelId) {
+                    std::string path = "";
+                    try {
+                        if (model.contains("files") && model["files"].is_array() && !model["files"].empty()) {
+                            auto& first_file = model["files"].at(0);
+                            if (first_file.contains("path") && !first_file["path"].is_null())
+                                path = first_file["path"].get<std::string>();
+                        }
+                    } catch (...) {}
+                    if (!path.empty()) {
+                        size_t pos = path.find_last_of('\\');
+                        if (pos != std::string::npos)
+                            path = path.substr(0, pos);
+                        fs::remove_all(path);
                     }
-                    fs::remove_all(path);
+                    found = true;
+                    break;
                 }
-                found = true;
-                break;
-            }
+            } catch (...) { continue; }
         }
         if (found) {
             cache_json_["models"].erase(idx);
@@ -386,29 +394,42 @@ void ModelDownloader::cancel_download_model_group(const std::string& modelId)
 
 void ModelDownloader::cancel_download_3mf_group(const std::string& fileId)
 {
+    // Mark as cancelled first — progress_cb checks this under the same mutex
+    // and will skip cache writes, so there's no race even without joining.
+    {
+        std::lock_guard<std::mutex> lock_guard(cache_json_mutex_);
+        cancelled_ids_.insert(fileId);
+    }
+
     for (auto& task : download_tasks_) {
         if (task->get_id() == fileId) {
-            task->cancel();
+            task->cancel(); // sets atomic flag; download thread will stop soon
         }
     }
 
     std::lock_guard<std::mutex> lock_guard(cache_json_mutex_);
+    cancelled_ids_.erase(fileId);
     if (cache_json_.is_object() && cache_json_.contains("3mfs")) {
         bool found = false;
         int  idx   = -1;
         std::string removePath = "";
         for (auto& file : cache_json_["3mfs"]) {
             idx++;
-            std::string file_id = file["fileId"];
-            removePath          = file["path"];
-            if (file_id == fileId) {
-                found = true;
-                break;
-            }
+            try {
+                if (!file.contains("fileId") || file["fileId"].is_null()) continue;
+                std::string file_id = file["fileId"].get<std::string>();
+                if (file.contains("path") && !file["path"].is_null())
+                    removePath = file["path"].get<std::string>();
+                if (file_id == fileId) {
+                    found = true;
+                    break;
+                }
+            } catch (...) { continue; }
         }
         if (found) {
             cache_json_["3mfs"].erase(idx);
-            fs::remove(removePath);
+            if (!removePath.empty())
+                fs::remove(removePath);
             save_cache_to_storage();
         }
     }

@@ -4,6 +4,7 @@
 #include "I18N.hpp"
 
 #include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/PrintConfig.hpp"
 #ifdef __APPLE__
 #include "slic3r/Utils/MacDarkMode.hpp"
 #endif
@@ -167,6 +168,12 @@ void change_opt_value(DynamicPrintConfig& config, const t_config_option_key& opt
 				    boost::split(values, str, boost::is_any_of(";"));
 				    if (values.size() == 1 && values[0] == "")
 					    values.resize(0);
+                }
+                if (opt_key == "small_area_infill_flow_compensation_model") {
+                    SmallAreaInfillFlowCompensationModel model;
+                    if (!parse_small_area_infill_flow_compensation_model(values, model))
+                        return;
+                    values = model.normalized_values;
                 }
 				config.option<ConfigOptionStrings>(opt_key)->values = values;
 			}
@@ -807,9 +814,10 @@ std::string user_feedback_website()
     //     website += "&cloudAccount=" + cloudId;
 #endif
     std::string website      = "https://support.creality.com/";
+    std::string website_CN  = "https://support.creality.cn/";
     std::string language = wxGetApp().app_config->get("language");
     if (language == "zh_CN") {
-        website += "?site=SLICE_APP_CN";
+        website = website_CN + "?site=SLICE_APP_CN";
     } else if (language == "zh_TW") {
         website += "?site=SLICE_APP_TW";
     } else {

@@ -8,6 +8,7 @@
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/PartPlate.hpp"
+#include "slic3r/GUI/simple/MCPChatPanel.hpp"
 #include "libslic3r/PresetBundle.hpp"
 
 namespace Slic3r { namespace GUI {
@@ -203,6 +204,15 @@ OrientJob::OrientJob() : m_plater{wxGetApp().plater()} {}
 
 void OrientJob::finalize(bool canceled, std::exception_ptr &eptr)
 {
+    auto report_orient_completion = [&](bool success,
+                                        const std::string& completion_message,
+                                        const nlohmann::json& details = nlohmann::json::object()) {
+        if (wxGetApp().easy_mode()) {
+            if (auto* panel = GetEmbeddedAIChatPanel())
+                panel->CompletePendingAsyncToolCall("job:auto_orient", success, completion_message, details);
+        }
+    };
+
     try {
         if (eptr)
             std::rethrow_exception(eptr);
@@ -211,17 +221,25 @@ void OrientJob::finalize(bool canceled, std::exception_ptr &eptr)
         eptr = std::current_exception();
     }
 
-    // Ignore the arrange result if aborted.
-    if (canceled || eptr)
+    if (canceled || eptr) {
+        report_orient_completion(
+            false,
+            canceled ? std::string("Auto orient canceled") : std::string("Auto orient failed before finalize"),
+            {{"code", canceled ? "AUTO_ORIENT_CANCELED" : "AUTO_ORIENT_FINALIZE_FAILED"}, {"canceled", canceled}, {"has_exception", static_cast<bool>(eptr)}});
         return;
+    }
 
     for (OrientMesh& mesh : m_selected)
     {
         mesh.apply();
     }
 
-
     m_plater->update();
+
+    report_orient_completion(
+        true,
+        "Auto orient completed",
+        {{"oriented_count", m_selected.size()}, {"unprintable_count", m_unprintable.size()}});
 
     // BBS
     //wxGetApp().obj_manipul()->set_dirty();

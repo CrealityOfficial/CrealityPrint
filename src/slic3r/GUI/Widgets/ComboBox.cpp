@@ -78,6 +78,11 @@ ComboBox::ComboBox(wxWindow *parent,
     for (int i = 0; i < n; ++i) Append(choices[i]);
 }
 
+void ComboBox::EnableAutoPopupDirection(bool enable)
+{
+    drop.SetPopupDirection(enable ? DropDown::PopupDirection::Auto : DropDown::PopupDirection::Down);
+}
+
 int ComboBox::GetSelection() const { return drop.GetSelection(); }
 
 void ComboBox::SetSelection(int n)

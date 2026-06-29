@@ -249,15 +249,12 @@ void DownloadService::get()
 
 void DownloadService::cancel()
 {
-    if (p && p->m_stopped) {
-        if (p->m_io_thread.joinable()) {
-            p->m_cancel = true;
-            p->m_io_thread.join();
-        }
-    }
-
-    if (p)
-        p->m_cancel = true;
+    if (!p) return;
+    p->m_cancel = true;
+    // Do NOT join here — that would block the main thread until the current
+    // HTTP chunk finishes, making cancel feel slow.  Instead, progress_cb
+    // checks m_cancel before touching the cache (see ModelDownloader), so the
+    // race is prevented without blocking.
 }
 
 void DownloadService::pause()

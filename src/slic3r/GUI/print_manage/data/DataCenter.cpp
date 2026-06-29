@@ -62,6 +62,11 @@ const nlohmann::json DataCenter::GetData()
     return p->m_data;
 }
 
+const nlohmann::json& DataCenter::get_data()
+{ 
+    return p->m_data; 
+}
+
 nlohmann::json DataCenter::find_printer_by_mac(const std::string& device_mac)
 {
     try {
@@ -123,6 +128,52 @@ nlohmann::json DataCenter::get_current_device()
 const DM::Device&DataCenter::get_current_device_data()
 {
     return p->m_current_device_data;
+}
+
+bool DataCenter::set_current_device(const std::string& device_mac, const nlohmann::json& fallback_device)
+{
+    DM::Device current_device_last = p->m_current_device_data;
+    unsigned long last_box_info_hash = -1, cur_box_info_hash = -1;
+    get_device_box_info_hash(p->m_current_device, last_box_info_hash);
+
+    if (p->m_data.contains("data")) {
+        p->m_data["data"]["currentActivePrinterMac"] = device_mac;
+    }
+
+    nlohmann::json next_device = find_printer_by_mac(device_mac);
+    if ((next_device.is_null() || next_device.empty()) && fallback_device.is_object() && !fallback_device.empty()) {
+        next_device = fallback_device;
+    }
+
+    if (next_device.is_null() || next_device.empty()) {
+        p->m_current_device = nullptr;
+        p->m_current_device_data = DM::Device();
+        p->m_current_device_changed_state = current_device_last.valid;
+        if (p->m_data.contains("data")) {
+            p->m_data["data"]["currentActivePrinterAddress"] = "";
+        }
+        return false;
+    }
+
+    if (!device_mac.empty()) {
+        next_device["mac"] = device_mac;
+    }
+    next_device["isCurrentDevice"] = true;
+
+    p->m_current_device = next_device;
+
+    get_device_box_info_hash(p->m_current_device, cur_box_info_hash);
+    bool box_info_hash_changed = cur_box_info_hash != -1 && last_box_info_hash == -1;
+
+    p->m_current_device_data = DM::Device::deserialize(p->m_current_device);
+    p->m_current_device_data.isCurrentDevice = true;
+    set_cur_active_address(p->m_current_device_data.address);
+
+    p->m_current_device_changed_state = box_info_hash_changed ||
+        p->m_current_device_data.address != current_device_last.address ||
+        p->m_current_device_data.mac != current_device_last.mac;
+
+    return p->m_current_device_data.valid;
 }
 
 DM::Device DataCenter::get_printer_data(std::string address)

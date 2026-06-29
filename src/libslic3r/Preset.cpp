@@ -317,32 +317,42 @@ std::string Preset::remove_suffix_modified(const std::string &name)
 }
 
 // Update new extruder fields at the printer profile.
-void Preset::normalize(DynamicPrintConfig &config)
+void Preset::normalize(DynamicPrintConfig& config)
 {
-    // BBS
-    auto* filament_diameter = dynamic_cast<const ConfigOptionFloats*>(config.option("filament_diameter"));
-    if (filament_diameter != nullptr)
-        // Loaded the FFF Printer settings. Verify, that all extruder dependent values have enough values.
-        config.set_num_filaments((unsigned int)filament_diameter->values.size());
+    size_t n = 1;
+    if (config.option("single_extruder_multi_material") == nullptr || config.opt_bool("single_extruder_multi_material")) {
+        // BBS
+        auto* filament_diameter = dynamic_cast<const ConfigOptionFloats*>(config.option("filament_diameter"));
+        if (filament_diameter != nullptr) {
+            n = filament_diameter->values.size();
+            // Loaded the FFF Printer settings. Verify, that all extruder dependent values have enough values.
+            config.set_num_filaments((unsigned int) n);
+        }
+    } else {
+        auto* nozzle_diameter = dynamic_cast<const ConfigOptionFloats*>(config.option("nozzle_diameter"));
+        if (nozzle_diameter != nullptr) {
+            n = nozzle_diameter->values.size();
+            // Loaded the FFF Printer settings. Verify, that all extruder dependent values have enough values.
+            config.set_num_extruders((unsigned int) n);
+        }
+    }
 
     if (config.option("filament_diameter") != nullptr) {
         // This config contains single or multiple filament presets.
         // Ensure that the filament preset vector options contain the correct number of values.
-        // BBS
-        size_t n = (filament_diameter == nullptr) ? 1 : filament_diameter->values.size();
-        const auto &defaults = FullPrintConfig::defaults();
-        for (const std::string &key : Preset::filament_options()) {
+        const auto& defaults = FullPrintConfig::defaults();
+        for (const std::string& key : Preset::filament_options()) {
             if (key == "compatible_prints" || key == "compatible_printers")
                 continue;
-            auto *opt = config.option(key, false);
+            auto* opt = config.option(key, false);
             /*assert(opt != nullptr);
             assert(opt->is_vector());*/
-            if (opt != nullptr && opt->is_vector() && defaults.option(key) != nullptr)
+            if (opt != nullptr && opt->is_vector())
                 static_cast<ConfigOptionVectorBase*>(opt)->resize(n, defaults.option(key));
         }
         // The following keys are mandatory for the UI, but they are not part of FullPrintConfig, therefore they are handled separately.
-        for (const std::string &key : { "filament_settings_id" }) {
-            auto *opt = config.option(key, false);
+        for (const std::string key : {"filament_settings_id"}) {
+            auto* opt = config.option(key, false);
             assert(opt == nullptr || opt->type() == coStrings);
             if (opt != nullptr && opt->type() == coStrings)
                 static_cast<ConfigOptionStrings*>(opt)->values.resize(n, std::string());
@@ -350,18 +360,6 @@ void Preset::normalize(DynamicPrintConfig &config)
     }
 
     handle_legacy_sla(config);
-
-    // Mutual exclusion (config-level): don't allow both algorithms to be enabled at the same time.
-    // - max_volumetric_extrusion_rate_slope != 0 => disable msao_recovery_enable
-    // - msao_recovery_enable == true => force max_volumetric_extrusion_rate_slope to 0
-    if (auto* slope_opt = config.option<ConfigOptionFloat>("max_volumetric_extrusion_rate_slope", false); slope_opt != nullptr) {
-        if (auto* ms_opt = config.option<ConfigOptionBool>("msao_recovery_enable", false); ms_opt != nullptr) {
-            if (slope_opt->value != 0.0)
-                ms_opt->value = false;
-            else if (ms_opt->value)
-                slope_opt->value = 0.0;
-        }
-    }
 }
 
 std::string Preset::remove_invalid_keys(DynamicPrintConfig &config, const DynamicPrintConfig &default_config)
@@ -849,6 +847,8 @@ static std::vector<std::string> s_Preset_print_options {
     "extra_perimeters_on_overhangs", "ensure_vertical_shell_thickness", "reduce_crossing_wall", "detect_thin_wall", "detect_overhang_wall", "overhang_reverse", "overhang_reverse_threshold","overhang_reverse_internal_only", "wall_direction","smooth_speed_discontinuity_area","smooth_coefficient",
     "seam_position",
     "staggered_inner_seams",
+    "material_flow_dependent_temperature",
+    "material_flow_temp_graph",
     "wall_sequence",
     "is_infill_first",
     "sparse_infill_density",
@@ -880,8 +880,12 @@ static std::vector<std::string> s_Preset_print_options {
     "ironing_type", "ironing_pattern", "ironing_flow", "ironing_speed", "ironing_spacing", "ironing_angle",
     "support_ironing","support_ironing_pattern","support_ironing_flow","support_ironing_spacing",
     "max_travel_detour_distance","overhang_optimization",
-    "fuzzy_skin", "fuzzy_skin_thickness", "fuzzy_skin_point_distance", "fuzzy_skin_first_layer", "fuzzy_skin_noise_type", "fuzzy_skin_mode", "fuzzy_skin_scale", "fuzzy_skin_octaves", "fuzzy_skin_persistence",
-    "max_volumetric_extrusion_rate_slope", "max_volumetric_extrusion_rate_slope_segment_length", "msao_recovery_enable", "msao_safe_accel", "msao_safe_velocity",
+    "fuzzy_skin", "fuzzy_skin_mode", "fuzzy_skin_noise_type",
+    "fuzzy_skin_thickness", "fuzzy_skin_point_distance",
+    "fuzzy_skin_scale", "fuzzy_skin_octaves", "fuzzy_skin_persistence",
+    "fuzzy_skin_first_layer",
+    "max_volumetric_extrusion_rate_slope", "max_volumetric_extrusion_rate_slope_segment_length",
+    "msao_recovery_enable", "msao_safe_accel", "msao_safe_velocity",
     "acceleration_limit_mess_enable", "acceleration_limit_mess", "speed_limit_to_height_enable", "speed_limit_to_height",
     "inner_wall_speed", "outer_wall_speed", "sparse_infill_speed", "internal_solid_infill_speed",
     "top_surface_speed", "support_speed", "support_object_xy_distance", "support_object_first_layer_gap", "support_interface_speed",
@@ -902,7 +906,7 @@ static std::vector<std::string> s_Preset_print_options {
     "elefant_foot_compensation", "elefant_foot_compensation_layers", "xy_contour_compensation", "xy_hole_compensation", "resolution", "enable_prime_tower",
     "prime_tower_width","prime_tower_rib_wall","prime_tower_skip_points","prime_tower_enable_framework", "prime_tower_brim_width","prime_volume","prime_tower_enhance_type", 
     "wipe_tower_no_sparse_layers", "compatible_printers", "compatible_printers_condition", "inherits",
-    "flush_into_infill", "flush_into_objects", "flush_into_support",
+    "flush_into_infill", "flush_into_objects", "flush_into_support", "flush_into_skeleton",
      "tree_support_branch_angle", "tree_support_angle_slow", "tree_support_wall_count", "tree_support_wall_count_tree", "tree_support_top_rate", "tree_support_branch_distance", "tree_support_tip_diameter",
      "tree_support_branch_diameter", "tree_support_branch_diameter_angle", "tree_support_branch_diameter_double_wall",
      "detect_narrow_internal_solid_infill",
@@ -924,10 +928,20 @@ static std::vector<std::string> s_Preset_print_options {
      "make_overhang_printable", "make_overhang_printable_angle", "make_overhang_printable_hole_size" ,"notes",
      "wipe_tower_cone_angle", "wipe_tower_extra_spacing","wipe_tower_max_purge_speed", "wipe_tower_filament", "wiping_volumes_extruders","wipe_tower_bridging","wipe_tower_extra_flow", "single_extruder_multi_material_priming","purge_in_prime_tower",
      "wipe_tower_rotation_angle", "tree_support_branch_distance_organic", "tree_support_branch_diameter_organic", "tree_support_branch_angle_organic",
+     "tree_support_organic_validate_repair",
      "hole_to_polyhole", "hole_to_polyhole_threshold", "hole_to_polyhole_twisted", "mmu_segmented_region_max_width", "mmu_segmented_region_interlocking_depth",
      "small_area_infill_flow_compensation", "small_area_infill_flow_compensation_model",
      "seam_slope_type", "seam_slope_conditional", "scarf_angle_threshold", "scarf_joint_speed", "scarf_joint_flow_ratio", "seam_slope_start_height", "seam_slope_entire_loop", "seam_slope_min_length", "seam_slope_steps", "seam_slope_inner_walls", "scarf_overhang_threshold",
-     "interlocking_beam", "interlocking_orientation", "interlocking_beam_layer_count", "interlocking_depth", "interlocking_boundary_avoidance", "interlocking_beam_width", "embedding_wall_into_infill",
+     "interlocking_beam", "interlocking_orientation", "interlocking_beam_layer_count", "interlocking_depth", "interlocking_boundary_avoidance", "interlocking_beam_width", "embedding_wall_into_infill", "automatic_extrusion_widths",
+     // Mixed Filament Configuration
+     "mixed_color_layer_height_a", "mixed_color_layer_height_b",
+     "mixed_filament_gradient_mode", "mixed_filament_height_lower_bound", "mixed_filament_height_upper_bound",
+     "mixed_filament_advanced_dithering", "mixed_filament_pointillism_pixel_size", "mixed_filament_pointillism_line_gap",
+     "mixed_filament_surface_indentation", "mixed_filament_definitions",
+     "dithering_z_step_size", "dithering_local_z_mode", "dithering_step_painted_zones_only",
+#ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+     "enable_retraction_distance_when_cut_override", "retraction_distance_when_cut_override",
+#endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
 };
 
 static std::vector<std::string> s_Preset_filament_options {
@@ -946,7 +960,7 @@ static std::vector<std::string> s_Preset_filament_options {
     "activate_air_filtration","during_print_exhaust_fan_speed","complete_print_exhaust_fan_speed",
     // Retract overrides
     "filament_retraction_length", "filament_z_hop", "filament_z_hop_types", "filament_retract_lift_above", "filament_retract_lift_below", "filament_retract_lift_enforce", "filament_retraction_speed", "filament_deretraction_speed", "filament_retract_restart_extra", "filament_retraction_minimum_travel",
-    "filament_retract_when_changing_layer", "filament_wipe", "filament_retract_before_wipe",
+    "filament_retract_when_changing_layer", "filament_wipe", "filament_retract_before_wipe","filament_retract_length_toolchange", "filament_retract_restart_extra_toolchange",
     // Profile compatibility
     "filament_vendor", "compatible_prints", "compatible_prints_condition", "compatible_printers", "compatible_printers_condition", "inherits",
     //BBS
@@ -982,7 +996,7 @@ static std::vector<std::string> s_Preset_printer_options {
     // Creality
     "color_bed_exclude_area", "machine_ptc_exist", "machine_is_belt", "belt_Z_offset",
     // BBS
-    "scan_first_layer", "machine_load_filament_time", "machine_unload_filament_time", "machine_tool_change_time","time_cost", "machine_pause_gcode", "template_custom_gcode",
+    "scan_first_layer", "machine_load_filament_time", "machine_unload_filament_time", "machine_tool_change_time","time_cost", "bed_temperature_mode","machine_pause_gcode", "template_custom_gcode",
     "nozzle_type", "nozzle_hrc","auxiliary_fan", "nozzle_volume","upward_compatible_machine", "z_hop_types","travel_slope", "retract_lift_enforce","support_chamber_temp_control","support_air_filtration","printer_structure",
     "best_object_pos","head_wrap_detect_zone", 
     "machine_LED_light_exist", "machine_platform_motion_enable", "printer_structure",
@@ -997,9 +1011,7 @@ static std::vector<std::string> s_Preset_printer_options {
     "z_offset", "disable_m73", "preferred_orientation", "emit_machine_limits_to_gcode",
                              "pellet_modded_printer", "support_multi_bed_types", "bed_mesh_min", "bed_mesh_max", "bed_mesh_probe_distance",
                              "adaptive_bed_mesh_margin", "enable_long_retraction_when_cut", "long_retractions_when_cut",
-                             "retraction_distances_when_cut", "creality_flush_time", "default_flush_multiplier",
-                             "flush_box_first_clean_length", "flush_box_need_clean_length", "flush_box_need_clean_length_max",
-                             "multicolor_method"
+                             "retraction_distances_when_cut", "creality_flush_time", "filament_can_change", "default_flush_multiplier", "flush_box_first_clean_length", "flush_box_need_clean_length", "flush_box_need_clean_length_max", "multicolor_method"
     };
 
 static std::vector<std::string> s_Preset_sla_print_options {
@@ -2027,7 +2039,10 @@ static bool profile_print_params_same(const DynamicPrintConfig &cfg_old, const D
     for (const char *key : { "compatible_prints", "compatible_prints_condition",
                              "compatible_printers", "compatible_printers_condition", "inherits",
                              "print_settings_id", "filament_settings_id", "sla_print_settings_id", "sla_material_settings_id", "printer_settings_id",
-                             "printer_model", "printer_variant", "default_print_profile", "default_filament_profile", "default_sla_print_profile", "default_sla_material_profile"
+                             "printer_model", "printer_variant", "default_print_profile", "default_filament_profile", "default_sla_print_profile", "default_sla_material_profile",
+                             "mixed_filament_definitions", "mixed_filament_gradient_mode",
+                             "mixed_filament_height_lower_bound", "mixed_filament_height_upper_bound",
+                             "mixed_filament_advanced_dithering", "mixed_color_layer_height_a", "mixed_color_layer_height_b"
                              })
         diff.erase(std::remove(diff.begin(), diff.end(), key), diff.end());
     // Preset with the same name as stored inside the config exists.
@@ -2960,7 +2975,9 @@ inline t_config_option_keys deep_diff(const ConfigBase &config_this, const Confi
 
 static constexpr const std::initializer_list<const char*> optional_keys { "compatible_prints", "compatible_printers" };
 //BBS: skip these keys for dirty check
-static std::set<std::string> skipped_in_dirty = {"printer_settings_id", "print_settings_id", "filament_settings_id", "inherits", "curr_bed_type","belt_Z_offset"};
+static std::set<std::string> skipped_in_dirty = {"printer_settings_id", "print_settings_id", "filament_settings_id", "inherits", "curr_bed_type","belt_Z_offset", "mixed_filament_definitions",
+    "mixed_filament_gradient_mode", "mixed_filament_height_lower_bound", "mixed_filament_height_upper_bound",
+    "mixed_filament_advanced_dithering", "mixed_color_layer_height_a", "mixed_color_layer_height_b"};
 
 bool PresetCollection::is_dirty(const Preset *edited, const Preset *reference)
 {
@@ -3864,7 +3881,6 @@ bool PhysicalPrinterCollection::is_selected(PhysicalPrinterCollection::ConstIter
             m_selected_preset   == preset_name;
 }
 
-
 namespace PresetUtils {
 	const VendorProfile::PrinterModel* system_printer_model(const Preset &preset)
 	{
@@ -3884,10 +3900,39 @@ namespace PresetUtils {
     {
         std::string out;
         const VendorProfile::PrinterModel* pm = PresetUtils::system_printer_model(preset);
-        if (pm != nullptr && preset.vendor != nullptr && !pm->bed_model.empty()) {
-            out = Slic3r::data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->bed_model;
+        if (pm != nullptr && !pm->bed_model.empty()) {
+            const auto bed_model_filename = [&]() -> std::string {
+                if (preset.vendor->id != "Creality")
+                    return pm->bed_model;
+
+                auto matches_id = [&](const char* candidate) {
+                    return candidate != nullptr && (
+                        pm->name == candidate || pm->id == candidate || pm->model_id == candidate);
+                };
+                auto matches_model = [&](const char* file, const char* id1 = nullptr, const char* id2 = nullptr,
+                                         const char* id3 = nullptr, const char* id4 = nullptr) {
+                    if (pm->bed_model == file)
+                        return true;
+                    return matches_id(id1) || matches_id(id2) || matches_id(id3) || matches_id(id4);
+                };
+
+                // Prefer explicit dedicated bed models when available; otherwise keep legacy K1 default.
+                if(pm->name.find("SPARKX") != std::string::npos || pm->id.find("SPARKX") != std::string::npos)
+                    return "Creality F022_buildplate_model.stl";
+                if (matches_model("Creality F022_buildplate_model.stl", "Creality F022", "Creality_F022"))
+                    return "Creality F022_buildplate_model.stl";
+                if (matches_model("Creality K2_buildplate_model.stl", "Creality K2", "Creality_K2"))
+                    return "Creality K2_buildplate_model.stl";
+                if (matches_model("Creality K2 Pro_buildplate_model.stl", "Creality K2 Pro", "Creality_K2_Pro"))
+                    return "Creality K2 Pro_buildplate_model.stl";
+                if (matches_model("Creality K2 Plus_buildplate_model.stl", "Creality K2 Plus", "Creality_K2_Plus"))
+                    return "Creality K2 Plus_buildplate_model.stl";
+                return "creality_k1_buildplate_model.stl";
+            }();
+
+            out = Slic3r::data_dir() + "/vendor/" + preset.vendor->id + "/" + bed_model_filename;
             if (!boost::filesystem::exists(boost::filesystem::path(out))) {
-                out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_model;
+                out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + bed_model_filename;
             }
         }
         return out;

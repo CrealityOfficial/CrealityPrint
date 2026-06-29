@@ -93,6 +93,7 @@ protected:
     float last_move_input_window_width = 0.0f;
     float last_rotate_input_window_width = 0.0f;
     float last_scale_input_window_width = 0.0f;
+    float m_last_input_window_height = 0.0f;
 
 public:
     GizmoObjectManipulation(GLCanvas3D& glcanvas);
@@ -118,9 +119,10 @@ public:
     void reset_cache() { m_cache.reset(); }
 
     void on_change(const std::string& opt_key, int axis, double new_value);
-    void do_render_move_window(ImGuiWrapper *imgui_wrapper, std::string window_name, float x, float y, float bottom_limit);
-    void do_render_rotate_window(ImGuiWrapper *imgui_wrapper, std::string window_name, float x, float y, float bottom_limit);
-    void do_render_scale_input_window(ImGuiWrapper* imgui_wrapper, std::string window_name, float x, float y, float bottom_limit);
+    void do_render_move_window(ImGuiWrapper *imgui_wrapper, std::string window_name, float x, float y, float bottom_limit, bool force_update = false);
+    void do_render_rotate_window(ImGuiWrapper *imgui_wrapper, std::string window_name, float x, float y, float bottom_limit, bool force_update = false);
+    void do_render_scale_input_window(ImGuiWrapper* imgui_wrapper, std::string window_name, float x, float y, float bottom_limit, bool force_update = false);
+    float get_last_input_window_height() const { return m_last_input_window_height; }
     float max_unit_size(int number, Vec3d &vec1, Vec3d &vec2,std::string str);
     bool reset_button(ImGuiWrapper *imgui_wrapper, float caption_max, float unit_size, float space_size, float end_text_size);
     void reset_move_analytics_state();

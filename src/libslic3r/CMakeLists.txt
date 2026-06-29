@@ -12,6 +12,7 @@ set(AUTOMATION_TOOL OFF)
 #endif()
 
 set(AUTO_CONVERT_3MF OFF)
+set(GUI_SIMPLE ON)
 
 message("aaaa SLIC3R_APP_NAME=${SLIC3R_APP_NAME}")
 if(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/libslic3r_version.h")
@@ -398,7 +399,17 @@ set(lisbslic3r_sources
 	support_new/TreeSupport3D.cpp
 	support_new/TreeSupport3D.hpp
 	support_new/TreeSupportCommon.hpp
+    support_new/KMeansClustering.cpp
+	support_new/KMeansClustering.hpp
+	support_new/OrganicSupportValidation.cpp
+	support_new/OrganicSupportValidation.hpp
 	
+	
+	filament_mixer.cpp
+	filament_mixer.h 
+	filament_mixer_model.h
+	MixedFilament.cpp
+	MixedFilament.hpp 
     PrincipalComponents2D.cpp
     PrincipalComponents2D.hpp
     #SupportSpotsGenerator.cpp

@@ -1681,14 +1681,17 @@ TriangleSelector::TriangleSplittingData TriangleSelector::serialize() const {
                     data.used_states[n] = true;
 
                 if (n >= 3) {
-                    assert(n <= 16);
-                    if (n <= 16) {
-                        // Store "11" plus 4 bits of (n-3).
-                        data.bitstream.insert(data.bitstream.end(), { true, true });
-                        n -= 3;
+                    // Store "11" plus one or more 4-bit chunks of (n - 3), where
+                    // 0b1111 indicates that another chunk follows.
+                    data.bitstream.insert(data.bitstream.end(), { true, true });
+                    n -= 3;
+                    while (n >= 15) {
                         for (size_t bit_idx = 0; bit_idx < 4; ++bit_idx)
-                            data.bitstream.push_back(n & (uint64_t(0b0001) << bit_idx));
+                            data.bitstream.push_back(uint64_t(0b1111) & (uint64_t(0b0001) << bit_idx));
+                        n -= 15;
                     }
+                    for (size_t bit_idx = 0; bit_idx < 4; ++bit_idx)
+                        data.bitstream.push_back(n & (uint64_t(0b0001) << bit_idx));
                 } else {
                     // Simple case, compatible with PrusaSlicer 2.3.1 and older for storing paint on supports and seams.
                     // Store 2 bits of n.
@@ -1779,13 +1782,37 @@ void TriangleSelector::deserialize(const TriangleSplittingData& data, bool needs
                 }
             }
 
-            // BBS
-            if (state == to_delete_filament)
-                state = replace_filament;
-            else if (to_delete_filament != EnforcerBlockerType::NONE && state != EnforcerBlockerType::NONE) {
-                state = state > to_delete_filament ? EnforcerBlockerType((int)state - 1) : state;
+            // BBS: Handle physical filament deletion
+            if (to_delete_filament != EnforcerBlockerType::NONE && state != EnforcerBlockerType::NONE) {
+                // CRITICAL: When deleting a physical filament, clear ALL painting states that involve this filament.
+                // This includes:
+                // 1. Direct painting with the deleted filament (state == to_delete_filament)
+                // 2. Mixed filament painting (state > max_ebt) - because mixed filaments contain physical filaments
+                // 3. Other physical filaments with ID > to_delete_filament - need ID adjustment
+                
+                EnforcerBlockerType original_state = state;
+                
+                if (state == to_delete_filament) {
+                    // Direct painting with deleted filament: clear it
+                    state = EnforcerBlockerType::NONE;
+                    BOOST_LOG_TRIVIAL(info) << "  Clearing direct painting: state=" << (int)original_state 
+                                           << " to_delete=" << (int)to_delete_filament;
+                } else if (state > max_ebt) {
+                    // Mixed filament painting: clear it because composition changed
+                    // NOTE: This operation is NOT undoable since the filament is deleted
+                    state = EnforcerBlockerType::NONE;
+                    BOOST_LOG_TRIVIAL(info) << "  Clearing mixed filament painting: state=" << (int)original_state 
+                                           << " max_ebt=" << (int)max_ebt;
+                } else if (state > to_delete_filament) {
+                    // Other physical filament after the deleted one: adjust ID
+                    state = EnforcerBlockerType((int)state - 1);
+                    BOOST_LOG_TRIVIAL(info) << "  Adjusting physical filament ID: state=" << (int)original_state 
+                                           << " -> " << (int)state;
+                }
+                // else: state < to_delete_filament, keep unchanged
             }
-            // BBS
+            
+            // BBS: Clear any state that exceeds the maximum (safety check)
             if (state > max_ebt)
                 state = EnforcerBlockerType::NONE;
 
@@ -1872,9 +1899,25 @@ void TriangleSelector::TriangleSplittingData::update_used_states(const size_t bi
         if (const bool is_split = (code & 0b11) != 0; is_split)
             continue;
 
-        const uint8_t facet_state = (code & 0b1100) == 0b1100 ? read_next_nibble() + 3 : code >> 2;
-        assert(facet_state < this->used_states.size());
-        if (facet_state >= this->used_states.size())
+        // Decode state: must handle chain encoding for states >= 18,
+        // matching the logic in TriangleSelector::deserialize().
+        // Format: 0xC marker, then chain of 0xF nibbles (each adds +15), 
+        // terminated by a non-0xF nibble. state = final_nibble + 15*num_0xF + 3.
+        int facet_state;
+        if ((code & 0b1100) == 0b1100) {
+            int next_code = read_next_nibble();
+            int num = 0;
+            while (next_code == 0b1111) {
+                num++;
+                if (nibble_idx >= this->bitstream.size())
+                    break;
+                next_code = read_next_nibble();
+            }
+            facet_state = next_code + 15 * num + 3;
+        } else {
+            facet_state = code >> 2;
+        }
+        if (facet_state < 0 || facet_state >= int(this->used_states.size()))
             continue;
 
         this->used_states[facet_state] = true;
@@ -1887,7 +1930,6 @@ bool TriangleSelector::has_facets(const TriangleSplittingData &data, const Enfor
     // Kept outside of the loop to avoid re-allocating inside the loop.
     std::vector<int> parents_children;
     parents_children.reserve(64);
-
     for (const TriangleBitStreamMapping &triangle_id_and_ibit : data.triangles_to_split) {
         int ibit = triangle_id_and_ibit.bitstream_start_idx;
         assert(ibit < int(data.bitstream.size()));
@@ -1899,12 +1941,28 @@ bool TriangleSelector::has_facets(const TriangleSplittingData &data, const Enfor
         };
         // < 0 -> negative of a number of children
         // >= 0 -> state
+        // BBS FIX: Must mirror the chain-encoding used by TriangleSelector::deserialize().
+        // For states >= 18 the encoding is: marker 0b1100, then a chain of 0b1111 nibbles
+        // (each contributing +15), terminated by a final non-0b1111 nibble whose value is
+        // added with +3. The previous implementation only read a single trailing nibble
+        // (next_nibble()+3), which caused bitstream desynchronization for any state >= 18
+        // (e.g. painting with filament color #19), eventually leading to out-of-bounds
+        // reads on data.bitstream and a crash inside next_nibble().
         auto num_children_or_state = [&next_nibble]() -> int {
             int code               = next_nibble();
             int num_of_split_sides = code & 0b11;
-            return num_of_split_sides == 0 ?
-                ((code & 0b1100) == 0b1100 ? next_nibble() + 3 : code >> 2) :
-                - num_of_split_sides - 1;
+            if (num_of_split_sides != 0)
+                return - num_of_split_sides - 1;
+            if ((code & 0b1100) == 0b1100) {
+                int next_code = next_nibble();
+                int num       = 0;
+                while (next_code == 0b1111) {
+                    ++num;
+                    next_code = next_nibble();
+                }
+                return next_code + 15 * num + 3;
+            }
+            return code >> 2;
         };
 
         int state = num_children_or_state();
@@ -1950,6 +2008,27 @@ void TriangleSelector::seed_fill_apply_on_triangles(EnforcerBlockerType new_stat
             size_t facet_idx = &triangle - &m_triangles.front();
             remove_useless_children(int(facet_idx));
         }
+}
+
+void TriangleSelector::remap_states(const std::vector<unsigned int> &remap)
+{
+    if (remap.empty())
+        return;
+    for (Triangle &tr : m_triangles) {
+        if (!tr.valid() || tr.is_split())
+            continue;
+        const int old_state = int(tr.get_state());
+        if (old_state == int(EnforcerBlockerType::NONE))
+            continue; // NONE (0) stays NONE
+        // remap is 0-indexed: remap[old_state - 1] gives new filament ID (0 = clear to NONE)
+        const int idx = old_state - 1;
+        if (idx < 0 || idx >= int(remap.size())) {
+            // Out of range - clear the state
+            tr.set_state(EnforcerBlockerType::NONE);
+        } else {
+            tr.set_state(EnforcerBlockerType(remap[idx]));
+        }
+    }
 }
 
 TriangleSelector::Cursor::Cursor(const Vec3f &source_, float radius_world, const Transform3d &trafo_, const ClippingPlane &clipping_plane_)

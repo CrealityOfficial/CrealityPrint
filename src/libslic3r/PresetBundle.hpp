@@ -1,9 +1,10 @@
-#ifndef slic3r_PresetBundle_hpp_
+﻿#ifndef slic3r_PresetBundle_hpp_
 #define slic3r_PresetBundle_hpp_
 
 #include "Preset.hpp"
 #include "AppConfig.hpp"
 #include "enum_bitmask.hpp"
+#include "MixedFilament.hpp"  // 添加这行
 
 #include <memory>
 #include <unordered_map>
@@ -136,7 +137,7 @@ public:
 
     // BBS
     void            set_num_filaments(unsigned int n, std::string new_col = "");
-    void         update_num_filaments(unsigned int to_del_flament_id);
+    void         update_num_filaments(unsigned int to_del_flament_id, int replace_filament_id = -1);
 
     unsigned int sync_ams_list(unsigned int & unknowns);
     //BBS: check whether this is the only edited filament
@@ -182,6 +183,9 @@ public:
     // they are being serialized / deserialized from / to the .amf, .3mf, .config, .gcode,
     // and they are being used by slicing core.
     DynamicPrintConfig          project_config;
+
+    // Mixed filament manager for virtual filament color mixing
+    MixedFilamentManager        mixed_filaments;
 
     // There will be an entry for each system profile loaded,
     // and the system profiles will point to the VendorProfile instances owned by PresetBundle::vendors.
@@ -263,7 +267,23 @@ public:
 
     // Read out the number of extruders from an active printer preset,
     // update size and content of filament_presets.
-    void update_multi_material_filament_presets(size_t to_delete_filament_id = size_t(-1));
+    void update_multi_material_filament_presets(size_t to_delete_filament_id = size_t(-1), size_t old_num_filaments_override = 0, int replace_filament_id = -1);
+
+    // Update mixed filament ID remap when physical filaments change
+    void update_mixed_filament_id_remap(const std::vector<MixedFilament> &old_mixed,
+                                        size_t old_num_filaments,
+                                        size_t new_num_filaments);
+    
+    // Build filament ID remap for painted facet data
+    void build_filament_id_remap(const std::vector<MixedFilament> &old_mixed,
+                                 size_t old_num_filaments,
+                                 size_t new_num_filaments,
+                                 bool deleting_filament,
+                                 unsigned int deleted_filament_id,
+                                 int replace_filament_id = -1);
+    
+    // Consume and clear the last filament ID remap
+    std::vector<unsigned int> consume_last_filament_id_remap();
 
     // Update the is_compatible flag of all print and filament presets depending on whether they are marked
     // as compatible with the currently selected printer (and print in case of filament presets).
@@ -370,6 +390,9 @@ private:
     int m_errors = 0;
     bool m_isCrealityPrinter = false;
     bool m_isCrealityFilament = false;
+    
+    // Last filament ID remap table (old_id -> new_id)
+    std::vector<unsigned int> m_last_filament_id_remap;
 };
 
 ENABLE_ENUM_BITMASK_OPERATORS(PresetBundle::LoadConfigBundleAttribute)

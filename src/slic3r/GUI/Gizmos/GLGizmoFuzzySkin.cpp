@@ -98,6 +98,11 @@ void GLGizmoFuzzySkin::render_triangles(const Selection& selection) const
     });
 
     const ModelObject* mo      = m_c->selection_info()->model_object();
+    if (mo == nullptr)
+    {
+        return;
+    }
+
     int                mesh_id = -1;
     for (const ModelVolume* mv : mo->volumes) {
         if (!mv->is_model_part())
@@ -180,8 +185,9 @@ void GLGizmoFuzzySkin::show_tooltip_information(float caption_max, float x, floa
     ImGui::PopStyleVar(2);
 }
 
-void GLGizmoFuzzySkin::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoFuzzySkin::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
+    (void)force_update_pos;
     if (!m_c->selection_info()->model_object())
         return;
 
@@ -374,8 +380,9 @@ void GLGizmoFuzzySkin::on_render_input_window(float x, float y, float bottom_lim
 
     if (m_imgui->button(m_desc.at("remove_all"))) {
         Plater::TakeSnapshot snapshot(wxGetApp().plater(), _u8L("Reset selection"), UndoRedo::SnapshotType::GizmoAction);
-        ModelObject         *mo  = m_c->selection_info()->model_object();
+        ModelObject         *mo  = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
         int                  idx = -1;
+        if (mo != nullptr)
         for (ModelVolume *mv : mo->volumes)
             if (mv->is_model_part()) {
                 ++idx;
@@ -396,7 +403,9 @@ void GLGizmoFuzzySkin::on_render_input_window(float x, float y, float bottom_lim
 void GLGizmoFuzzySkin::update_model_object()
 {
     bool         updated = false;
-    ModelObject *mo      = m_c->selection_info()->model_object();
+    ModelObject *mo      = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+    if (mo == nullptr)
+        return;
     int          idx     = -1;
     for (ModelVolume *mv : mo->volumes) {
         if (!mv->is_model_part())
@@ -418,8 +427,10 @@ void GLGizmoFuzzySkin::update_from_model_object(bool first_update)
 {
     wxBusyCursor wait;
 
-    const ModelObject *mo = m_c->selection_info()->model_object();
+    const ModelObject *mo = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
     m_triangle_selectors.clear();
+    if (mo == nullptr)
+        return;
 
     int volume_id = -1;
     std::vector<ColorRGBA> ebt_colors;

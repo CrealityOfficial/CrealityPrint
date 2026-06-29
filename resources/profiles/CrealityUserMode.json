@@ -288,6 +288,18 @@
 		{
             "key": "flush_box_need_clean_length_max",
             "type": "2"
+        },
+        {
+            "key": "wall_filament",
+            "type": "2"
+        },
+        {
+            "key": "sparse_infill_filament",
+            "type": "2"
+        },
+        {
+            "key": "solid_infill_filament",
+            "type": "2"
         }
     ]
 }

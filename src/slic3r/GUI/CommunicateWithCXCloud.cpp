@@ -383,7 +383,7 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
                         std::string ssValue = "";
                         for (int i = 0; i < value.size(); ++i) {
                             if (i != 0) {
-                                if ("compatible_printers" == key) {
+                                if ("compatible_printers" == key || "small_area_infill_flow_compensation_model" == key) {
                                     ssValue += ";";
                                     inner_map[key] += ";";
                                 } else {

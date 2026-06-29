@@ -780,8 +780,8 @@ bool MachineObject::is_support_ams_mapping()
 static float calc_color_distance(wxColour c1, wxColour c2)
 {
     float lab[2][3];
-    RGB2Lab(c1.Red(), c1.Green(), c1.Blue(), &lab[0][0], &lab[0][1], &lab[0][2]);
-    RGB2Lab(c2.Red(), c2.Green(), c2.Blue(), &lab[1][0], &lab[1][1], &lab[1][2]);
+    RGB2Lab(c1.Red() / 255.f, c1.Green() / 255.f, c1.Blue() / 255.f, &lab[0][0], &lab[0][1], &lab[0][2]);
+    RGB2Lab(c2.Red() / 255.f, c2.Green() / 255.f, c2.Blue() / 255.f, &lab[1][0], &lab[1][1], &lab[1][2]);
 
     return DeltaE76(lab[0][0], lab[0][1], lab[0][2], lab[1][0], lab[1][1], lab[1][2]);
 }

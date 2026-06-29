@@ -6,6 +6,7 @@
 #include "slic3r/GUI/GUI_ObjectList.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/Gizmos/GizmoObjectManipulation.hpp"
+#include "slic3r/GUI/AnalyticsDataUploadManager.hpp"
 #include "slic3r/GUI/Selection.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
 
@@ -291,9 +292,8 @@ bool GLGizmoDrill::gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_posi
     }
 
     auto ret = sla::hollow_mesh_and_drill(temp_src_mesh, temp_tool_mesh, temp_mesh_resuls);
-#ifdef HAS_WIN10SDK
     // fix_non_manifold_edges
-    if (ret && is_windows10()) {
+    if (ret && has_mesh_repair_backend()) {
         ModelObject* model_obj = m_c->selection_info()->model_object();
 
         std::vector<std::string> succes_models;
@@ -306,12 +306,12 @@ bool GLGizmoDrill::gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_posi
             wxString msg = _L("Repairing model object");
             msg += ": " + from_u8(model_name) + "\n";
             std::string res;
-            if (!fix_model_by_win10_sdk_gui(*model_object, vol_idx, progress_dlg, msg, res))
+            if (!fix_model(*model_object, vol_idx, progress_dlg, msg, res))
                 return false;
             return true;
         };
         ProgressDialog progress_dlg(_L("Repairing model object"), "", 100, find_toplevel_parent(plater),
-                                    wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT, true);
+                                    wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT);
 
         auto model_name = model_obj->name;
         if (!fix_and_update_progress(model_obj, m_src.volume_idx, model_name, progress_dlg, succes_models, failed_models)) {
@@ -327,7 +327,6 @@ bool GLGizmoDrill::gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_posi
         if (ret)
             Slic3r::MeshBoolean::mcut::make_boolean(temp_src_mesh, temp_tool_mesh, temp_mesh_resuls, "A_NOT_B");
     }
-#endif
     if (temp_mesh_resuls.empty())
         return mouse_on_object;
 
@@ -343,6 +342,10 @@ bool GLGizmoDrill::gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_posi
     temp_mesh_resuls.front().transform(instance_matrix.inverse());
     
     generate_new_volume(true, temp_mesh_resuls.front());
+
+    // 【新增】标记几何体修改（打洞成功）
+    AnalyticsDataUploadManager::ProjectModificationTracker::getInstance()
+        .mark_modified(AnalyticsDataUploadManager::ModelModifyType::ADD_HOLE);
 
     // check after drill
     wxGetApp().plater()->check_object_need_repair(m_parent.get_selection().get_object_idx(), "drill");
@@ -463,7 +466,7 @@ CommonGizmosDataID GLGizmoDrill::on_get_requirements() const
                               int(CommonGizmosDataID::Raycaster) | int(CommonGizmosDataID::ObjectClipper));
 }
 
-void GLGizmoDrill::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoDrill::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
     bool is_dark = wxGetApp().dark_mode();
     float label_width = 0.0f;
@@ -490,7 +493,7 @@ void GLGizmoDrill::on_render_input_window(float x, float y, float bottom_limit)
                                 updown_button_size.x);
     float end_text_size = ImGuiWrapper::calc_text_size(this->m_new_unit_string).x;
 
-    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f);
+    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f, force_update_pos);
     
     GizmoImguiBegin(get_name(), ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
 

@@ -365,6 +365,28 @@ protected:
     int        m_bedTempValue;
 };
 
+class XY_Offset_Calibration_Dlg : public DPIDialog
+{
+public:
+    XY_Offset_Calibration_Dlg(wxWindow* parent, wxWindowID id, Plater* plater);
+    ~XY_Offset_Calibration_Dlg();
+    void on_dpi_changed(const wxRect& suggested_rect) override;
+
+protected:
+    void on_confirm(wxCommandEvent& event);
+
+private:
+    ComboBox* m_cb_toolhead_count;
+    ComboBox* m_cb_nozzle_diameter;
+    ComboBox* m_cb_step;
+    Button*   m_btn_confirm;
+    Plater*   m_plater;
+
+    int    m_toolhead_count = 2;
+    double m_nozzle_diameter = 0.4;
+    double m_step = 0.1;
+};
+
 }} // namespace Slic3r::GUI
 
 #endif

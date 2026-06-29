@@ -371,6 +371,8 @@ public:
     // 刷新设备管理页（触发前端 refresh_all_device）
     void refresh_device_page();
 
+    void switch_to_device_page();
+
     PrinterMgrView* get_printer_mgr_view() { return m_printer_mgr_view; }
     WebModelLibraryView* get_modellibrary_view(){ return m_webmodellibrary_view; }
     PA_Calibration_Dlg* m_pa_calib_dlg{ nullptr };
@@ -387,6 +389,7 @@ public:
     Acceleration_Tower_Dlg*      m_acc_tower_dlg{nullptr};
     Dec_Acceleration_Dlg*        m_dec_acc_dlg{nullptr};
     High_Flowrate_Dlg*           m_high_flowrate_dlg{nullptr};
+    XY_Offset_Calibration_Dlg*   m_xy_offset_calib_dlg{nullptr};
 
     // BBS. Replace title bar and menu bar with top bar.
     BBLTopbar*            m_topbar{ nullptr };

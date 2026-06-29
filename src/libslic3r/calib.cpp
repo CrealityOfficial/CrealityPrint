@@ -4,6 +4,7 @@
 #include "Model.hpp"
 #include "ModelObject.hpp"
 #include "ModelVolume.hpp"
+#include "Utils.hpp"
 #include <cmath>
 #include "GCode.hpp"
 
@@ -541,10 +542,16 @@ void CalibPressureAdvancePattern::generate_custom_gcodes(const DynamicPrintConfi
                                                          Model                    &model,
                                                          const Vec3d              &origin)
 {
+    const bool old_full_gcode_comment = GCodeWriter::full_gcode_comment;
+    GCodeWriter::full_gcode_comment = config.option<ConfigOptionBool>("gcode_comments")->value;
+    ScopeGuard restore_full_gcode_comment([old_full_gcode_comment]() {
+        GCodeWriter::full_gcode_comment = old_full_gcode_comment;
+    });
+
     std::stringstream gcode;
     gcode << "; start pressure advance pattern for layer\n";
 
-        refresh_setup(config, is_bbl_machine, model, origin);
+    refresh_setup(config, is_bbl_machine, model, origin);
 
     gcode << move_to(Vec2d(m_starting_point.x(), m_starting_point.y()), m_writer, "Move to start XY position");
     gcode << m_writer.travel_to_z(height_first_layer() + height_z_offset(), "Move to start Z position");

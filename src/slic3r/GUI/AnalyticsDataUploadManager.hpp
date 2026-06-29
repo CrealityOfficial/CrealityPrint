@@ -8,6 +8,7 @@
 #include <map>
 #include <future>
 #include <string>
+
 #include "nlohmann/json.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
@@ -99,7 +100,15 @@ enum class AnalyticsDataEventType {
     ANALYTICS_FILE_EXPORT_GCODE_SINGLE,
     ANALYTICS_FILE_EXPORT_GCODE_ALL,
     // Model action events
-    ANALYTICS_MODEL_BOOLEAN
+    ANALYTICS_MODEL_BOOLEAN,
+    // OTA update events
+    ANALYTICS_OTA_DOWNLOAD_START,
+    ANALYTICS_OTA_DOWNLOAD_CANCEL,
+    ANALYTICS_OTA_UPDATE_START,
+    ANALYTICS_OTA_UPDATE_CANCEL,
+    ANALYTICS_OTA_UPDATE_SUCCESS,
+    ANALYTICS_OTA_UPDATE_FAIL,
+    ANALYTICS_PRINT_VIDEO_CONNECT
 };
 
 struct AnalyticsEventPayload {
@@ -160,12 +169,23 @@ public:
     static bool test_sensors_connection();
     
     /**
-     * @brief 发送打印开始事件（print_001）到创想云
+     * @brief 发送打印发送事件到创想云（event_key 按格式自动映射：3mf→print_002）
      * 
-     * @param data 业务数据 JSON 对象（包含 task_id, model_id, plate_idx 等）
+     * @param plate_idx 盘索引
      * @note 自动获取所有必需参数并转换为神策 SDK 格式发送到对应服务器
      */
-    void send_print_begin_event(const nlohmann::json& data = nlohmann::json());
+    void send_print_send_event(int plate_idx);
+    
+    /**
+     * @brief 统一的打印事件发送条件判断
+     * 
+     * 封装所有不上报的条件检查（模型修改、文件格式白名单等），
+     * 供 send_print_send_event 和 cache_slice_info 两处统一使用。
+     * 后续新增条件只需在此方法内追加。
+     * 
+     * @return true 如果满足所有上报条件
+     */
+    bool should_send_print_event() const;
     
     /**
      * @brief 发送神策埋点数据到创想云服务器（通用接口）
@@ -187,11 +207,18 @@ public:
     std::string computeModelFingerprint(const std::string& file_path);
 
     /**
-     * @brief 计算3MF文件指纹（异步）
+     * @brief 异步计算3MF文件指纹并自动设置（不阻塞调用线程）
      * @param file_path 3MF文件路径
-     * @return future，可用于获取计算结果
+     * @param full_url 文件完整URL
+     * @param file_format 文件格式
+     * @param name 文件名
+     * @note 计算完成后自动在主线程调用 mark_analytics_project_info
      */
-    std::future<std::string> computeModelFingerprintAsync(const std::string& file_path);
+    void computeAndSetModelIdAsync(
+        const std::string& file_path,
+        const std::string& full_url,
+        const std::string& file_format,
+        const std::string& name);
 
     /**
      * @brief 获取已缓存的指纹
@@ -227,7 +254,10 @@ public:
         SPLIT_PARTS,         // 分割为部件
         ADD_PART,            // 添加部件
         DELETE_PART,         // 删除部件
-        HEIGHT_RANGE         // 高度范围修改
+        HEIGHT_RANGE,         // 高度范围修改
+        ADD_NEGATIVE_VOLUME,  // Add negative volume
+        ADD_SUPPORT_BLOCKER,  // Add support blocker
+        ADD_SUPPORT_ENFORCER  // Add support enforcer
     };
 
     /**
@@ -283,13 +313,14 @@ public:
         static void collect_filament_params(const DynamicPrintConfig& config, nlohmann::json& output);
         static void collect_process_params(const DynamicPrintConfig& config, nlohmann::json& output);
 
-        // 参数定义表
+        // 参数定义表（数组大小必须与CSV一致！）
+        // printer_params: 5个, filament_params: 60个, process_params: 113个
         static const ParamDef s_printer_params[];
         static constexpr size_t s_printer_params_count = 5;
         static const ParamDef s_filament_params[];
-        static constexpr size_t s_filament_params_count = 52;
+        static constexpr size_t s_filament_params_count = 60;
         static const ParamDef s_process_params[];
-        static constexpr size_t s_process_params_count = 119;
+        static constexpr size_t s_process_params_count = 187;
 
     private:
         bool m_is_modified = false;
@@ -300,6 +331,15 @@ public:
         std::map<int, std::string> m_printer_info;   // key=盘索引, value=JSON字符串
         std::map<int, std::string> m_slice_param;    // key=盘索引, value=JSON字符串
         std::map<int, std::string> m_filament_info;  // key=盘索引, value=JSON字符串
+        
+        // 【新增】当前盘的 task_id（供 GCode.cpp 读取并写入 G-code header）
+        std::string m_current_task_id;
+        
+        // 【新增】当前盘索引（供 GCode.cpp 写入占位符时嵌入盘号）
+        int m_current_plate_id = -1;
+        
+        // 【新增】按盘索引存储的 task_id（导出时生成，发送时复用，保证时间戳一致）
+        std::map<int, std::string> m_plate_task_ids;
         
     public:
         static ProjectModificationTracker& getInstance();
@@ -326,6 +366,33 @@ public:
         std::string get_printer_info(int plate_idx) const;
         std::string get_slice_param(int plate_idx) const;
         std::string get_filament_info(int plate_idx) const;
+        // 导出全部GCode场景：合并所有盘的 objects + plates，global_param 取第0盘
+        std::string get_merged_slice_param(int plate_count) const;
+        // 返回已缓存的盘数（用于 export_all 场景推断 plate_count）
+        size_t get_cached_plate_count() const;
+        
+        // 【新增】设置/获取当前 task_id（供 GCode.cpp 写入 G-code header）
+        void set_current_task_id(const std::string& task_id);
+        std::string get_current_task_id() const;
+        
+        // 【新增】设置/获取当前盘索引（供 GCode.cpp 写入占位符时嵌入盘号）
+        void set_current_plate_id(int plate_id);
+        int get_current_plate_id() const;
+        
+        // 【新增】生成 task_id（格式：{device_id}_{timestamp_ms}_{plate_id:02d}）
+        static std::string generate_task_id(int plate_id);
+        // 【新增】重载：使用外部传入的 timestamp 生成 task_id（用于多盘共享同一时间戳）
+        static std::string generate_task_id(int plate_id, long long timestamp_ms);
+        
+        // 【新增】替换 gcode 文件中的 task_id 占位符为真实值（原地覆盖，不移动文件内容）
+        static bool replace_task_id_placeholder_in_gcode(const std::string& gcode_path, const std::string& task_id);
+        
+        // 【新增】按盘索引存取 task_id（导出时写入，发送时复用，确保 gcode 和事件的时间戳一致）
+        void set_plate_task_id(int plate_index, const std::string& task_id);
+        std::string get_plate_task_id(int plate_index);
+        
+        // 【新增】清除指定盘的 task_id 缓存（用于强制重新生成）
+        void clear_plate_task_id(int plate_index);
     };
 
 private:

@@ -31,6 +31,7 @@
 #include <set>
 #include <string>
 #include <cfloat>
+#include <functional>
 
 namespace Slic3r {
 
@@ -95,6 +96,7 @@ public:
         m_tool_change_idx(0),
         m_plate_origin(plate_origin),
         m_single_extruder_multi_material(print_config.single_extruder_multi_material),
+        m_extruder_is_offset(print_config.filament_can_change),
         m_enable_timelapse_print(print_config.timelapse_type.value == TimelapseType::tlSmooth),
         m_is_first_print(true),
         m_isCrealityCFS(false),
@@ -130,14 +132,13 @@ private:
                                          const BoundingBox& avoid_polygon,
                                          const BoundingBox& printer_bbx) const;
 
-    std::string post_process_wipe_tower_moves_wipe_head(GCode&                             gcodegen,
-                                                        const WipeTower::ToolChangeResult& tcr,
+    std::string post_process_wipe_tower_moves_wipe_head(const WipeTower::ToolChangeResult& tcr,
                                                         const Vec2f&                       translation,
                                                         Vec2f&                             end_wipe_pos,
                                                         std::string&                       wipe_head_path,
                                                         int&                               wipe_block_type,
                                                         float                              angle,
-                                                        float                              z) const;
+                                                        double                             wipe_tower_z) const;
 
     // Postprocesses gcode: rotates and moves G1 extrusions and returns result
     std::string post_process_wipe_tower_moves(const WipeTower::ToolChangeResult& tcr,
@@ -169,6 +170,7 @@ private:
     // BBS
     Vec3d                                                        m_plate_origin;
     bool                                                         m_single_extruder_multi_material;
+    bool                                                         m_extruder_is_offset;
     bool                                                         m_enable_timelapse_print;
     bool                                                         m_is_first_print;
     bool                                                         m_isCrealityCFS;
@@ -238,6 +240,10 @@ public:
         m_belt(false),
         // BBS
         m_toolchange_count(0),
+#ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+        m_toolchange_source_object(nullptr),
+        m_toolchange_target_object(nullptr),
+#endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
         m_nominal_z(0.),
         m_smoothSpeedAcc(new SmoothSpeedAcc()),
         m_smoothTemp(new FlowTempGraph())
@@ -292,6 +298,18 @@ public:
                                           float        max_wipe_y,
                                           bool         by_object   = false,
                                           bool         change_tool = true);
+#ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+    void            set_toolchange_source_object(const PrintObject *print_object);
+    void            set_toolchange_target_object(const PrintObject *print_object);
+    float           effective_retraction_distance_when_cut(unsigned int fallback_extruder_id) const;
+    ConfigOptionFloats effective_retraction_distances_when_cut(unsigned int fallback_extruder_id) const;
+#endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+
+
+    std::string     start_skeleton_flush_toolchange(unsigned int new_extruder_id, double print_z, float skeleton_flush_volume);
+
+    std::string     finish_pending_skeleton_flush_toolchange(unsigned int extruder_id, double print_z, bool by_object = false, bool change_tool = true);
+
 
     void            set_tower_pos(Vec2d _pos);
     bool is_BBL_Printer();
@@ -511,6 +529,7 @@ private:
 		const size_t                     				 single_object_instance_idx);
 
     std::string     extrude_perimeters(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool is_first_layer, bool is_infill_first);
+    std::string     extrude_skin(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region);
     std::string     extrude_infill(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool ironing);
     std::string extrude_support(const ExtrusionEntityCollection& support_fills, const ExtrusionRole support_extrusion_role);
 
@@ -603,6 +622,8 @@ private:
     ExtrusionRole                       m_last_extrusion_role;
     // To ignore gapfill role for retract_lift_enforce
     ExtrusionRole                       m_last_notgapfill_extrusion_role{ erNone };
+    bool                                m_flush_into_skeleton_tail_wipe_enabled{ false };
+    bool                                m_flush_into_skeleton_center_start_enabled{ false };
     // Support for G-Code Processor
     float                               m_last_height{ 0.0f };
     float                               m_last_layer_z{ 0.0f };
@@ -655,9 +676,33 @@ private:
     // BBS
     Print* m_curr_print = nullptr;
     unsigned int m_toolchange_count;
+    std::vector<size_t> m_remaining_extruder_segment_uses;
+#ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+    const PrintObject *m_toolchange_source_object = nullptr;
+    const PrintObject *m_toolchange_target_object = nullptr;
+#endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
     coordf_t m_nominal_z;
     bool m_need_change_layer_lift_z = false;
     int m_start_gcode_filament = -1;
+    bool m_pending_skeleton_flush_toolchange = false;
+    unsigned int m_pending_skeleton_flush_old_extruder = (unsigned int)-1;
+    unsigned int m_pending_skeleton_flush_new_extruder = (unsigned int)-1;
+    std::string m_pending_skeleton_flush_suffix_gcode;
+    std::string m_pending_skeleton_flush_toolchange_gcode;
+    bool m_pending_skeleton_flush_return_position_valid = false;
+    Vec3d m_pending_skeleton_flush_return_position = Vec3d::Zero();
+    std::function<std::string()> m_pending_skeleton_flush_gcode_generator;
+    float m_pending_skeleton_flush_generator_volume = 0.f;
+    bool  m_pending_skeleton_flush_wipe_wall_box_valid = false;
+    Vec2d m_pending_skeleton_flush_wipe_wall_box[4];
+    double m_pending_skeleton_flush_wipe_wall_print_z = -1.;
+    float  m_pending_skeleton_flush_wipe_wall_layer_height = 0.f;
+    bool  m_pending_skeleton_flush_wipe_wall_avoid_box_valid = false;
+    Vec2d m_pending_skeleton_flush_wipe_wall_avoid_box[4];
+    bool  m_pending_skeleton_flush_wipe_wall_start_pos_valid = false;
+    Vec2d m_pending_skeleton_flush_wipe_wall_start_pos = Vec2d::Zero();
+    bool  m_pending_skeleton_flush_wipe_wall_approach_pos_valid = false;
+    Vec2d m_pending_skeleton_flush_wipe_wall_approach_pos = Vec2d::Zero();
 
     double m_last_flow = 0.0f;
     double m_last_time = 0.0f;
@@ -668,7 +713,8 @@ private:
 
     std::set<unsigned int>                  m_initial_layer_extruders;
     // BBS
-    int get_bed_temperature(const int extruder_id, const bool is_first_layer, const BedType bed_type) const;
+    int get_bed_temperature(const int extruder_id, const bool is_first_layer, const BedType bed_type,
+        const std::vector<unsigned int>* extruder_ids = nullptr) const;
 
     std::string _extrude(const ExtrusionPath &path, std::string description = "", double speed = -1);
     std::string set_wipe_tower_print_acceleration();
@@ -714,6 +760,10 @@ private:
 };
 
 std::vector<const PrintInstance*> sort_object_instances_by_model_order(const Print& print, bool init_order = false);
+
+// Export structured time analytics artifacts for a loaded G-code file.
+// Returns true if export completed with at least the layer-time file generated.
+bool export_layer_time_analytics_for_loaded_gcode(const std::string& gcode_path, const GCodeProcessorResult& result);
 
 }
 

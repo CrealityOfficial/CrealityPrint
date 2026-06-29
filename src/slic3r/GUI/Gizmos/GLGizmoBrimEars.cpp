@@ -245,7 +245,7 @@ bool GLGizmoBrimEars::unproject_on_mesh(const Vec2d &mouse_pos, std::pair<Vec3f,
     const Selection         &selection = m_parent.get_selection();
     const GLVolume          *volume    = selection.get_volume(*selection.get_volume_idxs().begin());
     Geometry::Transformation trafo     = volume->get_instance_transformation();
-    // trafo.set_offset(trafo.get_offset() + Vec3d(0., 0., m_c->selection_info()->get_sla_shift()));//sla shift看起来可以删掉
+    // trafo.set_offset(trafo.get_offset() + Vec3d(0., 0., m_c->selection_info()->get_sla_shift()));//sla shift看起来可以删�?
 
     double               clp_dist = m_c->object_clipper()->get_position();
     const ClippingPlane *clp      = m_c->object_clipper()->get_clipping_plane();
@@ -624,8 +624,9 @@ void GLGizmoBrimEars::apply_radius_change()
     m_old_point_head_diameter = 0.f;
 }
 
-void GLGizmoBrimEars::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoBrimEars::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
+    (void)force_update_pos;
     static float last_y = 0.0f;
     static float last_h = 0.0f;
 

@@ -635,7 +635,12 @@ void GLToolbar::render(const GLCanvas3D& parent, float scroll, GLToolbarItem::ET
     switch (m_layout.type) {
     default:
     case Layout::Horizontal: {
-        render_horizontal(parent, type, scroll);
+
+        if(wxGetApp().easy_mode())
+            render_horizontal_simple(parent, type, scroll);
+        else
+            render_horizontal(parent, type, scroll);
+
         break;
     }
     case Layout::Vertical: {
@@ -749,7 +754,14 @@ void GLToolbar::calc_layout()
     default:
     case Layout::Horizontal:
     {
-        m_layout.width = get_width_horizontal();
+        if(wxGetApp().easy_mode()) {
+            m_layout.width = get_width_horizontal_simple();
+        }
+        else
+        {
+            m_layout.width = get_width_horizontal();
+        }
+        
         m_layout.height = get_height_horizontal();
         break;
     }
@@ -920,7 +932,18 @@ void GLToolbar::update_hover_state(const Vec2d& mouse_pos, GLCanvas3D& parent)
     switch (m_layout.type)
     {
     default:
-    case Layout::Horizontal: { update_hover_state_horizontal(mouse_pos, parent); break; }
+    case Layout::Horizontal: 
+    { 
+        if(wxGetApp().easy_mode()) {
+            update_hover_state_horizontal_simple(mouse_pos, parent); 
+        }
+        else
+        {
+            update_hover_state_horizontal(mouse_pos, parent);
+        }
+        
+        break; 
+    }
     case Layout::Vertical:   { update_hover_state_vertical(mouse_pos, parent); break; }
     }
 }
@@ -1160,7 +1183,14 @@ int GLToolbar::contains_mouse(const Vec2d& mouse_pos, const GLCanvas3D& parent) 
     switch (m_layout.type)
     {
     default:
-    case Layout::Horizontal: { return contains_mouse_horizontal(mouse_pos, parent); }
+    case Layout::Horizontal: 
+    { 
+        if(wxGetApp().easy_mode())
+            return contains_mouse_horizontal_simple(mouse_pos, parent);
+        else
+            return contains_mouse_horizontal(mouse_pos, parent);
+
+    }
     case Layout::Vertical:   { return contains_mouse_vertical(mouse_pos, parent); }
     }
 }
@@ -1596,7 +1626,7 @@ void GLToolbar::render_horizontal(const GLCanvas3D& parent, GLToolbarItem::EType
         else {
             // BBS GUI refactor
             item->render_left_pos = left;
-            if (!item->is_action_with_text_image()) {
+            if (!item->is_action_with_text_image() && !item->is_action_with_text()) {
                 unsigned int tex_id     = m_icons_texture.get_id();
                 int          tex_width  = m_icons_texture.get_width();
                 int          tex_height = m_icons_texture.get_height();
@@ -1673,9 +1703,26 @@ void GLToolbar::render_horizontal(const GLCanvas3D& parent, GLToolbarItem::EType
             }
             // BBS: GUI refactor: GLToolbar
             if (item->is_action_with_text()) {
-                float scaled_text_size = item->get_extra_size_ratio() * icons_size_x;
-                item->render_text(left + icons_size_x, left + icons_size_x + scaled_text_size, top - icons_size_y, top);
-                left += scaled_text_size;
+                //float scaled_text_size = item->get_extra_size_ratio() * icons_size_x;
+
+                // 等高于图标（可稍微缩 90% 避免裁边）
+                constexpr float kTextHeightScale = 0.7f;
+                const float text_h = kTextHeightScale * icons_size_y;
+                // extra_size_ratio = original_w / original_h，之前在 generate_button_text_textures 里已回填
+                const float text_w = item->get_extra_size_ratio() * 0.03;
+
+                const float text_left   = left + icons_size_x;
+                const float text_right  = text_left + text_w;
+                const float text_bottom = top - text_h;
+
+                float scaled_text_size = item->get_extra_size_ratio() * icons_size_y; // 用高度换算
+                //item->render_text(left + icons_size_x, left + icons_size_x + scaled_text_size, top - icons_size_y, top);
+
+                item->render_text(text_left, text_right, text_bottom, top);
+
+                //left += scaled_text_size;
+
+                left += text_w;
             }
             left += icon_stride;
         }
@@ -1859,8 +1906,18 @@ bool GLToolbar::update_items_enabled_state()
         ret |= item->update_enabled_state();
         if (item->is_enabled() && (m_pressed_toggable_id != -1) && (m_pressed_toggable_id != i))
         {
-            ret = true;
-            item->set_state(GLToolbarItem::Disabled);
+            if(wxGetApp().easy_mode()) {
+                if(!item->is_always_enable()) {
+                    ret = true;
+                    item->set_state(GLToolbarItem::Disabled);
+                }
+            }
+            else
+            {
+                ret = true;
+                item->set_state(GLToolbarItem::Disabled);
+            }
+
         }
     }
 
@@ -1882,6 +1939,16 @@ int GLToolbar::generate_button_text_textures(wxFont& font)
         if (item->is_action_with_text())
         {
             ret |= item->generate_texture(font);
+
+            // 回填宽高比（很关键！否则 scaled_text_size = 0）
+            const int w = item->m_data.text_texture.m_original_width;
+            const int h = item->m_data.text_texture.m_original_height;
+            if (w > 0 && h > 0) {
+                item->m_data.extra_size_ratio = float(w) / float(h);
+            } else {
+                // 兜底，给个可见的缺省值（比如 3:1）
+                item->m_data.extra_size_ratio = 3.0f;
+            }
         }
 
         if (item->is_action_with_text_image())
@@ -2056,6 +2123,11 @@ void GLToolbar::on_set_virtual_item(const std::string& item_name)
         GLToolbarItem* item   = m_items[item_id];
         item->set_state(GLToolbarItem::Pressed);
     }
+}
+
+GLToolbar::Layout GLToolbar::get_layout()
+{
+    return m_layout;
 }
 
 } // namespace GUI

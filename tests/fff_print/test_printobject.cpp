@@ -87,3 +87,65 @@ SCENARIO("PrintObject: object layer heights", "[PrintObject]") {
 #endif
     }
 }
+
+TEST_CASE("PrintObject: cloud role filament compatibility", "[PrintObject]")
+{
+    DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+    config.set_num_extruders(3);
+
+    Model model;
+    Print print;
+    Test::init_print({TestMesh::cube_20x20x20}, print, model, config);
+    ModelVolume *volume = model.objects.front()->volumes.front();
+    volume->config.set_key_value("extruder", new ConfigOptionInt(3));
+
+    SECTION("role filament 0 follows the model volume filament") {
+        config.set_key_value("wall_filament", new ConfigOptionInt(0));
+        config.set_key_value("sparse_infill_filament", new ConfigOptionInt(0));
+        config.set_key_value("solid_infill_filament", new ConfigOptionInt(0));
+
+        print.apply(model, config);
+        const PrintRegionConfig &region = print.objects().front()->all_regions().front().get().config();
+        CHECK(region.wall_filament.value == 3);
+        CHECK(region.sparse_infill_filament.value == 3);
+        CHECK(region.solid_infill_filament.value == 3);
+    }
+
+    SECTION("role filament 1 follows the model volume filament") {
+        config.set_key_value("wall_filament", new ConfigOptionInt(1));
+        config.set_key_value("sparse_infill_filament", new ConfigOptionInt(1));
+        config.set_key_value("solid_infill_filament", new ConfigOptionInt(1));
+
+        print.apply(model, config);
+        const PrintRegionConfig &region = print.objects().front()->all_regions().front().get().config();
+        CHECK(region.wall_filament.value == 3);
+        CHECK(region.sparse_infill_filament.value == 3);
+        CHECK(region.solid_infill_filament.value == 3);
+    }
+
+    SECTION("model volume filament overrides object fallback filament") {
+        model.objects.front()->config.set_key_value("extruder", new ConfigOptionInt(3));
+        volume->config.set_key_value("extruder", new ConfigOptionInt(1));
+        config.set_key_value("wall_filament", new ConfigOptionInt(1));
+        config.set_key_value("sparse_infill_filament", new ConfigOptionInt(1));
+        config.set_key_value("solid_infill_filament", new ConfigOptionInt(1));
+
+        print.apply(model, config);
+        const PrintRegionConfig &region = print.objects().front()->all_regions().front().get().config();
+        CHECK(region.wall_filament.value == 1);
+        CHECK(region.sparse_infill_filament.value == 1);
+        CHECK(region.solid_infill_filament.value == 1);
+    }
+
+    SECTION("role filaments above 1 remain explicit assignments") {
+        config.set_key_value("wall_filament", new ConfigOptionInt(2));
+        config.set_key_value("sparse_infill_filament", new ConfigOptionInt(2));
+        config.set_key_value("solid_infill_filament", new ConfigOptionInt(2));
+
+        print.apply(model, config);
+        const PrintRegionConfig &region = print.objects().front()->all_regions().front().get().config();
+        CHECK(region.wall_filament.value == 2);
+        CHECK(region.sparse_infill_filament.value == 2);
+        CHECK(region.solid_infill_filament.value == 2);
+    }
+}

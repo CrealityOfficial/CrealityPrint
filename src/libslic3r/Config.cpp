@@ -928,6 +928,19 @@ int ConfigBase::load_from_json(const std::string &file, ConfigSubstitutionContex
                         }
                     }
 
+                    if (opt_key == "small_area_infill_flow_compensation_model") {
+                        ConfigOptionStrings option_strings;
+                        std::string error;
+                        SmallAreaInfillFlowCompensationModel model;
+                        if (!option_strings.deserialize(opt_value) ||
+                            !parse_small_area_infill_flow_compensation_model(option_strings.values, model, &error)) {
+                            BOOST_LOG_TRIVIAL(warning) << "Ignore invalid small_area_infill_flow_compensation_model from " << file << ": " << error;
+                            continue;
+                        }
+                        option_strings.values = model.normalized_values;
+                        opt_value = option_strings.serialize();
+                    }
+
                     this->set_deserialize(opt_key, opt_value, substitution_context);
                     //some logic for special values
                     if (opt_key == "support_type") {
@@ -1046,6 +1059,18 @@ int ConfigBase::load_from_json(const std::string &file, ConfigSubstitutionContex
                     if (valid) {
                         if (opt_key == "different_settings_to_system") {
                             boost::replace_all(value_str, "gcode_flavor_test", "prime_tower_position_type");
+                        }
+                        if (opt_key == "small_area_infill_flow_compensation_model") {
+                            ConfigOptionStrings option_strings;
+                            std::string error;
+                            SmallAreaInfillFlowCompensationModel model;
+                            if (!option_strings.deserialize(value_str) ||
+                                !parse_small_area_infill_flow_compensation_model(option_strings.values, model, &error)) {
+                                BOOST_LOG_TRIVIAL(warning) << "Ignore invalid small_area_infill_flow_compensation_model from " << file << ": " << error;
+                                continue;
+                            }
+                            option_strings.values = model.normalized_values;
+                            value_str = option_strings.serialize();
                         }
                         this->set_deserialize(opt_key, value_str, substitution_context);
                     }

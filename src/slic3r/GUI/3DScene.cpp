@@ -19,6 +19,7 @@
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/MixedFilament.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Tesselate.hpp"
 #include "libslic3r/PrintConfig.hpp"
@@ -1128,6 +1129,42 @@ int GLVolumeCollection::load_wipe_tower_preview(
     std::vector<ColorRGBA> colors;
     GUI::PartPlateList& ppl = GUI::wxGetApp().plater()->get_partplate_list();
     std::vector<int> plate_extruders = ppl.get_plate(plate_idx)->get_extruders(true);
+
+    // Resolve mixed (virtual) filament IDs to physical extruders for color display.
+    // A mixed filament's blended color should not be used; instead, show the
+    // component physical extruder colors on the wipe tower preview.
+    {
+        std::set<int> physical_extruder_set;
+        size_t num_physical = Slic3r::GUI::wxGetApp().preset_bundle->filament_presets.size();
+        const auto& mixed_mgr = Slic3r::GUI::wxGetApp().preset_bundle->mixed_filaments;
+        for (int eid : plate_extruders) {
+            if (eid >= 1 && eid <= (int) num_physical) {
+                physical_extruder_set.insert(eid);
+                continue;
+            }
+            const MixedFilament* mf = mixed_mgr.mixed_filament_from_id(unsigned(eid), num_physical);
+            if (mf == nullptr)
+                continue;
+            if (mf->component_a >= 1 && mf->component_a <= num_physical)
+                physical_extruder_set.insert((int) mf->component_a);
+            if (mf->component_b >= 1 && mf->component_b <= num_physical)
+                physical_extruder_set.insert((int) mf->component_b);
+            auto append_direct_ids = [&physical_extruder_set, num_physical](const std::string& ids) {
+                for (char c : ids) {
+                    if (c >= '1' && c <= '9') {
+                        unsigned comp = unsigned(c - '0');
+                        if (comp >= 1 && comp <= num_physical)
+                            physical_extruder_set.insert((int) comp);
+                    }
+                }
+            };
+            append_direct_ids(mf->gradient_component_ids);
+            append_direct_ids(mf->manual_pattern);
+        }
+        if (!physical_extruder_set.empty())
+            plate_extruders.assign(physical_extruder_set.begin(), physical_extruder_set.end());
+    }
+
     TriangleMesh wipe_tower_shell = make_cube(width, depth, height);
     for (int extruder_id : plate_extruders) {
         if (extruder_id <= extruder_colors.size())
@@ -1179,14 +1216,15 @@ int GLVolumeCollection::load_real_wipe_tower_preview(int                 obj_idx
     std::vector<int>       plate_extruders = ppl.get_plate(plate_idx)->get_extruders(true);
     std::vector<ColorRGBA> colors;
     if (!plate_extruders.empty()) {
-        if (plate_extruders.front() <= extruder_colors.size())
-            colors.push_back(extruder_colors[plate_extruders.front() - 1]);
+        int extruder_id = plate_extruders.front();
+        if (extruder_id > 0 && extruder_id <= extruder_colors.size())
+            colors.push_back(extruder_colors[extruder_id - 1]);
         else
             colors.push_back(extruder_colors[0]);
     }
     if (colors.empty())
         return int(this->volumes.size() - 1);
-    volumes.emplace_back(new GLWipeTowerVolume({colors}));
+    volumes.emplace_back(new GLWipeTowerVolume(colors));
     GLWipeTowerVolume& v    = *dynamic_cast<GLWipeTowerVolume*>(volumes.back());
     auto               mesh = wt_mesh;
     if (render_brim) {
@@ -1642,18 +1680,24 @@ void GLVolumeCollection::update_colors_by_config(const DynamicPrintConfig *confi
     using ColorItem = std::pair<std::string, ColorRGBA>;
     std::vector<ColorItem> colors;
 
-    const ConfigOptionStrings* filamemts_opt = dynamic_cast<const ConfigOptionStrings*>(config->option("filament_colour"));
-    if (filamemts_opt == nullptr)
-        return;
+    std::vector<std::string> filament_colors;
+    if (GUI::wxGetApp().plater() != nullptr)
+        filament_colors = GUI::wxGetApp().plater()->get_extruder_colors_from_plater_config();
+    else {
+        const ConfigOptionStrings* filamemts_opt = dynamic_cast<const ConfigOptionStrings*>(config->option("filament_colour"));
+        if (filamemts_opt == nullptr)
+            return;
+        filament_colors = filamemts_opt->values;
+    }
 
-    size_t colors_count = (size_t) filamemts_opt->values.size();
+    size_t colors_count = filament_colors.size();
     if (colors_count == 0)
         return;
     colors.resize(colors_count);
 
     for (unsigned int i = 0; i < colors_count; ++i) {
         ColorRGBA          rgba;
-        const std::string& fil_color = config->opt_string("filament_colour", i);
+        const std::string& fil_color = filament_colors[i];
         if (decode_color(fil_color, rgba))
             colors[i] = {fil_color, rgba};
     }
@@ -1690,18 +1734,24 @@ void GLVolumeCollection::update_colors_by_extruder(const DynamicPrintConfig *con
             colors.push_back({ txt_color, rgba });
     }
     else {
-        const ConfigOptionStrings* filamemts_opt = dynamic_cast<const ConfigOptionStrings*>(config->option("filament_colour"));
-        if (filamemts_opt == nullptr)
-            return;
+        std::vector<std::string> filament_colors;
+        if (GUI::wxGetApp().plater() != nullptr)
+            filament_colors = GUI::wxGetApp().plater()->get_extruder_colors_from_plater_config();
+        else {
+            const ConfigOptionStrings* filamemts_opt = dynamic_cast<const ConfigOptionStrings*>(config->option("filament_colour"));
+            if (filamemts_opt == nullptr)
+                return;
+            filament_colors = filamemts_opt->values;
+        }
 
-        size_t colors_count = (size_t)filamemts_opt->values.size();
+        size_t colors_count = filament_colors.size();
         if (colors_count == 0)
             return;
         colors.resize(colors_count);
 
         for (unsigned int i = 0; i < colors_count; ++i) {
             ColorRGBA rgba;
-            const std::string& fil_color = config->opt_string("filament_colour", i);
+            const std::string& fil_color = filament_colors[i];
             if (decode_color(fil_color, rgba))
                 colors[i] = { fil_color, rgba };
         }

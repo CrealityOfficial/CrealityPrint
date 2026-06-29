@@ -528,9 +528,14 @@ void ErrorReportDialog::GetErrorReport()
         m_info.build           = wxString(CREALITYPRINT_VERSION, wxConvUTF8);
         m_info.uuid = Slic3r::GUI::wxGetApp().app_config->get("language") + wxDateTime::Now().Format("%Y%m%d%H%M%S") +
                       wxString::Format("%03lu", wxDateTime::UNow().GetMillisecond());
-        // 记录最终展示的系统描述（提升为warning级别）
-        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " osDescription(final)=" << m_info.osDescription.ToStdString();
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " uuid:" << m_info.uuid.ToStdString().c_str();
+
+        // 提前将已收集的信息写入日志并落盘，防止后续获取显卡信息时提前 return 导致丢失
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " OS=" << m_info.osDescription.ToStdString();
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " CPU_MODEL=" << m_info.cpuModel.ToStdString();
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " Version=" << m_info.build.ToStdString();
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " uuid=" << m_info.uuid.ToStdString();
+        boost::log::core::get()->flush();
+
         // 获取显卡信息
         if (!glfwInit()) {
             std::cerr << "Failed to initialize GLFW!" << std::endl;
@@ -566,6 +571,11 @@ void ErrorReportDialog::GetErrorReport()
         // 销毁窗口和清理
         glfwDestroyWindow(window);
         glfwTerminate();
+
+        // 显卡信息获取成功，写入日志并落盘
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " GraphicsCard=" << m_info.graphicsCardVendor.ToStdString();
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " OpenGLVersion=" << m_info.openGLVersion.ToStdString();
+        boost::log::core::get()->flush();
 
         return;
     }

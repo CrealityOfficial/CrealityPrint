@@ -1,0 +1,83 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Creality <dev@creality.com>
+Date: Thu, 25 Jun 2026 10:00:00 +0800
+Subject: [PATCH] Fix Clang nontrivial memcpy warning
+
+---
+ code/Common/SceneCombiner.cpp                  | 2 +-
+ contrib/Open3DGC/o3dgcCommon.h                | 2 +-
+ contrib/Open3DGC/o3dgcIndexedFaceSet.h        | 2 +-
+ contrib/Open3DGC/o3dgcSC3DMCEncodeParams.h    | 2 +-
+ contrib/Open3DGC/o3dgcTimer.h                 | 4 ++--
+ 5 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/code/Common/SceneCombiner.cpp b/code/Common/SceneCombiner.cpp
+index ca90ad7c9..6f439ebfd 100644
+--- a/code/Common/SceneCombiner.cpp
++++ b/code/Common/SceneCombiner.cpp
+@@ -994,8 +994,8 @@ inline void GetArrayCopy(Type *&dest, ai_uint num) {
+     }
+     Type *old = dest;
+ 
+     dest = new Type[num];
+-    ::memcpy(dest, old, sizeof(Type) * num);
++    ::memcpy(static_cast<void *>(dest), static_cast<const void *>(old), sizeof(Type) * num);
+ }
+ 
+ // ------------------------------------------------------------------------------------------------
+diff --git a/contrib/Open3DGC/o3dgcCommon.h b/contrib/Open3DGC/o3dgcCommon.h
+index ff6bf75a7..012e2c92a 100644
+--- a/contrib/Open3DGC/o3dgcCommon.h
++++ b/contrib/Open3DGC/o3dgcCommon.h
+@@ -165,5 +165,5 @@ namespace o3dgc
+                                     SC3DMCStats(void)
+                                     {
+-                                        memset(this, 0, sizeof(SC3DMCStats));
++                                        memset(static_cast<void *>(this), 0, sizeof(SC3DMCStats));
+                                     };
+                                     ~SC3DMCStats(void){};
+diff --git a/contrib/Open3DGC/o3dgcIndexedFaceSet.h b/contrib/Open3DGC/o3dgcIndexedFaceSet.h
+index adb8cb099..6e7fd0cfc 100644
+--- a/contrib/Open3DGC/o3dgcIndexedFaceSet.h
++++ b/contrib/Open3DGC/o3dgcIndexedFaceSet.h
+@@ -37,6 +37,6 @@ namespace o3dgc
+                                          IndexedFaceSet(void)
+                                          {
+-                                             memset(this, 0, sizeof(IndexedFaceSet));
++                                             memset(static_cast<void *>(this), 0, sizeof(IndexedFaceSet));
+                                              m_ccw              = true;
+                                              m_solid            = true;
+                                              m_convex           = true;
+diff --git a/contrib/Open3DGC/o3dgcSC3DMCEncodeParams.h b/contrib/Open3DGC/o3dgcSC3DMCEncodeParams.h
+index 5f3db96b0..c81f36d92 100644
+--- a/contrib/Open3DGC/o3dgcSC3DMCEncodeParams.h
++++ b/contrib/Open3DGC/o3dgcSC3DMCEncodeParams.h
+@@ -36,6 +36,6 @@ namespace o3dgc
+                                     SC3DMCEncodeParams(void)
+                                     {
+-                                        memset(this, 0, sizeof(SC3DMCEncodeParams));
++                                        memset(static_cast<void *>(this), 0, sizeof(SC3DMCEncodeParams));
+                                         m_encodeMode        = O3DGC_SC3DMC_ENCODE_MODE_TFAN;
+                                         m_streamTypeMode    = O3DGC_STREAM_TYPE_ASCII;
+                                         m_coordQuantBits    = 14;
+diff --git a/contrib/Open3DGC/o3dgcTimer.h b/contrib/Open3DGC/o3dgcTimer.h
+index f5ed0c8d7..d77b17a58 100644
+--- a/contrib/Open3DGC/o3dgcTimer.h
++++ b/contrib/Open3DGC/o3dgcTimer.h
+@@ -82,6 +82,6 @@ namespace o3dgc
+         Timer(void)
+         {
+-            memset(this, 0, sizeof(Timer));
++            memset(static_cast<void *>(this), 0, sizeof(Timer));
+             host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, & m_cclock);
+         };
+         ~Timer(void)
+@@ -112,5 +112,5 @@ namespace o3dgc
+         Timer(void)
+         {
+-            memset(this, 0, sizeof(Timer));
++            memset(static_cast<void *>(this), 0, sizeof(Timer));
+         };
+         ~Timer(void){};
+--
+2.20.1

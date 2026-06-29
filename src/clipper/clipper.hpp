@@ -58,6 +58,7 @@
 #include <ostream>
 #include <functional>
 #include <queue>
+#include <oneapi/tbb/scalable_allocator.h>
 
 #ifdef CLIPPERLIB_NAMESPACE_PREFIX
   namespace CLIPPERLIB_NAMESPACE_PREFIX {
@@ -107,6 +108,23 @@ using IntPoint = Eigen::Matrix<cInt,
 #endif // CLIPPERLIB_INTPOINT_TYPE
 
 using DoublePoint = Eigen::Matrix<double, 2, 1, Eigen::DontAlign>;
+
+// Allocator used for ClipperLib internal containers to improve multi-threaded scaling.
+// Applied only to private members / local variables to avoid breaking public API.
+template<typename BaseType>
+using Allocator = tbb::scalable_allocator<BaseType>;
+
+// Internal vector typedefs used by ClipperBase / Clipper / ClipperOffset private
+// members and clipper.cpp implementation. Defined at namespace scope so that
+// clipper.cpp can reference them; not part of the public API.
+struct TEdge;
+struct LocalMinimum;
+struct OutPt;
+struct Join;
+struct IntersectNode;
+using Edges     = std::vector<TEdge, Allocator<TEdge>>;
+using cInts     = std::vector<cInt, Allocator<cInt>>;
+using OutPts    = std::vector<OutPt, Allocator<OutPt>>;
 
 //------------------------------------------------------------------------------
 
@@ -310,7 +328,7 @@ public:
     if (num_paths == 1)
         return AddPath(*paths_provider.begin(), PolyTyp, Closed);
 
-    std::vector<int> num_edges(num_paths, 0);
+    std::vector<int, Allocator<int>> num_edges(num_paths, 0);
     int num_edges_total = 0;
     size_t i = 0;
     for (const Path &pg : paths_provider) {
@@ -331,7 +349,7 @@ public:
       return false;
 
     // Allocate a new edge array.
-    std::vector<TEdge> edges(num_edges_total);
+    Edges edges(num_edges_total);
     // Fill in the edge array.
     bool result = false;
     TEdge *p_edge = edges.data();
@@ -366,8 +384,9 @@ protected:
   TEdge* DescendToMin(TEdge *&E);
   void AscendToMax(TEdge *&E, bool Appending, bool IsClosed);
 
+  // A vector of edges per each input path.
   // Local minima (Y, left edge, right edge) sorted by ascending Y.
-  std::vector<LocalMinimum> m_MinimaList;
+  std::vector<LocalMinimum, Allocator<LocalMinimum>> m_MinimaList;
 
 #ifdef CLIPPERLIB_INT32
   static constexpr const bool m_UseFullRange = false;
@@ -378,7 +397,7 @@ protected:
 #endif // CLIPPERLIB_INT32
 
   // A vector of edges per each input path.
-  std::vector<std::vector<TEdge>> m_edges;
+  std::vector<Edges, Allocator<Edges>> m_edges;
   // Don't remove intermediate vertices of a collinear sequence of points.
   bool             m_PreserveCollinear;
   // Is any of the paths inserted by AddPath() or AddPaths() open?
@@ -420,24 +439,24 @@ protected:
   void Reset();
   virtual bool ExecuteInternal();
 private:
-  
+
   // Output polygons.
-  std::vector<OutRec*>  m_PolyOuts;
+  std::vector<OutRec*, Allocator<OutRec*>>  m_PolyOuts;
   // Output points, allocated by a continuous sets of m_OutPtsChunkSize.
-  std::vector<OutPt*>   m_OutPts;
+  std::vector<OutPt*, Allocator<OutPt*>>    m_OutPts;
   // List of free output points, to be used before taking a point from m_OutPts or allocating a new chunk.
   OutPt                *m_OutPtsFree;
   size_t                m_OutPtsChunkSize;
   size_t                m_OutPtsChunkLast;
 
-  std::vector<Join>     m_Joins;
-  std::vector<Join>     m_GhostJoins;
-  std::vector<IntersectNode> m_IntersectList;
+  std::vector<Join, Allocator<Join>>        m_Joins;
+  std::vector<Join, Allocator<Join>>        m_GhostJoins;
+  std::vector<IntersectNode, Allocator<IntersectNode>> m_IntersectList;
   ClipType              m_ClipType;
   // A priority queue (a binary heap) of Y coordinates.
-  std::priority_queue<cInt> m_Scanbeam;
+  std::priority_queue<cInt, cInts> m_Scanbeam;
   // Maxima are collected by ProcessEdgesAtTopOfScanbeam(), consumed by ProcessHorizontal().
-  std::vector<cInt>     m_Maxima;
+  cInts                 m_Maxima;
   TEdge                *m_ActiveEdges;
   TEdge                *m_SortedEdges;
   PolyFillType          m_ClipFillType;
@@ -528,7 +547,7 @@ private:
   Paths m_destPolys;
   Path m_srcPoly;
   Path m_destPoly;
-  std::vector<DoublePoint> m_normals;
+  std::vector<DoublePoint, Allocator<DoublePoint>> m_normals;
   double m_delta, m_sinA, m_sin, m_cos;
   double m_miterLim, m_StepsPerRad;
   // x: index of the lowest contour in m_polyNodes

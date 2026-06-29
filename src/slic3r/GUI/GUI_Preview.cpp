@@ -75,6 +75,7 @@ bool View3D::init(wxWindow* parent, Bed3D& bed, Model* model, DynamicPrintConfig
     m_canvas->set_config(config);
     m_canvas->enable_gizmos(true);
     m_canvas->enable_selection(true);
+    m_canvas->enable_easymode_main_toolbar(true);
     m_canvas->enable_main_toolbar(true);
     //BBS: GUI refactor: GLToolbar
     m_canvas->enable_select_plate_toolbar(false);
@@ -610,8 +611,8 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
     
     m_layers_slider->SetTicksValues(ticks_info_from_curr_plate);
 
-    auto print_mode_stat = m_gcode_result->print_statistics.modes.front();
-    m_layers_slider->SetLayersTimes(print_mode_stat.layers_times, print_mode_stat.time);
+    const auto& print_mode_stat = m_gcode_result->print_statistics.modes.front();
+    m_layers_slider->SetLayersTimes(print_mode_stat.model_layers_times(), print_mode_stat.model_time_s());
 
     // Suggest the auto color change, if model looks like sign
     if (m_layers_slider->IsNewPrint()) {
@@ -701,7 +702,7 @@ void Preview::load_print_as_fff(bool keep_z_range, bool only_gcode)
     else if (directly_preview && !has_layers)
         keep_z_range = false;
 
-    GCodeViewer::EViewType gcode_view_type = m_canvas->get_gcode_view_preview_type();
+    EViewType gcode_view_type = m_canvas->get_gcode_view_preview_type();
     bool gcode_preview_data_valid = !m_gcode_result->moves.empty();
 
     // Collect colors per extruder.
@@ -711,7 +712,7 @@ void Preview::load_print_as_fff(bool keep_z_range, bool only_gcode)
     bool isMultiColor = m_gcode_result && m_gcode_result->creality_extruder_colors.size() > 1;
     // set color print values, if it si selected "ColorPrint" view type
     if (isMultiColor) {
-    //if (gcode_view_type == GCodeViewer::EViewType::ColorPrint) {
+    //if (gcode_view_type == EViewType::ColorPrint) {
         colors = wxGetApp().plater()->get_colors_for_color_print(m_gcode_result);
 
         if (!gcode_preview_data_valid) {
@@ -723,7 +724,7 @@ void Preview::load_print_as_fff(bool keep_z_range, bool only_gcode)
             colors.push_back("#808080"); // gray color for pause print or custom G-code
         }
     }
-    else if (gcode_preview_data_valid || gcode_view_type == GCodeViewer::EViewType::Tool) {
+    else if (gcode_preview_data_valid || gcode_view_type == EViewType::Tool) {
         colors = wxGetApp().plater()->get_extruder_colors_from_plater_config(m_gcode_result);
         color_print_values.clear();
     }
@@ -878,6 +879,7 @@ bool AssembleView::init(wxWindow* parent, Bed3D& bed, Model* model, DynamicPrint
     m_canvas->enable_gizmos(true);
     m_canvas->enable_selection(true);
     m_canvas->enable_main_toolbar(false);
+    m_canvas->enable_easymode_main_toolbar(false);
     m_canvas->enable_labels(false);
     m_canvas->enable_slope(false);
     //BBS: GUI refactor: GLToolbar

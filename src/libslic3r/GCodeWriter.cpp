@@ -552,6 +552,16 @@ std::string GCodeWriter::toolchange(unsigned int extruder_id, bool change_tool)
     return gcode.str();
 }
 
+void GCodeWriter::init_extruder(unsigned int extruder_id)
+{
+    if (m_extruder != nullptr)
+        return;
+
+    auto it_extruder = Slic3r::lower_bound_by_predicate(m_extruders.begin(), m_extruders.end(), [extruder_id](const Extruder &e) { return e.id() < extruder_id; });
+    assert(it_extruder != m_extruders.end() && it_extruder->id() == extruder_id);
+    m_extruder = &*it_extruder;
+}
+
 std::string GCodeWriter::set_speed(double F, const std::string &comment, const std::string &cooling_marker)
 {
     assert(F > 0.);
@@ -964,7 +974,7 @@ std::string GCodeWriter::unretract()
             gcode += w.string();
         }
     }
-    
+
     return gcode;
 }
 

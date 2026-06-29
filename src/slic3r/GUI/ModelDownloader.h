@@ -5,6 +5,7 @@
 #include "DownloadService.h"
 #include <boost/filesystem/path.hpp>
 #include "nlohmann/json.hpp"
+#include <set>
 
 namespace Slic3r { namespace GUI {
 
@@ -68,6 +69,7 @@ private:
     std::string user_id_;
 
     std::list<std::unique_ptr<DownloadTask>> download_tasks_;
+    std::set<std::string>                    cancelled_ids_;  // fileIds currently being cancelled
     boost::filesystem::path                  dest_folder_;
     boost::filesystem::path                  cache_3mf_folder_;
     boost::filesystem::path                  cache_file_;

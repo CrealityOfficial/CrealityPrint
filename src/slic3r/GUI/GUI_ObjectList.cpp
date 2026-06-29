@@ -29,12 +29,14 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/trivial.hpp>
+#include <cmath>  // for std::isnan, std::isinf
 
 #include <wx/progdlg.h>
 #include <wx/listbook.h>
 #include <wx/numformatter.h>
 #include <wx/headerctrl.h>
 #include <GL/glew.h>
+#include <cstring>
 
 #include "slic3r/Utils/FixModelByWin10.hpp"
 #include "libslic3r/Format/bbs_3mf.hpp"
@@ -47,6 +49,9 @@
 #include "Gizmos/GLGizmoScale.hpp"
 
 #include "PhysicalPrinterDialog.hpp"
+
+#include "simple/DeviceListSimple.hpp"
+
 
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -347,6 +352,11 @@ ObjectList::ObjectList(wxWindow* parent) : wxDataViewCtrl(parent, wxID_ANY, wxDe
         // mark to update device list
         m_device_list_dirty_mark = true;
         m_device_list_dirty_mark_fluidd = true;
+
+        if(wxGetApp().easy_mode()) {
+            Slic3r::GUI::SimpleDeviceMgr::instance().get_device_list_data_simple(true);
+        }
+        
         if (m_device_list_popup_opened) {
             wxGetApp().plater()->get_current_canvas3D()->render();
         }
@@ -637,7 +647,7 @@ MeshErrorsInfo ObjectList::get_mesh_errors_info(const int obj_idx,
     if (non_manifold_edges)
         *non_manifold_edges = stats.open_edges;
 
-    if (is_windows10() && !sidebar_info)
+    if (has_mesh_repair_backend() && !sidebar_info)
         tooltip += "\n" + _L("Left click the icon to fix model object");
 
     return {tooltip, get_warning_icon_name(stats)};
@@ -750,6 +760,9 @@ ModelConfig& ObjectList::get_item_config(const wxDataViewItem& item) const
 
 void ObjectList::update_filament_values_for_items(const size_t filaments_count)
 {
+    // BBS: Use total filament count (physical + enabled mixed) for validation,
+    // so that mixed filament extruder values are not reset to 1.
+    const size_t total_filaments = wxGetApp().preset_bundle->mixed_filaments.total_filaments(filaments_count);
     for (size_t i = 0; i < m_objects->size(); ++i) {
         wxDataViewItem item = m_objects_model->GetItemById(i);
         if (!item)
@@ -757,7 +770,7 @@ void ObjectList::update_filament_values_for_items(const size_t filaments_count)
 
         auto     object = (*m_objects)[i];
         wxString extruder;
-        if (!object->config.has("extruder") || size_t(object->config.extruder()) > filaments_count) {
+        if (!object->config.has("extruder") || size_t(object->config.extruder()) > total_filaments) {
             extruder = "1";
             object->config.set_key_value("extruder", new ConfigOptionInt(1));
         } else {
@@ -767,7 +780,7 @@ void ObjectList::update_filament_values_for_items(const size_t filaments_count)
 
         static const char* keys[] = {"support_filament", "support_interface_filament"};
         for (auto key : keys)
-            if (object->config.has(key) && object->config.opt_int(key) > filaments_count)
+            if (object->config.has(key) && object->config.opt_int(key) > total_filaments)
                 object->config.erase(key);
 
         if (object->volumes.size() > 1) {
@@ -775,7 +788,7 @@ void ObjectList::update_filament_values_for_items(const size_t filaments_count)
                 item = m_objects_model->GetItemByVolumeId(i, id);
                 if (!item)
                     continue;
-                if (!object->volumes[id]->config.has("extruder") || size_t(object->volumes[id]->config.extruder()) > filaments_count) {
+                if (!object->volumes[id]->config.has("extruder") || size_t(object->volumes[id]->config.extruder()) > total_filaments) {
                     extruder = wxString::Format("%d", object->config.extruder());
                 } else {
                     extruder = wxString::Format("%d", object->volumes[id]->config.extruder());
@@ -784,7 +797,7 @@ void ObjectList::update_filament_values_for_items(const size_t filaments_count)
                 m_objects_model->SetExtruder(extruder, item);
 
                 for (auto key : keys)
-                    if (object->volumes[id]->config.has(key) && object->volumes[id]->config.opt_int(key) > filaments_count)
+                    if (object->volumes[id]->config.has(key) && object->volumes[id]->config.opt_int(key) > total_filaments)
                         object->volumes[id]->config.erase(key);
             }
         }
@@ -1142,7 +1155,7 @@ void ObjectList::update_filament_in_config(const wxDataViewItem& item)
     if (item_type & itObject) {
         const int obj_idx = m_objects_model->GetIdByItem(item);
         for (ModelVolume* mv : (*m_objects)[obj_idx]->volumes) {
-            if (mv->config.has("extruder"))
+            if (mv->type() == ModelVolumeType::MODEL_PART && mv->config.has("extruder"))
                 mv->config.erase("extruder");
         }
     }
@@ -1508,7 +1521,7 @@ void ObjectList::list_manipulation(const wxPoint& mouse_pos, bool evt_context_me
             else
                 dynamic_cast<TabPrintModel*>(wxGetApp().get_model_tab(vol_idx >= 0))->reset_model_config();
         } else if (col_num == colName) {
-            if (is_windows10() && m_objects_model->HasWarningIcon(item) && mouse_pos.x > 2 * wxGetApp().em_unit() &&
+            if (has_mesh_repair_backend() && m_objects_model->HasWarningIcon(item) && mouse_pos.x > 2 * wxGetApp().em_unit() &&
                 mouse_pos.x < 4 * wxGetApp().em_unit())
                 fix_through_netfabb();
             else if (evt_context_menu)
@@ -2082,10 +2095,17 @@ void ObjectList::load_subobject(ModelVolumeType type, bool from_galery /* = fals
     // BBS: notify partplate the modify
     notify_instance_updated(obj_idx);
     
-    // 【新增】标记几何体修改（添加部件成功）
-    if (type == ModelVolumeType::MODEL_PART) {
-        AnalyticsDataUploadManager::ProjectModificationTracker::getInstance()
-            .mark_modified(AnalyticsDataUploadManager::ModelModifyType::ADD_PART);
+    // 【新增】标记几何体修改（按类型区分�?
+    {
+        using MT = AnalyticsDataUploadManager::ModelModifyType;
+        auto& tracker = AnalyticsDataUploadManager::ProjectModificationTracker::getInstance();
+        switch (type) {
+            case ModelVolumeType::MODEL_PART:        tracker.mark_modified(MT::ADD_PART); break;
+            case ModelVolumeType::NEGATIVE_VOLUME:   tracker.mark_modified(MT::ADD_NEGATIVE_VOLUME); break;
+            case ModelVolumeType::SUPPORT_BLOCKER:   tracker.mark_modified(MT::ADD_SUPPORT_BLOCKER); break;
+            case ModelVolumeType::SUPPORT_ENFORCER:  tracker.mark_modified(MT::ADD_SUPPORT_ENFORCER); break;
+            default: break;
+        }
     }
 }
 /*
@@ -2389,6 +2409,19 @@ void ObjectList::load_generic_subobject(const std::string& type_name, const Mode
 
     // BBS Switch to Objects List after add a modifier
     wxGetApp().params_panel()->switch_to_object(true);
+
+    // 【新增】标记几何体修改（按类型区分�?
+    {
+        using MT = AnalyticsDataUploadManager::ModelModifyType;
+        auto& tracker = AnalyticsDataUploadManager::ProjectModificationTracker::getInstance();
+        switch (type) {
+            case ModelVolumeType::MODEL_PART:        tracker.mark_modified(MT::ADD_PART); break;
+            case ModelVolumeType::NEGATIVE_VOLUME:   tracker.mark_modified(MT::ADD_NEGATIVE_VOLUME); break;
+            case ModelVolumeType::SUPPORT_BLOCKER:   tracker.mark_modified(MT::ADD_SUPPORT_BLOCKER); break;
+            case ModelVolumeType::SUPPORT_ENFORCER:  tracker.mark_modified(MT::ADD_SUPPORT_ENFORCER); break;
+            default: break;
+        }
+    }
 
     // Show Dialog
     if (wxGetApp().app_config->get("do_not_show_modifer_tips").empty()) {
@@ -2842,7 +2875,7 @@ void ObjectList::split()
     // BBS: notify partplate the modify
     notify_instance_updated(obj_idx);
     
-    // 【新增】标记几何体修改（拆分到部件成功）
+    // 【新增】标记几何体修改（拆分到部件成功�?
     AnalyticsDataUploadManager::ProjectModificationTracker::getInstance()
         .mark_modified(AnalyticsDataUploadManager::ModelModifyType::SPLIT_PARTS);
     
@@ -2998,6 +3031,15 @@ void ObjectList::merge(bool to_multipart_object)
                     new_volume->config.assign_config(volume->config);
                 }
 
+                // Bake inherited extruder into the new volume so it survives reparenting.
+                // Without this, a volume whose color came from its parent object would re-inherit
+                // from the new Assembly object and lose its color on a subsequent combine.
+                if (!new_volume->config.has("extruder")) {
+                    const ConfigOption* obj_extruder = object->config.option("extruder");
+                    if (obj_extruder && obj_extruder->getInt() != 0)
+                        new_volume->config.set_key_value("extruder", obj_extruder->clone());
+                }
+
                 new_volume->mmu_segmentation_facets.assign(std::move(volume->mmu_segmentation_facets));
             }
             new_object->sort_volumes(true);
@@ -3139,6 +3181,10 @@ void ObjectList::layers_editing()
     // to correct visual hints for layers editing on the Scene, reset previous selection
     wxGetApp().obj_layers()->reset_selection();
     wxGetApp().plater()->canvas3D()->handle_sidebar_focus_event("", false);
+
+    // 【新增】标记几何体修改（开启高度范围修改器�?
+    AnalyticsDataUploadManager::ProjectModificationTracker::getInstance()
+        .mark_modified(AnalyticsDataUploadManager::ModelModifyType::HEIGHT_RANGE);
 
     // select LayerRoor item and expand
     select_item(layers_item);
@@ -3735,7 +3781,7 @@ void ObjectList::update_info_items(size_t obj_idx, wxDataViewItemArray* selectio
     wxDataViewItem     item_obj     = m_objects_model->GetItemById(obj_idx);
    // assert(item_obj.IsOk());
     if (!item_obj.IsOk()) {
-        // Boolean / rebuild 后 UI 尚未同步，跳过本次 info 更新
+        // Boolean / rebuild �?UI 尚未同步，跳过本�?info 更新
         return;
     }
 
@@ -4494,10 +4540,6 @@ bool ObjectList::edit_layer_range(const t_layer_height_range& range, const t_lay
     }
 
     changed_object(obj_idx);
-    
-    // 【新增】标记几何体修改（高度范围修改完成）
-    AnalyticsDataUploadManager::ProjectModificationTracker::getInstance()
-        .mark_modified(AnalyticsDataUploadManager::ModelModifyType::HEIGHT_RANGE);
 
     wxDataViewItem root_item = m_objects_model->GetLayerRootItem(m_objects_model->GetItemById(obj_idx));
     // To avoid update selection after deleting of a selected item (under GTK)
@@ -4685,6 +4727,11 @@ void ObjectList::update_selections()
                     int obj_idx = gl_vol->object_idx();
                     int vol_idx = gl_vol->volume_idx();
                     assert(obj_idx >= 0 && vol_idx >= 0);
+                    // Defensive bounds check: after arrange/reload, GLVolume indices may be stale
+                    if (obj_idx >= (int)m_objects->size())
+                        continue;
+                    if (vol_idx >= (int)object(obj_idx)->volumes.size())
+                        continue;
                     if (object(obj_idx)->volumes[vol_idx]->is_cut_connector())
                         sels.Add(m_objects_model->GetInfoItemByType(m_objects_model->GetItemById(obj_idx), InfoItemType::CutConnectors));
                     else {
@@ -4706,6 +4753,10 @@ void ObjectList::update_selections()
             const auto  gl_vol      = selection.get_volume(idx);
             const auto& glv_obj_idx = gl_vol->object_idx();
             const auto& glv_ins_idx = gl_vol->instance_idx();
+
+            // Defensive bounds check: GLVolume indices may be stale after arrange/reload
+            if (glv_obj_idx < 0 || glv_obj_idx >= (int)m_objects->size())
+                continue;
 
             bool is_selected = false;
 
@@ -4729,7 +4780,8 @@ void ObjectList::update_selections()
                 continue;
 
             const auto& glv_vol_idx = gl_vol->volume_idx();
-            if (glv_vol_idx == 0 && (*m_objects)[glv_obj_idx]->volumes.size() == 1)
+            if (glv_vol_idx >= 0 && glv_vol_idx < (int)(*m_objects)[glv_obj_idx]->volumes.size() &&
+                glv_vol_idx == 0 && (*m_objects)[glv_obj_idx]->volumes.size() == 1)
                 sels.Add(m_objects_model->GetItemById(glv_obj_idx));
             else
                 sels.Add(m_objects_model->GetItemByVolumeId(glv_obj_idx, glv_vol_idx));
@@ -5630,7 +5682,7 @@ void ObjectList::fix_through_netfabb()
 
         plater->clear_before_change_mesh(obj_idx);
         std::string res;
-        if (!fix_model_by_win10_sdk_gui(*(object(obj_idx)), vol_idx, progress_dlg, msg, res))
+        if (!fix_model(*(object(obj_idx)), vol_idx, progress_dlg, msg, res))
             return false;
         // wxGetApp().plater()->changed_mesh(obj_idx);
         object(obj_idx)->ensure_on_bed();
@@ -5654,7 +5706,7 @@ void ObjectList::fix_through_netfabb()
 
     // Open a progress dialog.
     ProgressDialog progress_dlg(_L("Repairing model object"), "", 100, find_toplevel_parent(plater),
-                                wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT, true);
+                                wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT);
     int            model_idx{0};
     if (vol_idxs.empty()) {
         int vol_idx{-1};
@@ -5699,7 +5751,7 @@ void ObjectList::fix_through_netfabb()
                                                           NotificationManager::NotificationLevel::PrintInfoShortNotificationLevel,
                                                           boost::nowide::narrow(msg));
     
-    // 【新增】标记几何体修改（有成功的模型就标记）
+    // 【新增】标记几何体修改（有成功的模型就标记�?
     if (!succes_models.empty()) {
         AnalyticsDataUploadManager::ProjectModificationTracker::getInstance()
             .mark_modified(AnalyticsDataUploadManager::ModelModifyType::REPAIR);
@@ -6156,7 +6208,7 @@ void ObjectList::toggle_printable_state()
 
 ModelObject* ObjectList::object(const int obj_idx) const
 {
-    if (obj_idx < 0)
+    if (obj_idx < 0 || obj_idx >= (int)m_objects->size())
         return nullptr;
 
     return (*m_objects)[obj_idx];
@@ -6211,13 +6263,17 @@ void ObjectList::render_plate_tree_by_ImGui()
     float                   pos_y    = ImGui::GetCursorPosY();
     float                   canvas_h = wxGetApp().plater()->get_current_canvas3D()->get_canvas_size().get_height();
     GLCanvas3D::ECanvasType type     = wxGetApp().plater()->get_current_canvas3D()->get_canvas_type();
+    float view_scale = wxGetApp().plater()->get_current_canvas3D()->get_scale();
     float                   table_h  = 0.0f;
-    if (type == GLCanvas3D::CanvasView3D) {
+    ImGuiWindow* current_window = ImGui::GetCurrentWindow();
+    if (current_window != nullptr && std::strcmp(current_window->Name, "##obj_drawer") == 0) {
+        table_h = std::max(120.0f * view_scale, ImGui::GetContentRegionAvail().y);
+    } else if (type == GLCanvas3D::CanvasView3D) {
         table_h = canvas_h * 0.65f - pos_y;
     } else if (type == GLCanvas3D::CanvasPreview) {
         table_h = canvas_h * 0.4f - pos_y;
     }
-    float view_scale = wxGetApp().plater()->get_current_canvas3D()->get_scale();
+
 
     // m_obj_list_window_focus = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 
@@ -6625,10 +6681,16 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
         }
         ImGui::PopID();
         if (ImGui::IsItemHovered()) {
-            ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
-            ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-            ImGui::SetTooltip(_u8L("Click the icon to toggle printable property of the object").c_str());
-            ImGui::PopStyleColor();
+            // Safety check: ensure window size is valid before showing tooltip (fix crash #Top1)
+            ImVec2 window_size = ImGui::GetWindowSize();
+            if (window_size.x > 0.0f && window_size.y > 0.0f && 
+                !std::isnan(window_size.x) && !std::isnan(window_size.y) &&
+                !std::isinf(window_size.x) && !std::isinf(window_size.y)) {
+                ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
+                ImGui::PushStyleColor(ImGuiCol_Text, text_color);
+                ImGui::SetTooltip(_u8L("Click the icon to toggle printable property of the object").c_str());
+                ImGui::PopStyleColor();
+            }
         }
         ImGui::SameLine(0, 0);
     }
@@ -6643,7 +6705,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
         if (result) {
             select_node(node, node_selected);
 
-            if (is_windows10())
+            if (has_mesh_repair_backend())
                 fix_through_netfabb();
         }
         ImGui::PopID();
@@ -6657,10 +6719,16 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
         }
 
         if (tooltip.length() > 0 && ImGui::IsItemHovered()) {
-            ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
-            ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-            ImGui::SetTooltip("%s", tooltip.ToUTF8().data());
-            ImGui::PopStyleColor();
+            // Safety check: ensure window size is valid before showing tooltip (fix crash #Top1)
+            ImVec2 window_size = ImGui::GetWindowSize();
+            if (window_size.x > 0.0f && window_size.y > 0.0f && 
+                !std::isnan(window_size.x) && !std::isnan(window_size.y) &&
+                !std::isinf(window_size.x) && !std::isinf(window_size.y)) {
+                ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
+                ImGui::PushStyleColor(ImGuiCol_Text, text_color);
+                ImGui::SetTooltip("%s", tooltip.ToUTF8().data());
+                ImGui::PopStyleColor();
+            }
         }
         ImGui::SameLine(0, 0);
     }
@@ -6942,10 +7010,16 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
             }
 
             if (is_view3D && ImGui::IsItemHovered()) {
-                ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
-                ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-                ImGui::SetTooltip(_u8L("Click the icon to edit support painting of the object").c_str());
-                ImGui::PopStyleColor();
+                // Safety check: ensure window size is valid before showing tooltip (fix crash #Top1)
+                ImVec2 window_size = ImGui::GetWindowSize();
+                if (window_size.x > 0.0f && window_size.y > 0.0f && 
+                    !std::isnan(window_size.x) && !std::isnan(window_size.y) &&
+                    !std::isinf(window_size.x) && !std::isinf(window_size.y)) {
+                    ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
+                    ImGui::PushStyleColor(ImGuiCol_Text, text_color);
+                    ImGui::SetTooltip(_u8L("Click the icon to edit support painting of the object").c_str());
+                    ImGui::PopStyleColor();
+                }
             }
 
             ImGui::PopID();
@@ -6985,10 +7059,16 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
             }
 
             if (is_view3D && ImGui::IsItemHovered()) {
-                ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
-                ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-                ImGui::SetTooltip(_u8L("Click the icon to edit color painting of the object").c_str());
-                ImGui::PopStyleColor();
+                // Safety check: ensure window size is valid before showing tooltip (fix crash #Top1)
+                ImVec2 window_size = ImGui::GetWindowSize();
+                if (window_size.x > 0.0f && window_size.y > 0.0f && 
+                    !std::isnan(window_size.x) && !std::isnan(window_size.y) &&
+                    !std::isinf(window_size.x) && !std::isinf(window_size.y)) {
+                    ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
+                    ImGui::PushStyleColor(ImGuiCol_Text, text_color);
+                    ImGui::SetTooltip(_u8L("Click the icon to edit color painting of the object").c_str());
+                    ImGui::PopStyleColor();
+                }
             }
 
             ImGui::PopID();
@@ -7029,10 +7109,16 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
         }
 
         if (is_view3D && ImGui::IsItemHovered()) {
-            ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
-            ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-            ImGui::SetTooltip(_u8L("Click the icon to shift this object to the bed").c_str());
-            ImGui::PopStyleColor();
+            // Safety check: ensure window size is valid before showing tooltip (fix crash #Top1)
+            ImVec2 window_size = ImGui::GetWindowSize();
+            if (window_size.x > 0.0f && window_size.y > 0.0f && 
+                !std::isnan(window_size.x) && !std::isnan(window_size.y) &&
+                !std::isinf(window_size.x) && !std::isinf(window_size.y)) {
+                ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
+                ImGui::PushStyleColor(ImGuiCol_Text, text_color);
+                ImGui::SetTooltip(_u8L("Click the icon to shift this object to the bed").c_str());
+                ImGui::PopStyleColor();
+            }
         }
 
         ImGui::PopID();
@@ -7072,10 +7158,16 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
         }
 
         if (is_view3D && ImGui::IsItemHovered()) {
-            ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
-            ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-            ImGui::SetTooltip(_u8L("Click the icon to reset all settings of the object").c_str());
-            ImGui::PopStyleColor();
+            // Safety check: ensure window size is valid before showing tooltip (fix crash #Top1)
+            ImVec2 window_size = ImGui::GetWindowSize();
+            if (window_size.x > 0.0f && window_size.y > 0.0f && 
+                !std::isnan(window_size.x) && !std::isnan(window_size.y) &&
+                !std::isinf(window_size.x) && !std::isinf(window_size.y)) {
+                ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
+                ImGui::PushStyleColor(ImGuiCol_Text, text_color);
+                ImGui::SetTooltip(_u8L("Click the icon to reset all settings of the object").c_str());
+                ImGui::PopStyleColor();
+            }
         }
 
         ImGui::PopID();
@@ -7256,12 +7348,18 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
 
                 if (need_tooltips) {
                     if (ImGui::IsItemHovered()) {
-                        ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
-                        ImGui::PushStyleColor(ImGuiCol_Text, text_color);
+                        // Safety check: ensure window size is valid before showing tooltip (fix crash #Top1)
+                        ImVec2 window_size = ImGui::GetWindowSize();
+                        if (window_size.x > 0.0f && window_size.y > 0.0f && 
+                            !std::isnan(window_size.x) && !std::isnan(window_size.y) &&
+                            !std::isinf(window_size.x) && !std::isinf(window_size.y)) {
+                            ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
+                            ImGui::PushStyleColor(ImGuiCol_Text, text_color);
 
-                        ImGui::SetTooltip("%s", ext_names[ext_idx].c_str());
+                            ImGui::SetTooltip("%s", ext_names[ext_idx].c_str());
 
-                        ImGui::PopStyleColor();
+                            ImGui::PopStyleColor();
+                        }
                     }
                 }
 
@@ -7443,6 +7541,9 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
     ImGui::PushStyleColor(ImGuiCol_Header, ImGuiWrapper::COL_CREALITY);
     ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
     ImGui::PushStyleColor(ImGuiCol_Text, text_color);
+
+    // Check if should disable printer preset selection (for gcode/gcode.3mf mode)
+    bool should_disable_combo = wxGetApp().plater()->only_gcode_mode() || wxGetApp().plater()->using_exported_file();
 
     // Title
     float row_start_y = ImGui::GetCursorPosY();
@@ -7630,13 +7731,11 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
         selected_idx = -1;
     }
     // set preset bundle device by mac
-    static std::string last_preset_name;
     auto               cur_frame_preset_name = wxGetApp().preset_bundle->printers.get_selected_preset_name();
-    bool               changed_preset = false;
-    if (!cur_frame_preset_name.empty() && last_preset_name != cur_frame_preset_name)
+    const bool         changed_preset        = !cur_frame_preset_name.empty() && m_last_preset_name != cur_frame_preset_name;
+    if (changed_preset)
     {
-        changed_preset = true;
-        last_preset_name = cur_frame_preset_name;
+        m_last_preset_name = cur_frame_preset_name;
         set_cur_device_by_cur_preset();
     }
 
@@ -7702,14 +7801,32 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
     wxRect rect(p.x, p.y + 34 * scale, p2.x - p.x, p2.y - p.y);
     #endif
   /*  UITour::Instance().AddStep(0, rect, _L("Here you can select and add your printer presets"), "", "userGuide_step1", "", wxRIGHT);*/
-    bool click = ImGui::CPBBLBeginCombo("##combo_printer", remake_text_to_fit_size(combo_preview_value).c_str(),
-                                        ImGuiComboFlags_HeightLargest, 225.0f * scale, 30.0f * scale);
+    
+    // Disable combo when in gcode-only or exported file mode
+    // For older ImGui versions, we skip the combo rendering entirely but still show the preview text
+    bool click = false;
+    if (!should_disable_combo) {
+        click = ImGui::CPBBLBeginCombo("##combo_printer", remake_text_to_fit_size(combo_preview_value).c_str(),
+                                            ImGuiComboFlags_HeightLargest, 225.0f * scale, 30.0f * scale);
+    } else {
+        // Show disabled preview text (gray color)
+        ImVec4 disabled_color = is_dark ? ImVec4(0.4f, 0.4f, 0.4f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, disabled_color);
+        float current_y = ImGui::GetCursorPosY();
+        float target_y  = current_y + (30.0f * scale - ImGui::GetTextLineHeight()) * 0.3f;
+        ImGui::SetCursorPosY(target_y);
+        // Add left padding to align with the combo box text (accounting for the dropdown arrow area)
+        float current_x = ImGui::GetCursorPosX();
+        ImGui::SetCursorPosX(current_x + 8.0f * scale);
+        ImGui::TextUnformatted(remake_text_to_fit_size(combo_preview_value).c_str());
+        ImGui::SetCursorPosY(current_y + 30.0f * scale);
+        ImGui::PopStyleColor();
+    }
+    if (selected_match) {
+        ImGui::PopStyleColor();
+    }
     m_PrintCombo = rect;
     if (click) {
-        if (selected_match) {
-            ImGui::PopStyleColor();
-        }
-
         int item_count = items.size();
         for (int n = 0; n < item_count; n++) {
             const bool is_selected = (item_selected_idx == n);
@@ -7752,10 +7869,6 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
                 ImGui::SetItemDefaultFocus();
         }
         ImGui::EndCombo();
-    } else {
-        if (selected_match) {
-            ImGui::PopStyleColor();
-        }
     }
 
     ImGui::PopStyleColor(4);
@@ -7779,6 +7892,7 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
     ImGui::SameLine();
     auto editWidth = p_max.x - p_min.x - printer_combo_width;
     window->DC.CursorPos.x = p_max.x - editWidth / 2 - icon_size.x / 2;
+    window->DC.CursorPos.y = p_min.y + (30.0f * scale - icon_size.y) * 0.3f;
     ImGui::PushID(ObjList_Texture::IM_TEXTURE_NAME::texEdit);
 
     
@@ -7799,12 +7913,15 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
     }
 
     if (ImGui::ImageButton(edit_id, icon_size, ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), 0)) {
-        SidebarPrinter& bar = wxGetApp().plater()->sidebar_printer();
-        bar.edit_filament();
+        // Only allow editing when not in gcode-only or exported file mode
+        if (!should_disable_combo) {
+            SidebarPrinter& bar = wxGetApp().plater()->sidebar_printer();
+            bar.edit_filament();
+        }
     }
 
     
-    if (ImGui::IsItemHovered()) {
+    if (ImGui::IsItemHovered() && !should_disable_combo) {
         ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
         ImGui::PushStyleColor(ImGuiCol_Text, text_color);
         ImGui::SetTooltip(_u8L("Click to edit preset").c_str());
@@ -8550,6 +8667,14 @@ void ObjectList::draw_device_list_popup()
     ImGui::PopStyleVar(1);
 }
 
+// Simple UI accessor: prepare and expose current device list
+const ObjectList::device_list_data& ObjectList::get_device_list_data(bool force_refresh)
+{
+    // Vendor currently fixed as Creality for this UI flow
+    update_printer_device_list_data("Creality", force_refresh);
+    return m_device_list_data;
+}
+
 void ObjectList::draw_device_list_content()
 {
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {0, 0});
@@ -8599,8 +8724,8 @@ void ObjectList::draw_device_list_content()
         const char* label         = label_str.c_str();
         std::vector<std::string> lines;
         if (!isCrealityVendor) {
-            //lines.push_back("*绑定Other设备后,可将Gcode文件发送到打印机");
-            //lines.push_back("注:Other设备不可进行耗材同步和耗材映射");
+            //lines.push_back("*绑定Other设备�?可将Gcode文件发送到打印�?);
+            //lines.push_back("�?Other设备不可进行耗材同步和耗材映射");
             lines.push_back( _u8L("*After binding an \"Other\" device, you can send G-code files to the printer"));
             lines.push_back( _u8L("Note: \"Other\" devices do not support filament sync or mapping"));
         } else {
@@ -8638,7 +8763,7 @@ void ObjectList::draw_device_list_content()
                 ImGui::PopStyleColor(1);
             }
 
-            // 更新下一行的Y轴位置（加上当前行的高度）
+            // 更新下一行的Y轴位置（加上当前行的高度�?
             ImVec2 line_size  = ImGui::CalcTextSize(line.c_str());
             int    line_count = 1 + (int) (line_size.x / wrap_width);
             current_y += line_count * line_height;
@@ -8846,6 +8971,11 @@ bool ObjectList::bind_phy_printer_by_ip_or_name(std::string ip_or_name)
     return false;
 }
 
+void ObjectList::set_last_preset_name(const std::string& preset_name)
+{
+    m_last_preset_name = preset_name;
+}
+
 ObjectList::ObjList_Png_Texture_Wrapper::ObjList_Png_Texture_Wrapper()
 {
     for (auto i = 0; i < ObjList_Png_Texture_Wrapper::pngTexCount; ++i) {
@@ -8939,7 +9069,7 @@ void ObjectList::consume_scroll_request_imgui(ObjectDataViewModelNode* node, flo
     if (!m_scroll_req_imgui || m_scroll_target_imgui != node)
         return;
 
-    // 必须在该 node 的“主 item”绘制完成之后调用
+    // 必须在该 node 的“主 item”绘制完成之后调�?
     ImGui::SetScrollHereY(center);
 
     m_scroll_req_imgui = false;

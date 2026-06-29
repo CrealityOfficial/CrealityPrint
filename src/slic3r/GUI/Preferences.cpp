@@ -1495,6 +1495,10 @@ wxWindow* PreferencesDialog::create_general_page()
         create_item_checkbox(_L("Memory-Optimized Preview"), page,
                              _L("Enabling this will significantly reduce memory and VRAM usage on the preview page, improving operation smoothness with large models or complex scenes. Please note: This mode may introduce very minor visual artifacts and is best suited for performance-focused scenarios."), 50, "enable_preview_mem_optimize");
 
+	auto  enable_advanced_gcode_viewer = create_item_checkbox(_L("Enable advanced Gcode preview"), page,
+        _L("Enable advanced Gcode preview."), 50,
+        "enable_advanced_gcode_viewer");
+
 
     //item_user_exp->
     auto item_save_presets = create_item_button(_L("Clear my choice on the unsaved presets."), _L("Clear"), page, L"", _L("Clear my choice on the unsaved presets."), []() {
@@ -1511,6 +1515,8 @@ wxWindow* PreferencesDialog::create_general_page()
     // auto title_darkmode = create_item_title(_L("Dark Mode"), page, _L("Dark Mode"));
     auto item_darkmode = create_item_darkmode_checkbox(_L("Enable Dark mode"), page,_L("Enable Dark mode"), 50, "dark_color_mode");
 #endif
+
+    auto item_easymode = create_item_easymode_checkbox(_L("Enable Easy mode"), page,_L("Enable Easy mode"), 50, "easy_print_mode");
 
     auto item_zoom_to_mouse = create_item_zoom_to_mouse_checkbox(_L("Zoom to mouse position"), page,_L("Zoom to mouse position"), 50, "zoom_to_mouse");
 #if CUSTOM_CXCLOUD
@@ -1532,6 +1538,10 @@ wxWindow* PreferencesDialog::create_general_page()
     sizer_page->Add(item_darkmode, 0, wxTOP, FromDIP(3));
     sizer_page->AddSpacer(FromDIP(5));
 #endif
+
+    sizer_page->Add(item_easymode, 0, wxTOP, FromDIP(3));
+    sizer_page->AddSpacer(FromDIP(5));
+
     sizer_page->Add(item_zoom_to_mouse, 0, wxTOP, FromDIP(3));
     sizer_page->AddSpacer(FromDIP(5));
     sizer_page->Add(item_arrange, 0, wxTOP, FromDIP(3));
@@ -1555,6 +1565,9 @@ wxWindow* PreferencesDialog::create_general_page()
     sizer_page->AddSpacer(FromDIP(5));
 
 	sizer_page->Add(enable_preview_mem_optimize, 0, wxTOP, FromDIP(3));
+    sizer_page->AddSpacer(FromDIP(5));
+
+	sizer_page->Add(enable_advanced_gcode_viewer, 0, wxTOP, FromDIP(3));
     sizer_page->AddSpacer(FromDIP(5));
 
     sizer_page->Add(item_step_import_setting, 0, wxTOP, FromDIP(3));
@@ -1870,6 +1883,40 @@ void PreferencesDialog::notify_sync_user_preset_changed()
     if (Slic3r::GUI::wxGetApp().mainframe->m_webview) {
         Slic3r::GUI::wxGetApp().mainframe->m_webview->sync_user_preset(prefs);
     }
+}
+
+wxBoxSizer* PreferencesDialog::create_item_easymode_checkbox(wxString title, wxWindow *parent, wxString tooltip, int padding_left, std::string param)
+{
+    wxBoxSizer* sizer_checkbox = new wxBoxSizer(wxHORIZONTAL);
+
+    sizer_checkbox->Add(0, 0, 0, wxEXPAND | wxLEFT, 23);
+
+    auto checkbox_title = new wxStaticText(parent, wxID_ANY, title, wxDefaultPosition, wxSize(FromDIP(200), -1), 0);
+    checkbox_title->SetForegroundColour(wxGetApp().dark_mode() ? DESIGN_GRAY300_LIGTH_COLOR : DESIGN_GRAY300_DARK_COLOR);
+    checkbox_title->SetFont(::Label::Body_13);
+
+    checkbox_title->Wrap(-1);
+    sizer_checkbox->Add(checkbox_title, 0, wxALIGN_CENTER | wxALL, 3);
+
+    auto checkbox = new ::CheckBox(parent);
+    checkbox->SetValue((app_config->get(param) == "1") ? true : false);
+    m_easy_mode_checkbox = checkbox;
+
+    sizer_checkbox->AddSpacer(FromDIP(LAYOUT_COMMON_INTERVAL));
+
+    sizer_checkbox->Add(checkbox, 0, wxALIGN_CENTER, 0);
+    sizer_checkbox->Add(0, 0, 0, wxEXPAND | wxLEFT, 8);
+
+    //// save config
+    checkbox->Bind(wxEVT_TOGGLEBUTTON, [this, checkbox, param](wxCommandEvent& e) {
+        app_config->set(param, checkbox->GetValue() ? "1" : "0");
+        app_config->save();
+        wxGetApp().Update_easy_mode_flag();
+        checkbox->SetValue((app_config->get(param) == "1") ? true : false);
+    });
+
+    checkbox->SetToolTip(tooltip);
+    return sizer_checkbox;
 }
 
 }} // namespace Slic3r::GUI

@@ -1,10 +1,12 @@
-#ifndef slic3r_Plater_hpp_
+﻿#ifndef slic3r_Plater_hpp_
 #define slic3r_Plater_hpp_
 
 #include <memory>
 #include <vector>
 #include <boost/filesystem/path.hpp>
 #include <unordered_map>
+
+#include "nlohmann/json.hpp"
 
 #include <wx/panel.h>
 // BBS
@@ -159,6 +161,13 @@ public:
     void add_filament();
     void delete_filament(size_t filament_id = size_t(-1), int replace_filament_id = -1);    // 0 base, -1 means default
     void add_custom_filament(wxColour new_col);
+    // Batch version: add multiple filaments in a single call. Avoids O(N^2) UI update cost
+    // of calling add_custom_filament() N times (each call triggers on_filaments_change ->
+    // full UI rebuild). Also sets each new filament's color individually, unlike the iterative
+    // version which overwrites all new colors with the last one.
+    // target_count: final physical filament count after this call
+    // new_colors: colors for the new filaments, must have exactly (target_count - current) entries
+    void add_filaments_batch(int target_count, const std::vector<wxColour>& new_colors);
     //new 
     void delete_filament_bbl(size_t filament_id = size_t(-1), int replace_filament_id = -1); // 0 base, -1 means default
     void change_filament(size_t from_id, size_t to_id);                                  // 0 base
@@ -173,7 +182,14 @@ public:
     void update_dynamic_filament_list();
     // Creality
     void update_filament_panel();
+    void update_mixed_filament_panel(bool sync_manager = true);  // <- 添加在这里
+    // Push project_config's mixed_filament_definitions into AppConfig (3mf load adopts as new global state),
+    // then refresh the panel. Empty value clears AppConfig.
+    void adopt_mixed_definitions_from_project_config();
+    void show_mixed_filament_merge_menu(wxWindow* anchor, uint64_t source_stable_id);
+    void merge_mixed_filament(uint64_t source_stable_id, int target_type, int target_index);
     void show_flushDialog();
+    void merge_physical_to_mixed(size_t physical_index, uint64_t mixed_stable_id);
     void show_auto_mapping(bool bshow);
     ObjectList*             obj_list();
     ObjectSettings*         obj_settings();
@@ -213,6 +229,7 @@ public:
 #endif
     int filament_size();
     void update_filament(int index);
+    void sync_filament_box_state(int filament_index, const std::string& filament_color, const wxString& sync_label);
     Search::OptionsSearcher&        get_searcher();
     std::string&                    get_search_line();
     void on_re_sync_all_filaments(const std::string& selected_device_ip);
@@ -221,6 +238,9 @@ public:
     void show_box_filament_content(bool bShow);
     void on_mapping_device_filament(wxCommandEvent& event);
     void on_show_box_color_selection(wxCommandEvent& event);
+    void sync_current_device_filament();
+    void clear_all_filament();
+
 private:
     struct priv;
     std::unique_ptr<priv> p;
@@ -234,32 +254,32 @@ private:
 class GCodeLoadingGuard
 {
 private:
-    bool& m_flagRef;      // 引用 Plater 的标志位成员
-    bool  m_acquiredLock; // 标记是否成功获取了锁
+    bool& m_flagRef;      // ���� Plater �ı�־λ��Ա
+    bool  m_acquiredLock; // ����Ƿ�ɹ���ȡ����
 
 public:
-    // 构造函数：尝试获取锁
+    // ���캯�������Ի�ȡ��
     explicit GCodeLoadingGuard(bool& flag) : m_flagRef(flag), m_acquiredLock(false)
     {
-        if (!m_flagRef) {          // 如果锁当前未被持有
-            m_flagRef      = true; // 获取锁
-            m_acquiredLock = true; // 标记已成功获取
+        if (!m_flagRef) {          // �������ǰδ������
+            m_flagRef      = true; // ��ȡ��
+            m_acquiredLock = true; // ����ѳɹ���ȡ
         }
-        // 如果锁已被持有，m_acquiredLock 保持 false
+        // ������ѱ����У�m_acquiredLock ���� false
     }
 
-    // 析构函数：如果构造时成功获取了锁，则释放锁
+    // �����������������ʱ�ɹ���ȡ���������ͷ���
     ~GCodeLoadingGuard()
     {
-        if (m_acquiredLock) { // 只有成功获取了锁，才需要释放
+        if (m_acquiredLock) { // ֻ�гɹ���ȡ����������Ҫ�ͷ�
             m_flagRef = false;
         }
     }
 
-    // 提供一个方法来检查是否成功获取了锁
+    // �ṩһ������������Ƿ�ɹ���ȡ����
     bool IsLockAcquired() const { return m_acquiredLock; }
 
-    // 禁止拷贝和赋值，Guard 对象不应该被复制
+    // ��ֹ�����͸�ֵ��Guard ����Ӧ�ñ�����
     GCodeLoadingGuard(const GCodeLoadingGuard&)            = delete;
     GCodeLoadingGuard& operator=(const GCodeLoadingGuard&) = delete;
 };
@@ -517,7 +537,8 @@ public:
     void merge(size_t obj_idx, std::vector<int> &vol_indeces);
 
     void send_to_printer(bool isall = false);
-    void send_to_local_net_printer(bool isall = false);
+    bool send_to_local_net_printer(bool isall = false, bool skip_safety_confirm = false);
+    void send_script_to_printer_dialog(const std::string& strJS);
     void upload_3mf(bool isall = false);
     void upload_gcode(bool isall = false);
     void export_gcode(bool prefer_removable);
@@ -527,7 +548,7 @@ public:
     void export_core_3mf();
     void export_cxprj();
     static TriangleMesh combine_mesh_fff(const ModelObject& mo, int instance_id, std::function<void(const std::string&)> notify_func = {});
-    void export_stl(bool extended = false, bool selection_only = false, bool multi_stls = false);
+    void export_stl(bool extended = false, bool selection_only = false, bool multi_stls = false, bool get_obj_name_idx_is_zero = false);
     //BBS: remove amf
     //void export_amf();
     //BBS add extra param for exporting 3mf silence
@@ -639,6 +660,10 @@ public:
     GLCanvas3D* get_assmeble_canvas3D();
     wxWindow* get_select_machine_dialog();
     View3D*  get_vew3D();
+    void reset_scene_filament_source_snapshot();
+    bool capture_scene_filament_source_snapshot_if_needed();
+    nlohmann::json get_scene_filament_source_snapshot() const;
+    bool has_scene_filament_source_snapshot() const;
 
     void arrange();
     void orient();
@@ -762,6 +787,8 @@ public:
     void set_bed_position(Vec2d& pos);
     //BBS: is the background process slicing currently
     bool is_background_process_slicing() const;
+    bool export_gcode_to_path(const fs::path& output_path, bool output_path_on_removable_media);
+    bool cancel_background_slicing();
     //BBS: update slicing context
     void update_slicing_context_to_current_partplate();
     //BBS: show object info
@@ -1009,6 +1036,7 @@ private:
 };
 std::string      check_boolean_possible(const std::vector<const ModelVolume *> &volumes, csg::BooleanFailReason& fail_reason);
 std::vector<int> get_min_flush_volumes(const DynamicPrintConfig& full_config);
+bool             sync_skeleton_flush_matrix_to_filaments(DynamicConfig& project_config, const std::vector<std::string>& extruder_colours);
 } // namespace GUI
 } // namespace Slic3r
 

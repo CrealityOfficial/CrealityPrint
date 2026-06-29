@@ -4,8 +4,11 @@
 #define slic3r_ToolOrdering_hpp_
 
 #include "../libslic3r.h"
+#include "../MixedFilament.hpp"
 
 #include <utility>
+#include <set>
+#include <tuple>
 
 #include <boost/container/small_vector.hpp>
 
@@ -32,12 +35,15 @@ public:
 
     // This is called from GCode::process_layer - see implementation for further comments:
     const ExtruderPerCopy* get_extruder_overrides(const ExtrusionEntity* entity, const PrintObject* object, int correct_extruder_id, size_t num_of_copies);
+    ExtruderPerCopy resolved_extruder_overrides(const ExtrusionEntity* entity, const PrintObject& object, int correct_extruder_id, size_t num_of_copies) const;
     int get_support_extruder_overrides(const PrintObject* object);
     int get_support_interface_extruder_overrides(const PrintObject* object);
+    float skeleton_flush_volume(unsigned int old_extruder, unsigned int new_extruder) const;
+    bool is_skeleton_flush_target(const PrintObject* object, unsigned int copy, unsigned int old_extruder, unsigned int new_extruder) const;
 
     // This function goes through all infill entities, decides which ones will be used for wiping and
     // marks them by the extruder id. Returns volume that remains to be wiped on the wipe tower:
-    float mark_wiping_extrusions(const Print& print, unsigned int old_extruder, unsigned int new_extruder, float volume_to_wipe);
+    float mark_wiping_extrusions(const Print& print, unsigned int old_extruder, unsigned int new_extruder, float volume_to_wipe, float skeleton_volume_to_wipe = -1.f, bool skeleton_only = false);
 
     void ensure_perimeters_infills_order(const Print& print);
 
@@ -94,6 +100,8 @@ private:
     // BBS
     std::map<const PrintObject*, int> support_map;
     std::map<const PrintObject*, int> support_intf_map;
+    std::map<std::pair<unsigned int, unsigned int>, float> skeleton_flush_volume_map;
+    std::set<std::tuple<const PrintObject*, unsigned int, unsigned int, unsigned int>> skeleton_flush_targets;
     bool something_overridable = false;
     bool something_overridden = false;
     const LayerTools* m_layer_tools = nullptr;    // so we know which LayerTools object this belongs to
@@ -124,9 +132,14 @@ public:
     bool						has_support = false;
     // Zero based extruder IDs, ordered to minimize tool switches.
     std::vector<unsigned int> 	extruders;
+    bool                        preserve_extruder_order = false;
     // If per layer extruder switches are inserted by the G-code preview slider, this value contains the new (1 based) extruder, with which the whole object layer is being printed with.
     // If not overriden, it is set to 0.
     unsigned int 				extruder_override = 0;
+    // Sequential layer index (0-based), used by mixed-filament resolution.
+    int                         layer_index = 0;
+    // Actual layer height for this print_z where available.
+    coordf_t                    layer_height = 0.;
     // Should a skirt be printed at this layer?
     // Layers are marked for infinite skirt aka draft shield. Not all the layers have to be printed.
     bool                        has_skirt = false;
@@ -146,7 +159,23 @@ public:
         return m_wiping_extrusions;
     }
 
+    const WipingExtrusions& wiping_extrusions() const {
+        const_cast<WipingExtrusions&>(m_wiping_extrusions).set_layer_tools_ptr(this);
+        return m_wiping_extrusions;
+    }
+
+    // Mixed-filament resolution context (set by ToolOrdering during collect_extruders).
+    const MixedFilamentManager *mixed_mgr    = nullptr;
+    size_t                      num_physical = 0;
+    bool                        has_mixed_filaments = false;
+    // Optional mixed-layer cadence override from print settings.
+    float                       mixed_layer_height_a    = 0.f;
+    float                       mixed_layer_height_b    = 0.f;
+    float                       mixed_base_layer_height = 0.2f;
+
 private:
+    // Resolve a 1-based filament ID through the mixed-filament manager for this layer.
+    unsigned int resolve_mixed_1based(unsigned int filament_id) const;
     // This object holds list of extrusion that will be used for extruder wiping
     WipingExtrusions m_wiping_extrusions;
 };
@@ -197,6 +226,7 @@ public:
 
 private:
     void				initialize_layers(std::vector<coordf_t> &zs);
+    void                      initialize_mixed_context();
     void 				collect_extruders(const PrintObject &object, const std::vector<std::pair<double, unsigned int>> &per_layer_extruder_switches);
     void				reorder_extruders(unsigned int last_extruder_id);
     // BBS
@@ -209,6 +239,15 @@ private:
     // BBS
     std::vector<unsigned int> generate_first_layer_tool_order(const Print& print);
     std::vector<unsigned int> generate_first_layer_tool_order(const PrintObject& object);
+    void                      update_mixed_layer_height_settings();
+
+    // Resolve a 1-based filament ID through the mixed-filament manager.
+    // Returns the resolved physical extruder (1-based).  If the ID is not a
+    // mixed filament or no manager is set, returns the input unchanged.
+    unsigned int resolve_mixed(unsigned int filament_id_1based,
+                               int          layer_index,
+                               float        layer_print_z = 0.f,
+                               float        layer_height  = 0.f) const;
 
     std::vector<LayerTools>    m_layer_tools;
     // First printing extruder, including the multi-material priming sequence.
@@ -218,9 +257,18 @@ private:
     // All extruders, which extrude some material over m_layer_tools.
     std::vector<unsigned int>  m_all_printing_extruders;
     std::unordered_map<uint32_t, std::vector<uint8_t>> m_tool_order_cache;
+    const DynamicPrintConfig*  m_print_full_config = nullptr;
     const PrintConfig*         m_print_config_ptr = nullptr;
     const PrintObject*         m_print_object_ptr = nullptr;
     bool                       m_is_BBL_printer = false;
+    // Mixed filament support: pointer to manager (owned by Print) and
+    // number of physical extruders.
+    const MixedFilamentManager* m_mixed_mgr    = nullptr;
+    size_t                      m_num_physical  = 0;
+    bool                        m_has_mixed_filaments = false;
+    float                       m_mixed_layer_height_a    = 0.f;
+    float                       m_mixed_layer_height_b    = 0.f;
+    float                       m_mixed_base_layer_height = 0.2f;
 };
 
 } // namespace SLic3r

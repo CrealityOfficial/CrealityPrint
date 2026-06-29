@@ -28,6 +28,8 @@
 #include "slic3r/GUI/Gizmos/GLGizmoMeasure.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoMeshBoolean.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoDrill.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoSimplePaint.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoClone.hpp"
 
 #include "libslic3r/format.hpp"
 #include "libslic3r/Model.hpp"
@@ -43,6 +45,22 @@ const float GLGizmosManager::Default_Icons_Size = 40;
 #else
 const float GLGizmosManager::Default_Icons_Size = 64;
 #endif
+
+namespace {
+bool is_gizmo_shortcut_available_in_easy_mode(GLGizmosManager::EType type)
+{
+    switch (type) {
+    case GLGizmosManager::EType::Move:
+    case GLGizmosManager::EType::Rotate:
+    case GLGizmosManager::EType::Scale:
+    case GLGizmosManager::EType::Cut:
+    case GLGizmosManager::EType::MmuSegmentation:
+        return true;
+    default:
+        return false;
+    }
+}
+}
 
 GLGizmosManager::GLGizmosManager(GLCanvas3D& parent)
     : m_parent(parent)
@@ -177,6 +195,12 @@ void GLGizmosManager::switch_gizmos_icon_filename()
         case (EType::BrimEars):
             gizmo->set_icon_filename(m_is_dark ? "toolbar_brimears_dark.svg" : "toolbar_brimears.svg");
             break;
+        case (EType::SimplePaint):
+            gizmo->set_icon_filename(m_is_dark ? "mmu_segmentation_dark.svg" : "mmu_segmentation.svg"); 
+            break;
+        case (EType::Clone):
+            gizmo->set_icon_filename(m_is_dark ? "toolbar_clone_dark.svg" : "toolbar_clone.svg");
+            break;
         }
 
     }
@@ -223,6 +247,16 @@ bool GLGizmosManager::init()
     //m_gizmos.emplace_back(new GLGizmoFaceDetector(m_parent, "face recognition.svg", sprite_id++));
     m_gizmos.emplace_back(new GLGizmoHollow(m_parent, m_is_dark ? "toolbar_hollow_dark.svg" : "toolbar_hollow.svg", EType::Hollowing));
     m_gizmos.emplace_back(new GLGizmoDrill(m_parent, m_is_dark ? "toolbar_drill_dark.svg" : "toolbar_drill.svg", EType::Drill));
+
+    {
+        auto gizmo = std::make_unique<GLGizmoSimplePaint>(m_parent, m_is_dark ? "mmu_segmentation_dark.svg" : "mmu_segmentation.svg", EType::SimplePaint);
+        gizmo->set_add_filament_handler([this]() {
+            m_parent.open_filament_toolbar_popup();
+        });
+        m_gizmos.emplace_back(std::move(gizmo));
+    }
+
+    m_gizmos.emplace_back(new GLGizmoClone(m_parent, m_is_dark ? "toolbar_clone_dark.svg" : "toolbar_clone.svg", EType::Clone, &m_object_manipulation));
 
     m_common_gizmos_data.reset(new CommonGizmosDataPool(&m_parent));
     if(!m_assemble_view_data)
@@ -391,7 +425,7 @@ void GLGizmosManager::update_data()
 
     if (m_pending_update) {
         m_pending_update = false;
-        // return; // Èç¹û»¹ÊÇ¾­³£±ÀÀ££¬ÕâÀïÔö¼ÓÒ»¸öreturn£¬µÈ´ýÏÂ´ÎupdateÔÙ¸üÐÂÊý¾Ý¡£
+        // return; // å¦‚æžœè¿˜æ˜¯ç»å¸¸å´©æºƒï¼Œè¿™é‡Œå¢žåŠ ä¸€ä¸ªreturnï¼Œç­‰å¾…ä¸‹æ¬¡updateå†æ›´æ–°æ•°æ®ã€‚
     }
 
     if (m_common_gizmos_data)
@@ -420,27 +454,31 @@ bool GLGizmosManager::handle_shortcut(int key)
     if (!m_enabled)
         return false;
 
-    auto is_key = [pressed_key = key](int gizmo_key) { return (gizmo_key == pressed_key - 64) || (gizmo_key == pressed_key - 96); };
-    // allowe open shortcut even when selection is empty    
-    if (GLGizmoBase* gizmo_emboss = m_gizmos[Emboss].get();
-        is_key(gizmo_emboss->get_shortcut_key())) {
-        dynamic_cast<GLGizmoEmboss *>(gizmo_emboss)->on_shortcut_key();
+    const bool is_easy_mode = wxGetApp().easy_mode();
+    auto matches_shortcut_key = [pressed_key = key](int gizmo_key) { return (gizmo_key == pressed_key - 64) || (gizmo_key == pressed_key - 96); };
+
+    // Emboss/Text is intentionally available without selection in advanced mode only.
+    if (GLGizmoBase* emboss_gizmo = m_gizmos[Emboss].get();
+        !is_easy_mode && matches_shortcut_key(emboss_gizmo->get_shortcut_key())) {
+        dynamic_cast<GLGizmoEmboss *>(emboss_gizmo)->on_shortcut_key();
         return true;
     }
 
     if (m_parent.get_selection().is_empty())
         return false;
 
-    auto is_gizmo = [is_key](const std::unique_ptr<GLGizmoBase> &gizmo) {
-        return gizmo->is_activable() && is_key(gizmo->get_shortcut_key());
+    auto can_activate_gizmo_by_shortcut = [matches_shortcut_key, is_easy_mode](const std::unique_ptr<GLGizmoBase> &gizmo, EType type) {
+        return (!is_easy_mode || is_gizmo_shortcut_available_in_easy_mode(type)) &&
+               gizmo->is_activable() && matches_shortcut_key(gizmo->get_shortcut_key());
     };
-    auto it = std::find_if(m_gizmos.begin(), m_gizmos.end(), is_gizmo);
 
-    if (it == m_gizmos.end())
-        return false;
+    for (size_t i = 0; i < m_gizmos.size(); ++i) {
+        EType gizmo_type = EType(i);
+        if (can_activate_gizmo_by_shortcut(m_gizmos[i], gizmo_type))
+            return open_gizmo(gizmo_type);
+    }
 
-    EType gizmo_type = EType(it - m_gizmos.begin());
-    return open_gizmo(gizmo_type);
+    return false;
 }
 
 bool GLGizmosManager::is_dragging() const
@@ -1512,8 +1550,12 @@ std::string get_name_from_gizmo_etype(GLGizmosManager::EType type)
         return "Color Painting";
     case GLGizmosManager::EType::FuzzySkin:
         return "Fuzzy Skin Painting";
+    case GLGizmosManager::EType::SimplePaint:
+        return "Simple Color Painting";
     case GLGizmosManager::EType::Hollowing: 
         return "Hollow";
+    case GLGizmosManager::EType::Clone:
+        return "Clone";
     default:
         return "";
     }

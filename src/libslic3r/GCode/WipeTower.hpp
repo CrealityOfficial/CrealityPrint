@@ -70,6 +70,12 @@ public:
 
 		bool  is_tool_change{false};
         Vec2f tool_change_start_pos;
+        bool  wipe_tower_inner_wall_box_valid{false};
+        Vec2f wipe_tower_inner_wall_box[4];
+        bool  wipe_tower_inner_wall_start_pos_valid{false};
+        Vec2f wipe_tower_inner_wall_start_pos;
+        bool  wipe_tower_inner_wall_approach_pos_valid{false};
+        Vec2f wipe_tower_inner_wall_approach_pos;
         // Pass a polyline so that normal G-code generator can do a wipe for us.
         // The wipe cannot be done by the wipe tower because it has to pass back
         // a loaded extruder, so it would have to either do a wipe with no retraction

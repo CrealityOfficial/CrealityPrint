@@ -28,4 +28,6 @@
 
 #cmakedefine01 AUTO_CONVERT_3MF
 
+#cmakedefine01 GUI_SIMPLE
+
 #endif /* __SLIC3R_VERSION_H */

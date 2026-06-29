@@ -296,6 +296,9 @@ include(CGAL/CGAL.cmake)
 include(NLopt/NLopt.cmake)
 include(Assimp/Assimp.cmake)
 include(libnoise/libnoise.cmake)
+if (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    include(ImatiSTL/ImatiSTL.cmake)
+endif()
 
 
 # I *think* 1.1 is used for *just* md5 hashing?
@@ -392,6 +395,7 @@ if(ENABLE_BREAKPAD)
         dep_OSS
         dep_BREAKPAD
         dep_Assimp
+        dep_ImatiSTL
         dep_FFmpeg
         dep_MQTTC
         dep_MQTT
@@ -419,8 +423,10 @@ else()
         ${EXPAT_PKG}
         dep_OSS
         dep_Assimp
+        dep_ImatiSTL
         dep_MQTTC
         dep_MQTT
+        dep_libnoise
         )
 endif()
     

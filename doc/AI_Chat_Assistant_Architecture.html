@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI切片助手架构文档</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #1a1a2e;
+            --bg-card: #16213e;
+            --accent: #00d9ff;
+            --accent-green: #00b96b;
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --border: #2a2a4a;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.8;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+        }
+        
+        h2 {
+            color: var(--accent);
+            margin: 40px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        h2::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+        
+        h3 {
+            color: var(--accent-green);
+            margin: 25px 0 15px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        .mermaid {
+            background: #0d1421;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        
+        pre {
+            background: #0d1421;
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            border: 1px solid var(--border);
+        }
+        
+        code {
+            color: #e8e8e8;
+        }
+        
+        .keyword { color: #c792ea; }
+        .string { color: #c3e88d; }
+        .function { color: #82aaff; }
+        .comment { color: #546e7a; }
+        .type { color: #ffcb6b; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border: 1px solid var(--border);
+        }
+        
+        th {
+            background: rgba(0, 217, 255, 0.1);
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background: rgba(0, 217, 255, 0.05);
+        }
+        
+        .highlight-box {
+            background: rgba(0, 185, 107, 0.1);
+            border-left: 4px solid var(--accent-green);
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .warning-box {
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .file-path {
+            display: inline-block;
+            background: rgba(0, 217, 255, 0.15);
+            color: var(--accent);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            margin: 15px 0;
+            gap: 15px;
+        }
+        
+        .step-number {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            color: var(--bg-dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+        
+        .tag-ws { background: #7c3aed; }
+        .tag-js { background: #f59e0b; color: #000; }
+        .tag-cpp { background: #3b82f6; }
+        .tag-llm { background: #ec4899; }
+        
+        .architecture-layer {
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+            position: relative;
+        }
+        
+        .layer-label {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: var(--bg-dark);
+            padding: 0 10px;
+            color: var(--accent);
+            font-weight: bold;
+        }
+        
+        .arrow-down {
+            text-align: center;
+            font-size: 24px;
+            color: var(--accent);
+            margin: 5px 0;
+        }
+        
+        ul {
+            margin-left: 25px;
+            margin-top: 10px;
+        }
+        
+        li {
+            margin: 8px 0;
+        }
+        
+        .toc {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .toc h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        .toc ul {
+            list-style: none;
+            margin: 0;
+        }
+        
+        .toc li {
+            margin: 8px 0;
+        }
+        
+        .toc a {
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .toc a:hover {
+            color: var(--accent);
+        }
+        
+        .inline-code {
+            background: rgba(0, 217, 255, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI切片助手架构文档</h1>
+        <p class="subtitle">C3DSlicer AI Chat Assistant - CxAgent Integration Analysis</p>
+        
+        <div class="toc">
+            <h3>📑 目录</h3>
+            <ul>
+                <li><a href="#overview">1. 系统概述</a></li>
+                <li><a href="#architecture">2. 整体架构</a></li>
+                <li><a href="#decision-flow">3. 回应决策流程</a></li>
+                <li><a href="#cxagent">4. CxAgent连接与通信</a></li>
+                <li><a href="#rag">5. RAG知识库配置（实际在用）</a></li>
+                <li><a href="#dify">6. Dify集成（备用方案）</a></li>
+                <li><a href="#message-flow">7. 消息处理流程</a></li>
+                <li><a href="#intelligent-response">8. 智能回应机制</a></li>
+                <li><a href="#tools">9. 支持的工具能力</a></li>
+                <li><a href="#files">10. 核心文件说明</a></li>
+                <li><a href="#example">11. 完整交互示例</a></li>
+            </ul>
+        </div>
+
+        <!-- 1. 系统概述 -->
+        <h2 id="overview">1. 系统概述</h2>
+        <div class="card">
+            <p>AI切片助手是一个<strong>基于CxAgent的智能对话系统</strong>，采用MCP (Model Context Protocol) 架构，将大语言模型(LLM)的能力与3D切片软件深度集成。</p>
+            
+            <div class="highlight-box">
+                <strong>核心特点：</strong>
+                <ul>
+                    <li>🔗 通过WebSocket与CxAgent服务端保持长连接</li>
+                    <li>🧠 CxAgent服务端运行LLM，理解用户意图并规划执行步骤</li>
+                    <li>🛠️ 支持多种工具调用：切片、排列、导入模型、参数调整等</li>
+                    <li>📊 实时同步切片器状态作为LLM上下文</li>
+                    <li>💬 SSE流式输出，逐字渲染AI回复</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 2. 整体架构 -->
+        <h2 id="architecture">2. 整体架构</h2>
+        <div class="card">
+            <div class="highlight-box">
+                <strong>🔑 关键发现：双后端架构</strong>
+                <p style="margin-top:10px">代码中存在<strong>两套AI后端</strong>：</p>
+                <ul>
+                    <li><span class="tag tag-ws">主要</span> <strong>CxAgent</strong> - WebSocket长连接，服务端规划+工具调用</li>
+                    <li><span class="tag tag-js">备用</span> <strong>Dify</strong> - HTTP SSE流式，直接LLM对话（已禁用）</li>
+                </ul>
+                <p style="margin-top:10px">当前版本<strong>优先使用CxAgent</strong>，Dify作为历史遗留/备用方案。</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="mermaid">
+graph TB
+    subgraph Frontend["前端 UI 层"]
+        A[chat.js<br/>用户交互界面]
+        B[chat.html<br/>聊天面板]
+    end
+    
+    subgraph Middle["C++ 中间层"]
+        C[MCPChatPanel<br/>消息路由与处理]
+        D[CxAgentClientBridge<br/>WebSocket客户端]
+        E[SlicerBridge<br/>切片器操作接口]
+    end
+    
+    subgraph Backend["CxAgent 服务端"]
+        F[WebSocket Server<br/>消息接收]
+        G[LLM Engine<br/>意图理解与规划]
+        H[Task Planner<br/>工具调用决策]
+    end
+    
+    A -->|JS Bridge| C
+    C -->|消息转发| D
+    D -->|WebSocket| F
+    F --> G
+    G --> H
+    H -->|tool_call| F
+    F -->|planner_update| D
+    D --> C
+    C -->|执行工具| E
+    E -->|操作结果| C
+    C -->|更新UI| A
+            </div>
+            
+            <h3>层级说明</h3>
+            
+            <div class="architecture-layer">
+                <span class="layer-label">前端 UI 层</span>
+                <p><span class="tag tag-js">JavaScript</span> 基于Web技术的聊天界面</p>
+                <ul>
+                    <li><span class="file-path">resources/web/chat/chat.js</span> - 主逻辑</li>
+                    <li><span class="file-path">resources/web/chat/index.html</span> - 界面结构</li>
+                    <li>负责用户输入、消息展示、状态徽章等</li>
+                </ul>
+            </div>
+            
+            <div class="arrow-down">⬇️</div>
+            
+            <div class="architecture-layer">
+                <span class="layer-label">C++ 中间层</span>
+                <p><span class="tag tag-cpp">C++</span> 核心业务逻辑与切片器集成</p>
+                <ul>
+                    <li><span class="file-path">src/slic3r/GUI/simple/MCPChatPanel.cpp</span> - 消息路由</li>
+                    <li><span class="file-path">src/slic3r/GUI/simple/bridge/CxAgentClientBridge.cpp</span> - WebSocket客户端</li>
+                    <li><span class="file-path">src/slic3r/GUI/simple/bridge/SlicerBridge.cpp</span> - 切片器操作</li>
+                </ul>
+            </div>
+            
+            <div class="arrow-down">⬇️</div>
+            
+            <div class="architecture-layer">
+                <span class="layer-label">CxAgent 服务端</span>
+                <p><span class="tag tag-llm">LLM</span> <span class="tag tag-ws">WebSocket</span> 远程AI服务</p>
+                <ul>
+                    <li>运行大语言模型进行意图理解</li>
+                    <li>基于上下文进行任务规划</li>
+                    <li>发送tool_call指令让客户端执行操作</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 3. 回应决策流程 -->
+        <h2 id="decision-flow">3. 回应决策流程</h2>
+        <div class="card">
+            <p>当用户发送消息时，系统按以下优先级决策如何回应：</p>
+            
+            <div class="mermaid">
+flowchart TB
+    A[用户输入消息] --> B{本地命令匹配?}
+    B -->|是| C[tryHandleLocalCommand]
+    C --> C1{查看配置?}
+    C1 -->|是| C2[直接调用get_edited_config]
+    C1 -->|否| C3{设置颜色?}
+    C3 -->|是| C4[直接调用set_object_color]
+    C3 -->|否| D
+    B -->|否| D{CxAgent已连接?}
+    D -->|是| E[sendToCxAgentChat]
+    E --> E1[WebSocket发送到CxAgent服务端]
+    E1 --> E2[LLM分析意图]
+    E2 --> E3[返回planner_update或tool_call]
+    D -->|否| F{Dify配置可用?}
+    F -->|是| G[sendToDify - SSE流式]
+    G --> G1[HTTP POST到Dify API]
+    G1 --> G2[解析ACTION块]
+    F -->|否| H[显示错误: 未配置AI服务]
+            </div>
+            
+            <h3>3.1 本地命令处理（无需AI）</h3>
+            <p>某些简单命令直接在本地处理，不经过AI：</p>
+            
+<pre><code><span class="comment">// chat.js - 本地命令匹配</span>
+<span class="keyword">function</span> <span class="function">tryHandleLocalCommand</span>(userMessage) {
+    <span class="comment">// 1. 查看配置类查询 - 直接调用C++获取</span>
+    <span class="keyword">if</span> (<span class="function">isCurrentPrintConfigQuery</span>(text)) {
+        <span class="function">sendToSlicer</span>(<span class="string">'get_edited_config'</span>, {});
+        <span class="keyword">return</span> <span class="keyword">true</span>;
+    }
+    
+    <span class="comment">// 2. 设置颜色 - 解析颜色值后直接执行</span>
+    <span class="keyword">if</span> (<span class="function">shouldAutoSetColorAction</span>(text)) {
+        <span class="keyword">const</span> color = <span class="function">inferColorValue</span>(text); <span class="comment">// 如"蓝色"->"blue"</span>
+        <span class="function">sendToSlicer</span>(<span class="string">'set_object_color'</span>, { color });
+        <span class="keyword">return</span> <span class="keyword">true</span>;
+    }
+    
+    <span class="keyword">return</span> <span class="keyword">false</span>; <span class="comment">// 交给AI处理</span>
+}</code></pre>
+
+            <h3>3.2 CxAgent处理（主要路径）</h3>
+            <p>大多数消息走CxAgent路径，由服务端LLM决策：</p>
+            
+<pre><code><span class="comment">// chat.js - 发送到CxAgent</span>
+<span class="keyword">function</span> <span class="function">sendMessage</span>() {
+    <span class="comment">// 1. 先尝试本地处理</span>
+    <span class="keyword">if</span> (<span class="function">tryHandleLocalCommand</span>(text)) <span class="keyword">return</span>;
+    
+    <span class="comment">// 2. 主路径：发送到CxAgent</span>
+    <span class="function">sendToCxAgentChat</span>(text)
+        .<span class="function">catch</span>((error) => {
+            <span class="comment">// CxAgent失败时显示错误</span>
+        });
+}</code></pre>
+
+            <h3>3.3 Dify处理（备用路径）</h3>
+            <p>当前代码中Dify已被禁用，但保留了完整实现：</p>
+            
+<pre><code><span class="comment">// chat.js - Dify被禁用</span>
+<span class="keyword">async function</span> <span class="function">sendToDify</span>(userMessage, files, extraInputs, opts) {
+    <span class="keyword">const</span> errorMessage = <span class="string">'Dify integration is disabled. Use CxAgent bridge only.'</span>;
+    <span class="function">appendErrorToLastMessage</span>(errorMessage);
+    <span class="keyword">throw new</span> Error(errorMessage);
+}</code></pre>
+        </div>
+
+        <!-- 4. CxAgent连接与通信 -->
+        <h2 id="cxagent">4. CxAgent连接与通信</h2>
+        <div class="card">
+            <h3>4.1 WebSocket连接建立</h3>
+            <p>客户端通过 <span class="inline-code">CxAgentClientBridge</span> 建立与CxAgent服务的WebSocket连接：</p>
+            
+<pre><code><span class="comment">// CxAgentClientBridge.cpp - 连接初始化</span>
+<span class="keyword">bool</span> <span class="function">CxAgentClientBridge::Start</span>(<span class="keyword">const</span> std::string& http_base_url,
+                                <span class="keyword">const</span> std::string& client_id,
+                                <span class="keyword">const</span> std::string& session_id)
+{
+    <span class="comment">// 构建WebSocket URL</span>
+    m_status.ws_url = <span class="function">BuildWsUrl</span>(http_base_url, client_id);
+    <span class="comment">// 格式: ws://host/api/ws/clients/{client_id}</span>
+    
+    <span class="comment">// 启动WebSocket连接</span>
+    m_session-><span class="function">start</span>(GetStatus().ws_url);
+    <span class="keyword">return</span> <span class="keyword">true</span>;
+}</code></pre>
+
+            <h3>4.2 连接成功后的握手</h3>
+            <p>连接建立后，客户端发送 <span class="inline-code">client_hello</span> 消息，声明自己的能力：</p>
+            
+<pre><code><span class="comment">// 发送客户端能力声明</span>
+<span class="keyword">void</span> <span class="function">CxAgentClientBridge::PushClientHello</span>()
+{
+    Json payload = {
+        {<span class="string">"type"</span>, <span class="string">"client_hello"</span>},
+        {<span class="string">"schema_version"</span>, <span class="string">"1.0.0"</span>},
+        {<span class="string">"client"</span>, {
+            {<span class="string">"name"</span>, <span class="string">"C3DSlicer"</span>},
+            {<span class="string">"version"</span>, <span class="string">"0.1.0"</span>},
+        }},
+        {<span class="string">"capabilities"</span>, <span class="function">BuildCapabilitiesPayload</span>()},
+    };
+    <span class="function">QueueJson</span>(payload);
+}</code></pre>
+
+            <h3>4.3 消息类型</h3>
+            <table>
+                <tr>
+                    <th>方向</th>
+                    <th>消息类型</th>
+                    <th>说明</th>
+                </tr>
+                <tr>
+                    <td>客户端 → 服务端</td>
+                    <td><span class="inline-code">client_hello</span></td>
+                    <td>声明客户端能力</td>
+                </tr>
+                <tr>
+                    <td>客户端 → 服务端</td>
+                    <td><span class="inline-code">context_update</span></td>
+                    <td>推送切片器状态更新</td>
+                </tr>
+                <tr>
+                    <td>客户端 → 服务端</td>
+                    <td><span class="inline-code">tool_result</span></td>
+                    <td>返回工具执行结果</td>
+                </tr>
+                <tr>
+                    <td>客户端 → 服务端</td>
+                    <td><span class="inline-code">heartbeat</span></td>
+                    <td>心跳保活</td>
+                </tr>
+                <tr>
+                    <td>服务端 → 客户端</td>
+                    <td><span class="inline-code">planner_update</span></td>
+                    <td>AI规划更新（如图中的"下一步规划"）</td>
+                </tr>
+                <tr>
+                    <td>服务端 → 客户端</td>
+                    <td><span class="inline-code">tool_call</span></td>
+                    <td>请求执行工具操作</td>
+                </tr>
+                <tr>
+                    <td>服务端 → 客户端</td>
+                    <td><span class="inline-code">ack</span></td>
+                    <td>消息确认</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- 5. RAG 知识库配置 -->
+        <h2 id="rag">5. RAG 知识库配置（实际在用）</h2>
+        <div class="card">
+            <div class="highlight-box">
+                <strong>✅ 实际配置状态：已启用</strong>
+                <p style="margin-top:10px">根据 <span class="file-path">CxAgent/server/.env</span> 文件，RAG 知识库<strong>已完整配置并启用</strong>。</p>
+            </div>
+            
+            <h3>5.1 RAG 配置详情</h3>
+            <p>当前环境变量配置（<span class="file-path">CxAgent/server/.env</span>）：</p>
+            
+<pre><code><span class="comment"># RAG 总开关</span>
+CXAGENT_SUPPORT_RAG_ENABLED=<span class="keyword">true</span>
+
+<span class="comment"># DashScope 配置（阿里云灵积模型服务）</span>
+DASHSCOPE_API_KEY=sk-16ed57b7498f42cdb9e046eeb2428aee
+CXAGENT_DASHSCOPE_VECTOR_STORE_ID=qvh3vm6r80
+CXAGENT_DASHSCOPE_RAG_MODEL=qwen3.5-plus
+CXAGENT_DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1
+
+<span class="comment"># 检索调优参数</span>
+CXAGENT_RAG_DENSE_TOP_K=8
+CXAGENT_RAG_SPARSE_TOP_K=8
+CXAGENT_RAG_RERANK_TOP_N=5
+CXAGENT_RAG_MIN_SCORE=0.2
+CXAGENT_RAG_ENABLE_REWRITE=<span class="keyword">true</span></code></pre>
+
+            <h3>5.2 RAG 工作流程</h3>
+            <div class="mermaid">
+flowchart TB
+    A[用户提问: "支撑是什么？"] --> B{SupportModule}
+    B --> C{rag_enabled?}
+    C -->|是| D[KnowledgeEngine]
+    D --> E[构建查询提示词]
+    E --> F[调用 DashScope API]
+    F --> G[向量检索 + 重排序]
+    G --> H[基于检索结果生成回答]
+    H --> I[返回详细回答]
+    C -->|否| J[本地 FAQ 兜底]
+    J --> K[关键词匹配]
+    K --> L[返回固定回答]
+            </div>
+            
+            <h3>5.3 RAG vs 本地 FAQ 对比</h3>
+            <table>
+                <tr>
+                    <th>特性</th>
+                    <th>RAG 知识库</th>
+                    <th>本地 FAQ</th>
+                </tr>
+                <tr>
+                    <td>数据来源</td>
+                    <td>DashScope 向量库 (qvh3vm6r80)</td>
+                    <td>代码硬编码 (3条)</td>
+                </tr>
+                <tr>
+                    <td>回答质量</td>
+                    <td>详细、结构化、基于文档</td>
+                    <td>简单、固定模板</td>
+                </tr>
+                <tr>
+                    <td>使用场景</td>
+                    <td>客服问答、文档检索</td>
+                    <td>RAG 失败时兜底</td>
+                </tr>
+                <tr>
+                    <td>当前状态</td>
+                    <td>✅ 在用</td>
+                    <td>备用</td>
+                </tr>
+            </table>
+            
+            <h3>5.4 本地 FAQ 兜底代码</h3>
+            <p>当 RAG 未配置或失败时，使用本地简单 FAQ：</p>
+<pre><code><span class="comment"># knowledge_engine.py</span>
+_FAQ = {
+    <span class="string">"支撑"</span>: <span class="string">"模型悬空区域较多时会自动生成更多支撑..."</span>,
+    <span class="string">"参数"</span>: <span class="string">"该参数会影响速度、质量或稳定性..."</span>,
+    <span class="string">"切片时间"</span>: <span class="string">"切片时间变长通常与层高降低..."</span>,
+}
+
+<span class="keyword">def</span> <span class="function">lookup</span>(self, question: str) -> str:
+    <span class="keyword">for</span> keyword, answer <span class="keyword">in</span> self._FAQ.items():
+        <span class="keyword">if</span> keyword <span class="keyword">in</span> question:
+            <span class="keyword">return</span> answer
+    <span class="keyword">return</span> <span class="string">"当前问题可先从机型、材料、层高和支撑设置四个维度排查。"</span></code></pre>
+        </div>
+
+        <!-- 6. Dify集成 -->
+        <h2 id="dify">6. Dify集成（历史/备用方案）</h2>
+        <div class="card">
+            <div class="warning-box">
+                <strong>⚠️ 注意：当前版本已禁用Dify</strong>
+                <p>代码中保留了完整的Dify集成实现，但在 <span class="inline-code">sendToDify</span> 函数中被禁用。</p>
+            </div>
+            
+            <h3>5.1 Dify vs CxAgent 对比</h3>
+            <table>
+                <tr>
+                    <th>特性</th>
+                    <th>CxAgent (当前使用)</th>
+                    <th>Dify (已禁用)</th>
+                </tr>
+                <tr>
+                    <td>连接方式</td>
+                    <td>WebSocket长连接</td>
+                    <td>HTTP SSE流式</td>
+                </tr>
+                <tr>
+                    <td>通信中介</td>
+                    <td>经C++层转发</td>
+                    <td>JS直连Dify API</td>
+                </tr>
+                <tr>
+                    <td>工具调用</td>
+                    <td>服务端规划 → tool_call → 客户端执行</td>
+                    <td>LLM回复中解析[ACTION]块</td>
+                </tr>
+                <tr>
+                    <td>智能程度</td>
+                    <td>服务端有状态规划器(Planner)</td>
+                    <td>无状态LLM对话</td>
+                </tr>
+                <tr>
+                    <td>上下文管理</td>
+                    <td>服务端管理session/task</td>
+                    <td>客户端管理conversation_id</td>
+                </tr>
+            </table>
+            
+            <h3>5.2 Dify原始架构</h3>
+            <div class="mermaid">
+flowchart LR
+    A[chat.js] -->|HTTP POST| B[Dify Server]
+    B -->|SSE Stream| A
+    B --> C[LLM如DeepSeek/GPT]
+    B --> D[RAG知识库]
+    A -->|解析ACTION| E[JS Bridge]
+    E --> F[C++ SlicerBridge]
+            </div>
+            
+            <h3>5.3 Dify SSE处理代码</h3>
+<pre><code><span class="comment">// chat.dify-stream.js - Dify SSE流式处理</span>
+<span class="keyword">async function</span> <span class="function">sendToDify</span>(ctx, userMessage, files, extraInputs, opts) {
+    <span class="comment">// 判断后端类型</span>
+    <span class="keyword">const</span> backend = <span class="function">resolveChatBackend</span>(state.difyApiBase);
+    <span class="comment">// gateway模式 或 dify直连模式</span>
+    
+    <span class="keyword">const</span> response = <span class="keyword">await</span> <span class="function">fetch</span>(url, {
+        method: <span class="string">'POST'</span>,
+        headers: { <span class="string">'Authorization'</span>: <span class="string">'Bearer '</span> + token },
+        body: JSON.<span class="function">stringify</span>({
+            query: userMessage,
+            response_mode: <span class="string">'streaming'</span>,
+            user: userId
+        })
+    });
+    
+    <span class="comment">// 读取SSE流</span>
+    <span class="keyword">const</span> reader = response.body.<span class="function">getReader</span>();
+    <span class="keyword">while</span> (<span class="keyword">true</span>) {
+        <span class="keyword">const</span> { done, value } = <span class="keyword">await</span> reader.<span class="function">read</span>();
+        <span class="comment">// 解析事件: message, agent_message, tool_call, message_end等</span>
+        <span class="keyword">switch</span> (event.event) {
+            <span class="keyword">case</span> <span class="string">'message'</span>:
+            <span class="keyword">case</span> <span class="string">'agent_message'</span>:
+                fullText += event.answer;
+                <span class="function">renderMarkdown</span>(fullText); <span class="comment">// 逐字渲染</span>
+                <span class="keyword">break</span>;
+            <span class="keyword">case</span> <span class="string">'tool_call'</span>:
+                <span class="function">dispatchToolCallAction</span>(event.tool, event.tool_input);
+                <span class="keyword">break</span>;
+            <span class="keyword">case</span> <span class="string">'message_end'</span>:
+                <span class="function">dispatchParsedActionsFromText</span>(fullText); <span class="comment">// 解析[ACTION]块</span>
+                <span class="keyword">break</span>;
+        }
+    }
+}</code></pre>
+
+            <h3>5.4 Dify ACTION块格式</h3>
+            <p>Dify模式下，LLM回复中可能包含ACTION块供客户端执行：</p>
+<pre><code><span class="comment">// LLM回复示例</span>
+好的，我来帮你开始切片。
+
+[ACTION]
+{
+    "command": "start_slice",
+    "params": {}
+}
+[/ACTION]</code></pre>
+        </div>
+
+        <!-- 7. 消息处理流程 -->
+        <h2 id="message-flow">7. 消息处理流程</h2>
+        <div class="card">
+            <div class="mermaid">
+sequenceDiagram
+    participant User as 用户
+    participant UI as chat.js
+    participant Panel as MCPChatPanel
+    participant Bridge as CxAgentClientBridge
+    participant Server as CxAgent服务端
+    participant LLM as LLM引擎
+    
+    User->>UI: 输入"我要打印一个拉布拉"
+    UI->>Panel: sendToSlicer('cxagent_chat', {...})
+    Panel->>Bridge: SendChatMessage(...)
+    Bridge->>Server: WebSocket消息
+    Server->>LLM: 分析用户意图
+    LLM-->>Server: 需要打开模型库
+    Server->>Bridge: planner_update
+    Bridge->>Panel: HandleCxAgentMessage()
+    Panel->>UI: cxagent_message事件
+    UI->>User: 显示"下一步规划"卡片
+    Server->>Bridge: tool_call: open_model_library
+    Bridge->>Panel: HandleCxAgentToolCall()
+    Panel->>Panel: 执行打开模型库
+    Panel->>Bridge: SendToolResult(ok=true)
+    Bridge->>Server: tool_result
+            </div>
+            
+            <h3>7.1 前端消息发送</h3>
+<pre><code><span class="comment">// chat.js - 发送消息到CxAgent</span>
+<span class="keyword">async function</span> <span class="function">sendToCxAgentChat</span>(userMessage, options) {
+    <span class="keyword">const</span> chatEnvelope = <span class="keyword">await</span> <span class="function">sendCxAgentChatDirect</span>({
+        session_id: sessionId,
+        client_id: clientId,
+        user_id: userId,
+        message: userMessage,
+        context: {
+            source: <span class="string">'c3dslicer_web_chat'</span>,
+            model_views: modelViews,  <span class="comment">// 模型截图</span>
+        }
+    });
+}</code></pre>
+
+            <h3>7.2 C++层消息处理</h3>
+<pre><code><span class="comment">// MCPChatPanel.cpp - 处理CxAgent消息</span>
+<span class="keyword">void</span> <span class="function">MCPChatPanel::HandleCxAgentMessage</span>(<span class="keyword">const</span> json& msg)
+{
+    <span class="keyword">const</span> std::string type = msg.<span class="function">value</span>(<span class="string">"type"</span>, <span class="string">""</span>);
+    
+    <span class="keyword">if</span> (type == <span class="string">"planner_update"</span>) {
+        <span class="comment">// 转发到前端显示规划卡片</span>
+    }
+    <span class="keyword">if</span> (type == <span class="string">"tool_call"</span>) {
+        <span class="function">HandleCxAgentToolCall</span>(msg);
+        <span class="keyword">return</span>;
+    }
+    
+    <span class="function">SendCommandToJS</span>(<span class="string">"cxagent_message"</span>, msg);
+}</code></pre>
+        </div>
+
+        <!-- 8. 智能回应机制 -->
+        <h2 id="intelligent-response">8. 智能回应机制</h2>
+        <div class="card">
+            <p>智能回应的核心在于<strong>CxAgent服务端的LLM引擎</strong>，它基于以下信息做出智能决策：</p>
+            
+            <h3>8.1 上下文信息收集</h3>
+            <div class="highlight-box">
+                <strong>客户端自动收集的上下文：</strong>
+                <ul>
+                    <li>📦 <strong>项目状态</strong>：是否有模型、当前预设、打印参数等</li>
+                    <li>📸 <strong>模型视图</strong>：自动截取ISO、正面、底面视图</li>
+                    <li>⚠️ <strong>警告/错误</strong>：切片警告、模型越界等</li>
+                    <li>🖨️ <strong>打印机状态</strong>：是否连接、是否空闲</li>
+                </ul>
+            </div>
+
+<pre><code><span class="comment">// 构建Facts（事实）供LLM参考</span>
+json <span class="function">BuildExplicitFactsFromState</span>(<span class="keyword">const</span> json& state)
+{
+    <span class="keyword">return</span> {
+        {<span class="string">"project.has_model"</span>, has_model},
+        {<span class="string">"plate.current.has_objects"</span>, !current_plate.empty},
+        {<span class="string">"plate.current.slice_completed"</span>, slice_valid},
+        {<span class="string">"scene.no_blocking_errors"</span>, no_errors},
+        {<span class="string">"device.current.online"</span>, device_online},
+        <span class="comment">// ... 更多事实</span>
+    };
+}</code></pre>
+
+            <h3>8.2 LLM规划决策</h3>
+            <p>当用户说"我要打印一个拉布拉"时，LLM的决策过程：</p>
+            
+            <div class="flow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>意图识别</strong>：用户想要打印一个拉布拉多犬模型
+                </div>
+            </div>
+            
+            <div class="flow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>状态检查</strong>：检查Facts → <span class="inline-code">project.has_model = false</span>
+                </div>
+            </div>
+            
+            <div class="flow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>规划输出</strong>：需要先获取模型 → 调用 <span class="inline-code">open_model_library</span> 工具
+                </div>
+            </div>
+            
+            <div class="flow-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>发送planner_update</strong>：<br>
+                    <code>tool: open_model_library</code><br>
+                    <code>reason_code: MODEL_LIBRARY_REQUESTED</code>
+                </div>
+            </div>
+
+            <h3>8.3 工具调用执行</h3>
+<pre><code><span class="comment">// MCPChatPanel.cpp - 执行工具调用</span>
+<span class="keyword">void</span> <span class="function">MCPChatPanel::HandleCxAgentToolCall</span>(<span class="keyword">const</span> json& msg)
+{
+    <span class="keyword">const</span> std::string tool = msg.<span class="function">value</span>(<span class="string">"tool"</span>, <span class="string">""</span>);
+    
+    <span class="keyword">if</span> (tool == <span class="string">"open_model_library"</span>) {
+        <span class="comment">// 打开模型库对话框</span>
+        <span class="keyword">auto</span>* plater = wxGetApp().<span class="function">plater</span>();
+        plater-><span class="function">open_model_library</span>(query);
+        
+        <span class="comment">// 返回执行结果</span>
+        m_cxagent_bridge-><span class="function">SendToolResult</span>(request_id, <span class="keyword">true</span>, result);
+    }
+    
+    <span class="keyword">if</span> (tool == <span class="string">"run_slice"</span>) {
+        <span class="comment">// 开始切片</span>
+        Bridge::SlicerBridge::Instance().<span class="function">Execute</span>(
+            Bridge::ActionID::START_SLICE, args);
+    }
+}</code></pre>
+        </div>
+
+        <!-- 9. 支持的工具能力 -->
+        <h2 id="tools">9. 支持的工具能力</h2>
+        <div class="card">
+            <p>CxAgent客户端声明的工具能力定义在 <span class="file-path">CxAgentClientBridge.cpp</span>：</p>
+            
+            <table>
+                <tr>
+                    <th>工具名称</th>
+                    <th>ActionID</th>
+                    <th>功能描述</th>
+                    <th>前置条件</th>
+                </tr>
+                <tr>
+                    <td><span class="inline-code">get_project_context</span></td>
+                    <td>GET_SLICER_STATE</td>
+                    <td>获取项目完整状态</td>
+                    <td>无</td>
+                </tr>
+                <tr>
+                    <td><span class="inline-code">get_current_slice_params</span></td>
+                    <td>GET_EDITED_CONFIG</td>
+                    <td>获取当前切片参数</td>
+                    <td>无</td>
+                </tr>
+                <tr>
+                    <td><span class="inline-code">list_presets</span></td>
+                    <td>GET_PRESETS</td>
+                    <td>列出所有预设</td>
+                    <td>无</td>
+                </tr>
+                <tr>
+                    <td><span class="inline-code">import_model</span></td>
+                    <td>IMPORT_MODEL</td>
+                    <td>导入本地模型文件</td>
+                    <td>无</td>
+                </tr>
+                <tr>
+                    <td><span class="inline-code">open_model_library</span></td>
+                    <td>-</td>
+                    <td>打开在线模型库</td>
+                    <td>无</td>
+                </tr>
+                <tr>
+                    <td><span class="inline-code">auto_arrange</span></td>
+                    <td>AUTO_ARRANGE</td>
+                    <td>自动排列模型</td>
+                    <td>project.has_model</td>
+                </tr>
+                <tr>
+                    <td><span class="inline-code">auto_orient_model</span></td>
+                    <td>AUTO_ORIENT</td>
+                    <td>自动调整模型方向</td>
+                    <td>project.has_model</td>
+                </tr>
+                <tr>
+                    <td><span class="inline-code">apply_param_patch</span></td>
+                    <td>APPLY_CONFIG</td>
+                    <td>应用参数修改</td>
+                    <td>无</td>
+                </tr>
+                <tr>
+                    <td><span class="inline-code">run_slice</span></td>
+                    <td>START_SLICE</td>
+                    <td>开始切片</td>
+                    <td>has_model, no_errors, filament_mapping</td>
+                </tr>
+                <tr>
+                    <td><span class="inline-code">send_to_printer</span></td>
+                    <td>SEND_TO_PRINTER</td>
+                    <td>发送到打印机</td>
+                    <td>slice_ready, device_online</td>
+                </tr>
+            </table>
+            
+            <h3>工具契约(Contract)示例</h3>
+            <p>每个工具都有明确的契约定义，指明前置条件和补救措施：</p>
+            
+<pre><code><span class="comment">// run_slice 工具的契约定义</span>
+{
+    <span class="string">"name"</span>: <span class="string">"run_slice"</span>,
+    <span class="string">"requires"</span>: [
+        <span class="string">"project.has_model"</span>,
+        <span class="string">"plate.current.has_printable_instances"</span>,
+        <span class="string">"scene.no_blocking_errors"</span>,
+        <span class="string">"scene.filament_mapping.valid"</span>
+    ],
+    <span class="string">"provides"</span>: [
+        <span class="string">"plate.current.slice_completed"</span>,
+        <span class="string">"plate.current.gcode_available"</span>
+    ],
+    <span class="string">"remediations"</span>: {
+        <span class="string">"project.has_model"</span>: [
+            {<span class="string">"tools"</span>: [<span class="string">"import_model"</span>, <span class="string">"open_model_library"</span>]}
+        ],
+        <span class="string">"scene.layout.valid"</span>: [
+            {<span class="string">"tools"</span>: [<span class="string">"auto_arrange"</span>]}
+        ]
+    }
+}</code></pre>
+        </div>
+
+        <!-- 10. 核心文件说明 -->
+        <h2 id="files">10. 核心文件说明</h2>
+        <div class="card">
+            <table>
+                <tr>
+                    <th>文件路径</th>
+                    <th>职责</th>
+                </tr>
+                <tr>
+                    <td><span class="file-path">resources/web/chat/chat.js</span></td>
+                    <td>前端主逻辑：UI交互、消息路由决策、状态展示</td>
+                </tr>
+                <tr>
+                    <td><span class="file-path">resources/web/chat/chat.dify-stream.js</span></td>
+                    <td>Dify SSE流式处理模块（备用方案）</td>
+                </tr>
+                <tr>
+                    <td><span class="file-path">resources/web/chat/index.html</span></td>
+                    <td>聊天界面HTML结构</td>
+                </tr>
+                <tr>
+                    <td><span class="file-path">resources/web/chat/chat.css</span></td>
+                    <td>暗色主题样式</td>
+                </tr>
+                <tr>
+                    <td><span class="file-path">src/slic3r/GUI/simple/MCPChatPanel.cpp</span></td>
+                    <td>C++中间层：消息路由、命令处理、工具执行调度</td>
+                </tr>
+                <tr>
+                    <td><span class="file-path">src/slic3r/GUI/simple/bridge/CxAgentClientBridge.cpp</span></td>
+                    <td>WebSocket客户端：连接管理、消息收发、重连机制</td>
+                </tr>
+                <tr>
+                    <td><span class="file-path">src/slic3r/GUI/simple/bridge/SlicerBridge.cpp</span></td>
+                    <td>切片器操作接口：执行具体的切片、排列、导入等操作</td>
+                </tr>
+                <tr>
+                    <td><span class="file-path">src/slic3r/GUI/AICloudServiceDialog.cpp</span></td>
+                    <td>AI云服务对话框（参数推荐等功能的UI）</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- 11. 完整交互示例 -->
+        <h2 id="example">11. 完整交互示例</h2>
+        <div class="card">
+            <h3>场景：用户想打印一个拉布拉多</h3>
+            
+            <div class="mermaid">
+sequenceDiagram
+    participant U as 用户
+    participant UI as 前端UI
+    participant C as MCPChatPanel
+    participant A as CxAgent
+    
+    U->>UI: "我要打印一个拉布拉"
+    UI->>C: 发送消息 + 上下文(无模型)
+    C->>A: WebSocket消息
+    
+    Note over A: LLM分析:<br/>1. 用户想打印拉布拉多<br/>2. 当前无模型<br/>3. 需要先获取模型
+    
+    A->>C: planner_update<br/>tool=open_model_library<br/>reason=MODEL_LIBRARY_REQUESTED
+    C->>UI: 显示规划卡片
+    UI->>U: "下一步规划: open_model_library"
+    
+    A->>C: tool_call: open_model_library<br/>query="拉布拉多"
+    C->>C: 打开模型库搜索"拉布拉多"
+    C->>A: tool_result: success
+    
+    Note over U: 用户在模型库选择模型
+    
+    C->>A: context_update<br/>project.has_model=true
+    
+    Note over A: LLM分析:<br/>模型已加载，可以切片
+    
+    A->>C: planner_update<br/>tool=run_slice
+    A->>C: tool_call: run_slice
+    C->>C: 执行切片
+    C->>A: tool_result: success
+    
+    UI->>U: "切片完成！"
+            </div>
+            
+            <div class="warning-box">
+                <strong>💡 关键点：</strong>
+                <ul>
+                    <li>LLM基于Facts自动判断缺少什么条件</li>
+                    <li>自动选择合适的补救工具(remediation)</li>
+                    <li>工具执行后自动推送context_update</li>
+                    <li>形成闭环的智能执行流程</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card" style="text-align: center; margin-top: 50px;">
+            <p style="color: var(--text-secondary);">
+                📄 本文档基于 C3DSlicer 源码分析生成<br>
+                🕐 生成时间: <script>document.write(new Date().toLocaleString('zh-CN'))</script>
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                primaryColor: '#16213e',
+                primaryTextColor: '#e8e8e8',
+                primaryBorderColor: '#00d9ff',
+                lineColor: '#00d9ff',
+                secondaryColor: '#1a1a2e',
+                tertiaryColor: '#2a2a4a'
+            }
+        });
+    </script>
+</body>
+</html>

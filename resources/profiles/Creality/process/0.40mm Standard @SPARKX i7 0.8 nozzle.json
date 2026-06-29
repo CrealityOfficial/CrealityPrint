@@ -25,7 +25,7 @@
     "brim_ears_max_angle": "125",
     "brim_object_gap": "0.1",
     "brim_type": "auto_brim",
-    "brim_width": "5",
+    "brim_width": "3",
     "compatible_printers": [
         "SPARKX i7 0.8 nozzle"
     ],
@@ -130,7 +130,8 @@
     "overhang_reverse_internal_only": "0",
     "overhang_reverse_threshold": "50%",
     "overhang_speed_classic": "0",
-    "precise_outer_wall": "1",
+    "overhang_totally_speed": "20",
+    "precise_outer_wall": "0",
     "prime_tower_brim_width": "3",
     "prime_tower_enhance_type": "chamfer",
     "prime_tower_width": "40",

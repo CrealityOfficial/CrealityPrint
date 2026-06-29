@@ -9,6 +9,9 @@ add_library(clipper STATIC
     clipper_z.hpp
 )
 
+# clipper.hpp now uses tbb::scalable_allocator, so the TBB headers must be visible.
+target_link_libraries(clipper PUBLIC tbb_libs)
+
 if(SLIC3R_PROFILE)
     target_link_libraries(clipper Shiny)
 endif()

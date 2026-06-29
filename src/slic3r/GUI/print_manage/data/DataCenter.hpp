@@ -12,10 +12,12 @@ public:
     void update_data(const nlohmann::json&datas);
     bool is_current_device_changed();
     const nlohmann::json GetData();
+    const nlohmann::json& get_data();
     
     nlohmann::json find_printer_by_mac(const std::string& device_mac);
     nlohmann::json get_current_device();
     const DM::Device& get_current_device_data();
+    bool set_current_device(const std::string& device_mac, const nlohmann::json& fallback_device = nlohmann::json());
     DM::Device get_printer_data(std::string address);
     bool DeviceHasBoxColor(std::string address);
 

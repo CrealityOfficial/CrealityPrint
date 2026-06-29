@@ -48,6 +48,30 @@ SupportGeneratorLayersPtr generate_raft_base(
 
 void tree_supports_generate_paths(ExtrusionEntitiesPtr &dst, const Polygons &polygons, const Flow &flow, const SupportParameters &support_params);
 
+struct ContourSupportLayerInput {
+    Polylines printed_paths;
+    Polylines paths_to_support;
+    Polylines layer_contours;
+    Polylines input_paths;
+    Polylines supported_anchor_paths;
+    Polygons  legal_region;
+    const ExPolygons* model_region {nullptr};
+    coordf_t  print_z {0.};
+    coord_t   line_width {0};
+    bool      valid {false};
+};
+
+struct ContourSupportPlan {
+    std::vector<Polylines> patch_paths_by_layer;
+    std::vector<Polylines> paths_to_support_by_layer;
+};
+
+ContourSupportPlan plan_contour_support_paths(std::vector<ContourSupportLayerInput> layers,
+                                               size_t n_raft_layers,
+                                               double max_bridge_length,
+                                               bool include_layer_contours_as_demand,
+                                               bool write_debug = false);
+
 void fill_expolygons_with_sheath_generate_paths(
     ExtrusionEntitiesPtr &dst, const Polygons &polygons, Fill *filler, float density, ExtrusionRole role, const Flow &flow, const SupportParameters& support_params, bool with_sheath, bool no_sort);
 
@@ -149,9 +173,9 @@ int idx_lower_or_equal(const std::vector<T*> &vec, int idx, FN_LOWER_EQUAL fn_lo
     return idx_lower_or_equal(vec.begin(), vec.end(), idx, fn_lower_equal);
 }
 
-[[nodiscard]] Polygons safe_union(const Polygons first, const Polygons second = {});
+[[nodiscard]] Polygons safe_union(const Polygons& first, const Polygons& second = {});
 
-[[nodiscard]] ExPolygons safe_union(const ExPolygons first, const ExPolygons second = {});
+[[nodiscard]] ExPolygons safe_union(const ExPolygons& first, const ExPolygons& second = {});
 
 [[nodiscard]] Polygons safe_offset_inc(const Polygons& me,
                                        coord_t         distance,

@@ -1,7 +1,8 @@
-#include <cstddef>
+﻿#include <cstddef>
 #include <algorithm>
 #include <numeric>
 #include <vector>
+#include <initializer_list>
 #include <string>
 #include <regex>
 #include <future>
@@ -78,9 +79,61 @@ const float I3_WIPE_TOWER_DEFAULT_Y_POS = 250.; // Max y
 std::array<unsigned char, 4>  PlateTextureForeground = {0x0, 0xae, 0x42, 0xff};
 
 namespace Slic3r {
+namespace GUI { void NotifyAIChatSceneChanged(); }
 namespace GUI {
 
 class Bed3D;
+
+static const ConfigOption* find_config_option(std::initializer_list<const ConfigBase*> configs, const char* key)
+{
+    for (auto it = configs.end(); it != configs.begin();) {
+        --it;
+        if (*it == nullptr)
+            continue;
+        if (const ConfigOption* opt = (*it)->option(key))
+            return opt;
+    }
+    return nullptr;
+}
+
+static int config_int(std::initializer_list<const ConfigBase*> configs, const char* key, int default_value = 0)
+{
+    if (const ConfigOption* opt = find_config_option(configs, key))
+        return opt->getInt();
+    return default_value;
+}
+
+static double config_float(std::initializer_list<const ConfigBase*> configs, const char* key, double default_value = 0.0)
+{
+    if (const ConfigOption* opt = find_config_option(configs, key))
+        return opt->getFloat();
+    return default_value;
+}
+
+static bool is_explicit_role_filament(int extruder)
+{
+    return extruder > 1;
+}
+
+static void append_role_extruders(std::vector<int>& extruders, std::initializer_list<const ConfigBase*> configs)
+{
+    const bool has_brim = config_int(configs, "brim_type", int(btNoBrim)) != int(btNoBrim);
+    if (config_int(configs, "wall_loops") > 0 || has_brim) {
+        const int extruder = config_int(configs, "wall_filament");
+        if (is_explicit_role_filament(extruder))
+            extruders.push_back(extruder);
+    }
+    if (config_float(configs, "sparse_infill_density") > 0.0) {
+        const int extruder = config_int(configs, "sparse_infill_filament");
+        if (is_explicit_role_filament(extruder))
+            extruders.push_back(extruder);
+    }
+    if (config_int(configs, "top_shell_layers") > 0 || config_int(configs, "bottom_shell_layers") > 0) {
+        const int extruder = config_int(configs, "solid_infill_filament");
+        if (is_explicit_role_filament(extruder))
+            extruders.push_back(extruder);
+    }
+}
 
 ColorRGBA PartPlate::SELECT_COLOR        = {0.2666f, 0.2784f, 0.2784f, 1.0f}; //{ 0.4196f, 0.4235f, 0.4235f, 1.0f };
 ColorRGBA PartPlate::UNSELECT_COLOR      = {0.82f, 0.82f, 0.82f, 1.0f};
@@ -1470,6 +1523,36 @@ void PartPlate::check_gcode_path_contain_in_bed()
 	BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(":Code execution time:  %1%  micro seconds.") % duration.count();
 }
 
+std::vector<int> PartPlate::get_model_volume_extruders() const
+{
+	std::vector<int> plate_extruders;
+	// if gcode.3mf file
+	if (m_model->objects.empty()) {
+		for (int i = 0; i < slice_filaments_info.size(); i++) {
+			plate_extruders.push_back(slice_filaments_info[i].id + 1);
+		}
+		return plate_extruders;
+	}
+
+	for (int obj_idx = 0; obj_idx < m_model->objects.size(); obj_idx++) {
+		if (!contain_instance_totally(obj_idx, 0))
+			continue;
+
+		ModelObject* mo = m_model->objects[obj_idx];
+		for (ModelVolume* mv : mo->volumes) {
+			if (!mv->is_model_part())
+				continue;
+			std::vector<int> volume_extruders = mv->get_extruders();
+			plate_extruders.insert(plate_extruders.end(), volume_extruders.begin(), volume_extruders.end());
+		}
+	}
+
+	std::sort(plate_extruders.begin(), plate_extruders.end());
+	auto it_end = std::unique(plate_extruders.begin(), plate_extruders.end());
+	plate_extruders.resize(std::distance(plate_extruders.begin(), it_end));
+	return plate_extruders;
+}
+
 std::vector<int> PartPlate::get_extruders(bool conside_custom_gcode) const
 {
 	std::vector<int> plate_extruders;
@@ -1496,9 +1579,12 @@ std::vector<int> PartPlate::get_extruders(bool conside_custom_gcode) const
 		ModelObject* mo = m_model->objects[obj_idx];
         BoundingBoxf3 bbox = mo->bounding_box_exact();
         max_model_height = std::max(max_model_height, bbox.size().z());
+        append_role_extruders(plate_extruders, {&glb_config, &mo->config.get()});
 		for (ModelVolume* mv : mo->volumes) {
 			std::vector<int> volume_extruders = mv->get_extruders();
 			plate_extruders.insert(plate_extruders.end(), volume_extruders.begin(), volume_extruders.end());
+            if (mv->is_model_part() || mv->is_modifier())
+                append_role_extruders(plate_extruders, {&glb_config, &mo->config.get(), &mv->config.get()});
 		}
 
 		// layer range
@@ -1507,6 +1593,7 @@ std::vector<int> PartPlate::get_extruders(bool conside_custom_gcode) const
                 if (auto id = layer_range.second.option("extruder")->getInt(); id > 0)
 					plate_extruders.push_back(id);
 			}
+		    append_role_extruders(plate_extruders, {&glb_config, &mo->config.get(), &layer_range.second.get()});
 		}
 
 		bool obj_support = false;
@@ -1547,7 +1634,7 @@ std::vector<int> PartPlate::get_extruders(bool conside_custom_gcode) const
 		//BBS
         int nums_extruders = 0;
         if (const ConfigOptionStrings *color_option = dynamic_cast<const ConfigOptionStrings *>(wxGetApp().preset_bundle->project_config.option("filament_colour"))) {
-            nums_extruders = color_option->values.size();
+            nums_extruders = wxGetApp().preset_bundle->mixed_filaments.total_filaments(color_option->values.size());
 			if (m_model->plates_custom_gcodes.find(m_plate_index) != m_model->plates_custom_gcodes.end()) {
 				for (auto item : m_model->plates_custom_gcodes.at(m_plate_index).gcodes) {
 					if (item.type == CustomGCode::Type::ToolChange && item.extruder <= nums_extruders && item.print_z <= max_model_height + 1e-6)
@@ -1586,9 +1673,12 @@ std::vector<int> PartPlate::get_extruders_under_cli(bool conside_custom_gcode, D
             if (!instance->printable)
                 continue;
 
+            append_role_extruders(plate_extruders, {&full_config, &object->config.get()});
             for (ModelVolume* mv : object->volumes) {
                 std::vector<int> volume_extruders = mv->get_extruders();
                 plate_extruders.insert(plate_extruders.end(), volume_extruders.begin(), volume_extruders.end());
+                if (mv->is_model_part() || mv->is_modifier())
+                    append_role_extruders(plate_extruders, {&full_config, &object->config.get(), &mv->config.get()});
             }
 
             // layer range
@@ -1597,6 +1687,7 @@ std::vector<int> PartPlate::get_extruders_under_cli(bool conside_custom_gcode, D
                     if (auto id = layer_range.second.option("extruder")->getInt(); id > 0)
                         plate_extruders.push_back(id);
                 }
+                append_role_extruders(plate_extruders, {&full_config, &object->config.get(), &layer_range.second.get()});
             }
 
             bool obj_support = false;
@@ -1638,7 +1729,7 @@ std::vector<int> PartPlate::get_extruders_under_cli(bool conside_custom_gcode, D
         //BBS
         int nums_extruders = 0;
         if (const ConfigOptionStrings *color_option = dynamic_cast<const ConfigOptionStrings *>(full_config.option("filament_colour"))) {
-            nums_extruders = color_option->values.size();
+            nums_extruders = wxGetApp().preset_bundle->mixed_filaments.total_filaments(color_option->values.size());
             if (m_model->plates_custom_gcodes.find(m_plate_index) != m_model->plates_custom_gcodes.end()) {
                 for (auto item : m_model->plates_custom_gcodes.at(m_plate_index).gcodes) {
                     if (item.type == CustomGCode::Type::ToolChange && item.extruder <= nums_extruders)
@@ -1673,9 +1764,12 @@ std::vector<int> PartPlate::get_extruders_without_support(bool conside_custom_gc
 			continue;
 
 		ModelObject* mo = m_model->objects[obj_idx];
+        append_role_extruders(plate_extruders, {&glb_config, &mo->config.get()});
 		for (ModelVolume* mv : mo->volumes) {
 			std::vector<int> volume_extruders = mv->get_extruders();
 			plate_extruders.insert(plate_extruders.end(), volume_extruders.begin(), volume_extruders.end());
+            if (mv->is_model_part() || mv->is_modifier())
+                append_role_extruders(plate_extruders, {&glb_config, &mo->config.get(), &mv->config.get()});
 		}
 
 		// layer range
@@ -1688,6 +1782,7 @@ std::vector<int> PartPlate::get_extruders_without_support(bool conside_custom_gc
                 if (value > 0)
                     plate_extruders.push_back(value);
             }
+            append_role_extruders(plate_extruders, {&glb_config, &mo->config.get(), &layer_range.second.get()});
         }
 	}
 
@@ -1695,7 +1790,7 @@ std::vector<int> PartPlate::get_extruders_without_support(bool conside_custom_gc
 		//BBS
 		int nums_extruders = 0;
 		if (const ConfigOptionStrings* color_option = dynamic_cast<const ConfigOptionStrings*>(wxGetApp().preset_bundle->project_config.option("filament_colour"))) {
-			nums_extruders = color_option->values.size();
+			nums_extruders = wxGetApp().preset_bundle->mixed_filaments.total_filaments(color_option->values.size());
 			if (m_model->plates_custom_gcodes.find(m_plate_index) != m_model->plates_custom_gcodes.end()) {
 				for (auto item : m_model->plates_custom_gcodes.at(m_plate_index).gcodes) {
 					if (item.type == CustomGCode::Type::ToolChange && item.extruder <= nums_extruders)
@@ -2026,13 +2121,21 @@ void PartPlate::generate_plate_name_texture()
 
 void PartPlate::set_plate_name(const std::string& name) 
 { 
+	// fix:[16411] Limit plate name to 20 characters
+	std::string truncated_name = name;
+	wxString wx_name = from_u8(name);
+	if (wx_name.Length() > 20) {
+		wx_name = wx_name.Left(20);
+		truncated_name = wx_name.ToUTF8().data();
+	}
+
 	// compare if name equal to m_name, case sensitive
-    if (boost::equals(m_name, name))
+    if (boost::equals(m_name, truncated_name))
         return;
 
-	m_name = name;
+	m_name = truncated_name;
     if (m_print != nullptr)
-        m_print->set_plate_name(name);
+        m_print->set_plate_name(truncated_name);
 
 	generate_plate_name_texture();
 }
@@ -4047,6 +4150,7 @@ int PartPlateList::select_plate(int index)
 		//wxQueueEvent(m_plater, new SimpleEvent(EVT_GLCANVAS_PLATE_SELECT));
 	}
 
+    Slic3r::GUI::NotifyAIChatSceneChanged();
 	return 0;
 }
 

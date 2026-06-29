@@ -78,6 +78,7 @@ public:
         { return m_extruder == nullptr || m_extruder->id() != extruder_id; }
     std::string set_extruder(unsigned int extruder_id)
         { return this->need_toolchange(extruder_id) ? this->toolchange(extruder_id) : ""; }
+    void        init_extruder(unsigned int extruder_id);
     // Prefix of the toolchange G-code line, to be used by the CoolingBuffer to separate sections of the G-code
     // printed with the same extruder.
     std::string toolchange_prefix() const;
@@ -100,6 +101,7 @@ public:
     std::string unlift(const double limitSpeed = 0.0f);
     Vec3d       get_position() const { return m_pos; }
     void       set_position(const Vec3d& in) { m_pos = in; }
+    void       sync_lifted_to_nominal_z(double nominal_z) { m_to_lift = 0.; m_lifted = std::max(0., m_pos(2) - nominal_z); }
     double      get_zhop() const { return m_lifted; }
 
     //BBS: set offset for gcode writer

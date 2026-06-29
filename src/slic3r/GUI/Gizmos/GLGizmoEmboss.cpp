@@ -862,7 +862,7 @@ static void draw_mouse_offset(const std::optional<Vec2d> &offset)
 }
 #endif // SHOW_OFFSET_DURING_DRAGGING
 
-void GLGizmoEmboss::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoEmboss::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
     assert(m_volume != nullptr);
     // Do not render window for not selected text volume
@@ -936,7 +936,7 @@ void GLGizmoEmboss::on_render_input_window(float x, float y, float bottom_limit)
     // adjust window position to avoid overlap the view toolbar
     const float win_h = ImGui::GetWindowHeight();
     y = std::min(y, bottom_limit - win_h);
-    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f);
+    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f, force_update_pos);
     if (last_h != win_h || last_y != y) {
         // ask canvas for another frame to render the window in the correct position
         m_imgui->set_requires_extra_frame();
@@ -1543,11 +1543,13 @@ void GLGizmoEmboss::draw_text_input()
         if (prop.boldness.has_value()) append_warning(_u8L("Text input doesn't show font boldness."));
         if (prop.line_gap.has_value()) append_warning(_u8L("Text input doesn't show gap between lines."));
         auto &ff         = m_style_manager.get_font_file_with_cache();
-        float imgui_size = StyleManager::get_imgui_font_size(prop, *ff.font_file, scale);
-        if (imgui_size > StyleManager::max_imgui_font_size)
-            append_warning(_u8L("Too tall, diminished font height inside text input."));
-        if (imgui_size < StyleManager::min_imgui_font_size)
-            append_warning(_u8L("Too small, enlarged font height inside text input."));
+        if (ff.has_value()) {
+            float imgui_size = StyleManager::get_imgui_font_size(prop, *ff.font_file, scale);
+            if (imgui_size > StyleManager::max_imgui_font_size)
+                append_warning(_u8L("Too tall, diminished font height inside text input."));
+            if (imgui_size < StyleManager::min_imgui_font_size)
+                append_warning(_u8L("Too small, enlarged font height inside text input."));
+        }
         bool is_multiline = m_text_lines.get_lines().size() > 1;
         if (is_multiline && (prop.align.first == FontProp::HorizontalAlign::center || prop.align.first == FontProp::HorizontalAlign::right))
             append_warning(_u8L("Text doesn't show current horizontal alignment."));
@@ -1575,10 +1577,14 @@ void GLGizmoEmboss::draw_text_input()
     // warning tooltip has to be with default font
     if (!warning_tool_tip.empty()) {
         // Multiline input has hidden window for scrolling
-        const ImGuiWindow *input = ImGui::GetCurrentWindow()->DC.ChildWindows.front();
+        // Guard against empty ChildWindows: InputTextMultiline may not create
+        // its internal scroll child in certain edge cases (e.g. font not loaded),
+        // which would cause a crash on .front().
+        const auto &child_windows = ImGui::GetCurrentWindow()->DC.ChildWindows;
+        const ImGuiWindow *input = child_windows.empty() ? nullptr : child_windows.front();
         const ImGuiStyle &style = ImGui::GetStyle();
-        float scrollbar_width = (input->ScrollbarY) ? style.ScrollbarSize : 0.f;
-        float scrollbar_height = (input->ScrollbarX) ? style.ScrollbarSize : 0.f;
+        float scrollbar_width  = (input != nullptr && input->ScrollbarY) ? style.ScrollbarSize : 0.f;
+        float scrollbar_height = (input != nullptr && input->ScrollbarX) ? style.ScrollbarSize : 0.f;
 
         if (ImGui::IsItemHovered())
             m_imgui->tooltip(warning_tool_tip, m_gui_cfg->max_tooltip_width);

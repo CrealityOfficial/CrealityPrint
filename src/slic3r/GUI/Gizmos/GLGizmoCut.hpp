@@ -244,6 +244,7 @@ public:
     GLGizmoCut3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id);
 
     std::string get_tooltip() const override;
+    float get_last_input_window_height() const { return m_last_input_window_height; }
     bool unproject_on_cut_plane(const Vec2d& mouse_pos, Vec3d& pos, Vec3d& pos_world, bool respect_contours = true);
     bool gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_position, bool shift_down, bool alt_down, bool control_down);
 
@@ -323,7 +324,7 @@ protected:
 
     void update_plane_model();
 
-    void on_render_input_window(float x, float y, float bottom_limit) override;
+    void on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false) override;
     void show_tooltip_information(float x, float y);
 
     bool wants_enter_leave_snapshots() const override       { return true; }
@@ -360,6 +361,8 @@ private:
     void render_cut_plane();
     static void render_model(GLModel& model, const ColorRGBA& color, Transform3d view_model_matrix);
     void render_line(GLModel& line_model, const ColorRGBA& color, Transform3d view_model_matrix, float width);
+
+    float m_last_input_window_height { 0.0f };
     void render_rotation_snapping(GrabberID axis, const ColorRGBA& color);
     void render_grabber_connection(const ColorRGBA& color, Transform3d view_matrix, double line_len_koef = 1.0);
     void render_cut_plane_grabbers();

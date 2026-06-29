@@ -110,6 +110,56 @@ void fuzzy_polyline(Points& poly, bool closed, coordf_t slice_z, const FuzzySkin
         poly = std::move(out);
 }
 
+// Wall-hugging variant for skin-band fuzzy rings.
+// Centre-line sits at offset(-flow_width/2), placed at the inner edge of the outer wall.
+// Noise is remapped from [-1,1] to [0,1] so every jitter point is displaced
+// strictly inward (+perp for CCW outer ring, +perp for CW hole ring).
+// This guarantees zero outward penetration while keeping the ring glued to the wall.
+void fuzzy_polyline_wall_hug(Points& poly, bool closed, coordf_t slice_z, const FuzzySkinConfig& cfg)
+{
+    std::unique_ptr<noise::module::Module> noise = get_noise_module(cfg);
+
+    const double min_dist_between_points = cfg.point_distance * 3. / 4.;
+    const double range_random_point_dist = cfg.point_distance / 2.;
+    double dist_left_over = random_value() * (min_dist_between_points / 2.);
+    Point* p0 = &poly.back();
+    Points out;
+    out.reserve(poly.size());
+    for (Point& p1 : poly)
+    {
+        if (!closed) {
+            closed = true;
+            p0 = &p1;
+            continue;
+        }
+        Vec2d  p0p1      = (p1 - *p0).cast<double>();
+        double p0p1_size = p0p1.norm();
+        double p0pa_dist = dist_left_over;
+        for (; p0pa_dist < p0p1_size;
+            p0pa_dist += min_dist_between_points + random_value() * range_random_point_dist)
+        {
+            Point  pa  = *p0 + (p0p1 * (p0pa_dist / p0p1_size)).cast<coord_t>();
+            // Remap noise [-1,1] -> [0,1] then scale by thickness.
+            // Result is always >= 0, so displacement is always along +perp direction
+            // (inward for CCW outer contour, inward for CW hole contour).
+            double raw = noise->GetValue(unscale_(pa.x()), unscale_(pa.y()), slice_z);
+            double r   = (raw + 1.0) * 0.5 * cfg.thickness;
+            out.emplace_back(pa + (perp(p0p1).cast<double>().normalized() * r).cast<coord_t>());
+        }
+        dist_left_over = p0pa_dist - p0p1_size;
+        p0 = &p1;
+    }
+    while (out.size() < 3) {
+        size_t point_idx = poly.size() - 2;
+        out.emplace_back(poly[point_idx]);
+        if (point_idx == 0)
+            break;
+        -- point_idx;
+    }
+    if (out.size() >= 3)
+        poly = std::move(out);
+}
+
 // Thanks Cura developers for this function.
 void fuzzy_extrusion_line(Arachne::ExtrusionJunctions& ext_lines, coordf_t slice_z, const FuzzySkinConfig& cfg)
 {

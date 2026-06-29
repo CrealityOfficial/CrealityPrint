@@ -6,6 +6,16 @@
 
 namespace creality
 {
+    static std::string normalized_printer_model(std::string printer_model)
+    {
+        std::transform(printer_model.begin(), printer_model.end(), printer_model.begin(),
+                    [](unsigned char c) {return std::tolower(c);}
+                    );
+        boost::replace_all(printer_model, "_", " ");
+        boost::replace_all(printer_model, "-", " ");
+        boost::trim(printer_model);
+        return printer_model;
+    }
     MachineVender::MachineVender()
         : m_isBBLPrinter(false)
         , m_is_firmwaresoft_mm_printer(false)
@@ -43,10 +53,7 @@ namespace creality
 
     bool is_firmwaresoft_mm_printer_from_string(const std::string& printer_model)
     {
-        std::string str = printer_model;
-        std::transform(str.begin(), str.end(), str.begin(),
-                    [](unsigned char c) {return std::tolower(c);}
-                    );
+        std::string str = normalized_printer_model(printer_model);
 
         if(boost::contains(str, "f008") ||
             boost::contains(str, "k2 plus") ||
@@ -57,5 +64,11 @@ namespace creality
             return true;
 
         return false;
+    }
+
+    bool is_k2_series_printer_from_string(const std::string& printer_model)
+    {
+        const std::string str = normalized_printer_model(printer_model);
+        return boost::starts_with(str, "creality k2");
     }
 }

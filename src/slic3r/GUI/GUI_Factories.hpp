@@ -105,6 +105,7 @@ private:
 
     int  m_add_volume_insert_pos = -1;
     bool m_support_enforcer_menu_state = true;
+    bool m_add_volume_easy_mode_state = false;
    
     wxMenu m_filament_action_menu;
 

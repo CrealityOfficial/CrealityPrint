@@ -488,6 +488,196 @@ wxGLCanvas* OpenGLManager::create_wxglcanvas(wxWindow& parent)
     return new wxGLCanvas(&parent, wxID_ANY, attribList, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS);
 }
 
+
+
+uint32_t OpenGLManager::get_pixel_format(EPixelFormat format)
+{
+    switch (format)
+    {
+    case EPixelFormat::R:
+        return GL_RED;
+    case EPixelFormat::RG:
+        return GL_RG;
+    case EPixelFormat::RGB:
+        return GL_RGB;
+    case EPixelFormat::RGBA:
+        return GL_RGBA;
+    case EPixelFormat::DepthComponent:
+        return GL_DEPTH_COMPONENT;
+    case EPixelFormat::StencilIndex:
+        return GL_STENCIL_INDEX;
+    case EPixelFormat::DepthAndStencil:
+        return GL_DEPTH_STENCIL;
+    }
+
+    return GL_INVALID_ENUM;
+}
+
+uint32_t OpenGLManager::get_pixel_data_type(EPixelDataType type)
+{
+    switch (type)
+    {
+    case EPixelDataType::UByte:
+        return GL_UNSIGNED_BYTE;
+    case EPixelDataType::Byte:
+        return GL_BYTE;
+    case EPixelDataType::UShort:
+        return GL_UNSIGNED_SHORT;
+    case EPixelDataType::Short:
+        return GL_SHORT;
+    case EPixelDataType::UInt:
+        return GL_UNSIGNED_INT;
+    case EPixelDataType::Int:
+        return GL_INT;
+    case EPixelDataType::Float:
+        return GL_FLOAT;
+    }
+
+    return GL_INVALID_ENUM;
+}
+
+uint32_t OpenGLManager::get_pixel_data_size(EPixelDataType type)
+{
+    switch (type)
+    {
+    case EPixelDataType::UByte:
+        return 1;
+    case EPixelDataType::Byte:
+        return 1;
+    case EPixelDataType::UShort:
+        return 2;
+    case EPixelDataType::Short:
+        return 2;
+    case EPixelDataType::UInt:
+        return 4;
+    case EPixelDataType::Int:
+        return 4;
+    case EPixelDataType::Float:
+        return 4;
+    default:
+        return 0;
+    }
+}
+
+uint32_t OpenGLManager::get_texture_format(ETextureFormat format)
+{
+    switch (format)
+    {
+    case ETextureFormat::R8:
+        return GL_R8;
+    case ETextureFormat::R32F:
+        return GL_R32F;
+    case ETextureFormat::RG32F:
+        return GL_RG32F;
+    case ETextureFormat::RGBA8:
+        return GL_RGBA8;
+    case ETextureFormat::RGBA32F:
+        return GL_RGBA32F;
+    }
+    return GL_INVALID_ENUM;
+}
+
+uint32_t OpenGLManager::get_sampler_filter_mode(ESamplerFilterMode filter)
+{
+    switch (filter)
+    {
+    case ESamplerFilterMode::Nearset:
+        return GL_NEAREST;
+    case ESamplerFilterMode::Linear:
+        return GL_LINEAR;
+    }
+    return GL_INVALID_ENUM;
+}
+
+uint32_t OpenGLManager::get_format_size(ETextureFormat format)
+{
+    switch (format) {
+    case ETextureFormat::R8:
+        return 1;
+    case ETextureFormat::R32F:
+    case ETextureFormat::RGBA8:
+        return 4;
+    case ETextureFormat::RG32F:
+        return 8;
+    case ETextureFormat::RGBA32F:
+        return 16;
+    default:
+        return 0;
+    }
+}
+
+uint32_t OpenGLManager::get_target(ESamplerType t_sampler_type)
+{
+    GLenum target = GLU_INVALID_ENUM;
+    switch (t_sampler_type)
+    {
+    case ESamplerType::Sampler2D:
+        target = GL_TEXTURE_2D;
+        break;
+    case ESamplerType::Sampler2DArray:
+        target = GL_TEXTURE_2D_ARRAY;
+        break;
+    case ESamplerType::SamplerBuffer:
+        target = GL_TEXTURE_BUFFER;
+        break;
+    }
+    return target;
+}
+
+
+
+bool OpenGLManager::is_advanced_gcode_viewer_enabled()
+{
+    if (m_advanced_gcode_viewer_enabled == -1) {
+        std::string enable_value = wxGetApp().app_config->get("enable_advanced_gcode_viewer");
+        if (enable_value.empty()) {
+            if (m_gl_initialized) {
+
+                const auto& gl_info    = get_gl_info();
+				const auto& gl_version = gl_info.get_formated_gl_version();
+                const auto& vendor = gl_info.get_vendor();
+                const auto& renderer = gl_info.get_renderer();
+				bool high_performence = false;
+                std::vector<std::string> high_performence_list = {"RTX 3050", "RTX 3060", "RTX 3070", "RTX 3080", "RTX 3090",
+                                                                  "RTX 4050", "RTX 4060", "RTX 4070", "RTX 4080", "RTX 4090",
+                                                                  "RTX 5050", "RTX 5060", "RTX 5070", "RTX 5080", "RTX 5090",  
+																  "Titan Xp", "Titan X", "Titan V", "Titan RTX",
+                                                                  "GTX 1080", "GTX 980Ti", "GTX Titan Z"};
+                if (vendor.find("NVIDIA") != std::string::npos) {
+					for (size_t i = 0; i < high_performence_list.size(); i++) {
+                        if (renderer.find(high_performence_list.at(i)) != std::string::npos) {
+                            high_performence = true;
+							break;
+						}
+					}
+				}
+
+                if (high_performence && gl_version >= 31) {
+                    m_advanced_gcode_viewer_enabled = 1;
+                    wxGetApp().app_config->set("enable_advanced_gcode_viewer", "1");
+				} else {
+                    m_advanced_gcode_viewer_enabled = 0;
+                    wxGetApp().app_config->set("enable_advanced_gcode_viewer", "0");
+				}
+            }
+		} else {
+            if (enable_value == "1" || enable_value == "true") {
+                m_advanced_gcode_viewer_enabled = 1;
+            } else {
+				//disable
+                m_advanced_gcode_viewer_enabled = 0;
+			}
+		}
+    }
+
+    return m_advanced_gcode_viewer_enabled == 1;
+}
+
+void OpenGLManager::set_advanced_gcode_viewer_enabled(bool is_enabled)
+{
+    m_advanced_gcode_viewer_enabled = is_enabled ? 1 : 0;
+}
+
 void OpenGLManager::detect_multisample(int* attribList)
 {
     int wxVersion = wxMAJOR_VERSION * 10000 + wxMINOR_VERSION * 100 + wxRELEASE_NUMBER;
@@ -503,15 +693,15 @@ void OpenGLManager::detect_multisample(int* attribList)
     // s_multisample = enable_multisample && wxGLCanvas::IsExtensionSupported("WGL_ARB_multisample");
 }
 
-//void OpenGLManager::bind_shader(const std::shared_ptr<GLShaderProgram>& p_shader)
-//{
-//    m_shaders_manager.bind_shader(p_shader);
-//}
-//
-//void OpenGLManager::unbind_shader()
-//{
-//    m_shaders_manager.unbind_shader();
-//}
+void OpenGLManager::bind_shader(const GLShaderProgram* p_shader)
+{
+    m_shaders_manager.bind_shader(p_shader);
+}
+
+void OpenGLManager::unbind_shader()
+{
+    m_shaders_manager.unbind_shader();
+}
 
 void OpenGLManager::clear_dirty()
 {
@@ -1068,6 +1258,36 @@ OpenGLManager::FrameBufferModifier& OpenGLManager::FrameBufferModifier::set_heig
 {
     m_height = t_height;
     return *this;
+}
+
+PixelBufferDescriptor::PixelBufferDescriptor()
+{
+}
+
+PixelBufferDescriptor::PixelBufferDescriptor(std::vector<uint8_t>&& tBuffer, EPixelFormat tDataFormat, EPixelDataType tDataType, uint8_t tAlignment, uint32_t tLeft, uint32_t tTop, uint32_t tStride)
+{
+    mBuffer = std::move(tBuffer);
+    mFormat = tDataFormat;
+    mType = tDataType;
+    mAlignment = tAlignment;
+    mLeft = tLeft;
+    mTop = tTop;
+    mStride = tStride;
+}
+
+EPixelFormat PixelBufferDescriptor::get_format() const noexcept
+{
+    return mFormat;
+}
+
+EPixelDataType PixelBufferDescriptor::get_type() const noexcept
+{
+    return mType;
+}
+
+const std::vector<uint8_t>& PixelBufferDescriptor::get_buffer() const noexcept
+{
+    return mBuffer;
 }
 
 } // namespace GUI

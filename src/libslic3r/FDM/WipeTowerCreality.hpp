@@ -19,9 +19,9 @@ public:
     friend WipeTowerWriterCreality;
     // Construct ToolChangeResult from current state of WipeTowerCreality and WipeTowerWriterCreality.
     // WipeTowerWriterCreality is moved from !
-    WipeTower::ToolChangeResult construct_tcr(WipeTowerWriterCreality& writer, 
+    WipeTower::ToolChangeResult construct_tcr(WipeTowerWriterCreality& writer,
 								   bool priming,
-                                   size_t old_tool, 
+                                   size_t old_tool,
 								   bool is_finish,
                                    float purge_volume,
 								   bool is_tool_change = false) const;
@@ -47,8 +47,10 @@ public:
                          float        layer_height_par,
                          unsigned int old_tool,
                          unsigned int new_tool,
-                         float        wipe_volume  = 0.f,
-                         float        purge_volume = 0.f);
+                         float        wipe_volume       = 0.f,
+                         float        purge_volume      = 0.f,
+                         bool         flush_into_skeleton = false,
+                         bool         round_wipe_wall     = false);
 
 	// Iterates through prepared m_plan, generates ToolChangeResults and appends them to "result"
 	void generate(std::vector<std::vector<WipeTower::ToolChangeResult>> &result);
@@ -61,7 +63,7 @@ public:
 	float get_wipe_tower_height() const { return m_wipe_tower_height; }
     BoundingBoxf                         get_bbx() const
     {
-    
+
         if (m_outer_wall.empty())
             return BoundingBoxf({Vec2d(0, 0)});
         BoundingBox  box = get_extents(m_outer_wall.begin()->second);
@@ -95,7 +97,7 @@ public:
 		m_depth_traversed  = 0.f;
         m_current_layer_finished = false;
 
-		
+
         // Advance m_layer_info iterator, making sure we got it right
 		while (!m_plan.empty() && m_layer_info->z < print_z - WT_EPSILON && m_layer_info+1 != m_plan.end())
 			++m_layer_info;
@@ -107,7 +109,7 @@ public:
             m_num_tool_changes 	= 0;
         } else
             ++ m_num_layer_changes;
-		
+
 		// Calculate extrusion flow from desired line width, nozzle diameter, filament diameter and layer_height:
 		m_extrusion_flow = extrusion_flow(layer_height);
 	}
@@ -304,8 +306,12 @@ private:
             float wipe_length;
             float nozzle_change_depth{0};
             float purge_volume;
+            bool  round_wipe_wall{false};
+            bool  flush_into_skeleton{false};
+            float round_wipe_wall_bottom_depth{0.f};
+            float round_wipe_wall_top_depth{0.f};
             ToolChange(
-                size_t old, size_t newtool, float depth = 0.f, float ramming_depth = 0.f, float fwl = 0.f, float wv = 0.f, float w1 = 0,float pv = 0.f)
+                size_t old, size_t newtool, float depth = 0.f, float ramming_depth = 0.f, float fwl = 0.f, float wv = 0.f, float w1 = 0, float pv = 0.f, bool flush_skeleton = false, bool round_wall = false)
                 : old_tool{old}
                 , new_tool{newtool}
                 , required_depth{depth}
@@ -314,6 +320,8 @@ private:
                 , wipe_volume{wv}
                 , wipe_length{w1}
                 , purge_volume{ pv }
+                , round_wipe_wall{round_wall}
+                , flush_into_skeleton{flush_skeleton}
             {}
 		};
 		float z;		// z position of the layer
@@ -321,6 +329,7 @@ private:
 		float depth;	// depth of the layer based on all layers above
 		float extra_spacing;
         bool  extruder_fill{true};
+        bool  round_wipe_wall{false};
 		float toolchanges_depth() const { float sum = 0.f; for (const auto &a : tool_changes) sum += a.required_depth; return sum; }
 
 		std::vector<ToolChange> tool_changes;
@@ -346,7 +355,7 @@ private:
 
 	void toolchange_Unload(
 		WipeTowerWriterCreality &writer,
-		const WipeTower::box_coordinates  &cleaning_box, 
+		const WipeTower::box_coordinates  &cleaning_box,
 		const std::string&	 	current_material,
 		const int 				new_temperature);
 
@@ -354,15 +363,16 @@ private:
 		WipeTowerWriterCreality &writer,
         const size_t		new_tool,
 		const std::string& 		new_material);
-	
+
 	void toolchange_Wipe(
 		WipeTowerWriterCreality &writer,
 		const WipeTower::box_coordinates  &cleaning_box,
-		float wipe_volume);
+		float wipe_volume,
+        bool round_wipe_wall);
 
 	void get_wall_skip_points(const WipeTowerInfo& layer);
 };
 
 } // namespace Slic3r
 
-#endif // WipeTowerCreality_ 
+#endif // WipeTowerCreality_

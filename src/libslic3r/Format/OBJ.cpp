@@ -76,8 +76,16 @@ bool load_obj(const char *path, TriangleMesh *meshptr, ObjInfo& obj_info, std::s
 
                 mtl_path = temp_mtl_path;
             }
-            auto    _mtl_path = mtl_name_is_path ? mtl_abs_path.string().c_str() : mtl_path.string().c_str();
+            // BUG FIX: The ternary operator with .string().c_str() creates dangling pointers
+            // because the temporary std::string objects are destroyed after the expression
+            std::string mtl_path_str = mtl_name_is_path ? mtl_abs_path.string() : mtl_path.string();
+            const char* _mtl_path = mtl_path_str.c_str();
+            BOOST_LOG_TRIVIAL(debug) << "load_obj: mtl debug - mtl_name_is_path=" << mtl_name_is_path
+                << ", mtl_abs_path=" << mtl_abs_path.string()
+                << ", mtl_path=" << mtl_path.string()
+                << ", _mtl_path=" << _mtl_path;
             if (boost::filesystem::exists(mtl_name_is_path ? mtl_abs_path : mtl_path)) {
+                BOOST_LOG_TRIVIAL(debug) << "load_obj: mtl file exists, attempting to parse: " << _mtl_path;
                 if (!ObjParser::mtlparse(_mtl_path, mtl_data)) {
                     BOOST_LOG_TRIVIAL(error) << "load_obj:load_mtl: failed to parse " << _mtl_path;
                     message = _L("load mtl in obj: failed to parse");
@@ -85,7 +93,7 @@ bool load_obj(const char *path, TriangleMesh *meshptr, ObjInfo& obj_info, std::s
                 }
             }
             else {
-                BOOST_LOG_TRIVIAL(error) << "load_obj: failed to load mtl_path:" << _mtl_path;
+                BOOST_LOG_TRIVIAL(error) << "load_obj: mtl file does not exist: " << _mtl_path;
             }
         }
     }

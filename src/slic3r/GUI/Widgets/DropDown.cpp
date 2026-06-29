@@ -5,6 +5,8 @@
 #include <wx/dcbuffer.h>
 #include <wx/dcgraph.h>
 
+#include <algorithm>
+
 #ifdef __WXGTK__
 #include <gtk/gtk.h>
 #endif
@@ -159,6 +161,19 @@ void DropDown::SetUseContentWidth(bool use, bool limit_max_content_width)
 }
 
 void DropDown::SetAlignIcon(bool align) { align_icon = align; }
+
+void DropDown::SetMaxVisibleItems(size_t max_items)
+{
+    if (m_max_visible_items == max_items)
+        return;
+    m_max_visible_items = max_items;
+    need_sync = true;
+}
+
+void DropDown::SetPopupDirection(PopupDirection direction)
+{
+    m_popup_direction = direction;
+}
 
 void DropDown::Rescale()
 {
@@ -351,7 +366,7 @@ void DropDown::messureSize()
     if (iconSize.x > 0) szContent.x += iconSize.x + (text_off ? 0 : 5);
     if (iconSize.y > szContent.y) szContent.y = iconSize.y;
     szContent.y += 10;
-    if (texts.size() > 15) szContent.x += 6;
+    if (texts.size() > m_max_visible_items) szContent.x += 6;
     if (GetParent()) {
         auto x = GetParent()->GetSize().x;
         if (!use_content_width || x > szContent.x)
@@ -365,8 +380,8 @@ void DropDown::messureSize()
             szContent = rowSize;
         }
     }
-    szContent.y *= std::min((size_t)15, texts.size());
-    szContent.y += texts.size() > 15 ? rowSize.y / 2 : 0;
+    szContent.y *= std::min(m_max_visible_items, texts.size());
+    szContent.y += texts.size() > m_max_visible_items ? rowSize.y / 2 : 0;
     wxWindow::SetSize(szContent);
 #ifdef __WXGTK__
     // Gtk has a wrapper window for popup widget
@@ -379,34 +394,100 @@ void DropDown::autoPosition()
 {
     need_sync = true;
     messureSize();
-    wxPoint pos = GetParent()->ClientToScreen(wxPoint(0, -6));
-    wxPoint old = GetPosition();
-    wxSize size = GetSize();
-    Position(pos, {0, GetParent()->GetSize().y + 12 - 6 + m_drapDownGap});
-    if (old != GetPosition()) {
-        size = rowSize;
-        size.y *= std::min((size_t)15, texts.size());
-        size.y += texts.size() > 15 ? rowSize.y / 2 : 0;
-        if (size != GetSize()) {
-            wxWindow::SetSize(size);
-            offset = wxPoint();
-            Position(pos, {0, GetParent()->GetSize().y + 12 - 6 + m_drapDownGap});
-        }
-    }
-    if (GetPosition().y > pos.y) {
-        // may exceed
-        auto drect = wxDisplay(GetParent()).GetGeometry();
-        if (GetPosition().y + size.y + 10 > drect.GetBottom()) {
-            if (use_content_width && texts.size() <= 15) size.x += 6;
-            size.y = drect.GetBottom() - GetPosition().y - 10;
-            wxWindow::SetSize(size);
-            if (selection >= 0) {
-                if (offset.y + rowSize.y * (selection + 1) > size.y)
-                    offset.y = size.y - rowSize.y * (selection + 1);
-                else if (offset.y + rowSize.y * selection < 0)
-                    offset.y = -rowSize.y * selection;
+
+    if (m_popup_direction == PopupDirection::Down) {
+        wxPoint pos = GetParent()->ClientToScreen(wxPoint(0, -6));
+        wxPoint old = GetPosition();
+        wxSize size = GetSize();
+        Position(pos, {0, GetParent()->GetSize().y + 12 - 6 + m_drapDownGap});
+        if (old != GetPosition()) {
+            size = rowSize;
+            size.y *= std::min(m_max_visible_items, texts.size());
+            size.y += texts.size() > m_max_visible_items ? rowSize.y / 2 : 0;
+            if (size != GetSize()) {
+                wxWindow::SetSize(size);
+                offset = wxPoint();
+                Position(pos, {0, GetParent()->GetSize().y + 12 - 6 + m_drapDownGap});
             }
         }
+        if (GetPosition().y > pos.y) {
+            // may exceed
+            auto drect = wxDisplay(GetParent()).GetGeometry();
+            if (GetPosition().y + size.y + 10 > drect.GetBottom()) {
+                if (use_content_width && texts.size() <= m_max_visible_items) size.x += 6;
+                size.y = drect.GetBottom() - GetPosition().y - 10;
+                wxWindow::SetSize(size);
+                if (selection >= 0) {
+                    if (offset.y + rowSize.y * (selection + 1) > size.y)
+                        offset.y = size.y - rowSize.y * (selection + 1);
+                    else if (offset.y + rowSize.y * selection < 0)
+                        offset.y = -rowSize.y * selection;
+                }
+            }
+        }
+        return;
+    }
+
+    wxWindow *parent = GetParent();
+    if (!parent)
+        return;
+
+    wxSize size = GetSize();
+    const wxPoint parent_pos = parent->ClientToScreen(wxPoint(0, 0));
+    const wxSize  parent_size = parent->GetSize();
+    wxRect boundary = wxDisplay(parent).GetClientArea();
+
+    if (wxWindow *top_window = wxGetTopLevelParent(parent)) {
+        const wxRect top_rect(top_window->ClientToScreen(wxPoint(0, 0)), top_window->GetClientSize());
+        const int left   = std::max(boundary.GetLeft(), top_rect.GetLeft());
+        const int top    = std::max(boundary.GetTop(), top_rect.GetTop());
+        const int right  = std::min(boundary.GetRight(), top_rect.GetRight());
+        const int bottom = std::min(boundary.GetBottom(), top_rect.GetBottom());
+        if (right >= left && bottom >= top)
+            boundary = wxRect(wxPoint(left, top), wxSize(right - left + 1, bottom - top + 1));
+    }
+
+    const int margin = 10;
+    const int below_y = parent_pos.y + parent_size.y + m_drapDownGap;
+    const int available_below = boundary.GetBottom() - below_y - margin + 1;
+    const int available_above = parent_pos.y - boundary.GetTop() - m_drapDownGap - margin;
+    const bool open_up = m_popup_direction == PopupDirection::Up ||
+        (m_popup_direction == PopupDirection::Auto && available_below < size.y && available_above > available_below);
+    const int available_height = open_up ? available_above : available_below;
+    const bool height_limited = available_height > 0 && available_height < size.y;
+
+    if (height_limited) {
+        if (use_content_width && texts.size() <= m_max_visible_items)
+            size.x += 6;
+        size.y = available_height;
+    }
+
+    if (size != GetSize()) {
+        wxWindow::SetSize(size);
+#ifdef __WXGTK__
+        gtk_window_resize(GTK_WINDOW(m_widget), size.x, size.y);
+#endif
+    }
+
+    int x = parent_pos.x;
+    if (x + size.x + margin > boundary.GetRight())
+        x = boundary.GetRight() - size.x - margin + 1;
+    if (x < boundary.GetLeft() + margin)
+        x = boundary.GetLeft() + margin;
+
+    int y = open_up ? parent_pos.y - m_drapDownGap - size.y : below_y;
+    if (y < boundary.GetTop() + margin)
+        y = boundary.GetTop() + margin;
+    else if (y + size.y + margin > boundary.GetBottom())
+        y = boundary.GetBottom() - size.y - margin + 1;
+
+    SetPosition(wxPoint(x, y));
+
+    if (selection >= 0 && rowSize.y > 0 && rowSize.y * int(texts.size()) > size.y) {
+        if (offset.y + rowSize.y * (selection + 1) > size.y)
+            offset.y = size.y - rowSize.y * (selection + 1);
+        else if (offset.y + rowSize.y * selection < 0)
+            offset.y = -rowSize.y * selection;
     }
 }
 

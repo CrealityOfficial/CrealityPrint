@@ -101,6 +101,7 @@ public:
 	ColorRGBA operator * (float value) const;
 
 	const float* const data() const { return m_data.data(); }
+    const std::array<float, 4>& get_data() const { return m_data; }
 
 	float r() const { return m_data[0]; }
 	float g() const { return m_data[1]; }

@@ -14,6 +14,7 @@
 #include <wx/msgdlg.h>
 #include <wx/webview.h>
 #include <wx/utils.h>
+#include <wx/display.h>
 #include <wx/uri.h>
 #include <wx/hyperlink.h>
 #include <wx/stattext.h>
@@ -44,8 +45,31 @@ wxEND_EVENT_TABLE()
     InitializeUI();
 
     // 设置初始窗口大小（构造完成后再使用 FromDIP，避免基类初始化时空指针导致崩溃）
+#ifdef __WXMSW__
+    {
+        // Windows：获取屏幕可用区域，避免在高 DPI 低分辨率屏（如 1366×768@150%）下窗口超出屏幕
+        wxRect displayRect = wxDisplay(wxDisplay::GetFromWindow(this)).GetClientArea();
+        const int screenW  = displayRect.GetWidth();
+        const int screenH  = displayRect.GetHeight();
+
+        // 期望尺寸（逻辑像素，FromDIP 会按实际 DPI 换算）
+        wxSize desired  = FromDIP(wxSize(630, 780));
+        wxSize minSz    = FromDIP(wxSize(520, 600));
+
+        // 留 20px 边距，确保不超出可用区域
+        const int margin = 20;
+        int dlgW = std::min(desired.x, screenW - margin);
+        int dlgH = std::min(desired.y, screenH - margin);
+        int minW = std::min(minSz.x, screenW - margin);
+        int minH = std::min(minSz.y, screenH - margin);
+
+        SetSize(wxSize(dlgW, dlgH));
+        SetMinSize(wxSize(minW, minH));
+    }
+#else
     SetSize(FromDIP(wxSize(630, 780)));
     SetMinSize(FromDIP(wxSize(520, 600)));
+#endif
 
     // 设置对话框图标
     std::string icon_path = (boost::format("%1%/images/%2%.ico") % resources_dir() % Slic3r::CxBuildInfo::getIconName()).str();
@@ -260,6 +284,19 @@ wxEND_EVENT_TABLE()
 
         void LoginDialog::OnWebViewNewWindow(wxWebViewEvent& evt)
         {
+            // 政策页面（隐私政策/用户协议）：始终在系统浏览器中打开
+            {
+                wxString newUrl  = evt.GetURL();
+                wxURI    newUri(newUrl);
+                wxString newPath = newUri.GetPath().Lower();
+                if (newPath.StartsWith(wxT("/policy/")) || newPath == wxT("/privacy-policy") || newPath == wxT("/terms")) {
+                    BOOST_LOG_TRIVIAL(info) << "New-window policy page, opening in system browser: " << newUrl.ToStdString();
+                    wxLaunchDefaultBrowser(newUrl);
+                    evt.Veto();
+                    return;
+                }
+            }
+
             // 三方登录已通过 CXSWGroupInterface 的 JSON 消息在点击时直接转到系统浏览器，
             // 此处不再做额外处理，统一阻止在 WebView 内弹出新窗口以保持登录流程简洁。
             BOOST_LOG_TRIVIAL(info) << "New-window requested, veto under external-login flow: " << evt.GetURL().ToStdString();
@@ -434,7 +471,7 @@ wxEND_EVENT_TABLE()
                     rebuilt += "?" + newQuery;
                 return rebuilt + fragment;
             };
-            //urlToOpen = remove_param(urlToOpen, wxT("webview"));
+            urlToOpen = remove_param(urlToOpen, wxT("webview"));
             if (!urlToOpen.IsEmpty())
                 wxLaunchDefaultBrowser(urlToOpen);
         }
@@ -470,7 +507,30 @@ wxEND_EVENT_TABLE()
                 f.SetUnderlined(false);
                 m_openSystemBrowserLink->SetFont(f);
             }
+
+            // DPI 变化后确保窗口不超出屏幕可用区域
+#ifdef __WXMSW__
+            // Windows：统一用 FromDIP 重算期望尺寸，避免单位混用
+            {
+                wxRect displayRect = wxDisplay(wxDisplay::GetFromWindow(this)).GetClientArea();
+                const int margin   = 20;
+
+                wxSize desired = FromDIP(wxSize(630, 780));
+                wxSize minSz   = FromDIP(wxSize(520, 600));
+
+                int dlgW = std::min(desired.x, displayRect.GetWidth()  - margin);
+                int dlgH = std::min(desired.y, displayRect.GetHeight() - margin);
+                int minW = std::min(minSz.x,   displayRect.GetWidth()  - margin);
+                int minH = std::min(minSz.y,   displayRect.GetHeight() - margin);
+
+                SetMinSize(wxSize(minW, minH));
+                SetSize(wxSize(dlgW, dlgH));
+            }
+#else
+            // Mac：直接使用 suggested_rect，wxWidgets 已正确处理 Retina 缩放
             SetSize(suggested_rect.GetSize());
+#endif
+
             Refresh();
         }
     }

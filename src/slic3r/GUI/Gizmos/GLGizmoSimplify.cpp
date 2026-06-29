@@ -144,7 +144,7 @@ std::string GLGizmoSimplify::on_get_name() const
     return _u8L("Simplify");
 }
 
-void GLGizmoSimplify::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoSimplify::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
     create_gui_cfg();
 

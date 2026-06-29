@@ -172,6 +172,75 @@ void ConfigManipulation::check_chamber_temperature(DynamicPrintConfig* config)
     }
 }
 
+std::optional<DynamicPrintConfig> handle_automatic_extrusion_widths(const DynamicPrintConfig& config,
+                                                                    const bool                is_global_config,
+                                                                    wxWindow*                 msg_dlg_parent)
+{
+    // const std::vector<std::string> extrusion_width_parameters = {"extrusion_width", "external_perimeter_extrusion_width",
+    // "first_layer_extrusion_width", "infill_extrusion_width", "perimeter_extrusion_width", "solid_infill_extrusion_width",
+    // "support_material_extrusion_width", "top_infill_extrusion_width"};
+    const std::vector<std::string> extrusion_width_parameters = {"line_width",
+                                                                 "initial_layer_line_width",
+                                                                 "outer_wall_line_width",
+                                                                 "inner_wall_line_width",
+                                                                 "top_surface_line_width",
+                                                                 "sparse_infill_line_width",
+                                                                 "internal_solid_infill_line_width",
+                                                                 "support_line_width"};
+    auto is_zero_width = [](const ConfigOptionFloatOrPercent& opt) -> bool { return opt.value == 0. && !opt.percent; };
+
+    auto is_parameters_adjustment_needed = [&is_zero_width, &config, &extrusion_width_parameters]() -> bool {
+        if (!config.opt_bool("automatic_extrusion_widths")) {
+            return false;
+        }
+
+        for (const std::string& extrusion_width_parameter : extrusion_width_parameters) {
+            /*if (!is_zero_width(*config.option<ConfigOptionFloatOrPercent>(extrusion_width_parameter))) {
+                return true;
+            }*/
+            const auto* opt = config.option<ConfigOptionFloatOrPercent>(extrusion_width_parameter);
+            if (opt != nullptr && !is_zero_width(*opt)) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    if (is_parameters_adjustment_needed()) {
+        wxString msg_text = _(L("The automatic extrusion widths calculation requires:\n"
+                                "- Default line width: 0\n"
+                                "- First layer extrusion width: 0\n"
+                                "- Outer wall extrusion width: 0\n"
+                                "- Inner wall line width: 0\n"
+                                "- Top surface line width: 0\n"
+                                "- Sparse infill line width: 0\n"
+                                "- Internal solid infill line width: 0\n"
+                                "- Support line width: 0"));
+
+        if (is_global_config) {
+            msg_text += "\n\n" + _(L("Shall I adjust those settings in order to enable automatic extrusion widths calculation?"));
+        }
+
+        MessageDialog dialog(msg_dlg_parent, msg_text, _(L("Automatic extrusion widths calculation")),
+                             wxICON_WARNING | (is_global_config ? wxYES | wxNO : wxOK));
+
+        const int          answer   = dialog.ShowModal();
+        DynamicPrintConfig new_conf = config;
+        if (!is_global_config || answer == wxID_YES) {
+            for (const std::string& extrusion_width_parameter : extrusion_width_parameters) {
+                new_conf.set_key_value(extrusion_width_parameter, new ConfigOptionFloatOrPercent(0., false));
+            }
+        } else {
+            new_conf.set_key_value("automatic_extrusion_widths", new ConfigOptionBool(false));
+        }
+
+        return new_conf;
+    }
+
+    return std::nullopt;
+}
+
 void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, const bool is_global_config, const bool is_plate_config)
 {
     // #ys_FIXME_to_delete
@@ -187,6 +256,7 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
     // layer_height shouldn't be equal to zero
     auto layer_height = config->opt_float("layer_height");
     auto gpreset = GUI::wxGetApp().preset_bundle->printers.get_edited_preset();
+
     if (layer_height < EPSILON)
     {
         const wxString msg_text = _(L("Too small layer height.\nReset to 0.2"));
@@ -487,22 +557,34 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
         is_msg_dlg_already_exist = false;
     }
 
-    bool have_arachne = config->opt_enum<PerimeterGeneratorType>("wall_generator") == PerimeterGeneratorType::Arachne;
-    if (config->opt_enum<FuzzySkinMode>("fuzzy_skin_mode") != FuzzySkinMode::Displacement && !have_arachne) {
-        wxString msg_text = _(L("Both [Extrusion] and [Combined] modes of Fuzzy Skin require the Arachne Wall Generator to be enabled."));
-        msg_text += "\n\n" + _(L("Change these settings automatically?\n"
-                                    "Yes - Enable Arachne Wall Generator\n"
-                                    "No  - Disable Arachne Wall Generator and set [Displacement] mode of the Fuzzy Skin"));
-        MessageDialog dialog(m_msg_dlg_parent, msg_text, "", wxICON_WARNING | wxYES | wxNO);
-        DynamicPrintConfig new_conf = *config;
-        is_msg_dlg_already_exist = true;
-        auto answer = dialog.ShowModal();
-        if (answer == wxID_YES)
-            new_conf.set_key_value("wall_generator", new ConfigOptionEnum<PerimeterGeneratorType>(PerimeterGeneratorType::Arachne));
-        else 
-            new_conf.set_key_value("fuzzy_skin_mode", new ConfigOptionEnum<FuzzySkinMode>(FuzzySkinMode::Displacement));
-        apply(config, &new_conf);
-        is_msg_dlg_already_exist = false;
+    if (config->opt_bool("automatic_extrusion_widths")) {
+        std::optional<DynamicPrintConfig> new_config = handle_automatic_extrusion_widths(*config, is_global_config, m_msg_dlg_parent);
+        if (new_config.has_value()) {
+            apply(config, &(*new_config));
+        }
+    }
+
+    // Some partial/legacy configs may not carry these keys in DynamicPrintConfig.
+    auto* wall_generator_opt = dynamic_cast<ConfigOptionEnum<PerimeterGeneratorType>*>(config->option("wall_generator", false));
+    auto* fuzzy_skin_mode_opt = dynamic_cast<ConfigOptionEnum<FuzzySkinMode>*>(config->option("fuzzy_skin_mode", false));
+    if (wall_generator_opt != nullptr && fuzzy_skin_mode_opt != nullptr) {
+        bool have_arachne = wall_generator_opt->value == PerimeterGeneratorType::Arachne;
+        if (fuzzy_skin_mode_opt->value != FuzzySkinMode::Displacement && !have_arachne) {
+            wxString msg_text = _(L("Both [Extrusion] and [Combined] modes of Fuzzy Skin require the Arachne Wall Generator to be enabled."));
+            msg_text += "\n\n" + _(L("Change these settings automatically?\n"
+                                        "Yes - Enable Arachne Wall Generator\n"
+                                        "No  - Disable Arachne Wall Generator and set [Displacement] mode of the Fuzzy Skin"));
+            MessageDialog dialog(m_msg_dlg_parent, msg_text, "", wxICON_WARNING | wxYES | wxNO);
+            DynamicPrintConfig new_conf = *config;
+            is_msg_dlg_already_exist = true;
+            auto answer = dialog.ShowModal();
+            if (answer == wxID_YES)
+                new_conf.set_key_value("wall_generator", new ConfigOptionEnum<PerimeterGeneratorType>(PerimeterGeneratorType::Arachne));
+            else 
+                new_conf.set_key_value("fuzzy_skin_mode", new ConfigOptionEnum<FuzzySkinMode>(FuzzySkinMode::Displacement));
+            apply(config, &new_conf);
+            is_msg_dlg_already_exist = false;
+        }
     }
 }
 
@@ -534,7 +616,11 @@ void ConfigManipulation::apply_null_fff_config(DynamicPrintConfig *config, std::
 void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, const bool is_global_config)
 {
     PresetBundle *preset_bundle  = wxGetApp().preset_bundle;
-    
+    const Preset& printer_preset = preset_bundle->printers.get_edited_preset();
+    std::string printer_model = printer_preset.config.opt_string("printer_model");
+    if (printer_model.empty())
+        printer_model = printer_preset.name;
+    const bool can_flush_into_skeleton_for_printer = creality::is_k2_series_printer_from_string(printer_model);
     auto gcflavor = preset_bundle->printers.get_edited_preset().config.option<ConfigOptionEnum<GCodeFlavor>>("gcode_flavor")->value;
     
     bool have_volumetric_extrusion_rate_slope = config->option<ConfigOptionFloat>("max_volumetric_extrusion_rate_slope")->value > 0;
@@ -569,7 +655,10 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
 	    // Infill patterns that support multiline infill.
     InfillPattern pattern = config->opt_enum<InfillPattern>("sparse_infill_pattern");
     bool          has_ai_infill        = config->opt_bool("ai_infill");
-    bool          have_multiline_infill_pattern = (!has_ai_infill)&&(pattern == ipGyroid || pattern == ipGrid || pattern == ipRectilinear || pattern == ipTpmsD || pattern == ipTpmsFK || pattern == ipCrossHatch || pattern == ipHoneycomb || pattern == ipLateralLattice || pattern == ipLateralHoneycomb ||
+    bool          have_multiline_infill_pattern = (!has_ai_infill) &&
+                                         (pattern == ipGyroid || pattern == ipGrid || pattern == ipRectilinear || pattern == ipTpmsD ||
+                                          pattern == ipTpmsFK || pattern == ipCrossHatch || pattern == ipHoneycomb ||
+                                          pattern == ipLateralLattice || pattern == ipLateralHoneycomb ||
                                                   pattern == ipCubic || pattern == ipStars || pattern == ipAlignedRectilinear || pattern == ipLightning || pattern == ip3DHoneycomb || pattern == ipAdaptiveCubic || pattern == ipSupportCubic);
     toggle_line("fill_multiline", have_multiline_infill_pattern);
 
@@ -596,6 +685,8 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     bool is_locked_zig = config->option<ConfigOptionEnum<InfillPattern>>("sparse_infill_pattern")->value == InfillPattern::ipLockedZag;
     bool is_zig_zag = config->option<ConfigOptionEnum<InfillPattern>>("sparse_infill_pattern")->value == InfillPattern::ipZigZag;
     bool is_zag        = is_cross_zag  || is_zig_zag;
+    const bool flush_into_infill_enabled = config->has("flush_into_infill") && config->opt_bool("flush_into_infill");
+    const bool flush_into_skeleton_enabled = config->has("flush_into_skeleton") && config->opt_bool("flush_into_skeleton");
 
     if (is_zag) {
         toggle_field("infill_anchor", false);
@@ -609,6 +700,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     for (auto el : {"skeleton_infill_density", "skin_infill_density", "infill_lock_depth", "skin_infill_depth", "skin_infill_line_width",
                     "skeleton_infill_line_width", "locked_skin_infill_pattern", "locked_skeleton_infill_pattern"})
         toggle_line(el, is_locked_zig);
+    toggle_field("skin_infill_depth", is_locked_zig && !flush_into_skeleton_enabled);
 
     toggle_line("infill_rotate_step", is_zig_zag);
     toggle_line("symmetric_infill_y_axis", is_zig_zag || is_cross_zag || is_locked_zig);
@@ -685,8 +777,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     
     bool have_brim = (config->opt_enum<BrimType>("brim_type") != btNoBrim);
     toggle_field("brim_object_gap", have_brim);
-    bool have_brim_width = (config->opt_enum<BrimType>("brim_type") != btNoBrim) && config->opt_enum<BrimType>("brim_type") != btAutoBrim &&
-                           config->opt_enum<BrimType>("brim_type") != btPainted;
+    bool have_brim_width = (config->opt_enum<BrimType>("brim_type") != btNoBrim) && config->opt_enum<BrimType>("brim_type") != btAutoBrim;
     toggle_field("brim_width", have_brim_width);
     // wall_filament uses the same logic as in Print::extruders()
     toggle_field("wall_filament", have_perimeters || have_brim);
@@ -715,7 +806,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
         "support_interface_pattern", "support_interface_top_layers", "support_interface_bottom_layers",
         "bridge_no_support", "max_bridge_length", "support_top_z_distance", "support_bottom_z_distance",
         "support_type", "support_on_build_plate_only", "support_critical_regions_only","support_interface_not_for_body",
-        "support_object_xy_distance", "independent_support_layer_height","minimum_support_area","support_xy_overrides_z","ironing_support_layer","tree_hybrid_cross_height","support_object_first_layer_gap","raft_first_layer_density","raft_first_layer_expansion","tree_support_wall_count","tree_support_wall_count_tree","bridge_no_support","support_remove_small_overhang","support_interface_min_area"})
+        "support_object_xy_distance", "independent_support_layer_height","minimum_support_area","support_xy_overrides_z","ironing_support_layer","tree_hybrid_cross_height","support_object_first_layer_gap","raft_first_layer_density","raft_first_layer_expansion","tree_support_wall_count","tree_support_wall_count_tree","bridge_no_support","raft_layers","support_remove_small_overhang","support_interface_min_area"})
         toggle_field(el, have_support_material);
     toggle_field("support_threshold_angle", have_support_material && is_auto(support_type));
     toggle_field("support_base_pattern_tree", have_support_material && is_tree(support_type) && support_style != smsTreeOrganic);
@@ -724,11 +815,9 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     //toggle_field("support_closing_radius", have_support_material && support_style == smsSnug);
     
     bool support_is_tree = config->opt_bool("enable_support") && is_tree(support_type);
-    bool support_is_normal_tree = support_is_tree && support_style != smsTreeOrganic;
     //&&
     //// use organic as TreeHybrid
     //support_style != smsDefault;
-    bool support_is_organic = support_is_tree && !support_is_normal_tree;
 
     // settings shared by normal and organic trees
     //for (auto el : {"tree_support_branch_angle", "tree_support_branch_distance", "tree_support_branch_diameter" })
@@ -745,8 +834,10 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
    
     // hide tree support settings when normal is selected
     for (auto el : {"tree_support_branch_angle", "tree_support_branch_distance", "tree_support_branch_diameter",
-                    "tree_support_branch_diameter_angle", "max_bridge_length", "support_base_pattern_tree", "tree_support_wall_count_tree"})
+                    "tree_support_branch_diameter_angle", "max_bridge_length", "support_base_pattern_tree",
+                    "tree_support_wall_count_tree"})
         toggle_line(el, support_is_tree);
+    toggle_line("tree_support_organic_validate_repair", support_is_tree);
     toggle_line("support_critical_regions_only", is_auto(support_type) && support_is_tree);
 
     // tree support use max_bridge_length instead of bridge_no_support
@@ -809,22 +900,21 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     toggle_line("flush_into_infill", bSEMM);
     toggle_line("flush_into_objects", bSEMM);
     toggle_line("flush_into_support", bSEMM);
+    toggle_line("flush_into_skeleton", bSEMM);
 
     bool have_prime_tower = config->opt_bool("enable_prime_tower");
+    const bool flush_into_objects_enabled  = config->has("flush_into_objects") && config->opt_bool("flush_into_objects");
     for (auto el : {"prime_tower_width", "prime_tower_brim_width", "prime_tower_skip_points", "prime_tower_rib_wall", "prime_tower_enable_framework"})
         toggle_line(el, have_prime_tower);
 
     bool have_rib_wall = config->opt_bool("prime_tower_rib_wall") && have_prime_tower;
     toggle_field("prime_tower_width", !have_rib_wall);
 
-    for (auto el : {"wall_filament", "sparse_infill_filament", "solid_infill_filament", "wipe_tower_filament"})
-        toggle_line(el, !bSEMM);
-
     for (auto el : {"wipe_tower_rotation_angle", "wipe_tower_cone_angle", "wipe_tower_extra_spacing", "wipe_tower_max_purge_speed",
                     "wipe_tower_bridging", "wipe_tower_extra_flow", "wipe_tower_no_sparse_layers"})
         toggle_line(el, have_prime_tower && !is_BBL_Printer);
 
-    toggle_line("single_extruder_multi_material_priming", !bSEMM && have_prime_tower && !is_BBL_Printer);
+    toggle_line("single_extruder_multi_material_priming", false);
     
     //creality defined prime tower settings
     for (auto el : {"prime_tower_enhance_type"})
@@ -844,8 +934,11 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
             toggle_line(el, false);
     }
     
-    for (auto el : {"flush_into_infill", "flush_into_support", "flush_into_objects"})
-        toggle_field(el, have_prime_tower);
+    toggle_field("flush_into_infill", have_prime_tower && !flush_into_skeleton_enabled);
+    toggle_field("flush_into_support", have_prime_tower);
+    toggle_field("flush_into_objects", have_prime_tower && !flush_into_skeleton_enabled);
+    toggle_field("flush_into_skeleton", have_prime_tower && can_flush_into_skeleton_for_printer &&
+        !flush_into_infill_enabled && !flush_into_objects_enabled);
     
     // BBS: MusangKing - Hide "Independent support layer height" option
     //toggle_line("independent_support_layer_height", have_support_material && !have_prime_tower);
@@ -861,7 +954,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     bool has_overhang_speed_classic = config->opt_bool("overhang_speed_classic");
     toggle_line("slowdown_for_curled_perimeters",!has_overhang_speed_classic && has_overhang_speed);
 
-    for (auto el : {"smooth_speed_discontinuity_area", "smooth_coefficient"})
+    for (auto el : {"smooth_speed_discontinuity_area", "smooth_coefficient", "overhang_totally_speed"})
         toggle_line(el, has_overhang_speed_classic && has_overhang_speed);
 
     toggle_line("smooth_coefficient",
@@ -872,6 +965,14 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     const bool has_aue_accel_recovery = config->opt_bool("msao_recovery_enable");
     toggle_line("msao_safe_accel", has_aue_accel_recovery);
     toggle_line("msao_safe_velocity", has_aue_accel_recovery);
+#ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+    bool has_cut_retraction_distance_override = false;
+    if (!is_global_config) {
+        if (const auto* override_opt = config->option<ConfigOptionBool>("enable_retraction_distance_when_cut_override", false); override_opt != nullptr)
+            has_cut_retraction_distance_override = override_opt->value;
+    }
+    toggle_line("retraction_distance_when_cut_override", has_cut_retraction_distance_override);
+#endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
 
     //toggle_line("smooth_speed_discontinuity_area", has_overhang_speed_classic && has_overhang_speed);
 
@@ -881,14 +982,9 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
 
     toggle_line("support_interface_not_for_body",config->opt_int("support_interface_filament")&&!config->opt_int("support_filament"));
 
-    /*bool has_fuzzy_skin = (config->opt_enum<FuzzySkinType>("fuzzy_skin") != FuzzySkinType::None);
+    bool has_fuzzy_skin = (config->opt_enum<FuzzySkinType>("fuzzy_skin") != FuzzySkinType::None);
     for (auto el : { "fuzzy_skin_thickness", "fuzzy_skin_point_distance", "fuzzy_skin_first_layer"})
-        toggle_line(el, has_fuzzy_skin);*/
-
-    NoiseType fuzzy_skin_noise_type = config->opt_enum<NoiseType>("fuzzy_skin_noise_type");
-    toggle_line("fuzzy_skin_scale", fuzzy_skin_noise_type != NoiseType::Classic);
-    toggle_line("fuzzy_skin_octaves", fuzzy_skin_noise_type != NoiseType::Classic && fuzzy_skin_noise_type != NoiseType::Voronoi);
-    toggle_line("fuzzy_skin_persistence", fuzzy_skin_noise_type == NoiseType::Perlin || fuzzy_skin_noise_type == NoiseType::Billow);        
+        toggle_line(el, has_fuzzy_skin);
     
     bool have_arachne = config->opt_enum<PerimeterGeneratorType>("wall_generator") == PerimeterGeneratorType::Arachne;
     for (auto el : { "wall_transition_length", "wall_transition_filter_deviation", "wall_transition_angle",

@@ -6,6 +6,7 @@
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/GUI_Colors.hpp"
+#include <imgui/imgui_internal.h>
 
 // TODO: Display tooltips quicker on Linux
 
@@ -239,8 +240,56 @@ bool GLGizmoBase::GizmoImguiBegin(const std::string &name, int flags)
 {
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, (30.0f * m_parent.get_scale() - ImGui::GetFontSize()) / 2.0)); // use for titlebar
     bool result = m_imgui->begin_with_drag(name, flags);
+    if (result)
+        GizmoImguiRenderSimpleCloseButton();
     ImGui::PopStyleVar(1);
     return result;
+}
+
+bool GLGizmoBase::GizmoImguiRenderSimpleCloseButton()
+{
+    if (!wxGetApp().easy_mode())
+        return false;
+
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window == nullptr)
+        return false;
+
+    const float scale       = std::max(1.0f, m_parent.get_scale());
+    const float button_size = 24.0f * scale;
+    const float titlebar_h  = std::max(30.0f * scale, ImGui::GetFrameHeight());
+    const ImVec2 pos(window->Pos.x + window->Size.x - button_size - 4.0f * scale,
+                     window->Pos.y + 0.5f * (titlebar_h - button_size));
+    // Do not use InvisibleButton here: these gizmo windows use AlwaysAutoResize,
+    // so a positioned layout item at the titlebar edge feeds back into window width.
+    const ImRect bb(pos, ImVec2(pos.x + button_size, pos.y + button_size));
+    ImGuiID id = window->GetID("##simple_gizmo_close_button");
+    bool hovered = false;
+    bool held    = false;
+    ImGui::PushClipRect(ImVec2(0.0f, 0.0f), ImGui::GetIO().DisplaySize, false);
+    ImGui::ItemAdd(bb, id);
+    const bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_PressedOnClickRelease);
+    ImGui::PopClipRect();
+
+    ImDrawList* draw_list = ImGui::GetForegroundDrawList();
+    const ImVec2 max(pos.x + button_size, pos.y + button_size);
+    if (hovered || held) {
+        const ImU32 hover_col = ImGui::GetColorU32(ImVec4(0.082f, 0.749f, 0.349f, 1.0f));
+        draw_list->AddRect(pos, max, hover_col, 2.0f * scale, 0, 1.0f * scale);
+    }
+
+    const ImU32 line_col = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    const float pad       = 7.0f * scale;
+    const float thickness = 2.0f * scale;
+    draw_list->AddLine(ImVec2(pos.x + pad, pos.y + pad), ImVec2(max.x - pad, max.y - pad), line_col, thickness);
+    draw_list->AddLine(ImVec2(pos.x + pad, max.y - pad), ImVec2(max.x - pad, pos.y + pad), line_col, thickness);
+
+    if (pressed) {
+        // m_parent.get_gizmos_manager().reset_all_states();
+        GLCanvas3D* canvas = &m_parent;
+        wxGetApp().CallAfter([canvas]() { canvas->reset_all_gizmos(); });
+    }
+    return pressed;
 }
 
 void GLGizmoBase::GizmoImguiEnd()
@@ -249,12 +298,12 @@ void GLGizmoBase::GizmoImguiEnd()
     m_imgui->end();
 }
 
-void GLGizmoBase::GizmoImguiSetNextWIndowPos(float &x, float y, int flag, float pivot_x, float pivot_y)
+void GLGizmoBase::GizmoImguiSetNextWIndowPos(float &x, float y, int flag, float pivot_x, float pivot_y, bool force_update_pos)
 {
-    GizmoImguiSetNextWIndowPos(x, y, last_input_window_width, 0, flag, pivot_x, pivot_y);
+    GizmoImguiSetNextWIndowPos(x, y, last_input_window_width, 0, flag, pivot_x, pivot_y, force_update_pos);
 }
 
-void GLGizmoBase::GizmoImguiSetNextWIndowPos(float &x, float y, float w, float h, int flag, float pivot_x, float pivot_y)
+void GLGizmoBase::GizmoImguiSetNextWIndowPos(float &x, float y, float w, float h, int flag, float pivot_x, float pivot_y, bool force_update_pos)
 {
     if (abs(w) > 0.01f) {
         if (x + w > m_parent.get_canvas_size().get_width()) {
@@ -266,7 +315,7 @@ void GLGizmoBase::GizmoImguiSetNextWIndowPos(float &x, float y, float w, float h
         }
     }
 
-    m_imgui->set_draggable_window_pos(x, y, flag, pivot_x, pivot_y);
+    m_imgui->set_draggable_window_pos(x, y, flag, pivot_x, pivot_y, force_update_pos);
     //m_imgui->set_next_window_pos(x, y, flag, pivot_x, pivot_y);
 }
 
@@ -400,9 +449,9 @@ void GLGizmoBase::set_dirty() {
     m_dirty = true;
 }
 
-void GLGizmoBase::render_input_window(float x, float y, float bottom_limit)
+void GLGizmoBase::render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
-    on_render_input_window(x, y, bottom_limit);
+    on_render_input_window(x, y, bottom_limit, force_update_pos);
     if (m_first_input_window_render) {
         // imgui windows that don't have an initial size needs to be processed once to get one
         // and are not rendered in the first frame

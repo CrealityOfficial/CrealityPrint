@@ -221,7 +221,8 @@ public:
     void set_lock_region_param(const LockRegionParam& lock_param) override { this->lock_param = lock_param; };
     void fill_surface_locked_zag(const Surface*                           surface,
                                  const FillParams&                        params,
-                                 std::vector<std::pair<Polylines, Flow>>& multi_width_polyline);
+                                 std::vector<std::pair<Polylines, Flow>>& multi_width_polyline,
+                                 std::vector<std::pair<Polylines, Flow>>& skin_polyline);
     void set_skin_and_skeleton_pattern(const InfillPattern& skin_pattern, const InfillPattern& skeleton_pattern)
     {
         this->skin_pattern     = skin_pattern;

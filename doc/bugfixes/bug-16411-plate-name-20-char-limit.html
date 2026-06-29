@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bug #16411 修复方案 — 盘名称限制20个字符</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a2e;
+    --accent: #2563eb;
+    --border: #e2e8f0;
+    --code-bg: #f8fafc;
+    --tag-bg: #eff6ff;
+    --tag-fg: #1e40af;
+    --warn-bg: #fffbeb;
+    --warn-fg: #92400e;
+    --danger-bg: #fef2f2;
+    --danger-fg: #991b1b;
+    --success-bg: #f0fdf4;
+    --success-fg: #166534;
+    --muted: #64748b;
+    --radius: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; color: var(--fg); background: var(--bg); line-height: 1.7; padding: 0; }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+
+  h1 { font-size: 1.8em; margin-bottom: 8px; border-bottom: 2px solid var(--accent); padding-bottom: 10px; }
+  h2 { font-size: 1.35em; margin: 36px 0 14px; padding-left: 12px; border-left: 4px solid var(--accent); }
+  h3 { font-size: 1.1em; margin: 24px 0 10px; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.94em; }
+  th, td { border: 1px solid var(--border); padding: 10px 14px; text-align: left; }
+  th { background: var(--code-bg); font-weight: 600; }
+  tr:nth-child(even) td { background: #fafbfc; }
+
+  .meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 24px; margin: 16px 0; }
+  .meta-item { display: flex; gap: 8px; }
+  .meta-key { color: var(--muted); white-space: nowrap; }
+  .meta-val { font-weight: 500; }
+
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.82em; font-weight: 500; }
+  .tag-red { background: var(--danger-bg); color: var(--danger-fg); }
+  .tag-yellow { background: var(--warn-bg); color: var(--warn-fg); }
+  .tag-green { background: var(--success-bg); color: var(--success-fg); }
+
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow-x: auto; font-size: 0.88em; line-height: 1.55; margin: 12px 0; }
+  code { font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace; font-size: 0.92em; }
+  p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 3px; }
+
+  .callout { border-radius: var(--radius); padding: 14px 18px; margin: 16px 0; font-size: 0.94em; }
+  .callout-info { background: var(--tag-bg); border-left: 4px solid var(--accent); }
+  .callout-warn { background: var(--warn-bg); border-left: 4px solid #f59e0b; }
+
+  ul, ol { padding-left: 24px; }
+  li { margin: 4px 0; }
+
+  .mermaid { margin: 20px 0; text-align: center; }
+  .mermaid svg { max-width: 100%; }
+
+  .file-path { color: var(--accent); font-weight: 500; }
+  .diff-add { background: #dafbe1; color: #166534; }
+  .diff-del { background: #ffebe9; color: #991b1b; text-decoration: line-through; }
+  .diff-hdr { color: var(--muted); font-size: 0.85em; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  .toc { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 20px 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol { margin: 8px 0 0; }
+  .toc li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>🐛 Bug #16411 修复方案 — 盘名称限制20个字符</h1>
+
+<div class="toc">
+  <strong>📑 目录</strong>
+  <ol>
+    <li><a href="#s1">基本信息</a></li>
+    <li><a href="#s2">问题现象</a></li>
+    <li><a href="#s3">根因分析</a></li>
+    <li><a href="#s4">设计思路</a></li>
+    <li><a href="#s5">修复方案</a></li>
+    <li><a href="#s6">代码改动摘要</a></li>
+    <li><a href="#s7">验证清单</a></li>
+  </ol>
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+<h2 id="s1">1. 基本信息</h2>
+
+<div class="meta-grid">
+  <div class="meta-item"><span class="meta-key">Bug ID：</span><span class="meta-val">#16411</span></div>
+  <div class="meta-item"><span class="meta-key">禅道链接：</span><span class="meta-val"><a href="https://zentao.creality.com/zentao/bug-view-16411.html">bug-view-16411</a></span></div>
+  <div class="meta-item"><span class="meta-key">标题：</span><span class="meta-val">【AI版】【软件功能】盘名称需要限制20个字符</span></div>
+  <div class="meta-item"><span class="meta-key">创建人：</span><span class="meta-val">冷金辉</span></div>
+  <div class="meta-item"><span class="meta-key">创建时间：</span><span class="meta-val">2026-05-13 16:18:12</span></div>
+  <div class="meta-item"><span class="meta-key">指派给：</span><span class="meta-val">李苏贵</span></div>
+  <div class="meta-item"><span class="meta-key">截止日期：</span><span class="meta-val">2026-05-22</span></div>
+</div>
+
+<table>
+  <tr><th>字段</th><th>值</th></tr>
+  <tr><td>状态</td><td><span class="tag tag-red">激活</span></td></tr>
+  <tr><td>严重程度</td><td><span class="tag tag-red">严重</span></td></tr>
+  <tr><td>优先级</td><td><span class="tag tag-yellow">高</span></td></tr>
+  <tr><td>产品 / 模块</td><td>Creality Print / 准备页面</td></tr>
+  <tr><td>Bug 类型</td><td>代码错误</td></tr>
+  <tr><td>影响版本</td><td>CrealityPrint_7.1.0382.4606_Beta</td></tr>
+  <tr><td>修复日期</td><td>2026-05-19</td></tr>
+</table>
+
+<!-- ──────────────────────────────────────────── -->
+<h2 id="s2">2. 问题现象</h2>
+
+<p>盘名称输入框（以及 AI 侧的重命名接口）未对输入长度做限制，用户可以输入超过 20 个字符的盘名。Bug 描述中仅给出简略步骤，但实际排查发现该限制在<strong>多个盘名修改入口</strong>均缺失或失效。</p>
+
+<div class="callout callout-warn">
+  <strong>⚠ 关键发现：</strong>该 Bug 不是一个"代码忘记写了"的问题，而是<strong>部分入口有限制但被覆盖、部分入口完全没有限制、核心数据层无防御</strong>的<strong>多入口系统性缺陷</strong>。
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+<h2 id="s3">3. 根因分析</h2>
+
+<h3>3.1 盘名修改的 4 个入口点</h3>
+
+<p>系统中存在以下独立路径可以修改盘名，每个路径的状态如下：</p>
+
+<table>
+  <tr><th>入口</th><th>文件</th><th>原状态</th><th>问题</th></tr>
+  <tr>
+    <td><strong>① 右键编辑盘名对话框</strong></td>
+    <td><span class="file-path">PlateSettingsDialog.cpp</span><br><small>PlateNameEditDialog</small></td>
+    <td><span class="tag tag-yellow">部分有限制</span></td>
+    <td><code>wxEVT_TEXT</code> 事件中做了截断，但 <code>SetMaxLength(250)</code> 与之矛盾，输入框允许输入 250 个字符后再被截断</td>
+  </tr>
+  <tr>
+    <td><strong>② 板设置面板</strong></td>
+    <td><span class="file-path">PlateSettingsDialog.cpp</span><br><small>PlateSettingsDialog</small></td>
+    <td><span class="tag tag-red">无限制</span></td>
+    <td>完全没有任何字符数限制</td>
+  </tr>
+  <tr>
+    <td><strong>③ AI 桥接重命名</strong></td>
+    <td><span class="file-path">SlicerBridgeActionsObject.cpp</span><br><small>DoRenamePlate()</small></td>
+    <td><span class="tag tag-red">无限制</span></td>
+    <td>AI / MCP 调用直达 <code>set_plate_name()</code>，无长度校验</td>
+  </tr>
+  <tr>
+    <td><strong>④ 核心数据层</strong></td>
+    <td><span class="file-path">PartPlate.cpp</span><br><small>PartPlate::set_plate_name()</small></td>
+    <td><span class="tag tag-red">无防御</span></td>
+    <td>所有路径的最终汇聚点，直接接受任意长度字符串</td>
+  </tr>
+</table>
+
+<h3>3.2 问题本质</h3>
+
+<p>原有代码只在 UI 层一个对话框中做了<strong>非强制</strong>限制（事件截断 + 矛盾的 MaxLength），其他入口<strong>完全绕过</strong>，且核心数据层没有任何防御性校验。这是典型的"只在表现层做了部分限制，遗漏了其他入口和数据层"的防御缺失问题。</p>
+
+<!-- ──────────────────────────────────────────── -->
+<h2 id="s4">4. 设计思路</h2>
+
+<h3>4.1 修复策略：纵深防御（Defense in Depth）</h3>
+
+<p>采用<strong>三层防御</strong>架构，确保无论从哪个入口修改盘名，都会被限制在 20 个字符以内：</p>
+
+<div class="mermaid">
+graph TB
+    subgraph UI层["🖥 UI 层（第一道防线）"]
+        A["PlateNameEditDialog<br/>右键编辑盘名"] --> A1["SetMaxLength(20)<br/>+ wxEVT_TEXT 截断"]
+        B["PlateSettingsDialog<br/>板设置面板"] --> B1["SetMaxLength(20)<br/>+ wxEVT_TEXT 截断"]
+    end
+
+    subgraph Bridge层["🔗 Bridge 层（第二道防线）"]
+        C["DoRenamePlate<br/>AI/MCP 调用"] --> C1["from_u8 + Length > 20<br/>→ Left(20) 截断"]
+    end
+
+    subgraph Core层["🛡️ 核心层（最终安全网）"]
+        D["PartPlate::set_plate_name<br/>所有路径汇聚点"] --> D1["from_u8 + Length > 20<br/>→ Left(20) 截断"]
+    end
+
+    A1 --> D
+    B1 --> D
+    C1 --> D
+    D1 --> E["保存到 m_name<br/>同步 m_print"]
+
+    style UI层 fill:#eff6ff,stroke:#3b82f6
+    style Bridge层 fill:#fef3c7,stroke:#f59e0b
+    style Core层 fill:#fef2f2,stroke:#ef4444
+</div>
+
+<h3>4.2 为什么需要核心层防御？</h3>
+
+<div class="callout callout-info">
+  <strong>💡 设计原则：</strong>UI 层限制可能被绕过（粘贴、编程调用、外部 Agent），只有<strong>在数据写入的最终汇聚点做校验</strong>，才能保证 <em>任何</em> 代码路径都不会产生超长盘名。
+</div>
+
+<p>核心层使用 <code>wxString::Length()</code> + <code>wxString::Left(20)</code> 进行 Unicode 安全截断，而非简单的字节截断，确保中英文混合名称不会出现乱码。</p>
+
+<h3>4.3 为什么不只在核心层做？</h3>
+
+<p>UI 层限制提供<strong>即时反馈</strong>——用户在输入时就能感知到限制（输入框无法继续输入），而非提交后才被静默截断。三层各司其职：</p>
+
+<table>
+  <tr><th>层</th><th>职责</th><th>用户体验</th></tr>
+  <tr><td>UI 层</td><td>输入即限制，提供即时反馈</td><td>打第 21 个字时输不进去</td></tr>
+  <tr><td>Bridge 层</td><td>AI 调用时截断并返回实际名称</td><td>AI 收到的响应中包含截断后的名称</td></tr>
+  <tr><td>核心层</td><td>最后一道安全网，防御所有绕过</td><td>透明，无感知</td></tr>
+</table>
+
+<!-- ──────────────────────────────────────────── -->
+<h2 id="s5">5. 修复方案</h2>
+
+<h3>5.1 核心层：PartPlate::set_plate_name()</h3>
+<p><span class="file-path">📄 C3DSlicer/src/slic3r/GUI/PartPlate.cpp</span> — 行 2028~2047</p>
+
+<pre><code>void PartPlate::set_plate_name(const std::string&amp; name) 
+{ 
+    // fix:[16411] Limit plate name to 20 characters
+    std::string truncated_name = name;
+    wxString wx_name = from_u8(name);
+    if (wx_name.Length() &gt; 20) {
+        wx_name = wx_name.Left(20);
+        truncated_name = wx_name.ToUTF8().data();
+    }
+
+    // compare if name equal to m_name, case sensitive
+    if (boost::equals(m_name, truncated_name))
+        return;
+
+    m_name = truncated_name;
+    if (m_print != nullptr)
+        m_print-&gt;set_plate_name(truncated_name);
+
+    generate_plate_name_texture();
+}</code></pre>
+
+<h3>5.2 UI 层：PlateNameEditDialog</h3>
+<p><span class="file-path">📄 C3DSlicer/src/slic3r/GUI/PlateSettingsDialog.cpp</span> — 行 726~727</p>
+
+<table>
+  <tr><th>修改前</th><th>修改后</th></tr>
+  <tr>
+    <td><code class="diff-del">m_ti_plate_name-&gt;GetTextCtrl()-&gt;SetMaxLength(250);</code></td>
+    <td><code class="diff-add">//fix:[16411]Limit to 20 characters.<br>m_ti_plate_name-&gt;GetTextCtrl()-&gt;SetMaxLength(20);</code></td>
+  </tr>
+</table>
+
+<h3>5.3 UI 层：PlateSettingsDialog（全新添加）</h3>
+<p><span class="file-path">📄 C3DSlicer/src/slic3r/GUI/PlateSettingsDialog.cpp</span> — 行 385~395</p>
+
+<pre><code>m_ti_plate_name = new TextInput(...);
+//fix:[16411]Limit to 20 characters.
+m_ti_plate_name-&gt;GetTextCtrl()-&gt;SetMaxLength(20);
+m_ti_plate_name-&gt;GetTextCtrl()-&gt;Bind(wxEVT_TEXT, [this](wxCommandEvent&amp; evt) {
+    wxTextCtrl* ctrl = m_ti_plate_name-&gt;GetTextCtrl();
+    wxString value = ctrl-&gt;GetValue();
+    if (value.Length() &gt; 20) {
+        ctrl-&gt;SetValue(value.Left(20));
+        ctrl-&gt;SetInsertionPointEnd();
+    }
+    evt.Skip();
+});</code></pre>
+
+<h3>5.4 Bridge 层：DoRenamePlate</h3>
+<p><span class="file-path">📄 C3DSlicer/src/slic3r/GUI/simple/bridge/SlicerBridgeActionsObject.cpp</span> — 行 2109~2138</p>
+
+<pre><code>// fix:[16411] Validate plate name length - limit to 20 characters
+{
+    wxString wx_name = from_u8(new_name);
+    if (wx_name.Length() &gt; 20) {
+        new_name = wx_name.Left(20).ToUTF8().data();
+    }
+}
+
+// ... set_plate_name ...
+
+// Read back the actual name after truncation
+std::string actual_name = plate-&gt;get_plate_name();
+
+return {
+    {"success", true},
+    {"message", "盘名已从 '" + old_name + "' 改为 '" + actual_name + "'"},
+    {"plate_index", target_idx},
+    {"plate_number", target_idx + 1},
+    {"old_name", old_name},
+    {"new_name", actual_name}  // 返回实际保存的名称
+};</code></pre>
+
+<p>新增了 <code>#include "slic3r/GUI/GUI.hpp"</code> 以使用 <code>from_u8()</code> 工具函数。</p>
+
+<!-- ──────────────────────────────────────────── -->
+<h2 id="s6">6. 代码改动摘要</h2>
+
+<table>
+  <tr><th>文件</th><th>改动</th><th>层</th></tr>
+  <tr>
+    <td><span class="file-path">PartPlate.cpp</span></td>
+    <td><code>set_plate_name()</code> 中添加 Unicode 安全的 20 字符截断</td>
+    <td><span class="tag tag-red">核心层</span></td>
+  </tr>
+  <tr>
+    <td><span class="file-path">PlateSettingsDialog.cpp</span></td>
+    <td><code>PlateNameEditDialog</code>：<code>SetMaxLength(250)</code> → <code>20</code></td>
+    <td><span class="tag tag-green">UI 层</span></td>
+  </tr>
+  <tr>
+    <td><span class="file-path">PlateSettingsDialog.cpp</span></td>
+    <td><code>PlateSettingsDialog</code>：新增 <code>SetMaxLength(20)</code> + <code>wxEVT_TEXT</code> 截断</td>
+    <td><span class="tag tag-green">UI 层</span></td>
+  </tr>
+  <tr>
+    <td><span class="file-path">SlicerBridgeActionsObject.cpp</span></td>
+    <td><code>DoRenamePlate()</code>：新增截断 + 返回实际名称 + 新增 include</td>
+    <td><span class="tag tag-yellow">Bridge 层</span></td>
+  </tr>
+</table>
+
+<h3>6.1 完整调用链（修复后）</h3>
+
+<div class="mermaid">
+graph TB
+    U1["🖱 用户右键编辑盘名"] --> D1["PlateNameEditDialog"]
+    U2["⚙ 板设置面板"] --> D2["PlateSettingsDialog"]
+    U3["🤖 AI 语音/文字"] --> B1["MCP Gateway"]
+    
+    D1 -->|"SetMaxLength(20)<br/>wxEVT_TEXT 截断"| S1["get_plate_name()"]
+    D2 -->|"SetMaxLength(20)<br/>wxEVT_TEXT 截断"| S2["get_plate_name()"]
+    B1 -->|"MQTT"| BR["DoRenamePlate()"]
+    BR -->|"20字符截断"| BR2["set_plate_name()"]
+
+    S1 --> CORE["PartPlate::set_plate_name()"]
+    S2 --> CORE
+    BR2 --> CORE
+
+    CORE -->|"🛡️ 最终截断校验"| SAVE["保存到 m_name"]
+
+    style CORE fill:#fef2f2,stroke:#ef4444,stroke-width:2px
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+<h2 id="s7">7. 验证清单</h2>
+
+<table>
+  <tr><th>#</th><th>验证项</th><th>预期结果</th></tr>
+  <tr>
+    <td>1</td>
+    <td>右键编辑盘名对话框，输入超过 20 个字符</td>
+    <td>输入框在第 20 个字符后无法继续输入</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>板设置面板中修改盘名，输入超过 20 个字符</td>
+    <td>同上，输入框限制生效</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>通过粘贴方式粘贴超过 20 个字符的名称</td>
+    <td>粘贴后被自动截断为前 20 个字符</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>AI 发送"把盘名改成 12345678901234567890123"（23字符）</td>
+    <td>盘名被截断为前 20 个字符，AI 返回实际保存的名称</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>中文盘名超过 20 个字符（如 21 个汉字）</td>
+    <td>截断为前 20 个汉字，不会出现乱码</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td>中英文混合盘名超过 20 个 Unicode 字符</td>
+    <td>按字符数截断（非字节截断），无乱码</td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td>3MF 文件导入带有超长盘名</td>
+    <td>核心层自动截断，不影响导入流程</td>
+  </tr>
+</table>
+
+<hr>
+
+<div style="text-align: center; color: var(--muted); font-size: 0.9em; padding: 20px 0;">
+  <p>Bug #16411 修复文档 · 2026-05-19 · 修改人：李苏贵</p>
+  <p>禅道链接：<a href="https://zentao.creality.com/zentao/bug-view-16411.html">https://zentao.creality.com/zentao/bug-view-16411.html</a></p>
+</div>
+
+</div><!-- .container -->
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
+</script>
+</body>
+</html>

@@ -87,8 +87,23 @@ void Camera::set_zoom(double zoom)
 void Camera::select_view(const std::string& direction)
 {
     m_cr30_rotate_y_offset = 0.0f;
+    auto select_iso_view = [this](double phi_deg) {
+        m_zenit = 45.0f;
+        const double theta_rad = Geometry::deg2rad(-(double)m_zenit);
+        const double phi_rad = Geometry::deg2rad(phi_deg);
+        const double sin_theta = ::sin(theta_rad);
+        const Vec3d camera_pos = m_target + m_distance * Vec3d(sin_theta * ::sin(phi_rad), sin_theta * ::cos(phi_rad), ::cos(theta_rad));
+        look_at(camera_pos, m_target, Vec3d::UnitZ());
+    };
+
     if (direction == "iso")
         set_default_orientation();
+    else if (direction == "iso_front_right")
+        select_iso_view(-45.0);
+    else if (direction == "iso_rear_right")
+        select_iso_view(-135.0);
+    else if (direction == "iso_rear_left")
+        select_iso_view(135.0);
     else if (direction == "left")
         look_at(m_target - m_distance * Vec3d::UnitX(), m_target, Vec3d::UnitZ());
     else if (direction == "right")

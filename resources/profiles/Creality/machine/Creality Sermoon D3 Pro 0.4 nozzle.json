@@ -96,7 +96,8 @@
     "max_layer_height": "0.3,0.3",
     "min_layer_height": "0.08,0.08",
     "nozzle_diameter": [
-        "0.4,0.4"
+        "0.4",
+        "0.4"
     ],
     "retract_before_wipe": "90%,90%",
     "retract_length_toolchange": "10,10",
@@ -116,5 +117,5 @@
     "z_hop": "0.4,0.4",
     "z_hop_types": "Slope Lift,Slope Lift",
     "name": "Creality Sermoon D3 Pro 0.4 nozzle",
-    "setting_id": "81440"
+    "setting_id": "91597"
 }

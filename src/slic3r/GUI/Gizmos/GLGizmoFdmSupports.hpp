@@ -29,7 +29,7 @@ public:
     bool on_key_down_select_tool_type(int keyCode);
 
 protected:
-    void on_render_input_window(float x, float y, float bottom_limit) override;
+    void on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false) override;
     std::string on_get_name() const override;
 
     // BBS

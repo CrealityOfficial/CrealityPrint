@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top Left Filament Mapping Resident Mockup</title>
+    <style>
+        :root {
+            --bg: #26292f;
+            --panel: rgba(26, 28, 34, 0.95);
+            --soft: rgba(255,255,255,0.05);
+            --line: rgba(255,255,255,0.08);
+            --text: #f3f6fb;
+            --muted: #9aa4b2;
+            --green: #2fd468;
+            --green-soft: rgba(47,212,104,0.16);
+            --yellow: #ffbf47;
+            --yellow-soft: rgba(255,191,71,0.16);
+            --blue: #2b18d0;
+            --red: #e10000;
+            --pink: #ff76c4;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(180deg, #1f2228, #181b20);
+            color: var(--text);
+        }
+        .page { width: min(1650px, calc(100vw - 24px)); margin: 14px auto 24px; }
+        .intro {
+            padding: 16px 18px;
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: rgba(20,22,27,0.92);
+            margin-bottom: 14px;
+        }
+        .intro h1 { margin: 0 0 8px; font-size: 26px; }
+        .intro p { margin: 0; color: #c1c9d3; font-size: 14px; line-height: 1.7; }
+        .boards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .board {
+            border: 1px solid var(--line);
+            border-radius: 26px;
+            background: rgba(17,19,23,0.82);
+            padding: 14px;
+        }
+        .head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
+        .head strong { display: block; font-size: 18px; }
+        .head span { color: var(--muted); font-size: 13px; }
+        .tag {
+            padding: 7px 11px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .good { background: var(--green-soft); color: #def9e8; }
+        .warn { background: var(--yellow-soft); color: #ffe9bc; }
+        .app {
+            position: relative;
+            min-height: 860px;
+            border-radius: 22px;
+            overflow: hidden;
+            background: #34363c;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .topbar {
+            height: 62px;
+            background: #0b0d10;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 18px;
+        }
+        .tabs { display: flex; gap: 10px; }
+        .tabs div {
+            padding: 9px 15px;
+            border-radius: 11px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .tabs .active { background: rgba(47,212,104,0.16); color: white; }
+        .workspace { position: relative; min-height: 798px; padding: 18px; }
+        .toolbar { display: flex; gap: 12px; margin-bottom: 14px; }
+        .device, .actions {
+            border-radius: 18px;
+            border: 1px solid var(--line);
+            background: rgba(24,26,31,0.9);
+        }
+        .device { width: 268px; padding: 15px; }
+        .device strong { display: block; margin-bottom: 6px; font-size: 16px; }
+        .device span { color: var(--muted); font-size: 13px; }
+        .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 11px; }
+        .chip {
+            padding: 7px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            background: rgba(255,255,255,0.06);
+        }
+        .chip.good { color: #def9e8; background: var(--green-soft); }
+        .chip.warn { color: #ffe9bc; background: var(--yellow-soft); }
+        .actions { flex: 1; display: flex; gap: 10px; padding: 12px; }
+        .action {
+            width: 108px;
+            padding: 12px;
+            border-radius: 15px;
+            border: 1px solid var(--line);
+            background: rgba(255,255,255,0.04);
+        }
+        .action.active { background: rgba(47,212,104,0.14); border-color: rgba(47,212,104,0.3); }
+        .action strong { display: block; margin-bottom: 5px; font-size: 14px; }
+        .action span { color: #c5ced7; font-size: 12px; line-height: 1.45; }
+        .scene {
+            position: absolute;
+            left: 18px; right: 18px; top: 125px; bottom: 18px;
+            border-radius: 20px;
+            background: radial-gradient(circle at center, rgba(255,255,255,0.03), transparent 46%), #2f3137;
+            overflow: hidden;
+        }
+        .plate {
+            position: absolute;
+            left: 53%; bottom: 60px; transform: translateX(-50%);
+            width: 58%; height: 350px;
+            border-radius: 18px;
+            border: 2px solid rgba(255,255,255,0.1);
+            background:
+                linear-gradient(rgba(255,255,255,0.12) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px),
+                rgba(255,255,255,0.03);
+            background-size: 24px 24px;
+        }
+        .obj {
+            position: absolute;
+            left: 50%; bottom: 205px; transform: translateX(-50%);
+            width: 96px; height: 96px; border-radius: 50%;
+            box-shadow: inset -12px -12px 18px rgba(0,0,0,0.28);
+            background: linear-gradient(90deg, var(--blue) 0 50%, var(--red) 50% 100%);
+        }
+        .panel {
+            position: absolute;
+            left: 20px; top: 20px;
+            width: 354px;
+            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: var(--panel);
+            overflow: hidden;
+            box-shadow: 0 20px 42px rgba(0,0,0,0.34);
+        }
+        .panel.expanded { width: 390px; }
+        .panel-head { padding: 16px 17px 14px; border-bottom: 1px solid var(--line); }
+        .panel-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+        .panel-head strong { display: block; margin-bottom: 4px; font-size: 18px; }
+        .panel-head span { color: #b7c0cb; font-size: 12px; line-height: 1.55; }
+        .pill {
+            padding: 8px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap;
+        }
+        .banner {
+            margin-top: 12px; padding: 10px 12px; border-radius: 14px; font-size: 12px; line-height: 1.6;
+        }
+        .banner.good { background: rgba(47,212,104,0.12); color: #def9e8; }
+        .banner.warn { background: rgba(255,191,71,0.12); color: #ffe9bc; }
+        .panel-body { padding: 14px 15px 15px; display: flex; flex-direction: column; gap: 12px; }
+        .title-row { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+        .list { display: flex; flex-direction: column; gap: 10px; }
+        .item {
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: var(--soft);
+            padding: 12px;
+        }
+        .item.active { border-color: rgba(255,191,71,0.3); box-shadow: inset 0 0 0 1px rgba(255,191,71,0.12); }
+        .item-top { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 7px; }
+        .left { display: flex; gap: 10px; align-items: center; }
+        .dot {
+            width: 14px; height: 14px; border-radius: 50%;
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16);
+            flex-shrink: 0;
+        }
+        .dot.red { background: var(--red); }
+        .dot.blue { background: var(--blue); }
+        .name { font-size: 14px; font-weight: 700; }
+        .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+        .slot {
+            padding: 6px 10px; border-radius: 999px; font-size: 12px; background: rgba(255,255,255,0.07);
+        }
+        .slot.warn { background: rgba(255,191,71,0.14); color: #ffe9bc; }
+        .note { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #d9e0e8; }
+        .muted { color: var(--muted); }
+        .preview, .adjust {
+            border-radius: 18px;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: rgba(255,255,255,0.04);
+            padding: 12px;
+        }
+        .preview h4, .adjust h4 { margin: 0 0 7px; font-size: 14px; }
+        .preview p, .adjust p { margin: 0; color: #c3cbd5; font-size: 12px; line-height: 1.55; }
+        .preview-stage {
+            margin-top: 10px; display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center;
+        }
+        .box, .mini {
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: radial-gradient(circle at center, rgba(255,255,255,0.04), transparent 56%), rgba(255,255,255,0.02);
+            position: relative;
+        }
+        .box { height: 110px; }
+        .mini { height: 84px; }
+        .sphere {
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            width: 58px; height: 58px; border-radius: 50%;
+            box-shadow: inset -10px -10px 16px rgba(0,0,0,0.3);
+            background: linear-gradient(90deg, var(--blue) 0 50%, var(--red) 50% 100%);
+        }
+        .sphere.yellowred { background: linear-gradient(90deg, #ffe44d 0 50%, var(--red) 50% 100%); }
+        .sphere.small { width: 42px; height: 42px; }
+        .meta strong { display: block; margin-bottom: 6px; font-size: 14px; }
+        .meta span { display: block; color: #c4ccd6; font-size: 12px; line-height: 1.55; }
+        .btns { display: flex; gap: 10px; }
+        .btn {
+            flex: 1; padding: 11px 12px; text-align: center; border-radius: 14px; font-size: 13px; font-weight: 700;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .btn.primary { background: rgba(47,212,104,0.92); color: #07110b; border-color: rgba(47,212,104,0.4); }
+        .btn.secondary { background: rgba(255,255,255,0.05); color: var(--text); }
+        .cand-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .cand {
+            min-width: 74px; padding: 10px 8px; text-align: center; border-radius: 12px; font-size: 12px; font-weight: 700;
+            color: #101216; border: 1px solid rgba(255,255,255,0.2);
+        }
+        .cand small { display: block; margin-top: 4px; color: rgba(0,0,0,0.7); font-size: 11px; }
+        .cand.rec { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5); }
+        .cand.disabled {
+            color: #eceff3;
+            background: linear-gradient(135deg, rgba(255,255,255,0.16) 25%, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.16) 75%, rgba(255,255,255,0.04) 75%);
+            background-size: 10px 10px;
+        }
+        .compare { margin-top: 12px; display: grid; grid-template-columns: 1fr 22px 1fr; gap: 8px; align-items: center; }
+        .arrow { text-align: center; color: #d9e0e8; font-size: 18px; }
+        .cc {
+            border-radius: 14px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); padding: 10px;
+        }
+        .cc h5 { margin: 0 0 7px; font-size: 12px; }
+        .cap { margin-top: 7px; color: #c0c8d2; font-size: 11px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="intro">
+            <h1>左上角常驻耗材映射区 粗布局示意</h1>
+            <p>左图是默认常驻态，先展示场景颜色、映射结果和全局预览；右图是单项调整态，在左上角原位展开轻量候选区和实时 Before / After 预览。</p>
+        </div>
+
+        <div class="boards">
+            <section class="board">
+                <div class="head">
+                    <div>
+                        <strong>方案 A：默认常驻态</strong>
+                        <span>先让用户知道当前场景颜色有哪些，以及系统准备怎么打</span>
+                    </div>
+                    <div class="tag good">可直接切片</div>
+                </div>
+                <div class="app">
+                    <div class="topbar">
+                        <div>Creality Print / Simple Mode</div>
+                        <div class="tabs">
+                            <div>在线模型</div>
+                            <div class="active">准备</div>
+                            <div>预览</div>
+                            <div>设备</div>
+                        </div>
+                    </div>
+                    <div class="workspace">
+                        <div class="toolbar">
+                            <div class="device">
+                                <strong>K2 Plus / Living Room</strong>
+                                <span>已连接 · CFS 在线 · 空闲</span>
+                                <div class="chips">
+                                    <div class="chip good">自动映射 2/2</div>
+                                    <div class="chip">打印校准关闭</div>
+                                </div>
+                            </div>
+                            <div class="actions">
+                                <div class="action"><strong>导入模型</strong><span>导入 STL / 3MF</span></div>
+                                <div class="action active"><strong>耗材</strong><span>已映射完成</span></div>
+                                <div class="action"><strong>支撑</strong><span>按需处理</span></div>
+                                <div class="action active"><strong>切片</strong><span>当前可直接继续</span></div>
+                            </div>
+                        </div>
+                        <div class="scene">
+                            <div class="plate"></div>
+                            <div class="obj"></div>
+                            <aside class="panel">
+                                <div class="panel-head">
+                                    <div class="panel-top">
+                                        <div>
+                                            <strong>场景耗材与映射</strong>
+                                            <span>先显示场景中已有的颜色信息，再把设备映射结果挂在每一行上。</span>
+                                        </div>
+                                        <div class="pill good">已自动匹配</div>
+                                    </div>
+                                    <div class="banner good">当前项目使用 2 种颜色，设备已完成自动映射。你现在可以直接切片，也可以查看并调整某一项。</div>
+                                </div>
+                                <div class="panel-body">
+                                    <div class="title-row">
+                                        <span>当前场景颜色</span>
+                                        <span>2 / 2 已匹配</span>
+                                    </div>
+                                    <div class="list">
+                                        <div class="item">
+                                            <div class="item-top">
+                                                <div class="left">
+                                                    <span class="dot red"></span>
+                                                    <div>
+                                                        <div class="name">红色 PLA</div>
+                                                        <div class="sub">场景颜色 #1</div>
+                                                    </div>
+                                                </div>
+                                                <div class="slot">CFS 5</div>
+                                            </div>
+                                            <div class="note">
+                                                <span>已映射到设备红色耗材</span>
+                                                <span class="muted">完全匹配</span>
+                                            </div>
+                                        </div>
+                                        <div class="item">
+                                            <div class="item-top">
+                                                <div class="left">
+                                                    <span class="dot blue"></span>
+                                                    <div>
+                                                        <div class="name">蓝色 PLA</div>
+                                                        <div class="sub">场景颜色 #2</div>
+                                                    </div>
+                                                </div>
+                                                <div class="slot">CFS 2D</div>
+                                            </div>
+                                            <div class="note">
+                                                <span>已映射到设备深蓝耗材</span>
+                                                <span class="muted">颜色接近</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="preview">
+                                        <h4>当前打印效果预览</h4>
+                                        <p>平时一直显示一个小型全局结果预览，让用户知道系统不是只算了映射表，而是在表达“最终会怎么打”。</p>
+                                        <div class="preview-stage">
+                                            <div class="box"><div class="sphere"></div></div>
+                                            <div class="meta">
+                                                <strong>整体结果</strong>
+                                                <span>红色部分使用 CFS 5。</span>
+                                                <span>蓝色部分使用 CFS 2D。</span>
+                                                <span>如果你改某一项，这里会实时刷新。</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="btns">
+                                        <div class="btn secondary">查看并调整</div>
+                                        <div class="btn primary">直接切片</div>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="board">
+                <div class="head">
+                    <div>
+                        <strong>方案 B：单项调整态</strong>
+                        <span>点中某一行后，在左上角原位展开轻量候选与实时试色</span>
+                    </div>
+                    <div class="tag warn">1 项待确认</div>
+                </div>
+                <div class="app">
+                    <div class="topbar">
+                        <div>Creality Print / Simple Mode</div>
+                        <div class="tabs">
+                            <div>在线模型</div>
+                            <div class="active">准备</div>
+                            <div>预览</div>
+                            <div>设备</div>
+                        </div>
+                    </div>
+                    <div class="workspace">
+                        <div class="toolbar">
+                            <div class="device">
+                                <strong>K2 Plus / Living Room</strong>
+                                <span>已连接 · CFS 在线 · 空闲</span>
+                                <div class="chips">
+                                    <div class="chip warn">蓝色项待确认</div>
+                                    <div class="chip">系统已有推荐</div>
+                                </div>
+                            </div>
+                            <div class="actions">
+                                <div class="action active"><strong>耗材</strong><span>正在调整蓝色项</span></div>
+                                <div class="action"><strong>切片</strong><span>确认后继续</span></div>
+                            </div>
+                        </div>
+                        <div class="scene">
+                            <div class="plate"></div>
+                            <div class="obj"></div>
+                            <aside class="panel expanded">
+                                <div class="panel-head">
+                                    <div class="panel-top">
+                                        <div>
+                                            <strong>场景耗材与映射</strong>
+                                            <span>当前聚焦在“蓝色 PLA”这一项，原位完成手动确认，不强行把用户丢回中间大面板。</span>
+                                        </div>
+                                        <div class="pill warn">1 项待确认</div>
+                                    </div>
+                                    <div class="banner warn">系统推荐蓝色 PLA 使用 CFS 2D。你也可以改成其它可用 PLA，下面的预览会立即告诉你成品会怎么变。</div>
+                                </div>
+                                <div class="panel-body">
+                                    <div class="list">
+                                        <div class="item">
+                                            <div class="item-top">
+                                                <div class="left">
+                                                    <span class="dot red"></span>
+                                                    <div>
+                                                        <div class="name">红色 PLA</div>
+                                                        <div class="sub">场景颜色 #1</div>
+                                                    </div>
+                                                </div>
+                                                <div class="slot">CFS 5</div>
+                                            </div>
+                                            <div class="note">
+                                                <span>无需处理</span>
+                                                <span class="muted">完全匹配</span>
+                                            </div>
+                                        </div>
+                                        <div class="item active">
+                                            <div class="item-top">
+                                                <div class="left">
+                                                    <span class="dot blue"></span>
+                                                    <div>
+                                                        <div class="name">蓝色 PLA</div>
+                                                        <div class="sub">场景颜色 #2</div>
+                                                    </div>
+                                                </div>
+                                                <div class="slot warn">建议确认</div>
+                                            </div>
+                                            <div class="note">
+                                                <span>当前建议: CFS 2D 深蓝 PLA</span>
+                                                <span class="muted">点击候选项试效果</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="adjust">
+                                        <h4>给“蓝色 PLA”选择打印机耗材</h4>
+                                        <p>候选项不是平权列表。推荐项更显眼，不可用项保留可见并说明原因。预览承担“试色板”的角色。</p>
+                                        <div class="cand-row">
+                                            <div class="cand rec" style="background:#2b18d0;">2D<small>推荐 PLA</small></div>
+                                            <div class="cand" style="background:#ffffff;">1D<small>偏白 PLA</small></div>
+                                            <div class="cand" style="background:#ffe44d;">1A<small>偏黄 PLA</small></div>
+                                            <div class="cand disabled">1C<small>PETG</small></div>
+                                        </div>
+                                        <div class="compare">
+                                            <div class="cc">
+                                                <h5>推荐结果</h5>
+                                                <div class="mini"><div class="sphere small"></div></div>
+                                                <div class="cap">蓝色部分使用 2D，更接近当前模型预期。</div>
+                                            </div>
+                                            <div class="arrow">→</div>
+                                            <div class="cc">
+                                                <h5>当前悬浮结果</h5>
+                                                <div class="mini"><div class="sphere yellowred small"></div></div>
+                                                <div class="cap">如果改成 1A，蓝色部分会明显偏黄。</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="preview">
+                                        <h4>当前手动调整预览</h4>
+                                        <p>悬浮先临时预览，点击后正式写入。这里不是展示“你点了哪个槽位”，而是展示“成品会怎样变化”。</p>
+                                        <div class="preview-stage">
+                                            <div class="box"><div class="sphere yellowred"></div></div>
+                                            <div class="meta">
+                                                <strong>当前试色: 蓝色 PLA → CFS 1A</strong>
+                                                <span>材料兼容，但颜色会从蓝色变为明显偏黄。</span>
+                                                <span>这会让模型一半效果发生可感知变化。</span>
+                                                <span>确认后再更新这一行的最终映射结果。</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="btns">
+                                        <div class="btn secondary">恢复自动匹配</div>
+                                        <div class="btn primary">确认当前选择</div>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

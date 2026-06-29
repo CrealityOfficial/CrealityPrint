@@ -46,6 +46,7 @@
 
 class TabCtrl;
 class Label;
+class Button;
 
 class HoverBorderIcon;class wxDataViewTreeCtrl;
 
@@ -481,16 +482,21 @@ public:
 	void		toggle_options() override;
 	void		update() override;
 	void		clear_pages() override;
+    void        on_value_change(const std::string& opt_key, const boost::any& value) override;
 	bool 		supports_printer_technology(const PrinterTechnology tech) const override { return tech == ptFFF; }
 	Page*           get_active_page() { return m_active_page; }
 	void        rebind_infill_changed_event();
 
 private:
     wxSizer* create_limit_mess_enable_widget(const std::string& title, wxWindow* parent);
+    wxSizer* create_flush_into_skeleton_widget(wxWindow* parent);
+    bool     flush_into_skeleton_button_enabled() const;
+    void     update_flush_into_skeleton_button_state();
 
 private:
 	ogStaticText*	m_recommended_thin_wall_thickness_description_line = nullptr;
 	ogStaticText*	m_top_bottom_shell_thickness_explanation = nullptr;
+    Button*         m_flush_into_skeleton_btn = nullptr;
 };
 
 class TabPrintModel : public TabPrint
@@ -585,10 +591,14 @@ protected:
 class TabFilament : public Tab
 {
 private:
+    int             m_active_extruder{0};
+
 	ogStaticText*	m_volumetric_speed_description_line {nullptr};
 	ogStaticText*	m_cooling_description_line {nullptr};
 
     void            add_filament_overrides_page();
+    void            update_filament_overrides_page();
+
     void update_filament_overrides_page(const DynamicPrintConfig* printers_config);
 	void 			update_volumetric_flow_preset_hints();
 
@@ -609,6 +619,9 @@ public:
 	void		create_preset_tab() override;
 	bool 		supports_printer_technology(const PrinterTechnology tech) const override { return tech == ptFFF; }
 	bool		changedSelectFilament(std::string presetName);
+
+    void                set_active_extruder_by_preset_index(int extruder_index);
+
     const std::string&	get_custom_gcode(const t_config_option_key& opt_key) override;
     void				set_custom_gcode(const t_config_option_key& opt_key, const std::string& value) override;
 	void updateVentorList(const std::unordered_set<wxString>& ventorList, const wxString& curPreset = wxString());

@@ -9,6 +9,7 @@
 #include "Feature/Interlocking/InterlockingGenerator.hpp"
 //BBS
 #include "ShortestPath.hpp"
+#include "MixedFilament.hpp"
 
 #include <boost/log/trivial.hpp>
 
@@ -921,20 +922,87 @@ void PrintObject::slice()
     this->set_done(posSlice);
 }
 
-template<typename ThrowOnCancel>
-static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCancel throw_on_cancel)
+// Apply mixed filament surface indentation/offset to segmentation masks
+static void apply_mixed_surface_indentation(
+    PrintObject &print_object,
+    std::vector<std::vector<ExPolygons>> &segmentation)
 {
-    // Returns MMU segmentation based on painting in MMU segmentation gizmo
-    std::vector<std::vector<ExPolygons>> segmentation = multi_material_segmentation_by_painting(print_object, throw_on_cancel);
+    const Print *print = print_object.print();
+    if (print == nullptr || segmentation.empty())
+        return;
+
+    const PrintObjectConfig &object_cfg = print_object.config();
+    const PrintConfig &print_cfg = print->config();  // ← 添加这行
+
+    const float indentation = float(print_cfg.mixed_filament_surface_indentation.value);
+    if (std::abs(indentation) < 0.001f)
+        return;
+
+    const MixedFilamentManager &mixed_mgr = print->mixed_filament_manager();
+    if (mixed_mgr.enabled_count() == 0)
+        return;
+
+    const size_t num_physical = print_cfg.filament_colour.size(); 
+    
+    for (size_t layer_id = 0; layer_id < segmentation.size(); ++layer_id) {
+        for (size_t channel = 0; channel < segmentation[layer_id].size(); ++channel) {
+            const unsigned int filament_id = unsigned(channel + 1);
+            if (!mixed_mgr.is_mixed(filament_id, num_physical))
+                continue;
+            
+            ExPolygons &masks = segmentation[layer_id][channel];
+            if (masks.empty())
+                continue;
+            
+            // Apply offset (positive = expand, negative = shrink)
+            ExPolygons offsetted;
+            offsetted = offset_ex(masks, scale_(indentation));
+            
+            if (!offsetted.empty()) {
+                masks = std::move(offsetted);
+            } else {
+                masks.clear();
+            }
+        }
+    }
+}
+
+// Check if a mixed filament row is eligible for local-Z optimization
+static bool local_z_eligible_mixed_row(const MixedFilament &mf)
+{
+    return mf.enabled && 
+           mf.distribution_mode != int(MixedFilament::SameLayerPointillisme);
+}
+
+template<typename ThrowOnCancel>
+static inline void apply_mm_segmentation(
+    PrintObject &print_object, 
+    std::vector<std::vector<ExPolygons>> segmentation, 
+    ThrowOnCancel throw_on_cancel)
+{
+    // segmentation layout: segmentation[layer_id][channel]
+    // channel 0 = NONE (base), channel 1..N = extruder 1..N
+    // Derive num_extruders from actual data to avoid any mismatch with computed num_facets_states.
+    if (segmentation.empty())
+        return;
+    const size_t seg_cols = segmentation.front().size(); // = total_filaments + 1 (includes NONE)
+    if (seg_cols == 0)
+        return;
+    // num_extruders: number of valid extruder channels (excludes NONE channel 0)
+    const size_t num_extruders = seg_cols - 1;
+
     assert(segmentation.size() == print_object.layer_count());
+
+    const MixedFilamentManager &mixed_mgr = print_object.print()->mixed_filament_manager();
+    
     tbb::parallel_for(
         tbb::blocked_range<size_t>(0, segmentation.size(), std::max(segmentation.size() / 128, size_t(1))),
-        [&print_object, &segmentation, throw_on_cancel](const tbb::blocked_range<size_t> &range) {
+        [&print_object, &segmentation, throw_on_cancel, num_extruders, &mixed_mgr](const tbb::blocked_range<size_t> &range) {
             const auto  &layer_ranges   = print_object.shared_regions()->layer_ranges;
             double       z              = print_object.get_layer(range.begin())->slice_z;
             auto         it_layer_range = layer_range_first(layer_ranges, z);
-            // BBS
-            const size_t num_extruders = print_object.print()->config().filament_diameter.size();
+            // num_extruders = seg_cols - 1 (channels 1..N), derived from actual segmentation size.
+            // by_extruder[i] <-> channel (i+1), so seg_channel = extruder_id+1 is always in [1, seg_cols-1].
             struct ByExtruder {
                 ExPolygons  expolygons;
                 BoundingBox bbox;
@@ -951,12 +1019,19 @@ static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCance
                 it_layer_range = layer_range_next(layer_ranges, it_layer_range, layer->slice_z);
                 const PrintObjectRegions::LayerRangeRegions &layer_range = *it_layer_range;
                 // Gather per extruder expolygons.
+                // segmentation channels: 0=NONE(base), 1=extruder1, ..., num_facets_states-1=mixed.
+                // by_extruder[i] = channel (i+1), skipping channel 0 (NONE).
                 by_extruder.assign(num_extruders, ByExtruder());
                 by_region.assign(layer->region_count(), ByRegion());
                 bool layer_split = false;
                 for (size_t extruder_id = 0; extruder_id < num_extruders; ++ extruder_id) {
                     ByExtruder &region = by_extruder[extruder_id];
-                    append(region.expolygons, std::move(segmentation[layer_id][extruder_id]));
+                    // +1: skip channel 0 (NONE), align channel index with 1-based extruder_id.
+                    // seg_channel is guaranteed < num_facets_states = segmentation[layer_id].size().
+                    size_t seg_channel = extruder_id + 1;
+                    // Don't use std::move: segmentation is accessed across all layers/extruders in the TBB loop,
+                    // and move would leave subsequent iterations with empty data.
+                    append(region.expolygons, segmentation[layer_id][seg_channel]);
                     if (! region.expolygons.empty()) {
                         region.bbox = get_extents(region.expolygons);
                         layer_split = true;
@@ -1053,10 +1128,10 @@ static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCance
 }
 
 template<typename ThrowOnCancel>
-void apply_fuzzy_skin_segmentation(PrintObject &print_object, ThrowOnCancel throw_on_cancel)
+static inline void apply_fuzzy_skin_segmentation(PrintObject &print_object, ThrowOnCancel throw_on_cancel, const std::vector<ExPolygons> *clean_input_expolygons = nullptr)
 {
     // Returns fuzzy skin segmentation based on painting in the fuzzy skin painting gizmo.
-    std::vector<std::vector<ExPolygons>> segmentation = fuzzy_skin_segmentation_by_painting(print_object, throw_on_cancel);
+    std::vector<std::vector<ExPolygons>> segmentation = fuzzy_skin_segmentation_by_painting(print_object, throw_on_cancel, clean_input_expolygons);
     assert(segmentation.size() == print_object.layer_count());
 
     struct ByRegion
@@ -1076,8 +1151,8 @@ void apply_fuzzy_skin_segmentation(PrintObject &print_object, ThrowOnCancel thro
             it_layer_range = layer_range_next(layer_ranges, it_layer_range, layer.slice_z);
             const PrintObjectRegions::LayerRangeRegions &layer_range = *it_layer_range;
 
-            assert(segmentation[layer_idx].size() == 1);
-            const ExPolygons &fuzzy_skin_segmentation      = segmentation[layer_idx][0];
+            assert(segmentation[layer_idx].size() >= 2);
+            const ExPolygons &fuzzy_skin_segmentation      = segmentation[layer_idx][1];
             const BoundingBox fuzzy_skin_segmentation_bbox = get_extents(fuzzy_skin_segmentation);
             if (fuzzy_skin_segmentation.empty())
                 continue;
@@ -1265,6 +1340,27 @@ void PrintObject::slice_volumes()
         m_layers.back()->upper_layer = nullptr;
     m_print->throw_if_canceled();
     this->apply_conical_overhang();
+
+    // Plan B: capture each layer's clean merged outline BEFORE MMU color segmentation splits the
+    // layer into painted/non-painted regions. The fuzzy-skin segmentation will use this as its
+    // Voronoi input so the diagram is not fed the dense near-collinear points produced along the
+    // color seam (which otherwise makes the fuzzy band degenerate and disappear on some layers).
+    const bool fuzzy_painted = this->model_object()->is_fuzzy_skin_painted();
+    std::vector<ExPolygons> fuzzy_clean_input;
+    if (fuzzy_painted) {
+        fuzzy_clean_input.resize(m_layers.size());
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_layers.size()),
+            [this, &fuzzy_clean_input](const tbb::blocked_range<size_t> &range) {
+                for (size_t layer_id = range.begin(); layer_id < range.end(); ++layer_id) {
+                    m_print->throw_if_canceled();
+                    // merged() unions all region slices into the layer outline (same operation
+                    // used to rebuild lslices), captured here while regions are still the
+                    // pre-color-split slices.
+                    fuzzy_clean_input[layer_id] = m_layers[layer_id]->merged(float(SCALED_EPSILON));
+                }
+            });
+    }
+
     // Is any ModelVolume MMU painted?
     if (const auto& volumes = this->model_object()->volumes;
         m_print->config().filament_diameter.size() > 1 && // BBS
@@ -1279,9 +1375,21 @@ void PrintObject::slice_volumes()
                   "compensation can not be combined with color-painting."));
             BOOST_LOG_TRIVIAL(info) << "xy compensation will not work for object " << this->model_object()->name << " for multi filament.";
         }
-
-        BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - MMU segmentation";
-        apply_mm_segmentation(*this, [print]() { print->throw_if_canceled(); });
+            BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - MMU segmentation";
+            std::vector<std::vector<ExPolygons>> mm_segmentation = 
+                multi_material_segmentation_by_painting(*this, [print]() { print->throw_if_canceled(); });
+            
+            // Apply mixed filament surface indentation
+            apply_mixed_surface_indentation(*this, mm_segmentation);
+            
+            // Build local-Z plan for height-dithered mixed filaments
+            const bool local_z_enabled = this->print()->config().dithering_local_z_mode.value;
+            if (local_z_enabled) {
+                // Local-Z plan will be built in the extended apply_mm_segmentation
+            }
+            
+            // Apply MM segmentation with mixed filament support
+            apply_mm_segmentation(*this, std::move(mm_segmentation), [print]() { print->throw_if_canceled(); });
     }
 
     // Is any ModelVolume fuzzy skin painted?
@@ -1297,7 +1405,8 @@ void PrintObject::slice_volumes()
         }
 
         BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - Fuzzy skin segmentation";
-        apply_fuzzy_skin_segmentation(*this, [print]() { print->throw_if_canceled(); });
+        apply_fuzzy_skin_segmentation(*this, [print]() { print->throw_if_canceled(); },
+            fuzzy_clean_input.empty() ? nullptr : &fuzzy_clean_input);
     }
 
    // begin_debug_concial_overhang(m_print, this);

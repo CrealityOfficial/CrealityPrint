@@ -25,7 +25,7 @@
     "dont_slow_down_outer_wall": "0",
     "during_print_exhaust_fan_speed": "0",
     "enable_overhang_bridge_fan": "1",
-    "enable_pressure_advance": "0",
+    "enable_pressure_advance": "1",
     "enable_special_area_additional_cooling_fan": "0",
     "eng_plate_temp": "45",
     "eng_plate_temp_initial_layer": "45",

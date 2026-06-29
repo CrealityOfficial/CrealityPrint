@@ -61,7 +61,7 @@ Fill* Fill::new_from_type(const InfillPattern type)
     case ipTpmsD:               return new FillTpmsD();//from creality print
     case ipGradualTpmsG:        return new FillTpmsGradual(0);
     case ipGradualTpmsD:        return new FillTpmsGradual(1);
-    case ipGradualTpmsFK:      return new FillTpmsGradual(3);
+    case ipGradualTpmsFK:       return new FillTpmsGradual(3);
     case ipTpmsFK:              return new FillTpmsFK();
     case ipRectilinear:         return new FillRectilinear();
     case ipAlignedRectilinear:  return new FillAlignedRectilinear();
@@ -69,7 +69,7 @@ Fill* Fill::new_from_type(const InfillPattern type)
     case ipMonotonic:           return new FillMonotonic();
     case ipLine:                return new FillLine();
     case ipGrid:                return new FillGrid();
-    case ipLateralLattice:           return new FillLateralLattice();
+    case ipLateralLattice:      return new FillLateralLattice();
     case ipTriangles:           return new FillTriangles();
     case ipStars:               return new FillStars();
     case ipCubic:               return new FillCubic();
@@ -88,7 +88,7 @@ Fill* Fill::new_from_type(const InfillPattern type)
     // Orca: Replace BBS implementation with Prusa implementation
     case ipMonotonicLine:       return new FillMonotonicLines();
     case ipquarter_cubic:       
-    case iptetrahedral:       return new FillQuarter();
+    case iptetrahedral:         return new FillQuarter();
     case ipZigZag:              return new FillZigZag();
     case ipCrossZag:            return new FillCrossZag();
     case ipLockedZag:           return new FillLockedZag();

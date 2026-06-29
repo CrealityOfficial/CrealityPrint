@@ -64,10 +64,22 @@ namespace GUI {
 
 class Bed3D;
 class PartPlateList;
+class ImGuiFilamentPanel;
+class PrintSettingsPanel;
 
 #if ENABLE_RETINA_GL
 class RetinaHelper;
 #endif
+
+// -----------------------------------------------------------------------------
+// Generic popup placement for toolbar popovers anchored to the main toolbar band
+// -----------------------------------------------------------------------------
+enum class PopupHAlign {
+    GroupCenter,   // center the popup in the whole top group (preset + toolbar + right buttons)
+    AnchorCenter,  // center horizontally at a given anchor_x_px
+    AlignLeftEdge, // align left edge to the group's left edge
+    AlignRightEdge // align right edge to the group's right edge
+};
 
 class Size
 {
@@ -669,6 +681,60 @@ private:
 
     std::stack<ERenderPipelineStage> m_render_pipeline_stage_stack;
     static GLModel s_full_screen_mesh;
+    enum class ResidentFilamentResizeEdge : unsigned int {
+        None   = 0,
+        Left   = 1 << 0,
+        Right  = 1 << 1,
+        Top    = 1 << 2,
+        Bottom = 1 << 3
+    };
+    struct ResidentFilamentPanelLayoutState {
+        bool  loaded_from_config = false;
+        bool  user_override      = false;
+        float x                  = 0.0f;
+        float y                  = 0.0f;
+        float w                  = 0.0f;
+        float h                  = 0.0f;
+    };
+    struct ResidentFilamentPanelResizeState {
+        ResidentFilamentResizeEdge hot_edge    = ResidentFilamentResizeEdge::None;
+        ResidentFilamentResizeEdge active_edge = ResidentFilamentResizeEdge::None;
+        bool   dragging                        = false;
+        ImVec2 drag_start_mouse                = ImVec2(0.0f, 0.0f);
+        ImVec4 drag_start_rect                 = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+        ImVec4 live_rect                       = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+        bool   dirty_since_mouse_down          = false;
+    };
+    // ==== easy print mode related ====
+    std::unique_ptr<ImGuiFilamentPanel> m_imgui_filament_panel;
+    std::unique_ptr<PrintSettingsPanel> m_print_settings_panel; 
+    mutable ResidentFilamentPanelLayoutState m_resident_filament_layout_state;
+    ResidentFilamentPanelResizeState         m_resident_filament_resize_state;
+    mutable float m_top_prefix_width_px = 0.0f;           // width of inline preset block (same row, before toolbar)
+    mutable float m_top_group_left_px   = 0.0f;   // left edge of the whole top row (preset + toolbar + buttons)
+    mutable float m_top_group_right_px = 0.0f;
+    mutable float m_top_group_width_px       = 0.0f; // Width/position of the whole top group (preset + toolbar + right buttons).
+    mutable float m_top_toolbar_visible_px   = 0.0f; // icons_space_px actually rendered
+    mutable float m_right_buttons_block_px   = 0.0f; // reserved width for the two big buttons
+    mutable bool  m_preset_panel_open        = false; // Preset UI state
+    mutable ImVec4 m_device_card_anchor_rect = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    mutable bool   m_device_card_anchor_valid = false;
+    mutable ImTextureID m_preset_icon_tex    = nullptr; // (Optional) cached icon texture id. If you already have a texture, reuse it.
+    mutable ImTextureID m_ai_chat_logo_tex   = nullptr;
+    mutable bool m_ai_chat_float_pos_loaded = false;
+    mutable bool m_ai_chat_float_pos_user_override = false;
+    mutable bool m_ai_chat_float_dragging = false;
+    mutable bool m_ai_chat_float_dragged_this_action = false;
+    mutable ImVec2 m_ai_chat_float_pos = ImVec2(0.0f, 0.0f);
+    mutable std::string m_cur_device_icon_path;
+    mutable bool  m_supports_popup_open = false;  // toggled on click
+    mutable bool  m_preset_settings_open = false;
+    mutable bool  m_filament_settings_open = false;
+    mutable float m_supports_anchor_x_px = 0.0f;  // horizontal arrow anchor in screen px
+    mutable GLToolbar       m_easymode_main_toolbar;
+    mutable GLToolbar       m_object_manipulate_toolbar;
+    bool                    m_more_tools_expanded { false };
+    // ==== easy print mode related ====
 
 public:
     OrientSettings& get_orient_settings()
@@ -817,11 +883,11 @@ public:
     GCodeViewer& get_gcode_viewer();
 
     void                               reset_gcode_toolpaths() { m_gcode_viewer.reset(); }
-    const GCodeViewer::SequentialView& get_gcode_sequential_view() const { return m_gcode_viewer.get_sequential_view(); }
+    /*const GCodeViewer::SequentialView& get_gcode_sequential_view() const { return m_gcode_viewer.get_sequential_view(); }
     void                               update_gcode_sequential_view_current(unsigned int first, unsigned int last)
     {
         m_gcode_viewer.update_sequential_view_current(first, last);
-    }
+    }*/
 
     void toggle_selected_volume_visibility(bool selected_visible);
     void toggle_sla_auxiliaries_visibility(bool visible, const ModelObject* mo = nullptr, int instance_idx = -1);
@@ -894,6 +960,7 @@ public:
     void enable_gizmos(bool enable);
     void enable_selection(bool enable);
     void enable_main_toolbar(bool enable);
+    void enable_easymode_main_toolbar(bool enable);
     // BBS: GUI refactor: GLToolbar
     void _update_select_plate_toolbar_stats_item(bool force_selected = false);
     void reset_select_plate_toolbar_selection();
@@ -928,6 +995,9 @@ public:
     float get_collapse_toolbar_width() const;
     float get_collapse_toolbar_height() const;
     float get_input_window_render_left_pos() const;
+    float get_easy_mode_overlay_safe_left_px() const;
+    float get_easy_mode_overlay_safe_right_px() const;
+    float get_easy_mode_overlay_safe_bottom_px() const;
 
     void update_volumes_colors_by_extruder();
 
@@ -949,7 +1019,8 @@ public:
                                  Camera::EType           camera_type,
                                  bool                    use_top_view = false,
                                  bool                    for_picking  = false,
-                                 bool                    ban_light    = false);
+                                 bool                    ban_light    = false,
+                                 const std::string&      view_type    = "iso");
     void        render_thumbnail(ThumbnailData&            thumbnail_data,
                                  unsigned int              w,
                                  unsigned int              h,
@@ -958,7 +1029,8 @@ public:
                                  Camera::EType             camera_type,
                                  bool                      use_top_view = false,
                                  bool                      for_picking  = false,
-                                 bool                      ban_light    = false);
+                                 bool                      ban_light    = false,
+                                 const std::string&        view_type    = "iso");
     static void render_thumbnail_internal(ThumbnailData&            thumbnail_data,
                                           const ThumbnailsParams&   thumbnail_params,
                                           PartPlateList&            partplate_list,
@@ -969,7 +1041,8 @@ public:
                                           Camera::EType             camera_type,
                                           bool                      use_top_view = false,
                                           bool                      for_picking  = false,
-                                          bool                      ban_light    = false);
+                                          bool                      ban_light    = false,
+                                          const std::string&        view_type = "iso");
     // render thumbnail using an off-screen framebuffer
     static void render_thumbnail_framebuffer(ThumbnailData&            thumbnail_data,
                                              unsigned int              w,
@@ -983,7 +1056,8 @@ public:
                                              Camera::EType             camera_type,
                                              bool                      use_top_view = false,
                                              bool                      for_picking  = false,
-                                             bool                      ban_light    = false);
+                                             bool                      ban_light    = false,
+                                             const std::string&        view_type    = "iso");
     // render thumbnail using an off-screen framebuffer when GLEW_EXT_framebuffer_object is supported
     static void render_thumbnail_framebuffer_ext(ThumbnailData&            thumbnail_data,
                                                  unsigned int              w,
@@ -997,7 +1071,8 @@ public:
                                                  Camera::EType             camera_type,
                                                  bool                      use_top_view = false,
                                                  bool                      for_picking  = false,
-                                                 bool                      ban_light    = false);
+                                                 bool                      ban_light    = false,
+                                                 const std::string&        view_type    = "iso");
 
     // BBS use gcoder viewer render calibration thumbnails
     void render_calibration_thumbnail(ThumbnailData&          thumbnail_data,
@@ -1019,8 +1094,8 @@ public:
     void ensure_on_bed(unsigned int object_idx, bool allow_negative_z);
 
     bool                       is_gcode_legend_enabled() const { return m_gcode_viewer.is_legend_enabled(); }
-    GCodeViewer::EViewType     get_gcode_view_type() const { return m_gcode_viewer.get_view_type(); }
-    const std::vector<double>& get_gcode_layers_zs() const;
+    EViewType     get_gcode_view_type() const { return m_gcode_viewer.get_view_type(); }
+    std::vector<double> get_gcode_layers_zs() const;
     std::vector<double>        get_volumes_print_zs(bool active_only) const;
     unsigned int               get_gcode_options_visibility_flags() const { return m_gcode_viewer.get_options_visibility_flags(); }
     void                       set_gcode_options_visibility_from_flags(unsigned int flags);
@@ -1044,8 +1119,8 @@ public:
     // BBS: add only gcode mode
     void load_gcode_preview(const GCodeProcessorResult& gcode_result, const std::vector<std::string>& str_tool_colors, bool only_gcode);
     void refresh_gcode_preview_render_paths();
-    void set_gcode_view_preview_type(GCodeViewer::EViewType type) { return m_gcode_viewer.set_view_type(type); }
-    GCodeViewer::EViewType get_gcode_view_preview_type() const { return m_gcode_viewer.get_view_type(); }
+    void set_gcode_view_preview_type(EViewType type) { return m_gcode_viewer.set_view_type(type); }
+    EViewType get_gcode_view_preview_type() const { return m_gcode_viewer.get_view_type(); }
     void                   load_sla_preview();
     // void load_preview(const std::vector<std::string>& str_tool_colors, const std::vector<CustomGCode::Item>& color_print_values);
     void bind_event_handlers();
@@ -1256,6 +1331,15 @@ public:
 
     Transform3d get_preview_extra_transform();
 
+    // ==== easy print mode related ====
+    void check_filament_mapping_simple();
+    void open_filament_toolbar_popup();
+    ImGuiFilamentPanel* get_filament_panel() const { return m_imgui_filament_panel.get(); }
+    void close_device_list_popup();
+    void on_easy_mode_switch();
+    void easy_mode_on_scene_reloaded();
+    // ==== easy print mode related ====
+
 private:
     bool _is_shown_on_screen() const;
 
@@ -1267,6 +1351,7 @@ private:
     bool _init_assemble_view_toolbar();
     bool _init_return_toolbar();
     bool _init_separator_toolbar();
+
     // BBS
     // bool _init_view_toolbar();
     bool _init_collapse_toolbar();
@@ -1311,6 +1396,8 @@ private:
 #endif // ENABLE_RENDER_SELECTION_CENTER
     void _check_and_update_toolbar_icon_scale();
     void _render_overlays();
+    void _render_overlays_easymode();
+    void _render_ai_chat_toggle();
     void _render_style_editor();
     void _render_volumes_for_picking(const Camera& camera) const;
     void _render_current_gizmo() const;
@@ -1341,6 +1428,56 @@ private:
     bool _render_arrange_menu(float left, float right, float bottom, float top);
     bool _render_fill_bed_options(float left, float right, float bottom, float top);
     bool _render_object_clone_options(float left, float right, float bottom, float top);
+
+    // ==== easy print mode related ====
+    bool _init_ui_simple();
+    bool _init_main_toolbar_simple();
+    bool _init_object_manipulate_toolbar_simple();
+    void _render_object_manipulate_toolbar_simple();
+    void _reset_simple_toolbar_item_state();
+    void _draw_filament_menu_contents();
+    void _render_preset_settings();
+    void _render_main_toolbar_simple();
+    void _render_slice_control_simple() const;
+    void _render_cur_device_simple();
+    void _render_cur_device_card_simple(const ImVec4& rect, const char* window_id, bool update_top_prefix_width);
+    void _render_device_list_dropdown_panel_simple() const;
+    void _render_supports_popup();
+    void _ensure_preset_icon_tex(unsigned icon_w_px, unsigned icon_h_px) const;
+    void _ensure_ai_chat_logo_tex(unsigned icon_w_px, unsigned icon_h_px) const;
+    bool _should_close_current_imgui_popup() const;
+    bool _close_popup_if(bool* open_flag = nullptr);
+    ImVec4 _compute_resident_filament_rect_default_simple() const;
+    ImVec4 _compute_resident_filament_rect_simple() const;
+    ImVec4 _clamp_resident_filament_rect_simple(const ImVec4& rect, ResidentFilamentResizeEdge active_edge) const;
+    void _load_resident_filament_layout_simple();
+    void _save_resident_filament_layout_simple() const;
+    void _reset_resident_filament_layout_simple();
+    void _render_resident_filament_panel_simple(const ImVec4& rect);
+    ImVec4 _compute_object_drawer_rect_simple() const;
+    void _render_object_drawer_panel_simple(const ImVec4& rect);
+    void _render__obj_list_simple();
+    void render_preview_top_buttons_simple();
+    bool _render_orient_menu_simple();
+
+    ImVec2 compute_toolbar_popup_pos_px(float group_left_px, float group_right_px,
+                                               float pref_w, float pref_h,
+                                               PopupHAlign halign,
+                                               float anchor_x_px = -1.f,
+                                               float margin_top_px = 8.f);
+
+    // 统一的卡片式弹层渲染器：负责定位、窗口开合、白卡背景、关闭逻辑
+    void render_card_popup_if_open(
+        bool&                    open_flag,           // 由它维护开关
+        float                    left_ndc, float right_ndc,
+        float                    popup_h_px,
+        PopupHAlign              halign,
+        float                    popup_gap_px,
+        const char*              window_id,           // 例如 "##supports_popover"
+        const std::function<void()>& content_fn       // 只画内部内容（不再 Begin/End）
+    );
+    // ==== easy print mode related ====
+
     void _render_3d_navigator();
     // render thumbnail using the default framebuffer
     void render_thumbnail_legacy(ThumbnailData&            thumbnail_data,
@@ -1352,7 +1489,8 @@ private:
                                  const GLVolumeCollection& volumes,
                                  std::vector<ColorRGBA>&   extruder_colors,
                                  GLShaderProgram*          shader,
-                                 Camera::EType             camera_type);
+                                 Camera::EType             camera_type,
+                                 const std::string&        view_type = "iso");
 
     void _render_extra_popup();
 
@@ -1420,6 +1558,7 @@ private:
     static void _init_fullscreen_mesh();
 
     static void _rebuild_postprocessing_pipeline(OpenGLManager& ogl_manager, const std::string& input_framebuffer_name, std::string& output_framebuffer_name, uint32_t width, uint32_t height);
+
 };
 
 const ModelVolume* get_model_volume(const GLVolume& v, const Model& model);

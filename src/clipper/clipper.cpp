@@ -788,7 +788,7 @@ bool ClipperBase::AddPath(const Path &pg, PolyType PolyTyp, bool Closed)
     return false;
 
   // Allocate a new edge array.
-  std::vector<TEdge> edges(highI + 1);
+  Edges edges(highI + 1);
   // Fill in the edge array.
   bool result = AddPathInternal(pg, highI, PolyTyp, Closed, edges.data());
   if (result)
@@ -1083,7 +1083,7 @@ void Clipper::Reset()
 {
   CLIPPERLIB_PROFILE_FUNC();
   ClipperBase::Reset();
-  m_Scanbeam = std::priority_queue<cInt>();
+  m_Scanbeam = std::priority_queue<cInt, cInts>();
   m_Maxima.clear();
   m_ActiveEdges = 0;
   m_SortedEdges = 0;
@@ -2240,8 +2240,8 @@ void Clipper::ProcessHorizontal(TEdge *horzEdge)
   if (!eLastHorz->NextInLML)
     eMaxPair = GetMaximaPair(eLastHorz);
 
-  std::vector<cInt>::const_iterator maxIt;
-  std::vector<cInt>::const_reverse_iterator maxRit;
+  cInts::const_iterator maxIt;
+  cInts::const_reverse_iterator maxRit;
   if (!m_Maxima.empty())
   {
       //get the first maxima in range (X) ...
@@ -3958,7 +3958,7 @@ void CleanPolygon(const Path& in_poly, Path& out_poly, double distance)
     return;
   }
 
-  std::vector<OutPt> outPts(size);
+  OutPts outPts(size);
   for (size_t i = 0; i < size; ++i)
   {
     outPts[i].Pt = in_poly[i];

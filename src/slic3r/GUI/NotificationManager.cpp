@@ -1,4 +1,4 @@
-#include "NotificationManager.hpp"
+﻿#include "NotificationManager.hpp"
 
 #include "HintNotification.hpp"
 #include "SlicingProgressNotification.hpp"
@@ -154,15 +154,66 @@ NotificationManager::PopNotification::PopNotification(const NotificationData &n,
 }
 json NotificationManager::get_all_notification()
 {
-	json j2 = json::array();
-	for (std::unique_ptr<PopNotification> &notification : m_pop_notifications) {
-		json j;
-		j["type"] = notification->get_type();
-		j["level"] = notification->get_data().level;
-		//j["text"] = notification->get_text1();
+    // Map NotificationType integer to a human-readable string
+    auto type_to_str = [](NotificationType t) -> std::string {
+        switch (t) {
+        case NotificationType::ValidateError:         return "validate_error";
+        case NotificationType::ValidateWarning:       return "validate_warning";
+        case NotificationType::SlicingError:          return "slicing_error";
+        case NotificationType::SlicingSeriousWarning: return "slicing_serious_warning";
+        case NotificationType::SlicingWarning:        return "slicing_warning";
+        case NotificationType::PlaterError:           return "plater_error";
+        case NotificationType::PlaterWarning:         return "plater_warning";
+        case NotificationType::ExportFinished:        return "export_finished";
+        case NotificationType::BBLObjectInfo:         return "object_info_warning";
+        case NotificationType::CustomNotification:    return "custom";
+        default:                                      return "other";
+        }
+    };
+
+    // Map NotificationLevel integer to a human-readable string
+    auto level_to_str = [](NotificationLevel l) -> std::string {
+        switch (l) {
+        case NotificationLevel::ErrorNotificationLevel:          return "error";
+        case NotificationLevel::WarningNotificationLevel:        return "warning";
+        case NotificationLevel::SeriousWarningNotificationLevel: return "warning";
+        case NotificationLevel::ImportantNotificationLevel:      return "important";
+        case NotificationLevel::RegularNotificationLevel:        return "info";
+        case NotificationLevel::ProgressBarNotificationLevel:    return "progress";
+        default:                                                  return "info";
+        }
+    };
+
+    json j2 = json::array();
+    for (const std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
+        // Skip notifications that are already gone or hidden
+        PopNotification::EState s = notification->get_state();
+        if (s == PopNotification::EState::Finished ||
+            s == PopNotification::EState::ClosePending ||
+            s == PopNotification::EState::Hidden)
+            continue;
+        // Only include warnings / errors relevant to the scene
+        NotificationType t = notification->get_type();
+        // Include scene-relevant warning/error types
+        // BBLObjectInfo is included only when it carries a warning (use_warn_color)
+        bool is_bbl_warning = (t == NotificationType::BBLObjectInfo && notification->get_data().use_warn_color);
+        if (!is_bbl_warning &&
+            t != NotificationType::ValidateError   &&
+            t != NotificationType::ValidateWarning &&
+            t != NotificationType::SlicingError    &&
+            t != NotificationType::SlicingSeriousWarning &&
+            t != NotificationType::SlicingWarning  &&
+            t != NotificationType::PlaterError     &&
+            t != NotificationType::PlaterWarning)
+            continue;
+
+        json j;
+        j["type"]  = type_to_str(t);
+        j["level"] = level_to_str(notification->get_data().level);
+        j["text"]  = notification->get_text1();
         j2.push_back(j);
     }
-	return j2;
+    return j2;
 }
 // We cannot call plater()->get_current_canvas3D() from constructor, so we do it here
 void NotificationManager::PopNotification::ensure_ui_inited()
@@ -218,7 +269,9 @@ void NotificationManager::ObjectInfoNotification::render(
     win_size.x = m_window_width;
     win_size.y = m_window_height;
     ImVec2 bias = DispConfig().getWindowBias(DispConfig::e_wt_msg,sc);
-    ImVec2 win_pos(bias.x, cnv_size.get_height() - initial_y- m_window_height);
+    const float safe_left = canvas.get_easy_mode_overlay_safe_left_px();
+    const float safe_bottom = canvas.get_easy_mode_overlay_safe_bottom_px();
+    ImVec2 win_pos(safe_left + bias.x, cnv_size.get_height() - initial_y - m_window_height - safe_bottom);
 
 	ImGui::SetNextWindowSize(win_size);
 	ImGui::SetNextWindowPos(win_pos, ImGuiCond_Always, { 0,0 });
@@ -1870,6 +1923,43 @@ void NotificationManager::push_validate_error_notification(StringObjectException
 	set_slicing_progress_hidden();
 }
 
+void NotificationManager::push_validate_warning_notification(StringObjectException const& warning)
+{
+    auto po = dynamic_cast<PrintObjectBase const*>(warning.object);
+    auto mo = po ? po->model_object() : dynamic_cast<ModelObject const*>(warning.object);
+
+    std::function<bool(wxEvtHandler*)> callback;
+    if (mo || !warning.opt_key.empty()) {
+        callback = [id = mo ? mo->id() : 0, opt = warning.opt_key](wxEvtHandler*) {
+            auto& objects = wxGetApp().model().objects;
+            auto  iter    = id.id ? std::find_if(objects.begin(), objects.end(), [id](auto o) { return o->id() == id; }) : objects.end();
+            if (iter != objects.end())
+                wxGetApp().obj_list()->select_items({{*iter, nullptr}});
+
+            if (!opt.empty()) {
+                if (iter != objects.end())
+                    wxGetApp().params_panel()->switch_to_object();
+                wxGetApp().sidebar().jump_to_option(opt, Preset::TYPE_PRINT, L"");
+            } else {
+                wxGetApp().mainframe->select_tab(MainFrame::tp3DEditor);
+            }
+            return false;
+        };
+    }
+
+    auto link = (mo || !warning.opt_key.empty()) ? _u8L("Jump to") : "";
+    if (mo)
+        link += std::string(" [") + mo->name + "]";
+    if (!warning.opt_key.empty())
+        link += std::string(" (") + warning.opt_key + ")";
+
+    push_notification_data({NotificationType::ValidateWarning, NotificationLevel::WarningNotificationLevel, 0, warning.string, link,
+                            callback},
+                           0);
+
+    // set_slicing_progress_hidden();
+}
+
 void NotificationManager::push_slicing_error_notification(const std::string &text, std::vector<ModelObject const *> objs)
 {
     std::vector<ObjectID> ids;
@@ -2350,12 +2440,12 @@ void NotificationManager::close_update_params_tip(const std::string& tipInfo)
 }
 
 void NotificationManager::push_checked_3rd_filament_vendor_tip(const std::string& tipInfo) {
-    push_notification_data({NotificationType::SlicingSeriousWarning, NotificationLevel::NormalNotificationLevel, 0, tipInfo, "", nullptr}, 0);
+    push_notification_data({NotificationType::FilamentVendorTip, NotificationLevel::NormalNotificationLevel, 0, tipInfo, "", nullptr}, 0);
 }
 
 void NotificationManager::close_checked_3rd_filament_vendor_tip(const std::string& tipInfo) {
     for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
-        if (notification->get_type() == NotificationType::SlicingSeriousWarning && notification->compare_text(tipInfo)) {
+        if (notification->get_type() == NotificationType::FilamentVendorTip && notification->compare_text(tipInfo)) {
             notification->close();
         }
     }
@@ -2738,9 +2828,11 @@ void NotificationManager::render_notifications(GLCanvas3D &canvas, float overlay
 	ImVec2 pos = canvas.get_printer_objects_panel_pos();
     ImVec2 size = canvas.get_printer_objects_panel_size();
 
-    ImVec2 bias = ImVec2(5, canvas.get_canvas_size().get_height() - bottom_up_last_y);
+    const float safe_left = canvas.get_easy_mode_overlay_safe_left_px();
+    const float safe_bottom = canvas.get_easy_mode_overlay_safe_bottom_px();
+    ImVec2 bias = ImVec2(safe_left + 5.0f * canvas.get_scale(), canvas.get_canvas_size().get_height() - bottom_up_last_y - safe_bottom);
 
-    float h0 = canvas.get_canvas_size().get_height() - pos.y - size.y - bottom_up_last_y - 10.0f;
+    float h0 = canvas.get_canvas_size().get_height() - safe_bottom - pos.y - size.y - bottom_up_last_y - 10.0f;
     float h1 = canvas.get_canvas_size().get_height() * 0.5 - bottom_up_last_y - 10.0f;
     static float scroll_content_height = -1.0f;
     float h = std::min(h0, h1);

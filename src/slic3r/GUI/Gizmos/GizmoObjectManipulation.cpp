@@ -34,7 +34,48 @@ const double GizmoObjectManipulation::in_to_mm = 25.4;
 const double GizmoObjectManipulation::mm_to_in = 0.0393700787;
 const double GizmoObjectManipulation::oz_to_g = 28.34952;
 const double GizmoObjectManipulation::g_to_oz = 0.035274;
+static bool render_simple_gizmo_close_button(GLCanvas3D& glcanvas)
+{
+    if (!wxGetApp().easy_mode())
+        return false;
 
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window == nullptr)
+        return false;
+
+    const float scale       = std::max(1.0f, glcanvas.get_scale());
+    const float button_size = 24.0f * scale;
+    const float titlebar_h  = std::max(30.0f * scale, ImGui::GetFrameHeight());
+    const ImVec2 pos(window->Pos.x + window->Size.x - button_size - 4.0f * scale,
+                     window->Pos.y + 0.5f * (titlebar_h - button_size));
+    const ImRect bb(pos, ImVec2(pos.x + button_size, pos.y + button_size));
+    ImGuiID id = window->GetID("##simple_gizmo_close_button");
+    bool hovered = false;
+    bool held    = false;
+    ImGui::PushClipRect(ImVec2(0.0f, 0.0f), ImGui::GetIO().DisplaySize, false);
+    ImGui::ItemAdd(bb, id);
+    const bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_PressedOnClickRelease);
+    ImGui::PopClipRect();
+
+    ImDrawList* draw_list = ImGui::GetForegroundDrawList();
+    const ImVec2 max(pos.x + button_size, pos.y + button_size);
+    if (hovered || held) {
+        const ImU32 hover_col = ImGui::GetColorU32(ImVec4(0.082f, 0.749f, 0.349f, 1.0f));
+        draw_list->AddRect(pos, max, hover_col, 2.0f * scale, 0, 1.0f * scale);
+    }
+
+    const ImU32 line_col = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    const float pad       = 7.0f * scale;
+    const float thickness = 2.0f * scale;
+    draw_list->AddLine(ImVec2(pos.x + pad, pos.y + pad), ImVec2(max.x - pad, max.y - pad), line_col, thickness);
+    draw_list->AddLine(ImVec2(pos.x + pad, max.y - pad), ImVec2(max.x - pad, pos.y + pad), line_col, thickness);
+
+    if (pressed) {
+        GLCanvas3D* canvas = &glcanvas;
+        wxGetApp().CallAfter([canvas]() { canvas->reset_all_gizmos(); });
+    }
+    return pressed;
+}
 // Helper function to be used by drop to bed button. Returns lowest point of this
 // volume in world coordinate system.
 static double get_volume_min_z(const GLVolume* volume)
@@ -587,7 +628,7 @@ bool GizmoObjectManipulation::reset_button(ImGuiWrapper *imgui_wrapper, float ca
      return unit_size + 8.0;
  }
 
-void GizmoObjectManipulation::do_render_move_window(ImGuiWrapper *imgui_wrapper, std::string window_name, float x, float y, float bottom_limit)
+void GizmoObjectManipulation::do_render_move_window(ImGuiWrapper *imgui_wrapper, std::string window_name, float x, float y, float bottom_limit,bool force_update_pos)
 {
     // BBS: GUI refactor: move gizmo to the right
     if (abs(last_move_input_window_width) > 0.01f) {
@@ -600,7 +641,7 @@ void GizmoObjectManipulation::do_render_move_window(ImGuiWrapper *imgui_wrapper,
     }
 #if BBS_TOOLBAR_ON_TOP
     // imgui_wrapper->set_next_window_pos(x, y, ImGuiCond_Always, 0.f, 0.0f);
-    imgui_wrapper->set_draggable_window_pos(x, y, ImGuiCond_Always, 0.f, 0.0f);
+    imgui_wrapper->set_draggable_window_pos(x, y, ImGuiCond_Always, 0.f, 0.0f, force_update_pos);
 #else
     // imgui_wrapper->set_next_window_pos(x, y, ImGuiCond_Always, 1.0f, 0.0f);
     imgui_wrapper->set_draggable_window_pos(x, y, ImGuiCond_Always, 1.0f, 0.0f);
@@ -615,6 +656,7 @@ void GizmoObjectManipulation::do_render_move_window(ImGuiWrapper *imgui_wrapper,
     std::string name = window_name + "##" + this->m_new_title_string;
     //std::string name = "move test";
     imgui_wrapper->begin_with_drag(_L(name), ImGuiWrapper::TOOLBAR_WINDOW_FLAGS);
+    render_simple_gizmo_close_button(m_glcanvas);
     ImGui::PopStyleVar(1);
 
     auto update = [this](unsigned int active_id, std::string opt_key, Vec3d original_value, Vec3d new_value) -> int {
@@ -723,6 +765,7 @@ void GizmoObjectManipulation::do_render_move_window(ImGuiWrapper *imgui_wrapper,
 
     m_last_active_item = current_active_id;
     last_move_input_window_width = ImGui::GetWindowWidth();
+    m_last_input_window_height = ImGui::GetWindowHeight();
 
     ImGui::Dummy(ImVec2(0.0f, 0.0f));
 
@@ -779,7 +822,7 @@ void GizmoObjectManipulation::do_render_move_window(ImGuiWrapper *imgui_wrapper,
     ImGuiWrapper::pop_toolbar_style();
 }
 
-void GizmoObjectManipulation::do_render_rotate_window(ImGuiWrapper *imgui_wrapper, std::string window_name, float x, float y, float bottom_limit)
+void GizmoObjectManipulation::do_render_rotate_window(ImGuiWrapper *imgui_wrapper, std::string window_name, float x, float y, float bottom_limit, bool force_update)
 {
     // BBS: GUI refactor: move gizmo to the right
     if (abs(last_rotate_input_window_width) > 0.01f) {
@@ -792,7 +835,7 @@ void GizmoObjectManipulation::do_render_rotate_window(ImGuiWrapper *imgui_wrappe
     }
 #if BBS_TOOLBAR_ON_TOP
     // imgui_wrapper->set_next_window_pos(x, y, ImGuiCond_Always, 0.f, 0.0f);
-    imgui_wrapper->set_draggable_window_pos(x, y, ImGuiCond_Always, 0.f, 0.0f);
+    imgui_wrapper->set_draggable_window_pos(x, y, ImGuiCond_Always, 0.f, 0.0f, force_update);
 #else
     // imgui_wrapper->set_next_window_pos(x, y, ImGuiCond_Always, 1.0f, 0.0f);
     imgui_wrapper->set_draggable_window_pos(x, y, ImGuiCond_Always, 1.0f, 0.0f);
@@ -807,6 +850,7 @@ void GizmoObjectManipulation::do_render_rotate_window(ImGuiWrapper *imgui_wrappe
     std::string name = window_name + "##" + this->m_new_title_string;
     //std::string name = "move test";
     imgui_wrapper->begin_with_drag(_L(name), ImGuiWrapper::TOOLBAR_WINDOW_FLAGS);
+    render_simple_gizmo_close_button(m_glcanvas);
     ImGui::PopStyleVar(1);
     
     auto update = [this](unsigned int active_id, std::string opt_key, Vec3d original_value, Vec3d new_value) -> int {
@@ -908,6 +952,7 @@ void GizmoObjectManipulation::do_render_rotate_window(ImGuiWrapper *imgui_wrappe
 
     m_last_active_item = current_active_id;
     last_rotate_input_window_width = ImGui::GetWindowWidth();
+    m_last_input_window_height = ImGui::GetWindowHeight();
     imgui_wrapper->end();
 
     // BBS
@@ -915,7 +960,7 @@ void GizmoObjectManipulation::do_render_rotate_window(ImGuiWrapper *imgui_wrappe
     ImGuiWrapper::pop_toolbar_style();
 }
 
-void GizmoObjectManipulation::do_render_scale_input_window(ImGuiWrapper* imgui_wrapper, std::string window_name, float x, float y, float bottom_limit)
+void GizmoObjectManipulation::do_render_scale_input_window(ImGuiWrapper* imgui_wrapper, std::string window_name, float x, float y, float bottom_limit, bool force_update)
 {
     //BBS: GUI refactor: move gizmo to the right
     if (abs(last_scale_input_window_width) > 0.01f) {
@@ -928,7 +973,7 @@ void GizmoObjectManipulation::do_render_scale_input_window(ImGuiWrapper* imgui_w
     }
 #if BBS_TOOLBAR_ON_TOP
     // imgui_wrapper->set_next_window_pos(x, y, ImGuiCond_Always, 0.f, 0.0f);
-    imgui_wrapper->set_draggable_window_pos(x, y, ImGuiCond_Always, 0.f, 0.0f);
+    imgui_wrapper->set_draggable_window_pos(x, y, ImGuiCond_Always, 0.f, 0.0f, force_update);
 #else
     // imgui_wrapper->set_next_window_pos(x, y, ImGuiCond_Always, 1.0f, 0.0f);
     imgui_wrapper->set_draggable_window_pos(x, y, ImGuiCond_Always, 1.0f, 0.0f);
@@ -942,6 +987,7 @@ void GizmoObjectManipulation::do_render_scale_input_window(ImGuiWrapper* imgui_w
                         ImVec2(8.0f, (30.0f * m_glcanvas.get_scale() - ImGui::GetFontSize()) / 2.0)); // use for titlebar
     std::string name = window_name + "##" + this->m_new_title_string;
     imgui_wrapper->begin_with_drag(_L(name), ImGuiWrapper::TOOLBAR_WINDOW_FLAGS);
+    render_simple_gizmo_close_button(m_glcanvas);
     ImGui::PopStyleVar(1);
 
     auto update = [this](unsigned int active_id, std::string opt_key, Vec3d original_value, Vec3d new_value)->int {
@@ -1132,6 +1178,7 @@ void GizmoObjectManipulation::do_render_scale_input_window(ImGuiWrapper* imgui_w
     m_last_active_item = current_active_id;
 
     last_scale_input_window_width = ImGui::GetWindowWidth();
+    m_last_input_window_height = ImGui::GetWindowHeight();
     imgui_wrapper->end();
 
     //BBS

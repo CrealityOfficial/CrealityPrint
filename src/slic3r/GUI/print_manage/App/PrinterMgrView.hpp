@@ -30,6 +30,15 @@
 #include <slic3r/GUI/print_manage/AppUtils.hpp>
 #include "mqtt_client.h"
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <functional>
+#include <mutex>
+#include <set>
+#include <unordered_map>
+
 
 namespace Slic3r {
     namespace GUI {
@@ -86,6 +95,14 @@ namespace Slic3r {
             void processMqttMessage(std::string topic,std::string playload);
             void update_current_cxy_device_filament(const std::string& mac);
 
+            void requeset_set_current_device(const std::string& device_mac);
+            bool request_move_print_head(const nlohmann::json& payload);
+            bool request_print_control(const nlohmann::json& payload);
+            bool request_check_upload_file_ready(const std::string& printer_ip,
+                                                 const std::string& file_name,
+                                                 std::uint64_t file_size,
+                                                 int timeout_ms = 900);
+
         private:
             void SendAPIKey();
             std::string get_plate_data_on_show();
@@ -133,6 +150,15 @@ namespace Slic3r {
             bool m_webview_loaded_successfully = false;
             std::set<std::string> m_print_send_fired_ips;
             std::string m_last_send_format;
+            struct UploadFileReadyCheckResult {
+                bool completed = false;
+                bool ready = false;
+                std::string message;
+            };
+            std::atomic<unsigned long long> m_upload_file_ready_seq {0};
+            std::mutex m_upload_file_ready_mutex;
+            std::condition_variable m_upload_file_ready_cv;
+            std::unordered_map<std::string, UploadFileReadyCheckResult> m_upload_file_ready_results;
             // DECLARE_EVENT_TABLE()
         };
 

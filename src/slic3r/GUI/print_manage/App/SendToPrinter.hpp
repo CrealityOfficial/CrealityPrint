@@ -1,3 +1,4 @@
+#include <atomic>
 #include "wx/artprov.h"
 #include "wx/cmdline.h"
 #include "wx/notifmsg.h"
@@ -55,11 +56,15 @@ public:
     virtual bool Show(bool show = true) wxOVERRIDE;
 
     bool get_show_status() { return m_show_status; }
+    bool send_was_canceled() const { return m_send_was_canceled; }
 
     void on_dpi_changed(const wxRect& suggested_rect) override;
     void update_plate_preview_img_on_send_page();
 
     int load_machine_preset_data();
+
+    void run_script(std::string content);
+
 private:
     void bind_events();
     void SendAPIKey();
@@ -67,7 +72,6 @@ private:
     std::string get_onlygcode_plate_data_on_show();
     std::string get_updated_plate_preview_img(int plateIndex);
     void update_send_page_content();
-    void run_script(std::string content);
     void post_script(const wxString& script);
     void post_close();
     bool LoadFile(std::string jPath, std::string & sContent);
@@ -122,8 +126,9 @@ private:
 
     std::unordered_map<std::string, std::function<void(const nlohmann::json&)>> m_commandHandlers;
     std::string m_mapString;
-    bool m_isClosed = false;
+    std::atomic<bool> m_isClosed{false};
     bool m_is_only_gcode_mode = false;
+    bool m_send_was_canceled = false;
 };
 
 } // namespace GUI

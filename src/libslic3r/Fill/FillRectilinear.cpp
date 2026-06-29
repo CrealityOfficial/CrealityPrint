@@ -18,6 +18,8 @@
 #include "../ShortestPath.hpp"
 #include "../EdgeGrid.hpp"
 #include "../VariableWidth.hpp"
+#include "../Feature/FuzzySkin/FuzzySkin.hpp"
+#include "../PerimeterGenerator.hpp"
 
 #include "FillRectilinear.hpp"
 
@@ -4750,7 +4752,8 @@ void FillMonotonicLineWGapFill::fill_surface_by_lines(const Surface* surface, co
 
 void FillLockedZag::fill_surface_locked_zag(const Surface*                           surface,
                                             const FillParams&                        params,
-                                            std::vector<std::pair<Polylines, Flow>>& multi_width_polyline)
+                                            std::vector<std::pair<Polylines, Flow>>& multi_width_polyline,
+                                            std::vector<std::pair<Polylines, Flow>>& skin_polyline)
 {
     // merge different part exps
     // diff skin flow
@@ -4769,13 +4772,13 @@ void FillLockedZag::fill_surface_locked_zag(const Surface*                      
     FillParams zig_params = params;
 
     // generate skeleton for diff density
-    auto generate_for_different_flow = [&multi_width_polyline](const std::map<Flow, ExPolygons>& flow_params, const Polylines& polylines) {
+    auto generate_for_different_flow = [](const std::map<Flow, ExPolygons>& flow_params, const Polylines& polylines, std::vector<std::pair<Polylines, Flow>>& out) {
         auto it = flow_params.begin();
         while (it != flow_params.end()) {
             ExPolygons region_exp = union_safety_offset_ex(it->second);
 
             Polylines polys = intersection_pl(polylines, region_exp);
-            multi_width_polyline.emplace_back(polys, it->first);
+            out.emplace_back(polys, it->first);
             it++;
         }
     };
@@ -4799,10 +4802,19 @@ void FillLockedZag::fill_surface_locked_zag(const Surface*                      
         it++;
     }
 
-    // set skeleton flow
-    generate_for_different_flow(this->lock_param.skeleton_flow_params, skeloton_lines);
+    // skeleton lines -> multi_width_polyline (erInternalInfill, can be overridden by flush-into-infill)
+    generate_for_different_flow(this->lock_param.skeleton_flow_params, skeloton_lines, multi_width_polyline);
 
     // skin exps
+    // The skin zone is cross_expas (width = offset_threshold).  When offset_threshold
+    // is very small (e.g. 0.4 mm) the zone may be narrower than one skin line-spacing,
+    // producing zero lines.  To guarantee at least one skin pass we expand cross_expas
+    // inward by overlap_threshold (symmetric with the skeleton expansion on L4793),
+    // then clip back to the original expolygon so we never paint outside the boundary.
+    ExPolygons skin_expas = intersection_ex(
+        offset_ex(cross_expas, overlap_threshold),
+        ExPolygons{surface->expolygon});
+
     bool                  cross_get    = false;
     FillParams            skin_params  = params;
     auto                  skin_density = this->lock_param.skin_density_params.begin();
@@ -4813,7 +4825,7 @@ void FillLockedZag::fill_surface_locked_zag(const Surface*                      
         zig_params.horiz_move = 0;
     while (skin_density != this->lock_param.skin_density_params.end()) {
         ExPolygons region_exp = union_safety_offset_ex(skin_density->second);
-        ExPolygons exps       = intersection_ex(region_exp, cross_expas);
+        ExPolygons exps       = intersection_ex(region_exp, skin_expas);
         skin_params.density   = skin_density->first;
         for (ExPolygon& exp : exps) {
             cross_surface.expolygon       = exp;
@@ -4823,43 +4835,61 @@ void FillLockedZag::fill_surface_locked_zag(const Surface*                      
         skin_density++;
     }
 
-    generate_for_different_flow(this->lock_param.skin_flow_params, skin_lines);
+    // skin lines -> skin_polyline (erSkinInfill, can absorb the first flush segment when flush-into-infill is off)
+    generate_for_different_flow(this->lock_param.skin_flow_params, skin_lines, skin_polyline);
 }
 
 void FillLockedZag::fill_surface_extrusion(const Surface* surface, const FillParams& params, ExtrusionEntitiesPtr& out)
 {
     Polylines                               polylines;
     ThickPolylines                          thick_polylines;
-    std::vector<std::pair<Polylines, Flow>> multi_width_polyline;
+    std::vector<std::pair<Polylines, Flow>> multi_width_polyline;  // skeleton paths (erInternalInfill)
+    std::vector<std::pair<Polylines, Flow>> skin_polyline;         // skin paths (erSkinInfill)
     try {
-        this->fill_surface_locked_zag(surface, params, multi_width_polyline);
+        this->fill_surface_locked_zag(surface, params, multi_width_polyline, skin_polyline);
     } catch (InfillFailedException&) {}
 
+    // skin paths: output as a separate ExtrusionEntityCollection (erSkinInfill)
+    // printed BEFORE skeleton so flush/color-change happens between skin and skeleton
+    if (!skin_polyline.empty()) {
+        ExtrusionEntityCollection* eec_skin = nullptr;
+        out.push_back(eec_skin = new ExtrusionEntityCollection());
+        eec_skin->no_sort   = this->no_sort();
+        size_t idx_skin = eec_skin->entities.size();
+        for (std::pair<Polylines, Flow>& poly_with_flow : skin_polyline) {
+            double flow_mm3_per_mm = poly_with_flow.second.mm3_per_mm();
+            double flow_width      = poly_with_flow.second.width();
+            if (!params.using_internal_flow) {
+                Flow new_flow   = poly_with_flow.second.with_spacing(this->spacing);
+                flow_mm3_per_mm = new_flow.mm3_per_mm();
+                flow_width      = new_flow.width();
+            }
+            extrusion_entities_append_paths(eec_skin->entities, std::move(poly_with_flow.first), erSkinInfill, flow_mm3_per_mm,
+                                            float(flow_width), poly_with_flow.second.height());
+        }
+        if (!params.can_reverse) {
+            for (size_t i = idx_skin; i < eec_skin->entities.size(); i++)
+                eec_skin->entities[i]->set_reverse();
+        }
+    }
+
+    // skeleton paths: output as a separate ExtrusionEntityCollection (erInternalInfill)
+    // flush-into-infill override targets this collection; color-change happens before printing this
     if (!thick_polylines.empty() || !multi_width_polyline.empty()) {
-        // Save into layer.
         ExtrusionEntityCollection* eec = nullptr;
         out.push_back(eec = new ExtrusionEntityCollection());
-        // Only concentric fills are not sorted.
         eec->no_sort = this->no_sort();
         size_t idx   = eec->entities.size();
-        {
-            for (std::pair<Polylines, Flow>& poly_with_flow : multi_width_polyline) {
-                // calculate actual flow from spacing (which might have been adjusted by the infill
-                // pattern generator)
-                double flow_mm3_per_mm = poly_with_flow.second.mm3_per_mm();
-                double flow_width      = poly_with_flow.second.width();
-                if (params.using_internal_flow) {
-                    // if we used the internal flow we're not doing a solid infill
-                    // so we can safely ignore the slight variation that might have
-                    // been applied to f->spacing
-                } else {
-                    Flow new_flow   = poly_with_flow.second.with_spacing(this->spacing);
-                    flow_mm3_per_mm = new_flow.mm3_per_mm();
-                    flow_width      = new_flow.width();
-                }
-                extrusion_entities_append_paths(eec->entities, std::move(poly_with_flow.first), params.extrusion_role, flow_mm3_per_mm,
-                                                float(flow_width), poly_with_flow.second.height());
+        for (std::pair<Polylines, Flow>& poly_with_flow : multi_width_polyline) {
+            double flow_mm3_per_mm = poly_with_flow.second.mm3_per_mm();
+            double flow_width      = poly_with_flow.second.width();
+            if (!params.using_internal_flow) {
+                Flow new_flow   = poly_with_flow.second.with_spacing(this->spacing);
+                flow_mm3_per_mm = new_flow.mm3_per_mm();
+                flow_width      = new_flow.width();
             }
+            extrusion_entities_append_paths(eec->entities, std::move(poly_with_flow.first), params.extrusion_role, flow_mm3_per_mm,
+                                            float(flow_width), poly_with_flow.second.height());
         }
         if (!params.can_reverse) {
             for (size_t i = idx; i < eec->entities.size(); i++)
@@ -4867,5 +4897,6 @@ void FillLockedZag::fill_surface_extrusion(const Surface* surface, const FillPar
         }
     }
 }
+
 
 } // namespace Slic3r

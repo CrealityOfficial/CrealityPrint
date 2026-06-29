@@ -29,7 +29,7 @@ public:
 
 protected:
     virtual std::string on_get_name() const override;
-    virtual void on_render_input_window(float x, float y, float bottom_limit) override;
+    virtual void on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false) override;
     virtual bool on_is_activable() const override;
     virtual bool on_is_selectable() const override { return false; }
     virtual void on_set_state() override;

@@ -172,6 +172,11 @@ void GLGizmoFdmSupports::render_triangles(const Selection& selection) const
     ScopeGuard guard([shader]() { if (shader) shader->stop_using(); });
 
     const ModelObject* mo = m_c->selection_info()->model_object();
+    if (mo == nullptr)
+    {
+        return;
+    }
+    
     int                mesh_id = -1;
     for (const ModelVolume* mv : mo->volumes) {
         if (!mv->is_model_part())
@@ -220,7 +225,7 @@ void GLGizmoFdmSupports::on_set_state()
     }
 }
 
-void GLGizmoFdmSupports::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoFdmSupports::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
     init_print_instance();
     if (! m_c->selection_info()->model_object())
@@ -240,7 +245,7 @@ void GLGizmoFdmSupports::on_render_input_window(float x, float y, float bottom_l
     const float approx_height = m_imgui->scaled(23.f);
     y = std::min(y, bottom_limit - approx_height);
 
-    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f);
+    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f, force_update_pos);
 
     //BBS
     ImGuiWrapper::push_toolbar_style(m_parent.get_scale());

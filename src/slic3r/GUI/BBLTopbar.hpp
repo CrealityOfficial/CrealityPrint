@@ -129,6 +129,8 @@ private:
     wxAuiToolBarItem* m_upload_btn;
     wxAuiToolBarItem* m_feedback_separator_item{nullptr};
     wxAuiToolBarItem* m_feedback_item;
+    wxControl* m_easy_mode_switch_ctrl{ nullptr };
+    wxAuiToolBarItem* m_easy_mode_switch_item{ nullptr };
     wxControl* m_tabCtrol;
 
     wxBitmap m_publish_bitmap;

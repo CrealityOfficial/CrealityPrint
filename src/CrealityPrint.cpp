@@ -6686,7 +6686,7 @@ extern "C" {
             if (largest_free < (SIZE_T)(16ull << 20)) {
                 BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " Heuristic: Address space exhaustion likely (largest_free < 16MB)";
             }
-            if (free_regions > 1024 && largest_free * 4 < total_free) {
+            if (free_regions > 1024 && largest_free * 4 < total_free) { 
                 BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " Heuristic: Severe VAS fragmentation suspected";
             }
 #endif

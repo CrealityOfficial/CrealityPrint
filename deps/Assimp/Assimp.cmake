@@ -1,8 +1,8 @@
 include(${CMAKE_SOURCE_DIR}/../cmake/modules/CheckUos.cmake)
 if(IS_UOS)
-    set(patch_command git init && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-.patch && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-uos.patch)
+    set(patch_command git init && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-.patch && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0002-clang-nontrivial-memcall.patch && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-uos.patch)
 else()
-    set(patch_command git init && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-.patch)
+    set(patch_command git init && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-.patch && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0002-clang-nontrivial-memcall.patch)
 endif()
 orcaslicer_add_cmake_project(Assimp
   URL                 https://github.com/assimp/assimp/archive/refs/tags/v5.4.3.zip

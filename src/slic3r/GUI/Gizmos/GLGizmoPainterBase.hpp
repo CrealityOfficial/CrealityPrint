@@ -259,6 +259,7 @@ protected:
         SMART_FILL,
         // BBS
         GAP_FILL,
+        OBJECT_FILL,
     };
 
     struct ProjectedMousePosition

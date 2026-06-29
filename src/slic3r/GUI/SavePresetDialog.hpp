@@ -18,8 +18,10 @@ class wxComboBox;
 class wxStaticBitmap;
 
 #define SAVE_PRESET_DIALOG_DEF_COLOUR wxColour(255, 255, 255)
-#define SAVE_PRESET_DIALOG_INPUT_SIZE wxSize(FromDIP(360), FromDIP(24))
-#define SAVE_PRESET_DIALOG_BUTTON_SIZE wxSize(FromDIP(60), FromDIP(24))
+#define SAVE_PRESET_DIALOG_INPUT_WIDTH 360
+#define SAVE_PRESET_DIALOG_INPUT_HEIGHT 24
+#define SAVE_PRESET_DIALOG_BUTTON_WIDTH 60
+#define SAVE_PRESET_DIALOG_BUTTON_HEIGHT 24
 
 namespace Slic3r {
 namespace GUI {
@@ -47,6 +49,7 @@ class SavePresetDialog : public DPIDialog
         Item(Preset::Type type, const std::string& suffix, wxBoxSizer* sizer, SavePresetDialog* parent);
 
         void            update_valid_bmp();
+        void            rescale();
         void accept();
         virtual void DoSetSize(int x, int y, int width, int height, int sizeFlags = wxSIZE_AUTO);
 
@@ -106,6 +109,8 @@ public:
     void layout();
     //BBS: add project embedded preset relate logic
     bool get_save_to_project_selection(Preset::Type type);
+    wxSize input_size() const;
+    wxSize button_size() const;
 
 protected:
     void on_dpi_changed(const wxRect& suggested_rect) override;

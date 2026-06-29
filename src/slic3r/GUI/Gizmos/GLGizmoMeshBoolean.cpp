@@ -2057,8 +2057,9 @@ CommonGizmosDataID GLGizmoMeshBoolean::on_get_requirements() const
 
 // ========================== UI RENDERING ==========================
 
-void GLGizmoMeshBoolean::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoMeshBoolean::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
+    (void)force_update_pos;
     // Delegate to UI layer, but handle gizmo state changes here
     const Selection &sel = m_parent.get_selection();
     m_target_mode = update_cur_mode(sel);

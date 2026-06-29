@@ -48,23 +48,23 @@ def process_sym_files():
             first_line = f.readline().strip()
             print(f"First line: {first_line}")
             
-            if first_line.startswith('MODULE'):
-                parts = first_line.split()
-                if len(parts) >= 5:
-                    info = {
-                        "os": parts[1],
-                        "arch": parts[2],
-                        "module_id": parts[3],
-                        "pdb_name": parts[4]
-                    }
-                    target_dir = Path("symbols") / Path(info["pdb_name"]) / info["module_id"]
-                    target_dir.mkdir(parents=True, exist_ok=True)
-                    shutil.move(str(sym_file), str(target_dir / sym_file.name))
-                    print("SUCCESS: Symbol generation completed")
-                else:
-                    print("ERROR: Invalid MODULE line format")
+        if first_line.startswith('MODULE'):
+            parts = first_line.split()
+            if len(parts) >= 5:
+                info = {
+                    "os": parts[1],
+                    "arch": parts[2],
+                    "module_id": parts[3],
+                    "pdb_name": parts[4]
+                }
+                target_dir = Path("symbols") / Path(info["pdb_name"]) / info["module_id"]
+                target_dir.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(sym_file), str(target_dir / sym_file.name))
+                print("SUCCESS: Symbol generation completed")
             else:
-                print("ERROR: First line does not start with MODULE")
+                print("ERROR: Invalid MODULE line format")
+        else:
+            print("ERROR: First line does not start with MODULE")
 
     except Exception as e:
         print(f"ERROR: {str(e)}")

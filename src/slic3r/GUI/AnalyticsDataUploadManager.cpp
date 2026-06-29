@@ -1,15 +1,20 @@
 #include "AnalyticsDataUploadManager.hpp"
 #include <future>
+#include <thread>
+#include <chrono>
 #include <string>
+#include <cstring>
 #include <fstream>
 #include <sstream>
 #include <iomanip>
 #include <vector>
+#include <set>
 #include <stdexcept>
 
 // OpenSSL MD5
 #include <openssl/md5.h>
 #include <boost/log/trivial.hpp>
+#include <boost/log/core.hpp>
 
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/Plater.hpp"
@@ -18,6 +23,7 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelVolume.hpp"
+#include "libslic3r/ModelInstance.hpp"
 #include "nlohmann/json.hpp"
 #include "libslic3r/Time.hpp"
 #include "slic3r/GUI/print_manage/data/DataType.hpp"
@@ -29,6 +35,8 @@
 #include "slic3r/Utils/Http.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/GUI.hpp"
+#include <boost/filesystem.hpp>
+#include <boost/nowide/fstream.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -319,13 +327,6 @@ void AnalyticsDataUploadManager::triggerUploadTasksWithPayload(const AnalyticsEv
                 break;
             case AnalyticsDataEventType::ANALYTICS_SLICE_SINGLE_COMPLETE:
                 track_model_action("slice_single", js);   
-                                // 测试连接（仅用于调试）
-                if (AnalyticsDataUploadManager::test_sensors_connection()) {
-                    BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] Connection test PASSED, sending event...";
-                    send_print_begin_event(js);
-                } else {
-                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] Connection test FAILED, skipping event";
-                }
                 break;
             case AnalyticsDataEventType::ANALYTICS_SLICE_ALL_COMPLETE:
                 track_model_action("slice_all", js);
@@ -388,9 +389,38 @@ void AnalyticsDataUploadManager::triggerUploadTasksWithPayload(const AnalyticsEv
             case AnalyticsDataEventType::ANALYTICS_MODEL_BOOLEAN:
                 track_model_action("model_boolean", js);
                 break;
+            // OTA update events
+            case AnalyticsDataEventType::ANALYTICS_OTA_DOWNLOAD_START:
+                BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] ota_download_start triggered, data=" << js.dump();
+                track_model_action("ota_download_start", js);
+                break;
+            case AnalyticsDataEventType::ANALYTICS_OTA_DOWNLOAD_CANCEL:
+                BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] ota_download_cancel triggered, data=" << js.dump();
+                track_model_action("ota_download_cancel", js);
+                break;
+            case AnalyticsDataEventType::ANALYTICS_OTA_UPDATE_START:
+                BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] ota_update_start triggered, data=" << js.dump();
+                track_model_action("ota_update_start", js);
+                break;
+            case AnalyticsDataEventType::ANALYTICS_OTA_UPDATE_CANCEL:
+                BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] ota_update_cancel triggered, data=" << js.dump();
+                track_model_action("ota_update_cancel", js);
+                break;
+            case AnalyticsDataEventType::ANALYTICS_OTA_UPDATE_SUCCESS:
+                BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] ota_update_success triggered, data=" << js.dump();
+                track_model_action("ota_update_success", js);
+                break;
+            case AnalyticsDataEventType::ANALYTICS_OTA_UPDATE_FAIL:
+                BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] ota_update_fail triggered, data=" << js.dump();
+                track_model_action("ota_update_fail", js);
+                break;
+            case AnalyticsDataEventType::ANALYTICS_PRINT_VIDEO_CONNECT:
+                track_model_action("print_video_connect", js);
+                break;
             default:
                 break;
             }
+            boost::log::core::get()->flush();
         }
     }
     catch (...)
@@ -408,10 +438,11 @@ void AnalyticsDataUploadManager::mark_analytics_project_info(const std::string& 
     m_analytics_project_info.url = full_url;
     m_analytics_project_info.model_id = model_id;
     m_analytics_project_info.file_id = file_id;
-    m_analytics_project_info.file_format = file_format;
+    // file_format 仅非空时覆盖（主线程同步设定的值不被异步回调的空串覆盖）
+    if (!file_format.empty()) {
+        m_analytics_project_info.file_format = file_format;
+    }
     m_analytics_project_info.name = name;
-    
-    BOOST_LOG_TRIVIAL(warning) << "[AnalyticsProjectInfo] mark_analytics_project_info called: model_id=" << model_id;
 }
 
 void AnalyticsDataUploadManager::set_analytics_project_info_valid(bool valid)
@@ -619,7 +650,7 @@ void AnalyticsDataUploadManager::uploadGlobalPrintParams(int plate_idx, const st
         ss << std::fixed << std::setprecision(2) << plate_print.print_statistics().total_weight;
         js["total_filament_cost"] = ss.str();
 
-        wxString print_time = wxString::Format("%s", short_time(get_time_dhms(plate->get_slice_result()->print_statistics.modes[0].time))); 
+        wxString print_time = wxString::Format("%s", short_time(get_time_dhms(plate->get_slice_result()->print_statistics.modes[0].model_time_s())));
         js["print_estimated_duration"] = print_time.ToStdString();
 
         //js["slice_preview_duration"] = "";
@@ -1112,53 +1143,35 @@ void AnalyticsDataUploadManager::track_model_action_delayed_print_send(const nlo
 {
     // Serialize JSON to string - this is safe and persists across timer callbacks
     const std::string json_str = js.dump();
-    
-    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [SCHEDULE] Creating timer, JSON size=" << json_str.size() 
-                             << ", data=" << json_str;
-    
+
     // Use wxTimer to delay execution by 2 seconds without blocking
     wxTimer* timer = new wxTimer();
-    
+
     // IMPORTANT: Only capture the serialized string (JSON object may become invalid in lambda)
     timer->Bind(wxEVT_TIMER, [this, timer, json_str](wxTimerEvent&) {
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [TIMER] Timer fired! String size=" << json_str.size();
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [TIMER] Serialized data: " << json_str;
-        
-       
         try {
             // Re-parse JSON from string - this creates a fresh, valid JSON object
             nlohmann::json js_parsed = nlohmann::json::parse(json_str);
-            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [TIMER] Re-parsed JSON: " << js_parsed.dump();
-            
+
             // Call the actual handler with freshly parsed data
             on_delayed_print_send_timer(js_parsed);
         } catch (const std::exception& e) {
-            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [ERROR] Failed to parse JSON: " << e.what();
+            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " Failed to parse JSON: " << e.what();
         } catch (...) {
-            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [ERROR] Unknown exception while parsing JSON";
+            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " Unknown exception while parsing JSON";
         }
 
                 // Delete timer after use to prevent memory leak
         timer->DeletePendingEvents();
         delete timer;
     });
-    
+
     // Start one-shot timer for 2 seconds
     timer->Start(2000, wxTIMER_ONE_SHOT);
-    
-    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [RETURN] Timer started, function returned immediately";
 }
 
 void AnalyticsDataUploadManager::on_delayed_print_send_timer(nlohmann::json js)
 {
-    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [EXECUTE] Handler called, received JSON: " << js.dump();
-    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [CHECK] Received JSON has " << js.size() << " fields";
-    
-    // Log all received fields
-    for (auto& [key, val] : js.items()) {
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [FIELD] Key='" << key << "', Value=" << val.dump();
-    }
-    
     // Add metadata and send
     if (js.find("app_version") == js.end())
         js["app_version"] = GUI_App::format_display_version().c_str();
@@ -1173,11 +1186,8 @@ void AnalyticsDataUploadManager::on_delayed_print_send_timer(nlohmann::json js)
     }
     if (js.find("user_id") == js.end())
         js["user_id"] = wxGetApp().get_user().userId;
-    
-    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [FINAL] Final JSON: " << js.dump(2);
+
     wxGetApp().track_event("print_send", js.dump());
-    
-    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " [COMPLETE] Event sent successfully";
 }
 
 void AnalyticsDataUploadManager::uploadModelActionAddEvent()
@@ -1337,26 +1347,32 @@ void AnalyticsDataUploadManager::uploadSlice822ClickEvent(const std::string& mod
 // 创想云神策埋点上报接口实现（新系统 - 独立区域）
 // ============================================================
 
-void AnalyticsDataUploadManager::send_print_begin_event(const nlohmann::json& data)
+bool AnalyticsDataUploadManager::should_send_print_event() const
 {
-    // 0. 先检查模型是否被修改（黑名单操作），如果已修改则不上报（主线程判断）
+    // 统一入口：封装所有不上报条件，后续新增条件在此追加。
+    
+    // 模型被本质修改后不上报。
     auto& tracker = ProjectModificationTracker::getInstance();
     if (tracker.is_essentially_modified()) {
-        BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] Model has been essentially modified (repair/simplify/hollow/etc.), skipping print_begin_event";
-        BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] Modification history: ";
-        const auto& history = tracker.get_history();
-        for (const auto& type : history) {
-            BOOST_LOG_TRIVIAL(warning) << "  - ModelModifyType: " << static_cast<int>(type);
-        }
-        return;  // 直接退出，不开子线程
+        return false;
+    }
+
+    return true;
+}
+
+void AnalyticsDataUploadManager::send_print_send_event(int plate_idx)
+{
+    // 统一的发送条件判断
+    if (!should_send_print_event()) {
+        return;
     }
     
     // 先快照主线程数据（避免后台线程读取时主线程修改）
     std::string snapshot_model_id = m_analytics_project_info.model_id;
-    BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] send_print_begin_event: snapshot_model_id=" << snapshot_model_id;
-    
+    std::string snapshot_file_format = m_analytics_project_info.file_format;
+
     // 全部放入后台线程执行，不阻塞 UI
-    std::thread([this, data, snapshot_model_id]() {
+    std::thread([this, snapshot_model_id, plate_idx]() {
         try {
             
             // 1. 内部可直接获取的参数
@@ -1369,111 +1385,113 @@ void AnalyticsDataUploadManager::send_print_begin_event(const nlohmann::json& da
             std::string app_version = GUI_App::format_display_version().c_str();
             int app_type = 6;  // Creality Print
             
-            // 2. 从缓存读取所有参数（使用 plate_idx=0，后续可扩展）
-            int plate_idx = 0;
+            // 2. 根据传入的 plate_idx 从缓存读取所有参数
             auto& tracker = ProjectModificationTracker::getInstance();  // 子线程内重新获取单例
+
+            std::string printer_info_str = tracker.get_printer_info(0);   // 取第0盘的 printer_info
+            std::string filament_info_str = tracker.get_filament_info(0); // 取第0盘的 filament_info
+            std::string slice_param_str;
+            if (plate_idx == PLATE_ALL_IDX) {
+                // 导出全部GCode场景：合并所有盘的 objects + plates
+                // 盘数通过 m_slice_param 的缓存项数量推断（每盘切完后都会 cache）
+                int plate_count = static_cast<int>(tracker.get_cached_plate_count());
+                slice_param_str = tracker.get_merged_slice_param(plate_count);
+            } else {
+                printer_info_str = tracker.get_printer_info(plate_idx);
+                filament_info_str = tracker.get_filament_info(plate_idx);
+                slice_param_str = tracker.get_slice_param(plate_idx);
+            }
+
+            // 使用切片时预生成的 task_id（导出全部时取盘0的，与 gcode 中写入的一致）
+            // 需求格式：{device_id}_{timestamp}，不含盘索引
+            int task_plate_idx = (plate_idx == PLATE_ALL_IDX) ? 0 : plate_idx;
+            std::string task_id = tracker.get_plate_task_id(task_plate_idx);
+            if (task_id.empty()) {
+                // 兼容：如果没有预生成，则降级为动态生成
+                task_id = device_id + "_" + std::to_string(timestamp_ms);
+            }
+            // 掐掉末尾的盘索引后缀 _XX，对齐需求 {device_id}_{timestamp}
+            {
+                auto pos = task_id.rfind('_');
+                if (pos != std::string::npos && pos + 1 < task_id.size()) {
+                    std::string suffix = task_id.substr(pos + 1);
+                    if (suffix.size() == 2 && std::isdigit((unsigned char)suffix[0]) && std::isdigit((unsigned char)suffix[1])) {
+                        task_id = task_id.substr(0, pos);
+                    }
+                }
+            }
             
-            std::string printer_info_str = tracker.get_printer_info(plate_idx);
-            std::string slice_param_str = tracker.get_slice_param(plate_idx);
-            std::string filament_info_str = tracker.get_filament_info(plate_idx);
-            
-            // 3. 动态生成 task_id（使用发送时的时间戳）
-            std::string model_id = snapshot_model_id;  // 使用快照数据，不直接读成员变量
-            std::string task_id = model_id + "_" + std::to_string(plate_idx) + "_" + std::to_string(timestamp_ms);
+            // 3. 生成 file_md5（使用已计算的 model_id 作为文件指纹）
+            std::string model_id = snapshot_model_id;
+            std::string file_md5 = model_id;
             
             // 4. 构建 properties（核心业务数据）
             nlohmann::json properties;
             properties["collect_id"] = collect_id;
-            properties["event_key"] = "print_001";
+            // event_key 按文件格式映射：3mf→print_002，其他→print_001（后续扩展改此表）
+            {
+                static const std::map<std::string, std::string> EVENT_KEY_MAP = {
+                    {"3mf", "print_002"},
+                };
+                auto it = EVENT_KEY_MAP.find(m_analytics_project_info.file_format);
+                properties["event_key"] = (it != EVENT_KEY_MAP.end()) ? it->second : "print_001";
+            }
             properties["task_id"] = task_id;
             properties["event_time"] = timestamp_ms;
             properties["app_type"] = app_type;
             properties["app_version"] = app_version;
             properties["device_id"] = device_id;
-            properties["model_id"] = model_id;
+            properties["file_md5"] = file_md5;
             
-            // 4.1 自动获取 uid（无论是否为空都上传）
+            // 4.1 自动获取 uid
             std::string user_id = "";
             try {
                 user_id = wxGetApp().get_user().userId;
             } catch (...) {
                 // 未登录或获取失败，保持空字符串
             }
-            properties["uid"] = user_id;  // 总是上传，即使是空字符串
+            properties["uid"] = user_id;
             
-            // 5. 从缓存添加 printer_info、filament_info、slice_param
+            // 【删除】以下字段是谷歌分析上报使用的，不是创想云一级字段
+            // properties["printer"] = "";       // ❌ 谷歌字段
+            // properties["format"] = "GCode";   // ❌ 谷歌字段
+            // properties["network"] = "Local";   // ❌ 谷歌字段
+            // properties["entry"] = "ExportGCode"; // ❌ 谷歌字段
+            // properties["error_code"] = "OK";   // ❌ 谷歌字段
+            
+            // 5. Add printer_info, filament_info, slice_param from cache (all parsed as native JSON objects)
             if (!printer_info_str.empty()) {
-                properties["printer_info"] = printer_info_str;
+                try {
+                    properties["printer_info"] = nlohmann::json::parse(printer_info_str);
+                } catch (...) {
+                    properties["printer_info"] = printer_info_str;
+                }
             }
             if (!filament_info_str.empty()) {
-                properties["filament_info"] = filament_info_str;
+                try {
+                    properties["filament_info"] = nlohmann::json::parse(filament_info_str);
+                } catch (...) {
+                    properties["filament_info"] = filament_info_str;
+                }
             }
             if (!slice_param_str.empty()) {
-                properties["slice_param"] = slice_param_str;
+                // Parse as native JSON object (not string), avoid \" double-escaping during outer dump()
+                try {
+                    properties["slice_param"] = nlohmann::json::parse(slice_param_str);
+                } catch (...) {
+                    // Fallback to string on parse failure, ensure data is not lost
+                    properties["slice_param"] = slice_param_str;
+                }
             }
             
-            // 6. 构建完整的 payload（time 与 event_time 使用同一时间戳）
+            // 6. 构建完整的 payload
             nlohmann::json payload;
-            payload["event"] = "data_center_event_test";
+            payload["event"] = "data_center_event";
             payload["time"] = timestamp_ms;
             payload["distinct_id"] = device_id;
             payload["properties"] = properties;
-            
-            // 7. 调试日志：按 CSV 需求表顺序打印完整参数（WARNING级别，落盘）
-            BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] ========== Print Begin Event (CSV Fields) ==========";
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-01] event: " << payload["event"].get<std::string>();
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-02] time: " << payload["time"].get<long long>();
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-03] distinct_id: " << payload["distinct_id"].get<std::string>();
-            
-            const auto& props = payload["properties"];
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-04] collect_id: " << props["collect_id"].get<std::string>();
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-05] event_key: " << props["event_key"].get<std::string>();
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-06] task_id: " << props["task_id"].get<std::string>();
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-07] event_time: " << props["event_time"].get<long long>();
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-08] app_type: " << props["app_type"].get<int>();
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-09] app_version: " << props["app_version"].get<std::string>();
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-10] device_id: " << props["device_id"].get<std::string>();
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-11] uid: " << (props.contains("uid") ? props["uid"].get<std::string>() : "(empty)");
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-12] model_id: " << props["model_id"].get<std::string>();
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-13] printer_info: " << (props.contains("printer_info") ? props["printer_info"].get<std::string>() : "(empty)");
-            BOOST_LOG_TRIVIAL(warning) << "[CSV-14] filament_info: " << (props.contains("filament_info") ? props["filament_info"].get<std::string>() : "(empty)");
-            
-            // [CSV-15] slice_param - 分段输出避免日志截断（每殴2000字符）
-            if (props.contains("slice_param")) {
-                std::string slice_param_str = props["slice_param"].get<std::string>();
-                BOOST_LOG_TRIVIAL(warning) << "[CSV-15] slice_param (total length: " << slice_param_str.size() << " chars)";
-                            
-                // 分段输出（每殴2000字符，确保不超过Boost.Log单行限制）
-                const size_t chunk_size = 2000;
-                size_t pos = 0;
-                int chunk_idx = 1;
-                while (pos < slice_param_str.size()) {
-                    size_t len = std::min(chunk_size, slice_param_str.size() - pos);
-                    std::string chunk = slice_param_str.substr(pos, len);
-                    BOOST_LOG_TRIVIAL(warning) << "[CSV-15-" << chunk_idx << "] " << chunk;
-                    pos += len;
-                    chunk_idx++;
-                }
-            } else {
-                BOOST_LOG_TRIVIAL(warning) << "[CSV-15] slice_param: (empty)";
-            }
-            
-            BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] =====================================================";
-            
-            // 【调试】将完整 payload 写入文件，避免日志截断
-            try {
-                std::string debug_path = "C:\\Users\\116724\\Desktop\\analytics_debug.json";
-                std::ofstream ofs(debug_path);
-                if (ofs.is_open()) {
-                    ofs << payload.dump(2);  // 美化输出，缩进2空格
-                    ofs.close();
-                    BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] Full payload saved to: " << debug_path;
-                }
-            } catch (const std::exception& e) {
-                BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] Failed to save debug payload: " << e.what();
-            }
-            
-            // 8. 发送到创想云服务器
+
+            // 8. 发送数据到神策
             send_sensors_payload_to_creality(payload);
             
         } catch (const std::exception& err) {
@@ -1520,46 +1538,27 @@ bool AnalyticsDataUploadManager::test_sensors_connection()
         // 先初始化配置获取 URL
         getInstance().init_sensors_config_if_needed();
         std::string url = getInstance().m_sensors_upload_url;
-        
-        BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] Testing connection to: " << url;
-        
+
         bool connected = false;
-        
+
         Http http = Http::post(url);
         http.header("Content-Type", "application/x-www-form-urlencoded")
             .set_post_body(std::string("{}"))  // 发送空 JSON，显式类型避免歧义
             .timeout_connect(10)
             .timeout_max(30)
             .on_complete([&connected](std::string body, unsigned http_status) {
-                BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] Connection test COMPLETE: status = " << http_status 
-                                           << ", body = " << body;
-                
-                if (http_status == 200) {
-                    connected = true;
-                    BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] ✅ Connection SUCCESSFUL";
-                } else {
-                    BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] ⚠️ Connection returned non-200: " << http_status;
-                    // 即使不是 200，只要能收到响应也算网络连通
-                    connected = true;
-                }
+                // 即使不是 200，只要能收到响应也算网络连通
+                connected = true;
             })
             .on_error([](std::string body, std::string error, unsigned http_status) {
-                BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] Connection test FAILED: status = " << http_status 
-                                         << ", error = " << error;
-                
-                if (http_status == 0) {
-                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] ❌ Cannot reach server (DNS/Network issue)";
-                } else if (http_status == 403) {
-                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] ❌ Access forbidden (403)";
-                } else if (http_status == 404) {
-                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] ❌ URL not found (404)";
-                }
+                BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] Connection test FAILED: status=" << http_status
+                                         << ", error=" << error;
             });
-        
+
         http.perform_sync();
-        
+
         return connected;
-        
+
     } catch (const std::exception& err) {
         BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] Connection test exception: " << err.what();
         return false;
@@ -1591,53 +1590,27 @@ void AnalyticsDataUploadManager::send_sensors_payload_to_creality(const nlohmann
         
         // 4. 构造 form-urlencoded 格式的请求体
         std::string post_body = "data=" + encoded + "&gzip=1";
-        
+
         // 5. 发送 HTTP POST 请求
-        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": [SensorsAnalytics] Sending to URL: " << m_sensors_upload_url;
-        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": [SensorsAnalytics] Payload size: " << json_str.size() 
-                                   << " bytes, compressed to: " << compressed.size() 
-                                   << " bytes, encoded to: " << encoded.size() << " bytes";
-        
         Http http = Http::post(m_sensors_upload_url);
         http.header("Content-Type", "application/x-www-form-urlencoded")
             .set_post_body(std::string(post_body))  // 显式转换为 std::string 避免歧义
             .timeout_connect(10)      // 连接超时 10 秒
             .timeout_max(30)          // 总超时 30 秒
             .on_complete([this](std::string body, unsigned http_status) {
-                BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] ===== Upload Response =====";
-                BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] HTTP Status: " << http_status;
-                BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] Response Body: " << (body.empty() ? "(empty)" : body);
-                
-                // 检查状态码
-                if (http_status == 200) {
-                    BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] ✅ SUCCESS: Data uploaded successfully";
-                } else {
-                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] ❌ FAILED: Non-200 status code: " << http_status;
-                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] ❌ FAILED: Please check network or server";
+                if (http_status != 200) {
+                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] Upload failed, HTTP " << http_status
+                                             << ", body=" << (body.empty() ? "(empty)" : body);
                 }
             })
             .on_error([this](std::string body, std::string error, unsigned http_status) {
-                BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] ===== Upload ERROR =====";
-                BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] HTTP Status: " << http_status;
-                BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] Error Message: " << error;
-                BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] Response Body: " << (body.empty() ? "(empty)" : body);
-                
-                // 详细的错误信息
-                if (http_status == 0) {
-                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] ❌ Network ERROR: Cannot connect to server";
-                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] ❌ Possible causes: No internet / Firewall blocked / Server down";
-                } else if (http_status >= 400) {
-                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] ❌ HTTP ERROR: Server returned " << http_status;
-                    BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] ❌ Please check server URL: " << m_sensors_upload_url;
-                }
+                BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] Upload error, HTTP " << http_status
+                                         << ", error=" << error
+                                         << ", body=" << (body.empty() ? "(empty)" : body);
             });
-        
-        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": [SensorsAnalytics] Performing ASYNC request (non-blocking)...";
+
         http.perform();  // 异步发送，不阻塞 UI 线程
-        
-        // 【调试】立即打印发送状态（异步回调可能延迟）
-        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": [SensorsAnalytics] http.perform() called, waiting for callback...";
-        
+
     } catch (const std::exception& err) {
         BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": Exception: " << err.what();
     } catch (...) {
@@ -1647,41 +1620,43 @@ void AnalyticsDataUploadManager::send_sensors_payload_to_creality(const nlohmann
 
 // ============================================================
 // 3MF文件指纹管理实现
+// 【修改】去掉缓存，每次都重新计算，保证文件修改后指纹更新
 // ============================================================
 
 std::string AnalyticsDataUploadManager::computeModelFingerprint(const std::string& file_path)
 {
-    // 1. 检查缓存
-    {
-        std::lock_guard<std::mutex> lock(m_fingerprint_mutex);
-        auto it = m_fingerprint_cache.find(file_path);
-        if (it != m_fingerprint_cache.end()) {
-            BOOST_LOG_TRIVIAL(debug) << "[Fingerprint] Using cached fingerprint for: " << file_path;
-            return it->second;
-        }
-    }
-
-    // 2. 计算MD5
+    // 不再使用缓存，每次都重新计算 MD5
+    // 原因：同一路径的文件内容可能被修改，缓存会返回错误的指纹
     std::string fingerprint = computeMD5(file_path);
-
-    // 3. 缓存结果
-    {
-        std::lock_guard<std::mutex> lock(m_fingerprint_mutex);
-        m_fingerprint_cache[file_path] = fingerprint;
-    }
-
-    // 4. 打印WARNING级别日志
-    BOOST_LOG_TRIVIAL(warning) << "[Fingerprint] Computed MD5 for " << file_path << ": " << fingerprint;
-
     return fingerprint;
 }
 
-std::future<std::string> AnalyticsDataUploadManager::computeModelFingerprintAsync(const std::string& file_path)
+// ============================================================
+// 异步计算并设置 model_id（不阻塞调用线程）
+// 计算完成后自动调用 mark_analytics_project_info
+// ============================================================
+void AnalyticsDataUploadManager::computeAndSetModelIdAsync(
+    const std::string& file_path,
+    const std::string& full_url,
+    const std::string& file_format,
+    const std::string& name)
 {
-    // 异步计算，不阻塞调用线程
-    return std::async(std::launch::async, [this, file_path]() -> std::string {
-        return this->computeModelFingerprint(file_path);
-    });
+    // 启动异步计算，不阻塞调用线程
+    std::thread([this, file_path, full_url, file_format, name]() {
+        try {
+            // 后台线程计算指纹
+            std::string model_id = computeModelFingerprint(file_path);
+
+            // 计算完成后，在主线程调用赋值（通过 wxWidgets 的主线程调用机制）
+            // 注意：file_format 已在 load_files 中同步设置，此处不重复赋值（防竞态）
+            wxGetApp().CallAfter([this, full_url, model_id, name]() {
+                // 仅设置 url/model_id/name，不覆盖 file_format（已在主线程同步设定）
+                mark_analytics_project_info(full_url, model_id, "", "", name);
+            });
+        } catch (const std::exception& e) {
+            BOOST_LOG_TRIVIAL(warning) << "computeAndSetModelIdAsync FAILED: file=" << file_path << " error=" << e.what();
+        }
+    }).detach();
 }
 
 std::string AnalyticsDataUploadManager::getCachedFingerprint(const std::string& file_path)
@@ -1697,27 +1672,20 @@ std::string AnalyticsDataUploadManager::getCachedFingerprint(const std::string& 
 void AnalyticsDataUploadManager::clearFingerprintCache()
 {
     std::lock_guard<std::mutex> lock(m_fingerprint_mutex);
-    size_t cleared = m_fingerprint_cache.size();
     m_fingerprint_cache.clear();
-    BOOST_LOG_TRIVIAL(warning) << "[Fingerprint] Cleared all fingerprint cache (" << cleared << " entries)";
 }
 
 std::string AnalyticsDataUploadManager::computeMD5(const std::string& file_path, size_t chunk_size)
 {
-    std::ifstream file(file_path, std::ios::binary);
+    boost::nowide::ifstream file(file_path, std::ios::binary);
     if (!file.is_open()) {
+        // 用 boost::filesystem 交叉验证文件是否真实存在
+        bool fs_exists = boost::filesystem::exists(file_path);
         std::string err = "Cannot open file: " + file_path;
-        BOOST_LOG_TRIVIAL(error) << "[Fingerprint] " << err;
+        BOOST_LOG_TRIVIAL(error) << "computeMD5 FAILED: " << err
+                                 << " fs_exists=" << (fs_exists ? "true" : "false");
         throw std::runtime_error(err);
     }
-
-    // 获取文件大小用于日志
-    file.seekg(0, std::ios::end);
-    std::streamsize file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    BOOST_LOG_TRIVIAL(debug) << "[Fingerprint] Computing MD5 for " << file_path 
-                              << " (size: " << file_size << " bytes)";
 
     MD5_CTX ctx;
     MD5_Init(&ctx);
@@ -1761,9 +1729,6 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::mark_modified(Model
     std::lock_guard<std::mutex> lock(m_mutex);
     m_is_modified = true;
     m_modify_history.push_back(type);
-    
-    BOOST_LOG_TRIVIAL(warning) << "[Modification] Marked as modified: " 
-                               << static_cast<int>(type);
 }
 
 bool AnalyticsDataUploadManager::ProjectModificationTracker::is_essentially_modified() const 
@@ -1781,8 +1746,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::reset()
     m_printer_info.clear();
     m_slice_param.clear();
     m_filament_info.clear();
-    
-    BOOST_LOG_TRIVIAL(warning) << "[Modification] Reset modification tracker and slice info";
+    m_current_task_id.clear();  // 【新增】清除当前 task_id
+    m_plate_task_ids.clear();   // 【新增】清除按盘存储的 task_id
 }
 
 const std::vector<AnalyticsDataUploadManager::ModelModifyType>& 
@@ -1806,11 +1771,6 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::cache_slice_info(
     m_printer_info[plate_idx] = printer_info;
     m_slice_param[plate_idx] = slice_param;
     m_filament_info[plate_idx] = filament_info;
-    
-    BOOST_LOG_TRIVIAL(warning) << "[Modification] Cache slice info for plate " << plate_idx
-                               << ", printer_info size: " << printer_info.size()
-                               << ", slice_param size: " << slice_param.size()
-                               << ", filament_info size: " << filament_info.size();
 }
 
 std::string AnalyticsDataUploadManager::ProjectModificationTracker::get_printer_info(int plate_idx) const
@@ -1843,23 +1803,237 @@ std::string AnalyticsDataUploadManager::ProjectModificationTracker::get_filament
     return {};
 }
 
+std::string AnalyticsDataUploadManager::ProjectModificationTracker::get_merged_slice_param(int plate_count) const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    
+    // 以第0盘的 slice_param 为基础（global_param/objects/plates 都从这里取起点）
+    auto it0 = m_slice_param.find(0);
+    if (it0 == m_slice_param.end() || it0->second.empty()) {
+        BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] get_merged_slice_param: plate 0 has no cached slice_param";
+        return {};
+    }
+    
+    nlohmann::json merged;
+    try {
+        merged = nlohmann::json::parse(it0->second);
+    } catch (...) {
+        BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] get_merged_slice_param: failed to parse plate 0 slice_param";
+        return it0->second;
+    }
+    
+    // 确保 objects / plates 字段存在
+    if (!merged.contains("objects") || !merged["objects"].is_object()) {
+        merged["objects"] = nlohmann::json::object();
+    }
+    if (!merged.contains("plates") || !merged["plates"].is_array()) {
+        merged["plates"] = nlohmann::json::array();
+    }
+    
+    // 合并其余各盘的 objects 和 plates
+    for (int i = 1; i < plate_count; ++i) {
+        auto it = m_slice_param.find(i);
+        if (it == m_slice_param.end() || it->second.empty()) {
+            BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] get_merged_slice_param: plate " << i << " has no cached slice_param, skipping";
+            continue;
+        }
+        try {
+            nlohmann::json plate_j = nlohmann::json::parse(it->second);
+            // 合并 objects（key=object_id，跨盘不重复）
+            if (plate_j.contains("objects") && plate_j["objects"].is_object()) {
+                for (auto& [key, val] : plate_j["objects"].items()) {
+                    merged["objects"][key] = val;
+                }
+            }
+            // 追加 plates 数组项
+            if (plate_j.contains("plates") && plate_j["plates"].is_array()) {
+                for (auto& plate_entry : plate_j["plates"]) {
+                    merged["plates"].push_back(plate_entry);
+                }
+            }
+        } catch (...) {
+            BOOST_LOG_TRIVIAL(error) << "[SensorsAnalytics] get_merged_slice_param: failed to parse plate " << i << " slice_param, skipping";
+        }
+    }
+    
+    BOOST_LOG_TRIVIAL(warning) << "[SensorsAnalytics] get_merged_slice_param: merged " << plate_count
+                               << " plates, total objects=" << merged["objects"].size()
+                               << ", plates=" << merged["plates"].size();
+    return merged.dump();
+}
+
+size_t AnalyticsDataUploadManager::ProjectModificationTracker::get_cached_plate_count() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_slice_param.size();
+}
+
+// 【新增】设置当前 task_id（供 GCode.cpp 写入 G-code header）
+void AnalyticsDataUploadManager::ProjectModificationTracker::set_current_task_id(const std::string& task_id)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_current_task_id = task_id;
+}
+
+// 【新增】获取当前 task_id
+std::string AnalyticsDataUploadManager::ProjectModificationTracker::get_current_task_id() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_current_task_id;
+}
+
+// 【新增】设置当前盘索引
+void AnalyticsDataUploadManager::ProjectModificationTracker::set_current_plate_id(int plate_id)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_current_plate_id = plate_id;
+}
+
+// 【新增】获取当前盘索引
+int AnalyticsDataUploadManager::ProjectModificationTracker::get_current_plate_id() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_current_plate_id;
+}
+
+// 【新增】生成 task_id（格式：{device_id}_{timestamp_ms}_{plate_id:02d}）
+std::string AnalyticsDataUploadManager::ProjectModificationTracker::generate_task_id(int plate_id)
+{
+    auto now = std::chrono::system_clock::now();
+    long long timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    return generate_task_id(plate_id, timestamp_ms);
+}
+
+// 【新增】重载：使用外部传入的 timestamp 生成 task_id（用于多盘共享同一时间戳）
+std::string AnalyticsDataUploadManager::ProjectModificationTracker::generate_task_id(int plate_id, long long timestamp_ms)
+{
+    std::string device_id = SystemId::get_system_id();
+    char buf[128];
+    snprintf(buf, sizeof(buf), "%s_%lld_%02d", device_id.c_str(), timestamp_ms, plate_id);
+    return std::string(buf);
+}
+
+// Replace task_id_pending placeholder in gcode file, renaming field to creality_task_id (in-place overwrite, no file content shift)
+// Layout: "; creality_task_id_pending:73B_placeholder\n" (101B) → "; creality_task_id:81B_real_task_id\n" (101B)
+bool AnalyticsDataUploadManager::ProjectModificationTracker::replace_task_id_placeholder_in_gcode(
+    const std::string& gcode_path, const std::string& task_id)
+{
+    if (gcode_path.empty()) {
+        BOOST_LOG_TRIVIAL(warning) << "[TaskIdReplace] gcode_path is empty";
+        return false;
+    }
+    if (!boost::filesystem::exists(gcode_path)) {
+        BOOST_LOG_TRIVIAL(warning) << "[TaskIdReplace] gcode file not found: " << gcode_path;
+        return false;
+    }
+    
+    boost::nowide::fstream file(gcode_path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        BOOST_LOG_TRIVIAL(warning) << "[TaskIdReplace] Failed to open gcode file (exists but likely locked by another process): " << gcode_path;
+        return false;
+    }
+    
+    // Read first 4KB (header block should be within this range)
+    const size_t buffer_size = 4096;
+    std::string buffer(buffer_size, '\0');
+    file.read(&buffer[0], buffer_size);
+    size_t bytes_read = file.gcount();
+    buffer.resize(bytes_read);
+    
+    const std::string marker = "; creality_task_id_pending: ";
+    size_t marker_pos = buffer.find(marker);
+    if (marker_pos == std::string::npos) {
+        BOOST_LOG_TRIVIAL(warning) << "[TaskIdReplace] Placeholder marker not found in: " << gcode_path;
+        file.close();
+        return false;
+    }
+    
+    const size_t value_len = 81;
+    
+    // Clear eofbit to ensure seekp works even when file is smaller than buffer_size
+    file.clear();
+    
+    // Seek to start of marker (replace entire line, not just value)
+    file.seekp(static_cast<std::streamoff>(marker_pos));
+    if (!file) {
+        BOOST_LOG_TRIVIAL(warning) << "[TaskIdReplace] seekp failed in: " << gcode_path;
+        file.close();
+        return false;
+    }
+    
+    std::string task_id_padded = task_id;
+    if (task_id_padded.length() < value_len) {
+        task_id_padded.append(value_len - task_id_padded.length(), ' ');
+    } else if (task_id_padded.length() > value_len) {
+        task_id_padded = task_id_padded.substr(0, value_len);
+    }
+    std::string new_line = "; creality_task_id: ";
+    new_line += task_id_padded;
+    new_line += "\n";
+    // Use str.length() instead of hardcoded constant to avoid missed updates when field name or value changes
+    file.write(new_line.c_str(), new_line.length());
+    if (!file) {
+        BOOST_LOG_TRIVIAL(warning) << "[TaskIdReplace] write failed in: " << gcode_path;
+        file.close();
+        return false;
+    }
+    file.close();
+    return true;
+}
+
+// 【新增】按盘索引存储 task_id（导出时写入，发送时复用）
+void AnalyticsDataUploadManager::ProjectModificationTracker::set_plate_task_id(int plate_index, const std::string& task_id)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_plate_task_ids[plate_index] = task_id;
+}
+
+// 【新增】清除指定盘的 task_id 缓存（用于强制重新生成）
+void AnalyticsDataUploadManager::ProjectModificationTracker::clear_plate_task_id(int plate_index)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_plate_task_ids.erase(plate_index);
+}
+
+// 【新增】按盘索引获取 task_id（优先已存储的，无则生成新值并存储）
+std::string AnalyticsDataUploadManager::ProjectModificationTracker::get_plate_task_id(int plate_index)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto it = m_plate_task_ids.find(plate_index);
+    if (it != m_plate_task_ids.end()) {
+        return it->second;
+    }
+    // 未存储则生成新的（兼容导出前未调用 export_3mf 的场景）
+    std::string task_id = generate_task_id(plate_index + 1);
+    m_plate_task_ids[plate_index] = task_id;
+    return task_id;
+}
+
 // ============================================================
 // ProjectModificationTracker::collect_params 实现
 // ============================================================
 
 using namespace Slic3r;
 
-// 辅助函数：添加参数值
+// 辅助函数：添加参数值（添加异常保护，防止配置项异常导致崩溃）
 void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const DynamicPrintConfig& config,
                                     nlohmann::json& output,
                                     const char* config_key,
                                     const char* output_key,
                                     ParamType type)
 {
-    if (!config_key || !output_key) return;
+    // 防御性检查 - 在函数入口就记录日志
+    if (!config_key || !output_key) {
+        BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] add_param called with null key: config_key=" << (void*)config_key << ", output_key=" << (void*)output_key;
+        boost::log::core::get()->flush();
+        return;
+    }
     
-    switch (type) {
+    try {
+        switch (type) {
         case ParamType::Float: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing Float: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionFloat>(config_key);
             if (opt) {
                 output[output_key] = std::to_string(opt->value);
@@ -1867,6 +2041,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::FloatFirst: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing FloatFirst: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionFloats>(config_key);
             if (opt && !opt->values.empty()) {
                 output[output_key] = std::to_string(opt->values[0]);
@@ -1874,6 +2050,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::Int: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing Int: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionInt>(config_key);
             if (opt) {
                 output[output_key] = std::to_string(opt->value);
@@ -1881,6 +2059,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::IntFirst: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing IntFirst: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionInts>(config_key);
             if (opt && !opt->values.empty()) {
                 output[output_key] = std::to_string(opt->values[0]);
@@ -1895,6 +2075,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::Bool: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing Bool: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionBool>(config_key);
             if (opt) {
                 output[output_key] = opt->value ? "true" : "false";
@@ -1909,6 +2091,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::BoolFirst: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing BoolFirst: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionBools>(config_key);
             if (opt && !opt->values.empty()) {
                 output[output_key] = opt->values[0] ? "true" : "false";
@@ -1916,6 +2100,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::String: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing String: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionString>(config_key);
             if (opt) {
                 output[output_key] = opt->value;
@@ -1923,6 +2109,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::StringFirst: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing StringFirst: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionStrings>(config_key);
             if (opt && !opt->values.empty()) {
                 output[output_key] = opt->values[0];
@@ -1930,6 +2118,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::StringMulti: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing StringMulti: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionStrings>(config_key);
             if (opt && !opt->values.empty()) {
                 std::string value;
@@ -1942,6 +2132,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::Percent: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing Percent: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionPercent>(config_key);
             if (opt) {
                 output[output_key] = std::to_string(opt->value);
@@ -1949,6 +2141,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::PercentFirst: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing PercentFirst: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionPercents>(config_key);
             if (opt && !opt->values.empty()) {
                 output[output_key] = std::to_string(opt->values[0]);
@@ -1956,6 +2150,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::FloatOrPercent: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing FloatOrPercent: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionFloatOrPercent>(config_key);
             if (opt) {
                 output[output_key] = std::to_string(opt->get_abs_value(0));
@@ -1963,6 +2159,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::FloatOrPercentFirst: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing FloatOrPercentFirst: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             auto* opt = config.option<ConfigOptionFloatsOrPercents>(config_key);
             if (opt && !opt->values.empty()) {
                 // 直接取 value（percent=true 时 value 本身也应该是可用的绝对值）
@@ -1971,6 +2169,8 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             break;
         }
         case ParamType::Enum: {
+            BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing Enum: " << config_key << " -> " << output_key;
+            boost::log::core::get()->flush();
             // 尝试多种方式获取枚举值
             auto* opt = config.option<ConfigOptionInt>(config_key);
             if (opt) {
@@ -1989,6 +2189,11 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
             }
             break;
         }
+        }  // end switch
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Exception in add_param: " << config_key << " -> " << output_key << ": " << e.what();
+    } catch (...) {
+        BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Unknown exception in add_param: " << config_key << " -> " << output_key;
     }
 }
 
@@ -1998,7 +2203,7 @@ const AnalyticsDataUploadManager::ProjectModificationTracker::ParamDef
     {"nozzle_diameter", "nozzle_diameter", ParamType::FloatFirst},
     {"min_layer_height", "min_layer_height", ParamType::FloatFirst},
     {"max_layer_height", "max_layer_height", ParamType::FloatFirst},
-    {"printer_model", "device_model", ParamType::String},
+    {"printer_model", "printer_model", ParamType::String},
     {"curr_bed_type", "material_bed_type", ParamType::Enum},
 };
 
@@ -2194,6 +2399,94 @@ const AnalyticsDataUploadManager::ProjectModificationTracker::ParamDef
     {"skirt_height", "skirt_height", ParamType::Int},
     {"skirt_speed", "skirt_speed", ParamType::Float},
     {"draft_shield", "draft_shield", ParamType::Enum},
+    // 2026.5.15 added - Quality: Ironing
+    {"ironing_type", "ironing_type", ParamType::Enum},
+    // 2026.5.15 added - Quality: Wall and Surface
+    {"wall_sequence", "wall_sequence", ParamType::Enum},
+    {"is_infill_first", "is_infill_first", ParamType::Bool},
+    {"wall_direction", "wall_direction", ParamType::Enum},
+    {"top_solid_infill_flow_ratio", "top_solid_infill_flow_ratio", ParamType::Float},
+    {"bottom_solid_infill_flow_ratio", "bottom_solid_infill_flow_ratio", ParamType::Float},
+    {"only_one_wall_top", "only_one_wall_top", ParamType::Bool},
+    {"min_width_top_surface", "min_width_top_surface", ParamType::FloatOrPercent},
+    {"only_one_wall_first_layer", "only_one_wall_first_layer", ParamType::Bool},
+    {"reduce_crossing_wall", "reduce_crossing_wall", ParamType::Bool},
+    {"small_area_infill_flow_compensation", "small_area_infill_flow_compensation", ParamType::Bool},
+    {"z_direction_outwall_speed_continuous", "z_direction_outwall_speed_continuous", ParamType::Bool},
+    // 2026.5.15 added - Quality: Bridging
+    {"bridge_flow", "bridge_flow", ParamType::Float},
+    {"internal_bridge_flow", "internal_bridge_flow", ParamType::Float},
+    {"bridge_density", "bridge_density", ParamType::Percent},
+    {"thick_bridges", "thick_bridges", ParamType::Bool},
+    {"thick_internal_bridges", "thick_internal_bridges", ParamType::Bool},
+    {"dont_filter_internal_bridges", "dont_filter_internal_bridges", ParamType::Enum},
+    {"counterbore_hole_bridging", "counterbore_hole_bridging", ParamType::Enum},
+    // 2026.5.15 added - Quality: Overhang
+    {"detect_overhang_wall", "detect_overhang_wall", ParamType::Bool},
+    {"make_overhang_printable", "make_overhang_printable", ParamType::Bool},
+    {"extra_perimeters_on_overhangs", "extra_perimeters_on_overhangs", ParamType::Bool},
+    {"overhang_reverse", "overhang_reverse", ParamType::Bool},
+    {"overhang_optimization", "overhang_optimization", ParamType::Bool},
+    // 2026.5.15 added - Strength: Wall
+    {"embedding_wall_into_infill", "embedding_wall_into_infill", ParamType::Bool},
+    // 2026.5.15 added - Strength: Infill
+    {"internal_solid_infill_pattern", "internal_solid_infill_pattern", ParamType::Enum},
+    {"infill_direction", "infill_direction", ParamType::Float},
+    {"solid_infill_direction", "solid_infill_direction", ParamType::Float},
+    {"rotate_solid_infill_direction", "rotate_solid_infill_direction", ParamType::Bool},
+    {"bridge_angle", "bridge_angle", ParamType::Float},
+    {"minimum_sparse_infill_area", "minimum_sparse_infill_area", ParamType::Float},
+    {"infill_combination", "infill_combination", ParamType::Bool},
+    {"detect_narrow_internal_solid_infill", "detect_narrow_internal_solid_infill", ParamType::Bool},
+    {"ensure_vertical_shell_thickness", "ensure_vertical_shell_thickness", ParamType::Enum},
+    // 2026.5.15 added - Speed: Acceleration
+    {"initial_layer_travel_acceleration", "initial_layer_travel_acceleration", ParamType::FloatFirst},
+    {"accel_to_decel_factor", "accel_to_decel_factor", ParamType::Percent},
+    {"travel_short_distance_acceleration", "travel_short_distance_acceleration", ParamType::Float},
+    {"travel_short_distance_threshold", "travel_short_distance_threshold", ParamType::Float},
+    // 2026.5.15 added - Support: Raft
+    {"raft_contact_distance", "raft_contact_distance", ParamType::Float},
+    {"raft_first_layer_density", "raft_first_layer_density", ParamType::Percent},
+    {"raft_first_layer_expansion", "raft_first_layer_expansion", ParamType::Float},
+    // 2026.5.15 added - Support: Filament
+    {"support_filament", "support_filament", ParamType::Int},
+    {"support_interface_filament", "support_interface_filament", ParamType::Int},
+    // 2026.5.15 added - Support: Advanced
+    {"support_top_z_distance", "support_top_z_distance", ParamType::Float},
+    {"support_base_pattern", "support_base_pattern", ParamType::Enum},
+    {"tree_support_wall_count", "tree_support_wall_count", ParamType::Int},
+    {"support_base_pattern_spacing", "support_base_pattern_spacing", ParamType::Float},
+    {"support_angle", "support_angle", ParamType::Float},
+    {"support_interface_top_layers", "support_interface_top_layers", ParamType::Int},
+    {"support_interface_bottom_layers", "support_interface_bottom_layers", ParamType::Int},
+    {"support_interface_min_area", "support_interface_min_area", ParamType::Float},
+    {"support_interface_pattern", "support_interface_pattern", ParamType::Enum},
+    {"support_interface_spacing", "support_interface_spacing", ParamType::Float},
+    {"support_expansion", "support_expansion", ParamType::Float},
+    {"support_object_xy_distance", "support_object_xy_distance", ParamType::Float},
+    {"support_object_first_layer_gap", "support_object_first_layer_gap", ParamType::Float},
+    {"support_xy_overrides_z", "support_xy_overrides_z", ParamType::Enum},
+    {"independent_support_layer_height", "independent_support_layer_height", ParamType::Bool},
+    {"bridge_no_support", "bridge_no_support", ParamType::Bool},
+    {"max_bridge_length", "max_bridge_length", ParamType::Float},
+    // 2026.5.15 added - Support: Tree Support
+    {"tree_support_branch_distance", "tree_support_branch_distance", ParamType::Float},
+    {"tree_support_branch_diameter", "tree_support_branch_diameter", ParamType::Float},
+    {"tree_support_branch_angle", "tree_support_branch_angle", ParamType::Float},
+    {"tree_support_branch_diameter_angle", "tree_support_branch_diameter_angle", ParamType::Float},
+    {"support_base_pattern_tree", "support_base_pattern_tree", ParamType::Enum},
+    {"tree_support_wall_count_tree", "tree_support_wall_count_tree", ParamType::Int},
+    // 2026.5.15 added - Material: Prime Tower
+    {"prime_tower_rib_wall", "prime_tower_rib_wall", ParamType::Bool},
+    {"prime_tower_skip_points", "prime_tower_skip_points", ParamType::Bool},
+    {"prime_tower_enable_framework", "prime_tower_enable_framework", ParamType::Bool},
+    // 2026.5.15 added - Material: Flush Options
+    {"flush_into_infill", "flush_into_infill", ParamType::Bool},
+    {"flush_into_support", "flush_into_support", ParamType::Bool},
+    // 2026.5.15 added - Material: Advanced
+    {"interlocking_beam", "interlocking_beam", ParamType::Bool},
+    {"mmu_segmented_region_max_width", "mmu_segmented_region_max_width", ParamType::Float},
+    {"mmu_segmented_region_interlocking_depth", "mmu_segmented_region_interlocking_depth", ParamType::Float},
 };
 
 // 采集参数入口函数
@@ -2201,14 +2494,23 @@ nlohmann::json AnalyticsDataUploadManager::ProjectModificationTracker::collect_p
 {
     nlohmann::json output = nlohmann::json::object();
     
-    // 采集打印机参数
-    collect_printer_params(config, output);
+    // 新格式：global_param 分为三个子对象
+    nlohmann::json machine_params = nlohmann::json::object();
+    nlohmann::json filament_params = nlohmann::json::object();
+    nlohmann::json process_params = nlohmann::json::object();
     
-    // 采集材料参数
-    collect_filament_params(config, output);
+    // 采集打印机参数 → machine_params
+    collect_printer_params(config, machine_params);
     
-    // 采集工艺参数
-    collect_process_params(config, output);
+    // 采集材料参数 → filament_params
+    collect_filament_params(config, filament_params);
+    
+    // 采集工艺参数 → process_params
+    collect_process_params(config, process_params);
+    
+    output["machine_params"] = machine_params;
+    output["filament_params"] = filament_params;
+    output["process_params"] = process_params;
     
     return output;
 }
@@ -2224,13 +2526,49 @@ static std::string serialize_config_value(const ConfigOption* opt)
     return opt->serialize();
 }
 
+// 将 Transform3d (4x4矩阵) 序列化为3MF格式字符串
+// 3MF格式：m00 m01 m02 m10 m11 m12 m20 m21 m22 tx ty tz
+// 注意：Eigen内部以列优先存储，非对称旋转矩阵的行列访问会得到转置结果。
+// 因此按列遍历3x3子矩阵（等价于输出原始矩阵的行优先顺序），最后输出平移向量。
+static std::string transform3d_to_3mf_string(const Transform3d& matrix)
+{
+    std::string result;
+    auto append = [&result](double val) {
+        if (!result.empty()) result += " ";
+        result += std::to_string(val);
+    };
+    // 第0列（对应3MF的第0行）：m00 m01 m02
+    append(matrix(0, 0)); append(matrix(1, 0)); append(matrix(2, 0));
+    // 第1列（对应3MF的第1行）：m10 m11 m12
+    append(matrix(0, 1)); append(matrix(1, 1)); append(matrix(2, 1));
+    // 第2列（对应3MF的第2行）：m20 m21 m22
+    append(matrix(0, 2)); append(matrix(1, 2)); append(matrix(2, 2));
+    // 平移（第4列）：tx ty tz
+    append(matrix(0, 3)); append(matrix(1, 3)); append(matrix(2, 3));
+    return result;
+}
+
+// 将 ModelVolumeType 枚举转换为 model_settings.config 中的 subtype 字符串
+static std::string volume_type_to_subtype_string(ModelVolumeType type)
+{
+    switch (type) {
+    case ModelVolumeType::MODEL_PART:        return "normal_part";
+    case ModelVolumeType::NEGATIVE_VOLUME:   return "negative_part";
+    case ModelVolumeType::PARAMETER_MODIFIER: return "modifier";
+    case ModelVolumeType::SUPPORT_ENFORCER:  return "support_enforcer";
+    case ModelVolumeType::SUPPORT_BLOCKER:   return "support_blocker";
+    default:                                 return "unknown";
+    }
+}
+
 nlohmann::json AnalyticsDataUploadManager::ProjectModificationTracker::collect_obj_params(PartPlate* plate, int plate_idx)
 {
-    nlohmann::json obj_list = nlohmann::json::array();
+    // 新格式：objects 是字典，key = object id（数字字符串），value = 对象详情
+    nlohmann::json objects = nlohmann::json::object();
     
     if (!plate) {
         BOOST_LOG_TRIVIAL(warning) << "[ObjParams-Debug] Plate " << plate_idx << " | plate is null";
-        return obj_list;
+        return objects;
     }
     
     // 获取当前盘上的所有对象
@@ -2245,79 +2583,102 @@ nlohmann::json AnalyticsDataUploadManager::ProjectModificationTracker::collect_o
         
         nlohmann::json obj_entry;
         
-        // 优先使用 ModelObject.uuid，如果为空则使用对象的索引
-        if (!obj->uuid.empty()) {
-            obj_entry["obj_id"] = obj->uuid;
+        // 1. object key: 使用 from_loaded_id（3dmodel.model 里的 object id）
+        std::string obj_key;
+        if (obj->from_loaded_id >= 0) {
+            obj_key = std::to_string(obj->from_loaded_id);
         } else {
-            // 备选：记录索引（用于调试）
-            obj_entry["obj_id"] = "obj_idx_" + std::to_string(obj->id().id);
-            BOOST_LOG_TRIVIAL(warning) << "[ObjParams-Debug] ModelObject.uuid is empty, using id: " << obj->id().id;
+            // 备选：使用内部 id（用于调试）
+            obj_key = std::to_string(obj->id().id);
+            BOOST_LOG_TRIVIAL(warning) << "[ObjParams-Debug] ModelObject.from_loaded_id is -1, using internal id: " << obj_key;
         }
         
-        bool has_obj_param = false;
-        bool has_parts = false;
-        nlohmann::json parts_array = nlohmann::json::array();
+        // 2. UUID: 3dmodel.model 里 p:UUID
+        obj_entry["UUID"] = obj->uuid;
         
-        // 1. 采集对象级参数 (ModelObject.config)
+        // 3. extruder: 默认挤出机
+        if (obj->config.has("extruder")) {
+            const ConfigOption* opt = obj->config.option("extruder");
+            if (opt) obj_entry["extruder"] = serialize_config_value(opt);
+        }
+        
+        // 4. transform: 实例变换矩阵（取第一个 instance）
+        if (!obj->instances.empty()) {
+            obj_entry["transform"] = transform3d_to_3mf_string(obj->instances.front()->get_matrix());
+        }
+        
+        // 5. 对象级修改参数（扁平铺在对象身上，不嵌套在 obj_param 里）
         if (!obj->config.empty()) {
-            nlohmann::json obj_param;
             for (const std::string& key : obj->config.keys()) {
+                if (key == "extruder") continue;  // extruder 已单独处理
                 const ConfigOption* opt = obj->config.option(key);
                 if (opt) {
-                    obj_param[key] = serialize_config_value(opt);
+                    obj_entry[key] = serialize_config_value(opt);
                 }
-            }
-            if (!obj_param.empty()) {
-                obj_entry["obj_param"] = obj_param;
-                has_obj_param = true;
             }
         }
         
-        // 2. 采集部件级参数 (ModelVolume.config)
+        // 6. 采集部件级参数 (ModelVolume)
+        nlohmann::json parts_array = nlohmann::json::array();
         for (const auto& vol : obj->volumes) {
-            if (!vol || !vol->is_model_part()) continue;
+            if (!vol) continue;
             
-            // 只采集有修改的部件
+            nlohmann::json part_entry;
+            
+            // 6.1 part_id: 使用 from_loaded_id（3dmodel.model 里的 component objectid）
+            if (vol->from_loaded_id >= 0) {
+                part_entry["part_id"] = std::to_string(vol->from_loaded_id);
+            } else {
+                part_entry["part_id"] = std::to_string(vol->id().id);
+                BOOST_LOG_TRIVIAL(warning) << "[ObjParams-Debug] ModelVolume.from_loaded_id is -1, using internal id: " << vol->id().id;
+            }
+            
+            // 6.2 UUID: component 的 p:UUID
+            part_entry["UUID"] = vol->uuid;
+            
+            // 6.3 extruder: 部件挤出机
+            int extruder_id = vol->extruder_id();
+            if (extruder_id >= 0) {
+                part_entry["extruder"] = std::to_string(extruder_id);
+            }
+            
+            // 6.4 transform: 部件变换矩阵
+            part_entry["transform"] = transform3d_to_3mf_string(vol->get_matrix());
+            
+            // 6.5 subtype: 部件类型
+            part_entry["subtype"] = volume_type_to_subtype_string(vol->type());
+            
+            // 6.6 部件级修改参数（扁平铺在 part 身上，不嵌套在 part_param 里）
             if (!vol->config.empty()) {
-                nlohmann::json part_entry;
-                part_entry["part_id"] = vol->uuid;  // ModelVolume.uuid (std::string)
-                
-                nlohmann::json part_param;
                 for (const std::string& key : vol->config.keys()) {
                     const ConfigOption* opt = vol->config.option(key);
                     if (opt) {
-                        part_param[key] = serialize_config_value(opt);
+                        part_entry[key] = serialize_config_value(opt);
                     }
                 }
-                
-                if (!part_param.empty()) {
-                    part_entry["part_param"] = part_param;
-                    parts_array.push_back(part_entry);
-                    has_parts = true;
-                }
             }
+            
+            parts_array.push_back(part_entry);
         }
         
-        // 3. 只有修改了参数才加入 obj_list
-        if (has_obj_param || has_parts) {
-            if (has_parts) {
-                obj_entry["parts"] = parts_array;
-            }
-            obj_list.push_back(obj_entry);
+        if (!parts_array.empty()) {
+            obj_entry["parts"] = parts_array;
         }
+        
+        objects[obj_key] = obj_entry;
     }
     
     // 【调试日志】输出采集结果
-    if (!obj_list.empty()) {
+    if (!objects.empty()) {
         BOOST_LOG_TRIVIAL(warning) << "[ObjParams-Debug] Plate " << plate_idx 
-                                   << " | collected " << obj_list.size() << " objects with modifications"
-                                   << " | obj_list: " << obj_list.dump(2);
+                                   << " | collected " << objects.size() << " objects"
+                                   << " | objects: " << objects.dump(2);
     } else {
         BOOST_LOG_TRIVIAL(warning) << "[ObjParams-Debug] Plate " << plate_idx 
-                                   << " | no object modifications found";
+                                   << " | no objects found";
     }
     
-    return obj_list;
+    return objects;
 }
 
 // 采集打印机参数

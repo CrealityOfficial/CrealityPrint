@@ -192,7 +192,7 @@ public:
     bool update_items_state();
 
     void render() { on_render(); }
-    void render_input_window(float x, float y, float bottom_limit);
+    void render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false);
     virtual void on_change_color_mode(bool is_dark) {  m_is_dark_mode = is_dark; }
 
     /// <summary>
@@ -243,12 +243,13 @@ protected:
     virtual void on_dragging(const UpdateData& data) {}
 
     virtual void on_render() = 0;
-    virtual void on_render_input_window(float x, float y, float bottom_limit) {}
+    virtual void on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false) {}
 
     bool GizmoImguiBegin(const std::string& name, int flags);
+    bool GizmoImguiRenderSimpleCloseButton();
     void GizmoImguiEnd();
-    void GizmoImguiSetNextWIndowPos(float &x, float y, int flag, float pivot_x = 0.0f, float pivot_y = 0.0f);
-    void GizmoImguiSetNextWIndowPos(float &x, float y, float w, float h, int flag, float pivot_x = 0.0f, float pivot_y = 0.0f);
+    void GizmoImguiSetNextWIndowPos(float &x, float y, int flag, float pivot_x = 0.0f, float pivot_y = 0.0f, bool force_update_pos = false);
+    void GizmoImguiSetNextWIndowPos(float &x, float y, float w, float h, int flag, float pivot_x = 0.0f, float pivot_y = 0.0f, bool force_update_pos = false);
 
     void register_grabbers_for_picking();
     void unregister_grabbers_for_picking();

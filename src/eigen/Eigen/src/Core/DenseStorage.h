@@ -197,7 +197,7 @@ template<typename T, int Size, int _Rows, int _Cols, int _Options> class DenseSt
     EIGEN_DEVICE_FUNC 
     DenseStorage& operator=(const DenseStorage& other)
     { 
-      if (this != &other) m_data = other.m_data;
+      if (this != &other) m_data = other.m_data; 
       return *this; 
     }
     EIGEN_DEVICE_FUNC DenseStorage(Index size, Index rows, Index cols) {

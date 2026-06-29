@@ -1,0 +1,24 @@
+<svg width="112" height="92" viewBox="0 0 112 92" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="filamentShade" x1="35.25" y1="29" x2="58.75" y2="29" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#383838"/>
+      <stop offset="0.52" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#2C2C2C"/>
+    </linearGradient>
+    <clipPath id="clip">
+      <rect x="35.25" y="29" width="23.5" height="30" rx="8"/>
+    </clipPath>
+  </defs>
+
+  <rect x="35.25" y="29" width="23.5" height="30" rx="8" fill="url(#filamentShade)"/>
+  <g clip-path="url(#clip)" opacity="0.24">
+    <path d="M36.5 32H57.5" stroke="white" stroke-width="1"/>
+    <path d="M36.5 35.5H57.5" stroke="white" stroke-width="1"/>
+    <path d="M36.5 39H57.5" stroke="white" stroke-width="1"/>
+    <path d="M36.5 42.5H57.5" stroke="white" stroke-width="1"/>
+    <path d="M36.5 46H57.5" stroke="white" stroke-width="1"/>
+    <path d="M36.5 49.5H57.5" stroke="white" stroke-width="1"/>
+    <path d="M36.5 53H57.5" stroke="white" stroke-width="1"/>
+    <path d="M36.5 56.5H57.5" stroke="white" stroke-width="1"/>
+  </g>
+</svg>

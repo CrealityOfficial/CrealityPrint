@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top Left Filament Mapping Resident Preview V1</title>
+    <style>
+        :root {
+            --bg: #2e3138;
+            --panel: rgba(25, 27, 32, 0.95);
+            --panel-soft: rgba(255, 255, 255, 0.05);
+            --line: rgba(255, 255, 255, 0.08);
+            --line-strong: rgba(255, 255, 255, 0.14);
+            --text: #f3f6fb;
+            --muted: #9ca6b3;
+            --good: #2fd468;
+            --good-soft: rgba(47, 212, 104, 0.16);
+            --warn: #ffbf47;
+            --warn-soft: rgba(255, 191, 71, 0.16);
+            --blue: #2b18d0;
+            --red: #e10000;
+            --yellow: #ffe44d;
+            --whiteish: #e8edf2;
+            --shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
+            --radius-xl: 24px;
+            --radius-lg: 18px;
+            --radius-md: 14px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(47, 212, 104, 0.06), transparent 25%),
+                radial-gradient(circle at right center, rgba(72, 105, 255, 0.06), transparent 24%),
+                linear-gradient(180deg, #1f2228 0%, #171a1f 100%);
+            color: var(--text);
+        }
+        .page { width: min(1680px, calc(100vw - 28px)); margin: 14px auto 24px; }
+        .intro, .board {
+            box-shadow: var(--shadow);
+        }
+        .intro {
+            border: 1px solid var(--line);
+            border-radius: var(--radius-xl);
+            background: rgba(18, 20, 24, 0.92);
+            padding: 16px 18px;
+            margin-bottom: 14px;
+        }
+        .intro h1 { margin: 0 0 8px; font-size: 26px; line-height: 1.15; }
+        .intro p { margin: 0; color: #c0c9d3; font-size: 14px; line-height: 1.7; }
+        .boards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .board {
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            background: rgba(16, 18, 23, 0.82);
+            padding: 14px;
+        }
+        .board.span2 {
+            grid-column: 1 / -1;
+        }
+        .board-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .board-head strong { display: block; font-size: 18px; }
+        .board-head span { color: var(--muted); font-size: 13px; }
+        .tag {
+            padding: 7px 11px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .tag.good { color: #def9e8; background: var(--good-soft); }
+        .tag.warn { color: #ffe9bc; background: var(--warn-soft); }
+        .app {
+            position: relative;
+            min-height: 890px;
+            border-radius: 24px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: #34363c;
+        }
+        .topbar {
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 18px;
+            background: #0b0d10;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .brand { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+        .logo {
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #39d76f, #208844);
+        }
+        .tabs { display: flex; gap: 10px; }
+        .tabs div {
+            padding: 9px 15px;
+            border-radius: 12px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .tabs .active { color: white; background: rgba(47, 212, 104, 0.16); }
+        .workspace { position: relative; min-height: 826px; padding: 18px; }
+        .toolbar { display: flex; gap: 12px; margin-bottom: 14px; }
+        .device, .action-strip {
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: rgba(24, 26, 31, 0.9);
+        }
+        .device { width: 270px; padding: 15px; }
+        .device strong { display: block; margin-bottom: 5px; font-size: 16px; }
+        .device span { color: var(--muted); font-size: 13px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+        .chip {
+            padding: 7px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .chip.good { color: #def9e8; background: var(--good-soft); }
+        .chip.warn { color: #ffe9bc; background: var(--warn-soft); }
+        .action-strip { flex: 1; display: flex; gap: 10px; padding: 12px; }
+        .action {
+            width: 108px;
+            border: 1px solid var(--line);
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 12px;
+        }
+        .action.active {
+            background: rgba(47, 212, 104, 0.14);
+            border-color: rgba(47, 212, 104, 0.28);
+        }
+        .action strong { display: block; margin-bottom: 5px; font-size: 14px; }
+        .action span { color: #c4ccd6; font-size: 12px; line-height: 1.45; }
+        .scene {
+            position: absolute;
+            left: 18px;
+            right: 18px;
+            top: 126px;
+            bottom: 18px;
+            border-radius: 22px;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at center, rgba(255, 255, 255, 0.03), transparent 48%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+                #303238;
+        }
+        .plate {
+            position: absolute;
+            left: 53%;
+            bottom: 64px;
+            transform: translateX(-50%);
+            width: 58%;
+            height: 356px;
+            border-radius: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background:
+                linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+                rgba(255, 255, 255, 0.03);
+            background-size: 24px 24px;
+        }
+        .object {
+            position: absolute;
+            left: 50%;
+            bottom: 208px;
+            transform: translateX(-50%);
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            box-shadow: inset -12px -12px 18px rgba(0, 0, 0, 0.28);
+        }
+        .object.default { background: linear-gradient(90deg, var(--blue) 0 50%, var(--red) 50% 100%); }
+        .object.trial { background: linear-gradient(90deg, var(--yellow) 0 50%, var(--red) 50% 100%); }
+        .panel {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            width: 372px;
+            border-radius: 24px;
+            border: 1px solid var(--line-strong);
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        .panel.expanded { width: 412px; }
+        .panel-head { padding: 16px 17px 14px; border-bottom: 1px solid var(--line); }
+        .panel-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .panel-head strong { display: block; margin-bottom: 4px; font-size: 18px; }
+        .panel-head span { color: #b6c0ca; font-size: 12px; line-height: 1.55; }
+        .status-pill {
+            padding: 8px 11px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .status-pill.good { color: #def9e8; background: var(--good-soft); }
+        .status-pill.warn { color: #ffe9bc; background: var(--warn-soft); }
+        .banner {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .banner.good { color: #def9e8; background: rgba(47, 212, 104, 0.12); }
+        .banner.warn { color: #ffe9bc; background: rgba(255, 191, 71, 0.12); }
+        .panel-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 15px 15px; }
+        .row-title { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; gap: 10px; }
+        .row-title-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+        .row-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .mini-action {
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #e8edf4;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            white-space: nowrap;
+        }
+        .mini-action.add {
+            color: #dffae8;
+            background: rgba(47,212,104,0.12);
+            border-color: rgba(47,212,104,0.18);
+        }
+        .mini-action.delete {
+            color: #ffd2d2;
+            background: rgba(255,106,106,0.12);
+            border-color: rgba(255,106,106,0.18);
+        }
+        .mapping-list { display: flex; flex-direction: column; gap: 10px; }
+        .mapping-list.compact { gap: 8px; }
+        .mapping-list.compact.scroll3 {
+            max-height: 232px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .mapping-list.compact.scroll3::-webkit-scrollbar {
+            width: 6px;
+        }
+        .mapping-list.compact.scroll3::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.04);
+            border-radius: 999px;
+        }
+        .mapping-list.compact.scroll3::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.18);
+            border-radius: 999px;
+        }
+        .map-item {
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            background: var(--panel-soft);
+            padding: 12px;
+        }
+        .map-item.active {
+            border-color: rgba(255, 191, 71, 0.3);
+            box-shadow: inset 0 0 0 1px rgba(255, 191, 71, 0.12);
+        }
+        .item-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 7px;
+        }
+        .left { display: flex; align-items: center; gap: 10px; }
+        .dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.16);
+        }
+        .dot.red { background: var(--red); }
+        .dot.blue { background: var(--blue); }
+        .name { font-size: 14px; font-weight: 700; }
+        .sub { margin-top: 2px; color: var(--muted); font-size: 12px; }
+        .slot {
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.07);
+        }
+        .slot.warn { color: #ffe9bc; background: rgba(255, 191, 71, 0.14); }
+        .note { display: flex; justify-content: space-between; gap: 8px; color: #dae1e8; font-size: 12px; }
+        .muted { color: var(--muted); }
+        .mapping-list.compact .map-item {
+            padding: 14px 16px;
+            border-radius: 14px;
+        }
+        .mapping-list.compact .dot {
+            width: 28px;
+            height: 28px;
+            border-radius: 10px;
+            box-shadow:
+                inset 0 0 0 2px rgba(255, 255, 255, 0.08),
+                0 2px 6px rgba(0, 0, 0, 0.18);
+        }
+        .summary-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            min-height: 90px;
+        }
+        .summary-main {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            flex: 1;
+        }
+        .color-tile {
+            width: 108px;
+            height: 60px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            color: rgba(255, 255, 255, 0.96);
+            box-shadow:
+                inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+                0 6px 14px rgba(0, 0, 0, 0.18);
+        }
+        .color-tile.red { background: linear-gradient(180deg, #ff3428, #d50d00); }
+        .color-tile.blue { background: linear-gradient(180deg, #4c37ff, #2411bf); }
+        .color-tile.yellow { background: linear-gradient(180deg, #ffe44d, #e0b500); color: #2a2400; }
+        .color-tile.green { background: linear-gradient(180deg, #57ec63, #27b943); color: #09250f; }
+        .color-tile.cyan { background: linear-gradient(180deg, #34e7f1, #10bcc6); color: #062226; }
+        .color-tile.black { background: linear-gradient(180deg, #17181c, #050608); }
+        .map-arrow {
+            color: #b8c1cc;
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1;
+            flex-shrink: 0;
+            margin: 0 2px;
+        }
+        .target-tile {
+            width: 92px;
+            height: 76px;
+            position: relative;
+            flex-shrink: 0;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+        }
+        .target-tile.red { --filament: #ff3428; --filament-dark: #d50d00; }
+        .target-tile.blue { --filament: #4c37ff; --filament-dark: #2411bf; }
+        .target-tile.yellow { --filament: #ffe44d; --filament-dark: #e0b500; }
+        .target-tile.green { --filament: #57ec63; --filament-dark: #27b943; }
+        .target-tile.cyan { --filament: #34e7f1; --filament-dark: #10bcc6; }
+        .target-tile.black { --filament: #17181c; --filament-dark: #050608; }
+        .target-spool {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 74px;
+            height: 62px;
+            transform: translate(-50%, -50%);
+        }
+        .target-spool-back,
+        .target-spool-front {
+            position: absolute;
+            top: 1px;
+            width: 36px;
+            height: 58px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 40% 35%, rgba(255,255,255,0.14), transparent 38%),
+                linear-gradient(180deg, #3f434a, #1b1e24);
+            box-shadow:
+                inset -1px -2px 4px rgba(0, 0, 0, 0.24),
+                inset 1px 1px 1px rgba(255,255,255,0.04);
+        }
+        .target-spool-back {
+            left: 8px;
+            transform: perspective(120px) rotateY(38deg);
+            opacity: 0.92;
+        }
+        .target-spool-front {
+            left: 28px;
+            transform: perspective(120px) rotateY(-38deg);
+            z-index: 3;
+        }
+        .target-spool-filament {
+            position: absolute;
+            left: 22px;
+            top: 8px;
+            width: 26px;
+            height: 46px;
+            border-radius: 9px;
+            background:
+                repeating-linear-gradient(180deg, rgba(255,255,255,0.16) 0 1px, transparent 1px 3px),
+                linear-gradient(90deg, var(--filament-dark, #2b2b2f), var(--filament, #5d5dff) 52%, var(--filament-dark, #2b2b2f));
+            box-shadow:
+                inset -2px 0 3px rgba(0,0,0,0.14),
+                inset 2px 0 3px rgba(255,255,255,0.08);
+            z-index: 2;
+        }
+        .target-spool-core {
+            position: absolute;
+            left: 39px;
+            top: 21px;
+            width: 13px;
+            height: 22px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 35% 35%, rgba(255,255,255,0.14), transparent 28%),
+                radial-gradient(circle at center, #07090c 0 45%, #14171c 46% 100%);
+            box-shadow: inset -1px -2px 2px rgba(0,0,0,0.35);
+            z-index: 4;
+        }
+        .target-spool-label {
+            position: absolute;
+            left: 33px;
+            top: 10px;
+            width: 14px;
+            height: 8px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.86);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+            z-index: 5;
+        }
+        .target-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .target-trigger {
+            position: relative;
+            padding: 10px 36px 10px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03)),
+                rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            box-shadow:
+                inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+                0 6px 14px rgba(0, 0, 0, 0.12);
+            min-width: 176px;
+        }
+        .target-trigger.active {
+            border-color: rgba(255, 191, 71, 0.34);
+            box-shadow:
+                inset 0 0 0 1px rgba(255, 191, 71, 0.18),
+                0 10px 18px rgba(0, 0, 0, 0.16);
+            background: rgba(255, 191, 71, 0.08);
+        }
+        .target-caret {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            display: grid;
+            place-items: center;
+            border-radius: 999px;
+            border: none;
+            background: transparent;
+            color: #dce4ec;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .target-trigger.active .target-caret {
+            color: #ffe9bc;
+        }
+        .target-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+            min-width: 0;
+            padding-right: 12px;
+        }
+        .slot-id {
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #eef3f8;
+            background: rgba(255, 255, 255, 0.08);
+            white-space: nowrap;
+        }
+        .target-type {
+            color: #bfc8d2;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.01em;
+        }
+        .summary-side {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .state-pill {
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            background: rgba(255,255,255,0.06);
+            color: #dbe2ea;
+        }
+        .state-pill.good {
+            color: #def9e8;
+            background: rgba(47,212,104,0.12);
+        }
+        .state-pill.soft {
+            color: #e7dbbd;
+            background: rgba(255,191,71,0.12);
+        }
+        .preview-card, .drawer {
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 12px;
+        }
+        .drawer-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+        .drawer-head h4 {
+            margin: 0;
+        }
+        .preview-card h4, .drawer h4, .candidate-group h5 { margin: 0 0 7px; font-size: 14px; }
+        .preview-card p, .drawer p { margin: 0; color: #c3ccd6; font-size: 12px; line-height: 1.55; }
+        .preview-stage {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: 112px 1fr;
+            gap: 12px;
+            align-items: center;
+        }
+        .preview-stage.compact {
+            grid-template-columns: 1fr;
+            justify-content: center;
+        }
+        .preview-box, .mini-box {
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            background:
+                radial-gradient(circle at center, rgba(255, 255, 255, 0.04), transparent 56%),
+                rgba(255, 255, 255, 0.02);
+        }
+        .preview-box { height: 112px; }
+        .mini-box { height: 80px; }
+        .preview-stage.compact .preview-box {
+            width: 220px;
+            height: 220px;
+            justify-self: center;
+        }
+        .preview-stage.compact .sphere.big {
+            width: 118px;
+            height: 118px;
+        }
+        .sphere {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            box-shadow: inset -10px -10px 16px rgba(0, 0, 0, 0.3);
+        }
+        .sphere.big { width: 58px; height: 58px; }
+        .sphere.small { width: 42px; height: 42px; }
+        .sphere.default { background: linear-gradient(90deg, var(--blue) 0 50%, var(--red) 50% 100%); }
+        .sphere.trial { background: linear-gradient(90deg, var(--yellow) 0 50%, var(--red) 50% 100%); }
+        .sphere.multi6 {
+            background: conic-gradient(
+                #ff2c22 0deg 60deg,
+                #4c37ff 60deg 120deg,
+                #ffe44d 120deg 180deg,
+                #57ec63 180deg 240deg,
+                #34e7f1 240deg 300deg,
+                #0a0b0d 300deg 360deg
+            );
+        }
+        .meta strong { display: block; margin-bottom: 6px; font-size: 14px; }
+        .meta span { display: block; color: #c3ccd6; font-size: 12px; line-height: 1.55; }
+        .preview-lines {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .preview-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            font-size: 12px;
+            color: #dce3eb;
+        }
+        .preview-line-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+        }
+        .mini-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
+        }
+        .mini-dot.red { background: var(--red); }
+        .mini-dot.blue { background: var(--blue); }
+        .preview-line .slot-id {
+            padding: 4px 7px;
+            font-size: 10px;
+        }
+        .btns { display: flex; gap: 10px; }
+        .btn {
+            flex: 1;
+            padding: 11px 12px;
+            text-align: center;
+            border-radius: 14px;
+            font-size: 13px;
+            font-weight: 700;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .btns.single .btn {
+            flex: 0 0 100%;
+        }
+        .more-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 12px 2px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .linkish {
+            color: #dfe6ee;
+            font-weight: 700;
+        }
+        .btn.primary { background: rgba(47, 212, 104, 0.92); color: #07110b; border-color: rgba(47, 212, 104, 0.4); }
+        .btn.secondary { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+        .candidate-group { margin-top: 12px; }
+        .candidate-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .candidate {
+            min-width: 78px;
+            border-radius: 12px;
+            padding: 10px 8px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: #101216;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .candidate small { display: block; margin-top: 4px; color: rgba(0, 0, 0, 0.72); font-size: 11px; }
+        .candidate.recommended { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5); }
+        .candidate.hovering { outline: 2px solid rgba(255, 191, 71, 0.6); }
+        .candidate.disabled {
+            color: #ecf0f4;
+            background:
+                linear-gradient(135deg, rgba(255, 255, 255, 0.16) 25%, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.04) 50%, rgba(255, 255, 255, 0.16) 50%, rgba(255, 255, 255, 0.16) 75%, rgba(255, 255, 255, 0.04) 75%);
+            background-size: 10px 10px;
+            border-color: rgba(255, 255, 255, 0.14);
+        }
+        .mapping-popup {
+            position: absolute;
+            top: 266px;
+            left: 334px;
+            width: 308px;
+            z-index: 12;
+        }
+        .popup-arrow {
+            position: absolute;
+            left: -10px;
+            top: 82px;
+            width: 18px;
+            height: 18px;
+            border-left: 1px solid rgba(255,255,255,0.12);
+            border-top: 1px solid rgba(255,255,255,0.12);
+            background: rgba(20, 22, 27, 0.98);
+            transform: rotate(-45deg);
+            border-top-left-radius: 4px;
+        }
+        .popup-card {
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 20px;
+            background: rgba(20, 22, 27, 0.98);
+            box-shadow: 0 20px 44px rgba(0, 0, 0, 0.36);
+            overflow: hidden;
+        }
+        .popup-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 15px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .popup-head strong {
+            display: block;
+            margin-bottom: 3px;
+            font-size: 14px;
+        }
+        .popup-head span {
+            color: #b8c1cc;
+            font-size: 11px;
+            line-height: 1.45;
+        }
+        .popup-filters {
+            display: flex;
+            gap: 8px;
+            padding: 10px 15px 8px;
+            overflow-x: auto;
+        }
+        .popup-filters::-webkit-scrollbar {
+            height: 6px;
+        }
+        .popup-filters::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.14);
+            border-radius: 999px;
+        }
+        .filter-chip {
+            padding: 7px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.05);
+            color: #dce4ec;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .filter-chip.active {
+            color: #ffe9bc;
+            background: rgba(255, 191, 71, 0.14);
+            border-color: rgba(255, 191, 71, 0.18);
+        }
+        .popup-close {
+            width: 28px;
+            height: 28px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            color: #d8e0e7;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            font-size: 14px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .popup-section {
+            padding: 8px 15px 0;
+        }
+        .popup-section:last-of-type {
+            padding-bottom: 12px;
+        }
+        .popup-section h5 {
+            margin: 0 0 6px;
+            color: #c3ccd6;
+            font-size: 11px;
+        }
+        .popup-section-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+            color: #c3ccd6;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .popup-section-label .popup-status {
+            padding: 3px 7px;
+            font-size: 10px;
+        }
+        .popup-matrix {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .popup-cell {
+            position: relative;
+            min-height: 118px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.14);
+            padding: 8px 8px 9px;
+            color: rgba(255,255,255,0.98);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)),
+                rgba(20, 22, 27, 0.82);
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.04),
+                0 8px 16px rgba(0, 0, 0, 0.18);
+        }
+        .popup-cell.recommended {
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.08),
+                0 0 0 1px rgba(47, 212, 104, 0.22),
+                0 8px 18px rgba(0, 0, 0, 0.22);
+        }
+        .popup-cell.selected {
+            outline: 2px solid rgba(255, 191, 71, 0.62);
+            outline-offset: -2px;
+        }
+        .popup-cell.disabled {
+            color: rgba(255,255,255,0.56);
+            background:
+                linear-gradient(135deg, rgba(255, 255, 255, 0.09) 25%, rgba(255, 255, 255, 0.02) 25%, rgba(255, 255, 255, 0.02) 50%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.09) 75%, rgba(255, 255, 255, 0.02) 75%),
+                linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+            background-size: 10px 10px, auto;
+        }
+        .popup-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .popup-slot-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 30px;
+            padding: 4px 7px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: 0.01em;
+            color: #eef3f8;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .popup-spool {
+            position: relative;
+            width: 72px;
+            height: 64px;
+            margin: 4px auto 10px;
+            filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.24));
+        }
+        .popup-spool-back,
+        .popup-spool-front {
+            position: absolute;
+            top: 2px;
+            width: 36px;
+            height: 60px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 40% 35%, rgba(255,255,255,0.16), transparent 38%),
+                linear-gradient(180deg, var(--reel-front, #2b2d32), var(--reel-back, #17191d));
+            box-shadow:
+                inset -2px -3px 5px rgba(0, 0, 0, 0.24),
+                inset 1px 1px 1px rgba(255,255,255,0.05);
+        }
+        .popup-spool-back {
+            left: 8px;
+            transform: perspective(120px) rotateY(38deg);
+            opacity: 0.9;
+        }
+        .popup-spool-front {
+            left: 28px;
+            transform: perspective(120px) rotateY(-38deg);
+            z-index: 3;
+        }
+        .popup-spool-filament {
+            position: absolute;
+            left: 22px;
+            top: 8px;
+            width: 24px;
+            height: 48px;
+            border-radius: 10px;
+            background:
+                repeating-linear-gradient(180deg, rgba(255,255,255,0.16) 0 1px, transparent 1px 4px),
+                linear-gradient(90deg, var(--filament-dark, #2b2b2f), var(--filament, #5d5dff) 52%, var(--filament-dark, #2b2b2f));
+            box-shadow:
+                inset -2px 0 3px rgba(0,0,0,0.14),
+                inset 2px 0 3px rgba(255,255,255,0.08);
+            z-index: 2;
+        }
+        .popup-spool-core {
+            position: absolute;
+            left: 42px;
+            top: 20px;
+            width: 12px;
+            height: 20px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 35% 35%, rgba(255,255,255,0.16), transparent 28%),
+                radial-gradient(circle at center, #07090c 0 45%, #14171c 46% 100%);
+            box-shadow: inset -1px -2px 2px rgba(0,0,0,0.35);
+            z-index: 4;
+        }
+        .popup-spool-label {
+            position: absolute;
+            left: 34px;
+            top: 10px;
+            width: 16px;
+            height: 8px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.88);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+            z-index: 5;
+        }
+        .popup-cell-slot {
+            display: block;
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: 0.01em;
+            text-align: center;
+        }
+        .popup-cell-type {
+            display: block;
+            margin-top: 2px;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+            text-align: center;
+            color: #cdd5df;
+            opacity: 0.96;
+        }
+        .popup-cell-note {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            padding: 3px 6px;
+            border-radius: 999px;
+            color: #f2f7fb;
+            background: rgba(0,0,0,0.18);
+            font-size: 9px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .popup-status.good {
+            color: #def9e8;
+            background: rgba(47, 212, 104, 0.16);
+        }
+        .popup-status.warn {
+            color: #ffe9bc;
+            background: rgba(255, 191, 71, 0.16);
+        }
+        .popup-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 11px 15px 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+        }
+        .popup-actions span {
+            color: #b5bec8;
+            font-size: 11px;
+            line-height: 1.45;
+        }
+        .compare {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 1fr 20px 1fr;
+            gap: 8px;
+            align-items: center;
+        }
+        .compare-arrow { text-align: center; color: #d7dee6; font-size: 18px; }
+        .compare-card {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 10px;
+        }
+        .compare-card h6 { margin: 0 0 7px; font-size: 12px; }
+        .cap { margin-top: 7px; color: #c0c8d2; font-size: 11px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="intro">
+            <h1>Top Left Filament Mapping Resident Preview V1 Temp</h1>
+            <p>这份 HTML 只对应当前 PRD 的最新收敛结果，不复用之前的 mockup。左边展示默认常驻态；右边展示“点击列表行右侧映射目标后弹出候选框”的版本；下方继续保留多颜色场景下的滚动列表观察。</p>
+        </div>
+
+        <div class="boards">
+            <section class="board">
+                <div class="board-head">
+                    <div>
+                        <strong>默认常驻态</strong>
+                        <span>默认常驻态</span>
+                    </div>
+                    <div class="tag good">可直接切片</div>
+                </div>
+                <div class="app">
+                    <div class="topbar">
+                        <div class="brand"><div class="logo"></div><div>Creality Print / Simple Mode</div></div>
+                        <div class="tabs">
+                            <div>在线模型</div>
+                            <div class="active">准备</div>
+                            <div>预览</div>
+                            <div>设备</div>
+                        </div>
+                    </div>
+
+                    <div class="workspace">
+                        <div class="toolbar">
+                            <div class="device">
+                                <strong>K2 Plus / Living Room</strong>
+                                <span>已连接 · CFS 在线 · 空闲</span>
+                                <div class="chips">
+                                    <div class="chip good">自动映射 2/2</div>
+                                    <div class="chip">打印校准关闭</div>
+                                </div>
+                            </div>
+                            <div class="action-strip">
+                                <div class="action"><strong>导入模型</strong><span>导入 STL / 3MF</span></div>
+                                <div class="action active"><strong>耗材</strong><span>已映射完成</span></div>
+                                <div class="action"><strong>支撑</strong><span>按需处理</span></div>
+                                <div class="action active"><strong>切片</strong><span>当前可直接继续</span></div>
+                            </div>
+                        </div>
+
+                        <div class="scene">
+                            <div class="plate"></div>
+                            <div class="object default"></div>
+
+                            <aside class="panel">
+                                <div class="panel-head">
+                                    <div class="panel-top">
+                                        <div>
+                                            <strong>场景耗材与映射</strong>
+                                            <span>当前场景颜色与映射结果</span>
+                                        </div>
+                                        <div class="status-pill good">可直接切片</div>
+                                    </div>
+                                    <div class="banner good">2 种颜色已自动匹配，可直接切片。</div>
+                                </div>
+
+                                <div class="panel-body">
+                                    <div class="row-title">
+                                        <div class="row-title-main">
+                                            <span>当前场景颜色</span>
+                                            <span>2 / 2 已匹配</span>
+                                        </div>
+                                        <div class="row-actions">
+                                            <div class="mini-action add">+ 添加颜色</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mapping-list compact">
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile red">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger">
+                                                    <div class="target-tile red">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 5</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill good">完全匹配</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile blue">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger">
+                                                    <div class="target-tile blue">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 2D</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill soft">颜色接近</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="preview-card">
+                                        <h4>打印效果预览</h4>
+                                        <p>当前整体结果</p>
+                                        <div class="preview-stage compact">
+                                            <div class="preview-box"><div class="sphere big default"></div></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="btns single">
+                                        <div class="btn secondary">查看并调整</div>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="board">
+                <div class="board-head">
+                    <div>
+                        <strong>点击映射目标弹出候选框</strong>
+                        <span>列表结构不切页，点右侧料架目标后在模块旁边弹出候选框</span>
+                    </div>
+                    <div class="tag warn">1 项待确认</div>
+                </div>
+                <div class="app">
+                    <div class="topbar">
+                        <div class="brand"><div class="logo"></div><div>Creality Print / Simple Mode</div></div>
+                        <div class="tabs">
+                            <div>在线模型</div>
+                            <div class="active">准备</div>
+                            <div>预览</div>
+                            <div>设备</div>
+                        </div>
+                    </div>
+
+                    <div class="workspace">
+                        <div class="toolbar">
+                            <div class="device">
+                                <strong>K2 Plus / Living Room</strong>
+                                <span>已连接 · CFS 在线 · 空闲</span>
+                                <div class="chips">
+                                    <div class="chip warn">蓝色项待确认</div>
+                                    <div class="chip">点击右侧目标可改映射</div>
+                                </div>
+                            </div>
+                            <div class="action-strip">
+                                <div class="action active"><strong>耗材</strong><span>映射目标弹出选择</span></div>
+                                <div class="action"><strong>切片</strong><span>处理后继续</span></div>
+                            </div>
+                        </div>
+
+                        <div class="scene">
+                            <div class="plate"></div>
+                            <div class="object default"></div>
+
+                            <aside class="panel">
+                                <div class="panel-head">
+                                    <div class="panel-top">
+                                        <div>
+                                            <strong>场景耗材与映射</strong>
+                                            <span>点击某一行右侧映射目标后，直接弹出设备耗材候选框。</span>
+                                        </div>
+                                        <div class="status-pill warn">1 项待确认</div>
+                                    </div>
+                                    <div class="banner warn">蓝色 PLA 建议确认，当前推荐 CFS 2D。你可以直接点击该行右侧料架目标切换。</div>
+                                </div>
+
+                                <div class="panel-body">
+                                    <div class="row-title">
+                                        <div class="row-title-main">
+                                            <span>当前场景颜色</span>
+                                            <span>2 / 2 已匹配</span>
+                                        </div>
+                                        <div class="row-actions">
+                                            <div class="mini-action add">+ 添加颜色</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mapping-list compact">
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile red">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger">
+                                                    <div class="target-tile red">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 5</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill good">完全匹配</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="map-item summary-row active">
+                                            <div class="summary-main">
+                                                <div class="color-tile blue">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger active">
+                                                    <div class="target-tile blue">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 2D</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill soft">建议确认</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile yellow">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger">
+                                                    <div class="target-tile yellow">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">EXT</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill good">完全匹配</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="preview-card">
+                                        <h4>打印效果预览</h4>
+                                        <p>候选框只负责选映射目标，整体结果仍在这里统一反馈。</p>
+                                        <div class="preview-stage compact">
+                                            <div class="preview-box"><div class="sphere big default"></div></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="btns single">
+                                        <div class="btn secondary">查看并调整</div>
+                                    </div>
+                                </div>
+                            </aside>
+
+                            <div class="mapping-popup">
+                                <div class="popup-arrow"></div>
+                                <div class="popup-card">
+                                    <div class="popup-head">
+                                        <div>
+                                            <strong>蓝色 PLA 的映射目标</strong>
+                                            <span>推荐：2D</span>
+                                        </div>
+                                        <div class="popup-close">×</div>
+                                    </div>
+
+                                    <div class="popup-filters">
+                                        <div class="filter-chip">全部</div>
+                                        <div class="filter-chip active">推荐</div>
+                                        <div class="filter-chip">CFS 1</div>
+                                        <div class="filter-chip">CFS 2</div>
+                                        <div class="filter-chip">EXT</div>
+                                    </div>
+
+                                    <div class="popup-section">
+                                        <div class="popup-section-label">
+                                            <span>推荐</span>
+                                            <div class="popup-status good">当前推荐</div>
+                                        </div>
+                                        <div class="popup-matrix">
+                                            <div class="popup-cell recommended selected" style="--filament:#4c37ff; --filament-dark:#2411bf;">
+                                                <div class="popup-card-top">
+                                                    <span class="popup-slot-badge">2D</span>
+                                                    <span class="popup-cell-note">荐</span>
+                                                </div>
+                                                <div class="popup-spool">
+                                                    <div class="popup-spool-back"></div>
+                                                    <div class="popup-spool-filament"></div>
+                                                    <div class="popup-spool-front"></div>
+                                                    <div class="popup-spool-core"></div>
+                                                    <div class="popup-spool-label"></div>
+                                                </div>
+                                                <span class="popup-cell-type">PLA</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="popup-section">
+                                        <h5>CFS 1</h5>
+                                        <div class="popup-matrix">
+                                            <div class="popup-cell" style="--filament:#ffe44d; --filament-dark:#d4ac10;">
+                                                <div class="popup-card-top">
+                                                    <span class="popup-slot-badge">1A</span>
+                                                </div>
+                                                <div class="popup-spool">
+                                                    <div class="popup-spool-back"></div>
+                                                    <div class="popup-spool-filament"></div>
+                                                    <div class="popup-spool-front"></div>
+                                                    <div class="popup-spool-core"></div>
+                                                    <div class="popup-spool-label"></div>
+                                                </div>
+                                                <span class="popup-cell-type">PLA</span>
+                                            </div>
+                                            <div class="popup-cell disabled" style="--filament:#9fb2ff; --filament-dark:#5a74ed;">
+                                                <div class="popup-card-top">
+                                                    <span class="popup-slot-badge">1B</span>
+                                                </div>
+                                                <div class="popup-spool">
+                                                    <div class="popup-spool-back"></div>
+                                                    <div class="popup-spool-filament"></div>
+                                                    <div class="popup-spool-front"></div>
+                                                    <div class="popup-spool-core"></div>
+                                                    <div class="popup-spool-label"></div>
+                                                </div>
+                                                <span class="popup-cell-type">PLA</span>
+                                            </div>
+                                            <div class="popup-cell disabled" style="--filament:#57ec63; --filament-dark:#28b544;">
+                                                <div class="popup-card-top">
+                                                    <span class="popup-slot-badge">1C</span>
+                                                </div>
+                                                <div class="popup-spool">
+                                                    <div class="popup-spool-back"></div>
+                                                    <div class="popup-spool-filament"></div>
+                                                    <div class="popup-spool-front"></div>
+                                                    <div class="popup-spool-core"></div>
+                                                    <div class="popup-spool-label"></div>
+                                                </div>
+                                                <span class="popup-cell-type">PETG</span>
+                                            </div>
+                                            <div class="popup-cell" style="--filament:#ffffff; --filament-dark:#d7dce1;">
+                                                <div class="popup-card-top">
+                                                    <span class="popup-slot-badge">1D</span>
+                                                </div>
+                                                <div class="popup-spool">
+                                                    <div class="popup-spool-back"></div>
+                                                    <div class="popup-spool-filament"></div>
+                                                    <div class="popup-spool-front"></div>
+                                                    <div class="popup-spool-core"></div>
+                                                    <div class="popup-spool-label"></div>
+                                                </div>
+                                                <span class="popup-cell-type">PLA</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="popup-section">
+                                        <h5>CFS 2</h5>
+                                        <div class="popup-matrix">
+                                            <div class="popup-cell disabled" style="--filament:#8b4a24; --filament-dark:#633013;">
+                                                <div class="popup-card-top">
+                                                    <span class="popup-slot-badge">2A</span>
+                                                    <span class="popup-cell-note">空</span>
+                                                </div>
+                                                <div class="popup-spool">
+                                                    <div class="popup-spool-back"></div>
+                                                    <div class="popup-spool-filament"></div>
+                                                    <div class="popup-spool-front"></div>
+                                                    <div class="popup-spool-core"></div>
+                                                    <div class="popup-spool-label"></div>
+                                                </div>
+                                                <span class="popup-cell-type">PLA</span>
+                                            </div>
+                                            <div class="popup-cell" style="--filament:#4d57ff; --filament-dark:#353cd7;">
+                                                <div class="popup-card-top">
+                                                    <span class="popup-slot-badge">2B</span>
+                                                </div>
+                                                <div class="popup-spool">
+                                                    <div class="popup-spool-back"></div>
+                                                    <div class="popup-spool-filament"></div>
+                                                    <div class="popup-spool-front"></div>
+                                                    <div class="popup-spool-core"></div>
+                                                    <div class="popup-spool-label"></div>
+                                                </div>
+                                                <span class="popup-cell-type">PLA</span>
+                                            </div>
+                                            <div class="popup-cell" style="--filament:#ff6b57; --filament-dark:#ef4f34;">
+                                                <div class="popup-card-top">
+                                                    <span class="popup-slot-badge">2C</span>
+                                                </div>
+                                                <div class="popup-spool">
+                                                    <div class="popup-spool-back"></div>
+                                                    <div class="popup-spool-filament"></div>
+                                                    <div class="popup-spool-front"></div>
+                                                    <div class="popup-spool-core"></div>
+                                                    <div class="popup-spool-label"></div>
+                                                </div>
+                                                <span class="popup-cell-type">PLA</span>
+                                            </div>
+                                            <div class="popup-cell recommended selected" style="--filament:#4c37ff; --filament-dark:#2411bf;">
+                                                <div class="popup-card-top">
+                                                    <span class="popup-slot-badge">2D</span>
+                                                    <span class="popup-cell-note">荐</span>
+                                                </div>
+                                                <div class="popup-spool">
+                                                    <div class="popup-spool-back"></div>
+                                                    <div class="popup-spool-filament"></div>
+                                                    <div class="popup-spool-front"></div>
+                                                    <div class="popup-spool-core"></div>
+                                                    <div class="popup-spool-label"></div>
+                                                </div>
+                                                <span class="popup-cell-type">PLA</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="popup-section">
+                                        <h5>EXT</h5>
+                                        <div class="popup-matrix" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+                                            <div class="popup-cell" style="--filament:#e8edf2; --filament-dark:#cdd5dc;">
+                                                <div class="popup-card-top">
+                                                    <span class="popup-slot-badge">EXT</span>
+                                                </div>
+                                                <div class="popup-spool">
+                                                    <div class="popup-spool-back"></div>
+                                                    <div class="popup-spool-filament"></div>
+                                                    <div class="popup-spool-front"></div>
+                                                    <div class="popup-spool-core"></div>
+                                                    <div class="popup-spool-label"></div>
+                                                </div>
+                                                <span class="popup-cell-type">PLA</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="popup-actions">
+                                        <span>点选色块后，映射行和整体预览立即刷新。</span>
+                                        <div class="mini-action delete">删除该颜色</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="board span2">
+                <div class="board-head">
+                    <div>
+                        <strong>多颜色场景</strong>
+                        <span>模拟 6 色场景下，左上角如何保持可扫视而不无限堆行</span>
+                    </div>
+                    <div class="tag warn">6 色 / 1 项待确认</div>
+                </div>
+                <div class="app">
+                    <div class="topbar">
+                        <div class="brand"><div class="logo"></div><div>Creality Print / Simple Mode</div></div>
+                        <div class="tabs">
+                            <div>在线模型</div>
+                            <div class="active">准备</div>
+                            <div>预览</div>
+                            <div>设备</div>
+                        </div>
+                    </div>
+
+                    <div class="workspace">
+                        <div class="toolbar">
+                            <div class="device">
+                                <strong>K2 Plus / Living Room</strong>
+                                <span>已连接 · CFS 在线 · 空闲</span>
+                                <div class="chips">
+                                    <div class="chip warn">6 色场景</div>
+                                    <div class="chip warn">1 项待确认</div>
+                                </div>
+                            </div>
+                            <div class="action-strip">
+                                <div class="action active"><strong>耗材</strong><span>多颜色场景</span></div>
+                                <div class="action"><strong>支撑</strong><span>按需处理</span></div>
+                                <div class="action"><strong>切片</strong><span>确认后继续</span></div>
+                            </div>
+                        </div>
+
+                        <div class="scene">
+                            <div class="plate"></div>
+                            <div class="object default" style="background:conic-gradient(#ff2c22 0deg 60deg,#4c37ff 60deg 120deg,#ffe44d 120deg 180deg,#57ec63 180deg 240deg,#34e7f1 240deg 300deg,#0a0b0d 300deg 360deg);"></div>
+
+                            <aside class="panel expanded" style="width:430px;">
+                                <div class="panel-head">
+                                    <div class="panel-top">
+                                        <div>
+                                            <strong>场景耗材与映射</strong>
+                                            <span>多颜色场景下优先保证首屏结构稳定，颜色列表超出后通过内部滚动查看。</span>
+                                        </div>
+                                        <div class="status-pill warn">1 项待确认</div>
+                                    </div>
+                                    <div class="banner warn">当前项目使用 6 种颜色，其中 1 项建议确认。列表默认保持 3 行高度，更多颜色通过内部滚动查看。</div>
+                                </div>
+
+                                <div class="panel-body">
+                                    <div class="row-title">
+                                        <div class="row-title-main">
+                                            <span>当前场景颜色</span>
+                                            <span>6 个颜色</span>
+                                        </div>
+                                        <div class="row-actions">
+                                            <div class="mini-action add">+ 添加颜色</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mapping-list compact scroll3">
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile red">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger">
+                                                    <div class="target-tile red">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 5</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill good">完全匹配</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile blue">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger">
+                                                    <div class="target-tile blue">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 2D</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill soft">颜色接近</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile yellow">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger">
+                                                    <div class="target-tile yellow">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 1A</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill good">完全匹配</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile green">PETG</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger active">
+                                                    <div class="target-tile green">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 1C</div>
+                                                        <div class="target-type">PETG</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill warn">建议确认</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile cyan">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger">
+                                                    <div class="target-tile cyan">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 7</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill good">完全匹配</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile black">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger">
+                                                    <div class="target-tile black">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 3B</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill good">完全匹配</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="map-item summary-row">
+                                            <div class="summary-main">
+                                                <div class="color-tile red" style="background:linear-gradient(180deg,#ff90b2,#e05a83);">PLA</div>
+                                                <div class="map-arrow">→</div>
+                                                <div class="target-wrap target-trigger">
+                                                    <div class="target-tile red" style="--filament:#ff90b2; --filament-dark:#e05a83;">
+                                                        <div class="target-spool">
+                                                            <div class="target-spool-back"></div>
+                                                            <div class="target-spool-filament"></div>
+                                                            <div class="target-spool-front"></div>
+                                                            <div class="target-spool-core"></div>
+                                                            <div class="target-spool-label"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="target-meta">
+                                                        <div class="slot-id">CFS 3A</div>
+                                                        <div class="target-type">PLA</div>
+                                                    </div>
+                                                    <div class="target-caret">▾</div>
+                                                </div>
+                                            </div>
+                                            <div class="summary-side">
+                                                <div class="state-pill soft">颜色接近</div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    <div class="preview-card">
+                                        <h4>打印效果预览</h4>
+                                        <p>当前整体结果</p>
+                                        <div class="preview-stage compact">
+                                            <div class="preview-box"><div class="sphere big multi6"></div></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="btns single">
+                                        <div class="btn secondary">查看并调整</div>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

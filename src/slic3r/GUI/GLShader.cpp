@@ -336,7 +336,12 @@ void GLShaderProgram::set_uniform(int id, const Vec3f& value) const
 
 void GLShaderProgram::set_uniform(int id, const Vec3d& value) const
 {
-    set_uniform(id, static_cast<Vec3f>(value.cast<float>()));
+    set_uniform(id, static_cast<Vec3f>(value.cast<float>())); }
+
+void GLShaderProgram::set_uniform(int id, const Vec4f& value) const 
+{
+    if (id >= 0)
+        set_uniform(id, value.data(), 4);
 }
 
 void GLShaderProgram::set_uniform(int id, const ColorRGB& value) const

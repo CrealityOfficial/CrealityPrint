@@ -3,6 +3,10 @@
 #include "ModelObject.hpp"
 #include "ModelInstance.hpp"
 #include "Model.hpp"
+#include "Print.hpp"
+
+#include <map>
+#include <boost/log/trivial.hpp>
 
 namespace Slic3r {
 
@@ -142,6 +146,13 @@ void ModelVolume::update_extruder_count_when_delete_filament(size_t extruder_cou
             break;
         }
     }
+}
+
+void ModelVolume::remap_mmu_painting_states(const std::vector<unsigned int>& remap)
+{
+    if (remap.empty() || mmu_segmentation_facets.empty())
+        return;
+    mmu_segmentation_facets.remap_states(*this, remap);
 }
 
 void ModelVolume::center_geometry_after_creation(bool update_source_offset)
@@ -504,6 +515,16 @@ void FacetsAnnotation::set_enforcer_block_type_limit(const ModelVolume& mv,
 {
     TriangleSelector selector(mv.mesh());
     selector.deserialize(m_data, false, max_type, to_delete_filament, replace_filament);
+    this->set(selector);
+}
+
+void FacetsAnnotation::remap_states(const ModelVolume& mv, const std::vector<unsigned int>& remap)
+{
+    if (remap.empty())
+        return;
+    TriangleSelector selector(mv.mesh());
+    selector.deserialize(m_data, false);
+    selector.remap_states(remap);
     this->set(selector);
 }
 

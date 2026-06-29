@@ -200,12 +200,12 @@ void GLGizmoRotate::init_data_from_selection(const Selection& selection)
 }
 
 //BBS: add input window for move
-void GLGizmoRotate3D::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoRotate3D::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
     //if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() != ptSLA)
     //    return;
     if (m_object_manipulation)
-        m_object_manipulation->do_render_rotate_window(m_imgui, _u8L("Rotate"), x, y, bottom_limit);
+        m_object_manipulation->do_render_rotate_window(m_imgui, _u8L("Rotate"), x, y, bottom_limit, force_update_pos);
     //RotoptimzeWindow popup{m_imgui, m_rotoptimizewin_state, {x, y, bottom_limit}};
 }
 

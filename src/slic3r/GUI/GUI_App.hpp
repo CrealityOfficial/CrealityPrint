@@ -240,6 +240,10 @@ private:
     bool            m_force_colors_update { false };
 //#endif
 
+public:
+    std::chrono::steady_clock::time_point m_perf_slice_start_time;
+private:
+
     wxFont		    m_small_font;
     wxFont		    m_bold_font;
 	wxFont			m_normal_font;
@@ -300,6 +304,7 @@ private:
     boost::thread    m_sync_update_thread;
     std::shared_ptr<int> m_user_sync_token;
     bool             m_is_dark_mode{ false };
+    bool             m_is_easy_mode{ false };
     bool             m_adding_script_handler { false };
     bool             m_webview_runtime_repair_prompted { false };
     bool             m_side_popup_status{false};
@@ -421,6 +426,7 @@ private:
 #endif
     static unsigned get_colour_approx_luma(const wxColour& colour);
     static bool     dark_mode();
+    static bool     easy_mode();
     const wxColour  get_label_default_clr_system();
     const wxColour  get_label_default_clr_modified();
     void            init_label_colours();
@@ -432,6 +438,7 @@ private:
     void            UpdateDarkUI(wxWindow *window, bool highlited = false, bool just_font = false);
     void            UpdateDarkUIWin(wxWindow* win);
     void            Update_dark_mode_flag();
+    void            Update_easy_mode_flag();
     // update color mode for whole dialog including all children
     void            UpdateDlgDarkUI(wxDialog* dlg);
     void            UpdateFrameDarkUI(wxFrame* dlg);
@@ -749,6 +756,8 @@ private:
     OpenGLManager& get_opengl_manager() { return m_opengl_mgr; }
     GLShaderProgram* get_shader(const std::string& shader_name) { return m_opengl_mgr.get_shader(shader_name); }
     GLShaderProgram* get_current_shader() { return m_opengl_mgr.get_current_shader(); }
+	void bind_shader(const GLShaderProgram* p_shader);
+    void unbind_shader();
 
     bool is_gl_version_greater_or_equal_to(unsigned int major, unsigned int minor) const { return m_opengl_mgr.get_gl_info().is_version_greater_or_equal_to(major, minor); }
     bool is_glsl_version_greater_or_equal_to(unsigned int major, unsigned int minor) const { return m_opengl_mgr.get_gl_info().is_glsl_version_greater_or_equal_to(major, minor); }
@@ -798,6 +807,7 @@ private:
 
     void startTour(int startIndex = 0);
     void startTour_Apple();
+    void startTour_Simple();
 
     void set_picking_effect(EPickingEffect effect);
     EPickingEffect get_picking_effect() const;

@@ -87,6 +87,7 @@ private:
     // some useful events
     void mouseWheelMoved(wxMouseEvent& event);
     void keyPressed(wxKeyEvent& event);
+    void updateTextValidator();
     void onTimer(wxTimerEvent &evnet);
     void onTextLostFocus(wxEvent &event);
     void onTextEnter(wxCommandEvent &event);

@@ -88,8 +88,9 @@
     "deretraction_speed": "40",
     "extruder_colour": "#FCE94F",
     "extruder_offset": "0x0",
-    "max_layer_height": "0.32",
-    "min_layer_height": "0.08",
+    "long_retractions_when_cut": "1",
+    "max_layer_height": "0.35",
+    "min_layer_height": "0.1",
     "nozzle_diameter": [
         "0.4"
     ],
@@ -101,6 +102,7 @@
     "retract_restart_extra": "0",
     "retract_restart_extra_toolchange": "0",
     "retract_when_changing_layer": "1",
+    "retraction_distances_when_cut": "30",
     "retraction_length": "0.8",
     "retraction_minimum_travel": "1",
     "retraction_speed": "40",
@@ -109,5 +111,5 @@
     "z_hop": "0.4",
     "z_hop_types": "Auto Lift",
     "name": "Creality Sermoon M300 0.4 nozzle",
-    "setting_id": "45809"
+    "setting_id": "36551"
 }

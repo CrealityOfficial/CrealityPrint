@@ -58,6 +58,7 @@ enum ExtrusionRole : uint8_t {
     erSupportMaterialInterface,
     erSupportTransition,
     erWipeTower,
+    erSkinInfill,
     erCustom,
     // Extrusion role for a collection with multiple extrusion roles.
     erMixed,
@@ -112,6 +113,7 @@ inline bool is_infill(ExtrusionRole role)
     return role == erBridgeInfill
         || role == erInternalBridgeInfill
         || role == erInternalInfill
+        || role == erSkinInfill
         || role == erSolidInfill
         || role == erTopSolidInfill
         || role == erBottomSurface

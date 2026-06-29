@@ -492,6 +492,9 @@ void AppConfig::set_defaults()
         set("dark_color_mode", "1");//default to dark mode.
 #endif
 
+    if(get("easy_print_mode").empty())
+        set("easy_print_mode", "0");
+
 //#ifdef SUPPORT_SYS_MENU
     if (get("sys_menu_enabled").empty())
         set("sys_menu_enabled", "1");

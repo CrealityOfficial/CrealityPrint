@@ -292,10 +292,10 @@ void GLGizmoScale3D::render_grabbers_connection(unsigned int id_1, unsigned int 
 }
 
 //BBS: add input window for move
-void GLGizmoScale3D::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoScale3D::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
     if (m_object_manipulation)
-        m_object_manipulation->do_render_scale_input_window(m_imgui, _u8L("Scale"), x, y, bottom_limit);
+        m_object_manipulation->do_render_scale_input_window(m_imgui, _u8L("Scale"), x, y, bottom_limit, force_update_pos);
 }
 
 void GLGizmoScale3D::do_scale_along_axis(Axis axis, const UpdateData& data)

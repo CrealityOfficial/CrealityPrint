@@ -24,6 +24,15 @@
 
 namespace Slic3r {
 
+static float lockedzag_skin_depth_for_layer_region(const LayerRegion& layerm)
+{
+    const PrintRegionConfig& region_config = layerm.region().config();
+    if (const float* resolved_skin_mm = layerm.layer()->object()->print()->lockedzag_skin_infill_depth(layerm))
+        return *resolved_skin_mm;
+
+    return static_cast<float>(region_config.skin_infill_depth);
+}
+
 struct SurfaceFillParams
 {
 	// Zero based extruder ID.
@@ -120,7 +129,7 @@ struct SurfaceFillParams
 		RETURN_COMPARE_NON_EQUAL(lateral_lattice_angle_2);
 		RETURN_COMPARE_NON_EQUAL(symmetric_infill_y_axis);
 		RETURN_COMPARE_NON_EQUAL(infill_lock_depth);
-		RETURN_COMPARE_NON_EQUAL(skin_infill_depth);		
+        // NOTE: skin_infill_depth excluded from operator< (recomputed per-region in make_fills)
         RETURN_COMPARE_NON_EQUAL(infill_overhang_angle);
         RETURN_COMPARE_NON_EQUAL_TYPED(unsigned, skin_pattern);
         RETURN_COMPARE_NON_EQUAL_TYPED(unsigned, skeleton_pattern);
@@ -151,7 +160,7 @@ struct SurfaceFillParams
                 this->lateral_lattice_angle_1		== rhs.lateral_lattice_angle_1 &&
 				this->lateral_lattice_angle_2	    == rhs.lateral_lattice_angle_2 &&
 				this->infill_lock_depth      ==  rhs.infill_lock_depth &&
-				this->skin_infill_depth      ==  rhs.skin_infill_depth &&
+				// NOTE: skin_infill_depth excluded from grouping (recomputed per-region in make_fills)
                 this->infill_overhang_angle == rhs.infill_overhang_angle &&
                 this->skin_pattern == rhs.skin_pattern &&
                 this->skeleton_pattern == rhs.skeleton_pattern;
@@ -683,7 +692,7 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
                 params.angle        = 0.;
                 if (params.pattern == ipLockedZag) {
                     params.infill_lock_depth = scale_(region_config.infill_lock_depth);
-                    params.skin_infill_depth = scale_(region_config.skin_infill_depth);
+                    params.skin_infill_depth = scale_(lockedzag_skin_depth_for_layer_region(layerm));
                     params.skin_pattern      = region_config.locked_skin_infill_pattern.value;
                     params.skeleton_pattern  = region_config.locked_skeleton_infill_pattern.value;
                 }
@@ -801,7 +810,7 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
 					// add skin density
 					append_density_param(lock_param.skeleton_density_params, float(0.01 * region_config.skeleton_infill_density), surface.expolygon);
 
-				}
+                }
 
                 auto it_params = set_surface_params.find(params);
 
@@ -1285,10 +1294,10 @@ void Layer::make_fills(FillAdaptive::Octree* adaptive_fill_octree, FillAdaptive:
 		if( surface_fill.params.pattern == ipLockedZag ) {
 			params.locked_zag = true;
             params.infill_lock_depth = surface_fill.params.infill_lock_depth;
-            params.skin_infill_depth = surface_fill.params.skin_infill_depth;
+            params.skin_infill_depth = scale_(lockedzag_skin_depth_for_layer_region(*layerm));
             f->set_lock_region_param(lock_param);
             f->set_skin_and_skeleton_pattern(surface_fill.params.skin_pattern, surface_fill.params.skeleton_pattern);
-		}
+        }
         if (surface_fill.params.pattern == ipCrossZag || surface_fill.params.pattern == ipLockedZag) {
             if (f->layer_id % 2 == 0) {
                 params.horiz_move -= surface_fill.params.infill_shift_step * (f->layer_id / 2);
@@ -1395,7 +1404,8 @@ Polylines Layer::generate_sparse_infill_polylines_for_anchoring(FillAdaptive::Oc
         case ipOctagramSpiral:
         case ipZigZag:
         case ipCrossZag:
-		case ipLockedZag: break;
+		case ipLockedZag:
+            break;
         }
 
         // Create the filler object.

@@ -110,6 +110,10 @@ var (
 	procMoveToEx                   = modGdi32.NewProc("MoveToEx")
 	procLineTo                     = modGdi32.NewProc("LineTo")
 	procGetParent                  = modUser32.NewProc("GetParent")
+	procGetDpiForSystem            = modUser32.NewProc("GetDpiForSystem")
+	procGetDpiForWindow            = modUser32.NewProc("GetDpiForWindow")
+
+	procCreateFontIndirectW = modGdi32.NewProc("CreateFontIndirectW")
 
 	procRegGetValueW = modAdvapi32.NewProc("RegGetValueW")
 
@@ -155,6 +159,7 @@ const (
 	wmLButtonDown    = 0x0201
 	wmLButtonUp      = 0x0202
 	wmNclButtonDown  = 0x00A1
+	wmDpiChanged     = 0x02E0
 
 	wmApp         = 0x8000
 	wmAppProgress = wmApp + 1
@@ -517,6 +522,23 @@ type initCommonControlsEx struct {
 	dwICC  uint32
 }
 
+type logFontW struct {
+	lfHeight         int32
+	lfWidth          int32
+	lfEscapement     int32
+	lfOrientation    int32
+	lfWeight         int32
+	lfItalic         byte
+	lfUnderline      byte
+	lfStrikeOut      byte
+	lfCharSet        byte
+	lfOutPrecision   byte
+	lfClipPrecision  byte
+	lfQuality        byte
+	lfPitchAndFamily byte
+	lfFaceName       [32]uint16
+}
+
 type processEntry32W struct {
 	dwSize              uint32
 	cntUsage            uint32
@@ -604,6 +626,7 @@ var (
 
 	gInstallBgBrush uintptr
 	gInstallFont    uintptr
+	gInstallDpi     int32 = 96
 	gTheme          uiTheme
 	gThemeMode      atomic.Int32
 
@@ -654,6 +677,172 @@ func initCommonControls() {
 	procInitCommonControlsEx.Call(uintptr(unsafe.Pointer(&icc)))
 }
 
+// scaleDPI scales a logical pixel value (defined at 96 DPI baseline) to physical pixels.
+func scaleDPI(value, dpi int32) int32 {
+	if dpi <= 0 {
+		return value
+	}
+	return value * dpi / 96
+}
+
+// getWindowDpi returns the DPI for the given window.
+// Pass 0 (or an invalid hwnd) to query the system (primary monitor) DPI.
+func getWindowDpi(hwnd uintptr) int32 {
+	var dpi uintptr
+	if hwnd != 0 {
+		dpi, _, _ = procGetDpiForWindow.Call(hwnd)
+	}
+	if dpi == 0 {
+		dpi, _, _ = procGetDpiForSystem.Call()
+	}
+	if dpi == 0 {
+		return 96
+	}
+	return int32(dpi)
+}
+
+// createDpiFont creates a Segoe UI font scaled to the given DPI.
+func createDpiFont(dpi int32) uintptr {
+	if dpi <= 0 {
+		dpi = 96
+	}
+	lf := logFontW{}
+	lf.lfHeight = -scaleDPI(13, dpi) // ~9.75pt — matches Windows default UI font at 96 DPI
+	lf.lfWeight = 400
+	lf.lfCharSet = 1   // DEFAULT_CHARSET
+	lf.lfQuality = 5   // CLEARTYPE_QUALITY
+	faceName := syscall.StringToUTF16("Segoe UI")
+	n := len(faceName)
+	if n > 32 {
+		n = 32
+	}
+	copy(lf.lfFaceName[:], faceName[:n])
+	h, _, _ := procCreateFontIndirectW.Call(uintptr(unsafe.Pointer(&lf)))
+	if h != 0 {
+		return h
+	}
+	// Fallback: stock default GUI font
+	h, _, _ = procGetStockObject.Call(defaultGuiFont)
+	return h
+}
+
+// layoutInstallWindow positions all child controls of the install-progress window
+// using DPI-scaled dimensions. Safe to call during WM_CREATE and WM_DPICHANGED.
+func layoutInstallWindow(hwnd uintptr, dpi int32) {
+	var rc rect
+	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
+	width := rc.right - rc.left
+	height := rc.bottom - rc.top
+
+	cornerRadius := scaleDPI(10, dpi)
+	rgn, _, _ := procCreateRoundRectRgn.Call(0, 0, uintptr(width), uintptr(height), uintptr(cornerRadius), uintptr(cornerRadius))
+	if rgn != 0 {
+		procSetWindowRgn.Call(hwnd, rgn, 1)
+		procDeleteObject.Call(rgn)
+	}
+
+	padding := scaleDPI(28, dpi)
+	titleY := scaleDPI(14, dpi)
+	titleH := scaleDPI(20, dpi)
+	statusY := scaleDPI(78, dpi)
+	statusH := scaleDPI(22, dpi)
+	barY := statusY + statusH + scaleDPI(18, dpi)
+	barH := scaleDPI(16, dpi)
+	btnY := barY + barH + scaleDPI(40, dpi)
+	btnW := scaleDPI(140, dpi)
+	btnH := scaleDPI(36, dpi)
+	closeW := scaleDPI(installCloseWidth, dpi)
+	closeH := scaleDPI(28, dpi)
+	rightPad := scaleDPI(10, dpi)
+	titlebarClosePad := scaleDPI(4, dpi)
+
+	if gInstallTitle != 0 {
+		procMoveWindow.Call(gInstallTitle, uintptr(padding), uintptr(titleY),
+			uintptr(width-2*padding-closeW), uintptr(titleH), 1)
+		setControlFont(gInstallTitle)
+	}
+	if gInstallClose != 0 {
+		procMoveWindow.Call(gInstallClose, uintptr(width-rightPad-closeW), uintptr(titleY-titlebarClosePad),
+			uintptr(closeW), uintptr(closeH), 1)
+		setControlFont(gInstallClose)
+	}
+	if gInstallStatus != 0 {
+		procMoveWindow.Call(gInstallStatus, uintptr(padding), uintptr(statusY),
+			uintptr(width-2*padding), uintptr(statusH), 1)
+		setControlFont(gInstallStatus)
+	}
+	if gInstallCancel != 0 {
+		btnX := (width - btnW) / 2
+		procMoveWindow.Call(gInstallCancel, uintptr(btnX), uintptr(btnY),
+			uintptr(btnW), uintptr(btnH), 1)
+		setControlFont(gInstallCancel)
+	}
+
+	gInstallProgressRect = rect{
+		left:   padding,
+		top:    barY,
+		right:  width - padding,
+		bottom: barY + barH,
+	}
+}
+
+// layoutIncompleteWindow positions all child controls of the incomplete-update window
+// using DPI-scaled dimensions. Safe to call during WM_CREATE and WM_DPICHANGED.
+func layoutIncompleteWindow(hwnd uintptr, dpi int32) {
+	var rc rect
+	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
+	width := rc.right - rc.left
+	height := rc.bottom - rc.top
+
+	cornerRadius := scaleDPI(10, dpi)
+	rgn, _, _ := procCreateRoundRectRgn.Call(0, 0, uintptr(width), uintptr(height), uintptr(cornerRadius), uintptr(cornerRadius))
+	if rgn != 0 {
+		procSetWindowRgn.Call(hwnd, rgn, 1)
+		procDeleteObject.Call(rgn)
+	}
+
+	padding := scaleDPI(28, dpi)
+	titleY := scaleDPI(14, dpi)
+	titleH := scaleDPI(20, dpi)
+	closeW := scaleDPI(installCloseWidth, dpi)
+	closeH := scaleDPI(28, dpi)
+	rightPad := scaleDPI(10, dpi)
+	textY := scaleDPI(78, dpi)
+	textH := scaleDPI(56, dpi)
+	btnY := scaleDPI(168, dpi)
+	btnW := scaleDPI(140, dpi)
+	btnH := scaleDPI(36, dpi)
+	gap := scaleDPI(16, dpi)
+
+	if gInstallTitle != 0 {
+		procMoveWindow.Call(gInstallTitle, uintptr(padding), uintptr(titleY),
+			uintptr(width-2*padding-closeW), uintptr(titleH), 1)
+		setControlFont(gInstallTitle)
+	}
+	if gInstallClose != 0 {
+		procMoveWindow.Call(gInstallClose, uintptr(width-rightPad-closeW), uintptr(scaleDPI(10, dpi)),
+			uintptr(closeW), uintptr(closeH), 1)
+		setControlFont(gInstallClose)
+	}
+	if gIncompleteText != 0 {
+		procMoveWindow.Call(gIncompleteText, uintptr(padding), uintptr(textY),
+			uintptr(width-2*padding), uintptr(textH), 1)
+		setControlFont(gIncompleteText)
+	}
+	totalBtnW := btnW*2 + gap
+	btnX := (width - totalBtnW) / 2
+	if gIncompleteManual != 0 {
+		procMoveWindow.Call(gIncompleteManual, uintptr(btnX), uintptr(btnY),
+			uintptr(btnW), uintptr(btnH), 1)
+		setControlFont(gIncompleteManual)
+	}
+	if gIncompleteConfirm != 0 {
+		procMoveWindow.Call(gIncompleteConfirm, uintptr(btnX+btnW+gap), uintptr(btnY),
+			uintptr(btnW), uintptr(btnH), 1)
+		setControlFont(gIncompleteConfirm)
+	}
+}
+
 func ensureInstallUIResources() {
 	if gInstallBgBrush == 0 {
 		gTheme = buildTheme()
@@ -661,8 +850,11 @@ func ensureInstallUIResources() {
 		gInstallBgBrush = h
 	}
 	if gInstallFont == 0 {
-		h, _, _ := procGetStockObject.Call(defaultGuiFont)
-		gInstallFont = h
+		dpi := gInstallDpi
+		if dpi <= 0 {
+			dpi = 96
+		}
+		gInstallFont = createDpiFont(dpi)
 	}
 }
 
@@ -1100,11 +1292,11 @@ func drawButton(hwnd uintptr, hdc uintptr, st *btnState) {
 	oldPen, _, _ := procSelectObject.Call(hdc, pen)
 
 	if st.isClose {
-		// 关闭按钮不需要圆角，直接绘制矩形
+		// 关闭按钟不需要圆角，直接绘制矩形
 		procRectangle.Call(hdc, uintptr(rc.left), uintptr(rc.top), uintptr(rc.right), uintptr(rc.bottom))
 	} else {
-		// 其他按钮使用 10px 圆角
-		radius := 10
+		// 其他按钟使用 DPI-缩放圆角
+		radius := int32(scaleDPI(10, gInstallDpi))
 		procRoundRect.Call(hdc, uintptr(rc.left), uintptr(rc.top), uintptr(rc.right), uintptr(rc.bottom), uintptr(radius), uintptr(radius))
 	}
 
@@ -1118,22 +1310,26 @@ func drawButton(hwnd uintptr, hdc uintptr, st *btnState) {
 
 	var textPtr *uint16
 	if st.isClose {
-		// 关闭按钮：使用 GDI 绘制精确的 X 符号
+		// 关闭按钟：使用 GDI 绘制精确的 X 符号（尺寸随 DPI 缩放）
 		centerX := (rc.left + rc.right) / 2
 		centerY := (rc.top + rc.bottom) / 2
-		halfSize := int32(5)
-
-		closePen, _, _ := procCreatePen.Call(psSolid, 2, textColor)
+		halfSize := scaleDPI(5, gInstallDpi)
+		penWidth := scaleDPI(2, gInstallDpi)
+		if penWidth < 1 {
+			penWidth = 1
+		}
+	
+		closePen, _, _ := procCreatePen.Call(psSolid, uintptr(penWidth), textColor)
 		oldClosePen, _, _ := procSelectObject.Call(hdc, closePen)
-
+	
 		// 绘制第一条线：左上到右下
 		procMoveToEx.Call(hdc, uintptr(centerX-halfSize), uintptr(centerY-halfSize), 0)
 		procLineTo.Call(hdc, uintptr(centerX+halfSize), uintptr(centerY+halfSize))
-
+	
 		// 绘制第二条线：右上到左下
 		procMoveToEx.Call(hdc, uintptr(centerX+halfSize), uintptr(centerY-halfSize), 0)
 		procLineTo.Call(hdc, uintptr(centerX-halfSize), uintptr(centerY+halfSize))
-
+	
 		procSelectObject.Call(hdc, oldClosePen)
 		procDeleteObject.Call(closePen)
 	} else {
@@ -1144,8 +1340,16 @@ func drawButton(hwnd uintptr, hdc uintptr, st *btnState) {
 		} else {
 			textPtr = &buf[0]
 		}
+		// Select the DPI-scaled font so DrawTextW renders at the correct size.
+		var oldFont uintptr
+		if gInstallFont != 0 {
+			oldFont, _, _ = procSelectObject.Call(hdc, gInstallFont)
+		}
 		drawRc := rc
 		procDrawTextW.Call(hdc, uintptr(unsafe.Pointer(textPtr)), ^uintptr(0), uintptr(unsafe.Pointer(&drawRc)), dtCenter|dtVCenter|dtSingleLine)
+		if oldFont != 0 {
+			procSelectObject.Call(hdc, oldFont)
+		}
 	}
 }
 
@@ -1290,20 +1494,28 @@ func cancelBtnWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintpt
 		oldBrush, _, _ := procSelectObject.Call(hdc, brush)
 		oldPen, _, _ := procSelectObject.Call(hdc, pen)
 
-		radius := 10 // 取消按钮圆角为 10px
+		radius := int32(scaleDPI(10, gInstallDpi)) // DPI-缩放圆角
 		procRoundRect.Call(hdc, uintptr(rc.left), uintptr(rc.top), uintptr(rc.right), uintptr(rc.bottom), uintptr(radius), uintptr(radius))
-
+		
 		procSelectObject.Call(hdc, oldPen)
 		procSelectObject.Call(hdc, oldBrush)
 		procDeleteObject.Call(pen)
 		procDeleteObject.Call(brush)
-
+		
 		procSetBkMode.Call(hdc, bkTransparent)
 		procSetTextColor.Call(hdc, textColor)
-
+		
 		text := toUTF16Ptr(getText("cancel"))
 		drawRc := rc
+		// Select the DPI-scaled font so DrawTextW renders at the correct size.
+		var oldFont uintptr
+		if gInstallFont != 0 {
+			oldFont, _, _ = procSelectObject.Call(hdc, gInstallFont)
+		}
 		procDrawTextW.Call(hdc, uintptr(unsafe.Pointer(text)), ^uintptr(0), uintptr(unsafe.Pointer(&drawRc)), dtCenter|dtVCenter|dtSingleLine)
+		if oldFont != 0 {
+			procSelectObject.Call(hdc, oldFont)
+		}
 
 		procEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
 		return 0
@@ -1407,7 +1619,15 @@ func closeBtnWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintptr
 
 		text := toUTF16Ptr("×")
 		drawRc := rc
+		// Select the DPI-scaled font so × renders at the correct size.
+		var oldFont uintptr
+		if gInstallFont != 0 {
+			oldFont, _, _ = procSelectObject.Call(hdc, gInstallFont)
+		}
 		procDrawTextW.Call(hdc, uintptr(unsafe.Pointer(text)), ^uintptr(0), uintptr(unsafe.Pointer(&drawRc)), dtCenter|dtVCenter|dtSingleLine)
+		if oldFont != 0 {
+			procSelectObject.Call(hdc, oldFont)
+		}
 
 		procEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
 		return 0
@@ -1454,6 +1674,8 @@ func installWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintptr 
 	switch msgID {
 	case wmCreate:
 		gInstallHwnd = hwnd
+		dpi := getWindowDpi(hwnd)
+		gInstallDpi = dpi
 		ensureInstallUIResources()
 
 		if style, _, _ := procGetWindowLongPtrW.Call(hwnd, uintptr(gwlStyle)); style != 0 {
@@ -1461,39 +1683,13 @@ func installWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintptr 
 			procSetWindowLongPtrW.Call(hwnd, uintptr(gwlStyle), newStyle)
 		}
 
-		// 设置窗口圆角
-		rgn, _, _ := procCreateRoundRectRgn.Call(0, 0, uintptr(600), uintptr(260), 10, 10) // 10px 圆角
-		if rgn != 0 {
-			procSetWindowRgn.Call(hwnd, rgn, 1)
-			procDeleteObject.Call(rgn)
-		}
-
-		var rc rect
-		procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
-
-		padding := int32(installPadding)
-		width := rc.right - rc.left
-		titleY := int32(14)
-		titleH := int32(20)
-		statusY := int32(78)
-		statusH := int32(22)
-		barY := statusY + statusH + 18
-		barH := int32(16)
-		btnY := barY + barH + 40
-		btnW := int32(140)
-		btnH := int32(36)
-		closeW := int32(installCloseWidth)
-		closeH := int32(28)
-
+		// Create child controls with placeholder size; layoutInstallWindow will position them.
 		gInstallTitle, _, _ = procCreateWindowExW.Call(
 			0,
 			uintptr(unsafe.Pointer(toUTF16Ptr("STATIC"))),
 			uintptr(unsafe.Pointer(toUTF16Ptr(getText("installing_update")))),
 			wsChild|wsVisible,
-			uintptr(padding),
-			uintptr(titleY),
-			uintptr(width-2*padding-closeW),
-			uintptr(titleH),
+			0, 0, 1, 1,
 			hwnd,
 			0,
 			hInstance(),
@@ -1504,29 +1700,23 @@ func installWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintptr 
 		gInstallClose, _, _ = procCreateWindowExW.Call(
 			0,
 			uintptr(unsafe.Pointer(toUTF16Ptr("BUTTON"))),
-			uintptr(unsafe.Pointer(toUTF16Ptr("×"))),
+			uintptr(unsafe.Pointer(toUTF16Ptr("\u00d7"))),
 			wsChild|wsVisible|wsTabStop|bsPushButton|bsFlat,
-			uintptr(width-10-closeW), // 右边距 10px，不要太靠右
-			uintptr(titleY-4),
-			uintptr(closeW),
-			uintptr(closeH),
+			0, 0, 1, 1,
 			hwnd,
 			uintptr(idClose),
 			hInstance(),
 			0,
 		)
 		setControlFont(gInstallClose)
-		subclassThemedButton(gInstallClose, true) // 统一使用 subclassThemedButton
+		subclassThemedButton(gInstallClose, true)
 
 		gInstallStatus, _, _ = procCreateWindowExW.Call(
 			0,
 			uintptr(unsafe.Pointer(toUTF16Ptr("STATIC"))),
 			uintptr(unsafe.Pointer(toUTF16Ptr(getText("install_progress", 0)))),
 			wsChild|wsVisible,
-			uintptr(padding),
-			uintptr(statusY),
-			uintptr(width-2*padding),
-			uintptr(statusH),
+			0, 0, 1, 1,
 			hwnd,
 			0,
 			hInstance(),
@@ -1534,23 +1724,12 @@ func installWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintptr 
 		)
 		setControlFont(gInstallStatus)
 
-		gInstallProgressRect = rect{
-			left:   padding,
-			top:    barY,
-			right:  width - padding,
-			bottom: barY + barH,
-		}
-
-		btnX := (width - btnW) / 2
 		gInstallCancel, _, _ = procCreateWindowExW.Call(
 			0,
 			uintptr(unsafe.Pointer(toUTF16Ptr("BUTTON"))),
 			uintptr(unsafe.Pointer(toUTF16Ptr(getText("cancel")))),
 			wsChild|wsVisible|wsTabStop|bsPushButton|bsFlat,
-			uintptr(btnX),
-			uintptr(btnY),
-			uintptr(btnW),
-			uintptr(btnH),
+			0, 0, 1, 1,
 			hwnd,
 			uintptr(idCancel),
 			hInstance(),
@@ -1559,6 +1738,7 @@ func installWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintptr 
 		setControlFont(gInstallCancel)
 		subclassCancelButton(gInstallCancel)
 
+		layoutInstallWindow(hwnd, dpi)
 		return 0
 
 	case wmCommand:
@@ -1605,11 +1785,11 @@ func installWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintptr 
 	case wmLButtonDown:
 		x := int32(int16(lParam & 0xFFFF))
 		y := int32(int16((lParam >> 16) & 0xFFFF))
-		if y >= 0 && y <= installTitlebarHit {
+		if y >= 0 && y <= scaleDPI(installTitlebarHit, gInstallDpi) {
 			var rc rect
 			procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
-			rightPad := int32(installPadding)
-			closeW := int32(installCloseWidth)
+			rightPad := scaleDPI(installPadding, gInstallDpi)
+			closeW := scaleDPI(installCloseWidth, gInstallDpi)
 			if x < rc.right-rightPad-closeW || x > rc.right-rightPad {
 				procReleaseCapture.Call()
 				procSendMessageW.Call(hwnd, wmNclButtonDown, htCaption, 0)
@@ -1639,6 +1819,29 @@ func installWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintptr 
 		}
 		procInvalidateRect.Call(hwnd, uintptr(unsafe.Pointer(&gInstallProgressRect)), 0)
 		procUpdateWindow.Call(hwnd)
+		return 0
+
+	case wmDpiChanged:
+		newDpi := int32(wParam >> 16)
+		if newDpi <= 0 {
+			newDpi = int32(wParam & 0xFFFF)
+		}
+		if newDpi <= 0 {
+			newDpi = 96
+		}
+		gInstallDpi = newDpi
+		suggestedRect := (*rect)(unsafe.Pointer(lParam))
+		procMoveWindow.Call(hwnd,
+			uintptr(suggestedRect.left), uintptr(suggestedRect.top),
+			uintptr(suggestedRect.right-suggestedRect.left),
+			uintptr(suggestedRect.bottom-suggestedRect.top), 1)
+		oldFont := gInstallFont
+		gInstallFont = createDpiFont(newDpi)
+		layoutInstallWindow(hwnd, newDpi)
+		if oldFont != 0 {
+			procDeleteObject.Call(oldFont)
+		}
+		procInvalidateRect.Call(hwnd, 0, 1)
 		return 0
 
 	case wmAppDone:
@@ -1719,6 +1922,8 @@ func incompleteWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintp
 	switch msgID {
 	case wmCreate:
 		gIncompleteHwnd = hwnd
+		dpi := getWindowDpi(hwnd)
+		gInstallDpi = dpi
 		ensureInstallUIResources()
 
 		if style, _, _ := procGetWindowLongPtrW.Call(hwnd, uintptr(gwlStyle)); style != 0 {
@@ -1726,41 +1931,13 @@ func incompleteWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintp
 			procSetWindowLongPtrW.Call(hwnd, uintptr(gwlStyle), newStyle)
 		}
 
-		// 设置窗口圆角
-		rgn, _, _ := procCreateRoundRectRgn.Call(0, 0, uintptr(600), uintptr(260), 10, 10) // 10px 圆角
-		if rgn != 0 {
-			procSetWindowRgn.Call(hwnd, rgn, 1)
-			procDeleteObject.Call(rgn)
-		}
-
-		var rc rect
-		procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
-
-		padding := int32(installPadding)
-		width := rc.right - rc.left
-
-		titleY := int32(14)
-		titleH := int32(20)
-		closeW := int32(installCloseWidth)
-		closeH := int32(28)
-
-		textY := int32(78)
-		textH := int32(56)
-
-		btnY := int32(168)
-		btnW := int32(140)
-		btnH := int32(36)
-		gap := int32(16)
-
+		// Create child controls with placeholder size; layoutIncompleteWindow will position them.
 		gInstallTitle, _, _ = procCreateWindowExW.Call(
 			0,
 			uintptr(unsafe.Pointer(toUTF16Ptr("STATIC"))),
 			uintptr(unsafe.Pointer(toUTF16Ptr(getText("update_incomplete")))),
 			wsChild|wsVisible,
-			uintptr(padding),
-			uintptr(titleY),
-			uintptr(width-2*padding-closeW),
-			uintptr(titleH),
+			0, 0, 1, 1,
 			hwnd,
 			0,
 			hInstance(),
@@ -1771,12 +1948,9 @@ func incompleteWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintp
 		gInstallClose, _, _ = procCreateWindowExW.Call(
 			0,
 			uintptr(unsafe.Pointer(toUTF16Ptr("BUTTON"))),
-			uintptr(unsafe.Pointer(toUTF16Ptr("×"))),
+			uintptr(unsafe.Pointer(toUTF16Ptr("\u00d7"))),
 			wsChild|wsVisible|wsTabStop|bsPushButton|bsFlat,
-			uintptr(width-10-closeW), // 右边距 10px，不要太靠右
-			uintptr(10),
-			uintptr(closeW),
-			uintptr(closeH),
+			0, 0, 1, 1,
 			hwnd,
 			uintptr(idClose),
 			hInstance(),
@@ -1796,10 +1970,7 @@ func incompleteWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintp
 			uintptr(unsafe.Pointer(toUTF16Ptr("STATIC"))),
 			uintptr(unsafe.Pointer(toUTF16Ptr(text))),
 			wsChild|wsVisible,
-			uintptr(padding),
-			uintptr(textY),
-			uintptr(width-2*padding),
-			uintptr(textH),
+			0, 0, 1, 1,
 			hwnd,
 			0,
 			hInstance(),
@@ -1807,18 +1978,12 @@ func incompleteWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintp
 		)
 		setControlFont(gIncompleteText)
 
-		totalBtnW := btnW*2 + gap
-		btnX := (width - totalBtnW) / 2
-
 		gIncompleteManual, _, _ = procCreateWindowExW.Call(
 			0,
 			uintptr(unsafe.Pointer(toUTF16Ptr("BUTTON"))),
 			uintptr(unsafe.Pointer(toUTF16Ptr(getText("manual_download")))),
 			wsChild|wsVisible|wsTabStop|bsPushButton|bsFlat,
-			uintptr(btnX),
-			uintptr(btnY),
-			uintptr(btnW),
-			uintptr(btnH),
+			0, 0, 1, 1,
 			hwnd,
 			uintptr(idManual),
 			hInstance(),
@@ -1832,10 +1997,7 @@ func incompleteWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintp
 			uintptr(unsafe.Pointer(toUTF16Ptr("BUTTON"))),
 			uintptr(unsafe.Pointer(toUTF16Ptr(getText("confirm")))),
 			wsChild|wsVisible|wsTabStop|bsPushButton|bsFlat,
-			uintptr(btnX+btnW+gap),
-			uintptr(btnY),
-			uintptr(btnW),
-			uintptr(btnH),
+			0, 0, 1, 1,
 			hwnd,
 			uintptr(idConfirm),
 			hInstance(),
@@ -1843,16 +2005,41 @@ func incompleteWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintp
 		)
 		setControlFont(gIncompleteConfirm)
 		subclassThemedButton(gIncompleteConfirm, false)
+
+		layoutIncompleteWindow(hwnd, dpi)
+		return 0
+
+	case wmDpiChanged:
+		newDpi := int32(wParam >> 16)
+		if newDpi <= 0 {
+			newDpi = int32(wParam & 0xFFFF)
+		}
+		if newDpi <= 0 {
+			newDpi = 96
+		}
+		gInstallDpi = newDpi
+		suggestedRect := (*rect)(unsafe.Pointer(lParam))
+		procMoveWindow.Call(hwnd,
+			uintptr(suggestedRect.left), uintptr(suggestedRect.top),
+			uintptr(suggestedRect.right-suggestedRect.left),
+			uintptr(suggestedRect.bottom-suggestedRect.top), 1)
+		oldFont := gInstallFont
+		gInstallFont = createDpiFont(newDpi)
+		layoutIncompleteWindow(hwnd, newDpi)
+		if oldFont != 0 {
+			procDeleteObject.Call(oldFont)
+		}
+		procInvalidateRect.Call(hwnd, 0, 1)
 		return 0
 
 	case wmLButtonDown:
 		x := int32(int16(lParam & 0xFFFF))
 		y := int32(int16((lParam >> 16) & 0xFFFF))
-		if y >= 0 && y <= installTitlebarHit {
+		if y >= 0 && y <= scaleDPI(installTitlebarHit, gInstallDpi) {
 			var rc rect
 			procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
-			rightPad := int32(installPadding)
-			closeW := int32(installCloseWidth)
+			rightPad := scaleDPI(installPadding, gInstallDpi)
+			closeW := scaleDPI(installCloseWidth, gInstallDpi)
 			if x < rc.right-rightPad-closeW || x > rc.right-rightPad {
 				procReleaseCapture.Call()
 				procSendMessageW.Call(hwnd, wmNclButtonDown, htCaption, 0)
@@ -1980,6 +2167,7 @@ type updateResult struct {
 	rollbackApplied bool
 	backupDir       string
 	rollbackOK      bool
+	targetVersion   string
 }
 
 func isCanceled() bool { return gCancelRequested.Load() }
@@ -1992,6 +2180,7 @@ func main() {
 	manualURL := flag.String("manual-url", "", "manual download URL")
 	darkMode := flag.Int("dark-mode", -1, "0=light, 1=dark, -1=auto")
 	language := flag.String("language", "en", "language: zh_CN or en")
+	dataDir := flag.String("data-dir", "", "CrealityPrint data directory for writing ota_result.json")
 	flag.Parse()
 
 	if *installDir == "" || *currentVer == "" {
@@ -2037,14 +2226,23 @@ func main() {
 
 	initCommonControls()
 
-	_, winErr := createWindow("CrealityUpdaterInstallWindow", getText("installing_update"), 600, 260, syscall.NewCallback(installWndProc))
+	// Query system DPI before creating the window so we can pass a properly scaled size.
+	sysDPI := getWindowDpi(0)
+	winW := scaleDPI(600, sysDPI)
+	winH := scaleDPI(260, sysDPI)
+
+	_, winErr := createWindow("CrealityUpdaterInstallWindow", getText("installing_update"), winW, winH, syscall.NewCallback(installWndProc))
 	if winErr != nil {
 		res := runUpdateWithUI(log, baseDir, *installDir, *currentVer)
 		if res.err != nil {
 			log("Update failed with error:", res.err, "rollbackApplied:", res.rollbackApplied, "rollbackOK:", res.rollbackOK, "backupDir:", res.backupDir)
+			log("[OTA_ANALYTICS] (no-window path) Update failed, writing ota_result.json with result=fail")
+			writeOtaResult(*dataDir, "fail", *currentVer, "")
 			messageBox(formatIncompleteMessage(res), getText("update_incomplete"), mbOK|mbIconError|mbSystemModal)
 			os.Exit(1)
 		}
+		log("[OTA_ANALYTICS] (no-window path) Update succeeded, writing ota_result.json with result=success, to=", res.targetVersion)
+		writeOtaResult(*dataDir, "success", *currentVer, res.targetVersion)
 		launchCrealityPrint(log, *installDir)
 		os.Exit(0)
 	}
@@ -2060,16 +2258,22 @@ func main() {
 
 	res := <-done
 	if res.err == nil {
+		log("[OTA_ANALYTICS] Update succeeded, writing ota_result.json with result=success, from=", *currentVer, ", to=", res.targetVersion)
+		writeOtaResult(*dataDir, "success", *currentVer, res.targetVersion)
 		launchCrealityPrint(log, *installDir)
 		os.Exit(0)
 	}
 	if errors.Is(res.err, errCanceled) {
+		log("[OTA_ANALYTICS] Update canceled by user, writing ota_result.json with result=cancel, from=", *currentVer)
+		writeOtaResult(*dataDir, "cancel", *currentVer, "")
 		os.Exit(0)
 	}
 
 	log("Update failed with error:", res.err, "rollbackApplied:", res.rollbackApplied, "rollbackOK:", res.rollbackOK, "backupDir:", res.backupDir)
+	log("[OTA_ANALYTICS] Update failed, writing ota_result.json with result=fail, from=", *currentVer)
+	writeOtaResult(*dataDir, "fail", *currentVer, "")
 	gIncompleteMessage.Store(formatIncompleteMessage(res))
-	_, _ = createWindow("CrealityUpdaterIncompleteWindow", getText("update_incomplete"), 600, 260, syscall.NewCallback(incompleteWndProc))
+	_, _ = createWindow("CrealityUpdaterIncompleteWindow", getText("update_incomplete"), winW, winH, syscall.NewCallback(incompleteWndProc))
 	runWindowLoop()
 	os.Exit(1)
 }
@@ -2266,6 +2470,33 @@ func formatIncompleteMessage(res updateResult) string {
 	return getText("update_exception")
 }
 
+// writeOtaResult writes a JSON marker file so that CrealityPrint can report
+// the OTA update outcome on next startup.
+func writeOtaResult(dir, result, fromVersion, toVersion string) {
+	if strings.TrimSpace(dir) == "" {
+		fmt.Println("[OTA_ANALYTICS] writeOtaResult: data-dir is empty, skipping")
+		return
+	}
+	data := map[string]interface{}{
+		"result":       result,
+		"from_version": fromVersion,
+		"to_version":   toVersion,
+		"timestamp":    time.Now().Unix(),
+	}
+	b, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		fmt.Println("[OTA_ANALYTICS] writeOtaResult: json marshal failed:", err)
+		return
+	}
+	_ = os.MkdirAll(dir, 0755)
+	outPath := filepath.Join(dir, "ota_result.json")
+	if err := os.WriteFile(outPath, b, 0644); err != nil {
+		fmt.Println("[OTA_ANALYTICS] writeOtaResult: write file failed:", outPath, err)
+	} else {
+		fmt.Println("[OTA_ANALYTICS] writeOtaResult: wrote", outPath, "result=", result)
+	}
+}
+
 func runUpdateWithUI(log func(args ...interface{}), baseDir, installDir, currentVer string) updateResult {
 	setInstallStage(log, "Preparing", 0)
 
@@ -2457,7 +2688,7 @@ func runUpdateWithUI(log func(args ...interface{}), baseDir, installDir, current
 	}
 
 	setInstallStage(log, "Installation complete", 100)
-	return updateResult{err: nil, rollbackApplied: rollbackApplied, backupDir: backupDir, rollbackOK: true}
+	return updateResult{err: nil, rollbackApplied: rollbackApplied, backupDir: backupDir, rollbackOK: true, targetVersion: finalVersion}
 }
 
 // preserveUninstallerFromBackup copies Uninstall.exe from the backup directory

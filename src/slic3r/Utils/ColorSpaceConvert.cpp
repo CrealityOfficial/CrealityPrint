@@ -104,6 +104,7 @@ void XYZ2Lab(float X, float Y, float Z, float* L, float* a, float* b)
 
 void RGB2Lab(float R, float G, float B, float* L, float* a, float* b)
 {
+    // RGB input must be normalized [0, 1].
     float X = 0.0f, Y = 0.0f, Z = 0.0f;
     RGB2XYZ(R, G, B, &X, &Y, &Z);
     XYZ2Lab(X, Y, Z, L, a, b);

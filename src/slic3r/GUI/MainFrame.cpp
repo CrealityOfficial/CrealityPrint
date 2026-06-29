@@ -95,9 +95,27 @@
 #include "slic3r/Utils/TestHelper.hpp"
 #include "slic3r/GUI/AnalyticsDataUploadManager.hpp"
 #include "slic3r/GUI/print_manage/data/DataCenter.hpp"
+#include "slic3r/GUI/simple/bridge/SlicerBridge.hpp"
 
 namespace Slic3r {
 namespace GUI {
+
+static void ensure_online_model_view_ready(MainFrame* frame)
+{
+    if (!frame)
+        return;
+
+    auto* model_view = frame->get_modellibrary_view();
+    if (!model_view)
+        return;
+
+    // Programmatic tab switches do not always emit the notebook selection event.
+    if (!model_view->IsInitialized()) {
+        model_view->open_default_page();
+    }
+
+    model_view->Show();
+}
 
 wxDEFINE_EVENT(EVT_SELECT_TAB, wxCommandEvent);
 wxDEFINE_EVENT(EVT_HTTP_ERROR, wxCommandEvent);
@@ -372,7 +390,7 @@ MainFrame::MainFrame()
     //BBS
     Bind(EVT_SELECT_TAB, [this](wxCommandEvent&evt) {
         TabPosition pos = (TabPosition)evt.GetInt();
-        m_tabpanel->SetSelection(pos);
+        select_tab(static_cast<size_t>(pos));
     });
 
     Bind(EVT_SYNC_CLOUD_PRESET, &MainFrame::on_select_default_preset, this);
@@ -618,7 +636,7 @@ MainFrame::MainFrame()
             evt.Skip();
             return;
         }
-        else if (evt.CmdDown() && evt.GetKeyCode() == 'G') { if (can_export_gcode()) { wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_EXPORT_SLICED_FILE)); } evt.Skip(); return; }
+        else if (evt.CmdDown() && evt.GetKeyCode() == 'G') { if (can_export_gcode()) { print_plate(eExportSlicedFile); } evt.Skip(); return; }
         if (evt.CmdDown() && evt.GetKeyCode() == 'J') { m_printhost_queue_dlg->Show(); return; }    
         if (evt.CmdDown() && evt.GetKeyCode() == 'N') { m_plater->new_project(); return;}
         if (evt.CmdDown() && evt.GetKeyCode() == 'O') { m_plater->load_project(); return;}
@@ -801,6 +819,31 @@ void  MainFrame::show_log_window()
     m_log_window->Show();
 }
 
+void MainFrame::switch_to_device_page()
+{
+    static bool switching = false;
+    if (switching) {
+        return;
+    }
+        
+    if (!m_tabpanel) {
+        return;
+    }
+
+    // 如果已经在设备页，就不重复切换
+    if (m_tabpanel->GetSelection() == tpDeviceMgr) {
+        return;
+    }
+
+    // 否则投递事件，切换到设备页
+    wxCommandEvent e(wxCUSTOMEVT_NOTEBOOK_SEL_CHANGED);
+    e.SetId(tpDeviceMgr);
+    wxPostEvent(this->topbar(), e);
+
+    CallAfter([&]() { switching = false; });
+}
+
+
 //BBS GUI refactor: remove unused layout new/dlg
 void MainFrame::update_layout()
 {
@@ -910,14 +953,7 @@ void MainFrame::update_layout()
                     // 切换到在线模型时不刷新 UA；仅在登录状态变更时由 GUI_App 触发更新
 
                     // 首次进入在线模型时加载默认页面；以视图实例状态为准，避免语言切换重建 GUI 后不加载的问题
-                    if (!m_webmodellibrary_view->IsInitialized()) {
-                        // 在首次加载模型库前，主动刷新 UA 与 Cookies，避免未授权请求导致首屏 401/403
-                        // m_webmodellibrary_view->UpdateUserAgent();
-                        wxString url = get_cloud_webaddress() + "model-category/3d-print-all";
-                        m_webmodellibrary_view->load_url(url);
-                    }
-
-                    m_webmodellibrary_view->Show();
+                    ensure_online_model_view_ready(this);
                 }
             }
             evt.Skip();
@@ -1608,6 +1644,12 @@ bool MainFrame::can_export_gcode() const
     if (m_plater == nullptr)
         return false;
 
+    if (m_plater->only_gcode_mode()) {
+        const wxString& gcode_path = m_plater->get_last_loaded_gcode();
+        return gcode_path.Find("/calib/xy_offset/") != wxNOT_FOUND ||
+               gcode_path.Find("\\calib\\xy_offset\\") != wxNOT_FOUND;
+    }
+
     if (m_plater->model().objects.empty())
         return false;
 
@@ -1757,11 +1799,10 @@ void  MainFrame::slice_plate(SliceSelectType type){
 void MainFrame::print_plate(PrintSelectType tp){
     if (tp == eUpload3mf)
         wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_UPLOAD_3MF));
-    if (!get_enable_print_status(false))
-        return;
 
     m_print_select = tp;
-
+    if (!get_enable_print_status(false))
+        return;
 
     if (wxGetApp().preset_bundle->machine_is_belt()) {
         m_plater->restore_belt_trans();
@@ -1881,9 +1922,9 @@ wxBoxSizer* MainFrame::create_side_tools()
             else if (m_print_select == eUploadGcode)
                 wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_UPLOAD_GCODE));
             else if (m_print_select == eExportSlicedFile)
-                wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_EXPORT_SLICED_FILE));
+                print_plate(eExportSlicedFile);
             else if (m_print_select == eExportAllSlicedFile)
-                wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_EXPORT_ALL_SLICED_FILE));
+                print_plate(eExportAllSlicedFile);
             else if (m_print_select == eSendToPrinter)
                 wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_SEND_TO_PRINTER));
             else if (m_print_select == eSendToPrinterAll)
@@ -2174,7 +2215,9 @@ bool MainFrame::get_enable_print_status(bool is_all_or_any_of_them)
     else if (m_print_select == eExportGcode)
     {
         if (wxGetApp().plater()->only_gcode_mode()) {
-            enable = true;
+            const wxString& gcode_path = m_plater->get_last_loaded_gcode();
+            enable = gcode_path.Find("/calib/xy_offset/") != wxNOT_FOUND ||
+                     gcode_path.Find("\\calib\\xy_offset\\") != wxNOT_FOUND;
         } else if (!current_plate->is_slice_result_ready_for_print()) {
             enable = false;
         }
@@ -2199,8 +2242,11 @@ bool MainFrame::get_enable_print_status(bool is_all_or_any_of_them)
     //}
     else if (m_print_select == eExportSlicedFile)
     {
-        if (!current_plate->is_slice_result_ready_for_export())
-        {
+        if (wxGetApp().plater()->only_gcode_mode()) {
+            const wxString& gcode_path = m_plater->get_last_loaded_gcode();
+            enable = gcode_path.Find("/calib/xy_offset/") != wxNOT_FOUND ||
+                     gcode_path.Find("\\calib\\xy_offset\\") != wxNOT_FOUND;
+        } else if (!current_plate->is_slice_result_ready_for_export()) {
             enable = false;
         }
         enable = enable && !is_all_plates;
@@ -2512,7 +2558,7 @@ static wxMenu* generate_help_menu(MainFrame* mainframe)
     wxMenu* helpMenu = new wxMenu();
 
     // shortcut key
-    append_menu_item(helpMenu, wxID_ANY, _L("Keyboard Shortcuts") + sep + "&?", _L("Show the list of the keyboard shortcuts"),
+    append_menu_item(helpMenu, wxID_ANY, _L("Keyboard Shortcuts") + "\tShift+Alt+?", _L("Show the list of the keyboard shortcuts"),
         [](wxCommandEvent&) { wxGetApp().keyboard_shortcuts(); });
     // Show Beginner's Tutorial
     
@@ -2589,6 +2635,49 @@ static wxMenu* generate_help_menu(MainFrame* mainframe)
         auto LogFilePath = (boost::filesystem::path(Slic3r::data_dir()) / "log").make_preferred().string();
         desktop_open_any_folder(LogFilePath);
     });
+
+    // Dev tool: dump the slicer parameter schema to a JSON file. The output is
+    // intended to be committed as CxAgent/sagent/data/config_schema.json so the
+    // agent can build its vector index from a static, version-controlled source
+    // instead of accepting per-client pushes from each CP user.
+    //
+    // Gated behind ENABLE_AI_CONFIG_SCHEMA_EXPORT (Technologies.hpp). Default
+    // off — flip the macro to 1 locally before compiling when you need to
+    // regenerate the committed schema file, then revert before pushing.
+#if ENABLE_AI_CONFIG_SCHEMA_EXPORT
+    append_menu_item(
+        helpMenu, wxID_ANY,
+        _L("Export AI Config Schema") + "...",
+        _L("Dump the slicer parameter schema to JSON for CxAgent (developer tool)"),
+        [mainframe](wxCommandEvent&) {
+            wxFileDialog dlg(
+                mainframe,
+                _L("Save AI config schema as:"),
+                wxGetApp().app_config->get_last_dir(),
+                "config_schema.json",
+                "JSON files (*.json)|*.json",
+                wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+            if (dlg.ShowModal() != wxID_OK)
+                return;
+            const std::string utf8_path = into_u8(dlg.GetPath());
+            std::string message;
+            const bool ok = Slic3r::GUI::Bridge::SlicerBridge::ExportConfigSchemaToFile(
+                utf8_path, &message);
+            if (ok) {
+                wxMessageBox(
+                    wxString::FromUTF8(message),
+                    _L("Export AI Config Schema"),
+                    wxOK | wxICON_INFORMATION,
+                    mainframe);
+            } else {
+                wxMessageBox(
+                    _L("Export failed:") + " " + wxString::FromUTF8(message),
+                    _L("Export AI Config Schema"),
+                    wxOK | wxICON_ERROR,
+                    mainframe);
+            }
+        });
+#endif // ENABLE_AI_CONFIG_SCHEMA_EXPORT
 
 #ifdef __APPLE__
     wxPlatformInfo platformInfo;
@@ -2821,11 +2910,11 @@ void MainFrame::init_menubar_as_editor()
         //    [this](){return can_export_gcode(); }, this);
 
         append_menu_item(export_menu, wxID_ANY, _L("Export G-code") + dots + "\t" + ctrl + "G", _L("Export current plate as G-code"),
-            [this, &report_file_menu_event](wxCommandEvent&) { if (m_plater) wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_EXPORT_SLICED_FILE)); report_file_menu_event(13); }, "menu_export_gcode", nullptr,
+            [this, &report_file_menu_event](wxCommandEvent&) { if (m_plater) print_plate(eExportSlicedFile); report_file_menu_event(13); }, "menu_export_gcode", nullptr,
             [this](){return can_export_gcode(); }, this);
 
         append_menu_item(export_menu, wxID_ANY, _L("Export all plate sliced file") + dots/* + "\tCtrl+G"*/, _L("Export all plate sliced file"),
-            [this, &report_file_menu_event](wxCommandEvent&) { if (m_plater) wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_EXPORT_ALL_SLICED_FILE)); report_file_menu_event(14); }, "menu_export_sliced_file", nullptr,
+            [this, &report_file_menu_event](wxCommandEvent&) { if (m_plater) print_plate(eExportAllSlicedFile); report_file_menu_event(14); }, "menu_export_sliced_file", nullptr,
             [this]() {return can_export_all_gcode(); }, this);
 
         //append_menu_item(export_menu, wxID_ANY, _L("Export G-code") + dots/* + "\tCtrl+G"*/, _L("Export current plate as G-code"),
@@ -3327,6 +3416,14 @@ void MainFrame::init_menubar_as_editor()
             m_pa_calib_dlg->ShowModal();
         }, "", nullptr,
         [this]() {return m_plater->is_view3D_shown()&& m_tabpanel->GetSelection() == TabPosition::tp3DEditor;; }, this);
+
+    //append_menu_item(calibMenu, wxID_ANY, _L("XY Offset"), _L("XY Offset Calibration"),
+    //    [this](wxCommandEvent&) {
+    //        if (!m_xy_offset_calib_dlg)
+    //            m_xy_offset_calib_dlg = new XY_Offset_Calibration_Dlg((wxWindow*)this, wxID_ANY, m_plater);
+    //        m_xy_offset_calib_dlg->ShowModal();
+    //   }, "", nullptr,
+    //    [this]() {return m_plater->is_view3D_shown()&& m_tabpanel->GetSelection() == TabPosition::tp3DEditor;; }, this);
 
     // creality add
     auto retraction_test = new wxMenu();
@@ -4414,6 +4511,9 @@ void MainFrame::select_tab(size_t tab/* = size_t(-1)*/)
     };
 
     select(false);
+
+    if ((tab == MainFrame::tpOnlineModel || (tab == size_t(-1) && m_tabpanel->GetSelection() == (int) MainFrame::tpOnlineModel)))
+        ensure_online_model_view_ready(this);
 }
 
 void MainFrame::request_select_tab(TabPosition pos)

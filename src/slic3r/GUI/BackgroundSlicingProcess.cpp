@@ -41,6 +41,7 @@
 #include "slic3r/GUI/Plater.hpp"
 #include "libslic3r/baseline.hpp"
 #include "libslic3r/baselineorcinput.hpp"
+#include "AnalyticsDataUploadManager.hpp"
 namespace Slic3r {
 
 bool SlicingProcessCompletedEvent::critical_error() const
@@ -200,11 +201,19 @@ void BackgroundSlicingProcess::process_fff()
 {
 	//DEFINE_PERFORMANCE_TEST("Slicing & G-code generation");
     BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " start memory info " << log_memory_info();
+    BOOST_LOG_TRIVIAL(error) << "[PERF_TIMING] PROCESS_FFF START";
+    auto _perf_fff_start = std::chrono::steady_clock::now();
 
 
 	assert(m_print == m_fff_print);
 	m_fff_print->set_is_BBL_printer(wxGetApp().preset_bundle->is_bbl_vendor());
 	m_fff_print->set_is_CX_printer(wxGetApp().preset_bundle->is_cx_vendor());
+	
+	// Sync mixed filament data from PresetBundle to Print object
+	if (wxGetApp().preset_bundle != nullptr) {
+		m_fff_print->mixed_filament_manager() = wxGetApp().preset_bundle->mixed_filaments;
+	}
+	
 	//BBS: add the logic to process from an existed gcode file
 	if (m_print->finished()) {
 		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(" %1%: skip slicing, to process previous gcode file") % __LINE__;
@@ -236,7 +245,13 @@ void BackgroundSlicingProcess::process_fff()
 		m_gcode_result->reset();
 
 		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(" %1%: gcode_result reseted, will start print::process") % __LINE__;
+		BOOST_LOG_TRIVIAL(error) << "[PERF_TIMING] SLICING START";
+		auto _perf_slicing_start = std::chrono::steady_clock::now();
 		m_print->process();
+		{
+			auto _ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - _perf_slicing_start).count();
+			BOOST_LOG_TRIVIAL(error) << "[PERF_TIMING] SLICING END elapsed=" << _ms << "ms";
+		}
 		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(" %1%: after print::process, send slicing complete event to gui...") % __LINE__;
 
 		wxCommandEvent evt(m_event_slicing_completed_id);
@@ -248,15 +263,28 @@ void BackgroundSlicingProcess::process_fff()
 		//BBS: add plate index into render params
 		m_temp_output_path = this->get_current_plate()->get_tmp_gcode_path();
 
+		m_fff_print->set_write_task_id_placeholder(
+			AnalyticsDataUploadManager::getInstance().should_send_print_event()
+		);
+		BOOST_LOG_TRIVIAL(error) << "[PERF_TIMING] GCODE_EXPORT START";
+		auto _perf_export_start = std::chrono::steady_clock::now();
 		m_fff_print->export_gcode(m_temp_output_path, m_gcode_result, [this](const ThumbnailsParams& params) {
 			return this->render_thumbnails(params);
 		});
+		{
+			auto _ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - _perf_export_start).count();
+			BOOST_LOG_TRIVIAL(error) << "[PERF_TIMING] GCODE_EXPORT END elapsed=" << _ms << "ms";
+		}
 
 
 		if (m_fff_print->is_BBL_printer())
 			run_post_process_scripts(m_temp_output_path, false, "File", m_temp_output_path, m_fff_print->full_print_config());
 
 		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": export gcode finished");
+	}
+	{
+		auto _ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - _perf_fff_start).count();
+		BOOST_LOG_TRIVIAL(error) << "[PERF_TIMING] PROCESS_FFF END elapsed=" << _ms << "ms";
 	}
 	if (this->set_step_started(bspsGCodeFinalize)) {
 		if (!m_export_path.empty()) {

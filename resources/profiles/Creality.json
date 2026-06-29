@@ -1,6 +1,6 @@
 {
     "name": "Creality",
-    "version": "25.12.26.17",
+    "version": "26.06.29.21",
     "force_update": "1",
     "description": "Creality configurations",
     "machine_list": [
@@ -11,6 +11,18 @@
         {
             "name": "fdm_creality_common",
             "sub_path": "machine/fdm_creality_common.json"
+        },
+        {
+            "name": "Creality Z2 0.8 nozzle",
+            "sub_path": "machine/Creality Z2 0.8 nozzle.json"
+        },
+        {
+            "name": "Creality Z2 0.6 nozzle",
+            "sub_path": "machine/Creality Z2 0.6 nozzle.json"
+        },
+        {
+            "name": "Creality Z2 0.4 nozzle",
+            "sub_path": "machine/Creality Z2 0.4 nozzle.json"
         },
         {
             "name": "Creality Sermoon V1 Pro 0.4 nozzle",
@@ -71,6 +83,10 @@
         {
             "name": "Creality K1 Max 2025_CFS-C 0.4 nozzle",
             "sub_path": "machine/Creality K1 Max 2025_CFS-C 0.4 nozzle.json"
+        },
+        {
+            "name": "Creality GS-04 0.4 nozzle",
+            "sub_path": "machine/Creality GS-04 0.4 nozzle.json"
         },
         {
             "name": "Creality GS-02 0.4 nozzle",
@@ -351,6 +367,10 @@
     ],
     "machine_model_list": [
         {
+            "name": "Creality Z2",
+            "sub_path": "machine/Creality Z2.json"
+        },
+        {
             "name": "Creality Sermoon V1 Pro",
             "sub_path": "machine/Creality Sermoon V1 Pro.json"
         },
@@ -393,6 +413,10 @@
         {
             "name": "Creality K1 Max 2025_CFS-C",
             "sub_path": "machine/Creality K1 Max 2025_CFS-C.json"
+        },
+        {
+            "name": "Creality GS-04",
+            "sub_path": "machine/Creality GS-04.json"
         },
         {
             "name": "Creality GS-02",
@@ -611,6 +635,206 @@
         {
             "name": "fdm_filament_tpu",
             "sub_path": "filament/fdm_filament_tpu.json"
+        },
+        {
+            "name": "CR-ABS @Creality Z2 0.8 nozzle",
+            "sub_path": "filament/CR-ABS @Creality Z2 0.8 nozzle.json"
+        },
+        {
+            "name": "CR-PETG @Creality Z2 0.8 nozzle",
+            "sub_path": "filament/CR-PETG @Creality Z2 0.8 nozzle.json"
+        },
+        {
+            "name": "HP-TPU @Creality Z2 0.8 nozzle",
+            "sub_path": "filament/HP-TPU @Creality Z2 0.8 nozzle.json"
+        },
+        {
+            "name": "Hyper Luminous @Creality Z2 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Z2 0.8 nozzle.json"
+        },
+        {
+            "name": "Hyper PLA @Creality Z2 0.8 nozzle",
+            "sub_path": "filament/Hyper PLA @Creality Z2 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Z2 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Z2 0.8 nozzle.json"
+        },
+        {
+            "name": "CR-ABS @Creality Z2 0.6 nozzle",
+            "sub_path": "filament/CR-ABS @Creality Z2 0.6 nozzle.json"
+        },
+        {
+            "name": "CR-PETG @Creality Z2 0.6 nozzle",
+            "sub_path": "filament/CR-PETG @Creality Z2 0.6 nozzle.json"
+        },
+        {
+            "name": "HP-TPU @Creality Z2 0.6 nozzle",
+            "sub_path": "filament/HP-TPU @Creality Z2 0.6 nozzle.json"
+        },
+        {
+            "name": "Hyper Luminous @Creality Z2 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Z2 0.6 nozzle.json"
+        },
+        {
+            "name": "Hyper PLA @Creality Z2 0.6 nozzle",
+            "sub_path": "filament/Hyper PLA @Creality Z2 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Z2 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Z2 0.6 nozzle.json"
+        },
+        {
+            "name": "CR-ABS @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/CR-ABS @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-PETG @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/CR-PETG @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-PLA Fluo @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/CR-PLA Fluo @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-PLA Matte @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/CR-PLA Matte @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-PLA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/CR-PLA @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-Silk @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/CR-Silk @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-TPU @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/CR-TPU @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "EN-PLA+ @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/EN-PLA+ @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "ENDER FAST PLA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/ENDER FAST PLA @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Ender-PLA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Ender-PLA @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic ABS @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic ABS @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic ASA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic ASA @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic BVOH @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic BVOH @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic PA @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PET @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic PET @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PETG @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic PETG @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PETG-CF @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic PETG-CF @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PETG-GF @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic PETG-GF @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PLA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic PLA @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PLA-CF @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic PLA-CF @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PLA-Silk @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic PLA-Silk @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PP @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic PP @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PVA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic PVA @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic TPU @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Generic TPU @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "HP-ASA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/HP-ASA @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "HP-TPU @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/HP-TPU @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper ABS @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Hyper ABS @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper L-W PLA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Hyper L-W PLA @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper Luminous @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper Marble @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Hyper Marble @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Hyper PETG @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG-CF @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Hyper PETG-CF @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG-GF @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Hyper PETG-GF @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PLA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Hyper PLA @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PLA-CF @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Hyper PLA-CF @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper Stardust @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Hyper Stardust @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Ultra PLA @Creality Z2 0.4 nozzle",
+            "sub_path": "filament/Soleyin Ultra PLA @Creality Z2 0.4 nozzle.json"
         },
         {
             "name": "CR-PETG @Creality Sermoon V1 Pro 0.4 nozzle",
@@ -1245,8 +1469,20 @@
             "sub_path": "filament/Hyper ABS @Creality K1C 0.8 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K1C 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K1C 0.8 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG @Creality K1C 0.8 nozzle",
+            "sub_path": "filament/Hyper PETG @Creality K1C 0.8 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality K1C 0.8 nozzle",
             "sub_path": "filament/Hyper PLA @Creality K1C 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K1C 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K1C 0.8 nozzle.json"
         },
         {
             "name": "CR-PETG @Creality K1C 0.6 nozzle",
@@ -1269,8 +1505,20 @@
             "sub_path": "filament/Hyper ABS @Creality K1C 0.6 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K1C 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K1C 0.6 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG @Creality K1C 0.6 nozzle",
+            "sub_path": "filament/Hyper PETG @Creality K1C 0.6 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality K1C 0.6 nozzle",
             "sub_path": "filament/Hyper PLA @Creality K1C 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K1C 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K1C 0.6 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality K1C 0.4 nozzle",
@@ -1425,6 +1673,10 @@
             "sub_path": "filament/Hyper L-W PLA @Creality K1C 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K1C 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K1C 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality K1C 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality K1C 0.4 nozzle.json"
         },
@@ -1455,6 +1707,10 @@
         {
             "name": "Hyper Stardust @Creality K1C 0.4 nozzle",
             "sub_path": "filament/Hyper Stardust @Creality K1C 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K1C 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K1C 0.4 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality K1C 0.4 nozzle",
@@ -1971,6 +2227,198 @@
         {
             "name": "Soleyin Ultra PLA @Creality K1 Max 2025_CFS-C 0.4 nozzle",
             "sub_path": "filament/Soleyin Ultra PLA @Creality K1 Max 2025_CFS-C 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-ABS @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/CR-ABS @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-PETG @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/CR-PETG @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-PLA Fluo @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/CR-PLA Fluo @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-PLA Matte @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/CR-PLA Matte @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-PLA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/CR-PLA @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-Silk @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/CR-Silk @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-TPU @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/CR-TPU @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "EN-PLA+ @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/EN-PLA+ @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "ENDER FAST PLA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/ENDER FAST PLA @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Ender-PLA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Ender-PLA @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic ABS @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic ABS @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic ASA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic ASA @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic BVOH @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic BVOH @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PA @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PA6-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PA6-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PA612-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PA612-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PAHT-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PAHT-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PC @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PC @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PET @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PET @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PET-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PET-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PETG @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PETG @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PETG-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PETG-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PETG-GF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PETG-GF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PLA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PLA @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PLA-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PLA-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PLA-Silk @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PLA-Silk @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PP @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PP @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic PVA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic PVA @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic TPU @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Generic TPU @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "HP-ASA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/HP-ASA @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "HP-TPU @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/HP-TPU @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper ABS @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper ABS @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper L-W PLA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper L-W PLA @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper Luminous @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper Marble @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper Marble @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PA6-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper PA6-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PA612-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper PA612-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PAHT-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper PAHT-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PC @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper PC @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper PETG @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper PETG-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG-GF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper PETG-GF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PLA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper PLA @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PLA-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper PLA-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PPA-CF @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper PPA-CF @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper Stardust @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Hyper Stardust @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Ultra PLA @Creality GS-04 0.4 nozzle",
+            "sub_path": "filament/Soleyin Ultra PLA @Creality GS-04 0.4 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality GS-02 0.4 nozzle",
@@ -2597,8 +3045,16 @@
             "sub_path": "filament/HP-TPU @Creality Sermoon M300 0.8 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Sermoon M300 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Sermoon M300 0.8 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality Sermoon M300 0.8 nozzle",
             "sub_path": "filament/Hyper PLA @Creality Sermoon M300 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Sermoon M300 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Sermoon M300 0.8 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality Sermoon M300 0.6 nozzle",
@@ -2613,8 +3069,16 @@
             "sub_path": "filament/HP-TPU @Creality Sermoon M300 0.6 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Sermoon M300 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Sermoon M300 0.6 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality Sermoon M300 0.6 nozzle",
             "sub_path": "filament/Hyper PLA @Creality Sermoon M300 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Sermoon M300 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Sermoon M300 0.6 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality Sermoon M300 0.4 nozzle",
@@ -2665,6 +3129,10 @@
             "sub_path": "filament/Hyper ABS @Creality Sermoon M300 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Sermoon M300 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Sermoon M300 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality Sermoon M300 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality Sermoon M300 0.4 nozzle.json"
         },
@@ -2685,12 +3153,36 @@
             "sub_path": "filament/Hyper Stardust @Creality Sermoon M300 0.4 nozzle.json"
         },
         {
+            "name": "Soleyin Basic PETG @Creality Sermoon M300 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Sermoon M300 0.4 nozzle.json"
+        },
+        {
             "name": "Soleyin Ultra PLA @Creality Sermoon M300 0.4 nozzle",
             "sub_path": "filament/Soleyin Ultra PLA @Creality Sermoon M300 0.4 nozzle.json"
         },
         {
             "name": "CR-PETG @SPARKX i7 0.8 nozzle",
             "sub_path": "filament/CR-PETG @SPARKX i7 0.8 nozzle.json"
+        },
+        {
+            "name": "CR-PLA Matte @SPARKX i7 0.8 nozzle",
+            "sub_path": "filament/CR-PLA Matte @SPARKX i7 0.8 nozzle.json"
+        },
+        {
+            "name": "CR-Silk @SPARKX i7 0.8 nozzle",
+            "sub_path": "filament/CR-Silk @SPARKX i7 0.8 nozzle.json"
+        },
+        {
+            "name": "Generic PETG @SPARKX i7 0.8 nozzle",
+            "sub_path": "filament/Generic PETG @SPARKX i7 0.8 nozzle.json"
+        },
+        {
+            "name": "Generic PLA @SPARKX i7 0.8 nozzle",
+            "sub_path": "filament/Generic PLA @SPARKX i7 0.8 nozzle.json"
+        },
+        {
+            "name": "Generic PLA-Silk @SPARKX i7 0.8 nozzle",
+            "sub_path": "filament/Generic PLA-Silk @SPARKX i7 0.8 nozzle.json"
         },
         {
             "name": "HP-TPU @SPARKX i7 0.8 nozzle",
@@ -2705,6 +3197,26 @@
             "sub_path": "filament/CR-PETG @SPARKX i7 0.6 nozzle.json"
         },
         {
+            "name": "CR-PLA Matte @SPARKX i7 0.6 nozzle",
+            "sub_path": "filament/CR-PLA Matte @SPARKX i7 0.6 nozzle.json"
+        },
+        {
+            "name": "CR-Silk @SPARKX i7 0.6 nozzle",
+            "sub_path": "filament/CR-Silk @SPARKX i7 0.6 nozzle.json"
+        },
+        {
+            "name": "Generic PETG @SPARKX i7 0.6 nozzle",
+            "sub_path": "filament/Generic PETG @SPARKX i7 0.6 nozzle.json"
+        },
+        {
+            "name": "Generic PLA @SPARKX i7 0.6 nozzle",
+            "sub_path": "filament/Generic PLA @SPARKX i7 0.6 nozzle.json"
+        },
+        {
+            "name": "Generic PLA-Silk @SPARKX i7 0.6 nozzle",
+            "sub_path": "filament/Generic PLA-Silk @SPARKX i7 0.6 nozzle.json"
+        },
+        {
             "name": "HP-TPU @SPARKX i7 0.6 nozzle",
             "sub_path": "filament/HP-TPU @SPARKX i7 0.6 nozzle.json"
         },
@@ -2713,8 +3225,16 @@
             "sub_path": "filament/Hyper PLA @SPARKX i7 0.6 nozzle.json"
         },
         {
+            "name": "CR-ABS @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/CR-ABS @SPARKX i7 0.4 nozzle.json"
+        },
+        {
             "name": "CR-PETG @SPARKX i7 0.4 nozzle",
             "sub_path": "filament/CR-PETG @SPARKX i7 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-PLA Fluo @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/CR-PLA Fluo @SPARKX i7 0.4 nozzle.json"
         },
         {
             "name": "CR-PLA Matte @SPARKX i7 0.4 nozzle",
@@ -2745,6 +3265,14 @@
             "sub_path": "filament/Ender-PLA @SPARKX i7 0.4 nozzle.json"
         },
         {
+            "name": "Generic ABS @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/Generic ABS @SPARKX i7 0.4 nozzle.json"
+        },
+        {
+            "name": "Generic ASA @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/Generic ASA @SPARKX i7 0.4 nozzle.json"
+        },
+        {
             "name": "Generic PETG @SPARKX i7 0.4 nozzle",
             "sub_path": "filament/Generic PETG @SPARKX i7 0.4 nozzle.json"
         },
@@ -2773,12 +3301,32 @@
             "sub_path": "filament/Generic TPU @SPARKX i7 0.4 nozzle.json"
         },
         {
+            "name": "HP-ASA @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/HP-ASA @SPARKX i7 0.4 nozzle.json"
+        },
+        {
             "name": "HP-TPU @SPARKX i7 0.4 nozzle",
             "sub_path": "filament/HP-TPU @SPARKX i7 0.4 nozzle.json"
         },
         {
+            "name": "Hyper ABS @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/Hyper ABS @SPARKX i7 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper Luminous @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @SPARKX i7 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper Marble @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/Hyper Marble @SPARKX i7 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper PETG @SPARKX i7 0.4 nozzle",
             "sub_path": "filament/Hyper PETG @SPARKX i7 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG-CF @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/Hyper PETG-CF @SPARKX i7 0.4 nozzle.json"
         },
         {
             "name": "Hyper PLA @SPARKX i7 0.4 nozzle",
@@ -2789,16 +3337,48 @@
             "sub_path": "filament/Hyper PLA-CF @SPARKX i7 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Stardust @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/Hyper Stardust @SPARKX i7 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @SPARKX i7 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @SPARKX i7 0.4 nozzle.json"
+        },
+        {
             "name": "Soleyin Ultra PLA @SPARKX i7 0.4 nozzle",
             "sub_path": "filament/Soleyin Ultra PLA @SPARKX i7 0.4 nozzle.json"
+        },
+        {
+            "name": "CR-PETG @SPARKX i7 0.2 nozzle",
+            "sub_path": "filament/CR-PETG @SPARKX i7 0.2 nozzle.json"
         },
         {
             "name": "CR-PLA Matte @SPARKX i7 0.2 nozzle",
             "sub_path": "filament/CR-PLA Matte @SPARKX i7 0.2 nozzle.json"
         },
         {
+            "name": "CR-PLA @SPARKX i7 0.2 nozzle",
+            "sub_path": "filament/CR-PLA @SPARKX i7 0.2 nozzle.json"
+        },
+        {
             "name": "CR-Silk @SPARKX i7 0.2 nozzle",
             "sub_path": "filament/CR-Silk @SPARKX i7 0.2 nozzle.json"
+        },
+        {
+            "name": "ENDER FAST PLA @SPARKX i7 0.2 nozzle",
+            "sub_path": "filament/ENDER FAST PLA @SPARKX i7 0.2 nozzle.json"
+        },
+        {
+            "name": "Generic PETG @SPARKX i7 0.2 nozzle",
+            "sub_path": "filament/Generic PETG @SPARKX i7 0.2 nozzle.json"
+        },
+        {
+            "name": "Generic PLA @SPARKX i7 0.2 nozzle",
+            "sub_path": "filament/Generic PLA @SPARKX i7 0.2 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG @SPARKX i7 0.2 nozzle",
+            "sub_path": "filament/Hyper PETG @SPARKX i7 0.2 nozzle.json"
         },
         {
             "name": "Hyper PLA @SPARKX i7 0.2 nozzle",
@@ -2817,8 +3397,16 @@
             "sub_path": "filament/HP-TPU @Creality K2 0.8 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K2 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K2 0.8 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality K2 0.8 nozzle",
             "sub_path": "filament/Hyper PLA @Creality K2 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K2 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K2 0.8 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality K2 0.6 nozzle",
@@ -2833,8 +3421,16 @@
             "sub_path": "filament/HP-TPU @Creality K2 0.6 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K2 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K2 0.6 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality K2 0.6 nozzle",
             "sub_path": "filament/Hyper PLA @Creality K2 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K2 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K2 0.6 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality K2 0.4 nozzle",
@@ -2953,6 +3549,10 @@
             "sub_path": "filament/Hyper L-W PLA @Creality K2 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K2 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K2 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality K2 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality K2 0.4 nozzle.json"
         },
@@ -2985,6 +3585,10 @@
             "sub_path": "filament/Hyper Stardust @Creality K2 0.4 nozzle.json"
         },
         {
+            "name": "Soleyin Basic PETG @Creality K2 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K2 0.4 nozzle.json"
+        },
+        {
             "name": "Soleyin Ultra PLA @Creality K2 0.4 nozzle",
             "sub_path": "filament/Soleyin Ultra PLA @Creality K2 0.4 nozzle.json"
         },
@@ -2997,8 +3601,16 @@
             "sub_path": "filament/Generic PLA @Creality Hi 0.8 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Hi 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Hi 0.8 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality Hi 0.8 nozzle",
             "sub_path": "filament/Hyper PLA @Creality Hi 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Hi 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Hi 0.8 nozzle.json"
         },
         {
             "name": "CR-PETG @Creality Hi 0.6 nozzle",
@@ -3009,8 +3621,16 @@
             "sub_path": "filament/Generic PLA @Creality Hi 0.6 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Hi 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Hi 0.6 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality Hi 0.6 nozzle",
             "sub_path": "filament/Hyper PLA @Creality Hi 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Hi 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Hi 0.6 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality Hi 0.4 nozzle",
@@ -3073,6 +3693,10 @@
             "sub_path": "filament/Hyper L-W PLA @Creality Hi 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Hi 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Hi 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality Hi 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality Hi 0.4 nozzle.json"
         },
@@ -3091,6 +3715,10 @@
         {
             "name": "Hyper Stardust @Creality Hi 0.4 nozzle",
             "sub_path": "filament/Hyper Stardust @Creality Hi 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Hi 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Hi 0.4 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality Hi 0.4 nozzle",
@@ -3201,8 +3829,16 @@
             "sub_path": "filament/HP-TPU @Creality K2 Pro 0.8 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K2 Pro 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K2 Pro 0.8 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality K2 Pro 0.8 nozzle",
             "sub_path": "filament/Hyper PLA @Creality K2 Pro 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K2 Pro 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K2 Pro 0.8 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality K2 Pro 0.6 nozzle",
@@ -3217,8 +3853,16 @@
             "sub_path": "filament/HP-TPU @Creality K2 Pro 0.6 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K2 Pro 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K2 Pro 0.6 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality K2 Pro 0.6 nozzle",
             "sub_path": "filament/Hyper PLA @Creality K2 Pro 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K2 Pro 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K2 Pro 0.6 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality K2 Pro 0.4 nozzle",
@@ -3353,6 +3997,10 @@
             "sub_path": "filament/Hyper L-W PLA @Creality K2 Pro 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K2 Pro 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K2 Pro 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality K2 Pro 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality K2 Pro 0.4 nozzle.json"
         },
@@ -3399,6 +4047,10 @@
         {
             "name": "Hyper Stardust @Creality K2 Pro 0.4 nozzle",
             "sub_path": "filament/Hyper Stardust @Creality K2 Pro 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K2 Pro 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K2 Pro 0.4 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality K2 Pro 0.4 nozzle",
@@ -3537,6 +4189,10 @@
             "sub_path": "filament/Hyper ABS @Creality K2 Plus 0.8 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K2 Plus 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K2 Plus 0.8 nozzle.json"
+        },
+        {
             "name": "Hyper PAHT-CF @Creality K2 Plus 0.8 nozzle",
             "sub_path": "filament/Hyper PAHT-CF @Creality K2 Plus 0.8 nozzle.json"
         },
@@ -3559,6 +4215,10 @@
         {
             "name": "Hyper PPA-CF @Creality K2 Plus 0.8 nozzle",
             "sub_path": "filament/Hyper PPA-CF @Creality K2 Plus 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K2 Plus 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K2 Plus 0.8 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality K2 Plus 0.6 nozzle",
@@ -3621,6 +4281,10 @@
             "sub_path": "filament/Hyper ABS @Creality K2 Plus 0.6 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K2 Plus 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K2 Plus 0.6 nozzle.json"
+        },
+        {
             "name": "Hyper PAHT-CF @Creality K2 Plus 0.6 nozzle",
             "sub_path": "filament/Hyper PAHT-CF @Creality K2 Plus 0.6 nozzle.json"
         },
@@ -3643,6 +4307,10 @@
         {
             "name": "Hyper PPA-CF @Creality K2 Plus 0.6 nozzle",
             "sub_path": "filament/Hyper PPA-CF @Creality K2 Plus 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K2 Plus 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K2 Plus 0.6 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality K2 Plus 0.4 nozzle",
@@ -3697,6 +4365,26 @@
             "sub_path": "filament/Ender-PLA @Creality K2 Plus 0.4 nozzle.json"
         },
         {
+            "name": "eSUN ABS+ @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/eSUN ABS+ @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "eSUN ABS+HS @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/eSUN ABS+HS @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "eSUN ABS-CF @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/eSUN ABS-CF @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "eSUN ASA+ @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/eSUN ASA+ @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "eSUN PET-Basic @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/eSUN PET-Basic @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
             "name": "eSUN PETG+HS @Creality K2 Plus 0.4 nozzle",
             "sub_path": "filament/eSUN PETG+HS @Creality K2 Plus 0.4 nozzle.json"
         },
@@ -3705,8 +4393,20 @@
             "sub_path": "filament/eSUN PETG @Creality K2 Plus 0.4 nozzle.json"
         },
         {
+            "name": "eSUN PETG-Basic @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/eSUN PETG-Basic @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "eSUN PETG-CF @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/eSUN PETG-CF @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
             "name": "eSUN PLA+ @Creality K2 Plus 0.4 nozzle",
             "sub_path": "filament/eSUN PLA+ @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "eSUN PLA-Basic @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/eSUN PLA-Basic @Creality K2 Plus 0.4 nozzle.json"
         },
         {
             "name": "eSUN PLA-CF @Creality K2 Plus 0.4 nozzle",
@@ -3731,6 +4431,46 @@
         {
             "name": "eSUN PLA-Silk @Creality K2 Plus 0.4 nozzle",
             "sub_path": "filament/eSUN PLA-Silk @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "eSUN TPU-95A @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/eSUN TPU-95A @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Fiberon PA12-CF10 @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Fiberon PA12-CF10 @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Fiberon PA6-CF20 @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Fiberon PA6-CF20 @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Fiberon PA6-GF25 @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Fiberon PA6-GF25 @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Fiberon PA612-CF15 @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Fiberon PA612-CF15 @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Fiberon PA612-ESD @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Fiberon PA612-ESD @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Fiberon PET-CF17 @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Fiberon PET-CF17 @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Fiberon PETG-ESD @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Fiberon PETG-ESD @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Fiberon PETG-rCF08 @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Fiberon PETG-rCF08 @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Fiberon PPS-CF10 @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Fiberon PPS-CF10 @Creality K2 Plus 0.4 nozzle.json"
         },
         {
             "name": "Generic ABS @Creality K2 Plus 0.4 nozzle",
@@ -3817,6 +4557,10 @@
             "sub_path": "filament/Generic PLA-CF @Creality K2 Plus 0.4 nozzle.json"
         },
         {
+            "name": "Generic PLA-LW @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Generic PLA-LW @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
             "name": "Generic PLA-Silk @Creality K2 Plus 0.4 nozzle",
             "sub_path": "filament/Generic PLA-Silk @Creality K2 Plus 0.4 nozzle.json"
         },
@@ -3875,6 +4619,10 @@
         {
             "name": "Hyper L-W PLA @Creality K2 Plus 0.4 nozzle",
             "sub_path": "filament/Hyper L-W PLA @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Hyper Luminous @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K2 Plus 0.4 nozzle.json"
         },
         {
             "name": "Hyper Marble @Creality K2 Plus 0.4 nozzle",
@@ -3939,6 +4687,10 @@
         {
             "name": "PolySonic PLA @Creality K2 Plus 0.4 nozzle",
             "sub_path": "filament/PolySonic PLA @Creality K2 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K2 Plus 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K2 Plus 0.4 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality K2 Plus 0.4 nozzle",
@@ -4041,6 +4793,10 @@
             "sub_path": "filament/Hyper L-W PLA @Creality Ender-3 V3 KE 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Ender-3 V3 KE 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Ender-3 V3 KE 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality Ender-3 V3 KE 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality Ender-3 V3 KE 0.4 nozzle.json"
         },
@@ -4051,6 +4807,10 @@
         {
             "name": "Hyper Stardust @Creality Ender-3 V3 KE 0.4 nozzle",
             "sub_path": "filament/Hyper Stardust @Creality Ender-3 V3 KE 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Ender-3 V3 KE 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Ender-3 V3 KE 0.4 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality Ender-3 V3 KE 0.4 nozzle",
@@ -4201,12 +4961,20 @@
             "sub_path": "filament/Hyper ABS @Creality Ender-3 V3 Plus 0.8 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Ender-3 V3 Plus 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Ender-3 V3 Plus 0.8 nozzle.json"
+        },
+        {
             "name": "Hyper PETG @Creality Ender-3 V3 Plus 0.8 nozzle",
             "sub_path": "filament/Hyper PETG @Creality Ender-3 V3 Plus 0.8 nozzle.json"
         },
         {
             "name": "Hyper PLA @Creality Ender-3 V3 Plus 0.8 nozzle",
             "sub_path": "filament/Hyper PLA @Creality Ender-3 V3 Plus 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Ender-3 V3 Plus 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Ender-3 V3 Plus 0.8 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality Ender-3 V3 Plus 0.8 nozzle",
@@ -4225,12 +4993,20 @@
             "sub_path": "filament/Hyper ABS @Creality Ender-3 V3 Plus 0.6 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Ender-3 V3 Plus 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Ender-3 V3 Plus 0.6 nozzle.json"
+        },
+        {
             "name": "Hyper PETG @Creality Ender-3 V3 Plus 0.6 nozzle",
             "sub_path": "filament/Hyper PETG @Creality Ender-3 V3 Plus 0.6 nozzle.json"
         },
         {
             "name": "Hyper PLA @Creality Ender-3 V3 Plus 0.6 nozzle",
             "sub_path": "filament/Hyper PLA @Creality Ender-3 V3 Plus 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Ender-3 V3 Plus 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Ender-3 V3 Plus 0.6 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality Ender-3 V3 Plus 0.6 nozzle",
@@ -4389,6 +5165,10 @@
             "sub_path": "filament/Hyper L-W PLA @Creality Ender-3 V3 Plus 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Ender-3 V3 Plus 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Ender-3 V3 Plus 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality Ender-3 V3 Plus 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality Ender-3 V3 Plus 0.4 nozzle.json"
         },
@@ -4407,6 +5187,10 @@
         {
             "name": "Hyper Stardust @Creality Ender-3 V3 Plus 0.4 nozzle",
             "sub_path": "filament/Hyper Stardust @Creality Ender-3 V3 Plus 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Ender-3 V3 Plus 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Ender-3 V3 Plus 0.4 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality Ender-3 V3 Plus 0.4 nozzle",
@@ -4433,6 +5217,10 @@
             "sub_path": "filament/HP-TPU @Creality Ender-3 V3 0.8 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Ender-3 V3 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Ender-3 V3 0.8 nozzle.json"
+        },
+        {
             "name": "Hyper PETG @Creality Ender-3 V3 0.8 nozzle",
             "sub_path": "filament/Hyper PETG @Creality Ender-3 V3 0.8 nozzle.json"
         },
@@ -4443,6 +5231,10 @@
         {
             "name": "Hyper PLA-CF @Creality Ender-3 V3 0.8 nozzle",
             "sub_path": "filament/Hyper PLA-CF @Creality Ender-3 V3 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Ender-3 V3 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Ender-3 V3 0.8 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality Ender-3 V3 0.8 nozzle",
@@ -4469,6 +5261,10 @@
             "sub_path": "filament/HP-TPU @Creality Ender-3 V3 0.6 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Ender-3 V3 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Ender-3 V3 0.6 nozzle.json"
+        },
+        {
             "name": "Hyper PETG @Creality Ender-3 V3 0.6 nozzle",
             "sub_path": "filament/Hyper PETG @Creality Ender-3 V3 0.6 nozzle.json"
         },
@@ -4479,6 +5275,10 @@
         {
             "name": "Hyper PLA-CF @Creality Ender-3 V3 0.6 nozzle",
             "sub_path": "filament/Hyper PLA-CF @Creality Ender-3 V3 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Ender-3 V3 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Ender-3 V3 0.6 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality Ender-3 V3 0.6 nozzle",
@@ -4561,6 +5361,10 @@
             "sub_path": "filament/Hyper L-W PLA @Creality Ender-3 V3 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Ender-3 V3 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Ender-3 V3 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality Ender-3 V3 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality Ender-3 V3 0.4 nozzle.json"
         },
@@ -4579,6 +5383,10 @@
         {
             "name": "Hyper Stardust @Creality Ender-3 V3 0.4 nozzle",
             "sub_path": "filament/Hyper Stardust @Creality Ender-3 V3 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Ender-3 V3 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Ender-3 V3 0.4 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality Ender-3 V3 0.4 nozzle",
@@ -4629,6 +5437,10 @@
             "sub_path": "filament/Hyper L-W PLA @Creality Ender-3 V3 SE 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality Ender-3 V3 SE 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality Ender-3 V3 SE 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality Ender-3 V3 SE 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality Ender-3 V3 SE 0.4 nozzle.json"
         },
@@ -4639,6 +5451,10 @@
         {
             "name": "Hyper Stardust @Creality Ender-3 V3 SE 0.4 nozzle",
             "sub_path": "filament/Hyper Stardust @Creality Ender-3 V3 SE 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality Ender-3 V3 SE 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality Ender-3 V3 SE 0.4 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality Ender-3 V3 SE 0.4 nozzle",
@@ -4821,8 +5637,20 @@
             "sub_path": "filament/Hyper ABS @Creality K1 Max 0.8 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K1 Max 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K1 Max 0.8 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG @Creality K1 Max 0.8 nozzle",
+            "sub_path": "filament/Hyper PETG @Creality K1 Max 0.8 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality K1 Max 0.8 nozzle",
             "sub_path": "filament/Hyper PLA @Creality K1 Max 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K1 Max 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K1 Max 0.8 nozzle.json"
         },
         {
             "name": "CR-PETG @Creality K1 Max 0.6 nozzle",
@@ -4845,8 +5673,20 @@
             "sub_path": "filament/Hyper ABS @Creality K1 Max 0.6 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K1 Max 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K1 Max 0.6 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG @Creality K1 Max 0.6 nozzle",
+            "sub_path": "filament/Hyper PETG @Creality K1 Max 0.6 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality K1 Max 0.6 nozzle",
             "sub_path": "filament/Hyper PLA @Creality K1 Max 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K1 Max 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K1 Max 0.6 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality K1 Max 0.4 nozzle",
@@ -5001,6 +5841,10 @@
             "sub_path": "filament/Hyper L-W PLA @Creality K1 Max 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K1 Max 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K1 Max 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality K1 Max 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality K1 Max 0.4 nozzle.json"
         },
@@ -5033,6 +5877,10 @@
             "sub_path": "filament/Hyper Stardust @Creality K1 Max 0.4 nozzle.json"
         },
         {
+            "name": "Soleyin Basic PETG @Creality K1 Max 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K1 Max 0.4 nozzle.json"
+        },
+        {
             "name": "Soleyin Ultra PLA @Creality K1 Max 0.4 nozzle",
             "sub_path": "filament/Soleyin Ultra PLA @Creality K1 Max 0.4 nozzle.json"
         },
@@ -5057,8 +5905,20 @@
             "sub_path": "filament/Hyper ABS @Creality K1 0.8 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K1 0.8 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K1 0.8 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG @Creality K1 0.8 nozzle",
+            "sub_path": "filament/Hyper PETG @Creality K1 0.8 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality K1 0.8 nozzle",
             "sub_path": "filament/Hyper PLA @Creality K1 0.8 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K1 0.8 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K1 0.8 nozzle.json"
         },
         {
             "name": "CR-PETG @Creality K1 0.6 nozzle",
@@ -5081,8 +5941,20 @@
             "sub_path": "filament/Hyper ABS @Creality K1 0.6 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K1 0.6 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K1 0.6 nozzle.json"
+        },
+        {
+            "name": "Hyper PETG @Creality K1 0.6 nozzle",
+            "sub_path": "filament/Hyper PETG @Creality K1 0.6 nozzle.json"
+        },
+        {
             "name": "Hyper PLA @Creality K1 0.6 nozzle",
             "sub_path": "filament/Hyper PLA @Creality K1 0.6 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K1 0.6 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K1 0.6 nozzle.json"
         },
         {
             "name": "CR-ABS @Creality K1 0.4 nozzle",
@@ -5237,6 +6109,10 @@
             "sub_path": "filament/Hyper L-W PLA @Creality K1 0.4 nozzle.json"
         },
         {
+            "name": "Hyper Luminous @Creality K1 0.4 nozzle",
+            "sub_path": "filament/Hyper Luminous @Creality K1 0.4 nozzle.json"
+        },
+        {
             "name": "Hyper Marble @Creality K1 0.4 nozzle",
             "sub_path": "filament/Hyper Marble @Creality K1 0.4 nozzle.json"
         },
@@ -5267,6 +6143,10 @@
         {
             "name": "Hyper Stardust @Creality K1 0.4 nozzle",
             "sub_path": "filament/Hyper Stardust @Creality K1 0.4 nozzle.json"
+        },
+        {
+            "name": "Soleyin Basic PETG @Creality K1 0.4 nozzle",
+            "sub_path": "filament/Soleyin Basic PETG @Creality K1 0.4 nozzle.json"
         },
         {
             "name": "Soleyin Ultra PLA @Creality K1 0.4 nozzle",
@@ -5397,6 +6277,42 @@
         {
             "name": "fdm_process_creality_common_1_0",
             "sub_path": "process/fdm_process_creality_common_1_0.json"
+        },
+        {
+            "name": "0.40mm Standard @Creality Z2 0.8 nozzle",
+            "sub_path": "process/0.40mm Standard @Creality Z2 0.8 nozzle.json"
+        },
+        {
+            "name": "0.30mm Standard @Creality Z2 0.6 nozzle",
+            "sub_path": "process/0.30mm Standard @Creality Z2 0.6 nozzle.json"
+        },
+        {
+            "name": "0.08mm HueForge @Creality Z2 0.4 nozzle",
+            "sub_path": "process/0.08mm HueForge @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "0.08mm Standard @Creality Z2 0.4 nozzle",
+            "sub_path": "process/0.08mm Standard @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "0.12mm Standard @Creality Z2 0.4 nozzle",
+            "sub_path": "process/0.12mm Standard @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "0.16mm Standard @Creality Z2 0.4 nozzle",
+            "sub_path": "process/0.16mm Standard @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "0.20mm Standard @Creality Z2 0.4 nozzle",
+            "sub_path": "process/0.20mm Standard @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "0.24mm Standard @Creality Z2 0.4 nozzle",
+            "sub_path": "process/0.24mm Standard @Creality Z2 0.4 nozzle.json"
+        },
+        {
+            "name": "0.28mm Standard @Creality Z2 0.4 nozzle",
+            "sub_path": "process/0.28mm Standard @Creality Z2 0.4 nozzle.json"
         },
         {
             "name": "0.08mm Extra Fine @Creality Sermoon V1 Pro 0.4 nozzle",
@@ -5561,6 +6477,34 @@
         {
             "name": "0.24mm Standard @Creality K1 Max 2025_CFS-C 0.4 nozzle",
             "sub_path": "process/0.24mm Standard @Creality K1 Max 2025_CFS-C 0.4 nozzle.json"
+        },
+        {
+            "name": "0.08mm HueForge @Creality GS-04 0.4 nozzle",
+            "sub_path": "process/0.08mm HueForge @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "0.08mm Standard @Creality GS-04 0.4 nozzle",
+            "sub_path": "process/0.08mm Standard @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "0.12mm Standard @Creality GS-04 0.4 nozzle",
+            "sub_path": "process/0.12mm Standard @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "0.16mm Standard @Creality GS-04 0.4 nozzle",
+            "sub_path": "process/0.16mm Standard @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "0.20mm Standard @Creality GS-04 0.4 nozzle",
+            "sub_path": "process/0.20mm Standard @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "0.24mm Standard @Creality GS-04 0.4 nozzle",
+            "sub_path": "process/0.24mm Standard @Creality GS-04 0.4 nozzle.json"
+        },
+        {
+            "name": "0.28mm Standard @Creality GS-04 0.4 nozzle",
+            "sub_path": "process/0.28mm Standard @Creality GS-04 0.4 nozzle.json"
         },
         {
             "name": "0.08mm Extra Fine @Creality GS-02 0.4 nozzle",
@@ -5755,6 +6699,10 @@
             "sub_path": "process/0.08mm Standard @SPARKX i7 0.4 nozzle.json"
         },
         {
+            "name": "0.12mm Fine @SPARKX i7 0.4 nozzle",
+            "sub_path": "process/0.12mm Fine @SPARKX i7 0.4 nozzle.json"
+        },
+        {
             "name": "0.12mm Standard @SPARKX i7 0.4 nozzle",
             "sub_path": "process/0.12mm Standard @SPARKX i7 0.4 nozzle.json"
         },
@@ -5763,12 +6711,32 @@
             "sub_path": "process/0.16mm Standard @SPARKX i7 0.4 nozzle.json"
         },
         {
+            "name": "0.20mm Fast @SPARKX i7 0.4 nozzle",
+            "sub_path": "process/0.20mm Fast @SPARKX i7 0.4 nozzle.json"
+        },
+        {
+            "name": "0.20mm Flat Surface @SPARKX i7 0.4 nozzle",
+            "sub_path": "process/0.20mm Flat Surface @SPARKX i7 0.4 nozzle.json"
+        },
+        {
+            "name": "0.20mm Spiral Vase @SPARKX i7 0.4 nozzle",
+            "sub_path": "process/0.20mm Spiral Vase @SPARKX i7 0.4 nozzle.json"
+        },
+        {
             "name": "0.20mm Standard @SPARKX i7 0.4 nozzle",
             "sub_path": "process/0.20mm Standard @SPARKX i7 0.4 nozzle.json"
         },
         {
+            "name": "0.20mm Strength @SPARKX i7 0.4 nozzle",
+            "sub_path": "process/0.20mm Strength @SPARKX i7 0.4 nozzle.json"
+        },
+        {
             "name": "0.24mm Standard @SPARKX i7 0.4 nozzle",
             "sub_path": "process/0.24mm Standard @SPARKX i7 0.4 nozzle.json"
+        },
+        {
+            "name": "0.28mm Extra Draft @SPARKX i7 0.4 nozzle",
+            "sub_path": "process/0.28mm Extra Draft @SPARKX i7 0.4 nozzle.json"
         },
         {
             "name": "0.28mm Standard @SPARKX i7 0.4 nozzle",

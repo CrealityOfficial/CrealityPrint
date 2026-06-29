@@ -26,6 +26,10 @@ namespace Slic3r { namespace GUI {
 
 #define BORDER_W 10
 
+namespace {
+constexpr int SAVE_PRESET_DIALOG_CORNER_RADIUS = 12;
+}
+
 //-----------------------------------------------
 //          SavePresetDialog::Item
 //-----------------------------------------------
@@ -126,8 +130,8 @@ SavePresetDialog::Item::Item(Preset::Type type, const std::string &suffix, wxBox
     StateColor input_bg(std::pair<wxColour, int>(wxColour("#F0F0F1"), StateColor::Disabled), std::pair<wxColour, int>(*wxWHITE, StateColor::Enabled));
     m_input_ctrl->SetBackgroundColor(input_bg);
     m_input_ctrl->Bind(wxEVT_TEXT, [this](wxCommandEvent &) { update(); });
-    m_input_ctrl->SetMinSize(wxSize(SAVE_PRESET_DIALOG_INPUT_SIZE));
-    m_input_ctrl->SetMaxSize(wxSize(SAVE_PRESET_DIALOG_INPUT_SIZE));
+    m_input_ctrl->SetMinSize(m_parent->input_size());
+    m_input_ctrl->SetMaxSize(m_parent->input_size());
     m_input_ctrl->SetMaxLength(100);
 
 
@@ -138,9 +142,9 @@ SavePresetDialog::Item::Item(Preset::Type type, const std::string &suffix, wxBox
     m_valid_label = new wxStaticText(m_parent, wxID_ANY, "");
     m_valid_label->SetForegroundColour(wxColor(255, 111, 0));
 
-    sizer->Add(label_top, 0, wxEXPAND | wxLEFT | wxTOP | wxBOTTOM, BORDER_W);
-    sizer->Add(input_sizer_h, 0, wxALIGN_CENTER|wxLEFT|wxRIGHT, BORDER_W);
-    sizer->Add(m_valid_label, 0, wxEXPAND | wxLEFT | wxRIGHT, BORDER_W);
+    sizer->Add(label_top, 0, wxEXPAND | wxLEFT | wxTOP | wxBOTTOM, m_parent->FromDIP(BORDER_W));
+    sizer->Add(input_sizer_h, 0, wxALIGN_CENTER|wxLEFT|wxRIGHT, m_parent->FromDIP(BORDER_W));
+    sizer->Add(m_valid_label, 0, wxEXPAND | wxLEFT | wxRIGHT, m_parent->FromDIP(BORDER_W));
 
     if (m_type == Preset::TYPE_PRINTER) m_parent->add_info_for_edit_ph_printer(sizer);
 
@@ -149,14 +153,14 @@ SavePresetDialog::Item::Item(Preset::Type type, const std::string &suffix, wxBox
 
     wxBoxSizer *m_sizer_left = new wxBoxSizer(wxHORIZONTAL);
 
-    m_sizer_left->Add(0, 0, 0, wxLEFT, 25);
+    m_sizer_left->Add(0, 0, 0, wxLEFT, m_parent->FromDIP(25));
 
     m_radio_user     = new RadioBox(parent);
     m_radio_user->SetBackgroundColour(SAVE_PRESET_DIALOG_DEF_COLOUR);
 
     m_sizer_left->Add(m_radio_user, 0, wxALIGN_CENTER, 0);
 
-    m_sizer_left->Add(0, 0, 0, wxLEFT, 10);
+    m_sizer_left->Add(0, 0, 0, wxLEFT, m_parent->FromDIP(10));
 
     auto m_left_text = new wxStaticText(parent, wxID_ANY, _L("User Preset"), wxDefaultPosition, wxDefaultSize, 0);
     m_left_text->Wrap(-1);
@@ -168,14 +172,14 @@ SavePresetDialog::Item::Item(Preset::Type type, const std::string &suffix, wxBox
 
     wxBoxSizer *m_sizer_right = new wxBoxSizer(wxHORIZONTAL);
 
-    m_sizer_right->Add(0, 0, 0, wxLEFT, 15);
+    m_sizer_right->Add(0, 0, 0, wxLEFT, m_parent->FromDIP(15));
 
     m_radio_project   = new RadioBox(parent);
     m_radio_project->SetBackgroundColour(SAVE_PRESET_DIALOG_DEF_COLOUR);
 
     m_sizer_right->Add(m_radio_project, 0, wxALIGN_CENTER, 0);
 
-    m_sizer_right->Add(0, 0, 0, wxLEFT, 10);
+    m_sizer_right->Add(0, 0, 0, wxLEFT, m_parent->FromDIP(10));
 
     auto m_right_text = new wxStaticText(parent, wxID_ANY, _L("Preset Inside Project"), wxDefaultPosition, wxDefaultSize, 0);
     m_right_text->SetForegroundColour(wxColour(107,107,107));
@@ -185,7 +189,7 @@ SavePresetDialog::Item::Item(Preset::Type type, const std::string &suffix, wxBox
 
     radio_sizer->Add(m_sizer_right, 1, wxEXPAND, 5);
 
-    sizer->Add(radio_sizer, 0, wxEXPAND | wxTOP, BORDER_W);
+    sizer->Add(radio_sizer, 0, wxEXPAND | wxTOP, m_parent->FromDIP(BORDER_W));
 
     auto radio_clicked = [this](wxMouseEvent &e) {
         if (m_radio_user->GetId() == e.GetId()) {
@@ -336,6 +340,14 @@ void SavePresetDialog::Item::update_valid_bmp()
     m_valid_bmp->SetBitmap(create_scaled_bitmap(bmp_name, m_parent));
 }
 
+void SavePresetDialog::Item::rescale()
+{
+    if (m_input_ctrl) {
+        m_input_ctrl->SetMinSize(m_parent->input_size());
+        m_input_ctrl->SetMaxSize(m_parent->input_size());
+    }
+}
+
 void SavePresetDialog::Item::accept()
 {
     if (m_valid_type == Warning) {
@@ -414,34 +426,34 @@ void SavePresetDialog::build(std::vector<Preset::Type> types, std::string suffix
     m_confirm->SetBorderWidth(0);
     m_confirm->SetBorderColor(wxColour(38, 46, 48));
     m_confirm->SetTextColor(wxColour("#FFFFFE"));
-    m_confirm->SetMinSize(SAVE_PRESET_DIALOG_BUTTON_SIZE);
-    m_confirm->SetCornerRadius(FromDIP(12));
+    m_confirm->SetMinSize(button_size());
+    m_confirm->SetCornerRadius(FromDIP(SAVE_PRESET_DIALOG_CORNER_RADIUS));
     m_confirm->Bind(wxEVT_BUTTON, &SavePresetDialog::accept, this);
     btns->Add(m_confirm, 0, wxEXPAND, 0);
 
     auto block_middle = new wxWindow(this, -1);
     block_middle->SetBackgroundColour(SAVE_PRESET_DIALOG_DEF_COLOUR);
-    btns->Add(block_middle, 0, wxRIGHT, 10);
+    btns->Add(block_middle, 0, wxRIGHT, FromDIP(10));
 
     m_cancel = new Button(this, _L("Cancel"));
-    m_cancel->SetMinSize(SAVE_PRESET_DIALOG_BUTTON_SIZE);
+    m_cancel->SetMinSize(button_size());
     m_cancel->SetBackgroundColor(btn_bg_grey);
     m_cancel->SetTextColor(wxColour("#FFFFFE"));
-    m_cancel->SetCornerRadius(FromDIP(12));
+    m_cancel->SetCornerRadius(FromDIP(SAVE_PRESET_DIALOG_CORNER_RADIUS));
     m_cancel->SetBorderWidth(0);
     m_cancel->Bind(wxEVT_BUTTON, &SavePresetDialog::on_select_cancel, this);
     btns->Add(m_cancel, 0, wxEXPAND, 0);
 
     auto block_right = new wxWindow(this, -1);
     block_right->SetBackgroundColour(SAVE_PRESET_DIALOG_DEF_COLOUR);
-    btns->Add(block_right, 0, wxRIGHT, 40);
+    btns->Add(block_right, 0, wxRIGHT, FromDIP(40));
 
     auto m_line = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(-1, 1), wxTAB_TRAVERSAL);
     m_line->SetBackgroundColour(wxColour(166, 169, 170));
 
     m_Sizer_main->Add( m_line, 0, wxEXPAND, 0 );
-    m_Sizer_main->Add(m_presets_sizer, 0, wxEXPAND | wxALL, BORDER_W);
-    m_Sizer_main->Add(btns, 0, wxEXPAND | wxBOTTOM, BORDER_W + 7);
+    m_Sizer_main->Add(m_presets_sizer, 0, wxEXPAND | wxALL, FromDIP(BORDER_W));
+    m_Sizer_main->Add(btns, 0, wxEXPAND | wxBOTTOM, FromDIP(BORDER_W + 7));
 
     SetSizer(m_Sizer_main);
     m_Sizer_main->SetSizeHints(this);
@@ -486,6 +498,16 @@ bool SavePresetDialog::get_save_to_project_selection(Preset::Type type)
     return false;
 }
 
+wxSize SavePresetDialog::input_size() const
+{
+    return wxSize(FromDIP(SAVE_PRESET_DIALOG_INPUT_WIDTH), FromDIP(SAVE_PRESET_DIALOG_INPUT_HEIGHT));
+}
+
+wxSize SavePresetDialog::button_size() const
+{
+    return wxSize(FromDIP(SAVE_PRESET_DIALOG_BUTTON_WIDTH), FromDIP(SAVE_PRESET_DIALOG_BUTTON_HEIGHT));
+}
+
 bool SavePresetDialog::enable_ok_btn() const
 {
     for (const Item *item : m_items)
@@ -520,10 +542,10 @@ void SavePresetDialog::add_info_for_edit_ph_printer(wxBoxSizer *sizer)
         btn->Bind(wxEVT_RADIOBUTTON, [this, id](wxCommandEvent &) { m_action = (ActionType) id; });
         stb_sizer->Add(btn, 0, wxEXPAND | wxTOP, 5);
     }
-    m_radio_sizer->Add(stb_sizer, 1, wxEXPAND | wxTOP, 2 * BORDER_W);
+    m_radio_sizer->Add(stb_sizer, 1, wxEXPAND | wxTOP, FromDIP(2 * BORDER_W));
 
-    sizer->Add(m_label, 0, wxEXPAND | wxLEFT | wxTOP, 3 * BORDER_W);
-    sizer->Add(m_radio_sizer, 1, wxEXPAND | wxLEFT, 3 * BORDER_W);
+    sizer->Add(m_label, 0, wxEXPAND | wxLEFT | wxTOP, FromDIP(3 * BORDER_W));
+    sizer->Add(m_radio_sizer, 1, wxEXPAND | wxLEFT, FromDIP(3 * BORDER_W));
 }
 
 void SavePresetDialog::update_info_for_edit_ph_printer(const std::string &preset_name)
@@ -533,7 +555,8 @@ void SavePresetDialog::update_info_for_edit_ph_printer(const std::string &preset
     m_label->Show(show);
     m_radio_sizer->ShowItems(show);
     if (!show) {
-        this->SetMinSize(wxSize(100, 50));
+        SetSizeHints(wxDefaultSize, wxDefaultSize);
+        layout();
         return;
     }
 
@@ -555,6 +578,9 @@ void SavePresetDialog::update_info_for_edit_ph_printer(const std::string &preset
 
 void SavePresetDialog::layout()
 {
+    if (!GetSizer())
+        return;
+
     this->Layout();
     this->Fit();
 }
@@ -567,14 +593,19 @@ void SavePresetDialog::on_dpi_changed(const wxRect &suggested_rect)
 
     //for (Item *item : m_items) item->update_valid_bmp();
 
-    // const wxSize& size = wxSize(45 * em, 35 * em);
-    //SetMinSize(/*size*/ wxSize(100, 50));
+    for (Item *item : m_items)
+        item->rescale();
 
-    m_confirm->SetMinSize(SAVE_PRESET_DIALOG_BUTTON_SIZE);
-    m_cancel->SetMinSize(SAVE_PRESET_DIALOG_BUTTON_SIZE);
+    m_confirm->SetMinSize(button_size());
+    m_confirm->SetCornerRadius(FromDIP(SAVE_PRESET_DIALOG_CORNER_RADIUS));
+    m_cancel->SetMinSize(button_size());
+    m_cancel->SetCornerRadius(FromDIP(SAVE_PRESET_DIALOG_CORNER_RADIUS));
 
-
-    Fit();
+    SetSizeHints(wxDefaultSize, wxDefaultSize);
+    layout();
+    if (GetSizer())
+        GetSizer()->SetSizeHints(this);
+    Centre(wxBOTH);
     Refresh();
 }
 

@@ -2568,7 +2568,27 @@ static bool ImFontAtlasBuildWithStbTruetype(ImFontAtlas* atlas)
     boost::log::core::get()->flush();
     
     atlas->TexPixelsAlpha8 = (unsigned char*)IM_ALLOC(alloc_bytes);
-    memset(atlas->TexPixelsAlpha8, 0, atlas->TexWidth * atlas->TexHeight);
+    // 修复: Alpha8 纹理分配失败时（低内存场景）必须检查 NULL，否则下面的 memset 会向 0x0 写入导致崩溃。
+    if (atlas->TexPixelsAlpha8 == NULL || atlas->TexWidth <= 0 || atlas->TexHeight <= 0)
+    {
+        BOOST_LOG_TRIVIAL(error) << "ImFontAtlasBuildWithStbTruetype: failed to allocate alpha8 font texture. "
+            << "alloc_bytes=" << alloc_bytes << ", TexWidth=" << atlas->TexWidth << ", TexHeight=" << atlas->TexHeight;
+        boost::log::core::get()->flush();
+
+        // 清理：本函数已分配/构造的临时资源，避免泄漏并使 atlas 回到未构建状态。
+        if (atlas->TexPixelsAlpha8 != NULL)
+        {
+            IM_FREE(atlas->TexPixelsAlpha8);
+            atlas->TexPixelsAlpha8 = NULL;
+        }
+        stbtt_PackEnd(&spc);
+        for (int src_i = 0; src_i < src_tmp_array.Size; src_i++)
+            src_tmp_array[src_i].~ImFontBuildSrcData();
+        atlas->TexWidth = atlas->TexHeight = 0;
+        atlas->TexUvScale = ImVec2(0.0f, 0.0f);
+        return false;
+    }
+    memset(atlas->TexPixelsAlpha8, 0, alloc_bytes);
     spc.pixels = atlas->TexPixelsAlpha8;
     spc.height = atlas->TexHeight;
 

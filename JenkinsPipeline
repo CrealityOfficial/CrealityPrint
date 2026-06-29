@@ -1,0 +1,815 @@
+pipeline {
+    agent { label 'windows2' }
+    options { timestamps() }
+    parameters {
+        string(name: 'BRANCH', defaultValue: 'release-260330', description: 'Git branch to build (配合 Jenkins 多分支或手动指定)')
+        string(name: 'APP_VERSION', defaultValue: '7.0.0', description: 'Sets CREALITYPRINT_VERSION passed to CMake')
+        string(name: 'VERSION_EXTRA', defaultValue: 'Alpha', description: 'Sets PROJECT_VERSION_EXTRA (Alpha/Beta/Release)')
+        // ========== New parameters for Web sync and packaging options ==========
+        string(name: 'WEB_BRANCH', defaultValue: 'release-260330', description: 'Community repository branch for Web resources')
+        booleanParam(name: 'SYNC_WEB', defaultValue: true, description: 'Sync Web resources from Community repo')
+        booleanParam(name: 'SYNC_PRESET', defaultValue: true, description: 'Generate Creality presets from cloud config')
+        booleanParam(name: 'NOTIFY_FEISHU', defaultValue: true, description: 'Send build notification to Feishu')
+        booleanParam(name: 'BUILD_SQUIRREL', defaultValue: true, description: 'Build Squirrel delta update package')
+        booleanParam(name: 'PUBLISH_TO_SERVER', defaultValue: false, description: 'Upload artifacts to cxsw@172.20.180.14')
+        string(name: 'REFERENCE_BUILD_NUMBER', defaultValue: '', description: '参考构建号，用于从Jenkins归档获取delta基准full包（可选，为空则从远程服务器获取）')
+    }
+    environment {
+        BUILD_DIR = 'build'
+        BUILD_TYPE = 'Release'
+        INSTALL_PREFIX = "${WORKSPACE}\\build\\CrealityPrint"
+        PROCESS_NAME = 'CrealityPrint'
+        SQUIRREL_VERSION = '2.0.1'
+        SQUIRREL_EXE = "${WORKSPACE}\\tools\\Squirrel.exe"
+        NUGET_EXE = "${WORKSPACE}\\tools\\nuget.exe"
+        KEEP_VERSIONS = '5'
+        SSH_PORT = '9122'
+        SSH_TARGET = "cxsw@172.20.180.14:/vagrant_data/www/shared/crealityprint/${JOB_NAME}"
+        FEED_URL = "http://172.20.180.14/shared/crealityprint/${JOB_NAME}"
+        // ========== Community repository for Web resources ==========
+        COMMUNITY_REPO = 'ssh://jenkins@172.20.180.12:29418/yanfa4/CrealityCommunity'
+        FEISHU_WEBHOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/6355c46f-75e2-4f64-b762-aa601586225d'
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                // 重置 git 状态并清理所有未跟踪文件，确保纯净仓库
+                bat '''
+                    git reset --hard
+                    git clean -fd
+                '''
+            }
+        }
+
+        stage('Calculate Build Number') {
+            steps {
+                script {
+                    def commitCount = bat(returnStdout: true, script: "@git rev-list HEAD --count").trim()
+                    env.APP_VERSION = "${params.APP_VERSION}.${commitCount}"
+                    echo "Version: ${env.APP_VERSION} (commit count: ${commitCount})"
+                }
+            }
+        }
+
+        stage('Checkout Community') {
+            when { expression { return params.SYNC_WEB } }
+            steps {
+                dir('Community') {
+                    git branch: "${params.WEB_BRANCH}",
+                        credentialsId: 'jenkins-gerrit-key',
+                        url: "${env.COMMUNITY_REPO}"
+                }
+            }
+        }
+
+        stage('Prepare Squirrel CLI') {
+            steps {
+                powershell '''
+                $ErrorActionPreference = "Stop"
+                $tools = Join-Path $env:WORKSPACE "tools"
+                if (-not (Test-Path $tools)) { New-Item -ItemType Directory -Force -Path $tools | Out-Null }
+                $cli = Join-Path $tools "Squirrel.exe"
+                $helpers = @("StubExecutable.exe","WriteZipToSetup.exe","Squirrel.com")
+                $needExtract = -not (Test-Path $cli)
+                foreach ($h in $helpers) {
+                    if (-not (Test-Path (Join-Path $tools $h))) { $needExtract = $true }
+                }
+                if ($needExtract) {
+                    $pkg = Join-Path $tools ("Squirrel.Windows-{0}-full.nupkg" -f $env:SQUIRREL_VERSION)
+                    if (-not (Test-Path $pkg)) {
+                        Invoke-WebRequest -UseBasicParsing `
+                            -Uri ("https://www.nuget.org/api/v2/package/Squirrel.Windows/{0}" -f $env:SQUIRREL_VERSION) `
+                            -OutFile $pkg
+                    }
+                    Add-Type -AssemblyName System.IO.Compression.FileSystem
+                    $extract = Join-Path $tools "squirrel-unpacked"
+                    if (Test-Path $extract) { Remove-Item -Recurse -Force $extract }
+                    [System.IO.Compression.ZipFile]::ExtractToDirectory($pkg, $extract)
+                    $extractTools = Join-Path $extract "tools"
+                    # copy Squirrel.exe plus helper tools (StubExecutable.exe, WriteZipToSetup.exe, etc.)
+                    Copy-Item -Path (Join-Path $extractTools "*") -Destination $tools -Recurse -Force
+                }
+                $nuget = Join-Path $tools "nuget.exe"
+                if (-not (Test-Path $nuget)) {
+                    Invoke-WebRequest -UseBasicParsing -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $nuget
+                }
+
+                '''
+            }
+        }
+
+        stage('Sync Web Resources') {
+            when { expression { return params.SYNC_WEB } }
+            steps {
+                script {
+                    // Check if Community checkout exists
+                    if (!fileExists('Community')) {
+                        echo "Community directory not found, skipping Web sync."
+                        return
+                    }
+                    // Check if sync_web.bat exists
+                    if (!fileExists('scripts/sync_web.bat')) {
+                        echo "scripts/sync_web.bat not found, skipping Web sync."
+                        return
+                    }
+                }
+                bat "scripts\\sync_web.bat ${params.WEB_BRANCH} %WORKSPACE%\\Community"
+            }
+        }
+
+        stage('Generate Creality Presets') {
+            when { expression { return params.SYNC_PRESET } }
+            steps {
+                script {
+                    if (!fileExists('scripts/generate_creality_presets.py')) {
+                        echo "scripts/generate_creality_presets.py not found, skipping preset generation."
+                        return
+                    }
+                }
+                bat "python scripts\\generate_creality_presets.py -b %VERSION_EXTRA% -n \"3.0.0\""
+            }
+        }
+
+        stage('Update Translations') {
+            steps {
+                bat 'run_gettext.bat'
+            }
+        }
+
+        stage('Configure') {
+            steps {
+                bat """
+@REM Locate Visual Studio toolchain
+set VSCMD_ARG_TGT_ARCH=x64
+set VSCMD_ARG_HOST_ARCH=x64
+for /f "usebackq tokens=*" %%i in (`"%WORKSPACE%\\tools\\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VS_INSTALL=%%i
+if not defined VS_INSTALL (
+  echo [ERROR] Visual Studio with C++ tools not found.
+  exit /b 1
+)
+call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
+where cmake
+if exist "%BUILD_DIR%" (
+  rmdir /S /Q "%BUILD_DIR%"
+)
+cmake -S . -B %BUILD_DIR% ^
+  -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
+  -DCMAKE_INSTALL_PREFIX="%INSTALL_PREFIX%" ^
+  -DPROCESS_NAME=%PROCESS_NAME% ^
+  -DCREALITYPRINT_VERSION=%APP_VERSION% ^
+  -DPROJECT_VERSION_EXTRA=%VERSION_EXTRA% ^
+  -DSQUIRREL_CLI="%SQUIRREL_EXE%" ^
+  -DSQUIRREL_NUGET_EXE="%NUGET_EXE%" ^
+  -DSQUIRREL_FEED_URL=%FEED_URL% ^
+  -DCMAKE_PREFIX_PATH="%WORKSPACE%/dep_Release/usr/local/" ^
+  -DENABLE_CPACK_PACKAGING=ON ^
+  -DBBL_RELEASE_TO_PUBLIC=1 ^
+  -DSLIC3R_STATIC=1 ^
+  -G "Visual Studio 17 2022" -A x64 ^
+  -DUPDATE_ONLINE_MACHINES=1
+"""
+            }
+        }
+
+        stage('Build') {
+            steps {
+                bat """
+set VSCMD_ARG_TGT_ARCH=x64
+set VSCMD_ARG_HOST_ARCH=x64
+for /f "usebackq tokens=*" %%i in (`"%WORKSPACE%\\tools\\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VS_INSTALL=%%i
+if not defined VS_INSTALL (
+  echo [ERROR] Visual Studio with C++ tools not found.
+  exit /b 1
+)
+call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
+cmake --build %BUILD_DIR% --target CrealityPrint_Slicer --config %BUILD_TYPE% -- -m
+"""
+            }
+        }
+
+        stage('Sign updater.exe') {
+            steps {
+                bat """
+set UPDATER_PATH=%WORKSPACE%\\tools\\updater\\updater.exe
+echo Signing updater.exe: %UPDATER_PATH%
+"C:\\curl.exe" -X POST -F file=@%UPDATER_PATH% http://172.20.180.14:3001/sign
+"C:\\curl.exe" -L http://172.20.180.14:3001/exe/updater.exe -o %WORKSPACE%\\updater_signed.exe
+copy /Y %WORKSPACE%\\updater_signed.exe %UPDATER_PATH%
+del /Q %WORKSPACE%\\updater_signed.exe
+echo updater.exe signed successfully.
+"""
+            }
+        }
+
+        stage('Sign CrealityPrint.exe') {
+            steps {
+                bat """
+set EXE_PATH=%WORKSPACE%\\%BUILD_DIR%\\%PROCESS_NAME%\\%PROCESS_NAME%.exe
+echo Signing CrealityPrint.exe: %EXE_PATH%
+"C:\\curl.exe" -X POST -F file=@%EXE_PATH% http://172.20.180.14:3001/sign
+"C:\\curl.exe" -L http://172.20.180.14:3001/exe/%PROCESS_NAME%.exe -o %WORKSPACE%\\CrealityPrint_signed.exe
+copy /Y %WORKSPACE%\\CrealityPrint_signed.exe %EXE_PATH%
+del /Q %WORKSPACE%\\CrealityPrint_signed.exe
+echo CrealityPrint.exe signed successfully.
+"""
+            }
+        }
+
+        stage('Package NSIS') {
+            steps {
+                bat """
+set VSCMD_ARG_TGT_ARCH=x64
+set VSCMD_ARG_HOST_ARCH=x64
+for /f "usebackq tokens=*" %%i in (`"%WORKSPACE%\\tools\\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VS_INSTALL=%%i
+if not defined VS_INSTALL (
+  echo [ERROR] Visual Studio with C++ tools not found.
+  exit /b 1
+)
+call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
+cmake --build %BUILD_DIR% --target package --config %BUILD_TYPE% -- -m
+"""
+            }
+        }
+
+        stage('Sign NSIS Installer') {
+            steps {
+                script {
+                    def exeName = "${env.PROCESS_NAME}_${env.APP_VERSION}_${env.VERSION_EXTRA}.exe"
+                    bat """
+set EXE_NAME=${exeName}
+echo Signing NSIS installer: %EXE_NAME%
+cd %BUILD_DIR%
+"C:\\curl.exe" -X POST -F file=@%EXE_NAME% http://172.20.180.14:3001/sign
+"C:\\curl.exe" -L http://172.20.180.14:3001/exe/%EXE_NAME% -o %EXE_NAME%
+echo NSIS installer signed successfully.
+"""
+                }
+            }
+        }
+
+        stage('Package ZIP') {
+            steps {
+                bat """
+set VSCMD_ARG_TGT_ARCH=x64
+set VSCMD_ARG_HOST_ARCH=x64
+for /f "usebackq tokens=*" %%i in (`"%WORKSPACE%\\tools\\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VS_INSTALL=%%i
+if not defined VS_INSTALL (
+  echo [ERROR] Visual Studio with C++ tools not found.
+  exit /b 1
+)
+call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
+cmake --build %BUILD_DIR% --target install --config %BUILD_TYPE%
+for /f "tokens=1-3 delims=/ " %%1 in ("%date%") do set currentdate=%%1%%2%%3
+set zipName=%PROCESS_NAME%_%APP_VERSION%_%currentdate%.zip
+"%WORKSPACE%\\tools\\7z.exe" a -tzip %BUILD_DIR%\\%zipName% %BUILD_DIR%\\%PROCESS_NAME%
+echo ZIP package created: %BUILD_DIR%\\%zipName%
+"""
+            }
+        }
+        
+        stage('Sync Previous Releases') {
+            when { expression { return params.BUILD_SQUIRREL } }
+            steps {
+                script {
+                    // 根据版本类型确定环境目录（Alpha=test, Dev=dev, Beta/Release=prod）
+                    def envName
+                    if (env.VERSION_EXTRA == 'Alpha') {
+                        envName = 'test'
+                    } else if (env.VERSION_EXTRA == 'Dev') {
+                        envName = 'dev'
+                    } else {
+                        envName = 'prod'
+                    }
+                    def localReleases = "${env.WORKSPACE}/build/squirrel/Releases/${envName}"
+                    powershell "New-Item -ItemType Directory -Force -Path '${localReleases}' | Out-Null"
+
+                    def currentVersion = env.APP_VERSION
+                    def versionParts = currentVersion.split('\\.')
+                    if (versionParts.size() < 3) {
+                        echo "Invalid version format: ${currentVersion}, skipping delta sync."
+                        return
+                    }
+                    def majorVersion = versionParts[0]
+                    def minorVersion = versionParts[1]
+                    def patchVersion = versionParts[2]
+
+                    // 年度大版本发布，不需要 delta
+                    if (minorVersion == '0' && patchVersion == '0') {
+                        echo "Current version ${currentVersion} is a yearly release (major.0.0), no delta needed."
+                        withCredentials([sshUserPrivateKey(credentialsId: 'cxsw-ssh-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                            def portVal = (env.SSH_PORT ?: '9122') as Integer
+                            def remote = [name: 'creality-sync', host: '172.20.180.14', user: env.SSH_USER, port: portVal, identityFile: env.SSH_KEY, allowAnyHosts: true]
+                            def remoteReleases = "/vagrant_data/www/shared/crealityprint/${env.JOB_NAME}/${envName}/Releases"
+                            try {
+                                sshGet remote: remote, from: "${remoteReleases}/RELEASES", into: "${localReleases}", override: true
+                            } catch (Exception e) {
+                                echo "No existing RELEASES file found, this may be the first release."
+                            }
+                        }
+                        return
+                    }
+
+                    def currentSemver = [major: majorVersion.toInteger(), minor: minorVersion.toInteger(), patch: patchVersion.toInteger()]
+                    def targetVersion = null
+                    def targetFile = null
+                    def useJenkinsArchive = params.REFERENCE_BUILD_NUMBER?.trim()
+
+                    if (useJenkinsArchive) {
+                        // ========== 方式1: 从 Jenkins 归档获取 ==========
+                        echo "Using Jenkins archive for delta base (Reference Build: #${params.REFERENCE_BUILD_NUMBER})"
+                        
+                        try {
+                            copyArtifacts(
+                                projectName: env.JOB_NAME,
+                                selector: specific(params.REFERENCE_BUILD_NUMBER),
+                                filter: "artifacts/Releases/${envName}/*-full.nupkg,artifacts/Releases/${envName}/RELEASES",
+                                target: localReleases,
+                                flatten: true,
+                                optional: false
+                            )
+                            
+                            // 查找并验证下载的 full nupkg
+                            def downloadedFiles = powershell(returnStdout: true, script: """
+                                Get-ChildItem -Path '${localReleases}' -Filter '*.nupkg' -File -ErrorAction SilentlyContinue | 
+                                Where-Object { \$_.Name -notlike '*-delta*' } |
+                                Select-Object -ExpandProperty Name
+                            """).trim()
+                            
+                            if (downloadedFiles) {
+                                downloadedFiles.split('\\r?\\n').each { filename ->
+                                    if (!filename?.trim()) return
+                                    def matcher = filename =~ /.*-([0-9]+\.[0-9]+\.[0-9]+).*\.nupkg/
+                                    if (matcher) {
+                                        def refVersionStr = matcher[0][1]
+                                        def refParts = refVersionStr.split('\\.')
+                                        def refSemver = [major: refParts[0].toInteger(), minor: refParts[1].toInteger(), patch: refParts[2].toInteger()]
+                                        
+                                        if (refSemver.major == currentSemver.major && 
+                                            (refSemver.minor < currentSemver.minor || 
+                                             (refSemver.minor == currentSemver.minor && refSemver.patch < currentSemver.patch))) {
+                                            targetVersion = refSemver
+                                            targetFile = filename
+                                            echo "Validated delta base from Jenkins archive: ${refVersionStr} (${filename})"
+                                        } else {
+                                            echo "WARN: Reference version ${refVersionStr} is not suitable for delta (need older version in same major)"
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (!targetFile) {
+                                echo "WARN: No valid full nupkg found in Jenkins archive, falling back to remote server."
+                                useJenkinsArchive = false
+                            }
+                        } catch (Exception e) {
+                            echo "WARN: Failed to get artifacts from Jenkins build #${params.REFERENCE_BUILD_NUMBER}: ${e.message}"
+                            echo "Falling back to remote server for delta base."
+                            useJenkinsArchive = false
+                        }
+                    }
+
+                    // ========== 方式2: 从远程服务器获取（暂时屏蔽）==========
+                    if (!useJenkinsArchive) {
+                        echo "Using remote server for delta base"
+                        
+                        withCredentials([sshUserPrivateKey(credentialsId: 'cxsw-ssh-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                            def portVal = (env.SSH_PORT ?: '9122') as Integer
+                            def remote = [name: 'creality-sync', host: '172.20.180.14', user: env.SSH_USER, port: portVal, identityFile: env.SSH_KEY, allowAnyHosts: true]
+                            def remoteReleases = "/vagrant_data/www/shared/crealityprint/${env.JOB_NAME}/${envName}/Releases"
+
+                            def allVersions = []
+                            try {
+                                def versionOutput = sshCommand remote: remote, command: "cd ${remoteReleases} && ls -1 *.nupkg 2>/dev/null | sed 's/.*-\\([0-9]*\\.[0-9]*\\.[0-9]*\\).*/\\1/' | sort -V | uniq"
+                                allVersions = versionOutput?.trim()?.split('\\n') ?: []
+                            } catch (Exception e) {
+                                echo "No existing releases found on remote server, this may be the first release."
+                            }
+                            
+                            def hasOlderVersion = false
+                            def maxRemoteVersion = null
+
+                            allVersions.each { version ->
+                                if (!version?.trim()) return
+                                def parts = version.split('\\.')
+                                if (parts.size() >= 3) {
+                                    def vMajor = parts[0].toInteger()
+                                    def vMinor = parts[1].toInteger()
+                                    def vPatch = parts[2].toInteger()
+                                    def vSemver = [major: vMajor, minor: vMinor, patch: vPatch]
+
+                                    if (vMajor == currentSemver.major) {
+                                        def isLessThan = (vMinor < currentSemver.minor) || 
+                                                         (vMinor == currentSemver.minor && vPatch < currentSemver.patch)
+                                        if (isLessThan) {
+                                            hasOlderVersion = true
+                                            if (targetVersion == null || 
+                                                (vMinor > targetVersion.minor) ||
+                                                (vMinor == targetVersion.minor && vPatch > targetVersion.patch)) {
+                                                targetVersion = vSemver
+                                            }
+                                        }
+                                        
+                                        if (maxRemoteVersion == null || 
+                                            (vMinor > maxRemoteVersion.minor) ||
+                                            (vMinor == maxRemoteVersion.minor && vPatch > maxRemoteVersion.patch)) {
+                                            maxRemoteVersion = vSemver
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // 版本降级检查（仅在远程有版本时检查）
+                            if (!hasOlderVersion && maxRemoteVersion != null) {
+                                error "Build failed: Current version ${currentVersion} is older than or equal to the latest remote version ${maxRemoteVersion.major}.${maxRemoteVersion.minor}.${maxRemoteVersion.patch}. Cannot build delta for downgrade scenario."
+                            }
+
+                            if (targetVersion) {
+                                def targetVersionStr = "${targetVersion.major}.${targetVersion.minor}.${targetVersion.patch}"
+                                def nupkgFiles = sshCommand remote: remote, command: "cd ${remoteReleases} && ls -1 *-${targetVersionStr}*.nupkg 2>/dev/null | grep -v delta | head -n 1"
+                                nupkgFiles = nupkgFiles?.trim()
+                                if (nupkgFiles) {
+                                    targetFile = nupkgFiles
+                                    echo "Found delta base version: ${targetVersionStr} (${targetFile})"
+                                    sshGet remote: remote, from: "${remoteReleases}/RELEASES", into: "${localReleases}", override: true
+                                    sshGet remote: remote, from: "${remoteReleases}/${targetFile}", into: "${localReleases}", override: true
+                                } else {
+                                    echo "No nupkg file found for version ${targetVersionStr}, will generate full package only."
+                                }
+                            } else {
+                                echo "No suitable previous version found for delta, will generate full package only."
+                            }
+                        }
+                    }
+                   // ========== 方式2 结束 ==========
+
+                    // 最终状态报告
+                    if (targetVersion && targetFile) {
+                        def targetVersionStr = "${targetVersion.major}.${targetVersion.minor}.${targetVersion.patch}"
+                        echo "=== Delta base configured: ${targetVersionStr} (${targetFile}) ==="
+                    } else {
+                        echo "=== No delta base found, Squirrel will generate full package only ==="
+                    }
+                }
+            }
+        }
+
+        stage('Package Squirrel') {
+            when { expression { return params.BUILD_SQUIRREL } }
+            steps {
+                bat """
+set VSCMD_ARG_TGT_ARCH=x64
+set VSCMD_ARG_HOST_ARCH=x64
+for /f "usebackq tokens=*" %%i in (`"%WORKSPACE%\\tools\\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VS_INSTALL=%%i
+if not defined VS_INSTALL (
+  echo [ERROR] Visual Studio with C++ tools not found.
+  exit /b 1
+)
+call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
+cmake --build %BUILD_DIR% --target squirrel-package --config %BUILD_TYPE% -- -m
+"""
+            }
+        }
+
+        stage('Check Delta Shasum') {
+            when { expression { return params.BUILD_SQUIRREL } }
+            steps {
+                powershell '''
+                $ErrorActionPreference = "Stop"
+                
+                # 根据版本类型确定环境目录（Alpha=test, Dev=dev, Beta/Release=prod）
+                if ($env:VERSION_EXTRA -eq "Alpha") {
+                    $envName = "test"
+                } elseif ($env:VERSION_EXTRA -eq "Dev") {
+                    $envName = "dev"
+                } else {
+                    $envName = "prod"
+                }
+                
+                $releaseDir = Join-Path $env:BUILD_DIR "squirrel\\Releases\\$envName"
+                if (-not (Test-Path $releaseDir)) {
+                    Write-Host "No Squirrel release dir at $releaseDir, skip shasum check."
+                    return
+                }
+                $delta = Get-ChildItem -Path $releaseDir -Filter "*-delta.nupkg" -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
+                if (-not $delta) {
+                    Write-Host "No delta nupkg found in $releaseDir, skip shasum check."
+                    return
+                }
+                Write-Host "Checking shasum format in delta nupkg:" $delta.FullName
+                Add-Type -AssemblyName System.IO.Compression.FileSystem
+                $inspectRoot = Join-Path $env:BUILD_DIR "shasum_inspect"
+                if (Test-Path $inspectRoot) { Remove-Item -Recurse -Force $inspectRoot }
+                New-Item -ItemType Directory -Force -Path $inspectRoot | Out-Null
+                [System.IO.Compression.ZipFile]::ExtractToDirectory($delta.FullName, $inspectRoot)
+                $net45Dir = Join-Path $inspectRoot "lib\\net45"
+                if (-not (Test-Path $net45Dir)) {
+                    Write-Host "No lib/net45 in delta nupkg, skip shasum check."
+                    return
+                }
+                $shasums = Get-ChildItem -Path $net45Dir -Filter "*.shasum" -Recurse -File -ErrorAction SilentlyContinue
+                if (-not $shasums) {
+                    Write-Host "No .shasum files found under $net45Dir."
+                    return
+                }
+                $sample = $shasums | Sort-Object FullName | Select-Object -First 10
+                foreach ($f in $sample) {
+                    $raw = Get-Content -LiteralPath $f.FullName -TotalCount 1 -ErrorAction Stop | Select-Object -First 1
+                    if ($null -eq $raw) {
+                        Write-Host "WARN: Empty shasum file:" $f.FullName
+                        continue
+                    }
+                    $line = $raw.Trim()
+                    Write-Host "shasum sample:" $f.FullName
+                    Write-Host "  " $line
+                    if (-not $line) {
+                        Write-Host "WARN: Empty shasum file:" $f.FullName
+                        continue
+                    }
+                    $parts = $line -split ' +'
+                    $sha = $parts[0]
+                    if ($sha.Length -ne 40 -or ($sha -notmatch "^[0-9a-fA-F]+$")) {
+                        throw "Invalid shasum format in $($f.FullName): $line"
+                    }
+                }
+                Write-Host "Shasum format check passed for delta nupkg."
+                '''
+            }
+        }
+
+        stage('Collect Artifacts') {
+            steps {
+                powershell '''
+                $ErrorActionPreference = "Stop"
+                $artifacts = Join-Path $env:WORKSPACE "artifacts"
+
+                # 清空旧的 artifacts 目录，防止上次构建残留
+                if (Test-Path $artifacts) { Remove-Item -Recurse -Force $artifacts }
+                New-Item -ItemType Directory -Force -Path $artifacts | Out-Null
+
+                # 收集 NSIS 安装包 (exe) - 排除 Setup.exe
+                Get-ChildItem -Path $env:BUILD_DIR -Filter "$($env:PROCESS_NAME)_*.exe" -File -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -ne 'Setup.exe' } |
+                    Copy-Item -Destination $artifacts -Force
+
+                # 收集 ZIP 包
+                Get-ChildItem -Path $env:BUILD_DIR -Filter "$($env:PROCESS_NAME)_*.zip" -File -ErrorAction SilentlyContinue |
+                    Copy-Item -Destination $artifacts -Force
+
+                # 收集 Squirrel Releases - 仅归档本次构建生成的 full 和 delta 包
+                $releases = Join-Path $env:BUILD_DIR "squirrel\\Releases"
+                if (Test-Path $releases) {
+                    # 根据版本类型确定环境目录（Alpha=test, Dev=dev, Beta/Release=prod）
+                    if ($env:VERSION_EXTRA -eq "Alpha") {
+                        $releaseEnv = "test"
+                    } elseif ($env:VERSION_EXTRA -eq "Dev") {
+                        $releaseEnv = "dev"
+                    } else {
+                        $releaseEnv = "prod"
+                    }
+                    $releaseSource = Join-Path $env:BUILD_DIR "squirrel\\Releases\\$releaseEnv"
+                    
+                    # 处理对应的环境目录
+                    if (Test-Path $releaseSource) {
+                        $targetDir = Join-Path $artifacts "Releases\\$releaseEnv"
+                        New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+                        
+                        # 获取所有 nupkg 文件
+                        $allNupkgs = Get-ChildItem -Path $releaseSource -Filter "*.nupkg" -File
+                        $RELEASES_FILE = Join-Path $releaseSource "RELEASES"
+                        
+                        # 识别基准 full nupkg（从 Jenkins 归档下载的）
+                        $baselineFullNupkg = $null
+                        if (Test-Path $RELEASES_FILE) {
+                            $releasesContent = Get-Content $RELEASES_FILE -Raw
+                            $lines = $releasesContent -split "`n" | Where-Object { $_.Trim() -ne '' }
+                            foreach ($line in $lines) {
+                                $parts = $line -split ' '
+                                if ($parts.Count -ge 2) {
+                                    $nupkgName = $parts[1]
+                                    if ($nupkgName -like '*-full.nupkg') {
+                                        $baselineFullNupkg = $nupkgName
+                                        Write-Host "Identified baseline full nupkg from RELEASES: $baselineFullNupkg"
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                        
+                        # 获取本次构建生成的最新 full nupkg（通过最后写入时间）
+                        $latestFullNupkg = $allNupkgs | Where-Object { $_.Name -like '*-full.nupkg' } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+                        
+                        # 复制策略：
+                        # 1. 所有 delta 包都复制
+                        # 2. 本次构建的最新 full 包要复制
+                        # 3. 排除从 Jenkins 归档下载的基准 full 包
+                        # 4. 排除其他旧的 full 包
+                        foreach ($nupkg in $allNupkgs) {
+                            $shouldCopy = $false
+                            
+                            if ($nupkg.Name -like '*-delta.nupkg') {
+                                # 所有 delta 包都需要
+                                $shouldCopy = $true
+                                Write-Host "Copying delta: $($nupkg.Name)"
+                            } elseif ($nupkg -eq $latestFullNupkg) {
+                                # 本次构建的最新 full 包需要
+                                $shouldCopy = $true
+                                Write-Host "Copying latest full: $($nupkg.Name)"
+                            } elseif ($baselineFullNupkg -and $nupkg.Name -eq $baselineFullNupkg) {
+                                # 从 Jenkins 归档下载的基准 full 包，排除
+                                Write-Host "Excluding baseline full (from Jenkins archive): $($nupkg.Name)"
+                                $shouldCopy = $false
+                            } elseif ($nupkg.Name -like '*-full.nupkg') {
+                                # 其他旧的 full 包也排除
+                                Write-Host "Excluding old full: $($nupkg.Name)"
+                                $shouldCopy = $false
+                            }
+                            
+                            if ($shouldCopy) {
+                                $destPath = Join-Path $targetDir $nupkg.Name
+                                Copy-Item -Path $nupkg.FullName -Destination $destPath -Force
+                            }
+                        }
+                        
+                        # 复制 RELEASES 文件
+                        if (Test-Path $RELEASES_FILE) {
+                            Copy-Item -Path $RELEASES_FILE -Destination (Join-Path $targetDir "RELEASES") -Force
+                        }
+                    }
+                }
+
+                # ========== 打包 PDB 调试符号 ==========
+                $srcReleaseDir = Join-Path $env:WORKSPACE "$($env:BUILD_DIR)\\src\\Release"
+                if (Test-Path $srcReleaseDir) {
+                    $pdbFiles = Get-ChildItem -Path $srcReleaseDir -Filter "*.pdb" -File -ErrorAction SilentlyContinue
+                    if ($pdbFiles -and $pdbFiles.Count -gt 0) {
+                        $pdbZipName = "$($env:PROCESS_NAME)_$($env:APP_VERSION)_$($env:VERSION_EXTRA).pdb.zip"
+                        $pdbZip = Join-Path $artifacts $pdbZipName
+                        Write-Host "Creating PDB archive: $pdbZipName ($($pdbFiles.Count) files)"
+                        Compress-Archive -Path $pdbFiles.FullName -DestinationPath $pdbZip -Force
+                    } else {
+                        Write-Host "No PDB files found in $srcReleaseDir"
+                    }
+                }
+
+                # ========== 生成 Breakpad SYM 符号文件 ==========
+                $breakpadScript = Join-Path $env:WORKSPACE "scripts\\breakpad.py"
+                if ((Test-Path $breakpadScript) -and (Test-Path $srcReleaseDir)) {
+                    Write-Host "Generating Breakpad symbols..."
+                    $oldErrorAction = $ErrorActionPreference
+                    $ErrorActionPreference = "Continue"
+                    try {
+                        Push-Location $srcReleaseDir
+                        & python $breakpadScript 2>&1 | ForEach-Object { Write-Host $_ }
+                        Pop-Location
+                        
+                        # breakpad.py 在执行目录下生成 symbols/ 子目录
+                        $genSymbolsDir = Join-Path $srcReleaseDir "symbols"
+                        if (Test-Path $genSymbolsDir) {
+                            $symFiles = Get-ChildItem -Path $genSymbolsDir -Filter "*.sym" -File -Recurse -ErrorAction SilentlyContinue
+                            if ($symFiles -and $symFiles.Count -gt 0) {
+                                $symZipName = "$($env:PROCESS_NAME)_$($env:APP_VERSION)_$($env:VERSION_EXTRA).sym.zip"
+                                $symZip = Join-Path $artifacts $symZipName
+                                Write-Host "Creating SYM archive: $symZipName ($($symFiles.Count) files)"
+                                Compress-Archive -Path $symFiles.FullName -DestinationPath $symZip -Force
+                            } else {
+                                Write-Host "No SYM files generated in $genSymbolsDir"
+                            }
+                        } else {
+                            Write-Host "Symbols directory not found: $genSymbolsDir"
+                        }
+                    } catch {
+                        Write-Host "WARN: Failed to generate symbols: $_"
+                    } finally {
+                        $ErrorActionPreference = $oldErrorAction
+                    }
+                } else {
+                    Write-Host "breakpad.py not found or no Release dir, skipping symbol generation"
+                }
+
+                # 输出收集的制品清单
+                Write-Host "=== Collected artifacts ==="
+                Get-ChildItem -Path $artifacts -Recurse -File | ForEach-Object {
+                    Write-Host ("  {0}  ({1:N2} MB)" -f $_.FullName.Replace($artifacts, "artifacts"), ($_.Length / 1MB))
+                }
+                '''
+                
+                // 归档制品，明确排除 Setup.exe
+                archiveArtifacts artifacts: 'artifacts/**/*',
+                    excludes: '**/Setup.exe',
+                    allowEmptyArchive: true,
+                    onlyIfSuccessful: true
+            }
+        }
+
+        stage('Publish') {
+            when { expression { return params.PUBLISH_TO_SERVER } }
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'cxsw-ssh-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    script {
+                        // 根据版本类型确定环境目录（Alpha=test, Dev=dev, Beta/Release=prod）
+                        def envName
+                        if (env.VERSION_EXTRA == 'Alpha') {
+                            envName = 'test'
+                        } else if (env.VERSION_EXTRA == 'Dev') {
+                            envName = 'dev'
+                        } else {
+                            envName = 'prod'
+                        }
+                        def remoteBase = "/vagrant_data/www/shared/crealityprint/${env.JOB_NAME}/${envName}"
+                        def portVal = (env.SSH_PORT ?: '9122') as Integer
+                        def remote = [
+                            name: 'creality-publish',
+                            host: '172.20.180.14',
+                            user: env.SSH_USER,
+                            port: portVal,
+                            identityFile: env.SSH_KEY,
+                            allowAnyHosts: true
+                        ]
+                        def localArtifacts = "${env.WORKSPACE}/artifacts/"
+                        def localReleases = "${env.WORKSPACE}/build/squirrel/Releases/${envName}"
+                        def remoteReleases = "${remoteBase}/Releases"
+
+                        sshCommand remote: remote, command: "mkdir -p ${remoteBase} ${remoteReleases}"
+                        sshPut remote: remote, from: localArtifacts, into: "${remoteBase}/"
+
+                        // 按文件对比时间戳：远端缺失则上传，本地更新则覆盖
+                        def psPath = localReleases.replace("/", "\\\\")
+                        def psScript = '''Get-ChildItem -Path 'PATH' -File |
+                          ForEach-Object { "$($_.FullName)|$($_.Name)|`$([int][DateTimeOffset]$($_.LastWriteTimeUtc).ToUnixTimeSeconds())" }'''
+                        psScript = psScript.replace('PATH', psPath)
+                        def listText = powershell(returnStdout: true, script: psScript).trim()
+                        def files = []
+                        if (listText) {
+                            listText.split(/\r?\n/).each { line ->
+                                def parts = line.split(/\|/)
+                                if (parts.size() >= 3) {
+                                    files << [FullName: parts[0], Name: parts[1], UnixTime: parts[2]]
+                                }
+                            }
+                        }
+                        files.each { f ->
+                            def remoteMtime = sshCommand(remote: remote, command: "[ -f ${remoteReleases}/${f.Name} ] && stat -c %Y ${remoteReleases}/${f.Name} || echo 0").trim()
+                            boolean shouldUpload = false
+                            try {
+                                shouldUpload = f.UnixTime.toLong() > remoteMtime.toLong()
+                            } catch (Exception e) {
+                                shouldUpload = true
+                            }
+                            if (shouldUpload || remoteMtime == "0") {
+                                sshPut remote: remote, from: f.FullName, into: "${remoteReleases}/"
+                            } else {
+                                echo "Skip ${f.Name}: remote newer or same (local ${f.UnixTime}, remote ${remoteMtime})"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Notify Feishu') {
+            when { expression { return params.NOTIFY_FEISHU } }
+            steps {
+                script {
+                    // Generate version file for notification
+                    def versionInfo = "${env.APP_VERSION}-${env.VERSION_EXTRA}"
+                    writeFile file: "${env.WORKSPACE}\\version.txt", text: versionInfo
+                    
+                    // Generate changes file
+                    bat 'git log --oneline --since="yesterday" > changes.txt || echo "No recent changes" > changes.txt'
+                    
+                    // Get package name based on PACKAGE_TYPE
+                    def packageName = "${env.PROCESS_NAME}_${env.APP_VERSION}_${env.VERSION_EXTRA}.exe"
+                    def packageUrl = "http://172.20.180.14/shared/build/${env.JOB_NAME}/${packageName}"
+                    
+                    // Build notice dict for release.py
+                    def noticeJson = """
+{
+    "BUILD_URL": "${env.BUILD_URL}",
+    "JOB_BRANCH": "${env.GIT_BRANCH ?: 'unknown'}",
+    "JOB_NAME": "${env.PROCESS_NAME}",
+    "BUILD_NUMBER": "${env.BUILD_NUMBER}",
+    "SCM_CHANGELOG": "${env.WORKSPACE}\\changes.txt",
+    "SERVES_URL": "${env.BUILD_URL}changes",
+    "Package_URL": "${packageUrl}",
+    "WEBHOOK": "${env.FEISHU_WEBHOOK}",
+    "version_file": "${env.WORKSPACE}\\version.txt",
+    "BUILD_TIME": "${new Date().format('yyyy-MM-dd HH:mm:ss')}"
+}
+""".trim()
+                    
+                    writeFile file: "${env.WORKSPACE}\\notice.json", text: noticeJson
+                    
+                    // Call release.py with notice parameters
+                    bat """
+if exist "c:\\release.py" (
+    python c:\\release.py "{'BUILD_URL':'%BUILD_URL%','JOB_NAME':'%PROCESS_NAME%','BUILD_NUMBER':'%BUILD_NUMBER%','SCM_CHANGELOG':r'%WORKSPACE%\\changes.txt','version_file':r'%WORKSPACE%\\version.txt','WEBHOOK':'%FEISHU_WEBHOOK%','BUILD_TIME':'${new Date().format('yyyy-MM-dd HH:mm:ss')}','Package_URL':'${packageUrl}'}"
+) else (
+    echo Feishu notification script not found at c:\\release.py, skipping notification.
+)
+"""
+                }
+            }
+        }
+    }
+}

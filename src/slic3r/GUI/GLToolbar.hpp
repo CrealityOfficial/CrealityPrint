@@ -144,6 +144,13 @@ public:
         // mouse right click
         Option right;
         bool visible;
+
+        // ==== easy print mode related ====
+        bool  always_enable = false;
+        bool  label_below_icon = false;   // enable “icon top + text bottom” layout
+        float icon_label_split = 0.62f;   // 62% height for icon, rest for text
+        // ==== easy print mode related ====
+
         VisibilityCallback visibility_callback;
         EnablingCallback enabling_callback;
 
@@ -166,6 +173,12 @@ public:
             image_data = data.image_data;
             image_width = data.image_width;
             image_height = data.image_height;
+
+            // ==== easy print mode related ====
+            label_below_icon = data.label_below_icon;
+            icon_label_split = data.icon_label_split;
+            always_enable = data.always_enable;
+            // ==== easy print mode related ====
         }
     };
 
@@ -252,6 +265,18 @@ public:
     GLTexture::Quad_UVs get_uvs(unsigned int tex_width, unsigned int tex_height, unsigned int icon_size) const;
     GLTexture::Quad_UVs get_uvs_with_render_state(int render_state, unsigned int tex_width, unsigned int tex_height, unsigned int icon_size) const;
 
+    // ==== easy print mode related ====
+    void render_icon_top_label_bottom_px(
+        unsigned int icons_atlas_id,
+        unsigned int icons_tex_w,
+        unsigned int icons_tex_h,
+        unsigned int icon_size_px,
+        float left_px, float right_px, float bottom_px, float top_px,
+        float canvas_w, float canvas_h) const;
+
+    bool is_always_enable() const;
+    // ==== easy print mode related ====
+
 private:
     
 
@@ -337,6 +362,12 @@ public:
         float height;
         bool dirty;
         float scroll;
+
+        // ==== easy print mode related ====
+        float gap_scale       = 0.55f;
+        float sep_scale       = 0.70f;
+        // ==== easy print mode related ====
+
         Layout();
     };
 
@@ -373,6 +404,16 @@ private:
     int m_pressed_toggable_id;
     bool m_horizontal_expand{false};//Whether to pave to the right in horizontal layout mode
 
+    // ==== easy print mode related ====
+    // Cached last drawn background rect in screen pixels (for popup placement).
+    // Must be set by render_horizontal_simple() each frame **after** drawing the background.
+    mutable bool  m_has_last_bg_rect_px { false };
+    mutable float m_last_bg_l_px { 0.f };
+    mutable float m_last_bg_t_px { 0.f };
+    mutable float m_last_bg_r_px { 0.f };
+    mutable float m_last_bg_b_px { 0.f };
+    // ==== easy print mode related ====
+
 public:
     GLToolbar(EType type, const std::string& name);
     ~GLToolbar();
@@ -388,6 +429,7 @@ public:
     void set_horizontal_orientation(Layout::EHorizontalOrientation orientation) { m_layout.horizontal_orientation = orientation; }
     Layout::EVerticalOrientation get_vertical_orientation() const { return m_layout.vertical_orientation; }
     void set_vertical_orientation(Layout::EVerticalOrientation orientation) { m_layout.vertical_orientation = orientation; }
+    Layout get_layout();
 
     void set_position(float top, float left);
     void set_border(float border);
@@ -463,6 +505,20 @@ public:
 
     void on_set_virtual_item(const std::string& item_name);
 
+    void do_action(GLToolbarItem::EActionType type, int item_id, GLCanvas3D& parent, bool check_hover);
+
+    // ==== easy print mode related ====
+    void set_layout_gap_scale(float gap_scale);
+    void set_layout_step_scale(float step_scale);
+    float get_rendered_right_edge_px(const GLCanvas3D& parent) const;
+    float get_width_horizontal_simple() const;
+    float get_height_horizontal_simple(bool top_row = false) const;
+    void update_hover_state_horizontal_simple(const Vec2d& mouse_pos, GLCanvas3D& parent);
+    bool get_last_bg_rect_px(float& l, float& t, float& r, float& b) const;
+    bool update_items_state_simple(bool always = true);
+    void reset_item_state_simple();
+    // ==== easy print mode related ====
+
  private:
     void calc_layout();
     float get_width_horizontal() const;
@@ -470,7 +526,6 @@ public:
     float get_height_horizontal() const;
     float get_height_vertical() const;
     float get_main_size() const;
-    void do_action(GLToolbarItem::EActionType type, int item_id, GLCanvas3D& parent, bool check_hover);
     void update_hover_state(const Vec2d& mouse_pos, GLCanvas3D& parent);
     void update_hover_state_horizontal(const Vec2d& mouse_pos, GLCanvas3D& parent);
     void update_hover_state_vertical(const Vec2d& mouse_pos, GLCanvas3D& parent);
@@ -483,6 +538,8 @@ public:
     void render_horizontal(const GLCanvas3D &parent, GLToolbarItem::EType type);
     void render_horizontal(const GLCanvas3D& parent, GLToolbarItem::EType type, float scroll_x);
 
+    void render_horizontal_simple(const GLCanvas3D& parent, GLToolbarItem::EType type, float scroll);
+
     void render_vertical(const GLCanvas3D& parent);
 
     bool generate_icons_texture();
@@ -491,6 +548,11 @@ public:
     bool update_items_visibility();
     // returns true if any item changed its state
     bool update_items_enabled_state();
+
+    // ==== easy print mode related ====
+    int contains_mouse_horizontal_simple(const Vec2d& mouse_pos, const GLCanvas3D& parent) const;
+    // ==== easy print mode related ====
+
 };
 
 } // namespace GUI

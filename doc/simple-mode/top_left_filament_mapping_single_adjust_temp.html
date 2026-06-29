@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top Left Filament Mapping Single Adjust Temp</title>
+    <style>
+        :root {
+            --bg: #2f3238;
+            --panel: rgba(25, 27, 32, 0.95);
+            --soft: rgba(255,255,255,0.05);
+            --line: rgba(255,255,255,0.08);
+            --line-strong: rgba(255,255,255,0.14);
+            --text: #f3f6fb;
+            --muted: #9ca6b3;
+            --good: #2fd468;
+            --good-soft: rgba(47,212,104,0.16);
+            --warn: #ffbf47;
+            --warn-soft: rgba(255,191,71,0.16);
+            --danger: #ff6a6a;
+            --danger-soft: rgba(255,106,106,0.16);
+            --blue: #2b18d0;
+            --red: #e10000;
+            --yellow: #ffe44d;
+            --shadow: 0 18px 40px rgba(0,0,0,0.32);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(47,212,104,0.06), transparent 25%),
+                radial-gradient(circle at right center, rgba(72,105,255,0.06), transparent 24%),
+                linear-gradient(180deg, #1f2228 0%, #171a1f 100%);
+            color: var(--text);
+        }
+        .page { width: min(1080px, calc(100vw - 28px)); margin: 16px auto 26px; }
+        .intro {
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            background: rgba(18,20,24,0.92);
+            padding: 16px 18px;
+            margin-bottom: 14px;
+            box-shadow: var(--shadow);
+        }
+        .intro h1 { margin: 0 0 8px; font-size: 26px; line-height: 1.15; }
+        .intro p { margin: 0; color: #c0c9d3; font-size: 14px; line-height: 1.7; }
+        .app {
+            position: relative;
+            min-height: 900px;
+            border-radius: 26px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+            background: #34363c;
+            box-shadow: var(--shadow);
+        }
+        .topbar {
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 18px;
+            background: #0b0d10;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .brand { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+        .logo { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, #39d76f, #208844); }
+        .tabs { display: flex; gap: 10px; }
+        .tabs div { padding: 9px 15px; border-radius: 12px; color: var(--muted); font-size: 13px; }
+        .tabs .active { color: white; background: rgba(47,212,104,0.16); }
+        .workspace { position: relative; min-height: 836px; padding: 18px; }
+        .toolbar { display: flex; gap: 12px; margin-bottom: 14px; }
+        .device, .action-strip {
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: rgba(24,26,31,0.9);
+        }
+        .device { width: 270px; padding: 15px; }
+        .device strong { display: block; margin-bottom: 5px; font-size: 16px; }
+        .device span { color: var(--muted); font-size: 13px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+        .chip { padding: 7px 10px; border-radius: 999px; font-size: 12px; background: rgba(255,255,255,0.06); }
+        .chip.warn { color: #ffe9bc; background: var(--warn-soft); }
+        .action-strip { flex: 1; display: flex; gap: 10px; padding: 12px; }
+        .action { width: 108px; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,255,255,0.04); padding: 12px; }
+        .action.active { background: rgba(47,212,104,0.14); border-color: rgba(47,212,104,0.28); }
+        .action strong { display: block; margin-bottom: 5px; font-size: 14px; }
+        .action span { color: #c4ccd6; font-size: 12px; line-height: 1.45; }
+        .scene {
+            position: absolute;
+            left: 18px; right: 18px; top: 126px; bottom: 18px;
+            border-radius: 22px;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at center, rgba(255,255,255,0.03), transparent 48%),
+                linear-gradient(180deg, rgba(255,255,255,0.02), transparent),
+                #303238;
+        }
+        .plate {
+            position: absolute;
+            left: 55%;
+            bottom: 64px;
+            transform: translateX(-50%);
+            width: 56%;
+            height: 356px;
+            border-radius: 18px;
+            border: 2px solid rgba(255,255,255,0.1);
+            background:
+                linear-gradient(rgba(255,255,255,0.12) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px),
+                rgba(255,255,255,0.03);
+            background-size: 24px 24px;
+        }
+        .object {
+            position: absolute;
+            left: 52%;
+            bottom: 208px;
+            transform: translateX(-50%);
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            box-shadow: inset -12px -12px 18px rgba(0,0,0,0.28);
+            background: linear-gradient(90deg, #ffe44d 0 50%, var(--red) 50% 100%);
+        }
+        .panel {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            width: 426px;
+            border-radius: 24px;
+            border: 1px solid var(--line-strong);
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        .panel-head { padding: 16px 17px 14px; border-bottom: 1px solid var(--line); }
+        .panel-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+        .panel-head strong { display: block; margin-bottom: 4px; font-size: 18px; }
+        .panel-head span { color: #b6c0ca; font-size: 12px; line-height: 1.55; }
+        .status-pill { padding: 8px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; color: #ffe9bc; background: var(--warn-soft); }
+        .banner { margin-top: 12px; padding: 10px 12px; border-radius: 14px; font-size: 12px; line-height: 1.6; color: #ffe9bc; background: rgba(255,191,71,0.12); }
+        .panel-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 15px 15px; }
+        .mapping-list { display: flex; flex-direction: column; gap: 10px; }
+        .map-item {
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.05);
+            padding: 12px;
+        }
+        .map-item.active { border-color: rgba(255,191,71,0.3); box-shadow: inset 0 0 0 1px rgba(255,191,71,0.12); }
+        .item-top { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 7px; }
+        .left { display: flex; align-items: center; gap: 10px; }
+        .dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16); }
+        .dot.red { background: var(--red); }
+        .dot.blue { background: var(--blue); }
+        .name { font-size: 14px; font-weight: 700; }
+        .sub { margin-top: 2px; color: var(--muted); font-size: 12px; }
+        .slot { padding: 6px 10px; border-radius: 999px; font-size: 12px; background: rgba(255,255,255,0.07); }
+        .slot.warn { color: #ffe9bc; background: rgba(255,191,71,0.14); }
+        .note { display: flex; justify-content: space-between; gap: 8px; color: #dae1e8; font-size: 12px; }
+        .muted { color: var(--muted); }
+        .drawer {
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 18px;
+            background: rgba(255,255,255,0.04);
+            padding: 12px;
+        }
+        .drawer-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+        .drawer-head h4 { margin: 0; font-size: 14px; }
+        .mini-action.delete {
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #ffd2d2;
+            background: rgba(255,106,106,0.12);
+            border: 1px solid rgba(255,106,106,0.18);
+            white-space: nowrap;
+        }
+        .drawer p { margin: 0; color: #c3ccd6; font-size: 12px; line-height: 1.55; }
+        .candidate-group { margin-top: 12px; }
+        .candidate-group h5 { margin: 0 0 7px; font-size: 14px; }
+        .candidate-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .candidate {
+            min-width: 78px;
+            border-radius: 12px;
+            padding: 10px 8px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: #101216;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .candidate small { display: block; margin-top: 4px; color: rgba(0,0,0,0.72); font-size: 11px; }
+        .candidate.recommended { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5); }
+        .candidate.hovering { outline: 2px solid rgba(255,191,71,0.6); }
+        .candidate.disabled {
+            color: #ecf0f4;
+            background:
+                linear-gradient(135deg, rgba(255,255,255,0.16) 25%, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.16) 75%, rgba(255,255,255,0.04) 75%);
+            background-size: 10px 10px;
+            border-color: rgba(255,255,255,0.14);
+        }
+        .preview-card {
+            margin-top: 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 18px;
+            background: rgba(255,255,255,0.04);
+            padding: 12px;
+        }
+        .preview-card h4 { margin: 0 0 7px; font-size: 14px; }
+        .preview-card p { margin: 0; color: #c3ccd6; font-size: 12px; line-height: 1.55; }
+        .preview-stage { margin-top: 10px; display: grid; grid-template-columns: 112px 1fr; gap: 12px; align-items: center; }
+        .preview-box, .mini-box {
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            background:
+                radial-gradient(circle at center, rgba(255,255,255,0.04), transparent 56%),
+                rgba(255,255,255,0.02);
+        }
+        .preview-box { height: 112px; }
+        .mini-box { height: 80px; }
+        .sphere {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            box-shadow: inset -10px -10px 16px rgba(0,0,0,0.3);
+        }
+        .sphere.big { width: 58px; height: 58px; background: linear-gradient(90deg, #ffe44d 0 50%, var(--red) 50% 100%); }
+        .sphere.small { width: 42px; height: 42px; }
+        .sphere.default { background: linear-gradient(90deg, var(--blue) 0 50%, var(--red) 50% 100%); }
+        .meta strong { display: block; margin-bottom: 6px; font-size: 14px; }
+        .meta span { display: block; color: #c3ccd6; font-size: 12px; line-height: 1.55; }
+        .compare { margin-top: 12px; display: grid; grid-template-columns: 1fr 20px 1fr; gap: 8px; align-items: center; }
+        .compare-arrow { text-align: center; color: #d7dee6; font-size: 18px; }
+        .compare-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: rgba(255,255,255,0.04); padding: 10px; }
+        .compare-card h6 { margin: 0 0 7px; font-size: 12px; }
+        .cap { margin-top: 7px; color: #c0c8d2; font-size: 11px; line-height: 1.5; }
+        .btns { display: flex; gap: 10px; margin-top: 12px; }
+        .btn {
+            flex: 1;
+            padding: 11px 12px;
+            text-align: center;
+            border-radius: 14px;
+            font-size: 13px;
+            font-weight: 700;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .btn.secondary { background: rgba(255,255,255,0.05); color: var(--text); }
+        .btn.primary { background: rgba(47,212,104,0.92); color: #07110b; border-color: rgba(47,212,104,0.4); }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="intro">
+            <h1>单项调整态独立预览</h1>
+            <p>这份临时 HTML 只展示“点击某一条颜色项后”的单项调整页面。删除按钮就在局部抽屉头部右侧，用来表达“删除该颜色”是一个单项上下文动作，而不是默认态里的全局按钮。</p>
+        </div>
+
+        <div class="app">
+            <div class="topbar">
+                <div class="brand"><div class="logo"></div><div>Creality Print / Simple Mode</div></div>
+                <div class="tabs">
+                    <div>在线模型</div>
+                    <div class="active">准备</div>
+                    <div>预览</div>
+                    <div>设备</div>
+                </div>
+            </div>
+
+            <div class="workspace">
+                <div class="toolbar">
+                    <div class="device">
+                        <strong>K2 Plus / Living Room</strong>
+                        <span>已连接 · CFS 在线 · 空闲</span>
+                        <div class="chips">
+                            <div class="chip warn">蓝色项待确认</div>
+                            <div class="chip">系统已有推荐</div>
+                        </div>
+                    </div>
+                    <div class="action-strip">
+                        <div class="action active"><strong>耗材</strong><span>正在调整蓝色项</span></div>
+                        <div class="action"><strong>切片</strong><span>确认后继续</span></div>
+                    </div>
+                </div>
+
+                <div class="scene">
+                    <div class="plate"></div>
+                    <div class="object"></div>
+
+                    <aside class="panel">
+                        <div class="panel-head">
+                            <div class="panel-top">
+                                <div>
+                                    <strong>场景耗材与映射</strong>
+                                    <span>当前聚焦：蓝色 PLA</span>
+                                </div>
+                                <div class="status-pill">1 项待确认</div>
+                            </div>
+                            <div class="banner">蓝色 PLA 建议确认，当前推荐 CFS 2D。</div>
+                        </div>
+
+                        <div class="panel-body">
+                            <div class="mapping-list">
+                                <div class="map-item">
+                                    <div class="item-top">
+                                        <div class="left">
+                                            <span class="dot red"></span>
+                                            <div>
+                                                <div class="name">红色 PLA</div>
+                                                <div class="sub">场景颜色 #1</div>
+                                            </div>
+                                        </div>
+                                        <div class="slot">CFS 5</div>
+                                    </div>
+                                    <div class="note">
+                                        <span>无需处理</span>
+                                        <span class="muted">完全匹配</span>
+                                    </div>
+                                </div>
+
+                                <div class="map-item active">
+                                    <div class="item-top">
+                                        <div class="left">
+                                            <span class="dot blue"></span>
+                                            <div>
+                                                <div class="name">蓝色 PLA</div>
+                                                <div class="sub">场景颜色 #2</div>
+                                            </div>
+                                        </div>
+                                        <div class="slot warn">建议确认</div>
+                                    </div>
+                                    <div class="note">
+                                        <span>当前推荐：CFS 2D 深蓝 PLA</span>
+                                        <span class="muted">点击下方候选项试色</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="drawer">
+                                <div class="drawer-head">
+                                    <h4>给“蓝色 PLA”选择打印机耗材</h4>
+                                    <div class="mini-action delete">删除该颜色</div>
+                                </div>
+                                <p>按推荐优先展示候选项。</p>
+
+                                <div class="candidate-group">
+                                    <h5>推荐</h5>
+                                    <div class="candidate-grid">
+                                        <div class="candidate recommended" style="background:#2b18d0;">CFS 2D<small>深蓝 PLA · 最接近</small></div>
+                                    </div>
+                                </div>
+
+                                <div class="candidate-group">
+                                    <h5>可选</h5>
+                                    <div class="candidate-grid">
+                                        <div class="candidate hovering" style="background:#ffe44d;">CFS 1A<small>偏黄，但可用</small></div>
+                                        <div class="candidate" style="background:#ffffff;">CFS 1D<small>偏白，但可用</small></div>
+                                        <div class="candidate" style="background:#e8edf2;">EXT<small>外置料架</small></div>
+                                    </div>
+                                </div>
+
+                                <div class="candidate-group">
+                                    <h5>不可用</h5>
+                                    <div class="candidate-grid">
+                                        <div class="candidate disabled">CFS 1C<small>PETG，不兼容</small></div>
+                                        <div class="candidate disabled">CFS 2A<small>空槽</small></div>
+                                    </div>
+                                </div>
+
+                                <div class="preview-card">
+                                    <h4>当前试色：蓝色 PLA -> CFS 1A</h4>
+                                    <p>主预览 + 轻量对照</p>
+                                    <div class="preview-stage">
+                                        <div class="preview-box"><div class="sphere big"></div></div>
+                                        <div class="meta">
+                                            <strong>当前试色</strong>
+                                            <span>蓝色部分将改用 1A 黄色 PLA 打印。</span>
+                                            <span>材料兼容，但整体会明显偏黄。</span>
+                                            <span>确认后才正式写回。</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="compare">
+                                        <div class="compare-card">
+                                            <h6>推荐结果</h6>
+                                            <div class="mini-box"><div class="sphere small default"></div></div>
+                                            <div class="cap">更接近原始观感</div>
+                                        </div>
+                                        <div class="compare-arrow">→</div>
+                                        <div class="compare-card">
+                                            <h6>当前试色结果</h6>
+                                            <div class="mini-box"><div class="sphere small"></div></div>
+                                            <div class="cap">蓝色区域会明显偏黄</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="btns">
+                                    <div class="btn secondary">恢复自动匹配</div>
+                                    <div class="btn primary">确认当前选择</div>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

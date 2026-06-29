@@ -26,6 +26,8 @@ public:
 
     // Web functions
     void load_url(const wxString& url);
+    void open_default_page();
+    void search(const wxString& query);
     bool UpdateUserAgent();
     void LoadURL(const wxString& url) { load_url(url); }  // Alias for compatibility
     void SetStartPage(const wxString& url);

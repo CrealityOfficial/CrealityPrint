@@ -686,7 +686,7 @@ void ParamsPanel::create_layout_printerAndFilament()
 
     m_left_sizer = new wxBoxSizer(wxHORIZONTAL);
     // BBS: new layout
-    m_left_sizer->SetMinSize(wxSize(40 * em_unit(this), -1));
+    m_left_sizer->SetMinSize(wxSize(36 * em_unit(this), -1));
 
     if (m_top_panel) {
         m_mode_sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -1174,7 +1174,7 @@ void ParamsPanel::create_layout_process()
 
     m_left_sizer = new wxBoxSizer(wxVERTICAL);
     // BBS: new layout
-    m_left_sizer->SetMinSize(wxSize(FromDIP(40) * em_unit(this), -1));
+    m_left_sizer->SetMinSize(wxSize(36 * em_unit(this), -1));
 
     if (m_top_panel) {
         m_mode_sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -1626,7 +1626,7 @@ void ParamsPanel::msw_rescale()
     if (m_search_btn) m_search_btn->msw_rescale();
     if (m_compare_btn) m_compare_btn->msw_rescale();
     if (m_tips_arrow) m_tips_arrow->msw_rescale();
-    if (m_left_sizer) m_left_sizer->SetMinSize(wxSize(FromDIP(40) * em_unit(this), -1));
+    if (m_left_sizer) m_left_sizer->SetMinSize(wxSize(36 * em_unit(this), -1));
     if (m_mode_sizer)
         m_mode_sizer->SetMinSize(-1, FromDIP(3) * em_unit(this));
     if (m_mode_region)

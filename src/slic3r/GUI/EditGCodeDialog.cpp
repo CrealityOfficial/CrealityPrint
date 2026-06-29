@@ -76,7 +76,7 @@ EditGCodeDialog::EditGCodeDialog(wxWindow* parent, const std::string& key, const
     m_add_btn = new ScalableButton(this, wxID_ANY, "add_copies");
     m_add_btn->SetToolTip(_L("Add selected placeholder to G-code"));
 
-    m_gcode_editor = new wxTextCtrl(this, wxID_ANY, value, wxDefaultPosition, wxSize(em * 75, em * 70), wxTE_MULTILINE
+    m_gcode_editor = new wxTextCtrl(this, wxID_ANY, from_u8(value), wxDefaultPosition, wxSize(em * 75, em * 70), wxTE_MULTILINE
 #ifdef _WIN32
     | wxBORDER_SIMPLE
 #endif
@@ -251,7 +251,7 @@ wxDataViewItem EditGCodeDialog::add_presets_placeholders()
     const std::set<std::string> print_options    = get_set_from_vec(is_fff ? Preset::print_options()    : Preset::sla_print_options());
     const std::set<std::string> material_options = get_set_from_vec(is_fff ? Preset::filament_options() : Preset::sla_material_options());
     const std::set<std::string> printer_options  = get_set_from_vec(is_fff ? Preset::printer_options()  : Preset::sla_printer_options());
-    const auto& full_config = wxGetApp().preset_bundle->full_config();
+    const auto full_config = wxGetApp().preset_bundle->full_config();
     const auto& tab_list    = wxGetApp().tabs_list;
 
     Tab* tab_print;
@@ -360,7 +360,7 @@ void EditGCodeDialog::selection_changed(wxDataViewEvent& evt)
         // This allows custom placeholders to override the default ones for this dialog
         // Override custom def if selection is within the preset category
         if (!def || m_params_list->GetSelectedTopLevelCategory() == "Presets") {
-            const auto& full_config = wxGetApp().preset_bundle->full_config();
+            const auto full_config = wxGetApp().preset_bundle->full_config();
             if (const ConfigDef* config_def = full_config.def(); config_def && config_def->has(opt_key)) {
                 def = config_def->get(opt_key);
             }

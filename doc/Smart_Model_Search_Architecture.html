@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能模型搜索与自动导入 - 技术方案</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #1a1a2e;
+            --bg-card: #16213e;
+            --accent: #00d9ff;
+            --accent-green: #00b96b;
+            --accent-orange: #ff9500;
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --border: #2a2a4a;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.8;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+        }
+        
+        h2 {
+            color: var(--accent);
+            margin: 40px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        h2::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+        
+        h3 {
+            color: var(--accent-green);
+            margin: 25px 0 15px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        .mermaid {
+            background: #0d1421;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        
+        pre {
+            background: #0d1421;
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            border: 1px solid var(--border);
+        }
+        
+        code {
+            color: #e8e8e8;
+        }
+        
+        .keyword { color: #c792ea; }
+        .string { color: #c3e88d; }
+        .function { color: #82aaff; }
+        .comment { color: #546e7a; }
+        .type { color: #ffcb6b; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border: 1px solid var(--border);
+        }
+        
+        th {
+            background: rgba(0, 217, 255, 0.1);
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background: rgba(0, 217, 255, 0.05);
+        }
+        
+        .highlight-box {
+            background: rgba(0, 185, 107, 0.1);
+            border-left: 4px solid var(--accent-green);
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .warning-box {
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .info-box {
+            background: rgba(0, 217, 255, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .file-path {
+            display: inline-block;
+            background: rgba(0, 217, 255, 0.15);
+            color: var(--accent);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+        
+        .tag-new { background: var(--accent-green); }
+        .tag-modify { background: var(--accent-orange); color: #000; }
+        .tag-existing { background: #6b7280; }
+        
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            margin: 15px 0;
+            gap: 15px;
+        }
+        
+        .step-number {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            color: var(--bg-dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .toc {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .toc h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        .toc ul {
+            list-style: none;
+            margin: 0;
+        }
+        
+        .toc li {
+            margin: 8px 0;
+        }
+        
+        .toc a {
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .toc a:hover {
+            color: var(--accent);
+        }
+        
+        .inline-code {
+            background: rgba(0, 217, 255, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        .comparison-table th {
+            background: rgba(255, 149, 0, 0.2);
+            color: var(--accent-orange);
+        }
+        
+        .architecture-layer {
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+            position: relative;
+        }
+        
+        .layer-label {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: var(--bg-dark);
+            padding: 0 10px;
+            color: var(--accent);
+            font-weight: bold;
+        }
+        
+        .arrow-down {
+            text-align: center;
+            font-size: 24px;
+            color: var(--accent);
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 智能模型搜索与自动导入</h1>
+        <p class="subtitle">技术方案设计 - 从"打开模型库"到"一键下载导入"</p>
+        
+        <div class="toc">
+            <h3>📑 目录</h3>
+            <ul>
+                <li><a href="#overview">1. 需求概述</a></li>
+                <li><a href="#current">2. 当前实现 vs 目标实现</a></li>
+                <li><a href="#architecture">3. 系统架构设计</a></li>
+                <li><a href="#workflow">4. 完整工作流程</a></li>
+                <li><a href="#api">5. 模型库API设计</a></li>
+                <li><a href="#tools">6. 新增工具能力</a></li>
+                <li><a href="#implementation">7. 实现步骤</a></li>
+                <li><a href="#ui">8. UI交互设计</a></li>
+                <li><a href="#security">9. 安全与权限考虑</a></li>
+                <li><a href="#changelog">10. 修改记录</a></li>
+            </ul>
+        </div>
+
+        <!-- 1. 需求概述 -->
+        <h2 id="overview">1. 需求概述</h2>
+        <div class="card">
+            <div class="highlight-box">
+                <strong>🎯 核心目标</strong>
+                <p style="margin-top:10px">让AI能够理解用户的模型需求，自动在模型库中搜索、筛选、下载并导入最匹配的模型，实现"一句话打印"的极致体验。</p>
+            </div>
+            
+            <h3>用户场景示例</h3>
+            <table>
+                <tr>
+                    <th>用户输入</th>
+                    <th>AI理解</th>
+                    <th>执行动作</th>
+                </tr>
+                <tr>
+                    <td>"打印一个点赞最多的拉布布"</td>
+                    <td>关键词: 拉布布<br>排序规则: likes desc</td>
+                    <td>搜索 → 排序 → 下载Top1 → 导入</td>
+                </tr>
+                <tr>
+                    <td>"下载下载量最高的龙蛋模型"</td>
+                    <td>关键词: 龙蛋<br>排序规则: downloads desc</td>
+                    <td>搜索 → 排序 → 下载Top1 → 导入</td>
+                </tr>
+                <tr>
+                    <td>"找个适合新手的简单模型"</td>
+                    <td>关键词: 简单/新手<br>筛选: difficulty=easy<br>排序: downloads desc</td>
+                    <td>搜索 → 筛选 → 排序 → 下载 → 导入</td>
+                </tr>
+                <tr>
+                    <td>"推荐一个热门的小熊模型"</td>
+                    <td>关键词: 小熊<br>排序规则: 综合热度</td>
+                    <td>搜索 → 智能排序 → 下载Top1 → 导入</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- 2. 当前 vs 目标 -->
+        <h2 id="current">2. 当前实现 vs 目标实现</h2>
+        <div class="card">
+            <table class="comparison-table">
+                <tr>
+                    <th style="width:15%">阶段</th>
+                    <th style="width:42%">当前实现</th>
+                    <th style="width:43%">目标实现</th>
+                </tr>
+                <tr>
+                    <td><strong>用户输入</strong></td>
+                    <td>"我想打印一个拉布布"</td>
+                    <td>"下载点赞最多的拉布布模型"</td>
+                </tr>
+                <tr>
+                    <td><strong>AI理解</strong></td>
+                    <td>识别到需要模型，但本地没有</td>
+                    <td>解析出：关键词+排序规则+数量</td>
+                </tr>
+                <tr>
+                    <td><strong>工具调用</strong></td>
+                    <td><code>open_model_library</code><br>仅打开模型库界面</td>
+                    <td><code>search_and_import_model</code><br>全自动搜索下载导入</td>
+                </tr>
+                <tr>
+                    <td><strong>用户操作</strong></td>
+                    <td>需要手动搜索、浏览、选择、下载</td>
+                    <td>无需操作，AI自动完成</td>
+                </tr>
+                <tr>
+                    <td><strong>完成时间</strong></td>
+                    <td>30秒 - 2分钟（取决于用户选择）</td>
+                    <td>5-10秒（全自动）</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- 3. 系统架构 -->
+        <h2 id="architecture">3. 系统架构设计（实际实现）</h2>
+        <div class="card">
+            <div class="highlight-box">
+                <strong>✅ 架构简化</strong>
+                <p style="margin-top:10px">直接使用创想云现有API，无需开发新的后端服务。</p>
+            </div>
+
+            <div class="mermaid">
+graph TB
+    subgraph User["用户层"]
+        U[用户输入自然语言<br/>"下载点赞最多的拉布布"]
+    end
+    
+    subgraph Frontend["前端 UI 层"]
+        A[chat.js<br/>意图解析<br/>识别排序规则]
+    end
+    
+    subgraph Middle["C++ 中间层"]
+        B[MCPChatPanel<br/>HandleSmartModelSearch]
+        C[CxAgentClientBridge<br/>工具注册]
+        D[import_model_id<br/>现有导入功能]
+    end
+    
+    subgraph External["创想云服务"]
+        API1[/api/cxy/search/model]
+        API2[/api/cxy/v3/model/3mfList]
+        API3[/api/cxy/v3/model/3mfDownload]
+        CDN[CDN下载]
+    end
+    
+    U --> A
+    A -->|sendToSlicer| B
+    B -->|1. 搜索| API1
+    API1 -->|返回modelGroupId| B
+    B -->|2. 获取3mf列表| API2
+    API2 -->|返回3mfId| B
+    B -->|3. 获取下载链接| API3
+    API3 -->|返回downloadUrl| B
+    B -->|4. 下载并导入| D
+    D -->|使用现有功能| CDN
+            </div>
+            
+            <h3>核心组件说明</h3>
+            <table>
+                <tr>
+                    <th>组件</th>
+                    <th>文件路径</th>
+                    <th>职责</th>
+                </tr>
+                <tr>
+                    <td><span class="file-path">chat.js</span></td>
+                    <td><span class="file-path">resources/web/chat/chat.js</span></td>
+                    <td>前端意图解析、进度展示、结果渲染</td>
+                </tr>
+                <tr>
+                    <td><span class="file-path">MCPChatPanel</span></td>
+                    <td><span class="file-path">src/slic3r/GUI/simple/MCPChatPanel.cpp</span></td>
+                    <td>三个API链式调用、模型导入协调</td>
+                </tr>
+                <tr>
+                    <td><span class="file-path">CxAgentClientBridge</span></td>
+                    <td><span class="file-path">src/slic3r/GUI/simple/bridge/CxAgentClientBridge.cpp</span></td>
+                    <td>工具契约注册、服务端通信</td>
+                </tr>
+                <tr>
+                    <td><span class="file-path">import_model_id</span></td>
+                    <td><span class="file-path">src/slic3r/GUI/Plater.cpp</span></td>
+                    <td>复用现有模型下载导入功能</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- 4. 工作流程 -->
+        <h2 id="workflow">4. 完整工作流程</h2>
+        <div class="card">
+            <div class="mermaid">
+sequenceDiagram
+    participant U as 用户
+    participant UI as chat.js
+    participant Panel as MCPChatPanel
+    participant Bridge as ModelLibraryBridge
+    participant API as ModelLibraryAPI
+    participant Cloud as 创想云
+    participant Slicer as SlicerBridge
+    
+    U->>UI: "下载点赞最多的拉布布"
+    
+    Note over UI: 本地解析意图<br/>关键词: 拉布布<br/>排序: likes_desc
+    
+    UI->>Panel: sendToSlicer('search_and_import_model', {...})
+    Panel->>Panel: 检查本地是否已有
+    
+    alt 本地已存在
+        Panel->>UI: 提示"本地已有该模型，是否重新导入？"
+    else 本地不存在
+        Panel->>Bridge: SearchModels(keyword, sort_by)
+        Bridge->>API: GET /api/models/search?q=拉布布&sort=likes
+        API->>Cloud: 搜索模型
+        Cloud-->>API: 返回结果列表
+        API-->>Bridge: 返回Top N模型
+        
+        Note over Bridge: 选择Top 1模型<br/>获取下载URL
+        
+        Bridge->>API: GET /api/models/{id}/download
+        API-->>Bridge: 返回下载链接
+        
+        Bridge->>Bridge: DownloadModel(url, progress_cb)
+        Note over Bridge: 下载进度实时回调<br/>0% → 50% → 100%
+        
+        Bridge->>Slicer: ImportModel(file_path)
+        Slicer-->>Bridge: 导入成功
+        
+        Bridge-->>Panel: 返回结果
+        Panel-->>UI: 显示"模型已下载并导入"
+        UI->>U: 展示模型预览
+    end
+            </div>
+            
+            <h3>关键流程节点</h3>
+            <div class="flow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>意图解析</strong><br>
+                    前端识别关键词和排序规则（点赞最多/下载最多/最新上传）
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>本地缓存检查</strong><br>
+                    检查本地是否已下载过该模型，避免重复下载
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>智能搜索排序</strong><br>
+                    调用模型库API，按指定规则排序返回结果
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>自动下载</strong><br>
+                    选择Top1模型，异步下载并实时反馈进度
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <strong>自动导入</strong><br>
+                    下载完成后自动调用切片器导入功能
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. API设计 -->
+        <h2 id="api">5. 模型库API设计（实际实现）</h2>
+        <div class="card">
+            <div class="highlight-box">
+                <strong>✅ 已实现</strong>
+                <p style="margin-top:10px">使用创想云现有的三个API完成全流程，无需开发新API。</p>
+            </div>
+
+            <h3>5.1 搜索模型组接口</h3>
+<pre><code><span class="comment">// POST /api/cxy/search/model</span>
+<span class="comment">// 请求Body</span>
+{
+    <span class="string">"page"</span>: <span class="type">1</span>,
+    <span class="string">"pageSize"</span>: <span class="type">1</span>,
+    <span class="string">"keyword"</span>: <span class="string">"拉布布"</span>,
+    <span class="string">"sortType"</span>: <span class="type">7</span>,       <span class="comment">// 1=点赞, 3=最新, 7=下载, 8=综合</span>
+    <span class="string">"isAsc"</span>: <span class="type">false</span>,
+    <span class="string">"hasCfgFile"</span>: <span class="type">1</span>       <span class="comment">// 只返回有配置文件的模型</span>
+}
+
+<span class="comment">// 响应示例</span>
+{
+    <span class="string">"code"</span>: <span class="type">0</span>,
+    <span class="string">"result"</span>: {
+        <span class="string">"list"</span>: [
+            {
+                <span class="string">"id"</span>: <span class="string">"model_group_xxx"</span>,     <span class="comment">// 模型组ID</span>
+                <span class="string">"groupName"</span>: <span class="string">"拉布布"</span>,
+                <span class="string">"likeCount"</span>: <span class="type">341</span>,
+                <span class="string">"downloadCount"</span>: <span class="type">121309</span>,
+                <span class="string">"covers"</span>: [...]
+            }
+        ]
+    }
+}</code></pre>
+
+            <h3>5.2 获取3mf列表接口</h3>
+<pre><code><span class="comment">// POST /api/cxy/v3/model/3mfList</span>
+<span class="comment">// 请求Body</span>
+{
+    <span class="string">"modelGroupId"</span>: <span class="string">"model_group_xxx"</span>,  <span class="comment">// 从搜索接口获取</span>
+    <span class="string">"page"</span>: <span class="type">1</span>,
+    <span class="string">"pageSize"</span>: <span class="type">1</span>
+}
+
+<span class="comment">// 响应示例</span>
+{
+    <span class="string">"code"</span>: <span class="type">0</span>,
+    <span class="string">"result"</span>: {
+        <span class="string">"list"</span>: [
+            {
+                <span class="string">"id"</span>: <span class="string">"threemf_xxx"</span>,      <span class="comment">// 3mf文件ID</span>
+                <span class="string">"name"</span>: <span class="string">"雷电将军"</span>,
+                <span class="string">"downloadCount"</span>: <span class="type">1234</span>,
+                <span class="string">"thumbnail"</span>: <span class="string">"https://..."</span>
+            }
+        ]
+    }
+}</code></pre>
+
+            <h3>5.3 获取下载链接接口</h3>
+<pre><code><span class="comment">// POST /api/cxy/v3/model/3mfDownload</span>
+<span class="comment">// 请求Body</span>
+{
+    <span class="string">"id"</span>: <span class="string">"threemf_xxx"</span>       <span class="comment">// 3mf文件ID</span>
+}
+
+<span class="comment">// 响应示例</span>
+{
+    <span class="string">"code"</span>: <span class="type">0</span>,
+    <span class="string">"result"</span>: {
+        <span class="string">"downloadUrl"</span>: <span class="string">"https://cdn.../xxx.3mf?token=xxx"</span>  <span class="comment">// 60分钟有效</span>
+    }
+}</code></pre>
+
+            <h3>5.4 API调用链</h3>
+            <div class="mermaid">
+sequenceDiagram
+    participant C as MCPChatPanel
+    participant API1 as /api/cxy/search/model
+    participant API2 as /api/cxy/v3/model/3mfList
+    participant API3 as /api/cxy/v3/model/3mfDownload
+    participant Import as import_model_id
+
+    C->>API1: 1. 搜索模型组
+    API1-->>C: 返回 modelGroupId
+    C->>API2: 2. 获取3mf列表
+    API2-->>C: 返回 3mfId
+    C->>API3: 3. 获取下载链接
+    API3-->>C: 返回 downloadUrl
+    C->>Import: 4. 下载并导入
+            </div>
+        </div>
+
+        <!-- 6. 新增工具 -->
+        <h2 id="tools">6. 新增工具能力</h2>
+        <div class="card">
+            <h3>6.1 工具契约定义</h3>
+<pre><code><span class="comment">// search_and_import_model 工具契约</span>
+{
+    <span class="string">"name"</span>: <span class="string">"search_and_import_model"</span>,
+    <span class="string">"description"</span>: <span class="string">"在模型库中搜索模型并按规则排序，自动下载并导入到切片器"</span>,
+    <span class="string">"parameters"</span>: {
+        <span class="string">"keyword"</span>: {
+            <span class="string">"type"</span>: <span class="string">"string"</span>,
+            <span class="string">"description"</span>: <span class="string">"搜索关键词，如'拉布布'、'龙蛋'"</span>
+        },
+        <span class="string">"sort_rule"</span>: {
+            <span class="string">"type"</span>: <span class="string">"string"</span>,
+            <span class="string">"enum"</span>: [<span class="string">"likes"</span>, <span class="string">"downloads"</span>, <span class="string">"date"</span>, <span class="string">"score"</span>],
+            <span class="string">"description"</span>: <span class="string">"排序规则：likes(点赞最多)|downloads(下载最多)|date(最新)|score(综合评分)"</span>
+        },
+        <span class="string">"limit"</span>: {
+            <span class="string">"type"</span>: <span class="string">"integer"</span>,
+            <span class="string">"default"</span>: <span class="type">1</span>,
+            <span class="string">"description"</span>: <span class="string">"返回结果数量，默认取Top1"</span>
+        }
+    },
+    <span class="string">"requires"</span>: [
+        <span class="string">"network.connected"</span>,
+        <span class="string">"model_library.available"</span>
+    ],
+    <span class="string">"provides"</span>: [
+        <span class="string">"project.has_model"</span>,
+        <span class="string">"plate.current.has_objects"</span>
+    ],
+    <span class="string">"remediations"</span>: {
+        <span class="string">"network.connected"</span>: [
+            {<span class="string">"message"</span>: <span class="string">"请检查网络连接后重试"</span>}
+        ]
+    }
+}</code></pre>
+
+            <h3>6.2 工具实现代码框架</h3>
+<pre><code><span class="comment">// ModelLibraryBridge.cpp</span>
+<span class="keyword">class</span> <span class="type">ModelLibraryBridge</span> {
+<span class="keyword">public</span>:
+    <span class="comment">// 搜索模型</span>
+    <span class="type">SearchResult</span> <span class="function">SearchModels</span>(
+        <span class="keyword">const</span> std::string& keyword,
+        <span class="keyword">const</span> std::string& sort_by,
+        <span class="type">int</span> limit
+    );
+    
+    <span class="comment">// 下载模型</span>
+    <span class="type">DownloadTask</span> <span class="function">DownloadModel</span>(
+        <span class="keyword">const</span> std::string& model_id,
+        std::function<<span class="type">void</span>(<span class="type">int</span> progress)> on_progress
+    );
+    
+    <span class="comment">// 导入模型到切片器</span>
+    <span class="type">bool</span> <span class="function">ImportModel</span>(<span class="keyword">const</span> std::string& file_path);
+    
+    <span class="comment">// 一键搜索下载导入</span>
+    <span class="type">ModelImportResult</span> <span class="function">SearchAndImport</span>(
+        <span class="keyword">const</span> std::string& keyword,
+        <span class="keyword">const</span> std::string& sort_rule,
+        std::function<<span class="type">void</span>(<span class="keyword">const</span> std::string& stage, <span class="type">int</span> progress)> on_status
+    );
+};</code></pre>
+        </div>
+
+        <!-- 7. 实现步骤 -->
+        <h2 id="implementation">7. 实现步骤（已完成）</h2>
+        <div class="card">
+            <div class="highlight-box">
+                <strong>✅ 全部实现完成</strong>
+                <p style="margin-top:10px">所有功能已开发完成并测试通过，无需额外开发新API。</p>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>API对接</strong> <span class="tag tag-existing">EXISTING</span><br>
+                    使用创想云现有的三个API：/api/cxy/search/model、/api/cxy/v3/model/3mfList、/api/cxy/v3/model/3mfDownload
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>C++层实现</strong> <span class="tag tag-modify">MODIFY</span><br>
+                    在 <span class="file-path">MCPChatPanel.cpp</span> 中实现 <code>HandleSmartModelSearch</code> 函数，完成三个API的链式调用和模型导入
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>前端意图解析</strong> <span class="tag tag-modify">MODIFY</span><br>
+                    在 <span class="file-path">chat.js</span> 中实现 <code>tryParseModelSearchCommand</code>，识别"点赞最多"、"下载最多"等排序规则
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>工具注册</strong> <span class="tag tag-modify">MODIFY</span><br>
+                    在 <span class="file-path">CxAgentClientBridge.cpp</span> 中注册 <code>smart_model_search</code> 工具，在 <span class="file-path">MCPChatPanel.cpp</span> 中通过 <code>RegisterHandler</code> 绑定处理函数
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <strong>UI交互</strong> <span class="tag tag-new">NEW</span><br>
+                    在 <span class="file-path">chat.js</span> 中实现进度更新和结果展示，在 <span class="file-path">chat.css</span> 中添加样式
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="step-number">6</div>
+                <div class="step-content">
+                    <strong>调试支持</strong> <span class="tag tag-new">NEW</span><br>
+                    添加 <code>save_debug_json</code> 函数，将API响应保存到 <code>data_dir/log/debug_api/</code> 目录便于调试
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. UI交互设计 -->
+        <h2 id="ui">8. UI交互设计</h2>
+        <div class="card">
+            <h3>8.1 聊天界面交互</h3>
+            <div class="mermaid">
+sequenceDiagram
+    participant U as 用户
+    participant Chat as AI聊天窗口
+    
+    U->>Chat: "下载点赞最多的拉布布"
+    
+    Note over Chat: 显示思考中...
+    
+    Chat->>U: 🤖 正在为您搜索"拉布布"模型...
+    
+    Note over Chat: 显示进度卡片
+    
+    Chat->>U: 
+      ┌─────────────────────────┐
+      │ 🔍 搜索模型...      ✓   │
+      │ 📥 下载中...        45% │
+      │ 📦 导入切片器...    ○   │
+      └─────────────────────────┘
+    
+    Note over Chat: 下载完成
+    
+    Chat->>U: 
+      ┌─────────────────────────┐
+      │ ✅ 模型已导入成功！      │
+      │                         │
+      │  [拉布布 - 可爱版]       │
+      │  👍 3,420  ⬇️ 12,890     │
+      │                         │
+      │  [查看]  [重新导入]      │
+      └─────────────────────────┘
+            </div>
+            
+            <h3>8.2 模型预览卡片</h3>
+            <div class="info-box">
+                <strong>卡片内容：</strong>
+                <ul>
+                    <li>模型缩略图</li>
+                    <li>模型名称 + 作者</li>
+                    <li>关键数据：点赞数、下载数、打印成功数</li>
+                    <li>文件信息：格式、大小、尺寸</li>
+                    <li>操作按钮：查看详情、重新导入、删除</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 9. 安全考虑 -->
+        <h2 id="security">9. 安全与权限考虑</h2>
+        <div class="card">
+            <table>
+                <tr>
+                    <th>风险点</th>
+                    <th>防护措施</th>
+                </tr>
+                <tr>
+                    <td>恶意文件下载</td>
+                    <td>文件类型白名单（.stl, .obj, .3mf等）、大小限制、病毒扫描</td>
+                </tr>
+                <tr>
+                    <td>用户确认</td>
+                    <td>首次自动下载需用户确认、提供"不再询问"选项</td>
+                </tr>
+                <tr>
+                    <td>存储空间</td>
+                    <td>下载前检查磁盘空间、自动清理过期缓存</td>
+                </tr>
+                <tr>
+                    <td>网络超时</td>
+                    <td>下载超时处理、断点续传、失败重试机制</td>
+                </tr>
+                <tr>
+                    <td>API限流</td>
+                    <td>请求频率限制、缓存搜索结果</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- 修改记录 -->
+        <h2 id="changelog">10. 修改记录</h2>
+        <div class="card">
+            <table>
+                <tr>
+                    <th>时间</th>
+                    <th>修改内容</th>
+                    <th>文件</th>
+                </tr>
+                <tr>
+                    <td>2026-04-01</td>
+                    <td>初始方案设计</td>
+                    <td>Smart_Model_Search_Architecture.html</td>
+                </tr>
+                <tr>
+                    <td>2026-04-01</td>
+                    <td>实现前端意图解析和UI展示</td>
+                    <td>chat.js, chat.css</td>
+                </tr>
+                <tr>
+                    <td>2026-04-01</td>
+                    <td>实现C++层API链式调用</td>
+                    <td>MCPChatPanel.cpp, MCPChatPanel.hpp</td>
+                </tr>
+                <tr>
+                    <td>2026-04-01</td>
+                    <td>注册CxAgent工具契约</td>
+                    <td>CxAgentClientBridge.cpp</td>
+                </tr>
+                <tr>
+                    <td>2026-04-01</td>
+                    <td>添加API调试JSON保存功能</td>
+                    <td>MCPChatPanel.cpp</td>
+                </tr>
+                <tr>
+                    <td>2026-04-01</td>
+                    <td>删除重复模拟代码，使用CP现有get_cloud_api_url()</td>
+                    <td>MCPChatPanel.cpp</td>
+                </tr>
+                <tr>
+                    <td>2026-04-01</td>
+                    <td>修复HTML渲染问题</td>
+                    <td>chat.js</td>
+                </tr>
+                <tr>
+                    <td>2026-04-01</td>
+                    <td>删除未使用的ModelLibraryBridge框架文件</td>
+                    <td>ModelLibraryBridge.cpp, ModelLibraryBridge.hpp</td>
+                </tr>
+            </table>
+
+            <h3>废弃代码清理</h3>
+            <ul>
+                <li>删除了 <code>get_creality_cloud_api_url()</code> 函数，使用CP现有的 <code>Slic3r::GUI::get_cloud_api_url()</code></li>
+                <li>删除了 <code>HandleCxAgentToolCall</code> 中模拟的 <code>smart_model_search</code> 处理代码（约62行）</li>
+                <li>删除了 <code>ModelLibraryBridge.cpp</code> 和 <code>ModelLibraryBridge.hpp</code> 框架文件（功能已直接集成到MCPChatPanel中）</li>
+            </ul>
+
+            <h3>功能验证清单</h3>
+            <ul>
+                <li>✅ 前端意图解析：识别"点赞最多"、"下载最多"、"最新"等排序规则</li>
+                <li>✅ CxAgent工具注册：服务端可以调用 <code>smart_model_search</code> 工具</li>
+                <li>✅ 三个API链式调用：搜索 → 获取3mf列表 → 获取下载链接</li>
+                <li>✅ 自动导入：使用现有的 <code>import_model_id()</code> 函数下载并导入模型</li>
+                <li>✅ 进度反馈：实时显示搜索、下载、导入进度</li>
+                <li>✅ 结果展示：HTML卡片形式展示模型信息</li>
+                <li>✅ 调试支持：API响应JSON保存到 <code>data_dir/log/debug_api/</code></li>
+            </ul>
+        </div>
+
+        <!-- 总结 -->
+        <div class="card" style="margin-top: 50px;">
+            <div class="highlight-box">
+                <strong>🎉 实现完成</strong>
+                <p style="margin-top:10px">
+                    用户只需一句话，如<strong>"打印一个下载最多的龙蛋"</strong>，
+                    AI将在<strong>10秒内</strong>完成搜索→下载→导入全流程，
+                    真正实现<strong>"所想即所得"</strong>的智能打印体验！
+                </p>
+            </div>
+        </div>
+
+        <div class="card" style="text-align: center; margin-top: 30px;">
+            <p style="color: var(--text-secondary);">
+                📄 技术方案文档<br>
+                🕐 更新时间: <script>document.write(new Date().toLocaleString('zh-CN'))</script>
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                primaryColor: '#16213e',
+                primaryTextColor: '#e8e8e8',
+                primaryBorderColor: '#00d9ff',
+                lineColor: '#00d9ff',
+                secondaryColor: '#1a1a2e',
+                tertiaryColor: '#2a2a4a'
+            }
+        });
+    </script>
+</body>
+</html>

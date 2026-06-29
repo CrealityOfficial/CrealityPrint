@@ -94,6 +94,8 @@ public:
         //FaceRecognition,
         Hollowing,
         Drill,
+        SimplePaint,
+        Clone,
         Undefined,
     };
 

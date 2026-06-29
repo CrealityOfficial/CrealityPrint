@@ -452,6 +452,21 @@ void Field::get_value_by_opt_type(wxString& str, const bool check_value/* = true
                 set_value(str, true);
             }
         }
+        if (m_opt.opt_key == "small_area_infill_flow_compensation_model") {
+            ConfigOptionStrings option_strings;
+            std::string error;
+            SmallAreaInfillFlowCompensationModel model;
+            if (!option_strings.deserialize(into_u8(str)) ||
+                !parse_small_area_infill_flow_compensation_model(option_strings.values, model, &error)) {
+                if (check_value)
+                    show_error(m_parent, from_u8(error));
+                if (!m_value.empty())
+                    set_value(from_u8(boost::any_cast<std::string>(m_value)), false);
+                else
+                    m_value = std::string();
+                break;
+            }
+        }
 
         m_value = into_u8(str);
 		break; }
@@ -894,7 +909,9 @@ void TextCtrl::set_value(const boost::any& value, bool change_event/* = false*/)
 void TextCtrl::set_last_meaningful_value()
 {
     text_ctrl()->SetValue(boost::any_cast<wxString>(m_last_meaningful_value)); // BBS
-    propagate_value();
+    //propagate_value();
+    get_value();
+    on_change_field();
 }
 
 void TextCtrl::update_na_value(const boost::any& value)
@@ -905,7 +922,9 @@ void TextCtrl::update_na_value(const boost::any& value)
 void TextCtrl::set_na_value()
 {
     text_ctrl()->SetValue(m_na_value); // BBS
-    propagate_value();
+    //propagate_value();
+    get_value();
+    on_change_field();
 }
 
 boost::any& TextCtrl::get_value()

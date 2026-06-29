@@ -426,10 +426,18 @@ void GLGizmoCut3D::rotate_vec3d_around_plane_center(Vec3d&vec)
 
 void GLGizmoCut3D::put_connectors_on_cut_plane(const Vec3d& cp_normal, double cp_offset)
 {
-    ModelObject* mo = m_c->selection_info()->model_object();
+    const auto* selection_info = m_c->selection_info();
+    if (selection_info == nullptr)
+        return;
+
+    ModelObject* mo = selection_info->model_object();
+    const int active_instance = selection_info->get_active_instance();
+    if (mo == nullptr || active_instance < 0 || active_instance >= int(mo->instances.size()))
+        return;
+
     if (CutConnectors& connectors = mo->cut_connectors; !connectors.empty()) {
-        const float sla_shift        = m_c->selection_info()->get_sla_shift();
-        const Vec3d& instance_offset = mo->instances[m_c->selection_info()->get_active_instance()]->get_offset();
+        const float sla_shift        = selection_info->get_sla_shift();
+        const Vec3d& instance_offset = mo->instances[active_instance]->get_offset();
 
         for (auto& connector : connectors) {
             // convert connetor pos to the world coordinates
@@ -2190,6 +2198,10 @@ void GLGizmoCut3D::PartSelection::turn_over_selection()
 
 void GLGizmoCut3D::on_render()
 {
+    const auto* selection_info = m_c->selection_info();
+    if (selection_info == nullptr || selection_info->model_object() == nullptr)
+        return;
+
     if (m_state == On) {
         // This gizmo is showing the object elevated. Tell the common
         // SelectionInfo object to lie about the actual shift.
@@ -2979,13 +2991,17 @@ void GLGizmoCut3D::render_input_window_warning() const
         m_imgui->text(/*wxString(ImGui::WarningMarkerSmall)*/ _L("Warning") + ": " + _L("Cut plane with groove is invalid"));
 }
 
-void GLGizmoCut3D::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoCut3D::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
-    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f);
+    const auto* selection_info = m_c->selection_info();
+    if (selection_info == nullptr || selection_info->model_object() == nullptr)
+        return;
+
+    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f, force_update_pos);
     ImGuiWrapper::push_toolbar_style(m_parent.get_scale());
     GizmoImguiBegin(get_name(false), ImGuiWrapper::TOOLBAR_WINDOW_FLAGS);
 
-    CutConnectors& connectors = m_c->selection_info()->model_object()->cut_connectors;
+    CutConnectors& connectors = selection_info->model_object()->cut_connectors;
 
     init_input_window_data(connectors);
 
@@ -2996,6 +3012,7 @@ void GLGizmoCut3D::on_render_input_window(float x, float y, float bottom_limit)
 
     render_input_window_warning();
 
+    m_last_input_window_height = ImGui::GetWindowHeight();
     GizmoImguiEnd();
 
     // Orca
@@ -3171,6 +3188,8 @@ void GLGizmoCut3D::render_connectors()
         return;
 
     const ModelObject* mo = m_c->selection_info()->model_object();
+    if (mo == nullptr)
+        return;
     auto inst_id = m_c->selection_info()->get_active_instance();
     if (inst_id < 0)
         return;
@@ -3460,8 +3479,7 @@ void GLGizmoCut3D::perform_cut(const Selection& selection)
                                                                  cut.perform_with_plane();
 
         // fix_non_manifold_edges
-#ifdef HAS_WIN10SDK
-        if (is_windows10()) {
+        if (has_mesh_repair_backend()) {
             bool is_showed_dialog = false;
             bool user_fix_model   = false;
             for (size_t i = 0; i < new_objects.size(); i++) {
@@ -3488,10 +3506,10 @@ void GLGizmoCut3D::perform_cut(const Selection& selection)
                             wxString msg = _L("Repairing model object");
                             msg += ": " + from_u8(model_name) + "\n";
                             std::string res;
-                            if (!fix_model_by_win10_sdk_gui(*model_object, vol_idx, progress_dlg, msg, res)) return false;
+                            if (!fix_model(*model_object, vol_idx, progress_dlg, msg, res)) return false;
                             return true;
                         };
-                        ProgressDialog progress_dlg(_L("Repairing model object"), "", 100, find_toplevel_parent(plater), wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT, true);
+                        ProgressDialog progress_dlg(_L("Repairing model object"), "", 100, find_toplevel_parent(plater), wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT);
 
                         auto model_name = new_objects[i]->name;
                         if (!fix_and_update_progress(new_objects[i], j, model_name, progress_dlg, succes_models, failed_models)) {
@@ -3501,7 +3519,6 @@ void GLGizmoCut3D::perform_cut(const Selection& selection)
                 }
             }
         }
- #endif
         check_objects_after_cut(new_objects);
 
         // save cut_id to post update synchronization
@@ -3522,10 +3539,17 @@ void GLGizmoCut3D::perform_cut(const Selection& selection)
 // Return false if no intersection was found, true otherwise.
 bool GLGizmoCut3D::unproject_on_cut_plane(const Vec2d& mouse_position, Vec3d& pos, Vec3d& pos_world, bool respect_contours/* = true*/)
 {
-    const float sla_shift = m_c->selection_info()->get_sla_shift();
+    const auto* selection_info = m_c->selection_info();
+    if (selection_info == nullptr)
+        return false;
 
-    const ModelObject* mo = m_c->selection_info()->model_object();
-    const ModelInstance* mi = mo->instances[m_c->selection_info()->get_active_instance()];
+    const ModelObject* mo = selection_info->model_object();
+    const int active_instance = selection_info->get_active_instance();
+    if (mo == nullptr || active_instance < 0 || active_instance >= int(mo->instances.size()))
+        return false;
+
+    const float sla_shift = selection_info->get_sla_shift();
+    const ModelInstance* mi = mo->instances[active_instance];
     const Camera& camera = wxGetApp().plater()->get_camera();
 
     // Calculate intersection with the clipping plane.
@@ -3591,7 +3615,12 @@ void GLGizmoCut3D::clear_selection()
 
 void GLGizmoCut3D::reset_connectors()
 {
-    m_c->selection_info()->model_object()->cut_connectors.clear();
+    const auto* selection_info = m_c->selection_info();
+    ModelObject* mo = selection_info ? selection_info->model_object() : nullptr;
+    if (mo == nullptr)
+        return;
+
+    mo->cut_connectors.clear();
     update_raycasters_for_picking();
     clear_selection();
     check_and_update_connectors_state();

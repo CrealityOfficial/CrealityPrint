@@ -26,7 +26,15 @@
 namespace Slic3r {
 const std::vector<std::string> CONST_FILAMENTS = {
     "", "4", "8", "0C", "1C", "2C", "3C", "4C", "5C", "6C", "7C", "8C", "9C", "AC", "BC", "CC", "DC",
-}; // 5                           10                            15    16
+    // IDs 17-32: 3 nibbles (hex((N-3)%15) + "F" + "C")
+    "EC", "0FC", "1FC", "2FC", "3FC", "4FC", "5FC", "6FC", "7FC", "8FC", "9FC", "AFC", "BFC", "CFC", "DFC", "EFC",
+    // IDs 33-47: 4 nibbles (hex((N-3)%15) + "FF" + "C")
+    "0FFC", "1FFC", "2FFC", "3FFC", "4FFC", "5FFC", "6FFC", "7FFC", "8FFC", "9FFC", "AFFC", "BFFC", "CFFC", "DFFC", "EFFC",
+    // IDs 48-62: 5 nibbles (hex((N-3)%15) + "FFF" + "C")
+    "0FFFC", "1FFFC", "2FFFC", "3FFFC", "4FFFC", "5FFFC", "6FFFC", "7FFFC", "8FFFC", "9FFFC", "AFFFC", "BFFFC", "CFFFC", "DFFFC", "EFFFC",
+    // IDs 63-64: 6 nibbles (hex((N-3)%15) + "FFFF" + "C")
+    "0FFFFC", "1FFFFC",
+}; // 65 entries: ID 0 (empty), 1-2 (1 nibble), 3-16 (2 nibbles), 17-32 (3 nibbles), 33-47, 48-62, 63-64 (6 nibbles)
     // BBS initialization of static variables
     std::map<size_t, ExtruderParams> Model::extruderParamsMap = { {0,{"",0,0}}};
     GlobalSpeedMap Model::printSpeedMap{};
@@ -358,46 +366,50 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
 
     Model model;
 
-    bool result = false;
-    bool is_bbl_3mf;
-    bool cb_cancel;
+    struct ArchiveLoadResult
+    {
+        bool      result { false };
+        bool      is_bbl_3mf { false };
+        En3mfType file_type { En3mfType::From_Other };
+    };
 
-    std::promise<void> prom;
-    std::future<void>  fut = prom.get_future();
-    std::thread([&prom, &input_file, &result, 
-                 &config, &config_substitutions, &model, 
-                 &out_file_type, &plate_data, &project_presets,
-                 &is_bbl_3mf, &file_version, &options, &project]() {
+    bool result = false;
+    bool cb_cancel = false;
+
+    std::future<ArchiveLoadResult> fut = std::async(std::launch::async, [&]() {
+        ArchiveLoadResult load_result;
         if (boost::algorithm::iends_with(input_file, ".3mf") || boost::algorithm::iends_with(input_file, ".cxprj")) {
             PrusaFileParser prusa_file_parser;
             if (prusa_file_parser.check_3mf_from_prusa(input_file)) {
                 // for Prusa 3mf
-                result = load_3mf(input_file.c_str(), *config, *config_substitutions, &model, true);
-                out_file_type = En3mfType::From_Prusa;
+                load_result.result = load_3mf(input_file.c_str(), *config, *config_substitutions, &model, true);
+                load_result.file_type = En3mfType::From_Prusa;
             } else {
                 // BBS: add part plate related logic
                 // BBS: backup & restore
-                result = load_bbs_3mf(input_file.c_str(), config, config_substitutions, &model, plate_data, project_presets, &is_bbl_3mf, file_version, nullptr, options, project);
+                load_result.result = load_bbs_3mf(input_file.c_str(), config, config_substitutions, &model, plate_data, project_presets, &load_result.is_bbl_3mf, file_version, nullptr, options, project);
             }
         }
-        else if (boost::algorithm::iends_with(input_file, ".zip.amf"))
-            result = load_amf(input_file.c_str(), config, config_substitutions, &model, &is_bbl_3mf);
+        else if (boost::algorithm::iends_with(input_file, ".zip.amf")) {
+            load_result.result = load_amf(input_file.c_str(), config, config_substitutions, &model, &load_result.is_bbl_3mf);
+        }
         else
             throw Slic3r::RuntimeError(_L("Unknown file format. Input file must have .3mf or .zip.amf extension."));
 
-        prom.set_value(); // 通知完成
-    }).detach();
+        return load_result;
+    });
 
     while (fut.wait_for(std::chrono::milliseconds(50)) != std::future_status::ready) {
         if (proFn) {
-            proFn(IMPORT_STAGE_READ_FILES, 0, 3, cb_cancel); // 不处理cancel
+            proFn(IMPORT_STAGE_READ_FILES, 0, 3, cb_cancel);
         }
     }
 
-    if (out_file_type != En3mfType::From_Prusa) {
-        out_file_type = is_bbl_3mf ? En3mfType::From_BBS : En3mfType::From_Other;
-    }
-
+    ArchiveLoadResult load_result = fut.get();
+    result = load_result.result;
+    out_file_type = load_result.file_type == En3mfType::From_Prusa ?
+        En3mfType::From_Prusa :
+        (load_result.is_bbl_3mf ? En3mfType::From_BBS : En3mfType::From_Other);
     if (!result)
         throw Slic3r::RuntimeError(_L("Loading of a model file failed."));
 
@@ -1370,7 +1382,10 @@ bool Model::obj_import_face_color_deal(const std::vector<unsigned char> &face_fi
             for (size_t i = 0; i < volume->mesh().its.indices.size(); i++) {
                 auto face         = volume->mesh().its.indices[i];
                 auto filament_id = face_filament_ids[i];
-                if (filament_id <= 1) { continue; }
+                // BUG FIX: filament_id=1 should NOT be skipped!
+                // filament_id=1 corresponds to EnforcerBlockerType::Extruder1 (yellow)
+                // The original code skipped when filament_id <= 1, which incorrectly skipped valid filament_id=1
+                if (filament_id < 1) { continue; }
                 std::string result;
                 get_real_filament_id(filament_id, result);
                 volume->mmu_segmentation_facets.set_triangle_from_string(i, result);

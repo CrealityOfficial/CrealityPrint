@@ -13,11 +13,14 @@
 
 #include <boost/log/trivial.hpp>
 #include <boost/log/core.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <vector>
 #include <wx/dcgraph.h>
+#include <wx/utils.h>
 #include "Notebook.hpp"
 #include "libslic3r/common_header/common_header.h"
 #include "AnalyticsDataUploadManager.hpp"
+#include "simple/MCPChatPanel.hpp"
 #define TOPBAR_ICON_SIZE  17
 
 // The project name floats in the free gap between the mode tabs and right-side actions.
@@ -28,6 +31,9 @@
 static long UPLOAD_BTN_CODE = 12123;
 static long HOME_BTN_CODE_CHECKED = 12124;
 static long HOME_BTN_CODE_UNCHECKED = 12125;
+static const char* CXAGENT_PROD_API_BASE = "https://cxagent.crealitycloud.cn";
+static const char* CXAGENT_DEV_API_BASE = "https://cxagent-dev.crealitycloud.cn";
+static const char* CXAGENT_API_BASE_BEFORE_DEV_KEY = "cxagent_api_base_before_dev";
 
 using namespace Slic3r;
 class ButtonsCtrl : public wxControl
@@ -42,14 +48,96 @@ public:
     bool InsertPage(size_t n, const wxString& text, bool bSelect = false, const std::string& bmp_name = "", const std::string& inactive_bmp_name = "");
     void RefreshColor();
     void reLayout();
+    void SetDevMode(bool dev_mode);
+    bool IsDevMode() const { return m_dev_mode; }
 private:
+    void ApplyButtonStyle(int index, bool selected);
+    StateColor DefaultTextColor(bool selected) const;
+
     wxBoxSizer*      m_sizer;
     std::map<int,Button*> m_mapPageButtons;
     int                  m_selection{-1};
     int                  m_btn_margin;
     int                  m_line_margin;
+    bool                 m_dev_mode{false};
     // ModeSizer*                      m_mode_sizer {nullptr};
 };
+
+namespace {
+
+bool cxagent_hidden_switch_enabled()
+{
+    return !boost::iequals(std::string(PROJECT_VERSION_EXTRA), "Release");
+}
+
+bool cxagent_config_is_dev()
+{
+    auto* cfg = Slic3r::GUI::wxGetApp().app_config;
+    return cfg && cfg->get("cxagent_api_base") == CXAGENT_DEV_API_BASE;
+}
+
+std::string cxagent_config_api_base()
+{
+    auto* cfg = Slic3r::GUI::wxGetApp().app_config;
+    return cfg ? cfg->get("cxagent_api_base") : std::string();
+}
+
+std::string cxagent_restore_api_base()
+{
+    auto* cfg = Slic3r::GUI::wxGetApp().app_config;
+    if (!cfg)
+        return CXAGENT_PROD_API_BASE;
+
+    const std::string saved_api_base = cfg->get(CXAGENT_API_BASE_BEFORE_DEV_KEY);
+    return saved_api_base.empty() ? CXAGENT_PROD_API_BASE : saved_api_base;
+}
+
+void set_cxagent_config_api_base(const std::string& api_base, bool clear_saved_api_base = false)
+{
+    auto* cfg = Slic3r::GUI::wxGetApp().app_config;
+    if (!cfg)
+        return;
+
+    cfg->set("cxagent_api_base", api_base);
+    if (clear_saved_api_base) {
+        cfg->erase("app", CXAGENT_API_BASE_BEFORE_DEV_KEY);
+        cfg->set_dirty();
+    }
+    cfg->save();
+}
+
+void set_active_cxagent_api_base(const std::string& api_base, bool clear_saved_api_base = false)
+{
+    if (auto* panel = Slic3r::GUI::GetActiveAIChatPanel())
+        panel->SetCxAgentApiBaseAndReload(api_base);
+    else
+        set_cxagent_config_api_base(api_base);
+
+    if (clear_saved_api_base) {
+        if (auto* cfg = Slic3r::GUI::wxGetApp().app_config) {
+            cfg->erase("app", CXAGENT_API_BASE_BEFORE_DEV_KEY);
+            cfg->set_dirty();
+            cfg->save();
+        }
+    }
+}
+
+void save_cxagent_api_base_before_dev()
+{
+    auto* cfg = Slic3r::GUI::wxGetApp().app_config;
+    if (!cfg || cfg->has(CXAGENT_API_BASE_BEFORE_DEV_KEY))
+        return;
+
+    std::string api_base = cxagent_config_api_base();
+    if (api_base.empty())
+        api_base = CXAGENT_PROD_API_BASE;
+    if (api_base != CXAGENT_DEV_API_BASE) {
+        cfg->set(CXAGENT_API_BASE_BEFORE_DEV_KEY, api_base);
+        cfg->save();
+    }
+}
+
+} // namespace
 
 wxDECLARE_EVENT(wxCUSTOMEVT_NOTEBOOK_SEL_CHANGED, wxCommandEvent);
 
@@ -95,6 +183,40 @@ ButtonsCtrl::ButtonsCtrl(wxWindow* parent, wxBoxSizer* side_tools)
     Bind(wxEVT_SYS_COLOUR_CHANGED, [this](auto& e) {});
 }
 int  ButtonsCtrl::GetSelection() { return m_selection; }
+StateColor ButtonsCtrl::DefaultTextColor(bool selected) const
+{
+    const bool is_dark = Slic3r::GUI::wxGetApp().dark_mode();
+    const wxColour active = is_dark ? wxColour(254, 254, 254) : wxColour(255, 255, 255);
+    const wxColour normal = selected ? active : (is_dark ? wxColour(254, 254, 254) : wxColour(0, 0, 0));
+    return StateColor(
+        std::pair{active, (int) StateColor::Pressed},
+        std::pair{active, (int) StateColor::Hovered},
+        std::pair{active, (int) StateColor::Focused},
+        std::pair{active, (int) StateColor::Checked},
+        std::pair{normal, (int) StateColor::Normal});
+}
+
+void ButtonsCtrl::ApplyButtonStyle(int index, bool selected)
+{
+    auto it = m_mapPageButtons.find(index);
+    if (it == m_mapPageButtons.end())
+        return;
+
+    Button* button = it->second;
+    if (!button)
+        return;
+
+    button->SetTextColor(DefaultTextColor(selected));
+}
+
+void ButtonsCtrl::SetDevMode(bool dev_mode)
+{
+    m_dev_mode = dev_mode;
+    ApplyButtonStyle(MainFrame::tp3DEditor, m_selection == MainFrame::tp3DEditor);
+    Refresh();
+    Update();
+}
+
 void ButtonsCtrl::SetSelection(int sel)
 {
     if (m_selection == sel)
@@ -107,10 +229,8 @@ void ButtonsCtrl::SetSelection(int sel)
             StateColor bg_color = StateColor(std::pair{hover_bg, (int) StateColor::Hovered},
                                              std::pair{is_dark ? wxColour(1, 1, 1) : wxColour(214, 214, 220), (int) StateColor::Normal});
             m_mapPageButtons[m_selection]->SetBackgroundColor(bg_color);
-            StateColor text_color = StateColor(std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(255,255,255), (int)StateColor::Hovered },
-                std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(0,0,0), (int)StateColor::Normal});
             m_mapPageButtons[m_selection]->SetSelected(false);
-            m_mapPageButtons[m_selection]->SetTextColor(text_color);
+            ApplyButtonStyle(m_selection, false);
         }
 
         m_selection = -1;
@@ -124,10 +244,8 @@ void ButtonsCtrl::SetSelection(int sel)
             StateColor bg_color = StateColor(std::pair{hover_bg, (int) StateColor::Hovered},
                                              std::pair{is_dark ? wxColour(1, 1, 1) : wxColour(214, 214, 220), (int) StateColor::Normal});
             m_mapPageButtons[m_selection]->SetBackgroundColor(bg_color);
-            StateColor text_color = StateColor(std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(255,255,255), (int)StateColor::Hovered }, 
-                std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(0,0,0), (int) StateColor::Normal});
             m_mapPageButtons[m_selection]->SetSelected(false);
-            m_mapPageButtons[m_selection]->SetTextColor(text_color);
+            ApplyButtonStyle(m_selection, false);
         }
 
         m_selection = sel;
@@ -141,21 +259,15 @@ void ButtonsCtrl::SetSelection(int sel)
         StateColor bg_color = StateColor(std::pair{hover_bg, (int) StateColor::Hovered},
                                          std::pair{is_dark ? wxColour(1, 1, 1) : wxColour(214, 214, 220), (int) StateColor::Normal});
         m_mapPageButtons[m_selection]->SetBackgroundColor(bg_color);
-        StateColor text_color = StateColor(
-            std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(255,255,255), (int)StateColor::Hovered },
-            std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(0,0,0), (int)StateColor::Normal});
         m_mapPageButtons[m_selection]->SetSelected(false);
-        m_mapPageButtons[m_selection]->SetTextColor(text_color);
+        ApplyButtonStyle(m_selection, false);
         
     }
     m_selection = sel;
 
 
-    StateColor text_color = StateColor(std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(255,255,255), (int)StateColor::Hovered },
-        std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(255,255,255), (int) StateColor::Normal}
-        );
     m_mapPageButtons[m_selection]->SetSelected(true);
-    m_mapPageButtons[m_selection]->SetTextColor(text_color);
+    ApplyButtonStyle(m_selection, true);
 
     StateColor bg_color = StateColor(std::pair{ wxColour(68, 205, 122), (int)StateColor::Hovered },
                                      std::pair{is_dark ? wxColour(31, 202, 99) : wxColour(21, 192, 89), (int) StateColor::Normal});
@@ -181,19 +293,16 @@ void ButtonsCtrl::RefreshColor()
         button->SetFontBold(true);
         button->SetBackgroundColor(bg_color);     
         button->SetBackgroundColour(default_btn_bg);
-        StateColor text_color = StateColor(std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(255,255,255), (int)StateColor::Hovered },
-            std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(0,0,0), (int)StateColor::Normal });
-        button->SetTextColor(text_color);
+        button->SetTextColor(DefaultTextColor(false));
         if (m_selection == index)
         {
             button->SetSelected(true);
             bg_color = StateColor(std::pair{wxColour(68, 205, 122), (int) StateColor::Hovered},
                 std::pair{is_dark ? wxColour(31, 202, 99) : wxColour(21, 192, 89), (int) StateColor::Normal});
             button->SetBackgroundColor(bg_color);
-            StateColor text_color = StateColor(std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(255,255,255), (int)StateColor::Hovered },
-                std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(255,255,255), (int)StateColor::Normal });
-            button->SetTextColor(text_color);
+            button->SetTextColor(DefaultTextColor(true));
         }
+        ApplyButtonStyle(index, m_selection == index);
         button->Refresh();
         button->Update();
         //Slic3r::GUI::wxGetApp().UpdateDarkUI(button);
@@ -252,12 +361,37 @@ bool ButtonsCtrl::InsertPage(
                                      std::pair{is_dark ? wxColour("1, 1, 1") : wxColour(214, 214, 220), (int) StateColor::Normal});
 
     btn->SetBackgroundColor(bg_color);
-    StateColor text_color = StateColor(std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(255,255,255), (int)StateColor::Hovered },
-        std::pair{ is_dark ? wxColour(254, 254, 254) : wxColour(0,0,0), (int)StateColor::Normal});
-    btn->SetTextColor(text_color);
+    btn->SetTextColor(DefaultTextColor(false));
     //btn->SetInactiveIcon(inactive_bmp_name);
     btn->Bind(wxEVT_BUTTON, [this, btn](wxCommandEvent& event) {
         int id = btn->GetId();
+        if (cxagent_hidden_switch_enabled()) {
+            static int prepare_click_count = 0;
+            static long long last_prepare_click_ms = 0;
+            const long long now_ms = wxGetUTCTimeMillis().GetValue();
+
+            if (id == MainFrame::tp3DEditor) {
+                prepare_click_count = (now_ms - last_prepare_click_ms <= 3000) ? prepare_click_count + 1 : 1;
+                last_prepare_click_ms = now_ms;
+                if (prepare_click_count >= 5) {
+                    prepare_click_count = 0;
+                    const bool dev_mode = !IsDevMode();
+                    if (dev_mode)
+                        save_cxagent_api_base_before_dev();
+                    const std::string api_base = dev_mode ? CXAGENT_DEV_API_BASE : cxagent_restore_api_base();
+                    set_active_cxagent_api_base(api_base, !dev_mode);
+                    SetDevMode(dev_mode);
+                    BOOST_LOG_TRIVIAL(info) << "[BBLTopbar] CxAgent dev mode "
+                                            << (dev_mode ? "enabled" : "disabled")
+                                            << ", api_base="
+                                            << api_base;
+                }
+            } else {
+                prepare_click_count = 0;
+                last_prepare_click_ms = 0;
+            }
+        }
+
         wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_NOTEBOOK_SEL_CHANGED);
         evt.SetId(id);
         wxPostEvent(this->GetParent(), evt);
@@ -279,6 +413,129 @@ bool ButtonsCtrl::InsertPage(
 
 
 
+
+class EasyModeSwitchCtrl : public wxControl
+{
+public:
+    explicit EasyModeSwitchCtrl(wxWindow* parent)
+        : wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
+    {
+#ifdef __WINDOWS__
+        SetDoubleBuffered(true);
+#endif
+        Rescale();
+
+        SetToolTip(_L("Switch AI/Pro mode"));
+        Bind(wxEVT_PAINT, &EasyModeSwitchCtrl::OnPaint, this);
+        Bind(wxEVT_LEFT_UP, &EasyModeSwitchCtrl::OnLeftUp, this);
+        Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent& event) {
+            m_hover = true;
+            SetCursor(wxCursor(wxCURSOR_HAND));
+            Refresh();
+            event.Skip();
+        });
+        Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent& event) {
+            m_hover = false;
+            SetCursor(wxCursor(wxCURSOR_ARROW));
+            Refresh();
+            event.Skip();
+        });
+    }
+
+    void Rescale()
+    {
+        m_switch_bitmap = wxNullBitmap;
+        UpdateSwitchBitmap();
+
+        wxClientDC dc(this);
+        dc.SetFont(Label::Head_12);
+        const int label_w = std::max(dc.GetTextExtent(_L("AI")).GetWidth(),
+                                     dc.GetTextExtent(_L("Pro")).GetWidth());
+        const int bitmap_w = m_switch_bitmap.IsOk() ? m_switch_bitmap.GetScaledWidth() : FromDIP(16);
+        const int content_w = label_w + FromDIP(2) + bitmap_w + FromDIP(12);
+        const wxSize min_size(std::max(FromDIP(70), content_w), FromDIP(24));
+        SetMinSize(min_size);
+        SetSize(min_size);
+        Refresh();
+    }
+
+private:
+    void OnPaint(wxPaintEvent&)
+    {
+        wxPaintDC dc(this);
+        UpdateSwitchBitmap();
+        const bool is_dark = wxGetApp().dark_mode();
+        const wxColour bg = is_dark ? wxColour("#010101") : wxColour(214, 214, 220);
+        const wxColour text_col = is_dark ? wxColour(235, 235, 235) : wxColour(80, 80, 80);
+
+        dc.SetBackground(wxBrush(bg));
+        dc.Clear();
+        if (m_hover) {
+            wxRect rect = GetClientRect();
+            rect.Deflate(1);
+            if (wxGraphicsContext* gc = wxGraphicsContext::CreateFromUnknownDC(dc)) {
+                wxGraphicsPath path = gc->CreatePath();
+                path.AddRoundedRectangle(rect.x, rect.y, rect.width, rect.height, FromDIP(2));
+                gc->SetPen(*wxGREEN_PEN);
+                gc->SetAntialiasMode(wxANTIALIAS_DEFAULT);
+                gc->StrokePath(path);
+                delete gc;
+            } else {
+                dc.DrawRoundedRectangle(rect, FromDIP(5));
+            }
+        }
+        dc.SetFont(Label::Head_12);
+        dc.SetTextForeground(text_col);
+
+        const wxString label = wxGetApp().easy_mode() ? _L("AI") : _L("Pro");
+        int text_w = 0;
+        int text_h = 0;
+        dc.GetTextExtent(label, &text_w, &text_h);
+
+        const wxSize size = GetClientSize();
+        const int bmp_w = m_switch_bitmap.IsOk() ? m_switch_bitmap.GetScaledWidth() : FromDIP(16);
+        const int bmp_h = m_switch_bitmap.IsOk() ? m_switch_bitmap.GetScaledHeight() : FromDIP(16);
+        const int gap = FromDIP(2);
+        const int content_w = text_w + gap + bmp_w;
+        int x = (size.GetWidth() - content_w) / 2;
+        if (x < FromDIP(2))
+            x = FromDIP(2);
+        const int y = (size.GetHeight() - text_h) / 2;
+        dc.DrawText(label, x, y);
+        if (m_switch_bitmap.IsOk()) {
+            dc.DrawBitmap(m_switch_bitmap, x + text_w + gap, (size.GetHeight() - bmp_h) / 2, true);
+        }
+    }
+
+    void UpdateSwitchBitmap()
+    {
+        const bool is_dark = wxGetApp().dark_mode();
+        if (m_switch_bitmap.IsOk() && m_switch_bitmap_dark == is_dark)
+            return;
+        m_switch_bitmap = create_scaled_bitmap(is_dark ? "topbar_mode_switch" : "topbar_mode_switch_light", this, 16);
+        m_switch_bitmap_dark = is_dark;
+    }
+
+    void OnLeftUp(wxMouseEvent&)
+    {
+        if (!wxGetApp().app_config)
+            return;
+
+        const bool next_easy_mode = !wxGetApp().easy_mode();
+        wxGetApp().app_config->set("easy_print_mode", next_easy_mode ? "1" : "0");
+        wxGetApp().app_config->save();
+        wxGetApp().Update_easy_mode_flag();
+        if (!next_easy_mode) {
+            Slic3r::GUI::ShowProAISliceAssistantWithEmbeddedSession();
+        }
+        Refresh();
+    }
+
+private:
+    bool m_hover{ false };
+    bool m_switch_bitmap_dark{ false };
+    wxBitmap m_switch_bitmap;
+};
 enum CUSTOM_ID
 {
     ID_TOP_MENU_TOOL = 3100,
@@ -655,6 +912,9 @@ void BBLTopbar::Init(wxFrame* parent)
     pCtr->InsertPage(MainFrame::tp3DEditor, _L("Prepare"), 0);
     pCtr->InsertPage(MainFrame::tpPreview, _L("Preview"), 0);
     pCtr->InsertPage(MainFrame::tpDeviceMgr, _L("Device"), 0);
+    if (!cxagent_hidden_switch_enabled() && cxagent_config_is_dev())
+        set_cxagent_config_api_base(cxagent_restore_api_base(), true);
+    pCtr->SetDevMode(cxagent_hidden_switch_enabled() && cxagent_config_is_dev());
     //pCtr->InsertPage(3, _L("Project"), 0);
     m_tabCtrol = (wxControl*)pCtr;
     item_ctrl = this->AddControl( m_tabCtrol);
@@ -677,7 +937,9 @@ void BBLTopbar::Init(wxFrame* parent)
         });
     //CX END
 
+    addDipSpacer(30);
     this->AddStretchSpacer(1);
+#ifndef __APPLE__
     m_title_LabelItem = new Label(this, Label::Head_12, _L(""));
     m_title_LabelItem->SetWindowStyleFlag(wxALIGN_CENTER | wxALIGN_CENTER_VERTICAL);
     m_title_LabelItem->Bind(wxEVT_MOTION, &BBLTopbar::OnMouseMotion, this);
@@ -686,9 +948,15 @@ void BBLTopbar::Init(wxFrame* parent)
     wxColour bgColor  = Slic3r::GUI::wxGetApp().dark_mode() ? wxColour("#010101") : wxColour(214, 214, 220);
     m_title_LabelItem->SetBackgroundColour(bgColor);
     m_title_LabelItem->Hide();
+#endif
 
     addDipSpacer(10);
     m_feedback_separator_item = this->AddSeparator();
+    addDipSpacer(10);
+
+    m_easy_mode_switch_ctrl = new EasyModeSwitchCtrl(this);
+    m_easy_mode_switch_item = this->AddControl(m_easy_mode_switch_ctrl);
+    m_easy_mode_switch_item->SetMinSize(m_easy_mode_switch_ctrl->GetMinSize());
     addDipSpacer(10);
 
     {
@@ -951,7 +1219,8 @@ void BBLTopbar::DisableGuideModeItems()
     this->EnableTool(m_undo_item->GetId(), false);
     this->EnableTool(m_redo_item->GetId(), false);
     m_tabCtrol->Enable(false);
-    m_title_LabelItem->Enable(false);
+    if (m_title_LabelItem)
+        m_title_LabelItem->Enable(false);
     //this->EnableTool(m_upload_btn->GetId(), false);
 
     Refresh();
@@ -1025,7 +1294,8 @@ void BBLTopbar::EnableGuideModeItems()
     this->EnableTool(m_redo_item->GetId(), true);
 
     m_tabCtrol->Enable(true);
-    m_title_LabelItem->Enable(true);
+    if (m_title_LabelItem)
+        m_title_LabelItem->Enable(true);
     //this->EnableTool(m_upload_btn->GetId(), true);
 
     Refresh();
@@ -1341,6 +1611,11 @@ void BBLTopbar::Rescale(bool isResize) {
         if (item_ctrl && pCtr) {
             item_ctrl->SetMinSize(pCtr->GetBestSize());
         }
+        if (auto* switch_ctrl = dynamic_cast<EasyModeSwitchCtrl*>(m_easy_mode_switch_ctrl)) {
+            switch_ctrl->Rescale();
+            if (m_easy_mode_switch_item)
+                m_easy_mode_switch_item->SetMinSize(switch_ctrl->GetMinSize());
+        }
         // Update spacer sizes based on stored logical DIP values.
         for (auto& pair : m_spacer_items) {
             if (pair.first) {
@@ -1352,7 +1627,8 @@ void BBLTopbar::Rescale(bool isResize) {
     Layout();
     Refresh();
     wxColour bgColor = Slic3r::GUI::wxGetApp().dark_mode() ? wxColour("#010101") : wxColour(214, 214, 220);
-    m_title_LabelItem->SetBackgroundColour(bgColor);
+    if (m_title_LabelItem)
+        m_title_LabelItem->SetBackgroundColour(bgColor);
     UpdateFileNameDisplay();
 }
 
@@ -1618,6 +1894,12 @@ wxRect BBLTopbar::GetTitleDisplayRect() const
 
 void BBLTopbar::LayoutTitleLabel()
 {
+#ifdef __APPLE__
+    if (m_title_LabelItem)
+        m_title_LabelItem->Hide();
+    return;
+#endif
+
     if (!m_title_LabelItem)
         return;
 
@@ -1673,13 +1955,21 @@ void BBLTopbar::UpdateFileNameDisplayAfterLayout()
 
 void BBLTopbar::UpdateFileNameDisplay(const wxString& fileName)
 {
+    wxString title = fileName.IsEmpty() ? m_displayName : fileName;
+    m_displayName = title;
+
+#ifdef __APPLE__
+    if (m_title_LabelItem && m_title_LabelItem->IsShown())
+        m_title_LabelItem->Hide();
+    return;
+#endif
+
     if (!m_title_LabelItem)
         return;
 
     LayoutTitleLabel();
     const int availableWidth = m_title_LabelItem->IsShown() ? m_title_LabelItem->GetSize().GetWidth() : 0;
 
-    wxString title = fileName.IsEmpty() ? m_displayName : fileName;
     wxString displayText = TruncateTextToWidth(title, availableWidth, m_title_LabelItem);
 
     if (m_title_LabelItem->GetLabel() != displayText) {
@@ -1689,7 +1979,6 @@ void BBLTopbar::UpdateFileNameDisplay(const wxString& fileName)
     if (m_title_LabelItem->GetToolTipText() != title)
         m_title_LabelItem->SetToolTip(title);
 
-    m_displayName = title;
     m_title_LabelItem->Refresh(false);
 }
 

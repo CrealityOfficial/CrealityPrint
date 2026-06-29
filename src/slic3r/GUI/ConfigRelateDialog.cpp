@@ -3213,7 +3213,8 @@ void ConfigRelateDialog::set_dark_mode()
 }
 
 ConfigRelateDialog::ConfigRelateDialog(wxWindow *parent, wxWindowID id, const wxString &title, const wxPoint &pos, const wxSize &size, long style)
-    : DPIDialog(parent, id, _L("Configuration Relationship Management"), pos, windowSize, style)
+    : DPIDialog(parent, id, _L("Configuration Relationship Management"), pos,
+                parent ? parent->FromDIP(windowSize) : windowSize, style)
 {
     SetBackgroundColour(*wxWHITE);
     create();
@@ -3249,11 +3250,11 @@ void ConfigRelateDialog::create()
 
     auto main_sizer = new wxBoxSizer(wxBOTH);
 
-    auto m_top_line = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(windowSize.x, 1), wxTAB_TRAVERSAL);
+    auto m_top_line = new wxPanel(this, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(windowSize.x, 1)), wxTAB_TRAVERSAL);
      m_top_line->SetBackgroundColour(DESIGN_GRAY400_COLOR);
     main_sizer->Add(m_top_line, 0, wxEXPAND, 0);
 
-    ConfigRelateGUI::_Panel* tabView = new ConfigRelateGUI::_Panel(this, wxID_ANY, wxDefaultPosition, contentSize);
+    ConfigRelateGUI::_Panel* tabView = new ConfigRelateGUI::_Panel(this, wxID_ANY, wxDefaultPosition, FromDIP(contentSize));
     main_sizer->Add(tabView, 1, wxEXPAND);
 
     ConfigRelateGUI::_Book* notebook = new ConfigRelateGUI::_Book(tabView, wxID_ANY);
@@ -3311,7 +3312,7 @@ void ConfigRelateDialog::create()
     Refresh();
     //Update();
 
-    this->SetMinSize(wxSize(900, 600));
+    this->SetMinSize(FromDIP(wxSize(900, 600)));
 
     Bind(wxEVT_SIZE, [=](wxSizeEvent& evt) {
         Layout();
@@ -3331,7 +3332,12 @@ ConfigRelateDialog::~ConfigRelateDialog()
     m_hash_selector.clear();
 }
 
-void ConfigRelateDialog::on_dpi_changed(const wxRect &suggested_rect) { this->Refresh(); }
+void ConfigRelateDialog::on_dpi_changed(const wxRect &suggested_rect)
+{
+    SetMinSize(FromDIP(wxSize(900, 600)));
+    Layout();
+    Refresh();
+}
 
 void ConfigRelateDialog::Split(const std::string &src, const std::string &separator, std::vector<wxString> &dest)
 {

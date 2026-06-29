@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+﻿cmake_minimum_required(VERSION 3.13)
 project(libslic3r_gui)
 
 include(PrecompiledHeader)
@@ -76,6 +76,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Widgets/WebView.hpp
     GUI/Widgets/ErrorMsgStaticText.cpp
     GUI/Widgets/ErrorMsgStaticText.hpp
+    GUI/MixedFilamentDialog.cpp
+    GUI/MixedFilamentDialog.hpp
     GUI/Widgets/TextDisplay.hpp
     GUI/Widgets/TextDisplay.cpp
     GUI/Widgets/HoverBorderIcon.hpp
@@ -156,6 +158,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/Gizmos/GLGizmoSVG.hpp
     GUI/Gizmos/GLGizmoMmuSegmentation.cpp
     GUI/Gizmos/GLGizmoMmuSegmentation.hpp
+    GUI/Gizmos/GLGizmoSimplePaint.cpp
+    GUI/Gizmos/GLGizmoSimplePaint.hpp
+    GUI/Gizmos/GLGizmoClone.hpp
+    GUI/Gizmos/GLGizmoClone.cpp
     #GUI/Gizmos/GLGizmoFaceDetector.cpp
     #GUI/Gizmos/GLGizmoFaceDetector.hpp
 	GUI/Gizmos/GLGizmoMeasure.cpp
@@ -382,6 +388,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/WebGuideDialog.cpp
     GUI/WebModelLibraryView.hpp
     GUI/WebModelLibraryView.cpp
+    GUI/ModelDetailDialog.hpp
+    GUI/ModelDetailDialog.cpp
     GUI/WebUserLoginDialog.cpp
     GUI/WebUserLoginDialog.hpp
     GUI/ConfigManipulation.cpp
@@ -421,6 +429,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/SurfaceDrag.hpp
     GUI/TextLines.cpp
     GUI/TextLines.hpp
+    GUI/TransmittanceDialog.hpp
+    GUI/TransmittanceDialog.cpp
     GUI/PlateSettingsDialog.cpp
     GUI/PlateSettingsDialog.hpp
     GUI/ImGuiWrapper.hpp
@@ -609,9 +619,17 @@ set(SLIC3R_GUI_SOURCES
     GUI/SendMultiMachinePage.cpp
     GUI/TaskManager.cpp
     GUI/TaskManager.hpp
+    GUI/RenderEnums.hpp
+    GUI/GCodeRenderer/AdvancedRenderer.hpp
+    GUI/GCodeRenderer/AdvancedRenderer.cpp
+    GUI/GCodeRenderer/BaseRenderer.hpp
+    GUI/GCodeRenderer/BaseRenderer.cpp
+    GUI/GCodeRenderer/LegacyRenderer.hpp
+    GUI/GCodeRenderer/LegacyRenderer.cpp
     Utils/Http.cpp
     Utils/Http.hpp
     Utils/FixModelByWin10.cpp
+    Utils/FixModelByImatiSTL.cpp
     Utils/FixModelByWin10.hpp
     Utils/EmbossStyleManager.cpp
     Utils/EmbossStyleManager.hpp
@@ -735,6 +753,98 @@ set(SLIC3R_GUI_SOURCES
     GUI/SystemId/SystemId.cpp
 )
 
+option(GUI_SIMPLE "Enable GUI Simple Mode" ON)
+if(GUI_SIMPLE)
+    list(APPEND SLIC3R_GUI_SOURCES
+        GUI/simple/GLSimpleUtils.hpp
+        GUI/simple/GLToolbarSimple.cpp
+        GUI/simple/GLCanvas3DSimple.cpp
+        GUI/simple/DeviceListSimple.cpp
+        GUI/simple/DeviceListSimple.hpp
+        GUI/simple/filamentSimplePage.cpp
+        GUI/simple/SupportSimple.cpp
+        GUI/simple/SupportSimple.hpp
+        GUI/simple/filamentMapping/ImGuiFilamentPanel.hpp
+        GUI/simple/filamentMapping/ImGuiFilamentPanel.cpp
+        GUI/simple/filamentMapping/FilamentMappingService.hpp
+        GUI/simple/filamentMapping/FilamentMappingService.cpp
+        GUI/simple/filamentMapping/SceneFilamentSourceSnapshotManager.hpp
+        GUI/simple/filamentMapping/SceneFilamentSourceSnapshotManager.cpp
+        GUI/simple/filamentMapping/ResidentFilamentMappingLogic.hpp
+        GUI/simple/filamentMapping/ResidentFilamentMappingLogic.cpp
+        GUI/simple/filamentMapping/ResidentFilamentMappingAdapter.hpp
+        GUI/simple/filamentMapping/ResidentFilamentMappingAdapter.cpp
+        GUI/simple/filamentMapping/ResidentFilamentMappingPopupPolicy.hpp
+        GUI/simple/filamentMapping/ResidentFilamentMappingPopupPolicy.cpp
+        GUI/simple/filamentMapping/ResidentFilamentMappingView.hpp
+        GUI/simple/filamentMapping/ResidentFilamentMappingView.cpp
+        GUI/simple/filamentMapping/ImGuiSpoolWidget.hpp
+        GUI/simple/filamentMapping/ImGuiSpoolWidget.cpp
+        GUI/simple/filamentMapping/ImGuiFilamentExtraPage.cpp
+        GUI/simple/filamentMapping/ImGuiThumbnailPreview.hpp
+        GUI/simple/filamentMapping/ImGuiThumbnailPreview.cpp
+        GUI/simple/filamentMapping/ThumbnailDataRecolor.hpp
+        GUI/simple/filamentMapping/ThumbnailDataRecolor.cpp
+        GUI/simple/filamentMapping/match_color.hpp
+        GUI/simple/filamentMapping/match_color.cpp
+        GUI/simple/GLObjectManipulateToolbarSimple.cpp
+        GUI/simple/PrintSettingsPanel.hpp
+        GUI/simple/PrintSettingsPanel.cpp
+        GUI/simple/sendWorkflow/EasyPrintSender.hpp
+        GUI/simple/sendWorkflow/EasyPrintSender.cpp
+        GUI/simple/UploadDialog.hpp
+        GUI/simple/UploadDialog.cpp
+        GUI/simple/GUI_ObjectListSimple.cpp
+        GUI/simple/SimpleModelMgr.hpp
+        GUI/simple/SimpleModelMgr.cpp
+        GUI/simple/sendWorkflow/AISendWorkflowService.hpp
+        GUI/simple/sendWorkflow/AISendWorkflowService.cpp
+        GUI/simple/sendWorkflow/AIProcessPresetIntentResolver.hpp
+        GUI/simple/sendWorkflow/AIProcessPresetIntentResolver.cpp
+        GUI/simple/sendWorkflow/AIProcessSwitchService.hpp
+        GUI/simple/sendWorkflow/AIProcessSwitchService.cpp
+        GUI/simple/sendWorkflow/CxCloudPrintClient.hpp
+        GUI/simple/sendWorkflow/CxCloudPrintClient.cpp
+        GUI/simple/sendWorkflow/CxCloudPrintExecutor.hpp
+        GUI/simple/sendWorkflow/CxCloudPrintExecutor.cpp
+        GUI/simple/MCPChatPanel.hpp
+        GUI/simple/MCPChatPanel.cpp
+        GUI/simple/toolcalls/MCPToolCalls.cpp
+        GUI/simple/toolcalls/MCPToolCallsRegistration.cpp
+        GUI/simple/toolcalls/MCPToolCallsPrinter.cpp
+        GUI/simple/toolcalls/MCPToolCallsObject.cpp
+        GUI/simple/toolcalls/MCPToolCallsLayout.cpp
+        GUI/simple/toolcalls/MCPToolCallsFilament.cpp
+        GUI/simple/toolcalls/MCPToolCallsFilamentMapping.cpp
+        GUI/simple/toolcalls/MCPToolCallsPrint.cpp
+        GUI/simple/toolcalls/MCPToolCallsSceneContext.cpp
+        GUI/simple/toolcalls/MCPToolCallsConfig.cpp
+        GUI/simple/toolcalls/MCPToolCallsModelSource.cpp
+        GUI/simple/toolcalls/MCPChatPanelSAgentNative.cpp
+        GUI/simple/toolcalls/MCPToolCallsCommon.hpp
+        GUI/simple/toolcalls/MCPToolCallsCommon.cpp
+        GUI/simple/bridge/SlicerAction.hpp
+        GUI/simple/bridge/CxAgentClientBridge.hpp
+        GUI/simple/bridge/CxAgentClientBridge.cpp
+        GUI/simple/bridge/SAgentMqttBridge.hpp
+        GUI/simple/bridge/SAgentMqttBridge.cpp
+        GUI/simple/bridge/SlicerBridge.hpp
+        GUI/simple/bridge/SlicerBridge.cpp
+        GUI/simple/bridge/SlicerBridgeDiagnostics.hpp
+        GUI/simple/bridge/SlicerBridgeDiagnostics.cpp
+        GUI/simple/bridge/MCPChatPanelBridgeActionExecutor.cpp
+        GUI/simple/bridge/SlicerBridgeActionRegistry.cpp
+        GUI/simple/bridge/SlicerBridgeState.cpp
+        GUI/simple/bridge/SlicerBridgeActionsConfig.cpp
+        GUI/simple/bridge/SlicerBridgeActionsObject.cpp
+        GUI/simple/bridge/SlicerBridgeActionsProcess.cpp
+        GUI/simple/bridge/SlicerBridgeActionFilament.cpp
+        GUI/simple/bridge/SlicerBridgeActionsPrinter.cpp
+        GUI/simple/gpu/GpuOrient.hpp
+        GUI/simple/gpu/GpuOrient.cpp
+        )
+endif()
+
 option(AUTO_CONVERT_3MF "Enable auto conversion of 3MF files" OFF)
 if(AUTO_CONVERT_3MF)
     list(APPEND SLIC3R_GUI_SOURCES
@@ -793,8 +903,19 @@ else ()
     target_compile_definitions(libslic3r_gui PRIVATE ENABLE_AUE_CUSTOM_PREVIEW=0)
 endif ()
 
+if (HAS_IMATISTL)
+    if (IMATISTL_INCLUDE_DIR)
+        target_include_directories(libslic3r_gui PRIVATE ${IMATISTL_INCLUDE_DIR} ${IMATISTL_INCLUDE_DIR}/Kernel ${IMATISTL_INCLUDE_DIR}/TMesh ${IMATISTL_INCLUDE_DIR}/ImatiSTL)
+    endif()
+    target_compile_definitions(libslic3r_gui PRIVATE USE_HYBRID_KERNEL USE_CGAL_LAZYNT)
+endif()
+
 if (WIN32)
     target_include_directories(libslic3r_gui PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../deps/WebView2/include)
+endif()
+
+if(GUI_SIMPLE)
+    target_include_directories(libslic3r_gui PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/GUI)
 endif()
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SLIC3R_GUI_SOURCES})
@@ -802,6 +923,13 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SLIC3R_GUI_SOURCES})
 encoding_check(libslic3r_gui)
 
 target_link_libraries(libslic3r_gui libslic3r cereal::cereal imgui imguizmo minilzo GLEW::GLEW OpenGL::GL hidapi ${wxWidgets_LIBRARIES} glfw  libcurl OpenSSL::SSL OpenSSL::Crypto noise::noise)
+if (HAS_IMATISTL)
+    if (IMATISTL_TARGET)
+        target_link_libraries(libslic3r_gui ${IMATISTL_TARGET})
+    elseif (IMATISTL_LIBRARY)
+        target_link_libraries(libslic3r_gui ${IMATISTL_LIBRARY} ${IMATISTL_DEP_LIBRARIES})
+    endif()
+endif()
 if(WIN32)
     target_link_libraries(libslic3r_gui iphlpapi)
 endif()

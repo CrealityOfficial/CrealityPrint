@@ -98,6 +98,7 @@ public:
     ::CheckBox * m_internal_developer_mode_ckeckbox = {nullptr};
     ::CheckBox * m_dark_mode_ckeckbox        = {nullptr};
     ::TextInput *m_backup_interval_textinput = {nullptr};
+    ::CheckBox * m_easy_mode_checkbox        = {nullptr};
 
     wxString m_developer_mode_def;
     wxString m_internal_developer_mode_def;
@@ -115,6 +116,7 @@ public:
     wxBoxSizer *create_item_loglevel_combobox(wxString title, wxWindow *parent, wxString tooltip, std::vector<wxString> vlist);
     wxBoxSizer *create_item_checkbox(wxString title, wxWindow *parent, wxString tooltip, int padding_left, std::string param);
     wxBoxSizer *create_item_darkmode_checkbox(wxString title, wxWindow *parent, wxString tooltip, int padding_left, std::string param);
+    wxBoxSizer *create_item_easymode_checkbox(wxString title, wxWindow *parent, wxString tooltip, int padding_left, std::string param);
     wxBoxSizer* create_item_arrange_checkbox(wxString title, wxWindow* parent, int padding_left, std::string param);
     wxBoxSizer* create_item_zoom_to_mouse_checkbox(wxString title, wxWindow* parent, wxString tooltip, int padding_left, std::string param);
 

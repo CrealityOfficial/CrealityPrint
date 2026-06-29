@@ -22,6 +22,7 @@
 
 #include "mcut/internal/math.h"
 #include <algorithm> // std::sort
+#include <cstdint>
 #include <cstdlib>
 #include <tuple> // std::make_tuple std::get<>
 

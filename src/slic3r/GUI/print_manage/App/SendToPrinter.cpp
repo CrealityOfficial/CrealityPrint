@@ -124,17 +124,20 @@ CxSentToPrinterDialog::CxSentToPrinterDialog(Plater *plater,
     topsizer->Add(m_browser, 1, wxEXPAND | wxALL, 0);
     std::string version = std::string(CREALITYPRINT_VERSION);
     std::string os      = wxGetOsDescription().ToStdString();
+    std::string type    = std::string(PROJECT_VERSION_EXTRA);
     int port = wxGetApp().get_server_port();
 //#define _DEBUG1
 #ifdef _DEBUG1
-    wxString url = wxString::Format("http://localhost:5174/?version=%s&port=%d&sendtype=%d&map=%s&os=%s", version, port,(int)m_sendtype,m_mapString, os);
+    wxString url = wxString::Format("http://localhost:5174/?version=%s&port=%d&sendtype=%d&map=%s&os=%s&type=%s", version, port,
+                                    (int) m_sendtype, m_mapString, os, type);
     this->load_url(url, wxString());
     m_browser->EnableAccessToDevTools();
 #else
 
     // wxString url = wxString::Format("file://%s/web/sendToPrinterPage/index.html", from_u8(resources_dir()));
     // this->load_url(wxString(url), wxString());
-    wxString url = wxString::Format("%s/web/sendToPrinterPage/index.html?version=%s&port=%d&sendtype=%d&os=%s", from_u8(resources_dir()),version, port,(int)m_sendtype, os);
+    wxString url = wxString::Format("%s/web/sendToPrinterPage/index.html?version=%s&port=%d&sendtype=%d&os=%s&type=%s",
+                                    from_u8(resources_dir()), version, port, (int) m_sendtype, os, type);
     url.Replace(wxT("\\"), wxT("/"));
     url.Replace(wxT("#"), wxT("%23"));
     wxURI uri(url);
@@ -167,6 +170,7 @@ CxSentToPrinterDialog::~CxSentToPrinterDialog()
     DM::AppMgr::Ins().UnRegister(m_browser);
     restore_extruder_colors();
     UnregisterHandler("register_complete");
+    UnregisterHandler("request_onlygcode_plate_data_on_show");
     UnregisterHandler("send_gcode");
     UnregisterHandler("send_3mf");
     UnregisterHandler("cancel_send");
@@ -193,6 +197,7 @@ void CxSentToPrinterDialog::OnCloseWindow(wxCloseEvent& event)
     m_isClosed = true;
     if(m_uploadingIp!=wxEmptyString)
     {
+        m_send_was_canceled = true;
         RemotePrint::RemotePrinterManager::getInstance().cancelUpload(m_uploadingIp.ToStdString());
         event.Skip(false);
     }else{
@@ -211,6 +216,11 @@ void CxSentToPrinterDialog::bind_events()
 
     RegisterHandler("register_complete", [this](const nlohmann::json& json_data) {
         this->handle_register_complete(json_data);
+    });
+
+    RegisterHandler("request_onlygcode_plate_data_on_show", [this](const nlohmann::json& json_data) {
+        wxString strJS = wxString::Format("window.handleStudioCmd('%s');", from_u8(get_onlygcode_plate_data_on_show()));
+        run_script(strJS.ToStdString());
     });
 
     RegisterHandler("send_gcode", [this](const nlohmann::json& json_data) {
@@ -727,6 +737,18 @@ std::string CxSentToPrinterDialog::build_match_color_cmd_info(int plateIndex, co
                 filament_types.emplace_back(filament_type);
             }
         }
+        // Append types for mixed (virtual) filaments to stay in sync with
+        // m_backup_extruder_colors which already includes mixed display colors.
+        const auto& mixed = wxGetApp().preset_bundle->mixed_filaments.mixed_filaments();
+        size_t      num_physical = filament_types.size();
+        for (const auto& mf : mixed) {
+            if (!mf.enabled || mf.deleted)
+                continue;
+            if (mf.component_a >= 1 && mf.component_a <= num_physical)
+                filament_types.emplace_back(filament_types[mf.component_a - 1]);
+            else
+                filament_types.emplace_back("PLA");
+        }
     }
 
     nlohmann::json           plate_extruder_colors_json     = nlohmann::json::array();
@@ -736,7 +758,8 @@ std::string CxSentToPrinterDialog::build_match_color_cmd_info(int plateIndex, co
     }
     if (plate_extruders.size() > 0) {
         for (const auto& extruder : plate_extruders) {
-            if(m_backup_extruder_colors.size() > (extruder-1)) {
+            if(m_backup_extruder_colors.size() > (extruder-1) &&
+               filament_types.size()          > (extruder-1)) {
                 nlohmann::json extruder_info = {
                     {"extruder_id", extruder}, 
                     {"extruder_color", m_backup_extruder_colors[extruder - 1]},
@@ -836,8 +859,13 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
         temp_path /= (boost::format(".%1%.%2%_upload.3mf") % get_current_pid() % plateIndex).str();
 
         tmp_3mf_path = temp_path.string();
-        int         result       = m_plater->export_3mf(tmp_3mf_path, SaveStrategy::UploadToPrinter);
+
+        // 不传 plate_idx（用默认值 -1 = PLATE_CURRENT_IDX），让 store_to_3mf_structure
+        // 把所有盘的 gcode 都打进 3mf 包（与"导出所有切片文件"行为一致）。
+        // export_3mf 内部会为每个盘共享同一时间戳生成 task_id 并写入对应 gcode。
+        int result = m_plater->export_3mf(tmp_3mf_path, SaveStrategy::UploadToPrinter);
         if (result < 0) {
+            BOOST_LOG_TRIVIAL(warning) << "handle_send_3mf: export_3mf failed";
             return;
         }
     }
@@ -863,6 +891,7 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
     RemotePrint::RemotePrinterManager::getInstance().pushUploadTasks(
         ipAddress.ToStdString(), upload3mfName, tmp_3mf_path,
         [this, json_data](std::string ip, float progress,double speed) {
+            if (m_isClosed) return;   // 对话框已关闭，丢弃进度更新
             nlohmann::json top_level_json;
             top_level_json["printer_ip"] = ip;
             top_level_json["progress"]   = progress;
@@ -965,6 +994,7 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
 void CxSentToPrinterDialog::handle_cancel_send(const nlohmann::json& json_data) {
     int      plateIndex = json_data["plateIndex"];
     wxString ipAddress  = json_data["ipAddress"];
+    m_send_was_canceled = true;
     RemotePrint::RemotePrinterManager::getInstance().cancelUpload(ipAddress.ToStdString());
 
     // Send print_send analytics event for cancel case
@@ -1068,6 +1098,20 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
             gcodeFilePath = _L(plate->get_tmp_gcode_path()).ToUTF8();
         }
         
+        // Release GCodeViewer file mapping lock before replacing task_id placeholder
+        {
+            // Release GCodeViewer's mapped_file_source (same as export_3mf flow)
+            m_plater->get_preview_canvas3D()->get_gcode_viewer().release_gcode_file_mapping();
+            
+            // 每次发送直接生成新的 task_id（用当前时间戳），写入 GCode 并缓存
+            auto& tracker = AnalyticsDataUploadManager::ProjectModificationTracker::getInstance();
+            int display_plate_id = plateIndex + 1;
+            std::string task_id = tracker.generate_task_id(display_plate_id);
+            tracker.replace_task_id_placeholder_in_gcode(gcodeFilePath, task_id);
+            tracker.set_plate_task_id(plateIndex, task_id);
+            tracker.set_current_task_id(task_id);
+        }
+        
         m_uploadingIp = ipAddress;
         RemotePrint::RemotePrinterManager::getInstance().pushUploadTasks(
             ipAddress.ToStdString(), uploadName, gcodeFilePath,
@@ -1102,7 +1146,6 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
                 } else if (statusCode != 0) {
                     fire_print_send_event(json_data, std::to_string(statusCode));
                 }
-
                 nlohmann::json top_level_json;
                 top_level_json["status_code"]  = statusCode;
                 if (is_wan_upload && !uploadTaskId.empty())
@@ -1393,6 +1436,9 @@ std::string CxSentToPrinterDialog::get_onlygcode_plate_data_on_show()
             json_array.push_back(json_data);
 
         }else if (!current_result->filename.empty()){
+            boost::filesystem::path gcode_path(current_result->filename);
+            json_data["upload_gcode__name"] = gcode_path.filename().string();
+
             if (plate && plate->thumbnail_data.is_valid()) {
                 wxImage image(plate->thumbnail_data.width, plate->thumbnail_data.height);
                 image.InitAlpha();
@@ -1509,7 +1555,9 @@ void CxSentToPrinterDialog::fire_print_send_event(const nlohmann::json& frontend
     BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": error_code - " << error_code << "  m_print_send_fired " << m_print_send_fired;
     boost::log::core::get()->flush();
     
-    if (m_print_send_fired) return;
+    if (m_print_send_fired) {
+        return;
+    }
     m_print_send_fired = true;
 
     AnalyticsEventPayload payload;
@@ -1536,24 +1584,25 @@ void CxSentToPrinterDialog::fire_print_send_event(const nlohmann::json& frontend
     
     payload.data = data;
 
-    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": Analytics payload - " << payload.data.dump();
-    boost::log::core::get()->flush();
-
+    // 原逻辑：发送到谷歌事件平台
     AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
+    
+    // Send to Creality Cloud (Sensors Analytics) — only on upload success
+    if (data["error_code"] == "OK") {
+        // Frontend sends "plateIndex" for send_gcode, "printPlateIndex" for send_3mf
+        int plate_idx = frontend_data.value("plateIndex", frontend_data.value("printPlateIndex", 0));
+        AnalyticsDataUploadManager::getInstance().send_print_send_event(plate_idx);
+    }
 }
 
 void CxSentToPrinterDialog::fire_print_begin_event(const nlohmann::json& json_data)
 {
-    // Log the raw json_data to see its structure
-    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": RAW json_data - " << json_data.dump();
-    boost::log::core::get()->flush();
-    
     AnalyticsEventPayload payload;
     payload.type = AnalyticsDataEventType::ANALYTICS_PRINT_BEGIN;
-    
+
     // Extract parameters from json_data["data"]
     nlohmann::json data;
-    
+
     // Get the "data" field first (where actual parameters are located)
     nlohmann::json data_field;
     if (json_data.contains("data") && !json_data["data"].is_null()) {
@@ -1569,7 +1618,10 @@ void CxSentToPrinterDialog::fire_print_begin_event(const nlohmann::json& json_da
             data_field = json_data["data"];
         }
     }
-    
+
+    // Extract plate_index from frontend data
+    int plate_idx = data_field.value("plate_index", 0);
+
     // Build event data from frontend JSON (empty string if field not provided)
     data["printer"] = data_field.value("printer", "");           // Printer model from frontend
     data["calibration"] = data_field.value("calibration", "");   // "0" or "1" from frontend
@@ -1579,13 +1631,12 @@ void CxSentToPrinterDialog::fire_print_begin_event(const nlohmann::json& json_da
     data["filament_device"] = data_field.value("filament_device", ""); // From frontend
     data["entry"] = data_field.value("entry", "");               // Entry point from frontend
     data["error_code"] = data_field.value("error_code", "");     // Error code from frontend
-    
+
     payload.data = data;
 
-    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": Analytics payload - " << payload.data.dump();
-    boost::log::core::get()->flush();
-
+    // 原逻辑：发送到谷歌事件平台
     AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
+    
 }
 
 std::string CxSentToPrinterDialog::get_plate_data_on_show()
@@ -1695,7 +1746,7 @@ std::string CxSentToPrinterDialog::get_plate_data_on_show()
                 
                 if (plate_extruders.size() > 0) {
                     default_gcode_name = obj0_name + "_" + filament_types[plate_extruders[0] - 1] + "_" +
-                                         get_bbl_time_dhms(plate_time_mode.time);
+                                         get_bbl_time_dhms(plate_time_mode.model_time_s());
                 } else {
                     default_gcode_name = "plate" + std::to_string(i + 1);
                 }
@@ -1789,7 +1840,10 @@ void CxSentToPrinterDialog::run_script(std::string content)
 
 void CxSentToPrinterDialog::post_script(const wxString& script)
 {
+    if (m_isClosed) return;   // 对话框已关闭，丢弃投递
+
     CallAfter([this, script]() {
+        if (m_isClosed) return;   // 投递后才关闭的情况
         if (m_browser == nullptr || m_browser->IsBeingDeleted())
             return;
 
@@ -1929,12 +1983,14 @@ void CxSentToPrinterDialog::get_gcode_display_info(wxString& total_weight_str, w
     {
         GCodeProcessorResult* gcode_process_result = m_plater->get_partplate_list().get_current_slice_result();
         if (gcode_process_result) {
-            print_time = wxString::Format("%s", short_time(get_time_dhms(gcode_process_result->print_statistics.modes[0].time)));
+            const auto& mode = gcode_process_result->print_statistics.modes[0];
+            print_time = wxString::Format("%s", short_time(get_time_dhms(mode.model_time_s())));
         }
     }
     else {
         if (plate->get_slice_result()) { 
-            print_time = wxString::Format("%s", short_time(get_time_dhms(plate->get_slice_result()->print_statistics.modes[0].time))); 
+            const auto& mode = plate->get_slice_result()->print_statistics.modes[0];
+            print_time = wxString::Format("%s", short_time(get_time_dhms(mode.model_time_s()))); 
         }
     }
 

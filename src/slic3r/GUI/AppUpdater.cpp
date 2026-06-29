@@ -1,6 +1,7 @@
 #include "AppUpdater.hpp"
 #include "GUI_App.hpp"
 #include "MainFrame.hpp"
+#include "Widgets/WebView.hpp"
 #include "slic3r/GUI/I18N.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/common_header/common_header.h"
@@ -774,16 +775,24 @@ void AppUpdater::install_update()
          std::wstring wdark_mode = boost::nowide::widen(dark_mode);
          std::string language = wxGetApp().app_config->get("language");
          std::wstring wlanguage = boost::nowide::widen(language);
+         std::wstring wDataDir = boost::nowide::widen(Slic3r::data_dir());
 
          std::wstring params =
              L"--install-dir=\"" + winstall_dir +
              L"\" --current-version=\"" + wversion +
              L"\" --manual-url=\"" + wmanual_url +
              L"\" --dark-mode=\"" + wdark_mode +
-             L"\" --language=\"" + wlanguage + L"\"";
+             L"\" --language=\"" + wlanguage +
+             L"\" --data-dir=\"" + wDataDir + L"\"";
          
          BOOST_LOG_TRIVIAL(info) << "AppUpdater: Launching " << boost::nowide::narrow(updater_dest.wstring()) << " with params " << boost::nowide::narrow(params);
          
+         // Destroy all WebView instances and wait for msedgewebview2.exe child
+         // processes to fully exit before launching the updater. This releases
+         // any file locks on the WebView2 user data folder and ensures the
+         // updater can rename the install directory without access-denied errors.
+         ::WebView::DestroyAll();
+
          ShellExecuteW(NULL, L"open", wupdater.c_str(), params.c_str(), NULL, SW_SHOWNORMAL);
          
          // Close main app

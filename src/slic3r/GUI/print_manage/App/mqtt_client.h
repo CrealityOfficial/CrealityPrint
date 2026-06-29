@@ -23,6 +23,7 @@ public:
     
     // 连接状态回调函数类型
     using ConnectionCallback = std::function<void(bool connected)>;
+    using ConnectionLostCallback = std::function<void(const std::string& cause)>;
 
     /**
      * @brief 构造函数
@@ -95,12 +96,24 @@ public:
      * @param callback 回调函数
      */
     void setConnectionCallback(ConnectionCallback callback);
+
+    /**
+     * @brief 设置连接断开回调
+     * @param callback 回调函数
+     */
+    void setConnectionLostCallback(ConnectionLostCallback callback);
     
     /**
      * @brief 检查是否已连接
      * @return 连接状态
      */
     bool isConnected() const;
+
+    /**
+     * @brief 获取最近一次错误信息
+     * @return 错误文本
+     */
+    std::string getLastError() const;
 
 private:
     // 内部回调处理类
@@ -131,9 +144,11 @@ private:
     
     // 连接状态回调
     ConnectionCallback connection_callback_;
+    ConnectionLostCallback connection_lost_callback_;
     
     // 连接选项
     mqtt::connect_options conn_opts_;
+    std::string last_error_;
 };
 
 #endif // MQTT_CLIENT_H

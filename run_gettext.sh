@@ -31,8 +31,8 @@ if [ $FULL_MODE -eq 1 ]; then
     done
     
     echo "Get the list of files to .pot"
-    ./tools/xgettext --keyword=L --keyword=_L --keyword=_u8L --keyword=_L_ZH --keyword=L_CONTEXT:1,2c --keyword=_L_PLURAL:1,2 --add-comments=TRN --from-code=UTF-8 --no-location --debug --boost -f "$TEMP_FILE" -o ./localization/i18n/CrealityPrint.pot
-    build/src/hints/Release/hintsToPot ./resources ./localization/i18n
+    xgettext --keyword=L --keyword=_L --keyword=_u8L --keyword=_L_ZH --keyword=L_CONTEXT:1,2c --keyword=_L_PLURAL:1,2 --add-comments=TRN --from-code=UTF-8 --no-location --debug --boost -f "$TEMP_FILE" -o ./localization/i18n/CrealityPrint.pot
+    #build/src/hints/Release/hintsToPot ./resources ./localization/i18n
 fi
 
 # Print the current directory

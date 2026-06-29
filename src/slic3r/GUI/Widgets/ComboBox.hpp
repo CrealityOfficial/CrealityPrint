@@ -33,6 +33,8 @@ public:
 
     DropDown & GetDropDown() { return drop; }
 
+    void EnableAutoPopupDirection(bool enable = true);
+
     virtual bool SetFont(wxFont const & font) override;
 
 public:

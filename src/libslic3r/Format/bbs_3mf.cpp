@@ -12,6 +12,7 @@
 #include "../GCode/ThumbnailData.hpp"
 #include "../Semver.hpp"
 #include "../Time.hpp"
+#include "../MixedFilament.hpp"
 
 #include "../I18N.hpp"
 #include "boost/date_time/posix_time/posix_time_duration.hpp"
@@ -589,6 +590,462 @@ bool bbs_is_valid_object_type(const std::string& type)
 
 namespace Slic3r {
 
+struct Creality3MFConfigInfo
+{
+    bool        has_config { false };
+    bool        is_creality { false };
+    std::string app_version;
+};
+
+static std::string creality_config_metadata_attr(const std::string &tag, const char *attr)
+{
+    std::regex  attr_re(std::string("\\b") + attr + "\\s*=\\s*\"([^\"]*)\"", std::regex_constants::icase);
+    std::smatch match;
+    return std::regex_search(tag, match, attr_re) ? xml_unescape(match[1].str()) : std::string();
+}
+
+static std::string creality_config_metadata_value(const std::string &xml, const std::string &key)
+{
+    const std::regex tag_re(R"(<\s*metadata\b[^>]*>)", std::regex_constants::icase);
+    for (std::sregex_iterator it(xml.begin(), xml.end(), tag_re), end; it != end; ++it) {
+        const std::string tag = it->str();
+        if (creality_config_metadata_attr(tag, KEY_ATTR) == key)
+            return creality_config_metadata_attr(tag, VALUE_ATTR);
+    }
+    return {};
+}
+
+static bool parse_major_minor_version(const std::string &version, int &major, int &minor)
+{
+    major = 0;
+    minor = 0;
+    const std::regex number_re(R"((\d+))");
+    std::sregex_iterator it(version.begin(), version.end(), number_re), end;
+    if (it == end)
+        return false;
+    try {
+        major = std::stoi((*it)[1].str());
+        if (++it != end)
+            minor = std::stoi((*it)[1].str());
+    } catch (...) {
+        return false;
+    }
+    return true;
+}
+
+static bool creality_app_version_less_than(const std::string &version, int min_major, int min_minor)
+{
+    int major = 0;
+    int minor = 0;
+    if (!parse_major_minor_version(version, major, minor))
+        return true;
+    return major < min_major || (major == min_major && minor < min_minor);
+}
+
+static Creality3MFConfigInfo parse_creality_3mf_config(const std::string &xml)
+{
+    Creality3MFConfigInfo info;
+    info.has_config  = true;
+    info.app_version = creality_config_metadata_value(xml, "AppVersion");
+
+    const std::string company     = creality_config_metadata_value(xml, "Company");
+    const std::string application = creality_config_metadata_value(xml, "Application");
+    info.is_creality = boost::algorithm::iequals(company, std::string(SLIC3R_APP_KEY)) ||
+                       boost::algorithm::iequals(application, appName3mf) ||
+                       boost::algorithm::istarts_with(application, "Creality_Print");
+    return info;
+}
+
+static Creality3MFConfigInfo read_creality_3mf_config_from_archive(mz_zip_archive &archive)
+{
+    Creality3MFConfigInfo info;
+    int index = mz_zip_reader_locate_file(&archive, CREALITY_CONFIG_FILE.c_str(), nullptr, 0);
+    if (index < 0)
+        return info;
+
+    info.has_config = true;
+    mz_zip_archive_file_stat stat;
+    if (!mz_zip_reader_file_stat(&archive, index, &stat) || stat.m_uncomp_size == 0 || stat.m_uncomp_size > 1024 * 1024)
+        return info;
+
+    std::string xml(static_cast<size_t>(stat.m_uncomp_size), '\0');
+    if (!mz_zip_reader_extract_to_mem(&archive, stat.m_file_index, (void *) xml.data(), xml.size(), 0))
+        return info;
+    return parse_creality_3mf_config(xml);
+}
+
+static bool should_migrate_legacy_role_filament_defaults(const Creality3MFConfigInfo &info)
+{
+    if (!info.has_config || !info.is_creality)
+        return true;
+    return creality_app_version_less_than(info.app_version, 7, 2);
+}
+
+static constexpr bool ENABLE_LEGACY_ROLE_FILAMENT_MIGRATION = false;
+
+static bool has_legacy_role_filament_defaults(const DynamicPrintConfig &config)
+{
+    const auto *wall   = config.option<ConfigOptionInt>("wall_filament");
+    const auto *sparse = config.option<ConfigOptionInt>("sparse_infill_filament");
+    const auto *solid  = config.option<ConfigOptionInt>("solid_infill_filament");
+    return wall != nullptr && sparse != nullptr && solid != nullptr &&
+           wall->value == 1 && sparse->value == 1 && solid->value == 1;
+}
+
+static bool migrate_legacy_role_filament_defaults(DynamicPrintConfig &config)
+{
+    if (!has_legacy_role_filament_defaults(config))
+        return false;
+    config.set_key_value("wall_filament", new ConfigOptionInt(0));
+    config.set_key_value("sparse_infill_filament", new ConfigOptionInt(0));
+    config.set_key_value("solid_infill_filament", new ConfigOptionInt(0));
+    return true;
+}
+
+static bool migrate_legacy_role_filament_defaults(ModelConfig &config)
+{
+    if (!has_legacy_role_filament_defaults(config.get()))
+        return false;
+    config.set_key_value("wall_filament", new ConfigOptionInt(0));
+    config.set_key_value("sparse_infill_filament", new ConfigOptionInt(0));
+    config.set_key_value("solid_infill_filament", new ConfigOptionInt(0));
+    return true;
+}
+
+static size_t migrate_legacy_role_filament_defaults(Model &model)
+{
+    size_t migrated = 0;
+    for (ModelObject *object : model.objects) {
+        if (migrate_legacy_role_filament_defaults(object->config))
+            ++migrated;
+        for (auto &range_config : object->layer_config_ranges)
+            if (migrate_legacy_role_filament_defaults(range_config.second))
+                ++migrated;
+        for (ModelVolume *volume : object->volumes)
+            if (migrate_legacy_role_filament_defaults(volume->config))
+                ++migrated;
+    }
+    return migrated;
+}
+
+// Helper function to get physical filament count from project config
+static size_t physical_filament_count_from_project_config(const DynamicPrintConfig &config)
+{
+    if (const auto *opt = config.option<ConfigOptionStrings>("filament_colour"); opt != nullptr && !opt->values.empty())
+        return opt->values.size();
+    if (const auto *opt = config.option<ConfigOptionStrings>("filament_settings_id"); opt != nullptr && !opt->values.empty())
+        return opt->values.size();
+    if (const auto *opt = config.option<ConfigOptionStrings>("filament_ids"); opt != nullptr && !opt->values.empty())
+        return opt->values.size();
+    if (const auto *opt = config.option<ConfigOptionStrings>("default_filament_colour"); opt != nullptr && !opt->values.empty())
+        return opt->values.size();
+    if (const auto *opt = config.option<ConfigOptionFloats>("nozzle_diameter"); opt != nullptr && !opt->values.empty())
+        return opt->values.size();
+    return 0;
+}
+
+// Helper function to get max supported filament ID including mixed filaments
+static int max_supported_filament_id_from_project_config(const DynamicPrintConfig &config)
+{
+    const size_t physical_count = physical_filament_count_from_project_config(config);
+    if (physical_count == 0)
+        return std::numeric_limits<int>::max();
+
+    std::vector<std::string> physical_colors;
+    if (const auto *opt = config.option<ConfigOptionStrings>("filament_colour"); opt != nullptr)
+        physical_colors = opt->values;
+    else if (const auto *opt = config.option<ConfigOptionStrings>("default_filament_colour"); opt != nullptr)
+        physical_colors = opt->values;
+    if (physical_colors.size() < physical_count)
+        physical_colors.resize(physical_count, "#FFFFFF");
+    else if (physical_colors.size() > physical_count)
+        physical_colors.resize(physical_count);
+
+    size_t max_filament_id = physical_count;
+    if (physical_count >= 2) {
+        if (const auto *mixed_defs_opt = config.option<ConfigOptionString>("mixed_filament_definitions");
+            mixed_defs_opt != nullptr && !mixed_defs_opt->value.empty()) {
+            MixedFilamentManager mixed_mgr;
+            mixed_mgr.auto_generate(physical_colors);
+            mixed_mgr.load_custom_entries(mixed_defs_opt->value, physical_colors);
+            max_filament_id = mixed_mgr.total_filaments(physical_count);
+        }
+    }
+
+    return max_filament_id >= size_t(std::numeric_limits<int>::max()) ? std::numeric_limits<int>::max() : int(max_filament_id);
+}
+
+// Bambu Studio stores a mixed filament as an extra entry in filament_colour
+// alongside parallel string arrays: filament_is_mixed,
+// filament_mixed_components, filament_mixed_sublayer_ratios,
+// filament_mixed_gradient, filament_mixed_gradient_range. CrealityPrint
+// instead keeps filament_colour for physical filaments only and encodes
+// mixed entries as a serialized string in mixed_filament_definitions.
+//
+// CrealityPrint's PrintConfig does not register the Bambu-private keys, so
+// load_from_json silently drops them via handle_legacy() before they reach
+// the DynamicPrintConfig. This rewrite therefore runs at the JSON file
+// layer, before load_from_json: it parses the raw project_settings.config,
+// synthesizes the Creality-format keys, shrinks every parallel filament_*
+// string array to drop the mixed slots, then writes the JSON back.
+// No-op when the file already has mixed_filament_definitions (Creality
+// origin) or has no mixed slots at all.
+//
+// Bambu->Creality semantic mapping per mixed slot:
+//   - 2-component static mix (gradient=0): emit as auto-pair row (custom=0,
+//     origin_auto=1, m=Simple); mix_b_percent derived from ratios.
+//   - 2-component gradient mix (gradient=1): same as above but m=LayerCycle.
+//   - 3+ component mix: emit with gradient_component_ids (compact digits)
+//     and gradient_component_weights ("p1/p2/p3"). a,b are first two IDs.
+//   - When multiple Bambu slots share the same canonical (a,b) pair, the
+//     first one consumes the auto pair (custom=0); the rest are emitted as
+//     custom=1 rows so the panel shows them as distinct entries.
+static void normalize_bambu_mixed_filaments_json_file(const std::string &json_path)
+{
+    nlohmann::json j;
+    try {
+        boost::nowide::ifstream ifs(json_path);
+        if (!ifs) return;
+        ifs >> j;
+    } catch (...) {
+        return;
+    }
+    if (!j.is_object()) return;
+
+    if (auto it = j.find("mixed_filament_definitions");
+        it != j.end() && it->is_string() && !it->get<std::string>().empty())
+        return;
+
+    auto get_string_array = [&](const std::string &key) -> nlohmann::json* {
+        auto it = j.find(key);
+        if (it == j.end() || !it->is_array()) return nullptr;
+        return &(*it);
+    };
+
+    nlohmann::json *colour         = get_string_array("filament_colour");
+    if (colour == nullptr || colour->size() < 2) return;
+
+    nlohmann::json *is_mixed       = get_string_array("filament_is_mixed");
+    nlohmann::json *components     = get_string_array("filament_mixed_components");
+    nlohmann::json *ratios         = get_string_array("filament_mixed_sublayer_ratios");
+    nlohmann::json *gradient       = get_string_array("filament_mixed_gradient");
+    nlohmann::json *gradient_range = get_string_array("filament_mixed_gradient_range");
+
+    auto string_at = [](nlohmann::json *arr, size_t i) -> std::string {
+        if (arr == nullptr || i >= arr->size()) return std::string();
+        const auto &v = (*arr)[i];
+        return v.is_string() ? v.get<std::string>() : std::string();
+    };
+    auto is_slot_mixed = [&](size_t i) {
+        if (is_mixed != nullptr && i < is_mixed->size())
+            return string_at(is_mixed, i) == "1";
+        if (components != nullptr && i < components->size())
+            return !string_at(components, i).empty();
+        return false;
+    };
+
+    std::vector<size_t> mixed_indices;
+    for (size_t i = 0; i < colour->size(); ++i)
+        if (is_slot_mixed(i)) mixed_indices.push_back(i);
+    if (mixed_indices.empty()) return;
+
+    auto split_csv_uint = [](const std::string &spec, std::vector<unsigned int> &out) {
+        out.clear();
+        size_t pos = 0;
+        while (pos < spec.size()) {
+            size_t next = spec.find(',', pos);
+            if (next == std::string::npos) next = spec.size();
+            try {
+                out.push_back(static_cast<unsigned int>(std::stoul(spec.substr(pos, next - pos))));
+            } catch (...) { out.clear(); return; }
+            pos = next + 1;
+        }
+    };
+    auto split_csv_double = [](const std::string &spec, std::vector<double> &out) {
+        out.clear();
+        size_t pos = 0;
+        while (pos < spec.size()) {
+            size_t next = spec.find(',', pos);
+            if (next == std::string::npos) next = spec.size();
+            try {
+                out.push_back(std::stod(spec.substr(pos, next - pos)));
+            } catch (...) { out.clear(); return; }
+            pos = next + 1;
+        }
+    };
+
+    std::ostringstream defs;
+    int      gradient_mode  = 0;
+    float    gradient_lower = 0.04f;
+    float    gradient_upper = 0.16f;
+    bool     gradient_range_seen = false;
+    uint64_t next_stable_id = 1;
+    bool     first_row = true;
+    std::set<uint64_t> consumed_pairs;
+
+    auto canonical_pair = [](unsigned int a, unsigned int b) -> uint64_t {
+        unsigned int lo = std::min(a, b), hi = std::max(a, b);
+        return (uint64_t(lo) << 32) | uint64_t(hi);
+    };
+
+    for (size_t idx : mixed_indices) {
+        std::vector<unsigned int> comps;
+        split_csv_uint(string_at(components, idx), comps);
+        if (comps.size() < 2) continue;
+        unsigned int a = comps[0], b = comps[1];
+        if (a == 0 || b == 0 || a == b) continue;
+
+        std::vector<double> rs;
+        split_csv_double(string_at(ratios, idx), rs);
+
+        // 2-component mix_b_percent from r_b/(r_a+r_b)*100.
+        int mix_b_percent = 50;
+        if (comps.size() == 2 && rs.size() == 2) {
+            double sum = rs[0] + rs[1];
+            if (sum > 1e-6)
+                mix_b_percent = std::max(0, std::min(100, int(rs[1] / sum * 100.0 + 0.5)));
+        }
+
+        // Per-slot gradient flag -> per-row distribution_mode + global gradient_mode.
+        bool slot_is_gradient = false;
+        {
+            const std::string g = string_at(gradient, idx);
+            if (!g.empty()) {
+                try { slot_is_gradient = (std::stoi(g) != 0); } catch (...) {}
+            }
+        }
+        if (slot_is_gradient) gradient_mode = 1;
+        // 3+ component Bambu mixes are encoded through gradient_component_ids/weights.
+        // They must not be downgraded to Simple mode, otherwise runtime resolution falls
+        // back to component_a/component_b and silently drops the extra colors.
+        const int dist_mode = (comps.size() >= 3 || slot_is_gradient) ? 0 /*LayerCycle*/ : 2 /*Simple*/;
+
+        // Gradient range "low,high"; last non-empty wins.
+        {
+            const std::string spec = string_at(gradient_range, idx);
+            const auto comma = spec.find(',');
+            if (comma != std::string::npos) {
+                try {
+                    float lo = std::stof(spec.substr(0, comma));
+                    float hi = std::stof(spec.substr(comma + 1));
+                    if (hi >= lo) {
+                        gradient_lower = lo;
+                        gradient_upper = hi;
+                        gradient_range_seen = true;
+                    }
+                } catch (...) {}
+            }
+        }
+
+        // Compact gradient_component_ids + weights for 3+ component mixes.
+        std::string g_ids;
+        std::string g_weights;
+        if (comps.size() >= 3) {
+            for (unsigned int c : comps) {
+                if (c >= 1 && c <= 9) g_ids.push_back(char('0' + int(c)));
+            }
+            if (rs.size() == comps.size()) {
+                double tot = 0.0;
+                for (double r : rs) tot += r;
+                if (tot > 1e-6) {
+                    std::vector<int> pcts;
+                    pcts.reserve(rs.size());
+                    int sum_so_far = 0;
+                    for (size_t i = 0; i + 1 < rs.size(); ++i) {
+                        int p = std::max(1, int(rs[i] / tot * 100.0 + 0.5));
+                        pcts.push_back(p);
+                        sum_so_far += p;
+                    }
+                    pcts.push_back(std::max(1, 100 - sum_so_far));
+                    std::ostringstream ws;
+                    for (size_t i = 0; i < pcts.size(); ++i) {
+                        if (i) ws << '/';
+                        ws << pcts[i];
+                    }
+                    g_weights = ws.str();
+                }
+            }
+        }
+
+        // Always emit as user-custom rows (custom=1, origin_auto=0). Auto-generation
+        // is disabled globally, so the legacy "first slot fills the auto row" path no
+        // longer works (no auto row exists to merge into, and load_custom_entries would
+        // silently drop the row). Treat every Bambu mixed slot as a user entry.
+        const uint64_t key = canonical_pair(a, b);
+        (void)consumed_pairs.insert(key);
+        const int custom_flag = 1;
+        const int origin_auto = 0;
+
+        if (!first_row) defs << ';';
+        first_row = false;
+        defs << a << ',' << b
+             << ",1," << custom_flag << ',' << mix_b_percent
+             << ",0,g" << g_ids
+             << ",w" << g_weights
+             << ",m" << dist_mode
+             << ",d0"
+             << ",o" << origin_auto
+             << ",u" << next_stable_id++;
+    }
+
+    if (first_row) return;
+
+    std::sort(mixed_indices.begin(), mixed_indices.end(), std::greater<size_t>());
+    static const std::vector<std::string> parallel_keys = {
+        "filament_colour",
+        "filament_settings_id",
+        "filament_ids",
+        "filament_type",
+        "filament_is_support",
+        "default_filament_colour",
+        "filament_colour_type",
+        "filament_multi_colour",
+        "filament_is_mixed",
+        "filament_mixed_components",
+        "filament_mixed_sublayer_ratios",
+        "filament_mixed_gradient",
+        "filament_mixed_gradient_range",
+    };
+    for (const std::string &key : parallel_keys) {
+        if (auto it = j.find(key); it != j.end() && it->is_array()) {
+            for (size_t idx : mixed_indices)
+                if (idx < it->size()) it->erase(it->begin() + idx);
+        }
+    }
+
+    j["mixed_filament_definitions"]   = defs.str();
+    j["mixed_filament_gradient_mode"] = std::string(gradient_mode != 0 ? "1" : "0");
+    if (gradient_range_seen) {
+        std::ostringstream lo_s; lo_s << gradient_lower;
+        std::ostringstream hi_s; hi_s << gradient_upper;
+        j["mixed_filament_height_lower_bound"] = lo_s.str();
+        j["mixed_filament_height_upper_bound"] = hi_s.str();
+    }
+
+    for (const char *key : {"filament_is_mixed",
+                            "filament_mixed_components",
+                            "filament_mixed_sublayer_ratios",
+                            "filament_mixed_gradient",
+                            "filament_mixed_gradient_range",
+                            "filament_colour_type",
+                            "filament_multi_colour"}) {
+        j.erase(key);
+    }
+
+    try {
+        boost::nowide::ofstream ofs(json_path);
+        ofs << j.dump(4);
+    } catch (...) { return; }
+
+    BOOST_LOG_TRIVIAL(info)
+        << "normalize_bambu_mixed_filaments_json_file: collapsed "
+        << mixed_indices.size() << " mixed slot(s) in " << json_path
+        << ", physical_count=" << j["filament_colour"].size()
+        << ", definitions=\"" << defs.str() << "\""
+        << ", gradient_mode=" << gradient_mode
+        << ", range_seen=" << (gradient_range_seen ? 1 : 0);
+}
+
 void PlateData::parse_filament_info(GCodeProcessorResult *result)
 {
     if (!result) return;
@@ -1045,6 +1502,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         //BBS: plater related structures
         bool m_is_bbl_3mf { false };
         bool m_is_oldcreality_3mf { false };
+        Creality3MFConfigInfo m_creality_config_info;
+        bool m_migrate_legacy_role_filament_defaults { ENABLE_LEGACY_ROLE_FILAMENT_MIGRATION };
         bool m_parsing_slice_info { false };
         PlateDataMaps m_plater_data;
         PlateData* m_curr_plater;
@@ -1281,6 +1740,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         m_load_aux = strategy & LoadStrategy::LoadAuxiliary;
         m_load_restore = strategy & LoadStrategy::Restore;
         m_load_config = strategy & LoadStrategy::LoadConfig;
+        m_creality_config_info = Creality3MFConfigInfo();
+        m_migrate_legacy_role_filament_defaults = ENABLE_LEGACY_ROLE_FILAMENT_MIGRATION;
         m_model = &model;
         m_unit_factor = 1.0f;
         m_curr_object = nullptr;
@@ -1615,6 +2076,14 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         mz_zip_archive_file_stat stat;
 
         m_name = boost::filesystem::path(filename).stem().string();
+        m_creality_config_info = read_creality_3mf_config_from_archive(archive);
+        m_migrate_legacy_role_filament_defaults = ENABLE_LEGACY_ROLE_FILAMENT_MIGRATION &&
+                                                  should_migrate_legacy_role_filament_defaults(m_creality_config_info);
+        BOOST_LOG_TRIVIAL(info) << "3mf role filament migration: has_creality_config="
+                                << m_creality_config_info.has_config
+                                << ", is_creality=" << m_creality_config_info.is_creality
+                                << ", app_version=" << m_creality_config_info.app_version
+                                << ", migrate_legacy_defaults=" << m_migrate_legacy_role_filament_defaults;
 
         //BBS progress point
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ":" << __LINE__ << boost::format("import 3mf IMPORT_STAGE_READ_FILES\n");
@@ -2098,16 +2567,21 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             ++object_idx;
         }
 
-        const ConfigOptionStrings* filament_ids_opt = config.option<ConfigOptionStrings>("filament_settings_id");
-        int max_filament_id = filament_ids_opt ? filament_ids_opt->size() : std::numeric_limits<int>::max();
+        if (m_migrate_legacy_role_filament_defaults) {
+            const size_t migrated_configs = migrate_legacy_role_filament_defaults(model);
+            if (migrated_configs != 0)
+                BOOST_LOG_TRIVIAL(info) << "3mf role filament migration: migrated " << migrated_configs << " object/range/volume config(s)";
+        }
+
+        const int max_filament_id = max_supported_filament_id_from_project_config(config);
         for (ModelObject* mo : m_model->objects) {
             const ConfigOptionInt* extruder_opt = dynamic_cast<const ConfigOptionInt*>(mo->config.option("extruder"));
             int extruder_id = 0;
             if (extruder_opt != nullptr)
                 extruder_id = extruder_opt->getInt();
-
+            BOOST_LOG_TRIVIAL(warning) << "MF_DEBUG: read - extruder_id=" << extruder_id << ", max_filament_id=" << max_filament_id;
             if (extruder_id == 0 || extruder_id > max_filament_id)
-                mo->config.set_key_value("extruder", new ConfigOptionInt(1));
+                mo->config.set_key_value("extruder", new ConfigOptionInt(0));
 
             if (mo->volumes.size() == 1) {
                 mo->volumes[0]->config.erase("extruder");
@@ -2121,7 +2595,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     if (vol_extruder_opt->getInt() == 0)
                         mv->config.erase("extruder");
                     else if (vol_extruder_opt->getInt() > max_filament_id)
-                        mv->config.set_key_value("extruder", new ConfigOptionInt(1));
+                        mv->config.set_key_value("extruder", new ConfigOptionInt(0));
                 }
             }
         }
@@ -2720,11 +3194,16 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             }
             std::map<std::string, std::string> key_values;
             std::string reason;
+            // Rewrite Bambu Studio mixed-filament keys into Creality's mixed_filament_definitions before load_from_json.
+            // No-op for Creality-saved 3mfs and for files without mixed slots.
+            normalize_bambu_mixed_filaments_json_file(dest_file);
             int ret = config.load_from_json(dest_file, config_substitutions, true, key_values, reason);
             if (ret) {
                 add_error("Error load config from json:"+reason);
                 return;
             }
+            if (m_migrate_legacy_role_filament_defaults && migrate_legacy_role_filament_defaults(config))
+                BOOST_LOG_TRIVIAL(info) << "3mf role filament migration: migrated project config defaults";
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", load project config file successfully from %1%\n") %dest_file;
         }
     }
@@ -4935,8 +5414,11 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 // BBS: Pass UUID from 3MF to ModelVolume
                 volume->uuid = sub_object->uuid;
                 
+                // BBS: Pass 3dmodel.model object id to ModelVolume (for analytics reporting)
+                volume->from_loaded_id = sub_object->id;
+                
                 // BBS: Debug log for UUID verification
-                BOOST_LOG_TRIVIAL(warning) << "[UUID-Debug] ModelVolume created: object_uuid=" << object.uuid << ", volume_uuid=" << volume->uuid << ", sub_object_id=" << sub_object->id;
+                BOOST_LOG_TRIVIAL(warning) << "[UUID-Debug] ModelVolume created: object_uuid=" << object.uuid << ", volume_uuid=" << volume->uuid << ", from_loaded_id=" << volume->from_loaded_id;
 
                 if (shared_mesh_id != -1)
                     //for some cases the shared mesh is in other plate and not loaded in cli slicing
@@ -4948,6 +5430,9 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             else {
                 //create volume to use shared mesh
                 volume = object.add_volume_with_shared_mesh(*shared_volume);
+                // BBS: Pass UUID and from_loaded_id for shared mesh volume too
+                volume->uuid = sub_object->uuid;
+                volume->from_loaded_id = sub_object->id;
                 BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": line %1%, create volume using shared_mesh %2%")%__LINE__%shared_volume;
             }
             // stores the volume matrix taken from the metadata, if present

@@ -1,6 +1,6 @@
 app-id: io.github.crealityofficial.CrealityPrint
 runtime: org.gnome.Platform
-runtime-version: "48"
+runtime-version: "50"
 sdk: org.gnome.Sdk
 command: entrypoint
 separate-locales: true
@@ -24,10 +24,10 @@ finish-args:
   - --system-talk-name=org.freedesktop.UDisks2
   - --env=SPNAV_SOCKET=/run/spnav.sock
 sdk-extensions:
-  - org.freedesktop.Sdk.Extension.llvm18
+  - org.freedesktop.Sdk.Extension.llvm21
 build-options:
-    append-path: /usr/lib/sdk/llvm18/bin
-    prepend-ld-library-path: /usr/lib/sdk/llvm18/lib
+    append-path: /usr/lib/sdk/llvm21/bin
+    prepend-ld-library-path: /usr/lib/sdk/llvm21/lib
     env:
       CFLAGS: "-O3 -DNDEBUG"
       CXXFLAGS: "-O3 -DNDEBUG"
@@ -102,6 +102,9 @@ modules:
 
   - name: usrsctp
     buildsystem: cmake-ninja
+    build-options:
+      env:
+        CMAKE_POLICY_VERSION_MINIMUM: "3.5"
     sources:
       - type: archive
         url: https://github.com/sctplab/usrsctp/archive/refs/tags/0.9.4.0.tar.gz
@@ -121,6 +124,9 @@ modules:
   
   - name: creality_wxwidgets
     buildsystem: simple
+    build-options:
+      env:
+        CMAKE_POLICY_VERSION_MINIMUM: "3.5"
     build-commands:
       - |
         export CFLAGS=""
@@ -174,6 +180,9 @@ modules:
 
   - name: creality_deps
     buildsystem: simple
+    build-options:
+      env:
+        CMAKE_POLICY_VERSION_MINIMUM: "3.5"
     build-commands:
       # start build
       - |
@@ -191,7 +200,7 @@ modules:
           -DDESTDIR=/app \
           -DCMAKE_INSTALL_LIBDIR=/app/lib \
           -DFLATPAK=ON \
-          -DCMAKE_INSTALL_PREFIX=/app
+          -DCMAKE_INSTALL_PREFIX=/app \
           -DCMAKE_BUILD_TYPE=Release
         ninja -v
         #cd dexxxps/build
@@ -235,9 +244,9 @@ modules:
 
       # GMP
       - type: file
-        url: https://github.com/SoftFever/OrcaSlicer_deps/releases/download/gmp-6.2.1/gmp-6.2.1.tar.bz2
+        url: https://mirrors.aliyun.com/gnu/gmp/gmp-6.3.0.tar.xz
         dest: external-packages/GMP
-        sha256: eae9326beb4158c386e39a356818031bd28f3124cf915f8c5b1dc4c7a36b4d7c
+        sha256: a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898
 
       # curl
       - type: file
@@ -362,8 +371,17 @@ modules:
         dest: external-packages/MQTT
         sha256: c165960f64322de21697eb06efdca3d74cce90f45ff5ff0efdd968708e13ba0c
 
+      # ImatiSTL 1.0
+      - type: file
+        url: https://downloads.sourceforge.net/project/imatistl/ImatiSTL-4.2-4.zip
+        sha256: b337c04a3bbd0a88a10eec0e2e6729fbc0e09ee6b50679ca03049a21f1506710
+        dest: external-packages/ImatiSTL
+        
+
   - name: CrealityPrint 
     buildsystem: simple
+    env:
+        CMAKE_POLICY_VERSION_MINIMUM: "3.5"
     build-commands:
       - |
         export CFLAGS=""

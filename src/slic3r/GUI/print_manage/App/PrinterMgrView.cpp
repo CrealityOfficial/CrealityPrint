@@ -10,6 +10,7 @@
 #include "libslic3r/Thread.hpp"
 #include "libslic3r_version.h"
 
+#include <algorithm>
 #include <regex>
 #include <string>
 #include <wx/sizer.h>
@@ -17,6 +18,7 @@
 #include <wx/toolbar.h>
 #include <wx/textdlg.h>
 #include "wx/evtloop.h"
+#include <wx/thread.h>
 
 #include <slic3r/GUI/Widgets/WebView.hpp>
 #include <wx/webview.h>
@@ -66,6 +68,8 @@
 
 #include "../AppUtils.hpp"
 #endif
+#include "simple/sendWorkflow/EasyPrintSender.hpp"
+
 namespace pt = boost::property_tree;
 
 namespace Slic3r {
@@ -485,6 +489,7 @@ PrinterMgrView::PrinterMgrView(wxWindow *parent)
     });
     std::string version = std::string(CREALITYPRINT_VERSION);
     std::string os = wxGetOsDescription().ToStdString();
+    std::string type = std::string(PROJECT_VERSION_EXTRA);
     int port = wxGetApp().get_server_port();
     int customized = 0;
     #ifdef CUSTOMIZED
@@ -492,14 +497,15 @@ PrinterMgrView::PrinterMgrView(wxWindow *parent)
     #endif
 // #define _DEBUG1
 #ifdef _DEBUG1
-     wxString url = wxString::Format("http://localhost:5173/?version=%s&port=%d&os=%s&customized=%d", version, port, os, customized);
+        wxString url = wxString::Format("http://localhost:5173/?version=%s&port=%d&os=%s&customized=%d&type=%s", version, port, os,
+                                        customized, type);
         this->load_url(url, wxString());
          m_browser->EnableAccessToDevTools();
      #else
         //wxString url = wxString::Format("http://localhost:%d/deviceMgr/index.html", wxGetApp().get_server_port());
         
-        wxString url = wxString::Format("%s/web/deviceMgr/index.html?version=%s&port=%d&os=%s&customized=%d", from_u8(resources_dir()),
-                                        version, port, os, customized);
+        wxString url = wxString::Format("%s/web/deviceMgr/index.html?version=%s&port=%d&os=%s&customized=%d&type=%s", from_u8(resources_dir()),
+                                    version, port, os, customized, type);
         url.Replace(wxT("\\"), wxT("/"));
         url.Replace(wxT("#"), wxT("%23"));
         wxURI uri(url);
@@ -527,10 +533,10 @@ PrinterMgrView::PrinterMgrView(wxWindow *parent)
     //initMqtt();
  }
 inline int get_current_milliseconds(void) {
-    // 获取当前时间点
+    // ?????j?????
     auto now = std::chrono::system_clock::now();
   
-   // 将当前时间点转换为毫秒时间戳
+   // ????j??????????????????
    auto duration = now.time_since_epoch();
    auto timestamp_milliseconds =
        std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
@@ -585,13 +591,13 @@ void PrinterMgrView::initMqtt()
                 std::cout << "Connection status: " << (connected ? "Connected" : "Disconnected") << std::endl;
             });
             
-            // 连接到服务器
+            // ???????????
             if (!client->connect(username,password)) {
                 std::cerr << "Failed to connect to MQTT server" << std::endl;
                 return ;
             }
             
-             // 订阅主题并设置回调
+             // ???????????�??
             const std::string publishTopic = "v1/devices/me/rpc/request/";
             bool ret =client->subscribe(publishTopic+std::string("+"), 0, [&](const std::string& topic, const std::string& payload) {
                 std::cout << "Received message on topic '" << topic << "': " << payload << std::endl;
@@ -723,6 +729,32 @@ void PrinterMgrView::on_switch_to_device_page()
 {
     //update_which_device_is_current();
     forward_init_device_cmd_to_printer_list();
+
+    if(wxGetApp().easy_mode()) {
+        EasyPrintSender sender;
+        std::string     ip   = sender.getDeviceIp();
+        std::string     name = "";
+        if (ip.empty()) {
+            return;
+        }
+
+        // ?????????�????????????
+        static std::string lastIp;
+        static std::string lastName;
+
+        // ??????????????????????????
+        if (ip == lastIp && name == lastName) {
+            return;
+        }
+
+        lastIp   = ip;
+        lastName = name;
+
+        if (!ip.empty()) {
+            sender.jumpToDeviceDetail(ip, name);
+        }
+    }
+
 }
 
 void PrinterMgrView::reload()
@@ -937,6 +969,77 @@ void PrinterMgrView::sendAllProgressWithRateLimit()
         }
     });
 }
+
+bool PrinterMgrView::request_check_upload_file_ready(const std::string& printer_ip,
+                                                     const std::string& file_name,
+                                                     std::uint64_t file_size,
+                                                     int timeout_ms)
+{
+    if (printer_ip.empty() || file_name.empty() || file_size == 0)
+        return false;
+
+    if (wxIsMainThread()) {
+        BOOST_LOG_TRIVIAL(error) << "PrinterMgrView::request_check_upload_file_ready cannot wait on UI thread.";
+        return false;
+    }
+
+    const std::string request_id = "upload-file-ready-" + std::to_string(m_upload_file_ready_seq.fetch_add(1) + 1);
+    {
+        std::lock_guard<std::mutex> lock(m_upload_file_ready_mutex);
+        m_upload_file_ready_results[request_id] = UploadFileReadyCheckResult{};
+    }
+
+    nlohmann::json payload;
+    payload["request_id"] = request_id;
+    payload["printer_ip"] = printer_ip;
+    payload["file_name"] = file_name;
+    payload["file_size"] = file_size;
+
+    nlohmann::json commandJson;
+    commandJson["command"] = "check_upload_file_ready";
+    commandJson["data"] = payload;
+
+    const wxString strJS = wxString::Format(
+        "window.handleStudioCmd('%s');",
+        RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
+
+    wxGetApp().CallAfter([this, strJS]() {
+        try {
+            if (this == nullptr || this->IsBeingDeleted() || m_browser == nullptr)
+                return;
+            run_script(strJS.ToStdString());
+        } catch (...) {
+        }
+    });
+
+    std::unique_lock<std::mutex> lock(m_upload_file_ready_mutex);
+    const bool completed = m_upload_file_ready_cv.wait_for(
+        lock,
+        std::chrono::milliseconds(std::max(timeout_ms, 1)),
+        [&]() {
+            auto it = m_upload_file_ready_results.find(request_id);
+            return it != m_upload_file_ready_results.end() && it->second.completed;
+        });
+
+    bool ready = false;
+    std::string message;
+    auto it = m_upload_file_ready_results.find(request_id);
+    if (it != m_upload_file_ready_results.end()) {
+        ready = completed && it->second.ready;
+        message = it->second.message;
+        m_upload_file_ready_results.erase(it);
+    }
+
+    BOOST_LOG_TRIVIAL(info) << "PrinterMgrView::request_check_upload_file_ready"
+                            << " request_id=" << request_id
+                            << ", printer_ip=" << printer_ip
+                            << ", file_name=" << file_name
+                            << ", file_size=" << file_size
+                            << ", completed=" << completed
+                            << ", ready=" << ready
+                            << ", message=" << message;
+    return ready;
+}
 void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
 {
     try
@@ -1003,10 +1106,10 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
             bool oldPrinter = j["oldPrinter"];
             int  moonrakerPort = j["moonrakerPort"];
 
-            // 清除对应 IP 的旧触发标志，允许重新触发
+            // ??????? IP ?l????????????????�???
             m_print_send_fired_ips.erase(ipAddress);
 
-            // 根据文件扩展名判断格式
+            // ?????l???????????
             if (uploadName.find(".3mf") != std::string::npos || uploadName.find(".3MF") != std::string::npos) {
                 m_last_send_format = "3MF";
             } else {
@@ -1057,9 +1160,20 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
                     gcodeFilePath = _L(plate->get_tmp_gcode_path()).ToUTF8();
                 }
 
-                    RemotePrint::RemotePrinterManager::getInstance().pushUploadMultTasks(ipAddress, uploadName, gcodeFilePath,
+                // Release GCodeViewer file mapping lock before replacing task_id placeholder
+                {
+                    // Release GCodeViewer's mapped_file_source (same as export_3mf flow)
+                    wxGetApp().plater()->get_preview_canvas3D()->get_gcode_viewer().release_gcode_file_mapping();
+                    
+                    auto& tracker = AnalyticsDataUploadManager::ProjectModificationTracker::getInstance();
+                    std::string task_id = tracker.get_plate_task_id(plateIndex);
+                    tracker.replace_task_id_placeholder_in_gcode(gcodeFilePath, task_id);
+                    tracker.set_current_task_id(task_id);
+                }
+
+                RemotePrint::RemotePrinterManager::getInstance().pushUploadMultTasks(ipAddress, uploadName, gcodeFilePath,
                     [this, j](std::string ip, float progress, double speed) {
-                        // 缓存所有设备的上传进度与速度，并批量上报给前端（限频）
+                        // ????????????????????????????????????j????????
                         {
                             std::lock_guard<std::mutex> lk(m_uploadProgressMutex);
                             m_uploadProgressMap[ip] = ProgressInfo{progress, speed};
@@ -1142,12 +1256,12 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
                             {
                             }
                         });
-                        // 上传完成后，移除对应 IP 的进度缓存
+                        // ???????????????? IP ?L??????
                         {
                             std::lock_guard<std::mutex> lk(m_uploadProgressMutex);
                             m_uploadProgressMap.erase(ip);
                         }
-                        // 清除对应 IP 的触发标志，允许下次重新触发
+                        // ??????? IP ?J?????????????�????�???
                         m_print_send_fired_ips.erase(ip);
 
               });
@@ -1373,6 +1487,22 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
             fire_print_send_event(j, "Cancel");
             RemotePrint::RemotePrinterManager::getInstance().cancelUpload(ip);
         }
+        else if (strCmd == "check_upload_file_ready_result")
+        {
+            const std::string request_id = j.value("request_id", std::string());
+            const bool ready = j.value("ready", false);
+            const std::string message = j.value("message", std::string());
+            {
+                std::lock_guard<std::mutex> lock(m_upload_file_ready_mutex);
+                auto it = m_upload_file_ready_results.find(request_id);
+                if (it != m_upload_file_ready_results.end()) {
+                    it->second.completed = true;
+                    it->second.ready = ready;
+                    it->second.message = message;
+                }
+            }
+            m_upload_file_ready_cv.notify_all();
+        }
         else if (strCmd == "diagnosis_lan_connect")
         {
             std::string ip = j["ip"];
@@ -1440,6 +1570,25 @@ std::string PrinterMgrView::get_plate_data_on_show()
         }
     }
 
+    // Append types for mixed (virtual) filaments to stay in sync with
+    // extruder_colors which already includes mixed display colors.
+    {
+        const auto& mixed        = wxGetApp().preset_bundle->mixed_filaments.mixed_filaments();
+        size_t      num_physical = filament_types.size();
+        for (const auto& mf : mixed) {
+            if (!mf.enabled || mf.deleted)
+                continue;
+            std::string ft;
+            if (mf.component_a >= 1 && mf.component_a <= num_physical) {
+                ft = filament_types[mf.component_a - 1];
+            } else {
+                ft = "PLA";
+            }
+            filament_types.emplace_back(ft);
+            filament_types_json.push_back(ft);
+        }
+    }
+
     for (int i = 0; i < wxGetApp().plater()->get_partplate_list().get_plate_count(); i++) {
         PartPlate* plate = wxGetApp().plater()->get_partplate_list().get_plate(i);
         if (plate && !plate->empty() && plate->is_slice_result_valid() && plate->is_slice_result_ready_for_print() && plate->thumbnail_data.is_valid()) {
@@ -1470,7 +1619,7 @@ std::string PrinterMgrView::get_plate_data_on_show()
             }
 
             auto size = mem_stream.GetSize();
-            // 使用智能指针/容器管理内存，避免泄漏
+            // '?????????/????????????????�
             std::vector<unsigned char> imgdata(size);
             if (size > 0) {
                 mem_stream.CopyTo(imgdata.data(), size);
@@ -1512,20 +1661,20 @@ std::string PrinterMgrView::get_plate_data_on_show()
                     plate_print_statistics.modes[static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Normal)];
 
                 if (plate_extruders.size() > 0) {
-                    // 边界安全检查：防止 plate_extruders[0]-1 越界访问 filament_types
+                    // ??????????? plate_extruders[0]-1 ??????? filament_types
                     int extruder_index = plate_extruders[0] - 1;
                     if (extruder_index >= 0 && extruder_index < static_cast<int>(filament_types.size())) {
                         default_gcode_name = obj0_name + "_" + filament_types[extruder_index] + "_" +
-                                             get_bbl_time_dhms(plate_time_mode.time) + ".gcode";
+                                             get_bbl_time_dhms(plate_time_mode.model_time_s()) + ".gcode";
                     } else {
                         BOOST_LOG_TRIVIAL(error) << __FUNCTION__
                                                  << ": invalid extruder index when composing default_gcode_name"
                                                  << " | plate_index=" << plate->get_index()
                                                  << " | obj0_name=" << obj0_name
-                                                 << " | print_time=" << get_bbl_time_dhms(plate_time_mode.time)
+                                                 << " | print_time=" << get_bbl_time_dhms(plate_time_mode.model_time_s())
                                                  << " | extruder_index=" << extruder_index
                                                  << " | filament_types_size=" << filament_types.size();
-                        default_gcode_name = obj0_name + "_" + get_bbl_time_dhms(plate_time_mode.time) + ".gcode";
+                        default_gcode_name = obj0_name + "_" + get_bbl_time_dhms(plate_time_mode.model_time_s()) + ".gcode";
                         boost::log::core::get()->flush();
                     }
                 } else {
@@ -1885,7 +2034,7 @@ void PrinterMgrView::scan_device()
                         string strMoonrakerPort = matches[2];
                         if (strMachineType == "00")
                         {
-                            //音速屏
+                            //??????
                             vtKlipperIp.push_back(item.machineIp + ":"+strMoonrakerPort);
                         }
                     }
@@ -1988,25 +2137,31 @@ void PrinterMgrView::fire_print_send_event(const nlohmann::json& frontend_data, 
 
     payload.data = evtData;
 
-    BOOST_LOG_TRIVIAL(error) << "PrinterMgrView::fire_print_send_event: Analytics payload - " << payload.data.dump();
-    boost::log::core::get()->flush();
-
+    // 原逻辑：发送到谷歌事件平台
     AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
+    
+    // Send to Creality Cloud (Sensors Analytics) — only on upload success
+    if (evtData["error_code"] == "OK") {
+        // Frontend sends "plateIndex" for send_gcode, "printPlateIndex" for send_3mf
+        int plate_idx = frontend_data.value("plateIndex", frontend_data.value("printPlateIndex", 0));
+        AnalyticsDataUploadManager::getInstance().send_print_send_event(plate_idx);
+    }
+
     m_print_send_fired_ips.insert(ip);
 }
 
 void PrinterMgrView::fire_print_begin_event(const std::string& ip, const nlohmann::json& webview_data)
 {
-    // Log the raw webview_data to see its structure
-    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": RAW webview_data - " << webview_data.dump();
-    boost::log::core::get()->flush();
-    
     AnalyticsEventPayload payload;
     payload.type = AnalyticsDataEventType::ANALYTICS_PRINT_BEGIN;
-    
+
     // Note: webview_data is already the extracted 'data' field object (not the full {command, data} structure)
     // Build event data from frontend JSON (empty string if field not provided)
     nlohmann::json data;
+
+    // Extract plate_index from frontend data
+    int plate_idx = webview_data.value("plate_index", 0);
+
     data["printer"] = webview_data.value("printer", "");           // Printer model from frontend
     data["calibration"] = webview_data.value("calibration", "");   // "0" or "1" from frontend
     data["time_lapse"] = webview_data.value("time_lapse", "");     // "0" or "1" from frontend
@@ -2015,14 +2170,14 @@ void PrinterMgrView::fire_print_begin_event(const std::string& ip, const nlohman
     data["filament_device"] = webview_data.value("filament_device", ""); // From frontend
     data["entry"] = webview_data.value("entry", "");               // Entry point from frontend
     data["error_code"] = webview_data.value("error_code", "");     // Error code from frontend
-    
+
     payload.data = data;
 
-    BOOST_LOG_TRIVIAL(error) << "PrinterMgrView::fire_print_begin_event: Analytics payload - " << payload.data.dump();
-    boost::log::core::get()->flush();
-
+    // 原逻辑：发送到谷歌事件平台
     AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
+
 }
+
 void PrinterMgrView::ExecuteScriptCommand(const std::string& commandInfo, bool async)
 {
     if (commandInfo.empty())
@@ -2635,8 +2790,8 @@ int PrinterMgrView::getFileListFromLanDevice(const std::string strIp)
         // Write FTP response into file
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwrite);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, fd);
-        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);  // 连接超时5秒
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);       // 数据传输超时15秒
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);  // ??????5??
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);       // ????????15??
 
         // Execute request synchronously
         CURLcode res = curl_easy_perform(curl);
@@ -2715,8 +2870,8 @@ int PrinterMgrView::deleteFileListFromLanDevice(const std::string strIp, const s
     struct curl_slist *CMDlist = nullptr;
     CMDlist = curl_slist_append(CMDlist, deleteCmd.c_str()); 
     curl_easy_setopt(curl, CURLOPT_POSTQUOTE, CMDlist);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);  // 连接超时5秒
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);       // 数据传输超时15秒
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);  // ??????5??
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);       // ????????15??
 
     // Execute FTP delete command synchronously
     CURLcode res = curl_easy_perform(curl);
@@ -2809,6 +2964,48 @@ bool PrinterMgrView::should_upload_device_info() const
     return !m_finish_upload_device_state && get_all_device_macs().size() > 0;
 }
 
+void PrinterMgrView::requeset_set_current_device(const std::string& device_mac)
+{
+    if(!device_mac.empty()) {
+        nlohmann::json commandJson;
+        nlohmann::json dataJson;
+        dataJson["device_id"]  = device_mac;
+        commandJson["command"] = "set_current_device";
+        commandJson["data"]    = dataJson;
+        auto jsonStr           = RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true));
+        ExecuteScriptCommand(jsonStr);
+    }
+}
 
+
+bool PrinterMgrView::request_move_print_head(const nlohmann::json& payload)
+{
+    try {
+        nlohmann::json command_json = payload;
+        command_json["command"] = "move_print_head";
+        auto json_str = RemotePrint::Utils::url_encode(command_json.dump(-1, ' ', true));
+        ExecuteScriptCommand(json_str, true);
+        return true;
+    }
+    catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "PrinterMgrView::request_move_print_head failed: " << e.what();
+        return false;
+    }
+}
+
+bool PrinterMgrView::request_print_control(const nlohmann::json& payload)
+{
+    try {
+        nlohmann::json command_json = payload;
+        command_json["command"] = "print_control";
+        auto json_str = RemotePrint::Utils::url_encode(command_json.dump(-1, ' ', true));
+        ExecuteScriptCommand(json_str, true);
+        return true;
+    }
+    catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "PrinterMgrView::request_print_control failed: " << e.what();
+        return false;
+    }
+}
 } // GUI
 } // Slic3r

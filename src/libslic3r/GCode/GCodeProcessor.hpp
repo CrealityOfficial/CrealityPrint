@@ -14,6 +14,10 @@
 #include <string>
 #include <string_view>
 #include <optional>
+#include <functional>
+#ifdef SLIC3R_ENABLE_GCODE_IMPORT_PROFILE_OVERLAY_FOR_TEST
+#include <utility>
+#endif // SLIC3R_ENABLE_GCODE_IMPORT_PROFILE_OVERLAY_FOR_TEST
 
 namespace Slic3r {
 
@@ -54,16 +58,21 @@ class Print;
 
         struct Mode
         {
-            float time;
+            double time;
             float prepare_time;
             float flush_time;
             std::vector<std::pair<CustomGCode::Type, std::pair<float, float>>> custom_gcode_times;
             std::vector<std::pair<EMoveType, float>> moves_times;
             std::vector<std::pair<ExtrusionRole, float>> roles_times;
-            std::vector<float> layers_times;
+            std::vector<double> layers_times;
+            double init_duration{ 0.0 };
+            #ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+            std::vector<std::vector<std::pair<EMoveType, float>>> layer_moves_times;
+            std::vector<std::vector<std::pair<ExtrusionRole, float>>> layer_roles_times;
+            #endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
 
             void reset() {
-                time = 0.0f;
+                time = 0.0;
                 prepare_time = 0.0f;
                 flush_time = 0.0f;
                 custom_gcode_times.clear();
@@ -74,6 +83,35 @@ class Print;
                 roles_times.shrink_to_fit();
                 layers_times.clear();
                 layers_times.shrink_to_fit();
+                init_duration = 0.0;
+
+                #ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+                layer_moves_times.clear();
+                layer_moves_times.shrink_to_fit();
+                layer_roles_times.clear();
+                layer_roles_times.shrink_to_fit();
+                #endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+            }
+
+            // Shared "model printing time" definition for UI display and
+            // Creality Cloud reporting entrypoints. Keep those interfaces
+            // on model_time_s() so Klipper init_duration is handled consistently.
+            static double time_excluding_init_duration(double time, double init_duration) {
+                return std::max(0.0, time - init_duration);
+            }
+
+            double model_time_s() const {
+                return time_excluding_init_duration(time, init_duration);
+            }
+
+            // Shared layer-time display view for the same UI semantics as
+            // model_time_s(). Klipper init_duration is scalar, so subtract
+            // it from the first layer bucket only.
+            std::vector<double> model_layers_times() const {
+                std::vector<double> ret = layers_times;
+                if (!ret.empty())
+                    ret.front() = time_excluding_init_duration(ret.front(), init_duration);
+                return ret;
             }
         };
 
@@ -96,7 +134,7 @@ class Print;
         PrintEstimatedStatistics() { reset(); }
 
         void reset() {
-            for (auto& m : modes) {
+            for (auto &m : modes) {
                 m.reset();
             }
             volumes_per_color_change.clear();
@@ -107,6 +145,7 @@ class Print;
             total_volumes_per_extruder.clear();
             flush_per_filament.clear();
             used_filaments_per_role.clear();
+
             total_filamentchanges = 0;
         }
     };
@@ -127,7 +166,7 @@ class Print;
 
     struct ToolpathOutsideResult
     {
-        std::string _objName; 
+        std::string _objName;
         const void* _obj;
         ToolpathOutsideResult(const std::string& objName, const void* obj) : _objName(objName), _obj(obj) {}
         ToolpathOutsideResult() = default;
@@ -187,7 +226,7 @@ class Print;
             float temperature{ 0.0f }; // Celsius degrees
             float time{ 0.0f }; // s
             float layer_duration{ 0.0f }; // s (layer id before finalize)
-            float acceleration{ 0.0f };  //mm/s2 
+            float acceleration{ 0.0f };  //mm/s2
 
             //BBS: arc move related data
             EMovePathType move_path_type{ EMovePathType::Noop_move };
@@ -253,6 +292,7 @@ class Print;
         std::vector<std::string>        creality_complete_extruder_colors;
         std::vector<std::string>        creality_default_extruder_colors;
         std::vector<std::string>        creality_extruder_types;
+        std::array<bool, 256>           rendered_extruder_used{};
         float                           creality_flush_time{0};
         std::vector<std::vector<int>>   tool_change_path;        // record tool change
         std::vector<std::vector<float>> tool_change_volumes_map; // t1 -> t2 used volumne: tool_change_volumes_map[1][2]
@@ -315,6 +355,7 @@ class Print;
             creality_complete_extruder_colors = other.creality_complete_extruder_colors;
             creality_default_extruder_colors = other.creality_default_extruder_colors;
             creality_extruder_types = other.creality_extruder_types;
+            rendered_extruder_used = other.rendered_extruder_used;
             creality_flush_time = other.creality_flush_time;
             tool_change_path = other.tool_change_path;
             tool_change_volumes_map = other.tool_change_volumes_map;
@@ -342,7 +383,7 @@ class Print;
         void  take(const GCodeProcessorResult& other) {
             filename                 = other.filename;
             id                       = other.id;
-            
+
             moves                    = std::move( other.moves );
             custom_interest_by_move_id = other.custom_interest_by_move_id;
             object_id_by_move_id = other.object_id_by_move_id;
@@ -373,6 +414,7 @@ class Print;
             creality_complete_extruder_colors = other.creality_complete_extruder_colors;
             creality_default_extruder_colors  = other.creality_default_extruder_colors;
             creality_extruder_types           = other.creality_extruder_types;
+            rendered_extruder_used            = other.rendered_extruder_used;
             creality_flush_time               = other.creality_flush_time;
             tool_change_path                  = other.tool_change_path;
             tool_change_volumes_map           = other.tool_change_volumes_map;
@@ -428,16 +470,18 @@ class Print;
             During_Print_Exhaust_Fan,
             Wipe_Tower_Start,
             Wipe_Tower_End,
+            Skeleton_Flush_Preview_Start,
+            Skeleton_Flush_Preview_End,
         };
 
         static const std::string& reserved_tag(ETags tag) { return s_IsBBLPrinter ? Reserved_Tags[static_cast<unsigned char>(tag)] : Reserved_Tags_compatible[static_cast<unsigned char>(tag)]; }
-        static const std::string& choose_reserved_tag(ETags tag, bool isBBLPrinter) 
-        { 
-            return isBBLPrinter ? 
+        static const std::string& choose_reserved_tag(ETags tag, bool isBBLPrinter)
+        {
+            return isBBLPrinter ?
             Reserved_Tags[static_cast<unsigned char>(tag)] :
-             Reserved_Tags_compatible[static_cast<unsigned char>(tag)]; 
+             Reserved_Tags_compatible[static_cast<unsigned char>(tag)];
         }
-        // checks the given gcode for reserved tags and returns true when finding the 1st (which is returned into found_tag) 
+        // checks the given gcode for reserved tags and returns true when finding the 1st (which is returned into found_tag)
         static bool contains_reserved_tag(const std::string& gcode, std::string& found_tag);
         // checks the given gcode for reserved tags and returns true when finding any
         // (the first max_count found tags are returned into found_tag)
@@ -454,16 +498,6 @@ class Print;
         static bool s_IsCFSPrinter;
         static float s_creality_flush_time;
 
-
-        void  calc_junction_deviation();
-        void  set_velocity_limit(const float& velocity, const float& accel, const float& square_corner_v, const float& accel_to_decel);
-        float m_max_velocity;
-        float m_max_accel;
-        float m_requested_accel_to_decel;
-        float m_square_corner_velocity;
-        float        m_max_accel_to_decel;
-       
-        float m_junction_deviation;
 #if ENABLE_GCODE_VIEWER_DATA_CHECKING
         static const std::string Mm3_Per_Mm_Tag;
 #endif // ENABLE_GCODE_VIEWER_DATA_CHECKING
@@ -514,6 +548,7 @@ class Print;
             float accelerate_until{ 0.0f }; // mm
             float decelerate_after{ 0.0f }; // mm
             float cruise_feedrate{ 0.0f }; // mm/sec
+            float elapsed_time{ 0.0f }; // sec
 
             float acceleration_time(float entry_feedrate, float acceleration) const;
             float cruise_time() const;
@@ -529,37 +564,74 @@ class Print;
                 bool nominal_length{ false };
                 bool prepare_stage{ false };
                 bool flush_stage{ false };
+                bool flush_related_stage{ false };
             };
 
-            EMoveType move_type{ EMoveType::Noop };
-            ExtrusionRole role{ erNone };
-            unsigned int g1_line_id{ 0 };
-            unsigned int layer_id{ 0 };
-            float distance{ 0.0f }; // mm
-            float acceleration{ 0.0f }; // mm/s^2
-            float max_entry_speed{ 0.0f }; // mm/s
-            float safe_feedrate{ 0.0f }; // mm/s
+            // Move properties used by Klipper ACCEL_TO_DECEL lookahead flush.
+            struct Common
+            {
+                EMoveType      move_type{ EMoveType::Noop };
+                ExtrusionRole  role{ erNone };
+                unsigned int   g1_line_id{ 0 };
+                unsigned int   layer_id{ 0 };
+                float          distance{ 0.0f }; // mm
+                float          acceleration{ 0.0f }; // mm/s^2
+                float          max_entry_speed{ 0.0f }; // mm/s
+                float          safe_feedrate{ 0.0f }; // mm/s
+                float          extruder_e{ 0.0f };
+                float          extruder_r{ 0.0f }; // Normalized extruder ratio (E per move distance).
+                float          nominal_rate{ 0.0f };
+                float          max_start_v2{ 0.0f };
+                float          max_cruise_v2{ 0.0f };
+                float          delta_v2{ 0.0f };
+                float          min_move_t{ 0.0f };
+                float          deceleration{ 0.0f }; // mm/s^2
+                float          junction_deviation{ 0.05f };
+                Vec3f          axes_r{ 1.0f, 0.0f, 0.0f }; // 归一化运动方向向量
+                bool           is_kinematic_move{ true };
+                float          instant_corner_v{ 10.0f };
+            };
+
+            // Start-speed budget propagated by the AccelToDecel solver.
+            struct AccelToDecelSolver
+            {
+                float max_start_v2{ 0.0f };
+                float delta_v2{ 0.0f };
+            };
+
+            #if 0 // new solver but is not used now beacause of firmware using accel_to_decel solver
+            // Start-speed budget propagated by the MinimumCruiseRatio solver.
+            struct MinimumCruiseRatioSolver
+            {
+                float max_start_v2{ 0.0f };
+                float delta_v2{ 0.0f };
+            };
+            #endif // end of new solver
+
+            // Final start / cruise / end v^2 chosen by the active solver.
+            struct Solution
+            {
+                float start_v2{ 0.0f };
+                float cruise_v2{ 0.0f };
+                float end_v2{ 0.0f };
+            };
+
             Flags flags;
             FeedrateProfile feedrate_profile;
             Trapezoid trapezoid;
-            
-            float accel;
-            float move_d;
-            float extruder_e;
-            // Calculates this block's trapezoid
-            void calculate_trapezoid();
-            void calculate_trapezoid_dec();
-            float nominal_rate;
-            float max_start_v2, max_smoothed_v2, max_cruise_v2;
-            float delta_v2, smooth_delta_v2;
+            Common common;
+            AccelToDecelSolver accel_to_decel;
+            Solution solution;
 
-            float start_v2 = 0.0f, cruise_v2 = 0.0f, end_v2 = 0.0f;
-            float min_move_t = 0.0f;
-            float deceleration{0.0f}; // mm/s^2
-            float junction_deviation = 0.05f;
-            Vec3f axes_r             = {1.0f, 0.0f, 0.0f}; // 归一化运动方向向量
-            bool  is_kinematic_move  = true;
-            float instant_corner_v   = 10;
+            // Legacy cache fields formerly used by the inactive
+            // process_G2_G3_klipper() path.
+            // TODO: Delete these commented-out members once the current
+            // Klipper time-estimation structure is considered stable.
+            // float accel;
+            // float move_d;
+            // Calculates this block's trapezoid
+
+            void calculate_trapezoid();
             void  prepare();
 
             void set_junction(float s_v2, float c_v2, float e_v2);
@@ -567,7 +639,7 @@ class Print;
             void calc_junction(const TimeBlock& prev);
             float extruder_calc_juntion(const TimeBlock& prev);
             float calc_move_time() const;
-            float move_t;
+            // float move_t;
             float time() const;
         };
 
@@ -575,6 +647,9 @@ class Print;
     private:
         struct TimeMachine
         {
+            // Legacy Marlin planner scratch state for the current/previous move being
+            // processed. This is transient runtime data used by older planning paths,
+            // not canonical machine-state.
             struct State
             {
                 float feedrate; // mm/s
@@ -584,19 +659,19 @@ class Print;
                 AxisCoords axis_feedrate; // mm/s
                 AxisCoords abs_axis_feedrate; // mm/s
 
-                //BBS: unit vector of enter speed and exit speed in x-y-z space. 
+                //BBS: unit vector of enter speed and exit speed in x-y-z space.
                 //For line move, there are same. For arc move, there are different.
                 Vec3f enter_direction;
                 Vec3f exit_direction;
                 float delta_v2=99999;
                 float max_start_v2 = 0;
-             
+
                 float junction_deviation;
                 float max_cruise_v2 = 9999;
                 float next_junction_v2 = 9999;
 
-                float max_smoothed_v2 = 0;
-                float smooth_delta_v2;
+                float max_accel_to_decel_start_v2 = 0;
+                float accel_to_decel_delta_v2 = 0;
                 float acc=1000.0f; // Acceleration, unit mm/s^2
 
                 void reset();
@@ -614,61 +689,155 @@ class Print;
             struct G1LinesCacheItem
             {
                 unsigned int id;
-                float elapsed_time;
+                double elapsed_time;
             };
 
-            bool enabled;
-            float acceleration; // mm/s^2
-            float deceleration;
-            // hard limit for the acceleration, to which the firmware will clamp.
-            float max_acceleration; // mm/s^2
-            float retract_acceleration; // mm/s^2
-            // hard limit for the acceleration, to which the firmware will clamp.
-            float max_retract_acceleration; // mm/s^2
-            float travel_acceleration; // mm/s^2
-            // hard limit for the travel acceleration, to which the firmware will clamp.
-            float max_travel_acceleration; // mm/s^2
-            float extrude_factor_override_percentage;
-            float time; // s
             struct StopTime
             {
                 unsigned int g1_line_id;
-                float elapsed_time;
+                double elapsed_time;
             };
-            std::vector<StopTime> stop_times;
-            std::string line_m73_main_mask;
-            std::string line_m73_stop_mask;
-            State curr;
-            State prev;
-            CustomGCodeTime gcode_time;
-            std::vector<TimeBlock> blocks;
-            std::vector<G1LinesCacheItem> g1_times_cache;
-            std::array<float, static_cast<size_t>(EMoveType::Count)> moves_time;
-            std::array<float, static_cast<size_t>(ExtrusionRole::erCount)> roles_time;
-            std::vector<float> layers_time;
-            //BBS: prepare stage time before print model, including start gcode time and mostly same with start gcode time
-            float prepare_time;
-            float flushing_time;
 
+            // Per-time-mode runtime context: accumulated time, queued/frozen blocks,
+            // custom G-code timing caches, legacy planner scratch state, and
+            // Klipper-only display-time alignment state. This block does not
+            // own canonical Marlin/Klipper motion knobs.
+            struct RuntimeContext
+            {
+                // Dedicated to the active Klipper estimation chain. This
+                // mirrors the firmware print_stats init_duration boundary
+                // without changing the raw time accounting buckets.
+                struct PrintStartTracker
+                {
+                    double filament_used{ 0.0 };
+                    bool started{ false };
+                    double init_duration{ 0.0 };
+
+                    void reset()
+                    {
+                        filament_used = 0.0;
+                        started = false;
+                        init_duration = 0.0;
+                            }
+                };
+
+                // Whether this estimation mode's machine (Normal / Stealth) is active.
+                // Normal is always enabled; Stealth only when the silent-mode estimator
+                // is on (Marlin dual-mode). Per-mode loops and all time functions
+                // (simulate_st_synchronize / flush_time_klipper / finalize_time_klipper /
+                // calculate_time / account_klipper_blocks ...) skip the machine when false.
+                bool enabled{ false };
+                
+                double time{ 0.0 };
+                float prepare_time{ 0.0f };
+                float additional_time{ 0.0f };
+                float flushing_time{ 0.0f };
+                float additional_flush_time{ 0.0f };
+                PrintStartTracker print_start;
+                std::vector<StopTime> stop_times;
+                std::string line_m73_main_mask;
+                std::string line_m73_stop_mask;
+                CustomGCodeTime gcode_time;
+                // blocks is legacy planner storage; it is not the active Klipper lookahead queue.
+                std::vector<TimeBlock> blocks;
+                std::vector<G1LinesCacheItem> g1_times_cache;
+                std::array<float, static_cast<size_t>(EMoveType::Count)> moves_time;
+                std::array<float, static_cast<size_t>(ExtrusionRole::erCount)> roles_time;
+                std::vector<double> layers_time;
+
+                // Legacy planner scratch only. The active Klipper lookahead path builds
+                // and flushes TimeBlock objects directly and does not use curr/prev.
+                State curr;
+                State prev;
+
+                // Runtime extrusion override written by M221. Legacy motion-limit
+                // code and the Klipper print-start tracker both consult this.
+                float extrude_factor_override_percentage{ 1.0f };
+
+                #ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+                std::vector<std::array<float, static_cast<size_t>(EMoveType::Count)>> layer_moves_time;
+                std::vector<std::array<float, static_cast<size_t>(ExtrusionRole::erCount)>> layer_roles_time;
+                #endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+            };
+
+            // Canonical Marlin planner state. Patch A cuts all Marlin getters/setters over to this block.
+            struct MarlinMotionState
+            {
+                float acceleration{ 0.0f };
+                float deceleration{ 0.0f };
+                float max_acceleration{ 0.0f };
+                float retract_acceleration{ 0.0f };
+                float max_retract_acceleration{ 0.0f };
+                float travel_acceleration{ 0.0f };
+                float max_travel_acceleration{ 0.0f };
+            };
+
+            // Canonical Klipper ToolHead state. Klipper active estimation should only read from this block.
+            struct KlipperToolheadState
+            {
+                float max_velocity{ 0.0f };
+                float max_accel{ 0.0f };
+                float requested_accel_to_decel{ 0.0f };
+                float max_accel_to_decel{ 0.0f };
+                float square_corner_velocity{ 5.0f };
+                float junction_deviation{ 0.0f };
+            };
+
+            // Canonical Klipper Z special-case motion limits.
+            struct KlipperZMotionState
+            {
+                float max_velocity{ 0.0f };
+                float max_accel{ 0.0f };
+            };
+
+            // Canonical Klipper extruder-only / retract limits.
+            struct KlipperExtruderState
+            {
+                float instant_corner_velocity{ 1.0f };
+                float max_velocity{ 0.0f };
+                float max_accel{ 0.0f };
+            };
+
+            RuntimeContext runtime;
+            MarlinMotionState marlin;
+            KlipperToolheadState klipper_toolhead;
+            KlipperZMotionState klipper_z;
+            KlipperExtruderState klipper_extruder;
             void reset();
-            float m_additional_time = 0.0;
-            float m_additional_flush_time = 0.0;
-            // Simulates firmware st_synchronize() call
-            void simulate_st_synchronize(float additional_time = 0.0f, float additional_flush_time = 0.0f);
-            void calculate_time(size_t keep_last_n_blocks = 0, float additional_time = 0.0f, float additional_flush_time = 0.0f);
-            void calculate_time_klipper(size_t keep_last_n_blocks = 0, float additional_time = 0.0f, float additional_flush_time = 0.0f);
-            void flush_time(std::vector<TimeBlock>& queue, bool lazy);
-           
-        
-          
-            bool add_move(TimeBlock move);
+            void initialize_klipper_toolhead_defaults(float base_velocity, float base_acceleration);
+            void initialize_klipper_special_motion_limits(float base_z_velocity,
+                                                          float base_z_accel,
+                                                          float base_e_velocity,
+                                                          float base_e_accel);
+            // Simulates firmware st_synchronize() for legacy planner-backed firmware.
+            void simulate_st_synchronize_legacy(float additional_time = 0.0f, bool count_as_flush = false);
+            // Simulates firmware st_synchronize() for Klipper queue-backed timing.
+            void simulate_st_synchronize_klipper(float additional_time = 0.0f, bool count_as_flush = false);
+            void calculate_time(size_t keep_last_n_blocks = 0);
+            // Active Klipper path: solve queue_ and account the flushed prefix without copying it to runtime.blocks.
+            void flush_time_klipper(bool lazy);
+            // Final Klipper drain. Klipper motion must be fully owned by queue_, never runtime.blocks.
+            void finalize_time_klipper();
+
+            bool add_move(TimeBlock&& move);
             bool should_flush() const;
-            std::vector<TimeBlock> flush(bool lazy = false);
             bool                  empty() const;
         private:
+            void accumulate_print_start_init_time(double block_time);
+            void update_print_start_tracker(double block_time, float extruder_e);
+            // Handles pending additional time when there is no motion block to attach it to.
+            void calculate_time_klipper_additional_time();
+            // Shared accumulator for finalized Klipper blocks from queue_.
+            void account_klipper_blocks(std::vector<TimeBlock>::const_iterator begin,
+                                        std::vector<TimeBlock>::const_iterator end);
+            // Runs ACCEL_TO_DECEL lookahead and returns the stable queue_ prefix length.
+            size_t flush_accel_to_decel(bool lazy);
+
+            // Current active canonical motion lookahead queue of Klipper.
             std::vector<TimeBlock> queue_;
-            float             junction_flush_time_ = 0.20f;
-            const float       default_flush_time_  = 0.20f;
+            // Klipper: LOOKAHEAD_FLUSH_TIME = 0.250
+            float       junction_flush_time_ = 0.25f;
+            const float default_flush_time_  = 0.25f;
         };
 
         struct TimeProcessor
@@ -693,6 +862,7 @@ class Print;
             // Additional load / unload times for a filament exchange sequence.
             std::vector<float> filament_load_times;
             std::vector<float> filament_unload_times;
+            float machine_tool_change_time;
             bool  disable_m73;
 
             std::array<TimeMachine, static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count)> machines;
@@ -880,13 +1050,22 @@ class Print;
         EPositioningType m_e_local_positioning_type;
         std::vector<Vec3f> m_extruder_offsets;
         GCodeFlavor m_flavor;
+
         float       m_nozzle_volume;
         AxisCoords m_start_position; // mm
         AxisCoords m_end_position; // mm
         AxisCoords m_origin; // mm
         CachedPosition m_cached_position;
+
         bool m_wiping;
+        // True while processing the explicit ; FLUSH_START ... ; FLUSH_END section.
+        // Motion blocks generated in this window are counted as flush time.
         bool               m_flushing = false;
+
+        // True while processing toolchange/wipe-tower/CFS stages that are not always
+        // inside the explicit flush window, but should still be attributed to flush time.
+        bool               m_flush_related_stage = false;
+        bool               m_cfs_change_stage = false;
         bool m_wipe_tower;
         bool m_has_extruded = false;
         float m_remaining_volume;
@@ -919,6 +1098,7 @@ class Print;
         int m_object_id{ -1 }; // Current label object id from "; OBJECT_ID:" comment markers.
         unsigned char m_extruder_id;
         unsigned char m_last_extruder_id;
+        int m_skeleton_flush_preview_extruder_id;
         ExtruderColors m_extruder_colors;
         ExtruderTemps m_extruder_temps;
         ExtruderTemps m_extruder_temps_config;
@@ -983,7 +1163,7 @@ class Print;
         void set_print(Print* print) { m_print = print; }
         void enable_stealth_time_estimator(bool enabled);
         bool is_stealth_time_estimator_enabled() const {
-            return m_time_processor.machines[static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Stealth)].enabled;
+            return m_time_processor.machines[static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Stealth)].runtime.enabled;
         }
         void enable_machine_envelope_processing(bool enabled) { m_time_processor.machine_envelope_processing_enabled = enabled; }
         void reset();
@@ -996,6 +1176,27 @@ class Print;
         // throws CanceledException through print->throw_if_canceled() (sent by the caller as callback).
         void process_file(const std::string& filename, std::function<void()> cancel_callback = nullptr);
 
+#ifdef SLIC3R_ENABLE_GCODE_IMPORT_PROFILE_OVERLAY_FOR_TEST
+        struct GCodeImportProfileOverlay {
+            DynamicPrintConfig config;
+            std::string profile_name;
+            std::string profile_file;
+            std::string profile_source;
+            std::string profile_setting_id;
+            std::string match_rule;
+            std::string gcode_printer_settings_id;
+            std::string gcode_printer_model;
+            std::string gcode_nozzle_diameter;
+            std::string gcode_candidate_name;
+        };
+
+        using GCodeImportProfileOverlayResolver = std::function<std::optional<GCodeImportProfileOverlay>(const DynamicPrintConfig&, const std::string&)>;
+        void set_gcode_import_profile_overlay_resolver(GCodeImportProfileOverlayResolver resolver)
+        {
+            m_gcode_import_profile_overlay_resolver = std::move(resolver);
+        }
+#endif // SLIC3R_ENABLE_GCODE_IMPORT_PROFILE_OVERLAY_FOR_TEST
+
         // Streaming interface, for processing G-codes just generated by PrusaSlicer in a pipelined fashion.
         void initialize(const std::string& filename);
         void process_buffer(const std::string& buffer);
@@ -1003,7 +1204,7 @@ class Print;
         float layer_time();
         float layer_flow();
 
-        float get_time(PrintEstimatedStatistics::ETimeMode mode) const;
+        double get_time(PrintEstimatedStatistics::ETimeMode mode) const;
         float get_prepare_time(PrintEstimatedStatistics::ETimeMode mode) const;
         float get_flush_time(PrintEstimatedStatistics::ETimeMode mode) const;
         std::string get_time_dhm(PrintEstimatedStatistics::ETimeMode mode) const;
@@ -1011,12 +1212,17 @@ class Print;
 
         std::vector<std::pair<EMoveType, float>> get_moves_time(PrintEstimatedStatistics::ETimeMode mode) const;
         std::vector<std::pair<ExtrusionRole, float>> get_roles_time(PrintEstimatedStatistics::ETimeMode mode) const;
-        std::vector<float> get_layers_time(PrintEstimatedStatistics::ETimeMode mode) const;
+        std::vector<double> get_layers_time(PrintEstimatedStatistics::ETimeMode mode) const;
+
+        #ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+        std::vector<std::vector<std::pair<EMoveType, float>>> get_layer_moves_time(PrintEstimatedStatistics::ETimeMode mode) const;
+        std::vector<std::vector<std::pair<ExtrusionRole, float>>> get_layer_roles_time(PrintEstimatedStatistics::ETimeMode mode) const;
+        #endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
 
         //BBS: set offset for gcode writer
-        void set_xy_offset(double x, double y) { 
-            m_x_offset = x; 
-            m_y_offset = y; 
+        void set_xy_offset(double x, double y) {
+            m_x_offset = x;
+            m_y_offset = y;
             m_result.x_offset = m_x_offset;
             m_result.y_offset = m_y_offset;
         }
@@ -1027,6 +1233,10 @@ class Print;
 
     private:
         void apply_config(const DynamicPrintConfig& config);
+#ifdef SLIC3R_ENABLE_GCODE_IMPORT_PROFILE_OVERLAY_FOR_TEST
+        GCodeImportProfileOverlayResolver m_gcode_import_profile_overlay_resolver;
+        void apply_gcode_import_profile_overlay_for_test(const std::string& filename, DynamicPrintConfig& config);
+#endif // SLIC3R_ENABLE_GCODE_IMPORT_PROFILE_OVERLAY_FOR_TEST
         void apply_config_simplify3d(const std::string& filename);
         void apply_config_superslicer(const std::string& filename);
         void apply_config_cura(const std::string& filename);
@@ -1051,16 +1261,21 @@ class Print;
         bool process_kissslicer_tags(const std::string_view comment);
 
         bool detect_producer(const std::string_view comment);
-        void flush_time(std::vector<TimeBlock>& queue, bool lazy = false);
+
+        // Legacy experimental helper kept for reference only; currently unused.
+        // void flush_time(std::vector<TimeBlock>& queue, bool lazy = false);
+
         // Move
         void process_G0(const GCodeReader::GCodeLine& line);
         void process_G1(const GCodeReader::GCodeLine& line);
         void process_G2_G3(const GCodeReader::GCodeLine& line);
         void process_G1_klipper(const GCodeReader::GCodeLine& line);
-        void process_G1_klipper_new(const GCodeReader::GCodeLine& line);
-        void process_G2_G3_klipper(const GCodeReader::GCodeLine& line);
-        void process_G2_G3_klipper_new(const GCodeReader::GCodeLine& line);
-        
+        // Legacy experimental path, currently unused.
+        // void process_G1_klipper_new(const GCodeReader::GCodeLine& line);
+        void process_G2_G3_new_klipper(const GCodeReader::GCodeLine& line);
+        // Legacy experimental path, currently unused.
+        // void process_G2_G3_klipper_new(const GCodeReader::GCodeLine& line);
+
         // BBS: handle delay command
         void process_G4(const GCodeReader::GCodeLine& line);
 
@@ -1203,18 +1418,44 @@ class Print;
         void  set_retract_acceleration(PrintEstimatedStatistics::ETimeMode mode, float value);
         float get_acceleration(PrintEstimatedStatistics::ETimeMode mode) const;
         void  set_acceleration(PrintEstimatedStatistics::ETimeMode mode, float value);
+        float get_requested_accel_to_decel(PrintEstimatedStatistics::ETimeMode mode) const;
+        void  set_requested_accel_to_decel(PrintEstimatedStatistics::ETimeMode mode, float value);
+        float get_max_accel_to_decel(PrintEstimatedStatistics::ETimeMode mode) const;
+        void  sync_max_accel_to_decel(PrintEstimatedStatistics::ETimeMode mode);
         void  set_deceleration(PrintEstimatedStatistics::ETimeMode mode, float value);
-        float get_deceleration(PrintEstimatedStatistics::ETimeMode mode) const;       
-		 float get_travel_acceleration(PrintEstimatedStatistics::ETimeMode mode) const;
+        float get_deceleration(PrintEstimatedStatistics::ETimeMode mode) const;
+        float get_square_corner_velocity(PrintEstimatedStatistics::ETimeMode mode) const;
+        void  set_square_corner_velocity(PrintEstimatedStatistics::ETimeMode mode, float value);
+        float get_extruder_instant_corner_velocity(PrintEstimatedStatistics::ETimeMode mode) const;
+        void  set_extruder_instant_corner_velocity(PrintEstimatedStatistics::ETimeMode mode, float value);
+        float get_klipper_junction_deviation(PrintEstimatedStatistics::ETimeMode mode) const;
+        void  sync_klipper_junction_deviation(PrintEstimatedStatistics::ETimeMode mode);
+        float get_klipper_max_velocity(PrintEstimatedStatistics::ETimeMode mode) const;
+        void  set_klipper_max_velocity(PrintEstimatedStatistics::ETimeMode mode, float value);
+        float get_klipper_max_z_velocity(PrintEstimatedStatistics::ETimeMode mode) const;
+        void  set_klipper_max_z_velocity(PrintEstimatedStatistics::ETimeMode mode, float value);
+        float get_klipper_max_z_accel(PrintEstimatedStatistics::ETimeMode mode) const;
+        void  set_klipper_max_z_accel(PrintEstimatedStatistics::ETimeMode mode, float value);
+        float get_klipper_max_e_velocity(PrintEstimatedStatistics::ETimeMode mode) const;
+        void  set_klipper_max_e_velocity(PrintEstimatedStatistics::ETimeMode mode, float value);
+        float get_klipper_max_e_accel(PrintEstimatedStatistics::ETimeMode mode) const;
+        void  set_klipper_max_e_accel(PrintEstimatedStatistics::ETimeMode mode, float value);
+		float get_travel_acceleration(PrintEstimatedStatistics::ETimeMode mode) const;
         void  set_travel_acceleration(PrintEstimatedStatistics::ETimeMode mode, float value);
+        TimeBlock build_klipper_time_block(const TimeMachine& machine,
+                                           EMoveType type,
+                                           const AxisCoords& delta_pos,
+                                           float distance,
+                                           bool extrusion_only_move) const;
         float get_filament_load_time(size_t extruder_id);
         float get_filament_unload_time(size_t extruder_id);
+        float get_tool_change_time() const;
         int   get_filament_vitrification_temperature(size_t extrude_id);
         void process_custom_gcode_time(CustomGCode::Type code);
         void process_filaments(CustomGCode::Type code);
 
         // Simulates firmware st_synchronize() call
-        void simulate_st_synchronize(float additional_time = 0.0f);
+        void simulate_st_synchronize(float additional_time = 0.0f, bool force_flush_time = false);
 
         void update_estimated_times_stats();
         //BBS:
@@ -1226,5 +1467,3 @@ class Print;
 } /* namespace Slic3r */
 
 #endif /* slic3r_GCodeProcessor_hpp_ */
-
-

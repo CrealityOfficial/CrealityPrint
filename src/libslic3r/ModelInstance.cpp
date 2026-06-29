@@ -4,7 +4,56 @@
 #include "Arrange.hpp"
 #include "ModelVolume.hpp"
 
+#include <algorithm>
+#include <initializer_list>
+
 namespace Slic3r {
+
+static const ConfigOption* find_config_option(std::initializer_list<const ConfigBase*> configs, const char* key)
+{
+    for (auto it = configs.end(); it != configs.begin();) {
+        --it;
+        if (*it == nullptr)
+            continue;
+        if (const ConfigOption* opt = (*it)->option(key))
+            return opt;
+    }
+    return nullptr;
+}
+
+static int config_int(std::initializer_list<const ConfigBase*> configs, const char* key, int default_value = 0)
+{
+    if (const ConfigOption* opt = find_config_option(configs, key))
+        return opt->getInt();
+    return default_value;
+}
+
+static double config_float(std::initializer_list<const ConfigBase*> configs, const char* key, double default_value = 0.0)
+{
+    if (const ConfigOption* opt = find_config_option(configs, key))
+        return opt->getFloat();
+    return default_value;
+}
+
+static void append_role_extruders(std::vector<int>& extruders, std::initializer_list<const ConfigBase*> configs)
+{
+    const bool has_brim = config_int(configs, "brim_type", int(btNoBrim)) != int(btNoBrim);
+    if (config_int(configs, "wall_loops") > 0 || has_brim) {
+        const int extruder = config_int(configs, "wall_filament");
+        if (extruder > 0)
+            extruders.push_back(extruder);
+    }
+    if (config_float(configs, "sparse_infill_density") > 0.0) {
+        const int extruder = config_int(configs, "sparse_infill_filament");
+        if (extruder > 0)
+            extruders.push_back(extruder);
+    }
+    if (config_int(configs, "top_shell_layers") > 0 || config_int(configs, "bottom_shell_layers") > 0) {
+        const int extruder = config_int(configs, "solid_infill_filament");
+        if (extruder > 0)
+            extruders.push_back(extruder);
+    }
+}
 
 //BBS adhesion coefficients from model object class
 double getadhesionCoeff(const ModelVolumePtrs objectVolumes)
@@ -166,7 +215,19 @@ void ModelInstance::get_arrange_polygon(void *ap, const Slic3r::DynamicPrintConf
             }
             auto ve = object->volumes[i]->get_extruders();
             ret.extrude_ids.insert(ret.extrude_ids.end(), ve.begin(), ve.end());
+            append_role_extruders(ret.extrude_ids, {&config_global, &object->config.get(), &volume->config.get()});
+        } else if (object->volumes[i]->is_modifier()) {
+            append_role_extruders(ret.extrude_ids, {&config_global, &object->config.get(), &object->volumes[i]->config.get()});
         }
+    }
+
+    append_role_extruders(ret.extrude_ids, {&config_global, &object->config.get()});
+    for (const auto& layer_range : object->layer_config_ranges) {
+        if (layer_range.second.has("extruder")) {
+            if (const int extruder = layer_range.second.option("extruder")->getInt(); extruder > 0)
+                ret.extrude_ids.push_back(extruder);
+        }
+        append_role_extruders(ret.extrude_ids, {&config_global, &object->config.get(), &layer_range.second.get()});
     }
 
     // get per-object support extruders
@@ -183,6 +244,12 @@ void ModelInstance::get_arrange_polygon(void *ap, const Slic3r::DynamicPrintConf
     ret.bed_idx = 0;
     if (ret.extrude_ids.empty()) //the default extruder
         ret.extrude_ids.push_back(1);
+    std::vector<int> unique_extruders;
+    unique_extruders.reserve(ret.extrude_ids.size());
+    for (int extruder : ret.extrude_ids)
+        if (std::find(unique_extruders.begin(), unique_extruders.end(), extruder) == unique_extruders.end())
+            unique_extruders.push_back(extruder);
+    ret.extrude_ids = std::move(unique_extruders);
 }
 
 

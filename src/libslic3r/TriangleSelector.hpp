@@ -10,7 +10,7 @@
 
 namespace Slic3r {
 
-enum class EnforcerBlockerType : int8_t {
+enum class EnforcerBlockerType : int16_t {
     // Maximum is 3. The value is serialized in TriangleSelector into 2 bits.
     NONE      = 0,
     ENFORCER  = 1,
@@ -34,7 +34,7 @@ enum class EnforcerBlockerType : int8_t {
     Extruder14,
     Extruder15,
     Extruder16,
-    ExtruderMax = Extruder16
+    ExtruderMax = 255
 };
 
 // Following class holds information about selected triangles. It also has power
@@ -360,6 +360,10 @@ public:
 
     // Extract all used facet states from the given TriangleSplittingData.
     static std::vector<EnforcerBlockerType> extract_used_facet_states(const TriangleSplittingData &data);
+
+    // Remap all triangle states according to remap table: new_state = remap[old_state - 1] for state >= 1.
+    // remap[i] corresponds to old filament ID (i+1). Value 0 in remap means "clear to NONE".
+    void remap_states(const std::vector<unsigned int> &remap);
 
     // For all triangles, remove the flag indicating that the triangle was selected by seed fill.
     void seed_fill_unselect_all_triangles();

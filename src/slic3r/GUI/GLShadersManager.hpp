@@ -23,6 +23,10 @@ public:
 
     // returns currently active shader, nullptr if none
     GLShaderProgram* get_current_shader();
+
+	void bind_shader(const GLShaderProgram* p_shader);
+
+    void unbind_shader();
 };
 
 } // namespace Slic3r

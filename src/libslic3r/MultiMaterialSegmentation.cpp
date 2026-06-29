@@ -3,6 +3,7 @@
 #include "EdgeGrid.hpp"
 #include "Layer.hpp"
 #include "Print.hpp"
+#include "MixedFilament.hpp"  // 添加这行
 #include "Geometry/VoronoiVisualUtils.hpp"
 #include "Geometry/VoronoiUtils.hpp"
 #include "MutablePolygon.hpp"
@@ -1490,8 +1491,20 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
                 // As this region may split existing regions, we collect statistics over all regions for color_idx == 0.
                 color_idx == 0 || config.wall_filament == int(color_idx)) {
                 //BBS: the extrusion line width is outer wall rather than inner wall
-                const double nozzle_diameter = print_object.print()->config().nozzle_diameter.get_at(0);
-                double outer_wall_line_width = config.get_abs_value("outer_wall_line_width", nozzle_diameter);
+                const size_t wall_extruder_idx = std::max(0, int(config.wall_filament.value) - 1);
+                const double nozzle_diameter   = print_object.print()->config().nozzle_diameter.get_at(wall_extruder_idx);
+                double       outer_wall_line_width = config.get_abs_value("outer_wall_line_width", nozzle_diameter);
+                if (outer_wall_line_width <= 0.) {
+                    const double default_line_width = print_object.config().get_abs_value("line_width", nozzle_diameter);
+                    if (default_line_width > 0.) {
+                        outer_wall_line_width = default_line_width;
+                    } else {
+                        outer_wall_line_width = Flow::auto_extrusion_width(frExternalPerimeter, float(nozzle_diameter));
+                    }
+                }
+                if (outer_wall_line_width <= 0.) {
+                    outer_wall_line_width = std::max(0.4, nozzle_diameter);
+                }
                 out.extrusion_width     = std::max<float>(out.extrusion_width, outer_wall_line_width);
                 out.top_shell_layers    = std::max<int>(out.top_shell_layers, config.top_shell_layers);
                 out.bottom_shell_layers = std::max<int>(out.bottom_shell_layers, config.bottom_shell_layers);
@@ -1972,14 +1985,19 @@ static std::vector<std::vector<ExPolygons>> merge_segmented_layers(
 {
     const size_t                         num_layers = segmented_regions.size();
     std::vector<std::vector<ExPolygons>> segmented_regions_merged(num_layers);
-    segmented_regions_merged.assign(num_layers, std::vector<ExPolygons>(num_extruders - 1));
+    // Output layout: [channel 0] = empty NONE placeholder,
+    //                [channel 1..num_extruders-1] = extruder 1..N painted areas.
+    // Size = num_extruders (not num_extruders-1) to match apply_mm_segmentation's
+    // expected layout where channel 0 is NONE and channels 1..N are extruder regions.
+    segmented_regions_merged.assign(num_layers, std::vector<ExPolygons>(num_extruders));
     assert(!top_and_bottom_layers.size() || num_extruders == top_and_bottom_layers.size());
 
     BOOST_LOG_TRIVIAL(debug) << "MM segmentation - merging segmented layers in parallel - begin";
     tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers), [&segmented_regions, &top_and_bottom_layers, &segmented_regions_merged, &num_extruders, &throw_on_cancel_callback](const tbb::blocked_range<size_t> &range) {
         for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
             assert(segmented_regions[layer_idx].size() == num_extruders);
-            // Zero is skipped because it is the default color of the volume
+            // channel 0 (NONE) is left as empty placeholder.
+            // Extruder channels 1..num_extruders-1 are written to the same index.
             for (size_t extruder_id = 1; extruder_id < num_extruders; ++extruder_id) {
                 throw_on_cancel_callback();
                 if (!segmented_regions[layer_idx][extruder_id].empty()) {
@@ -1990,16 +2008,16 @@ static std::vector<std::vector<ExPolygons>> merge_segmented_layers(
                                 segmented_regions_trimmed = diff_ex(segmented_regions_trimmed, top_and_bottom_by_extruder[layer_idx]);
 				    }
 
-                    segmented_regions_merged[layer_idx][extruder_id - 1] = std::move(segmented_regions_trimmed);
+                    segmented_regions_merged[layer_idx][extruder_id] = std::move(segmented_regions_trimmed);
                 }
 
                 if (!top_and_bottom_layers.empty() && !top_and_bottom_layers[extruder_id][layer_idx].empty()) {
-                    bool was_top_and_bottom_empty = segmented_regions_merged[layer_idx][extruder_id - 1].empty();
-                    append(segmented_regions_merged[layer_idx][extruder_id - 1], top_and_bottom_layers[extruder_id][layer_idx]);
+                    bool was_top_and_bottom_empty = segmented_regions_merged[layer_idx][extruder_id].empty();
+                    append(segmented_regions_merged[layer_idx][extruder_id], top_and_bottom_layers[extruder_id][layer_idx]);
 
                     // Remove dimples (#7235) appearing after merging side segmentation of the model with tops and bottoms painted layers.
                     if (!was_top_and_bottom_empty)
-                        segmented_regions_merged[layer_idx][extruder_id - 1] = offset2_ex(union_ex(segmented_regions_merged[layer_idx][extruder_id - 1]), float(SCALED_EPSILON), -float(SCALED_EPSILON));
+                        segmented_regions_merged[layer_idx][extruder_id] = offset2_ex(union_ex(segmented_regions_merged[layer_idx][extruder_id]), float(SCALED_EPSILON), -float(SCALED_EPSILON));
                 }
             }
         }
@@ -2100,7 +2118,8 @@ std::vector<std::vector<ExPolygons>> segmentation_by_painting(const PrintObject 
                                                               const float                                                      segmentation_interlocking_depth,
                                                               const bool                                                       segmentation_interlocking_beam,
                                                               const IncludeTopAndBottomLayers                                  include_top_and_bottom_layers,
-                                                              const std::function<void()>                                     &throw_on_cancel_callback)
+                                                              const std::function<void()>                                     &throw_on_cancel_callback,
+                                                              const std::vector<ExPolygons>                                   *override_input_expolygons)
 {
     const size_t                          num_layers    = print_object.layers().size();
     std::vector<std::vector<ExPolygons>>  segmented_regions(num_layers);
@@ -2119,13 +2138,26 @@ std::vector<std::vector<ExPolygons>> segmentation_by_painting(const PrintObject 
 
     // Merge all regions and remove small holes
     BOOST_LOG_TRIVIAL(debug) << "Print object segmentation - Slices preprocessing in parallel - Begin";
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers), [&layers, &input_expolygons, &throw_on_cancel_callback](const tbb::blocked_range<size_t> &range) {
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers), [&layers, &input_expolygons, &override_input_expolygons, &throw_on_cancel_callback](const tbb::blocked_range<size_t> &range) {
         for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
             throw_on_cancel_callback();
             ExPolygons ex_polygons;
-            for (LayerRegion *region : layers[layer_idx]->regions())
-                for (const Surface &surface : region->slices.surfaces)
-                    Slic3r::append(ex_polygons, offset_ex(surface.expolygon, float(10 * SCALED_EPSILON)));
+            if (override_input_expolygons != nullptr) {
+                // Fuzzy-skin pass: use the clean per-layer outline captured BEFORE color
+                // (apply_mm_segmentation) split the layer into painted/non-painted regions.
+                // Reading the post-split region slices here would feed the Voronoi diagram the
+                // dense, near-collinear points produced along the color seam, which makes the
+                // segmentation degenerate on some layers and drop the fuzzy band. Using the
+                // pre-split outline keeps the Voronoi input clean and robust.
+                // Apply the same +10*SCALED_EPSILON expansion as the region path so the
+                // downstream -10*SCALED_EPSILON shrink cancels out identically.
+                for (const ExPolygon &ex : (*override_input_expolygons)[layer_idx])
+                    Slic3r::append(ex_polygons, offset_ex(ex, float(10 * SCALED_EPSILON)));
+            } else {
+                for (LayerRegion *region : layers[layer_idx]->regions())
+                    for (const Surface &surface : region->slices.surfaces)
+                        Slic3r::append(ex_polygons, offset_ex(surface.expolygon, float(10 * SCALED_EPSILON)));
+            }
             // All expolygons are expanded by SCALED_EPSILON, merged, and then shrunk again by SCALED_EPSILON
             // to ensure that very close polygons will be merged.
             ex_polygons = union_ex(ex_polygons);
@@ -2334,10 +2366,60 @@ std::vector<std::vector<ExPolygons>> segmentation_by_painting(const PrintObject 
     return segmented_regions_merged;
 }
 
-// Returns multi-material segmentation based on painting in multi-material segmentation gizmo
-std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(const PrintObject &print_object, const std::function<void()> &throw_on_cancel_callback)
+// 应用混色耗材的表面收缩/扩张
+static std::vector<std::vector<ExPolygons>> apply_mixed_filament_indentation(
+    const PrintObject& print_object,
+    std::vector<std::vector<ExPolygons>> segmented_regions,
+    const std::function<void()>& throw_on_cancel_callback)
 {
-    const size_t num_facets_states  = print_object.print()->config().filament_colour.size() + 1;
+    const MixedFilamentManager& mixed_mgr = print_object.print()->mixed_filament_manager();
+    if (mixed_mgr.enabled_count() == 0)
+        return segmented_regions; // 没有混色耗材，直接返回
+    
+    const float indentation = float(print_object.print()->config().mixed_filament_surface_indentation.value);
+    if (std::abs(indentation) < 0.001f)
+        return segmented_regions; // 没有设置收缩/扩张，直接返回
+    
+    size_t num_physical = print_object.print()->config().filament_colour.size();
+    const size_t num_layers = segmented_regions.size();
+    
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers), 
+        [&segmented_regions, &mixed_mgr, num_physical, indentation, &throw_on_cancel_callback](const tbb::blocked_range<size_t>& range) {
+        for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
+            throw_on_cancel_callback();
+            
+            // 检查该层是否有混色耗材区域
+            // In raw segmented_regions (before merge): channel index = filament_id directly
+            // (channel 0 = NONE, channel 1 = filament 1, ..., channel N = filament N)
+            for (size_t extruder_idx = 1; extruder_idx < segmented_regions[layer_idx].size(); ++extruder_idx) {
+                unsigned int filament_id = unsigned(extruder_idx); // channel index IS the 1-based filament_id
+                
+                // 检查是否是混色耗材
+                if (mixed_mgr.is_mixed(filament_id, num_physical)) {
+                    // 应用收缩（正值）或扩张（负值）
+                    if (!segmented_regions[layer_idx][extruder_idx].empty()) {
+                        segmented_regions[layer_idx][extruder_idx] = 
+                            offset_ex(segmented_regions[layer_idx][extruder_idx], -scale_(indentation));
+                    }
+                }
+            }
+        }
+    });
+    
+    return segmented_regions;
+}
+
+// Returns multi-material segmentation based on painting in multi-material segmentation gizmo
+std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(
+    const PrintObject &print_object, 
+    const std::function<void()> &throw_on_cancel_callback)
+{
+    // Include mixed/virtual filaments in the segmentation channels.
+    // num_facets_states = total filaments (physical + enabled mixed) + 1 (for NONE state).
+    const size_t num_physical = print_object.print()->config().filament_colour.size();
+    const MixedFilamentManager &mixed_mgr = print_object.print()->mixed_filament_manager();
+    const size_t num_facets_states = mixed_mgr.total_filaments(num_physical) + 1;
+    
     const float  max_width          = float(print_object.config().mmu_segmented_region_max_width.value);
     const float  interlocking_depth = float(print_object.config().mmu_segmented_region_interlocking_depth.value);
     const bool   interlocking_beam  = print_object.config().interlocking_beam.value;
@@ -2346,11 +2428,19 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(con
         return {mv.mmu_segmentation_facets, mv.is_mm_painted(), false};
     };
 
-    return segmentation_by_painting(print_object, extract_facets_info, num_facets_states, max_width, interlocking_depth, interlocking_beam, IncludeTopAndBottomLayers::Yes, throw_on_cancel_callback);
+    auto segmented_regions = segmentation_by_painting(
+        print_object, extract_facets_info, num_facets_states, 
+        max_width, interlocking_depth, interlocking_beam, 
+        IncludeTopAndBottomLayers::Yes, throw_on_cancel_callback, nullptr);
+    
+    // 新增：应用混色耗材的表面处理
+    segmented_regions = apply_mixed_filament_indentation(print_object, std::move(segmented_regions), throw_on_cancel_callback);
+    
+    return segmented_regions;
 }
 
 // Returns fuzzy skin segmentation based on painting in fuzzy skin segmentation gizmo
-std::vector<std::vector<ExPolygons>> fuzzy_skin_segmentation_by_painting(const PrintObject &print_object, const std::function<void()> &throw_on_cancel_callback) {
+std::vector<std::vector<ExPolygons>> fuzzy_skin_segmentation_by_painting(const PrintObject &print_object, const std::function<void()> &throw_on_cancel_callback, const std::vector<ExPolygons> *clean_input_expolygons) {
     const size_t num_facets_states = 2; // Unpainted facets and facets painted with fuzzy skin.
 
     const auto extract_facets_info = [](const ModelVolume &mv) -> ModelVolumeFacetsInfo {
@@ -2365,7 +2455,7 @@ std::vector<std::vector<ExPolygons>> fuzzy_skin_segmentation_by_painting(const P
         max_external_perimeter_width = std::max<float>(max_external_perimeter_width, region.flow(print_object, frExternalPerimeter, print_object.config().layer_height).width());
     }
 
-    return segmentation_by_painting(print_object, extract_facets_info, num_facets_states, max_external_perimeter_width, 0.f, false, IncludeTopAndBottomLayers::No, throw_on_cancel_callback);
+    return segmentation_by_painting(print_object, extract_facets_info, num_facets_states, max_external_perimeter_width, 0.f, false, IncludeTopAndBottomLayers::No, throw_on_cancel_callback, clean_input_expolygons);
 }
 
 } // namespace Slic3r

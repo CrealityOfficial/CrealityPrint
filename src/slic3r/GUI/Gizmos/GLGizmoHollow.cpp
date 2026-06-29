@@ -278,10 +278,6 @@ bool GLGizmoHollow::gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_pos
                 assert(m_selected.size() == mo->sla_drain_holes.size());
                 m_parent.set_as_dirty();
                 m_wait_for_up_event = true;
-                
-                // 【新增】标记几何体修改（添加孔洞成功）
-                AnalyticsDataUploadManager::ProjectModificationTracker::getInstance()
-                    .mark_modified(AnalyticsDataUploadManager::ModelModifyType::ADD_HOLE);
             }
             else
                 return false;
@@ -456,7 +452,7 @@ GLGizmoHollow::get_config_options(const std::vector<std::string>& keys) const
 }
 
 
-void GLGizmoHollow::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoHollow::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
     //volume-->m_mesh
     ModelObject* mo = m_c->selection_info()->model_object();
@@ -501,7 +497,7 @@ void GLGizmoHollow::on_render_input_window(float x, float y, float bottom_limit)
     const float approx_height = m_imgui->scaled(20.0f);
     y = std::min(y, bottom_limit - approx_height);
     //m_imgui->set_next_window_pos(x, y, ImGuiCond_Always);
-    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always);
+    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, force_update_pos);
     GizmoImguiBegin(get_name(), ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
     //m_imgui->begin(get_name(), ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
 

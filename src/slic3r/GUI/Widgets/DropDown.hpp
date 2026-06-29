@@ -15,6 +15,15 @@ wxDECLARE_EVENT(EVT_DISMISS, wxCommandEvent);
 
 class DropDown : public PopupWindow
 {
+public:
+    enum class PopupDirection
+    {
+        Auto,
+        Down,
+        Up
+    };
+
+private:
     std::vector<wxString> &       texts;
     std::vector<wxString> &       tips;
     std::vector<wxBitmap> &     icons;
@@ -44,6 +53,8 @@ class DropDown : public PopupWindow
     wxPoint                  offset; // x not used
     wxPoint                  dragStart;
     int                      m_drapDownGap = 6;
+    size_t                   m_max_visible_items = 15;
+    PopupDirection           m_popup_direction = PopupDirection::Down;
 
 public:
     DropDown(std::vector<wxString> &texts,
@@ -83,6 +94,10 @@ public:
     void SetUseContentWidth(bool use, bool limit_max_content_width = false);
 
     void SetAlignIcon(bool align);
+    
+    void SetMaxVisibleItems(size_t max_items);
+
+    void SetPopupDirection(PopupDirection direction);
     
 public:
     void Rescale();

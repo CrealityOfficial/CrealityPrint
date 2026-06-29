@@ -25,6 +25,8 @@ public:
             EnforcerBlockerType max_type,
             EnforcerBlockerType to_delete_filament = EnforcerBlockerType::NONE,
             EnforcerBlockerType replace_filament = EnforcerBlockerType::NONE);
+    // Remap all painted triangle states: remap[old_state - 1] = new_state (0 = clear).
+    void                 remap_states(const ModelVolume& mv, const std::vector<unsigned int>& remap);
     indexed_triangle_set get_facets_strict(const ModelVolume& mv, EnforcerBlockerType type) const;
     bool has_facets(const ModelVolume& mv, EnforcerBlockerType type) const;
     //bool empty() const { return m_data.first.empty(); }
@@ -92,6 +94,8 @@ public:
     std::string         name;
     // BBS: UUID from 3MF file (p:UUID attribute)
     std::string         uuid;
+    // BBS: object id from 3dmodel.model file (component objectid), used for analytics reporting
+    int                 from_loaded_id = -1;
     // struct used by reload from disk command to recover data from disk
     struct Source
     {
@@ -221,6 +225,9 @@ public:
     std::vector<int>    get_extruders() const;
     void                update_extruder_count(size_t extruder_count);
     void                update_extruder_count_when_delete_filament(size_t extruder_count, size_t filament_id, int replace_filament_id = -1);
+    // Remap mmu_segmentation_facets states using the provided ID mapping table.
+    // remap[i] = new filament ID for old filament ID (i+1); 0 means clear to NONE.
+    void                remap_mmu_painting_states(const std::vector<unsigned int>& remap);
     // Split this volume, append the result to the object owning this volume.
     // Return the number of volumes created from this one.
     // This is useful to assign different materials to different volumes of an object.
@@ -408,7 +415,7 @@ private:
     // Copying an existing volume, therefore this volume will get a copy of the ID assigned.
     ModelVolume(ModelObject *object, const ModelVolume &other) :
         ObjectBase(other),
-        name(other.name), uuid(other.uuid), source(other.source), m_mesh(other.m_mesh), m_convex_hull(other.m_convex_hull),
+        name(other.name), uuid(other.uuid), from_loaded_id(other.from_loaded_id), source(other.source), m_mesh(other.m_mesh), m_convex_hull(other.m_convex_hull),
         config(other.config), m_type(other.m_type), object(object), m_transformation(other.m_transformation),
         supported_facets(other.supported_facets), seam_facets(other.seam_facets), mmu_segmentation_facets(other.mmu_segmentation_facets),
         fuzzy_skin_facets(other.fuzzy_skin_facets), cut_info(other.cut_info), text_configuration(other.text_configuration), emboss_shape(other.emboss_shape)
@@ -433,7 +440,7 @@ private:
     }
     // Providing a new mesh, therefore this volume will get a new unique ID assigned.
     ModelVolume(ModelObject *object, const ModelVolume &other, TriangleMesh &&mesh) :
-        name(other.name), uuid(other.uuid), source(other.source), config(other.config), object(object), m_mesh(new TriangleMesh(std::move(mesh))), m_type(other.m_type), m_transformation(other.m_transformation),
+        name(other.name), uuid(other.uuid), from_loaded_id(other.from_loaded_id), source(other.source), config(other.config), object(object), m_mesh(new TriangleMesh(std::move(mesh))), m_type(other.m_type), m_transformation(other.m_transformation),
         cut_info(other.cut_info), text_configuration(other.text_configuration), emboss_shape(other.emboss_shape)
     {
 		assert(this->id().valid()); 

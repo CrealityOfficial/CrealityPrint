@@ -1,0 +1,19 @@
+<svg width="112" height="92" viewBox="0 0 112 92" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="shadow" x="0" y="0" width="112" height="92" filterUnits="userSpaceOnUse">
+      <feOffset dy="4"/>
+      <feGaussianBlur stdDeviation="4"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.22 0"/>
+    </filter>
+    <linearGradient id="discBack" x1="25" y1="17" x2="51" y2="72" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#59616B"/>
+      <stop offset="0.35" stop-color="#444A53"/>
+      <stop offset="1" stop-color="#232831"/>
+    </linearGradient>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <ellipse cx="39" cy="45" rx="15" ry="27" fill="url(#discBack)"/>
+    <path d="M27 21.5C30.2 20.1 34.5 19.2 39 19.2C43.5 19.2 47.8 20.1 51 21.5" stroke="white" stroke-opacity="0.10" stroke-width="1.1" stroke-linecap="round"/>
+  </g>
+</svg>

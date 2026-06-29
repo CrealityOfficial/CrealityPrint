@@ -4383,7 +4383,10 @@ void SelectMachineDialog::set_default_normal(const ThumbnailData &data)
     wxString   time;
     PartPlate* plate = m_plater->get_partplate_list().get_curr_plate();
     if (plate) {
-        if (plate->get_slice_result()) { time = wxString::Format("%s", short_time(get_time_dhms(plate->get_slice_result()->print_statistics.modes[0].time))); }
+        if (plate->get_slice_result()) {
+            const auto& mode = plate->get_slice_result()->print_statistics.modes[0];
+            time = wxString::Format("%s", short_time(get_time_dhms(mode.model_time_s())));
+        }
     }
 
     char weight[64];

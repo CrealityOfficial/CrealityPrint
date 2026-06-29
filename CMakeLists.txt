@@ -29,6 +29,32 @@ elseif(BUILD_OS_OSX)
 	set(BUILD_OS "macx")
 endif()
 
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "No build type selected, default to Release")
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type (default Release)" FORCE)
+endif()
+
+set(CXAGENT_DEBUG_API_BASE "http://127.0.0.1:8787" CACHE STRING "CxAgent API base used for Debug/RelWithDebInfo builds")
+set(CXAGENT_RELEASE_API_BASE "http://cxagent.crealitycloud.cn" CACHE STRING "CxAgent API base used for Release/MinSizeRel builds")
+
+if (NOT "$ENV{CXAGENT_DEBUG_API_BASE}" STREQUAL "")
+    set(CXAGENT_DEBUG_API_BASE "$ENV{CXAGENT_DEBUG_API_BASE}" CACHE STRING "CxAgent API base used for Debug/RelWithDebInfo builds" FORCE)
+endif()
+if (NOT "$ENV{CXAGENT_RELEASE_API_BASE}" STREQUAL "")
+    set(CXAGENT_RELEASE_API_BASE "$ENV{CXAGENT_RELEASE_API_BASE}" CACHE STRING "CxAgent API base used for Release/MinSizeRel builds" FORCE)
+endif()
+if (NOT "$ENV{CXAGENT_API_BASE}" STREQUAL "")
+    set(CXAGENT_DEBUG_API_BASE "$ENV{CXAGENT_API_BASE}" CACHE STRING "CxAgent API base used for Debug/RelWithDebInfo builds" FORCE)
+    set(CXAGENT_RELEASE_API_BASE "$ENV{CXAGENT_API_BASE}" CACHE STRING "CxAgent API base used for Release/MinSizeRel builds" FORCE)
+endif()
+
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
+    set(CXAGENT_DEFAULT_API_BASE "${CXAGENT_DEBUG_API_BASE}")
+else()
+    set(CXAGENT_DEFAULT_API_BASE "${CXAGENT_RELEASE_API_BASE}")
+endif()
+message(STATUS "CXAGENT_DEFAULT_API_BASE for ${CMAKE_BUILD_TYPE}: ${CXAGENT_DEFAULT_API_BASE}")
+
 include(ConfigureAllModules)
 __configure_build_info_header(
 	customized
@@ -55,11 +81,6 @@ message("PROCESS_NAME=${PROCESS_NAME}")
 set(SLIC3R_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 file(TO_NATIVE_PATH "${SLIC3R_RESOURCES_DIR}" SLIC3R_RESOURCES_DIR_WIN)
 
-if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message(STATUS "No build type selected, default to Release")
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type (default Release)" FORCE)
-endif()
-
 if(DEFINED ENV{SLIC3R_STATIC})
         set(SLIC3R_STATIC_INITIAL $ENV{SLIC3R_STATIC})
 else()
@@ -81,6 +102,8 @@ option(SLIC3R_MSVC_COMPILE_PARALLEL "Compile on Visual Studio in parallel" 1)
 option(SLIC3R_MSVC_PDB          "Generate PDB files on MSVC in Release mode" 1)
 option(SLIC3R_PERL_XS           "Compile XS Perl module and enable Perl unit and integration tests" 0)
 option(SLIC3R_ASAN              "Enable ASan on Clang and GCC" 0)
+option(SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT "Enable exporting slicer time analytics artifacts (layer/custom/prepare/thumbnail/meta)" 0)
+option(SLIC3R_ENABLE_GCODE_IMPORT_PROFILE_OVERLAY_FOR_TEST "Enable test-only online printer profile overlay when importing G-code" 0)
 option(GENERATE_ORCA_HEADER "Enable generate header" 1)
 
 # If SLIC3R_FHS is 1 -> SLIC3R_DESKTOP_INTEGRATION is always 0, othrewise variable.
@@ -133,6 +156,14 @@ endif ()
 
 if(SLIC3R_DESKTOP_INTEGRATION)
     add_definitions(-DSLIC3R_DESKTOP_INTEGRATION)
+endif ()
+
+if (SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT)
+    add_definitions(-DSLIC3R_ENABLE_TIME_ANALYTICS_EXPORT)
+endif ()
+
+if (SLIC3R_ENABLE_GCODE_IMPORT_PROFILE_OVERLAY_FOR_TEST)
+    add_definitions(-DSLIC3R_ENABLE_GCODE_IMPORT_PROFILE_OVERLAY_FOR_TEST)
 endif ()
 
 if (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL Clang)
@@ -276,6 +307,52 @@ if(WIN32)
             message("Building without Win10 Netfabb STL fixing service support")
         endif()
     endif()
+endif()
+
+option(SLIC3R_ENABLE_IMATISTL "Enable ImatiSTL mesh repair backend on Linux/macOS" ON)
+
+set(HAS_IMATISTL FALSE)
+unset(IMATISTL_INCLUDE_DIR)
+unset(IMATISTL_LIBRARY)
+unset(IMATISTL_DEP_LIBRARIES)
+
+if (SLIC3R_ENABLE_IMATISTL AND (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+    find_path(IMATISTL_INCLUDE_DIR
+        NAMES imatistl.h ImatiSTL/imatistl.h
+        PATH_SUFFIXES include include/ImatiSTL)
+    find_library(IMATISTL_LIBRARY
+        NAMES ImatiSTL imatiSTL imatistl
+        PATH_SUFFIXES lib)
+    find_library(IMATISTL_GMP_LIBRARY
+        NAMES gmp libgmp
+        PATH_SUFFIXES lib)
+    find_library(IMATISTL_MPFR_LIBRARY
+        NAMES mpfr libmpfr
+        PATH_SUFFIXES lib)
+
+    if (IMATISTL_INCLUDE_DIR)
+        get_filename_component(_imatistl_include_leaf "${IMATISTL_INCLUDE_DIR}" NAME)
+        if (_imatistl_include_leaf STREQUAL "ImatiSTL")
+            get_filename_component(IMATISTL_INCLUDE_DIR "${IMATISTL_INCLUDE_DIR}" DIRECTORY)
+        endif()
+    endif()
+
+    if (IMATISTL_INCLUDE_DIR AND IMATISTL_LIBRARY)
+        set(HAS_IMATISTL TRUE)
+        if (IMATISTL_MPFR_LIBRARY)
+            list(APPEND IMATISTL_DEP_LIBRARIES ${IMATISTL_MPFR_LIBRARY})
+        endif()
+        if (IMATISTL_GMP_LIBRARY)
+            list(APPEND IMATISTL_DEP_LIBRARIES ${IMATISTL_GMP_LIBRARY})
+        endif()
+        message("Building with ImatiSTL mesh repair support (deps/system library)")
+    else()
+        message("Building without ImatiSTL mesh repair support")
+    endif()
+endif()
+
+if (HAS_IMATISTL)
+    add_definitions(-DHAS_IMATISTL)
 endif()
 
 if (APPLE)

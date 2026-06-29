@@ -215,10 +215,10 @@ void GLGizmoMove3D::on_unregister_raycasters_for_picking()
 }
 
 //BBS: add input window for move
-void GLGizmoMove3D::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoMove3D::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
     if (m_object_manipulation)
-        m_object_manipulation->do_render_move_window(m_imgui, _u8L("Move"), x, y, bottom_limit);
+        m_object_manipulation->do_render_move_window(m_imgui, _u8L("Move"), x, y, bottom_limit, force_update_pos);
 }
 
 

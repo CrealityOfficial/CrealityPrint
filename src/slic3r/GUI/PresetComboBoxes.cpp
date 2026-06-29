@@ -825,9 +825,13 @@ bool PlaterPresetComboBox::switch_to_tab()
         const std::string& selected_preset = GetString(GetSelection()).ToUTF8().data();
         if (!boost::algorithm::starts_with(selected_preset, Preset::suffix_modified()))
         {
+            if (auto filament_tab = dynamic_cast<TabFilament*>(tab)) {
+                filament_tab->set_active_extruder_by_preset_index(m_filament_idx);
+            }
             const std::string& preset_name = wxGetApp().preset_bundle->filaments.get_preset_name_by_alias(selected_preset);
-            if (wxGetApp().get_tab(m_type)->select_preset(preset_name))
+            if (wxGetApp().get_tab(m_type)->select_preset(preset_name)) {
                 wxGetApp().get_tab(m_type)->get_combo_box()->set_filament_idx(m_filament_idx);
+            }
             else {
                 wxGetApp().params_dialog()->Hide();
                 return false;

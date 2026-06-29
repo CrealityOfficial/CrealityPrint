@@ -3,7 +3,9 @@
 #include "MsgDialog.hpp"
 #include "I18N.hpp"
 #include "Widgets/HoverBorderIcon.hpp"
+#include "libslic3r/Utils.hpp"
 #include <wx/dcgraph.h>
+#include <wx/filefn.h>
 #include "MainFrame.hpp"
 #include <string>
 namespace Slic3r { namespace GUI {
@@ -2802,6 +2804,133 @@ void High_Flowrate_Dlg::on_dpi_changed(const wxRect& suggested_rect)
 {
     this->Refresh();
     Fit();
+}
+
+XY_Offset_Calibration_Dlg::XY_Offset_Calibration_Dlg(wxWindow* parent, wxWindowID id, Plater* plater)
+    : DPIDialog(parent, id, _L("Multi-toolhead XY Offset Test"), wxDefaultPosition, parent->FromDIP(wxSize(-1, 200)), wxDEFAULT_DIALOG_STYLE)
+    , m_plater(plater)
+{
+    SetFont(wxGetApp().normal_font());
+    SetBackgroundColour(*wxWHITE);
+
+    const int   dlg_width = 360;
+    wxBoxSizer* v_sizer   = new wxBoxSizer(wxVERTICAL);
+    v_sizer->SetMinSize(wxSize(FromDIP(dlg_width), -1));
+    SetSizer(v_sizer);
+
+    const wxSize label_size(FromDIP(140), -1);
+    const wxSize combo_size(FromDIP(120), -1);
+    const wxColour label_color = StateColor::darkModeColorFor(wxColour("#323A3C"));
+
+    auto add_row = [this, &v_sizer, label_size, combo_size, label_color](
+        const wxString& label,
+        ComboBox*& combo,
+        const wxString* items,
+        size_t item_count,
+        const wxString& unit,
+        int selection) {
+        wxBoxSizer* row = new wxBoxSizer(wxHORIZONTAL);
+        auto*       text = new wxStaticText(this, wxID_ANY, label, wxDefaultPosition, label_size, wxALIGN_LEFT);
+        text->SetFont(Label::Body_13);
+        text->SetForegroundColour(label_color);
+        row->Add(text, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(8));
+
+        combo = new ComboBox(this, wxID_ANY, wxEmptyString, wxDefaultPosition, combo_size, 0, nullptr, wxCB_READONLY);
+        for (size_t i = 0; i < item_count; ++i)
+            combo->Append(items[i]);
+        combo->SetSelection(selection);
+        row->Add(combo, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(6));
+
+        if (!unit.empty()) {
+            auto* unit_text = new wxStaticText(this, wxID_ANY, unit, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+            unit_text->SetFont(Label::Body_13);
+            unit_text->SetForegroundColour(label_color);
+            row->Add(unit_text, 0, wxALIGN_CENTER_VERTICAL);
+        }
+
+        v_sizer->Add(row, 0, wxLEFT | wxRIGHT | wxTOP, FromDIP(10));
+    };
+
+    const wxString toolhead_choices[] = { "4", "6" };
+    const wxString nozzle_choices[]   = { "0.4" };
+    const wxString step_choices[]     = { "0.05", "0.1", "0.2" };
+
+    v_sizer->Add(0, FromDIP(8), 0, wxEXPAND);
+    add_row(_L("Toolhead count"), m_cb_toolhead_count, toolhead_choices, sizeof(toolhead_choices) / sizeof(wxString), _L("pcs"), 0);
+    add_row(_L("Nozzle diameter"), m_cb_nozzle_diameter, nozzle_choices, sizeof(nozzle_choices) / sizeof(wxString), _L("mm"), 0);
+    add_row(_L("Measurement step"), m_cb_step, step_choices, sizeof(step_choices) / sizeof(wxString), _L("mm"), 1);
+
+    StateColor btn_bg_green(std::pair<wxColour, int>(wxColour(0, 137, 123), StateColor::Pressed),
+                            std::pair<wxColour, int>(wxColour(38, 166, 154), StateColor::Hovered),
+                            std::pair<wxColour, int>(wxColour(0, 150, 136), StateColor::Normal));
+
+    m_btn_confirm = new Button(this, _L("Confirm"));
+    m_btn_confirm->SetBackgroundColor(btn_bg_green);
+    m_btn_confirm->SetBorderColor(*wxWHITE);
+    m_btn_confirm->SetTextColor(wxColour(0xFFFFFE));
+    m_btn_confirm->SetFont(Label::Body_12);
+    m_btn_confirm->SetSize(wxSize(FromDIP(100), FromDIP(30)));
+    m_btn_confirm->SetMinSize(wxSize(FromDIP(100), FromDIP(30)));
+    m_btn_confirm->SetCornerRadius(FromDIP(12));
+    m_btn_confirm->Bind(wxEVT_BUTTON, &XY_Offset_Calibration_Dlg::on_confirm, this);
+
+    v_sizer->Add(m_btn_confirm, 0, wxALL | wxALIGN_CENTER_HORIZONTAL, FromDIP(16));
+
+    Layout();
+    v_sizer->Fit(this);
+    wxGetApp().UpdateDlgDarkUI(this);
+}
+
+XY_Offset_Calibration_Dlg::~XY_Offset_Calibration_Dlg() {}
+
+void XY_Offset_Calibration_Dlg::on_dpi_changed(const wxRect& suggested_rect)
+{
+    this->Refresh();
+    Fit();
+}
+
+void XY_Offset_Calibration_Dlg::on_confirm(wxCommandEvent& event)
+{
+    wxString toolhead_value = wxEmptyString;
+    if (m_cb_toolhead_count) {
+        toolhead_value = m_cb_toolhead_count->GetValue();
+    }
+
+    wxString nozzle_value = wxEmptyString;
+    if (m_cb_nozzle_diameter) {
+        nozzle_value = m_cb_nozzle_diameter->GetValue();
+    }
+
+    wxString step_value = wxEmptyString;
+    if (m_cb_step) {
+        step_value = m_cb_step->GetValue();
+    }
+
+    long   toolhead_count  = 0;
+    double nozzle_diameter = 0.0;
+    double step            = 0.0;
+
+    if (!toolhead_value.empty() && toolhead_value.ToLong(&toolhead_count))
+        m_toolhead_count = static_cast<int>(toolhead_count);
+    if (!nozzle_value.empty() && nozzle_value.ToDouble(&nozzle_diameter))
+        m_nozzle_diameter = nozzle_diameter;
+    if (!step_value.empty() && step_value.ToDouble(&step))
+        m_step = step;
+
+    if (!m_plater || toolhead_value.empty() || nozzle_value.empty() || step_value.empty()) {
+        EndModal(wxID_OK);
+        return;
+    }
+
+    wxString gcode_path = from_u8(Slic3r::resources_dir()) +wxString::Format("/calib/xy_offset/%s-%s-%s.gcode", toolhead_value, nozzle_value, step_value);
+    if (!wxFileExists(gcode_path)) {
+        MessageDialog msg_dlg(this, wxString::Format(_L("G-code file not found:\n%s"), gcode_path),wxEmptyString, wxICON_WARNING | wxOK);
+        msg_dlg.ShowModal();
+        return;
+    }
+
+    EndModal(wxID_OK);
+    m_plater->load_gcode(gcode_path);
 }
 
 }} // namespace Slic3r::GUI

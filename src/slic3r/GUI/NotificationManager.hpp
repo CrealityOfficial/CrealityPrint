@@ -154,7 +154,8 @@ enum class NotificationType
 	BBLUserPresetExceedLimit,
 
 	SupportManualHint,
-
+    // Filament vendor tip
+    FilamentVendorTip,
 };
 
 class NotificationManager
@@ -205,6 +206,8 @@ public:
 	void stop_delayed_notifications_of_type(const NotificationType type);
 	// Creates Validate Error notification with a custom text and no fade out.
 	void push_validate_error_notification(StringObjectException const & error);
+    // only for F031 Project 2025.9.22
+    void push_validate_warning_notification(StringObjectException const& error);
 		// print host upload
 	void push_upload_job_notification(int id, float filesize, const std::string& filename, const std::string& host, float percentage = 0);
 	void set_upload_job_notification_percentage(int id, const std::string& filename, const std::string& host, float percentage);

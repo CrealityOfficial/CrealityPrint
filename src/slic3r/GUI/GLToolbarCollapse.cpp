@@ -20,6 +20,11 @@ namespace Slic3r {
 namespace GUI {
 namespace CollapseBar{
 
+namespace {
+constexpr float COLLAPSE_BAR_WIDTH  = 12.0f;
+constexpr float COLLAPSE_BAR_HEIGHT = 78.0f;
+}
+
     const GLToolbarItem::ActionCallback GLToolbarItem::Default_Action_Callback = [](){};
 const GLToolbarItem::VisibilityCallback GLToolbarItem::Default_Visibility_Callback = []()->bool { return true; };
 const GLToolbarItem::EnablingCallback GLToolbarItem::Default_Enabling_Callback = []()->bool { return true; };
@@ -288,29 +293,23 @@ void GLToolbar::calc_layout()
 //BBS: GUI refactor: GLToolbar
 float GLToolbar::get_width_horizontal() const
 {
-    auto  tt   = DispConfig().getTexture(DispConfig::e_tt_collapse);
-	float size = tt->get_width();
-    return size * m_layout.scale;
+    return COLLAPSE_BAR_WIDTH * m_layout.scale;
 }
 
 //BBS: GUI refactor: GLToolbar
 float GLToolbar::get_width_vertical() const
 {
-    auto  tt   = DispConfig().getTexture(DispConfig::e_tt_collapse);
-	float size = tt->get_width();
-	return size * m_layout.scale;
+	return COLLAPSE_BAR_WIDTH * m_layout.scale;
 }
 
 float GLToolbar::get_height_horizontal() const
 {
-    auto bk = DispConfig().getTexture(DispConfig::e_tt_collapse);
-    return bk->get_height()* m_layout.scale;
+    return COLLAPSE_BAR_HEIGHT * m_layout.scale;
 }
 
 float GLToolbar::get_height_vertical() const
 {
-    auto bk = DispConfig().getTexture(DispConfig::e_tt_collapse);
-    return bk->get_height()* m_layout.scale;
+    return COLLAPSE_BAR_HEIGHT * m_layout.scale;
 }
 
 void GLToolbar::do_action(GLToolbarItem::EActionType type, int item_id, GLCanvas3D& parent, bool check_hover)

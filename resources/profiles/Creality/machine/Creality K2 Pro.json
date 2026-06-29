@@ -9,5 +9,5 @@
     "hotend_model": "",
     "machine_tech": "FFF",
     "model_id": "Creality_K2_Pro",
-    "default_materials": "Generic ASA;Generic ABS;Generic PLA-CF;Generic PLA;Generic PETG;Generic PLA-Silk;Hyper PETG;CR-Silk;ENDER FAST PLA;Hyper PLA-CF;Hyper PLA;Hyper ABS;HP-TPU;CR-PLA;CR-PETG;CR-ABS;Generic TPU"
+    "default_materials": "Generic TPU;Generic ASA;Generic ABS;Generic PLA-CF;Generic PLA;Generic PETG;Generic PLA-Silk;Hyper PETG;CR-Silk;ENDER FAST PLA;Hyper PLA-CF;Hyper PLA;Hyper ABS;HP-TPU;CR-PLA;CR-PETG;CR-ABS"
 }

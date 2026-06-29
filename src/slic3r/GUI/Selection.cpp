@@ -4197,17 +4197,29 @@ void Selection::paste_objects_from_clipboard()
     if (all_displacements.empty())
         return;
 
-    for (size_t i=0;i<src_objects.size();i++)
-    {
-        const ModelObject *src_object = src_objects[i];
-        ModelObject* dst_object = m_model->add_object(*src_object);
+    if (all_displacements.size() < src_objects.size()) {
+        all_displacements.reserve(src_objects.size());
+        for (size_t i = all_displacements.size(); i < src_objects.size(); ++i)
+            all_displacements.emplace_back(src_objects[i]->instances.front()->get_offset().cast<float>());
+    }
 
-        // BBS: find an empty cell to put the copied object
-        //BoundingBoxf3 bbox = src_object->instance_convex_hull_bounding_box(size_t(0));
+    for (size_t i = 0; i < src_objects.size(); i++)
+    {
+        const ModelObject* src_object = src_objects[i];
+        ModelObject*       dst_object = m_model->add_object(*src_object);
+        const bool         source_is_sunk = src_object->min_z() < SINKING_Z_THRESHOLD;
+        const Vec3d        target_offset  = all_displacements[i].cast<double>();
+        const Vec3d        source_anchor  = src_object->instances.front()->get_offset();
+        const Vec3d        delta_offset   = target_offset - source_anchor;
+
+        for (ModelInstance* inst : dst_object->instances)
+            inst->set_offset(inst->get_offset() + delta_offset);
+
+        dst_object->invalidate_bounding_box();
+        if (!source_is_sunk)
+            dst_object->ensure_on_bed();
 
         for (ModelInstance* inst : dst_object->instances) {
-            inst->set_offset(all_displacements[i].cast<double>());
-
             //BBS init asssmble transformation
             Geometry::Transformation t = inst->get_transformation();
             inst->set_assemble_transformation(t);
@@ -4215,7 +4227,7 @@ void Selection::paste_objects_from_clipboard()
 
         object_idxs.push_back(m_model->objects.size() - 1);
 #ifdef _DEBUG
-	    check_model_ids_validity(*m_model);
+        check_model_ids_validity(*m_model);
 #endif /* _DEBUG */
     }
 

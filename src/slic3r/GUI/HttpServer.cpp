@@ -84,6 +84,12 @@ std::string url_get_param_ignore(const std::string& url, const std::string& key)
     return result;
 }
 
+static void trim_http_line_end(std::string& line)
+{
+    if (!line.empty() && line.back() == '\r')
+        line.pop_back();
+}
+
 void session::start()
 {
     read_first_line();
@@ -100,12 +106,12 @@ void session::read_first_line()
 {
     auto self(shared_from_this());
 
-    async_read_until(socket, buff, '\r', [this, self](const boost::beast::error_code& e, std::size_t s) {
+    async_read_until(socket, buff, "\r\n", [this, self](const boost::beast::error_code& e, std::size_t s) {
         if (!e) {
-            std::string  line, ignore;
+            std::string  line;
             std::istream stream{&buff};
-            std::getline(stream, line, '\r');
-            std::getline(stream, ignore, '\n');
+            std::getline(stream, line);
+            trim_http_line_end(line);
             headers.on_read_request_line(line);
             read_next_line();
         } else if (e != boost::asio::error::operation_aborted) {
@@ -128,12 +134,12 @@ void session::read_next_line()
 {
     auto self(shared_from_this());
 
-    async_read_until(socket, buff, '\r', [this, self](const boost::beast::error_code& e, std::size_t s) {
+    async_read_until(socket, buff, "\r\n", [this, self](const boost::beast::error_code& e, std::size_t s) {
         if (!e) {
-            std::string  line, ignore;
+            std::string  line;
             std::istream stream{&buff};
-            std::getline(stream, line, '\r');
-            std::getline(stream, ignore, '\n');
+            std::getline(stream, line);
+            trim_http_line_end(line);
             headers.on_read_header(line);
 
             if (line.length() == 0) {
@@ -443,6 +449,7 @@ std::string build_http_response(int status_code, const std::string& content_type
     response << "Content-Type: " << content_type << "\r\n";
     response << "Content-Length: " << content.length() << "\r\n";
     response << "Access-Control-Allow-Origin: " << "*" << "\r\n";
+    response << "Connection: close\r\n";
     response << "Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0\r\n";
     response << "pragma:no-cache\r\n";
     response << "\r\n";
@@ -659,6 +666,7 @@ std::shared_ptr<HttpServer::Response> HttpServer::creality_handle_request(const 
         // 当 PROJECT_VERSION_EXTRA 为 Dev 时，按 Dev 环境的 OAuth 配置处理
         {
             std::string extra = std::string(PROJECT_VERSION_EXTRA);
+
             if (boost::algorithm::iequals(extra, std::string("Dev"))) {
                 j["clientId"]    = "e216beaa82e75f8f9d04b2ec822bcc48";
                 j["redirecturi"] = (boost::format("http://dev.crealitycloud.cn/oauth?back_url=http://localhost:%1%/login") %
@@ -704,6 +712,7 @@ std::shared_ptr<HttpServer::Response> HttpServer::creality_handle_request(const 
         //boost::uuids::uuid uuid = boost::uuids::random_generator()();
         http.header("Content-Type", "application/json")
             //              .header("__CXY_REQUESTID_", to_string(uuid))
+                        .noproxy()
                         .timeout_connect(5)
                         .timeout_max(15)
                         .set_post_body(j.dump())
@@ -858,6 +867,7 @@ void HttpServer::ResponseNotFound::write_response(std::stringstream& ssOut)
     ssOut << "HTTP/1.1 404 Not Found" << std::endl;
     ssOut << "content-type: text/html" << std::endl;
     ssOut << "content-length: " << sHTML.length() << std::endl;
+    ssOut << "connection: close" << std::endl;
     ssOut << std::endl;
     ssOut << sHTML;
 }
@@ -869,6 +879,7 @@ void HttpServer::ResponseRedirect::write_response(std::stringstream& ssOut)
     ssOut << "Location: " << location_str << std::endl;
     ssOut << "content-type: text/html" << std::endl;
     ssOut << "content-length: " << sHTML.length() << std::endl;
+    ssOut << "connection: close" << std::endl;
     ssOut << std::endl;
     ssOut << sHTML;
 }

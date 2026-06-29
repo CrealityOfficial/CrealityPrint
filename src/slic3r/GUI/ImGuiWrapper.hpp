@@ -4,6 +4,7 @@
 #include <string>
 #include <map>
 #include <cstdlib>
+#include <chrono>
 
 #include <imgui/imgui.h>
 
@@ -61,6 +62,11 @@ class ImGuiWrapper
     unsigned m_mouse_buttons{ 0 };
     bool m_disabled{ false };
     bool m_new_frame_open{ false };
+    // 修复: 字体纹理构建失败（低内存）后的退避状态，避免每帧反复申请大块内存造成 retry storm。
+    // 失败后在 m_font_init_retry_delay 内不再重试，超时后允许再次尝试以便内存恢复时自愈。
+    bool m_font_init_failed{ false };
+    std::chrono::steady_clock::time_point m_font_init_last_fail_time{};
+    static constexpr std::chrono::seconds m_font_init_retry_delay{ 10 };
 #if ENABLE_ENHANCED_IMGUI_SLIDER_FLOAT
     bool m_requires_extra_frame{ false };
 #endif // ENABLE_ENHANCED_IMGUI_SLIDER_FLOAT
@@ -411,8 +417,10 @@ private:
 class IMTexture
 {
 public:
+    static bool load_from_png_file(const std::string& filename, unsigned width, unsigned height, ImTextureID& texture_id);
     // load svg file to thumbnail data, specific width, height is thumbnailData width, height
     static bool load_from_svg_file(const std::string& filename, unsigned width, unsigned height, ImTextureID &texture_id);
+    static void release_texture(ImTextureID& texture_id);
 
     // Variant for object-list selected-state icons:
     // recolor green-ish pixels to monochrome (white for dark mode, black for light mode).

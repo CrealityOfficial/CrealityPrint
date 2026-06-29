@@ -311,6 +311,12 @@ extern bool model_mmu_segmentation_data_changed(const ModelObject& mo, const Mod
 // Test whether the now ModelObject has newer fuzzy skin data than the old one.
 // The function assumes that volumes list is synchronized.
 extern bool model_fuzzy_skin_data_changed(const ModelObject &mo, const ModelObject &mo_new);
+
+// Filament ID to TriangleSelector hex string lookup table (src/libslic3r/Model.cpp).
+// The table is used by get_real_filament_id() to encode filament_id (1..size()-1) as
+// a hex nibble sequence compatible with TriangleSelector::set_triangle_from_string.
+// Length is tied to the OBJ color dialog UI limit (g_max_color) - extend both together.
+extern const std::vector<std::string> CONST_FILAMENTS;
 bool model_brim_points_data_changed(const ModelObject& mo, const ModelObject& mo_new);
 
 // If the model has multi-part objects, then it is currently not supported by the SLA mode.

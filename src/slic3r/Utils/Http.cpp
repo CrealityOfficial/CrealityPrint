@@ -534,6 +534,12 @@ Http& Http::timeout_max(long timeout)
     return *this;
 }
 
+Http& Http::noproxy(const std::string &noproxy_list)
+{
+    if (p) { ::curl_easy_setopt(p->curl, CURLOPT_NOPROXY, noproxy_list.c_str()); }
+    return *this;
+}
+
 Http& Http::size_limit(size_t sizeLimit)
 {
 	if (p) { p->limit = sizeLimit; }

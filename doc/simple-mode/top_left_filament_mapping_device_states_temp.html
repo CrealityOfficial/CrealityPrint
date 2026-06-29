@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Top Left Filament Mapping Device States</title>
+  <style>
+    :root{
+      --bg:#11151b;--panel:#1b2028;--panel2:#222832;--line:rgba(255,255,255,.08);
+      --text:#f4f7fb;--muted:#97a2b0;--good:#35d26b;--good-bg:rgba(53,210,107,.16);
+      --warn:#ffbd48;--warn-bg:rgba(255,189,72,.16);--danger:#ff7f7a;--danger-bg:rgba(255,127,122,.16);
+    }
+    *{box-sizing:border-box} body{margin:0;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);
+      background:radial-gradient(circle at top left,rgba(53,210,107,.08),transparent 24%),linear-gradient(180deg,#0c1015,#151a21)}
+    .page{width:min(1720px,calc(100vw - 32px));margin:18px auto 28px}
+    .hero,.card{border:1px solid var(--line);box-shadow:0 18px 44px rgba(0,0,0,.28)}
+    .hero{padding:20px 22px;border-radius:26px;background:rgba(14,17,22,.88);margin-bottom:16px}
+    .hero h1{margin:0 0 8px;font-size:28px}.hero p{margin:0;color:#c2ccd7;font-size:14px;line-height:1.7}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+    .card{border-radius:28px;background:rgba(17,20,25,.86);overflow:hidden}
+    .card-hd{padding:16px 18px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
+    .card-hd strong{display:block;font-size:18px;margin-bottom:4px}.card-hd span{display:block;color:var(--muted);font-size:13px;line-height:1.55}
+    .tag{padding:8px 12px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}.good{color:#def8e7;background:var(--good-bg)}
+    .warn{color:#ffe6b3;background:var(--warn-bg)}.offline{color:#ffd6d4;background:var(--danger-bg)}
+    .stage{padding:20px;background:linear-gradient(180deg,#2d333d,#353b45)}
+    .module{width:100%;border:1px solid rgba(255,255,255,.12);border-radius:24px;background:rgba(24,28,35,.96);overflow:hidden}
+    .module-hd{padding:16px;border-bottom:1px solid var(--line)}
+    .top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .top strong{display:block;margin-bottom:4px;font-size:18px}.top span{display:block;color:#bdc7d1;font-size:12px;line-height:1.55}
+    .pill{padding:8px 11px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+    .banner{margin-top:12px;padding:10px 12px;border-radius:14px;font-size:12px;line-height:1.6}
+    .module-bd{padding:14px;display:flex;flex-direction:column;gap:14px}
+    .title{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--muted);font-size:12px}
+    .mini{padding:7px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#dfe6ef;font-size:12px;font-weight:700}
+    .rows{display:flex;flex-direction:column;gap:10px}
+    .row{display:grid;grid-template-columns:1fr 28px 1fr;align-items:center;gap:10px;min-height:84px;padding:12px;border:1px solid var(--line);border-radius:18px;background:var(--panel2)}
+    .scene{display:flex;align-items:center;gap:12px;min-width:0}.sw{width:54px;height:54px;border-radius:16px;border:1px solid rgba(255,255,255,.12)}
+    .meta strong{display:block;font-size:14px;margin-bottom:4px}.meta span{display:block;color:var(--muted);font-size:12px}
+    .arrow{text-align:center;font-size:22px;color:rgba(255,255,255,.38);font-weight:700}
+    .sel,.summary{border:1px solid rgba(255,255,255,.10);border-radius:18px;background:rgba(255,255,255,.04);display:flex;align-items:center;gap:12px;padding:10px 12px}
+    .sel.click{border-color:rgba(255,255,255,.18)} .sel.disabled{opacity:.62;background:rgba(255,255,255,.025)}
+    .sel-meta,.sum-meta{flex:1;min-width:0}.sel-meta strong,.sum-meta strong{display:block;font-size:14px;margin-bottom:4px}
+    .sel-meta span,.sum-meta span{display:block;color:var(--muted);font-size:12px;line-height:1.5}
+    .chev{color:rgba(255,255,255,.55);font-size:16px}
+    .spool{
+      position:relative;width:74px;height:62px;flex:0 0 auto;
+      filter:drop-shadow(0 6px 10px rgba(0,0,0,.24));
+    }
+    .sb,.sf{
+      position:absolute;top:1px;width:36px;height:58px;border-radius:50%;
+      background:
+        radial-gradient(circle at 40% 35%, rgba(255,255,255,.14), transparent 38%),
+        linear-gradient(180deg, #434851, #1b1f25);
+      box-shadow:
+        inset -1px -2px 4px rgba(0,0,0,.24),
+        inset 1px 1px 1px rgba(255,255,255,.04);
+    }
+    .sb{
+      left:8px;
+      transform:perspective(120px) rotateY(38deg);
+      opacity:.92;
+    }
+    .sf{
+      left:28px;
+      transform:perspective(120px) rotateY(-38deg);
+      z-index:3;
+    }
+    .fil{
+      position:absolute;left:22px;top:8px;width:26px;height:46px;border-radius:9px;
+      background:
+        repeating-linear-gradient(180deg, rgba(255,255,255,.16) 0 1px, transparent 1px 3px),
+        linear-gradient(90deg, rgba(0,0,0,.22), var(--spool-color, #5d5dff) 52%, rgba(0,0,0,.22));
+      box-shadow:
+        inset -2px 0 3px rgba(0,0,0,.14),
+        inset 2px 0 3px rgba(255,255,255,.08);
+      z-index:2;
+    }
+    .core{
+      position:absolute;left:39px;top:21px;width:13px;height:22px;border-radius:50%;
+      background:
+        radial-gradient(circle at 35% 35%, rgba(255,255,255,.14), transparent 28%),
+        radial-gradient(circle at center, #07090c 0 45%, #14171c 46% 100%);
+      box-shadow:inset -1px -2px 2px rgba(0,0,0,.35);
+      z-index:4;
+    }
+    .preview{border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.04);padding:12px}
+    .preview .title2{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:12px;margin-bottom:10px}
+    .canvas{height:188px;border-radius:18px;border:1px dashed rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,rgba(255,255,255,.05),transparent 52%),rgba(255,255,255,.02)}
+    .disc{width:152px;height:152px;border-radius:50%;box-shadow:inset -14px -14px 24px rgba(0,0,0,.28)}
+    .d1{background:linear-gradient(90deg,#2248ff 0 34%,#e5201f 34% 67%,#ffd84d 67% 100%)} .d2{background:linear-gradient(180deg,#f4f7fb,#d7dfe8)}
+    .d3{background:linear-gradient(90deg,#2248ff 0 50%,#e5201f 50% 100%);filter:saturate(.68) brightness(.92)}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>设备能力变化时，左上角映射区怎么显示</h1>
+      <p>这一版只看三种产品态：多色设备在线、单色设备、以及多色设备离线。你可以直接比较左上角模块是否还保留逐行映射、selector 是否还能点击、以及整体预览怎么表达。</p>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="card-hd">
+          <div><strong>多色设备在线</strong><span>维持主方案：逐行映射 + 可点击 selector</span></div>
+          <div class="tag good">主态</div>
+        </div>
+        <div class="stage">
+          <div class="module">
+            <div class="module-hd">
+              <div class="top">
+                <div><strong>耗材映射</strong><span>3 个场景颜色，1 项还需确认</span></div>
+                <div class="pill warn">待确认 1</div>
+              </div>
+              <div class="banner warn">设备在线，可逐项点击右侧映射目标进行调整。</div>
+            </div>
+            <div class="module-bd">
+              <div class="title"><span>当前场景颜色</span><button class="mini">+ 添加颜色</button></div>
+              <div class="rows">
+                <div class="row">
+                  <div class="scene"><div class="sw" style="background:#2248ff"></div><div class="meta"><strong>蓝色 PLA</strong><span>已确认</span></div></div>
+                  <div class="arrow">→</div>
+                  <div class="sel click">
+                    <div class="spool" style="--spool-color:#2248ff"><div class="sb"></div><div class="sf"></div><div class="fil"></div><div class="core"></div></div>
+                    <div class="sel-meta"><strong>1A</strong><span>PLA</span></div><div class="chev">▾</div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="scene"><div class="sw" style="background:#e5201f"></div><div class="meta"><strong>红色 PLA</strong><span>建议确认</span></div></div>
+                  <div class="arrow">→</div>
+                  <div class="sel click">
+                    <div class="spool" style="--spool-color:#ff3a2f"><div class="sb"></div><div class="sf"></div><div class="fil"></div><div class="core"></div></div>
+                    <div class="sel-meta"><strong>2D</strong><span>PLA</span></div><div class="chev">▾</div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="scene"><div class="sw" style="background:#ffd84d"></div><div class="meta"><strong>黄色 PLA</strong><span>未映射</span></div></div>
+                  <div class="arrow">→</div>
+                  <div class="sel click">
+                    <div class="spool" style="--spool-color:#ffe16a"><div class="sb"></div><div class="sf"></div><div class="fil"></div><div class="core"></div></div>
+                    <div class="sel-meta"><strong>待选择</strong><span>推荐 3B</span></div><div class="chev">▾</div>
+                  </div>
+                </div>
+              </div>
+              <div class="preview">
+                <div class="title2"><span>打印效果预览</span><span>映射后实时刷新</span></div>
+                <div class="canvas"><div class="disc d1"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-hd">
+          <div><strong>单色设备</strong><span>不再逐行可选，改为统一输出目标</span></div>
+          <div class="tag warn">降级态</div>
+        </div>
+        <div class="stage">
+          <div class="module">
+            <div class="module-hd">
+              <div class="top">
+                <div><strong>耗材映射</strong><span>当前设备仅支持单色输出</span></div>
+                <div class="pill warn">单色设备</div>
+              </div>
+              <div class="banner warn">场景有 3 个颜色，但当前设备只能使用 1 种耗材统一输出。</div>
+            </div>
+            <div class="module-bd">
+              <div class="title"><span>当前输出耗材</span><button class="mini">更换设备</button></div>
+              <div class="summary">
+                <div class="spool" style="--spool-color:#f1f4f8"><div class="sb"></div><div class="sf"></div><div class="fil"></div><div class="core"></div></div>
+                <div class="sum-meta"><strong>白色 PLA</strong><span>所有场景颜色统一按当前耗材输出。若要保留多色效果，请切换到多色设备。</span></div>
+              </div>
+              <div class="title"><span>场景颜色</span><span>仅展示，不逐项映射</span></div>
+              <div class="rows">
+                <div class="row">
+                  <div class="scene"><div class="sw" style="background:#2248ff"></div><div class="meta"><strong>蓝色 PLA</strong><span>将统一输出为白色</span></div></div>
+                  <div class="arrow">→</div>
+                  <div class="sel disabled">
+                    <div class="spool" style="--spool-color:#f1f4f8"><div class="sb"></div><div class="sf"></div><div class="fil"></div><div class="core"></div></div>
+                    <div class="sel-meta"><strong>白色 PLA</strong><span>不可逐项调整</span></div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="scene"><div class="sw" style="background:#e5201f"></div><div class="meta"><strong>红色 PLA</strong><span>将统一输出为白色</span></div></div>
+                  <div class="arrow">→</div>
+                  <div class="sel disabled">
+                    <div class="spool" style="--spool-color:#f1f4f8"><div class="sb"></div><div class="sf"></div><div class="fil"></div><div class="core"></div></div>
+                    <div class="sel-meta"><strong>白色 PLA</strong><span>不可逐项调整</span></div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="scene"><div class="sw" style="background:#ffd84d"></div><div class="meta"><strong>黄色 PLA</strong><span>将统一输出为白色</span></div></div>
+                  <div class="arrow">→</div>
+                  <div class="sel disabled">
+                    <div class="spool" style="--spool-color:#f1f4f8"><div class="sb"></div><div class="sf"></div><div class="fil"></div><div class="core"></div></div>
+                    <div class="sel-meta"><strong>白色 PLA</strong><span>不可逐项调整</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="preview">
+                <div class="title2"><span>打印效果预览</span><span>统一单色输出</span></div>
+                <div class="canvas"><div class="disc d2"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-hd">
+          <div><strong>多色设备离线</strong><span>保留骨架，但进入只读禁用态</span></div>
+          <div class="tag offline">离线态</div>
+        </div>
+        <div class="stage">
+          <div class="module">
+            <div class="module-hd">
+              <div class="top">
+                <div><strong>耗材映射</strong><span>设备离线，无法读取当前料架</span></div>
+                <div class="pill offline">离线</div>
+              </div>
+              <div class="banner offline">保留上次映射结果供参考，当前不可修改；重新连接设备后可继续调整。</div>
+            </div>
+            <div class="module-bd">
+              <div class="title"><span>当前场景颜色</span><button class="mini">重新连接</button></div>
+              <div class="rows">
+                <div class="row">
+                  <div class="scene"><div class="sw" style="background:#2248ff"></div><div class="meta"><strong>蓝色 PLA</strong><span>上次映射结果</span></div></div>
+                  <div class="arrow">→</div>
+                  <div class="sel disabled">
+                    <div class="spool" style="--spool-color:#2248ff"><div class="sb"></div><div class="sf"></div><div class="fil"></div><div class="core"></div></div>
+                    <div class="sel-meta"><strong>1A</strong><span>PLA · 当前不可修改</span></div><div class="chev">-</div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="scene"><div class="sw" style="background:#e5201f"></div><div class="meta"><strong>红色 PLA</strong><span>上次映射结果</span></div></div>
+                  <div class="arrow">→</div>
+                  <div class="sel disabled">
+                    <div class="spool" style="--spool-color:#ff3a2f"><div class="sb"></div><div class="sf"></div><div class="fil"></div><div class="core"></div></div>
+                    <div class="sel-meta"><strong>2D</strong><span>PLA · 当前不可修改</span></div><div class="chev">-</div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="scene"><div class="sw" style="background:#ffd84d"></div><div class="meta"><strong>黄色 PLA</strong><span>未读取到可用目标</span></div></div>
+                  <div class="arrow">→</div>
+                  <div class="sel disabled">
+                    <div class="spool" style="--spool-color:#7b858f"><div class="sb"></div><div class="sf"></div><div class="fil"></div><div class="core"></div></div>
+                    <div class="sel-meta"><strong>未读取到设备料架</strong><span>离线时不提供推荐</span></div><div class="chev">-</div>
+                  </div>
+                </div>
+              </div>
+              <div class="preview">
+                <div class="title2"><span>打印效果预览</span><span>按上次结果参考展示</span></div>
+                <div class="canvas"><div class="disc d3"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

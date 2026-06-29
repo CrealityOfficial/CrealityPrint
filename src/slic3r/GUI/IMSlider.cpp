@@ -350,9 +350,10 @@ void IMSlider::SetTicksValues(const Info& custom_gcode_per_print_z)
     set_as_dirty();
 }
 
-void IMSlider::SetLayersTimes(const std::vector<float> &layers_times, float total_time)
+void IMSlider::SetLayersTimes(const std::vector<double> &layers_times, double total_time)
 {
     m_layers_times.clear();
+    m_layers_values.clear();
     if (layers_times.empty()) return;
     m_layers_times.resize(layers_times.size(), 0.0);
     m_layers_times[0] = layers_times[0];
@@ -442,9 +443,9 @@ void IMSlider::add_custom_gcode(std::string custom_gcode)
     if (it != m_ticks.ticks.end()) {
         m_ticks.ticks.erase(it);
     }
-    m_ticks.ticks.emplace(TickCode{ tick, Custom, std::max<int>(1, m_only_extruder), "", custom_gcode });
+    m_ticks.ticks.emplace(TickCode{tick, CustomGCode::Custom, std::max<int>(1, m_only_extruder), "", custom_gcode});
 
-    post_ticks_changed_event(Custom);
+    post_ticks_changed_event(CustomGCode::Custom);
 }
 
 void IMSlider::add_code_as_tick(Type type, int selected_extruder)
@@ -721,22 +722,22 @@ void IMSlider::draw_custom_label_block(const ImVec2 anchor, Type type)
     wxString label;
     switch (type)
     {
-    case ColorChange:
+    case Type::ColorChange:
         label = _L("Color");
         break;
-    case PausePrint:
+    case Type::PausePrint:
         label = _L("Pause");
         break;
-    case ToolChange:
+    case Type::ToolChange:
         label = _L("Color");
         break;
-    case Template:
+    case Type::Template:
         label = _L("Template");
         break;
-    case Custom:
+    case Type::Custom:
         label = _L("Custom");
         break;
-    case Unknown:
+    case Type::Unknown:
         break;
     default:
         break;
@@ -812,12 +813,12 @@ void IMSlider::draw_ticks(const ImRect& slideable_region) {
         ImGui::RenderFrame(tick_right.Min, tick_right.Max, tick_clr, false);
 
         //draw pause icon
-        if (tick_it->type == PausePrint) {
+        if (tick_it->type == Type::PausePrint) {
             ImTextureID pause_icon_id = m_pause_icon_id;
             ImVec2      icon_pos     = ImVec2(slideable_region.GetCenter().x + icon_offset.x, tick_pos - icon_offset.y);
             button_with_pos(pause_icon_id, icon_size, icon_pos);
         }
-        if (tick_it->type == Custom || tick_it->type == Template) {
+        if (tick_it->type == Type::Custom || tick_it->type == Type::Template) {
             ImTextureID custom_icon_id = m_custom_icon_id;
             ImVec2      icon_pos = ImVec2(slideable_region.GetCenter().x + icon_offset.x, tick_pos - icon_offset.y);
             button_with_pos(custom_icon_id, icon_size, icon_pos);

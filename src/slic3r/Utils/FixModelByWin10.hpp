@@ -12,19 +12,20 @@ class Model;
 class ModelObject;
 class Print;
 
-#ifdef HAS_WIN10SDK
+// Returns true when current runtime has a supported mesh-repair backend.
+extern bool has_mesh_repair_backend();
 
 extern bool is_windows10();
 // returt false, if fixing was canceled
 extern bool fix_model_by_win10_sdk_gui(ModelObject &model_object, int volume_idx,GUI::ProgressDialog &progress_dlg, const wxString &msg_header, std::string &fix_result);
 
-#else /* HAS_WIN10SDK */
-
-inline bool is_windows10() { return false; }
 // returt false, if fixing was canceled
-inline bool fix_model_by_win10_sdk_gui(ModelObject &, int, GUI::ProgressDialog &, const wxString &, std::string &) { return false; }
+extern bool fix_model_by_imati_stl_gui(ModelObject &model_object, int volume_idx, GUI::ProgressDialog &progress_dlg,
+                                const wxString &msg_header, std::string &fix_result);
 
-#endif /* HAS_WIN10SDK */
+// Platform-neutral fix entry.
+extern bool fix_model(ModelObject &model_object, int volume_idx, GUI::ProgressDialog &progress_dlg,
+               const wxString &msg_header, std::string &fix_result);
 
 } // namespace Slic3r
 

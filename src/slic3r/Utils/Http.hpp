@@ -100,6 +100,8 @@ public:
 	Http& timeout_connect(long timeout);
     // Sets a maximum total request timeout in seconds
     Http& timeout_max(long timeout);
+    // Bypass system proxy for this request (pass "*" to bypass all proxies)
+    Http& noproxy(const std::string &noproxy_list = "*");
 	// Sets a maximum size of the data that can be received.
 	// A value of zero sets the default limit, which is is 5MB.
 	Http& size_limit(size_t sizeLimit);

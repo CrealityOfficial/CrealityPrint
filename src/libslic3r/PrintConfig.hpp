@@ -29,6 +29,17 @@
 
 namespace Slic3r {
 
+struct SmallAreaInfillFlowCompensationModel
+{
+    std::vector<double>      extrusion_lengths;
+    std::vector<double>      flow_compensations;
+    std::vector<std::string> normalized_values;
+};
+
+bool parse_small_area_infill_flow_compensation_model(const std::vector<std::string>& values,
+                                                     SmallAreaInfillFlowCompensationModel& model,
+                                                     std::string* error = nullptr);
+
 enum GCodeFlavor : unsigned char {
     gcfMarlinLegacy, gcfKlipper, gcfRepRapFirmware, gcfMarlinFirmware, gcfRepRapSprinter, gcfRepetier, gcfTeacup, gcfMakerWare, gcfSailfish, gcfMach3, gcfMachinekit,
     gcfSmoothie, gcfNoExtrusion
@@ -350,6 +361,8 @@ enum BedType {
     btCount
 };
 
+enum class BedTemperatureMode { UseMaxTemperature, UseFirstMaterial };
+
 // BBS
 enum LayerSeq {
     flsAuto, 
@@ -505,6 +518,7 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLAPillarConnectionMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(BrimType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(TimelapseType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(BedType)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(BedTemperatureMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SkirtType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(DraftShield)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ForwardCompatibilitySubstitutionRule)
@@ -846,6 +860,14 @@ protected: \
         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_EQUAL, _, PARAMETER_DEFINITION_SEQ))
 
 // This object is mapped to Perl as Slic3r::Config::PrintObject.
+#ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+#define PRINT_OBJECT_TIME_ANALYTICS_CONFIG_SEQ \
+    ((ConfigOptionBool, enable_retraction_distance_when_cut_override)) \
+    ((ConfigOptionFloat, retraction_distance_when_cut_override))
+#else
+#define PRINT_OBJECT_TIME_ANALYTICS_CONFIG_SEQ
+#endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+
 PRINT_CONFIG_CLASS_DEFINE(
     PrintObjectConfig,
 
@@ -931,6 +953,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     // BBS
     ((ConfigOptionBool,                flush_into_infill))
     ((ConfigOptionBool,                flush_into_support))
+    ((ConfigOptionBool,                flush_into_skeleton))
     // BBS
     ((ConfigOptionFloat,              tree_support_branch_distance))
     ((ConfigOptionFloat,              tree_support_tip_diameter))
@@ -963,6 +986,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionPercent,            tree_support_top_rate))
     ((ConfigOptionFloat,              tree_support_branch_diameter_organic))
     ((ConfigOptionFloat,              tree_support_branch_angle_organic))
+    ((ConfigOptionBool,               tree_support_organic_validate_repair))
     ((ConfigOptionEnum<GapFillTarget>,gap_fill_target))
     ((ConfigOptionFloat,              min_length_factor))
 
@@ -996,8 +1020,11 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt,  interlocking_beam_layer_count))
     ((ConfigOptionInt,  interlocking_depth))
     ((ConfigOptionInt,  interlocking_boundary_avoidance))
+    PRINT_OBJECT_TIME_ANALYTICS_CONFIG_SEQ
 
 )
+
+#undef PRINT_OBJECT_TIME_ANALYTICS_CONFIG_SEQ
 
 // This object is mapped to Perl as Slic3r::Config::PrintRegion.
 PRINT_CONFIG_CLASS_DEFINE(
@@ -1092,6 +1119,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt, top_shell_layers))
     ((ConfigOptionFloat, top_shell_thickness))
     ((ConfigOptionFloat, top_surface_speed))
+    ((ConfigOptionBool,               automatic_extrusion_widths))
     //BBS
     ((ConfigOptionBool,                 enable_overhang_speed))
     ((ConfigOptionFloatOrPercent,       overhang_1_4_speed))
@@ -1227,6 +1255,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat, time_cost)) 
     ((ConfigOptionBool, machine_is_belt))
     ((ConfigOptionFloat, belt_Z_offset))
+    ((ConfigOptionEnum<BedTemperatureMode>, bed_temperature_mode))
     ((ConfigOptionString,              layer_change_gcode))
     ((ConfigOptionString,              time_lapse_gcode))
 
@@ -1448,7 +1477,9 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat,              prime_tower_brim_width))
     ((ConfigOptionFloat,              wipe_tower_bridging))
     ((ConfigOptionPercent,            wipe_tower_extra_flow))
+    ((ConfigOptionFloats,             transmittance_matrix))
     ((ConfigOptionFloats,             flush_volumes_matrix))
+    
     ((ConfigOptionBool,               flush_volumes_changed))
     ((ConfigOptionFloats,             flush_volumes_vector))
     ((ConfigOptionEnum<PrimeTowerEnhanceType>,             prime_tower_enhance_type))
@@ -1501,11 +1532,27 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionPoint,               bed_mesh_max))
     ((ConfigOptionPoint,               bed_mesh_probe_distance))
     ((ConfigOptionFloat,               adaptive_bed_mesh_margin))
+    ((ConfigOptionBool,                filament_can_change))
     ((ConfigOptionFloat,              default_flush_multiplier))
     ((ConfigOptionInt,                flush_box_first_clean_length))
     ((ConfigOptionInt,                flush_box_need_clean_length))
     ((ConfigOptionInt,                flush_box_need_clean_length_max))
     ((ConfigOptionBool,               multicolor_method))
+
+    // Mixed Filament Configuration
+    ((ConfigOptionFloat,              mixed_color_layer_height_a))
+    ((ConfigOptionFloat,              mixed_color_layer_height_b))
+    ((ConfigOptionBool,               mixed_filament_gradient_mode))
+    ((ConfigOptionFloat,              mixed_filament_height_lower_bound))
+    ((ConfigOptionFloat,              mixed_filament_height_upper_bound))
+    ((ConfigOptionBool,               mixed_filament_advanced_dithering))
+    ((ConfigOptionFloat,              mixed_filament_pointillism_pixel_size))
+    ((ConfigOptionFloat,              mixed_filament_pointillism_line_gap))
+    ((ConfigOptionFloat,              mixed_filament_surface_indentation))
+    ((ConfigOptionString,             mixed_filament_definitions))
+    ((ConfigOptionFloat,              dithering_z_step_size))
+    ((ConfigOptionBool,               dithering_local_z_mode))
+    ((ConfigOptionBool,               dithering_step_painted_zones_only))
 
 )
 

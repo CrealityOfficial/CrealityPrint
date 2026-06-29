@@ -88,10 +88,30 @@ void layout_filament_popup(FilamentItem* item, FilamentPopPanel* popup, bool fit
     const wxSize parent_size = item->GetParent()->GetSize();
     popup_size.SetWidth(std::max(parent_size.GetWidth() - 2, min_size.GetWidth()));
 
+    wxRect boundary = wxDisplay(item).GetClientArea();
+    if (wxWindow* top_window = wxGetTopLevelParent(item)) {
+        const wxRect top_rect(top_window->ClientToScreen(wxPoint(0, 0)), top_window->GetClientSize());
+        const int left   = std::max(boundary.GetLeft(), top_rect.GetLeft());
+        const int top    = std::max(boundary.GetTop(), top_rect.GetTop());
+        const int right  = std::min(boundary.GetRight(), top_rect.GetRight());
+        const int bottom = std::min(boundary.GetBottom(), top_rect.GetBottom());
+        if (right >= left && bottom >= top)
+            boundary = wxRect(wxPoint(left, top), wxSize(right - left + 1, bottom - top + 1));
+    }
+
+    if (!boundary.IsEmpty() && popup_size.GetWidth() > boundary.GetWidth())
+        popup_size.SetWidth(std::max(min_size.GetWidth(), boundary.GetWidth() - 2));
+
     wxPoint parent_screen_pos = item->GetParent()->ClientToScreen(wxPoint(0, 0));
     wxPoint popup_pos         = item->ClientToScreen(wxPoint(0, 0));
     popup_pos.y += item->GetRect().height;
     popup_pos.x = parent_screen_pos.x + parent_size.GetWidth() - popup_size.GetWidth();
+
+    if (!boundary.IsEmpty()) {
+        const int min_x = boundary.GetLeft() + 1;
+        const int max_x = boundary.GetRight() - popup_size.GetWidth();
+        popup_pos.x = std::max(min_x, std::min(popup_pos.x, max_x));
+    }
 
     popup->SetSize(popup_size);
     popup->Layout();
@@ -190,8 +210,9 @@ FilamentButton::FilamentButton(wxWindow* parent,
         menu->Cus_Popup();
         event.Skip();
         });
-    // Load the bitmap
-    m_bitmap = create_scaled_bitmap("switch_cfs_tip", nullptr, 16);
+    // Load the bitmap (use this window so the icon is rasterized at the correct
+    // per-monitor DPI; passing nullptr would use the primary monitor's scaling).
+    m_bitmap = create_scaled_bitmap("switch_cfs_tip", this, 16);
 }
 
 void FilamentButton::SetCornerRadius(double radius)
@@ -789,10 +810,8 @@ void FilamentButton::doRender(wxDC& dc)
 		//
 		{
             m_edit_btn = new ScalableButton(this, wxID_ANY, is_dark ? "profile_editBtn_d" : "profile_editBtn", wxEmptyString, wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, false, 12);
-            wxSize sz = m_edit_btn->GetSize();
-            sz.SetWidth(sz.GetWidth() + 25);
-            sz.SetHeight(this->GetSize().GetHeight() - 2);
-            m_edit_btn->SetMinSize(sz);
+            const wxSize edit_btn_min_size(FromDIP(35), FromDIP(35));
+            m_edit_btn->SetMinSize(edit_btn_min_size);
             m_edit_btn->SetBackgroundColour(wxColour(255, 255, 255));
             m_edit_btn->SetToolTip(_L("Click to edit preset"));
 #if __APPLE__
@@ -806,7 +825,7 @@ void FilamentButton::doRender(wxDC& dc)
                 }
             });
             m_sizer_main->Add(m_edit_btn, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT).Border(wxRIGHT | wxLEFT, 1));
-            m_sizer_main->SetItemMinSize(m_edit_btn, (wxSize(FromDIP(35), 35)));
+            m_sizer_main->SetItemMinSize(m_edit_btn, edit_btn_min_size);
 		}
 	}
 #if __APPLE__
@@ -914,8 +933,10 @@ void FilamentPopPanel::Dismiss()
 
         if (m_edit_btn) {
             m_edit_btn->msw_rescale();
+            const wxSize edit_btn_min_size(FromDIP(35), FromDIP(35));
+            m_edit_btn->SetMinSize(edit_btn_min_size);
             if (m_sizer_main)
-                m_sizer_main->SetItemMinSize(m_edit_btn, wxSize(FromDIP(35), FromDIP(35)));
+                m_sizer_main->SetItemMinSize(m_edit_btn, edit_btn_min_size);
         }
 
         Layout();
@@ -1050,6 +1071,7 @@ FilamentItem::FilamentItem(wxWindow* parent, const Data& data, const wxSize& siz
                 Slic3r::GUI::wxGetApp().preset_bundle->export_selections(*Slic3r::GUI::wxGetApp().app_config);
                 //update();
                 Slic3r::GUI::wxGetApp().plater()->on_config_change(cfg_new);
+                Slic3r::GUI::wxGetApp().plater()->reset_scene_filament_source_snapshot();
 
 				m_bk_color = m_clrData.GetColour();
 				m_btn_color->SetColor(m_bk_color);
@@ -1091,11 +1113,12 @@ FilamentItem::FilamentItem(wxWindow* parent, const Data& data, const wxSize& siz
                     wxCommandEvent dismiss_event(EVT_DISMISS);
                     m_popPanel->GetEventHandler()->ProcessEvent(dismiss_event);
                 } else {
+                    m_popPanel->Dismiss();
                     layout_filament_popup(this, m_popPanel, false);
                     m_popPanel->Popup();
 
                     m_popPanel->CallAfter([this]() {
-                        if (!m_popPanel || !m_popPanel->IsShown())
+                        if (!m_popPanel || !m_popPanel->IsShownOnScreen())
                             return;
 
                         layout_filament_popup(this, m_popPanel, true);
@@ -1132,6 +1155,15 @@ FilamentItem::FilamentItem(wxWindow* parent, const Data& data, const wxSize& siz
 		Slic3r::GUI::wxGetApp().sidebar().GetEventHandler()->ProcessEvent(e);
 		});
         
+}
+
+FilamentItem::~FilamentItem()
+{
+    if (m_popPanel) {
+        m_popPanel->Dismiss();
+        m_popPanel->Destroy();
+        m_popPanel = nullptr;
+    }
 }
 
 void FilamentItem::set_checked(bool checked /*= true*/)
@@ -1208,6 +1240,9 @@ void FilamentItem::update_bk_color(const std::string& bk_color)
     // get current color
     Slic3r::DynamicPrintConfig* cfg    = &Slic3r::GUI::wxGetApp().preset_bundle->project_config;
     auto                        colors = static_cast<Slic3r::ConfigOptionStrings*>(cfg->option("filament_colour")->clone());
+    if(m_data.index >= colors->values.size())
+        return;
+
     colors->values[m_data.index]       = bk_color;
     Slic3r::DynamicPrintConfig cfg_new = *cfg;
     cfg_new.set_key_value("filament_colour", colors);
@@ -1502,6 +1537,23 @@ bool FilamentPanel::add_filament()
 	return true;
 }
 
+void FilamentPanel::reflow_for_width()
+{
+    if (wxWindow* parent = GetParent()) {
+        const int width = parent->GetClientSize().GetWidth();
+        if (width > 0) {
+            SetMinSize(wxSize(0, -1));
+            SetSize(wxSize(width, GetSize().GetHeight()));
+            InvalidateBestSize();
+        }
+    }
+
+    if (m_sizer)
+        m_sizer->Layout();
+    if (m_box_sizer)
+        m_box_sizer->Layout();
+    Layout();
+}
 void FilamentPanel::update_box_filament_sync_state(bool sync)
 {
 	for (auto& f : this->m_vt_filament)
@@ -1519,6 +1571,21 @@ void FilamentPanel::reset_filament_sync_state()
 		f->update_box_sync_color("#ffffff");
         f->resetCFS(true);
 	}
+}
+
+void FilamentPanel::reset_device_filament_mapping_to_cfs()
+{
+    for (auto& item : this->m_vt_filament) {
+        if (!item)
+            continue;
+
+        item->update_box_sync_state(true);
+        item->update_box_sync_color("#ffffff");
+        item->resetCFS(true);
+        item->Refresh();
+    }
+
+    Refresh();
 }
 
 std::string FilamentPanel::get_filament_map_string()
@@ -1859,6 +1926,22 @@ void FilamentPanel::on_sync_one_filament(int filament_index, const std::string& 
 	item->Refresh();
 }
 
+void FilamentPanel::sync_box_filament_state(int filament_index, const std::string& new_filament_color, const wxString& sync_label)
+{
+    if (filament_index < 0 || filament_index >= m_vt_filament.size())
+        return;
+
+    auto& item = m_vt_filament[filament_index];
+    item->update_box_sync_state(true, sync_label);
+    item->update_box_sync_color(new_filament_color);
+    item->resetCFS(false);
+    if (sync_label.empty()) {
+        item->resetCFS(true);
+    }
+
+    item->Refresh();
+}
+
 void FilamentPanel::on_re_sync_all_filaments(const std::string& selected_device_ip)
 {
 	auto device = DM::DataCenter::Ins().get_printer_data(selected_device_ip);
@@ -1945,6 +2028,28 @@ bool FilamentPanel::can_add()
 bool FilamentPanel::can_delete()
 {
 	return m_vt_filament.size() > 1;
+}
+
+void FilamentPanel::clear_all()
+{
+    if (!m_sizer)
+        return;
+
+    PopupWindowManager::Get().CloseAll();
+
+    for (auto* item : m_vt_filament) {
+        if (!item)
+            continue;
+        m_sizer->Detach(item);
+        item->Destroy();
+    }
+
+    m_vt_filament.clear();
+
+    m_sizer->Layout();
+    Layout();
+    if (GetParent())
+        GetParent()->Layout();
 }
 
 void FilamentPanel::del_filament(int index/*=-1*/)
@@ -2602,13 +2707,15 @@ void MaterialSubMenuItem::OnPaint(wxPaintEvent&)
     dc.DrawRoundedRectangle(blockRect, 2);
 
     // 绘制编号文字（白色粗体，居中显示）
-    dc.SetTextForeground(GetTextColorBasedOnBackground(m_color));
-    dc.SetFont(wxFont(10, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
-    int textWidth, textHeight;
-    dc.GetTextExtent(wxString::Format("%02d", m_num + 1), &textWidth, &textHeight);
-    int textX = blockRect.GetX() + (blockRect.GetWidth() - textWidth) / 2;
-    int textY = blockRect.GetY() + (blockRect.GetHeight() - textHeight) / 2;
-    dc.DrawText(wxString::Format("%02d", m_num + 1), textX, textY);
+    {
+        dc.SetTextForeground(GetTextColorBasedOnBackground(m_color));
+        dc.SetFont(wxFont(10, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
+        int textWidth, textHeight;
+        dc.GetTextExtent(wxString::Format("%02d", m_num + 1), &textWidth, &textHeight);
+        int textX = blockRect.GetX() + (blockRect.GetWidth() - textWidth) / 2;
+        int textY = blockRect.GetY() + (blockRect.GetHeight() - textHeight) / 2;
+        dc.DrawText(wxString::Format("%02d", m_num + 1), textX, textY);
+    }
 
     // 绘制耗材名称（黑色文字）
     dc.SetTextForeground(is_dark  ? *wxWHITE : *wxBLACK);
@@ -2620,7 +2727,11 @@ void MaterialSubMenuItem::OnMouseRelease(wxMouseEvent&)
 {
     m_hovered = false;
     m_clicked = false;
-    Slic3r::GUI::wxGetApp().plater()->sidebar().delete_filament(m_parentindex,m_num);
+    if (m_on_click_callback) {
+        m_on_click_callback();
+    } else {
+        Slic3r::GUI::wxGetApp().plater()->sidebar().delete_filament(m_parentindex, m_num);
+    }
     PopupWindowManager::Get().CloseAll();
 }
 void MaterialSubMenuItem::OnMouseEnter(wxMouseEvent&)
@@ -2805,6 +2916,33 @@ void MaterialSubMenu::init()
 		item->setParentIndex(m_index);
         item->SetMinSize(wxSize(FromDIP(150), FromDIP(32)));
         sizer->Add(item, 1, wxEXPAND | wxALL, FromDIP(4));
+    }
+
+    // Add mixed filament targets
+    auto* preset_bundle = wxGetApp().preset_bundle;
+    if (preset_bundle) {
+        const auto &mixed = preset_bundle->mixed_filaments.mixed_filaments();
+        for (size_t i = 0; i < mixed.size(); ++i) {
+            const auto &mf = mixed[i];
+            if (mf.deleted || !mf.enabled) continue;
+            
+            wxColour color(mf.display_color.empty() ? "#CCCCCC" : mf.display_color);
+            wxString label;
+            if (!mf.gradient_component_ids.empty())
+                label = wxString::Format("Mixed %u (F%u+...)", (unsigned int)(i + 1), mf.component_a);
+            else
+                label = wxString::Format("Mixed %u (F%u + F%u)", (unsigned int)(i + 1), mf.component_a, mf.component_b);
+            
+            uint64_t stable_id = mf.stable_id;
+            int src_index = m_index;
+            int virtual_id = (int)(items.size() + i);
+            auto* item = new MaterialSubMenuItem(this, label, color, virtual_id);
+            item->set_mixed_target([src_index, stable_id]() {
+                Slic3r::GUI::wxGetApp().plater()->sidebar().merge_physical_to_mixed((size_t)src_index, stable_id);
+            });
+            item->SetMinSize(wxSize(FromDIP(150), FromDIP(32)));
+            sizer->Add(item, 1, wxEXPAND | wxALL, FromDIP(4));
+        }
     }
     SetSizerAndFit(sizer);
 }

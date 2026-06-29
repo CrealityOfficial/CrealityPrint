@@ -14,6 +14,7 @@
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/simple/MCPChatPanel.hpp"
 
 #include "libnest2d/common.hpp"
 
@@ -332,7 +333,7 @@ void ArrangeJob::prepare_all() {
 arrangement::ArrangePolygon estimate_wipe_tower_info(int plate_index, std::set<int>& extruder_ids)
 {
     PartPlateList& ppl = wxGetApp().plater()->get_partplate_list();
-    const auto& full_config = wxGetApp().preset_bundle->full_config();
+    const auto full_config = wxGetApp().preset_bundle->full_config();
     int plate_count = ppl.get_plate_count();
     int plate_index_valid = std::min(plate_index, plate_count - 1);
 
@@ -344,16 +345,9 @@ arrangement::ArrangePolygon estimate_wipe_tower_info(int plate_index, std::set<i
     return arrange_poly;
 }
 
-// 准备料塔。逻辑如下：
-// 1. 以下几种情况不需要料塔：
-//    1）料塔被禁用，
-//    2）逐件打印，
-//    3）不允许不同材料落在相同盘，且没有多色对象
-// 2. 以下情况需要料塔：
-//    1）某对象是多色对象；
-//    2）打开了支撑，且支撑体与接触面使用的是不同材料
-//    3）允许不同材料落在相同盘，且所有选定对象中使用了多种热床温度相同的材料
-//     （所有对象都是单色的，但不同对象的材料不同，例如：对象A使用红色PLA，对象B使用白色PLA）
+// Prepare wipe tower state for arrange. The logic covers:
+// 1. Cases where a wipe tower is not needed.
+// 2. Cases where a wipe tower must be estimated for arrange.
 void ArrangeJob::prepare_wipe_tower()
 {
     bool need_wipe_tower = false;
@@ -369,6 +363,17 @@ void ArrangeJob::prepare_wipe_tower()
     if (sop) { smooth_timelapse = sop->getInt() == TimelapseType::tlSmooth; }
     if (smooth_timelapse) { need_wipe_tower = true; }
 
+    {
+        PartPlateList& ppl = wxGetApp().plater()->get_partplate_list();
+        for (int plate_id = 0; plate_id < ppl.get_plate_count(); ++plate_id) {
+            if (ppl.get_plate(plate_id)->get_extruders(true).size() > 1) {
+                need_wipe_tower = true;
+                BOOST_LOG_TRIVIAL(info) << "arrange: need wipe tower because plate " << plate_id << " uses multiple role extruders";
+                break;
+            }
+        }
+    }
+
     // estimate if we need wipe tower for all plates:
     // need wipe tower if some object has multiple extruders (has paint-on colors or support material)
     for (const auto& item : m_selected) {
@@ -382,7 +387,7 @@ void ArrangeJob::prepare_wipe_tower()
     }
 
     // if multile extruders have same bed temp, we need wipe tower
-    // 允许不同材料落在相同盘，且所有选定对象中使用了多种热床温度相同的材料
+    // If multiple extruders share the same bed temperature, keep the wipe tower.
     if (params.allow_multi_materials_on_same_plate) {
         std::map<int, std::set<int>> bedTemp2extruderIds;
         for (const auto& item : m_selected)
@@ -459,6 +464,14 @@ void ArrangeJob::prepare_wipe_tower_ex(int plate_index)
         need_wipe_tower = true;
     }
 
+    {
+        PartPlateList& ppl = wxGetApp().plater()->get_partplate_list();
+        if (plate_index >= 0 && plate_index < ppl.get_plate_count() && ppl.get_plate(plate_index)->get_extruders(true).size() > 1) {
+            need_wipe_tower = true;
+            BOOST_LOG_TRIVIAL(info) << "arrange: need wipe tower because plate " << plate_index << " uses multiple role extruders";
+        }
+    }
+
     // estimate if we need wipe tower for all plates:
     // need wipe tower if some object has multiple extruders (has paint-on colors or support material)
     for (const auto& item : m_selected) {
@@ -473,7 +486,7 @@ void ArrangeJob::prepare_wipe_tower_ex(int plate_index)
     }
 
     // if multile extruders have same bed temp, we need wipe tower
-    // 允许不同材料落在相同盘，且所有选定对象中使用了多种热床温度相同的材料
+    // If multiple extruders share the same bed temperature, keep the wipe tower.
     if (params.allow_multi_materials_on_same_plate) {
         std::map<int, std::set<int>> bedTemp2extruderIds;
         for (const auto& item : m_selected)
@@ -806,6 +819,14 @@ static std::string concat_strings(const std::set<std::string> &strings,
 }
 
 void ArrangeJob::finalize(bool canceled, std::exception_ptr &eptr) {
+    auto report_arrange_completion = [&](bool success,
+                                         const std::string& completion_message,
+                                         const nlohmann::json& details = nlohmann::json::object()) {
+        if (wxGetApp().easy_mode()) {
+            if (auto* panel = GetEmbeddedAIChatPanel())
+                panel->CompletePendingAsyncToolCall("job:auto_arrange", success, completion_message, details);
+        }
+    };
     try {
         if (eptr)
             std::rethrow_exception(eptr);
@@ -826,6 +847,10 @@ void ArrangeJob::finalize(bool canceled, std::exception_ptr &eptr) {
                                    << ", canceled=" << (canceled ? "true" : "false")
                                    << ", has_eptr=" << (eptr ? "true" : "false");
         boost::log::core::get()->flush();
+        report_arrange_completion(
+            false,
+            canceled ? std::string("Arrange canceled") : std::string("Arrange failed before finalize"),
+            {{"code", canceled ? "AUTO_ARRANGE_CANCELED" : "AUTO_ARRANGE_FINALIZE_FAILED"}, {"canceled", canceled}, {"has_exception", static_cast<bool>(eptr)}});
         return;
     }
 
@@ -990,6 +1015,12 @@ void ArrangeJob::finalize(bool canceled, std::exception_ptr &eptr) {
 
         m_plater->update_slicing_context_to_current_partplate();
 
+        // FIX: rebuild_plates_after_arrangement() may reorder m_model->objects via std::sort,
+        // which invalidates the obj_idx stored in GLVolumes. We must reload the 3D scene first
+        // to sync GLVolumes with the new Model state, otherwise update_selections() inside
+        // reload_all_plates() will access stale indices and crash.
+        m_plater->get_view3D_canvas3D()->reload_scene(false);
+
         wxGetApp().obj_list()->reload_all_plates();
 
         m_plater->update();
@@ -999,6 +1030,10 @@ void ArrangeJob::finalize(bool canceled, std::exception_ptr &eptr) {
 #if AUTO_CONVERT_3MF
         wxGetApp().auto_convert_3mf_mgr.on_arrange_job_finished();
 #endif
+        report_arrange_completion(
+            true,
+            "Arrange completed",
+            {{"unarranged_count", m_unarranged.size()}, {"unprintable_count", m_unprintable_instances.size()}, {"current_plate_only", only_on_partplate}});
     } catch (const std::exception& ex) {
         BOOST_LOG_TRIVIAL(warning) << "ArrangeJob::finalize apply exception"
                                    << ", ex=" << ex.what();
@@ -1006,12 +1041,20 @@ void ArrangeJob::finalize(bool canceled, std::exception_ptr &eptr) {
         if (m_plater) {
             show_error(m_plater, _L("An unexpected error occured"));
         }
+        report_arrange_completion(
+            false,
+            "Arrange failed while applying results",
+            {{"code", "AUTO_ARRANGE_FINALIZE_FAILED"}, {"exception", ex.what()}});
     } catch (...) {
         BOOST_LOG_TRIVIAL(warning) << "ArrangeJob::finalize apply unknown exception";
         boost::log::core::get()->flush();
         if (m_plater) {
             show_error(m_plater, _L("An unexpected error occured"));
         }
+        report_arrange_completion(
+            false,
+            "Arrange failed while applying results",
+            {{"code", "AUTO_ARRANGE_FINALIZE_FAILED"}});
     }
 }
 

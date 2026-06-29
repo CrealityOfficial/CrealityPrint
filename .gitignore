@@ -65,3 +65,5 @@ __pycache__
 docs
 flatbuild
 /.edge-zentao-profile
+/resources/web/chat/node_modules/
+/tools/updater/*.syso

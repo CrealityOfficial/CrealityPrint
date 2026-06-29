@@ -18,6 +18,7 @@
 #include <wx/event.h>
 #include <wx/clipbrd.h>
 #include <wx/debug.h>
+#include <wx/image.h>
 
 #include <GL/glew.h>
 
@@ -534,8 +535,35 @@ void ImGuiWrapper::new_frame()
     }
 
     if (m_font_texture == 0) {
+        // 修复: 上次字体构建失败后做退避，避免在低内存场景每帧反复申请 ~100MB 造成 retry storm。
+        // 退避窗口结束后允许再次尝试，使内存恢复后界面能自愈。
+        if (m_font_init_failed) {
+            const auto now = std::chrono::steady_clock::now();
+            if (now - m_font_init_last_fail_time < m_font_init_retry_delay) {
+                // 退避期内：跳过本次重建。ImGui 仍可运行（文字可能缺失），但不会反复触发大块分配。
+                ImGui::NewFrame();
+                m_new_frame_open = true;
+                return;
+            }
+        }
+
         init_font(true);
         //init_font_all(true);
+
+        if (m_font_texture == 0) {
+            // 本次构建失败（init_font 内部已 destroy_font 并记录日志）。进入退避状态。
+            if (!m_font_init_failed) {
+                BOOST_LOG_TRIVIAL(error) << "ImGuiWrapper::new_frame: font texture build failed, entering backoff to avoid retry storm.";
+                boost::log::core::get()->flush();
+            }
+            m_font_init_failed = true;
+            m_font_init_last_fail_time = std::chrono::steady_clock::now();
+        } else if (m_font_init_failed) {
+            // 构建恢复成功，清除失败状态。
+            BOOST_LOG_TRIVIAL(warning) << "ImGuiWrapper::new_frame: font texture build recovered.";
+            boost::log::core::get()->flush();
+            m_font_init_failed = false;
+        }
     }
 
     ImGui::NewFrame();
@@ -2844,32 +2872,32 @@ bool HasUnsupportedCharacters(const std::string& str, ImFont* font) {
     const char* p = str.c_str();
     while (*p) {
         unsigned int codepoint;
-        // 手动处理 UTF - 8 字符到 Unicode 码点的转换
+        // 手动处理 UTF - 8 字符�?Unicode 码点的转�?
         if (*p < 0x80) {
-            // 单字节字符
+            // 单字节字�?
             codepoint = *p;
             p += 1;
         } else if ((*p & 0xE0) == 0xC0) {
-            // 双字节字符
+            // 双字节字�?
             if (p[1] == '\0') break;
             codepoint = ((p[0] & 0x1F) << 6) | (p[1] & 0x3F);
             p += 2;
         } else if ((*p & 0xF0) == 0xE0) {
-            // 三字节字符
+            // 三字节字�?
             if (p[1] == '\0' || p[2] == '\0') break;
             codepoint = ((p[0] & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F);
             p += 3;
         } else if ((*p & 0xF8) == 0xF0) {
-            // 四字节字符
+            // 四字节字�?
             if (p[1] == '\0' || p[2] == '\0' || p[3] == '\0') break;
             codepoint = ((p[0] & 0x07) << 18) | ((p[1] & 0x3F) << 12) | ((p[2] & 0x3F) << 6) | (p[3] & 0x3F);
             p += 4;
         } else {
-            // 无效的 UTF - 8 序列
+            // 无效�?UTF - 8 序列
             break;
         }
 
-        // 使用 FindGlyph 检查字符是否在字体中
+        // 使用 FindGlyph 检查字符是否在字体�?
         const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(codepoint));
         if (!glyph) {
             return true;
@@ -3294,7 +3322,7 @@ void ImGuiWrapper::init_font_all(bool compress)
 
     auto fonts = io.Fonts->Fonts;
     for (auto font : fonts) {
-        if (HasUnsupportedCharacters("텍스트 양각", font)) {
+        if (HasUnsupportedCharacters("텍스�?양각", font)) {
             BOOST_LOG_TRIVIAL(warning) << "Font does not support all characters";
         }
     }
@@ -3688,7 +3716,7 @@ void ImGuiWrapper::reset_imgui_input_state()
     io.MouseWheel  = 0.0f;
     io.MouseWheelH = 0.0f;
 
-    // ✅ Modifiers must be cleared (these are the most likely to get "stuck" after overlays/focus loss)
+    // �?Modifiers must be cleared (these are the most likely to get "stuck" after overlays/focus loss)
     io.KeyCtrl  = false;
     io.KeyShift = false;
     io.KeyAlt   = false;
@@ -3719,6 +3747,64 @@ void ImGuiWrapper::reset_imgui_keyboard_state()
 }
 
 
+
+bool IMTexture::load_from_png_file(const std::string& filename, unsigned width, unsigned height, ImTextureID& texture_id)
+{
+    wxImage image;
+    if (!image.LoadFile(wxString::FromUTF8(filename.c_str()), wxBITMAP_TYPE_PNG))
+        return false;
+
+    if (!image.IsOk())
+        return false;
+
+    if ((int)width <= 0 || (int)height <= 0)
+        return false;
+
+    if ((unsigned)image.GetWidth() != width || (unsigned)image.GetHeight() != height)
+        image.Rescale((int)width, (int)height, wxIMAGE_QUALITY_HIGH);
+
+    if (!image.IsOk())
+        return false;
+
+    unsigned char* rgb = image.GetData();
+    if (rgb == nullptr)
+        return false;
+
+    unsigned char* alpha = image.HasAlpha() ? image.GetAlpha() : nullptr;
+    std::vector<unsigned char> rgba(width * height * 4, 255);
+    for (size_t i = 0, px_count = size_t(width) * size_t(height); i < px_count; ++i) {
+        rgba[i * 4 + 0] = rgb[i * 3 + 0];
+        rgba[i * 4 + 1] = rgb[i * 3 + 1];
+        rgba[i * 4 + 2] = rgb[i * 3 + 2];
+        rgba[i * 4 + 3] = alpha ? alpha[i] : 255;
+    }
+
+    GLint last_texture;
+    unsigned image_texture{ 0 };
+
+    glsafe(::glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture));
+    glsafe(::glGenTextures(1, &image_texture));
+    glsafe(::glBindTexture(GL_TEXTURE_2D, image_texture));
+    glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+    glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    glsafe(::glPixelStorei(GL_UNPACK_ROW_LENGTH, 0));
+    glsafe(::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data()));
+
+    texture_id = (ImTextureID)(intptr_t)image_texture;
+
+    glsafe(::glBindTexture(GL_TEXTURE_2D, last_texture));
+    return true;
+}
+
+void IMTexture::release_texture(ImTextureID& texture_id)
+{
+    if (!texture_id)
+        return;
+
+    GLuint id = (GLuint)(uintptr_t)texture_id;
+    glsafe(::glDeleteTextures(1, &id));
+    texture_id = nullptr;
+}
 bool IMTexture::load_from_svg_file(const std::string& filename, unsigned width, unsigned height, ImTextureID& texture_id)
 {
     NSVGimage* image = nsvgParseFromFile(filename.c_str(), "px", 96.0f);

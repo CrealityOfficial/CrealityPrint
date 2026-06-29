@@ -20,7 +20,7 @@ protected:
     void on_set_state() override;
 
     wchar_t  m_current_tool = 0;
-    void on_render_input_window(float x, float y, float bottom_limit) override;
+    void on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false) override;
     std::string on_get_name() const override;
     PainterGizmoType get_painter_type() const override;
 

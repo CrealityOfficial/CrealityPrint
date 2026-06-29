@@ -172,7 +172,7 @@ protected:
     void on_render() override;
     void on_set_state() override;
 
-    virtual void on_render_input_window(float x, float y, float bottom_limit) override;
+    virtual void on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false) override;
     virtual void on_register_raycasters_for_picking() override;
     virtual void on_unregister_raycasters_for_picking() override;
 

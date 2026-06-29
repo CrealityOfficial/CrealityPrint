@@ -23,6 +23,23 @@ enum StringExceptionType {
     STRING_EXCEPT_OBJECT_COLLISION_IN_SEQ_PRINT = 3,
     STRING_EXCEPT_OBJECT_COLLISION_IN_LAYER_PRINT = 4,
     STRING_EXCEPT_LAYER_HEIGHT_EXCEEDS_LIMIT = 5,
+    STRING_EXCEPT_TOO_CLOSE_TO_OTHERS             = 6,
+    STRING_EXCEPT_TIMELAPSE_SMOOTH_WITH_BY_OBJECT = 7,
+    STRING_EXCEPT_SPIRAL_MODE_REQUIRES_BY_OBJECT = 8,
+    STRING_EXCEPT_SPIRAL_MODE_MULTI_MATERIAL_UNSUPPORTED = 9,
+    STRING_EXCEPT_BUILD_VOLUME_HEIGHT_EXCEEDED = 10,
+    STRING_EXCEPT_LAST_LAYER_EXCEEDS_BUILD_VOLUME = 11,
+    STRING_EXCEPT_ORGANIC_SUPPORT_VARIABLE_LAYER_UNSUPPORTED = 12,
+    STRING_EXCEPT_ORGANIC_SUPPORT_OVERHANG_OPT_UNSUPPORTED = 13,
+    STRING_EXCEPT_WIPE_TOWER_RELATIVE_ADDRESSING_REQUIRED = 14,
+    STRING_EXCEPT_WIPE_TOWER_OOZE_PREVENTION_UNSUPPORTED = 15,
+    STRING_EXCEPT_PRIME_TOWER_LAYER_HEIGHT_MISMATCH = 16,
+    STRING_EXCEPT_PRIME_TOWER_RAFT_LAYER_MISMATCH = 17,
+    STRING_EXCEPT_PRIME_TOWER_VARIABLE_LAYER_MISMATCH = 18,
+    STRING_EXCEPT_G92E0_ADDRESSING_CONFLICT = 19,
+    STRING_EXCEPT_SUPPORT_ENFORCER_WITHOUT_SUPPORT = 20,
+    STRING_EXCEPT_SEQ_PRINT_TOO_TALL = 21,
+    STRING_EXCEPT_SEQ_PRINT_EXCLUSION_AREA_CONFLICT = 22,
     STRING_EXCEPT_COUNT
 };
 
@@ -32,7 +49,7 @@ struct StringObjectException
     std::string string;
     ObjectBase const *object = nullptr;
     std::string opt_key;
-    StringExceptionType         type;   // warning type for tips
+    StringExceptionType         type = STRING_EXCEPT_NOT_DEFINED;   // warning type for tips
     std::vector<std::string>    params; // warning params for tips
 };
 
@@ -540,6 +557,8 @@ public:
     void set_plate_index(int index) { m_plate_index = index; }
     bool get_no_check_flag() const { return m_no_check; }
     void set_no_check_flag(bool no_check) { m_no_check = no_check; }
+    bool get_write_task_id_placeholder() const { return m_write_task_id_placeholder; }
+    void set_write_task_id_placeholder(bool v) { m_write_task_id_placeholder = v; }
 
     //SoftFever plate name
     std::string get_plate_name() const { return m_plate_name; }
@@ -578,6 +597,10 @@ protected:
     //BBS: add plate id into print base
     int m_plate_index{ 0 };
     bool m_no_check = false;
+
+    // Whether to write creality_task_id_pending placeholder into gcode header.
+    // Set by the GUI layer before export; defaults to false so lib builds without GUI are unaffected.
+    bool m_write_task_id_placeholder = false;
 
     // SoftFever: current plate name
     std::string m_plate_name;

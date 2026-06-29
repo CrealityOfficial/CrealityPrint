@@ -411,6 +411,41 @@ bool GLModel::Geometry::has_tex_coord(const Format& format)
         m_render_data = std::make_shared<RenderData>();
  }
 
+void GLModel::init_from(Geometry&& data, bool generate_mesh)
+ {
+     if (is_initialized()) {
+         // call reset() if you want to reuse this model
+         assert(false);
+         return;
+     }
+
+     if (data.vertices.empty() || data.indices.empty()) {
+         assert(false);
+         return;
+     }
+
+	 m_render_data->geometry = std::move(data);     
+
+     /*if (generate_mesh) {
+         if (!mesh) {
+             mesh = new TriangleMesh();
+         }
+         mesh->its = data.get_as_indexed_triangle_set();
+     }*/
+     
+     const auto& geometry          = m_render_data->geometry;
+     // update bounding box
+     for (size_t i = 0; i < geometry.vertices_count(); ++i) {
+         const size_t position_stride = Geometry::position_stride_floats(geometry.format);
+         if (position_stride == 3)
+             m_render_data->geometry.m_bounding_box.merge(geometry.extract_position_3(i).cast<double>());
+         else if (position_stride == 2) {
+             const Vec2f position = geometry.extract_position_2(i);
+             m_render_data->geometry.m_bounding_box.merge(Vec3f(position.x(), position.y(), 0.0f).cast<double>());
+         }
+     }
+ }
+
 void GLModel::init_from(Geometry&& data)
 {
     if (is_initialized()) {
@@ -869,6 +904,139 @@ void GLModel::render_single(const Vec3f& single_offset)
         glsafe(::glDisableVertexAttribArray(position_id));
 
     glsafe(::glBindBuffer(GL_ARRAY_BUFFER, 0));
+}
+
+void GLModel::bind_mats_vbo(unsigned int instance_mats_vbo, unsigned int instances_count, const std::vector<int>& locations)
+{
+    if (instance_mats_vbo == 0 || instances_count == 0) {
+        return;
+    }
+    if (locations.size() < 4) {
+        return;
+    }
+    auto one_mat_all_size = sizeof(float) * 16;
+    auto one_mat_col_size = sizeof(float) * 4;
+    glsafe(::glBindBuffer(GL_ARRAY_BUFFER, instance_mats_vbo));
+
+    glsafe(glEnableVertexAttribArray(locations[0]));
+    glsafe(glVertexAttribPointer(locations[0], 4, GL_FLOAT, GL_FALSE, one_mat_all_size, (void*)0));
+    glsafe(glEnableVertexAttribArray(locations[1]));
+    glsafe(glVertexAttribPointer(locations[1], 4, GL_FLOAT, GL_FALSE, one_mat_all_size, (void*)(one_mat_col_size)));
+    glsafe(glEnableVertexAttribArray(locations[2]));
+    glsafe(glVertexAttribPointer(locations[2], 4, GL_FLOAT, GL_FALSE, one_mat_all_size, (void*)(2 * one_mat_col_size)));
+    glsafe(glEnableVertexAttribArray(locations[3]));
+    glsafe(glVertexAttribPointer(locations[3], 4, GL_FLOAT, GL_FALSE, one_mat_all_size, (void*)(3 * one_mat_col_size)));
+    // Update the matrix every time after an object is drawn//useful
+    glsafe(glVertexAttribDivisor(locations[0], 1));
+    glsafe(glVertexAttribDivisor(locations[1], 1));
+    glsafe(glVertexAttribDivisor(locations[2], 1));
+    glsafe(glVertexAttribDivisor(locations[3], 1));
+
+    glsafe(::glBindBuffer(GL_ARRAY_BUFFER, 0));
+}
+
+void GLModel::render_geometry_instance(unsigned int instance_mats_vbo, unsigned int instances_count)
+{
+    render_geometry_instance(instance_mats_vbo, instances_count,std::make_pair<size_t, size_t>(0, indices_count()));
+}
+
+void GLModel::render_geometry_instance(unsigned int instance_mats_vbo, unsigned int instances_count, const std::pair<size_t, size_t> &range)
+{
+    if (instances_count == 0) {
+        return;
+    }
+    if (m_render_data == nullptr) { return; }
+    const auto shader = wxGetApp().get_current_shader();
+    if (shader == nullptr) return;
+
+    auto &render_data = *m_render_data;
+    // sends data to gpu if not done yet
+    if (render_data.vbo_id == 0 || render_data.ibo_id == 0) {
+        if (render_data.geometry.vertices_count() > 0 && render_data.geometry.indices_count() > 0 && !send_to_gpu())
+            return;
+    }
+
+    const Geometry &data = render_data.geometry;
+
+    const GLenum mode       = get_primitive_mode(data.format);
+    const GLenum index_type = get_index_type(data);
+
+    const size_t vertex_stride_bytes = Geometry::vertex_stride_bytes(data.format);
+    const bool   position            = Geometry::has_position(data.format);
+    const bool   normal              = Geometry::has_normal(data.format);
+    const bool   tex_coord           = Geometry::has_tex_coord(data.format);
+
+    glsafe(::glBindBuffer(GL_ARRAY_BUFFER, render_data.vbo_id));
+
+    int position_id  = -1;
+    int normal_id    = -1;
+    int tex_coord_id = -1;
+    if (position) {
+        position_id = shader->get_attrib_location("v_position");
+        if (position_id != -1) {
+            glsafe(::glVertexAttribPointer(position_id, Geometry::position_stride_floats(data.format), GL_FLOAT, GL_FALSE, vertex_stride_bytes,
+                                           (const void *) Geometry::position_offset_bytes(data.format)));
+            glsafe(::glEnableVertexAttribArray(position_id));
+        }
+    }
+    if (normal) {
+        normal_id = shader->get_attrib_location("v_normal");
+        if (normal_id != -1) {
+            glsafe(::glVertexAttribPointer(normal_id, Geometry::normal_stride_floats(data.format), GL_FLOAT, GL_FALSE, vertex_stride_bytes,
+                                           (const void *) Geometry::normal_offset_bytes(data.format)));
+            glsafe(::glEnableVertexAttribArray(normal_id));
+        }
+    }
+    if (tex_coord) {
+        tex_coord_id = shader->get_attrib_location("v_tex_coord");
+        if (tex_coord_id != -1) {
+            glsafe(::glVertexAttribPointer(tex_coord_id, Geometry::tex_coord_stride_floats(data.format), GL_FLOAT, GL_FALSE, vertex_stride_bytes,
+                                           (const void *) Geometry::tex_coord_offset_bytes(data.format)));
+            glsafe(::glEnableVertexAttribArray(tex_coord_id));
+        }
+    }
+
+    glsafe(::glBindBuffer(GL_ARRAY_BUFFER, 0));
+    //glBindAttribLocation(shader->get_id(), 2, "instanceMatrix");
+    //glBindAttribLocation(2, "instanceMatrix");
+    //shader->bind(shaderProgram, 0, 'position');
+    bool has_instancing_attributes = false;
+    int i_loc0 = -1;
+    int i_loc1 = -1;
+    int i_loc2 = -1;
+    int i_loc3 = -1;
+    if (instance_mats_vbo > 0) {
+        i_loc0 = shader->get_attrib_location("i_data0");
+        i_loc1 = shader->get_attrib_location("i_data1");
+        i_loc2 = shader->get_attrib_location("i_data2");
+        i_loc3 = shader->get_attrib_location("i_data3");
+
+        has_instancing_attributes = (i_loc0 != -1 && i_loc1 != -1 && i_loc2 != -1 && i_loc3 != -1);
+        if (has_instancing_attributes) {
+            bind_mats_vbo(instance_mats_vbo, instances_count, { i_loc0, i_loc1, i_loc2, i_loc3 });
+        }
+    }
+
+    shader->set_uniform("uniform_color", color);
+
+    glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, render_data.ibo_id));
+    glsafe(::glDrawElementsInstanced(mode, range.second - range.first, index_type, (const void*)(range.first * Geometry::index_stride_bytes(data)), instances_count));
+    glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+
+    if (has_instancing_attributes && instance_mats_vbo > 0) {
+        glsafe(::glVertexAttribDivisor(i_loc0, 0));
+        glsafe(::glVertexAttribDivisor(i_loc1, 0));
+        glsafe(::glVertexAttribDivisor(i_loc2, 0));
+        glsafe(::glVertexAttribDivisor(i_loc3, 0));
+        glsafe(::glDisableVertexAttribArray(i_loc0));
+        glsafe(::glDisableVertexAttribArray(i_loc1));
+        glsafe(::glDisableVertexAttribArray(i_loc2));
+        glsafe(::glDisableVertexAttribArray(i_loc3));
+    }
+
+    if (tex_coord_id != -1) glsafe(::glDisableVertexAttribArray(tex_coord_id));
+    if (normal_id != -1) glsafe(::glDisableVertexAttribArray(normal_id));
+    if (position_id != -1) glsafe(::glDisableVertexAttribArray(position_id));
 }
 
 bool GLModel::send_to_gpu()

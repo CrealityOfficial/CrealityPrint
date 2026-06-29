@@ -6,41 +6,20 @@
     "from": "system",
     "instantiation": "true",
     "inherits": "fdm_filament_petg",
-    "cool_plate_temp": "70",
-    "cool_plate_temp_initial_layer": "70",
-    "customized_plate_temp": "70",
-    "customized_plate_temp_initial_layer": "70",
-    "epoxy_resin_plate_temp": "60",
-    "epoxy_resin_plate_temp_initial_layer": "60",
-    "fan_cooling_layer_time": "30",
-    "fan_max_speed": "80",
-    "fan_min_speed": "40",
-    "filament_cost": "22",
-    "filament_density": "1.27",
-    "filament_flow_ratio": "0.98",
+    "additional_cooling_fan_speed": "0",
     "filament_max_volumetric_speed": "5",
-    "filament_retract_before_wipe": "70%",
-    "filament_start_gcode": [
-        ";filament start gcode\n{if !multicolor_method}\n{if (position[2] > first_layer_height) }\nM104 S[nozzle_temperature]\n{else} \nM104 S[first_layer_temperature]\n{endif}\n\n{if(initial_extruder != current_extruder || position[2] > first_layer_height)}\n{if (position[2] +0.4  < printable_height) }\nG2 Z{position[2]  + 0.4} I0.86 J0.86 P1 F10000 ; spiral lift a little from second lift\nG1 X205 Y345 F20000\nG1 Z{position[2] } F1200\n{else}\nG1 X205 Y345 F20000\n{endif}\n{endif}\n{endif}"
-    ],
+    "filament_retraction_length": "0.8",
+    "filament_retraction_minimum_travel": "1",
+    "filament_retraction_speed": "40",
     "filament_type": [
         "PETG"
     ],
     "filament_vendor": [
         "eSUN"
     ],
-    "hot_plate_temp": "70",
-    "hot_plate_temp_initial_layer": "70",
-    "nozzle_temperature": "255",
-    "nozzle_temperature_initial_layer": "255",
-    "nozzle_temperature_range_high": "270",
-    "overhang_fan_speed": "90",
-    "overhang_fan_threshold": "25%",
-    "pressure_advance": "0.1",
-    "reduce_fan_stop_start_freq": "1",
-    "slow_down_layer_time": "8",
-    "textured_plate_temp": "70",
-    "textured_plate_temp_initial_layer": "70",
+    "filament_wipe_distance": "2",
+    "filament_z_hop": "0.4",
+    "slow_down_min_speed": "10",
     "compatible_printers": [
         "Creality K2 Plus 0.4 nozzle"
     ],

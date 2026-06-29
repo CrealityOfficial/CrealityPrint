@@ -176,24 +176,22 @@ void GLGizmoMmuSegmentation::data_changed(bool is_serializing)
     if (m_state != On || wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() != ptFFF )
         return;
 
-//     int nnn = wxGetApp().extruders_edited_cnt();
-//     if(m_extruders_colors.size()!=wxGetApp().filaments_cnt() )
-//     {
-//     }
-
     ModelObject* model_object = m_c->selection_info()->model_object();
-    int prev_extruders_count = int(m_extruders_colors.size());
-    if (prev_extruders_count != wxGetApp().filaments_cnt()) {
-        if (wxGetApp().filaments_cnt() > int(GLGizmoMmuSegmentation::EXTRUDERS_LIMIT))
+    const std::vector<ColorRGBA> current_extruder_colors = get_extruders_colors();
+    const int prev_extruders_count = int(m_extruders_colors.size());
+    const int current_extruders_count = int(current_extruder_colors.size());
+    
+    if (prev_extruders_count != current_extruders_count) {
+        if (current_extruder_colors.size() > GLGizmoMmuSegmentation::EXTRUDERS_LIMIT)
             show_notification_extruders_limit_exceeded();
 
         this->init_extruders_data();
         // Reinitialize triangle selectors because of change of extruder count need also change the size of GLIndexedVertexArray
-        if (prev_extruders_count != wxGetApp().filaments_cnt())
-            this->init_model_triangle_selectors();
+        this->init_model_triangle_selectors();
     }
-    else if (get_extruders_colors() != m_extruders_colors) {
+    else if (current_extruder_colors != m_extruders_colors) {
         this->init_extruders_data();
+        // Only update colors, don't reinitialize triangle selectors to preserve painting data
         this->update_triangle_selectors_colors();
     }
     else if (model_object != nullptr && get_extruder_id_for_volumes(*model_object) != m_volumes_extruder_idxs) {
@@ -229,6 +227,12 @@ void GLGizmoMmuSegmentation::render_triangles(const Selection &selection) const
             continue;
 
         ++mesh_id;
+
+        // Safety check: m_triangle_selectors may be empty if gizmo state changed
+        // during render (e.g. macOS Cocoa re-entrant event dispatch or wxBusyCursor
+        // pumping events before selectors are initialized).
+        if (mesh_id >= (int)m_triangle_selectors.size())
+            break;
 
         Transform3d trafo_matrix;
         if (m_parent.get_canvas_type() == GLCanvas3D::CanvasAssembleView) {
@@ -393,13 +397,13 @@ void GLGizmoMmuSegmentation::show_tooltip_information(float caption_max, float x
     ImGui::PopStyleVar(2);
 }
 
-void GLGizmoMmuSegmentation::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoMmuSegmentation::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
     if (!m_c->selection_info()->model_object()) return;
 
     const float approx_height = m_imgui->scaled(22.0f);
     y = std::min(y, bottom_limit - approx_height);
-    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always);
+    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f, force_update_pos);
     m_imgui_start_pos[0] = x;
     m_imgui_start_pos[1] = y;
     wchar_t old_tool = m_current_tool;
@@ -831,6 +835,21 @@ void GLGizmoMmuSegmentation::update_model_object()
         wxGetApp().obj_list()->update_info_items(obj_idx);
         wxGetApp().plater()->get_partplate_list().notify_instance_update(obj_idx, 0);
         m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
+
+        // OPTIMIZATION: Only update colors, don't force full render
+        // The triangle selector's VBO already contains the updated colors
+        // Full render will be triggered by the event loop naturally
+        auto update_colors_only = [](GLCanvas3D *canvas) {
+            if (canvas == nullptr || !canvas->is_initialized())
+                return;
+            // Only update color cache, don't force immediate render
+            canvas->update_volumes_colors_by_extruder();
+        };
+
+        if (wxGetApp().plater() != nullptr) {
+            update_colors_only(wxGetApp().plater()->get_view3D_canvas3D());
+            update_colors_only(wxGetApp().plater()->get_assmeble_canvas3D());
+        }
     }
 }
 
@@ -861,6 +880,9 @@ void GLGizmoMmuSegmentation::init_model_triangle_selectors()
         const TriangleMesh* mesh = &mv->mesh();
         m_triangle_selectors.emplace_back(std::make_unique<TriangleSelectorPatch>(*mesh, ebt_colors, 0.2));
         // Reset of TriangleSelector is done inside TriangleSelectorMmGUI's constructor, so we don't need it to perform it again in deserialize().
+        // Use the actual number of extruder colors (including mixed filaments) as max_ebt, 
+        // but cap at ExtruderMax to ensure valid EnforcerBlockerType values.
+        // This ensures mixed filament colors (index >= 16) are properly handled.
         EnforcerBlockerType max_ebt = (EnforcerBlockerType)std::min(m_extruders_colors.size(), (size_t)EnforcerBlockerType::ExtruderMax);
         m_triangle_selectors.back()->deserialize(mv->mmu_segmentation_facets.get_data(), false, max_ebt);
         m_triangle_selectors.back()->request_update_render_data();
@@ -928,6 +950,21 @@ void GLGizmoMmuSegmentation::on_set_state()
     if (get_state() == Off) {
         ModelObject* mo = m_c->selection_info()->model_object();
         if (mo) Slic3r::save_object_mesh(*mo);
+
+        // Refresh canvas colors to ensure mixed filament colors are properly displayed
+        // and wipe tower is updated based on new color usage
+        auto refresh_canvas = [](GLCanvas3D *canvas) {
+            if (canvas == nullptr || !canvas->is_initialized())
+                return;
+            canvas->update_volumes_colors_by_extruder();
+            canvas->render();
+        };
+
+        if (wxGetApp().plater() != nullptr) {
+            refresh_canvas(wxGetApp().plater()->get_view3D_canvas3D());
+            refresh_canvas(wxGetApp().plater()->get_assmeble_canvas3D());
+        }
+
         m_parent.post_event(SimpleEvent(EVT_GLCANVAS_FORCE_UPDATE));
     }
 }

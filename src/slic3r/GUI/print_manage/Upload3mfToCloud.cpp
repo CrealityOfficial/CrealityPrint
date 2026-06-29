@@ -797,7 +797,8 @@ void Upload3mfToCloudDialog::get_current_plate_color()
         std::vector<int> plate_extruders = plate->get_extruders(true);
         if (plate_extruders.size() > 0) {
             for (const auto& extruder : plate_extruders) {
-                if (all_extruder_colors.size() > (extruder - 1)) {
+                if (all_extruder_colors.size() > (extruder - 1) &&
+                    all_filament_types.size()  > (extruder - 1)) {
                     bool findId = false;
                     for (int i = 0; i < plate_extruder_colors_json.size(); i++) {
                         auto extruderId = plate_extruder_colors_json.at(i)["extruder_id"];
@@ -1550,6 +1551,19 @@ std::vector<std::string> Upload3mfToCloudDialog::get_all_filament_types()
         }
     }
 
+    // Append types for mixed (virtual) filaments to stay in sync with
+    // get_extruder_colors_from_plater_config() which includes mixed display colors.
+    const auto& mixed        = wxGetApp().preset_bundle->mixed_filaments.mixed_filaments();
+    size_t      num_physical = all_filament_types.size();
+    for (const auto& mf : mixed) {
+        if (!mf.enabled || mf.deleted)
+            continue;
+        if (mf.component_a >= 1 && mf.component_a <= num_physical)
+            all_filament_types.emplace_back(all_filament_types[mf.component_a - 1]);
+        else
+            all_filament_types.emplace_back("PLA");
+    }
+
     return all_filament_types;
 }
 
@@ -1576,12 +1590,12 @@ void Upload3mfToCloudDialog::set_plate_info(int plate_idx)
     std::vector<int>         plate_extruders = plate->get_extruders(true);
     std::vector<std::string> filament_types  = get_all_filament_types();
     /*   if (plate_extruders.size() > 0) {
-           default_gcode_name = obj0_name + "_" + filament_types[plate_extruders[0] - 1] + "_" + get_bbl_time_dhms(plate_time_mode.time);
+           default_gcode_name = obj0_name + "_" + filament_types[plate_extruders[0] - 1] + "_" + get_bbl_time_dhms(plate_time_mode.model_time_s());
        }*/
     wxString project_name = GUI::wxGetApp().mainframe->plater()->get_project_name();
     if (plate_extruders.size() > 0) {
         default_gcode_name = project_name;
-     //   +"_" + filament_types[plate_extruders[0] - 1] + "_" + get_bbl_time_dhms(plate_time_mode.time);
+     //   +"_" + filament_types[plate_extruders[0] - 1] + "_" + get_bbl_time_dhms(plate_time_mode.model_time_s());
     }
     m_rename_text->SetLabelText(default_gcode_name);
     m_current_project_name = default_gcode_name;
@@ -1627,7 +1641,7 @@ void Upload3mfToCloudDialog::set_plate_info(int plate_idx)
 
     if (plate) {
         if (plate->get_slice_result()) {
-            time = wxString::Format("%s", short_time(get_time_dhms(plate->get_slice_result()->print_statistics.modes[0].time)));
+            time = wxString::Format("%s", short_time(get_time_dhms(plate->get_slice_result()->print_statistics.modes[0].model_time_s())));
         }
     }
 

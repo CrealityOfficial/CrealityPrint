@@ -87,14 +87,34 @@ void InterlockingGenerator::generate_interlocking_structure(PrintObject* print_o
     const coord_t cell_width = beam_width + beam_width;
     const Vec3crd cell_size(cell_width, cell_width, 2 * beam_layer_count);
 
+    auto interlocking_material = [](const PrintRegion& region) -> unsigned int {
+        const PrintRegionConfig& config = region.config();
+        if (config.wall_loops.value <= 0) {
+            return 0;
+        }
+
+        const unsigned int wall_extruder = region.extruder(frExternalPerimeter);
+
+        if (config.sparse_infill_density.value > 0 && region.extruder(frInfill) != wall_extruder) {
+            return 0;
+        }
+        if ((config.top_shell_layers.value > 0 || config.bottom_shell_layers.value > 0) && region.extruder(frSolidInfill) != wall_extruder) {
+            return 0;
+        }
+        return wall_extruder;
+    };
+
     for (size_t region_a_index = 0; region_a_index < print_object->num_printing_regions(); region_a_index++) {
-        const PrintRegion& region_a      = print_object->printing_region(region_a_index);
-        const auto         extruder_nr_a = region_a.extruder(FlowRole::frExternalPerimeter);
+        const PrintRegion& region_a = print_object->printing_region(region_a_index);
+        const unsigned int extruder_nr_a = interlocking_material(region_a);
+        if (extruder_nr_a == 0) {
+            continue;
+        }
 
         for (size_t region_b_index = region_a_index + 1; region_b_index < print_object->num_printing_regions(); region_b_index++) {
-            const PrintRegion& region_b      = print_object->printing_region(region_b_index);
-            const auto         extruder_nr_b = region_b.extruder(FlowRole::frExternalPerimeter);
-            if (extruder_nr_a == extruder_nr_b) {
+            const PrintRegion& region_b = print_object->printing_region(region_b_index);
+            const unsigned int extruder_nr_b = interlocking_material(region_b);
+            if (extruder_nr_b == 0 || extruder_nr_a == extruder_nr_b) {
                 continue;
             }
 

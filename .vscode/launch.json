@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "C3DSlicer: Launch",
-            "type": "lldb",
+            "type": "cppvsdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
             "args": [],
@@ -25,6 +25,8 @@
             },
             "windows": {
                 "type": "cppvsdbg",
+                "program": "${workspaceFolder}\\build_Release\\src\\Release\\CrealityPrint.exe",
+                "cwd": "${workspaceFolder}\\build_Release\\src\\Release",
                 "env": {
                     "SLIC3R_RESOURCES_DIR": "${workspaceFolder}/resources"
                 }

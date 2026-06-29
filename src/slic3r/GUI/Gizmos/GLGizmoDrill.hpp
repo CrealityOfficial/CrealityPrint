@@ -145,7 +145,7 @@ protected:
     //void on_set_state() override;
     virtual CommonGizmosDataID on_get_requirements() const override;
 
-    virtual void on_render_input_window(float x, float y, float bottom_limit) override;
+    virtual void on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false) override;
 
 private:
     // This map holds all translated description texts, so they can be easily referenced during layout calculations

@@ -44,13 +44,17 @@ std::vector<std::vector<ExPolygons>> segmentation_by_painting(const PrintObject 
                                                               float                                                            segmentation_interlocking_depth,
                                                               bool                                                             segmentation_interlocking_beam,
                                                               IncludeTopAndBottomLayers                                        include_top_and_bottom_layers,
-                                                              const std::function<void()>                                     &throw_on_cancel_callback);
+                                                              const std::function<void()>                                     &throw_on_cancel_callback,
+                                                              const std::vector<ExPolygons>                                   *override_input_expolygons = nullptr);
 
 // Returns MMU segmentation based on painting in MMU segmentation gizmo
 std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(const PrintObject &print_object, const std::function<void()> &throw_on_cancel_callback);
 
-// Returns fuzzy skin segmentation based on painting in fuzzy skin segmentation gizmo
-std::vector<std::vector<ExPolygons>> fuzzy_skin_segmentation_by_painting(const PrintObject &print_object, const std::function<void()> &throw_on_cancel_callback);
+// Returns fuzzy skin segmentation based on painting in fuzzy skin segmentation gizmo.
+// clean_input_expolygons (optional): per-layer outline captured BEFORE color segmentation split
+// the layer into painted/non-painted regions; used as the Voronoi input to avoid degeneration
+// along color seams. Pass nullptr to read the (possibly color-split) layer region slices.
+std::vector<std::vector<ExPolygons>> fuzzy_skin_segmentation_by_painting(const PrintObject &print_object, const std::function<void()> &throw_on_cancel_callback, const std::vector<ExPolygons> *clean_input_expolygons = nullptr);
 
 } // namespace Slic3r
 

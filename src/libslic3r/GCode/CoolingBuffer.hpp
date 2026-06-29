@@ -145,6 +145,10 @@ struct CoolingLine
     // Individual G-code segments within this CoolingLine block (for EXTRUDE_SET_SPEED blocks).
     std::vector<GCodeMoveSegment> move_segments;
 
+    // Line width active when an overhang-fan marker was emitted. Used to merge/filter
+    // candidate fan regions after the whole layer has been parsed.
+    float overhang_fan_width = 0.f;
+
     inline float time() const { return this->adjustable_time + this->non_adjustable_time; }
 
     inline float length() const { return this->adjustable_length + this->non_adjustable_length; }

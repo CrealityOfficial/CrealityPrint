@@ -98,7 +98,7 @@ protected:
     void on_set_hover_id() override;
     void on_start_dragging() override;
     void on_stop_dragging() override;
-    void on_render_input_window(float x, float y, float bottom_limit) override;
+    void on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false) override;
     virtual CommonGizmosDataID on_get_requirements() const override;
 
     std::string on_get_name() const override;

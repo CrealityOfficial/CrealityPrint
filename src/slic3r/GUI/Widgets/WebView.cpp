@@ -525,20 +525,84 @@ bool WebView::RunScript(wxWebView *webView, wxString const &javascript)
 void WebView::DestroyAll()
 {
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " destroying " << g_webviews.size() << " webviews";
-    for (auto *webView : g_webviews) {
-        if (!webView)
-            continue;
+
 #ifdef __WIN32__
+    // Before destroying wxWebView controls, collect the browser process IDs
+    // that belong to *our* WebView2 instances via ICoreWebView2.
+    // This is the only reliable way to identify our own msedgewebview2.exe
+    // processes without accidentally touching those of other applications
+    // (e.g. VS Code, Teams) that also use WebView2 on the same machine.
+    std::vector<DWORD> our_browser_pids;
+    for (auto *webView : g_webviews) {
+        if (!webView) continue;
+        ICoreWebView2 *wv2 = reinterpret_cast<ICoreWebView2 *>(webView->GetNativeBackend());
+        if (wv2) {
+            // get_BrowserProcessId is a member of ICoreWebView2 directly.
+            UINT32 pid = 0;
+            if (SUCCEEDED(wv2->get_BrowserProcessId(&pid)) && pid != 0) {
+                our_browser_pids.push_back(static_cast<DWORD>(pid));
+                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " found our WebView2 browser pid: " << pid;
+            }
+        }
         webView->Stop();
         webView->LoadURL("about:blank");
-#endif
-
     }
+#endif
     g_webviews.clear();
+
 #ifdef __WIN32__
-    // Clean up per-run user data folder if we set one.
-    if (!g_webview_userdata_dir.empty())
+    // Wait for our browser processes to exit, then clean up the user data folder.
+    if (!our_browser_pids.empty()) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " waiting for " << our_browser_pids.size() << " WebView2 browser process(es) to exit";
+
+        std::vector<HANDLE> handles;
+        std::vector<DWORD> opened_pids; // parallel: only PIDs whose OpenProcess succeeded
+        handles.reserve(our_browser_pids.size());
+        opened_pids.reserve(our_browser_pids.size());
+        for (DWORD pid : our_browser_pids) {
+            HANDLE h = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pid);
+            if (h) {
+                handles.push_back(h);
+                opened_pids.push_back(pid);
+            } else {
+                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " failed to open WebView2 browser process " << pid;
+            }
+        }
+
+        if (!handles.empty()) {
+            // Wait up to 5 seconds for graceful exit.
+            DWORD waitResult = WaitForMultipleObjects(
+                static_cast<DWORD>(handles.size()),
+                handles.data(), TRUE, 5000);
+
+            if (waitResult == WAIT_TIMEOUT) {
+                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " WebView2 browser process(es) did not exit, terminating";
+                for (size_t i = 0; i < handles.size(); ++i) {
+                    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " terminating WebView2 browser process " << opened_pids[i];
+                    TerminateProcess(handles[i], 1);
+                }
+                WaitForMultipleObjects(
+                    static_cast<DWORD>(handles.size()),
+                    handles.data(), TRUE, 2000);
+            }
+
+            for (HANDLE h : handles)
+                CloseHandle(h);
+        } else {
+            // All OpenProcess calls failed but child processes may still be alive
+            // (e.g. running under a different privilege level). Give them time to
+            // exit naturally before we try to remove the user data folder.
+            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " could not open any WebView2 process, sleeping 5s as fallback";
+            Sleep(5000);
+        }
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " WebView2 browser process(es) finished";
+    }
+
+    // Now it is safe to remove the per-run user data folder.
+    if (!g_webview_userdata_dir.empty()) {
         wxFileName::Rmdir(g_webview_userdata_dir, wxPATH_RMDIR_RECURSIVE);
+        g_webview_userdata_dir.clear();
+    }
 #endif
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " done";
 }

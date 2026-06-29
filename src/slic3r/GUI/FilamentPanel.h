@@ -1,4 +1,4 @@
-#ifndef FILAMENTPANEL_H
+﻿#ifndef FILAMENTPANEL_H
 #define FILAMENTPANEL_H
 
 #include <string>
@@ -12,6 +12,7 @@
 #include "PresetComboBoxes.hpp"
 #include "Widgets/Label.hpp"
 #include "print_manage/data/DataType.hpp"
+#include <functional>
 
 #define FILAMENT_BTN_WIDTH  110
 #define FILAMENT_BTN_HEIGHT 41
@@ -174,6 +175,7 @@ public:
     };
 public:
     FilamentItem(wxWindow* parent, const Data&data, const wxSize&size=wxSize(FILAMENT_BTN_WIDTH, FILAMENT_BTN_HEIGHT));
+    ~FilamentItem() override;
 
     void set_checked(bool checked = true);
     bool is_checked();
@@ -238,9 +240,11 @@ public:
 	bool add_filament();
     bool can_add();
 	bool can_delete();
+    void clear_all();
 	void del_filament(int index = -1);
 	void to_small(bool bSmall = true);
     void update(int index=-1);
+    void reflow_for_width();
     void sys_color_changed();
     void msw_rescale();
     size_t size();
@@ -248,10 +252,12 @@ public:
 	void on_auto_mapping_filament(const DM::Device& deviceData);
 	void update_box_filament_sync_state(bool sync);
 	void reset_filament_sync_state();
+    void reset_device_filament_mapping_to_cfs();
     std::string get_filament_map_string();
     void resetFilamentToCFS();
     void updateLastFilament(const std::vector<std::string>& presetName);
 	void on_sync_one_filament(int filament_index, const std::string& new_filament_color, const std::string& new_filament_name, const wxString& sync_label);
+    void sync_box_filament_state(int filament_index, const std::string& new_filament_color, const wxString& sync_label);
 	void backup_extruder_colors();
 	void restore_prev_extruder_colors();
 
@@ -470,6 +476,7 @@ public:
     MaterialSubMenuItem(wxWindow* parent, const wxString& label, const wxColour& color, const int num);
     ~MaterialSubMenuItem() = default;
 	void setParentIndex(int index) { m_parentindex = index; }
+    void set_mixed_target(std::function<void()> callback) { m_is_mixed = true; m_on_click_callback = std::move(callback); }
 private:
 	int      m_parentindex = -1; // 父菜单索引
     int      m_num = 0;
@@ -477,6 +484,8 @@ private:
     wxColour m_color;
     bool     m_hovered = false;
     bool     m_clicked = false;
+    std::function<void()> m_on_click_callback;
+    bool     m_is_mixed = false;  // true if this item represents a mixed filament target
 
     void OnPaint(wxPaintEvent&);
 

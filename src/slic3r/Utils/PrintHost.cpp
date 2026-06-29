@@ -325,24 +325,26 @@ void PrintHostJobQueue::priv::perform_job(PrintHostJob the_job)
         //}
 
         emit_progress(100);
-        GUI::wxGetApp().CallAfter([host = the_job.printhost->get_host()] {
-            if(auto mainframe = GUI::wxGetApp().mainframe)
-            {
-                mainframe->request_select_tab(MainFrame::TabPosition::tpDeviceMgr);
-                wxCommandEvent e = wxCommandEvent(wxCUSTOMEVT_NOTEBOOK_SEL_CHANGED);
-                e.SetId(MainFrame::TabPosition::tpDeviceMgr); 
-                wxPostEvent(wxGetApp().mainframe->topbar(), e);
-                if (auto view = mainframe->get_printer_mgr_view()) 
+        if (the_job.switch_to_device_tab) {
+            GUI::wxGetApp().CallAfter([host = the_job.printhost->get_host()] {
+                if(auto mainframe = GUI::wxGetApp().mainframe)
                 {
-                    nlohmann::json commandJson;
-                    nlohmann::json dataJson;
-                    commandJson["command"] = "forward_fluidd_device_details";
-                    commandJson["url"]    = host;
-                    auto jsonStr           = RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true));
-                    view->ExecuteScriptCommand(jsonStr);
+                    mainframe->request_select_tab(MainFrame::TabPosition::tpDeviceMgr);
+                    wxCommandEvent e = wxCommandEvent(wxCUSTOMEVT_NOTEBOOK_SEL_CHANGED);
+                    e.SetId(MainFrame::TabPosition::tpDeviceMgr); 
+                    wxPostEvent(wxGetApp().mainframe->topbar(), e);
+                    if (auto view = mainframe->get_printer_mgr_view()) 
+                    {
+                        nlohmann::json commandJson;
+                        nlohmann::json dataJson;
+                        commandJson["command"] = "forward_fluidd_device_details";
+                        commandJson["url"]    = host;
+                        auto jsonStr           = RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true));
+                        view->ExecuteScriptCommand(jsonStr);
+                    }
                 }
-            }
-        });
+            });
+        }
     }
     
 }

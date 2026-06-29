@@ -64,7 +64,6 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_PREFIX_PATH": "${sourceDir}/deps/build/OrcaSlicer_dep/usr/local/",
-                "CX_DEBUG": "1",
                 "CMAKE_EXPORT_COMPILE_COMMANDS":"1",
                 "BOOST_HAS_THREADS": "1",
                 "CMAKE_C_COMPILER_LAUNCHER":"ccache",

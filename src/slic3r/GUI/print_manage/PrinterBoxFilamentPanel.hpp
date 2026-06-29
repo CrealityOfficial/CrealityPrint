@@ -97,6 +97,7 @@ public:
     bool isMultiColorDevice() const { return m_bMultiColorDevice; }
     void setMultiColorDevice(bool bMultiColorDevice) { m_bMultiColorDevice = bMultiColorDevice; }
     void         setExactMaterialCb(std::function<void(bool)> funcExactMaterialCb) { m_funcExactMaterialCb = funcExactMaterialCb; }
+    void         setMaterialBoxesChangedCb(std::function<void()> funcMaterialBoxesChangedCb) { m_funcMaterialBoxesChangedCb = funcMaterialBoxesChangedCb; }
 
 protected:
     void OnPaint(wxPaintEvent& event);
@@ -119,6 +120,7 @@ private:
     BoxColorPopPanel* m_box_color_pop_panel {nullptr};
 
     wxTimer*                  m_timer               = nullptr;
+    std::function<void()>     m_funcMaterialBoxesChangedCb = nullptr;
     std::function<void(bool)> m_funcExactMaterialCb = nullptr;
     bool m_bMultiColorDevice = false; //
 };

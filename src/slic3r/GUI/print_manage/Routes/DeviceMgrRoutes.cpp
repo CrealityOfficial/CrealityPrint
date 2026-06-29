@@ -20,6 +20,7 @@
 #include "slic3r/GUI/PhysicalPrinter.hpp"
 #include "slic3r/GUI/SystemId/SystemId.hpp"
 #include "libslic3r/Utils.hpp"
+#include "slic3r/GUI/simple/MCPChatPanel.hpp"
 #include <wx/weakref.h>
 #include <boost/log/trivial.hpp>
 
@@ -72,12 +73,14 @@ namespace DM {
         // form device, real time update of the data
         this->Handler({ "update_devices" }, [this](wxWebView* browse, const std::string& data, nlohmann::json& json_data, const std::string cmd) {
             DM::DataCenter::Ins().update_data(json_data);
+            Slic3r::GUI::NotifyAIChatDeviceStatusChanged();
             
             // 7.1.0版本先屏蔽此事件上报
             //check_and_send_print_failure_events(json_data);
             
             if (DM::DataCenter::Ins().is_current_device_changed()) {
                 wxPostEvent(wxGetApp().plater(), wxCommandEvent(EVT_CURRENT_DEVICE_CHANGED));
+                Slic3r::GUI::NotifyAIChatSceneChanged();
             }
             if (wxGetApp().obj_list()) {
                 wxPostEvent(wxGetApp().obj_list(), wxCommandEvent(EVT_UPDATE_DEVICES));
@@ -118,20 +121,14 @@ namespace DM {
             }
             
             Slic3r::GCodeProcessorResult* current_result = wxGetApp().plater()->get_partplate_list().get_current_slice_result();
-            if(current_result->creality_extruder_types.size()>0)
-            {
-                nlohmann::json commandJson;
-                commandJson["command"] = "set_current_plate_index";
-                commandJson["result"] = 1;
-                commandJson["plateIndex"] = index;
-                AppUtils::PostMsg(browse, commandJson);
-            }else{
-                nlohmann::json commandJson;
-                commandJson["command"] = "set_current_plate_index";
-                commandJson["result"] = 0;
-                commandJson["plateIndex"] = index;
-                AppUtils::PostMsg(browse, commandJson);
-            }
+            bool is_plate_loaded = current_result && !current_result->filename.empty() && current_result->image_data.size() > 0;
+            nlohmann::json commandJson;
+            commandJson["command"] = "set_current_plate_index";
+            commandJson["result"] = is_plate_loaded ? 1 : 0;
+            commandJson["plateIndex"] = index;
+            commandJson["isPlateLoaded"] = is_plate_loaded;
+            commandJson["isOnlyGcodeMode"] = wxGetApp().plater()->only_gcode_mode();
+            AppUtils::PostMsg(browse, commandJson);
             
             return true;
             });
@@ -297,8 +294,15 @@ namespace DM {
 
         // set active device
         this->Handler({ "set_current_device" }, [](wxWebView* browse, const std::string& data, nlohmann::json& json_data, const std::string cmd) {
-            std::string mac = json_data.contains("device_id") ? json_data["device_id"] : "";
+            std::string mac = json_data.value("device_id", json_data.value("mac", std::string()));
+            if (mac.empty()) {
+                return true;
+            }
+
             DM::DeviceMgr::Ins().SetCurrentDevice(mac);
+            DM::DataCenter::Ins().set_current_device(mac, json_data);
+            wxPostEvent(wxGetApp().plater(), wxCommandEvent(EVT_CURRENT_DEVICE_CHANGED));
+            Slic3r::GUI::NotifyAIChatSceneChanged();
             return true;
             }); 
 
@@ -349,10 +353,6 @@ namespace DM {
         // Handle print command from device detail page
         this->Handler({ "device_detail_print" }, [](wxWebView* browse, const std::string& data, nlohmann::json& json_data, const std::string cmd) {
             try {
-                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": Received device_detail_print command";
-                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": RAW json_data - " << json_data.dump();
-                boost::log::core::get()->flush();
-                
                 // Create analytics event payload
                 AnalyticsEventPayload payload;
                 payload.type = AnalyticsDataEventType::ANALYTICS_PRINT_BEGIN;
@@ -387,14 +387,9 @@ namespace DM {
                 analytics_data["error_code"] = data_field.value("error_code", "");     // Error code from frontend
                 
                 payload.data = analytics_data;
-                
-                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": Analytics payload - " << payload.data.dump();
-                boost::log::core::get()->flush();
-                
+
                 // Trigger analytics event upload
                 AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
-                
-                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": ANALYTICS_PRINT_BEGIN event sent successfully";
                 
             } catch (const std::exception& e) {
                 BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": Failed to process device_detail_print command: " << e.what();
@@ -402,6 +397,23 @@ namespace DM {
                 BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": Failed to process device_detail_print command with unknown error";
             }
             
+            return true;
+        });
+
+        // Handle print video connect event
+        this->Handler({ "print_video_connect" }, [](wxWebView* browse, const std::string& data, nlohmann::json& json_data, const std::string cmd) {
+            try {
+                AnalyticsEventPayload payload;
+                payload.type = AnalyticsDataEventType::ANALYTICS_PRINT_VIDEO_CONNECT;
+                payload.data = json_data;
+
+                AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
+            } catch (const std::exception& e) {
+                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": Failed to process print_video_connect command: " << e.what();
+            } catch (...) {
+                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": Failed to process print_video_connect command with unknown error";
+            }
+
             return true;
         });
 
@@ -682,10 +694,7 @@ namespace DM {
                         AnalyticsEventPayload payload;
                         payload.type = AnalyticsDataEventType::ANALYTICS_PRINT_ERROR;  // Need to define new event type
                         payload.data = event_data;
-                        
-                        BOOST_LOG_TRIVIAL(error) << "Analytics payload - " << payload.data.dump();
-                        boost::log::core::get()->flush();
-                        
+
                         AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
                     } else if (IsFailureState(current_state)) {
                         // ✅ Continuing failure, output trace level log (usually not shown)

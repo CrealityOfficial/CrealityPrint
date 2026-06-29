@@ -731,7 +731,8 @@ void UploadGcodeToCloudDialog::get_current_plate_color()
         std::vector<int> plate_extruders = plate->get_extruders(true);
         if (plate_extruders.size() > 0) {
             for (const auto& extruder : plate_extruders) {
-                if (all_extruder_colors.size() > (extruder - 1)) {
+                if (all_extruder_colors.size() > (extruder - 1) &&
+                    all_filament_types.size()  > (extruder - 1)) {
                     bool findId = false;
                     for (int i = 0; i < plate_extruder_colors_json.size(); i++) {
                         auto extruderId = plate_extruder_colors_json.at(i)["extruder_id"];
@@ -1095,7 +1096,7 @@ void UploadGcodeToCloudDialog::on_upload_3mf(wxCommandEvent& event)
         BOOST_LOG_TRIVIAL(info) << "upload status:" << nRet;
         if (nRet != 0) {
             MessageDialog* msg_dlg = new MessageDialog(this, _L("Upload fail"), wxString(SLIC3R_APP_FULL_NAME) + " - " + _L("Info"),
-                                                    wxYES | wxYES_DEFAULT | wxCENTRE);
+                                                    wxOK | wxYES_DEFAULT | wxCENTRE);
             if (msg_dlg) {
                 msg_dlg->ShowModal();
                 delete msg_dlg;
@@ -1103,7 +1104,7 @@ void UploadGcodeToCloudDialog::on_upload_3mf(wxCommandEvent& event)
             }
         } else {
             MessageDialog* msg_dlg = new MessageDialog(this, _L("Upload successful"), wxString(SLIC3R_APP_FULL_NAME) + " - " + _L("Info"),
-                                                    wxYES | wxYES_DEFAULT | wxCENTRE);
+                                                    wxOK | wxYES_DEFAULT | wxCENTRE);
             if (msg_dlg) {
                 msg_dlg->ShowModal();
                 delete msg_dlg;
@@ -1120,7 +1121,7 @@ void UploadGcodeToCloudDialog::on_upload_3mf(wxCommandEvent& event)
             //errMsg = from_u8((boost::format("Upload failed(%1%): %2%") % e.code() % e.msg()).str());
         }
         MessageDialog* msg_dlg = new MessageDialog(this, errMsg, wxString(SLIC3R_APP_FULL_NAME) + " - " + _L("Info"),
-                                                    wxYES | wxYES_DEFAULT | wxCENTRE);
+                                                    wxOK | wxYES_DEFAULT | wxCENTRE);
         if (msg_dlg) {
                 msg_dlg->ShowModal();
                 delete msg_dlg;
@@ -1563,6 +1564,23 @@ std::vector<std::string> UploadGcodeToCloudDialog::get_all_filament_types()
         }
     }
 
+    // Append types for mixed (virtual) filaments so that the vector stays in
+    // sync with get_extruder_colors_from_plater_config() which already includes
+    // mixed display colors.  Mixed filaments are designed to blend same-type
+    // physical filaments (enforced by MixedFilamentDialog and
+    // check_mixed_filament_type_consistency), so we resolve each mixed
+    // filament's type from its primary component (component_a).
+    const auto& mixed = wxGetApp().preset_bundle->mixed_filaments.mixed_filaments();
+    size_t      num_physical = all_filament_types.size();
+    for (const auto& mf : mixed) {
+        if (!mf.enabled || mf.deleted)
+            continue;
+        if (mf.component_a >= 1 && mf.component_a <= num_physical)
+            all_filament_types.emplace_back(all_filament_types[mf.component_a - 1]);
+        else
+            all_filament_types.emplace_back("PLA");
+    }
+
     return all_filament_types;
 }
 
@@ -1586,7 +1604,7 @@ void UploadGcodeToCloudDialog::set_plate_info(int plate_idx)
     GCodeProcessorResult* current_result = m_plater->get_partplate_list().get_current_slice_result();
     m_ssGCodeFilePath = current_result->filename;
     auto  plate_print_statistics = plate->get_slice_result()->print_statistics;
-    m_printTime = wxString::Format("%s", short_time(get_time_dhms(plate_print_statistics.modes[0].time))).ToStdString();
+    m_printTime = wxString::Format("%s", short_time(get_time_dhms(plate_print_statistics.modes[0].model_time_s()))).ToStdString();
     
     
     double total_weight = 0.0;
@@ -1635,13 +1653,13 @@ void UploadGcodeToCloudDialog::set_plate_info(int plate_idx)
     std::vector<int>         plate_extruders = plate->get_extruders(true);
     std::vector<std::string> filament_types  = get_all_filament_types();
     /*   if (plate_extruders.size() > 0) {
-           default_gcode_name = obj0_name + "_" + filament_types[plate_extruders[0] - 1] + "_" + get_bbl_time_dhms(plate_time_mode.time);
+           default_gcode_name = obj0_name + "_" + filament_types[plate_extruders[0] - 1] + "_" + get_bbl_time_dhms(plate_time_mode.model_time_s());
        }*/
     wxString project_name = GUI::wxGetApp().mainframe->plater()->get_project_name();
     if (plate_extruders.size() > 0) {
       //  default_gcode_name = project_name;
-     //   +"_" + filament_types[plate_extruders[0] - 1] + "_" + get_bbl_time_dhms(plate_time_mode.time);
-      default_gcode_name = obj0_name + "_" + filament_types[plate_extruders[0] - 1] + "_" + get_bbl_time_dhms(plate_time_mode.time);
+     //   +"_" + filament_types[plate_extruders[0] - 1] + "_" + get_bbl_time_dhms(plate_time_mode.model_time_s());
+      default_gcode_name = obj0_name + "_" + filament_types[plate_extruders[0] - 1] + "_" + get_bbl_time_dhms(plate_time_mode.model_time_s());
     }
     if (m_plater->only_gcode_mode()) {
         default_gcode_name = from_u8(fs::path(std::string(m_plater->get_last_loaded_gcode().utf8_str())).stem().string());
@@ -1690,7 +1708,7 @@ void UploadGcodeToCloudDialog::set_plate_info(int plate_idx)
 
     if (plate) {
         if (plate->get_slice_result()) {
-            time = wxString::Format("%s", short_time(get_time_dhms(plate->get_slice_result()->print_statistics.modes[0].time)));
+            time = wxString::Format("%s", short_time(get_time_dhms(plate->get_slice_result()->print_statistics.modes[0].model_time_s())));
         }
     }
 

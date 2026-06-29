@@ -15,7 +15,7 @@ public:
     void render_painter_gizmo() override;
 
 protected:
-    void        on_render_input_window(float x, float y, float bottom_limit) override;
+    void        on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false) override;
     std::string on_get_name() const override;
 
     void render_triangles(const Selection& selection) const override;

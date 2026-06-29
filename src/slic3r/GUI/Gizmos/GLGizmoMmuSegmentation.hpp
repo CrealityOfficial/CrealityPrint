@@ -73,11 +73,10 @@ public:
 
     void render_triangles(const Selection& selection) const override;
 
-    // TriangleSelector::serialization/deserialization has a limit to store 19 different states.
+    // TriangleSelector::serialization/deserialization now supports up to 255 different states (EnforcerBlockerType::ExtruderMax).
     // EXTRUDER_LIMIT + 1 states are used to storing the painting because also uncolored triangles are stored.
-    // When increasing EXTRUDER_LIMIT, it needs to ensure that TriangleSelector::serialization/deserialization
-    // will be also extended to support additional states, requiring at least one state to remain free out of 19 states.
-    static const constexpr size_t EXTRUDERS_LIMIT = 16;
+    // This limit is now set to 255 to support mixed filaments (virtual extruders).
+    static const constexpr size_t EXTRUDERS_LIMIT = 255;
 
     const float get_cursor_radius_min() const override { return CursorRadiusMin; }
 
@@ -93,7 +92,7 @@ protected:
     EnforcerBlockerType get_left_button_state_type() const override { return EnforcerBlockerType(m_selected_extruder_idx + 1); }
     EnforcerBlockerType get_right_button_state_type() const override { return EnforcerBlockerType(-1); }
 
-    void on_render_input_window(float x, float y, float bottom_limit) override;
+    void on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos = false) override;
     std::string on_get_name() const override;
     void show_tooltip_information(float caption_max, float x, float y);
     bool on_is_selectable() const override;

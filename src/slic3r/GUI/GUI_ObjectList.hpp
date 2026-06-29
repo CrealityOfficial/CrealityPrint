@@ -381,6 +381,8 @@ private:
 
     size_t    m_items_count { size_t(-1) };
 
+    std::string m_last_preset_name;
+
     inline void ensure_current_item_visible()
     {
         if (const auto &item = this->GetCurrentItem())
@@ -402,13 +404,16 @@ private:
     void update_other_printer_device_list_data(bool bForce = false);
     void draw_device_list_popup();
     void draw_device_list_content();
-    bool set_cur_device_by_cur_preset();
     bool set_cur_device_by_mac(std::string mac_addr);
     bool set_cur_device_by_attribute(std::string apiKey, std::string deviceUI, std::string caFile, int hostType, bool ignoreCertRevocation);
 
 public:
     ObjectList(wxWindow* parent);
     ~ObjectList() override;
+    // Provide read-only access for Simple UI device popup.
+    const device_list_data& get_device_list_data(bool force_refresh = false);
+
+    ObjList_Png_Texture_Wrapper& get_png_textures_simple() { return *m_png_textures; }
 
     void set_min_height();
     void update_min_height();
@@ -677,11 +682,16 @@ public:
 
     bool get_object_list_window_focus();
     void set_object_list_window_focus(bool f);
+
+    bool set_cur_device_by_cur_preset();
     
     wxRect printComboRect() { return m_PrintCombo; };
     wxRect wifiBtn() { return m_WifiBtn; };
     
     bool bind_phy_printer_by_ip_or_name(std::string ip_or_name);
+
+    void set_last_preset_name(const std::string& preset_name);
+
  private:
 #ifdef __WXOSX__
 //    void OnChar(wxKeyEvent& event);

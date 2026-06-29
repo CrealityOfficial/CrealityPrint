@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Mode Filament Mapping Mockup</title>
+    <style>
+        :root {
+            --bg: #17181c;
+            --panel: #23252b;
+            --panel-soft: #2a2d34;
+            --panel-strong: #1f2127;
+            --line: rgba(255, 255, 255, 0.08);
+            --text: #f5f7fa;
+            --muted: #9ca3af;
+            --green: #2fd468;
+            --green-soft: rgba(47, 212, 104, 0.15);
+            --amber: #ffbb33;
+            --amber-soft: rgba(255, 187, 51, 0.15);
+            --red: #ff5f57;
+            --red-soft: rgba(255, 95, 87, 0.14);
+            --cyan: #4fd1c5;
+            --blue: #5a7fff;
+            --pink: #ff77c8;
+            --yellow: #ffe44d;
+            --shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
+            --radius-xl: 26px;
+            --radius-lg: 18px;
+            --radius-md: 14px;
+            --radius-sm: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(47, 212, 104, 0.08), transparent 26%),
+                radial-gradient(circle at bottom right, rgba(90, 127, 255, 0.08), transparent 30%),
+                linear-gradient(180deg, #131419 0%, #0f1115 100%);
+            color: var(--text);
+        }
+
+        .page {
+            width: min(1520px, calc(100vw - 48px));
+            margin: 28px auto 40px;
+        }
+
+        .intro {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .hero,
+        .notes {
+            background: rgba(35, 37, 43, 0.88);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-xl);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.24);
+            backdrop-filter: blur(10px);
+        }
+
+        .hero {
+            padding: 22px 24px 20px;
+        }
+
+        .kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            color: #dbe4ef;
+            font-size: 13px;
+            letter-spacing: 0.04em;
+        }
+
+        h1 {
+            margin: 14px 0 10px;
+            font-size: 30px;
+            line-height: 1.15;
+        }
+
+        .hero p {
+            margin: 0;
+            max-width: 940px;
+            color: #c5ccd6;
+            line-height: 1.65;
+            font-size: 14px;
+        }
+
+        .principles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .pill {
+            padding: 8px 13px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            color: #eef3f8;
+            font-size: 12px;
+        }
+
+        .notes {
+            display: none;
+        }
+
+        .notes h2 {
+            margin: 2px 0 14px;
+            font-size: 18px;
+        }
+
+        .notes ul {
+            margin: 0;
+            padding-left: 18px;
+            color: #c7cfd8;
+            line-height: 1.8;
+            font-size: 14px;
+        }
+
+        .boards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .board {
+            background: rgba(22, 24, 29, 0.86);
+            border: 1px solid var(--line);
+            border-radius: 30px;
+            padding: 18px;
+            box-shadow: 0 18px 36px rgba(0, 0, 0, 0.25);
+        }
+
+        .board-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .board-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .board-title strong {
+            font-size: 19px;
+        }
+
+        .board-title span {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .badge {
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge.good {
+            color: #dffae9;
+            background: var(--green-soft);
+        }
+
+        .badge.warn {
+            color: #ffe7af;
+            background: var(--amber-soft);
+        }
+
+        .app-shell {
+            min-height: 860px;
+            border-radius: 24px;
+            overflow: hidden;
+            background: #2b2e35;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+        }
+
+        .topbar {
+            height: 66px;
+            background: #101216;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: 15px;
+        }
+
+        .brand .logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #33dc6d, #1f8f44);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            border-radius: 12px;
+            color: #9098a4;
+            font-size: 13px;
+        }
+
+        .tab.active {
+            color: #fff;
+            background: rgba(47, 212, 104, 0.18);
+        }
+
+        .workspace {
+            padding: 22px;
+            position: relative;
+            min-height: 794px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .device-card {
+            width: 332px;
+            padding: 16px;
+            border-radius: 18px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+        }
+
+        .device-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .device-name {
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .device-sub {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .device-status {
+            margin-top: 14px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            padding: 7px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            color: #edf2f7;
+        }
+
+        .chip.success {
+            background: var(--green-soft);
+            color: #dffae9;
+        }
+
+        .chip.warn {
+            background: var(--amber-soft);
+            color: #ffe9bd;
+        }
+
+        .primary-actions {
+            display: flex;
+            gap: 12px;
+            margin-left: auto;
+            align-items: stretch;
+        }
+
+        .action-card {
+            width: 122px;
+            min-height: 92px;
+            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .action-card.active {
+            background: rgba(47, 212, 104, 0.14);
+            border-color: rgba(47, 212, 104, 0.28);
+        }
+
+        .action-card strong {
+            font-size: 16px;
+        }
+
+        .action-card span {
+            color: #c6ced7;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .overview-row {
+            display: grid;
+            grid-template-columns: 1.02fr 0.98fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .scene {
+            height: 570px;
+            border-radius: 24px;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+                radial-gradient(circle at center, rgba(255, 255, 255, 0.04), transparent 55%),
+                #2f3238;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .material-status-card {
+            position: relative;
+            width: 100%;
+            min-height: 224px;
+            padding: 16px;
+            border-radius: 20px;
+            background: rgba(16, 18, 22, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+            backdrop-filter: blur(8px);
+        }
+
+        .material-status-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .material-status-title strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .material-status-title span {
+            color: #aab4bf;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .material-status-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            background: rgba(47, 212, 104, 0.15);
+            color: #8bf0af;
+        }
+
+        .material-status-banner {
+            margin-top: 14px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: rgba(47, 212, 104, 0.1);
+            color: #dbf9e6;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .material-status-grid {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .material-status-cell {
+            padding: 11px 12px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .material-status-cell strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+
+        .material-status-cell span {
+            color: #b7c1cb;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .material-mini-preview {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .mini-dots {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .mini-dots .swatch {
+            width: 14px;
+            height: 14px;
+        }
+
+        .material-mini-preview span {
+            color: #c9d1da;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .material-status-actions {
+            margin-top: 14px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .material-status-actions .btn {
+            flex: 1;
+            padding: 11px 14px;
+            font-size: 13px;
+        }
+
+        .main-preview-card {
+            min-height: 224px;
+        }
+
+        .main-preview-card .preview-stage {
+            grid-template-columns: 140px 1fr;
+            min-height: 142px;
+        }
+
+        .main-preview-lines {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .main-preview-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            font-size: 12px;
+            color: #d9e1e9;
+        }
+
+        .main-preview-line .swatch-pair {
+            min-width: 0;
+        }
+
+        .main-preview-line .slot {
+            flex-shrink: 0;
+        }
+
+        .plate {
+            position: absolute;
+            left: 50%;
+            bottom: 58px;
+            transform: translateX(-50%);
+            width: 70%;
+            height: 210px;
+            border-radius: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            background:
+                linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+                rgba(255, 255, 255, 0.04);
+            background-size: 24px 24px;
+        }
+
+        .object {
+            position: absolute;
+            width: 72px;
+            height: 102px;
+            background: linear-gradient(180deg, #dadada 0 68%, #ff77c8 68% 100%);
+            border-left: 6px solid #3559ff;
+            box-shadow: 0 18px 30px rgba(0, 0, 0, 0.22);
+        }
+
+        .object.one {
+            left: 58%;
+            bottom: 130px;
+        }
+
+        .object.two {
+            left: 41%;
+            bottom: 348px;
+            background: linear-gradient(180deg, #dadada 0 70%, #f3f3f3 70% 100%);
+            border-top: 8px solid #3559ff;
+        }
+
+        .summary-strip {
+            display: none;
+        }
+
+        .summary-card {
+            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 18px;
+            padding: 14px;
+        }
+
+        .summary-card h3 {
+            margin: 0 0 8px;
+            font-size: 15px;
+        }
+
+        .summary-card p {
+            margin: 0;
+            color: #c4ccd5;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .summary-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(47, 212, 104, 0.1);
+            color: #dffae9;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .summary-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .metric-tile {
+            padding: 11px 12px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .metric-tile strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 3px;
+        }
+
+        .metric-tile span {
+            color: #b8c2cc;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .mapping-brief {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .mapping-inline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 12px;
+            color: #dbe2ea;
+        }
+
+        .mapping-inline .swatch-pair {
+            min-width: 0;
+        }
+
+        .mapping-inline .slot {
+            flex-shrink: 0;
+        }
+
+        .preview-module {
+            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 18px;
+            padding: 14px;
+        }
+
+        .preview-module h3,
+        .preview-module h4 {
+            margin: 0 0 6px;
+            font-size: 15px;
+        }
+
+        .preview-module p {
+            margin: 0;
+            color: #c4ccd5;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .preview-stage {
+            margin-top: 12px;
+            padding: 14px;
+            border-radius: 16px;
+            background:
+                radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 55%),
+                rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            display: grid;
+            grid-template-columns: 132px 1fr;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .preview-stage.compact {
+            grid-template-columns: 108px 1fr;
+        }
+
+        .preview-cube-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 124px;
+        }
+
+        .preview-cube-wrap.small {
+            min-height: 98px;
+        }
+
+        .preview-cube {
+            width: 74px;
+            height: 74px;
+            position: relative;
+            transform: rotateX(-28deg) rotateY(45deg);
+            transform-style: preserve-3d;
+        }
+
+        .preview-cube .face {
+            position: absolute;
+            width: 74px;
+            height: 74px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+        }
+
+        .preview-cube .top {
+            transform: rotateX(90deg) translateZ(37px);
+            transform-origin: top center;
+            background: #d8dee6;
+        }
+
+        .preview-cube .left {
+            transform: rotateY(-90deg) translateZ(37px);
+            transform-origin: left center;
+            background: var(--blue);
+        }
+
+        .preview-cube .right {
+            transform: translateZ(37px);
+            background: #c7503c;
+        }
+
+        .preview-meta strong {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .preview-meta span {
+            display: block;
+            color: #b6c0ca;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .preview-caption {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            color: #dbe3ec;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .preview-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .preview-legend .slot {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .mapping-row {
+            display: grid;
+            grid-template-columns: 88px 28px 1fr;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .swatch-pair {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .swatch {
+            width: 16px;
+            height: 16px;
+            border-radius: 999px;
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.16);
+        }
+
+        .swatch.pink { background: var(--pink); }
+        .swatch.blue { background: var(--blue); }
+        .swatch.yellow { background: var(--yellow); }
+        .swatch.cyan { background: var(--cyan); }
+        .swatch.red { background: #ff4b42; }
+        .swatch.green { background: #49d86c; }
+
+        .slot {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #f4f8fc;
+            font-size: 12px;
+            width: fit-content;
+        }
+
+        .slot-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: var(--yellow);
+        }
+
+        .cta-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 16px;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .btn.primary {
+            background: var(--green);
+            color: #082111;
+        }
+
+        .btn.secondary {
+            background: rgba(255, 255, 255, 0.06);
+            color: #f5f7fa;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .panel-floating {
+            position: absolute;
+            right: 22px;
+            top: 126px;
+            width: 388px;
+            background: rgba(18, 20, 24, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+            overflow: hidden;
+        }
+
+        .floating-header {
+            padding: 18px 18px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .floating-header strong {
+            display: block;
+            font-size: 18px;
+            margin-bottom: 6px;
+        }
+
+        .floating-header p {
+            margin: 0;
+            font-size: 13px;
+            color: #b8c1cb;
+            line-height: 1.6;
+        }
+
+        .status-banner {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .status-banner.good {
+            background: var(--green-soft);
+            color: #dffae9;
+        }
+
+        .status-banner.warn {
+            background: var(--amber-soft);
+            color: #ffe9bd;
+        }
+
+        .floating-body {
+            padding: 14px 18px 18px;
+        }
+
+        .list-title {
+            margin: 4px 0 10px;
+            color: #99a4af;
+            font-size: 12px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .mapping-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .mapping-item {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 18px;
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .mapping-item.active {
+            border-color: rgba(255, 187, 51, 0.45);
+            background: rgba(255, 187, 51, 0.1);
+        }
+
+        .mapping-item strong {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .mapping-item span {
+            display: block;
+            color: #bfc7cf;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .mapping-item .action {
+            padding: 9px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .drawer {
+            margin-top: 14px;
+            padding: 14px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .drawer h4 {
+            margin: 0 0 8px;
+            font-size: 15px;
+        }
+
+        .drawer p {
+            margin: 0 0 12px;
+            color: #b8c1cb;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .drawer-preview {
+            margin-bottom: 14px;
+        }
+
+        .mapping-trigger {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 10px 0 14px;
+        }
+
+        .mapping-trigger .arrow {
+            color: #8f9aa6;
+            font-size: 18px;
+        }
+
+        .mapping-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            min-width: 168px;
+        }
+
+        .mapping-pill strong {
+            font-size: 14px;
+        }
+
+        .mapping-pill span {
+            display: block;
+            color: #b8c1cb;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .mapping-hint {
+            color: #9ba6b2;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .candidate-popup {
+            margin-bottom: 14px;
+            padding: 12px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.97);
+            color: #17202a;
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.24);
+        }
+
+        .popup-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .popup-title strong {
+            font-size: 14px;
+            color: #18222c;
+        }
+
+        .popup-title span {
+            color: #6c7783;
+            font-size: 12px;
+        }
+
+        .popup-group + .popup-group {
+            margin-top: 10px;
+        }
+
+        .popup-group-label {
+            margin: 0 0 6px;
+            color: #a1aab4;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .popup-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .popup-choice {
+            position: relative;
+            min-height: 54px;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            overflow: hidden;
+            background: rgba(16, 19, 24, 0.06);
+            cursor: pointer;
+            transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+        }
+
+        .popup-choice:hover {
+            transform: translateY(-1px);
+            border-color: rgba(47, 212, 104, 0.65);
+            box-shadow: 0 8px 16px rgba(47, 212, 104, 0.16);
+        }
+
+        .popup-choice.selected {
+            border-color: #27c95d;
+            box-shadow: 0 0 0 3px rgba(39, 201, 93, 0.16);
+        }
+
+        .popup-choice.recommended::after {
+            content: "推荐";
+            position: absolute;
+            right: 6px;
+            top: 6px;
+            padding: 2px 5px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #e6fff0;
+            background: rgba(16, 19, 24, 0.2);
+        }
+
+        .popup-choice.disabled {
+            cursor: not-allowed;
+            border-color: rgba(0, 0, 0, 0.08);
+            background:
+                linear-gradient(45deg, #eef1f4 25%, #d7dde3 25%, #d7dde3 50%, #eef1f4 50%, #eef1f4 75%, #d7dde3 75%, #d7dde3 100%);
+            background-size: 18px 18px;
+            box-shadow: none;
+        }
+
+        .popup-choice.disabled:hover {
+            transform: none;
+            border-color: rgba(0, 0, 0, 0.08);
+            box-shadow: none;
+        }
+
+        .popup-choice-inner {
+            height: 100%;
+            padding: 8px 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border-radius: 10px;
+        }
+
+        .popup-choice:not(.disabled) .popup-choice-inner {
+            color: #0b1520;
+        }
+
+        .popup-choice.disabled .popup-choice-inner {
+            background: rgba(255, 255, 255, 0.6);
+            color: #4d5661;
+        }
+
+        .popup-choice-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .popup-choice-bottom {
+            font-size: 11px;
+            line-height: 1.35;
+            color: inherit;
+            opacity: 0.92;
+        }
+
+        .popup-tooltip {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: #f4f6f8;
+            border: 1px solid #dde3ea;
+            color: #38424d;
+            font-size: 12px;
+            line-height: 1.6;
+            min-height: 42px;
+        }
+
+        .choice-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .choice {
+            padding: 11px 12px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            width: 100%;
+            text-align: left;
+            color: inherit;
+            cursor: pointer;
+        }
+
+        .choice.recommended {
+            border-color: rgba(47, 212, 104, 0.45);
+            background: rgba(47, 212, 104, 0.12);
+        }
+
+        .choice.disabled {
+            opacity: 0.52;
+            cursor: not-allowed;
+        }
+
+        .choice.selected {
+            border-color: rgba(255, 187, 51, 0.58);
+            box-shadow: inset 0 0 0 1px rgba(255, 187, 51, 0.22);
+            background: rgba(255, 187, 51, 0.12);
+        }
+
+        .choice-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .choice-top strong {
+            font-size: 14px;
+        }
+
+        .tag {
+            padding: 4px 7px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .tag.recommended {
+            color: #dffae9;
+            background: rgba(47, 212, 104, 0.22);
+        }
+
+        .tag.conflict {
+            color: #ffd7d3;
+            background: rgba(255, 95, 87, 0.2);
+        }
+
+        .choice p {
+            margin: 0;
+            font-size: 12px;
+            color: #c6ced7;
+            line-height: 1.55;
+        }
+
+        .drawer-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .note-bar {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #c8d0d9;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 1280px) {
+            .intro,
+            .boards {
+                grid-template-columns: 1fr;
+            }
+
+            .overview-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        button {
+            appearance: none;
+            border: 0;
+            background: none;
+            font: inherit;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <section class="intro">
+            <div class="hero">
+                <div class="kicker">Simple Mode / Filament Mapping / UX Mockup</div>
+                <h1>新手版耗材映射：默认给结果，只在需要时展开复杂度</h1>
+                <p>
+                    这版原型把简易模式收敛成一个清晰结果：系统有没有配好、现在能不能直接打印。
+                    只有当用户主动修改，或系统发现风险时，才进入单项映射和手动选择。
+                </p>
+                <div class="principles">
+                    <div class="pill">默认自动映射</div>
+                    <div class="pill">主界面只显示结果</div>
+                    <div class="pill">单项修改，不压整屏配置</div>
+                    <div class="pill">异常才主动打扰</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="boards">
+            <article class="board">
+                <div class="board-header">
+                    <div class="board-title">
+                        <div>
+                            <strong>状态 A：默认摘要态</strong>
+                            <span>连接机器后默认显示耗材状态卡和实时预览卡，只展示结果，不直接展开复杂映射</span>
+                        </div>
+                    </div>
+                    <div class="badge good">推荐默认入口</div>
+                </div>
+
+                <div class="app-shell">
+                    <div class="topbar">
+                        <div class="brand">
+                            <div class="logo"></div>
+                            <strong>Creality Print / Simple Mode</strong>
+                        </div>
+                        <div class="tabs">
+                            <div class="tab">在线模型</div>
+                            <div class="tab active">准备</div>
+                            <div class="tab">预览</div>
+                            <div class="tab">设备</div>
+                        </div>
+                    </div>
+
+                    <div class="workspace">
+                        <div class="toolbar">
+                            <div class="device-card">
+                                <div class="device-main">
+                                    <div>
+                                        <div class="device-name">K2 Plus / Living Room</div>
+                                        <div class="device-sub">已连接 · 4 色机器 · 空闲</div>
+                                    </div>
+                                    <div class="chip success">可直接打印</div>
+                                </div>
+                                <div class="device-status">
+                                    <div class="chip success">耗材已自动匹配 2/2</div>
+                                    <div class="chip">CFS 已连接</div>
+                                    <div class="chip">打印校准已关闭</div>
+                                </div>
+                            </div>
+
+                            <div class="primary-actions">
+                                <div class="action-card">
+                                    <strong>导入模型</strong>
+                                    <span>导入 STL / 3MF</span>
+                                </div>
+                                <div class="action-card active">
+                                    <strong>耗材</strong>
+                                    <span>已自动匹配，点击查看</span>
+                                </div>
+                                <div class="action-card active">
+                                    <strong>切片</strong>
+                                    <span>当前可直接切片</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="overview-row">
+                            <div class="material-status-card">
+                                <div class="material-status-head">
+                                    <div class="material-status-title">
+                                        <strong>耗材状态</strong>
+                                        <span>连上设备后默认可见，只展示结果，不直接展开完整映射编辑。</span>
+                                    </div>
+                                    <div class="material-status-icon">◎</div>
+                                </div>
+
+                                <div class="material-status-banner">
+                                    已自动匹配 2/2，可以直接打印。只有在你想手动修改，或系统发现风险时，才需要展开详细映射。
+                                </div>
+
+                                <div class="material-status-grid">
+                                    <div class="material-status-cell">
+                                        <strong>当前设备</strong>
+                                        <span>CFS 已连接<br>4 个槽位在线</span>
+                                    </div>
+                                    <div class="material-status-cell">
+                                        <strong>当前项目</strong>
+                                        <span>使用 2 个颜色<br>无待确认项</span>
+                                    </div>
+                                </div>
+
+                                <div class="material-mini-preview">
+                                    <div class="mini-dots">
+                                        <span class="swatch blue"></span>
+                                        <span class="swatch pink"></span>
+                                    </div>
+                                    <span>蓝色、粉色已映射完成。点“查看并调整”后再进入逐项修改。</span>
+                                </div>
+
+                                <div class="material-status-actions">
+                                    <div class="btn secondary">查看并调整</div>
+                                    <div class="btn primary">直接切片</div>
+                                </div>
+                            </div>
+
+                            <div class="preview-module main-preview-card">
+                                <h3>打印颜色预览</h3>
+                                <p>实时显示当前映射后的打印效果，用户不用先点进耗材页也能确认结果。</p>
+                                <div class="preview-stage">
+                                    <div class="preview-cube-wrap">
+                                        <div class="preview-cube" aria-hidden="true">
+                                            <div class="face top"></div>
+                                            <div class="face left" style="background: var(--blue);"></div>
+                                            <div class="face right" style="background: var(--pink);"></div>
+                                        </div>
+                                    </div>
+                                    <div class="preview-meta">
+                                        <strong>这次会这样打印</strong>
+                                        <span>如果用户手动改映射，这里会即时刷新。</span>
+                                        <span>它不是装饰图，而是帮助用户确认“最终会怎么打”。</span>
+                                    </div>
+                                </div>
+                                <div class="main-preview-lines">
+                                    <div class="main-preview-line">
+                                        <div class="swatch-pair"><span class="swatch blue"></span><span>蓝色 PLA</span></div>
+                                        <div class="slot"><span class="slot-dot" style="background: var(--blue);"></span> CFS 1B</div>
+                                    </div>
+                                    <div class="main-preview-line">
+                                        <div class="swatch-pair"><span class="swatch pink"></span><span>粉色 PLA</span></div>
+                                        <div class="slot"><span class="slot-dot" style="background: var(--pink);"></span> CFS 3A</div>
+                                    </div>
+                                </div>
+                                <div class="preview-caption">主界面默认显示预览，用户一眼就能知道系统替他选了什么，以及最后会如何打印。</div>
+                            </div>
+                        </div>
+
+                        <div class="scene">
+                            <div class="plate"></div>
+                            <div class="object one"></div>
+                            <div class="object two"></div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <article class="board">
+                <div class="board-header">
+                    <div class="board-title">
+                        <div>
+                            <strong>状态 B：手动调整态</strong>
+                            <span>用户点击“耗材”后，先看结果总览；再点单项进入修改抽屉</span>
+                        </div>
+                    </div>
+                    <div class="badge warn">用于调整和确认</div>
+                </div>
+
+                <div class="app-shell">
+                    <div class="topbar">
+                        <div class="brand">
+                            <div class="logo"></div>
+                            <strong>Creality Print / Simple Mode</strong>
+                        </div>
+                        <div class="tabs">
+                            <div class="tab">在线模型</div>
+                            <div class="tab active">准备</div>
+                            <div class="tab">预览</div>
+                            <div class="tab">设备</div>
+                        </div>
+                    </div>
+
+                    <div class="workspace">
+                        <div class="toolbar">
+                            <div class="device-card">
+                                <div class="device-main">
+                                    <div>
+                                        <div class="device-name">K2 Plus / Living Room</div>
+                                        <div class="device-sub">已连接 · 4 色机器 · 空闲</div>
+                                    </div>
+                                    <div class="chip warn">1 项待确认</div>
+                                </div>
+                                <div class="device-status">
+                                    <div class="chip warn">蓝色耗材映射需要确认</div>
+                                    <div class="chip">系统已自动建议</div>
+                                    <div class="chip">点单项可修改</div>
+                                </div>
+                            </div>
+
+                            <div class="primary-actions">
+                                <div class="action-card active">
+                                    <strong>耗材</strong>
+                                    <span>正在检查映射</span>
+                                </div>
+                                <div class="action-card">
+                                    <strong>切片</strong>
+                                    <span>确认后继续</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="scene">
+                            <div class="plate"></div>
+                            <div class="object one"></div>
+                            <div class="object two"></div>
+                        </div>
+
+                        <div class="panel-floating">
+                            <div class="floating-header">
+                                <strong>耗材映射</strong>
+                                <p>系统已经自动完成大部分匹配。你只需要在有疑问时确认某一项，不必理解全部 CFS 槽位。</p>
+                                <div class="status-banner warn">
+                                    当前 2 个颜色中，1 个映射完全匹配，1 个建议你确认后再切片。
+                                </div>
+                            </div>
+
+                            <div class="floating-body">
+                                <div class="list-title">当前模型会使用这些耗材</div>
+                                <div class="mapping-list">
+                                    <div class="mapping-item">
+                                        <div>
+                                            <strong>粉色 PLA 已自动匹配</strong>
+                                            <span>模型颜色：粉色 / 材料：PLA</span>
+                                            <span>系统建议：CFS 3A · Hyper PLA · 完全匹配</span>
+                                        </div>
+                                        <div class="action">无需处理</div>
+                                    </div>
+
+                                    <div class="mapping-item active">
+                                        <div>
+                                            <strong>蓝色 PLA 建议确认</strong>
+                                            <span>模型颜色：蓝色 / 材料：PLA</span>
+                                            <span>当前建议：CFS 1B · Hyper PLA · 颜色接近但建议你确认</span>
+                                        </div>
+                                        <div class="action">正在调整</div>
+                                    </div>
+                                </div>
+
+                                <div class="drawer">
+                                    <h4>给“蓝色 PLA”选择打印机耗材</h4>
+                                    <p>右侧预览会跟着你的选择实时变化。用户不是在改配置表，而是在确认“最终会怎么打印”。</p>
+
+                                    <div class="mapping-trigger">
+                                        <div class="mapping-pill">
+                                            <span class="slot-dot" style="background: var(--blue);"></span>
+                                            <div>
+                                                <strong id="current-mapping-slot">当前映射：1B</strong>
+                                                <span id="current-mapping-material">Hyper PLA / 蓝色最接近</span>
+                                            </div>
+                                        </div>
+                                        <div class="arrow">→</div>
+                                        <div class="mapping-hint">
+                                            点击下方弹层中的设备耗材即可手动改这一项。<br>
+                                            不兼容项保留可见，但不会高亮，并会解释原因。
+                                        </div>
+                                    </div>
+
+                                    <div class="candidate-popup">
+                                        <div class="popup-title">
+                                            <strong>当前设备中的耗材候选</strong>
+                                            <span>点可用项立即预览；悬浮禁用项显示原因</span>
+                                        </div>
+
+                                        <div class="popup-group">
+                                            <div class="popup-group-label">CFS1</div>
+                                            <div class="popup-grid">
+                                                <button class="popup-choice js-popup-choice recommended selected" type="button"
+                                                    data-slot="CFS 1B / Hyper PLA"
+                                                    data-short-slot="1B"
+                                                    data-material="Hyper PLA / 蓝色最接近"
+                                                    data-left="#5A7FFF"
+                                                    data-right="#FF77C8"
+                                                    data-line1="蓝色部分会使用 1B 蓝色耗材打印。"
+                                                    data-line2="这是系统推荐项，因为材料一致且颜色最接近。"
+                                                    data-line3="适合直接使用，无需进一步理解 CFS 细节。"
+                                                    data-caption="推荐项应该直接把“为什么推荐”说清楚，而不只是让用户看到一个槽位号。"
+                                                    data-tooltip="推荐：材料类型一致，颜色最接近，点击后会直接更新右侧预览。">
+                                                    <div class="popup-choice-inner" style="background:#6c84ff;">
+                                                        <div class="popup-choice-top"><span>1B</span><span>●</span></div>
+                                                        <div class="popup-choice-bottom">PLA</div>
+                                                    </div>
+                                                </button>
+
+                                                <button class="popup-choice js-popup-choice" type="button"
+                                                    data-slot="CFS 1D / White PLA"
+                                                    data-short-slot="1D"
+                                                    data-material="White PLA / 可用但偏白"
+                                                    data-left="#DDE4EA"
+                                                    data-right="#FF77C8"
+                                                    data-line1="蓝色部分会改用 1D 白色耗材打印。"
+                                                    data-line2="材料一致，但最终效果会更偏白，不再接近模型原色。"
+                                                    data-line3="适合用户想主动改效果，而不是保持自动推荐结果。"
+                                                    data-caption="当用户点击非推荐项时，预览要即时告诉他：你不是改了一个参数，而是改变了最终视觉效果。"
+                                                    data-tooltip="可选：材料类型一致，但颜色偏差更大，适合想主动改变最终效果时使用。">
+                                                    <div class="popup-choice-inner" style="background:#e4e9ee;">
+                                                        <div class="popup-choice-top"><span>1D</span><span>●</span></div>
+                                                        <div class="popup-choice-bottom">PLA</div>
+                                                    </div>
+                                                </button>
+
+                                                <button class="popup-choice disabled js-popup-disabled" type="button" disabled
+                                                    data-tooltip="不可映射：当前模型这一项需要 PLA，而 1C 是 PETG，所以鼠标悬浮时不会高亮。">
+                                                    <div class="popup-choice-inner">
+                                                        <div class="popup-choice-top"><span>1C</span><span>×</span></div>
+                                                        <div class="popup-choice-bottom">PETG</div>
+                                                    </div>
+                                                </button>
+
+                                                <button class="popup-choice js-popup-choice" type="button"
+                                                    data-slot="CFS 1A / Yellow PLA"
+                                                    data-short-slot="1A"
+                                                    data-material="Yellow PLA / 可用但偏黄"
+                                                    data-left="#FFE44D"
+                                                    data-right="#FF77C8"
+                                                    data-line1="蓝色部分会改用 1A 黄色耗材打印。"
+                                                    data-line2="材料一致，但颜色偏差很大，最终观感会明显变黄。"
+                                                    data-line3="适合强调‘我能选’，但系统不建议这样做。"
+                                                    data-caption="弹层里不是所有可点项都应平权。预览和解释文案要帮助用户感知风险差异。"
+                                                    data-tooltip="可选：材料一致，但颜色差异明显，点击后预览会立刻告诉用户模型会变黄。">
+                                                    <div class="popup-choice-inner" style="background:#ffe44d;">
+                                                        <div class="popup-choice-top"><span>1A</span><span>●</span></div>
+                                                        <div class="popup-choice-bottom">PLA</div>
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="popup-group">
+                                            <div class="popup-group-label">CFS2</div>
+                                            <div class="popup-grid">
+                                                <button class="popup-choice js-popup-choice" type="button"
+                                                    data-slot="CFS 2D / Deep Blue PLA"
+                                                    data-short-slot="2D"
+                                                    data-material="Deep Blue PLA / 更深的蓝"
+                                                    data-left="#2416A8"
+                                                    data-right="#FF77C8"
+                                                    data-line1="蓝色部分会改用 2D 深蓝耗材打印。"
+                                                    data-line2="材料一致，但颜色会更深，整体风格更强烈。"
+                                                    data-line3="适合用户明确想追求更深的蓝色效果。"
+                                                    data-caption="实时预览能让新手直接感知：改映射，不是改设置表，而是在改变成品观感。"
+                                                    data-tooltip="可选：材料类型一致，颜色比推荐更深，点击后右侧会立即显示更深的蓝色效果。">
+                                                    <div class="popup-choice-inner" style="background:#2a1dbe; color:#f8fbff;">
+                                                        <div class="popup-choice-top"><span>2D</span><span>●</span></div>
+                                                        <div class="popup-choice-bottom">PLA</div>
+                                                    </div>
+                                                </button>
+
+                                                <button class="popup-choice js-popup-choice" type="button"
+                                                    data-slot="CFS 2B / Bright Yellow PLA"
+                                                    data-short-slot="2B"
+                                                    data-material="Bright Yellow PLA / 可用但偏黄"
+                                                    data-left="#FFE44D"
+                                                    data-right="#FF77C8"
+                                                    data-line1="蓝色部分会改用 2B 黄色耗材打印。"
+                                                    data-line2="材料一致，但最终效果会明显偏黄，和当前模型预期差异很大。"
+                                                    data-line3="适合探索不同效果，但不适合默认推荐。"
+                                                    data-caption="如果用户只是试着点一圈看效果，预览模块就要承担‘即时试色板’的角色。"
+                                                    data-tooltip="可选：材料一致，但颜色差异大。适合试效果，不建议默认使用。">
+                                                    <div class="popup-choice-inner" style="background:#ffe44d;">
+                                                        <div class="popup-choice-top"><span>2B</span><span>●</span></div>
+                                                        <div class="popup-choice-bottom">PLA</div>
+                                                    </div>
+                                                </button>
+
+                                                <button class="popup-choice disabled js-popup-disabled" type="button" disabled
+                                                    data-tooltip="不可映射：2A 槽位为空或耗材信息未就绪，所以不能用于当前模型。">
+                                                    <div class="popup-choice-inner">
+                                                        <div class="popup-choice-top"><span>2A</span><span>×</span></div>
+                                                        <div class="popup-choice-bottom">空槽</div>
+                                                    </div>
+                                                </button>
+
+                                                <button class="popup-choice disabled js-popup-disabled" type="button" disabled
+                                                    data-tooltip="不可映射：2C 为 PETG-CF，与当前 PLA 模型类型不匹配。">
+                                                    <div class="popup-choice-inner">
+                                                        <div class="popup-choice-top"><span>2C</span><span>×</span></div>
+                                                        <div class="popup-choice-bottom">PETG-CF</div>
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="popup-group">
+                                            <div class="popup-group-label">悬浮解释</div>
+                                            <div class="popup-tooltip" id="popup-tooltip">
+                                                推荐：材料类型一致，颜色最接近，点击后会直接更新右侧预览。
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="preview-module drawer-preview">
+                                        <h4>打印颜色预览</h4>
+                                        <p id="preview-subtitle">当前预览的是“蓝色 PLA”的映射结果。</p>
+                                        <div class="preview-stage" id="interactive-preview">
+                                            <div class="preview-cube-wrap">
+                                                <div class="preview-cube" aria-hidden="true">
+                                                    <div class="face top"></div>
+                                                    <div class="face left" id="preview-face-left" style="background: var(--blue);"></div>
+                                                    <div class="face right" id="preview-face-right" style="background: var(--pink);"></div>
+                                                </div>
+                                            </div>
+                                            <div class="preview-meta">
+                                                <strong id="preview-slot-title">当前建议：CFS 1B / Hyper PLA</strong>
+                                                <span id="preview-line-1">蓝色部分会使用 1B 蓝色耗材打印。</span>
+                                                <span id="preview-line-2">这是系统推荐项，因为材料一致且颜色最接近。</span>
+                                                <span id="preview-line-3">预览会随你的映射选择实时更新。</span>
+                                            </div>
+                                        </div>
+                                        <div class="preview-caption" id="preview-caption">
+                                            如果你点击其他候选项，这里会立即展示新的打印效果和原因说明，帮助新手理解“改映射 = 改最终打印颜色”。
+                                        </div>
+                                        <div class="preview-legend">
+                                            <div class="slot"><span class="slot-dot" id="legend-dot-1" style="background: var(--blue);"></span> 蓝色部分</div>
+                                            <div class="slot"><span class="slot-dot" id="legend-dot-2" style="background: var(--pink);"></span> 粉色部分保持 3A</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="drawer-actions">
+                                        <div class="btn primary">确认使用推荐</div>
+                                        <div class="btn secondary">恢复自动匹配</div>
+                                    </div>
+                                </div>
+
+                                <div class="note-bar">
+                                    打印前若仍有“未匹配 / 需确认”项，系统再做最后一次轻量提示，而不是让用户一开始就面对完整复杂面板。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </section>
+    </div>
+
+    <script>
+        (function () {
+            const heroTitle = document.querySelector('.hero h1');
+            const heroDesc = document.querySelector('.hero p');
+            const heroPills = Array.from(document.querySelectorAll('.hero .pill'));
+            const materialBanner = document.querySelector('.material-status-banner');
+            const defaultSummaryCard = document.querySelector('.summary-strip .summary-card');
+            const defaultPreviewModule = document.querySelector('.summary-strip .preview-module');
+            const defaultCtaButtons = Array.from(document.querySelectorAll('.summary-strip .cta-stack .btn'));
+
+            if (heroTitle) {
+                heroTitle.textContent = '新手版耗材映射：默认给结果，只在需要时展开复杂度';
+            }
+
+            if (heroDesc) {
+                heroDesc.textContent = '这版原型把简易模式收敛成一个清晰结果：系统有没有配好、现在能不能直接打印。只有当用户主动修改，或系统发现风险时，才进入单项映射和手动选择。';
+            }
+
+            if (heroPills.length >= 4) {
+                heroPills[0].textContent = '默认自动映射';
+                heroPills[1].textContent = '主界面只显示结果';
+                heroPills[2].textContent = '单项修改，不压整屏配置';
+                heroPills[3].textContent = '异常才主动打扰';
+            }
+
+            if (materialBanner) {
+                materialBanner.textContent = '已自动匹配 2/2，可以直接打印。只有当你想改某一项，或系统发现风险时，才需要展开详细映射。';
+            }
+
+            if (defaultSummaryCard) {
+                defaultSummaryCard.innerHTML = `
+                    <div class="summary-kicker">已自动匹配，可直接切片</div>
+                    <h3>当前结果</h3>
+                    <p>默认页不展开完整映射表，只保留几个和决策有关的状态。</p>
+                    <div class="summary-metrics">
+                        <div class="metric-tile">
+                            <strong>2 / 2</strong>
+                            <span>当前项目颜色已匹配</span>
+                        </div>
+                        <div class="metric-tile">
+                            <strong>4 槽位</strong>
+                            <span>CFS 已连接且在线</span>
+                        </div>
+                    </div>
+                    <div class="mapping-brief">
+                        <div class="mapping-inline">
+                            <div class="swatch-pair"><span class="swatch pink"></span><span>粉色 PLA</span></div>
+                            <div class="slot"><span class="slot-dot" style="background: var(--pink);"></span> CFS 3A</div>
+                        </div>
+                        <div class="mapping-inline">
+                            <div class="swatch-pair"><span class="swatch blue"></span><span>蓝色 PLA</span></div>
+                            <div class="slot"><span class="slot-dot" style="background: var(--blue);"></span> CFS 1B</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (defaultPreviewModule) {
+                const title = defaultPreviewModule.querySelector('h3');
+                const desc = defaultPreviewModule.querySelector('p');
+                const metaTitle = defaultPreviewModule.querySelector('.preview-meta strong');
+                const metaLines = defaultPreviewModule.querySelectorAll('.preview-meta span');
+                const caption = defaultPreviewModule.querySelector('.preview-caption');
+
+                if (title) title.textContent = '打印颜色预览';
+                if (desc) desc.textContent = '这块不是装饰，而是帮助用户确认“这次会怎么打印”。';
+                if (metaTitle) metaTitle.textContent = '这次会这样打印';
+                if (metaLines.length >= 3) {
+                    metaLines[0].textContent = '蓝色面 -> CFS 1B';
+                    metaLines[1].textContent = '粉色面 -> CFS 3A';
+                    metaLines[2].textContent = '只有进入调整时，用户才需要处理逐项映射。';
+                }
+                if (caption) {
+                    caption.textContent = '默认态下，它的职责是建立信心：系统已经把模型颜色和打印机里的耗材对应好了。';
+                }
+            }
+
+            if (defaultCtaButtons.length >= 2) {
+                defaultCtaButtons[0].textContent = '直接切片';
+                defaultCtaButtons[1].textContent = '查看并调整';
+            }
+
+            const choices = Array.from(document.querySelectorAll('.js-popup-choice'));
+            const disabledChoices = Array.from(document.querySelectorAll('.js-popup-disabled'));
+            if (choices.length === 0) return;
+
+            const slotTitle = document.getElementById('preview-slot-title');
+            const subtitle = document.getElementById('preview-subtitle');
+            const line1 = document.getElementById('preview-line-1');
+            const line2 = document.getElementById('preview-line-2');
+            const line3 = document.getElementById('preview-line-3');
+            const caption = document.getElementById('preview-caption');
+            const faceLeft = document.getElementById('preview-face-left');
+            const faceRight = document.getElementById('preview-face-right');
+            const legendDot1 = document.getElementById('legend-dot-1');
+            const currentMappingSlot = document.getElementById('current-mapping-slot');
+            const currentMappingMaterial = document.getElementById('current-mapping-material');
+            const popupTooltip = document.getElementById('popup-tooltip');
+            let committedChoice = choices.find((item) => item.classList.contains('selected')) || choices[0];
+
+            const updatePreview = (choice) => {
+                choices.forEach((item) => item.classList.toggle('selected', item === choice));
+                slotTitle.textContent = '当前选择：' + (choice.dataset.slot || '');
+                subtitle.textContent = '当前预览的是“蓝色 PLA”的映射结果。';
+                line1.textContent = choice.dataset.line1 || '';
+                line2.textContent = choice.dataset.line2 || '';
+                line3.textContent = choice.dataset.line3 || '';
+                caption.textContent = choice.dataset.caption || '';
+                const leftColor = choice.dataset.left || '#5A7FFF';
+                const rightColor = choice.dataset.right || '#FF77C8';
+                faceLeft.style.background = leftColor;
+                faceRight.style.background = rightColor;
+                legendDot1.style.background = leftColor;
+                currentMappingSlot.textContent = '当前映射：' + (choice.dataset.shortSlot || '');
+                currentMappingMaterial.textContent = choice.dataset.material || '';
+                popupTooltip.textContent = choice.dataset.tooltip || '点击可用项后，右侧预览会立即更新。';
+            };
+
+            choices.forEach((choice) => {
+                choice.addEventListener('mouseenter', () => {
+                    popupTooltip.textContent = choice.dataset.tooltip || '点击可用项后，右侧预览会立即更新。';
+                    updatePreview(choice);
+                });
+                choice.addEventListener('focus', () => {
+                    popupTooltip.textContent = choice.dataset.tooltip || '点击可用项后，右侧预览会立即更新。';
+                    updatePreview(choice);
+                });
+                choice.addEventListener('click', () => {
+                    committedChoice = choice;
+                    updatePreview(choice);
+                });
+            });
+
+            disabledChoices.forEach((choice) => {
+                choice.addEventListener('mouseenter', () => {
+                    popupTooltip.textContent = choice.dataset.tooltip || '当前槽位不可用。';
+                });
+                choice.addEventListener('focus', () => {
+                    popupTooltip.textContent = choice.dataset.tooltip || '当前槽位不可用。';
+                });
+                choice.addEventListener('mouseleave', () => {
+                    if (committedChoice) updatePreview(committedChoice);
+                });
+            });
+
+            const popup = document.querySelector('.candidate-popup');
+            if (popup) {
+                popup.addEventListener('mouseleave', () => {
+                    if (committedChoice) updatePreview(committedChoice);
+                });
+            });
+
+            updatePreview(committedChoice);
+        })();
+    </script>
+</body>
+</html>

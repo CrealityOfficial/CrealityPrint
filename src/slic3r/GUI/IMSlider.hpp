@@ -91,7 +91,7 @@ public:
     Info GetTicksValues() const;
     void SetTicksValues(const Info &custom_gcode_per_print_z);
 
-    void SetLayersTimes(const std::vector<float> &layers_times, float total_time);
+    void SetLayersTimes(const std::vector<double> &layers_times, double total_time);
     void SetLayersTimes(const std::vector<double> &layers_times);
 
     void SetDrawMode(bool is_sequential_print);

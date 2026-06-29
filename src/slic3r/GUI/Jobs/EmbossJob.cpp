@@ -718,6 +718,33 @@ bool start_update_volume(DataUpdate &&data, const ModelVolume &volume, const Sel
 ////////////////////////////
 /// private namespace implementation
 namespace {
+
+// Validate indexed_triangle_set: check for empty mesh and out-of-bounds vertex indices.
+// Returns true if mesh is valid, false otherwise (with error logged).
+bool validate_its(const indexed_triangle_set &its, const char *caller)
+{
+    if (its.empty()) {
+        BOOST_LOG_TRIVIAL(warning) << caller << ": mesh is empty (indices="
+            << its.indices.size() << " vertices=" << its.vertices.size() << ")";
+        return false;
+    }
+    const size_t vertex_count = its.vertices.size();
+    for (size_t i = 0; i < its.indices.size(); ++i) {
+        const auto &face = its.indices[i];
+        if (face(0) < 0 || face(1) < 0 || face(2) < 0 ||
+            static_cast<size_t>(face(0)) >= vertex_count ||
+            static_cast<size_t>(face(1)) >= vertex_count ||
+            static_cast<size_t>(face(2)) >= vertex_count) {
+            BOOST_LOG_TRIVIAL(error) << caller << ": invalid vertex index at face " << i
+                << " indices=[" << face(0) << "," << face(1) << "," << face(2) << "]"
+                << " vertex_count=" << vertex_count
+                << " total_faces=" << its.indices.size();
+            return false;
+        }
+    }
+    return true;
+}
+
 bool check(const DataBase &input, bool check_fontfile, bool use_surface)
 {
     bool res = true;
@@ -953,6 +980,9 @@ template<typename Fnc> TriangleMesh create_mesh_per_glyph(DataBase &input, Fnc w
         }
 #endif // STORE_SAMPLING
     }
+    // Defensive check before constructing TriangleMesh
+    if (!validate_its(result, "create_mesh_per_glyph"))
+        return {};
     return TriangleMesh(std::move(result));
 }
 
@@ -979,7 +1009,17 @@ TriangleMesh try_create_mesh(DataBase &input, const Fnc& was_canceled)
     Transform3d tr = Eigen::Translation<double, 3>(0., 0.,static_cast<double>(offset)) * Eigen::Scaling(scale);
     ProjectTransform project(std::move(projectZ), tr);
     if (was_canceled()) return {};
-    return TriangleMesh(polygons2model(shapes, project));
+    indexed_triangle_set its = polygons2model(shapes, project);
+    // Defensive check: validate mesh data before constructing TriangleMesh
+    // to prevent crash in its_volume() when indices reference out-of-bounds vertices
+    if (!validate_its(its, "try_create_mesh")) {
+        BOOST_LOG_TRIVIAL(warning) << "try_create_mesh: additional context -"
+            << " shapes_count=" << shapes.size()
+            << " scale=" << scale
+            << " depth=" << depth;
+        return {};
+    }
+    return TriangleMesh(std::move(its));
 }
 
 template<typename Fnc>

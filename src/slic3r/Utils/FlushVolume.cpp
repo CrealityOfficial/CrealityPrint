@@ -30,7 +30,7 @@ void calc_flushing_volumes()
     float                      flush_multiplier = flush_multi_opt ? flush_multi_opt->getFloat() : 1.f;
 
     const std::vector<std::string> extruder_colours    = wxGetApp().plater()->get_extruder_colors_from_plater_config();
-    const auto&                    full_config         = wxGetApp().preset_bundle->full_config();
+    const auto                     full_config         = wxGetApp().preset_bundle->full_config();
     std::vector<int> m_min_flush_volume  = get_min_flush_volumes(full_config);
     unsigned int m_number_of_extruders                 = (int) (sqrt(m_matrix.size()) + 0.001);
 
@@ -86,7 +86,10 @@ void calc_flushing_volumes()
                     }
                 }
 
-                m_matrix[m_number_of_extruders * from_idx + to_idx] = flushing_volume;
+                size_t idx = m_number_of_extruders * from_idx + to_idx;
+                if (idx < m_matrix.size()) {
+                    m_matrix[idx] = flushing_volume;
+                }
                 //flushing_volume                                     = int(flushing_volume * get_flush_multiplier());
                 //edit_boxes[to_idx][from_idx]->SetValue(std::to_string(flushing_volume));
             }

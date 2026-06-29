@@ -18,11 +18,13 @@
 #include "GCode/ThumbnailData.hpp"
 #include "GCode/GCodeProcessor.hpp"
 #include "MultiMaterialSegmentation.hpp"
+#include "MixedFilament.hpp"
 #include "libslic3r.h"
 
 #include <Eigen/Geometry>
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <set>
 
@@ -38,6 +40,7 @@ namespace Slic3r {
 
 class GCode;
 class Layer;
+class LayerRegion;
 class ModelObject;
 class Print;
 class PrintObject;
@@ -65,6 +68,32 @@ struct groupedVolumeSlices
     int                     groupId = -1;
     std::vector<ObjectID>   volume_ids;
     ExPolygons              slices;
+};
+
+// Phase A local-Z dithering planner cache.
+struct LocalZInterval
+{
+    size_t layer_id { 0 };
+    double z_lo { 0.0 };
+    double z_hi { 0.0 };
+    double base_height { 0.0 };
+    double sublayer_height { 0.0 };
+    bool   has_mixed_paint { false };
+    size_t first_sublayer_idx { 0 };
+    size_t sublayer_count { 0 };
+};
+
+struct SubLayerPlan
+{
+    size_t layer_id { 0 };
+    size_t pass_index { 0 };
+    bool   split_interval { false };
+    double z_lo { 0.0 };
+    double z_hi { 0.0 };
+    double print_z { 0.0 };
+    double flow_height { 0.0 };
+    std::vector<ExPolygons> painted_masks_by_extruder;
+    ExPolygons              base_masks;
 };
 
 enum SupportNecessaryType {
@@ -415,6 +444,20 @@ public:
     std::shared_ptr<TreeSupportData> alloc_tree_support_preview_cache();
     void clear_tree_support_preview_cache() { m_tree_support_preview_cache.reset(); }
 
+    // Local-Z dithering plan for mixed filaments
+    const std::vector<LocalZInterval>& local_z_intervals() const { return m_local_z_intervals; }
+    const std::vector<SubLayerPlan>&   local_z_sublayer_plan() const { return m_local_z_sublayer_plan; }
+    void set_local_z_plan(std::vector<LocalZInterval> intervals, std::vector<SubLayerPlan> sublayers)
+    {
+        m_local_z_intervals = std::move(intervals);
+        m_local_z_sublayer_plan = std::move(sublayers);
+    }
+    void clear_local_z_plan()
+    {
+        m_local_z_intervals.clear();
+        m_local_z_sublayer_plan.clear();
+    }
+
     size_t          support_layer_count() const { return m_support_layers.size(); }
     void            clear_support_layers();
     SupportLayer*   get_support_layer(int idx) { return m_support_layers[idx]; }
@@ -512,6 +555,7 @@ private:
     void prepare_infill();
     void infill();
     void ironing();
+    void rebuild_lockedzag_infill_after_skin_replan();
     void generate_support_material();
     void estimate_curled_extrusions();
     void simplify_extrusion_path();
@@ -562,6 +606,10 @@ private:
     SupportLayerPtrs                        m_support_layers;
     // BBS
     std::shared_ptr<TreeSupportData>        m_tree_support_preview_cache;
+
+        // Local-Z dithering plan for height-based mixed filament optimization
+    std::vector<LocalZInterval>             m_local_z_intervals;
+    std::vector<SubLayerPlan>               m_local_z_sublayer_plan;
 
     // this is set to true when LayerRegion->slices is split in top/internal/bottom
     // so that next call to make_perimeters() performs a union() before computing loops
@@ -827,6 +875,7 @@ public:
     std::vector<unsigned int> support_material_extruders() const;
     std::vector<unsigned int> extruders(bool conside_custom_gcode = false) const;
     std::vector<unsigned int> multi_filament_check_extruders() const;
+    size_t              used_physical_extruders_count() const;
     double              max_allowed_layer_height() const;
     bool                has_support_material() const;
     // Make sure the background processing has no access to this model_object during this call!
@@ -835,6 +884,8 @@ public:
     const PrintConfig&          config() const { return m_config; }
     const PrintObjectConfig&    default_object_config() const { return m_default_object_config; }
     const PrintRegionConfig& default_region_config() const { return m_default_region_config; }
+    const MixedFilamentManager& mixed_filament_manager() const { return m_mixed_filament_mgr; }
+    MixedFilamentManager&       mixed_filament_manager()       { return m_mixed_filament_mgr; }
     ConstPrintObjectPtrsAdaptor objects() const { return ConstPrintObjectPtrsAdaptor(&m_objects); }
     PrintObject*                get_object(size_t idx) { return const_cast<PrintObject*>(m_objects[idx]); }
     const PrintObject*          get_object(size_t idx) const { return m_objects[idx]; }
@@ -883,6 +934,7 @@ public:
     size_t                      num_print_regions() const throw() { return m_print_regions.size(); }
     const PrintRegion&          get_print_region(size_t idx) const  { return *m_print_regions[idx]; }
     const ToolOrdering&         get_tool_ordering() const { return m_wipe_tower_data.tool_ordering; }
+    const float*                lockedzag_skin_infill_depth(const LayerRegion& layer_region) const;
 
     //BBS: plate's origin related functions
     void set_plate_origin(Vec3d origin) { m_origin = origin; }
@@ -956,6 +1008,9 @@ public:
     void set_print_uuid(const std::string& print_uuid) { m_print_uuid = print_uuid;}
     std::string get_print_uuid() const { return m_print_uuid; }
 
+    void        set_creality_task_id(const std::string& task_id) { m_creality_task_id = task_id; }
+    std::string get_creality_task_id() const { return m_creality_task_id; }
+
 protected:
     // Invalidates the step, and its depending steps in Print.
     bool                invalidate_step(PrintStep step);
@@ -968,6 +1023,9 @@ private:
 
     void                _make_skirt();
     void                _make_wipe_tower();
+    void                clear_lockedzag_skin_infill_depths();
+    bool                update_lockedzag_skin_infill_depths_from_actual(const ToolOrdering& tool_ordering);
+    void                rebuild_lockedzag_infill_after_skin_replan();
     void                finalize_first_layer_convex_hull();
 
     // Islands of objects and their supports extruded at the 1st layer.
@@ -976,6 +1034,7 @@ private:
     PrintConfig                             m_config;
     PrintObjectConfig                       m_default_object_config;
     PrintRegionConfig                       m_default_region_config;
+    MixedFilamentManager                    m_mixed_filament_mgr;
     PrintObjectPtrs                         m_objects;
     PrintRegionPtrs                         m_print_regions;
     
@@ -1000,6 +1059,7 @@ private:
     // Following section will be consumed by the GCodeGenerator.
     ToolOrdering 							m_tool_ordering;
     WipeTowerData                           m_wipe_tower_data {m_tool_ordering};
+    std::map<const LayerRegion*, float>     m_lockedzag_skin_infill_depths;
 
     // Estimated print time, filament consumed.
     PrintStatistics                         m_print_statistics;
@@ -1021,10 +1081,13 @@ private:
 
     std::string m_print_uuid;
 
+    std::string m_creality_task_id;
+
     // To allow GCode to set the Print's GCodeExport step status.
     friend class GCode;
     // Allow PrintObject to access m_mutex and m_cancel_callback.
     friend class PrintObject;
+
 public:
     //BBS: this was a print config and now seems to be useless so we move it to here
     // ORCA: parameter below is now back to being a user option (min_skirt_length)

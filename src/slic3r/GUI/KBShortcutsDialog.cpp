@@ -517,7 +517,7 @@ void KBShortcutsDialog::fill_shortcuts()
                 {L("Del"), L("Delete selected")},
             #endif
             // Help
-            { "?", L("Show keyboard shortcuts list") }
+            { L("Shift+Alt+?"), L("Show keyboard shortcuts list") }
         };
         m_full_shortcuts.push_back({{_L("Global shortcuts"), ""}, global_shortcuts});
 

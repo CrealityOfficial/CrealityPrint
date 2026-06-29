@@ -107,7 +107,7 @@ void Extruder::set_retracted(double retracted, double restart_extra)
         m_retracted     = retracted;
         m_restart_extra = restart_extra < EPSILON ? 0 : restart_extra;
     } else {
-        m_retracted     = 0;
+        m_retracted     = 0.;
         m_restart_extra = 0;
     }
 }

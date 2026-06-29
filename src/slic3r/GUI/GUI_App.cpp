@@ -29,6 +29,7 @@
 #include "slic3r/GUI/WebViewDialog.hpp"
 #include "slic3r/GUI/WebUserLoginDialog.hpp"
 #include "slic3r/GUI/LoginDialog.hpp"
+#include "slic3r/GUI/simple/MCPChatPanel.hpp"
 #include "slic3r/GUI/FileDownloader.hpp"
 #include "slic3r/GUI/SystemId/SystemId.hpp"
 #include "slic3r/GUI/print_manage/utils/cxmdns.h"
@@ -450,6 +451,51 @@ void GUI_App::schedule_software_launch_analytics()
         AnalyticsEventPayload payload2;
         payload2.type = AnalyticsDataEventType::ANALYTICS_ACCOUNT_DEVICE_INFO;
         AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload2);
+
+        // OTA analytics: check ota_result.json left by updater
+        {
+            boost::filesystem::path ota_result_path = boost::filesystem::path(Slic3r::data_dir()) / "ota_result.json";
+            if (boost::filesystem::exists(ota_result_path)) {
+                BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] Found ota_result.json at: " << ota_result_path.string();
+                try {
+                    boost::nowide::ifstream f(ota_result_path.string());
+                    nlohmann::json j = nlohmann::json::parse(f);
+                    f.close();
+                    std::string result = j.value("result", "");
+                    std::string from_ver = j.value("from_version", "");
+                    std::string to_ver = j.value("to_version", "");
+                    BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] ota_result.json content: result=" << result
+                                              << ", from_version=" << from_ver << ", to_version=" << to_ver;
+                    if (!result.empty()) {
+                        // Always report ota_update_start first (file existence implies install was triggered)
+                        BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] Reporting ota_update_start (implied by ota_result.json existence)";
+                        AnalyticsEventPayload startPayload;
+                        startPayload.type = AnalyticsDataEventType::ANALYTICS_OTA_UPDATE_START;
+                        AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(startPayload);
+
+                        // Then report the result
+                        AnalyticsEventPayload resultPayload;
+                        if (result == "success") {
+                            resultPayload.type = AnalyticsDataEventType::ANALYTICS_OTA_UPDATE_SUCCESS;
+                        } else if (result == "fail") {
+                            resultPayload.type = AnalyticsDataEventType::ANALYTICS_OTA_UPDATE_FAIL;
+                        } else if (result == "cancel") {
+                            resultPayload.type = AnalyticsDataEventType::ANALYTICS_OTA_UPDATE_CANCEL;
+                        }
+                        BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] Reporting ota result: " << result;
+                        AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(resultPayload);
+                    }
+                    boost::filesystem::remove(ota_result_path);
+                    BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] ota_result.json removed after reporting";
+                } catch (const std::exception& e) {
+                    BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] Failed to parse ota_result.json: " << e.what();
+                    boost::filesystem::remove(ota_result_path);
+                } catch (...) {
+                    BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] Failed to parse ota_result.json: unknown error";
+                    boost::filesystem::remove(ota_result_path);
+                }
+            }
+        }
 
         if (app_config->get_bool("software_crash")) {
             AnalyticsDataUploadManager::getInstance()
@@ -1511,6 +1557,7 @@ void GUI_App::on_user_info_file_event(wxFileSystemWatcherEvent& evt)
         m_user.bLogin = false;
         app_config->set("cloud", "user_id", m_user.userId);
         app_config->set("cloud", "token", m_user.token);
+        NotifyAIChatLoginStatusChanged();
         CallAfter([this] {
             post_login_status_cmd(false, {});
             if (mainframe && mainframe->get_modellibrary_view()) {
@@ -1548,6 +1595,7 @@ void GUI_App::on_user_info_file_event(wxFileSystemWatcherEvent& evt)
 
             app_config->set("cloud", "user_id", m_user.userId);
             app_config->set("cloud", "token", m_user.token);
+            NotifyAIChatLoginStatusChanged();
 
             const bool login_unchanged = (old_login == m_user.bLogin);
             const bool token_unchanged = (old_token == m_user.token);
@@ -1617,6 +1665,8 @@ void GUI_App::post_init()
     } else {
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " sync_user_preset: false";
     }
+
+    Update_easy_mode_flag();
 
     m_open_method = "double_click";
     bool switch_to_3d = false;
@@ -3343,8 +3393,15 @@ std::string GUI_App::get_client_id()
     return "";
 }
 
+void GUI_App::startTour_Simple()
+{
+}
+
 void GUI_App::startTour(int startIndex)
 {
+    if(wxGetApp().easy_mode())
+        return startTour_Simple();
+
     m_UITour = new UITour(this->mainframe);
     wxRect size = this->mainframe->GetRect();
 
@@ -4156,7 +4213,12 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
                     
                     // Check if major version is greater
                     bool is_major_update = (new_major > current_major);
-                    
+#ifndef _WIN32
+                    // Hot update (minor version incremental update) is only supported on Windows.
+                    // On macOS/Linux, always treat as a major update so the dialog shows "Download"
+                    // and clicking it opens the browser to download the full installer.
+                    is_major_update = true;
+#endif
                     UpdateVersionDialog dialog(this->mainframe);
                     wxString            extmsg = wxString::FromUTF8(version_info.description);
                     dialog.update_version_info(extmsg, version_info.version_str);
@@ -4231,7 +4293,8 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
         });
 
         Bind(EVT_SHOW_NO_NEW_VERSION, [this](const wxCommandEvent& evt) {
-                    wxString   msg = _L("This is the newest version.");
+                    wxString   msg = _L("This is the newest version.") + "\n" +
+                                     wxString::Format(_L("Current version: %s"), GUI_App::format_display_version());
                     InfoDialog dlg(nullptr, _L("Info"), msg);
                     dlg.ShowModal();
         });
@@ -4382,6 +4445,14 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
             g_update_progress_dlg->close_imgui_notification();
         if (g_update_progress_dlg)
             g_update_progress_dlg->Hide();
+
+        // OTA analytics: report download cancel
+        {
+            BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] ota_download_cancel: user canceled download";
+            AnalyticsEventPayload payload;
+            payload.type = AnalyticsDataEventType::ANALYTICS_OTA_DOWNLOAD_CANCEL;
+            AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
+        }
     });
     mainframe->Bind(EVT_APP_UPDATE_ERROR, [this](wxCommandEvent& e) {
         if (g_update_progress_dlg)
@@ -5054,10 +5125,14 @@ void GUI_App::Update_dark_mode_flag()
     m_is_dark_mode = dark_mode();
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": switch the current dark mode status to %1% ")%m_is_dark_mode;
 
-    // 当主题偏好被切换时，仅刷新 Cookies（UA 仅在初始化设置）
+    // 当主题偏好被切换时，刷新所有WebView的主题
+    // 1. 更新在线模型库的UA和Cookies
     if (mainframe && mainframe->get_modellibrary_view()) {
         mainframe->get_modellibrary_view()->UpdateUserAgent();
     }
+    
+    // 2. 通知AI工具重新应用主题
+    NotifyAIChatThemeChanged();
 }
 
 void GUI_App::UpdateDlgDarkUI(wxDialog* dlg)
@@ -5347,7 +5422,7 @@ wxSize GUI_App::get_min_size() const
 wxSize GUI_App::get_min_size_ex(wxWindow* display_win) const
 {
     // be careful when setting "105 * m_em_unit", in some screen size when toggle the maximize button, could possibly hide the maximize and close button
-    wxSize min_size(105 * m_em_unit, 60 * m_em_unit);
+    wxSize min_size(106 * m_em_unit, 60 * m_em_unit);
 
     //const wxDisplay display = wxDisplay(display_win);
     //wxRect display_rect = display.GetGeometry();  // for example: 1920 * 1080
@@ -5424,6 +5499,7 @@ void GUI_App::recreate_GUI(const wxString &msg_name)
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " start";
     m_is_recreating_gui = true;
 
+    DestroyAIChatPanelsForGUIRecreate();
     update_http_extra_header();
 
     mainframe->shutdown();
@@ -5885,6 +5961,7 @@ void GUI_App::request_user_logout()
     if (m_agent && m_agent->is_user_login()) {
         // Update data first before showing dialogs
         m_agent->user_logout();
+        NotifyAIChatLoginStatusChanged(true);
         m_agent->set_user_selected_machine("");
         /* delete old user settings */
         bool     transfer_preset_changes = false;
@@ -6770,6 +6847,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 }
                 app_config->set("cloud", "user_id", m_user.userId);
                 app_config->set("cloud", "token", m_user.token);
+                NotifyAIChatLoginStatusChanged();
 
                 // 仅在登录状态发生变化时刷新模型库视图（避免不必要的刷新）。
                  const bool login_unchanged = (old_login == m_user.bLogin);
@@ -6818,6 +6896,13 @@ std::string GUI_App::handle_web_request(std::string cmd)
 
                  DM::AppMgr::Ins().SystemUserChanged();
                  
+            } else if (command_str.compare("set_begin_guide_version_mode") == 0) {
+                std:: string version_mode;
+                version_mode = root.get<std::string>("version_mode");
+                wxGetApp().app_config->set("easy_print_mode", version_mode == "ai" ? "1" : "0");
+                wxGetApp().app_config->save();
+                wxGetApp().Update_easy_mode_flag();
+                mainframe->topbar()->Refresh();
             }
             // else if (command_str.compare("modelmall_model_advise_get") == 0) {
             //     if (mainframe && this->app_config->get("staff_pick_switch") == "true") {
@@ -7420,7 +7505,12 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     if (onlyDefault) {
                         dataJson["deviceAddEnd"] = "0";
                         commandJson["command"]   = "get_is_first_install";
+                        dataJson["guideType"]    = "begin";
+#if GUI_SIMPLE
+                        dataJson["guideType"] = "new";
+#endif
                         commandJson["data"]      = dataJson;
+
 
                         if (!m_appconfig_new)
                             m_appconfig_new = new AppConfig();
@@ -8810,6 +8900,15 @@ void GUI_App::process_update_packages(const std::vector<PackageInfo>& updater_pa
         
         g_update_progress_dlg->update_progress(0, _L("Preparing to download..."));
         g_update_progress_dlg->Show();
+
+        // OTA analytics: report download start
+        {
+            BOOST_LOG_TRIVIAL(warning) << "[OTA_ANALYTICS] ota_download_start: about to call start_download";
+            AnalyticsEventPayload payload;
+            payload.type = AnalyticsDataEventType::ANALYTICS_OTA_DOWNLOAD_START;
+            AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
+        }
+
         AppUpdater::getInstance().start_download(updater_packages, version, base_package_name, manual_url);
     });
 #else
@@ -10461,6 +10560,16 @@ static bool check_has_C_language_set()
     return false;
 }
 #endif
+
+void GUI_App::bind_shader(const GLShaderProgram* p_shader)
+{
+    m_opengl_mgr.bind_shader(p_shader);
+}
+
+void GUI_App::unbind_shader()
+{
+    m_opengl_mgr.unbind_shader();
+}
 
 int GUI_App::GetSingleChoiceIndex(const wxString& message,
                                 const wxString& caption,
@@ -12736,6 +12845,7 @@ void GUI_App::on_interinstance_message(const std::string& msg)
 
                 app_config->set("cloud", "user_id", m_user.userId);
                 app_config->set("cloud", "token", m_user.token);
+                NotifyAIChatLoginStatusChanged();
             } else {
                 // 文件不存在表示登出，清空本实例的账号信息
                 m_user.token.clear();
@@ -12745,6 +12855,7 @@ void GUI_App::on_interinstance_message(const std::string& msg)
                 m_user.bLogin = false;
                 app_config->set("cloud", "user_id", m_user.userId);
                 app_config->set("cloud", "token", m_user.token);
+                NotifyAIChatLoginStatusChanged();
             }
         } catch (...) {
             // 解析失败时不中断流程，仅继续刷新以尽量保持一致
@@ -12888,4 +12999,43 @@ void GUI_App::OpenEshopRecommendedGoods(const std::string& materialColor, const 
         .timeout_connect(TIMEOUT_CONNECT)
         .timeout_max(TIMEOUT_RESPONSE)
         .perform();
+}
+
+bool GUI_App::easy_mode()
+{
+    return wxGetApp().app_config->get("easy_print_mode") == "1" ? true : false;
+}
+
+void GUI_App::Update_easy_mode_flag()
+{
+    // m_is_easy_mode = easy_mode();
+    // if(m_is_easy_mode) {
+    //     wxGetApp().app_config->set("gcode_preview_lite_mode", "true");
+    // }
+
+    // AI/Pro switching triggers a cascade of Show/Hide/Layout/Refresh on the
+    // topbar, sidebar, embedded AI dock and 3D canvas. Without batching, each
+    // widget repaints independently and the user sees a visible flicker.
+    // Freeze the top-level frame so all sub-window repaints coalesce into a
+    // single composite frame on Thaw.
+    Plater* plater_ptr = wxGetApp().plater();
+    if (plater_ptr == nullptr)
+        return;
+
+    MainFrame* main_frame = wxGetApp().mainframe;
+    wxWindow*  freeze_target = main_frame ? static_cast<wxWindow*>(main_frame)
+                                          : static_cast<wxWindow*>(plater_ptr);
+    wxWindowUpdateLocker ui_locker(freeze_target);
+
+    if (auto* canvas = plater_ptr->get_view3D_canvas3D())
+        canvas->on_easy_mode_switch();
+    plater_ptr->update();
+
+    if (main_frame != nullptr && main_frame->topbar() != nullptr)
+        main_frame->topbar()->Refresh();
+
+    // AI / 专业版切换后，实时把新版本（ai/pro）推送给内嵌的 AIChatPage，使其埋点 mode
+    // 立即同步。version_mode 只在加载 URL 时拼接一次，切换版本后并不会刷新页面，因此必须
+    // 通过 JS 主动推送，避免切换到专业版后埋点仍上报旧的 version_mode=ai。
+    NotifyAIChatEditionChanged();
 }

@@ -1827,7 +1827,7 @@ void GLGizmoMeasure::render_debug_dialog()
 }
 #endif // ENABLE_MEASURE_GIZMO_DEBUG
 
-void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit)
+void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit, bool force_update_pos)
 {
     static std::optional<Measure::SurfaceFeature> last_feature;
     static EMode last_mode = EMode::FeatureSelection;
@@ -1842,7 +1842,7 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
     // adjust window position to avoid overlap the view toolbar
     const float win_h = ImGui::GetWindowHeight();
     y = std::min(y, bottom_limit - win_h);
-    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f);
+    GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f, force_update_pos);
     if (last_h != win_h || last_y != y) {
         // ask canvas for another frame to render the window in the correct position
         m_imgui->set_requires_extra_frame();

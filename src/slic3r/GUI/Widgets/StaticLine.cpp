@@ -4,6 +4,7 @@
 
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
+#include <boost/log/trivial.hpp>
 
 BEGIN_EVENT_TABLE(StaticLine, wxWindow)
 
@@ -33,8 +34,16 @@ void StaticLine::SetLabel(const wxString& label)
 
 void StaticLine::SetIcon(const wxString &icon)
 {
-    this->icon = icon.IsEmpty() ? ScalableBitmap() 
-        : ScalableBitmap(this, icon.ToStdString(), 18);
+    if (icon.IsEmpty()) {
+        this->icon = ScalableBitmap();
+    } else {
+        try {
+            this->icon = ScalableBitmap(this, icon.ToStdString(), 18);
+        } catch (const std::exception& ex) {
+            BOOST_LOG_TRIVIAL(warning) << "Failed to load StaticLine icon '" << icon.ToStdString() << "': " << ex.what();
+            this->icon = ScalableBitmap();
+        }
+    }
     messureSize();
     Refresh();
 }

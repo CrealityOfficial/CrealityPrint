@@ -1,0 +1,26 @@
+{
+    "type": "filament",
+    "filament_id": "E8001",
+    "setting_id": "GFSA04",
+    "name": "eSUN PET-Basic @Creality K2 Plus 0.4 nozzle",
+    "from": "system",
+    "instantiation": "true",
+    "inherits": "fdm_filament_pet",
+    "filament_max_volumetric_speed": "8",
+    "filament_retract_before_wipe": "70%",
+    "filament_retraction_length": "0.8",
+    "filament_retraction_minimum_travel": "1",
+    "filament_retraction_speed": "40",
+    "filament_type": [
+        "PET"
+    ],
+    "filament_vendor": [
+        "eSUN"
+    ],
+    "filament_wipe_distance": "2",
+    "filament_z_hop": "0.4",
+    "compatible_printers": [
+        "Creality K2 Plus 0.4 nozzle"
+    ],
+    "default_filament_colour": "\"\""
+}

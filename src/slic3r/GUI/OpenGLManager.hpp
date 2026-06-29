@@ -2,6 +2,7 @@
 #define slic3r_OpenGLManager_hpp_
 
 #include "GLShadersManager.hpp"
+#include "RenderEnums.hpp"
 
 class wxWindow;
 class wxGLCanvas;
@@ -10,35 +11,41 @@ class wxGLContext;
 namespace Slic3r {
 namespace GUI {
 
-enum class EMSAAType : uint8_t
+class PixelBufferDescriptor
 {
-    Disabled,
-    X2,
-    X4,
-    // desktop only
-    X8,
-    X16
-};
+public:
 
-enum class EPixelFormat : uint16_t
-{
-    Unknow,
-    RGBA,
-    DepthComponent,
-    StencilIndex,
-    DepthAndStencil
-};
+    explicit PixelBufferDescriptor();
 
-enum class EPixelDataType : uint16_t
-{
-    Unknow,
-    UByte,
-    Byte,
-    UShort,
-    Short,
-    UInt,
-    Int,
-    Float
+    /**
+    * Creates a new PixelBufferDescriptor referencing an image in main memory
+    *
+    * @param tBuffer   the buffer containing the image
+    * @param tDataFormat    Format of the image pixels
+    * @param tDataType      Type of the image pixels
+    * @param tAlignment Alignment in bytes of pixel rows
+    * @param tLeft      Left coordinate in pixels
+    * @param tTop       Top coordinate in pixels
+    * @param tStride    Stride of a row in pixels
+    */
+    PixelBufferDescriptor(std::vector<uint8_t>&& tBuffer, EPixelFormat tDataFormat, EPixelDataType tDataType, uint8_t tAlignment = 1,
+        uint32_t tLeft = 0, uint32_t tTop = 0, uint32_t tStride = 0);
+
+    EPixelFormat get_format() const noexcept;
+
+    EPixelDataType get_type() const noexcept;
+
+    const std::vector<uint8_t>& get_buffer() const noexcept;
+
+private:
+    std::vector<uint8_t> mBuffer;
+    EPixelFormat mFormat{ EPixelFormat::RGBA };
+    EPixelDataType mType{ EPixelDataType::Float };
+
+    uint8_t mAlignment{ 1 };
+    uint32_t mLeft{ 0 };
+    uint32_t mTop{ 0 };
+    uint32_t mStride{ 0 };
 };
 
 struct FrameBufferParams
@@ -229,6 +236,8 @@ private:
     static EMultisampleState s_multisample;
     static EFramebufferType s_framebuffers_type;
 
+	int m_advanced_gcode_viewer_enabled {-1}; //-1:undecided, 0:disable, 1:enable
+
 public:
     OpenGLManager() = default;
     ~OpenGLManager();
@@ -238,8 +247,8 @@ public:
 
     GLShaderProgram* get_shader(const std::string& shader_name) { return m_shaders_manager.get_shader(shader_name); }
     GLShaderProgram* get_current_shader() { return m_shaders_manager.get_current_shader(); }
-    //void bind_shader(const std::shared_ptr<GLShaderProgram>&);
-    //void unbind_shader();
+    void bind_shader(const GLShaderProgram *p_shader);
+    void unbind_shader();
 
     void clear_dirty();
     void set_viewport_size(uint32_t width, uint32_t height);
@@ -263,6 +272,17 @@ public:
     static wxGLCanvas* create_wxglcanvas(wxWindow& parent);
     static const GLInfo& get_gl_info() { return s_gl_info; }
     static bool force_power_of_two_textures() { return s_force_power_of_two_textures; }
+
+	static uint32_t get_pixel_format(EPixelFormat format);
+    static uint32_t get_pixel_data_type(EPixelDataType type);
+    static uint32_t get_pixel_data_size(EPixelDataType type);
+    static uint32_t get_texture_format(ETextureFormat format);
+    static uint32_t get_sampler_filter_mode(ESamplerFilterMode filter);
+    static uint32_t get_format_size(ETextureFormat format);
+    static uint32_t get_target(ESamplerType);
+
+	bool is_advanced_gcode_viewer_enabled();
+    void set_advanced_gcode_viewer_enabled(bool is_enabled);
 
 private:
     static void detect_multisample(int* attribList);

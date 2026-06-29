@@ -69,6 +69,7 @@ public:
     void set_uniform(const char* name, const Vec2d& value) const { set_uniform(get_uniform_location(name), value); }
     void set_uniform(const char* name, const Vec3f& value) const { set_uniform(get_uniform_location(name), value); }
     void set_uniform(const char* name, const Vec3d& value) const { set_uniform(get_uniform_location(name), value); }
+    void set_uniform(const char* name, const Vec4f& value) const { set_uniform(get_uniform_location(name), value); }
     void set_uniform(const char* name, const ColorRGB& value) const { set_uniform(get_uniform_location(name), value); }
     void set_uniform(const char* name, const ColorRGBA& value) const { set_uniform(get_uniform_location(name), value); }
 
@@ -94,6 +95,7 @@ public:
     void set_uniform(int id, const Vec2d& value) const;
     void set_uniform(int id, const Vec3f& value) const;
     void set_uniform(int id, const Vec3d& value) const;
+    void set_uniform(int id, const Vec4f& value) const;
     void set_uniform(int id, const ColorRGB& value) const;
     void set_uniform(int id, const ColorRGBA& value) const;
 

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CP 与 CxAgent 交互工作原理</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #4CAF50;
+            margin-top: 40px;
+        }
+        h3 {
+            color: #666;
+            margin-top: 30px;
+        }
+        .mermaid {
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background: #4CAF50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CP 与 CxAgent 交互工作原理</h1>
+        
+        <p><strong>CP (Creality Print)</strong> 是创想三维的切片软件客户端，<strong>CxAgent</strong> 是智能代理服务器。两者通过 WebSocket 和 HTTP 进行通信，实现智能化的切片、打印等操作辅助功能。</p>
+
+        <h2>1. 架构概览</h2>
+        
+        <h3>1.1 整体架构图</h3>
+        <div class="mermaid">
+graph TB
+    subgraph "CP Client (C3DSlicer)"
+        UI[前端 UI 层<br/>WebView + Chat Panel]
+        Bridge[SlicerBridge]
+        CxBridge[CxAgentClientBridge]
+    end
+    
+    subgraph "Communication Layer"
+        WS[WebSocket 长连接]
+        HTTP[HTTP REST API]
+    end
+    
+    subgraph "CxAgent Server"
+        Agent[智能代理核心]
+        Planner[任务规划器]
+        Tools[工具执行引擎]
+    end
+    
+    UI <-->|JSON Commands| Bridge
+    UI <-->|CxAgent 消息 | CxBridge
+    CxBridge <-->|WebSocket| WS
+    CxBridge <-->|HTTP 请求 | HTTP
+    WS <--> Agent
+    HTTP <--> Agent
+    Agent <--> Planner
+    Agent <--> Tools
+        </div>
+
+        <h3>1.2 组件层次结构</h3>
+        <div class="mermaid">
+graph LR
+    subgraph "用户界面层"
+        A[Chat WebView]
+        B[MCPChatPanel]
+    end
+    
+    subgraph "桥接层"
+        C[CxAgentClientBridge]
+        D[SlicerBridge]
+    end
+    
+    subgraph "核心功能层"
+        E[Plater]
+        F[PartPlate]
+        G[SliceEngine]
+    end
+    
+    A --> B
+    B --> C
+    B --> D
+    C --> H[CxAgent Server]
+    D --> E
+    D --> F
+    D --> G
+        </div>
+
+        <h2>2. 工作流程</h2>
+
+        <h3>2.1 连接建立流程</h3>
+        <div class="mermaid">
+sequenceDiagram
+    participant CP as CP Client
+    participant WS as WebSocket
+    participant Agent as CxAgent
+    
+    CP->>CP: 生成 client_id, session_id
+    CP->>WS: 建立 WebSocket 连接
+    WS->>Agent: 连接成功
+    Agent->>Agent: 注册客户端
+    Agent->>CP: 连接确认
+    CP->>WS: 发送 client_hello
+    WS->>Agent: client_hello
+    Agent->>Agent: 解析能力清单
+    Agent->>CP: ack 响应
+    CP->>WS: 发送 heartbeat(idle)
+    Note over CP: 启动定时器<br/>每 300ms 推送 context_update
+        </div>
+
+        <h3>2.2 工具调用流程（切片场景）</h3>
+        <div class="mermaid">
+sequenceDiagram
+    participant User as 用户
+    participant UI as 前端 UI
+    participant Panel as MCPChatPanel
+    participant Bridge as CxAgentBridge
+    participant Agent as CxAgent
+    participant Slicer as SlicerBridge
+    
+    User->>UI: "帮我切片"
+    UI->>Panel: cxagent_chat 请求
+    Panel->>Agent: POST /api/chat
+    Note over Agent: 分析意图<br/>决定执行 run_slice
+    Agent->>Panel: tool_call (run_slice)
+    Panel->>Bridge: MarkRequestStarted(req-id)
+    Panel->>Bridge: SendToolProgress(5%,"准备中")
+    Panel->>Slicer: Execute(START_SLICE)
+    Note over Slicer: 执行切片操作
+    Slicer-->>Panel: 返回结果
+    Panel->>Bridge: SendToolProgress(50%,"切片中...")
+    Panel->>Bridge: SendToolProgress(100%,"完成")
+    Panel->>Bridge: SendToolResult(true, result)
+    Panel->>Bridge: MarkRequestFinished(req-id)
+    Panel->>Agent: tool_result
+    Agent->>UI: 聊天响应
+    UI->>User: 显示结果
+        </div>
+
+        <h3>2.3 上下文同步流程</h3>
+        <div class="mermaid">
+sequenceDiagram
+    participant Timer as 定时器<br/>(300ms)
+    participant Panel as MCPChatPanel
+    participant Bridge as CxAgentBridge
+    participant Slicer as SlicerBridge
+    participant Agent as CxAgent
+    
+    loop 每 300ms
+        Timer->>Panel: OnSceneUpdateTimer
+        Panel->>Slicer: GET_SLICER_STATE
+        Slicer-->>Panel: 状态数据
+        Panel->>Slicer: GET_EDITED_CONFIG
+        Slicer-->>Panel: 切片参数
+        Panel->>Panel: 构建 context_update
+        Note over Panel: 包含:<br/>- project_context<br/>- current_slice_params<br/>- facts<br/>- scene.blocking_errors<br/>- geometry_analysis<br/>- slice_result
+        Panel->>Bridge: SendContextUpdate(context)
+        Bridge->>Agent: WebSocket: context_update
+        Agent->>Agent: 更新会话上下文
+    end
+        </div>
+
+        <h2>3. 错误处理</h2>
+
+        <h3>3.1 错误处理流程</h3>
+        <div class="mermaid">
+graph TB
+    A[错误发生] --> B{错误类型}
+    
+    B -->|WebSocket 断开 | C[连接错误]
+    B -->|消息解析失败 | D[消息错误]
+    B -->|工具执行失败 | E[工具错误]
+    B -->|HTTP 请求失败 | F[HTTP 错误]
+    
+    C --> C1[记录 last_error]
+    C1 --> C2[SetConnected false]
+    C2 --> C3[ScheduleReconnect 1.5s]
+    C3 --> C4[重新建立连接]
+    
+    D --> D1[HandleMessageError]
+    D1 --> D2[发送 error 到前端]
+    
+    E --> E1[SendToolResult false]
+    E1 --> E2[包含 error 对象]
+    E2 --> E3[Agent 接收错误]
+    
+    F --> F1[HTTP callback]
+    F1 --> F2[检查 status code]
+    F2 --> F3[发送 error 响应到前端]
+        </div>
+
+        <h3>3.2 阻塞错误码</h3>
+        <div class="mermaid">
+mindmap
+  root((阻塞错误码))
+    NO_MODEL_LOADED
+      (未加载模型)
+    NO_PRINTABLE_INSTANCES
+      (无可打印实例)
+    MODEL_OUT_OF_BOUNDS
+      (模型超出边界)
+    MODEL_EXCEEDS_HEIGHT_LIMIT
+      (超过高度限制)
+    FILAMENT_MAPPING_REQUIRED
+      (需要耗材映射)
+    CRITICAL_SLICE_WARNING
+      (严重切片警告)
+    SLICE_RESULT_INVALIDATED
+      (切片结果失效)
+    PLATE_SELECTION_INVALID
+      (板选择无效)
+    UNKNOWN_BLOCKING_ERROR
+      (未知错误)
+        </div>
+
+        <h2>4. 典型使用场景</h2>
+
+        <h3>场景 1: 用户请求切片</h3>
+        <div class="mermaid">
+sequenceDiagram
+    participant User as 用户
+    participant UI as Chat UI
+    participant Panel as MCPChatPanel
+    participant Agent as CxAgent
+    participant Bridge as CxAgentBridge
+    participant Slicer as SlicerBridge
+    
+    User->>UI: "帮我切片"
+    UI->>Panel: cxagent_chat {message: "帮我切片"}
+    Panel->>Agent: POST /api/chat
+    Note over Agent: 分析语义<br/>意图：run_slice
+    Agent->>Bridge: tool_call (run_slice)
+    Bridge->>Panel: HandleCxAgentMessage
+    Panel->>Bridge: MarkRequestStarted
+    Panel->>Bridge: SendToolProgress(5%, "准备中")
+    Panel->>Slicer: Execute(START_SLICE)
+    Note over Slicer: 执行切片操作...
+    Panel->>Bridge: SendToolProgress(50%, "切片进行中")
+    Slicer-->>Panel: 切片完成
+    Panel->>Bridge: SendToolProgress(100%, "切片完成")
+    Panel->>Bridge: SendToolResult(true, {slice_result})
+    Panel->>Bridge: MarkRequestFinished
+    Panel->>Agent: tool_result
+    Agent->>UI: "切片已完成！<br/>共生成 XX 层 G-code"
+    UI->>User: 显示结果
+        </div>
+
+        <h3>场景 2: 错误自动修复</h3>
+        <div class="mermaid">
+sequenceDiagram
+    participant Timer as 定时器
+    participant Panel as MCPChatPanel
+    participant Bridge as CxAgentBridge
+    participant Agent as CxAgent
+    participant User as 用户
+    
+    loop 每 300ms
+        Timer->>Panel: OnSceneUpdateTimer
+        Panel->>Panel: 获取 slicer_state
+        Panel->>Bridge: SendContextUpdate
+        Note over Agent: 检测到<br/>project.has_model = false
+    end
+    
+    Agent->>Agent: 查找 remediations
+    Agent->>Panel: planner_update<br/>reason_code: NO_MODEL_LOADED
+    Panel->>Panel: 更新 UI 状态
+    Agent->>User: "未检测到模型，<br/>是否导入 Benchy?"
+    User->>Agent: 点击确认
+    Agent->>Panel: tool_call (import_model)
+    Panel->>Panel: 打开文件对话框
+    User->>Panel: 选择模型文件
+    Panel->>Panel: 导入文件
+    Panel->>Agent: tool_result success
+    Note over Agent: project.has_model = true<br/>错误已解除
+    Agent->>User: "模型已成功导入！"
+        </div>
+
+        <h2>5. 核心设计特点</h2>
+        <div class="mermaid">
+mindmap
+  root((CP-CxAgent<br/>交互架构))
+    
+    智能化
+      意图识别
+      任务规划
+      自动修复
+      主动建议
+    
+    实时性
+      WebSocket 长连接
+      双向通信
+      即时消息推送
+      300ms 状态同步
+    
+    可靠性
+      序列号机制
+      心跳保活
+      自动重连 (1.5s)
+      In-flight 追踪
+    
+    可扩展
+      工具契约定义
+      能力协商
+      插件化工具
+      错误码扩展
+    
+    透明性
+      进度实时反馈
+      详细日志
+      状态快照
+      错误可追溯
+        </div>
+
+        <h2>6. 总结</h2>
+        <p>CP 与 CxAgent 的交互基于<strong>客户端 - 代理</strong>架构，通过以下关键技术实现智能化交互：</p>
+        <ul>
+            <li><strong>双通道通信</strong>: WebSocket（实时消息）+ HTTP（RESTful 请求）</li>
+            <li><strong>智能状态同步</strong>: 300ms 自动推送，确保 CxAgent 始终有最新上下文</li>
+            <li><strong>工具契约化</strong>: 通过 requires/provides/invalidates 明确定义工具语义</li>
+            <li><strong>自动错误修复</strong>: 基于 remediations 配置的智能化纠错机制</li>
+            <li><strong>进度可视化</strong>: 分阶段实时汇报（5% → 50% → 100%）</li>
+        </ul>
+
+        <div class="note">
+            <p><strong>文档版本:</strong> v1.0<br>
+            <strong>更新日期:</strong> 2026-03-31<br>
+            <strong>适用版本:</strong> C3DSlicer 0.1.0+</p>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true
+            },
+            sequence: {
+                useMaxWidth: true,
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                actorMargin: 50,
+                width: 150,
+                height: 65,
+                boxMargin: 10
+            }
+        });
+    </script>
+</body>
+</html>

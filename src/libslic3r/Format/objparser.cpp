@@ -599,6 +599,15 @@ bool objparse(const char *path, ObjData &data)
 			}
 			memmove(buf, buf + lastLine, lenPrev);
 		}
+		// Process remaining content without trailing newline (EOF without \n)
+		if (lenPrev > 0) {
+			buf[lenPrev] = 0;
+			char *c = buf;
+			while (*c == ' ' || *c == '\t') ++c;
+			if (*c != 0) {
+				obj_parseline(c, data);
+			}
+		}
     }
     catch (std::bad_alloc&) {
     	BOOST_LOG_TRIVIAL(error) << "ObjParser: Out of memory";
@@ -609,10 +618,18 @@ bool objparse(const char *path, ObjData &data)
 
 bool mtlparse(const char *path, MtlData &data)
 {
+    if (path == nullptr || path[0] == '\0') {
+        BOOST_LOG_TRIVIAL(error) << "MtlParser: path is null or empty";
+        return false;
+    }
     Slic3r::CNumericLocalesSetter locales_setter;
 
     FILE *pFile = boost::nowide::fopen(path, "rt");
-    if (pFile == 0) return false;
+    if (pFile == 0) {
+        BOOST_LOG_TRIVIAL(error) << "MtlParser: failed to open file: " << path << ", errno=" << errno;
+        return false;
+    }
+    BOOST_LOG_TRIVIAL(debug) << "MtlParser: successfully opened file: " << path;
     cur_mtl_name = "";
     try {
         char   buf[65536 * 2];
@@ -638,6 +655,15 @@ bool mtlparse(const char *path, MtlData &data)
                 return false;
             }
             memmove(buf, buf + lastLine, lenPrev);
+        }
+        // Process remaining content without trailing newline (EOF without \n)
+        if (lenPrev > 0) {
+            buf[lenPrev] = 0;
+            char *c = buf;
+            while (*c == ' ' || *c == '\t') ++c;
+            if (*c != 0) {
+                mtl_parseline(c, data);
+            }
         }
     } catch (std::bad_alloc &) {
         BOOST_LOG_TRIVIAL(error) << "MtlParser: Out of memory";
@@ -668,6 +694,15 @@ bool objparse(std::istream &stream, ObjData &data)
                 }
             lenPrev = len - lastLine;
             memmove(buf, buf + lastLine, lenPrev);
+        }
+        // Process remaining content without trailing newline (EOF without \n)
+        if (lenPrev > 0) {
+            buf[lenPrev] = 0;
+            char *c = buf;
+            while (*c == ' ' || *c == '\t') ++c;
+            if (*c != 0) {
+                obj_parseline(c, data);
+            }
         }
     }
     catch (std::bad_alloc&) {

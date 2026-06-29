@@ -594,9 +594,14 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
 void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Polygons *lower_layer_covered)
 {
     coord_t max_margin = 0;
-    if ((this->region().config().wall_loops > 0)) {
-        max_margin = (this->flow(frExternalPerimeter).scaled_width() + this->flow(frPerimeter).scaled_spacing()) / 2 +
-                     this->flow(frPerimeter).scaled_spacing() * (this->region().config().wall_loops.value - 1);
+    if (int wall_loops = this->region().config().wall_loops; wall_loops > 0) {
+        const Flow  external_perimeter_flow = this->flow(frExternalPerimeter);
+        const Flow  perimeter_flow          = this->flow(frPerimeter);
+        const float shell_width             = 0.5f * external_perimeter_flow.scaled_width() + external_perimeter_flow.scaled_spacing() +
+                                  perimeter_flow.scaled_spacing() * (wall_loops - 1);
+        max_margin = coord_t(shell_width * sqrt(2.));
+    } else {
+        max_margin = SCALED_EPSILON;
     }
     const bool      has_infill = this->region().config().sparse_infill_density.value > 0.;
     //BBS

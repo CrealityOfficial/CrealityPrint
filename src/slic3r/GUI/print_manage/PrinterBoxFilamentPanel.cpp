@@ -550,6 +550,9 @@ void PrinterBoxFilamentPanel::OnTimer(wxTimerEvent& event)
 
             if (!materialBoxesEqual) {
                 update_device_data(device_data);
+                if (m_funcMaterialBoxesChangedCb) {
+                    m_funcMaterialBoxesChangedCb();
+                }
             }
 
         }

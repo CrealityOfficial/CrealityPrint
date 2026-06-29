@@ -33,8 +33,10 @@ std::pair<bool, std::string> GLShadersManager::init()
 
     bool valid = true;
 
-    const std::string prefix = GUI::wxGetApp().is_gl_version_greater_or_equal_to(3, 1) ? "140/" : "110/";
-    // imgui shader
+    bool gl31 = GUI::wxGetApp().is_gl_version_greater_or_equal_to(3, 1);
+    const std::string prefix = gl31 ? "140/" : "110/";
+
+	// imgui shader
     valid &= append_shader("imgui", { prefix + "imgui.vs", prefix + "imgui.fs" });
     // basic shader, used to render all what was previously rendered using the immediate mode
     valid &= append_shader("flat", { prefix + "flat.vs", prefix + "flat.fs" });
@@ -50,6 +52,8 @@ std::pair<bool, std::string> GLShadersManager::init()
     valid &= append_shader("gouraud_preview", { prefix + "gouraud_preview.vs", prefix + "gouraud_preview.fs" });
     //used to render thumbnail
     valid &= append_shader("thumbnail", { prefix + "thumbnail.vs", prefix + "thumbnail.fs"});
+    // Used to recolor thumbnail (lit + no-light mask) in GUI preview on easy_mode.
+    valid &= append_shader("thumbnail_recolor_no_light", { prefix + "thumbnail_recolor_no_light.vs", prefix + "thumbnail_recolor_no_light.fs" });
     // used to render printbed
     valid &= append_shader("printbed", { prefix + "printbed.vs", prefix + "printbed.fs" });
     // used to render options in gcode preview
@@ -97,6 +101,13 @@ std::pair<bool, std::string> GLShadersManager::init()
 	valid &= append_shader("gcode_gouraud_light", {prefix + "gcode_gouraud_light.vs", prefix + "gcode_gouraud_light.fs"});
     valid &= append_shader("gcode_flat", {prefix + "gcode_flat.vs", prefix + "gcode_flat.fs"});
     
+	if (gl31) {
+        valid &= append_shader("gcode", {prefix + "gcode.vs", prefix + "gcode.fs"});
+        valid &= append_shader("gcode_options", {prefix + "gcode_options.vs", prefix + "gcode_options.fs"});
+        valid &= append_shader("gcode_custom_effect", {prefix + "gcode.vs", prefix + "gcode_custom_effect.fs"});
+    }
+
+
     return { valid, error };
 }
 
@@ -120,6 +131,20 @@ GLShaderProgram* GLShadersManager::get_current_shader()
 
     auto it = std::find_if(m_shaders.begin(), m_shaders.end(), [id](std::unique_ptr<GLShaderProgram>& p) { return static_cast<GLint>(p->get_id()) == id; });
     return (it != m_shaders.end()) ? it->get() : nullptr;
+}
+
+void GLShadersManager::bind_shader(const GLShaderProgram* p_shader)
+{
+    if (p_shader) {
+        p_shader->start_using();
+    } else {
+        glsafe(::glUseProgram(0));
+    }
+}
+
+void GLShadersManager::unbind_shader()
+{
+    glsafe(::glUseProgram(0));
 }
 
 } // namespace Slic3r

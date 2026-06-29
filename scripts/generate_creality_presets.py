@@ -492,10 +492,10 @@ def process_machine_json(printer,package_path, out_path):
     elif "08001" in top_material:
         out_data["default_filament_profile"] = ["Ender-PLA @"+machine_name+" "+printer["nozzleDiameter"][0]+" nozzle"]
 
-    if "nozzle_diameter" in out_data:
-        out_data["nozzle_diameter"] = [out_data["nozzle_diameter"]]
-    else:
-        out_data["nozzle_diameter"] = [printer["nozzleDiameter"][0]]
+    #if "nozzle_diameter" in out_data:
+    #    out_data["nozzle_diameter"] = [out_data["nozzle_diameter"]]
+    #else:
+    out_data["nozzle_diameter"] = printer["nozzleDiameter"]
     if "printer_variant" in out_data:
         out_data["printer_variant"] = printer["nozzleDiameter"][0]
     if "material_flow_temp_graph" in out_data:

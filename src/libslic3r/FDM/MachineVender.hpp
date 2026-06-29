@@ -29,6 +29,7 @@ namespace creality
     };
 
     bool is_firmwaresoft_mm_printer_from_string(const std::string& printer_model);
+    bool is_k2_series_printer_from_string(const std::string& printer_model);
 }
 
 #endif // MACHINE_VENDER_HPP

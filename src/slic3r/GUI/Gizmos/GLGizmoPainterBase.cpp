@@ -91,13 +91,22 @@ void GLGizmoPainterBase::render_triangles(const Selection& selection) const
     shader->set_uniform("clipping_plane", this->get_clipping_plane_data().clp_dataf);
     ScopeGuard guard([shader]() { if (shader) shader->stop_using(); });
 
-    const ModelObject *mo      = m_c->selection_info()->model_object();
+    const ModelObject *mo      = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+    if (mo == nullptr)
+        return;
+
     int                mesh_id = -1;
     for (const ModelVolume* mv : mo->volumes) {
         if (! mv->is_model_part())
             continue;
 
         ++mesh_id;
+
+        // Safety check: m_triangle_selectors may be empty if gizmo state changed
+        // during render (e.g. macOS Cocoa re-entrant event dispatch or wxBusyCursor
+        // pumping events before selectors are initialized).
+        if (mesh_id >= (int)m_triangle_selectors.size())
+            break;
         
         Transform3d trafo_matrix;
         if (m_parent.get_canvas_type() == GLCanvas3D::CanvasAssembleView) {
@@ -773,7 +782,9 @@ std::vector<GLGizmoPainterBase::ProjectedHeightRange> GLGizmoPainterBase::get_pr
     hit_triangles_by_mesh.push_back({ z_bot_world, m_rr.mesh_id, size_t(m_rr.facet) });
 
     const Selection& selection = m_parent.get_selection();
-    const ModelObject* mo = m_c->selection_info()->model_object();
+    const ModelObject* mo = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+    if (mo == nullptr)
+        return hit_triangles_by_mesh;
     const ModelInstance* mi = mo->instances[selection.get_instance_idx()];
     const Transform3d   instance_trafo = m_parent.get_canvas_type() == GLCanvas3D::CanvasAssembleView ?
         mi->get_assemble_transformation().get_matrix() :
@@ -845,7 +856,9 @@ bool GLGizmoPainterBase::gizmo_event(SLAGizmoEventType action, const Vec2d& mous
                 m_parent.set_as_dirty();
                 if (m_rr.mesh_id != -1) {
                     const Selection     &selection                 = m_parent.get_selection();
-                    const ModelObject   *mo                        = m_c->selection_info()->model_object();
+                    const ModelObject   *mo                        = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+                    if (mo == nullptr)
+                        return false;
                     const ModelInstance *mi                        = mo->instances[selection.get_instance_idx()];
                     const Transform3d   trafo_matrix_not_translate = m_parent.get_canvas_type() == GLCanvas3D::CanvasAssembleView ?
                         mi->get_assemble_transformation().get_matrix_no_offset() * mo->volumes[m_rr.mesh_id]->get_matrix_no_offset() :
@@ -912,7 +925,9 @@ bool GLGizmoPainterBase::gizmo_event(SLAGizmoEventType action, const Vec2d& mous
 
         const Camera        &camera                      = wxGetApp().plater()->get_camera();
         const Selection     &selection                   = m_parent.get_selection();
-        const ModelObject   *mo                          = m_c->selection_info()->model_object();
+        const ModelObject   *mo                          = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+        if (mo == nullptr)
+            return false;
         const ModelInstance *mi                          = mo->instances[selection.get_instance_idx()];
         Transform3d   instance_trafo = m_parent.get_canvas_type() == GLCanvas3D::CanvasAssembleView ?
             mi->get_assemble_transformation().get_matrix() :
@@ -970,6 +985,39 @@ bool GLGizmoPainterBase::gizmo_event(SLAGizmoEventType action, const Vec2d& mous
 
                 m_triangle_selectors[mesh_idx]->request_update_render_data(true);
                 m_last_mouse_click = _mouse_position;
+            }
+
+            return true;
+        }
+
+        if(m_tool_type == ToolType::OBJECT_FILL && m_cursor_type == TriangleSelector::CursorType::POINTER) {
+            ModelObject *mo = m_c->selection_info()->model_object();
+            if(!mo) return true;
+            int mesh_id = m_rr.mesh_id;
+            int idx = -1;
+            ModelVolume *hit_volume = nullptr;
+            for (ModelVolume *mv : mo->volumes) {
+                if (!mv->is_model_part())
+                    continue;
+                ++idx;
+                if (idx == mesh_id) { 
+                    hit_volume = mv; 
+                    break; 
+                }
+            }
+            if(!hit_volume) return true;
+
+            if(new_state > EnforcerBlockerType::NONE) {
+                int extruder_idx = int(new_state); // 0-based
+                if(hit_volume->config.has("extruder")) {
+                    hit_volume->config.set("extruder",extruder_idx);
+                }
+                else
+                {
+                    hit_volume->config.set_key_value("extruder", new ConfigOptionInt(extruder_idx));
+                }
+
+                wxGetApp().plater()->update();
             }
 
             return true;
@@ -1061,7 +1109,9 @@ bool GLGizmoPainterBase::gizmo_event(SLAGizmoEventType action, const Vec2d& mous
 
         const Camera        &camera                       = wxGetApp().plater()->get_camera();
         const Selection     &selection                    = m_parent.get_selection();
-        const ModelObject   *mo                           = m_c->selection_info()->model_object();
+        const ModelObject   *mo                           = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+        if (mo == nullptr)
+            return false;
         const ModelInstance *mi                           = mo->instances[selection.get_instance_idx()];
         const Transform3d    instance_trafo = m_parent.get_canvas_type() == GLCanvas3D::CanvasAssembleView ?
             mi->get_assemble_transformation().get_matrix() :

@@ -211,19 +211,33 @@ static HRESULT winrt_open_file_stream(
 	return hr;
 }
 
+bool has_mesh_repair_backend()
+{
+    return is_windows10();
+}
+
 bool is_windows10()
 {
-	HKEY hKey;
-	LONG lRes = RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &hKey);
-	if (lRes == ERROR_SUCCESS) {
-		WCHAR szBuffer[512];
-		DWORD dwBufferSize = sizeof(szBuffer);
-		lRes = RegQueryValueExW(hKey, L"ProductName", 0, nullptr, (LPBYTE)szBuffer, &dwBufferSize);
-		if (lRes == ERROR_SUCCESS)
-			return wcsncmp(szBuffer, L"Windows 10", 10) == 0;
-		RegCloseKey(hKey);
-	}
-	return false;
+    HKEY hKey;
+    LONG lRes = RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &hKey);
+    if (lRes == ERROR_SUCCESS) {
+        DWORD major_version = 0;
+        DWORD major_version_size = sizeof(major_version);
+        DWORD value_type = 0;
+        lRes = RegQueryValueExW(hKey, L"CurrentMajorVersionNumber", 0, &value_type, reinterpret_cast<LPBYTE>(&major_version), &major_version_size);
+        if (lRes == ERROR_SUCCESS && value_type == REG_DWORD) {
+            RegCloseKey(hKey);
+            return major_version >= 10;
+        }
+
+        WCHAR product_name[512];
+        DWORD product_name_size = sizeof(product_name);
+        lRes = RegQueryValueExW(hKey, L"ProductName", 0, nullptr, reinterpret_cast<LPBYTE>(product_name), &product_name_size);
+        RegCloseKey(hKey);
+        if (lRes == ERROR_SUCCESS)
+            return wcsncmp(product_name, L"Windows 10", 10) == 0 || wcsncmp(product_name, L"Windows 11", 10) == 0;
+    }
+    return false;
 }
 
 // Progress function, to be called regularly to update the progress.
@@ -233,8 +247,8 @@ void fix_model_by_win10_sdk(const std::string &path_src, const std::string &path
 {
     const uint64_t trace_id = (uint64_t)std::chrono::steady_clock::now().time_since_epoch().count();
     
-	if (! is_windows10())
-		throw Slic3r::RuntimeError(L("Only Windows 10 is supported."));
+    if (! is_windows10())
+        throw Slic3r::RuntimeError(L("Only Windows 10 is supported."));
 
 	if (! winrt_load_runtime_object_library())
 		throw Slic3r::RuntimeError(L("Failed to initialize the WinRT library."));

@@ -1,5 +1,6 @@
 #include "TextDisplay.hpp"
 #include "Label.hpp"
+#include <algorithm>
 #include <wx/gdicmn.h>
 
 BEGIN_EVENT_TABLE(TextDisplay, wxPanel)
@@ -79,8 +80,13 @@ void TextDisplay::messureSize()
     else
         dc.SetFont(Label::Body_12);
     labelSize = dc.GetTextExtent(wxWindow::GetLabel());
-    wxSize textSize = wxSize(0, 0);
-    int h = textSize.y + 8;
+    // Derive a sensible control height from the actual text height (and the icon, if
+    // any) plus DPI-aware vertical padding. Using the measured text height keeps the
+    // box from collapsing on high-DPI screens, where a hard-coded pixel height would
+    // leave it squashed. The previous code used a zeroed textSize, which produced a
+    // fixed 8px height regardless of DPI.
+    int content_h = std::max(labelSize.y, m_icon.bmp().IsOk() ? m_icon.GetBmpSize().y : 0);
+    int h = content_h + FromDIP(8);
     if (size.y < h) {
         size.y = h;
     }
