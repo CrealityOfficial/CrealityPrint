@@ -101,7 +101,13 @@ bool ProfileLoader::_LoadModel(ProfileMachine& profile, const std::string& vendo
     using json = nlohmann::json;
     boost::nowide::ifstream ifs(vendor_path.string());
     json data;
-    ifs >> data;
+    try {
+        ifs >> data;
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(warning) << "ProfileLoader: skip vendor \"" << vendor << "\", failed to load \""
+                                   << vendor_path.string() << "\": " << e.what();
+        return false;
+    }
     if (!data.contains("name") || !data["name"].is_string())
         return false;
     if (!data.contains("machine_model_list") || !data["machine_model_list"].is_array())
@@ -169,7 +175,16 @@ bool ProfileLoader::_LoadModelImpl(ProfileModel& profile, const std::string& ven
     boost::filesystem::path model_path = boost::filesystem::absolute(root_path / vendor / sub_path).make_preferred();
     boost::nowide::ifstream ifs(model_path.string());
     json model_data;
-    ifs >> model_data;
+    // A missing or malformed model file must not abort the whole profile load:
+    // skip this model instead of letting the parse error propagate (case-sensitive
+    // filesystems surface broken sub_path references that Windows/macOS hide).
+    try {
+        ifs >> model_data;
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(warning) << "ProfileLoader: skip model \"" << model << "\", failed to load \""
+                                   << model_path.string() << "\": " << e.what();
+        return false;
+    }
     if (!model_data.contains("nozzle_diameter") || !model_data["nozzle_diameter"].is_string())
         return false;
     std::vector<std::string> nozzle_group;
@@ -288,7 +303,12 @@ bool ProfileLoader::_LoadPrinterImpl(ProfilePrinter& profile, const std::string&
     using json = nlohmann::json;
     boost::nowide::ifstream ifs(path);
     json data;
-    ifs >> data;
+    try {
+        ifs >> data;
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(warning) << "ProfileLoader: skip printer profile \"" << path << "\": " << e.what();
+        return false;
+    }
     if (!data.contains("type") || !data["type"].is_string() || data["type"]!="machine")
         return false;
     if (!data.contains("name") || !data["type"].is_string())

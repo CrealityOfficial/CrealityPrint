@@ -1409,7 +1409,11 @@ void ParamsPanel::OnToggled(wxCommandEvent& event)
 
     if (m_mode_region && m_mode_region->GetValue() && m_current_tab) {
         wxWindowUpdateLocker locker(GetParent());
-        set_active_tab(nullptr);
+        // Re-activate the current tab instead of clearing it. Passing nullptr
+        // here left the panel without an active tab, so all parameter inputs
+        // (cooling, temperatures, etc.) stayed greyed out / read-only after a
+        // mode toggle. See CrealityOfficial/CrealityPrint#552.
+        set_active_tab(m_current_tab);
     }
 
     m_page_view->Update();
