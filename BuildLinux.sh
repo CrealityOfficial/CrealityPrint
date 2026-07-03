@@ -211,6 +211,11 @@ then
     echo "Building CrealityPrint_profile_validator .."
     #cmake --build build --target CrealityPrint_profile_validator
     ./run_gettext.sh
+    # Compile the .po translations into resources/i18n/<locale>/CrealityPrint.mo.
+    # This is a standalone custom target that the default build does NOT run, so
+    # without it the Linux package ships with an empty resources/i18n (English only).
+    echo "Building translations (gettext_po_to_mo) ..."
+    cmake --build build --target gettext_po_to_mo
     echo "done"
 fi
 
