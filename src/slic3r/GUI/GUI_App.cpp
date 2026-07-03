@@ -3832,7 +3832,18 @@ int GUI_App::OnExit()
     int result = wxApp::OnExit();
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " end";
     boost::log::core::get()->flush();
+#ifdef __linux__
+    // On Linux the GL/GTK context is already torn down by the time std::exit() drives
+    // the global/static destructors. Static GLModel instances then call
+    // GLModel::RenderData::release() -> glDeleteBuffers() into a dead context, which
+    // segfaults on shutdown (and breakpad's handler double-faults on top of it).
+    // All persistent state (AppConfig, presets) has already been saved during the
+    // window-close sequence and wxApp::OnExit() above, so skip the global-destructor
+    // teardown entirely and terminate immediately.
+    std::_Exit(0);
+#else
     std::exit(0);
+#endif
     return 0;
 }
 
