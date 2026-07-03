@@ -6709,6 +6709,11 @@ extern "C" {
 #ifdef USE_BREAKPAD
 static bool dumpCallback(const google_breakpad::MinidumpDescriptor& descriptor,void* context, bool succeeded) {
                 printf("Dump path: %s\n", descriptor.path());
+		 // This runs from breakpad's signal handler. A C++ exception escaping here
+		 // (e.g. boost::filesystem::rename throwing when the target dir is missing)
+		 // unwinds out of the signal handler and double-faults into a second, harder
+		 // crash. Keep every throwing operation below inside this guard.
+		 try {
 		 if (succeeded) {
 		     boost::filesystem::path oldPath(descriptor.path());
 		     std::string data_dir = Slic3r::data_dir();
@@ -6762,6 +6767,9 @@ static bool dumpCallback(const google_breakpad::MinidumpDescriptor& descriptor,v
 		     BOOST_LOG_TRIVIAL(info) << "MiniDump succeeded: " << descriptor.path();
 		 } else {
 		     BOOST_LOG_TRIVIAL(error) << "MiniDump failed: " << descriptor.path();
+		 }
+		 } catch (...) {
+		     // Never let an exception escape the signal handler.
 		 }
                 return succeeded;
             }
