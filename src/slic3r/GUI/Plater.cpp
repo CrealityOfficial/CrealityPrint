@@ -1173,7 +1173,10 @@ static void remap_model_filament_assignments(const std::vector<unsigned int> &re
     }
 }
 
-// Forward declarations for MixedFilament <-> Dialog mapping helpers (defined later in anon namespace).
+// Forward declarations for MixedFilament <-> Dialog mapping helpers (defined later in
+// the anonymous namespace). Kept inside an anonymous namespace so they share the
+// definitions' internal linkage; the definitions must NOT use the redundant 'static'
+// keyword, or GCC flags an extern-then-static linkage mismatch.
 namespace {
 MixedFilamentResult build_result_from_mixed(const MixedFilament& mf);
 void apply_result_to_mixed(const MixedFilamentResult& r, MixedFilament& mf);
@@ -4619,7 +4622,7 @@ static std::string encode_gradient_weights(const std::vector<int> &w)
     return out;
 }
 
-static MixedFilamentResult build_result_from_mixed(const MixedFilament& mf)
+MixedFilamentResult build_result_from_mixed(const MixedFilament& mf)
 {
     MixedFilamentResult r;
     if (!mf.gradient_component_ids.empty()) {
@@ -4637,7 +4640,7 @@ static MixedFilamentResult build_result_from_mixed(const MixedFilament& mf)
     return r;
 }
 
-static void apply_result_to_mixed(const MixedFilamentResult& r, MixedFilament& mf)
+void apply_result_to_mixed(const MixedFilamentResult& r, MixedFilament& mf)
 {
     mf.manual_pattern.clear();
     if (r.components.size() >= 3) {
@@ -4660,7 +4663,7 @@ static void apply_result_to_mixed(const MixedFilamentResult& r, MixedFilament& m
     mf.custom = true;
 }
 
-static void apply_result_append_to_manager(const MixedFilamentResult& r,
+void apply_result_append_to_manager(const MixedFilamentResult& r,
                                            MixedFilamentManager& mgr,
                                            const std::vector<std::string>& colors)
 {

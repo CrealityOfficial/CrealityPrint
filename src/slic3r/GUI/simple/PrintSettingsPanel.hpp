@@ -13,7 +13,7 @@ public:
     struct PrintSettings
     {
         int   quality_index    = 1;  // 0: Fast, 1: Standard, 2: Fine
-        int   infill_density   = 15; // Percentage: 0¨C100
+        int   infill_density   = 15; // Percentage: 0ï¿½C100
         int   top_layers       = 5;
         int   bottom_layers    = 4;
         int   wall_layers      = 4;
@@ -64,8 +64,8 @@ public:
         const char* label, int* current_index, const char* const items[], int item_count, float width, ImU32 bg_color, ImU32 button_color)
     {
         ImGui::PushStyleColor(ImGuiCol_FrameBg, bg_color);
-        ImGui::PushStyleColor(ImGuiCol_Button, button_color); // ¿ØÖÆ¼ýÍ·°´Å¥ÑÕÉ«
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, bg_color);    // ÏÂÀ­²Ëµ¥±³¾°
+        ImGui::PushStyleColor(ImGuiCol_Button, button_color); // ï¿½ï¿½ï¿½Æ¼ï¿½Í·ï¿½ï¿½Å¥ï¿½ï¿½É«
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, bg_color);    // ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½
         ImGui::PushItemWidth(width);
 
         bool changed = ImGui::Combo(label, current_index, items, item_count);
@@ -79,22 +79,22 @@ public:
 private:
     static constexpr const char* infill_options[] = {"5%", "10%", "15%", "20%", "25%", "30%", "40%", "50%"};
     
-    // °Ù·Ö±È ¡ú Ë÷Òý
+    // ï¿½Ù·Ö±ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     int infill_density_to_index(int density)
     {
         for (int i = 0; i < IM_ARRAYSIZE(infill_options); ++i) {
             if (std::stoi(infill_options[i]) == density)
                 return i;
         }
-        return 0; // Ä¬ÈÏ»ØÍËµ½µÚÒ»¸ö
+        return 0; // Ä¬ï¿½Ï»ï¿½ï¿½Ëµï¿½ï¿½ï¿½Ò»ï¿½ï¿½
     }
 
-    // Ë÷Òý ¡ú °Ù·Ö±È
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ù·Ö±ï¿½
     int infill_index_to_density(int index)
     {
         if (index >= 0 && index < IM_ARRAYSIZE(infill_options))
             return std::stoi(infill_options[index]);
-        return 15; // Ä¬ÈÏÖµ
+        return 15; // Ä¬ï¿½ï¿½Öµ
     }
 
     template<typename T> void safe_get(const DynamicPrintConfig& cfg, const char* key, T& out)
@@ -107,22 +107,13 @@ private:
         if (auto* opt = cfg.option<typename ConfigOptionType<T>::type>(key))
             opt->value = val;
     }
+    // Primary template only; explicit specializations live at namespace scope
+    // below (GCC rejects explicit specialization inside a class body, unlike MSVC).
     template<typename T> struct ConfigOptionType;
-
-    template<> struct ConfigOptionType<int>
-    {
-        using type = ConfigOptionInt;
-    };
-    template<> struct ConfigOptionType<float>
-    {
-        using type = ConfigOptionFloat;
-    };
-
-    template<> struct ConfigOptionType<unsigned> { using type = ConfigOptionPercent; };
 
     void load_from_config(PrintSettings& s, const DynamicPrintConfig& config)
     {
-        // ÖÊÁ¿µµÎ»µ¥¶À´¦Àí
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
      /*   if (auto* opt = config.option<ConfigOptionFloat>("sparse_infill_pattern")) {
             float lh = opt->value;
             if (lh == 0.20f)
@@ -161,9 +152,14 @@ private:
 
 
     PrintSettings settings;
-    float         animated_highlight_x = -1.0f; // ³õÊ¼»¯ÎªÎÞÐ§Öµ
+    float         animated_highlight_x = -1.0f; // ï¿½ï¿½Ê¼ï¿½ï¿½Îªï¿½ï¿½Ð§Öµ
     bool          m_initialized = false;
 };
+
+// Explicit specializations of the member trait, required at namespace scope by GCC.
+template<> struct PrintSettingsPanel::ConfigOptionType<int>      { using type = ConfigOptionInt; };
+template<> struct PrintSettingsPanel::ConfigOptionType<float>    { using type = ConfigOptionFloat; };
+template<> struct PrintSettingsPanel::ConfigOptionType<unsigned> { using type = ConfigOptionPercent; };
 
 using PrintSettings = PrintSettingsPanel::PrintSettings;
 }
