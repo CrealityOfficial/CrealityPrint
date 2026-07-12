@@ -115,6 +115,19 @@ then
         DISTRIBUTION="debian2"
     fi
 fi
+# Treat Linux Mint like its Ubuntu base (Mint 22.x is based on Ubuntu 24.04)
+if [ "${DISTRIBUTION}" == "linuxmint" ]
+then
+    DISTRIBUTION="debian"
+    VERSION_ID=$(awk -F= '/^VERSION_ID=/ {print $2}' /etc/os-release)
+    NUMERIC_VERSION=$(echo ${VERSION_ID} | tr -d '"')
+    MINT_MAJOR=${NUMERIC_VERSION%%.*}
+    # Mint 22.x => Ubuntu 24.04 => debian2
+    if [ "${MINT_MAJOR}" -ge 22 ]
+    then
+        DISTRIBUTION="debian2"
+    fi
+fi
 # 兼容麒麟系统（Kylin/openKylin），使用专用脚本
 if [ "${DISTRIBUTION}" == "kylin" ] || [ "${DISTRIBUTION}" == "openkylin" ]
 then
