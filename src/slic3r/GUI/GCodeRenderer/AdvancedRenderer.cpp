@@ -748,20 +748,12 @@ namespace Slic3r
 				// Import gcode file, preview using normal mode (no lite mode)
                 bool is_lite_mode_cfg = (wxGetApp().app_config->get_bool("gcode_preview_lite_mode") && (!m_only_gcode_in_preview));
 
-                // Auto enable lite mode on Linux if memory is tight or preview is huge.
-#if defined(__linux__)
-                {
-                    size_t       avail_bytes           = Slic3r::available_physical_memory();
-                    size_t       total_bytes           = Slic3r::total_physical_memory();
-                    const size_t moves_count_local     = gcode_result.moves.size();
-                    const size_t avail_threshold_bytes = size_t(2) * size_t(1024) * size_t(1024) * size_t(1024); // 2 GB
-                    const bool   low_available         = (avail_bytes > 0 && avail_bytes < avail_threshold_bytes);
-                    const bool   low_ratio    = (total_bytes > 0 && avail_bytes > 0 && (double) avail_bytes / (double) total_bytes < 0.125);
-                    const bool   huge_preview = (moves_count_local > 2000000);
-                    if (!m_only_gcode_in_preview && (low_available || low_ratio || huge_preview))
-                        is_lite_mode_cfg = true;
-                }
-#endif
+                // NOTE (#512): Removed the Linux-only auto-enable-lite-mode heuristic.
+                // It force-enabled lite mode against the user's explicit
+                // gcode_preview_lite_mode=false setting, and tripped on broken memory
+                // readings (available/total reported as 0 on some systems), permanently
+                // hiding infill in the preview on Linux. Lite mode is now strictly
+                // driven by the gcode_preview_lite_mode config value above.
 
                 const bool is_lite_mode = m_is_lite_mode = is_lite_mode_cfg;
 

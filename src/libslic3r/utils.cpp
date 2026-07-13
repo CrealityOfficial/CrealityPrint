@@ -1591,11 +1591,26 @@ size_t available_physical_memory()
     return (size_t) status.ullAvailPhys;
 
 #elif defined(__linux__)
-    struct sysinfo info;
-    if (sysinfo(&info) == 0) {
-        return info.freeram * info.mem_unit;
+    // Prefer MemAvailable (free + reclaimable page/buffer cache) from
+    // /proc/meminfo. sysinfo().freeram is only MemFree, which Linux keeps
+    // low by design (idle RAM is used for cache), so it grossly understates
+    // usable memory and must not be treated as "available".
+    if (FILE* mi = fopen("/proc/meminfo", "r")) {
+        char line[256];
+        unsigned long long kb = 0;
+        bool found = false;
+        while (fgets(line, sizeof(line), mi) != nullptr) {
+            if (sscanf(line, "MemAvailable: %llu kB", &kb) == 1) { found = true; break; }
+        }
+        fclose(mi);
+        if (found)
+            return (size_t)kb * (size_t)1024;
     }
-	return 0L;
+    // Fallback for kernels < 3.14 without MemAvailable: free + buffers.
+    struct sysinfo info;
+    if (sysinfo(&info) == 0)
+        return (size_t)(info.freeram + info.bufferram) * (size_t)info.mem_unit;
+    return 0L;
 #elif defined(__APPLE__)
     int      mib[2] = {CTL_HW, HW_MEMSIZE};
     uint64_t memsize;
