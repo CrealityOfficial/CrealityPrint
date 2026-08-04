@@ -614,6 +614,7 @@ private:
     // BBS: add flag to controll rendering
     bool m_render_preview{true};
     bool m_enable_render{true};
+    bool m_needs_deferred_reload{false};
     bool m_apply_zoom_to_volumes_filter;
     bool m_picking_enabled;
     bool m_moving_enabled;
@@ -1058,7 +1059,7 @@ public:
                                              bool                      for_picking  = false,
                                              bool                      ban_light    = false,
                                              const std::string&        view_type    = "iso");
-    // render thumbnail using an off-screen framebuffer when GLEW_EXT_framebuffer_object is supported
+    // render thumbnail using an off-screen framebuffer when GLAD_GL_EXT_framebuffer_object is supported
     static void render_thumbnail_framebuffer_ext(ThumbnailData&            thumbnail_data,
                                                  unsigned int              w,
                                                  unsigned int              h,
@@ -1301,6 +1302,9 @@ public:
 
     void reset_old_size() { m_old_size = {0, 0}; }
 
+    // Shared GPU resources must be released while a canvas context is still valid.
+    void release_shared_gl_resources();
+
     bool is_object_sinking(int object_idx) const;
 
     void apply_retina_scale(Vec2d& screen_coordinate) const;
@@ -1336,6 +1340,9 @@ public:
     void open_filament_toolbar_popup();
     ImGuiFilamentPanel* get_filament_panel() const { return m_imgui_filament_panel.get(); }
     void close_device_list_popup();
+    // Opens the Simple-UI device-list popup programmatically (e.g. triggered by
+    // the AI chat panel's "switch device" action). Symmetric to close_device_list_popup().
+    void open_device_list_popup();
     void on_easy_mode_switch();
     void easy_mode_on_scene_reloaded();
     // ==== easy print mode related ====
@@ -1466,15 +1473,15 @@ private:
                                                float anchor_x_px = -1.f,
                                                float margin_top_px = 8.f);
 
-    // Í³Ò»µÄ¿¨Æ¬Ê½µ¯²ãäÖÈ¾Æ÷£º¸ºÔð¶¨Î»¡¢´°¿Ú¿ªºÏ¡¢°×¿¨±³¾°¡¢¹Ø±ÕÂß¼­
+    // Í³Ò»ï¿½Ä¿ï¿½Æ¬Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½Ú¿ï¿½ï¿½Ï¡ï¿½ï¿½×¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø±ï¿½ï¿½ß¼ï¿½
     void render_card_popup_if_open(
-        bool&                    open_flag,           // ÓÉËüÎ¬»¤¿ª¹Ø
+        bool&                    open_flag,           // ï¿½ï¿½ï¿½ï¿½Î¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         float                    left_ndc, float right_ndc,
         float                    popup_h_px,
         PopupHAlign              halign,
         float                    popup_gap_px,
-        const char*              window_id,           // ÀýÈç "##supports_popover"
-        const std::function<void()>& content_fn       // Ö»»­ÄÚ²¿ÄÚÈÝ£¨²»ÔÙ Begin/End£©
+        const char*              window_id,           // ï¿½ï¿½ï¿½ï¿½ "##supports_popover"
+        const std::function<void()>& content_fn       // Ö»ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½ Begin/Endï¿½ï¿½
     );
     // ==== easy print mode related ====
 

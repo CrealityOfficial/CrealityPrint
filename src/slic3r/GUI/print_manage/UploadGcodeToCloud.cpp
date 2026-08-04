@@ -66,6 +66,49 @@ std::string build_gcode_upload_path(const std::string& local_file_path, const st
 
     return "model/slice/" + md5_digest_str + ".gcode.gz";
 }
+
+wxImage rescale_image_to_fit(wxImage image, const wxSize& fit_size, int padding)
+{
+    if (!image.IsOk())
+        return image;
+
+    const int max_width  = std::max(1, fit_size.GetWidth() - padding * 2);
+    const int max_height = std::max(1, fit_size.GetHeight() - padding * 2);
+    const double scale   = std::min(double(max_width) / std::max(1, image.GetWidth()),
+                                  double(max_height) / std::max(1, image.GetHeight()));
+    const int width      = std::max(1, int(std::lround(image.GetWidth() * scale)));
+    const int height     = std::max(1, int(std::lround(image.GetHeight() * scale)));
+
+    if (width == image.GetWidth() && height == image.GetHeight())
+        return image;
+
+    return image.Rescale(width, height, wxIMAGE_QUALITY_HIGH);
+}
+wxImage blend_image_with_background(const wxImage& image, const wxColour& background)
+{
+    if (!image.IsOk() || !image.HasAlpha())
+        return image;
+
+    wxImage blended(image.GetWidth(), image.GetHeight());
+    const unsigned char* src   = image.GetData();
+    const unsigned char* alpha = image.GetAlpha();
+    unsigned char*       dst   = blended.GetData();
+    const int            count = image.GetWidth() * image.GetHeight();
+    const int            bg_r  = background.Red();
+    const int            bg_g  = background.Green();
+    const int            bg_b  = background.Blue();
+
+    for (int i = 0; i < count; ++i) {
+        const int a  = alpha[i];
+        const int ia = 255 - a;
+        const int j  = i * 3;
+        dst[j]     = static_cast<unsigned char>((src[j] * a + bg_r * ia + 127) / 255);
+        dst[j + 1] = static_cast<unsigned char>((src[j + 1] * a + bg_g * ia + 127) / 255);
+        dst[j + 2] = static_cast<unsigned char>((src[j + 2] * a + bg_b * ia + 127) / 255);
+    }
+
+    return blended;
+}
 }
 namespace Slic3r { namespace GUI {
 
@@ -76,6 +119,15 @@ namespace Slic3r { namespace GUI {
 wxDEFINE_EVENT(EVT_UPDATE_USER_MACHINE_LIST, wxCommandEvent);
 wxDEFINE_EVENT(EVT_PRINT_JOB_CANCEL, wxCommandEvent);
 wxDEFINE_EVENT(EVT_SEND_JOB_SUCCESS, wxCommandEvent);
+bool gcode_upload_dark_mode()
+{
+    return wxGetApp().app_config && wxGetApp().app_config->get("dark_color_mode") == "1";
+}
+
+const char* gcode_upload_printer_icon_name()
+{
+    return gcode_upload_dark_mode() ? "printer_3mf" : "printer_3mf_light";
+}
 // wxDEFINE_EVENT(EVT_CLEAR_IPADDRESS, wxCommandEvent);
 
 static wxString extract_ip_address(const wxString& combo_selection)
@@ -351,9 +403,9 @@ UploadGcodeToCloudDialog::UploadGcodeToCloudDialog(Plater* plater)
 
     wxBoxSizer* m_sizer_printer = new wxBoxSizer(wxHORIZONTAL);
     topSizer->Add(m_sizer_printer, 0, wxTOP, FromDIP(30));
-    auto printerimg = new wxStaticBitmap(m_line_top, wxID_ANY, create_scaled_bitmap("printer_3mf", this, 18), wxDefaultPosition,
+    m_top_printer_img = new wxStaticBitmap(m_line_top, wxID_ANY, create_scaled_bitmap(gcode_upload_printer_icon_name(), this, 18), wxDefaultPosition,
                                          wxSize(FromDIP(18), FromDIP(18)), 0);
-    m_sizer_printer->Add(printerimg, 0, wxALIGN_LEFT | wxALL, FromDIP(2));
+    m_sizer_printer->Add(m_top_printer_img, 0, wxALIGN_LEFT | wxALL, FromDIP(2));
     //m_sizer_printer->Add(new wxStaticText(m_line_top, wxID_ANY, _L("Printer"), wxDefaultPosition, wxSize(-1, -1), 0), 0,
     //                     wxALIGN_LEFT | wxALL,
     //                     FromDIP(5));
@@ -413,7 +465,7 @@ UploadGcodeToCloudDialog::UploadGcodeToCloudDialog(Plater* plater)
     m_button_send_print_cmd->SetBackgroundColor(btn_bg_enable);
     m_button_send_print_cmd->SetBorderColor(btn_bd_enable);
     m_button_send_print_cmd->SetTextColor(StateColor::darkModeColorFor("#000000"));
-    if (wxGetApp().dark_mode()) {
+    if (gcode_upload_dark_mode()) {
         m_button_ensure->SetTextColor(StateColor::darkModeColorFor("#FFFFFE"));
         m_button_send_print_cmd->SetTextColor(StateColor::darkModeColorFor("#FFFFFE"));
     }
@@ -439,6 +491,9 @@ UploadGcodeToCloudDialog::UploadGcodeToCloudDialog(Plater* plater)
     // CenterOnParent();
     Centre(wxBOTH);
     wxGetApp().UpdateDlgDarkUI(this);
+    apply_dialog_theme();
+    apply_action_button_theme();
+    update_printer_icons();
 }
 
 void UploadGcodeToCloudDialog::update_print_error_info(int code, std::string msg, std::string extra)
@@ -556,6 +611,7 @@ std::string UploadGcodeToCloudDialog::get_selected_printer_ip()
 void UploadGcodeToCloudDialog::get_current_plate_color()
 {
     m_sizer_scrollable_region->Clear(true);
+    m_preview_printer_img = nullptr;
 
     auto                     plate_list                 = wxGetApp().plater()->get_partplate_list().get_plate_list();
     nlohmann::json           plate_extruder_colors_json = nlohmann::json::array();
@@ -568,7 +624,7 @@ void UploadGcodeToCloudDialog::get_current_plate_color()
 
     m_panel_image = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(FromDIP(700), FromDIP(400)));
     // m_panel_image->SetBackgroundColour(wxColor(75, 75, 77));
-   if (wxGetApp().dark_mode()) {
+   if (gcode_upload_dark_mode()) {
         m_panel_image->SetBackgroundColour(wxColour(75, 75, 73));
     } else {
         m_panel_image->SetBackgroundColour(wxColour(255, 255, 255));
@@ -579,6 +635,8 @@ void UploadGcodeToCloudDialog::get_current_plate_color()
     wxWrapSizer* wrapSizer = new wxWrapSizer(wxHORIZONTAL);
 
     wxColor cardColor  = wxColor(45, 45, 49);
+    const wxColour previewBgColor   = gcode_upload_dark_mode() ? cardColor : m_panel_image->GetBackgroundColour();
+    const wxColour previewTextColor = gcode_upload_dark_mode() ? wxColour("#FFFFFF") : wxColour(38, 38, 38);
     if (!m_plater)
         return;
 
@@ -627,41 +685,36 @@ void UploadGcodeToCloudDialog::get_current_plate_color()
             
        if(image.IsOk()){
             
-            image = image.Rescale(FromDIP(280), FromDIP(280));
-
-            wxSize   panelSize(FromDIP(690), FromDIP(320));
-            wxSize  thumnailSize(FromDIP(320), FromDIP(282));
+            wxSize  panelSize(FromDIP(690), FromDIP(340));
+            wxSize  thumnailSize(FromDIP(320), FromDIP(320));
+            image = rescale_image_to_fit(image, thumnailSize, FromDIP(24));
+            image = blend_image_with_background(image, previewBgColor);
             wxPanel* panel = new wxPanel(m_panel_image, wxID_ANY, wxDefaultPosition, panelSize);
-            // panel->SetBackgroundColour(cardColor);
-            if (wxGetApp().dark_mode()) {
-                    panel->SetBackgroundColour(cardColor);
-                } else {
-                    panel->SetBackgroundColour(wxColour(150, 150, 150));
-                }
+            panel->SetBackgroundColour(previewBgColor);
             wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
             panel->SetSizer(sizer);
 
             //  右边信息
             wxPanel* infoPanel = new wxPanel(panel);
+            infoPanel->SetBackgroundColour(previewBgColor);
             
             sizer->Add(infoPanel);
             wxBoxSizer* infoPanelSizer = new wxBoxSizer(wxVERTICAL);
             infoPanel->SetSizer(infoPanelSizer);
             infoPanel->SetMinSize(wxSize(FromDIP(240), -1));
-
-            //  打印机
+            // Printer
             wxBoxSizer* printerSizer = new wxBoxSizer(wxHORIZONTAL);
             infoPanelSizer->Add(printerSizer, 0, wxTOP, FromDIP(200));
             infoPanelSizer->Layout();
-            auto printerimg = new wxStaticBitmap(infoPanel, wxID_ANY, create_scaled_bitmap("printer_3mf", this, 18), wxDefaultPosition,
-                                                 wxSize(FromDIP(18), FromDIP(18)), 0);
-            printerSizer->Add(printerimg, 0, wxEXPAND | wxALL, FromDIP(5));
+            m_preview_printer_img = new wxStaticBitmap(infoPanel, wxID_ANY, create_scaled_bitmap(gcode_upload_printer_icon_name(), this, 18), wxDefaultPosition,
+                                                                 wxSize(FromDIP(18), FromDIP(18)), 0);
+            printerSizer->Add(m_preview_printer_img, 0, wxEXPAND | wxALL, FromDIP(5));
             //wxStaticText* printerTip = new wxStaticText(infoPanel, wxID_ANY, _L("Printer"), wxDefaultPosition, wxSize(-1, -1), 0);
             //printerTip->SetForegroundColour(wxColour("#FFFFFF"));
             //printerTip->SetFont(::Label::Body_13);
             //printerSizer->Add(printerTip, 0, wxALL, FromDIP(5));
             m_stext_printer2 = new wxStaticText(infoPanel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(-1, -1), 0);
-            m_stext_printer2->SetForegroundColour(wxColour("#FFFFFF"));
+            m_stext_printer2->SetForegroundColour(previewTextColor);
             m_stext_printer2->SetFont(::Label::Body_13);
             m_stext_printer2_tip = new wxToolTip("");
             m_stext_printer2->SetToolTip(m_stext_printer2_tip);
@@ -675,7 +728,7 @@ void UploadGcodeToCloudDialog::get_current_plate_color()
                                               wxSize(FromDIP(18), FromDIP(18)), 0);
             printTimeSizer->Add(timeimg, 1, wxEXPAND | wxALL, FromDIP(5));
             m_stext_time = new wxStaticText(infoPanel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-            m_stext_time->SetForegroundColour(wxColour("#FFFFFF"));
+            m_stext_time->SetForegroundColour(previewTextColor);
             m_stext_time->SetFont(::Label::Body_13);
             m_stext_time->SetLabelText(m_printTime);
             printTimeSizer->Add(m_stext_time, 0, wxALL, FromDIP(5));
@@ -688,7 +741,7 @@ void UploadGcodeToCloudDialog::get_current_plate_color()
                                                 wxSize(FromDIP(18), FromDIP(18)), 0);
             printWeightSizer->Add(weightimg, 1, wxEXPAND | wxALL, FromDIP(5));
             m_stext_weight = new wxStaticText(infoPanel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-            m_stext_weight->SetForegroundColour(wxColour("#FFFFFF"));
+            m_stext_weight->SetForegroundColour(previewTextColor);
             m_stext_weight->SetFont(::Label::Body_13);
             m_stext_weight->SetLabelText(m_printWeight);
             printWeightSizer->Add(m_stext_weight, 0, wxALL, FromDIP(5));
@@ -696,11 +749,7 @@ void UploadGcodeToCloudDialog::get_current_plate_color()
 
 
             wxPanel* panel2 = new wxPanel(panel, wxID_ANY);
-            if (wxGetApp().dark_mode()) {
-                    panel2->SetBackgroundColour(cardColor);
-                } else {
-                    panel2->SetBackgroundColour(wxColour(150, 150, 150));
-                }
+            panel2->SetBackgroundColour(previewBgColor);
             panel2->SetMinSize(thumnailSize);
             panel2->SetMaxSize(thumnailSize);
             wxBoxSizer* panel2sizer = new wxBoxSizer(wxVERTICAL);
@@ -708,18 +757,16 @@ void UploadGcodeToCloudDialog::get_current_plate_color()
             sizer->AddStretchSpacer();
             sizer->Add(panel2, 0, wxALIGN_CENTER | wxALL, 0);
             
-            auto m_thumbnailPanel = new ThumbnailPanel(panel2);
-            //sizer->Add(m_thumbnailPanel, 0, wxEXPAND | wxALL, 0);
-            if (wxGetApp().dark_mode()) {
-                    m_thumbnailPanel->SetBackgroundColour(cardColor);
-                } else {
-                    m_thumbnailPanel->SetBackgroundColour(wxColour(150, 150, 150));
-                }
-            //m_thumbnailPanel->set_force_draw_background(true);
-            m_thumbnailPanel->set_background_size(thumnailSize);
-            m_thumbnailPanel->SetSize(thumnailSize);
-            m_thumbnailPanel->SetMinSize(thumnailSize);
-            m_thumbnailPanel->SetMaxSize(thumnailSize);
+            const wxSize thumbnailImageSize(image.GetWidth(), image.GetHeight());
+            m_thumbnailPanel = new ThumbnailPanel(panel2);
+            panel2sizer->AddStretchSpacer();
+            panel2sizer->Add(m_thumbnailPanel, 0, wxALIGN_CENTER, 0);
+            panel2sizer->AddStretchSpacer();
+            m_thumbnailPanel->SetBackgroundColour(previewBgColor);
+            m_thumbnailPanel->set_background_size(thumbnailImageSize);
+            m_thumbnailPanel->SetSize(thumbnailImageSize);
+            m_thumbnailPanel->SetMinSize(thumbnailImageSize);
+            m_thumbnailPanel->SetMaxSize(thumbnailImageSize);
             m_thumbnailPanel->set_thumbnail(image);
 
             infoPanelSizer->Layout();
@@ -1534,6 +1581,85 @@ void UploadGcodeToCloudDialog::Enable_Send_Button(bool en)
     // }
 }
 
+void UploadGcodeToCloudDialog::update_printer_icons()
+{
+    const wxBitmap printer_icon = create_scaled_bitmap(gcode_upload_printer_icon_name(), this, 18);
+    if (m_top_printer_img) {
+        m_top_printer_img->SetBitmap(printer_icon);
+        m_top_printer_img->Refresh();
+    }
+    if (m_preview_printer_img) {
+        m_preview_printer_img->SetBitmap(printer_icon);
+        m_preview_printer_img->Refresh();
+    }
+}
+
+void UploadGcodeToCloudDialog::apply_dialog_theme()
+{
+    const bool     is_dark    = gcode_upload_dark_mode();
+    const wxColour top_bg     = is_dark ? wxColour("#4B4B4D") : wxColour("#FFFFFF");
+    const wxColour text_color = is_dark ? wxColour("#FFFFFF") : wxColour(38, 38, 38);
+
+    if (m_line_top)
+        m_line_top->SetBackgroundColour(top_bg);
+    if (m_rename_switch_panel)
+        m_rename_switch_panel->SetBackgroundColour(top_bg);
+    if (m_rename_normal_panel)
+        m_rename_normal_panel->SetBackgroundColour(top_bg);
+    if (m_rename_text) {
+        m_rename_text->SetForegroundColour(text_color);
+        m_rename_text->Refresh();
+    }
+    if (m_stext_printer) {
+        m_stext_printer->SetForegroundColour(text_color);
+        m_stext_printer->Refresh();
+    }
+    if (m_rename_button) {
+        m_rename_button->SetBackgroundColor(top_bg);
+        m_rename_button->SetBackgroundColour(top_bg);
+        m_rename_button->SetIcon(is_dark ? "ams_editable_light" : "ams_editable");
+        m_rename_button->Refresh();
+    }
+}
+
+void UploadGcodeToCloudDialog::apply_action_button_theme()
+{
+    const StateColor text_color(wxColour("#000000"));
+    if (m_button_ensure) {
+        m_button_ensure->SetBackgroundColor(btn_bg_enable);
+        m_button_ensure->SetBorderColor(btn_bd_enable);
+        m_button_ensure->SetTextColor(text_color);
+    }
+    if (m_button_send_print_cmd) {
+        m_button_send_print_cmd->SetBackgroundColor(btn_bg_enable);
+        m_button_send_print_cmd->SetBorderColor(btn_bd_enable);
+        m_button_send_print_cmd->SetTextColor(text_color);
+    }
+}
+
+void UploadGcodeToCloudDialog::on_change_color_mode()
+{
+    wxGetApp().UpdateDlgDarkUI(this);
+    apply_dialog_theme();
+    apply_action_button_theme();
+    update_printer_icons();
+    if (m_sizer_scrollable_region && m_plater) {
+        get_current_plate_color();
+        apply_dialog_theme();
+        update_printer_icons();
+    }
+    Layout();
+    Fit();
+    Refresh();
+
+    CallAfter([this]() {
+        apply_dialog_theme();
+        update_printer_icons();
+        Refresh();
+        Update();
+    });
+}
+
 void UploadGcodeToCloudDialog::on_dpi_changed(const wxRect& suggested_rect)
 {
     if (m_button_refresh)
@@ -1546,6 +1672,8 @@ void UploadGcodeToCloudDialog::on_dpi_changed(const wxRect& suggested_rect)
     m_button_ensure->SetCornerRadius(FromDIP(12));
     if (m_status_bar)
         m_status_bar->msw_rescale();
+    if (m_sizer_scrollable_region && m_plater)
+        get_current_plate_color();
     Fit();
     Refresh();
 }
@@ -1744,6 +1872,8 @@ bool UploadGcodeToCloudDialog::Show(bool show)
         update_user_machine_list();
         get_current_plate_color();
         update_3mf_info();
+        apply_dialog_theme();
+        update_printer_icons();
     }
 
     Layout();
@@ -1759,6 +1889,8 @@ int UploadGcodeToCloudDialog::doModel() {
     update_user_machine_list();
     get_current_plate_color();
     update_3mf_info();
+    apply_dialog_theme();
+    update_printer_icons();
 
     Layout();
     Fit();

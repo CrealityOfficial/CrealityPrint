@@ -187,6 +187,28 @@ bool DropDown::HasDismissLongTime()
         (now - dismissTime).total_milliseconds() >= 20;
 }
 
+void DropDown::Popup(wxWindow *focus)
+{
+#ifdef __WXGTK__
+    if (m_widget) {
+        GtkWindow *transient_parent = nullptr;
+        for (wxWindow *win = GetParent(); win; win = win->GetParent()) {
+            GtkWidget *widget = static_cast<GtkWidget *>(win->GetHandle());
+            if (!widget)
+                continue;
+            GtkWidget *top = gtk_widget_get_toplevel(widget);
+            if (GTK_IS_WINDOW(top)) {
+                transient_parent = GTK_WINDOW(top);
+                break;
+            }
+        }
+        if (transient_parent)
+            gtk_window_set_transient_for(GTK_WINDOW(m_widget), transient_parent);
+    }
+#endif
+    PopupWindow::Popup(focus);
+}
+
 void DropDown::paintEvent(wxPaintEvent& evt)
 {
     // depending on your system you may need to look at double-buffered dcs
@@ -384,8 +406,9 @@ void DropDown::messureSize()
     szContent.y += texts.size() > m_max_visible_items ? rowSize.y / 2 : 0;
     wxWindow::SetSize(szContent);
 #ifdef __WXGTK__
-    // Gtk has a wrapper window for popup widget
-    gtk_window_resize (GTK_WINDOW (m_widget), szContent.x, szContent.y);
+    // Gtk has a wrapper window for popup widget. Avoid GTK assertions on invalid sizes.
+    if (m_widget && szContent.x > 0 && szContent.y > 0)
+        gtk_window_resize(GTK_WINDOW(m_widget), szContent.x, szContent.y);
 #endif
     need_sync = false;
 }
@@ -414,8 +437,11 @@ void DropDown::autoPosition()
             // may exceed
             auto drect = wxDisplay(GetParent()).GetGeometry();
             if (GetPosition().y + size.y + 10 > drect.GetBottom()) {
+                int available_height = drect.GetBottom() - GetPosition().y - 10;
+                if (available_height < rowSize.y * 2)
+                    return;
                 if (use_content_width && texts.size() <= m_max_visible_items) size.x += 6;
-                size.y = drect.GetBottom() - GetPosition().y - 10;
+                size.y = available_height;
                 wxWindow::SetSize(size);
                 if (selection >= 0) {
                     if (offset.y + rowSize.y * (selection + 1) > size.y)
@@ -465,7 +491,8 @@ void DropDown::autoPosition()
     if (size != GetSize()) {
         wxWindow::SetSize(size);
 #ifdef __WXGTK__
-        gtk_window_resize(GTK_WINDOW(m_widget), size.x, size.y);
+        if (m_widget && size.x > 0 && size.y > 0)
+            gtk_window_resize(GTK_WINDOW(m_widget), size.x, size.y);
 #endif
     }
 

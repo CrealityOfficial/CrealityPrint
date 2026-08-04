@@ -17,7 +17,6 @@
 #include "slic3r/Utils/TestHelper.hpp"
 #include "../Config/DispConfig.h"
 #include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/GUI_ObjectList.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/Camera.hpp"
@@ -34,7 +33,7 @@
 #include "slic3r/GUI/MsgDialog.hpp"
 #include <imgui/imgui_internal.h>
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include <boost/log/trivial.hpp>
 #include <boost/log/core.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -46,6 +45,7 @@
 
 #include <array>
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <unordered_map>
 #include <unordered_set>
@@ -869,6 +869,7 @@ class GcodeHelper
     const PrintStatistics& ps;
     bool imperial_units;char buf[512];
     float unit_conver,koef, icon_size, m_scale, window_padding;
+    ImTextureID m_fold_icon_texture;
 
 public:
     enum EItemType
@@ -895,8 +896,9 @@ public:
         const PrintEstimatedStatistics& st,
         const std::vector<unsigned char>&ids,
         const std::vector<float>& di, 
-        const std::vector<float>&de)
-        :m_filament_diameters(di), m_filament_densities(de), m_scale(scal)
+        const std::vector<float>&de,
+        ImTextureID fold_icon_texture)
+        :m_filament_diameters(di), m_filament_densities(de), m_scale(scal), m_fold_icon_texture(fold_icon_texture)
         ,m_print_statistics(st),time_mode(st.modes[md]),m_extruder_ids(ids)
         , m_roles(ro), m_renderer(renderer) , m_extrusions(ex), options_items(em)
         ,ps(wxGetApp().plater()->get_partplate_list().get_current_fff_print().print_statistics()){
@@ -1022,14 +1024,11 @@ public:
 
         float view_scale = wxGetApp().plater()->get_current_canvas3D()->get_scale();
 
-        std::string btn_name = fold ? ">>" : "<<";
-        auto btnsz = ImGui::CalcTextSize(btn_name.c_str());
-
         float title_y = ImGui::GetCursorPosY();
         config.boldText(_u8L("G-code Preview"), 1.2);
         ImGui::SameLine();
 
-        float arrow_size = 22.0f * view_scale * 1.4f;
+        float arrow_size = 24.0f * view_scale;
         ImVec2 btn_size{arrow_size, arrow_size};
         float   btn_y_offset = fold ? 2.0f * view_scale : -2.0f * view_scale;
 
@@ -1041,38 +1040,26 @@ public:
         ImGui::SetCursorPos(btn_pos_local);
 
         ImVec2 btn_pos = ImGui::GetCursorScreenPos();
-        bool pressed = false;
+        bool pressed = ImGui::InvisibleButton("##gcode_fold_btn", btn_size);
+        const bool hovered = ImGui::IsItemHovered();
 
-        ImTextureID collapse_id;
-        ImVec2 collapse_uv0, collapse_uv1;
-        if (wxGetApp().obj_list()->get_collapse_icon(collapse_id, collapse_uv0, collapse_uv1, fold)) {
-            pressed = ImGui::InvisibleButton("##gcode_fold_btn", btn_size);
-            ImDrawList* dl = ImGui::GetWindowDrawList();
-            ImVec2 p0 = btn_pos;
-            ImVec2 p1 = ImVec2(btn_pos.x + btn_size.x, btn_pos.y);
-            ImVec2 p2 = ImVec2(btn_pos.x + btn_size.x, btn_pos.y + btn_size.y);
-            ImVec2 p3 = ImVec2(btn_pos.x, btn_pos.y + btn_size.y);
-            // rotate 90 deg clockwise: uv_bl, uv_tl, uv_tr, uv_br
-            ImVec2 uv_tl = collapse_uv0;
-            ImVec2 uv_tr = ImVec2(collapse_uv1.x, collapse_uv0.y);
-            ImVec2 uv_br = collapse_uv1;
-            ImVec2 uv_bl = ImVec2(collapse_uv0.x, collapse_uv1.y);
-            dl->AddImageQuad(collapse_id, p0, p1, p2, p3, uv_bl, uv_tl, uv_tr, uv_br);
-        } else {
-            bool btn = ImGui::InvisibleButton("##gcode_fold_btn", btn_size);
-            ImDrawList* dl = ImGui::GetWindowDrawList();
-            ImVec2 center = ImVec2(btn_pos.x + btn_size.x * 0.5f, btn_pos.y + btn_size.y * 0.5f);
-            float r = btn_size.y * 0.32f;
-            ImVec2 dir = fold ? ImVec2(1, 0) : ImVec2(-1, 0);
-            ImVec2 perp = ImVec2(-dir.y, dir.x);
-            ImVec2 dir_r  = ImVec2(dir.x * r, dir.y * r);
-            ImVec2 perp_r = ImVec2(perp.x * r * 0.8f, perp.y * r * 0.8f);
-            ImVec2 p1 = ImVec2(center.x + dir_r.x, center.y + dir_r.y);
-            ImVec2 p2 = ImVec2(center.x - dir_r.x + perp_r.x, center.y - dir_r.y + perp_r.y);
-            ImVec2 p3 = ImVec2(center.x - dir_r.x - perp_r.x, center.y - dir_r.y - perp_r.y);
-            ImU32 col = ImGui::GetColorU32(ImGuiCol_Text);
-            dl->AddTriangleFilled(p1, p2, p3, col);
-            pressed = btn;
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const ImU32 arrow_tint = wxGetApp().dark_mode() ? IM_COL32_WHITE : IM_COL32(65, 65, 65, 255);
+        const float icon_draw_size = 22.0f * view_scale;
+        const float icon_inset = (btn_size.x - icon_draw_size) * 0.5f;
+        const ImVec2 icon_min(btn_pos.x + icon_inset, btn_pos.y + icon_inset);
+        const ImVec2 icon_max(icon_min.x + icon_draw_size, icon_min.y + icon_draw_size);
+
+        if (m_fold_icon_texture != nullptr) {
+            const float uv_top = fold ? 1.0f : 0.0f;
+            const float uv_bottom = fold ? 0.0f : 1.0f;
+            dl->AddImage(m_fold_icon_texture, icon_min, icon_max,
+                ImVec2(0.0f, uv_top), ImVec2(1.0f, uv_bottom), arrow_tint);
+        }
+        if (hovered) {
+            const ImVec2 btn_max(btn_pos.x + btn_size.x, btn_pos.y + btn_size.y);
+            dl->AddRect(btn_pos, btn_max, IM_COL32(21, 191, 89, 255),
+                6.0f * view_scale, ImDrawFlags_RoundCornersAll, 1.0f * view_scale);
         }
 
         if (pressed) {
@@ -2306,6 +2293,7 @@ BaseRenderer::BaseRenderer()
 BaseRenderer::~BaseRenderer()
 {
     reset();
+    IMTexture::release_texture(m_fold_icon_svg_texture);
     if (m_moves_slider) {
         delete m_moves_slider;
         m_moves_slider = nullptr;
@@ -3562,9 +3550,19 @@ void BaseRenderer::render_legend(int canvas_width, int canvas_height)
     ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, tmp_color);
     /*ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 3.0f);*/
+    const float fold_icon_draw_size = 22.0f * m_scale;
+    const unsigned fold_icon_raster_size =
+        std::max(1u, static_cast<unsigned>(std::ceil(fold_icon_draw_size)));
+    if (m_fold_icon_svg_texture == nullptr || m_fold_icon_svg_size != fold_icon_raster_size) {
+        IMTexture::release_texture(m_fold_icon_svg_texture);
+        m_fold_icon_svg_size = 0;
+        if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + "/images/fold_dark_default.svg", fold_icon_raster_size,
+                fold_icon_raster_size, m_fold_icon_svg_texture))
+            m_fold_icon_svg_size = fold_icon_raster_size;
+    }
 
     GcodeHelper helper(m_scale, (int) m_time_estimate_mode, options_items, m_roles, *this, m_extrusions, m_print_statistics, m_extruder_ids,
-                       m_filament_diameters, m_filament_densities);
+                       m_filament_diameters, m_filament_densities, m_fold_icon_svg_texture);
 
     auto wcfg = helper.prepare(m_fold, m_contentWidth);
     // wcfg.bgalpha = 5/100.f;

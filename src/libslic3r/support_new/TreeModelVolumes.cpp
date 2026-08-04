@@ -13,6 +13,7 @@
 #include "../BuildVolume.hpp"
 #include "../ClipperUtils.hpp"
 #include "../Flow.hpp"
+#include "../I18N.hpp"
 #include "../Layer.hpp"
 #include "../Point.hpp"
 #include "../Print.hpp"
@@ -20,6 +21,8 @@
 #include "../Utils.hpp"
 #include "../format.hpp"
 
+#include <atomic>
+#include <chrono>
 #include <string_view>
 
 #include <boost/log/trivial.hpp>
@@ -115,6 +118,14 @@ TreeModelVolumes::TreeModelVolumes(const PrintObject& print_object,
         std::vector<Polygons>& outlines        = m_layer_outlines.front().second;
         size_t                 num_raft_layers = m_raft_layers.size();
         size_t                 num_layers      = print_object.layer_count() + num_raft_layers;
+
+        m_support_layer_z.resize(num_layers);
+        for (size_t layer_idx = 0; layer_idx < num_layers; ++layer_idx)
+            m_support_layer_z[layer_idx] = layer_z(print_object.slicing_parameters(), config, layer_idx);
+
+        m_model_surface_mesh = std::make_unique<TriangleMesh>(print_object.model_object()->raw_mesh());
+        m_model_surface_mesh->transform(print_object.trafo_centered());
+
         outlines.assign(num_layers, Polygons{});
         tbb::parallel_for(tbb::blocked_range<size_t>(num_raft_layers, num_layers,
                                                      std::min<size_t>(1,
@@ -167,10 +178,66 @@ TreeModelVolumes::TreeModelVolumes(const PrintObject& print_object,
 #endif
 }
 
+std::optional<TreeModelVolumes::ModelSurfaceInfo> TreeModelVolumes::getModelSurfaceInfo(const Point&      target_position,
+                                                                                        const LayerIndex target_layer) const
+{
+    if (m_model_surface_mesh == nullptr || m_model_surface_aabb_once == nullptr || target_layer < 0 ||
+        size_t(target_layer) >= m_support_layer_z.size())
+        return std::nullopt;
+
+    std::call_once(*m_model_surface_aabb_once, [this]() { m_model_surface_aabb = std::make_unique<AABBMesh>(*m_model_surface_mesh); });
+
+    const Vec2d target_xy_mm = unscaled<double>(target_position);
+    const Vec3d query_point{target_xy_mm.x(), target_xy_mm.y(), m_support_layer_z[size_t(target_layer)]};
+    int         face_id = -1;
+    Vec3d       closest_point;
+    const double distance_sq = m_model_surface_aabb->squared_distance(query_point, face_id, closest_point);
+    if (face_id < 0 || !std::isfinite(distance_sq))
+        return std::nullopt;
+
+    return ModelSurfaceInfo{closest_point, m_model_surface_aabb->normal_by_face_id(face_id), std::sqrt(distance_sq)};
+}
+
 void TreeModelVolumes::precalculate(const PrintObject& print_object, const coord_t max_layer, std::function<void()> throw_on_cancel)
 {
     auto t_start    = std::chrono::high_resolution_clock::now();
     m_precalculated = true;
+    const std::string precalculating_text = _u8L("Precalculating tree support");
+    constexpr int64_t progress_report_interval_ms = 5000;
+    const auto now_ms = []() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    };
+    std::atomic<int64_t> next_progress_report_ms{now_ms()};
+    const auto report_progress = [&print_object, progress_report_interval_ms, &next_progress_report_ms, &now_ms](
+                                     const std::string& phase, size_t completed, size_t total, bool force) {
+        const int64_t current_ms = now_ms();
+        if (force) {
+            next_progress_report_ms.store(current_ms + progress_report_interval_ms, std::memory_order_relaxed);
+        } else {
+            int64_t next_ms = next_progress_report_ms.load(std::memory_order_relaxed);
+            if (current_ms < next_ms ||
+                !next_progress_report_ms.compare_exchange_strong(
+                    next_ms, current_ms + progress_report_interval_ms, std::memory_order_relaxed))
+                return;
+        }
+        const size_t percent_hundredths =
+            total == 0 || completed >= total ? 10000 : completed * 10000 / total;
+        const size_t decimal = percent_hundredths % 100;
+        const std::string percent = std::to_string(percent_hundredths / 100) + "." +
+                                    (decimal < 10 ? "0" : "") + std::to_string(decimal) + "%";
+        const std::string message = !phase.empty() && phase.back() == ')' ?
+                                        phase.substr(0, phase.size() - 1) + ", " + percent + ")" :
+                                        phase + ": " + percent;
+        print_object.print()->set_status(55, message);
+        BOOST_LOG_TRIVIAL(info) << message;
+    };
+    const auto make_status_progress = [&report_progress, &precalculating_text](size_t step) -> StatusProgress {
+        const std::string phase = precalculating_text + " (" + std::to_string(step) + "/5)";
+        return [&report_progress, phase](size_t completed, size_t total, bool force) {
+            report_progress(phase, completed, total, force);
+        };
+    };
 
     // Get the config corresponding to one mesh that is in the current group. Which one has to be irrelevant.
     // Not the prettiest way to do this, but it ensures some calculations that may be a bit more complex
@@ -236,7 +303,7 @@ void TreeModelVolumes::precalculate(const PrintObject& print_object, const coord
     std::vector<RadiusLayerPair> relevant_collision_radiis{radius_until_layer.begin(), radius_until_layer.end()};
 
     // Calculate the relevant collisions
-    calculateCollision(relevant_collision_radiis, throw_on_cancel);
+    calculateCollision(relevant_collision_radiis, throw_on_cancel, make_status_progress(1));
 
     // calculate a separate Collisions with all holes removed. These are relevant for some avoidances that try to avoid holes (called safe)
     std::vector<RadiusLayerPair> relevant_hole_collision_radiis;
@@ -245,21 +312,22 @@ void TreeModelVolumes::precalculate(const PrintObject& print_object, const coord
             relevant_hole_collision_radiis.emplace_back(key);
 
     // Calculate collisions without holes, built from regular collision
-    calculateCollisionHolefree(relevant_hole_collision_radiis, throw_on_cancel);
+    calculateCollisionHolefree(relevant_hole_collision_radiis, throw_on_cancel, make_status_progress(2));
     // Let placables be calculated from calculateAvoidance() for better parallelization.
     if (m_support_rests_on_model)
-        calculatePlaceables(relevant_avoidance_radiis, throw_on_cancel);
+        calculatePlaceables(relevant_avoidance_radiis, throw_on_cancel, make_status_progress(3));
 
     auto t_coll = std::chrono::high_resolution_clock::now();
 
     // Calculate the relevant avoidances in parallel as far as possible
     {
         tbb::task_group task_group;
-        task_group.run([this, relevant_avoidance_radiis, throw_on_cancel] {
-            calculateAvoidance(relevant_avoidance_radiis, true, m_support_rests_on_model, throw_on_cancel);
+        task_group.run([this, relevant_avoidance_radiis, throw_on_cancel, status_progress = make_status_progress(4)] {
+            calculateAvoidance(relevant_avoidance_radiis, true, m_support_rests_on_model, throw_on_cancel, status_progress);
         });
-        task_group.run(
-            [this, relevant_avoidance_radiis, throw_on_cancel] { calculateWallRestrictions(relevant_avoidance_radiis, throw_on_cancel); });
+        task_group.run([this, relevant_avoidance_radiis, throw_on_cancel, status_progress = make_status_progress(5)] {
+            calculateWallRestrictions(relevant_avoidance_radiis, throw_on_cancel, status_progress);
+        });
         task_group.wait();
     }
     auto t_end   = std::chrono::high_resolution_clock::now();
@@ -423,16 +491,25 @@ const Polygons& TreeModelVolumes::getWallRestriction(const coord_t orig_radius, 
                               min_xy_dist); // Retrieve failed and correct result was calculated. Now it has to be retrieved.
 }
 
-void TreeModelVolumes::calculateCollision(const std::vector<RadiusLayerPair>& keys, std::function<void()> throw_on_cancel)
+void TreeModelVolumes::calculateCollision(const std::vector<RadiusLayerPair>& keys, std::function<void()> throw_on_cancel,
+                                          StatusProgress status_progress)
 {
+    std::atomic<size_t> completed{0};
+    if (status_progress)
+        status_progress(0, keys.size(), true);
     tbb::parallel_for(tbb::blocked_range<size_t>(0, keys.size()), [&](const tbb::blocked_range<size_t>& range) {
         for (size_t ikey = range.begin(); ikey != range.end(); ++ikey) {
             const LayerIndex radius        = keys[ikey].first;
             const size_t     max_layer_idx = keys[ikey].second;
             // recursive call to parallel_for.
             calculateCollision(radius, max_layer_idx, throw_on_cancel);
+            const size_t done = completed.fetch_add(1, std::memory_order_relaxed) + 1;
+            if (status_progress)
+                status_progress(done, keys.size(), false);
         }
     });
+    if (status_progress)
+        status_progress(completed.load(std::memory_order_relaxed), keys.size(), true);
 }
 
 void TreeModelVolumes::calculateCollision(const coord_t radius, const LayerIndex max_layer_idx, std::function<void()> throw_on_cancel)
@@ -503,9 +580,8 @@ void TreeModelVolumes::calculateCollision(const coord_t radius, const LayerIndex
                                       Polygons collisions;
 
                                       auto iter = layer_outlines_sharp.find(layer_idx);
-                                      if (iter != layer_outlines_sharp.end()) {
+                                      if (iter != layer_outlines_sharp.end())
                                           append(collisions, iter->second);
-                                      }
 
                                       for (int i = -z_distance_bottom_layers; i <= 0; ++i)
                                           if (int j = layer_idx + i; collision_areas_offsetted.has(j))
@@ -615,12 +691,22 @@ void TreeModelVolumes::calculateCollision(const coord_t radius, const LayerIndex
         m_placeable_areas_cache.insert(std::move(data_placeable), radius);
 }
 
-void TreeModelVolumes::calculateCollisionHolefree(const std::vector<RadiusLayerPair>& keys, std::function<void()> throw_on_cancel)
+void TreeModelVolumes::calculateCollisionHolefree(const std::vector<RadiusLayerPair>& keys, std::function<void()> throw_on_cancel,
+                                                  StatusProgress status_progress)
 {
+    if (keys.empty()) {
+        if (status_progress)
+            status_progress(0, 0, true);
+        return;
+    }
     LayerIndex max_layer = 0;
     for (long long unsigned int i = 0; i < keys.size(); i++)
         max_layer = std::max(max_layer, keys[i].second);
 
+    const size_t total_layers = keys.empty() ? 0 : size_t(max_layer) + 1;
+    std::atomic<size_t> completed{0};
+    if (status_progress)
+        status_progress(0, total_layers, true);
     tbb::parallel_for(tbb::blocked_range<LayerIndex>(0, max_layer + 1, keys.size()), [&](const tbb::blocked_range<LayerIndex>& range) {
         std::vector<std::pair<RadiusLayerPair, Polygons>> data;
         data.reserve(range.size() * keys.size());
@@ -642,15 +728,21 @@ void TreeModelVolumes::calculateCollisionHolefree(const std::vector<RadiusLayerP
                     if (throw_on_cancel)
                         throw_on_cancel();
                 }
+            const size_t done = completed.fetch_add(1, std::memory_order_relaxed) + 1;
+            if (status_progress)
+                status_progress(done, total_layers, false);
         }
         m_collision_cache_holefree.insert(std::move(data));
     });
+    if (status_progress)
+        status_progress(completed.load(std::memory_order_relaxed), total_layers, true);
 }
 
 void TreeModelVolumes::calculateAvoidance(const std::vector<RadiusLayerPair>& keys,
                                           bool                                to_build_plate,
                                           bool                                to_model,
-                                          std::function<void()>               throw_on_cancel)
+                                          std::function<void()>               throw_on_cancel,
+                                          StatusProgress                      status_progress)
 {
     // For every RadiusLayer pair there are 3 avoidances that have to be calculated.
     // Prepare tasks for parallelization.
@@ -690,8 +782,12 @@ void TreeModelVolumes::calculateAvoidance(const std::vector<RadiusLayerPair>& ke
     if (throw_on_cancel)
         throw_on_cancel();
 
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, avoidance_tasks.size(), 1), [this, &avoidance_tasks, &throw_on_cancel](
-                                                                                    const tbb::blocked_range<size_t>& range) {
+    std::atomic<size_t> completed{0};
+    if (status_progress)
+        status_progress(0, avoidance_tasks.size(), true);
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, avoidance_tasks.size(), 1), [this, &avoidance_tasks, &throw_on_cancel,
+                                                                                &status_progress, &completed](
+                                                                                   const tbb::blocked_range<size_t>& range) {
         for (size_t task_idx = range.begin(); task_idx < range.end(); ++task_idx) {
             const AvoidanceTask& task = avoidance_tasks[task_idx];
             assert(!task.holefree() || task.radius < m_increase_until_radius + m_current_min_xy_dist_delta);
@@ -752,16 +848,31 @@ void TreeModelVolumes::calculateAvoidance(const std::vector<RadiusLayerPair>& ke
             }
 #endif
             avoidance_cache(task.type, task.to_model).insert(std::move(data));
+            const size_t done = completed.fetch_add(1, std::memory_order_relaxed) + 1;
+            if (status_progress)
+                status_progress(done, avoidance_tasks.size(), false);
         }
     });
+    if (status_progress)
+        status_progress(completed.load(std::memory_order_relaxed), avoidance_tasks.size(), true);
 }
 
-void TreeModelVolumes::calculatePlaceables(const std::vector<RadiusLayerPair>& keys, std::function<void()> throw_on_cancel)
+void TreeModelVolumes::calculatePlaceables(const std::vector<RadiusLayerPair>& keys, std::function<void()> throw_on_cancel,
+                                           StatusProgress status_progress)
 {
+    std::atomic<size_t> completed{0};
+    if (status_progress)
+        status_progress(0, keys.size(), true);
     tbb::parallel_for(tbb::blocked_range<size_t>(0, keys.size()), [&, keys](const tbb::blocked_range<size_t>& range) {
-        for (size_t key_idx = range.begin(); key_idx < range.end(); ++key_idx)
+        for (size_t key_idx = range.begin(); key_idx < range.end(); ++key_idx) {
             this->calculatePlaceables(keys[key_idx].first, keys[key_idx].second, throw_on_cancel);
+            const size_t done = completed.fetch_add(1, std::memory_order_relaxed) + 1;
+            if (status_progress)
+                status_progress(done, keys.size(), false);
+        }
     });
+    if (status_progress)
+        status_progress(completed.load(std::memory_order_relaxed), keys.size(), true);
 }
 
 void TreeModelVolumes::calculatePlaceables(const coord_t radius, const LayerIndex max_required_layer, std::function<void()> throw_on_cancel)
@@ -806,7 +917,8 @@ void TreeModelVolumes::calculatePlaceables(const coord_t radius, const LayerInde
     m_placeable_areas_cache.insert(std::move(data), start_layer, radius);
 }
 
-void TreeModelVolumes::calculateWallRestrictions(const std::vector<RadiusLayerPair>& keys, std::function<void()> throw_on_cancel)
+void TreeModelVolumes::calculateWallRestrictions(const std::vector<RadiusLayerPair>& keys, std::function<void()> throw_on_cancel,
+                                                 StatusProgress status_progress)
 {
     // Wall restrictions are mainly important when they represent actual walls that are printed, and not "just" the configured z_distance,
     // because technically valid placement is no excuse for moving through a wall. As they exist to prevent accidentially moving though a
@@ -845,6 +957,9 @@ void TreeModelVolumes::calculateWallRestrictions(const std::vector<RadiusLayerPa
      *  layer z-1: ixiiiiiiiiiii
      */
 
+    std::atomic<size_t> completed{0};
+    if (status_progress)
+        status_progress(0, keys.size(), true);
     tbb::parallel_for(tbb::blocked_range<size_t>(0, keys.size()), [&, keys](const tbb::blocked_range<size_t>& range) {
         for (size_t key_idx = range.begin(); key_idx < range.end(); ++key_idx) {
             const coord_t         radius             = keys[key_idx].first;
@@ -875,8 +990,13 @@ void TreeModelVolumes::calculateWallRestrictions(const std::vector<RadiusLayerPa
             m_wall_restrictions_cache.insert(std::move(data), min_layer_bottom, radius);
             if (!data_min.empty())
                 m_wall_restrictions_cache_min.insert(std::move(data_min), min_layer_bottom, radius);
+            const size_t done = completed.fetch_add(1, std::memory_order_relaxed) + 1;
+            if (status_progress)
+                status_progress(done, keys.size(), false);
         }
     });
+    if (status_progress)
+        status_progress(completed.load(std::memory_order_relaxed), keys.size(), true);
 }
 
 coord_t TreeModelVolumes::ceilRadius(const coord_t radius) const

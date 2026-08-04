@@ -9,7 +9,7 @@
 #include "Mouse3DController.hpp"
 #endif // ENABLE_CAMERA_STATISTICS
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 namespace Slic3r {
 namespace GUI {

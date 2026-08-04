@@ -3,7 +3,9 @@
 #include <string>
 #include <functional>
 #include <exception>
+#include <utility>
 #include "nlohmann/json.hpp"
+#include "print_manage/UploadCancellation.hpp"
 
 #include "alibabacloud/oss/OssClient.h"
 using namespace nlohmann;
@@ -47,7 +49,12 @@ class ErrorCodeException : public std::exception {
         const LastError& getLastError() { return m_lastError; }
         int uploadFileToAliyun(const std::string& local_path, const std::string& target_path, const std::string& fileName);
         int downloadFileFromAliyun(const std::string& target_path, const std::string& local_path);
-        void setCancel(bool cancel) {m_cancel=cancel;}
+        void setCancel(bool cancel) {
+            RemotePrint::set_upload_cancelled(m_cancel_token, cancel);
+        }
+        void setCancelToken(RemotePrint::UploadCancelToken cancel_token) {
+            m_cancel_token = cancel_token ? std::move(cancel_token) : RemotePrint::make_upload_cancel_token();
+        }
         vector<AlibabaCloud::OSS::Part> uploadParts(AlibabaCloud::OSS::OssClient& client,
                        const std::string& bucketName,
                        const std::string& objectName,
@@ -56,6 +63,9 @@ class ErrorCodeException : public std::exception {
                        ProgressCallback callback = nullptr);
     private:
         void ProgressCallback(size_t increment, int64_t transfered, int64_t total, void* userData);
+        bool isCancelled() const {
+            return RemotePrint::is_upload_cancelled(m_cancel_token);
+        }
     private:
         std::string m_token = "";
         std::string m_accessKeyId = "";
@@ -66,7 +76,7 @@ class ErrorCodeException : public std::exception {
         std::string m_cdnHost = "";
         std::function<void(int,double)> m_funcProcessCb = nullptr;
         LastError m_lastError;
-        bool m_cancel = false;
+        RemotePrint::UploadCancelToken m_cancel_token = RemotePrint::make_upload_cancel_token();
     };
 
 }

@@ -12,6 +12,7 @@
 
 #include <memory>
 #include <string>
+#include <atomic>
 //#include "ImGuiWrapper.hpp"
 #include "ConfigWizard.hpp"
 #include "OpenGLManager.hpp"
@@ -362,6 +363,9 @@ private:
     std::string m_update_version;
     std::string m_update_base_package_name;
     std::string m_update_file_url;
+    // Hotfix update: same major.minor.patch, only the 4th field differs. Requires the
+    // updater to force-install the full package for a same-3-part version.
+    bool m_update_force_full = false;
 
     //BBS: remove GCodeViewer as seperate APP logic
     explicit GUI_App(bool enable_test = false);
@@ -639,6 +643,8 @@ private:
     wxString        current_language_code() const { return m_wxLocale->GetCanonicalName(); }
 	// Translate the language code to a code, for which Prusa Research maintains translations. Defaults to "en_US".
     wxString 		current_language_code_safe() const;
+    // Translate the active wxWidgets locale to the locale keys registered by the embedded Creality web apps.
+    wxString        current_frontend_language_code() const;
     bool            is_localized() const { return m_wxLocale->GetLocale() != "English"; }
     void            open_upload_3mf(size_t open_on_tab = 0, const std::string& highlight_option = std::string());
     void            open_preferences(size_t open_on_tab = 0, const std::string& highlight_option = std::string());
@@ -665,6 +671,8 @@ private:
     PrinterDialog*       printer_dialog();
     Model&      		 model();
     NotificationManager * notification_manager();
+    // Prepare to close the app for launching an update: mark closing and tear down update UI.
+    void                 prepare_close_for_update();
     Downloader*          downloader();
 
     std::map<std::string, std::string> m_DevelopParamslist;
@@ -704,6 +712,7 @@ private:
 
     AppConfig*      app_config{ nullptr };
     AppConfig*           m_appconfig_new{nullptr};
+    std::atomic<bool>    m_device_add_in_progress{false};
     PresetBundle*   preset_bundle{ nullptr };
     PresetUpdater*  preset_updater{ nullptr };
     MainFrame*      mainframe{ nullptr };

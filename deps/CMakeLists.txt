@@ -203,7 +203,16 @@ endfunction(orcaslicer_add_cmake_project)
 
 
 if (MSVC)
-    if ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
+    set(_msvc_arch "${CMAKE_SYSTEM_PROCESSOR}")
+    if (CMAKE_GENERATOR_PLATFORM)
+        string(TOUPPER "${CMAKE_GENERATOR_PLATFORM}" _msvc_arch)
+    endif ()
+
+    if ("${_msvc_arch}" STREQUAL "ARM64")
+        message(STATUS "\nDetected ARM64 compiler => building ARM64 deps bundle\n")
+        set(DEPS_BITS ARM64)
+        include("deps-windows.cmake")
+    elseif ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
         message(STATUS "\nDetected 64-bit compiler => building 64-bit deps bundle\n")
         set(DEPS_BITS 64)
         include("deps-windows.cmake")
@@ -360,7 +369,12 @@ if((REV_PARSE_RESULT EQUAL 0) AND (REV_PARSE_OUTPUT STREQUAL "true"))
 endif ()
 
 
-include(FFmpeg/ffmpeg.cmake)
+# FFmpeg upstream (OrcaSlicer) removed FFmpeg entirely; on Windows ARM64 we
+# skip it because only an x64 prebuilt is available. The main project treats
+# FFmpeg as optional (guarded by if(FFMPEG_FOUND)).
+if(NOT (WIN32 AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "ARM64"))
+    include(FFmpeg/ffmpeg.cmake)
+endif()
 include(paho-mqtt/paho-mqtt.cmake)
 include(OCCT/OCCT.cmake)
 include(OpenCV/OpenCV.cmake)
@@ -439,11 +453,23 @@ if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "loongarch|loongarch64")
     list(REMOVE_ITEM _dep_list dep_BREAKPAD)
 endif()
 
+# FFmpeg on Windows ARM64 is skipped (no arm64 prebuilt available; the main
+# project treats FFmpeg as optional). Remove it from the deps build list.
+if (WIN32 AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "ARM64")
+    list(REMOVE_ITEM _dep_list dep_FFmpeg)
+endif()
+
 
 if (MSVC)
     # Experimental
     #list(APPEND _dep_list "dep_qhull")
+    if (NOT "${DEPS_BITS}" STREQUAL "ARM64")
 	list(APPEND _dep_cr_tpms "dep_CR_TPMS")
+    elseif (EXISTS "${CMAKE_CURRENT_LIST_DIR}/CR_TPMS/cr_tpms/lib/winARM64/cr_tpms_library.lib")
+	list(APPEND _dep_cr_tpms "dep_CR_TPMS")
+    else()
+        message(WARNING "Skipping CR_TPMS dependency for Windows ARM64: no winARM64 binary is present.")
+    endif()
 else()
     list(APPEND _dep_list "dep_Qhull")
     list(APPEND _dep_cr_tpms "dep_CR_TPMS")

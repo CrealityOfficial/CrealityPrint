@@ -1,11 +1,14 @@
 From 6408ac8875ea65923a0e6052e2f9365bc2445cfb Mon Sep 17 00:00:00 2001
 From: hemiao <hemiao@creality.com>
 Date: Wed, 27 Nov 2024 22:08:16 +0800
-Subject: [PATCH] fix slicer build
+Subject: [PATCH] fix slicer build and interrupt stalled requests
 
 ---
- CMakeLists.txt | 25 ++++++++++---------------
- 1 file changed, 10 insertions(+), 15 deletions(-)
+ CMakeLists.txt                    | 25 +++++-----
+ sdk/src/client/Client.cc          |  8 ++--
+ sdk/src/http/CurlHttpClient.cc    | 78 +++++++++++++++++++++++++++++++
+ sdk/src/http/HttpClient.cc        |  9 ++++
+ 4 files changed, 101 insertions(+), 19 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index ea0d8d6..5940da7 100644
@@ -50,6 +53,172 @@ index ea0d8d6..5940da7 100644
  else()
  	include(FindCURL)
  	include(FindOpenSSL)
+diff --git a/sdk/src/client/Client.cc b/sdk/src/client/Client.cc
+index cbc3290..1e2074f 100644
+--- a/sdk/src/client/Client.cc
++++ b/sdk/src/client/Client.cc
+@@ -100,10 +100,10 @@ Client::ClientOutcome Client::AttemptOnceRequest(const std::string & endpoint, c
+ std::string Client::analyzeServerTime(const std::string &message) const
+ {
+-    XMLDocument doc;
+-    if (doc.Parse(message.c_str(), message.size()) == XML_SUCCESS) {
+-        XMLElement* root = doc.RootElement();
++    tinyxml2::XMLDocument doc;
++    if (doc.Parse(message.c_str(), message.size()) == tinyxml2::XML_SUCCESS) {
++        tinyxml2::XMLElement* root = doc.RootElement();
+         if (root && !std::strncmp("Error", root->Name(), 5)) {
+-            XMLElement *node;
++            tinyxml2::XMLElement *node;
+             node = root->FirstChildElement("ServerTime");
+             return (node ? node->GetText() : "");
+         }
+diff --git a/sdk/src/http/CurlHttpClient.cc b/sdk/src/http/CurlHttpClient.cc
+index 86a29fc..2c46cc0 100644
+--- a/sdk/src/http/CurlHttpClient.cc
++++ b/sdk/src/http/CurlHttpClient.cc
+@@ -23,6 +23,12 @@
+ #include <condition_variable>
+ #include <atomic>
+ #include <algorithm>
++#include <unordered_map>
++#include <unordered_set>
++#ifndef _WIN32
++#include <sys/socket.h>
++#include <unistd.h>
++#endif
+ #include <../utils/Crc64.h>
+ #include <alibabacloud/oss/client/Error.h>
+ #include <alibabacloud/oss/client/RateLimiter.h>
+@@ -32,4 +38,12 @@
+ using namespace AlibabaCloud::OSS;
+-
++
++namespace AlibabaCloud
++{
++namespace OSS
++{
++    void ShutdownActiveSockets(HttpClient *client);
++}
++}
++
+ namespace AlibabaCloud
+ {
+@@ -429,6 +443,79 @@ CurlHttpClient::~CurlHttpClient()
+     }
+ }
+-
++
++namespace
++{
++    std::mutex activeSocketsMutex;
++    std::unordered_map<HttpClient *, std::unordered_set<curl_socket_t>> activeSockets;
++
++    curl_socket_t openSocket(void *clientData, curlsocktype, struct curl_sockaddr *address)
++    {
++        auto client = static_cast<HttpClient *>(clientData);
++        curl_socket_t socket = ::socket(address->family, address->socktype, address->protocol);
++        if (socket == CURL_SOCKET_BAD)
++            return CURL_SOCKET_BAD;
++
++        std::lock_guard<std::mutex> lock(activeSocketsMutex);
++        if (!client->isEnable()) {
++#ifdef _WIN32
++            ::closesocket(socket);
++#else
++            ::close(socket);
++#endif
++            return CURL_SOCKET_BAD;
++        }
++        activeSockets[client].insert(socket);
++        return socket;
++    }
++
++    int closeSocket(void *clientData, curl_socket_t socket)
++    {
++        auto client = static_cast<HttpClient *>(clientData);
++        bool closeSocket = false;
++        {
++            std::lock_guard<std::mutex> lock(activeSocketsMutex);
++            auto found = activeSockets.find(client);
++            if (found != activeSockets.end()) {
++                closeSocket = found->second.erase(socket) != 0;
++                if (found->second.empty())
++                    activeSockets.erase(found);
++            }
++        }
++
++        if (!closeSocket)
++            return 0;
++
++#ifdef _WIN32
++        return ::closesocket(socket) == 0 ? 0 : 1;
++#else
++        return ::close(socket) == 0 ? 0 : 1;
++#endif
++    }
++}
++
++void AlibabaCloud::OSS::ShutdownActiveSockets(HttpClient *client)
++{
++    std::unordered_set<curl_socket_t> sockets;
++    {
++        std::lock_guard<std::mutex> lock(activeSocketsMutex);
++        auto found = activeSockets.find(client);
++        if (found == activeSockets.end())
++            return;
++        sockets = std::move(found->second);
++        activeSockets.erase(found);
++    }
++
++    for (auto socket : sockets) {
++#ifdef _WIN32
++        ::shutdown(socket, SD_BOTH);
++        ::closesocket(socket);
++#else
++        ::shutdown(socket, SHUT_RDWR);
++        ::close(socket);
++#endif
++    }
++}
++
+ std::shared_ptr<HttpResponse> CurlHttpClient::makeRequest(const std::shared_ptr<HttpRequest> &request)
+ {
+     OSS_LOG(LogLevel::LogDebug, TAG, "request(%p) enter makeRequest", request.get());
+@@ -456,4 +543,8 @@ std::shared_ptr<HttpResponse> CurlHttpClient::makeRequest(const std::shared_ptr<
+     OSS_LOG(LogLevel::LogDebug, TAG, "request(%p) acquire curl handle:%p", request.get(), curl);
+-
++    curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, openSocket);
++    curl_easy_setopt(curl, CURLOPT_OPENSOCKETDATA, this);
++    curl_easy_setopt(curl, CURLOPT_CLOSESOCKETFUNCTION, closeSocket);
++    curl_easy_setopt(curl, CURLOPT_CLOSESOCKETDATA, this);
++
+     uint64_t initCRC64 = 0;
+ #ifdef ENABLE_OSS_TEST
+diff --git a/sdk/src/http/HttpClient.cc b/sdk/src/http/HttpClient.cc
+index 5905d89..9548d28 100644
+--- a/sdk/src/http/HttpClient.cc
++++ b/sdk/src/http/HttpClient.cc
+@@ -20,4 +20,12 @@
+ using namespace AlibabaCloud::OSS;
+-
++
++namespace AlibabaCloud
++{
++namespace OSS
++{
++    void ShutdownActiveSockets(HttpClient *client);
++}
++}
++
+ HttpClient::HttpClient():
+     disable_(false)
+@@ -36,5 +44,6 @@ bool HttpClient::isEnable()
+ void HttpClient::disable()
+ {
+     disable_ = true;
++    ShutdownActiveSockets(this);
+     requestSignal_.notify_all();
+ }
 -- 
 2.27.0.windows.1
 

@@ -9,6 +9,7 @@ add_executable(${_TEST_NAME}_tests
 	test_elephant_foot_compensation.cpp
 	test_geometry.cpp
 	test_placeholder_parser.cpp
+	test_preset_config_cache.cpp
 	test_polygon.cpp
 	test_mutable_polygon.cpp
 	test_mutable_priority_queue.cpp

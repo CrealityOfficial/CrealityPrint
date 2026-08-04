@@ -1,6 +1,7 @@
 #include <cassert>
 
 #include "PresetBundle.hpp"
+#include "PresetConfigCache.hpp"
 #include "MixedFilament.hpp"  // 添加这行
 #include "PrintConfig.hpp"
 #include "libslic3r.h"
@@ -4103,8 +4104,11 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_vendor_configs_
     // 3) paste the process/filament/print configs
     PresetCollection         *presets = nullptr;
     size_t                   presets_loaded = 0;
+    const bool cache_enabled = flags.has(LoadConfigBundleAttribute::LoadSystem) && !validation_mode;
+    PresetConfigCache parsed_config_cache(boost::filesystem::path(path) / vendor_name,
+                                          vendor_name, compatibility_rule, cache_enabled);
 
-    auto parse_subfile = [this, path, vendor_name, presets_loaded, current_vendor_profile](
+    auto parse_subfile = [this, path, vendor_name, current_vendor_profile, &parsed_config_cache](
         ConfigSubstitutionContext& substitution_context,
         PresetsConfigSubstitutions& substitutions,
         LoadConfigBundleAttributes& flags,
@@ -4125,10 +4129,19 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_vendor_configs_
         try {
             std::map<std::string, std::string> key_values;
             substitution_context.substitutions.clear();
+            substitution_context.unrecogized_keys.clear();
 
-            //parse the json elements
             DynamicPrintConfig config_src;
-            config_src.load_from_json(subfile, substitution_context, false, key_values, reason);
+            const bool cache_hit = parsed_config_cache.load(subfile_iter.second, config_src, key_values,
+                                                            substitution_context.unrecogized_keys);
+            if (!cache_hit) {
+                config_src.load_from_json(subfile, substitution_context, false, key_values, reason);
+                if (reason.empty() && substitution_context.empty())
+                    parsed_config_cache.store(subfile_iter.second, config_src, key_values,
+                                              substitution_context.unrecogized_keys);
+                else
+                    parsed_config_cache.erase(subfile_iter.second);
+            }
             if (!reason.empty()) {
                 ++m_errors;
                 BOOST_LOG_TRIVIAL(error) << __FUNCTION__<< ": load config file "<<subfile<<" Failed!";
@@ -4355,6 +4368,11 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_vendor_configs_
             throw ConfigurationError((boost::format("Failed loading configuration file %1%\nSuggest cleaning the directory %2% firstly") % subfile_path % path).str());
         }
     }
+
+    parsed_config_cache.save_async();
+    BOOST_LOG_TRIVIAL(warning) << "PresetConfigCache: vendor=" << vendor_name
+                            << ", hits=" << parsed_config_cache.hits()
+                            << ", misses=" << parsed_config_cache.misses();
 
     //BBS: add config related logs
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(", finished, presets_loaded %1%")%presets_loaded;

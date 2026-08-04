@@ -576,7 +576,15 @@ json SlicerBridge::DoStartSlice(const json& params)
             target_plate_idx = resolve_plate_index_like(requested);
         has_target = true;
     } else if (parse_key("plate_index", requested) || parse_key("plateIndex", requested)) {
-        target_plate_idx = resolve_plate_index_like(requested);
+        // plate_index is a genuine 0-based index (matches current_plate_index),
+        // so use it directly. Do NOT route through resolve_plate_index_like,
+        // which treats a positive value as a 1-based plate number and subtracts
+        // one (mapping plate_index=1 to plate 0, i.e. slicing plate 1 instead of
+        // plate 2).
+        if (requested >= 0 && requested < plate_count)
+            target_plate_idx = requested;
+        else
+            target_plate_idx = find_plate_by_public_index(requested);
         has_target = true;
     }
 

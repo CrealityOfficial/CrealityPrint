@@ -741,6 +741,7 @@ foreach(po_file ${BBL_L10N_PO_FILES})
     SET(mo_file "${L10N_DIR}/${po_dir}/CrealityPrint.mo")
     add_custom_command(
         TARGET gettext_po_to_mo PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${L10N_DIR}/${po_dir}"
         COMMAND msgfmt ARGS --check-format -o ${mo_file} ${po_file}
         #COMMAND msgfmt ARGS --check-compatibility -o ${mo_file} ${po_file}
         DEPENDS ${po_file}
@@ -807,10 +808,20 @@ function(copy_vld_dlls  target config)
 endfunction()
 
 function(crealityprint_copy_dlls target config postfix output_dlls)
-    if ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
+    set(_msvc_arch "${CMAKE_SYSTEM_PROCESSOR}")
+    if (MSVC AND CMAKE_GENERATOR_PLATFORM)
+        string(TOUPPER "${CMAKE_GENERATOR_PLATFORM}" _msvc_arch)
+    endif ()
+
+    if ("${_msvc_arch}" STREQUAL "ARM64")
+        set(_bits ARM64)
+        set(_gmp_bits "-arm64")
+    elseif ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
         set(_bits 64)
+        set(_gmp_bits 64)
     elseif ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
         set(_bits 32)
+        set(_gmp_bits 32)
     endif ()
 
     get_property(_is_multi GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
@@ -827,10 +838,32 @@ function(crealityprint_copy_dlls target config postfix output_dlls)
         message ("set out_dir to CMAKE_CURRENT_BINARY_DIR: ${_out_dir}")
     endif ()
     message ("TOP_LEVEL_PROJECT_DIR: ${TOP_LEVEL_PROJECT_DIR}")
-    file(COPY ${TOP_LEVEL_PROJECT_DIR}/deps/GMP/gmp/lib/win${_bits}/libgmp-10.dll
+    file(COPY ${TOP_LEVEL_PROJECT_DIR}/deps/GMP/gmp/lib/win${_gmp_bits}/libgmp-10.dll
             ${TOP_LEVEL_PROJECT_DIR}/deps/MPFR/mpfr/lib/win${_bits}/libmpfr-4.dll
             ${TOP_LEVEL_PROJECT_DIR}/deps/WebView2/lib/win${_bits}/WebView2Loader.dll
         DESTINATION ${_out_dir})
+
+    # The GMP/MPFR DLLs from MSYS2 clangarm64 export under their internal names
+    # (gmp-10.dll, mpfr-6.dll), but the in-tree files are named with a "lib"
+    # prefix (libgmp-10.dll, libmpfr-4.dll). The MSVC import libs embed the
+    # internal names, so at runtime the loader looks for gmp-10.dll / mpfr-6.dll.
+    # Provide copies under the expected names alongside the originals.
+    if ("${_msvc_arch}" STREQUAL "ARM64")
+        configure_file(${TOP_LEVEL_PROJECT_DIR}/deps/GMP/gmp/lib/win${_gmp_bits}/libgmp-10.dll ${_out_dir}/gmp-10.dll COPYONLY)
+        configure_file(${TOP_LEVEL_PROJECT_DIR}/deps/MPFR/mpfr/lib/win${_bits}/libmpfr-4.dll ${_out_dir}/mpfr-6.dll COPYONLY)
+    endif ()
+
+    if ("${_msvc_arch}" STREQUAL "ARM64")
+        set(_mesa_arch win-arm64)
+    elseif ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
+        set(_mesa_arch win-x64)
+    elseif ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
+        set(_mesa_arch win-x86)
+    endif ()
+    if (DEFINED _mesa_arch AND EXISTS "${TOP_LEVEL_PROJECT_DIR}/deps/mesa/${_mesa_arch}/opengl32.dll")
+        # Mesa llvmpipe software renderer used when the host OpenGL driver is unavailable.
+        file(COPY ${TOP_LEVEL_PROJECT_DIR}/deps/mesa/${_mesa_arch}/opengl32.dll DESTINATION ${_out_dir}/mesa)
+    endif ()
 
     file(COPY ${CMAKE_PREFIX_PATH}/bin/occt/TKBO.dll
             ${CMAKE_PREFIX_PATH}/bin/occt/TKBRep.dll
@@ -859,8 +892,12 @@ function(crealityprint_copy_dlls target config postfix output_dlls)
             ${CMAKE_PREFIX_PATH}/bin/occt/TKXDESTEP.dll
             ${CMAKE_PREFIX_PATH}/bin/occt/TKXSBase.dll
             ${CMAKE_PREFIX_PATH}/bin/freetype.dll
-            ${CMAKE_PREFIX_PATH}/bin/cr_tpms_library.dll
          DESTINATION ${_out_dir})
+    set(_cr_tpms_output "")
+    if (EXISTS "${CMAKE_PREFIX_PATH}/bin/cr_tpms_library.dll")
+        file(COPY ${CMAKE_PREFIX_PATH}/bin/cr_tpms_library.dll DESTINATION ${_out_dir})
+        set(_cr_tpms_output ${_out_dir}/cr_tpms_library.dll)
+    endif()
     set(FFMPEG_LIBRARIES_OUTPUT_LIBS "")
     find_package(FFmpeg)
     if(FFMPEG_FOUND)
@@ -929,7 +966,7 @@ function(crealityprint_copy_dlls target config postfix output_dlls)
         )
     endif()
     set(${output_dlls}
-	    ${_out_dir}/cr_tpms_library.dll
+        ${_cr_tpms_output}
         ${_out_dir}/libgmp-10.dll
         ${_out_dir}/libmpfr-4.dll
         ${_out_dir}/WebView2Loader.dll
@@ -962,10 +999,22 @@ function(crealityprint_copy_dlls target config postfix output_dlls)
         ${_out_dir}/TKXSBase.dll
         ${_out_dir}/freetype.dll
         ${FFMPEG_LIBRARIES_OUTPUT_LIBS}
-
-        PARENT_SCOPE
     )
-    
+
+    # On ARM64, also stage the GMP/MPFR DLLs under the runtime loader names
+    # (gmp-10.dll / mpfr-6.dll) used by the import libraries.
+    # Mesa's opengl32.dll is staged to ${_out_dir}/mesa/ by file(COPY) above,
+    # but installed separately (to a mesa/ subdirectory) in src/CMakeLists.txt.
+    if ("${_msvc_arch}" STREQUAL "ARM64")
+        list(APPEND ${output_dlls}
+            ${_out_dir}/gmp-10.dll
+            ${_out_dir}/mpfr-6.dll
+        )
+    endif ()
+
+    # Propagate the assembled DLL list to the caller's scope (for install()).
+    set(${output_dlls} ${${output_dlls}} PARENT_SCOPE)
+
 endfunction()
 
 # libslic3r, CrealityPrint GUI and the CrealityPrint executable.

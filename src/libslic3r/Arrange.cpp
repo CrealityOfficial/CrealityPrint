@@ -668,20 +668,24 @@ protected:
         }
 
         std::set<int> extruder_ids;
+        std::set<int> arrange_group_extruder_ids;
         for (int i = 0; i < m_items.size(); i++) {
             Item& p = m_items[i];
             if (p.is_virt_object) continue;
             extruder_ids.insert(p.extrude_ids.begin(),p.extrude_ids.end());
+            const auto& group_extruders = p.arrange_group_extrude_ids.empty() ? p.extrude_ids : p.arrange_group_extrude_ids;
+            arrange_group_extruder_ids.insert(group_extruders.begin(), group_extruders.end());
         }
 
         // add a large cost if not multi materials on same plate is not allowed
         if (!params.allow_multi_materials_on_same_plate) {
             // it's the first object, which can be multi-color
-            bool first_object                 = extruder_ids.empty();
+            bool first_object = arrange_group_extruder_ids.empty();
             // the two objects (previously packed items and the current item) are considered having same color if either one's colors are a subset of the other
-            std::set<int> item_extruder_ids(item.extrude_ids.begin(), item.extrude_ids.end());
-            bool same_color_with_previous_items = std::includes(item_extruder_ids.begin(), item_extruder_ids.end(), extruder_ids.begin(), extruder_ids.end())
-                || std::includes(extruder_ids.begin(), extruder_ids.end(), item_extruder_ids.begin(), item_extruder_ids.end());
+            const auto& item_group_extruders = item.arrange_group_extrude_ids.empty() ? item.extrude_ids : item.arrange_group_extrude_ids;
+            std::set<int> item_extruder_ids(item_group_extruders.begin(), item_group_extruders.end());
+            bool same_color_with_previous_items = std::includes(item_extruder_ids.begin(), item_extruder_ids.end(), arrange_group_extruder_ids.begin(), arrange_group_extruder_ids.end())
+                || std::includes(arrange_group_extruder_ids.begin(), arrange_group_extruder_ids.end(), item_extruder_ids.begin(), item_extruder_ids.end());
             if (!(first_object || same_color_with_previous_items)) score += LARGE_COST_TO_REJECT * 1.3;
         }
         // for layered printing, we want extruder change as few as possible
@@ -1077,6 +1081,7 @@ static void process_arrangeable(const ArrangePolygon& arrpoly, std::vector<Item>
     item.priority(arrpoly.priority);
     item.itemId(arrpoly.itemid);
     item.extrude_ids = arrpoly.extrude_ids;
+    item.arrange_group_extrude_ids = arrpoly.arrange_group_extrude_ids;
     item.height = arrpoly.height;
     item.name = arrpoly.name;
     //BBS: add virtual object logic

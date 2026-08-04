@@ -10,6 +10,7 @@
 #include "slic3r/GUI/MainFrame.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include <boost/log/trivial.hpp>
+#include <memory>
 
 // To show a message box if GUI initialization ends up with an exception thrown.
 #include <wx/msgdlg.h>
@@ -207,10 +208,16 @@ int GUI_Run(GUI_InitParams &params)
                 boost::log::core::get()->flush();
                 return true;
             };
-            //#ifdef USE_BREAKPAD
-            google_breakpad::ExceptionHandler eh(tempPath.string(), NULL, dmpCallBack, NULL, true, NULL);
-            BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: ExceptionHandler registered, dump_dir=" << tempPath.string();
-            //#endif
+            // A minidump launcher is already handling a previous crash. Registering
+            // Breakpad again would relaunch another handler if the report UI fails,
+            // creating an unbounded restart loop.
+            std::unique_ptr<google_breakpad::ExceptionHandler> crash_handler;
+            if (!has_minidump_arg) {
+                crash_handler.reset(new google_breakpad::ExceptionHandler(tempPath.string(), NULL, dmpCallBack, NULL, true, NULL));
+                BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: ExceptionHandler registered, dump_dir=" << tempPath.string();
+            } else {
+                BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: minidump launcher detected, skip ExceptionHandler registration";
+            }
         #endif
         if (params.argc > 1) {
             // STUDIO-273 wxWidgets report error when opening some files with specific names

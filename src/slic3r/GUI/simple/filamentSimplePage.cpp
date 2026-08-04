@@ -1,4 +1,4 @@
-﻿#include "libslic3r/libslic3r.h"
+#include "libslic3r/libslic3r.h"
 #include "GLCanvas3D.hpp"
 
 #include <igl/unproject.h>
@@ -53,7 +53,7 @@
 #include "slic3r/Utils/RetinaHelper.hpp"
 #endif
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 // Print now includes tbb, and tbb includes Windows. This breaks compilation of wxWidgets if included before wx.
 #include "libslic3r/Print.hpp"

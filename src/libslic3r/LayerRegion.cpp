@@ -593,17 +593,26 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
 
 void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Polygons *lower_layer_covered)
 {
-    coord_t max_margin = 0;
+    const double infill_density = this->region().config().sparse_infill_density.value;
+    coord_t      max_margin     = 0;
+    coord_t      default_margin = 0;
     if (int wall_loops = this->region().config().wall_loops; wall_loops > 0) {
         const Flow  external_perimeter_flow = this->flow(frExternalPerimeter);
         const Flow  perimeter_flow          = this->flow(frPerimeter);
         const float shell_width             = 0.5f * external_perimeter_flow.scaled_width() + external_perimeter_flow.scaled_spacing() +
                                   perimeter_flow.scaled_spacing() * (wall_loops - 1);
-        max_margin = coord_t(shell_width * sqrt(2.));
+        max_margin     = coord_t(shell_width * sqrt(2.));
+        default_margin = max_margin;
+        if (fabs(infill_density - 100.) < EPSILON) {
+            // A fully solid region has no sparse infill to anchor the external surfaces into. Keep the
+            // smaller legacy default here to avoid reclassifying large internal-solid areas as top surfaces.
+            default_margin = (external_perimeter_flow.scaled_width() + perimeter_flow.scaled_spacing()) / 2 +
+                             perimeter_flow.scaled_spacing() * (wall_loops - 1);
+        }
     } else {
-        max_margin = SCALED_EPSILON;
+        max_margin = default_margin = SCALED_EPSILON;
     }
-    const bool      has_infill = this->region().config().sparse_infill_density.value > 0.;
+    const bool has_infill = infill_density > 0.;
     //BBS
     auto nozzle_diameter = this->region().nozzle_dmr_avg(this->layer()->object()->print()->config());
     coord_t margin = float(scale_(this->region().config().external_infill_margin.get_abs_value(unscaled(max_margin))));
@@ -615,7 +624,7 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
     }
     coord_t infill_margin = margin;
     if (margin < SCALED_EPSILON) {
-        margin = max_margin;
+        margin = default_margin;
     }
 
     // BBS

@@ -47,7 +47,11 @@ protected:
  * For this purpose control drawing methods and
  * control size calculation methods (virtual) are overridden.
  **/
+#if wxCHECK_VERSION(3, 3, 0)
+bool OnAddBitmap(const wxBitmapBundle& bitmap) override;
+#else
 bool OnAddBitmap(const wxBitmap& bitmap) override;
+#endif
 void OnDrawItem(wxDC& dc, const wxRect& rect, int item, int flags) const override;
 #endif
 

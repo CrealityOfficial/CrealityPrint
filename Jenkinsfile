@@ -1,5 +1,5 @@
 pipeline {
-    agent none
+    agent { label 'ubuntu' }
 
     options {
         disableConcurrentBuilds()
@@ -9,18 +9,20 @@ pipeline {
 
     parameters {
         booleanParam(name: 'BUILD_WIN', defaultValue: true, description: 'Build Windows package')
+        booleanParam(name: 'BUILD_LINUX', defaultValue: false, description: 'Build Linux x86_64 AppImage')
         booleanParam(name: 'BUILD_MAC_X86', defaultValue: false, description: 'Build macOS x86_64 package')
         booleanParam(name: 'BUILD_MAC_ARM', defaultValue: false, description: 'Build macOS arm64 package')
         booleanParam(name: 'CLEAN_WORKSPACE', defaultValue: false, description: 'Delete Jenkins workspace before checkout')
-        text(name: 'BRANCH', defaultValue: 'origin/release-260330', description: 'C3DSlicer branch to build')
-        text(name: 'TAG_NAME', defaultValue: '7.1.0', description: 'Base version tag')
+        booleanParam(name: 'REBUILD_DEPS', defaultValue: false, description: 'Rebuild dependency libraries instead of reusing the current deps directory')
+        text(name: 'BRANCH', defaultValue: 'release-260731', description: 'C3DSlicer branch to build')
+        text(name: 'TAG_NAME', defaultValue: '7.2.1', description: 'Base version tag')
         choice(name: 'RTYPE', choices: ['Beta', 'Alpha', 'Beta1', 'Beta2', 'Dev', 'Release'], description: 'Release type')
         string(name: 'APP_NAME', defaultValue: 'CrealityPrint', description: 'App name')
         booleanParam(name: 'WEB_SYNC', defaultValue: true, description: 'Sync Community resources by WEB_BRANCH')
         text(name: 'NOTIFY', defaultValue: '1', description: '1 to enable Feishu notification')
         text(name: 'SLICER_HEADER', defaultValue: '1', description: 'libslicer3r cache flag used by mac packaging')
         text(name: 'SYNCPRESET', defaultValue: '1', description: '1 to generate presets')
-        string(name: 'WEB_BRANCH', defaultValue: 'release-260330', description: 'CrealityCommunity branch')
+        string(name: 'WEB_BRANCH', defaultValue: 'release-260731', description: 'CrealityCommunity branch')
         text(name: 'PACKAGE_TYPE', defaultValue: '0', description: 'Windows only. 0: nsis, 1: zip')
     }
 
@@ -38,6 +40,7 @@ pipeline {
     stages {
         stage('Windows') {
             when {
+                beforeAgent true
                 expression { params.BUILD_WIN }
             }
             agent { label 'PackageServer_Win' }
@@ -96,6 +99,7 @@ if exist %web_file% (
                         script {
                             def buildScript = '''
 @echo off
+setlocal EnableDelayedExpansion
 set defult_para_type=Beta
 IF "%RTYPE%"=="Alpha" (
     set defult_para_type=Alpha
@@ -105,7 +109,8 @@ IF "%RTYPE%"=="Alpha" (
 )
 
 IF "%SYNCPRESET%"=="1" (
-    python .\\scripts\\generate_creality_presets.py -b %defult_para_type% -n "3.0.0" || exit /b -1
+    for /f %%i in ('git rev-list HEAD --count') do set PRESET_TAGNUMB=%%i
+    python .\\scripts\\generate_creality_presets.py -b %defult_para_type% -n "3.0.0" -v "%TAG_NAME%.!PRESET_TAGNUMB!" || exit /b -1
 )
 
 echo %PATH%
@@ -187,21 +192,15 @@ IF EXIST ".\\scripts\\breakpad.py" (
             post {
                 success {
                     script {
-                        def tagNumb = ''
-                        if (fileExists('maxcmmid') && fileExists('tagcmmid')) {
-                            tagNumb = bat(script: '''
-@echo off
-set /p MAXCMMID=<maxcmmid
-set /p TAGCMMID=<tagcmmid
-set /a TAGNUMB=%MAXCMMID%-%TAGCMMID%
-echo %TAGNUMB%
-''', returnStdout: true).trim()
+                        def tagNumb = bat(
+                            script: '@git rev-list HEAD --count',
+                            returnStdout: true
+                        ).trim()
+                        if (!(tagNumb ==~ /\d+/)) {
+                            error("Failed to resolve Git commit count: ${tagNumb}")
                         }
 
-                        def versionName = params.TAG_NAME
-                        if (tagNumb) {
-                            versionName = "${params.TAG_NAME}.${tagNumb}"
-                        }
+                        def versionName = "${params.TAG_NAME}.${tagNumb}"
                         writeFile file: 'version.txt', text: "${versionName}-${params.RTYPE}\r\n"
 
                         if (params.NOTIFY == '1') {
@@ -247,26 +246,156 @@ echo %TAGNUMB%
                             }
                         }
 
-                        withCredentials([string(credentialsId: env.OPENCLAW_WEBHOOK_CRED, variable: 'OPENCLAW_WEBHOOK')]) {
-                            httpRequest(
-                                httpMode: 'POST',
-                                contentType: 'APPLICATION_JSON',
-                                ignoreSslErrors: true,
-                                quiet: false,
-                                requestBody: """{
-"job": {
-"name": "${env.JOB_NAME}",
-"url": "${env.BUILD_URL}"
-},
-"build": {
-"number": ${env.BUILD_NUMBER},
-"status": "${currentBuild.currentResult}",
-"url": "${env.BUILD_URL}"
-}
-}""",
-                                url: "${OPENCLAW_WEBHOOK}",
-                                validResponseCodes: '100:399'
-                            )
+                        
+                    }
+                }
+            }
+        }
+
+        stage('Linux') {
+            when {
+                beforeAgent true
+                expression { params.BUILD_LINUX }
+            }
+            agent { label 'ubuntu24.04' }
+            stages {
+                stage('Checkout') {
+                    steps {
+                        script {
+                            if (params.CLEAN_WORKSPACE) {
+                                deleteDir()
+                            }
+                        }
+                        checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: "${params.BRANCH}"]],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [],
+                            userRemoteConfigs: [[credentialsId: 'jenkins', url: "${env.CORE_REPO}"]]
+                        ])
+                        checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: "${params.WEB_BRANCH}"]],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'Community']],
+                            userRemoteConfigs: [[credentialsId: 'jenkins', url: "${env.COMMUNITY_REPO}"]]
+                        ])
+                    }
+                }
+
+                stage('Sync Web Resources') {
+                    steps {
+                        sh '''
+cd "$WORKSPACE"
+rm -rf resources
+git reset --hard
+if [ "$WEB_SYNC" = "true" ] && [ -f ./scripts/sync_web.sh ]; then
+    /bin/bash ./scripts/sync_web.sh "$WEB_BRANCH" || exit 2
+fi
+'''
+                    }
+                }
+
+                stage('Build Package') {
+                    steps {
+                        sh '''
+cd "$WORKSPACE"
+defult_para_type="Beta"
+if [ "$RTYPE" = "Alpha" ]; then
+    defult_para_type="Alpha"
+fi
+TAGNUMB=$(git rev-list HEAD --count) || exit 2
+VERSION="${TAG_NAME}.${TAGNUMB}"
+if [ "$SYNCPRESET" = "1" ]; then
+    PRESET_PYTHONPATH="$WORKSPACE/.jenkins-python"
+    if ! PYTHONPATH="$PRESET_PYTHONPATH" python3 -c 'import appdirs, requests; from PIL import Image'; then
+        python3 -m pip install --disable-pip-version-check --upgrade \
+            --target "$PRESET_PYTHONPATH" appdirs requests Pillow || exit 2
+    fi
+    PYTHONPATH="$PRESET_PYTHONPATH" python3 ./scripts/generate_creality_presets.py \
+        -b "$defult_para_type" -n "3.0.0" -v "$VERSION" || exit 2
+fi
+
+PACKAGE_NAME="${APP_NAME}-V${VERSION}-x86_64-${RTYPE}.AppImage"
+UPLOAD_NAME="${APP_NAME}_Ubuntu2404-V${VERSION}-x86_64-${RTYPE}.AppImage"
+
+rm -f build/*.AppImage
+/bin/bash ./scripts/BuildLinux_Package.sh -sir "$VERSION" "$APP_NAME" "$RTYPE" "$SLICER_HEADER" "$REBUILD_DEPS" || exit 2
+test -f "build/$PACKAGE_NAME" || exit 2
+
+echo "LINUX_PACKAGE_NAME=$PACKAGE_NAME" > var.prop
+echo "LINUX_UPLOAD_NAME=$UPLOAD_NAME" >> var.prop
+echo "PACKAGE_NUMB=$TAGNUMB" >> var.prop
+'''
+                        script {
+                            if (fileExists('var.prop')) {
+                                readFile('var.prop').split(/\r?\n/).findAll { it?.trim() }.each { line ->
+                                    def idx = line.indexOf('=')
+                                    if (idx > 0) {
+                                        env."${line.substring(0, idx)}" = line.substring(idx + 1)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage('Upload And Archive') {
+                    steps {
+                        sh '''
+cd "$WORKSPACE"
+scp -P "$BUILD_SHARE_PORT" "build/$LINUX_PACKAGE_NAME" "cxsw@$BUILD_SHARE_HOST:$BUILD_SHARE_ROOT/$JOB_NAME/$LINUX_UPLOAD_NAME"
+git log --oneline --since="yesterday" > changes.txt
+'''
+                        archiveArtifacts artifacts: 'build/*.AppImage', onlyIfSuccessful: true
+                    }
+                }
+            }
+            post {
+                success {
+                    script {
+                        writeFile file: 'version.txt', text: "${params.TAG_NAME}.${env.PACKAGE_NUMB}-${params.RTYPE}\n"
+                        if (params.NOTIFY == '1') {
+                            try {
+                                withCredentials([string(credentialsId: env.FEISHU_WEBHOOK_CRED, variable: 'FEISHU_WEBHOOK')]) {
+                                    def packageUrl = "http://${env.BUILD_SHARE_HOST}/shared/build/${env.JOB_NAME}/${env.LINUX_UPLOAD_NAME}"
+                                    def changesUrl = "${env.BUILD_URL}changes"
+                                    def cardPayload = [
+                                        msg_type: 'interactive',
+                                        card    : [
+                                            config : [wide_screen_mode: true],
+                                            header : [
+                                                template: 'green',
+                                                title   : [tag: 'plain_text', content: "Linux package succeeded: ${params.APP_NAME} ${params.TAG_NAME}.${env.PACKAGE_NUMB}-${params.RTYPE}"]
+                                            ],
+                                            elements: [
+                                                [tag: 'div', text: [tag: 'lark_md', content: """**Job**: ${env.JOB_NAME}
+**Build**: #${env.BUILD_NUMBER}
+**Branch**: ${params.BRANCH}
+**Version**: ${params.TAG_NAME}.${env.PACKAGE_NUMB}-${params.RTYPE}
+**Platform**: Linux x86_64 (Ubuntu 24.04)
+**Package**: ${env.LINUX_UPLOAD_NAME}"""]],
+                                                [tag: 'action', actions: [
+                                                    [tag: 'button', text: [tag: 'plain_text', content: 'Build'], type: 'primary', url: env.BUILD_URL],
+                                                    [tag: 'button', text: [tag: 'plain_text', content: 'Changes'], type: 'default', url: changesUrl],
+                                                    [tag: 'button', text: [tag: 'plain_text', content: 'Package'], type: 'default', url: packageUrl]
+                                                ]]
+                                            ]
+                                        ]
+                                    ]
+                                    httpRequest(
+                                        httpMode: 'POST',
+                                        contentType: 'APPLICATION_JSON',
+                                        ignoreSslErrors: true,
+                                        quiet: false,
+                                        requestBody: groovy.json.JsonOutput.toJson(cardPayload),
+                                        url: "${FEISHU_WEBHOOK}",
+                                        validResponseCodes: '100:399'
+                                    )
+                                }
+                            } catch (err) {
+                                echo "Skip Feishu notification: ${err.message}"
+                            }
                         }
                     }
                 }
@@ -280,6 +409,7 @@ echo %TAGNUMB%
             parallel {
                 stage('macOS x86_64') {
                     when {
+                        beforeAgent true
                         expression { params.BUILD_MAC_X86 }
                     }
                     agent { label 'mac_virt' }
@@ -287,7 +417,7 @@ echo %TAGNUMB%
                         QT5_DIR = '/Users/cxsw_imac2/Qt/5.15.2/clang_64/'
                         MAC_X86_KEYCHAIN_PATH = '/Users/creality/Library/Keychains/login.keychain-db'
                         MAC_X86_PYTHON_ACTIVATE = '/Users/creality/python3/bin/activate'
-                        MAC_X86_DEPS_ENV_DIR = '/Users/creality/Orca_work/dep_x86_64'
+                        MAC_X86_DEPS_ENV_DIR = '/Users/creality/Orca_work/dep_x86_64_wx_3_3'
                         MAC_X86_NODE_PATH = '/Users/creality/.nvm/versions/node/v22.16.0/bin'
                         MAC_X86_CMAKE_BIN = '/Applications/CMake.app/Contents/bin'
                     }
@@ -322,10 +452,7 @@ echo %TAGNUMB%
                                     def macScript = '''
 echo ${TAG_NAME}
 security unlock-keychain "-p" "${MAC_KEYCHAIN_PASSWORD}" "${MAC_KEYCHAIN_PATH}"
-CMMID=`git show-ref ${TAG_NAME} | awk -F ' ' '{print $1}'`
-MAXCMMID=`git rev-list HEAD | wc -l`
-TAGCMMID=`git rev-list ${CMMID} | wc -l`
-TAGNUMB=$((MAXCMMID-TAGCMMID))
+TAGNUMB=`git rev-list HEAD --count`
 export PATH="${NODE_PATH}:${CMAKE_BIN}:/usr/local/bin/:$PATH"
 source "${PYTHON_ACTIVATE}"
 cd "$WORKSPACE"
@@ -342,10 +469,11 @@ if [ -f "$web_file" ] && [ "$WEB_SYNC" = "true" ]; then
     "$web_file" "$WEB_BRANCH" || exit -2
 fi
 if [ "$SYNCPRESET" = "1" ]; then
-    python3 ./scripts/generate_creality_presets.py -b "$defult_para_type" -n "3.0.0" || exit -2
+    python3 ./scripts/generate_creality_presets.py -b "$defult_para_type" -n "3.0.0" -v "${TAG_NAME}.${TAGNUMB}" || exit -2
 fi
 export SLICER_BUILD_TARGET=all
 export SLICER_CMAKE_GENERATOR=Ninja
+export DEPS_CMAKE_GENERATOR=Ninja
 export ARCH="x86_64"
 export DEPS_ENV_DIR="${MAC_DEPS_ENV_DIR}"
 rm -f build_x86_64/*.tar.gz
@@ -364,7 +492,8 @@ echo PACKAGE_NUMB=${TAGNUMB} >> var.prop
                                             "PYTHON_ACTIVATE=${env.MAC_X86_PYTHON_ACTIVATE}",
                                             "MAC_DEPS_ENV_DIR=${env.MAC_X86_DEPS_ENV_DIR}",
                                             "NODE_PATH=${env.MAC_X86_NODE_PATH}",
-                                            "CMAKE_BIN=${env.MAC_X86_CMAKE_BIN}"
+                                            "CMAKE_BIN=${env.MAC_X86_CMAKE_BIN}",
+                                            "REBUILD_DEPS=${params.REBUILD_DEPS ? 'true' : 'false'}"
                                         ]) {
                                             sh macScript
                                         }
@@ -448,12 +577,13 @@ git log --oneline --since="yesterday" > changes.txt
 
                 stage('macOS arm64') {
                     when {
+                        beforeAgent true
                         expression { params.BUILD_MAC_ARM }
                     }
                     agent { label 'mac_m2' }
                     environment {
                         MAC_ARM_KEYCHAIN_PATH = '/Users/qprj/Library/Keychains/login.keychain-db'
-                        MAC_ARM_DEPS_ENV_DIR = '/Users/qprj/work/DEPS_LIB_DIR'
+                        MAC_ARM_DEPS_ENV_DIR = '/Users/qprj/work/DEPS_LIB_DIR_WX_3_3'
                         MAC_ARM_EXTRA_PATH = '/opt/homebrew/bin:/opt/homebrew/opt/node@20/bin:/Users/qprj/breakpad/breakpad/src/tools/mac/dump_syms/build/Release/dump_syms:/Users/qprj/breakpad/breakpad/src/processor/minidump_stackwalk'
                     }
                     stages {
@@ -487,10 +617,7 @@ git log --oneline --since="yesterday" > changes.txt
                                     def macArmScript = '''
 echo ${TAG_NAME}
 security unlock-keychain "-p" "${MAC_KEYCHAIN_PASSWORD}" "${MAC_KEYCHAIN_PATH}"
-CMMID=`git show-ref ${TAG_NAME} | awk -F ' ' '{print $1}'`
-MAXCMMID=`git rev-list HEAD | wc -l`
-TAGCMMID=`git rev-list ${CMMID} | wc -l`
-TAGNUMB=$((MAXCMMID-TAGCMMID))
+TAGNUMB=`git rev-list HEAD --count`
 export PATH="${MAC_EXTRA_PATH}:$PATH"
 export DEPS_ENV_DIR="${MAC_DEPS_ENV_DIR}"
 cd "$WORKSPACE"
@@ -506,8 +633,11 @@ if [ -f "$web_file" ] && [ "$WEB_SYNC" = "true" ]; then
     /bin/sh "$web_file" "$WEB_BRANCH" || exit -2
 fi
 if [ "$SYNCPRESET" = "1" ]; then
-    /usr/bin/python3 ./scripts/generate_creality_presets.py -b "$defult_para_type" -n "3.0.0" || exit -2
+    /usr/bin/python3 ./scripts/generate_creality_presets.py -b "$defult_para_type" -n "3.0.0" -v "${TAG_NAME}.${TAGNUMB}" || exit -2
 fi
+export SLICER_BUILD_TARGET=all
+export SLICER_CMAKE_GENERATOR=Ninja
+export DEPS_CMAKE_GENERATOR=Ninja
 rm -f build_arm64/*.tar.gz
 rm -f build_arm64/*.dmg
 /bin/bash ./scripts/build_package_macos.sh ${TAG_NAME}.${TAGNUMB} ${APP_NAME} ${RTYPE} ${SLICER_HEADER} || exit -2
@@ -522,7 +652,8 @@ echo PACKAGE_NUMB=${TAGNUMB} >> var.prop
                                         withEnv([
                                             "MAC_KEYCHAIN_PATH=${env.MAC_ARM_KEYCHAIN_PATH}",
                                             "MAC_DEPS_ENV_DIR=${env.MAC_ARM_DEPS_ENV_DIR}",
-                                            "MAC_EXTRA_PATH=${env.MAC_ARM_EXTRA_PATH}"
+                                            "MAC_EXTRA_PATH=${env.MAC_ARM_EXTRA_PATH}",
+                                            "REBUILD_DEPS=${params.REBUILD_DEPS ? 'true' : 'false'}"
                                         ]) {
                                             sh macArmScript
                                         }
@@ -614,6 +745,9 @@ git log --oneline --since="yesterday" > changes.txt
                 if (params.BUILD_WIN) {
                     enabledPlatforms << 'Windows'
                 }
+                if (params.BUILD_LINUX) {
+                    enabledPlatforms << 'Linux x86_64 (Ubuntu 24.04)'
+                }
                 if (params.BUILD_MAC_X86) {
                     enabledPlatforms << 'macOS x86_64'
                 }
@@ -663,31 +797,6 @@ git log --oneline --since="yesterday" > changes.txt
                     }
                 }
 
-                try {
-                    withCredentials([string(credentialsId: env.OPENCLAW_WEBHOOK_CRED, variable: 'OPENCLAW_WEBHOOK')]) {
-                        httpRequest(
-                            httpMode: 'POST',
-                            contentType: 'APPLICATION_JSON',
-                            ignoreSslErrors: true,
-                            quiet: false,
-                            requestBody: """{
-"job": {
-"name": "${env.JOB_NAME}",
-"url": "${env.BUILD_URL}"
-},
-"build": {
-"number": ${env.BUILD_NUMBER},
-"status": "${finalStatus}",
-"url": "${env.BUILD_URL}"
-}
-}""",
-                            url: "${OPENCLAW_WEBHOOK}",
-                            validResponseCodes: '100:399'
-                        )
-                    }
-                } catch (err) {
-                    echo "Skip final openclaw notification: ${err.message}"
-                }
             }
         }
     }

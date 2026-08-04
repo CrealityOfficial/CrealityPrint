@@ -20,7 +20,7 @@
 #include <wx/debug.h>
 #include <wx/image.h>
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -535,23 +535,23 @@ void ImGuiWrapper::new_frame()
     }
 
     if (m_font_texture == 0) {
-        // 修复: 上次字体构建失败后做退避，避免在低内存场景每帧反复申请 ~100MB 造成 retry storm。
-        // 退避窗口结束后允许再次尝试，使内存恢复后界面能自愈。
+        // 修复: 上次字体构建失败后做退避，避免在低内存场景每帧反复申请 ~100MB 造成 retry storm�?
+        // 退避窗口结束后允许再次尝试，使内存恢复后界面能自愈�?
         if (m_font_init_failed) {
             const auto now = std::chrono::steady_clock::now();
             if (now - m_font_init_last_fail_time < m_font_init_retry_delay) {
-                // 退避期内：跳过本次重建。ImGui 仍可运行（文字可能缺失），但不会反复触发大块分配。
+                // 退避期内：跳过本次重建。ImGui 仍可运行（文字可能缺失），但不会反复触发大块分配�?
                 ImGui::NewFrame();
                 m_new_frame_open = true;
                 return;
             }
         }
 
-        init_font(true);
+        init_font(false);
         //init_font_all(true);
 
         if (m_font_texture == 0) {
-            // 本次构建失败（init_font 内部已 destroy_font 并记录日志）。进入退避状态。
+            // 本次构建失败（init_font 内部�?destroy_font 并记录日志）。进入退避状态�?
             if (!m_font_init_failed) {
                 BOOST_LOG_TRIVIAL(error) << "ImGuiWrapper::new_frame: font texture build failed, entering backoff to avoid retry storm.";
                 boost::log::core::get()->flush();
@@ -559,7 +559,7 @@ void ImGuiWrapper::new_frame()
             m_font_init_failed = true;
             m_font_init_last_fail_time = std::chrono::steady_clock::now();
         } else if (m_font_init_failed) {
-            // 构建恢复成功，清除失败状态。
+            // 构建恢复成功，清除失败状态�?
             BOOST_LOG_TRIVIAL(warning) << "ImGuiWrapper::new_frame: font texture build recovered.";
             boost::log::core::get()->flush();
             m_font_init_failed = false;
@@ -2872,32 +2872,32 @@ bool HasUnsupportedCharacters(const std::string& str, ImFont* font) {
     const char* p = str.c_str();
     while (*p) {
         unsigned int codepoint;
-        // 手动处理 UTF - 8 字符�?Unicode 码点的转�?
+        // 手动处理 UTF - 8 字符�?Unicode 码点的转�?
         if (*p < 0x80) {
-            // 单字节字�?
+            // 单字节字�?
             codepoint = *p;
             p += 1;
         } else if ((*p & 0xE0) == 0xC0) {
-            // 双字节字�?
+            // 双字节字�?
             if (p[1] == '\0') break;
             codepoint = ((p[0] & 0x1F) << 6) | (p[1] & 0x3F);
             p += 2;
         } else if ((*p & 0xF0) == 0xE0) {
-            // 三字节字�?
+            // 三字节字�?
             if (p[1] == '\0' || p[2] == '\0') break;
             codepoint = ((p[0] & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F);
             p += 3;
         } else if ((*p & 0xF8) == 0xF0) {
-            // 四字节字�?
+            // 四字节字�?
             if (p[1] == '\0' || p[2] == '\0' || p[3] == '\0') break;
             codepoint = ((p[0] & 0x07) << 18) | ((p[1] & 0x3F) << 12) | ((p[2] & 0x3F) << 6) | (p[3] & 0x3F);
             p += 4;
         } else {
-            // 无效�?UTF - 8 序列
+            // 无效�?UTF - 8 序列
             break;
         }
 
-        // 使用 FindGlyph 检查字符是否在字体�?
+        // 使用 FindGlyph 检查字符是否在字体�?
         const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(codepoint));
         if (!glyph) {
             return true;
@@ -2945,6 +2945,9 @@ void ImGuiWrapper::init_font(bool compress)
     if(m_glyph_ranges == ImGui::GetIO().Fonts->GetGlyphRangesKorean()) {
         font_name_regular = "NanumGothic-Regular.ttf";
         font_name_bold = "NanumGothic-Bold.ttf";
+    } else if (m_glyph_ranges == ImGui::GetIO().Fonts->GetGlyphRangesThai()) {
+        font_name_regular = "NotoSansThai-Regular.ttf";
+        font_name_bold = "NotoSansThai-Bold.ttf";
     }
     default_font = io.Fonts->AddFontFromFileTTF((Slic3r::resources_dir() + "/fonts/" + font_name_regular).c_str(), m_font_size, &cfg, ranges.Data);
     if (default_font == nullptr) {
@@ -2972,16 +2975,25 @@ void ImGuiWrapper::init_font(bool compress)
 
     ImFontConfig cfg_24 = ImFontConfig();
     cfg_24.OversampleH = cfg_24.OversampleV = 1;
-    bold_font_24 = io.Fonts->AddFontFromFileTTF((Slic3r::resources_dir() + "/fonts/" + font_name_bold).c_str(), 24.0f, &cfg_24, ranges.Data);
+    // The 24 px font is only used for download progress percentages.
+    static const ImWchar bold_24_ranges[] = {
+        0x0025, 0x0025, // %
+        0x0030, 0x0039, // 0-9
+        0x003F, 0x003F, // fallback ?
+        0,
+    };
+    bold_font_24 = io.Fonts->AddFontFromFileTTF((Slic3r::resources_dir() + "/fonts/" + font_name_bold).c_str(), 24.0f, &cfg_24, bold_24_ranges);
     if (bold_font_24 == nullptr)
         bold_font_24 = bold_font;
 
 #ifdef _WIN32
     // Render the text a bit larger (see GLCanvas3D::_resize() and issue #3401), but only if the scale factor
-    // for the Display is greater than 300%.
-    if (wxGetApp().em_unit() > 30) {
+    // for the Display is greater than or equal to 300%.
+    if (wxGetApp().em_unit() >= 30) {
         default_font->Scale = 1.5f;
         bold_font->Scale    = 1.5f;
+        if (bold_font_24 != nullptr)
+            bold_font_24->Scale = 1.5f;
     }
 #endif
 
@@ -3091,7 +3103,7 @@ void ImGuiWrapper::init_font(bool compress)
     glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
     glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
     glsafe(::glPixelStorei(GL_UNPACK_ROW_LENGTH, 0));
-    if (compress && GLEW_EXT_texture_compression_s3tc)
+    if (compress && OpenGLManager::are_compressed_textures_supported())
         glsafe(::glTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels));
     else
         glsafe(::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels));
@@ -3209,8 +3221,8 @@ void ImGuiWrapper::init_font_all(bool compress)
 
 #ifdef _WIN32
     // Render the text a bit larger (see GLCanvas3D::_resize() and issue #3401), but only if the scale factor
-    // for the Display is greater than 300%.
-    if (wxGetApp().em_unit() > 30) {
+    // for the Display is greater than or equal to 300%.
+    if (wxGetApp().em_unit() >= 30) {
         default_font->Scale = 1.5f;
         bold_font->Scale    = 1.5f;
     }
@@ -3309,7 +3321,7 @@ void ImGuiWrapper::init_font_all(bool compress)
     glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
     glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
     glsafe(::glPixelStorei(GL_UNPACK_ROW_LENGTH, 0));
-    if (compress && GLEW_EXT_texture_compression_s3tc)
+    if (compress && OpenGLManager::are_compressed_textures_supported())
         glsafe(::glTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels));
     else
         glsafe(::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels));
@@ -3322,7 +3334,7 @@ void ImGuiWrapper::init_font_all(bool compress)
 
     auto fonts = io.Fonts->Fonts;
     for (auto font : fonts) {
-        if (HasUnsupportedCharacters("텍스�?양각", font)) {
+        if (HasUnsupportedCharacters("텍스�?양각", font)) {
             BOOST_LOG_TRIVIAL(warning) << "Font does not support all characters";
         }
     }
@@ -3518,7 +3530,7 @@ void ImGuiWrapper::render_draw_data(ImDrawData *draw_data)
 #endif  //ENABLE_RENDERDOC_CAPTURE
 
     glsafe(::glEnable(GL_BLEND));
-    glsafe(::glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    glsafe(::glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
     glsafe(::glDisable(GL_CULL_FACE));
     glsafe(::glDisable(GL_DEPTH_TEST));
     glsafe(::glEnable(GL_SCISSOR_TEST));
@@ -3716,7 +3728,7 @@ void ImGuiWrapper::reset_imgui_input_state()
     io.MouseWheel  = 0.0f;
     io.MouseWheelH = 0.0f;
 
-    // �?Modifiers must be cleared (these are the most likely to get "stuck" after overlays/focus loss)
+    // �?Modifiers must be cleared (these are the most likely to get "stuck" after overlays/focus loss)
     io.KeyCtrl  = false;
     io.KeyShift = false;
     io.KeyAlt   = false;
@@ -3747,9 +3759,22 @@ void ImGuiWrapper::reset_imgui_keyboard_state()
 }
 
 
+static bool is_texture_gl_api_ready()
+{
+    return glad_glGetIntegerv != nullptr &&
+           glad_glGenTextures != nullptr &&
+           glad_glBindTexture != nullptr &&
+           glad_glTexParameteri != nullptr &&
+           glad_glPixelStorei != nullptr &&
+           glad_glTexImage2D != nullptr;
+}
+
 
 bool IMTexture::load_from_png_file(const std::string& filename, unsigned width, unsigned height, ImTextureID& texture_id)
 {
+    if (!is_texture_gl_api_ready())
+        return false;
+
     wxImage image;
     if (!image.LoadFile(wxString::FromUTF8(filename.c_str()), wxBITMAP_TYPE_PNG))
         return false;
@@ -3801,12 +3826,17 @@ void IMTexture::release_texture(ImTextureID& texture_id)
     if (!texture_id)
         return;
 
-    GLuint id = (GLuint)(uintptr_t)texture_id;
-    glsafe(::glDeleteTextures(1, &id));
+    if (glad_glDeleteTextures != nullptr) {
+        GLuint id = (GLuint)(uintptr_t)texture_id;
+        glsafe(::glDeleteTextures(1, &id));
+    }
     texture_id = nullptr;
 }
 bool IMTexture::load_from_svg_file(const std::string& filename, unsigned width, unsigned height, ImTextureID& texture_id)
 {
+    if (!is_texture_gl_api_ready())
+        return false;
+
     NSVGimage* image = nsvgParseFromFile(filename.c_str(), "px", 96.0f);
     if (image == nullptr) {
         return false;
@@ -3837,8 +3867,8 @@ bool IMTexture::load_from_svg_file(const std::string& filename, unsigned width, 
     glsafe(::glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture));
     glsafe(::glGenTextures(1, &m_image_texture));
     glsafe(::glBindTexture(GL_TEXTURE_2D, m_image_texture));
-    glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-    glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+    glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
     glsafe(::glPixelStorei(GL_UNPACK_ROW_LENGTH, 0));
     glsafe(::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels));
 
@@ -3883,6 +3913,9 @@ static void recolor_greenish_pixels(unsigned char* rgba, int n_pixels, bool to_w
 
 bool IMTexture::load_from_svg_file_recolor_green(const std::string& filename, unsigned width, unsigned height, ImTextureID& texture_id, bool to_white)
 {
+    if (!is_texture_gl_api_ready())
+        return false;
+
     NSVGimage* image = nsvgParseFromFile(filename.c_str(), "px", 96.0f);
     if (image == nullptr) {
         return false;

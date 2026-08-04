@@ -29,6 +29,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <unordered_set>
+#include <unordered_map>
 
 using json = nlohmann::json;
 
@@ -229,6 +230,129 @@ json SlicerBridge::DoApplyConfig(const json& params)
         }
     }
 
+    // Meta fields that may ride along in the tool-call args but must never be
+    // treated as slicer config keys. The SAgent native dispatcher no longer
+    // injects workflow_id/request_id for this immediate bridge path (fixed at the
+    // source), but we keep a defensive filter here so any other caller (WebSocket /
+    // HTTP direct bridge calls) can't reintroduce spurious "Unknown config key"
+    // warnings. "scope"/"object_name" are consumed above; "parameter"/"value"/
+    // "patch" are handled by the arg-shape normalization.
+    static const std::unordered_set<std::string> kMetaKeys = {
+        "scope", "object_name", "request_id", "workflow_id", "workflowId",
+        "parameter", "value", "patch"
+    };
+
+    // Compute the set of config keys whose UI fields are currently DISABLED, by
+    // replaying the professional panel's linkage rules (ConfigManipulation::
+    // toggle_print_fff_options) against the current full config.
+    //
+    // We can't rely on querying the live wx field's IsEnabled(): in AI (easy)
+    // mode the professional settings Tab isn't (re)built/toggled, so its fields
+    // report as enabled even when their linkage condition (e.g. skirt_loops==0
+    // greys out skirt_height) says otherwise. Running the linkage rules against
+    // the config values is the authoritative source of truth and works
+    // regardless of whether the Tab UI exists.
+    //
+    // A throwaway ConfigManipulation with capture-only callbacks lets us collect
+    // the toggle decisions without touching any real UI. We feed it a copy of the
+    // config because toggle_print_fff_options may normalize a few values in place.
+    //
+    // Crucially, we pre-apply the incoming patch onto the copy first, so linkage
+    // is evaluated against the *resulting* config. This keeps existing behaviour
+    // intact: e.g. changing skirt_loops and skirt_height in one request, or the
+    // support_type -> enable_support smart linkage below, must still succeed even
+    // though the target field looks disabled under the current (pre-patch) config.
+    std::unordered_set<std::string> disabled_keys;
+    {
+        DynamicPrintConfig cfg_copy = bundle->full_config();
+        for (auto& [key, value] : resolved_params.items()) {
+            if (kMetaKeys.count(key) || !print_config_def.has(key))
+                continue;
+            try {
+                std::string str_val;
+                if (value.is_number_float())        str_val = std::to_string(value.get<double>());
+                else if (value.is_number_integer()) str_val = std::to_string(value.get<int>());
+                else if (value.is_string())         str_val = value.get<std::string>();
+                else if (value.is_boolean())        str_val = value.get<bool>() ? "1" : "0";
+                else                                continue;
+                cfg_copy.set_deserialize_strict(key, str_val);
+            } catch (...) {
+                // Ignore un-parseable values here; the real apply loop below will
+                // surface the appropriate warning.
+            }
+        }
+        // Mirror the smart-support linkage applied later: changing support_type
+        // implicitly enables support. Reflect it here so support_type and its
+        // dependent fields aren't wrongly judged as disabled.
+        if (resolved_params.contains("support_type") && !resolved_params.contains("enable_support")) {
+            try { cfg_copy.set_deserialize_strict("enable_support", "1"); } catch (...) {}
+        }
+        ConfigManipulation probe(
+            /*load_config*/    []() {},
+            /*cb_toggle_field*/[&disabled_keys](const std::string& opt_key, bool toggle, int /*opt_index*/) {
+                if (!toggle) disabled_keys.insert(opt_key);
+                else         disabled_keys.erase(opt_key);
+            },
+            /*cb_toggle_line*/ [](const std::string&, bool) {},
+            /*cb_value_change*/[](const std::string&, const boost::any&) {},
+            /*local_config*/   nullptr,
+            /*msg_dlg_parent*/ nullptr);
+        try {
+            probe.toggle_print_fff_options(&cfg_copy, /*is_global_config*/ true);
+        } catch (...) {
+            // If linkage evaluation fails for any reason, fall back to "no
+            // restrictions" so we never wrongly block a legitimate edit.
+            disabled_keys.clear();
+        }
+    }
+
+    // Helper: a key is editable unless the linkage rules marked it disabled.
+    auto is_field_editable = [&](const std::string& key) -> bool {
+        return disabled_keys.find(key) == disabled_keys.end();
+    };
+
+    // Keys that were rejected because their UI field is currently non-editable
+    // (linkage-disabled). Tracked separately so we can fail the whole call with a
+    // clear "not modifiable" message instead of returning a success card. Each
+    // entry is an object {key, label} where label is the localized display name.
+    json blocked_keys = json::array();
+
+    // Helper: localized display name for a config key (falls back to the key).
+    // Used only for the PARAM_NOT_MODIFIABLE message; the apply_config change
+    // rows carry no label — the frontend resolves display names from its own
+    // multilingual parameterLabels map (single source of truth for UI naming).
+    auto display_label_for = [&](const std::string& key) -> std::string {
+        auto it = print_config_def.options.find(key);
+        if (it != print_config_def.options.end() && !it->second.label.empty()) {
+            const std::string localized = _u8L(it->second.label.c_str());
+            if (!localized.empty())
+                return localized;
+        }
+        return key;
+    };
+
+    // Helper: record a key rejected as non-editable, capturing its display label
+    // so the agent can build a friendly "can't modify <name> yet" message.
+    auto record_blocked = [&](const std::string& key) {
+        blocked_keys.push_back({{"key", key}, {"label", display_label_for(key)}});
+    };
+
+    // Helper: build a "not modifiable" message listing the blocked display names.
+    auto build_blocked_message = [](const json& keys) -> std::string {
+        std::string list;
+        for (const auto& entry : keys) {
+            std::string name;
+            if (entry.is_object())
+                name = entry.value("label", entry.value("key", std::string()));
+            else if (entry.is_string())
+                name = entry.get<std::string>();
+            if (name.empty()) continue;
+            if (!list.empty()) list += "、";
+            list += name;
+        }
+        return format(_u8L("\"%1%\" cannot be modified for now, likely because a prerequisite option isn't enabled"), list);
+    };
+
     // Get mutable references to edited preset configs
     auto& print_cfg    = bundle->prints.get_edited_preset().config;
     auto& filament_cfg = bundle->filaments.get_edited_preset().config;
@@ -313,13 +437,14 @@ json SlicerBridge::DoApplyConfig(const json& params)
         if (!target_object)
             return {{"success", false}, {"message", "Target object not found for per-object config"}};
 
-        // Skip meta fields when iterating params
-        static const std::unordered_set<std::string> skip_keys = {"scope", "object_name", "request_id"};
-
         for (auto& [key, value] : resolved_params.items()) {
-            if (skip_keys.count(key)) continue;
+            if (kMetaKeys.count(key)) continue;
             if (!print_config_def.has(key)) {
                 warnings.push_back("Unknown config key: " + key);
+                continue;
+            }
+            if (!is_field_editable(key)) {
+                record_blocked(key);
                 continue;
             }
 
@@ -355,7 +480,7 @@ json SlicerBridge::DoApplyConfig(const json& params)
                 std::string new_val = target_object->config.option(key)->serialize();
 
                 if (new_val != old_val) {
-                    changes.push_back({{"key", key}, {"old", old_val}, {"new", new_val}});
+                    changes.push_back({{"key", key}, {"old_value", old_val}, {"new_value", new_val}});
                     ++applied;
                 }
             } catch (const std::exception& e) {
@@ -376,6 +501,19 @@ json SlicerBridge::DoApplyConfig(const json& params)
             }
         }
 
+        // If every requested key was rejected as non-editable and nothing was
+        // applied, fail the call so the agent replies in natural language
+        // ("this parameter can't be modified") instead of rendering a success card.
+        if (changes.empty() && !blocked_keys.empty()) {
+            return {
+                {"success", false},
+                {"code", "PARAM_NOT_MODIFIABLE"},
+                {"message", build_blocked_message(blocked_keys)},
+                {"blocked_keys", blocked_keys},
+                {"scope", "object"}
+            };
+        }
+
         json result;
         result["success"] = true;
         result["message"] = changes.empty()
@@ -384,16 +522,70 @@ json SlicerBridge::DoApplyConfig(const json& params)
         result["changes"] = changes;
         result["scope"] = "object";
         result["object_name"] = target_object->name;
+        if (!blocked_keys.empty())
+            result["blocked_keys"] = blocked_keys;
         if (!warnings.empty())
             result["warnings"] = warnings;
         return result;
     }
 
     for (auto& [key, value] : resolved_params.items()) {
+        // Skip meta fields (workflow_id / request_id / scope ...) that ride along
+        // in the args but are not slicer config keys.
+        if (kMetaKeys.count(key)) continue;
         // Validate key exists in print_config_def
         if (!print_config_def.has(key)) {
             warnings.push_back("Unknown config key: " + key);
             continue;
+        }
+        // Block writes to fields that are currently disabled/greyed out in the UI,
+        // surfacing a clear warning instead of silently applying an invisible change.
+        if (!is_field_editable(key)) {
+            record_blocked(key);
+            continue;
+        }
+
+        // ---- Special case: flush_multiplier lives in project_config, not in any preset ----
+        if (key == "flush_multiplier") {
+            try {
+                float new_fval = 0.f;
+                if (value.is_number_float())        new_fval = static_cast<float>(value.get<double>());
+                else if (value.is_number_integer()) new_fval = static_cast<float>(value.get<int>());
+                else if (value.is_string())         new_fval = std::stof(value.get<std::string>());
+                else { warnings.push_back("flush_multiplier: unsupported value type"); continue; }
+
+                auto& project_config = bundle->project_config;
+                ConfigOptionFloat* opt = project_config.option<ConfigOptionFloat>("flush_multiplier");
+                if (!opt) { warnings.push_back("flush_multiplier: option not found in project_config"); continue; }
+
+                const float old_fval = opt->getFloat();
+                opt->set(new ConfigOptionFloat(new_fval));
+                wxGetApp().app_config->set("flush_multiplier", std::to_string(new_fval));
+                wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+                plater->update_project_dirty_from_presets();
+
+                // Always record the change so the frontend diff card shows old→new,
+                // even when old == new (user explicitly requested this value).
+                // Use old_value/new_value to match the ActionResultCard field names.
+                const std::string old_str = [old_fval]() {
+                    std::ostringstream ss;
+                    ss << old_fval;
+                    return ss.str();
+                }();
+                const std::string new_str = [new_fval]() {
+                    std::ostringstream ss;
+                    ss << new_fval;
+                    return ss.str();
+                }();
+                changes.push_back({{"key", key}, {"old_value", old_str}, {"new_value", new_str}});
+                ++applied;
+                BOOST_LOG_TRIVIAL(info)
+                    << "[SlicerBridge] flush_multiplier set via project_config: "
+                    << old_fval << " -> " << new_fval;
+            } catch (const std::exception& e) {
+                warnings.push_back(std::string("Failed to set flush_multiplier: ") + e.what());
+            }
+            continue;  // handled, skip normal preset path
         }
 
         std::string old_val = get_current_value(key);
@@ -413,7 +605,7 @@ json SlicerBridge::DoApplyConfig(const json& params)
 
             std::string new_val = get_current_value(key);
             if (new_val != old_val) {
-                changes.push_back({{"key", key}, {"old", old_val}, {"new", new_val}});
+                changes.push_back({{"key", key}, {"old_value", old_val}, {"new_value", new_val}});
                 ++applied;
             }
         } catch (const std::exception& e) {
@@ -444,7 +636,7 @@ json SlicerBridge::DoApplyConfig(const json& params)
                     apply_to_preset("support_type", "normal(auto)");
                     std::string new_type = get_current_value("support_type");
                     if (new_type != old_type)
-                        changes.push_back({{"key", "support_type"}, {"old", old_type}, {"new", new_type}});
+                        changes.push_back({{"key", "support_type"}, {"old_value", old_type}, {"new_value", new_type}});
                 } catch (...) {}
             }
         }
@@ -454,15 +646,38 @@ json SlicerBridge::DoApplyConfig(const json& params)
             if (old_enable != "1") {
                 try {
                     apply_to_preset("enable_support", "1");
-                    changes.push_back({{"key", "enable_support"}, {"old", old_enable}, {"new", "1"}});
+                    changes.push_back({{"key", "enable_support"}, {"old_value", old_enable}, {"new_value", std::string("1")}});
                 } catch (...) {}
             }
         }
     }
 
+    // If every requested key was rejected as non-editable and nothing was
+    // applied, fail the call so the agent replies in natural language
+    // ("this parameter can't be modified") instead of rendering a success card.
+    if (changes.empty() && !blocked_keys.empty()) {
+        return {
+            {"success", false},
+            {"code", "PARAM_NOT_MODIFIABLE"},
+            {"message", build_blocked_message(blocked_keys)},
+            {"blocked_keys", blocked_keys}
+        };
+    }
+
     // Notify plater with full config (same approach as UI code)
-    if (!changes.empty())
+    if (!changes.empty()) {
         plater->on_config_change(bundle->full_config());
+
+        // Refresh the professional Print settings Tab so the parameter panel's
+        // field enable/disable linkage (toggle_options) reflects the new values.
+        // Without this, changing e.g. "enable_support" from the AI side leaves the
+        // dependent support fields greyed out until the user manually re-toggles it.
+        if (auto* print_tab = wxGetApp().get_tab(Preset::TYPE_PRINT)) {
+            print_tab->update_dirty();
+            print_tab->reload_config();
+            print_tab->update();
+        }
+    }
 
     json result;
     result["success"] = true;
@@ -470,9 +685,58 @@ json SlicerBridge::DoApplyConfig(const json& params)
         ? _u8L("Config already up to date")
         : format(_u8L("%1% config keys applied"), changes.size());
     result["changes"] = changes;
+    if (!blocked_keys.empty())
+        result["blocked_keys"] = blocked_keys;
     if (!warnings.empty())
         result["warnings"] = warnings;
     return result;
+}
+
+json SlicerBridge::BuildPanelNameMap()
+{
+    // key -> { group_en, group_loc, line_loc }
+    //
+    // Translation note: optgroup titles are created with the L(...) macro, which
+    // is only a *marker* for xgettext and returns the ENGLISH original at runtime;
+    // the actual translation happens at display time. So og->title holds English
+    // and must be translated here via _u8L. Line labels, by contrast, are built
+    // with Line(label) → label(_(label)), i.e. already translated — do not
+    // re-translate them.
+    json map = json::object();
+
+    auto harvest_tab = [&](Preset::Type type) {
+        Tab* tab = wxGetApp().get_tab(type);
+        if (!tab) return;
+        for (const auto& page : tab->get_pages()) {
+            if (!page) continue;
+            for (const auto& og : page->m_optgroups) {
+                if (!og) continue;
+                const std::string group_en  = og->title.utf8_string();
+                const std::string group_loc = _u8L(og->title);
+                for (const Line& line : og->get_lines()) {
+                    if (line.is_separator()) continue;
+                    const auto& opts = line.get_options();
+                    // A line label only adds meaning when the line bundles
+                    // multiple options (otherwise it duplicates the option name).
+                    const bool line_adds_context = opts.size() > 1 && !line.label.IsEmpty();
+                    for (const auto& opt : opts) {
+                        const std::string& k = opt.opt_id;
+                        if (k.empty() || map.contains(k)) continue;
+                        json entry;
+                        entry["group_en"]  = group_en;
+                        entry["group_loc"] = group_loc;
+                        if (line_adds_context)
+                            entry["line_loc"] = line.label.utf8_string();
+                        map[k] = std::move(entry);
+                    }
+                }
+            }
+        }
+    };
+    harvest_tab(Preset::TYPE_PRINT);
+    harvest_tab(Preset::TYPE_FILAMENT);
+    harvest_tab(Preset::TYPE_PRINTER);
+    return map;
 }
 
 json SlicerBridge::BuildConfigSchemaArray()
@@ -497,11 +761,44 @@ json SlicerBridge::BuildConfigSchemaArray()
         }
     };
 
+    // Authoritative parameter classification (bug 17390): the AI assistant may
+    // only modify *process* parameters. Filament/printer parameters are exported
+    // with param_class so the agent can reject AI edits to them (and steer the
+    // user to the professional mode) instead of mis-mapping them onto the closest
+    // process key. The classification sets come straight from the preset schema —
+    // no hand-maintained tables.
+    auto build_key_set = [](const std::vector<std::string>& keys) {
+        return std::unordered_set<std::string>(keys.begin(), keys.end());
+    };
+    const std::unordered_set<std::string> filament_keys = build_key_set(Preset::filament_options());
+    const std::unordered_set<std::string> printer_keys  = build_key_set(Preset::printer_options());
+    auto classify_param = [&](const std::string& key) -> std::string {
+        if (filament_keys.count(key)) return "filament";
+        if (printer_keys.count(key))  return "printer";
+        return "process";
+    };
+
+    // Build an authoritative display-name map from the professional-panel layout.
+    //
+    // A parameter's user-facing name lives in the GUI layout (Tab → Page →
+    // OptionsGroup → Line), NOT in ConfigOptionDef. E.g. bridge_speed's def.label
+    // is just "External"; the meaningful name comes from its optgroup ("桥接" /
+    // Bridge) and, when a line groups several options, the per-option label.
+    //
+    // Recover each parameter's real user-facing group/line name (e.g. "线宽",
+    // "桥接") from the professional-panel layout — this lives in the GUI layout,
+    // not in ConfigOptionDef.
+    const json panel_names = BuildPanelNameMap();
+
     json options_arr = json::array();
 
     for (const auto& [key, def] : print_config_def.options) {
-        // Skip vector types and internal/hidden options
-        if (!def.is_scalar()) continue;
+        // Skip only genuinely non-editable vector/coordinate types (points).
+        // NOTE: per-extruder scalars (e.g. pressure_advance, nozzle_temperature,
+        // nozzle_diameter) are stored as ConfigOptionFloats/Ints vectors and would
+        // be dropped by a blanket !is_scalar() filter — yet the agent must know them
+        // to reject AI edits. Keep them; exclude only point/points containers.
+        if (def.type == coPoint || def.type == coPoints) continue;
         if (def.label.empty()) continue;
         // Skip SLA/internal params whose label or category is whitespace-only
         {
@@ -517,13 +814,75 @@ json SlicerBridge::BuildConfigSchemaArray()
 
         json item;
         item["key"]      = key;
-        item["label"]    = def.label;
-        // Include localized label so the agent can match user input in any language.
-        const std::string localized_label = _u8L(def.label.c_str());
-        if (localized_label != def.label)
-            item["label_localized"] = localized_label;
+
+        // Build a disambiguated "<group> / <leaf>" name from the professional
+        // panel — exactly what the user sees and says ("线宽 / 外墙",
+        // "桥接 / 外部"). English and localized are built symmetrically so they
+        // never mix languages.
+        //   panel group + line  → group + line label   (multi-option line)
+        //   panel group + def   → group + this option's own label
+        //   no panel entry      → category + def label  → def label (fallback)
+        const std::string def_leaf_en  =
+            !def.full_label.empty() ? def.full_label : def.label;
+        const std::string def_leaf_loc = _u8L(def.label.c_str());
+
+        auto compose = [](const std::string& group, const std::string& leaf) -> std::string {
+            if (group.empty()) return leaf;
+            if (leaf.empty() || leaf == group) return group;
+            return group + " / " + leaf;
+        };
+
+        // Join non-empty segments with " / ", skipping duplicates/empties.
+        auto join_path = [](std::initializer_list<std::string> segs) -> std::string {
+            std::string out;
+            for (const std::string& s : segs) {
+                if (s.empty()) continue;
+                if (!out.empty()) {
+                    // Avoid immediate duplicate segments (e.g. group == line).
+                    const std::string tail = " / " + s;
+                    if (out == s || (out.size() >= tail.size() &&
+                                     out.compare(out.size() - tail.size(), tail.size(), tail) == 0))
+                        continue;
+                    out += " / ";
+                }
+                out += s;
+            }
+            return out;
+        };
+
+        std::string label_en;
+        std::string label_loc;
+        auto pn_it = panel_names.find(key);
+        if (pn_it != panel_names.end() && !pn_it->value("group_loc", std::string()).empty()) {
+            const json& pn = *pn_it;
+            const std::string group_en  = pn.value("group_en", std::string());
+            const std::string group_loc = pn.value("group_loc", std::string());
+            const std::string line_loc  = pn.value("line_loc", std::string());
+            // Full hierarchy as shown in the professional panel:
+            //   optgroup / line / option   e.g. "悬垂速度 / 桥接 / 内部"
+            // The line segment only appears for multi-option lines (single-option
+            // lines duplicate the option name, so line_loc is empty there) →
+            //   "线宽 / 外墙"  (two segments)
+            label_loc = join_path({group_loc, line_loc, def_leaf_loc});
+            // English has no per-line string, so it degrades to group / option.
+            label_en = join_path({group_en, def_leaf_en});
+        } else if (!def.category.empty()) {
+            // Not on any panel: fall back to category for some grouping context.
+            label_en  = compose(def.category, def_leaf_en);
+            label_loc = compose(_u8L(def.category.c_str()), def_leaf_loc);
+        } else {
+            label_en  = def_leaf_en;
+            label_loc = def_leaf_loc;
+        }
+
+        item["label"] = label_en;
+        if (!label_loc.empty() && label_loc != label_en)
+            item["label_localized"] = label_loc;
+
         item["type"]     = type_to_string(def.type);
         item["category"] = def.category.empty() ? "Other" : def.category;
+        // process | filament | printer — consumed by the agent's param domain guard.
+        item["param_class"] = classify_param(key);
         if (!def.tooltip.empty())
             item["tooltip"] = def.tooltip;
         if (!def.sidetext.empty())
@@ -540,12 +899,91 @@ json SlicerBridge::BuildConfigSchemaArray()
                 item["enum_labels"] = def.enum_labels;
         }
 
-        // Include default value if available
-        if (def.default_value)
-            item["default"] = def.default_value->serialize();
+        // Include default value if available.
+        //
+        // IMPORTANT: enum option types (coEnum / coEnums) must NOT be serialized
+        // here. Their serialize() dereferences an internal `keys_map` pointer that
+        // is only populated when the option is created via load_option_from_archive
+        // — the ConfigOptionDef::default_value objects are constructed without it,
+        // so `keys_map` is null and serialize() causes an access violation (a
+        // hardware/SEH fault, which try/catch(...) does NOT catch under the default
+        // /EHsc model). Instead we recover the default from enum_values using the
+        // stored integer index, which lives safely in the ConfigOptionInt(s) base.
+        if (def.default_value) {
+            const ConfigOptionType t = def.default_value->type();
+            if (t == coEnum || t == coEnums) {
+                // Recover the enum index without touching the (null) keys_map.
+                // coEnum is a scalar (getInt); coEnums is an int vector (get_at).
+                int idx = -1;
+                try {
+                    if (t == coEnum) {
+                        idx = def.default_value->getInt();
+                    } else {
+                        // coEnums derives from ConfigOptionInts (int vector); the
+                        // type() check above guarantees the runtime type, so a
+                        // static_cast is safe and avoids RTTI/dynamic_cast issues.
+                        const auto* ev =
+                            static_cast<const ConfigOptionInts*>(def.default_value.get());
+                        if (!ev->values.empty())
+                            idx = ev->values.front();
+                    }
+                } catch (...) {
+                    idx = -1;
+                }
+                if (idx >= 0 && idx < static_cast<int>(def.enum_values.size()))
+                    item["default"] = def.enum_values[idx];
+            } else {
+                // Non-enum scalars/vectors serialize safely (nullable vectors emit
+                // "nil" tokens rather than crashing).
+                item["default"] = def.default_value->serialize();
+            }
+        }
 
         options_arr.push_back(std::move(item));
     }
+
+    // Sort for a stable, human-readable layout: group by param_class
+    // (process → filament → printer). The output stays a single flat array —
+    // consumers only read fields, not order — but the file is far easier to
+    // scan/diff with each class in its own contiguous block.
+    auto class_rank = [](const std::string& c) -> int {
+        if (c == "process")  return 0;
+        if (c == "filament") return 1;
+        if (c == "printer")  return 2;
+        return 3;
+    };
+    // Within the process block, order categories by the professional-panel tabs:
+    // 质量 → 强度 → 速度 → 支撑 → 材料 → 其他. Categories not in this list sort
+    // after the named ones (rank 100), then alphabetically. filament/printer
+    // blocks fall back to plain alphabetical category order.
+    auto category_rank = [](const std::string& cat) -> int {
+        if (cat == "Quality")  return 0;
+        if (cat == "Strength") return 1;
+        if (cat == "Speed")    return 2;
+        if (cat == "Support")  return 3;
+        if (cat == "Material") return 4;
+        if (cat == "Other" || cat == "Others") return 5;
+        return 100;
+    };
+    std::sort(options_arr.begin(), options_arr.end(),
+              [&](const json& a, const json& b) {
+        const std::string cls_a = a.value("param_class", "process");
+        const std::string cls_b = b.value("param_class", "process");
+        const int ra = class_rank(cls_a);
+        const int rb = class_rank(cls_b);
+        if (ra != rb) return ra < rb;
+
+        const std::string ca = a.value("category", "");
+        const std::string cb = b.value("category", "");
+        // Business-ordered categories for the process block; alphabetical elsewhere.
+        if (cls_a == "process") {
+            const int cra = category_rank(ca);
+            const int crb = category_rank(cb);
+            if (cra != crb) return cra < crb;
+        }
+        if (ca != cb) return ca < cb;
+        return a.value("key", "") < b.value("key", "");
+    });
 
     return options_arr;
 }

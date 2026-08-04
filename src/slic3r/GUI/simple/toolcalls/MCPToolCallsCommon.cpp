@@ -130,6 +130,8 @@ const std::vector<BridgeToolRouteSpec>& BridgeToolRouteSpecsStorage()
         {"get_config_schema", ActionID::GET_CONFIG_OPTIONS, false, true, "collecting", "Collecting config schema", "Config schema collected", "GET_CONFIG_SCHEMA_FAILED", "Failed to collect config schema.", false, false},
         {ActionID::APPLY_CONFIG, ActionID::APPLY_CONFIG, true, true, "applying", "Applying config", "Config applied", "APPLY_CONFIG_FAILED", "Failed to apply config.", true, true},
         {"apply_param_patch", ActionID::APPLY_CONFIG, false, true, "applying", "Applying parameter patch", "Parameter patch applied", "APPLY_PARAM_PATCH_FAILED", "Failed to apply parameter patch.", true, true},
+        {ActionID::START_SLICE, ActionID::START_SLICE, true, true, "slicing", "Starting slice", "Slice completed", "START_SLICE_FAILED", "Failed to start slicing.", false, true, NativeExecutionMode::DeferredSliceResult},
+        {"run_slice", ActionID::START_SLICE, false, true, "slicing", "Starting slice", "Slice completed", "START_SLICE_FAILED", "Failed to start slicing.", false, true, NativeExecutionMode::DeferredSliceResult},
         {ActionID::AUTO_ORIENT, ActionID::AUTO_ORIENT, true, true, "orienting", "Starting auto orient", "Auto orient completed", "AUTO_ORIENT_FAILED", "Failed to auto orient models.", false, true},
         {"auto_orient_model", ActionID::AUTO_ORIENT, false, true, "orienting", "Starting auto orient", "Auto orient completed", "AUTO_ORIENT_FAILED", "Failed to auto orient models.", false, true},
         {ActionID::AUTO_ARRANGE, ActionID::AUTO_ARRANGE, true, true, "arranging", "Starting auto arrange", "Auto arrange job started", "AUTO_ARRANGE_FAILED", "Failed to auto arrange models.", false, true},
@@ -140,38 +142,72 @@ const std::vector<BridgeToolRouteSpec>& BridgeToolRouteSpecsStorage()
         {ActionID::ROTATE_OBJECT, ActionID::ROTATE_OBJECT, true, true, "rotating", "Rotating object", "Object rotated", "ROTATE_OBJECT_FAILED", "Failed to rotate object.", false, true},
         {ActionID::SCALE_OBJECT, ActionID::SCALE_OBJECT, true, true, "scaling", "Scaling object", "Object scaled", "SCALE_OBJECT_FAILED", "Failed to scale object.", false, true},
         {ActionID::SELECT_OBJECTS, ActionID::SELECT_OBJECTS, true, true, "selecting", "Selecting objects", "Objects selected", "SELECT_OBJECTS_FAILED", "Failed to select objects.", false, true},
-        {ActionID::DELETE_MODEL, ActionID::DELETE_MODEL, true, false, "", "", "", "", "", false, false},
-        {ActionID::CLONE_MODEL, ActionID::CLONE_MODEL, true, false, "", "", "", "", "", false, false},
+        {ActionID::DELETE_MODEL, ActionID::DELETE_MODEL, true, true, "", "", "", "", "", false, false},
+        {ActionID::CLONE_MODEL, ActionID::CLONE_MODEL, true, true, "", "", "", "", "", false, false},
         {ActionID::REPAIR_MESH, ActionID::REPAIR_MESH, true, true, "repairing", "Starting mesh repair", "Mesh repair completed", "REPAIR_MESH_FAILED", "Failed to repair mesh.", false, true},
-        {ActionID::SIMPLIFY_MODEL, ActionID::SIMPLIFY_MODEL, true, false, "", "", "", "", "", false, false},
-        {ActionID::ADD_TEST_MODEL, ActionID::ADD_TEST_MODEL, true, false, "", "", "", "", "", false, false},
-        {ActionID::FILL_BED, ActionID::FILL_BED, true, false, "", "", "", "", "", false, false},
-        {ActionID::EDIT_PLATE_NAME, ActionID::EDIT_PLATE_NAME, true, false, "", "", "", "", "", false, false},
-        {"rename_plate", ActionID::EDIT_PLATE_NAME, true, false, "", "", "", "", "", false, false},
-        {"set_plate_name", ActionID::EDIT_PLATE_NAME, true, false, "", "", "", "", "", false, false},
+        {ActionID::SIMPLIFY_MODEL, ActionID::SIMPLIFY_MODEL, true, true, "", "", "", "", "", false, false},
+        {ActionID::ADD_TEST_MODEL, ActionID::ADD_TEST_MODEL, true, true, "", "", "", "", "", false, false},
+        {ActionID::FILL_BED, ActionID::FILL_BED, true, true, "", "", "", "", "", false, false},
+        {ActionID::EDIT_PLATE_NAME, ActionID::EDIT_PLATE_NAME, true, true, "", "", "", "", "", false, false},
+        {"rename_plate", ActionID::EDIT_PLATE_NAME, true, true, "", "", "", "", "", false, false},
+        {"set_plate_name", ActionID::EDIT_PLATE_NAME, true, true, "", "", "", "", "", false, false},
         {ActionID::ADD_PLATE, ActionID::ADD_PLATE, true, true, "editing", "Adding plate", "Plate added", "ADD_PLATE_FAILED", "Failed to add plate.", false, true},
-        {ActionID::DELETE_PLATE, ActionID::DELETE_PLATE, true, false, "", "", "", "", "", false, false},
-        {ActionID::TOGGLE_PREVIEW_LITE_MODE, ActionID::TOGGLE_PREVIEW_LITE_MODE, true, false, "", "", "", "", "", false, false},
-        {ActionID::ADD_FILAMENT, ActionID::ADD_FILAMENT, true, false, "", "", "", "", "", false, false},
-        {ActionID::DELETE_FILAMENT, ActionID::DELETE_FILAMENT, true, false, "", "", "", "", "", false, false},
-        {ActionID::SET_FILAMENT_TYPE, ActionID::SET_FILAMENT_TYPE, true, false, "", "", "", "", "", false, false},
-        {ActionID::AUTO_MAP_FILAMENTS, ActionID::AUTO_MAP_FILAMENTS, true, false, "", "", "", "", "", false, false},
-        {"auto_match_filaments", ActionID::AUTO_MAP_FILAMENTS, true, false, "", "", "", "", "", false, false},
-        {"map_filaments", ActionID::AUTO_MAP_FILAMENTS, true, false, "", "", "", "", "", false, false},
-        {"auto_map_materials", ActionID::AUTO_MAP_FILAMENTS, true, false, "", "", "", "", "", false, false},
-        {"auto_match_materials", ActionID::AUTO_MAP_FILAMENTS, true, false, "", "", "", "", "", false, false},
-        {"map_materials", ActionID::AUTO_MAP_FILAMENTS, true, false, "", "", "", "", "", false, false},
-        {"switch_printer", ActionID::SELECT_PRINTER, true, false, "", "", "", "", "", false, false},
-        {"change_printer", ActionID::SELECT_PRINTER, true, false, "", "", "", "", "", false, false},
-        {"select_device", ActionID::SELECT_PRINTER, true, false, "", "", "", "", "", false, false},
+        {ActionID::DELETE_PLATE, ActionID::DELETE_PLATE, true, true, "", "", "", "", "", false, false},
+        {ActionID::TOGGLE_PREVIEW_LITE_MODE, ActionID::TOGGLE_PREVIEW_LITE_MODE, true, true, "", "", "", "", "", false, false},
+        {ActionID::ADD_FILAMENT, ActionID::ADD_FILAMENT, true, true, "", "", "", "", "", false, false},
+        {ActionID::DELETE_FILAMENT, ActionID::DELETE_FILAMENT, true, true, "", "", "", "", "", false, false},
+        {ActionID::SET_FILAMENT_TYPE, ActionID::SET_FILAMENT_TYPE, true, true, "", "", "", "", "", false, false},
+        {ActionID::AUTO_MAP_FILAMENTS, ActionID::AUTO_MAP_FILAMENTS, true, true, "", "", "", "", "", false, false},
+        {"auto_match_filaments", ActionID::AUTO_MAP_FILAMENTS, true, true, "", "", "", "", "", false, false},
+        {"map_filaments", ActionID::AUTO_MAP_FILAMENTS, true, true, "", "", "", "", "", false, false},
+        {"auto_map_materials", ActionID::AUTO_MAP_FILAMENTS, true, true, "", "", "", "", "", false, false},
+        {"auto_match_materials", ActionID::AUTO_MAP_FILAMENTS, true, true, "", "", "", "", "", false, false},
+        {"map_materials", ActionID::AUTO_MAP_FILAMENTS, true, true, "", "", "", "", "", false, false},
+        {"switch_printer", ActionID::SELECT_PRINTER, true, true, "", "", "", "", "", false, false},
+        {"change_printer", ActionID::SELECT_PRINTER, true, true, "", "", "", "", "", false, false},
+        {"select_device", ActionID::SELECT_PRINTER, true, true, "", "", "", "", "", false, false},
         {ActionID::UNDO, ActionID::UNDO, true, true, "undoing", "Undoing last action", "Undo completed", "UNDO_FAILED", "Failed to undo last action.", false, true},
-        {ActionID::REDO, ActionID::REDO, true, true, "redoing", "Redoing last undone action", "Redo completed", "REDO_FAILED", "Failed to redo last action.", false, true}
+        {ActionID::REDO, ActionID::REDO, true, true, "redoing", "Redoing last undone action", "Redo completed", "REDO_FAILED", "Failed to redo last action.", false, true},
+        // --- MQTT-native workflow tools (dispatched by CxAgent MCP gateway) ---
+        {ActionID::OPEN_FILAMENT_MAPPING, ActionID::OPEN_FILAMENT_MAPPING, false, true, "opening", "Opening filament mapping", "Filament mapping opened", "OPEN_FILAMENT_MAPPING_FAILED", "Failed to open filament mapping.", false, false, NativeExecutionMode::CustomDeferred},
+        {ActionID::SEND_PRINT, ActionID::SEND_PRINT, false, true, "sending", "Sending to printer", "Print sent", "SEND_PRINT_FAILED", "Failed to send print.", false, false, NativeExecutionMode::CustomDeferred},
+        {"send_to_printer", ActionID::SEND_PRINT, false, true, "sending", "Sending to printer", "Print sent", "SEND_PRINT_FAILED", "Failed to send print.", false, false, NativeExecutionMode::CustomDeferred},
+        {ActionID::NEW_PROJECT, ActionID::NEW_PROJECT, false, true, "creating", "Creating new project", "New project created", "NEW_PROJECT_FAILED", "Failed to create new project.", false, false, NativeExecutionMode::CustomDeferred},
+        {ActionID::SAVE_AND_CREATE_NEW_PROJECT, ActionID::SAVE_AND_CREATE_NEW_PROJECT, false, true, "creating", "Saving and creating new project", "New project created", "SAVE_AND_CREATE_NEW_PROJECT_FAILED", "Failed to save and create new project.", false, false, NativeExecutionMode::CustomDeferred},
+        {ActionID::CAPTURE_DEVICE_CAMERA_FRAME, ActionID::CAPTURE_DEVICE_CAMERA_FRAME, false, true, "capturing", "Capturing device camera frame", "Camera frame captured", "CAPTURE_CAMERA_FAILED", "Failed to capture device camera frame.", false, false, NativeExecutionMode::CustomDeferred},
+        {ActionID::LIST_PRINTERS, ActionID::LIST_PRINTERS, false, true, "listing", "Listing printers", "Printers listed", "LIST_PRINTERS_FAILED", "Failed to list printers.", false, false},
+        {ActionID::SELECT_PRINTER, ActionID::SELECT_PRINTER, false, true, "selecting", "Selecting printer", "Printer selected", "SELECT_PRINTER_FAILED", "Failed to select printer.", false, true},
+        {ActionID::RECOMMEND_MODEL, ActionID::RECOMMEND_MODEL, false, true, "searching", "Searching for models", "Model search complete", "RECOMMEND_MODEL_FAILED", "Failed to search for models.", false, false, NativeExecutionMode::CustomDeferred},
+        {ActionID::SMART_MODEL_SEARCH, ActionID::SMART_MODEL_SEARCH, false, true, "searching", "Searching for models", "Model search complete", "SMART_MODEL_SEARCH_FAILED", "Failed to search for models.", false, false, NativeExecutionMode::CustomDeferred},
+        {ActionID::IMPORT_MODEL_FROM_SEARCH, ActionID::IMPORT_MODEL_FROM_SEARCH, false, true, "importing", "Importing model from search", "Model imported", "IMPORT_MODEL_FROM_SEARCH_FAILED", "Failed to import model from search.", false, false, NativeExecutionMode::CustomDeferred}
     };
 
     return specs;
 }
 
 } // namespace
+
+const char* NativeExecutionModeName(NativeExecutionMode mode)
+{
+    switch (mode) {
+    case NativeExecutionMode::BridgeImmediateOrPayloadDeferred:
+        return "BridgeImmediateOrPayloadDeferred";
+    case NativeExecutionMode::DeferredSliceResult:
+        return "DeferredSliceResult";
+    case NativeExecutionMode::DeferredSceneSettle:
+        return "DeferredSceneSettle";
+    case NativeExecutionMode::CustomDeferred:
+        return "CustomDeferred";
+    }
+    return "Unknown";
+}
+
+bool IsDeferredNativeExecution(NativeExecutionMode mode)
+{
+    return mode == NativeExecutionMode::DeferredSliceResult ||
+           mode == NativeExecutionMode::DeferredSceneSettle ||
+           mode == NativeExecutionMode::CustomDeferred;
+}
 
 const std::vector<BridgeToolRouteSpec>& GetBridgeToolRouteSpecs()
 {

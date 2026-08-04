@@ -3,6 +3,7 @@
 set ROOT=%CD%
 set build_type=%1
 set cache_dep_continue=OFF
+set force_rebuild_deps=OFF
 IF EXIST "%ROOT%\tools\vswhere.exe" (
     for /f "usebackq tokens=*" %%i in (`%ROOT%\tools\vswhere.exe -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property catalog_productLineVersion`) do (
     set LastVerion=%%i
@@ -46,19 +47,32 @@ if(%build_type% == Debug) (
 if [%2] == [-c] (
     set cache_dep_continue=ON
     goto GenerateDep
+) else if [%2] == [-r] (
+    set force_rebuild_deps=ON
+    set cache_dep_continue=OFF
 ) else (
     set cache_dep_continue=OFF
 )
 
 
 :::deps before
-echo %DEP_INSTALL_DIRATH%
+echo DEP_INSTALL_DIR=%DEP_INSTALL_DIR%
+if "%force_rebuild_deps%"=="ON" (
+    echo REBUILD_DEPS is enabled, rebuild deps.
+    goto GenerateDep_Before
+)
 if exist "%DEP_INSTALL_DIR%" (
-	rem need not download third deplib
-	echo "%DEP_INSTALL_DIR% is exist,skip build."
-    goto End
+    if exist "%DEP_INSTALL_DIR%\usr\local\lib\libcrypto.lib" (
+        if exist "%DEP_INSTALL_DIR%\usr\local\lib\libssl.lib" (
+            rem need not download third deplib
+            echo "%DEP_INSTALL_DIR% is complete, skip build."
+            goto End
+        )
+    )
+    echo "%DEP_INSTALL_DIR% exists but OpenSSL libs are missing, rebuild deps."
+    goto GenerateDep_Before
 ) else (
-    goto downDepsSrcZip
+    goto GenerateDep_Before
 ) 
 
 :downDepsSrcZip
@@ -119,35 +133,57 @@ mkdir build_%build_type%
 cd build_%build_type%
 echo cmake ../ -G "%VS_Version%" -A x64 -DDESTDIR="%DEP_INSTALL_DIR%" -DCMAKE_BUILD_TYPE=%build_type% -DDEP_DEBUG=%Build_ON% -DORCA_INCLUDE_DEBUG_INFO=OFF -DDEPS_ARCH=x64
 cmake ../ -G "%VS_Version%" -A x64 -DDESTDIR="%DEP_INSTALL_DIR%" -DCMAKE_BUILD_TYPE=%build_type% -DDEP_DEBUG=%Build_ON% -DORCA_INCLUDE_DEBUG_INFO=OFF -DDEPS_ARCH=x64
+if errorlevel 1 (
+    echo cmake configure failed with exit code %ERRORLEVEL%
+    cd /d "%ROOT%"
+    exit /b %ERRORLEVEL%
+)
 if %cache_dep_continue% == ON (
     echo cmake --build . --config %build_type% --target deps -- -m
     cmake --build . --config %build_type% --target deps -- -m
+    if errorlevel 1 (
+        echo build_deps failed with exit code %ERRORLEVEL%
+        cd /d "%ROOT%"
+        exit /b %ERRORLEVEL%
+    )
     goto End
 )
 
 @REM Extract DL_CACHE.zip
 cd %ROOT_DEP%
-IF EXIST DL_CACHE\ (
-    echo RD /S /Q DL_CACHE
-    RD /S /Q DL_CACHE
+IF EXIST "%ROOT%\DL_CACHE.zip" (
+    IF EXIST DL_CACHE\ (
+        echo RD /S /Q DL_CACHE
+        RD /S /Q DL_CACHE
+    ) ELSE (
+        echo HINT: DL_CACHE\ NOT EXIST, Skip remove
+    )
+    echo 7z x %ROOT%\DL_CACHE.zip
+    %ROOT%\tools\7z.exe x %ROOT%\DL_CACHE.zip
 ) ELSE (
-    echo HINT: DL_CACHE\ NOT EXIST, Skip remove
+    echo HINT: %ROOT%\DL_CACHE.zip NOT EXIST, use existing deps\DL_CACHE or source URLs.
 )
-echo 7z x %ROOT%\DL_CACHE.zip
-%ROOT%\tools\7z.exe x %ROOT%\DL_CACHE.zip
 
 @REM REM Deal with wxWidgets
 set WXWIDGETS_PREFIX_ROOT=%DEP_BUILD_DIR%\dep_wxWidgets-prefix
-cd %WXWIDGETS_PREFIX_ROOT%\src
-IF EXIST dep_wxWidgets\ (
-    echo RD /S /Q dep_wxWidgets\
-    RD /S /Q dep_wxWidgets\
+IF EXIST "%ROOT%\dep_wxWidgets.zip" (
+    if not exist "%WXWIDGETS_PREFIX_ROOT%\src" mkdir "%WXWIDGETS_PREFIX_ROOT%\src"
+    cd %WXWIDGETS_PREFIX_ROOT%\src
+    IF EXIST dep_wxWidgets\ (
+        echo RD /S /Q dep_wxWidgets\
+        RD /S /Q dep_wxWidgets\
+    )
+    echo 7z x %ROOT%\dep_wxWidgets.zip
+    %ROOT%\tools\7z.exe x %ROOT%\dep_wxWidgets.zip
+    if exist "%ROOT%\wxWidgets_scrip.py" (
+        echo python %ROOT%\wxWidgets_scrip.py %WXWIDGETS_PREFIX_ROOT%
+        python %ROOT%\wxWidgets_scrip.py %WXWIDGETS_PREFIX_ROOT%
+    ) else (
+        echo HINT: %ROOT%\wxWidgets_scrip.py NOT EXIST, skip wxWidgets source patch script.
+    )
+) ELSE (
+    echo HINT: %ROOT%\dep_wxWidgets.zip NOT EXIST, use wxWidgets source from ExternalProject.
 )
-echo 7z x %ROOT%\dep_wxWidgets.zip
-%ROOT%\tools\7z.exe x %ROOT%\dep_wxWidgets.zip
-
-echo python %ROOT%\wxWidgets_scrip.py %WXWIDGETS_PREFIX_ROOT%
-python %ROOT%\wxWidgets_scrip.py %WXWIDGETS_PREFIX_ROOT%
 
 :GenerateDep_After
 echo GenerateDep_After
@@ -167,6 +203,11 @@ echo BuildDep Start
 cd %DEP_BUILD_DIR%
 echo cmake --build . --config %build_type% --target deps -- -m
 cmake --build . --config %build_type% --target deps -- -m
+if errorlevel 1 (
+    echo build_deps failed with exit code %ERRORLEVEL%
+    cd /d "%ROOT%"
+    exit /b %ERRORLEVEL%
+)
 
 :BuildDep_After
 echo BuildDep_After
@@ -182,4 +223,5 @@ echo build.bat Release zipcache
 echo ----------------------------------------------------------
 
 :End
+cd /d "%ROOT%"
 echo build_deps end

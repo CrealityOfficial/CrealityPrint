@@ -1,0 +1,809 @@
+msgid ""
+msgstr "Project-Id-Version: \nPOT-Creation-Date: \nPO-Revision-Date: \nLast-Translator: \nLanguage-Team: \nLanguage: id_ID\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\nX-Generator: Poedit 3.5"
+
+msgid "All"
+msgstr "Semua"
+
+msgid "Start Print"
+msgstr "Mulai cetak"
+
+msgid "Send Only"
+msgstr "Kirim saja"
+
+msgid "Print Device"
+msgstr "Perangkat cetak"
+
+msgid "My Device"
+msgstr "Perangkat saya"
+
+msgid "Filament Device"
+msgstr "Perangkat filamen"
+
+msgid "Please Select"
+msgstr "Silakan Pilih"
+
+msgid "CFS"
+msgstr "CFS"
+
+msgid "Spool Holder"
+msgstr "Penahan spool"
+
+msgid "Print Calibration"
+msgstr "Kalibrasi Cetak"
+
+msgid "Sliced Plate"
+msgstr "Lempeng Diiris"
+
+msgid "Upload Success"
+msgstr "Unggah berhasil"
+
+msgid "Upload Failed"
+msgstr "Unggah gagal"
+
+msgid "Print Filter"
+msgstr "Penyaring Cetak"
+
+msgid "Single Plate"
+msgstr "Lembar Tunggal"
+
+msgid "This plate is for printing after sending"
+msgstr "Piring ini untuk mencetak setelah mengirim"
+
+msgid "All Plates"
+msgstr "Semua Pelat"
+
+msgid "Model Color / Filament"
+msgstr "Warna Model / Filamen"
+
+msgid "Box Color / Filament"
+msgstr "Warna Kotak / Filamen"
+
+msgid "Local Network"
+msgstr "Jaringan Lokal"
+
+msgid "Internet(Creality Cloud)"
+msgstr "Internet (Creality Cloud)"
+
+msgid "Local Device"
+msgstr "Perangkat Lokal"
+
+msgid "Creality Cloud Device"
+msgstr "Perangkat Creality Cloud"
+
+msgid "Uploading"
+msgstr "Mengunggah"
+
+msgid "Offline"
+msgstr "Offline"
+
+msgid "Other"
+msgstr "Lainnya"
+
+msgid "File Name"
+msgstr "Nama Berkas"
+
+msgid "Please check"
+msgstr "Tolong periksa."
+
+msgid "Does the printer camera device work properly"
+msgstr "Apakah perangkat kamera printer berfungsi dengan benar"
+
+msgid "This feature will be launched soon"
+msgstr "Fitur ini akan diluncurkan segera"
+
+msgid "Insufficient cloud storage space"
+msgstr "Ruang penyimpanan awan tidak mencukupi"
+
+msgid "Executing print command"
+msgstr "Menjalankan perintah cetak"
+
+msgid "Executing print command over"
+msgstr "Menjalankan perintah cetak selesai"
+
+msgid "Parsing GCode file"
+msgstr "Mengurai file GCode"
+
+msgid "Download GCode"
+msgstr "Download GCode..."
+
+msgid ""
+"Please make sure that there are no models on the printing platform, "
+"otherwise it will cause fatal damage to the device after startup"
+msgstr "Pastikan tidak ada model di platform cetak; jika tidak, perangkat dapat mengalami kerusakan serius setelah dinyalakan"
+
+
+msgid "Idle"
+msgstr "Diam"
+
+msgid "Printing"
+msgstr "Mencetak"
+
+msgid "Printing Complete"
+msgstr "Mencetak Selesai"
+
+msgid "Printing Failed"
+msgstr "Gagal Mencetak"
+
+msgid "Print Abort"
+msgstr "Cetak dibatalkan"
+
+msgid "Printing Paused"
+msgstr "Mencetak Dihentikan"
+
+msgid "Printing Pausing"
+msgstr "Mencetak Jeda"
+
+msgid "Printing Stopping"
+msgstr "Mencetak Menghentikan"
+
+msgid "Printing Restoring"
+msgstr "Mencetak Pemulihan"
+
+msgid "Executing print termination command"
+msgstr "Menjalankan perintah penghentian cetak"
+
+msgid "Executing pause command"
+msgstr "Menjalankan perintah jeda"
+
+msgid "Executing the command to continue printing"
+msgstr "Menjalankan perintah untuk melanjutkan pencetakan"
+
+msgid "Pause"
+msgstr "Jeda"
+
+msgid "Stop"
+msgstr "Berhenti"
+
+msgid "Continue"
+msgstr "Lanjutkan"
+
+msgid "Printing Speed"
+msgstr "Kecepatan Pencetakan"
+
+msgid "Warning"
+msgstr "Peringatan"
+
+msgid "Ok"
+msgstr "Ok"
+
+msgid "Cancel"
+msgstr "Batal"
+
+msgid "Please select the CFS slot corresponding to the consumables"
+msgstr "Silakan pilih slot CFS yang sesuai dengan bahan habis pakai"
+
+msgid "There are consumables without mapping, only support sending"
+msgstr "Ada bahan habis pakai tanpa pemetaan, hanya mendukung pengiriman"
+
+msgid "Model color/consumables"
+msgstr "Warna model/filamen"
+
+msgid "Printing colors/consumables"
+msgstr "Mencetak warna/bahan habis pakai"
+
+msgid "Printing will be done using rack colors"
+msgstr "Pencetakan akan dilakukan menggunakan warna rak"
+
+msgid "The slot has no consumables and cannot be mapped"
+msgstr "Slot tidak memiliki bahan habis pakai dan tidak dapat dipetakan"
+
+msgid "Consumables exist, but have not been edited"
+msgstr "filaments exist, but have not been edited"
+
+msgid "Current Device"
+msgstr "Perangkat Saat Ini"
+
+msgid "Enable CFS"
+msgstr "Aktifkan CFS"
+
+msgid "Printing using consumables in CFS"
+msgstr "Mencetak menggunakan bahan habis pakai di CFS"
+
+msgid "Enable material rack"
+msgstr "Aktifkan rak material"
+
+msgid "Printing with consumables attached to the back of the machine"
+msgstr "Mencetak dengan bahan habis pakai terpasang di bagian belakang mesin"
+
+msgid ""
+"The current printer does not match the preset settings of the selected "
+"printer"
+msgstr "Pencetak kini tak cocok dengan pengaturan preset dari pencetak yang dipilih"
+
+msgid "Prepare to jump to details"
+msgstr "Bersiaplah untuk melompat ke rincian"
+
+msgid "Under decompression"
+msgstr "Under decompression..."
+
+msgid "Cancel sending"
+msgstr "Batalkan pengiriman"
+
+msgid "Cancel Successfully"
+msgstr "Berhasil dibatalkan"
+
+msgid "The file name is too long [cannot exceed 80 characters]"
+msgstr "Nama berkas terlalu panjang [tidak dapat melebihi 80 karakter]"
+
+msgid "Unknow error"
+msgstr "Galat tak dikenal"
+
+msgid "Continue Print"
+msgstr "Lanjutkan Cetak"
+
+msgid "Cancel Print"
+msgstr "Batalkan Cetak"
+
+msgid "Retry"
+msgstr "Coba lagi"
+
+msgid "OK"
+msgstr "OK"
+
+msgid ""
+"The current printer's material rack consumables do not exist. Do you want to "
+"continue printing"
+msgstr "Material pada rak material printer saat ini tidak tersedia. Apakah Anda ingin melanjutkan pencetakan?"
+
+msgid "Login information is invalid, please log in again"
+msgstr "Informasi log masuk tidak valid, silakan log masuk lagi"
+
+msgid "An unknown error was detected in printing"
+msgstr "Galat tak dikenal terdeteksi dalam pencetakan"
+
+msgid "Motor drive abnormality"
+msgstr "Keabnormalan penggerak motor"
+
+msgid "internal error"
+msgstr "kesalahan internal"
+
+msgid "Communication abnormality"
+msgstr "Ketidaknormalan komunikasi"
+
+msgid "Not heating as expected"
+msgstr "Tidak pemanasan seperti yang diharapkan"
+
+msgid "Unknown exception"
+msgstr "eksepsi tidak diketahui"
+
+msgid "Extruder abnormality"
+msgstr "Ketidaknormalan extruder"
+
+msgid "Print file coordinates are abnormal"
+msgstr "Koordinat berkas pencetakan tidak normal"
+
+msgid "Chatter optimization sensor abnormality"
+msgstr "Sensor optimasi percakapan tidak normal"
+
+msgid "Fan abnormality"
+msgstr "Keabnormalan penggemar"
+
+msgid "A print quality issue has been detected and printing has been paused"
+msgstr "Masalah kualitas cetak telah terdeteksi dan dicetak telah diistirahatkan"
+
+msgid "Unknown error"
+msgstr "Galat tak dikenal"
+
+msgid "Foreign object detected on the printing platform, printing paused"
+msgstr "Objek asing terdeteksi pada platform pencetakan, pencetakan berhenti"
+
+msgid "Motherboard Connection Failure"
+msgstr "Kegagalan Koneksi Papan Induk"
+
+msgid "Nozzle connection abnormal"
+msgstr "Koneksi nozzle tidak normal"
+
+msgid "Hotbed Connection Abnormal"
+msgstr "Koneksi hotbed tidak normal"
+
+msgid "Detected unfinished task, do you wish to continue printing"
+msgstr "Terdeteksi tugas yang belum selesai, apakah Anda ingin melanjutkan pencetakan"
+
+msgid "Filament runout, printing paused, please refill"
+msgstr "Filamen kehabisan, pencetakan berhenti, silakan isi ulang"
+
+msgid "A model warping issue has been detected，printing has been paused"
+msgstr "Sebuah masalah model warping telah terdeteksi pencetakan telah diistirahatkan"
+
+msgid "Detected waste chute is block. Please clean it up and try again."
+msgstr "Terdeteksi limbah parasut blok. Tolong bersihkan dan coba lagi."
+
+msgid ""
+"Belt tension abnormal. Please rerun the Input Shaping before using the "
+"printer."
+msgstr "Leher ketegangan tidak normal. Silakan jalankan ulang Penutup Masukan sebelum menggunakan pencetak."
+
+msgid ""
+"FR2357: CFS filament in use. To print with spool holder, unload CFS filament "
+"and reload spool holder before printing."
+msgstr "FR2357: Filamen CFS sedang digunakan. Untuk mencetak dengan penahan spool, keluarkan filamen CFS lalu muat ulang filamen dari penahan spool sebelum mencetak."
+
+
+msgid ""
+"FR2358: Spool holder filament in use. To print with CFS, unload spool holder "
+"filament and reload CFS filament before printing."
+msgstr "FR2358: Filamen penahan spool sedang digunakan. Untuk mencetak dengan CFS, keluarkan filamen penahan spool lalu muat ulang filamen CFS sebelum mencetak."
+
+
+msgid "Abnormal temperature of the temperature chamber"
+msgstr "Suhu chamber normal"
+
+msgid "network anomaly"
+msgstr "anomali jaringan"
+
+msgid "AI detected print quality issues"
+msgstr "AI mendeteksi masalah kualitas cetak"
+
+msgid "z-Touch abnormality"
+msgstr "z- Touch kelainan"
+
+msgid "File anomaly"
+msgstr "Anomali berkas"
+
+msgid "Abnormal hot bed temperature"
+msgstr "Suhu hotbed tidak normal"
+
+msgid "Printing quality issues detected by AI"
+msgstr "Masalah kualitas cetak terdeteksi oleh AI"
+
+msgid "TF0501: Heat break fan speed detected to be too low."
+msgstr "Kecepatan kipas panas terdeteksi terlalu rendah."
+
+msgid "Mainboard fan exception"
+msgstr "eksepsi penggemar Mainboard"
+
+msgid "Detected a issue with the print quality of the first layer"
+msgstr "Terdeteksi masalah dengan kualitas cetak dari lapis pertama"
+
+msgid "Current file does not support flow detection"
+msgstr "Berkas saat ini tidak mendukung deteksi aliran"
+
+msgid "AI LiDAR anomaly"
+msgstr "Anomali AI LiDAR"
+
+msgid "AI LiDAR calibration failure"
+msgstr "Kalibrasi AI LiDAR gagal"
+
+msgid "AI LiDAR alignment failure"
+msgstr "Penyelarasan AI LiDAR gagal"
+
+msgid "Current storage space usage has reached %s, please clean up in time"
+msgstr "Penggunaan ruang penyimpanan telah mencapai %s, harap bersihkan segera"
+
+msgid "Chamber temp too high, camera off. It'll auto-on when temp normalizes"
+msgstr "Suhu chamber terlalu tinggi, kamera dimatikan. Kamera akan aktif kembali saat suhu normal"
+
+msgid "Camera failed to start, try restarting"
+msgstr "Kamera gagal untuk dijalankan, coba memulai ulang"
+
+msgid ""
+"Current file does not support flow ratio calibration, printing with default "
+"values."
+msgstr "Berkas saat ini tidak mendukung kalibrasi rasio flow, pencetakan dengan nilai baku."
+
+msgid ""
+"Current filament does not support flow ratio calibration, printing with "
+"default values."
+msgstr "filamen saat ini tidak mendukung rasio aliran kalibrasi, pencetakan dengan nilai baku."
+
+msgid "Auto PA calibration image anomaly, printing with default values."
+msgstr "Otomatis PA kalibrasi gambar anomali, mencetak dengan nilai baku."
+
+msgid "Auto PA calibration failed, printing with default values."
+msgstr "Kalibrasi Auto PA gagal, mencetak dengan nilai baku."
+
+msgid "A model warping issue has been detected."
+msgstr "Sebuah masalah model warping telah terdeteksi."
+
+msgid "TF0526: Model fan speed detected to be too low."
+msgstr "Kecepatan penggemar model terdeteksi terlalu rendah."
+
+msgid "FO0528: rinter seems to be printing without extruding."
+msgstr "FO0528: runter tampaknya mencetak tanpa extruding."
+
+msgid "Axis movement error"
+msgstr "Galat pergerakan Axis"
+
+msgid "Machine preparation"
+msgstr "Persiapan mesin"
+
+msgid "System error, try restarting"
+msgstr "Galat sistem, coba memulai ulang"
+
+msgid "The nozzle temperature is below the minimum extrusion temperature"
+msgstr "Suhu nozzle di bawah temperatur ekstrusi minimum"
+
+msgid "Unable to obtain nozzle temperature, the thermistor may be disconnected"
+msgstr "Tidak dapat memperoleh suhu nozzle, termistor mungkin terputus"
+
+msgid "Hotbed thermistor open circuit"
+msgstr "Thermistor panas membuka sirkuit"
+
+msgid "The chamber thermistor may be open circuit"
+msgstr "Ruang termistor mungkin terbuka sirkuit"
+
+msgid "The motherboard temperature is abnormal"
+msgstr "Suhu motherboard tidak normal"
+
+msgid "Nozzle temperature exceeds limit, thermistor may be short-circuited"
+msgstr "Temperatur nozzle melebihi batas, termistor mungkin pendek terlarut"
+
+msgid "Hotbed thermistor short circuit"
+msgstr "Sirkuit pendek termastor panas"
+
+msgid "The chamber thermistor may be short circuit"
+msgstr "Ruang termistor mungkin sirkuit pendek"
+
+msgid "Chamber heating issue, please ensure the printer is sealed"
+msgstr "Masalah pemanas kamar, pastikan pencetak disegel"
+
+msgid "The nozzle is not heating as expected"
+msgstr "Nozzle tidak memanas seperti yang diharapkan"
+
+msgid "The heat bed is not heating as expected"
+msgstr "Tempat tidur panas tidak memanas seperti yang diharapkan"
+
+msgid "Print file is corrupted"
+msgstr "Berkas pencetakan rusak"
+
+msgid "X-axis homing abnormality"
+msgstr "Ketidak normalan homing sumbu-X-"
+
+msgid "Y-axis homing abnormality"
+msgstr "Y-axis homing kelainan"
+
+msgid "Z-axis homing abnormality"
+msgstr "Z-axis homing kelainan"
+
+msgid "X-axis print coordinates out of range"
+msgstr "Koordinat cetak sumbu X- diluar dari jangkauan"
+
+msgid "Y-axis print coordinates out of range"
+msgstr "Koordinat cetak sumbu Y- diluar dari jangkauan"
+
+msgid "Z-axis print coordinates out of range"
+msgstr "Z-axis tampilkan koordinat diluar dari jangkauan"
+
+msgid "Z Offset Exceeds Limit"
+msgstr "Batas Permintaan z Ofset"
+
+msgid "Belt tension module abnormal."
+msgstr "Belt ketegangan modul abnormal."
+
+msgid "Auto belt tension failure"
+msgstr "Kegagalan sabuk otomatis"
+
+msgid "The nozzle leveling sensor may have a hardware failure."
+msgstr "Nozzle leveling sensor mungkin memiliki perangkat keras gagal."
+
+msgid ""
+"The nozzle leveling sensor may be damaged or the wiping module may have "
+"fallen off. Please check or try restarting."
+msgstr "Sensor leveling nozel mungkin rusak atau modul pembersih mungkin terlepas. Periksa atau coba mulai ulang."
+
+
+msgid "Z-axis homing issue,may have an external disturbance "
+msgstr "Z-axis homing isu, mungkin memiliki gangguan eksternal"
+
+msgid ""
+"[Printing] XY Motor: XY motor speed limit exceeded. The motor will be "
+"released. Please reduce the print speed or re-slice and print again.Z Motor: "
+"Z motor speed limit exceeded. The motor will be released. Please reduce the "
+"print speed or re-slice and print again.E Motor: Extruder speed limit "
+"exceeded. The motor will be released. Please reduce the print speed or re-"
+"slice and print again.[Not Printing] XY Motor: XY motor speed limit "
+"exceeded. The motor will be released. Please reduce the XY motor movement "
+"speed.Z Motor: Z motor speed limit exceeded. The motor will be released. "
+"Please reduce the Z motor movement speed.E Motor: Extruder speed limit "
+"exceeded. The motor will be released. Please reduce the extruder movement "
+"speed."
+msgstr "[Mencetak] Motor XY: Batas kecepatan motor XY terlampaui. Motornya akan dilepas. Silakan kurangi kecepatan cetak atau potong ulang dan cetak lagi. Z Motor: Batas kecepatan motor Z terlampaui. Motornya akan dilepas. Silakan kurangi kecepatan cetak atau potong ulang dan cetak lagi. E Motor: Batas kecepatan ekstruder terlampaui. Motornya akan dilepas. Harap kurangi kecepatan cetak atau potong ulang dan cetak lagi. [Tidak Mencetak] Motor XY: Batas kecepatan motor XY terlampaui. Motornya akan dilepas. Harap kurangi kecepatan gerak motor XY. Motor Z: Batas kecepatan motor Z terlampaui. Motornya akan dilepas. Harap kurangi kecepatan gerakan motor Z. Motor E: Batas kecepatan ekstruder terlampaui. Motornya akan dilepas. Harap kurangi kecepatan gerakan ekstruder."
+
+msgid ""
+"[X/Y/E/Z1/Z2] step-servo position issue, please try again after resolving"
+msgstr "Masalah posisi step-servo [X/Y/E/Z1/Z2], silakan coba lagi setelah diperbaiki"
+
+msgid ""
+"[Printing] XY Motor: An obstacle was detected during the extruder's "
+"movement. This print has been canceled and the motor is released.Z Motor: An "
+"obstacle was detected during the heated bed's movement. This print has been "
+"canceled and the motor is released.E Motor: An extrusion anomaly was "
+"detected, possibly a clog, tangle, or jam. Printing has been paused.[Not "
+"Printing] XY Motorstep-servo: An obstacle was detected during the nozzle's "
+"movement. The motor will be released.Z Motor: An obstacle was detected "
+"during the heated bed's movement. The motor will be released.E Motor: An "
+"extrusion anomaly was detected, possibly a clog, tangle, or jam. The motor "
+"will be released."
+msgstr "[Pencetakan] Motor XY: Hambatan terdeteksi selama pergerakan ekstruder. Pencetakan ini telah dibatalkan dan motor dilepaskan. Z Motor: Sebuah hambatan terdeteksi selama pergerakan tempat tidur yang dipanaskan. Pencetakan ini telah dibatalkan dan motor dilepaskan. E Motor: Anomali ekstrusi terdeteksi, kemungkinan tersumbat, kusut, atau macet. Pencetakan telah dihentikan sementara. [Tidak Mencetak] XY Motorstep-servo: Ada hambatan yang terdeteksi selama pergerakan nosel. Motor akan dilepaskan.Z Motor: Sebuah hambatan terdeteksi selama pergerakan tempat tidur yang dipanaskan. Motor akan dilepas. Motor E: Anomali ekstrusi terdeteksi, kemungkinan tersumbat, kusut, atau macet. Motornya akan dilepas."
+
+msgid ""
+"X Motor: X motor identification error detected. The motor wire may be "
+"connected improperly or the motor may be damaged.Y Motor: Y motor "
+"identification error detected. The motor wire may be connected improperly or "
+"the motor may be damaged.Z1 Motor: Z1 motor identification error detected. "
+"The motor wire may be connected improperly or the motor may be damaged.Z2 "
+"Motor: Z2 motor identification error detected. The motor wire may be "
+"connected improperly or the motor may be damaged.E Motor: Extruder motor "
+"identification error detected. The motor wire may be connected improperly or "
+"the motor may be damaged."
+msgstr "X Motor: X kesalahan identifikasi motor terdeteksi. Kabel motor mungkin tidak tersambung dengan benar atau motor mungkin rusak. Y Motor: Kesalahan identifikasi motor Y terdeteksi. Kabel motor mungkin tidak tersambung dengan benar atau motor mungkin rusak. Motor Z1: Kesalahan identifikasi motor Z1 terdeteksi. Kabel motor mungkin tidak tersambung dengan benar atau motor mungkin rusak. Motor Z2: Kesalahan identifikasi motor Z2 terdeteksi. Kabel motor mungkin tidak tersambung dengan benar atau motor mungkin rusak. E Motor: Kesalahan identifikasi motor ekstruder terdeteksi. Kabel motor mungkin tidak tersambung dengan benar atau motor mungkin rusak."
+
+msgid ""
+"X/Y/Z/E axis step-servo motor initialization error, motor communication line "
+"may be connected incorrectly"
+msgstr "Kesalahan inisialisasi motor step-servo sumbu X/Y/Z/E, kabel komunikasi motor mungkin tersambung tidak benar"
+
+
+msgid "communication issue, please try again after resolving."
+msgstr "Komunikasi isu, silakan coba lagi setelah pemecahan."
+
+msgid ""
+"Retract issue, check for filament or spool jams. Click &quot;Retry&quot; "
+"after resolving."
+msgstr "Masalah menarik kembali, periksa filamen atau kemacetan spool. Klik & quot; Coba & quot; setelah memilah."
+
+msgid ""
+"Feed issue, check for filament or spool jams. Click &quot;Retry&quot; after "
+"resolving."
+msgstr "Masalah makan, periksa filamen atau jams spool. Klik & quot; Coba & quot; setelah memilah."
+
+msgid "System error."
+msgstr "Sistem error."
+
+msgid ""
+"Feed issue , filament may be stuck from loader to CFS hub. Please resolve "
+"the issue and click the &quot;Retry&quot; button."
+msgstr "Masalah pengumpanan, filamen mungkin tersangkut dari loader ke hub CFS. Perbaiki masalah lalu klik tombol &quot;Coba lagi&quot;."
+
+
+msgid ""
+"Feed issue , filament may be blocked between the CFS hub and extruder "
+"filament detector. Please resolve the issue and click &quot;Retry&quot; "
+"button."
+msgstr "Masalah pengumpanan, filamen mungkin tersumbat antara hub CFS dan detektor filamen ekstruder. Perbaiki masalah lalu klik tombol &quot;Coba lagi&quot;."
+
+
+msgid ""
+"Feed issue , filament may be jammed between the extruder sensor and the "
+"extruder gear. Please resolve the issue and click the &quot;Retry&quot; "
+"button."
+msgstr "Masalah pengumpanan, filamen mungkin macet antara sensor ekstruder dan roda gigi ekstruder. Perbaiki masalah lalu klik tombol &quot;Coba lagi&quot;."
+
+
+msgid ""
+"Feed issue , filament may be stuck between the CFS hub sensor and the gear. "
+"Please resolve the issue and click the &quot;Retry&quot; button."
+msgstr "Masalah pengumpanan, filamen mungkin tersangkut antara sensor hub CFS dan roda gigi. Perbaiki masalah lalu klik tombol &quot;Coba lagi&quot;."
+
+
+msgid "filament runs out, please refill."
+msgstr "filamen habis, silakan isi ulang."
+
+msgid "Command failed, current scenario does not support this command."
+msgstr "Perintah gagal, skenario saat ini tidak mendukung perintah ini."
+
+msgid "Cutter issue, cutter might be jammed, please try again after resolving"
+msgstr "Masalah Cutter, cutter mungkin macet, silakan coba lagi setelah pemecahan"
+
+msgid "RFID cannot be read, please manually edit filament"
+msgstr "RFID tidak dapat dibaca, harap edit filamen secara manual"
+
+msgid ""
+"PTFE tube may have detached from the pneumatic fitting, Printing paused, "
+"please try again after resolving"
+msgstr "Tabung PTFE mungkin terlepas dari fitting pneumatik. Pencetakan dijeda, silakan coba lagi setelah diperbaiki"
+
+
+msgid "Extruder may be clogged. Click &quot;Retry&quot; after resolving."
+msgstr "Extruder mungkin tersumbat. Klik & quot; Coba & quot; setelah memilah."
+
+msgid ""
+"The filament buffer signal is abnormal,the buffer may be stuck or the "
+"filament may be tangle."
+msgstr "Sinyal buffer filamen tidak normal, buffer mungkin macet atau filamen mungkin kusut."
+
+
+msgid "Filament may tangled, please try again after resolving"
+msgstr "Filamen mungkin kusut, silakan coba lagi setelah pemecahan"
+
+msgid "filament may be broken in CFS."
+msgstr "Filamen mungkin putus di dalam CFS."
+
+msgid ""
+"Retract issue, filament cannot be returned to CFS hub. Please resolve the "
+"issue and click the &quot;Retry&quot; button."
+msgstr "Masalah retraksi, filamen tidak dapat dikembalikan ke hub CFS. Perbaiki masalah lalu klik tombol &quot;Coba lagi&quot;."
+
+
+msgid ""
+"Retract issue, filaments may be inserted into the CFS hub. Remove and click "
+"the &quot;Retry&quot; button."
+msgstr "Masalah retraksi, filamen mungkin masuk ke hub CFS. Keluarkan lalu klik tombol &quot;Coba lagi&quot;."
+
+
+msgid ""
+"Retract issue, Filament Buffer failure. Please resolve and click &quot;"
+"Retry&quot; button."
+msgstr "Tarik kembali isu, Filamen Buffer gagal. Silakan pecahkan dan klik & quot; Coba & quot; tombol."
+
+msgid ""
+"TR2852: Filament detector triggered abnormally, possibly due to an external "
+"material rack being used with CFS."
+msgstr "TR2852: Detektor filamen terpicu secara tidak normal, kemungkinan karena rak material eksternal digunakan dengan CFS."
+
+msgid "CFS temperature and humidity sensor abnormal."
+msgstr "Sensor suhu dan kelembapan CFS tidak normal."
+
+msgid ""
+"TC2854: Filament detected in the extruder, affecting the cutter calibration. "
+"Please remove the filament and try again."
+msgstr "TC2854: Filamen terdeteksi di ekstruder dan memengaruhi kalibrasi pemotong. Keluarkan filamen lalu coba lagi."
+
+
+msgid "TC2855: Cutter calibrat failed. Please try again after resolving."
+msgstr "TC2855: Cutter kalibrasi gagal. Silakan coba lagi setelah pemecahan."
+
+msgid ""
+"TC2856: Cutter issue, the cutter may be jammed or missing. Click &quot;"
+"Retry&quot; after resolving."
+msgstr "TC2856: Masalah pemotong, pemotong mungkin macet atau hilang. Klik &quot;Coba lagi&quot; setelah diperbaiki."
+
+
+msgid ""
+"CFS feeding motor overload, maybe excessive load or unload resistance or the "
+"filament tangled or stuck."
+msgstr "Motor pengumpan CFS kelebihan beban; mungkin hambatan saat memuat/melepas terlalu besar, atau filamen kusut/tersangkut."
+
+
+msgid "FS2858: CFS EEPROM abnormal."
+msgstr "FS2858: EEPROM CFS tidak normal."
+
+msgid "FO2859: CFS filament odometry abnormal."
+msgstr "FO2859: Odometri filamen CFS tidak normal."
+
+msgid "FB2860: CFS filament buffer abnormal."
+msgstr "FB2860: Buffer filamen CFS tidak normal."
+
+msgid "FS2861: CFS left RFID board abnormal."
+msgstr "FS2861: Papan RFID kiri CFS tidak normal."
+
+msgid "FS2862: CFS right RFID board abnormal."
+msgstr "FS2862: Papan RFID kanan CFS tidak normal."
+
+msgid "The file where the last unexpected stop was detected"
+msgstr "Berkas tempat berhenti tak terduga terakhir terdeteksi"
+
+msgid "No consumables detected, do you want to continue printing?"
+msgstr "Tidak ada filamen terdeteksi, apakah Anda ingin melanjutkan pencetakan?"
+
+msgid "There is no consumables in the current rack"
+msgstr "Tidak ada filamen pada rak saat ini"
+
+msgid "Axis movement exceeded limit"
+msgstr "Pergerakan Axis melampaui batas"
+
+msgid "Cannot contain special characters"
+msgstr "Tidak dapat memuat karakter khusus"
+
+msgid "Please add the device to the device list"
+msgstr "Harap tambahkan perangkat ke daftar perangkat"
+
+msgid "Reconnecting"
+msgstr "Menyambung ulang"
+
+msgid "Creality Print camera function does not currently support devices that are only bound to Creality Cloud"
+msgstr "Fungsi kamera Creality Print saat ini belum mendukung perangkat yang hanya ditautkan ke Creality Cloud"
+
+msgid "Feed issue, filament failed to exit extruder.Please resolve and click 'Retry' button."
+msgstr "Masalah makan, filamen gagal keluar dari extruder. Silakan pecahkan dan klik tombol 'Coba'."
+
+msgid "During device self-test, printing and sending files are not supported"
+msgstr "Selama perangkat self-test, pencetakan dan berkas pengiriman tidak didukung"
+
+msgid "Self checking"
+msgstr "Pemeriksaan sendiri"
+
+msgid "Hotbed failed to return to the maximum Z-axis position or tilt calibration at this position failed,please try again after resolving."
+msgstr "Hotbed gagal kembali ke posisi maksimum sumbu Z atau kalibrasi kemiringan di posisi ini gagal. Silakan coba lagi setelah diperbaiki."
+
+msgid "Abnormal resistance in the Y-axis movement direction,  motor released. Fix issue and restart."
+msgstr "Resistansi tidak normal pada arah gerak sumbu Y, motor dilepas. Perbaiki masalah lalu mulai ulang."
+
+msgid "Abnormal resistance under the hotbed, motor released. Fix issue and restart."
+msgstr "Perlawanan abnormal di bawah hotbed, motor dilepaskan. Perbaiki isu dan restart."
+
+msgid "Extruder extrusion anomaly, possible clog or blockage. motor released."
+msgstr "Anomali ekstruder, kemungkinan clog atau penyumbatan. Motor dilepaskan."
+
+msgid "Extruder speed limit exceeded. The motor will be released. Please reduce the extruder movement speed."
+msgstr "Batas kecepatan ekstruder terlampaui. Motor akan dilepas. Harap kurangi kecepatan gerak ekstruder."
+
+msgid "Y motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "Terdeteksi kesalahan identifikasi motor Y. Kabel motor mungkin tidak tersambung dengan benar atau motor mungkin rusak."
+
+msgid "Z1 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "Terdeteksi kesalahan identifikasi motor Z1. Kabel motor mungkin tidak tersambung dengan benar atau motor mungkin rusak."
+
+msgid "Z2 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "Terdeteksi kesalahan identifikasi motor Z2. Kabel motor mungkin tidak tersambung dengan benar atau motor mungkin rusak."
+
+msgid "E motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "Terdeteksi kesalahan identifikasi motor E. Kabel motor mungkin tidak tersambung dengan benar atau motor mungkin rusak."
+
+msgid "[x or y or e] axis servo motor hardware abnormality/[z1 or z2] axis servo motor hardware abnormality, the platform plate will drop"
+msgstr "Perangkat keras motor servo sumbu [x atau y atau e] tidak normal/perangkat keras motor servo sumbu [z1 atau z2] tidak normal, platform akan turun"
+
+
+msgid "Chamber heater fan abnormal, chamber heating closed."
+msgstr "Fans pemanas kamar tidak normal, ruang pemanas ditutup."
+
+msgid "Belt tension module error, left side belt communication line may be connected improperly. "
+msgstr "Kesalahan modul tegangan belt, jalur komunikasi belt sisi kiri mungkin tidak tersambung dengan benar."
+
+msgid "Belt tension module error, right side belt tension module not calibrated, please recalibrate the module."
+msgstr "Kesalahan modul tegangan belt, modul tegangan belt sisi kanan belum dikalibrasi, harap kalibrasi ulang modul."
+
+msgid "Belt tension module error, left side belt tension module not calibrated, please recalibrate the module. "
+msgstr "Kesalahan modul tegangan belt, modul tegangan belt sisi kiri belum dikalibrasi. Harap kalibrasi ulang modul."
+
+msgid "Belt tension module error, please troubleshoot and try recalibrating. "
+msgstr "Kesalahan modul tegangan belt, harap lakukan pemecahan masalah dan coba kalibrasi ulang."
+
+msgid "Belt tension timeout failure, please try retightening or restarting. "
+msgstr "Batas waktu ketegangan belt gagal, silakan coba untuk pensiun atau memulai kembali."
+
+msgid "Abnormal belt tensioning module, right belt tensioning module calibration value abnormal, please recalibrate the module."
+msgstr "Modul tegangan belt tidak normal, nilai kalibrasi modul tegangan belt kanan tidak normal, harap kalibrasi ulang modul."
+
+msgid "Abnormal belt tensioning module, left belt tensioning module calibration value abnormal, please recalibrate the module."
+msgstr "Modul tegangan belt tidak normal, nilai kalibrasi modul tegangan belt kiri tidak normal, harap kalibrasi ulang modul."
+
+msgid "Hotbed failed to reach the maximum position. Check for sensor issues or bed tilt.Please check and retry."
+msgstr "Hotbed gagal mencapai posisi maksimum. Periksa masalah sensor atau kemiringan bed. Silakan periksa lalu coba lagi."
+
+msgid "Abnormal heat break fan"
+msgstr "Fans istirahat panas tidak normal"
+
+msgid "MCU task scheduling failed, possibly due to high load or communication issues."
+msgstr "MCU penjadwalan tugas gagal, mungkin karena beban tinggi atau masalah komunikasi."
+
+msgid "Extruder MCU temperature is too high, possibly due to high chamber temperature or delayed cooling of the extruder motherboard."
+msgstr "Suhu MCU ekstruder terlalu tinggi, kemungkinan karena suhu chamber tinggi atau pendinginan motherboard ekstruder terlambat."
+
+msgid "Cutter not detected."
+msgstr "Cutter tidak terdeteksi."
+
+msgid "Feed issue, filament buffer failure. Please resolve and click \"Retry\" button."
+msgstr "Masalah makan, kegagalan penyangga filamen. Silakan pecahkan dan klik tombol \"Coba\"."
+
+msgid "Detected printing plate is missing, printing paused"
+msgstr "Pelat pencetakan hilang, pencetakan berhenti"
+
+msgid "Detected printing plate is missing and foreign object on the printing plate, printing paused"
+msgstr "Terdeteksi pelat cetak hilang dan ada objek asing pada pelat cetak; pencetakan dijeda."
+
+msgid "Flow ratio calibration image anomaly, printing with default values."
+msgstr "Flow rasio kalibrasi gambar anomali, pencetakan dengan nilai baku."
+
+msgid "Flow ratio calibration failed, printing with default values."
+msgstr "Lipat kalibrasi rasio gagal, pencetakan dengan nilai baku."
+
+msgid "Detected waste chute is block. "
+msgstr "Terdeteksi chute limbah tersumbat."
+
+msgid "Nozzle  camera failed to start, try restarting."
+msgstr "Kamera nozzle gagal dijalankan, coba mulai lagi."
+
+msgid ""
+"Creality Print requires the Microsoft WebView2 Runtime,But it has been found that the abnormal operation of Microsoft WebView2 may be related to the installation of Microsoft Edge. \n"
+"Click the Yes to reinstall Microsoft Edge"
+msgstr "Creality Print memerlukan Microsoft WebView2 Runtime, tetapi ditemukan bahwa operasi Microsoft WebView2 yang tidak normal mungkin terkait dengan instalasi Microsoft Edge.\nKlik Ya untuk menginstal ulang Microsoft Edge."
+
+msgid "Failed to reinstall the Microsoft WebView2 Runtime. Please reinstall it manually."
+msgstr "Gagal memasang ulang Runtime Microsoft WebView2. Silakan instal ulang secara manual."
+
+msgid "tutorial: %s"
+msgstr "Tutorial: %s"
+
+msgid "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
+msgstr "Microsoft WebView2 Runtime berhasil diinstal ulang. Aplikasi akan dimulai ulang sekarang."

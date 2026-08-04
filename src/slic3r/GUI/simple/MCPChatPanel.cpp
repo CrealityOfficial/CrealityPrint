@@ -328,11 +328,6 @@ json build_ai_send_placeholder_event(
         }}
     };
 }
-std::unordered_set<std::string>& observed_slice_requests()
-{
-    static std::unordered_set<std::string> requests;
-    return requests;
-}
 
 } // namespace
 
@@ -446,6 +441,14 @@ MCPChatPanel::~MCPChatPanel()
     m_shutting_down = true;
     m_page_loaded = false;
     m_js_ready = false;
+    // Stop the WebView before nulling the pointer so that any in-flight
+    // navigation or script execution is cancelled.  DestroyAll() in
+    // GUI_App::OnExit() will handle the msedgewebview2.exe child processes;
+    // we must not call Destroy() here because the wx window tree owns the
+    // lifetime of m_browser.
+    if (m_browser) {
+        m_browser->Stop();
+    }
     m_browser = nullptr;
     m_async_lifetime.reset();
 
@@ -620,6 +623,20 @@ void MCPChatPanel::OnScriptMessage(wxWebViewEvent& evt)
     }
 }
 
+void MCPChatPanel::HandleOpenDeviceList(const nlohmann::json& data)
+{
+    bool ok = false;
+    if (auto* plater = wxGetApp().plater()) {
+        if (auto* canvas = plater->get_view3D_canvas3D()) {
+            canvas->open_device_list_popup();
+            ok = true;
+        }
+    }
+    BOOST_LOG_TRIVIAL(info) << "[MCPChatPanel] open_device_list handled success=" << ok;
+    SendCommandToJS("open_device_list_result",
+                    {{"success", ok}, {"request_id", data.value("request_id", std::string())}});
+}
+
 void MCPChatPanel::OnNavigationComplete(wxWebViewEvent& evt)
 {
     BOOST_LOG_TRIVIAL(info) << "[MCPChatPanel] Page loaded: " << evt.GetURL().ToUTF8().data();
@@ -752,7 +769,8 @@ void MCPChatPanel::OnSceneUpdateTimer(wxTimerEvent& /*evt*/)
             !m_pending_slice_request.request_id.empty()) {
             const std::string request_id = m_pending_slice_request.request_id;
             const bool notify_cxagent_bridge = m_pending_slice_request.notify_cxagent_bridge && m_cxagent_bridge;
-            auto& observed = observed_slice_requests();
+            const bool notify_sagent_mqtt_bridge = m_pending_slice_request.notify_sagent_mqtt_bridge && m_sagent_mqtt_bridge;
+            auto& observed = m_observed_slice_requests;
             auto* plater = wxGetApp().plater();
             if (plater && plater->is_background_process_slicing()) {
                 observed.insert(request_id);
@@ -768,13 +786,16 @@ void MCPChatPanel::OnSceneUpdateTimer(wxTimerEvent& /*evt*/)
                         const bool export_started = plater->export_gcode_to_path(
                             boost::filesystem::path(m_pending_slice_request.output_path), false);
                         if (!export_started) {
+                            const json error = {
+                                {"code", "EXPORT_START_FAILED"},
+                                {"message", "Slice completed but automatic G-code export could not be started."}
+                            };
                             if (notify_cxagent_bridge) {
-                                m_cxagent_bridge->SendToolResult(request_id, false, {
-                                    {"code", "EXPORT_START_FAILED"},
-                                    {"message", "Slice completed but automatic G-code export could not be started."}
-                                });
+                                m_cxagent_bridge->SendToolResult(request_id, false, error);
                                 m_cxagent_bridge->MarkRequestFinished(request_id);
                             }
+                            if (notify_sagent_mqtt_bridge)
+                                PublishSAgentMqttToolResult(request_id, false, json::object(), error);
                             SendCommandToJS("slice_completed", {
                                 {"request_id", request_id},
                                 {"success", false},
@@ -789,6 +810,14 @@ void MCPChatPanel::OnSceneUpdateTimer(wxTimerEvent& /*evt*/)
                             m_pending_slice_request.awaiting_export = true;
                             if (notify_cxagent_bridge)
                                 m_cxagent_bridge->SendToolProgress(request_id, 90, "Slice completed, exporting G-code", "exporting");
+                            if (notify_sagent_mqtt_bridge)
+                                PublishSAgentMqttToolProgress(
+                                    request_id,
+                                    90,
+                                    "exporting",
+                                    "Slice completed, exporting G-code",
+                                    "running",
+                                    {{"tool", Bridge::ActionID::START_SLICE}, {"source_action", Bridge::ActionID::START_SLICE}});
                             NotifyCxAgentStatus();
                         }
                     } else {
@@ -797,6 +826,16 @@ void MCPChatPanel::OnSceneUpdateTimer(wxTimerEvent& /*evt*/)
                             m_cxagent_bridge->SendToolProgress(request_id, 100, "Slice completed", "completed", "completed");
                             m_cxagent_bridge->SendToolResult(request_id, true, slice_result);
                             m_cxagent_bridge->MarkRequestFinished(request_id);
+                        }
+                        if (notify_sagent_mqtt_bridge) {
+                            PublishSAgentMqttToolProgress(
+                                request_id,
+                                100,
+                                "completed",
+                                "Slice completed",
+                                "completed",
+                                {{"tool", Bridge::ActionID::START_SLICE}, {"source_action", Bridge::ActionID::START_SLICE}});
+                            PublishSAgentMqttToolResult(request_id, true, slice_result, json::object());
                         }
                         SendCommandToJS("slice_completed", {
                             {"request_id", request_id},
@@ -813,13 +852,16 @@ void MCPChatPanel::OnSceneUpdateTimer(wxTimerEvent& /*evt*/)
                 } else {
                     std::string message;
                     if (extract_blocking_slice_message(state, &message)) {
+                        const json error = {
+                            {"code", "SLICE_PROCESS_FAILED"},
+                            {"message", message}
+                        };
                         if (notify_cxagent_bridge) {
-                            m_cxagent_bridge->SendToolResult(request_id, false, {
-                                {"code", "SLICE_PROCESS_FAILED"},
-                                {"message", message}
-                            });
+                            m_cxagent_bridge->SendToolResult(request_id, false, error);
                             m_cxagent_bridge->MarkRequestFinished(request_id);
                         }
+                        if (notify_sagent_mqtt_bridge)
+                            PublishSAgentMqttToolResult(request_id, false, json::object(), error);
                         SendCommandToJS("slice_completed", {
                             {"request_id", request_id},
                             {"success", false},
@@ -834,14 +876,17 @@ void MCPChatPanel::OnSceneUpdateTimer(wxTimerEvent& /*evt*/)
                         // ????????????????????????????
                         BOOST_LOG_TRIVIAL(warning)
                             << "[MCPChatPanel] slice completed but slice_result_valid=false, no error message found";
+                        const json warning_result = {
+                            {"code", "SLICE_COMPLETED_INVALID_RESULT"},
+                            {"message", "Slice completed but result is not valid for print"},
+                            {"await_context_update", true}
+                        };
                         if (notify_cxagent_bridge) {
-                            m_cxagent_bridge->SendToolResult(request_id, true, {
-                                {"code", "SLICE_COMPLETED_INVALID_RESULT"},
-                                {"message", "Slice completed but result is not valid for print"},
-                                {"await_context_update", true}
-                            });
+                            m_cxagent_bridge->SendToolResult(request_id, true, warning_result);
                             m_cxagent_bridge->MarkRequestFinished(request_id);
                         }
+                        if (notify_sagent_mqtt_bridge)
+                            PublishSAgentMqttToolResult(request_id, true, warning_result, json::object());
                         SendCommandToJS("slice_completed", {
                             {"request_id", request_id},
                             {"success", true},
@@ -858,78 +903,6 @@ void MCPChatPanel::OnSceneUpdateTimer(wxTimerEvent& /*evt*/)
         }
     }
 
-}
-
-void MCPChatPanel::StartSliceRequest(const std::string& request_id,
-                                     const json& args,
-                                     bool notify_cxagent_bridge)
-{
-    auto parse_string_key = [&args](std::initializer_list<const char*> keys) -> std::string {
-        for (const char* key : keys) {
-            try {
-                if (args.contains(key) && args[key].is_string()) {
-                    const std::string value = args[key].get<std::string>();
-                    if (!value.empty())
-                        return value;
-                }
-            } catch (...) {
-            }
-        }
-        return {};
-    };
-
-    const std::string output_path = parse_string_key({"output_path", "export_path", "gcode_path"});
-    std::string export_strategy = parse_string_key({"export_strategy", "export_mode"});
-    std::transform(export_strategy.begin(), export_strategy.end(), export_strategy.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-    if (export_strategy.empty())
-        export_strategy = output_path.empty() ? "slice_only" : "auto_export";
-
-    if (notify_cxagent_bridge && m_cxagent_bridge) {
-        m_cxagent_bridge->MarkRequestStarted(request_id);
-        m_cxagent_bridge->SendToolProgress(request_id, 5, "Slice request accepted", "starting");
-    }
-
-    m_pending_slice_request.active = true;
-    m_pending_slice_request.awaiting_export = false;
-    m_pending_slice_request.notify_cxagent_bridge = notify_cxagent_bridge;
-    m_pending_slice_request.request_id = request_id;
-    m_pending_slice_request.export_strategy = export_strategy;
-    m_pending_slice_request.output_path = output_path;
-    observed_slice_requests().erase(request_id);
-
-    CallAfter([this, request_id, args]() {
-        json bridge_result = Bridge::SlicerBridge::Instance().Execute(Bridge::ActionID::START_SLICE, args);
-        if (!request_id.empty() && !bridge_result.contains("request_id"))
-            bridge_result["request_id"] = request_id;
-
-        const bool success = bridge_result.value("success", false);
-        SendCommandToJS("start_slice", bridge_result);
-        SendCommandToJS("slice_started", bridge_result);
-
-        if (success) {
-            if (bridge_result.contains("export_strategy") && bridge_result["export_strategy"].is_string())
-                m_pending_slice_request.export_strategy = bridge_result["export_strategy"].get<std::string>();
-            if (bridge_result.contains("output_path") && bridge_result["output_path"].is_string())
-                m_pending_slice_request.output_path = bridge_result["output_path"].get<std::string>();
-            observed_slice_requests().insert(request_id);
-            if (m_pending_slice_request.notify_cxagent_bridge && m_cxagent_bridge)
-                m_cxagent_bridge->SendToolProgress(request_id, 15, "Slice action started", "slicing");
-            NotifyCxAgentStatus();
-            return;
-        }
-
-        if (m_pending_slice_request.notify_cxagent_bridge && m_cxagent_bridge) {
-            m_cxagent_bridge->SendToolResult(request_id, false, {
-                {"code", "SLICE_START_FAILED"},
-                {"message", bridge_result.value("message", std::string("Failed to start slice"))},
-                {"details", bridge_result}
-            });
-            m_cxagent_bridge->MarkRequestFinished(request_id);
-        }
-        m_pending_slice_request = {};
-        observed_slice_requests().erase(request_id);
-        NotifyCxAgentStatus();
-    });
 }
 
 void MCPChatPanel::HandleCxAgentMessage(const json& msg)
@@ -1004,7 +977,7 @@ void MCPChatPanel::HandleCxAgentCancelCall(const json& msg)
         });
         m_cxagent_bridge->MarkRequestFinished(request_id);
         m_pending_slice_request = {};
-        observed_slice_requests().erase(request_id);
+        m_observed_slice_requests.erase(request_id);
         NotifyCxAgentStatus();
         return;
     }
@@ -1016,7 +989,7 @@ void MCPChatPanel::HandleCxAgentCancelCall(const json& msg)
         });
         m_cxagent_bridge->MarkRequestFinished(request_id);
         m_pending_slice_request = {};
-        observed_slice_requests().erase(request_id);
+        m_observed_slice_requests.erase(request_id);
         NotifyCxAgentStatus();
         return;
     }
@@ -1293,7 +1266,7 @@ void MCPChatPanel::OnAISendProgress(const json& envelope)
         ", message=" + envelope.value("message", std::string()));
     if (!ShouldSuppressAISendCardEvent(request_id_for_log, card_id))
         SendAgentEvent("ai_send_card_progress", envelope);
-    if (!m_cxagent_bridge)
+    if (!m_cxagent_bridge && !m_sagent_mqtt_bridge)
         return;
 
     auto request_it = m_ai_send_request_by_card.find(card_id);
@@ -1301,12 +1274,30 @@ void MCPChatPanel::OnAISendProgress(const json& envelope)
         return;
 
     const std::string request_id = request_it->second;
-    m_cxagent_bridge->SendToolProgress(
-        request_id,
-        envelope.value("progress", 0),
-        envelope.value("message", std::string("Processing AI send workflow")),
-        envelope.value("stage", std::string("running")),
-        envelope.value("state", std::string("running")));
+    auto pending_it = m_pending_ai_send_calls_by_request.find(request_id);
+    const bool is_mqtt_native = pending_it != m_pending_ai_send_calls_by_request.end() && pending_it->second.native_mqtt_request;
+
+    if (is_mqtt_native && m_sagent_mqtt_bridge) {
+        const std::string workflow_id = pending_it->second.workflow_id;
+        json progress_payload = {
+            {"request_id", request_id},
+            {"status", envelope.value("state", std::string("running"))},
+            {"stage", envelope.value("stage", std::string("running"))},
+            {"progress", envelope.value("progress", 0)},
+            {"message", envelope.value("message", std::string("Processing AI send workflow"))},
+            {"data", {{"tool", "send_print"}, {"card_id", card_id}}}
+        };
+        if (!workflow_id.empty())
+            progress_payload["workflow_id"] = workflow_id;
+        m_sagent_mqtt_bridge->PublishToolResponse("progress", progress_payload);
+    } else if (m_cxagent_bridge) {
+        m_cxagent_bridge->SendToolProgress(
+            request_id,
+            envelope.value("progress", 0),
+            envelope.value("message", std::string("Processing AI send workflow")),
+            envelope.value("stage", std::string("running")),
+            envelope.value("state", std::string("running")));
+    }
     NotifyCxAgentStatus();
 }
 
@@ -1320,7 +1311,16 @@ void MCPChatPanel::OnAISendResult(const json& envelope)
         request_id,
         std::string("result_type=") + envelope.value("result_type", std::string()) +
         ", message=" + envelope.value("message", std::string()));
-    if (!ShouldSuppressAISendCardEvent(request_id, card_id))
+    // AI-driven "direct start print" marks the send request silent so the
+    // intermediate send-card UI is not rendered (the tool result flows to
+    // CxAgent over MQTT, which owns the workflow cards). However the
+    // "print_started" result is the signal the AIChatPage print-progress
+    // monitor needs to start tracking the device in real time — exactly like a
+    // LAN send does. Let this terminal "print_started" event through even when
+    // the request is otherwise silent, so cloud print progress can update live.
+    const std::string result_type = envelope.value("result_type", std::string());
+    const bool is_print_started_result = result_type == "print_started";
+    if (is_print_started_result || !ShouldSuppressAISendCardEvent(request_id, card_id))
         SendAgentEvent("ai_send_card_result", envelope);
     if (card_id.empty())
         return;
@@ -1367,14 +1367,44 @@ void MCPChatPanel::OnAISendError(const json& envelope)
 void MCPChatPanel::FinishAISendToolCallSuccess(const std::string& card_id, const json& result_payload)
 {
     auto request_it = m_ai_send_request_by_card.find(card_id);
-    if (request_it == m_ai_send_request_by_card.end() || !m_cxagent_bridge)
+    if (request_it == m_ai_send_request_by_card.end())
         return;
 
     const std::string request_id = request_it->second;
     ToolCalls::LogAISendPanelStage("finish_success", card_id, request_id, std::string("result_payload=") + ToolCalls::SafeJsonDumpForLog(result_payload));
     ClearAISendToolCallSilent(request_id, card_id);
-    m_cxagent_bridge->SendToolResult(request_id, true, result_payload);
-    m_cxagent_bridge->MarkRequestFinished(request_id);
+
+    auto pending_it = m_pending_ai_send_calls_by_request.find(request_id);
+    const bool is_mqtt_native = pending_it != m_pending_ai_send_calls_by_request.end() && pending_it->second.native_mqtt_request;
+    const std::string workflow_id = pending_it != m_pending_ai_send_calls_by_request.end() ? pending_it->second.workflow_id : std::string();
+
+    if (is_mqtt_native && m_sagent_mqtt_bridge) {
+        json progress_payload = {
+            {"request_id", request_id},
+            {"status", "completed"},
+            {"stage", "completed"},
+            {"progress", 100},
+            {"message", "Print sent"},
+            {"data", {{"tool", "send_print"}, {"card_id", card_id}}}
+        };
+        if (!workflow_id.empty())
+            progress_payload["workflow_id"] = workflow_id;
+        m_sagent_mqtt_bridge->PublishToolResponse("progress", progress_payload);
+
+        json mqtt_result = {
+            {"request_id", request_id},
+            {"ok", true},
+            {"result", result_payload},
+            {"error", json::object()}
+        };
+        if (!workflow_id.empty())
+            mqtt_result["workflow_id"] = workflow_id;
+        m_sagent_mqtt_bridge->PublishToolResponse("result", mqtt_result);
+    } else if (m_cxagent_bridge) {
+        m_cxagent_bridge->SendToolResult(request_id, true, result_payload);
+        m_cxagent_bridge->MarkRequestFinished(request_id);
+    }
+
     m_pending_ai_send_calls_by_request.erase(request_id);
     m_ai_send_request_by_card.erase(request_it);
     NotifyCxAgentStatus();
@@ -1383,14 +1413,32 @@ void MCPChatPanel::FinishAISendToolCallSuccess(const std::string& card_id, const
 void MCPChatPanel::FinishAISendToolCallFailure(const std::string& card_id, const json& error_payload)
 {
     auto request_it = m_ai_send_request_by_card.find(card_id);
-    if (request_it == m_ai_send_request_by_card.end() || !m_cxagent_bridge)
+    if (request_it == m_ai_send_request_by_card.end())
         return;
 
     const std::string request_id = request_it->second;
     ToolCalls::LogAISendPanelStage("finish_failure", card_id, request_id, std::string("error_payload=") + ToolCalls::SafeJsonDumpForLog(error_payload));
     ClearAISendToolCallSilent(request_id, card_id);
-    m_cxagent_bridge->SendToolResult(request_id, false, error_payload);
-    m_cxagent_bridge->MarkRequestFinished(request_id);
+
+    auto pending_it = m_pending_ai_send_calls_by_request.find(request_id);
+    const bool is_mqtt_native = pending_it != m_pending_ai_send_calls_by_request.end() && pending_it->second.native_mqtt_request;
+    const std::string workflow_id = pending_it != m_pending_ai_send_calls_by_request.end() ? pending_it->second.workflow_id : std::string();
+
+    if (is_mqtt_native && m_sagent_mqtt_bridge) {
+        json mqtt_result = {
+            {"request_id", request_id},
+            {"ok", false},
+            {"result", json::object()},
+            {"error", error_payload}
+        };
+        if (!workflow_id.empty())
+            mqtt_result["workflow_id"] = workflow_id;
+        m_sagent_mqtt_bridge->PublishToolResponse("result", mqtt_result);
+    } else if (m_cxagent_bridge) {
+        m_cxagent_bridge->SendToolResult(request_id, false, error_payload);
+        m_cxagent_bridge->MarkRequestFinished(request_id);
+    }
+
     m_pending_ai_send_calls_by_request.erase(request_id);
     m_ai_send_request_by_card.erase(request_it);
     NotifyCxAgentStatus();
@@ -1399,7 +1447,7 @@ void MCPChatPanel::FinishAISendToolCallFailure(const std::string& card_id, const
 void MCPChatPanel::FinishAISendToolCallCanceled(const std::string& card_id, const json& result_payload)
 {
     auto request_it = m_ai_send_request_by_card.find(card_id);
-    if (request_it == m_ai_send_request_by_card.end() || !m_cxagent_bridge)
+    if (request_it == m_ai_send_request_by_card.end())
         return;
 
     const std::string request_id = request_it->second;
@@ -1407,8 +1455,26 @@ void MCPChatPanel::FinishAISendToolCallCanceled(const std::string& card_id, cons
     ClearAISendToolCallSilent(request_id, card_id);
     json payload = result_payload;
     payload["canceled"] = true;
-    m_cxagent_bridge->SendToolResult(request_id, true, payload);
-    m_cxagent_bridge->MarkRequestFinished(request_id);
+
+    auto pending_it = m_pending_ai_send_calls_by_request.find(request_id);
+    const bool is_mqtt_native = pending_it != m_pending_ai_send_calls_by_request.end() && pending_it->second.native_mqtt_request;
+    const std::string workflow_id = pending_it != m_pending_ai_send_calls_by_request.end() ? pending_it->second.workflow_id : std::string();
+
+    if (is_mqtt_native && m_sagent_mqtt_bridge) {
+        json mqtt_result = {
+            {"request_id", request_id},
+            {"ok", true},
+            {"result", payload},
+            {"error", json::object()}
+        };
+        if (!workflow_id.empty())
+            mqtt_result["workflow_id"] = workflow_id;
+        m_sagent_mqtt_bridge->PublishToolResponse("result", mqtt_result);
+    } else if (m_cxagent_bridge) {
+        m_cxagent_bridge->SendToolResult(request_id, true, payload);
+        m_cxagent_bridge->MarkRequestFinished(request_id);
+    }
+
     m_pending_ai_send_calls_by_request.erase(request_id);
     m_ai_send_request_by_card.erase(request_it);
     NotifyCxAgentStatus();
@@ -1876,104 +1942,6 @@ void MCPChatPanel::PostCxAgentJson(const std::string& request_command,
         .perform();
 }
 
-void MCPChatPanel::OnSliceProcessCompleted(Slic3r::SlicingProcessCompletedEvent& evt)
-{
-    json js_result = {
-        {"success", false},
-        {"cancelled", evt.cancelled()},
-        {"error", evt.error()},
-    };
-
-    if (!m_pending_slice_request.active || m_pending_slice_request.request_id.empty())
-        return;
-
-    const std::string request_id = m_pending_slice_request.request_id;
-    const bool notify_cxagent_bridge = m_pending_slice_request.notify_cxagent_bridge && m_cxagent_bridge;
-    js_result["request_id"] = request_id;
-
-    if (evt.cancelled()) {
-        js_result["message"] = "Slice canceled.";
-        if (notify_cxagent_bridge) {
-            m_cxagent_bridge->SendToolResult(request_id, false, {
-                {"code", "SLICE_CANCELED"},
-                {"message", "Slice canceled."}
-            });
-        }
-    } else if (evt.error()) {
-        auto message = evt.format_error_message();
-        js_result["message"] = message.first.empty() ? std::string("Slice failed.") : message.first;
-        if (notify_cxagent_bridge) {
-            m_cxagent_bridge->SendToolResult(request_id, false, {
-                {"code", "SLICE_PROCESS_FAILED"},
-                {"message", js_result["message"]}
-            });
-        }
-    } else {
-        auto* plater = wxGetApp().plater();
-        if (!plater) {
-            js_result["message"] = "Plater not available when slice completed.";
-            if (notify_cxagent_bridge) {
-                m_cxagent_bridge->SendToolResult(request_id, false, {
-                    {"code", "SLICE_RESULT_INVALID"},
-                    {"message", "Plater not available when slice completed."}
-                });
-            }
-        } else {
-            auto& plate_list = plater->get_partplate_list();
-            auto* current_plate = plate_list.get_curr_plate();
-            auto* current_result = plate_list.get_current_slice_result();
-            if (!current_plate || !current_result || !current_plate->is_slice_result_valid()) {
-                js_result["message"] = "Slice finished without a valid result.";
-                if (notify_cxagent_bridge) {
-                    m_cxagent_bridge->SendToolResult(request_id, false, {
-                        {"code", "SLICE_RESULT_INVALID"},
-                        {"message", "Slice finished without a valid result."}
-                    });
-                }
-            } else if (!m_pending_slice_request.output_path.empty() &&
-                       m_pending_slice_request.export_strategy != "slice_only") {
-                js_result["success"] = true;
-                js_result["message"] = "Slice completed, exporting G-code";
-                const bool export_started = plater->export_gcode_to_path(
-                    boost::filesystem::path(m_pending_slice_request.output_path), false);
-                if (!export_started) {
-                    js_result["success"] = false;
-                    js_result["message"] = "Slice completed but automatic G-code export could not be started.";
-                    if (notify_cxagent_bridge) {
-                        m_cxagent_bridge->SendToolResult(request_id, false, {
-                            {"code", "EXPORT_START_FAILED"},
-                            {"message", "Slice completed but automatic G-code export could not be started."}
-                        });
-                    }
-                } else {
-                    m_pending_slice_request.awaiting_export = true;
-                    if (notify_cxagent_bridge)
-                        m_cxagent_bridge->SendToolProgress(request_id, 90, "Slice completed, exporting G-code", "exporting");
-                }
-            } else {
-                js_result["success"] = true;
-                js_result["message"] = "Slice completed";
-                js_result["result"] = BuildCompletedSliceResult();
-                if (notify_cxagent_bridge) {
-                    m_cxagent_bridge->SendToolProgress(request_id, 100, "Slice completed", "completed", "completed");
-                    m_cxagent_bridge->SendToolResult(request_id, true, js_result["result"]);
-                }
-            }
-        }
-    }
-
-    SendCommandToJS("slice_completed", js_result);
-
-    if (!m_pending_slice_request.awaiting_export) {
-        if (notify_cxagent_bridge)
-            m_cxagent_bridge->MarkRequestFinished(request_id);
-        observed_slice_requests().erase(request_id);
-        m_pending_slice_request = {};
-    }
-    NotifyCxAgentStatus();
-}
-
-
 void MCPChatPanel::OnExportFinished(wxCommandEvent& evt)
 {
     if (!m_pending_slice_request.active || !m_pending_slice_request.awaiting_export)
@@ -1981,11 +1949,22 @@ void MCPChatPanel::OnExportFinished(wxCommandEvent& evt)
 
     const std::string request_id = m_pending_slice_request.request_id;
     const bool notify_cxagent_bridge = m_pending_slice_request.notify_cxagent_bridge && m_cxagent_bridge;
+    const bool notify_sagent_mqtt_bridge = m_pending_slice_request.notify_sagent_mqtt_bridge && m_sagent_mqtt_bridge;
     const std::string exported_path = evt.GetString().ToUTF8().data();
     const json result = BuildCompletedSliceResult(exported_path);
     if (notify_cxagent_bridge) {
         m_cxagent_bridge->SendToolProgress(request_id, 100, "G-code exported", "completed", "completed");
         m_cxagent_bridge->SendToolResult(request_id, true, result);
+    }
+    if (notify_sagent_mqtt_bridge) {
+        PublishSAgentMqttToolProgress(
+            request_id,
+            100,
+            "completed",
+            "G-code exported",
+            "completed",
+            {{"tool", Bridge::ActionID::START_SLICE}, {"source_action", Bridge::ActionID::START_SLICE}});
+        PublishSAgentMqttToolResult(request_id, true, result, json::object());
     }
     SendCommandToJS("slice_completed", {
         {"request_id", request_id},
@@ -1998,7 +1977,7 @@ void MCPChatPanel::OnExportFinished(wxCommandEvent& evt)
     if (notify_cxagent_bridge)
         m_cxagent_bridge->MarkRequestFinished(request_id);
     m_pending_slice_request = {};
-    observed_slice_requests().erase(request_id);
+    m_observed_slice_requests.erase(request_id);
     NotifyCxAgentStatus();
 }
 
@@ -2786,8 +2765,7 @@ MCPChatWindow::MCPChatWindow(wxWindow* parent)
              wxDefaultPosition, wxDefaultSize,
              wxCAPTION | wxSYSTEM_MENU | wxCLOSE_BOX | wxMINIMIZE_BOX | wxRESIZE_BORDER | wxFRAME_FLOAT_ON_PARENT | wxFRAME_NO_TASKBAR)
 {
-    SetMinSize(wxSize(FromDIP(420), FromDIP(660)));
-    SetSize(wxSize(FromDIP(420), FromDIP(900)));
+    ApplyDisplaySizeLimits(wxSize(FromDIP(420), FromDIP(900)));
 
     // m_chat_panel = new MCPChatPanel(this);
 
@@ -2880,18 +2858,49 @@ MCPChatWindow::~MCPChatWindow()
         m_iconize_parent->Unbind(wxEVT_ICONIZE, &MCPChatWindow::OnParentIconize, this);
         m_iconize_parent = nullptr;
     }
-    RestoreEmbeddedPanel();
+    // Do not reparent the borrowed panel from a destructor. During application
+    // shutdown its original Plater host may already be in wxWindow teardown,
+    // and Reparent() against that stale parent triggers a pure-virtual call.
+    // The regular hide path restores the embedded panel; teardown paths let the
+    // current wx parent destroy it together with the floating window.
     if (s_last_active_instance == m_chat_panel)
         s_last_active_instance = nullptr;
     s_instance = nullptr;
     BOOST_LOG_TRIVIAL(info) << "[MCPChatWindow] Destroyed";
 }
 
+void MCPChatWindow::ApplyDisplaySizeLimits(const wxSize& preferred_size)
+{
+    wxWindow* anchor = GetParent() != nullptr ? GetParent() : this;
+    int display_index = wxDisplay::GetFromWindow(anchor);
+    if (display_index == wxNOT_FOUND && wxDisplay::GetCount() > 0)
+        display_index = 0;
+
+    if (display_index == wxNOT_FOUND) {
+        SetMinSize(wxSize(FromDIP(420), FromDIP(660)));
+        SetSize(preferred_size);
+        return;
+    }
+
+    const wxSize work_size = wxDisplay(static_cast<unsigned>(display_index)).GetClientArea().GetSize();
+    const int margin = FromDIP(10);
+    const int max_width = std::max(1, work_size.GetWidth() - 2 * margin);
+    const int max_height = std::max(1, work_size.GetHeight() - 2 * margin);
+    const wxSize min_size(std::min(FromDIP(420), max_width),
+                          std::min(FromDIP(660), max_height));
+    const wxSize window_size(std::max(min_size.GetWidth(), std::min(preferred_size.GetWidth(), max_width)),
+                             std::max(min_size.GetHeight(), std::min(preferred_size.GetHeight(), max_height)));
+
+    SetMinSize(min_size);
+    SetSize(window_size);
+}
+
 void MCPChatWindow::on_dpi_changed(const wxRect& suggested_rect)
 {
-    SetMinSize(wxSize(FromDIP(420), FromDIP(560)));
+    const wxSize preferred_size = suggested_rect.IsEmpty() ? GetSize() : suggested_rect.GetSize();
+    ApplyDisplaySizeLimits(preferred_size);
     if (!suggested_rect.IsEmpty())
-        SetSize(suggested_rect);
+        SetPosition(suggested_rect.GetPosition());
     Layout();
 }
 

@@ -6,15 +6,6 @@
     #define NOMINMAX
     #include <Windows.h>
     #include <wchar.h>
-    #ifdef SLIC3R_GUI
-    extern "C"
-    {
-        // Let the NVIDIA and AMD know we want to use their graphics card
-        // on a dual graphics card system.
-        __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
-        __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
-    }
-    #endif /* SLIC3R_GUI */
 #endif /* WIN32 */
 #ifdef _MSC_VER
 #include <new.h>
@@ -43,6 +34,7 @@ static int __cdecl g_cp_sized_new_handler_adapter(size_t bytes) noexcept {
 //add json logic
 #include "nlohmann/json.hpp"
 #include <unistd.h>
+#include <dirent.h>
 #include <sys/wait.h>
 #include <climits>
 
@@ -126,9 +118,11 @@ static std::string get_cpu_model_string()
 #include "slic3r/GUI/Plater.hpp"
 
 
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 #ifdef __WXGTK__
+#include <wx/glcanvas.h>
 #include <X11/Xlib.h>
 #endif
 
@@ -1099,14 +1093,52 @@ int CLI::run(int argc, char **argv)
     save_main_thread_id();
 
 #ifdef __WXGTK__
-    // On Linux, wxGTK has no support for Wayland, and the app crashes on
-    // startup if gtk3 is used. This env var has to be set explicitly to
-    // instruct the window manager to fall back to X server mode.
-    ::setenv("GDK_BACKEND", "x11", /* replace */ true);
+    // Detect display server at runtime. Do not force GDK_BACKEND=x11:
+    // GTK can choose Wayland when available, while still allowing an explicit
+    // GDK_BACKEND override from the launcher or user environment.
+    const char* wayland_display = ::getenv("WAYLAND_DISPLAY");
+    const char* session_type    = ::getenv("XDG_SESSION_TYPE");
+    const char* gdk_backend     = ::getenv("GDK_BACKEND");
+    const bool is_wayland = (gdk_backend != nullptr && ::strcmp(gdk_backend, "wayland") == 0) ||
+        (gdk_backend == nullptr &&
+         ((wayland_display && *wayland_display) ||
+          (session_type && ::strcmp(session_type, "wayland") == 0)));
 
-    // Also on Linux, we need to tell Xlib that we will be using threads,
-    // lest we crash when we fire up GStreamer.
-    XInitThreads();
+    // Keep WebKit stable on both X11 and Wayland. Do not replace user-provided
+    // values from wrappers used for diagnostics.
+    //::setenv("WEBKIT_DISABLE_COMPOSITING_MODE", "1", /* replace */ false);
+
+    // Request the high-performance GPU only on PRIME systems. Mesa warns when
+    // DRI_PRIME=1 is set on single-GPU machines, which is common in Flatpak
+    // Wayland sessions on integrated graphics.
+    auto has_multiple_drm_render_nodes = []() {
+        int count = 0;
+        if (DIR* dir = ::opendir("/dev/dri")) {
+            while (dirent* entry = ::readdir(dir)) {
+                if (::strncmp(entry->d_name, "renderD", 7) == 0 && ++count > 1)
+                    break;
+            }
+            ::closedir(dir);
+        }
+        return count > 1;
+    };
+    if (has_multiple_drm_render_nodes())
+        ::setenv("DRI_PRIME", "1", /* replace */ false);
+
+    if (::access("/proc/driver/nvidia/version", F_OK) == 0) {
+        ::setenv("__NV_PRIME_RENDER_OFFLOAD", "1", /* replace */ false);
+        if (!is_wayland)
+            ::setenv("__GLX_VENDOR_LIBRARY_NAME", "nvidia", /* replace */ false);
+    }
+
+    if (!is_wayland) {
+        XInitThreads();
+#if wxCHECK_VERSION(3, 3, 0)
+        wxGLCanvas::PreferGLX();
+#endif
+    }
+
+    BOOST_LOG_TRIVIAL(info) << "Display server: " << (is_wayland ? "Wayland" : "X11");
 #endif
 
 	// Switch boost::filesystem to utf8.
@@ -1242,6 +1274,10 @@ int CLI::run(int argc, char **argv)
         }
         else {
             set_logging_level(2);
+        }
+        const ConfigOptionString* opt_logfile = m_config.opt<ConfigOptionString>("logfile");
+        if (opt_logfile && !opt_logfile->value.empty()) {
+            set_logging_file(opt_logfile->value);
         }
     }
 
@@ -5426,7 +5462,7 @@ int CLI::run(int argc, char **argv)
                 //glfwDisable(GLFW_AUTO_POLL_EVENTS);
 #ifdef __WXMAC__
                 glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-                glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+                glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 #else
                 glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 #endif
@@ -5452,7 +5488,7 @@ int CLI::run(int argc, char **argv)
                     BOOST_LOG_TRIVIAL(error) << "init opengl failed! skip thumbnail generating" << std::endl;
                 }
                 else {
-                    BOOST_LOG_TRIVIAL(info) << "glewInit Sucess." << std::endl;
+                    BOOST_LOG_TRIVIAL(info) << "GLAD initialization success." << std::endl;
                     GLVolumeCollection glvolume_collection;
                     Model &model = m_models[0];
                     int obj_extruder_id = 1, volume_extruder_id = 1;
@@ -6088,8 +6124,45 @@ bool CLI::setup(int argc, char **argv)
     return true;
 }
 
+void attach_console_on_demand()
+{
+#ifdef _WIN32
+    static bool console_attached = false;
+
+    if (!console_attached) {
+        if (AttachConsole(ATTACH_PARENT_PROCESS)) {
+            console_attached = true;
+        } else if (GetLastError() == ERROR_ACCESS_DENIED) {
+            console_attached = true;
+        } else if (AllocConsole()) {
+            console_attached = true;
+        }
+
+        if (console_attached) {
+            FILE* fp = nullptr;
+            if (freopen_s(&fp, "CONOUT$", "w", stdout) == 0)
+                setvbuf(stdout, nullptr, _IONBF, 0);
+            if (freopen_s(&fp, "CONOUT$", "w", stderr) == 0)
+                setvbuf(stderr, nullptr, _IONBF, 0);
+            if (freopen_s(&fp, "CONIN$", "r", stdin) == 0) {
+            }
+
+            std::ios::sync_with_stdio(true);
+            std::cout.clear();
+            std::cerr.clear();
+            std::cin.clear();
+            boost::nowide::cout.clear();
+            boost::nowide::cerr.clear();
+            boost::nowide::cin.clear();
+        }
+    }
+#endif
+}
+
 void CLI::print_help(bool include_print_options, PrinterTechnology printer_technology) const
 {
+    attach_console_on_demand();
+
     boost::nowide::cout
         << SLIC3R_APP_KEY <<"-"<< SLIC3R_VERSION << ":"
         << std::endl
@@ -6116,6 +6189,8 @@ void CLI::print_help(bool include_print_options, PrinterTechnology printer_techn
             << std::endl
             << "Run --help-fff / --help-sla to see the full listing of print options." << std::endl;
     }*/
+    boost::nowide::cout.flush();
+    boost::nowide::cerr.flush();
 }
 
 bool CLI::export_models(IO::ExportFormat format, std::string path_dir)
@@ -6772,7 +6847,7 @@ int main(int argc, char **argv)
    BOOST_LOG_TRIVIAL(error) << "main start";
 #ifdef __linux__
    BOOST_LOG_TRIVIAL(error) << "main __linux__";
-    setenv("WEBKIT_DISABLE_COMPOSITING_MODE", "1", 1);
+    //setenv("WEBKIT_DISABLE_COMPOSITING_MODE", "1", 1);
 #endif
     
     boost::filesystem::path   tempPath = boost::filesystem::path(wxFileName::GetTempDir().ToStdString());

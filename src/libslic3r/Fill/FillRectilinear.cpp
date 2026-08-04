@@ -3710,7 +3710,8 @@ bool FillRectilinear::fill_surface_by_multilines(const Surface *surface, FillPar
             coord_t pattern_shift   = scale_(sweep.pattern_shift + unscale_(total_offset));
 
             make_fill_lines(ExPolygonWithOffset(poly_with_offset_base, -angle), rotate_vector.second.rotated(-angle), angle,
-                            line_width + coord_t(SCALED_EPSILON), line_spacing, pattern_shift, fill_lines);
+                            params.extrusion_role == erSupportMaterialInterface ? 0 : line_width + coord_t(SCALED_EPSILON),
+                            line_spacing, pattern_shift, fill_lines);
             fill_lines_counts.push_back(fill_lines.size());
         }
     }

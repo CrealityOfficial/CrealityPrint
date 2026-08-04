@@ -266,18 +266,22 @@ protected:
     int                 m_em_unit;
     // To avoid actions with no-completed Tab
     bool                m_completed { false };
+    bool                m_page_tree_rebuild_deferred { false };
     ConfigOptionMode    m_mode = comAdvanced; // to correct first Tab update_visibility() set mode to Advanced
 
 	struct Highlighter
 	{
 		void set_timer_owner(wxEvtHandler* owner, int timerid = wxID_ANY);
 		void init(std::pair<OG_CustomCtrl*, bool*>);
+		void init(wxWindow* window, bool* show_blink_ptr, bool highlight_foreground);
 		void blink();
 		void invalidate();
 
 	private:
-		OG_CustomCtrl*	m_custom_ctrl	{nullptr};
+		wxWindow*		m_custom_ctrl	{nullptr};
 		bool*			m_show_blink_ptr{nullptr};
+		bool			m_highlight_foreground{false};
+		wxColour		m_original_colour;
 		int				m_blink_counter	{0};
 	    wxTimer         m_timer;
 	}
@@ -337,6 +341,9 @@ public:
     //BBS: reactive preset combo box
     void        reactive_preset_combo_box();
 	void        rebuild_page_tree();
+    void        defer_page_tree_rebuild() { m_page_tree_rebuild_deferred = true; }
+    void        request_page_tree_rebuild();
+    void        ensure_page_tree_rebuilt();
     void		update_btns_enabling();
     void		update_preset_choice();
 	bool		isCurrent_reset_system();

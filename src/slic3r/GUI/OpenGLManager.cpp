@@ -6,10 +6,11 @@
 #include "3DScene.hpp"
 #include "GUI_App.hpp"
 #include "MainFrame.hpp"
+#include "LinuxDisplayBackend.hpp"
 
 #include "libslic3r/Platform.hpp"
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
@@ -18,6 +19,22 @@
 #include <wx/glcanvas.h>
 #include <wx/msgdlg.h>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
+
+#if defined(__APPLE__) && defined(GL_APPLE_vertex_array_object) && defined(glGenVertexArraysAPPLE)
+#define BBS_HAS_APPLE_VAO 1
+#else
+#define BBS_HAS_APPLE_VAO 0
+#endif
+
 #ifdef __APPLE__
 // Part of hack to remove crash when closing the application on OSX 10.9.5 when building against newer wxWidgets
 #include <wx/platinfo.h>
@@ -25,8 +42,12 @@
 #include "../Utils/MacDarkMode.hpp"
 #endif // __APPLE__
 
-#define BBS_GL_EXTENSION_FUNC(_func) (OpenGLManager::get_framebuffers_type() == OpenGLManager::EFramebufferType::Ext ? _func ## EXT : _func)
-#define BBS_GL_EXTENSION_PARAMETER(_param) OpenGLManager::get_framebuffers_type() == OpenGLManager::EFramebufferType::Ext ? _param ## _EXT : _param
+#if defined(__WXGTK__) && defined(wxHAS_EGL) && wxHAS_EGL
+#include <EGL/egl.h>
+#endif
+
+#define BBS_GL_EXTENSION_FUNC(_func) _func
+#define BBS_GL_EXTENSION_PARAMETER(_param) _param
 
 static uint8_t get_msaa_samples(Slic3r::GUI::EMSAAType msaa_type) 
 {
@@ -91,6 +112,27 @@ static GLenum get_pixel_data_type(Slic3r::GUI::EPixelDataType type)
     return GL_INVALID_ENUM;
 }
 
+static bool any_opengl_backend_available()
+{
+#ifdef _WIN32
+    wchar_t value[2] = {};
+    const DWORD size = GetEnvironmentVariableW(L"CREALITYPRINT_OPENGL_HARDWARE_AVAILABLE", value, 2);
+    return size == 1 && value[0] == L'1';
+#else
+    return false;
+#endif
+}
+
+static int software_renderer_mode()
+{
+#ifdef _WIN32
+    wchar_t value[2] = {};
+    const DWORD size = GetEnvironmentVariableW(L"CREALITYPRINT_OPENGL_SOFTWARE_RENDERER", value, 2);
+    return size == 1 && (value[0] == L'1' || value[0] == L'2') ? value[0] - L'0' : 0;
+#else
+    return 0;
+#endif
+}
 static bool version_to_major_minor(const std::string& version, unsigned int& major, unsigned int& minor)
 {
     major = 0;
@@ -221,7 +263,7 @@ void OpenGLManager::GLInfo::detect() const
     if (Slic3r::total_physical_memory() / (1024 * 1024 * 1024) < 6)
         *max_tex_size /= 2;
 
-    if (GLEW_EXT_texture_filter_anisotropic) {
+    if (GLAD_GL_EXT_texture_filter_anisotropic) {
         float* max_anisotropy = const_cast<float*>(&m_max_anisotropy);
         glsafe(::glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy));
     }
@@ -358,24 +400,48 @@ OpenGLManager::~OpenGLManager()
 
 bool OpenGLManager::init_gl(bool popup_error)
 {
+    auto load_shaders = [this, popup_error]() {
+        auto [result, error] = m_shaders_manager.init();
+        if (!result) {
+            BOOST_LOG_TRIVIAL(error) << "Unable to load shaders: " << error << std::endl;
+            if (popup_error) {
+                wxString message = from_u8((boost::format(
+                    _utf8(L("Unable to load shaders:\n%s"))) % error).str());
+                wxMessageBox(message, _L("Error loading shaders"), wxOK | wxICON_ERROR);
+            }
+        }
+        return result;
+    };
+
     if (!m_gl_initialized) {
-        GLenum result = glewInit();
-        if (result != GLEW_OK) {
-            BOOST_LOG_TRIVIAL(error) << "Unable to init glew library";
+        int version = 0;
+#if defined(__WXGTK__) && defined(wxHAS_EGL) && wxHAS_EGL
+        if (is_running_on_wayland()) {
+            // On EGL/Wayland, use EGL's resolver directly. Loading through
+            // libGL can leave function pointers dangling after the temporary
+            // loader handle is closed.
+            version = gladLoadGL(reinterpret_cast<GLADloadfunc>(eglGetProcAddress));
+        } else
+#endif
+        {
+            version = gladLoaderLoadGL();
+        }
+        if (version == 0) {
+            BOOST_LOG_TRIVIAL(error) << "Unable to init GLAD OpenGL loader";
             return false;
         }
-	//BOOST_LOG_TRIVIAL(info) << "glewInit Success."<< std::endl;
+        BOOST_LOG_TRIVIAL(info) << "GLAD loaded OpenGL " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version);
         m_gl_initialized = true;
-        if (GLEW_EXT_texture_compression_s3tc)
+        if (GLAD_GL_EXT_texture_compression_s3tc)
             s_compressed_textures_supported = true;
         else
             s_compressed_textures_supported = false;
 
-        if (GLEW_ARB_framebuffer_object) {
+        if (GLAD_GL_ARB_framebuffer_object) {
             s_framebuffers_type = EFramebufferType::Arb;
             BOOST_LOG_TRIVIAL(info) << "Found Framebuffer Type ARB."<< std::endl;
         }
-        else if (GLEW_EXT_framebuffer_object) {
+        else if (GLAD_GL_EXT_framebuffer_object) {
             BOOST_LOG_TRIVIAL(info) << "Found Framebuffer Type Ext."<< std::endl;
             s_framebuffers_type = EFramebufferType::Ext;
         }
@@ -385,10 +451,24 @@ bool OpenGLManager::init_gl(bool popup_error)
         }
 
         m_valid_version = s_gl_info.is_version_greater_or_equal_to(2, 0);
+#ifdef _WIN32
+        const int renderer_mode = software_renderer_mode();
+        if (popup_error && renderer_mode != 0) {
+            const wxString message = renderer_mode == 1
+                ? _L("The current display driver does not provide the required OpenGL support. The application has switched to software rendering, which may cause the interface and 3D operations to run slowly. Please update the display driver when possible.")
+                : _L("The application is using software rendering, which may cause the interface and 3D operations to run slowly.");
+            wxMessageBox(message, _L("Software rendering"), wxOK | wxICON_WARNING);
+            SetEnvironmentVariableW(L"CREALITYPRINT_OPENGL_SOFTWARE_RENDERER", L"0");
+        }
+#endif
         if (!m_valid_version) {
-            BOOST_LOG_TRIVIAL(error) << "Found opengl version <= 2.0"<< std::endl;
-            // Complain about the OpenGL version.
-            if (popup_error) {
+            const bool opengl_backend_available = any_opengl_backend_available();
+            BOOST_LOG_TRIVIAL(error) << "Found opengl version <= 2.0, version "
+                << s_gl_info.get_version() << ", vendor " << s_gl_info.get_vendor()
+                << ", renderer " << s_gl_info.get_renderer()
+                << ", OpenGL backend available " << opengl_backend_available << std::endl;
+            // Only show the blocking dialog when neither hardware OpenGL nor Mesa is usable.
+            if (popup_error && !opengl_backend_available) {
                 wxString message = from_u8((boost::format(
                     _utf8(L("The application cannot run normally because OpenGL version is lower than 2.0.\n")))).str());
                 message += "\n";
@@ -402,20 +482,20 @@ bool OpenGLManager::init_gl(bool popup_error)
                 }
 
             }
+#ifdef _WIN32
+            else if (popup_error && wxGetApp().mainframe != nullptr && wxGetApp().mainframe->IsFrozen()) {
+                // GUI_App::post_init freezes the frame before initializing OpenGL. Keep the
+                // non-rendering UI responsive when hardware exists but no valid context does.
+                BOOST_LOG_TRIVIAL(warning) << "OpenGL initialization failed; thawing the main window";
+                wxGetApp().mainframe->Thaw();
+            }
+#endif
         }
 
         if (m_valid_version)
         {
             // load shaders
-            auto [result, error] = m_shaders_manager.init();
-            if (!result) {
-                BOOST_LOG_TRIVIAL(error) << "Unable to load shaders: "<<error<< std::endl;
-                if (popup_error) {
-                    wxString message = from_u8((boost::format(
-                        _utf8(L("Unable to load shaders:\n%s"))) % error).str());
-                    wxMessageBox(message, _L("Error loading shaders"), wxOK | wxICON_ERROR);
-                }
-            }
+            load_shaders();
         }
 
 #ifdef _WIN32
@@ -436,6 +516,14 @@ bool OpenGLManager::init_gl(bool popup_error)
             boost::contains(gl_info.get_renderer(), "Custom")))
             s_force_power_of_two_textures = true;
 #endif // _WIN32
+    } else if (m_valid_version) {
+#if defined(__WXGTK__) && defined(wxHAS_EGL) && wxHAS_EGL
+        if (is_running_on_wayland() && !m_shaders_manager.has_valid_programs()) {
+            BOOST_LOG_TRIVIAL(warning) << "OpenGL shader programs are invalid in current Wayland/EGL context, reloading shaders";
+            m_shaders_manager.shutdown();
+            load_shaders();
+        }
+#endif
     }
     
     return m_valid_version;
@@ -444,7 +532,24 @@ bool OpenGLManager::init_gl(bool popup_error)
 wxGLContext* OpenGLManager::init_glcontext(wxGLCanvas& canvas)
 {
     if (m_context == nullptr) {
-        m_context = new wxGLContext(&canvas);
+        {
+            wxLogNull logNo;
+            wxGLContextAttrs attrs;
+            attrs.PlatformDefaults().CompatibilityProfile();
+            attrs.EndList();
+            m_context = new wxGLContext(&canvas, nullptr, &attrs);
+            if (!m_context->IsOK()) {
+                delete m_context;
+                m_context = nullptr;
+            }
+        }
+
+        if (m_context == nullptr) {
+            wxGLContextAttrs attrs;
+            attrs.PlatformDefaults();
+            attrs.EndList();
+            m_context = new wxGLContext(&canvas, nullptr, &attrs);
+        }
 
 #ifdef __APPLE__
         // Part of hack to remove crash when closing the application on OSX 10.9.5 when building against newer wxWidgets
@@ -485,7 +590,10 @@ wxGLCanvas* OpenGLManager::create_wxglcanvas(wxWindow& parent)
     if (! can_multisample())
         attribList[12] = 0;
 
-    return new wxGLCanvas(&parent, wxID_ANY, attribList, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS);
+    wxGLCanvas* canvas = new wxGLCanvas(&parent, wxID_ANY, attribList, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS);
+    // The GL canvas paints its entire surface, so background erasing is unnecessary.
+    canvas->SetBackgroundStyle(wxBG_STYLE_PAINT);
+    return canvas;
 }
 
 
@@ -608,7 +716,7 @@ uint32_t OpenGLManager::get_format_size(ETextureFormat format)
 
 uint32_t OpenGLManager::get_target(ESamplerType t_sampler_type)
 {
-    GLenum target = GLU_INVALID_ENUM;
+    GLenum target = GL_INVALID_ENUM;
     switch (t_sampler_type)
     {
     case ESamplerType::Sampler2D:
@@ -785,7 +893,7 @@ void OpenGLManager::bind_vao()
             glsafe(::glBindVertexArray(m_vao));
         }
         else {
-#if defined(__APPLE__)
+#if BBS_HAS_APPLE_VAO
             if (0 == m_vao) {
                 glsafe(::glGenVertexArraysAPPLE(1, &m_vao));
             }
@@ -806,7 +914,7 @@ void OpenGLManager::unbind_vao()
             glsafe(::glBindVertexArray(0));
         }
         else {
-#if defined(__APPLE__)
+#if BBS_HAS_APPLE_VAO
             glsafe(::glBindVertexArrayAPPLE(0));
 #endif
         }
@@ -824,7 +932,7 @@ void OpenGLManager::release_vao()
             glsafe(::glDeleteVertexArrays(1, &m_vao));
         }
         else {
-#if defined(__APPLE__)
+#if BBS_HAS_APPLE_VAO
             glsafe(::glBindVertexArrayAPPLE(0));
             glsafe(::glDeleteVertexArraysAPPLE(1, &m_vao));
 #endif
@@ -945,14 +1053,8 @@ void FrameBuffer::bind()
         {
             create_msaa_fbo();
         }
-        if (OpenGLManager::EFramebufferType::Ext == framebuffer_type) {
-            GLenum bufs[1]{ GL_COLOR_ATTACHMENT0_EXT };
-            glsafe(::glDrawBuffers((GLsizei)1, bufs));
-        }
-        else {
-            GLenum bufs[1]{ GL_COLOR_ATTACHMENT0 };
-            glsafe(::glDrawBuffers((GLsizei)1, bufs));
-        }
+        GLenum bufs[1]{ GL_COLOR_ATTACHMENT0 };
+        glsafe(::glDrawBuffers((GLsizei)1, bufs));
         const bool rt = check_frame_buffer_status();
         if (!rt)
         {
@@ -1058,17 +1160,7 @@ void FrameBuffer::create_no_msaa_fbo(bool with_depth)
 
         glsafe(BBS_GL_EXTENSION_FUNC(::glRenderbufferStorage)(BBS_GL_EXTENSION_PARAMETER(GL_RENDERBUFFER), GL_DEPTH24_STENCIL8, m_width, m_height));
 
-        const auto& gl_info = OpenGLManager::get_gl_info();
-        uint32_t formated_gl_version = gl_info.get_formated_gl_version();
-        if (formated_gl_version < 30)
-        {
-            glsafe(::glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, m_depth_rbo_id));
-            glsafe(::glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, m_depth_rbo_id));
-        }
-        else
-        {
-            glsafe(::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depth_rbo_id));
-        }
+        glsafe(::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depth_rbo_id));
     }
 }
 
@@ -1101,23 +1193,11 @@ void FrameBuffer::create_msaa_fbo()
 
 bool FrameBuffer::check_frame_buffer_status() const
 {
-    const OpenGLManager::EFramebufferType framebuffer_type = OpenGLManager::get_framebuffers_type();
-
-    if (OpenGLManager::EFramebufferType::Ext == framebuffer_type) {
-        if (::glCheckFramebufferStatusEXT(BBS_GL_EXTENSION_PARAMETER(GL_FRAMEBUFFER)) != GL_FRAMEBUFFER_COMPLETE_EXT)
-        {
-            BOOST_LOG_TRIVIAL(error) << "Framebuffer is not complete!";
-            glsafe(BBS_GL_EXTENSION_FUNC(::glBindFramebuffer)(BBS_GL_EXTENSION_PARAMETER(GL_FRAMEBUFFER), 0));
-            return false;
-        }
-    }
-    else {
-        if (::glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            BOOST_LOG_TRIVIAL(error) << "Framebuffer is not complete!";
-            glsafe(BBS_GL_EXTENSION_FUNC(::glBindFramebuffer)(BBS_GL_EXTENSION_PARAMETER(GL_FRAMEBUFFER), 0));
-            return false;
-        }
+    if (::glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        BOOST_LOG_TRIVIAL(error) << "Framebuffer is not complete!";
+        glsafe(BBS_GL_EXTENSION_FUNC(::glBindFramebuffer)(BBS_GL_EXTENSION_PARAMETER(GL_FRAMEBUFFER), 0));
+        return false;
     }
 
     return true;
@@ -1137,17 +1217,8 @@ void FrameBuffer::resolve()
     if (UINT32_MAX == m_gl_id) {
         create_no_msaa_fbo(true);
 
-        const OpenGLManager::EFramebufferType framebuffer_type = OpenGLManager::get_framebuffers_type();
-        if (OpenGLManager::EFramebufferType::Ext == framebuffer_type)
-        {
-            GLenum bufs[1]{ GL_COLOR_ATTACHMENT0_EXT };
-            glsafe(::glDrawBuffers((GLsizei)1, bufs));
-        }
-        else
-        {
-            GLenum bufs[1]{ GL_COLOR_ATTACHMENT0 };
-            glsafe(::glDrawBuffers((GLsizei)1, bufs));
-        }
+        GLenum bufs[1]{ GL_COLOR_ATTACHMENT0 };
+        glsafe(::glDrawBuffers((GLsizei)1, bufs));
 
         const bool rt = check_frame_buffer_status();
         if (!rt)

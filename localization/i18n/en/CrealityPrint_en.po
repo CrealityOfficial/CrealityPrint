@@ -54,6 +54,24 @@ msgstr "Detect overhangs for auto-lift"
 msgid "Generating support"
 msgstr "Generating support"
 
+msgid "Detecting support overhangs"
+msgstr "Detecting support overhangs"
+
+msgid "Processing support overhangs"
+msgstr "Processing support overhangs"
+
+msgid "Precalculating tree support"
+msgstr "Precalculating tree support"
+
+msgid "Propagating tree support branches"
+msgstr "Propagating tree support branches"
+
+msgid "Generating tree support areas"
+msgstr "Generating tree support areas"
+
+msgid "Generating support contact layers"
+msgstr "Generating support contact layers"
+
 msgid "Checking support necessity"
 msgstr "Checking support necessity"
 
@@ -491,6 +509,9 @@ msgid ""
 msgstr ""
 "Filament shrinkage will not be used because filament shrinkage for the used "
 "filaments differs significantly."
+
+msgid "The print is empty. The model is not printable with current print settings."
+msgstr "The print is empty. The model is not printable with current print settings."
 
 msgid "Generating skirt & brim"
 msgstr "Generating skirt & brim"
@@ -12888,8 +12909,14 @@ msgstr ""
 msgid "Invalid values found in the 3mf:"
 msgstr "Invalid values found in the 3mf:"
 
-msgid "Please correct them in the param tabs"
-msgstr "Please correct them in the Param tabs"
+msgid "Automatically changed to the default value"
+msgstr "Automatically changed to the default value"
+
+msgid "You can update them in the param tabs"
+msgstr "You can update them in the Param tabs"
+
+msgid "Please update them in the param tabs"
+msgstr "Please update them in the Param tabs"
 
 msgid "The 3mf has following modified G-codes in filament or printer presets:"
 msgstr "The 3mf has following modified G-code in filament or printer presets:"
@@ -19718,10 +19745,10 @@ msgid "AI Chat Assistant"
 msgstr "AI Chat Assistant"
 
 msgid "Current No Device"
-msgstr "No device selected"
+msgstr "Current No Device"
 
 msgid "Please add printer"
-msgstr "Please add a printer"
+msgstr "Please add printer"
 
 msgid "Please"
 msgstr "Please"

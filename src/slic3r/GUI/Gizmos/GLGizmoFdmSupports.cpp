@@ -20,7 +20,7 @@
 #include "slic3r/Utils/UndoRedo.hpp"
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include <boost/log/trivial.hpp>
 
@@ -806,7 +806,17 @@ void GLGizmoFdmSupports::init_print_instance()
         return;
     }
     const ModelObject* model_object = m_c->selection_info()->model_object();
+    if (!model_object)
+    {
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ",model_object is null, selection may have been cleared\n";
+        return;
+    }
     int instance_index = m_c->selection_info()->get_active_instance();
+    if (instance_index < 0 || instance_index >= (int)model_object->instances.size())
+    {
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ",instance_index " << instance_index << " out of range\n";
+        return;
+    }
     const ModelInstance* model_instance = model_object->instances[instance_index];
 
     //check the print

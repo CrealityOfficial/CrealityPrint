@@ -77,6 +77,16 @@ public:
     /// Pure function over print_config_def — no GUI/runtime state required.
     static nlohmann::json BuildConfigSchemaArray();
 
+    /// Harvest the professional-panel layout into a per-key name map:
+    ///   key -> { "group_en", "group_loc", "line_loc" }
+    /// where group_* is the optgroup title (English original / UI language) and
+    /// line_loc is the (already localized) line label, present only when a line
+    /// bundles several options (adds disambiguating context, e.g. Bridge line).
+    /// Reads the live Tab layout, so must be called on the GUI thread after the
+    /// tabs are built. Used by BuildConfigSchemaArray to compose the exported
+    /// schema's disambiguated parameter display names.
+    static nlohmann::json BuildPanelNameMap();
+
     /// Dev-only helper: dump the schema array as pretty-printed JSON to the
     /// given UTF-8 file path. Returns true on success; on failure populates
     /// out_message (when provided) with the error description.

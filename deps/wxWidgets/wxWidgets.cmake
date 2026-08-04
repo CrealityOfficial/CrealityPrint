@@ -1,6 +1,6 @@
 set(_wx_toolkit "")
-set(_wx_private_font "-DwxUSE_PRIVATE_FONTS=1")
-set(_wx_link_extra "")
+set(_wx_debug_postfix "")
+set(_wx_shared -DwxBUILD_SHARED=OFF)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(_gtk_ver 2)
 
@@ -9,46 +9,64 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     endif ()
 
     set(_wx_toolkit "-DwxBUILD_TOOLKIT=gtk${_gtk_ver}")
-	#set(_wx_link_extra
-	#	"-DCMAKE_EXE_LINKER_FLAGS=-Wl,--no-as-needed"
-	#	"-DCMAKE_CXX_STANDARD_LIBRARIES=-lpng16 -lz"
-	#    )
+    if (FLATPAK)
+        set(_wx_debug_postfix "d")
+        set(_wx_shared -DwxBUILD_SHARED=ON -DBUILD_SHARED_LIBS:BOOL=ON)
+    endif ()
 endif()
 
 if (MSVC)
     set(_wx_edge "-DwxUSE_WEBVIEW_EDGE=ON")
+    set(_wx_patch_command ${CMAKE_COMMAND}
+        -Dwx_SOURCE_DIR=<SOURCE_DIR>
+        -Dwx_PATCH_FILE=${CMAKE_CURRENT_LIST_DIR}/0001-define-compiler-tls-in-cmake-setup.patch
+        -P ${CMAKE_CURRENT_LIST_DIR}/apply-compiler-tls-patch.cmake)
+    unset(_wx_msgfmt CACHE)
+    unset(_wx_msgmerge CACHE)
+    find_program(_wx_msgfmt msgfmt.exe PATHS
+        "C:/Program Files/Poedit/GettextTools/bin"
+        "C:/Program Files/Git/usr/bin"
+        NO_DEFAULT_PATH)
+    find_program(_wx_msgmerge msgmerge.exe PATHS
+        "C:/Program Files/Poedit/GettextTools/bin"
+        "C:/Program Files/Git/usr/bin"
+        NO_DEFAULT_PATH)
+    if (_wx_msgfmt AND _wx_msgmerge)
+        set(_wx_gettext_args
+            -DGETTEXT_MSGFMT_EXECUTABLE:FILEPATH=${_wx_msgfmt}
+            -DGETTEXT_MSGMERGE_EXECUTABLE:FILEPATH=${_wx_msgmerge})
+    endif ()
 else ()
     set(_wx_edge "-DwxUSE_WEBVIEW_EDGE=OFF")
+    set(_wx_patch_command "")
+    set(_wx_gettext_args "")
 endif ()
-
-# Note: The flatpak build builds wxwidgets separately due to CI size constraints.
-# ANY CHANGES MADE IN HERE MUST ALSO BE REFLECTED IN `flatpak/io.github.SoftFever.OrcaSlicer.yml`.
-# ** THIS INCLUDES BUILD ARGS. **
-# ...if you can find a way around this size limitation, be my guest.
 
 orcaslicer_add_cmake_project(
     wxWidgets
-    URL "https://github.com/CrealityOfficial/Orca-deps-wxWidgets/archive/refs/tags/v1.0.0.tar.gz"
-    URL_HASH SHA256=74089054448d887c1b551ac98f4b46fa8960a5168df48aa77700c7a58071148c
-    DEPENDS ${PNG_PKG} ${ZLIB_PKG} ${EXPAT_PKG} ${TIFF_PKG} ${JPEG_PKG}
+    GIT_REPOSITORY "https://github.com/SoftFever/Orca-deps-wxWidgets"
+    GIT_TAG v3.3.2
+    GIT_SHALLOW ON
+    PATCH_COMMAND ${_wx_patch_command}
+    DEPENDS ${PNG_PKG} ${ZLIB_PKG} ${EXPAT_PKG} ${JPEG_PKG}
     CMAKE_ARGS
         -DwxBUILD_PRECOMP=ON
         ${_wx_toolkit}
-        "-DCMAKE_DEBUG_POSTFIX:STRING="
+        "-DCMAKE_DEBUG_POSTFIX:STRING=${_wx_debug_postfix}"
         -DwxBUILD_DEBUG_LEVEL=0
         -DwxBUILD_SAMPLES=OFF
-        -DwxBUILD_SHARED=OFF
+        ${_wx_shared}
         -DwxUSE_MEDIACTRL=ON
         -DwxUSE_DETECT_SM=OFF
-        -DwxUSE_UNICODE=ON
-        ${_wx_private_font}
+        -DwxUSE_PRIVATE_FONTS=ON
         -DwxUSE_OPENGL=ON
+        -DwxUSE_GLCANVAS_EGL=ON
         -DwxUSE_WEBREQUEST=ON
         -DwxUSE_WEBVIEW=ON
         ${_wx_edge}
         -DwxUSE_WEBVIEW_IE=OFF
         -DwxUSE_REGEX=builtin
-        -DwxUSE_LIBXPM=builtin
+        ${_wx_gettext_args}
         -DwxUSE_LIBSDL=OFF
         -DwxUSE_XTEST=OFF
         -DwxUSE_STC=OFF
@@ -56,10 +74,32 @@ orcaslicer_add_cmake_project(
         -DwxUSE_LIBPNG=sys
         -DwxUSE_ZLIB=sys
         -DwxUSE_LIBJPEG=sys
-        -DwxUSE_LIBTIFF=sys
-        -DwxUSE_NANOSVG=OFF
+        -DwxUSE_LIBTIFF=OFF
+        -DwxUSE_LIBWEBP=builtin
         -DwxUSE_EXPAT=sys
-	#${_wx_link_extra}
+        -DwxUSE_NANOSVG=OFF
+)
+
+# wxWidgets 3.3 cmake install doesn't include private headers.
+# OrcaSlicer uses some of the private headers (for accessibility support).
+# Copy the private headers directory after install.
+if(MSVC)
+    set(_wx_inc_dest ${DESTDIR}/include/wx)
+else()
+    set(_wx_inc_dest ${DESTDIR}/include/wx-3.3/wx)
+endif()
+ExternalProject_Add_Step(dep_wxWidgets copy_private_headers
+    DEPENDEES install
+    COMMENT "Copying wxWidgets private headers"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        <SOURCE_DIR>/include/wx/private
+        ${_wx_inc_dest}/private
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        <SOURCE_DIR>/include/wx/generic/private
+        ${_wx_inc_dest}/generic/private
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        <SOURCE_DIR>/include/wx/gtk/private
+        ${_wx_inc_dest}/gtk/private
 )
 
 if (MSVC)

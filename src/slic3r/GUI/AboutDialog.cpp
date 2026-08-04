@@ -99,7 +99,7 @@ void CopyrightsDialog::fill_entries()
         { "Eigen3",                                         "",      "http://eigen.tuxfamily.org" },
         { "Expat",                                          "",      "http://www.libexpat.org" },
         { "fast_float",                                     "",      "https://github.com/fastfloat/fast_float" },
-        { "GLEW (The OpenGL Extension Wrangler Library)",   "",      "http://glew.sourceforge.net" },
+        { "GLAD (OpenGL loader)",                         "",      "https://glad.dav1d.de" },
         { "GLFW",                                           "",      "https://www.glfw.org" },
         { "GNU gettext",                                    "",      "https://www.gnu.org/software/gettext" },
         { "ImGUI",                                          "",      "https://github.com/ocornut/imgui" },
@@ -217,13 +217,15 @@ AboutDialog::AboutDialog()
         wxDefaultSize, /*wxCAPTION*/wxDEFAULT_DIALOG_STYLE)
 {
     SetFont(wxGetApp().normal_font());
-	SetBackgroundColour(*wxWHITE);
+    const wxColour font_bg = wxGetApp().dark_mode() ? wxColour("#4B4B4D") : wxColour("#FFFFFF");
+    SetBackgroundColour(font_bg);
 
     std::string icon_path = (boost::format("%1%/images/%2%.ico") % resources_dir() % Slic3r::CxBuildInfo::getIconName()).str();
     SetIcon(wxIcon(encode_path(icon_path.c_str()), wxBITMAP_TYPE_ICO));
 
     // wxPanel *m_panel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(FromDIP(560), FromDIP(237)), wxTAB_TRAVERSAL);
     wxPanel *m_panel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(FromDIP(800), FromDIP(220)), wxTAB_TRAVERSAL);
+    m_panel->SetBackgroundColour(font_bg);
 
     wxBoxSizer *panel_versizer = new wxBoxSizer(wxVERTICAL);
 
@@ -235,18 +237,17 @@ AboutDialog::AboutDialog()
     main_sizer->Add(m_panel, 0, wxEXPAND | wxALL, 0);
     main_sizer->Add(ver_sizer, 0, wxEXPAND | wxALL, 0);
 
-    const wxColour font_bg = wxGetApp().dark_mode() ? wxColour("#4B4B4D") : wxColour("#FFFFFF");
     //const wxColour font_text_clr = wxGetApp().dark_mode() ?  wxColour("#FFFFFF") : wxColour("#000000");
     bool is_zh = wxGetApp().app_config->get("language") == "zh_CN";
 
     // logo and creality_name text
-    m_logo_bitmap = ScalableBitmap(this, Slic3r::CxBuildInfo::getIconName(), 32);
-    m_logo = new wxStaticBitmap(this, wxID_ANY, m_logo_bitmap.bmp(), wxDefaultPosition,wxDefaultSize, 0);
+    m_logo_bitmap = ScalableBitmap(m_panel, Slic3r::CxBuildInfo::getIconName(), 32);
+    m_logo = new wxStaticBitmap(m_panel, wxID_ANY, m_logo_bitmap.bmp(), wxDefaultPosition,wxDefaultSize, 0);
     // m_logo->SetSizer(vesizer);
 
     // vesizer->Add(0, FromDIP(80), 1, wxEXPAND, FromDIP(5));
     std::string   name_text     = "Creality Print";
-    wxStaticText* creality_name = new wxStaticText(this, wxID_ANY, name_text.c_str(), wxDefaultPosition, wxDefaultSize);
+    wxStaticText* creality_name = new wxStaticText(m_panel, wxID_ANY, name_text.c_str(), wxDefaultPosition, wxDefaultSize);
     creality_name->SetFont(Label::Body_14);
     creality_name->SetBackgroundColour(font_bg);
     // vesizer->Add(creality_name, 0, wxALL | wxALIGN_CENTER_HORIZONTAL, FromDIP(5));
@@ -314,8 +315,9 @@ AboutDialog::AboutDialog()
                     find_txt += text_list[i][o];
                     count_txt += text_list[i][o];
                 } else {
-                    find_txt += std::string("\n") + text_list[i][o];
-                    count_txt = text_list[i][o];
+                    find_txt += "\n";
+                    find_txt += text_list[i].Mid(o, 1);
+                    count_txt = text_list[i].Mid(o, 1);
                 }
             }
             staticText->SetLabel(find_txt);

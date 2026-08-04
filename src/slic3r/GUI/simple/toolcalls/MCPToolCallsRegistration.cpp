@@ -104,6 +104,10 @@ void MCPChatPanel::RegisterAllHandlers()
     RegisterHandler(ActionID::SPLIT_MODEL,       [this](const json& d) { ExecuteBridgeAction(ActionID::SPLIT_MODEL, d); });
     RegisterHandler(ActionID::LIST_PRINTERS,     [this](const json& d) { ExecuteBridgeAction(ActionID::LIST_PRINTERS, d); });
     RegisterHandler(ActionID::SELECT_PRINTER,    [this](const json& d) { ExecuteBridgeAction(ActionID::SELECT_PRINTER, d); });
+    // AI "switch device" opens the Simple-UI device-list picker (distinct from
+    // select_printer, which switches to a specific target printer).
+    RegisterHandler("open_device_list", [this](const json& d) { HandleOpenDeviceList(d); });
+    RegisterHandler("show_device_list", [this](const json& d) { HandleOpenDeviceList(d); });
     RegisterHandler(ActionID::MOVE_PRINT_HEAD,   [this](const json& d) { ExecuteBridgeAction(ActionID::MOVE_PRINT_HEAD, d); });
     RegisterHandler("PAUSE_PRINTING", [this](const json& d) {
         json payload = d;
@@ -308,6 +312,8 @@ void MCPChatPanel::RegisterAllHandlers()
                 .timeout_max(10)
                 .size_limit(2 * 1024 * 1024)
                 .on_progress([&](Http::Progress progress, bool& cancel) {
+                    if (cancel)
+                        return;
                     size_t start = 0;
                     size_t end = 0;
                     if (find_jpeg_frame_bounds(progress.buffer, start, end)) {

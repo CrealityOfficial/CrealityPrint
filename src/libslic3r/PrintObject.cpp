@@ -27,6 +27,8 @@
 #include "MixedFilament.hpp"
 
 #include <float.h>
+#include <atomic>
+#include <chrono>
 #include <oneapi/tbb/blocked_range.h>
 #include <oneapi/tbb/concurrent_vector.h>
 #include <oneapi/tbb/parallel_for.h>
@@ -481,10 +483,38 @@ void PrintObject::make_perimeters()
     }
 
     BOOST_LOG_TRIVIAL(error) << "Generating perimeters in parallel - start";
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, m_layers.size()), [this](const tbb::blocked_range<size_t>& range) {
+    constexpr int64_t progress_report_interval_ms = 5000;
+    const size_t total_perimeter_layers = m_layers.size();
+    std::atomic<size_t> completed_perimeter_layers { 0 };
+    std::atomic<int64_t> next_progress_report_ms {
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count() + progress_report_interval_ms
+    };
+    const auto report_perimeter_progress = [this, total_perimeter_layers, progress_report_interval_ms,
+                                            &completed_perimeter_layers, &next_progress_report_ms]() {
+        const int64_t current_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+        int64_t next_ms = next_progress_report_ms.load(std::memory_order_relaxed);
+        if (current_ms < next_ms ||
+            !next_progress_report_ms.compare_exchange_strong(
+                next_ms, current_ms + progress_report_interval_ms, std::memory_order_relaxed))
+            return;
+
+        const size_t completed = completed_perimeter_layers.load(std::memory_order_relaxed);
+        const std::string message = (boost::format("%1%: %2% / %3%")
+                                     % L("Generating walls")
+                                     % completed
+                                     % total_perimeter_layers).str();
+        m_print->set_status(15, message);
+        BOOST_LOG_TRIVIAL(info) << "[PERIMETER_PROGRESS] " << message;
+    };
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, total_perimeter_layers),
+                      [this, &completed_perimeter_layers, &report_perimeter_progress](const tbb::blocked_range<size_t>& range) {
         for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
             m_print->throw_if_canceled();
             m_layers[layer_idx]->make_perimeters();
+            completed_perimeter_layers.fetch_add(1, std::memory_order_relaxed);
+            report_perimeter_progress();
         }
     });
     debug_perimeters(m_print, this);
@@ -543,7 +573,17 @@ void PrintObject::prepare_infill()
     if (!this->set_started(posPrepareInfill))
         return;
     // DEFINE_PERFORMANCE_TEST("Generating infill regions 25%");
-    m_print->set_status(25, L("Generating infill regions"));
+    auto report_prepare_infill_stage = [this](int stage) {
+        const std::string message = (
+            boost::format("%1%: %2% / %3%")
+            % L("Generating infill regions")
+            % stage
+            % 8
+        ).str();
+        m_print->set_status(25, message);
+        BOOST_LOG_TRIVIAL(warning) << "[INFILL_PROGRESS] " << message;
+    };
+    report_prepare_infill_stage(1);
     if (m_typed_slices) {
         // To improve robustness of detect_surfaces_type() when reslicing (working with typed slices), see GH issue #7442.
         // The preceding step (perimeter generator) only modifies extra_perimeters and the extra perimeters are only used by
@@ -565,6 +605,7 @@ void PrintObject::prepare_infill()
     // Decide what surfaces are to be filled.
     // Here the stTop / stBottomBridge / stBottom infill is turned to just stInternal if zero top / bottom infill layers are configured.
     // Also tiny stInternal surfaces are turned to stInternalSolid.
+    report_prepare_infill_stage(2);
     BOOST_LOG_TRIVIAL(info) << "Preparing fill surfaces..." << log_memory_info();
     for (auto* layer : m_layers)
         for (auto* region : layer->m_regions) {
@@ -575,6 +616,7 @@ void PrintObject::prepare_infill()
     debug_surfaces_type(m_print, this);
 
     // Add solid fills to ensure the shell vertical thickness.
+    report_prepare_infill_stage(3);
     this->discover_vertical_shells();
     m_print->throw_if_canceled();
 
@@ -608,6 +650,7 @@ void PrintObject::prepare_infill()
     // FIXME Vojtech: Is this a good place to add supporting infills below sloping perimeters?
     // Orca: Brought this function call before the process_external_surfaces, to allow bridges over holes to expand more than
     // one perimeter. Example of this is the bridge over the benchy lettering.
+    report_prepare_infill_stage(4);
     this->discover_horizontal_shells();
     m_print->throw_if_canceled();
 
@@ -620,6 +663,7 @@ void PrintObject::prepare_infill()
     // overlap. 2) stTop is grown by 3mm and clipped by the grown bottom areas. The areas may overlap. 3) Clip the internal surfaces by the
     // grown top/bottom surfaces. 4) Merge surfaces with the same style. This will mostly get rid of the overlaps.
     // FIXME This does not likely merge surfaces, which are supported by a material with different colors, but same properties.
+    report_prepare_infill_stage(5);
     this->process_external_surfaces();
     m_print->throw_if_canceled();
 
@@ -640,6 +684,7 @@ void PrintObject::prepare_infill()
     // FIXME The surfaces are supported by a sparse infill, but the sparse infill is only as large as the area to support.
     // Likely the sparse infill will not be anchored correctly, so it will not work as intended.
     // Also one wishes the perimeters to be supported by a full infill.
+    report_prepare_infill_stage(6);
     this->clip_fill_surfaces();
     m_print->throw_if_canceled();
 
@@ -656,11 +701,13 @@ void PrintObject::prepare_infill()
 
     // the following step needs to be done before combination because it may need
     // to remove only half of the combined infill
+    report_prepare_infill_stage(7);
     this->bridge_over_infill();
     m_print->throw_if_canceled();
     debug_infill_surfaces_type(m_print, this, 3);
 
     // combine fill surfaces to honor the "infill every N layers" option
+    report_prepare_infill_stage(8);
     this->combine_infill();
     m_print->throw_if_canceled();
     debug_infill_surfaces_type(m_print, this, 4);
@@ -790,7 +837,7 @@ void PrintObject::clear_overhangs_for_lift()
 
 static const float g_min_overhang_percent_for_lift = 0.3f;
 
-void PrintObject::detect_overhangs_for_lift()
+void PrintObject::detect_overhangs_for_lift(bool report_status)
 {
     if (this->set_started(posDetectOverhangsForLift)) {
         const double   nozzle_diameter = m_print->config().nozzle_diameter.get_at(0);
@@ -801,7 +848,8 @@ void PrintObject::detect_overhangs_for_lift()
         size_t      num_raft_layers = m_slicing_params.raft_layers();
 
         // DEFINE_PERFORMANCE_TEST("Detect overhangs for auto-lift 71%");
-        m_print->set_status(71, L("Detect overhangs for auto-lift"));
+        if (report_status)
+            m_print->set_status(71, L("Detect overhangs for auto-lift"));
 
         this->clear_overhangs_for_lift();
 
@@ -831,7 +879,7 @@ void PrintObject::generate_support_material()
         m_cache_support_necessary = SupportNecessaryType::NoNeedSupp;
 
         const bool belt_machine = m_print->config().machine_is_belt;
-        if ((this->has_support() && m_layers.size() > 1) || (this->has_raft() && !m_layers.empty())) {
+        if ((m_config.enable_support.value && m_layers.size() > 1) || (this->has_raft() && !m_layers.empty())) {
             // DEFINE_PERFORMANCE_TEST("Generating support 50%");
             m_print->set_status(50, L("Generating support"));
 
@@ -861,7 +909,7 @@ void PrintObject::generate_support_material()
                     Slic3r::format(L("It seems object %s has %s. Please re-orient the object or enable support generation."),
                                    this->model_object()->name, reasons[m_cache_support_necessary]);
                 this->active_step_add_warning(PrintStateBase::WarningLevel::NON_CRITICAL, warning_message,
-                                              PrintStateBase::SlicingNeedSupportOn);
+                                              PrintStateBase::SlicingNeedSupportOn, "enable_support");
             }
         }
         this->set_done(posSupportMaterial);
@@ -1714,6 +1762,30 @@ void PrintObject::discover_vertical_shells()
     bool   spiral_mode = this->print()->config().spiral_mode.value;
     size_t num_layers  = spiral_mode ? std::min(size_t(this->printing_region(0).config().bottom_shell_layers), m_layers.size()) :
                                        m_layers.size();
+    constexpr int64_t vertical_shell_progress_interval_ms = 5000;
+    std::atomic<int64_t> next_vertical_shell_progress_ms { 0 };
+    const auto report_vertical_shell_progress =
+        [this, vertical_shell_progress_interval_ms, &next_vertical_shell_progress_ms](size_t completed, size_t total, bool force) {
+            const int64_t current_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
+            if (force) {
+                next_vertical_shell_progress_ms.store(
+                    current_ms + vertical_shell_progress_interval_ms, std::memory_order_relaxed);
+            } else {
+                int64_t next_ms = next_vertical_shell_progress_ms.load(std::memory_order_relaxed);
+                if (current_ms < next_ms ||
+                    !next_vertical_shell_progress_ms.compare_exchange_strong(
+                        next_ms, current_ms + vertical_shell_progress_interval_ms, std::memory_order_relaxed))
+                    return;
+            }
+
+            const std::string message = (boost::format("%1% (3/8): %2% / %3%")
+                                         % L("Generating infill regions")
+                                         % completed
+                                         % total).str();
+            m_print->set_status(25, message);
+            BOOST_LOG_TRIVIAL(info) << "[VERTICAL_SHELL_PROGRESS] " << message;
+        };
     std::vector<DiscoverVerticalShellsCacheEntry> cache_top_botom_regions(num_layers, DiscoverVerticalShellsCacheEntry());
     bool top_bottom_surfaces_all_regions = this->num_printing_regions() > 1 && !m_config.interface_shells.value;
     //    static constexpr const float top_bottom_expansion_coeff = 1.05f;
@@ -1737,8 +1809,12 @@ void PrintObject::discover_vertical_shells()
         BOOST_LOG_TRIVIAL(debug) << "Discovering vertical shells in parallel - start : cache top / bottom";
         // FIXME Improve the heuristics for a grain size.
         size_t grain_size = std::max(num_layers / 16, size_t(1));
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers, grain_size), [this, &cache_top_botom_regions](
-                                                                                     const tbb::blocked_range<size_t>& range) {
+        std::atomic<size_t> completed_cache_layers { 0 };
+        report_vertical_shell_progress(0, num_layers, true);
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers, grain_size), [this, &cache_top_botom_regions,
+                                                                                 &completed_cache_layers,
+                                                                                 &report_vertical_shell_progress](
+                                                                                      const tbb::blocked_range<size_t>& range) {
             const std::initializer_list<SurfaceType> surfaces_bottom{stBottom, stBottomBridge};
             const size_t                             num_regions = this->num_printing_regions();
             for (size_t idx_layer = range.begin(); idx_layer < range.end(); ++idx_layer) {
@@ -1800,6 +1876,8 @@ void PrintObject::discover_vertical_shells()
 #endif /* SLIC3R_DEBUG_SLICE_PROCESSING */
                 }
                 cache.holes = union_(cache.holes);
+                const size_t completed = completed_cache_layers.fetch_add(1, std::memory_order_relaxed) + 1;
+                report_vertical_shell_progress(completed, cache_top_botom_regions.size(), false);
             }
         });
         m_print->throw_if_canceled();
@@ -1820,8 +1898,12 @@ void PrintObject::discover_vertical_shells()
             // shell thickness is calculated over a single material.
             BOOST_LOG_TRIVIAL(debug) << "Discovering vertical shells for region " << region_id
                                      << " in parallel - start : cache top / bottom";
-            tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers, grain_size), [this, region_id, &cache_top_botom_regions](
-                                                                                         const tbb::blocked_range<size_t>& range) {
+            std::atomic<size_t> completed_cache_layers { 0 };
+            report_vertical_shell_progress(0, num_layers, true);
+            tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers, grain_size), [this, region_id, &cache_top_botom_regions,
+                                                                                      &completed_cache_layers,
+                                                                                      &report_vertical_shell_progress](
+                                                                                          const tbb::blocked_range<size_t>& range) {
                 const std::initializer_list<SurfaceType> surfaces_bottom{stBottom, stBottomBridge};
                 for (size_t idx_layer = range.begin(); idx_layer < range.end(); ++idx_layer) {
                     m_print->throw_if_canceled();
@@ -1842,6 +1924,8 @@ void PrintObject::discover_vertical_shells()
                         for (size_t region_id = 0; region_id < layer.regions().size(); ++region_id)
                             polygons_append(cache.holes, to_polygons(layer.regions()[region_id]->fill_expolygons));
                     }
+                    const size_t completed = completed_cache_layers.fetch_add(1, std::memory_order_relaxed) + 1;
+                    report_vertical_shell_progress(completed, cache_top_botom_regions.size(), false);
                 }
             });
             m_print->throw_if_canceled();
@@ -1851,8 +1935,12 @@ void PrintObject::discover_vertical_shells()
         BOOST_LOG_TRIVIAL(debug) << "Discovering vertical shells for region " << region_id
                                  << " in parallel - start : ensure vertical wall thickness";
         grain_size = 1;
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers, grain_size), [this, region_id, &cache_top_botom_regions](
-                                                                                     const tbb::blocked_range<size_t>& range) {
+        std::atomic<size_t> completed_shell_layers { 0 };
+        report_vertical_shell_progress(0, num_layers, true);
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers, grain_size), [this, region_id, &cache_top_botom_regions,
+                                                                                 &completed_shell_layers,
+                                                                                 &report_vertical_shell_progress](
+                                                                                      const tbb::blocked_range<size_t>& range) {
             // printf("discover_vertical_shells from %d to %d\n", range.begin(), range.end());
             for (size_t idx_layer = range.begin(); idx_layer < range.end(); ++idx_layer) {
                 m_print->throw_if_canceled();
@@ -2034,8 +2122,11 @@ void PrintObject::discover_vertical_shells()
                     layerm->fill_surfaces.filter_by_types({stInternal, stInternalVoid, stInternalSolid}));
                 shell = intersection(shell, polygonsInternal, ApplySafetyOffset::Yes);
                 polygons_append(shell, diff(polygonsInternal, holes));
-                if (shell.empty())
+                if (shell.empty()) {
+                    const size_t completed = completed_shell_layers.fetch_add(1, std::memory_order_relaxed) + 1;
+                    report_vertical_shell_progress(completed, cache_top_botom_regions.size(), false);
                     continue;
+                }
 
                 // Append the internal solids, so they will be merged with the new ones.
                 polygons_append(shell, to_polygons(layerm->fill_surfaces.filter_by_type(stInternalSolid)));
@@ -2095,8 +2186,11 @@ void PrintObject::discover_vertical_shells()
                                               }),
                                regularized_shell.end());
                 }
-                if (regularized_shell.empty())
+                if (regularized_shell.empty()) {
+                    const size_t completed = completed_shell_layers.fetch_add(1, std::memory_order_relaxed) + 1;
+                    report_vertical_shell_progress(completed, cache_top_botom_regions.size(), false);
                     continue;
+                }
 
                 ExPolygons new_internal_solid = intersection_ex(polygonsInternal, regularized_shell);
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
@@ -2132,6 +2226,8 @@ void PrintObject::discover_vertical_shells()
                 layerm->fill_surfaces.append(new_internal, stInternal);
                 layerm->fill_surfaces.append(new_internal_void, stInternalVoid);
                 layerm->fill_surfaces.append(new_internal_solid, stInternalSolid);
+                const size_t completed = completed_shell_layers.fetch_add(1, std::memory_order_relaxed) + 1;
+                report_vertical_shell_progress(completed, cache_top_botom_regions.size(), false);
             } // for each layer
         });
         m_print->throw_if_canceled();
@@ -3057,16 +3153,10 @@ const std::string                                                    key_extrude
 static constexpr const std::initializer_list<const std::string_view> keys_extruders{"sparse_infill_filament"sv, "solid_infill_filament"sv,
                                                                                     "wall_filament"sv};
 
-static int normalize_temporary_role_filament(int filament)
-{
-    return filament == 0 ? 1 : filament;
-}
 
 static bool is_default_role_filament(int filament)
 {
-    // Temporary cloud compatibility: 1 means "default" until cloud profiles are updated.
-    // A legacy/abnormal 0 is normalized to 1 before this check.
-    return filament == 1;
+    return filament == 0;
 }
 
 struct RoleFilamentOverrideState
@@ -3084,7 +3174,7 @@ enum class ExtruderRoleApplyMode
 
 static bool is_explicit_role_filament_value(int filament)
 {
-    return !is_default_role_filament(normalize_temporary_role_filament(filament));
+    return !is_default_role_filament(filament);
 }
 
 static RoleFilamentOverrideState role_filament_override_state(const PrintRegionConfig& config)
@@ -3099,9 +3189,6 @@ static void apply_to_print_region_config(PrintRegionConfig&         out,
                                          RoleFilamentOverrideState& role_state,
                                          ExtruderRoleApplyMode      extruder_mode = ExtruderRoleApplyMode::FillDefaultOnly)
 {
-    out.sparse_infill_filament.value = normalize_temporary_role_filament(out.sparse_infill_filament.value);
-    out.solid_infill_filament.value  = normalize_temporary_role_filament(out.solid_infill_filament.value);
-    out.wall_filament.value          = normalize_temporary_role_filament(out.wall_filament.value);
 
     // 1) Copy the "extruder" key as a default to the role-specific filament
     // fields. Explicit wall/sparse/solid filament settings override this
@@ -3124,7 +3211,7 @@ static void apply_to_print_region_config(PrintRegionConfig&         out,
             if (ConfigOption* my_opt = out.option(it->first, false); my_opt != nullptr) {
                 if (one_of(it->first, keys_extruders)) {
                     // Ignore "default" extruders.
-                    int extruder = normalize_temporary_role_filament(static_cast<const ConfigOptionInt*>(it->second.get())->value);
+                    int extruder = static_cast<const ConfigOptionInt*>(it->second.get())->value;
                     if (!is_default_role_filament(extruder)) {
                         my_opt->setInt(extruder);
                         if (it->first == "sparse_infill_filament")
@@ -3599,12 +3686,14 @@ void PrintObject::discover_horizontal_shells()
                         // filtering. This is an arbitrary value to make this option safe
                         // by ensuring that top surfaces, especially slanted ones dont go **completely** unsupported
                         // especially when using single perimeter top layers.
-                        float    margin     = float(neighbor_layerm->flow(frExternalPerimeter).scaled_width()) * factor;
-                        Polygons too_narrow = diff(new_internal_solid,
-                                                   opening(new_internal_solid, margin, margin + ClipperSafetyOffset, jtMiter, 5));
-                        // Trim the regularized region by the original region.
-                        if (!too_narrow.empty())
-                            new_internal_solid = solid = diff(new_internal_solid, too_narrow);
+                        float    margin              = float(neighbor_layerm->flow(frExternalPerimeter).scaled_width()) * factor;
+                        Polygons width_check_regular = opening(new_internal_solid, margin,
+                                                               margin + ClipperSafetyOffset, jtMiter, 5);
+                        // A - (A - opening(A)) is A intersect opening(A). Computing the intersection
+                        // directly avoids the second difference producing and propagating tiny slivers.
+                        new_internal_solid = width_check_regular.empty() ? Polygons{} :
+                            intersection(new_internal_solid, width_check_regular);
+                        solid = new_internal_solid;
                     }
 
                     // make sure the new internal solid is wide enough, as it might get collapsed
@@ -3618,8 +3707,11 @@ void PrintObject::discover_horizontal_shells()
                         // get a triangle in $too_narrow; if we grow it below then the shell
                         // would have a different shape from the external surface and we'd still
                         // have the same angle, so the next shell would be grown even more and so on.
-                        Polygons too_narrow = diff(new_internal_solid, opening(new_internal_solid, margin, margin + ClipperSafetyOffset,
-                                                                               ClipperLib::jtMiter, 5));
+                        Polygons width_check_regular = opening(new_internal_solid, margin,
+                                                               margin + ClipperSafetyOffset, ClipperLib::jtMiter, 5);
+                        // If opening removes the complete region, the complete region is too narrow.
+                        Polygons too_narrow = width_check_regular.empty() ? new_internal_solid :
+                            diff(new_internal_solid, width_check_regular);
                         if (!too_narrow.empty()) {
                             // grow the collapsing parts and add the extra area to  the neighbor layer
                             // as well as to our original surfaces so that we support this
@@ -3794,7 +3886,7 @@ void PrintObject::combine_infill()
 
 void PrintObject::_generate_support_material()
 {
-    if (is_tree(m_config.support_type.value)) {
+    if (m_config.enable_support.value && is_tree(m_config.support_type.value)) {
         TreeSupport tree_support(*this, m_slicing_params);
         tree_support.throw_on_cancel = [this]() { this->throw_if_canceled(); };
         tree_support.generate();
@@ -4240,6 +4332,9 @@ void PrintObject::project_and_append_custom_facets(bool                         
                                                    std::vector<Polygons>&                out,
                                                    std::vector<std::pair<Vec3f, Vec3f>>* vertical_points) const
 {
+    if (!seam && !m_config.enable_support.value)
+        return;
+
     for (const ModelVolume* mv : this->model_object()->volumes)
         if (mv->is_model_part()) {
             const indexed_triangle_set custom_facets = seam ? mv->seam_facets.get_facets_strict(*mv, type) :

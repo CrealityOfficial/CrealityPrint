@@ -3,6 +3,7 @@
 #include "slic3r/GUI/I18N.hpp"
 #include "slic3r/GUI/wxExtensions.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/LinuxDisplayBackend.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
 #include "libslic3r_version.h"
 #include "slic3r/Utils/TestHelper.hpp"
@@ -37,11 +38,13 @@
 #include "slic3r/GUI/Notebook.hpp"
 #include "cereal/external/base64.hpp"
 #include "libslic3r/Time.hpp"
-#include "wx/stringimpl.h"
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <nlohmann/json.hpp>
+#include <memory>
+#include <utility>
 #if defined(__linux__) || defined(__LINUX__)
 #include "video/WebRTCDecoder.h"
 #endif
@@ -53,6 +56,37 @@
 namespace Slic3r {
 namespace GUI {
 namespace pt = boost::property_tree;
+
+struct SendToPrinterUiGate {
+    CxSentToPrinterDialog* dialog = nullptr;
+    bool accepting_callbacks = true;
+    std::uint64_t generation = 0;
+    nlohmann::json active_frontend_data = nlohmann::json::object();
+};
+
+namespace {
+
+template <typename Action>
+void post_to_send_dialog(const std::weak_ptr<SendToPrinterUiGate>& weak_gate,
+                         Action&& action,
+                         std::uint64_t expected_generation = 0)
+{
+    wxGetApp().CallAfter([weak_gate,
+                          action = std::forward<Action>(action),
+                          expected_generation]() mutable {
+        const auto gate = weak_gate.lock();
+        if (!gate || !gate->accepting_callbacks || gate->dialog == nullptr ||
+            (expected_generation != 0 && gate->generation != expected_generation) ||
+            gate->dialog->IsBeingDeleted()) {
+            return;
+        }
+
+        action(*gate->dialog);
+    });
+}
+
+} // namespace
+
 
 CxSentToPrinterDialog::CxSentToPrinterDialog(Plater *plater,
                                              SendType sendtype,std::string mapString)
@@ -71,6 +105,9 @@ CxSentToPrinterDialog::CxSentToPrinterDialog(Plater *plater,
                 ), m_sendtype(sendtype),m_mapString(mapString)
     , m_plater(plater)
 {
+    m_ui_gate = std::make_shared<SendToPrinterUiGate>();
+    m_ui_gate->dialog = this;
+
     // 双保险：即使窗口管理器默认添加，也在 Linux 下移除最小/最大化按钮
     #if defined(__linux__) || defined(__LINUX__) || defined(__WXGTK__)
     SetWindowStyleFlag(GetWindowStyleFlag() & ~(wxMINIMIZE_BOX | wxMAXIMIZE_BOX));
@@ -89,6 +126,17 @@ CxSentToPrinterDialog::CxSentToPrinterDialog(Plater *plater,
     // 将窗体移动到屏幕顶部
     Bind(wxEVT_SHOW, [this](wxShowEvent& event) {
         if (event.IsShown()) {
+#if defined(__WXGTK__)
+            // Wayland top-level positions do not include reliable decoration offsets.
+            // Applying the X11 adjustment would shrink the dialog by the title-bar height.
+            if (is_running_on_wayland()) {
+                wxSize newSize = wxSize(FromDIP(1170), FromDIP(700));
+                SetSize(newSize);
+                event.Skip();
+                return;
+            }
+#endif
+
             wxPoint position = GetPosition();
             if (position.y < 0 && abs(position.y)<20)
             {
@@ -156,9 +204,13 @@ CxSentToPrinterDialog::CxSentToPrinterDialog(Plater *plater,
     wxGetApp().mainframe->get_printer_mgr_view()->RequestDeviceListFromDB();
 
     if (wxGetApp().mainframe && wxGetApp().mainframe->get_printer_mgr_view()) {
+        const std::weak_ptr<SendToPrinterUiGate> weak_ui_gate = m_ui_gate;
         wxGetApp().mainframe->get_printer_mgr_view()->RegisterHandler("receive_color_match_info",
-            [this](const nlohmann::json& json_data) {
-                this->handle_receive_color_match_info(json_data);
+            [weak_ui_gate](const nlohmann::json& json_data) {
+                post_to_send_dialog(weak_ui_gate,
+                    [json_data](CxSentToPrinterDialog& dialog) {
+                        dialog.handle_receive_color_match_info(json_data);
+                    });
             });
     }
     CenterOnParent();
@@ -167,6 +219,10 @@ CxSentToPrinterDialog::CxSentToPrinterDialog(Plater *plater,
 
 CxSentToPrinterDialog::~CxSentToPrinterDialog() 
 {
+    invalidate_ui_gate();
+    if (wxGetApp().mainframe && wxGetApp().mainframe->get_printer_mgr_view()) {
+        wxGetApp().mainframe->get_printer_mgr_view()->UnregisterHandler("receive_color_match_info");
+    }
     DM::AppMgr::Ins().UnRegister(m_browser);
     restore_extruder_colors();
     UnregisterHandler("register_complete");
@@ -192,17 +248,57 @@ CxSentToPrinterDialog::~CxSentToPrinterDialog()
 }
 void CxSentToPrinterDialog::OnCloseWindow(wxCloseEvent& event)
 {
-    // need to reopen the detail-page Video when close the send page
-    wxGetApp().mainframe->get_printer_mgr_view()->request_reopen_detail_video();
-    m_isClosed = true;
-    if(m_uploadingIp!=wxEmptyString)
-    {
-        m_send_was_canceled = true;
-        RemotePrint::RemotePrinterManager::getInstance().cancelUpload(m_uploadingIp.ToStdString());
-        event.Skip(false);
-    }else{
+    if (m_close_allowed || m_uploadingIp.IsEmpty()) {
+        // need to reopen the detail-page Video when close the send page
+        wxGetApp().mainframe->get_printer_mgr_view()->request_reopen_detail_video();
+        m_close_allowed = true;
         event.Skip();
+        return;
     }
+
+    if (!event.CanVeto()) {
+        m_close_allowed = true;
+        const std::string task_id = m_upload_task_id;
+        const wxString uploading_ip = m_uploadingIp;
+        auto& upload_manager = RemotePrint::RemotePrinterManager::getInstance();
+        if (!task_id.empty())
+            upload_manager.cancelUploadTask(task_id);
+        else
+            upload_manager.cancelUpload(uploading_ip.ToStdString());
+        event.Skip();
+        return;
+    }
+
+    event.Veto();
+    if (m_close_pending)
+        return;
+
+    m_close_pending = true;
+    m_send_was_canceled = true;
+    if (m_ui_gate && !m_ui_gate->active_frontend_data.empty()) {
+        fire_print_send_event(m_ui_gate->active_frontend_data, "Cancel");
+    }
+
+    auto& upload_manager = RemotePrint::RemotePrinterManager::getInstance();
+    if (!m_upload_task_id.empty())
+        upload_manager.cancelUploadTask(m_upload_task_id);
+    else
+        upload_manager.cancelUpload(m_uploadingIp.ToStdString());
+}
+
+void CxSentToPrinterDialog::close_after_upload_stopped(bool invalidate_cancelled_generation)
+{
+    m_uploadingIp.clear();
+    m_upload_task_id.clear();
+    if (invalidate_cancelled_generation && m_ui_gate)
+        ++m_ui_gate->generation;
+    if (!m_close_pending || IsBeingDeleted())
+        return;
+
+    // The upload future has completed, so protocol objects and their source-file
+    // handles have been released. A second close event may now leave the modal dialog.
+    m_close_allowed = true;
+    Close(false);
 }
 void CxSentToPrinterDialog::bind_events()
 {
@@ -303,7 +399,7 @@ void CxSentToPrinterDialog::bind_events()
     });
 
     RegisterHandler("get_lang", [this](const nlohmann::json& json_data) {
-        wxString       lan = wxGetApp().app_config->get("language");
+        wxString       lan = wxGetApp().current_frontend_language_code();
         nlohmann::json commandJson;
         commandJson["command"] = "get_lang";
         commandJson["data"] = lan.ToStdString();
@@ -464,7 +560,6 @@ void CxSentToPrinterDialog::OnScriptMessage(wxWebViewEvent& evt)
     } catch (std::exception &e) {
        // wxMessageBox(e.what(), "json Exception", MB_OK);
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;Error:" << e.what();
-        m_uploadingIp = wxEmptyString;
     }
     
 
@@ -836,6 +931,9 @@ void CxSentToPrinterDialog::handle_receive_color_match_info(const nlohmann::json
 
 void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
 {
+    if (m_close_pending)
+        return;
+
     // Fire click_send_single analytics event when user clicks "Send Only" button (3MF path)
     AnalyticsEventPayload payload;
     payload.type = AnalyticsDataEventType::ANALYTICS_CLICK_SEND_SINGLE;
@@ -875,6 +973,11 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
 
     m_last_send_format = "3MF";
     m_print_send_fired = false;
+    if (!m_ui_gate)
+        return;
+    m_ui_gate->active_frontend_data = json_data;
+    const std::uint64_t upload_generation = ++m_ui_gate->generation;
+    const std::weak_ptr<SendToPrinterUiGate> weak_ui_gate = m_ui_gate;
 
     {
         // upload analytics data here
@@ -888,10 +991,9 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
     
 
     m_uploadingIp = ipAddress;
-    RemotePrint::RemotePrinterManager::getInstance().pushUploadTasks(
+    m_upload_task_id = RemotePrint::RemotePrinterManager::getInstance().pushUploadTasks(
         ipAddress.ToStdString(), upload3mfName, tmp_3mf_path,
-        [this, json_data](std::string ip, float progress,double speed) {
-            if (m_isClosed) return;   // 对话框已关闭，丢弃进度更新
+        [weak_ui_gate, upload_generation, json_data](std::string ip, float progress,double speed) {
             nlohmann::json top_level_json;
             top_level_json["printer_ip"] = ip;
             top_level_json["progress"]   = progress;
@@ -905,24 +1007,19 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
 
             wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
 
-            post_script(strJS);
+            post_to_send_dialog(weak_ui_gate,
+                [strJS](CxSentToPrinterDialog& dialog) {
+                    dialog.run_script_if_ready(strJS);
+                },
+                upload_generation);
         },
-        [this, json_data](std::string ip, int statusCode) {
+        [weak_ui_gate, upload_generation, json_data](std::string ip, int statusCode) {
             nlohmann::json top_level_json;
             top_level_json["printer_ip"]  = ip;
             top_level_json["status_code"] = statusCode;
 
             // Fire print_send event for non-success cases (cancel/close or network failure)
             // Success case (statusCode==0) is handled in completion callback with richer error info
-            if (m_isClosed) {
-                fire_print_send_event(json_data, "Cancel");
-                m_uploadingIp = wxEmptyString;
-                post_close();
-                return;
-            } else if (statusCode != 0) {
-                fire_print_send_event(json_data, std::to_string(statusCode));
-            }
-
             std::string json_str = top_level_json.dump();
 
             // create command to send to the webview
@@ -932,9 +1029,16 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
 
             wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
             
-            post_script(strJS);
-            m_uploadingIp = wxEmptyString;
-        }, [this,tmp_3mf_path, json_data](std::string ip, std::string body) {
+            post_to_send_dialog(weak_ui_gate,
+                [strJS, statusCode, json_data](CxSentToPrinterDialog& dialog) {
+                    if (statusCode != 0) {
+                        dialog.fire_print_send_event(json_data, std::to_string(statusCode));
+                    }
+                    dialog.run_script_if_ready(strJS);
+                    dialog.close_after_upload_stopped(statusCode == 601);
+                },
+                upload_generation);
+        }, [weak_ui_gate, upload_generation, tmp_3mf_path, json_data](std::string ip, std::string body) {
 
             int statusCode = 1;
             std::string status_msg = "";
@@ -947,20 +1051,18 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
             }
 
             // Send print_send analytics event
-            {
-                std::string err = (statusCode == 0) ? "0" : (status_msg.empty() ? std::to_string(statusCode) : status_msg);
-                fire_print_send_event(json_data, err);
-            }
+            std::string err = (statusCode == 0) ? "0" : (status_msg.empty() ? std::to_string(statusCode) : status_msg);
 
             nlohmann::json commandJson;
             commandJson["command"] = "notify_send_complete";
             wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
 
-            CallAfter([this, strJS,tmp_3mf_path, statusCode, status_msg]() {
+            post_to_send_dialog(weak_ui_gate, [strJS,tmp_3mf_path, statusCode, status_msg, json_data, err](CxSentToPrinterDialog& dialog) {
+                dialog.fire_print_send_event(json_data, err);
                 try
                     {
-                        if (m_browser != nullptr && !m_browser->IsBeingDeleted() && !m_browser->IsBusy()) {
-                            run_script(strJS.ToStdString());
+                        if (dialog.m_browser != nullptr && !dialog.m_browser->IsBeingDeleted() && !dialog.m_browser->IsBusy()) {
+                            dialog.run_script(strJS.ToStdString());
                         }
 
                         if(wxGetApp().is_privacy_checked()) {
@@ -987,15 +1089,23 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
                     catch (...)
                     {
                     }
-                });
-                m_uploadingIp = wxEmptyString;
+                },
+                upload_generation);
         });
 }
 void CxSentToPrinterDialog::handle_cancel_send(const nlohmann::json& json_data) {
     int      plateIndex = json_data["plateIndex"];
     wxString ipAddress  = json_data["ipAddress"];
     m_send_was_canceled = true;
-    RemotePrint::RemotePrinterManager::getInstance().cancelUpload(ipAddress.ToStdString());
+    auto& upload_manager = RemotePrint::RemotePrinterManager::getInstance();
+    if (!m_upload_task_id.empty()) {
+        BOOST_LOG_TRIVIAL(warning) << "[UploadCancel] cancel task " << m_upload_task_id;
+        upload_manager.cancelUploadTask(m_upload_task_id);
+    } else {
+        BOOST_LOG_TRIVIAL(warning) << "[UploadCancel] cancel arrived before task creation, address="
+                                   << ipAddress.ToStdString();
+        upload_manager.cancelUpload(ipAddress.ToStdString());
+    }
 
     // Send print_send analytics event for cancel case
     fire_print_send_event(json_data, "Cancel");
@@ -1027,6 +1137,9 @@ void CxSentToPrinterDialog::handle_register_complete(const nlohmann::json& json_
 
 void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data) 
 {
+    if (m_close_pending)
+        return;
+
     // Fire click_send_single analytics event when user clicks "Send Only" button
     AnalyticsEventPayload payload;
     payload.type = AnalyticsDataEventType::ANALYTICS_CLICK_SEND_SINGLE;
@@ -1062,6 +1175,11 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
 
         m_last_send_format = "GCode";
         m_print_send_fired = false;
+        if (!m_ui_gate)
+            return;
+        m_ui_gate->active_frontend_data = json_data;
+        const std::uint64_t upload_generation = ++m_ui_gate->generation;
+        const std::weak_ptr<SendToPrinterUiGate> weak_ui_gate = m_ui_gate;
 
         {
             // upload analytics data here
@@ -1113,9 +1231,9 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
         }
         
         m_uploadingIp = ipAddress;
-        RemotePrint::RemotePrinterManager::getInstance().pushUploadTasks(
+        m_upload_task_id = RemotePrint::RemotePrinterManager::getInstance().pushUploadTasks(
             ipAddress.ToStdString(), uploadName, gcodeFilePath,
-            [this, uploadTaskId, is_wan_upload, json_data](std::string ip, float progress,double speed) {
+            [weak_ui_gate, upload_generation, uploadTaskId, is_wan_upload, json_data](std::string ip, float progress,double speed) {
 
                 nlohmann::json top_level_json;
                 top_level_json["printer_ip"] = ip;
@@ -1133,19 +1251,15 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
 
                 wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
 
-                post_script(strJS);
+                post_to_send_dialog(weak_ui_gate,
+                    [strJS](CxSentToPrinterDialog& dialog) {
+                        dialog.run_script_if_ready(strJS);
+                    },
+                    upload_generation);
             },
-            [this, uploadTaskId, is_wan_upload, json_data](std::string ip, int statusCode) {
+            [weak_ui_gate, upload_generation, uploadTaskId, is_wan_upload, json_data](std::string ip, int statusCode) {
                 // Fire print_send event for non-success cases (cancel/close or network failure)
                 // Success case (statusCode==0) is handled in completion callback with richer error info
-                if (m_isClosed) {
-                    fire_print_send_event(json_data, "Cancel");
-                    m_uploadingIp = wxEmptyString;
-                    post_close();
-                    return;
-                } else if (statusCode != 0) {
-                    fire_print_send_event(json_data, std::to_string(statusCode));
-                }
                 nlohmann::json top_level_json;
                 top_level_json["status_code"]  = statusCode;
                 if (is_wan_upload && !uploadTaskId.empty())
@@ -1157,10 +1271,17 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
                 commandJson["data"] = RemotePrint::Utils::url_encode(json_str);
                 wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
                 
-                post_script(strJS);
-                m_uploadingIp = wxEmptyString;
+                post_to_send_dialog(weak_ui_gate,
+                    [strJS, statusCode, json_data](CxSentToPrinterDialog& dialog) {
+                        if (statusCode != 0) {
+                            dialog.fire_print_send_event(json_data, std::to_string(statusCode));
+                        }
+                        dialog.run_script_if_ready(strJS);
+                        dialog.close_after_upload_stopped(statusCode == 601);
+                    },
+                    upload_generation);
             },
-            [this, gcodeFilePath, uploadTaskId, json_data](std::string ip, std::string body){
+            [weak_ui_gate, upload_generation, gcodeFilePath, uploadTaskId, json_data](std::string ip, std::string body){
                 int deviceType = 0;//local device
                 int statusCode = 1;
                 std::string status_msg = "";
@@ -1173,10 +1294,7 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
                 }
 
                 // Send print_send analytics event
-                {
-                    std::string err = (statusCode == 0) ? "0" : (status_msg.empty() ? std::to_string(statusCode) : status_msg);
-                    fire_print_send_event(json_data, err);
-                }
+                std::string err = (statusCode == 0) ? "0" : (status_msg.empty() ? std::to_string(statusCode) : status_msg);
 
                 nlohmann::json top_level_json;
                 top_level_json["status_code"] = statusCode;
@@ -1205,11 +1323,12 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
 
                 wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
 
-                CallAfter([this, strJS, statusCode, status_msg, gcodeFilePath]() {
+                post_to_send_dialog(weak_ui_gate, [strJS, statusCode, status_msg, gcodeFilePath, json_data, err](CxSentToPrinterDialog& dialog) {
+                    dialog.fire_print_send_event(json_data, err);
                     try
                     {
-                        if (m_browser != nullptr && !m_browser->IsBeingDeleted() && !m_browser->IsBusy()) {
-                            run_script(strJS.ToStdString());
+                        if (dialog.m_browser != nullptr && !dialog.m_browser->IsBeingDeleted() && !dialog.m_browser->IsBusy()) {
+                            dialog.run_script(strJS.ToStdString());
                         }
 
                         if(wxGetApp().is_privacy_checked()) {
@@ -1236,8 +1355,8 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
                     catch (...)
                     {
                     }
-                });
-                m_uploadingIp = wxEmptyString;
+                },
+                upload_generation);
             });
     }
 }
@@ -1838,30 +1957,23 @@ void CxSentToPrinterDialog::run_script(std::string content)
     WebView::RunScript(m_browser, from_u8(content));
 }
 
-void CxSentToPrinterDialog::post_script(const wxString& script)
+void CxSentToPrinterDialog::run_script_if_ready(const wxString& script)
 {
-    if (m_isClosed) return;   // 对话框已关闭，丢弃投递
+    if (m_browser == nullptr || m_browser->IsBeingDeleted() || m_browser->IsBusy())
+        return;
 
-    CallAfter([this, script]() {
-        if (m_isClosed) return;   // 投递后才关闭的情况
-        if (m_browser == nullptr || m_browser->IsBeingDeleted())
-            return;
-
-        if (!m_browser->IsBusy())
-            run_script(script.ToStdString());
-    });
+    run_script(script.ToStdString());
 }
 
-void CxSentToPrinterDialog::post_close()
+void CxSentToPrinterDialog::invalidate_ui_gate()
 {
-    CallAfter([this]() {
-        if (IsBeingDeleted())
-            return;
+    if (!m_ui_gate)
+        return;
 
-        Close(false);
-    });
+    m_ui_gate->accepting_callbacks = false;
+    m_ui_gate->dialog = nullptr;
+    m_ui_gate.reset();
 }
-
 void CxSentToPrinterDialog::reload()
 {
     m_browser->Reload();

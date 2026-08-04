@@ -3326,11 +3326,35 @@ void AISendWorkflowService::on_cloud_print_success(const std::string& card_id, c
 
         session.sender.reset();
         session.cloud_workflow_active = false;
+
+        // Attach the cloud device identity (mac/tbId/device_type/address) to the
+        // print_started result so the AIChatPage print-progress monitor can bind
+        // to the matching cloud entry in the DataCenter `update_devices` feed and
+        // consume its real-time print fields (printProgress/printLeftTime/state)
+        // exactly like LAN does. Without an identity the monitor can only match
+        // by LAN IP, which cloud devices do not have.
+        json enriched_result = result.is_object() ? result : json::object();
+        {
+            const DM::Device& current_device = DM::DataCenter::Ins().get_current_device_data();
+            json device_identity = {
+                {"device_mac", current_device.mac},
+                {"mac", current_device.mac},
+                {"tb_id", current_device.tbId},
+                {"tbId", current_device.tbId},
+                {"device_type", current_device.deviceType},
+                {"deviceType", current_device.deviceType},
+                {"name", current_device.name},
+                {"printer_name", current_device.name},
+                {"address", current_device.address.empty() ? current_device.name : current_device.address}
+            };
+            enriched_result["device"] = device_identity;
+        }
+
         envelope = build_result_envelope_locked(
             session,
             "print_started",
-            result.value("message", _u8L("Cloud print task created.")),
-            result);
+            enriched_result.value("message", _u8L("Cloud print task created.")),
+            enriched_result);
     }
 
     log_ai_send_stage(
@@ -3341,6 +3365,26 @@ void AISendWorkflowService::on_cloud_print_success(const std::string& card_id, c
         ", result=" + safe_json_dump(result));
 
     emit_result(envelope);
+
+    // [17140] Product requirement: after an AI send-print succeeds, actively
+    // jump to and open this print's device detail page, with WAN and LAN
+    // behaving the same (no longer relying on "auto-open current device detail
+    // on entering the device page", which has been removed from
+    // PrinterMgrView::on_switch_to_device_page to stay consistent with Pro).
+    // Open the detail here for cloud: DataCenter::_get_acive_device returns the
+    // cloud device address when only the cloud binding is online, so
+    // jumpToDeviceDetail works for cloud devices too; the LAN side performs the
+    // equivalent jump inside EasyPrintSender::startPrintLan.
+    wxGetApp().CallAfter([]() {
+        EasyPrintSender sender;
+        const std::string ip = sender.getDeviceIp();
+        if (ip.empty()) {
+            BOOST_LOG_TRIVIAL(warning)
+                << "[AISendWorkflowService.on_cloud_print_success] skip device-detail jump: empty device address";
+            return;
+        }
+        sender.jumpToDeviceDetail(ip, std::string());
+    });
 }
 
 void AISendWorkflowService::on_cloud_print_error(const std::string& card_id,

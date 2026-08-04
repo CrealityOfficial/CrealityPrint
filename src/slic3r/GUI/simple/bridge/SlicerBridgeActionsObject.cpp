@@ -3021,24 +3021,70 @@ json SlicerBridge::DoAddPlate(const json& params)
     if (!plater)
         return {{"success", false}, {"message", "Plater not available"}};
 
-    if (!plater->can_add_plate())
-        return {{"success", false}, {"message", "Cannot add plate: maximum plate count reached or background slicing in progress."}};
+    // 解析要添加的盘数量（默认 1），一次调用内循环添加，
+    // 只返回一个汇总结果，避免上层为每个盘渲染独立结果卡片。
+    int requested_count = 1;
+    try {
+        if (params.contains("count")) {
+            if (params["count"].is_number_integer())
+                requested_count = params["count"].get<int>();
+            else if (params["count"].is_number())
+                requested_count = (int)std::llround(params["count"].get<double>());
+            else if (params["count"].is_string())
+                requested_count = std::stoi(params["count"].get<std::string>());
+        }
+    } catch (...) {
+        requested_count = 1;
+    }
+    if (requested_count < 1)
+        requested_count = 1;
+
+    const int max_plates = (int)PartPlateList::MAX_PLATES_COUNT;
 
     PartPlateList& plate_list = plater->get_partplate_list();
-    const int plates_before = plate_list.get_plate_count();
 
-    plate_list.create_plate();
-    const int new_plate_index = plate_list.get_plate_count() - 1;
-    plate_list.select_plate(new_plate_index);
+    int added_count = 0;
+    int last_plate_index = -1;
+    for (int i = 0; i < requested_count; ++i) {
+        if (!plater->can_add_plate()) {
+            BOOST_LOG_TRIVIAL(warning) << "[DoAddPlate] Stopped at " << added_count << "/" << requested_count
+                                       << ": cannot add more plates (max=" << max_plates << ").";
+            break;
+        }
+        plate_list.create_plate();
+        last_plate_index = plate_list.get_plate_count() - 1;
+        ++added_count;
+    }
+
+    if (added_count == 0)
+        return {{"success", false}, {"message", "Cannot add plate: maximum plate count reached or background slicing in progress."}};
+
+    plate_list.select_plate(last_plate_index);
     plater->update();
 
-    BOOST_LOG_TRIVIAL(info) << "[DoAddPlate] Plate added. New count=" << plate_list.get_plate_count();
+    BOOST_LOG_TRIVIAL(info) << "[DoAddPlate] Added " << added_count << " plate(s). New count="
+                            << plate_list.get_plate_count();
+
+    const bool limit_reached = added_count < requested_count;
+
+    // 文案交由 UI 卡片按 i18n 渲染（依据下列结构化字段）。
+    // 这里仅提供一个中性的英文兜底 message，避免在客户端硬编码多语言文案。
+    std::string message = (added_count == 1)
+        ? "Plate added"
+        : ("Added " + std::to_string(added_count) + " plates");
+    if (limit_reached)
+        message += " (reached the maximum of " + std::to_string(max_plates) + " plates)";
 
     return {
         {"success", true},
-        {"message", "\xe6\x96\xb0\xe7\x9b\x98\xe5\xb7\xb2\xe6\xb7\xbb\xe5\x8a\xa0"},  // 新盘已添加
-        {"plate_index", new_plate_index},
-        {"plate_number", new_plate_index + 1},
+        {"message", message},
+        {"result_kind", "add_plate"},
+        {"added_count", added_count},
+        {"requested_count", requested_count},
+        {"max_plates", max_plates},
+        {"limit_reached", limit_reached},
+        {"plate_index", last_plate_index},
+        {"plate_number", last_plate_index + 1},
         {"total_plates", plate_list.get_plate_count()}
     };
 }

@@ -1,20 +1,12 @@
 #!/bin/bash
 
-# scripts/BuildLinux_Package.sh -sir 6.0.0.100 CrealityPrint Alpha 0
+# scripts/BuildLinux_Package.sh -sir 6.0.0.100 CrealityPrint Alpha 0 0
 
 echo xxx
 export ROOT="$(pwd)" #$(dirname $(readlink -f ${0}))
 
-# 读取环境变量 MY_DIR
-DPS_PATH=${DEPS_ENV_DIR}
-
-# 检查目录是否存在
-if [ -d "${DPS_PATH}" ]; then
-    echo "Directory ${DPS_PATH} exists."
-else
-    echo "Directory ${DPS_PATH} does not exist."
-    DPS_PATH=${PWD}/deps/build/destdir
-fi
+DPS_PATH="${PWD}/deps/build/destdir"
+echo "Using DPS_PATH=${DPS_PATH}"
 
 set -e # exit on first error
 
@@ -39,7 +31,7 @@ function check_available_memory_and_disk() {
 }
 
 function usage() {
-    echo "Usage: ./BuildLinux.sh [-1][-b][-c][-d][-i][-r][-s][-u]"
+    echo "Usage: ./BuildLinux.sh [-1][-b][-c][-d][-i][-r][-s][-u] [version] [app_name] [version_extra] [slicer_header] [rebuild_deps]"
     echo "   -1: limit builds to 1 core (where possible)"
     echo "   -b: build in debug mode"
     echo "   -c: force a clean build"
@@ -51,6 +43,7 @@ function usage() {
     echo "   -r: skip ram and disk checks (low ram compiling)"
     echo "   -s: build orca-slicer (optional)"
     echo "   -u: update and build dependencies (optional and need sudo)"
+    echo "   rebuild_deps: positional arg, 1/true/yes/rebuild to clean and build deps"
     echo "For a first use, you want to 'sudo ./BuildLinux.sh -u'"
     echo "   and then './BuildLinux.sh -dsi'"
 }
@@ -143,6 +136,7 @@ VERSION_TAG_NAME=$1
 APPNAME=$2
 VERSION_EXTRA=$3
 SLICER_HEADER=$4
+REBUILD_DEPS=$5
 if  [ -z "$SLICER_HEADER" ]; then
     export SLICER_HEADER=1
 fi 
@@ -157,6 +151,13 @@ fi
 if [ -z "$VERSION_EXTRA" ]; then
     export APPNAME="Alpha"
 fi
+
+case "${REBUILD_DEPS}" in
+    1|true|TRUE|yes|YES|y|Y|rebuild|REBUILD)
+        BUILD_DEPS="1"
+        CLEAN_BUILD=1
+        ;;
+esac
 #
 
 #
@@ -164,6 +165,7 @@ echo VERSION_TAG_NAME=$VERSION_TAG_NAME
 echo APPNAME=$APPNAME
 echo VERSION_EXTRA=$VERSION_EXTRA
 echo SLICER_HEADER=$SLICER_HEADER
+echo REBUILD_DEPS=${REBUILD_DEPS:-0}
 #
 #
 #

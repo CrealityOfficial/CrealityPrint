@@ -166,7 +166,7 @@ void AMSrefresh::create(wxWindow *parent, wxWindowID id, const wxPoint &pos, con
 
     m_playing_timer = new wxTimer();
     m_playing_timer->SetOwner(this);
-    wxPostEvent(this, wxTimerEvent());
+    wxPostEvent(this, wxTimerEvent(*m_playing_timer));
 
     SetSize(AMS_REFRESH_SIZE);
     SetMinSize(AMS_REFRESH_SIZE);

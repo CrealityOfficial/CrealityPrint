@@ -63,13 +63,23 @@ namespace ConfigRelateGUI {
     static wxSize   listSize     = wxSize(800 + 4, 511 + 4 - 50);
 
     static void setFont(wxWindow* win, int size);
+    static wxSize scaleSize(wxWindow* win, const wxSize& size)
+    {
+        return win ? win->FromDIP(size) : size;
+    }
+
+    static int scalePx(wxWindow* win, int value)
+    {
+        return win ? win->FromDIP(value) : value;
+    }
 
     class _TreeView : public wxDataViewTreeCtrl
     {
     public:
         _TreeView(wxWindow* parent)
-            : wxDataViewTreeCtrl(parent, wxID_ANY, wxDefaultPosition, treeSize, wxDV_NO_HEADER | wxBORDER_SIMPLE)
+            : wxDataViewTreeCtrl(parent, wxID_ANY, wxDefaultPosition, scaleSize(parent, treeSize), wxDV_NO_HEADER | wxBORDER_SIMPLE)
         {
+            SetMinSize(wxSize(scalePx(this, 180), -1));
             Bind(wxEVT_DATAVIEW_ITEM_EDITING_STARTED, [=](wxDataViewEvent& e) {
                 wxDataViewColumn* c2 = GetCurrentColumn();
                 if (c2) {
@@ -96,7 +106,7 @@ namespace ConfigRelateGUI {
     public:
         _CheckBox(wxWindow* parent, const std::string& text) : wxCheckBox(parent, wxID_ANY, text) 
         {
-            SetSize(wxSize(400, 20));
+            SetSize(scaleSize(parent, wxSize(400, 24)));
             setFont(this, 12);
         }
     };
@@ -132,6 +142,16 @@ namespace ConfigRelateGUI {
 
         }
 
+        void setFixedSize(const wxSize& size)
+        {
+            SetMinSize(size);
+            SetMaxSize(size);
+            SetSize(size);
+            InvalidateBestSize();
+            Layout();
+            Refresh();
+        }
+
     private:
         StateColor m_defaultColor;
         StateColor m_checkedColor;
@@ -143,14 +163,18 @@ namespace ConfigRelateGUI {
     public:
         _Tab(wxWindow* parent, wxSize size = wxSize(100, 26)) : wxWindow(parent, wxID_ANY)
         { 
-            m_tabSize = size;
+            m_tabSizeDIP = size;
             SetBackgroundColour(wxColour(*wxWHITE));
 
             m_sizer = new wxBoxSizer(wxHORIZONTAL);
+            Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent& e) {
+                rescale();
+                e.Skip();
+            });
         }
 
         _Button* appendTab(wxString text) { 
-            _Button* tabButton = new _Button(this, text, m_tabSize);
+            _Button* tabButton = new _Button(this, text, scaleSize(this, m_tabSizeDIP));
             tabButton->SetFont(::Label::Body_14);
             tabButton->SetCornerRadius(0);
             m_sizer->Add(tabButton, 0, wxEXPAND);
@@ -167,6 +191,22 @@ namespace ConfigRelateGUI {
         void bind(SelectedChangedFunc func)
         { 
             m_func = func;
+        }
+
+        void rescale()
+        {
+            const wxSize tabSize = scaleSize(this, m_tabSizeDIP);
+            for (_Button* tabButton : m_tabButtons) {
+                tabButton->setFixedSize(tabSize);
+                tabButton->SetFont(::Label::Body_14);
+            }
+            SetMinSize(wxSize(tabSize.GetWidth() * static_cast<int>(m_tabButtons.size()), tabSize.GetHeight()));
+            InvalidateBestSize();
+            Layout();
+            Fit();
+            if (GetParent())
+                GetParent()->Layout();
+            Refresh();
         }
 
         void select(int index)
@@ -217,8 +257,18 @@ namespace ConfigRelateGUI {
         wxSizer*              m_sizer;
 
         int m_currentIndex{0};
-        wxSize m_tabSize;
+        wxSize m_tabSizeDIP;
     };
+
+    static void rescaleTabs(wxWindow* window)
+    {
+        if (!window)
+            return;
+        if (_Tab* tab = dynamic_cast<_Tab*>(window))
+            tab->rescale();
+        for (wxWindow* child : window->GetChildren())
+            rescaleTabs(child);
+    }
 
     class _ListItem : public wxListItem
     {
@@ -258,6 +308,14 @@ namespace ConfigRelateGUI {
               long           style = 2621440L)
             : wxToolbook(parent, winId, pos, size, style)
         {
+            // The page tabs are rendered by the custom _Tab control, so the
+            // wxToolbook toolbar never displays icons. On macOS, leaving icons
+            // enabled makes wxToolbook build an alternate image for radio
+            // tools even when the page has no bitmap, which can dereference an
+            // invalid wxBitmapRefData during AddPage().
+            wxToolBarBase* toolBar = GetToolBar();
+            toolBar->SetWindowStyleFlag(toolBar->GetWindowStyleFlag() | wxTB_NOICONS);
+
             bool is_dark = wxGetApp().dark_mode();
             SetBackgroundColour(is_dark ? wxColour("#4B4B4D") : wxColour("#FFFFFF"));
         }
@@ -269,7 +327,7 @@ namespace ConfigRelateGUI {
         
         //_ListView(wxWindow*      parent) : wxListCtrl(parent, wxID_ANY, wxDefaultPosition, listSize, wxLC_REPORT | wxLC_NO_HEADER) 
          _ListView(wxWindow * parent, wxWindow* mirror_window)
-             : wxListCtrl(parent, wxID_ANY, wxDefaultPosition, listSize, wxLC_REPORT | wxLC_HRULES | wxLC_VRULES | wxLC_NO_HEADER | wxNO_BORDER)
+             : wxListCtrl(parent, wxID_ANY, wxDefaultPosition, scaleSize(parent, listSize), wxLC_REPORT | wxLC_HRULES | wxLC_VRULES | wxLC_NO_HEADER | wxNO_BORDER)
         {
             //SetWindowStyleFlag(GetWindowStyleFlag() & ~(wxLC_HRULES | wxLC_VRULES));
 
@@ -295,7 +353,8 @@ namespace ConfigRelateGUI {
              int  width  = size.GetWidth();
              int  height = size.GetHeight();
 
-             SetSize(width, height + 26);
+             SetSize(width, height);
+             updateColumns(width);
              Refresh();
          }
 
@@ -307,14 +366,37 @@ namespace ConfigRelateGUI {
         wxColour m_singleBGColour   = is_dark ?  wxColour("#474749") : wxColour("#F4F4F4");
         wxColour m_userTextColour = green;
         wxColour m_systemTextColour = is_dark ? white : wxColour("#000000");
+        int m_nameColumnWidth = 0;
+        int m_lastListWidth = 0;
 
         void OnMouseLeave(wxMouseEvent& event) { 
             m_hoverRow = -1;
         }
 
+        void updateColumns(int width)
+        {
+            const int min_type_width = scalePx(this, 160);
+            const int max_name_width = std::max(scalePx(this, 220), width - min_type_width);
+            m_nameColumnWidth = std::min(std::max(width * 3 / 5, scalePx(this, 260)), max_name_width);
+
+            if (GetColumnCount() >= 2 && m_lastListWidth != width) {
+                SetColumnWidth(0, m_nameColumnWidth);
+                SetColumnWidth(1, std::max(min_type_width, width - m_nameColumnWidth));
+                m_lastListWidth = width;
+            }
+        }
+
+        void drawClippedText(wxDC& dc, const wxString& text, const wxRect& rect)
+        {
+            dc.SetClippingRegion(rect);
+            dc.DrawText(text, rect.GetLeft(), rect.GetTop() + std::max(0, (rect.GetHeight() - dc.GetCharHeight()) / 2));
+            dc.DestroyClippingRegion();
+        }
+
         void OnPaint(wxPaintEvent& event)
         {
             wxPaintDC dc(this);
+            updateColumns(GetClientSize().GetWidth());
             //wxCoord   x, y, w, h;
             ////dc.GetClippingBox(&x, &y, &w, &h);
             wxRect clientRect = GetClientRect();
@@ -353,10 +435,21 @@ namespace ConfigRelateGUI {
                     if (isHovered)
                         dc.SetTextForeground(white);
 
-                    if (col == 0)
-                        dc.DrawText(GetItemText(row, col), 40, itemRect.GetTop());
-                    else
-                        dc.DrawText(item.isSystem ? _L("System Preset") : _L("User Preset"), 576, itemRect.GetTop());
+                    const int horizontal_padding = scalePx(this, 16);
+                    const int column_gap = scalePx(this, 8);
+                    if (col == 0) {
+                        wxRect textRect(itemRect.GetLeft() + horizontal_padding,
+                                        itemRect.GetTop(),
+                                        std::max(0, m_nameColumnWidth - horizontal_padding - column_gap),
+                                        itemRect.GetHeight());
+                        drawClippedText(dc, GetItemText(row, col), textRect);
+                    } else {
+                        wxRect textRect(itemRect.GetLeft() + m_nameColumnWidth + horizontal_padding,
+                                        itemRect.GetTop(),
+                                        std::max(0, clientRect.GetWidth() - m_nameColumnWidth - horizontal_padding * 2),
+                                        itemRect.GetHeight());
+                        drawClippedText(dc, item.isSystem ? _L("System Preset") : _L("User Preset"), textRect);
+                    }
                 }
 
                 dc.SetPen(wxPen(wxColour("#6E6E72")));
@@ -414,7 +507,13 @@ namespace ConfigRelateGUI {
             event.Skip();
         }
 
-        virtual int GetColumnWidth(int col) const override { return this->GetRect().GetWidth(); }
+        virtual int GetColumnWidth(int col) const override
+        {
+            const int width = this->GetRect().GetWidth();
+            if (col == 0)
+                return m_nameColumnWidth > 0 ? m_nameColumnWidth : width;
+            return m_nameColumnWidth > 0 ? std::max(0, width - m_nameColumnWidth) : width;
+        }
 
     public:
         void insertNameItem(_ListItem item)
@@ -458,8 +557,8 @@ namespace ConfigRelateGUI {
             ClearAll();
             InsertColumn(0, title1);
             InsertColumn(1, title2);
-            SetColumnWidth(0, 2000);
-            SetColumnWidth(1, 2000);
+            m_lastListWidth = 0;
+            updateColumns(GetClientSize().GetWidth());
             //SetColumnWidth(0, 570);
             //SetColumnWidth(1, GetSize().GetWidth() - 580);
 
@@ -517,9 +616,11 @@ namespace ConfigRelateGUI {
             wxBoxSizer* main_sizer = new wxBoxSizer(wxVERTICAL);
 
             { /* header */
-                StaticBox* header = new StaticBox(this, wxID_ANY, wxPoint(1, 1), wxSize(798, 37));
-                header->SetBackgroundColour(is_dark ? wxColour("#474749") : wxColour("#ffffff"));
+                StaticBox* header = new StaticBox(this, wxID_ANY, wxDefaultPosition, scaleSize(this, wxSize(798, 37)));
+                const wxColour header_bg = is_dark ? wxColour("#474749") : wxColour("#ffffff");
+                header->SetBackgroundColour(header_bg);
                 header->SetBorderWidth(0);
+                header->SetMinSize(wxSize(-1, scalePx(this, 37)));
                 header->SetCornerRadius(0);
 
                 wxBoxSizer* header_sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -527,11 +628,11 @@ namespace ConfigRelateGUI {
                 bool is_dark = wxGetApp().dark_mode();
                 m_header1 = new wxStaticText(header, wxID_ANY, "");
                 m_header1->SetFont(::Label::Body_14);
-                m_header1->SetBackgroundColour(is_dark ? wxColour("#4B4B4D") : wxColour("#FFFFFF"));
+                m_header1->SetBackgroundColour(header_bg);
 
                 m_header2 = new wxStaticText(header, wxID_ANY, "");
                 m_header2->SetFont(::Label::Body_14);
-                m_header2->SetBackgroundColour(is_dark ? wxColour("#4B4B4D") : wxColour("#FFFFFF"));
+                m_header2->SetBackgroundColour(header_bg);
 
                 header_sizer->AddStretchSpacer();
                 header_sizer->Add(m_header1, 1, wxALL | wxALIGN_CENTER, 5);
@@ -552,8 +653,8 @@ namespace ConfigRelateGUI {
 
             {    /* footer */
                 DrawBorderBox* footer = new DrawBorderBox(this, wxID_ANY,
-                                                          wxPoint(0, m_listView->GetPosition().y + m_listView->GetSize().GetHeight() - 2),
-                                                          wxSize(800, 2));
+                                                          wxDefaultPosition,
+                                                          wxSize(-1, scalePx(this, 2)));
                 //DrawBorderBox* footer = new DrawBorderBox(this, wxID_ANY);
                 // footer->topEnable     = false;
                 footer->SetBackgroundColor(wxColour("#6E6E72"));
@@ -584,9 +685,7 @@ namespace ConfigRelateGUI {
 
     static void setFont(wxWindow* win, int size)
     {
-        static wxFont font = win->GetFont();
-        font.SetPixelSize(wxSize(size, size));
-        win->SetFont(font);
+        win->SetFont(::Label::Body_12);
     }
 
     static void initListItem(_ListItem& item, wxString text, bool isSingle, bool isSystem, int col)
@@ -1588,7 +1687,7 @@ public:
                     wxID_ANY,
                     title.c_str(),
                     wxDefaultPosition,
-                    wxSize(600, 275),
+                    parent ? parent->FromDIP(wxSize(600, 275)) : wxSize(600, 275),
                     /*wxCAPTION*/ wxDEFAULT_DIALOG_STYLE)
     {
     }
@@ -1639,9 +1738,7 @@ public:
 private:
     void initUI()
     {
-        wxFont font = wxGetApp().normal_font();
-        font.SetPixelSize(wxSize(12, 12));
-        SetFont(font);
+        SetFont(::Label::Body_12);
         SetBackgroundColour(*wxWHITE);
 
         wxBoxSizer* winSizer = new wxBoxSizer(wxVERTICAL);
@@ -1671,22 +1768,22 @@ private:
 
                     rightSizer->Add(m_checkWindow, 0, wxTOP, 10);
                 }
-                mainSizer->Add(rightSizer, 2, wxRIGHT | wxTOP, 0);
+                mainSizer->Add(rightSizer, 1, wxRIGHT | wxTOP, 0);
             }
-            winSizer->Add(mainSizer, 0, wxRIGHT | wxTOP, 30);
+            winSizer->Add(mainSizer, 0, wxRIGHT | wxTOP, FromDIP(30));
         }
 
         {
             // 按钮
             wxBoxSizer* btnSizer     = new wxBoxSizer(wxHORIZONTAL);
-            _Button*    okButton     = new _Button(this, _L("Confirm"));
-            _Button*    cancelButton = new _Button(this, _L("Cancel"));
+            _Button*    okButton     = new _Button(this, _L("Confirm"), scaleSize(this, wxSize(120, 24)));
+            _Button*    cancelButton = new _Button(this, _L("Cancel"), scaleSize(this, wxSize(120, 24)));
 
             okButton->Bind(wxEVT_LEFT_DOWN, [=](wxMouseEvent& e) { onOk(); });
             cancelButton->Bind(wxEVT_LEFT_DOWN, [=](wxMouseEvent& e) { onCancel(); });
 
-            btnSizer->Add(okButton, 1, wxALL, 10);
-            btnSizer->Add(cancelButton, 1, wxALL, 10);
+            btnSizer->Add(okButton, 1, wxALL, FromDIP(10));
+            btnSizer->Add(cancelButton, 1, wxALL, FromDIP(10));
             winSizer->Add(btnSizer, 0, wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, 0);
         }
         SetSizer(winSizer);
@@ -1887,9 +1984,7 @@ public:
     RelatePrinterDialog(wxWindow* parent, std::string title, std::string target, Slic3r::GUI::RelateBundle* bundle)
         : CheckDialog(parent, title)
     {
-        wxFont font = wxGetApp().normal_font();
-        font.SetPixelSize(wxSize(12, 12));
-        SetFont(font);
+        SetFont(::Label::Body_12);
         //SetFont(wxGetApp().normal_font());
         SetBackgroundColour(*wxWHITE);
 
@@ -1932,19 +2027,19 @@ private:
             wxBoxSizer* mainSizer = new wxBoxSizer(wxHORIZONTAL);
 
             // 打印机选择
-            wxStaticText* printerLabel = new wxStaticText(this, wxID_ANY, _L("Select Printer"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
+            wxStaticText* printerLabel = new wxStaticText(this, wxID_ANY, _L("Select Printer"), wxDefaultPosition, scaleSize(this, wxSize(80, 28)), wxALIGN_CENTER);
             setFont(printerLabel, 12);
-            printerLabel->SetSize(wxSize(62, 13));
+            printerLabel->SetMinSize(scaleSize(this, wxSize(80, 28)));
 
-            mainSizer->Add(printerLabel, 1, wxALIGN_CENTER_HORIZONTAL | wxTOP, 5);
+            mainSizer->Add(printerLabel, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP, FromDIP(5));
 
             {
                 wxBoxSizer* rightSizer = new wxBoxSizer(wxVERTICAL);
 
                 {
-                    m_checkWindow = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, wxSize(430, 138));
-                    m_checkWindow->SetScrollbars(20, 20, 50, 50);
-                    m_checkWindow->SetVirtualSize(390, 138);
+                    m_checkWindow = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, scaleSize(this, wxSize(430, 138)));
+                    m_checkWindow->SetScrollbars(FromDIP(20), FromDIP(20), 50, 50);
+                    m_checkWindow->SetVirtualSize(scaleSize(this, wxSize(390, 138)));
 
                     for (auto checkbox : m_checkList)
                         delete checkbox;
@@ -1973,37 +2068,37 @@ private:
                             continue;
 
                         _CheckBox* checkbox = new _CheckBox(m_checkWindow, from_u8(cName).ToStdString());
-                        checkbox->SetSize(wxSize(400, 20));
+                        checkbox->SetSize(scaleSize(m_checkWindow, wxSize(400, 24)));
                         setFont(checkbox, 12);
                         // materialCheckBox1->SetValue(true);
 
                         int column = index % 2;
                         int row    = index / 2;
-                        checkbox->SetPosition(wxPoint(0 * 200, index * 37));
+                        checkbox->SetPosition(wxPoint(0, m_checkWindow->FromDIP(index * 37)));
                         index++;
                         m_checkList.push_back(checkbox);
                         m_checkNames.push_back(cName);
                     }
-                    m_checkWindow->SetVirtualSize(390, index * 37);
+                    m_checkWindow->SetVirtualSize(scaleSize(m_checkWindow, wxSize(390, index * 37)));
                     // scrolledWin->SetSize(460, 108);
                     rightSizer->Add(m_checkWindow, 0, wxLEFT, 0);
                 }
-                mainSizer->Add(rightSizer, 2, wxRIGHT | wxTOP, 0);
+                mainSizer->Add(rightSizer, 1, wxRIGHT | wxTOP, 0);
             }
-            winSizer->Add(mainSizer, 0, wxRIGHT | wxTOP, 30);
+            winSizer->Add(mainSizer, 0, wxRIGHT | wxTOP, FromDIP(30));
         }
 
         {
             // 按钮
             wxBoxSizer* btnSizer     = new wxBoxSizer(wxHORIZONTAL);
-            _Button*    okButton     = new _Button(this, _L("Confirm"));
-            _Button*    cancelButton = new _Button(this, _L("Cancel"));
+            _Button*    okButton     = new _Button(this, _L("Confirm"), scaleSize(this, wxSize(120, 24)));
+            _Button*    cancelButton = new _Button(this, _L("Cancel"), scaleSize(this, wxSize(120, 24)));
 
             okButton->Bind(wxEVT_LEFT_DOWN, [=](wxMouseEvent& e) { onOk(); });
             cancelButton->Bind(wxEVT_LEFT_DOWN, [=](wxMouseEvent& e) { onCancel(); });
 
-            btnSizer->Add(okButton, 1, wxALL, 10);
-            btnSizer->Add(cancelButton, 1, wxALL, 10);
+            btnSizer->Add(okButton, 1, wxALL, FromDIP(10));
+            btnSizer->Add(cancelButton, 1, wxALL, FromDIP(10));
             winSizer->Add(btnSizer, 0, wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, 0);
         }
         SetSizer(winSizer);
@@ -2012,7 +2107,22 @@ private:
     }
 
 protected:
-    void on_dpi_changed(const wxRect& suggested_rect) override {}
+    void on_dpi_changed(const wxRect& suggested_rect) override
+    {
+        SetSize(FromDIP(wxSize(600, 275)));
+        if (m_checkWindow) {
+            m_checkWindow->SetMinSize(FromDIP(wxSize(430, 138)));
+            m_checkWindow->SetSize(FromDIP(wxSize(430, 138)));
+            for (int i = 0, count = static_cast<int>(m_checkList.size()); i < count; ++i) {
+                m_checkList[i]->SetSize(m_checkWindow->FromDIP(wxSize(400, 24)));
+                m_checkList[i]->SetPosition(wxPoint(0, m_checkWindow->FromDIP(i * 37)));
+                setFont(m_checkList[i], 12);
+            }
+            m_checkWindow->SetVirtualSize(m_checkWindow->FromDIP(wxSize(390, static_cast<int>(m_checkList.size()) * 37)));
+        }
+        Layout();
+        Refresh();
+    }
 
 private:
     std::string                m_target;
@@ -2454,7 +2564,7 @@ public:
             {
                 wxStaticText* brandLabel = new wxStaticText(parent, wxID_ANY, _L("Vendor"));
                 //m_brandChoice = new wxChoice(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize);
-                m_brandChoice = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(130, 28), 0, nullptr,
+                m_brandChoice = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, scaleSize(parent, wxSize(130, 28)), 0, nullptr,
                                                         wxCB_READONLY);
                 m_brandChoice->Bind(wxEVT_COMBOBOX, [=](auto& e) 
                     { 
@@ -2468,7 +2578,7 @@ public:
 
             {
                 wxStaticText* modelLabel = new wxStaticText(parent, wxID_ANY, _L("Printer"));
-                m_modelChoice = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(130, 28), 0, nullptr, wxCB_READONLY);
+                m_modelChoice = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, scaleSize(parent, wxSize(130, 28)), 0, nullptr, wxCB_READONLY);
                 m_modelChoice->Bind(wxEVT_COMBOBOX, [=](auto& e) { 
                     _updateTree();
                     _syncOtherChoicesWithModel();
@@ -2480,7 +2590,7 @@ public:
 
             {
                 wxStaticText* nozzleLabel = new wxStaticText(parent, wxID_ANY, _L("Nozzle"));
-                m_nozzleChoice            = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(130, 28), 0, nullptr,
+                m_nozzleChoice            = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, scaleSize(parent, wxSize(130, 28)), 0, nullptr,
                                                          wxCB_READONLY);
                 m_nozzleChoice->Bind(wxEVT_COMBOBOX, [=](auto& e) { _updateTree(); });
                 sizer->Add(nozzleLabel, 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
@@ -2490,7 +2600,7 @@ public:
             {
                 wxStaticText* printerLabel = new wxStaticText(parent, wxID_ANY, _L("Preset name"));
 
-                m_printerSearch = new ::TextInput(parent, wxEmptyString, wxEmptyString, wxEmptyString, wxDefaultPosition, wxSize(124, 24),
+                m_printerSearch = new ::TextInput(parent, wxEmptyString, wxEmptyString, wxEmptyString, wxDefaultPosition, scaleSize(parent, wxSize(124, 24)),
                                              wxTE_PROCESS_ENTER);
                 StateColor input_bg(std::pair<wxColour, int>(wxColour("#F0F0F1"), StateColor::Disabled),
                                     std::pair<wxColour, int>(*wxWHITE, StateColor::Enabled));
@@ -2522,15 +2632,15 @@ public:
             m_treeCtrl = new _TreeView(parent);
             m_treeCtrl->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, [this](wxCommandEvent& e) { _sync(); });
 
-            m_treeCtrl->SetMinSize(wxSize(200, 800)); // 最小尺寸，防止被压缩
-            m_treeCtrl->SetMaxSize(wxSize(300, 1000)); // 最大尺寸，防止被拉伸
+            m_treeCtrl->SetMinSize(wxSize(FromDIP(200), -1)); // 最小尺寸，防止被压缩
+            m_treeCtrl->SetMaxSize(wxSize(FromDIP(300), -1)); // 最大尺寸，防止被拉伸
 
-            ConfigRelateGUI::_Panel* tabView  = new ConfigRelateGUI::_Panel(parent, wxID_ANY, wxDefaultPosition, rightTabSize);
+            ConfigRelateGUI::_Panel* tabView  = new ConfigRelateGUI::_Panel(parent, wxID_ANY, wxDefaultPosition, scaleSize(parent, rightTabSize));
             ConfigRelateGUI::_Book*  notebook = new ConfigRelateGUI::_Book(tabView, wxID_ANY);
             m_toolbook              = notebook;
             wxToolBarBase* toolBar  = notebook->GetToolBar();
             toolBar->Hide();
-            _Tab* tab = new _Tab(tabView, wxSize(FromDIP(100), FromDIP(26)));
+            _Tab* tab = new _Tab(tabView, wxSize(100, 26));
             m_tab     = tab;
 
             wxBoxSizer* tabSizer = new wxBoxSizer(wxVERTICAL);
@@ -2546,7 +2656,7 @@ public:
             tab->bind(func);
             {
                 ConfigRelateGUI::_Panel* relateMaterialPage = new ConfigRelateGUI::_Panel(notebook, wxID_ANY, wxDefaultPosition,
-                                                                                                     rightTabContentSize);
+                                                                                                     scaleSize(notebook, rightTabContentSize));
                 notebook->AddPage(relateMaterialPage, _L("Related Filament"));
 
                 m_materialListCtrl = new _ListWidget(relateMaterialPage);
@@ -3015,7 +3125,7 @@ public:
         wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
         {
             wxStaticText* brandLabel = new wxStaticText(parent, wxID_ANY, _L("Vendor"));
-            m_brandChoice = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(130, 28), 0, nullptr, wxCB_READONLY);
+            m_brandChoice = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, scaleSize(parent, wxSize(130, 28)), 0, nullptr, wxCB_READONLY);
             m_brandChoice->Bind(wxEVT_COMBOBOX, [=](auto& e) { 
                 _updateTree();
                 // _syncOtherChoicesWithBrand();
@@ -3027,7 +3137,7 @@ public:
 
         {
             wxStaticText* modelLabel = new wxStaticText(parent, wxID_ANY, _L("Type"));
-            m_categoryChoice = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(130, 28), 0, nullptr, wxCB_READONLY);
+            m_categoryChoice = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, scaleSize(parent, wxSize(130, 28)), 0, nullptr, wxCB_READONLY);
             m_categoryChoice->Bind(wxEVT_COMBOBOX, [=](auto& e) {
                 _updateTree();
                 // _syncOtherChoicesWithFilament();
@@ -3040,7 +3150,7 @@ public:
             {
             wxStaticText* printerLabel = new wxStaticText(parent, wxID_ANY, _L("Preset name"));
 
-            m_printerSearch = new ::TextInput(parent, wxEmptyString, wxEmptyString, wxEmptyString, wxDefaultPosition, wxSize(124, 24),
+            m_printerSearch = new ::TextInput(parent, wxEmptyString, wxEmptyString, wxEmptyString, wxDefaultPosition, scaleSize(parent, wxSize(124, 24)),
                                               wxTE_PROCESS_ENTER);
             StateColor input_bg(std::pair<wxColour, int>(wxColour("#F0F0F1"), StateColor::Disabled),
                                 std::pair<wxColour, int>(*wxWHITE, StateColor::Enabled));
@@ -3064,13 +3174,13 @@ public:
                 _sync(); 
             });
 
-        ConfigRelateGUI::_Panel* tabView = new ConfigRelateGUI::_Panel(parent, wxID_ANY, wxDefaultPosition, rightTabSize);
+        ConfigRelateGUI::_Panel* tabView = new ConfigRelateGUI::_Panel(parent, wxID_ANY, wxDefaultPosition, scaleSize(parent, rightTabSize));
         tabView->SetBackgroundColour(wxColour(*wxWHITE));
         ConfigRelateGUI::_Book* notebook = new ConfigRelateGUI::_Book(tabView, wxID_ANY);
         m_toolbook             = notebook;
         wxToolBarBase* toolBar  = notebook->GetToolBar();
         toolBar->Hide();
-        _Tab* tab = new _Tab(tabView, wxSize(FromDIP(100), FromDIP(26)));
+        _Tab* tab = new _Tab(tabView, wxSize(100, 26));
         m_tab     = tab;
         tab->appendTab(_L("Related Printer"));
 
@@ -3260,7 +3370,7 @@ void ConfigRelateDialog::create()
     ConfigRelateGUI::_Book* notebook = new ConfigRelateGUI::_Book(tabView, wxID_ANY);
     wxToolBarBase* toolBar = notebook->GetToolBar();
     toolBar->Hide();
-    _Tab* tab = new _Tab(tabView, wxSize(FromDIP(100), FromDIP(30)));
+    _Tab* tab = new _Tab(tabView, wxSize(100, 30));
     //tab->SetMinSize(wxSize(200, 30));
     tab->appendTab(_L("Printer"));
     tab->appendTab(_L("Filament"));
@@ -3335,6 +3445,14 @@ ConfigRelateDialog::~ConfigRelateDialog()
 void ConfigRelateDialog::on_dpi_changed(const wxRect &suggested_rect)
 {
     SetMinSize(FromDIP(wxSize(900, 600)));
+    ConfigRelateGUI::rescaleTabs(this);
+
+    wxSize dlg_size = FromDIP(windowSize);
+    int screen_height = wxGetDisplaySize().GetY();
+    if (dlg_size.GetY() > screen_height)
+        dlg_size.Set(dlg_size.GetX() + FromDIP(40), screen_height * 4 / 5);
+    SetSize(dlg_size);
+
     Layout();
     Refresh();
 }

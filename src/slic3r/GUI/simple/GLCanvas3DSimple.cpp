@@ -59,7 +59,7 @@
 #include "slic3r/Utils/RetinaHelper.hpp"
 #endif
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include <wx/glcanvas.h>
 #include <wx/bitmap.h>
@@ -1226,8 +1226,15 @@ void GLCanvas3D::_ensure_ai_chat_logo_tex(unsigned icon_w_px, unsigned icon_h_px
 
     ImTextureID new_tex = nullptr;
     const std::string logo_path = Slic3r::resources_dir() + "/web/image/ai_chat_float_logo.svg";
-    if (IMTexture::load_from_svg_file(logo_path, icon_w_px, icon_h_px, new_tex))
+    if (IMTexture::load_from_svg_file(logo_path, icon_w_px, icon_h_px, new_tex)) {
+        GLint previous_texture = 0;
+        glsafe(::glGetIntegerv(GL_TEXTURE_BINDING_2D, &previous_texture));
+        glsafe(::glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(reinterpret_cast<uintptr_t>(new_tex))));
+        glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+        glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+        glsafe(::glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(previous_texture)));
         m_ai_chat_logo_tex = new_tex;
+    }
 }
 
 ImVec2 GLCanvas3D::compute_toolbar_popup_pos_px(
@@ -2099,6 +2106,29 @@ void GLCanvas3D::_render_ai_chat_toggle()
 void GLCanvas3D::close_device_list_popup()
 {
     m_preset_panel_open = false;
+}
+
+void GLCanvas3D::open_device_list_popup()
+{
+    // Only meaningful in the Simple (AI/easy) UI where this popup is rendered.
+    if (!wxGetApp().easy_mode())
+        return;
+    // The device-list popup is rendered by the 3D editor (prepare) canvas. If the
+    // user is currently on the G-code preview page, that canvas is hidden, so the
+    // popup would not be visible. Switch back to the prepare view first. This call
+    // is idempotent when the prepare view is already active.
+    if (Plater* plater = wxGetApp().plater())
+        plater->select_view_3D("3D");
+    // Mirror the device-pill click handler: close the mutually-exclusive supports
+    // popup and reset toolbar item state before opening the device list.
+    m_easymode_main_toolbar.reset_item_state_simple();
+    m_supports_popup_open = false;
+    m_preset_panel_open   = true;
+    // This entry point is triggered outside the render loop (from the AI chat
+    // webview event), so schedule a repaint to show the ImGui overlay immediately.
+    set_as_dirty();
+    if (m_canvas != nullptr)
+        m_canvas->Refresh();
 }
 
 void GLCanvas3D::on_easy_mode_switch()

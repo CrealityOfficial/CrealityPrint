@@ -39,10 +39,9 @@ void HoverBorderIcon::Create(wxWindow* parent, const wxString& text, const wxStr
     StaticBox::SetBorderColor(StateColor(std::make_pair(is_dark ? 0x4B4B4D : 0xFFFFFF, (int) StateColor::Disabled),
                                          std::make_pair(0x15BF59, (int) StateColor::Hovered),
                                          std::make_pair(is_dark ?  0x4B4B4D : 0xFFFFFF, (int) StateColor::Normal)));
-#ifndef __APPLE__
     StaticBox::SetBackgroundColor(
-        StateColor(std::make_pair(0xF0F0F1, (int) StateColor::Disabled), std::make_pair(*wxWHITE, (int) StateColor::Normal)));
-#endif // !__APPLE__
+        StateColor(std::make_pair(is_dark ? 0x4B4B4D : 0xF0F0F1, (int) StateColor::Disabled),
+                   std::make_pair(is_dark ? 0x4B4B4D : 0xFFFFFF, (int) StateColor::Normal)));
 
     state_handler.update_binds();
     const int dip_w   = (size.GetWidth() > 0) ? ToDIP(size.GetWidth()) : -1;
@@ -106,6 +105,9 @@ void HoverBorderIcon::on_sys_color_changed(bool is_dark_mode)
                                          std::make_pair(0x15BF59, (int) StateColor::Hovered),
                                          std::make_pair(is_dark_mode ? 0x4B4B4D : 0xFFFFFF, (int) StateColor::Normal)));
 
+    StaticBox::SetBackgroundColor(
+        StateColor(std::make_pair(is_dark_mode ? 0x4B4B4D : 0xF0F0F1, (int) StateColor::Disabled),
+                   std::make_pair(is_dark_mode ? 0x4B4B4D : 0xFFFFFF, (int) StateColor::Normal)));
     state_handler.update_binds();
 
     Refresh();

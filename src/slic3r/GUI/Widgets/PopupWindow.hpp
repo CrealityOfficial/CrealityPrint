@@ -15,6 +15,9 @@ public:
     
     bool Create(wxWindow *parent, int flags = wxBORDER_NONE);
 
+protected:
+    virtual bool ShouldDismissOnTopWindowDeactivate() { return true; }
+
 private:
 #if defined(__WXGTK__) || defined(__WXOSX__)
     void topWindowActiavate(wxActivateEvent &event);

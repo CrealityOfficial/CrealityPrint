@@ -52,7 +52,7 @@
 #include <cereal/types/string.hpp>
 #include <cereal/archives/binary.hpp>
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include <chrono> // measure enumeration of fonts
 
 // uncomment for easier debug
@@ -1769,8 +1769,7 @@ void GLGizmoEmboss::draw_font_list()
             actual_face_name = wx_font.GetFaceName();
     }
     // name of actual selected font
-    const char * selected = (!actual_face_name.empty()) ?
-        (const char *)actual_face_name.c_str() : " --- ";
+    const std::string selected = actual_face_name.empty() ? " --- " : actual_face_name.utf8_string();
 
     // Do not remove font face during enumeration
     // When deletation of font appear this variable is set
@@ -3884,7 +3883,7 @@ static std::size_t hash_value(wxString const &s){
 }
 
 // increase number when change struct FacenamesSerializer
-constexpr std::uint32_t FACENAMES_VERSION = 1;
+constexpr std::uint32_t FACENAMES_VERSION = 2;
 struct FacenamesSerializer
 {
     // hash number for unsorted vector of installed font into system
@@ -3898,7 +3897,7 @@ struct FacenamesSerializer
 template<class Archive> void save(Archive &archive, wxString const &d)
 { std::string s(d.ToUTF8().data()); archive(s);}
 template<class Archive> void load(Archive &archive, wxString &d)
-{ std::string s; archive(s); d = s;}
+{ std::string s; archive(s); d = wxString::FromUTF8(s);}
 template<class Archive> void serialize(Archive &ar, FacenamesSerializer &t, const std::uint32_t version)
 {
     // When performing a load, the version associated with the class

@@ -7,6 +7,7 @@
 #include "Format/STEP.hpp"
 #include <boost/log/trivial.hpp>
 
+#include <chrono>
 #include <future>
 
 // Transtltion
@@ -24,6 +25,15 @@
 #define _L(s) Slic3r::I18N::translate(s)
 
 namespace Slic3r {
+
+using ArchiveImportClock = std::chrono::steady_clock;
+
+static double archive_import_elapsed_ms(const ArchiveImportClock::time_point &start,
+                                        const ArchiveImportClock::time_point &end = ArchiveImportClock::now())
+{
+    return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
 const std::vector<std::string> CONST_FILAMENTS = {
     "", "4", "8", "0C", "1C", "2C", "3C", "4C", "5C", "6C", "7C", "8C", "9C", "AC", "BC", "CC", "DC",
     // IDs 17-32: 3 nibbles (hex((N-3)%15) + "F" + "C")
@@ -364,6 +374,9 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
     assert(config != nullptr);
     assert(config_substitutions != nullptr);
 
+    const auto archive_import_total_start = ArchiveImportClock::now();
+    BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=0 stage=ARCHIVE_IMPORT_TOTAL START file=\"" << input_file << "\"";
+
     Model model;
 
     struct ArchiveLoadResult
@@ -380,7 +393,17 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
         ArchiveLoadResult load_result;
         if (boost::algorithm::iends_with(input_file, ".3mf") || boost::algorithm::iends_with(input_file, ".cxprj")) {
             PrusaFileParser prusa_file_parser;
-            if (prusa_file_parser.check_3mf_from_prusa(input_file)) {
+            const auto archive_type_detect_start = ArchiveImportClock::now();
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=ARCHIVE_TYPE_DETECT START";
+            const bool is_prusa_3mf = prusa_file_parser.check_3mf_from_prusa(input_file);
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=ARCHIVE_TYPE_DETECT END elapsed_ms="
+                                       << archive_import_elapsed_ms(archive_type_detect_start)
+                                       << " format=" << (is_prusa_3mf ? "prusa_3mf" : "bbs_3mf");
+
+            const auto format_load_start = ArchiveImportClock::now();
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=FORMAT_LOAD START format="
+                                       << (is_prusa_3mf ? "prusa_3mf" : "bbs_3mf");
+            if (is_prusa_3mf) {
                 // for Prusa 3mf
                 load_result.result = load_3mf(input_file.c_str(), *config, *config_substitutions, &model, true);
                 load_result.file_type = En3mfType::From_Prusa;
@@ -389,9 +412,18 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
                 // BBS: backup & restore
                 load_result.result = load_bbs_3mf(input_file.c_str(), config, config_substitutions, &model, plate_data, project_presets, &load_result.is_bbl_3mf, file_version, nullptr, options, project);
             }
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=FORMAT_LOAD END elapsed_ms="
+                                       << archive_import_elapsed_ms(format_load_start)
+                                       << " format=" << (is_prusa_3mf ? "prusa_3mf" : "bbs_3mf")
+                                       << " result=" << load_result.result;
         }
         else if (boost::algorithm::iends_with(input_file, ".zip.amf")) {
+            const auto format_load_start = ArchiveImportClock::now();
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=FORMAT_LOAD START format=zip_amf";
             load_result.result = load_amf(input_file.c_str(), config, config_substitutions, &model, &load_result.is_bbl_3mf);
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=FORMAT_LOAD END elapsed_ms="
+                                       << archive_import_elapsed_ms(format_load_start)
+                                       << " format=zip_amf result=" << load_result.result;
         }
         else
             throw Slic3r::RuntimeError(_L("Unknown file format. Input file must have .3mf or .zip.amf extension."));
@@ -406,6 +438,8 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
     }
 
     ArchiveLoadResult load_result = fut.get();
+    const auto archive_finalize_start = ArchiveImportClock::now();
+    BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=ARCHIVE_FINALIZE START";
     result = load_result.result;
     out_file_type = load_result.file_type == En3mfType::From_Prusa ?
         En3mfType::From_Prusa :
@@ -455,6 +489,13 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
     }
 
     handle_legacy_sla(*config);
+
+    BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=ARCHIVE_FINALIZE END elapsed_ms="
+                               << archive_import_elapsed_ms(archive_finalize_start)
+                               << " objects=" << model.objects.size();
+    BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=0 stage=ARCHIVE_IMPORT_TOTAL END elapsed_ms="
+                               << archive_import_elapsed_ms(archive_import_total_start)
+                               << " objects=" << model.objects.size();
 
     return model;
 }

@@ -1908,7 +1908,7 @@ void NotificationManager::push_validate_error_notification(StringObjectException
 			if (!opt.empty()) {
 				if (iter != objects.end())
 					wxGetApp().params_panel()->switch_to_object();
-				wxGetApp().sidebar().jump_to_option(opt, Preset::TYPE_PRINT, L"");
+				wxGetApp().sidebar().jump_to_option(opt);
 			}
 			else {
 				wxGetApp().mainframe->select_tab(MainFrame::tp3DEditor);
@@ -1939,7 +1939,7 @@ void NotificationManager::push_validate_warning_notification(StringObjectExcepti
             if (!opt.empty()) {
                 if (iter != objects.end())
                     wxGetApp().params_panel()->switch_to_object();
-                wxGetApp().sidebar().jump_to_option(opt, Preset::TYPE_PRINT, L"");
+                wxGetApp().sidebar().jump_to_option(opt);
             } else {
                 wxGetApp().mainframe->select_tab(MainFrame::tp3DEditor);
             }
@@ -2000,22 +2000,28 @@ void NotificationManager::push_slicing_error_notification(const std::string &tex
 	push_notification_data({ NotificationType::SlicingError, NotificationLevel::ErrorNotificationLevel, 0,  _u8L("Error:") + "\n" + text, link, callback }, 0);
 	set_slicing_progress_hidden();
 }
-void NotificationManager::push_slicing_warning_notification(const std::string& text, bool gray, ModelObject const * obj, ObjectID oid, int warning_step, int warning_msg_id, int current_plate_index,  NotificationLevel level/* = NotificationLevel::WarningNotificationLevel*/)
+void NotificationManager::push_slicing_warning_notification(const std::string& text, bool gray, ModelObject const * obj, ObjectID oid, int warning_step, int warning_msg_id, int current_plate_index, const std::string &opt_key, NotificationLevel level/* = NotificationLevel::WarningNotificationLevel*/)
 {
 	std::function<bool(wxEvtHandler*)> callback;
-	if (obj) {
-		callback = [id = obj->id()](wxEvtHandler*) {
+	if (obj || !opt_key.empty()) {
+		callback = [id = obj ? obj->id() : 0, opt = opt_key](wxEvtHandler*) {
 			auto& objects = wxGetApp().model().objects;
-			auto iter = std::find_if(objects.begin(), objects.end(), [id](auto o) { return o->id() == id; });
+			auto iter = id.id ? std::find_if(objects.begin(), objects.end(), [id](auto o) { return o->id() == id; }) : objects.end();
 			if (iter != objects.end()) {
 				wxGetApp().mainframe->select_tab(MainFrame::tp3DEditor);
 				wxGetApp().obj_list()->select_items({ {*iter, nullptr} });
+			}
+			if (!opt.empty()) {
+				if (iter != objects.end())
+					wxGetApp().params_panel()->switch_to_object();
+				wxGetApp().sidebar().jump_to_option(opt);
 			}
 			return false;
 		};
 	}
     auto link = callback ? _u8L("Jump to") : "";
     if (obj) link += std::string(" [") + obj->name + "]";
+    if (!opt_key.empty()) link += std::string(" (") + opt_key + ")";
 	NotificationData data { NotificationType::SlicingWarning, level, 0,  /*_u8L("Warning:") + "\n" + */text, link, callback };
 
 	data.sub_msg_id = warning_msg_id;
@@ -3153,9 +3159,19 @@ void NotificationManager::bbl_close_3mf_warn_notification()
         }
 }
 
-void NotificationManager::bbl_show_3mf_warn_notification(const std::string &text)
+void NotificationManager::bbl_show_3mf_warn_notification(const std::string &text, const std::string &opt_key, bool is_error)
 {
-    NotificationData data{NotificationType::BBL3MFInfo, NotificationLevel::ErrorNotificationLevel, BBL_NOTICE_MAX_INTERVAL, text};
+    const std::string hypertext = opt_key.empty() ? "" : _u8L("Jump to") + std::string(" [") + opt_key + "]";
+    std::function<bool(wxEvtHandler*)> callback;
+    if (!opt_key.empty()) {
+        callback = [opt_key](wxEvtHandler*) {
+            wxGetApp().sidebar().jump_to_option(opt_key);
+            return false;
+        };
+    }
+    NotificationData data{NotificationType::BBL3MFInfo,
+                          is_error ? NotificationLevel::ErrorNotificationLevel : NotificationLevel::WarningNotificationLevel,
+                          BBL_NOTICE_MAX_INTERVAL, text, hypertext, callback};
 
     for (std::unique_ptr<PopNotification> &notification : m_pop_notifications) {
         if (notification->get_type() == NotificationType::BBL3MFInfo) {

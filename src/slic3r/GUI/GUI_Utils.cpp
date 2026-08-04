@@ -12,6 +12,10 @@
     #include <wx/msw/registry.h>
 #endif // _WIN32
 
+#ifdef __WXGTK__
+#include <gtk/gtk.h>
+#endif
+
 #include <wx/toplevel.h>
 #include <wx/sizer.h>
 #include <wx/checkbox.h>
@@ -601,6 +605,47 @@ bool download_file(const std::string& server, const std::string& path, const std
     }
     return true;
 }
+
+#ifdef __WXGTK__
+void RemoveButtonBorder(wxWindow* win)
+{
+    GtkWidget* widget = win->GetHandle();
+    if (!widget)
+        return;
+
+#if GTK_CHECK_VERSION(3, 0, 0)
+    GtkCssProvider* provider = gtk_css_provider_new();
+    const char* css =
+        "button {"
+        "  border: none;"
+        "  outline: none;"
+        "  box-shadow: none;"
+        "  padding: 0px;"
+        "  margin: 0px;"
+        "  min-height: 0px;"
+        "  min-width: 0px;"
+        "  background: none;"
+        "}";
+
+    gtk_css_provider_load_from_data(provider, css, -1, nullptr);
+    gtk_style_context_add_provider(
+        gtk_widget_get_style_context(widget),
+        GTK_STYLE_PROVIDER(provider),
+        GTK_STYLE_PROVIDER_PRIORITY_USER);
+    g_object_unref(provider);
+#else
+    gtk_rc_parse_string(
+        "style \"no-border\" {"
+        "  GtkButton::inner-border = { 0, 0, 0, 0 }"
+        "  GtkWidget::focus-line-width = 0"
+        "  GtkWidget::focus-padding = 0"
+        "  xthickness = 0"
+        "  ythickness = 0"
+        "}"
+        "widget \"*.GtkBitmapToggleButton\" style \"no-border\"");
+#endif
+}
+#endif
 
 std::deque<wxDialog*> dialogStack;
 

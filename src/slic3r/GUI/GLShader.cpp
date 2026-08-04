@@ -7,16 +7,68 @@
 #include "libslic3r/Color.hpp"
 
 #include <boost/nowide/fstream.hpp>
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include <cassert>
+#include <set>
+#include <sstream>
 
 #include <boost/log/trivial.hpp>
 
+#if defined(__linux__) && __has_include(<EGL/egl.h>)
+#include <EGL/egl.h>
+#define SLIC3R_GL_SHADER_HAS_EGL 1
+#endif
+
 namespace Slic3r {
+
+static const char* gl_error_to_string(GLenum error)
+{
+    switch (error) {
+    case GL_NO_ERROR:          return "GL_NO_ERROR";
+    case GL_INVALID_ENUM:      return "GL_INVALID_ENUM";
+    case GL_INVALID_VALUE:     return "GL_INVALID_VALUE";
+    case GL_INVALID_OPERATION: return "GL_INVALID_OPERATION";
+    case GL_OUT_OF_MEMORY:     return "GL_OUT_OF_MEMORY";
+    default:                   return "UNKNOWN_GL_ERROR";
+    }
+}
+
+static const char* gl_string(GLenum name)
+{
+    const GLubyte* value = ::glGetString(name);
+    return value != nullptr ? reinterpret_cast<const char*>(value) : "<null>";
+}
+
+static std::string gl_shader_debug_state(GLuint program_id)
+{
+    GLint current_program = 0;
+    ::glGetIntegerv(GL_CURRENT_PROGRAM, &current_program);
+
+    std::ostringstream out;
+    out << "id=" << program_id
+        << ", is_program=" << (::glIsProgram(program_id) == GL_TRUE ? "true" : "false")
+        << ", current_program=" << current_program
+#if SLIC3R_GL_SHADER_HAS_EGL
+        << ", egl_context=" << reinterpret_cast<const void*>(::eglGetCurrentContext())
+#endif
+        << ", vendor='" << gl_string(GL_VENDOR)
+        << "', renderer='" << gl_string(GL_RENDERER)
+        << "', version='" << gl_string(GL_VERSION) << "'";
+    return out.str();
+}
+
+static GLenum consume_gl_errors()
+{
+    GLenum last_error = GL_NO_ERROR;
+    for (GLenum error = ::glGetError(); error != GL_NO_ERROR; error = ::glGetError())
+        last_error = error;
+    return last_error;
+}
+
 
 GLShaderProgram::~GLShaderProgram()
 {
-    if (m_id > 0)
+    if (m_id > 0 && ::glIsProgram(m_id) == GL_TRUE)
         glsafe(::glDeleteProgram(m_id));
 }
 
@@ -192,13 +244,37 @@ bool GLShaderProgram::init_from_texts(const std::string& name, const ShaderSourc
     // release shaders, they are no more needed
     release_shaders(shader_ids);
 
+    BOOST_LOG_TRIVIAL(info) << "Shader program '" << m_name << "' linked: " << gl_shader_debug_state(m_id);
+
     return true;
 }
 
 void GLShaderProgram::start_using() const
 {
+    static std::set<std::string> invalid_program_logged;
+    static std::set<std::string> stale_error_logged;
+    static std::set<std::string> use_error_logged;
+
     assert(m_id > 0);
-    glsafe(::glUseProgram(m_id));
+    const GLboolean is_program = m_id > 0 ? ::glIsProgram(m_id) : GL_FALSE;
+    if (m_id == 0 || is_program != GL_TRUE) {
+        if (invalid_program_logged.insert(m_name).second)
+            BOOST_LOG_TRIVIAL(error) << "Shader program '" << m_name << "' is not valid before glUseProgram: " << gl_shader_debug_state(m_id);
+        return;
+    }
+
+    const GLenum previous_error = consume_gl_errors();
+    if (previous_error != GL_NO_ERROR && stale_error_logged.insert(m_name).second) {
+        BOOST_LOG_TRIVIAL(warning) << "Shader program '" << m_name << "' consumed stale GL error before glUseProgram: "
+            << gl_error_to_string(previous_error) << ", " << gl_shader_debug_state(m_id);
+    }
+
+    ::glUseProgram(m_id);
+    const GLenum use_error = ::glGetError();
+    if (use_error != GL_NO_ERROR && use_error_logged.insert(m_name).second) {
+        BOOST_LOG_TRIVIAL(error) << "Shader program '" << m_name << "' glUseProgram failed: error="
+            << gl_error_to_string(use_error) << ", " << gl_shader_debug_state(m_id);
+    }
 }
 
 void GLShaderProgram::stop_using() const

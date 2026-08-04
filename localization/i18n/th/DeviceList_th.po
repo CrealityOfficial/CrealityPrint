@@ -1,0 +1,1531 @@
+msgid ""
+msgstr "Project-Id-Version: \nPOT-Creation-Date: \nPO-Revision-Date: \nLast-Translator: \nLanguage-Team: \nLanguage: th_TH\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\nX-Generator: Poedit 3.5"
+
+msgid "All"
+msgstr "ทั้งหมด"
+
+msgid "Idle"
+msgstr "ว่าง"
+
+msgid "Loading"
+msgstr "กำลังโหลด"
+
+msgid "Blanking"
+msgstr "กําลังล้างข้อมูลแผ่น"
+
+msgid "Printer"
+msgstr "เครื่องพิมพ์"
+
+msgid "Printer(WiFi)"
+msgstr "เครื่องพิมพ์ (WiFi)"
+
+msgid "Creality"
+msgstr "ตั้งค่า"
+
+msgid "Bambu"
+msgstr "แบมบู"
+
+msgid "Sonic Pad"
+msgstr "แผ่นโซนิค"
+
+msgid "Other"
+msgstr "อื่นๆ"
+
+msgid "Name Address File"
+msgstr "แฟ้มที่อยู่ชื่อ"
+
+msgid "Device group"
+msgstr "กลุ่มอุปกรณ์"
+
+msgid "Device State"
+msgstr "สถานะอุปกรณ์"
+
+msgid "Device Type"
+msgstr "ชนิดอุปกรณ์"
+
+msgid "Add Group"
+msgstr "เพิ่มกลุ่ม"
+
+msgid "Scan Add"
+msgstr "ค้นหาเพิ่ม"
+
+msgid "Manual Add"
+msgstr "เพิ่มเอง"
+
+msgid "Edit Name"
+msgstr "แก้ไขชื่อ"
+
+msgid "Remove"
+msgstr "นำออก"
+
+msgid "Device Model"
+msgstr "รุ่นของอุปกรณ์"
+
+msgid "Current Device"
+msgstr "อุปกรณ์ปัจจุบัน"
+
+msgid "Device Name"
+msgstr "ชื่ออุปกรณ์"
+
+msgid "Device Address"
+msgstr "ที่อยู่อุปกรณ์"
+
+msgid "Copy"
+msgstr "คัดลอก"
+
+msgid "Print File"
+msgstr "พิมพ์เอกสาร"
+
+msgid "Operation"
+msgstr "ปฏิบัติการ"
+
+msgid "Details"
+msgstr "รายละเอียด"
+
+msgid "English"
+msgstr "อังกฤษ"
+
+msgid "Simplified Chinese"
+msgstr "ภาษาจีนตัวย่อ"
+
+msgid "Create Device Group"
+msgstr "สร้างกลุ่มอุปกรณ์"
+
+msgid "Ok"
+msgstr "แน่นอน"
+
+msgid "Cancel"
+msgstr "ยกเลิก"
+
+msgid "Reset"
+msgstr "รีเซ็ต"
+
+msgid "Rename Device Group"
+msgstr "เปลี่ยนชื่อกลุ่มอุปกรณ์"
+
+msgid "Rename Device Name"
+msgstr "เปลี่ยนชื่อชื่ออุปกรณ์"
+
+msgid "Printing Progress"
+msgstr "ความคืบหน้าการพิมพ์"
+
+msgid "Add Device"
+msgstr "เพิ่มอุปกรณ์"
+
+msgid "Add multiple devices"
+msgstr "เพิ่มอุปกรณ์ต่าง ๆ"
+
+msgid "How to find an IP address?"
+msgstr "หาที่อยู่ IP ได้อย่างไร?"
+
+msgid "The device already exists"
+msgstr "มีอุปกรณ์นี้อยู่แล้ว"
+
+msgid "The device does not exist"
+msgstr "ไม่มีอุปกรณ์อยู่"
+
+msgid "Device added successfully"
+msgstr "เพิ่มอุปกรณ์เรียบร้อยแล้ว"
+
+msgid "Test"
+msgstr "ทดสอบ"
+
+msgid "Back"
+msgstr "ย้อนกลับ"
+
+msgid "Warning"
+msgstr "คำเตือน"
+
+msgid "Filament Status"
+msgstr "สถานะแฟ้ม"
+
+msgid "Filament Match"
+msgstr "ตรงกัน"
+
+msgid "Confirm"
+msgstr "ยืนยัน"
+
+msgid "Upload GCode file name"
+msgstr "อัปโหลดชื่อแฟ้ม GCode"
+
+msgid "Print calibration"
+msgstr "ปรับตั้งการพิมพ์"
+
+msgid "Enable CFS"
+msgstr "เปิดใช้งาน CFS"
+
+msgid "Printing Information"
+msgstr "ข้อมูลการพิมพ์"
+
+msgid "Control"
+msgstr "ควบคุม"
+
+msgid "File"
+msgstr "ไฟล์"
+
+msgid "Records"
+msgstr "บันทึก"
+
+msgid "Timelapse Video"
+msgstr "วิดีโอการท่องเวลา"
+
+msgid "Object deletion"
+msgstr "การลบวัตถุ"
+
+msgid "Camera"
+msgstr "กล้อง"
+
+msgid "Temperature"
+msgstr "อุณหภูมิ"
+
+msgid "Layer"
+msgstr "ชั้น"
+
+msgid "Printing time"
+msgstr "เวลาการพิมพ์"
+
+msgid "Remaining time"
+msgstr "เวลาที่เหลือ"
+
+msgid "Finish Time"
+msgstr "เวลาสิ้นสุด"
+
+msgid "Ultrafast"
+msgstr "ความทึบแสง"
+
+msgid "Standard"
+msgstr "มาตรฐาน"
+
+msgid "Stable"
+msgstr "ความแหลม:"
+
+msgid "Silent"
+msgstr "เงียบ"
+
+msgid "Cannot be empty"
+msgstr "ไม่สามารถว่างได้"
+
+msgid "Already exists"
+msgstr "มีอยู่แล้ว"
+
+msgid "Copy successful"
+msgstr "ทําสําเนาเรียบร้อยแล้ว"
+
+msgid "Removing a group will delete the devices in the group. Are you sure you want to remove it?"
+msgstr "การลบกลุ่มจะทําการลบอุปกรณ์ในกลุ่ม คุณแน่ใจหรือว่าต้องการจะลบมัน?"
+
+msgid "Printing"
+msgstr "กำลังพิมพ์"
+
+msgid "Printing Complete"
+msgstr "การพิมพ์เสร็จสมบูรณ์แล้ว"
+
+msgid "Printing Failed"
+msgstr "การพิมพ์ล้มเหลว"
+
+msgid "Print Abort"
+msgstr "ยุติการพิมพ์"
+
+msgid "Printing Paused"
+msgstr "หยุดการพิมพ์ชั่วคราว"
+
+msgid "Printing Pausing"
+msgstr "การพิมพ์"
+
+msgid "Printing Stopping"
+msgstr "หยุดการพิมพ์"
+
+msgid "Printing Restoring"
+msgstr "การเติมซ้ํา"
+
+msgid "Executing print termination command"
+msgstr "ประมวลผลคําสั่งจบการพิมพ์"
+
+msgid "Executing pause command"
+msgstr "กําลังประมวลผลคําสั่งหยุดชั่วคราว"
+
+msgid "Executing the command to continue printing"
+msgstr "กําลังประมวลผลคําสั่งที่จะพิมพ์ต่อไป"
+
+msgid "Pause"
+msgstr "หยุดชั่วคราว"
+
+msgid "Stop"
+msgstr "หยุด"
+
+msgid "Continue"
+msgstr "ทําต่อไป"
+
+msgid "Printing speed"
+msgstr "ความเร็วการพิมพ์"
+
+msgid "OK"
+msgstr "ตกลง"
+
+msgid "Retry"
+msgstr "ลองอีกครั้ง"
+
+msgid "Printing Speed:"
+msgstr "ความเร็วในการพิมพ์:"
+
+msgid "Wind Speed"
+msgstr "ความเร็วลม"
+
+msgid "Model fan"
+msgstr "แฟนแบบ"
+
+msgid "Case fan"
+msgstr "แฟนตัวพิมพ์"
+
+msgid "Side fan"
+msgstr "พัดลมด้านข้าง"
+
+msgid "LED light"
+msgstr "หลอด LED"
+
+msgid "Millimetre"
+msgstr "มิลลิมิเตอร์"
+
+msgid "Extrusion distance"
+msgstr "ระยะห่างภาพ"
+
+msgid "Extrusion speed"
+msgstr "ความเร็วการแผ่"
+
+msgid "Mm/sec"
+msgstr "Mm/sec"
+
+msgid "Please check"
+msgstr "กรุณาตรวจสอบ"
+
+msgid "Does the printer camera device work properly."
+msgstr "อุปกรณ์กล้องของเครื่องพิมพ์ทํางานอย่างถูกต้องหรือไม่"
+
+msgid "Chuangxiang Cloud devices will soon support this feature in the future, stay tuned!"
+msgstr "อุปกรณ์ Creality Cloud จะรองรับฟีเจอร์นี้ในอนาคต โปรดติดตาม!"
+
+msgid "Relate to my account"
+msgstr "เกี่ยวข้องกับบัญชีของฉัน"
+
+msgid "My Device"
+msgstr "อุปกรณ์ของฉัน"
+
+msgid "Continue Print"
+msgstr "พิมพ์ต่อไป"
+
+msgid "Cancel Print"
+msgstr "ยกเลิกการพิมพ์"
+
+msgid "Reconnecting"
+msgstr "เชื่อมต่อใหม่"
+
+msgid "IP Address"
+msgstr "ที่อยู่ IP"
+
+msgid "Add Status"
+msgstr "เพิ่มสถานะ"
+
+msgid "Add"
+msgstr "เพิ่ม"
+
+msgid "Rescan"
+msgstr "สแกน"
+
+msgid "Device Total"
+msgstr "อุปกรณ์ทั้งหมด"
+
+msgid "Device added"
+msgstr "เพิ่มอุปกรณ์"
+
+msgid "No device added"
+msgstr "ยังไม่มีการเพิ่มอุปกรณ์"
+
+msgid "All Device"
+msgstr "อุปกรณ์ทั้งหมด"
+
+msgid "Selected devices"
+msgstr "อุปกรณ์ที่เลือก"
+
+msgid "Searching for device..."
+msgstr "กําลังค้นหาอุปกรณ์..."
+
+msgid "Verification..."
+msgstr "การตรวจสอบสิทธิ์..."
+
+msgid "Connecting..."
+msgstr "กําลังเชื่อมต่อ..."
+
+msgid "Device Details"
+msgstr "รายละเอียดอุปกรณ์"
+
+msgid "Remove Device"
+msgstr "เอาอุปกรณ์ออก"
+
+msgid "Move To"
+msgstr "ย้ายไปยัง"
+
+msgid "Remove Group"
+msgstr "ลบกลุ่ม"
+
+msgid "Edit Group"
+msgstr "แก้ไขกลุ่ม"
+
+msgid "Debug"
+msgstr "ดีบั๊ก"
+
+msgid "Offline"
+msgstr "ออฟไลน์"
+
+msgid "Creality Cloud binds devices"
+msgstr "อุปกรณ์ที่ผูกกับ Creality Cloud"
+
+msgid "Merge with existing devices"
+msgstr "ผนวกรวมเข้ากับอุปกรณ์ที่มีอยู่แล้ว"
+
+msgid "Update success"
+msgstr "ปรับปรุงงาน"
+
+msgid "Import"
+msgstr "นำเข้า"
+
+msgid "File Name"
+msgstr "ชื่อแฟ้ม"
+
+msgid "Video Name"
+msgstr "ชื่อวิดีโอ"
+
+msgid "File Size"
+msgstr "ขนาดแฟ้ม"
+
+msgid "Storey"
+msgstr "ความสูงของพื้น"
+
+msgid "Create Time"
+msgstr "สร้างเวลา"
+
+msgid "Consumable Length"
+msgstr "ความยาวสิ้นเปลือง"
+
+msgid "Name"
+msgstr "ชื่อ"
+
+msgid "Start Time"
+msgstr "เวลาเริ่ม"
+
+msgid "End Time"
+msgstr "เวลาสิ้นสุด"
+
+msgid "Total Duration"
+msgstr "ความยาวรวม"
+
+msgid "Size"
+msgstr "ขนาด"
+
+msgid "Historical Records"
+msgstr "บันทึก ทาง ประวัติศาสตร์"
+
+msgid "Delayed Photography"
+msgstr "หน่วงเวลาการถ่ายภาพ"
+
+msgid "Start printing"
+msgstr "เริ่มการพิมพ์"
+
+msgid "Start Printing (Calibrate First)"
+msgstr "เริ่มการพิมพ์ (พิมพ์ครั้งแรก)"
+
+msgid "Restart printing"
+msgstr "เริ่มการพิมพ์ใหม่"
+
+msgid "Reprint (Calibrate First)"
+msgstr "พิมพ์ใหม่ (พิมพ์ก่อน)"
+
+msgid "Delete File"
+msgstr "ลบแฟ้ม"
+
+msgid "Delete succeeded!"
+msgstr "ลบเรียบร้อยแล้ว!"
+
+msgid "Cancel Delete"
+msgstr "ยกเลิก"
+
+msgid "Rename"
+msgstr "เปลี่ยนชื่อ"
+
+msgid "Please enter a file name"
+msgstr "โปรดป้อนชื่อแฟ้ม"
+
+msgid "File name cannot be empty!"
+msgstr "ชื่อของแฟ้มไม่สามารถว่างได้!"
+
+msgid "Rename succeeded!"
+msgstr "เปลี่ยนชื่อเรียบร้อยแล้ว!"
+
+msgid "Rename Cancel"
+msgstr "ยกเลิก"
+
+msgid "Are you sure you want to delete this file?"
+msgstr "คุณแน่ใจหรือว่าต้องการจะลบแฟ้มนี้?"
+
+msgid "Please return to the printer before starting the printing operation!"
+msgstr "โปรดกลับไปยังเครื่องพิมพ์ก่อนเริ่มปฏิบัติการการพิมพ์!"
+
+msgid "Please import a Gcode slice file!"
+msgstr "กรุณานําเข้าแฟ้มชิ้นส่วน Gcode!"
+
+msgid "The file is being printed, please import after printing"
+msgstr "กําลังพิมพ์แฟ้ม โปรดนําเข้าหลังการพิมพ์"
+
+msgid "Import succeeded"
+msgstr "การนําเข้าสําเร็จแล้ว"
+
+msgid "Import failed"
+msgstr "การนําเข้าล้มเหลว"
+
+msgid "MultiColor"
+msgstr "สีหลายสี"
+
+msgid "Yes"
+msgstr "ใช่"
+
+msgid "No"
+msgstr "ไม่"
+
+msgid "Selected Files"
+msgstr "แฟ้มที่เลือก"
+
+msgid "Delete"
+msgstr "ลบ"
+
+msgid "Export"
+msgstr "ส่งออก"
+
+msgid "Copy link"
+msgstr "คัดลอกลิงก์"
+
+msgid "G-code file has been deleted and cannot be printed"
+msgstr "แฟ้ม G-code ถูกลบแล้ว และไม่สามารถพิมพ์ได้"
+
+msgid "Copy link successfully"
+msgstr "คัดลอกลิงก์เรียบร้อยแล้ว"
+
+msgid "Project"
+msgstr "โปรเจกต์"
+
+msgid "Current"
+msgstr "ปัจจุบัน"
+
+msgid "Target"
+msgstr "เป้าหมาย"
+
+msgid "Nozzle"
+msgstr "หัวฉีด"
+
+msgid "HotBed"
+msgstr "ฮอตบีด"
+
+msgid "Chamber"
+msgstr "ห้อง"
+
+msgid "The temperature range is unreasonable"
+msgstr "อุณหภูมิในช่วงที่ไม่มีเหตุผล"
+
+msgid "Exclusion succeeded!"
+msgstr "น่าทึ่งจริงๆ!"
+
+msgid "Whether to exclude selected models?"
+msgstr "กําหนดให้เลือกโมเดลหรือไม่?"
+
+msgid "Exclude object"
+msgstr "ไม่รวมวัตถุ"
+
+msgid "This object is excluded!"
+msgstr "วัตถุนี้ถูกกันออกไป!"
+
+msgid "Only a single model remains and does not support exclusion"
+msgstr "เหลืออยู่เพียงรุ่นเดียวและไม่รองรับการละทิ้ง"
+
+msgid "Consumables"
+msgstr "วัสดุสิ้นเปลือง"
+
+msgid "Spool Holder"
+msgstr "ผู้ถือที่พักชั่วคราว"
+
+msgid "Guide"
+msgstr "คําแนะนํา"
+
+msgid "Feed"
+msgstr "ป้อน"
+
+msgid "Retract"
+msgstr "หดวัตถุ"
+
+msgid "RFID consumables information does not support modification"
+msgstr "ข้อมูลของ RFID ไม่สนับสนุนการแก้ไข"
+
+msgid "It does not support setting consumables information during printing."
+msgstr "ไม่สนับสนุนการตั้งค่าข้อมูลการออกเสียงระหว่างการพิมพ์"
+
+msgid "Material box setting"
+msgstr "การตั้งค่ากล่อง"
+
+msgid "Try Again"
+msgstr "ลองอีกครั้ง"
+
+msgid "CFS Humidity"
+msgstr "CFS ความชื้น"
+
+msgid "Scope"
+msgstr "ขอบเขต"
+
+msgid "Unit"
+msgstr "หน่วย"
+
+msgid "Normal"
+msgstr "ปกติ"
+
+msgid "High"
+msgstr "สูง"
+
+msgid "Too high"
+msgstr "สูงไป"
+
+msgid "Detection on insertion"
+msgstr "ตรวจสอบเมื่อแทรก"
+
+msgid "When a new material line is inserted, the system automatically reads the material line information, which takes about 20 seconds."
+msgstr "เมื่อมีการแทรกรายการวัสดุใหม่ ระบบจะอ่านข้อมูลรายการวัสดุโดยอัตโนมัติ ซึ่งใช้เวลาประมาณ 20 วินาที"
+
+msgid "Detection at startup"
+msgstr "ตรวจสอบเมื่อเริ่มทํางาน"
+
+msgid "Each time the machine is turned on, the system automatically reads the material line information, which takes about 1 minute."
+msgstr "แต่ละครั้งที่เปิดเครื่อง ระบบจะอ่านข้อมูลรายการวัสดุโดยอัตโนมัติ ซึ่งใช้เวลาประมาณ 1 นาที"
+
+msgid "Automatic feeding system"
+msgstr "ระบบป้อนข้อมูลอัตโนมัติ"
+
+msgid "When the material line is exhausted, it will automatically switch to a consumable with exactly the same properties."
+msgstr "หลังจากที่เส้นวัสดุถูกใช้หมดแล้ว มันจะสลับไปเป็นยุทธปัจจัยที่มีคุณสมบัติเดียวกันโดยอัตโนมัติ"
+
+msgid "Automatic refill"
+msgstr "เติมอัตโนมัติ"
+
+msgid "Brand"
+msgstr "แบรนด์"
+
+msgid "Type"
+msgstr "ประเภท"
+
+msgid "Color"
+msgstr "สี"
+
+msgid "Nozzle temperature"
+msgstr "อุณหภูมิหัวฉีด"
+
+msgid "Pressure in advance"
+msgstr "ความดันล่วงหน้า"
+
+msgid "Temperature range invalide,please reset"
+msgstr "ช่วงอุณหภูมิไม่ถูกต้อง โปรดปรับค่าใหม่"
+
+msgid "The printer parameters have been modified. If you continue, it will overwrite the current parameters of the printer"
+msgstr "พารามิเตอร์ของเครื่องพิมพ์ถูกแก้ไขแล้ว หากคุณทําต่อไป มันจะเขียนทับพารามิเตอร์ปัจจุบันของเครื่องพิมพ์"
+
+msgid "The color can not be empty."
+msgstr "สีไม่สามารถว่างไว้ได้"
+
+msgid "Please select a material for feed handling"
+msgstr "โปรดเลือกวัสดุสำหรับการแปรรูปอาหารสัตว์"
+
+msgid "All Plates Stats"
+msgstr "แพลตฟอร์มทั้งหมด"
+
+msgid "One-Click Printing"
+msgstr "พิมพ์แบบปุ่มเดียว"
+
+msgid "Send G-code"
+msgstr "ส่งไฟล์ G-code"
+
+msgid "Do not send empty disk data"
+msgstr "อย่าส่งข้อมูลว่างจากดิสก์"
+
+msgid "Print"
+msgstr "พิมพ์"
+
+msgid "CFS slot selection"
+msgstr "เลือกช่อง CFS"
+
+msgid "The printing status does not allow machine operation!"
+msgstr "สถานะการพิมพ์ไม่อนุญาตให้ดําเนินการเครื่อง!"
+
+msgid "Please re-enter the target value!"
+msgstr "กรุณาป้อนค่าเป้าหมาย!"
+
+msgid "The file cannot be restored after deletion. Are you sure to continue?"
+msgstr "ไม่สามารถเรียกคืนแฟ้มได้หลังจากการลบแฟ้มแล้ว คุณแน่ใจหรือไม่ที่จะดําเนินการต่อไป?"
+
+msgid "This operation cannot be undone. Are you sure to continue sending the termination command?"
+msgstr "ปฏิบัติการนี้ไม่สามารถยกเลิกได้ คุณแน่ใจหรือไม่ที่จะส่งคําสั่งยกเลิก?"
+
+msgid "Creality Print camera function does not currently support devices that are only bound to Creality Cloud"
+msgstr "ขณะนี้ฟังก์ชันกล้อง Creality Print ไม่รองรับอุปกรณ์ที่เชื่อมโยงกับ Creality Cloud เท่านั้น"
+
+msgid "Select a slot and click the 'Feed'/'Retract' button"
+msgstr "เลือกช่องและคลิกปุ่ม \"ฟีด\"/\"ออก\""
+
+msgid "Temperature will heat up to 240°C before feed"
+msgstr "อุณหภูมิจะร้อนถึง 2400,000 องศาก่อนอาหาร"
+
+msgid "Extruding"
+msgstr "หมดอายุ"
+
+msgid "Finish"
+msgstr "เสร็จสิ้น"
+
+msgid "Temperature will heat up to 240°C before retreat"
+msgstr "อุณหภูมิจะร้อนถึง 2400,000 องศาก่อนล่าถอย"
+
+msgid "Retract Prepare"
+msgstr "เตรียมการลองใหม่"
+
+msgid "Retracting"
+msgstr "กําลังคัดลอก"
+
+msgid "Retract Finish"
+msgstr "เสร็จสิ้นการลากกลับ"
+
+msgid "Feed nozzle heating (220℃) 220℃ is an example, the actual operating temperature is based on the maximum temperature of the consumables"
+msgstr "ทำความร้อนหัวฉีดสำหรับป้อนวัสดุ (220℃) 220℃ เป็นเพียงตัวอย่าง อุณหภูมิจริงขึ้นอยู่กับอุณหภูมิสูงสุดของวัสดุ"
+
+msgid "Feeding inspection line position"
+msgstr "การป้อนข้อมูลตําแหน่งบรรทัดการตรวจสอบ"
+
+msgid "Feeding and cutting line"
+msgstr "การป้อนและตัดบรรทัด"
+
+msgid "Feed back to the current material line"
+msgstr "วัสดุป้อนจะถูกถอนออกไปยังรายการวัสดุปัจจุบัน"
+
+msgid "Feeding and delivering new material line"
+msgstr "การป้อนและส่งออกวัสดุใหม่"
+
+msgid "Feeding and biting line"
+msgstr "การป้อนและกัดเส้น"
+
+msgid "Feed flushing old material line"
+msgstr "การป้อนและการชะล้างสายวัสดุเก่า"
+
+msgid "Check the feed line position"
+msgstr "Check ตําแหน่งบรรทัดป้อนข้อมูล"
+
+msgid "Cutting line"
+msgstr "ตัดเส้น"
+
+msgid "Retract the current material line"
+msgstr "ดึงเส้นวัสดุปัจจุบันกลับ"
+
+msgid "Flushing old material line"
+msgstr "ล้างเส้นวัสดุเก่า"
+
+msgid "An unknown error was detected in printing"
+msgstr "พบข้อผิดพลาดที่ไม่รู้จักในการพิมพ์"
+
+msgid "Motor drive abnormality"
+msgstr "ไดรเวอร์ผิดปกติ"
+
+msgid "internal error"
+msgstr "เกิดข้อผิดพลาดภายใน"
+
+msgid "Communication abnormality"
+msgstr "การสื่อสารผิดปกติ"
+
+msgid "Not heating as expected"
+msgstr "ไม่ร้อนตามที่คาดไว้"
+
+msgid "Unknown exception"
+msgstr "ไม่ทราบข้อยกเว้น"
+
+msgid "Extruder abnormality"
+msgstr "ความไม่สมบูรณ์"
+
+msgid "Print file coordinates are abnormal"
+msgstr "พิกัดการพิมพ์แฟ้มผิดปกติ"
+
+msgid "Chatter optimization sensor abnormality"
+msgstr "ความ ผิด ปกติ ของ เซนเซอร์"
+
+msgid "Fan abnormality"
+msgstr "ความผิดปกติของแฟน"
+
+msgid "A print quality issue has been detected and printing has been paused"
+msgstr "ตรวจพบปัญหาคุณภาพการพิมพ์ และหยุดการพิมพ์ชั่วคราว"
+
+msgid "Unknown error"
+msgstr "เกิดข้อผิดพลาดไม่ทราบสาเหตุ"
+
+msgid "Foreign object detected on the printing platform, printing paused"
+msgstr "พบวัตถุต่างประเทศบนชานชลาการพิมพ์ หยุดการพิมพ์"
+
+msgid "Motherboard Connection Failure"
+msgstr "การเชื่อมต่อแผ่นแม่ล้มเหลว"
+
+msgid "Nozzle connection abnormal"
+msgstr "การเชื่อมต่อหัวฉีดผิดปกติ"
+
+msgid "Hotbed Connection Abnormal"
+msgstr "การเชื่อมต่อแบบออนไลน์"
+
+msgid "Detected unfinished task, do you wish to continue printing"
+msgstr "ตรวจพบงานที่ยังไม่เสร็จ คุณต้องการจะทําการพิมพ์ต่อหรือไม่"
+
+msgid "Filament runout, printing paused, please refill"
+msgstr "กําลังประมวลผลลงแฟ้ม, หยุดการพิมพ์, โปรดเติมข้อมูล"
+
+msgid "A model warping issue has been detected，printing has been paused"
+msgstr "เกิดการตรวจพบปัญหาการบิดตัวแบบ IT1/4)"
+
+msgid "Detected waste chute is block. Please clean it up and try again."
+msgstr "ช่องเก็บขยะถูกปิดกั้น โปรดทําความสะอาดและลองอีกครั้ง"
+
+msgid "Belt tension abnormal. Please rerun the Input Shaping before using the printer."
+msgstr "ความตึงเครียดของเข็มขัดผิดปกติ โปรดเรียกส่วนนําเข้าใหม่อีกครั้งก่อนจะใช้งานเครื่องพิมพ์"
+
+msgid "FR2357: CFS filament in use. To print with spool holder, unload CFS filament and reload spool holder before printing."
+msgstr "มีการใช้เส้นใย CFS หากคุณต้องการใช้ชั้นวางภายนอกสำหรับการพิมพ์ โปรดออกจากเส้นใย CFS โหลดเส้นใยของชั้นวางภายนอก จากนั้นเริ่มการพิมพ์อีกครั้ง"
+
+msgid "FR2358: Spool holder filament in use. To print with CFS, unload spool holder filament and reload CFS filament before printing."
+msgstr "มีการใช้ฟิลาเมนต์ชั้นวางวัสดุภายนอก หากคุณต้องการใช้ CFS ในการพิมพ์ โปรดออกจากฟิลาเมนต์ชั้นวางวัสดุภายนอกก่อน จากนั้นจึงเริ่มการพิมพ์อีกครั้ง"
+
+msgid "Abnormal temperature of the temperature chamber"
+msgstr "อุณหภูมิปกติของห้องอุณหภูมิ"
+
+msgid "network anomaly"
+msgstr "ความผิดปกติของเครือข่าย"
+
+msgid "AI detected print quality issues"
+msgstr "AI ที่ตรวจพบคุณภาพการพิมพ์"
+
+msgid "z-Touch abnormality"
+msgstr "ความผิดปกติของการจับคลื่น"
+
+msgid "File anomaly"
+msgstr "ความผิดปกติของแฟ้ม"
+
+msgid "Abnormal hot bed temperature"
+msgstr "อุณหภูมิเตียงที่ร้อนผิดปกติ"
+
+msgid "Printing quality issues detected by AI"
+msgstr "ตรวจพบปัญหาคุณภาพการพิมพ์โดย AI"
+
+msgid "TF0501: Heat break fan speed detected to be too low."
+msgstr "TF0501: ตรวจจับความเร็วพัดลม hat ทําลายต่ําเกินไป"
+
+msgid "Mainboard fan exception"
+msgstr "ยกเว้นพัดลมหลัก"
+
+msgid "Detected a issue with the print quality of the first layer"
+msgstr "ตรวจพบปัญหาที่มีคุณภาพการพิมพ์ของชั้นแรก"
+
+msgid "Current file does not support flow detection"
+msgstr "แฟ้มปัจจุบันไม่รองรับการตรวจสอบการไหล"
+
+msgid "AI LiDAR anomaly"
+msgstr "ความผิดปกติของ AI Lidar"
+
+msgid "AI LiDAR calibration failure"
+msgstr "การปรับเทียบ AI lidar ล้มเหลว"
+
+msgid "AI LiDAR alignment failure"
+msgstr "การปรับเทียบ AI lidar ล้มเหลว"
+
+msgid "Current storage space usage has reached %s, please clean up in time"
+msgstr "การใช้พื้นที่จัดเก็บถึง %s แล้ว โปรดล้างข้อมูลให้ทันเวลา"
+
+msgid "Chamber temp too high, camera off. It'll auto-on when temp normalizes"
+msgstr "แชมเบอร์ชั่วคราวสูงเกินไป กล้องปิด มันจะอัตโนมัติเมื่อทํางานปกติชั่วคราว"
+
+msgid "Camera failed to start, try restarting"
+msgstr "ล้มเหลวในการเริ่มกล้อง ลองเริ่มการทํางานใหม่อีกครั้ง"
+
+msgid "Current file does not support flow ratio calibration, printing with default values."
+msgstr "แฟ้มปัจจุบันไม่รองรับการปรับสัดส่วนการไหลของกระแส, การพิมพ์ด้วยค่าปริยาย"
+
+msgid "Current filament does not support flow ratio calibration, printing with default values."
+msgstr "แถบกํากับแกนปัจจุบันไม่รองรับการปรับอัตราการไหลของกระแส, การพิมพ์ด้วยค่าปริยาย"
+
+msgid "Auto PA calibration image anomaly, printing with default values."
+msgstr "การปรับตั้งรูปภาพอัตโนมัติผิดพลาด, ทําการพิมพ์ด้วยค่าปริยาย"
+
+msgid "Auto PA calibration failed, printing with default values."
+msgstr "การปรับตั้งอัตโนมัติล้มเหลว โดยการพิมพ์โดยใช้ค่าปริยาย"
+
+msgid "A model warping issue has been detected."
+msgstr "ตรวจพบประเด็นการบิดตัวแบบจําลอง"
+
+msgid "TF0526: Model fan speed detected to be too low."
+msgstr "TF0526: เกิดการตรวจสอบความเร็วพัดลมแบบแบบจําลองต่ําเกินไป"
+
+msgid "FO0528: rinter seems to be printing without extruding."
+msgstr "FO0528: เครื่องพิมพ์ดูเหมือนกำลังพิมพ์โดยไม่มีการอัดวัสดุ"
+
+msgid "Axis movement error"
+msgstr "การเคลื่อนไหวของ Axis ผิดพลาด"
+
+msgid "Machine preparation"
+msgstr "การเตรียมเครื่อง"
+
+msgid "System error, try restarting"
+msgstr "ระบบผิดพลาด, ลองเริ่มการทํางานใหม่"
+
+msgid "The nozzle temperature is below the minimum extrusion temperature"
+msgstr "อุณหภูมิของหัวฉีดต่ํากว่าอุณหภูมิที่ต่ําที่สุด"
+
+msgid "Unable to obtain nozzle temperature, the thermistor may be disconnected"
+msgstr "ไม่สามารถรับอุณหภูมิหัวฉีดได้  โรงพิมพ์อาจถูกตัดการเชื่อมต่อ"
+
+msgid "Hotbed thermistor open circuit"
+msgstr "แผงวงจรเปิด"
+
+msgid "The chamber thermistor may be open circuit"
+msgstr "ห้องที่ช่างก่อสร้างอาจจะเปิด"
+
+msgid "The motherboard temperature is abnormal"
+msgstr "อุณหภูมิของกระดานแม่ผิดปกติ"
+
+msgid "Nozzle temperature exceeds limit, thermistor may be short-circuited"
+msgstr "อุณหภูมิหัวฉีดเกินขีด จํากัด ทรานซิชันอาจจะสั้น"
+
+msgid "Hotbed thermistor short circuit"
+msgstr "วงจรสั้นสุดร้อน"
+
+msgid "The chamber thermistor may be short circuit"
+msgstr "ห้องที่ช่างก่อสร้างอาจจะอยู่วงจรที่สั้น"
+
+msgid "Chamber heating issue, please ensure the printer is sealed"
+msgstr "ปัญหาความร้อนในห้องโปรดแน่ใจว่าเครื่องพิมพ์ถูกผนึก"
+
+msgid "The nozzle is not heating as expected"
+msgstr "หัวฉีดไม่ร้อนตามที่คาดหวัง"
+
+msgid "The heat bed is not heating as expected"
+msgstr "เตียงอุ่นไม่ร้อนอย่างที่คาดไว้"
+
+msgid "Print file is corrupted"
+msgstr "แฟ้มการพิมพ์เสียหาย"
+
+msgid "X-axis homing abnormality"
+msgstr "ความผิดปกติของแกน x"
+
+msgid "Y-axis homing abnormality"
+msgstr "ความผิดปกติของแกน y"
+
+msgid "Z-axis homing abnormality"
+msgstr "ความผิดปกติของแกน Z"
+
+msgid "X-axis print coordinates out of range"
+msgstr "พิกัดการพิมพ์แกน x ออกจากช่วงที่"
+
+msgid "Y-axis print coordinates out of range"
+msgstr "พิกัดการพิมพ์แกน y ออกจากช่วงที่"
+
+msgid "Z-axis print coordinates out of range"
+msgstr "พิกัดการพิมพ์ Z แกนออกจากช่วงที่"
+
+msgid "Z Offset Exceeds Limit"
+msgstr "จํากัดการไล่สี"
+
+msgid "Belt tension module abnormal."
+msgstr "ความตึงของเข็มขัดผิดปกติ"
+
+msgid "Auto belt tension failure"
+msgstr "ความตึงเครียดของเข็มขัดอัตโนมัติล้มเหลว"
+
+msgid "The nozzle leveling sensor may have a hardware failure."
+msgstr "หัวฉีดปรับระดับเซ็นเซอร์ อาจจะเสียฮาร์ดแวร์"
+
+msgid "The nozzle leveling sensor may be damaged or the wiping module may have fallen off. Please check or try restarting."
+msgstr "สเตรนเกจของเครื่องอัดรีดอาจเสียหายหรือโมดูลไวเปอร์อาจหลุดออก โปรดตรวจสอบหรือลองรีสตาร์ท"
+
+msgid "Z-axis homing issue,may have an external disturbance "
+msgstr "Z-axis homing ปัญหาอาจจะมีการรบกวนภายนอก"
+
+msgid "[Printing] XY Motor: XY motor speed limit exceeded. The motor will be released. Please reduce the print speed or re-slice and print again.Z Motor: Z motor speed limit exceeded. The motor will be released. Please reduce the print speed or re-slice and print again.E Motor: Extruder speed limit exceeded. The motor will be released. Please reduce the print speed or re-slice and print again.[Not Printing] XY Motor: XY motor speed limit exceeded. The motor will be released. Please reduce the XY motor movement speed.Z Motor: Z motor speed limit exceeded. The motor will be released. Please reduce the Z motor movement speed.E Motor: Extruder speed limit exceeded. The motor will be released. Please reduce the extruder movement speed."
+msgstr "[การพิมพ์] มอเตอร์แกน xy: ตรวจพบว่าความเร็วมอเตอร์ xy เกินขีดจำกัด และมอเตอร์จะถูกปล่อยออกมา โปรดลดความเร็วในการพิมพ์หรือหั่นใหม่ก่อนพิมพ์ มอเตอร์แกน Z: ตรวจพบว่าความเร็วของมอเตอร์ z เกินขีดจำกัด และมอเตอร์จะถูกปล่อย โปรดลดความเร็วในการพิมพ์หรือหั่นใหม่ก่อนพิมพ์ มอเตอร์แกน E: ตรวจพบว่าความเร็วมอเตอร์ไฟฟ้าเกินขีดจำกัด และมอเตอร์จะถูกปล่อย โปรดลดความเร็วในการพิมพ์หรือหั่นใหม่ก่อนพิมพ์ [ไม่พิมพ์] มอเตอร์แกน Z: ตรวจพบว่าความเร็วของมอเตอร์ z เกินขีดจำกัด และมอเตอร์จะถูกปล่อยออกมา โปรดลดความเร็วในการเคลื่อนที่ของมอเตอร์ z มอเตอร์แกน E: ตรวจพบว่าความเร็วของเครื่องอัดรีดเกินขีดจำกัด และมอเตอร์จะถูกปล่อยออกมา โปรดลดความเร็วในการเคลื่อนที่ของเครื่องอัดรีด"
+
+msgid "[X/Y/E/Z1/Z2] step-servo position issue, please try again after resolving"
+msgstr "ความผิดปกติของฮาร์ดแวร์เซอร์โวมอเตอร์แกน [x หรือ y หรือ e]/ความผิดปกติของฮาร์ดแวร์เซอร์โวมอเตอร์แกน [z1 หรือ z2] แผงวงจรจะตกลงมา"
+
+msgid "[Printing] XY Motor: An obstacle was detected during the extruder's movement. This print has been canceled and the motor is released.Z Motor: An obstacle was detected during the heated bed's movement. This print has been canceled and the motor is released.E Motor: An extrusion anomaly was detected, possibly a clog, tangle, or jam. Printing has been paused.[Not Printing] XY Motorstep-servo: An obstacle was detected during the nozzle's movement. The motor will be released.Z Motor: An obstacle was detected during the heated bed's movement. The motor will be released.E Motor: An extrusion anomaly was detected, possibly a clog, tangle, or jam. The motor will be released."
+msgstr "มอเตอร์แกน x: มีความต้านทานผิดปกติในทิศทางการเคลื่อนที่ของแกน x ซึ่งจะปล่อยมอเตอร์ โปรดแก้ไขปัญหาและรีสตาร์ทเครื่องพิมพ์ มอเตอร์แกน Y: มีความต้านทานผิดปกติในทิศทางการเคลื่อนที่ของแกน y ซึ่งจะปล่อยมอเตอร์ โปรดแก้ไขปัญหาและรีสตาร์ทเครื่องพิมพ์ มอเตอร์แกน Z1: มีความต้านทานผิดปกติ (z1) ใต้เตียงทำความร้อน ซึ่งจะปล่อยมอเตอร์ โปรดแก้ไขปัญหาและรีสตาร์ทเครื่องพิมพ์ มอเตอร์แกน Z2: มีความต้านทานผิดปกติ (z2) ใต้เตียงทำความร้อน ซึ่งจะปล่อยมอเตอร์ โปรดแก้ไขปัญหาและรีสตาร์ทเครื่องพิมพ์ มอเตอร์แกน E: การอัดรีดที่ผิดปกติของเครื่องอัดรีดอาจทำให้เกิดการเสียบ การพัน หรือติดขัด ซึ่งจะทำให้มอเตอร์หลุดออกมา"
+
+msgid "X Motor: X motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.Y Motor: Y motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.Z1 Motor: Z1 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.Z2 Motor: Z2 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.E Motor: Extruder motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "มอเตอร์แกน x: ตรวจพบความผิดปกติในการระบุตัวตนของมอเตอร์ x สายไฟมอเตอร์อาจเชื่อมต่อผิดปกติหรือมอเตอร์อาจเสียหาย มอเตอร์แกน Y: ตรวจพบความผิดปกติในการระบุมอเตอร์แกน y สายไฟมอเตอร์อาจเชื่อมต่อผิดปกติหรือมอเตอร์อาจเสียหาย มอเตอร์แกน Z1: ตรวจพบความผิดปกติในการระบุมอเตอร์ z1 สายไฟมอเตอร์อาจเชื่อมต่อผิดปกติหรือมอเตอร์อาจเสียหาย มอเตอร์แกน Z2: ตรวจพบความผิดปกติในการจดจำมอเตอร์ z2 สายไฟมอเตอร์อาจเชื่อมต่อผิดปกติหรือมอเตอร์อาจเสียหาย มอเตอร์แกน e: ตรวจพบความผิดปกติในการระบุมอเตอร์ไฟฟ้า สายไฟมอเตอร์อาจเชื่อมต่อผิดปกติหรือมอเตอร์อาจเสียหาย"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+msgid "communication issue, please try again after resolving."
+msgstr "ประเด็นการสื่อสาร โปรดลองอีกครั้งหลังจากแก้ไขแล้ว"
+
+msgid "Retract issue, check for filament or spool jams. Click &quot;Retry&quot; after resolving."
+msgstr "การคืนวัสดุผิดปกติ โปรดตรวจสอบว่ามีสิ่งอุดตันหรือวัสดุสิ้นเปลืองและถาดวัสดุติดอยู่หรือไม่ คลิกปุ่ม \"ลองอีกครั้ง\" หลังจากแก้ไขปัญหาความผิดปกติ\""
+
+msgid "Feed issue, check for filament or spool jams. Click &quot;Retry&quot; after resolving."
+msgstr "การป้อนผิดปกติ โปรดตรวจสอบว่ามีสิ่งอุดตันหรือวัสดุสิ้นเปลืองและถาดวัสดุติดอยู่หรือไม่ คลิกปุ่ม \"ลองอีกครั้ง\" หลังจากแก้ไขปัญหาความผิดปกติ\""
+
+msgid "System error."
+msgstr "ระบบผิดพลาด"
+
+msgid "Feed issue , filament may be stuck from loader to CFS hub. Please resolve the issue and click the &quot;Retry&quot; button."
+msgstr "ปัญหาการป้อนอาหาร, เส้นใยอาจจะติดจากตัวโหลดไปยังศูนย์ CFS โปรดแก้ปัญหาและคลิกที่ & quot; Retrieved http; ปุ่ม"
+
+msgid "Feed issue , filament may be blocked between the CFS hub and extruder filament detector. Please resolve the issue and click &quot;Retry&quot; button."
+msgstr "ปัญหาการป้อนอาหาร อาจถูกปิดกั้นไว้ระหว่างศูนย์ CFS และเครื่องตรวจจับความคมชัด โปรดแก้ไขปัญหาและคลิกที่ & quot;Retry&quot; ปุ่ม"
+
+msgid "Feed issue , filament may be jammed between the extruder sensor and the extruder gear. Please resolve the issue and click the &quot;Retry&quot; button."
+msgstr "การให้อาหารมีความผิดปกติ เส้นใยอาจถูกปิดกั้นจากเครื่องตรวจจับการแตกของวัสดุของเครื่องอัดรีดไปยังเฟืองอัดรีด โปรดกำจัดความผิดปกติแล้วคลิกปุ่ม \"ลองอีกครั้ง\""
+
+msgid "Feed issue , filament may be stuck between the CFS hub sensor and the gear. Please resolve the issue and click the &quot;Retry&quot; button."
+msgstr "ปัญหาเรื่องอาหาร, เส้นใยอาจติดอยู่ระหว่างเซนเซอร์ CFS กับเกียร์ โปรดแก้ปัญหาและคลิกที่ & quot; Retrieved http; ปุ่ม"
+
+msgid "filament runs out, please refill."
+msgstr "สายยางหมด กรุณาเติม"
+
+msgid "Command failed, current scenario does not support this command."
+msgstr "คําสั่งล้มเหลว วาระงานปัจจุบันไม่รองรับคําสั่งนี้"
+
+msgid "Cutter issue, cutter might be jammed, please try again after resolving"
+msgstr "ปัญหาของคัตเตอร์, คัตเตอร์อาจจะติด, โปรดลองใหม่อีกครั้งหลังจากแก้ไขเสร็จ"
+
+msgid "RFID cannot be read, please manually edit filament"
+msgstr "ไม่สามารถอ่าน RFID ได้ โปรดแก้ไขการแก้ไขด้วยตนเอง"
+
+msgid "PTFE tube may have detached from the pneumatic fitting, Printing paused, please try again after resolving"
+msgstr "ท่อ PTFE อาจถูกแยกออกจากชุด pneumatic, การพิมพ์หยุดชั่วคราว โปรดลองใหม่อีกครั้งหลังจากแก้ไขเสร็จ"
+
+msgid "Extruder may be clogged. Click &quot;Retry&quot; after resolving."
+msgstr "ตรวจพบว่าเครื่องอัดรีดอาจถูกปิดกั้น กรุณาคลิกปุ่ม \"ลองอีกครั้ง\" หลังจากการแก้ไขปัญหา"
+
+msgid "The filament buffer signal is abnormal,the buffer may be stuck or the filament may be tangle."
+msgstr "สัญญาณของสารบัฟเฟอร์ผิดปกติ สารบัฟเฟอร์อาจติด หรือเส้นเอ็นอาจพัน"
+
+msgid "Filament may tangled, please try again after resolving"
+msgstr "ผลกระทบอาจจะแทรกซ้อน โปรดลองใหม่อีกครั้งหลังจากแก้ไขเสร็จ"
+
+msgid "filament may be broken in CFS."
+msgstr "เส้นใยอาจเสียหายใน CFS"
+
+msgid "Retract issue, filament cannot be returned to CFS hub. Please resolve the issue and click the &quot;Retry&quot; button."
+msgstr "การคืนวัสดุผิดปกติ และไม่สามารถคืนวัสดุสิ้นเปลืองกลับไปที่กะโหลกได้ โปรดกำจัดความผิดปกติแล้วคลิกปุ่ม \"ลองอีกครั้ง\""
+
+msgid "Retract issue, filaments may be inserted into the CFS hub. Remove and click the &quot;Retry&quot; button."
+msgstr "วัสดุส่งคืนอย่างผิดปกติ อาจมีวัสดุสิ้นเปลืองอื่นๆ แทรกอยู่ในกะโหลก คุณสามารถดึงออกมาได้อย่างเหมาะสมแล้วคลิกปุ่ม \"ลองอีกครั้ง\""
+
+msgid "Retract issue, Filament Buffer failure. Please resolve and click &quot;Retry&quot; button."
+msgstr "ความผิดปกติในการส่งคืนวัสดุ บัฟเฟอร์ล้มเหลว โปรดคลิกปุ่ม \"ลองอีกครั้ง\" หลังจากแก้ไขปัญหาความผิดปกติแล้ว"
+
+msgid "TR2852: Filament detector triggered abnormally, possibly due to an external material rack being used with CFS."
+msgstr "การตรวจจับการแตกหักของวัสดุทำงานผิดปกติ เส้นใยอาจขาดในเครื่องอัดรีดหรืออาจสอดเส้นใยเข้าไปในชั้นวางวัสดุภายนอก"
+
+msgid "CFS temperature and humidity sensor abnormal."
+msgstr "อุณหภูมิ CFS และเซ็นเซอร์ความร้อนผิดปกติ"
+
+msgid "TC2854: Filament detected in the extruder, affecting the cutter calibration. Please remove the filament and try again."
+msgstr "ตรวจพบว่าเครื่องอัดรีดมีวัสดุสิ้นเปลือง ซึ่งส่งผลต่อการสอบเทียบเครื่องตัด โปรดออกจากวัสดุสิ้นเปลืองแล้วลองอีกครั้ง"
+
+msgid "TC2855: Cutter calibrat failed. Please try again after resolving."
+msgstr "TC2855: คัตเตอร์ คาลิเบตล้มเหลว กรุณาลองใหม่อีกครั้งหลังจากแก้ไขเสร็จ"
+
+msgid "TC2856: Cutter issue, the cutter may be jammed or missing. Click &quot;Retry&quot; after resolving."
+msgstr "เครื่องตัดไม่ปกติ เครื่องตัดอาจติดหรือหายไป โปรดแก้ไขปัญหาและลองอีกครั้ง"
+
+msgid "CFS feeding motor overload, maybe excessive load or unload resistance or the filament tangled or stuck."
+msgstr "CFS ขับเคลื่อนมอเตอร์มากเกินไป อาจจะโหลดมากเกินไป หรือปล่อยแรงต้านทาน หรือการอุดตันหรือติด"
+
+msgid "FS2858: CFS EEPROM abnormal."
+msgstr "ความผิดปกติของ CFS EEPROM"
+
+msgid "FO2859: CFS filament odometry abnormal."
+msgstr "ความผิดปกติของมาตรวัดระยะทาง CFS"
+
+msgid "FB2860: CFS filament buffer abnormal."
+msgstr "ข้อยกเว้นบัฟเฟอร์ CFS"
+
+msgid "FS2861: CFS left RFID board abnormal."
+msgstr "เครื่องอ่าน RFID ด้านซ้ายของ CFS ผิดปกติ"
+
+msgid "FS2862: CFS right RFID board abnormal."
+msgstr "เครื่องอ่าน CFS RFID ทางด้านขวาผิดปกติ"
+
+msgid "The file where the last unexpected stop was detected"
+msgstr "พบแฟ้มที่หยุดอย่างไม่คาดคิดล่าสุด"
+
+msgid "No filaments detected, do you want to continue printing?"
+msgstr "ไม่สามารถตรวจสอบได้ คุณต้องการจะทําการพิมพ์ต่อไปหรือไม่?"
+
+msgid "There is no filaments in the current rack"
+msgstr "ไม่มีแท่งกระดาษในชั้นวางปัจจุบัน"
+
+msgid "No matching automatic refill filaments"
+msgstr "ไม่มีการจับคู่กระดาษเติมอัตโนมัติ"
+
+msgid "Axis movement exceeded limit"
+msgstr "การเคลื่อนไหวของ Axis เกินขีด จํากัด"
+
+msgid "Default"
+msgstr "ค่าปริยาย"
+
+msgid "Using Creality Filament System (CFS) for easy filament management, including automatic refilling, multi-color printing, and support printing."
+msgstr "ใช้ Creality Filament System (CFS) เพื่อจัดการฟิลาเมนต์ได้ง่าย รวมถึงการเติมอัตโนมัติ การพิมพ์หลายสี และการพิมพ์ซัพพอร์ต"
+
+msgid "Creality Cloud devices currently do not support displaying preview PNG"
+msgstr "ขณะนี้อุปกรณ์ Creality Cloud ไม่รองรับการแสดงภาพตัวอย่าง PNG"
+
+msgid "Invalid hostname"
+msgstr "ชื่อแฟ้มไม่ถูกต้อง"
+
+msgid "Printing preparation in progress..."
+msgstr "กําลังเตรียมการการพิมพ์..."
+
+msgid "Filament Weight"
+msgstr "น้ํา หนัก ตัว"
+
+msgid "Feed issue, filament failed to exit extruder.Please resolve and click 'Retry' button."
+msgstr "ปัญหาแหล่งป้อน, การขยายสัญญาณล้มเหลวในการออกจากตัวขยาย กรุณาแก้ไขและคลิกที่ปุ่ม 'เชื่อมต่อ'"
+
+msgid "The current printer's material rack consumables do not exist. Do you want to continue printing?"
+msgstr "ไม่มีชั้นของเครื่องพิมพ์ปัจจุบัน คุณต้องการจะทําการพิมพ์ต่อหรือไม่?"
+
+msgid "Hotbed failed to return to the maximum Z-axis position or tilt calibration at this position failed,please try again after resolving."
+msgstr "Hotbed ล้มเหลวในการกลับไปที่ตําแหน่ง Z-axis สูงสุด หรือการปรับแนวเอียงในตําแหน่งนี้ล้มเหลว โปรดลองอีกครั้งหลังจากแก้ไขเสร็จ"
+
+msgid "Abnormal resistance in the Y-axis movement direction,  motor released. Fix issue and restart."
+msgstr "ความต้านทานปกติในการเคลื่อนไหวของ Y-axis, มอเตอร์ปล่อย แก้ไขและเริ่มใหม่"
+
+msgid "Abnormal resistance under the hotbed, motor released. Fix issue and restart."
+msgstr "ความต้านทานปกติภายใต้เตียงร้อน มอเตอร์ปล่อย แก้ไขและเริ่มใหม่"
+
+msgid "Extruder extrusion anomaly, possible clog or blockage. motor released."
+msgstr "ผิดปกติที่ผิดปกติ อาจเกิดการอุดตันหรืออุดตัน มอเตอร์ปล่อย"
+
+msgid "Extruder speed limit exceeded. The motor will be released. Please reduce the extruder movement speed."
+msgstr "เกินขีดจํากัดความเร็ว มอเตอร์จะถูกปลดปล่อย กรุณาลดความเร็วการเคลื่อนที่"
+
+msgid "Y motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "ตรวจพบความผิดปกติในการระบุมอเตอร์ สายไฟมอเตอร์อาจเชื่อมต่อผิดปกติหรือมอเตอร์อาจเสียหาย"
+
+msgid "Z1 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "ตรวจพบความผิดปกติในการระบุมอเตอร์ z1 สายไฟมอเตอร์อาจเชื่อมต่อผิดปกติหรือมอเตอร์อาจเสียหาย"
+
+msgid "Z2 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "ตรวจพบความผิดปกติในการจดจำมอเตอร์ z2 สายไฟมอเตอร์อาจเชื่อมต่อผิดปกติหรือมอเตอร์อาจเสียหาย"
+
+msgid "E motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "ตรวจพบความผิดปกติในการระบุมอเตอร์ไฟฟ้า สายไฟมอเตอร์อาจเชื่อมต่อผิดปกติหรือมอเตอร์อาจเสียหาย"
+
+msgid "[x or y or e] axis servo motor hardware abnormality/[z1 or z2] axis servo motor hardware abnormality, the platform plate will drop"
+msgstr "ความผิดปกติของฮาร์ดแวร์เซอร์โวมอเตอร์แกน [x หรือ y หรือ e]/ความผิดปกติของฮาร์ดแวร์เซอร์โวมอเตอร์แกน [z1 หรือ z2] แผงวงจรจะตกลงมา"
+
+msgid "X/Y/Z/E axis step-servo motor initialization error, motor communication line may be connected incorrectly"
+msgstr "X/Y/Z/E แกนย่อย Servo มอเตอร์เริ่มต้นผิดพลาด เส้นการสื่อสารมอเตอร์อาจจะเชื่อมต่อไม่ถูกต้อง"
+
+msgid "Chamber heater fan abnormal, chamber heating closed."
+msgstr "พัดลมความร้อนในห้อง ความร้อนปิด"
+
+msgid "Belt tension module error, left side belt communication line may be connected improperly. "
+msgstr "โมดูลปรับความตึงสายพานผิดปกติ และสายสื่อสารของสายพานด้านซ้ายอาจเชื่อมต่อผิดปกติ"
+
+msgid "Belt tension module error, right side belt tension module not calibrated, please recalibrate the module."
+msgstr "โมดูลความเครียดของเบลต์ผิดพลาด, โมดูลความเครียดของเข็มขัดด้านขวาไม่ได้ปรับตั้ง, โปรดทําการปรับปรุงมอดูลใหม่อีกครั้ง"
+
+msgid "Belt tension module error, left side belt tension module not calibrated, please recalibrate the module. "
+msgstr "โมดูลปรับความตึงของเบลต์ผิดพลาด โมดูลความเครียดด้านซ้ายยังไม่ถูกปรับให้พอดี โปรดทําการปรับปรุงมอดูลใหม่อีกครั้ง"
+
+msgid "Belt tension module error, please troubleshoot and try recalibrating. "
+msgstr "โมดูลปรับความตึงสายพานผิดปกติ โปรดลองปรับเทียบใหม่หลังจากแก้ไขปัญหา"
+
+msgid "Belt tension timeout failure, please try retightening or restarting. "
+msgstr "ระบบเวลาทํางานของเข็มขัดล้มเหลว โปรดลองปรับลดความเร็วหรือเริ่มการทํางานใหม่อีกครั้ง"
+
+msgid "Abnormal belt tensioning module, right belt tensioning module calibration value abnormal, please recalibrate the module."
+msgstr "มอดูลปรับความตึงของเข็มขัดปกติ โมดูลปรับน้ําหนักของเข็มขัดด้านขวา ผิดปกติ โปรดทําการปรับปรุงโมดูลใหม่อีกครั้ง"
+
+msgid "Abnormal belt tensioning module, left belt tensioning module calibration value abnormal, please recalibrate the module."
+msgstr "มอดูลปรับความตึงของเข็มขัดปกติ, การปรับค่าความตึงของเข็มขัดด้านซ้าย ผิดปกติ โปรดทําการปรับปรุงโมดูลใหม่อีกครั้ง"
+
+msgid "Hotbed failed to reach the maximum position. Check for sensor issues or bed tilt.Please check and retry."
+msgstr "Hotbed ไม่สามารถไปถึงตําแหน่งสูงสุดได้ ตรวจสอบปัญหาเซ็นเซอร์หรือมุมเตียง กรุณาตรวจสอบและลองใหม่"
+
+msgid "Abnormal heat break fan"
+msgstr "พัดลมพักความร้อนผิดปกติ"
+
+msgid "MCU task scheduling failed, possibly due to high load or communication issues."
+msgstr "การจัดตารางงาน MCU ล้มเหลว อาจจะเนื่องจากมีการโหลดสูงหรือมีปัญหาการสื่อสาร"
+
+msgid "Extruder MCU temperature is too high, possibly due to high chamber temperature or delayed cooling of the extruder motherboard."
+msgstr "อุณหภูมิ MCU สูงเกินไป อาจเนื่องจากอุณหภูมิห้องสูง หรือการลดอุณหภูมิของตัวแม่"
+
+msgid "Cutter not detected."
+msgstr "คัตเตอร์ไม่พบ"
+
+msgid "Feed issue, filament buffer failure. Please resolve and click \"Retry\" button."
+msgstr "ปัญหาเรื่องอาหาร, แผ่นบัฟเฟอร์ล้มเหลว กรุณาแก้ไขและคลิกที่ปุ่ม \"แก้ไข\""
+
+msgid "Detected printing plate is missing, printing paused"
+msgstr "ไม่พบแผ่นการพิมพ์, จะหยุดการพิมพ์"
+
+msgid "Detected printing plate is missing and foreign object on the printing plate, printing paused"
+msgstr "ตรวจพบแพลตฟอร์มที่หายไปและสิ่งแปลกปลอม การพิมพ์ถูกระงับ"
+
+msgid "Flow ratio calibration image anomaly, printing with default values."
+msgstr "การพิมพ์โดยใช้ค่าปริยาย"
+
+msgid "Flow ratio calibration failed, printing with default values."
+msgstr "การปรับตั้งอัตราส่วนต่ําล้มเหลว โดยการพิมพ์โดยใช้ค่าปริยาย"
+
+msgid "Detected waste chute is block. "
+msgstr "ตรวจพบการอุดตันของรางน้ำเสีย"
+
+msgid "Nozzle  camera failed to start, try restarting."
+msgstr "ล้มเหลวในการเริ่มกล้องหัวฉีด ลองเริ่มการทํางานใหม่อีกครั้ง"
+
+msgid "The five-way connection is occupied, please return the material first! "
+msgstr "การเชื่อมต่อห้าทางถูกครอบครอง โปรดคืนวัสดุก่อน!"
+
+msgid "The extruder is occupied and pre-loading cannot be performed."
+msgstr "ตัวแบ่งข้อมูลไม่ว่าง และไม่สามารถทําการโหลดก่อนได้"
+
+#~ msgid ""
+#~ "The device has not been added yet. You can add it by clicking the button "
+#~ "below."
+#~ msgstr ""
+#~ "The device has not been added yet. You can add it by clicking the button "
+#~ "below."
+
+#~ msgid ""
+#~ "During device self-test, printing and sending files are not supported"
+#~ msgstr ""
+#~ "During device self-test, printing and sending files are not supported"
+
+#~ msgid "Scan the QR code below"
+#~ msgstr "สแกนรหัส QR ด้านล่าง"
+
+#~ msgid "Download Creality Cloud App"
+#~ msgstr "ดาวน์โหลดแอป Creality Cloud"
+
+#~ msgid "Add new device"
+#~ msgstr "เพิ่มอุปกรณ์ใหม่"
+
+#~ msgid "If you have already downloaded it"
+#~ msgstr "หากคุณดาวน์โหลดแล้ว"
+
+#~ msgid "Open the Creality Cloud App"
+#~ msgstr "เปิดแอป Creality Cloud"
+
+#~ msgid "The object being printed does not support exclusion"
+#~ msgstr "วัตถุที่กำลังพิมพ์ไม่รองรับการยกเว้น"
+
+#~ msgid "There is no group yet. Click below to add a group."
+#~ msgstr "ยังไม่มีกลุ่ม คลิกด้านล่างเพื่อเพิ่มกลุ่ม"
+
+#~ msgid ""
+#~ "Only the group is removed, and the devices in the group are moved to the "
+#~ "first group."
+#~ msgstr ""
+#~ "Only the group is removed, and the devices in the group are moved to the "
+#~ "first group."
+
+#~ msgid "Tip"
+#~ msgstr "คำแนะนำ"
+
+#~ msgid "Refresh"
+#~ msgstr "รีเฟรช"
+
+#~ msgid "Management Groups"
+#~ msgstr "จัดการกลุ่ม"
+
+#~ msgid "New group"
+#~ msgstr "กลุ่มใหม่"
+
+#~ msgid "Group name cannot be empty"
+#~ msgstr "ชื่อกลุ่มต้องไม่เว้นว่าง"
+
+#~ msgid "The current group name already exists"
+#~ msgstr "ชื่อกลุ่มปัจจุบันมีอยู่แล้ว"
+
+#~ msgid ""
+#~ "The current printer's material rack consumables do not exist. Do you want "
+#~ "to continue printing？"
+#~ msgstr ""
+#~ "The current printer's material rack consumables do not exist. Do you want "
+#~ "to continue printing？"
+
+msgid "Ignore"
+msgstr "ไม่สนใจ"
+
+msgid ""
+"Creality Print requires the Microsoft WebView2 Runtime,But it has been found that the abnormal operation of Microsoft WebView2 may be related to the installation of Microsoft Edge. \n"
+"Click the Yes to reinstall Microsoft Edge"
+msgstr "Creality Print ต้องใช้ Microsoft WebView2 Runtime แต่พบว่าทำงานผิดปกติอาจเกี่ยวข้องกับการติดตั้ง Microsoft Edge\nคลิก \"ใช่\" เพื่อติดตั้ง Microsoft Edge ใหม่"
+
+msgid "Failed to reinstall the Microsoft WebView2 Runtime. Please reinstall it manually."
+msgstr "การติดตั้ง Microsoft WebView2 Runtime ใหม่ล้มเหลว กรุณาติดตั้งใหม่ด้วยตนเอง"
+
+msgid "tutorial: %s"
+msgstr "บทช่วยสอน: %s"
+
+msgid "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
+msgstr "ติดตั้ง Microsoft WebView2 Runtime ใหม่สำเร็จแล้ว และแอปพลิเคชันจะรีสตาร์ททันที"

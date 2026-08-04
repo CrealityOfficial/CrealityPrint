@@ -78,7 +78,7 @@ namespace DM{
         
 
         this->Handler({ "get_lang" }, [](wxWebView* browse, const std::string& data, nlohmann::json& json_data, const std::string cmd) {
-            wxString lan = wxGetApp().app_config->get("language");
+            wxString lan = wxGetApp().current_frontend_language_code();
             nlohmann::json commandJson;
             commandJson["command"] = "get_lang";
             commandJson["data"] = lan.ToStdString();

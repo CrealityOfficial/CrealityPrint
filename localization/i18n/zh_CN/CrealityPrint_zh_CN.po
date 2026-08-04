@@ -55,6 +55,24 @@ msgstr "探测悬空区域为自动抬升做准备"
 msgid "Generating support"
 msgstr "正在生成支撑"
 
+msgid "Detecting support overhangs"
+msgstr "正在检测支撑悬垂区域"
+
+msgid "Processing support overhangs"
+msgstr "正在处理支撑悬垂区域"
+
+msgid "Precalculating tree support"
+msgstr "正在预计算树状支撑"
+
+msgid "Propagating tree support branches"
+msgstr "正在延伸树状支撑分支"
+
+msgid "Generating tree support areas"
+msgstr "正在生成树状支撑区域"
+
+msgid "Generating support contact layers"
+msgstr "正在生成支撑接触层"
+
 msgid "Checking support necessity"
 msgstr "正在检查支撑必要性"
 
@@ -419,6 +437,9 @@ msgid ""
 "Filament shrinkage will not be used because filament shrinkage for the used "
 "filaments differs significantly."
 msgstr "将不使用长丝收缩率，因为所用长丝的长丝收缩率差异很大。"
+
+msgid "The print is empty. The model is not printable with current print settings."
+msgstr "打印为空。模型无法使用当前打印设置进行打印。"
 
 msgid "Generating skirt & brim"
 msgstr "正在生成skirt和brim"
@@ -954,7 +975,7 @@ msgstr "%"
 msgid "Cooling overhang threshold"
 msgstr "冷却悬空阈值"
 
-#, fuzzy, c-format
+#, no-c-format
 msgid ""
 "Force cooling fan to be specific speed when overhang degree of printed part "
 "exceeds this value. Expressed as percentage which indicides how much width "
@@ -10353,6 +10374,21 @@ msgstr "软件将关闭。请升级您的显卡驱动。"
 msgid "Unsupported OpenGL version"
 msgstr "不支持的OpenGL版本"
 
+msgid ""
+"The current display driver does not provide the required OpenGL support. "
+"The application has switched to software rendering, which may cause the "
+"interface and 3D operations to run slowly. Please update the display driver "
+"when possible."
+msgstr "当前显示驱动无法提供所需的OpenGL支持，软件已降级为软件渲染。软件渲染可能导致界面和3D操作卡顿，请尽量升级显示驱动程序。"
+
+msgid ""
+"The application is using software rendering, which may cause the interface "
+"and 3D operations to run slowly."
+msgstr "当前正在使用软件渲染，可能导致界面和3D操作卡顿。"
+
+msgid "Software rendering"
+msgstr "软件渲染"
+
 #, c-format, boost-format
 msgid ""
 "Unable to load shaders:\n"
@@ -11333,8 +11369,14 @@ msgstr "该3mf的版本%s比%s的版本%s要新，建议升级你的软件。"
 msgid "Invalid values found in the 3mf:"
 msgstr "在3mf文件中发现无效值："
 
-msgid "Please correct them in the param tabs"
-msgstr "请在参数页更正它们"
+msgid "Automatically changed to the default value"
+msgstr "已自动改为默认值"
+
+msgid "You can update them in the param tabs"
+msgstr "可在参数页更新它们"
+
+msgid "Please update them in the param tabs"
+msgstr "请在参数页更新它们"
 
 msgid "The 3mf has following modified G-codes in filament or printer presets:"
 msgstr "该3mf文件中的材料或者打印机预设包含以下修改过的G-codes:"

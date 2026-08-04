@@ -110,6 +110,7 @@ var (
 	procMoveToEx                   = modGdi32.NewProc("MoveToEx")
 	procLineTo                     = modGdi32.NewProc("LineTo")
 	procGetParent                  = modUser32.NewProc("GetParent")
+	procGetDlgCtrlID               = modUser32.NewProc("GetDlgCtrlID")
 	procGetDpiForSystem            = modUser32.NewProc("GetDpiForSystem")
 	procGetDpiForWindow            = modUser32.NewProc("GetDpiForWindow")
 
@@ -1392,9 +1393,12 @@ func themedBtnWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintpt
 		if st.down {
 			st.down = false
 			invalidateWindow(hwnd)
-			// 发送 BN_CLICKED 通知给父窗口
+			// 发送 BN_CLICKED 通知给父窗口。必须使用按钮自身的控件 ID，
+			// 之前这里写死了 idClose，导致所有子类化按钮（手动下载、确认、关闭）
+			// 点击后都触发父窗口的 idClose 分支，直接关窗退出。
+			ctrlID, _, _ := procGetDlgCtrlID.Call(hwnd)
 			parentHwnd, _, _ := procGetParent.Call(hwnd)
-			wParam := uintptr(bnClicked)<<16 | uintptr(idClose)
+			wParam := uintptr(bnClicked)<<16 | (ctrlID & 0xFFFF)
 			procPostMessageW.Call(parentHwnd, wmCommand, wParam, hwnd)
 		}
 		return 0 // 阻止默认绘制
@@ -2081,6 +2085,9 @@ func incompleteWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintp
 					openURL(u)
 				}
 			}
+			// After opening the manual download page in the browser, close the updater
+			// window so the process exits.
+			procDestroyWindow.Call(hwnd)
 			return 0
 		case idConfirm:
 			procDestroyWindow.Call(hwnd)
@@ -2181,6 +2188,11 @@ func main() {
 	darkMode := flag.Int("dark-mode", -1, "0=light, 1=dark, -1=auto")
 	language := flag.String("language", "en", "language: zh_CN or en")
 	dataDir := flag.String("data-dir", "", "CrealityPrint data directory for writing ota_result.json")
+	// forceFull: hotfix update where the target shares the same major.minor.patch as the
+	// installed version (only the 4th build field differs). Since the nupkg name only
+	// carries the 3-part version, the updater would normally skip a same-3-part package;
+	// this flag forces it to install the full package for that version.
+	forceFull := flag.String("force-full", "", "force install full package for same-3-part version (1 to enable)")
 	flag.Parse()
 
 	if *installDir == "" || *currentVer == "" {
@@ -2217,6 +2229,8 @@ func main() {
 	log("base dir:", baseDir)
 	log("install dir:", *installDir)
 	log("current version:", *currentVer)
+	log("manual url:", *manualURL)
+	log("force full:", *forceFull)
 	gThemeMode.Store(int32(*darkMode))
 	gLanguage = *language
 
@@ -2231,9 +2245,12 @@ func main() {
 	winW := scaleDPI(600, sysDPI)
 	winH := scaleDPI(260, sysDPI)
 
+	forceFullEnabled := strings.TrimSpace(*forceFull) == "1"
+	log("force full:", forceFullEnabled)
+
 	_, winErr := createWindow("CrealityUpdaterInstallWindow", getText("installing_update"), winW, winH, syscall.NewCallback(installWndProc))
 	if winErr != nil {
-		res := runUpdateWithUI(log, baseDir, *installDir, *currentVer)
+		res := runUpdateWithUI(log, baseDir, *installDir, *currentVer, forceFullEnabled)
 		if res.err != nil {
 			log("Update failed with error:", res.err, "rollbackApplied:", res.rollbackApplied, "rollbackOK:", res.rollbackOK, "backupDir:", res.backupDir)
 			log("[OTA_ANALYTICS] (no-window path) Update failed, writing ota_result.json with result=fail")
@@ -2249,7 +2266,7 @@ func main() {
 
 	done := make(chan updateResult, 1)
 	go func() {
-		res := runUpdateWithUI(log, baseDir, *installDir, *currentVer)
+		res := runUpdateWithUI(log, baseDir, *installDir, *currentVer, forceFullEnabled)
 		done <- res
 		requestInstallClose()
 	}()
@@ -2497,7 +2514,7 @@ func writeOtaResult(dir, result, fromVersion, toVersion string) {
 	}
 }
 
-func runUpdateWithUI(log func(args ...interface{}), baseDir, installDir, currentVer string) updateResult {
+func runUpdateWithUI(log func(args ...interface{}), baseDir, installDir, currentVer string, forceFull bool) updateResult {
 	setInstallStage(log, "Preparing", 0)
 
 	releasesPath := filepath.Join(baseDir, "RELEASES")
@@ -2512,7 +2529,7 @@ func runUpdateWithUI(log func(args ...interface{}), baseDir, installDir, current
 	}
 
 	versionInfos := buildVersionInfos(entries)
-	chain, err := planUpgradeChain(versionInfos, currentVer)
+	chain, err := planUpgradeChain(versionInfos, currentVer, forceFull)
 	if err != nil {
 		log("plan upgrade chain failed:", err)
 		return updateResult{err: err}
@@ -3035,7 +3052,7 @@ func buildVersionInfos(entries []ReleaseEntry) []VersionInfo {
 	return res
 }
 
-func planUpgradeChain(infos []VersionInfo, current string) ([]VersionInfo, error) {
+func planUpgradeChain(infos []VersionInfo, current string, forceFull bool) ([]VersionInfo, error) {
 	var res []VersionInfo
 
 	// Extract 3-part version from current version for comparison
@@ -3048,8 +3065,15 @@ func planUpgradeChain(infos []VersionInfo, current string) ([]VersionInfo, error
 		infoMajor, infoMinor, infoPatch, _ := splitVersion(info.Version)
 		infoBase := fmt.Sprintf("%d.%d.%d", infoMajor, infoMinor, infoPatch)
 
-		// Skip the current version entry (basePackage placeholder row)
 		if infoBase == currentBase {
+			// Same 3-part version. Normally this is the current version placeholder row
+			// and is skipped. For a hotfix update (only the 4th build field differs) the
+			// nupkg name still carries the same 3-part version, so force-install its full
+			// package. Delta cannot be used here because it patches against a 3-part
+			// baseline that is indistinguishable from the current install.
+			if forceFull && info.Full != nil {
+				res = append(res, VersionInfo{Version: info.Version, Full: info.Full})
+			}
 			continue
 		}
 		// Collect all versions newer than current
@@ -3188,20 +3212,31 @@ func buildTargetTree(log func(args ...interface{}), baseDir, installDir, current
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return "", err
 	}
-	log("copy base from install dir:", installDir)
-	if err := copyDirWithProgressStage(log, installDir, root, 8, 20, "Building new version files"); err != nil {
-		baseFull := ""
-		if strings.TrimSpace(currentVer) != "" {
-			baseFull = findFullNupkgForVersion(baseDir, currentVer)
+
+	// The base tree (a copy of the current install) is only needed when the first step
+	// in the chain is a delta patch, which is applied on top of it. If the first step is
+	// a full package, it wipes and re-extracts root anyway, so copying the base is wasted
+	// work and can fail (e.g. when the install dir contains junctions/symlinks such as a
+	// linked "resources" folder in a dev build). Skip the base copy in that case.
+	needBase := len(chain) > 0 && chain[0].Delta != nil
+	if needBase {
+		log("copy base from install dir:", installDir)
+		if err := copyDirWithProgressStage(log, installDir, root, 8, 20, "Building new version files"); err != nil {
+			baseFull := ""
+			if strings.TrimSpace(currentVer) != "" {
+				baseFull = findFullNupkgForVersion(baseDir, currentVer)
+			}
+			if baseFull == "" {
+				return "", err
+			}
+			setInstallProgress(10)
+			log("copy base failed, fallback to extract base current full:", baseFull, "err:", err)
+			if err2 := extractNupkgLibNet45(baseFull, root); err2 != nil {
+				return "", err2
+			}
 		}
-		if baseFull == "" {
-			return "", err
-		}
-		setInstallProgress(10)
-		log("copy base failed, fallback to extract base current full:", baseFull, "err:", err)
-		if err2 := extractNupkgLibNet45(baseFull, root); err2 != nil {
-			return "", err2
-		}
+	} else {
+		log("first chain step is a full package, skip copying base tree")
 	}
 
 	for _, info := range chain {

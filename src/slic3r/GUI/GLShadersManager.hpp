@@ -18,6 +18,8 @@ public:
     // call this method before to release the OpenGL context
     void shutdown();
 
+    bool has_valid_programs() const;
+
     // returns nullptr if not found
     GLShaderProgram* get_shader(const std::string& shader_name);
 

@@ -1359,7 +1359,7 @@ StringObjectException Print::check_multi_filament_valid(const Print& print)
         filament_types.push_back(print_config.filament_type.get_at(extruder_idx));
 
     if (!creality::Filament::check_multi_filaments_compatibility(filament_types))
-        return { L("Can not print multiple filaments which have large difference of temperature together. Otherwise, the extruder and nozzle may be blocked or damaged during printing") };
+        return { L("Can not print multiple filaments which have large difference of temperature together. Otherwise, the extruder and nozzle may be blocked or damaged during printing"), nullptr, "filament_type" };
 
     return {std::string()};
 }
@@ -1393,7 +1393,8 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
     if (m_config.print_sequence == PrintSequence::ByObject) {
         if (m_config.timelapse_type == TimelapseType::tlSmooth) {
             StringObjectException except;
-            except.string = L("Smooth mode of timelapse is not supported when \"by object\" sequence is enabled.");
+            except.string  = L("Smooth mode of timelapse is not supported when \"by object\" sequence is enabled.");
+            except.opt_key = "timelapse_type";
             except.type   = STRING_EXCEPT_TIMELAPSE_SMOOTH_WITH_BY_OBJECT;
             return except;
         }
@@ -1489,7 +1490,8 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
                                                << " has_variable_layer_heights: " << print_object.has_variable_layer_heights;
                     if (print_object.config().support_style.value == smsTreeOrganic) {
                         StringObjectException except;
-                        except.string = _u8L("Variable layer height is not supported with Organic supports.");
+                        except.string  = _u8L("Variable layer height is not supported with Organic supports.");
+                        except.opt_key = "support_style";
                         except.object = print_object.model_object();
                         except.type   = STRING_EXCEPT_ORGANIC_SUPPORT_VARIABLE_LAYER_UNSUPPORTED;
                         return except;
@@ -1506,7 +1508,8 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
             if (const std::vector<coordf_t>& layers = layer_height_profile(print_object_idx); !layers.empty())
                 {
                     StringObjectException except;
-                    except.string = _u8L("Overhang Optimization is not supported with Organic supports.");
+                    except.string  = _u8L("Overhang Optimization is not supported with Organic supports.");
+                    except.opt_key = "overhang_optimization";
                     except.object = print_object.model_object();
                     except.type   = STRING_EXCEPT_ORGANIC_SUPPORT_OVERHANG_OPT_UNSUPPORTED;
                     return except;
@@ -1534,14 +1537,16 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
 
         if (! m_config.use_relative_e_distances) {
             StringObjectException except;
-            except.string = L("The Wipe Tower is currently only supported with the relative extruder addressing (use_relative_e_distances=1).");
+            except.string  = L("The Wipe Tower is currently only supported with the relative extruder addressing (use_relative_e_distances=1).");
+            except.opt_key = "use_relative_e_distances";
             except.type   = STRING_EXCEPT_WIPE_TOWER_RELATIVE_ADDRESSING_REQUIRED;
             return except;
         }
 
         if (m_config.ooze_prevention && m_config.single_extruder_multi_material) {
             StringObjectException except;
-            except.string = L("Ooze prevention is only supported with the wipe tower when 'single_extruder_multi_material' is off.");
+            except.string  = L("Ooze prevention is only supported with the wipe tower when 'single_extruder_multi_material' is off.");
+            except.opt_key = "single_extruder_multi_material";
             except.type   = STRING_EXCEPT_WIPE_TOWER_OOZE_PREVENTION_UNSUPPORTED;
             return except;
         }
@@ -1603,7 +1608,8 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
 #endif
                 if (!equal_layering(slicing_params, slicing_params0)) {
                     StringObjectException except;
-                    except.string = L("The prime tower requires that all objects are sliced with the same layer heights.");
+                    except.string  = L("The prime tower requires that all objects are sliced with the same layer heights.");
+                    except.opt_key = "layer_height";
                     except.object = object;
                     except.type   = STRING_EXCEPT_PRIME_TOWER_LAYER_HEIGHT_MISMATCH;
                     return except;
@@ -1731,7 +1737,8 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
                     bool has_enforcers = mv->is_support_enforcer() ||
                         (mv->is_model_part() && mv->supported_facets.has_facets(*mv, EnforcerBlockerType::ENFORCER));
                     if (has_enforcers) {
-                        warning->string = L("Support enforcers are used but support is not enabled. Please enable support.");
+                        warning->string  = L("Support enforcers are used but support is not enabled. Please enable support.");
+                        warning->opt_key = "enable_support";
                         warning->object = object;
                         warning->type   = STRING_EXCEPT_SUPPORT_ENFORCER_WITHOUT_SUPPORT;
                         break;
@@ -1746,6 +1753,7 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
                 warning->object = object;
                 warning->string = L("This model contains painted support data. With organic supports, excessive painted "
                                     "support data may slow support generation.");
+                warning->opt_key = "support_style";
             }
 
             double initial_layer_print_height = m_config.initial_layer_print_height.value;
@@ -1844,7 +1852,8 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
 	                except.params.push_back(std::to_string(this->get_plate_index() + 1));
 	                except.params.push_back(L(bed_type_name));
 	                except.params.push_back(std::to_string(extruder_id+1));
-	                except.object = nullptr;
+	                except.object  = nullptr;
+	                except.opt_key = get_bed_temp_key(m_config.curr_bed_type);
 	                return except;
 	           }
             }
@@ -2067,7 +2076,7 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
     }
     if (!this->has_same_shrinkage_compensations()){
         warning->string = L("Filament shrinkage will not be used because filament shrinkage for the used filaments differs significantly.");
-        warning->opt_key = "";
+        warning->opt_key = "filament_shrink";
     }
     return {};
 }
@@ -2157,6 +2166,10 @@ Flow Print::brim_flow() const
 
 Flow Print::skirt_flow() const
 {
+    if (m_objects.empty())
+        return Flow::new_from_config_width(frPerimeter, m_config.initial_layer_line_width,
+            (float)m_config.nozzle_diameter.get_at(0), (float)this->skirt_first_layer_height());
+
     ConfigOptionFloatOrPercent width = m_config.initial_layer_line_width;
     if (width.value <= 0)
         width = m_objects.front()->config().line_width;
@@ -2311,6 +2324,7 @@ bool Print::PreSliceForDetermineSupport(long long* time_cost_with_cache, bool us
 //
 // Layer structure:
 //   Layer 1 (serial)  : A  make_perimeters() + estimate_curled_extrusions()
+//                            + prepare_infill() [populates fill_surfaces for support]
 //   Layer 2 (parallel): B  infill()  ||  C  generate_support_material()  ||  E  detect_overhangs_for_lift()
 //   Layer 3 (serial)  : D  ironing() -> I  simplify_extrusion_path() -> F  wipe_tower()
 //                        (serial because ironing writes layerm->fills,
@@ -2319,7 +2333,6 @@ bool Print::PreSliceForDetermineSupport(long long* time_cost_with_cache, bool us
 //   Layer 5 (serial)  : conflict_check + toolpath_outside_check
 //
 // Fallback to serial when:
-//   - thick_bridges == true         (support depends on infill output)
 //   - overhang_optimization == true (temporarily mutates shared region config)
 //
 // Correctness verification: after each barrier, key output sizes are
@@ -2426,16 +2439,18 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         << " re_slicing=" << re_slicing_objects.size();
 
     // ── Parallel eligibility check ──
-    // Fallback to serial if any object lacks support, uses thick_bridges
-    // or overhang_optimization (data deps / race risk between B and C).
+    // Fallback to serial if any object lacks support or uses overhang_optimization
+    // (overhang_optimization temporarily mutates shared region config → write race).
+    // Note: thick_bridges no longer forces serial because prepare_infill() is now
+    // executed before the parallel phase, ensuring fill_surfaces is fully populated.
     bool can_parallel = true;
     for (PrintObject *obj : need_slicing_objects) {
-        if (!obj->has_support_material() || obj->config().thick_bridges || obj->config().overhang_optimization) {
+        if (!obj->has_support_material() || obj->config().overhang_optimization) {
             can_parallel = false;
             BOOST_LOG_TRIVIAL(warning)
                 << "[PARALLEL] fallback to serial: object "
                 << (!obj->has_support_material() ? "support disabled"
-                    : "thick_bridges or overhang_optimization");
+                    : "overhang_optimization");
             break;
         }
     }
@@ -2468,6 +2483,23 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
             }
         }
         PERF_END(estimate_curled_extrusions)
+    };
+
+    // prepare_infill() populates fill_surfaces (including stBottomBridge marking).
+    // Must run BEFORE the parallel phase so that generate_support_material() can
+    // safely read fill_surfaces without racing against infill().
+    // infill() internally calls prepare_infill() again, but set_started() makes
+    // it a no-op the second time.
+    auto run_prepare_infill = [&]() {
+        PERF_START(prepare_infill)
+        for (PrintObject *obj : m_objects) {
+            if (need_slicing_objects.count(obj)) {
+                obj->prepare_infill();
+            } else {
+                if (obj->set_started(posPrepareInfill)) obj->set_done(posPrepareInfill);
+            }
+        }
+        PERF_END(prepare_infill)
     };
 
     auto run_infill = [&]() {
@@ -2513,11 +2545,11 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         BOOST_LOG_TRIVIAL(error) << "generate_support_material end memory info " << log_memory_info();
     };
 
-    auto run_detect_overhangs = [&]() {
+    auto run_detect_overhangs = [&](bool report_status) {
         PERF_START(detect_overhangs_for_lift)
         for (PrintObject *obj : m_objects) {
             if (need_slicing_objects.count(obj)) {
-                obj->detect_overhangs_for_lift();
+                obj->detect_overhangs_for_lift(report_status);
             } else {
                 if (obj->set_started(posDetectOverhangsForLift))
                     obj->set_done(posDetectOverhangsForLift);
@@ -2583,6 +2615,10 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         verify_layer1();
 
         if (can_parallel) {
+            // ── prepare_infill (serial): ensure fill_surfaces is ready before parallel phase ──
+            BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] Layer1.5: prepare_infill (serial, resolves fill_surfaces dependency)";
+            run_prepare_infill();
+
             // ── Layer 2: B ‖ C ‖ E (parallel) ───────────────────────────────
             BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] Layer2 start: infill ‖ support ‖ detect_overhangs";
             auto _par_l2_t0 = std::chrono::high_resolution_clock::now();
@@ -2590,8 +2626,9 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
             tbb::task_group g2;
             g2.run([&]{ run_infill(); });
             g2.run([&]{ run_support(); });
-            g2.run([&]{ run_detect_overhangs(); });
+            g2.run([&]{ run_detect_overhangs(false); });
             g2.wait();
+            this->set_status(71, L("Detect overhangs for auto-lift"));
 
             double l2_ms = std::chrono::duration<double,std::milli>(
                 std::chrono::high_resolution_clock::now() - _par_l2_t0).count();
@@ -2614,7 +2651,7 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
             run_infill();
             run_ironing();
             run_support();
-            run_detect_overhangs();
+            run_detect_overhangs(true);
         }
 
     } else {
@@ -2665,7 +2702,7 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
                 || (this->config().print_sequence == PrintSequence::ByObject && m_objects.size() == 1)) {
                 m_tool_ordering = ToolOrdering(*this, -1, false);
                 if (m_tool_ordering.empty() || m_tool_ordering.last_extruder() == unsigned(-1))
-                    throw Slic3r::SlicingError("The print is empty. The model is not printable with current print settings.");
+                    throw Slic3r::SlicingError(L("The print is empty. The model is not printable with current print settings."));
                 mark_skeleton_flush_extrusions_for_tool_ordering(*this, m_tool_ordering);
                 return &m_tool_ordering;
             }
@@ -4036,8 +4073,13 @@ DynamicConfig PrintStatistics::placeholders()
     for (const std::string &key : {
         "print_time", "normal_print_time", "silent_print_time",
         "used_filament", "extruded_volume", "total_cost", "total_weight",
-        "initial_tool", "total_toolchanges", "total_wipe_tower_cost", "total_wipe_tower_filament"})
+        "total_toolchanges", "total_wipe_tower_cost", "total_wipe_tower_filament"})
         config.set_key_value(key, new ConfigOptionString(std::string("{") + key + "}"));
+    // "initial_tool" is a zero-based extruder index and may be used to address a vector variable
+    // in the filename template (e.g. "filament_type[initial_tool]"). Before the G-code export is
+    // finished it must still be an integer so the placeholder parser can use it as an index,
+    // otherwise it throws "Non-integer index is not allowed to address a vector variable.".
+    config.set_key_value("initial_tool", new ConfigOptionInt(0));
     return config;
 }
 

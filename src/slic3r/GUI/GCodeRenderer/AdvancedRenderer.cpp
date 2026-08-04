@@ -7,9 +7,10 @@
 #include "slic3r/GUI/IMSlider.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
 #include "slic3r/GUI/Camera.hpp"
+#include "slic3r/Utils/TestHelper.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include <boost/nowide/cstdio.hpp>
 #include <wx/numformatter.h>
 namespace
@@ -270,13 +271,13 @@ namespace Slic3r
                 case EViewType::Acceleration:
                 {
                     fprintf(fp, "map_Kd range_color.png\n");
-                    export_image(m_p_color_range_texture, parent_path.wstring() + "/range_color.png");
+                    export_image(m_p_color_range_texture, parent_path.string() + "/range_color.png");
                     break;
                 }
                 case EViewType::FeatureType:
                 {
                     fprintf(fp, "map_Kd Extrusion_Role_Colors.png\n");
-                    export_image(m_p_role_colors_texture, parent_path.wstring() + "/Extrusion_Role_Colors.png");
+                    export_image(m_p_role_colors_texture, parent_path.string() + "/Extrusion_Role_Colors.png");
                     break;
                 }
                 case EViewType::Tool:
@@ -284,7 +285,7 @@ namespace Slic3r
                 case EViewType::ColorPrint:
                 {
                     fprintf(fp, "map_Kd tool_colors.png\n");
-                    export_image(m_p_tool_colors_texture, parent_path.wstring() + "/tool_colors.png");
+                    export_image(m_p_tool_colors_texture, parent_path.string() + "/tool_colors.png");
                     break;
                 }
                 }
@@ -607,6 +608,7 @@ namespace Slic3r
                 }
                 m_p_layer_manager->set_current_layer_start(layers_z_range[0]);
                 m_p_layer_manager->set_current_layer_end(layers_z_range[1]);
+                update_moves_slider(true);
             }
 
             void AdvancedRenderer::render(int canvas_width, int canvas_height)
@@ -618,11 +620,33 @@ namespace Slic3r
                 m_statistics.reset_opengl();
                 m_statistics.total_instances_gpu_size = 0;
 #endif // ENABLE_GCODE_VIEWER_STATISTICS
+
+				// test helper
+                bool is_capture_mode = false;
+                if (Test::enable_test) {
+                    std::string mode = Test::Visitor().call_cmd("is_capture_mode", "{}");
+                    if (!mode.empty())
+                        is_capture_mode = nlohmann::json::parse(mode)["enable"].get<int>() != 0;
+                }
+
                 //BBS: always render shells in preview window
                 glsafe(::glEnable(GL_DEPTH_TEST));
-                render_shells(canvas_width, canvas_height);
-
+                /*render_shells(canvas_width, canvas_height);
                 if (m_roles.empty())
+                    return;*/
+				bool empty_roles = m_roles.empty();
+				bool ban_shells_render = false;
+				if (wxGetApp().preset_bundle->machine_is_belt() && empty_roles)
+					ban_shells_render = true;
+				if (!ban_shells_render)
+				{
+					if (!m_roles.empty() && m_layers_slider && m_layers_slider->is_higher_at_max() && m_layers_slider->is_lower_at_min()) {
+					} else {
+						render_shells(canvas_width, canvas_height);
+					}
+				}
+	
+				if (empty_roles)
                     return;
                 if (!m_p_layer_manager || m_p_layer_manager->empty()) {
                     return;
@@ -654,6 +678,7 @@ namespace Slic3r
                     m_p_sequential_view->current_position = Vec3f::Zero();
                     m_p_sequential_view->current.last = 0;
                     //if (show_sequential_view()) 
+					if (!is_capture_mode)
 					{
                         const auto t_current_mid = m_p_layer_manager->get_current_move_id();
                         if (m_gcode_result) {
@@ -667,14 +692,16 @@ namespace Slic3r
                 }
 
                 render_toolpaths();
-                // render_shells();
-                render_legend(canvas_width, canvas_height);
-
+                
+                if (!is_capture_mode) {
+                    render_legend(canvas_width, canvas_height);
+                    // BBS render slider
+                    render_slider(canvas_width, canvas_height);
+				}
+					
 #if ENABLE_GCODE_VIEWER_STATISTICS
                 render_statistics();
 #endif // ENABLE_GCODE_VIEWER_STATISTICS
-                //BBS render slider
-                render_slider(canvas_width, canvas_height);
             }
 
             void AdvancedRenderer::reset()
@@ -748,21 +775,6 @@ namespace Slic3r
 				// Import gcode file, preview using normal mode (no lite mode)
                 bool is_lite_mode_cfg = (wxGetApp().app_config->get_bool("gcode_preview_lite_mode") && (!m_only_gcode_in_preview));
 
-                // Auto enable lite mode on Linux if memory is tight or preview is huge.
-#if defined(__linux__)
-                {
-                    size_t       avail_bytes           = Slic3r::available_physical_memory();
-                    size_t       total_bytes           = Slic3r::total_physical_memory();
-                    const size_t moves_count_local     = gcode_result.moves.size();
-                    const size_t avail_threshold_bytes = size_t(2) * size_t(1024) * size_t(1024) * size_t(1024); // 2 GB
-                    const bool   low_available         = (avail_bytes > 0 && avail_bytes < avail_threshold_bytes);
-                    const bool   low_ratio    = (total_bytes > 0 && avail_bytes > 0 && (double) avail_bytes / (double) total_bytes < 0.125);
-                    const bool   huge_preview = (moves_count_local > 2000000);
-                    if (!m_only_gcode_in_preview && (low_available || low_ratio || huge_preview))
-                        is_lite_mode_cfg = true;
-                }
-#endif
-
                 const bool is_lite_mode = m_is_lite_mode = is_lite_mode_cfg;
 
 
@@ -821,11 +833,14 @@ namespace Slic3r
                     values[count] = static_cast<double>(i + 1);
                     ++count;
                 }
+
+				bool keep_min = m_moves_slider->GetActiveValue() == m_moves_slider->GetMinValue();
+
                 m_moves_slider->SetSliderValues(values);
                 m_moves_slider->SetMaxValue(t_seg_count);
-                m_moves_slider->SetSelectionSpan(0, m_moves_slider->GetMaxValue());
+                m_moves_slider->SetSelectionSpan(0, keep_min ? 0 : m_moves_slider->GetMaxValue());
                 if (set_to_max)
-                    m_moves_slider->SetHigherValue(m_moves_slider->GetMaxValue());
+                    m_moves_slider->SetHigherValue(keep_min ? m_moves_slider->GetMinValue() : m_moves_slider->GetMaxValue());
                 m_p_layer_manager->set_current_move_start(0);
                 m_p_layer_manager->set_current_move_end(t_seg_count);
             }
@@ -873,10 +888,7 @@ namespace Slic3r
 				if (t_move_count > 0)
                     move_ids_mapper.resize(t_move_count, -1);
 
-                // BBS: add only gcode mode
-                ProgressDialog *progress_dialog = m_only_gcode_in_preview ?
-                                                      new ProgressDialog(_L("Loading G-codes"), "...", 100, wxGetApp().mainframe, wxPD_AUTO_HIDE | wxPD_APP_MODAL) :
-                                                      nullptr;
+                std::unique_ptr<ProgressDialog> progress_dialog;
 
                 int last_progress = 0;
                 //BBS: use convex_hull for toolpath outside check
@@ -925,6 +937,9 @@ namespace Slic3r
                                 .set_end(move_id)
                                 .set_z(z);
                             p_layer_manager->add_layer(t_layer);
+                            if (progress_dialog == nullptr && m_only_gcode_in_preview)
+                                progress_dialog = std::make_unique<ProgressDialog>(_L("Loading G-codes"), "...", 100, wxGetApp().mainframe,
+                                                                                   wxPD_AUTO_HIDE | wxPD_APP_MODAL);
                         }
                         else {
                             auto& last_layer = p_layer_manager->get_layer(p_layer_manager->size() - 1);
@@ -1028,7 +1043,7 @@ namespace Slic3r
                         if (i == layer_size - 1)
                             endpoint.set_end(t_move_count - 1 - seams_count);
 
-                        /*if (i >= 0 && i < layer_size - 1) {
+                        if (i >= 0 && i < layer_size - 1) {
                             Layer& next_endpoint = m_p_layer_manager->get_layer(i + 1);
                             for (size_t j = endpoint.get_end(); j > endpoint.get_start(); --j) {
                                 auto type = gcode_result.moves[move_ids_mapper[j]].type;
@@ -1038,7 +1053,7 @@ namespace Slic3r
                                     break;
                                 }
                             }
-                        }*/
+                        }
                     }
                 }
 
@@ -1077,6 +1092,10 @@ namespace Slic3r
                     return;
                 }
 
+                if (progress_dialog == nullptr && m_only_gcode_in_preview)
+                    progress_dialog = std::make_unique<ProgressDialog>(_L("Loading G-codes"), "...", 100, wxGetApp().mainframe,
+                                                                       wxPD_AUTO_HIDE | wxPD_APP_MODAL);
+
                 last_progress = 0;
                 const auto t_layer_count = p_layer_manager->size();
                 for (size_t i = 0; i < t_layer_count; ++i) {
@@ -1096,10 +1115,12 @@ namespace Slic3r
                 if (progress_dialog != nullptr) {
                     progress_dialog->Update(100, "");
                     progress_dialog->Fit();
-                    delete progress_dialog;
+                    progress_dialog.reset();
                 }
 
                 m_ssid_to_moveid_map.clear();
+
+				m_p_layer_manager->update_visibile_segment_list(true, m_tools.m_tool_visibles);
 
                 set_layers_z_range({ 0, static_cast<unsigned int>(p_layer_manager->size()) - 1 });
             }
@@ -1847,6 +1868,31 @@ namespace Slic3r
 
                 m_segments.clear();
                 m_segments.reserve(m_end_sid - m_start_sid + 1);
+
+                // The segment-building loop below starts at m_start_sid+1 and assigns each
+                // segment's type from the *second* (current) move, so the very first move
+                // in the layer is never recorded as a segment type.  If that first move is
+                // an "options" type (Retract, Unretract, Tool_change, Color_change,
+                // Pause_Print, Custom_GCode) it would be silently dropped from the diamond
+                // rendering.  Fix: emit a degenerate point-segment (first == second) for it,
+                // mirroring the same pattern already used for Seam moves.
+				// see bug#16923
+                {
+                    const size_t first_vertex_index = t_sid_to_index[0];
+                    const auto& first_move = gcode_result.moves[sid_to_mid[m_start_sid]];
+                    const EMoveType first_type = first_move.type;
+                    if (first_type == EMoveType::Retract    ||
+                        first_type == EMoveType::Unretract) {
+                        Segment t_seg;
+                        t_seg.m_first_mid  = first_vertex_index;
+                        t_seg.m_second_mid = first_vertex_index;
+                        t_seg.m_type       = first_type;
+                        t_seg.m_role       = first_move.extrusion_role;
+                        t_seg.m_extruder_id = first_move.extruder_id;
+                        m_segments.emplace_back(std::move(t_seg));
+                    }
+                }
+
                 t_count = 1;
                 for (uint32_t sid = m_start_sid + 1; sid <= m_end_sid; ++sid) {
                     size_t prev_move_index = t_sid_to_index[t_count - 1];

@@ -7,15 +7,12 @@
 #include <shellapi.h>
 #include <wchar.h>
 
-
-
 #ifdef SLIC3R_GUI
 extern "C"
 {
-    // Let the NVIDIA and AMD know we want to use their graphics card
-    // on a dual graphics card system.
-    __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000000;
-    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 0;
+    // Ask hybrid-graphics drivers to run the process on the high-performance GPU.
+    __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif /* SLIC3R_GUI */
 
@@ -47,9 +44,18 @@ public:
 
     HINSTANCE   hOpenGL = nullptr;
     bool 		success = false;
+    int         window_x = 0;
+    int         window_y = 0;
 
-    bool load_opengl_dll()
+    bool load_opengl_dll(int x = 0, int y = 0)
     {
+        version.clear();
+        glsl_version.clear();
+        vendor.clear();
+        renderer.clear();
+        success = false;
+        window_x = x;
+        window_y = y;
         MSG      msg     = {0};
         WNDCLASS wc      = {0};
         wc.lpfnWndProc   = OpenGLVersionCheck::supports_opengl2_wndproc;
@@ -57,8 +63,8 @@ public:
         wc.hbrBackground = (HBRUSH)(COLOR_BACKGROUND);
         wc.lpszClassName = L"CrealityPrint_opengl_version_check";
         wc.style = CS_OWNDC;
-        if (RegisterClass(&wc)) {
-            HWND hwnd = CreateWindowW(wc.lpszClassName, L"CrealityPrint_opengl_version_check", WS_OVERLAPPEDWINDOW, 0, 0, 640, 480, 0, 0, wc.hInstance, (LPVOID)this);
+        if (RegisterClass(&wc) || GetLastError() == ERROR_CLASS_ALREADY_EXISTS) {
+            HWND hwnd = CreateWindowW(wc.lpszClassName, L"CrealityPrint_opengl_version_check", WS_OVERLAPPEDWINDOW, window_x, window_y, 640, 480, 0, 0, wc.hInstance, (LPVOID)this);
             if (hwnd) {
                 message_pump_exit = false;
                 while (GetMessage(&msg, NULL, 0, 0 ) > 0 && ! message_pump_exit)
@@ -68,6 +74,21 @@ public:
         return this->success;
     }
 
+    bool probe_any_display(unsigned int major, unsigned int minor)
+    {
+        std::vector<POINT> probe_points;
+        probe_points.push_back({0, 0});
+        EnumDisplayMonitors(nullptr, nullptr, enum_monitor_proc, reinterpret_cast<LPARAM>(&probe_points));
+
+        for (const POINT& point : probe_points) {
+            printf("OpenGL probe display point: x=%ld, y=%ld\n", point.x, point.y);
+            if (load_opengl_dll(point.x, point.y) && is_version_greater_or_equal_to(major, minor))
+                return true;
+            unload_opengl_dll();
+        }
+
+        return false;
+    }
     void unload_opengl_dll()
     {
         if (this->hOpenGL) {
@@ -107,7 +128,6 @@ public:
         else
             return gl_minor >= minor;
     }
-
 protected:
     static bool message_pump_exit;
 
@@ -153,15 +173,27 @@ protected:
             0,
             0, 0, 0
         };
-
         HDC ourWindowHandleToDeviceContext = ::GetDC(hWnd);
+        if (ourWindowHandleToDeviceContext == nullptr) {
+            printf("OpenGL probe failed: GetDC returned nullptr\n");
+            return;
+        }
         // Gdi32.dll
         int letWindowsChooseThisPixelFormat = ::ChoosePixelFormat(ourWindowHandleToDeviceContext, &pfd);
-        // Gdi32.dll
-        SetPixelFormat(ourWindowHandleToDeviceContext, letWindowsChooseThisPixelFormat, &pfd);
+        if (letWindowsChooseThisPixelFormat == 0 || !SetPixelFormat(ourWindowHandleToDeviceContext, letWindowsChooseThisPixelFormat, &pfd)) {
+            printf("OpenGL probe failed: pixel format unavailable\n");
+            ::ReleaseDC(hWnd, ourWindowHandleToDeviceContext);
+            return;
+        }
         // Opengl32.dll
         HGLRC glcontext = wglCreateContext(ourWindowHandleToDeviceContext);
-        wglMakeCurrent(ourWindowHandleToDeviceContext, glcontext);
+        if (glcontext == nullptr || !wglMakeCurrent(ourWindowHandleToDeviceContext, glcontext)) {
+            printf("OpenGL probe failed: context unavailable\n");
+            if (glcontext != nullptr)
+                wglDeleteContext(glcontext);
+            ::ReleaseDC(hWnd, ourWindowHandleToDeviceContext);
+            return;
+        }
         // Opengl32.dll
         const char *data = (const char*)glGetString(GL_VERSION);
         if (data != nullptr)
@@ -176,12 +208,20 @@ protected:
         data = (const char*)glGetString(GL_RENDERER);
         if (data != nullptr)
             this->renderer = data;
+        printf("OpenGL probe: version=%s, vendor=%s, renderer=%s\n", version.c_str(), vendor.c_str(), renderer.c_str());
         // Opengl32.dll
         wglDeleteContext(glcontext);
         ::ReleaseDC(hWnd, ourWindowHandleToDeviceContext);
         this->success = true;
     }
 
+    static BOOL CALLBACK enum_monitor_proc(HMONITOR, HDC, LPRECT rect, LPARAM data)
+    {
+        auto* probe_points = reinterpret_cast<std::vector<POINT>*>(data);
+        if (probe_points != nullptr && rect != nullptr)
+            probe_points->push_back({rect->left + 1, rect->top + 1});
+        return TRUE;
+    }
     static LRESULT CALLBACK supports_opengl2_wndproc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         switch(message)
@@ -299,11 +339,12 @@ int wmain(int argc, wchar_t **argv)
 
 #ifdef SLIC3R_GUI
     OpenGLVersionCheck opengl_version_check;
+    const bool opengl_probe_has_required_version = opengl_version_check.probe_any_display(2, 0);
     bool load_mesa =
         // Forced from the command line.
         force_mesa ||
-        // Try to load the default OpenGL driver and test its context version.
-        ! opengl_version_check.load_opengl_dll() || ! opengl_version_check.is_version_greater_or_equal_to(2, 0);
+        // Try every display-backed OpenGL path before falling back to software rendering.
+        !opengl_probe_has_required_version;
 #endif /* SLIC3R_GUI */
 
     wchar_t path_to_exe[MAX_PATH + 1] = { 0 };
@@ -326,9 +367,18 @@ int wmain(int argc, wchar_t **argv)
         printf("Loading MESA OpenGL library: %S\n", path_to_mesa);
         HINSTANCE hInstance_OpenGL = LoadLibraryExW(path_to_mesa, nullptr, 0);
         if (hInstance_OpenGL == nullptr) {
-            printf("MESA OpenGL library was not loaded\n");
-        } else
-            printf("MESA OpenGL library was loaded sucessfully\n");
+            printf("MESA OpenGL library was not loaded, error=%lu\n", GetLastError());
+        } else {
+            printf("MESA OpenGL library was loaded successfully\n");
+        }
+        SetEnvironmentVariableW(L"CREALITYPRINT_OPENGL_SOFTWARE_RENDERER",
+            hInstance_OpenGL != nullptr ? (force_mesa ? L"2" : L"1") : L"0");
+        SetEnvironmentVariableW(L"CREALITYPRINT_OPENGL_HARDWARE_AVAILABLE",
+            (opengl_probe_has_required_version || hInstance_OpenGL != nullptr) ? L"1" : L"0");
+    } else {
+        SetEnvironmentVariableW(L"CREALITYPRINT_OPENGL_SOFTWARE_RENDERER", L"0");
+        SetEnvironmentVariableW(L"CREALITYPRINT_OPENGL_HARDWARE_AVAILABLE",
+            opengl_probe_has_required_version ? L"1" : L"0");
     }
 #endif /* SLIC3R_GUI */
     wchar_t path_to_slic3r[MAX_PATH + 1] = { 0 };
@@ -340,7 +390,7 @@ int wmain(int argc, wchar_t **argv)
 //	printf("Loading Slic3r library: %S\n", path_to_slic3r);
     HINSTANCE hInstance_Slic3r = LoadLibraryExW(path_to_slic3r, nullptr, 0);
     if (hInstance_Slic3r == nullptr) {
-        printf("%s was not loaded, error=%d\n",slicer_library.c_str(), GetLastError());
+        printf("%S was not loaded, error=%d\n", slicer_library.c_str(), GetLastError());
         return -1;
     }
 

@@ -1,4 +1,4 @@
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include "3DScene.hpp"
 #include "GLShader.hpp"
@@ -1533,6 +1533,22 @@ bool GLVolumeCollection::check_outside_state(const BuildVolume &build_volume, Mo
 
     GUI::PartPlate* curr_plate = GUI::wxGetApp().plater()->get_partplate_list().get_selected_plate();
 
+    // check_outside_state() uses the selected plate's build volume, so only volumes
+    // belonging to that plate may contribute to its outside state.
+    auto belongs_to_current_plate = [curr_plate, &model](const GLVolume& volume) {
+        if (volume.is_wipe_tower)
+            return volume.object_idx() == 1000 + curr_plate->get_index();
+
+        const int object_idx   = volume.object_idx();
+        const int instance_idx = volume.instance_idx();
+        if (object_idx < 0 || instance_idx < 0 || object_idx >= static_cast<int>(model.objects.size()) ||
+            model.objects[object_idx] == nullptr ||
+            instance_idx >= static_cast<int>(model.objects[object_idx]->instances.size()))
+            return true;
+
+        return curr_plate->contain_instance(object_idx, instance_idx);
+    };
+
     const Pointfs& pp_bed_shape = curr_plate->get_shape();    
     double printable_height = build_volume.printable_height();
     BuildVolume plate_build_volume = BuildVolume(pp_bed_shape, printable_height);
@@ -1544,6 +1560,12 @@ bool GLVolumeCollection::check_outside_state(const BuildVolume &build_volume, Mo
     
     for (GLVolume* volume : this->volumes) 
     {
+        if (!belongs_to_current_plate(*volume)) {
+            volume->is_outside    = false;
+            volume->partly_inside = false;
+            continue;
+        }
+
         if (! volume->is_modifier && (volume->shader_outside_printer_detection_enabled || (! volume->is_wipe_tower && volume->composite_id.volume_id >= 0))) {
             BuildVolume::ObjectState state;
             const BoundingBoxf3& bb = volume_bbox(*volume);

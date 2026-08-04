@@ -11,6 +11,7 @@
 #include "../../GUI_App.hpp"
 #include "../../PartPlate.hpp"
 #include "../../Plater.hpp"
+#include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
@@ -22,6 +23,7 @@
 #include <iomanip>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <unordered_set>
 #include <vector>
@@ -482,7 +484,7 @@ static std::string resolve_filament_preset_name_by_type_candidate(const std::str
     return best_preset != nullptr ? best_preset->name : std::string();
 }
 
-static std::string resolve_filament_preset_name_from_candidate(const std::string& candidate)
+static std::string resolve_filament_preset_name_from_candidate(const std::string& candidate, int item_index)
 {
     auto* bundle = wxGetApp().preset_bundle;
     if (bundle == nullptr || candidate.empty() || candidate == "/" || candidate == "?")
@@ -493,13 +495,86 @@ static std::string resolve_filament_preset_name_from_candidate(const std::string
         return exact_preset->name;
 
     const std::string resolved = bundle->get_preset_name_by_alias(Preset::TYPE_FILAMENT, candidate);
-    if (resolved.empty())
-        return {};
+    if (!resolved.empty()) {
+        if (const Preset* resolved_preset = bundle->filaments.find_preset(resolved, false))
+            return resolved_preset->name;
+    }
 
-    if (const Preset* resolved_preset = bundle->filaments.find_preset(resolved, false))
-        return resolved_preset->name;
+    // PresetCollection::get_preset_name_by_alias() intentionally ignores
+    // presets that are not installed/visible. Device material metadata may
+    // still carry such an alias, so resolve it here before falling back to a
+    // generic filament-family match.
+    const std::string preferred_preset_name = resolve_preferred_filament_preset_name_for_item(*bundle, item_index);
+    const PresetWithVendorProfile active_printer =
+        bundle->printers.get_preset_with_vendor_profile(bundle->printers.get_selected_preset());
+    const Preset* best_preset = nullptr;
+    int best_score = std::numeric_limits<int>::min();
+    for (const Preset& preset : bundle->filaments.get_presets()) {
+        const bool alias_matches = preset.alias == candidate;
+        const bool renamed_from_matches =
+            std::find(preset.renamed_from.begin(), preset.renamed_from.end(), candidate) != preset.renamed_from.end();
+        if (!alias_matches && !renamed_from_matches)
+            continue;
 
-    return {};
+        const bool is_preferred = !preferred_preset_name.empty() && preset.name == preferred_preset_name;
+        const bool is_compatible =
+            is_compatible_with_printer(bundle->filaments.get_preset_with_vendor_profile(preset), active_printer);
+        int score = 0;
+        if (is_compatible)
+            score += 100;
+        if (preset.is_visible)
+            score += 20;
+        if (is_preferred)
+            score += 5;
+        if (!preset.is_default)
+            score += 1;
+
+        if (score > best_score) {
+            best_score = score;
+            best_preset = &preset;
+        }
+    }
+
+    return best_preset != nullptr ? best_preset->name : std::string();
+}
+
+static bool ensure_filament_preset_visible(const std::string& preset_name)
+{
+    auto* bundle = wxGetApp().preset_bundle;
+    if (bundle == nullptr || preset_name.empty())
+        return false;
+
+    Preset* target = bundle->filaments.find_preset(preset_name, false);
+    if (target == nullptr)
+        return false;
+    if (target->is_visible)
+        return true;
+
+    AppConfig* app_config = wxGetApp().app_config;
+    if (app_config != nullptr) {
+        std::map<std::string, std::string> enabled_filaments;
+        if (app_config->has_section(AppConfig::SECTION_FILAMENTS)) {
+            enabled_filaments = app_config->get_section(AppConfig::SECTION_FILAMENTS);
+        } else {
+            // Preserve the current visible set when initializing the section.
+            for (const Preset& preset : bundle->filaments.get_presets()) {
+                if (preset.is_visible && !preset.name.empty())
+                    enabled_filaments[preset.name] = "true";
+            }
+        }
+
+        enabled_filaments[preset_name] = "true";
+        app_config->set_section(AppConfig::SECTION_FILAMENTS, enabled_filaments);
+        for (Preset& preset : bundle->filaments)
+            preset.set_visible_from_appconfig(*app_config);
+        app_config->save();
+    }
+
+    // User/project presets may not be controlled by SECTION_FILAMENTS.
+    target = bundle->filaments.find_preset(preset_name, false);
+    if (target != nullptr && !target->is_visible)
+        target->is_visible = true;
+    return target != nullptr && target->is_visible;
 }
 
 static std::vector<std::string> build_filament_family_fallbacks(const std::string& candidate)
@@ -547,7 +622,7 @@ static std::string resolve_target_filament_preset_name_from_slot(const DeviceMat
         append_candidate(fallback);
 
     for (const std::string& candidate : candidates) {
-        const std::string preset_name = resolve_filament_preset_name_from_candidate(candidate);
+        const std::string preset_name = resolve_filament_preset_name_from_candidate(candidate, item_index);
         if (!preset_name.empty())
             return preset_name;
     }
@@ -569,6 +644,8 @@ static bool sync_filament_preset(int item_index, const DeviceMaterialSlot& slot)
 
     const std::string preset_name = resolve_target_filament_preset_name_from_slot(slot, item_index);
     if (preset_name.empty())
+        return false;
+    if (!ensure_filament_preset_visible(preset_name))
         return false;
 
     if (item_index >= 0 && item_index < static_cast<int>(bundle->filament_presets.size()) &&

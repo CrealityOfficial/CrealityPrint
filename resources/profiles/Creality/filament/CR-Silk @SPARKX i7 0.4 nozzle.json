@@ -22,7 +22,6 @@
     "customized_plate_temp": "55",
     "customized_plate_temp_initial_layer": "55",
     "default_filament_colour": "\"\"",
-    "dont_slow_down_outer_wall": "1",
     "during_print_exhaust_fan_speed": "0",
     "enable_overhang_bridge_fan": "1",
     "enable_pressure_advance": "1",

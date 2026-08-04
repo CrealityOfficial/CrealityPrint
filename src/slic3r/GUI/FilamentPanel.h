@@ -134,6 +134,11 @@ public:
 	void on_left_down(wxMouseEvent &evt);
     void OnPaint(wxPaintEvent& event);
 
+protected:
+    bool ShouldDismissOnTopWindowDeactivate() override;
+    void BindInteractiveChildHover(wxWindow* window);
+    bool IsInteractiveChildHoverActive() const;
+
 public:
 
 	Slic3r::GUI::PlaterPresetComboBox* m_filamentCombox;
@@ -147,6 +152,8 @@ public:
 	wxBoxSizer* m_sizer_main{ nullptr };
     int	m_index=-1;
     FilamentItem*   m_pFilamentItem = nullptr;
+    bool            m_mouse_over_interactive_child = false;
+    long long       m_interactive_child_hover_until = 0;
 };
 
 const wxColour MENU_COLORS[8] = {

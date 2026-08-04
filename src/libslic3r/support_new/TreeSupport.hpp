@@ -88,9 +88,11 @@ struct SupportNode
             for (auto& neighbor : parent->merged_neighbours) {
                 neighbor->child = this;
                 parents.push_back(neighbor);
+                is_manual_enforcer = is_manual_enforcer || neighbor->is_manual_enforcer;
             }
-            is_sharp_tail  = parent->is_sharp_tail;
-            skin_direction = parent->skin_direction;
+            is_sharp_tail          = parent->is_sharp_tail;
+            is_manual_enforcer     = is_manual_enforcer || parent->is_manual_enforcer;
+            skin_direction         = parent->skin_direction;
         }
     }
 
@@ -124,6 +126,7 @@ struct SupportNode
     bool           is_processed    = false;
     bool           need_extra_wall = false;
     bool           is_sharp_tail   = false;
+    bool           is_manual_enforcer = false;
     bool           valid           = true;
     bool           fading          = false;
     double         overhang_degree = 0.0; // overhang degree for cooling just like perimeter
@@ -433,7 +436,8 @@ public:
         Small            = 1 << 2,
         BigFlat          = 1 << 3,
         ThinPlate        = 1 << 4,
-        SharpTailLowesst = 1 << 5
+        SharpTailLowesst = 1 << 5,
+        Enforced         = 1 << 6
     };
     std::map<const ExPolygon*, OverhangType> overhang_types;
     std::vector<std::pair<Vec3f, Vec3f>>     m_vertical_enforcer_points;

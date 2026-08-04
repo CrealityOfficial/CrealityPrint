@@ -7,8 +7,8 @@ separate-locales: true
 rename-icon: CrealityPrint 
 finish-args:
   - --share=ipc
-  - --socket=x11
   - --socket=wayland
+  - --socket=fallback-x11
   - --share=network
   - --device=all
   - --filesystem=home
@@ -29,17 +29,19 @@ build-options:
     append-path: /usr/lib/sdk/llvm21/bin
     prepend-ld-library-path: /usr/lib/sdk/llvm21/lib
     env:
-      CFLAGS: "-O3 -DNDEBUG"
-      CXXFLAGS: "-O3 -DNDEBUG"
+      CC: clang
+      CXX: clang++
+      LDFLAGS: "-fuse-ld=lld"
     
 modules:
 
-  # JPEG codec for the liveview
+  # JPEG codec and GTK video sink (Wayland liveview) for the liveview
   - name: gst-plugins-good
     buildsystem: meson
     config-opts:
       - -Dauto_features=disabled
       - -Djpeg=enabled
+      - -Dgtk3=enabled
       - -Ddoc=disabled
       - -Dexamples=disabled
       - -Dtests=disabled
@@ -49,6 +51,8 @@ modules:
         sha256: e305b9f07f52743ca481da0a4e0c76c35efd60adaf1b0694eb3bb021e2137e39
 
   - name: glu
+    build-options:
+      cxxflags: -Wno-register
     config-opts:
       - --disable-static
     sources:
@@ -123,60 +127,54 @@ modules:
         make && make install 
   
   - name: creality_wxwidgets
-    buildsystem: simple
+    buildsystem: cmake-ninja
     build-options:
       env:
         CMAKE_POLICY_VERSION_MINIMUM: "3.5"
-    build-commands:
-      - |
-        export CFLAGS=""
-        export CXXFLAGS=""
-        mkdir builddir && cd builddir
-        cmake ../ -GNinja \
-          -DCMAKE_C_COMPILER=clang \
-          -DCMAKE_CXX_COMPILER=clang++ \
-          -DwxBUILD_PRECOMP=ON \
-          -DwxBUILD_TOOLKIT=gtk3 \
-          -DwxBUILD_DEBUG_LEVEL=0 \
-          -DwxBUILD_SAMPLES=OFF \
-          -DwxBUILD_SHARED=ON \
-          -DwxUSE_MEDIACTRL=ON \
-          -DwxUSE_DETECT_SM=OFF \
-          -DwxUSE_UNICODE=ON \
-          -DwxUSE_PRIVATE_FONTS=ON \
-          -DwxUSE_OPENGL=ON \
-          -DwxUSE_WEBREQUEST=ON \
-          -DwxUSE_WEBVIEW=ON \
-          -DwxUSE_WEBVIEW_EDGE=OFF \
-          -DwxUSE_WEBVIEW_IE=OFF \
-          -DwxUSE_REGEX=builtin \
-          -DwxUSE_LIBSDL=OFF \
-          -DwxUSE_XTEST=OFF \
-          -DwxUSE_STC=OFF \
-          -DwxUSE_AUI=ON \
-          -DwxUSE_LIBPNG=sys \
-          -DwxUSE_ZLIB=sys \
-          -DwxUSE_LIBJPEG=sys \
-          -DwxUSE_LIBTIFF=OFF \
-          -DwxUSE_EXPAT=sys \
-          -DBUILD_SHARED_LIBS:BOOL=ON \
-          -DCMAKE_INSTALL_PREFIX:STRING=/app \
-          -DCMAKE_PREFIX_PATH=/app \
-          -DCMAKE_BUILD_TYPE=Release
-        cmake --build . --target install -j$FLATPAK_BUILDER_N_JOBS
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DwxBUILD_PRECOMP=ON
+      - -DwxBUILD_TOOLKIT=gtk3
+      - -DCMAKE_DEBUG_POSTFIX:STRING=d
+      - -DwxBUILD_DEBUG_LEVEL=0
+      - -DwxBUILD_SAMPLES=OFF
+      - -DwxBUILD_SHARED=ON
+      - -DBUILD_SHARED_LIBS=ON
+      - -DwxUSE_MEDIACTRL=ON
+      - -DwxUSE_DETECT_SM=OFF
+      - -DwxUSE_PRIVATE_FONTS=ON
+      - -DwxUSE_OPENGL=ON
+      - -DwxUSE_GLCANVAS_EGL=ON
+      - -DwxUSE_WEBREQUEST=ON
+      - -DwxUSE_WEBVIEW=ON
+      - -DwxUSE_WEBVIEW_EDGE=OFF
+      - -DwxUSE_WEBVIEW_IE=OFF
+      - -DwxUSE_REGEX=builtin
+      - -DwxUSE_LIBSDL=OFF
+      - -DwxUSE_XTEST=OFF
+      - -DwxUSE_STC=OFF
+      - -DwxUSE_AUI=ON
+      - -DwxUSE_LIBPNG=sys
+      - -DwxUSE_ZLIB=sys
+      - -DwxUSE_LIBJPEG=sys
+      - -DwxUSE_LIBTIFF=OFF
+      # sys, not builtin (unlike the static deps build): wxWidgets installs the
+      # builtin libwxwebp*.so only for static builds, so a shared build leaves
+      # them missing at runtime. The GNOME runtime provides libwebp.
+      - -DwxUSE_LIBWEBP=sys
+      - -DwxUSE_EXPAT=sys
+      - -DwxUSE_NANOSVG=OFF
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld
+      - -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld
+      - -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld
     sources:
-      - type: archive
-        url: https://github.com/CrealityOfficial/Orca-deps-wxWidgets/archive/refs/tags/v1.0.0.tar.gz
-        sha256: 74089054448d887c1b551ac98f4b46fa8960a5168df48aa77700c7a58071148c
-        path: ../
-      - type: patch
-        path: patches/0001-Enable-using-a-dark-theme-when-Gnome-dark-style-is-s.patch
-    cleanup:
-      - "*.la"
-      - "*.a"
-      - "*.cmake"
-      - /include
-      - /app/bin/*
+      # Use git instead of archive: wxWidgets 3.3 relies on multiple git
+      # submodules (PCRE2, etc.) that are not included in GitHub tarballs.
+      - type: git
+        url: https://github.com/SoftFever/Orca-deps-wxWidgets.git
+        tag: orca-3.3.2
+        commit: db1005db3dea2c37a46fb455a9a02e37aa360751
 
   - name: creality_deps
     buildsystem: simple
@@ -203,8 +201,6 @@ modules:
           -DCMAKE_INSTALL_PREFIX=/app \
           -DCMAKE_BUILD_TYPE=Release
         ninja -v
-        #cd dexxxps/build
-        rm -r /run/build/creality_deps/external-packages
     
     cleanup:
       - /app/include
@@ -242,7 +238,7 @@ modules:
         dest: external-packages/CGAL
         sha256: d7605e0a5a5ca17da7547592f6f6e4a59430a0bc861948974254d0de43eab4c0
 
-      # GMP
+      # GMP 6.3.0
       - type: file
         url: https://mirrors.aliyun.com/gnu/gmp/gmp-6.3.0.tar.xz
         dest: external-packages/GMP
@@ -254,11 +250,11 @@ modules:
         dest: external-packages/CURL
         sha256: a63ae025bb0a14f119e73250f2c923f4bf89aa93b8d4fafa4a9f5353a96a765a
 
-      # MPFR
+      # MPFR 4.2.2
       - type: file
-        url: https://www.mpfr.org/mpfr-4.2.1/mpfr-4.2.1.tar.bz2
+        url: https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.2.tar.bz2
         dest: external-packages/MPFR
-        sha256: b9df93635b20e4089c29623b19420c4ac848a1b29df1cfd59f26cab0d2666aa0
+        sha256: 9ad62c7dc910303cd384ff8f1f4767a655124980bb6d8650fe62c815a231bb7b
 
       # NLopt
       - type: file
@@ -392,10 +388,14 @@ modules:
           -DENABLE_BREAKPAD=OFF \
           -DCMAKE_C_COMPILER=clang \
           -DCMAKE_CXX_COMPILER=clang++ \
+          -DCMAKE_C_FLAGS="-DwxDEBUG_LEVEL=0" \
+          -DCMAKE_CXX_FLAGS="-UBOOST_LOG_DYN_LINK -DwxDEBUG_LEVEL=0" \
           -DSLIC3R_PCH=ON \
           -DSLIC3R_FHS=ON \
           -DSLIC3R_GTK=3 \
-          -DSLIC3R_STATIC=ON \
+          -DGLEW_USE_STATIC_LIBS=ON \
+          -DOPENVDB_USE_STATIC_LIBS=ON \
+          -DUSE_BLOSC=TRUE \
           -DSLIC3R_BUILD_TESTS=OFF \
           -DSLIC3R_DESKTOP_INTEGRATION=OFF \
           -DCMAKE_BUILD_TYPE=Release \
@@ -404,6 +404,7 @@ modules:
           -DPROJECT_VERSION_EXTRA=Beta  \
           -DBBL_RELEASE_TO_PUBLIC=1 \
           -DCMAKE_PREFIX_PATH=/app \
+          -DCMAKE_INSTALL_RPATH="\$ORIGIN/lib:\$ORIGIN/lib64" \
           -DCMAKE_INSTALL_PREFIX=/app
         cmake --build build --target CrealityPrint
         ./run_gettext.sh

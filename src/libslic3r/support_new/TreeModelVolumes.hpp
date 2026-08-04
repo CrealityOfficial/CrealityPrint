@@ -9,7 +9,10 @@
 #ifndef slic3r_TreeModelVolumes_hpp
 #define slic3r_TreeModelVolumes_hpp
 
+#include <functional>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 
 #include <boost/functional/hash.hpp>
@@ -19,6 +22,7 @@
 #include "../Point.hpp"
 #include "../Polygon.hpp"
 #include "../PrintConfig.hpp"
+#include "../AABBMesh.hpp"
 
 namespace Slic3r
 {
@@ -43,6 +47,15 @@ static constexpr const bool    SUPPORT_TREE_AVOID_SUPPORT_BLOCKER = true;
 class TreeModelVolumes
 {
 public:
+    using StatusProgress = std::function<void(size_t, size_t, bool)>;
+
+    struct ModelSurfaceInfo
+    {
+        Vec3d closest_point;
+        Vec3d normal;
+        double distance_mm;
+    };
+
     TreeModelVolumes() = default;
     explicit TreeModelVolumes(const PrintObject &print_object, const BuildVolume &build_volume,
         coord_t max_move, coord_t max_move_slow, size_t current_mesh_idx, 
@@ -103,6 +116,8 @@ public:
      * \return Polygons object
      */
     const Polygons& getCollision(const coord_t radius, LayerIndex layer_idx, bool min_xy_dist) const;
+    // Query the nearest model surface to a support target. The model AABB tree is built lazily once and reused by merge checks.
+    std::optional<ModelSurfaceInfo> getModelSurfaceInfo(const Point& target_position, LayerIndex target_layer) const;
 
     // Get a collision area at a given layer for a radius that is a lower or equial to the key radius.
     // It is expected that the collision area is precalculated for a given layer at least for the radius zero.
@@ -342,7 +357,8 @@ private:
      * collide with the model. Result is saved in the cache.
      * \param keys RadiusLayerPairs of all requested areas. Every radius will be calculated up to the provided layer.
      */
-    void calculateCollision(const std::vector<RadiusLayerPair> &keys, std::function<void()> throw_on_cancel);
+    void calculateCollision(const std::vector<RadiusLayerPair> &keys, std::function<void()> throw_on_cancel,
+                            StatusProgress status_progress = {});
     void calculateCollision(const coord_t radius, const LayerIndex max_layer_idx, std::function<void()> throw_on_cancel);
     /*!
      * \brief Creates the areas that have to be avoided by the tree's branches to prevent collision with the model on this layer. Holes are removed.
@@ -352,7 +368,8 @@ private:
      * A Hole is defined as an area, in which a branch with m_increase_until_radius radius would collide with the wall.
      * \param keys RadiusLayerPairs of all requested areas. Every radius will be calculated up to the provided layer.
      */
-    void calculateCollisionHolefree(const std::vector<RadiusLayerPair> &keys, std::function<void()> throw_on_cancel);
+    void calculateCollisionHolefree(const std::vector<RadiusLayerPair> &keys, std::function<void()> throw_on_cancel,
+                                    StatusProgress status_progress = {});
 
     /*!
      * \brief Creates the areas that have to be avoided by the tree's branches to prevent collision with the model on this layer. Holes are removed.
@@ -374,7 +391,8 @@ private:
      * collide with the model. Result is saved in the cache.
      * \param keys RadiusLayerPairs of all requested areas. Every radius will be calculated up to the provided layer.
      */
-    void calculateAvoidance(const std::vector<RadiusLayerPair> &keys, bool to_build_plate, bool to_model, std::function<void()> throw_on_cancel);
+    void calculateAvoidance(const std::vector<RadiusLayerPair> &keys, bool to_build_plate, bool to_model,
+                            std::function<void()> throw_on_cancel, StatusProgress status_progress = {});
 
     /*!
      * \brief Creates the areas that have to be avoided by the tree's branches to prevent collision with the model.
@@ -401,7 +419,8 @@ private:
      * Result is saved in the cache.
      * \param keys RadiusLayerPair of the requested areas. The radius will be calculated up to the provided layer.
      */
-    void calculatePlaceables(const std::vector<RadiusLayerPair> &keys, std::function<void()> throw_on_cancel);
+    void calculatePlaceables(const std::vector<RadiusLayerPair> &keys, std::function<void()> throw_on_cancel,
+                             StatusProgress status_progress = {});
 
     /*!
      * \brief Creates the areas that can not be passed when expanding an area downwards. As such these areas are an somewhat abstract representation of a wall (as in a printed object).
@@ -410,7 +429,8 @@ private:
      *
      * \param keys RadiusLayerPairs of all requested areas. Every radius will be calculated up to the provided layer.
      */
-    void calculateWallRestrictions(const std::vector<RadiusLayerPair> &keys, std::function<void()> throw_on_cancel);
+    void calculateWallRestrictions(const std::vector<RadiusLayerPair> &keys, std::function<void()> throw_on_cancel,
+                                   StatusProgress status_progress = {});
 
     /*!
      * \brief Creates the areas that can not be passed when expanding an area downwards. As such these areas are an somewhat abstract representation of a wall (as in a printed object).
@@ -500,6 +520,12 @@ private:
 
     // Z heights of the raft layers (additional layers below the object, last raft layer aligned with the bottom of the first object layer).
     std::vector<double>         m_raft_layers;
+
+    // Transformed model and its acceleration structure for classifying support targets by their source surface orientation.
+    std::unique_ptr<TriangleMesh>       m_model_surface_mesh;
+    mutable std::unique_ptr<AABBMesh>   m_model_surface_aabb;
+    mutable std::unique_ptr<std::once_flag> m_model_surface_aabb_once{std::make_unique<std::once_flag>()};
+    std::vector<double>                 m_support_layer_z;
 
     /*!
      * \brief Caches for the collision, avoidance and areas on the model where support can be placed safely

@@ -1,6 +1,10 @@
 #include "UploadFile.hpp"
 
+#include <array>
+#include <atomic>
+#include <chrono>
 #include <fstream>
+#include <thread>
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -13,17 +17,76 @@
 
 
 #include <iostream>
-#include <fstream>
-#include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/copy.hpp>
+#include <mutex>
+#include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 namespace Slic3r { 
 namespace GUI {
+
+namespace {
+std::mutex g_oss_sdk_mutex;
+std::size_t g_oss_sdk_users = 0;
+
+class TemporaryFileCleanup
+{
+public:
+    explicit TemporaryFileCleanup(boost::filesystem::path path) : m_path(std::move(path)) {}
+    ~TemporaryFileCleanup()
+    {
+        boost::system::error_code error;
+        boost::filesystem::remove(m_path, error);
+    }
+
+private:
+    boost::filesystem::path m_path;
+};
+
+class OssRequestCancelWatcher
+{
+public:
+    OssRequestCancelWatcher(AlibabaCloud::OSS::OssClient& client,
+                            RemotePrint::UploadCancelToken cancel_token)
+        : m_client(client)
+        , m_cancel_token(std::move(cancel_token))
+        , m_thread([this] {
+            while (!m_stopped.load(std::memory_order_acquire)) {
+                if (RemotePrint::is_upload_cancelled(m_cancel_token)) {
+                    // The vendored OSS patch also shuts down active sockets, so
+                    // a stalled synchronous request does not wait for progress.
+                    BOOST_LOG_TRIVIAL(warning) << "[CloudUpload] cancelling active OSS request";
+                    m_client.DisableRequest();
+                    return;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            }
+        })
+    {
+    }
+
+    ~OssRequestCancelWatcher()
+    {
+        m_stopped.store(true, std::memory_order_release);
+        if (m_thread.joinable())
+            m_thread.join();
+    }
+
+private:
+    AlibabaCloud::OSS::OssClient& m_client;
+    RemotePrint::UploadCancelToken m_cancel_token;
+    std::atomic_bool m_stopped {false};
+    std::thread m_thread;
+};
+}
+
 UploadFile::UploadFile() {
-    AlibabaCloud::OSS::InitializeSdk();
+    std::lock_guard<std::mutex> lock(g_oss_sdk_mutex);
+    if (g_oss_sdk_users++ == 0)
+        AlibabaCloud::OSS::InitializeSdk();
 }
 UploadFile::~UploadFile(){
-    AlibabaCloud::OSS::ShutdownSdk();
+    std::lock_guard<std::mutex> lock(g_oss_sdk_mutex);
+    if (g_oss_sdk_users > 0 && --g_oss_sdk_users == 0)
+        AlibabaCloud::OSS::ShutdownSdk();
 }
 json UploadFile::getCloudUploadInfo()
 {
@@ -41,6 +104,9 @@ json UploadFile::getCloudUploadInfo()
 }
 int UploadFile::getAliyunInfo()
 {
+    if (isCancelled())
+        return 601;
+
     int nRet = -1;
 
     std::string base_url = get_cloud_api_url();
@@ -51,6 +117,9 @@ int UploadFile::getAliyunInfo()
     wxGetApp().getExtraHeader(mapHeader);
     Http::set_extra_headers(mapHeader);
     Http               http                  = Http::post(url);
+    http.enable_active_cancel();
+    RemotePrint::UploadRequestCancelWatcher cancel_watcher(
+        m_cancel_token, [&http] { http.cancel(); });
     boost::uuids::uuid uuid                  = boost::uuids::random_generator()();
     json               j = json::object();
 
@@ -59,6 +128,8 @@ int UploadFile::getAliyunInfo()
     http.header("Content-Type", "application/json")
         .header("Connection", "keep-alive")
         .header("__CXY_REQUESTID_", to_string(uuid))
+        .timeout_connect(5)
+        .timeout_max(15)
         .set_post_body(body)
         .on_complete([&](std::string body, unsigned status) { 
             json jBody;
@@ -98,15 +169,20 @@ int UploadFile::getAliyunInfo()
         .on_error([&](std::string body, std::string error, unsigned status) { nRet = -4;
         })
         .on_progress([&](Http::Progress progress, bool& cancel) {
-
+            cancel = isCancelled();
         })
         .perform_sync();
 
+    if (isCancelled())
+        return 601;
     return nRet;
 }
 
 int UploadFile::getOssInfo()
 {
+    if (isCancelled())
+        return 601;
+
     int nRet = -1;
 
     std::string        base_url = get_cloud_api_url();
@@ -117,6 +193,9 @@ int UploadFile::getOssInfo()
     wxGetApp().getExtraHeader(mapHeader);
     Http::set_extra_headers(mapHeader);
     Http               http                  = Http::post(url);
+    http.enable_active_cancel();
+    RemotePrint::UploadRequestCancelWatcher cancel_watcher(
+        m_cancel_token, [&http] { http.cancel(); });
     boost::uuids::uuid uuid                  = boost::uuids::random_generator()();
     json               j                     = json::object();
 
@@ -125,6 +204,8 @@ int UploadFile::getOssInfo()
     http.header("Content-Type", "application/json")
         .header("Connection", "keep-alive")
         .header("__CXY_REQUESTID_", to_string(uuid))
+        .timeout_connect(5)
+        .timeout_max(15)
         .set_post_body(body)
         .on_complete([&](std::string body, unsigned status) {
             json jBody;
@@ -173,14 +254,19 @@ int UploadFile::getOssInfo()
         .on_error([&](std::string body, std::string error, unsigned status) { nRet = -4;
         })
         .on_progress([&](Http::Progress progress, bool& cancel) {
-
+            cancel = isCancelled();
         })
         .perform_sync();
 
+    if (isCancelled())
+        return 601;
     return nRet;
 }
 
 int UploadFile::uploadGcodeToCXCloud(const std::string& name, const std::string& fileName, std::function<void(std::string)> onCompleteCallback) {
+    if (isCancelled())
+        return 601;
+
     int nRet = -1;
 
     std::string        base_url = get_cloud_api_url();
@@ -191,6 +277,9 @@ int UploadFile::uploadGcodeToCXCloud(const std::string& name, const std::string&
     wxGetApp().getExtraHeader(mapHeader);
     Http::set_extra_headers(mapHeader);
     Http               http                  = Http::post(url);
+    http.enable_active_cancel();
+    RemotePrint::UploadRequestCancelWatcher cancel_watcher(
+        m_cancel_token, [&http] { http.cancel(); });
     boost::uuids::uuid uuid                  = boost::uuids::random_generator()();
     json               j                     = json::object();
     j["list"]                                = json::array();
@@ -203,9 +292,14 @@ int UploadFile::uploadGcodeToCXCloud(const std::string& name, const std::string&
     http.header("Content-Type", "application/json")
         .header("Connection", "keep-alive")
         .header("__CXY_REQUESTID_", to_string(uuid))
+        .timeout_connect(5)
         .timeout_max(15)
         .set_post_body(body)
         .on_complete([&](std::string body, unsigned status) {
+            if (isCancelled()) {
+                nRet = 601;
+                return;
+            }
             json jBody = json::parse(body);
              if (jBody["code"].is_number_integer()) {
                 nRet = jBody["code"];
@@ -238,10 +332,12 @@ int UploadFile::uploadGcodeToCXCloud(const std::string& name, const std::string&
         .on_error([&](std::string body, std::string error, unsigned status) { nRet = -4;
         })
         .on_progress([&](Http::Progress progress, bool& cancel) {
-            
+            cancel = isCancelled();
         })
         .perform_sync();
 
+    if (isCancelled())
+        return 601;
     return nRet;
 }
 
@@ -301,16 +397,27 @@ vector<AlibabaCloud::OSS::Part> UploadFile::uploadParts(AlibabaCloud::OSS::OssCl
     int partCount = static_cast<int>((fileSize + PART_SIZE - 1) / PART_SIZE);
     
     for (int i = 1; i <= partCount; i++) {
+        if (isCancelled()) {
+            file.close();
+            throw ErrorCodeException("UploadPart", 601, "Upload canceled");
+        }
+
         int64_t partSize = min(PART_SIZE, fileSize - (i - 1) * PART_SIZE);
     
-        char* buffer = new char[partSize];
-        file.read(buffer, partSize);
+        std::vector<char> buffer(static_cast<size_t>(partSize));
+        file.read(buffer.data(), partSize);
         size_t bytesRead = file.gcount();
-        shared_ptr<std::iostream> streambuffer = make_shared<std::stringstream>(std::string(buffer,bytesRead));
+        shared_ptr<std::iostream> streambuffer =
+            make_shared<std::stringstream>(std::string(buffer.data(), bytesRead));
         
         AlibabaCloud::OSS::UploadPartRequest request(bucketName, objectName,i, uploadId, streambuffer);
         
         auto outcome = client.UploadPart(request);
+
+        if (isCancelled()) {
+            file.close();
+            throw ErrorCodeException("UploadPart", 601, "Upload canceled");
+        }
         
         if (!outcome.isSuccess()) {
             file.close();
@@ -324,11 +431,6 @@ vector<AlibabaCloud::OSS::Part> UploadFile::uploadParts(AlibabaCloud::OSS::OssCl
         if (callback) {
             double percentage = 70.0 * i / partCount/100;
             callback(i, partCount, 0.3+percentage);
-        }
-        if(m_cancel)
-        {
-            file.close();
-            throw ErrorCodeException("UploadPart",601,"Upload canceled");
         }
     }
     
@@ -355,6 +457,13 @@ void completeMultipartUpload(AlibabaCloud::OSS::OssClient& client,
 }
 
 int UploadFile::uploadFileToAliyun(const std::string& local_path, const std::string& target_path, const std::string& fileName) {
+    if (isCancelled())
+        return 601;
+
+    RemotePrint::UploadFileUseGuard file_use(m_cancel_token);
+    if (!file_use)
+        return 601;
+
     int nRet = 0;
     boost::nowide::ifstream file_in(local_path, std::ios_base::binary);
         if (!file_in)
@@ -368,22 +477,43 @@ int UploadFile::uploadFileToAliyun(const std::string& local_path, const std::str
         call_back(0, 0, 0.01);
         // 创建输出文件，文件名后缀为.gz
         boost::filesystem::path temp_path = boost::filesystem::temp_directory_path();
-        boost::filesystem::path outputfile("output.gz");
+        boost::filesystem::path outputfile(
+            "creality-upload-" + boost::uuids::to_string(boost::uuids::random_generator()()) + ".gz");
         boost::filesystem::path joined_path = temp_path / outputfile;
+        TemporaryFileCleanup temp_file_cleanup(joined_path);
         boost::nowide::ofstream file_out(joined_path.string(), boost::nowide::ofstream::binary);
         if (!file_out)
         {
             std::cerr << "无法打开输出文件。" << std::endl;
             return 1;
         }
-        // 创建过滤流缓冲区，用于压缩
-        boost::iostreams::filtering_streambuf<boost::iostreams::input> out;
-        out.push(boost::iostreams::gzip_compressor());
-        out.push(file_in);
-        // 将压缩后的数据写入输出文件
-        boost::iostreams::copy(out, file_out);
+        // Compress in bounded chunks so a close/cancel request can release the
+        // source GCode promptly, even for very large files.
+        bool compression_cancelled = false;
+        {
+            boost::iostreams::filtering_ostream gzip_out;
+            gzip_out.push(boost::iostreams::gzip_compressor());
+            gzip_out.push(file_out);
+
+            std::array<char, 256 * 1024> buffer;
+            while (file_in) {
+                if (isCancelled()) {
+                    compression_cancelled = true;
+                    break;
+                }
+
+                file_in.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+                const std::streamsize read_count = file_in.gcount();
+                if (read_count > 0)
+                    gzip_out.write(buffer.data(), read_count);
+            }
+
+            if (!compression_cancelled)
+                boost::iostreams::close(gzip_out);
+        }
+        file_in.close();
         file_out.close();
-        if(m_cancel)
+        if (compression_cancelled || isCancelled())
         {
             return 601;
         }
@@ -398,6 +528,7 @@ int UploadFile::uploadFileToAliyun(const std::string& local_path, const std::str
     conf.connectTimeoutMs = 10 * 1000;
     conf.requestTimeoutMs = 20 * 1000;
     AlibabaCloud::OSS::OssClient oss_client(m_endPoint, m_accessKeyId, m_secretAccessKey, m_token, conf);
+    OssRequestCancelWatcher cancel_watcher(oss_client, m_cancel_token);
     try{
     AlibabaCloud::OSS::ObjectMetaData metaData;
     metaData.addHeader("Content-Disposition", "attachment;filename=\"" + wxGetApp().url_encode(fileName+".gcode.gz") + "\"");
@@ -407,30 +538,39 @@ int UploadFile::uploadFileToAliyun(const std::string& local_path, const std::str
 
 
     call_back(0, 0, 0.3);
+    if (isCancelled())
+        return 601;
+
     uploadId = initiateUploadWithMeta(oss_client, m_bucket, upload_path, metaData);
+    if (isCancelled())
+        throw ErrorCodeException("InitiateMultipartUpload", 601, "Upload canceled");
+
     auto partList = uploadParts(oss_client, m_bucket, upload_path, uploadId, joined_path.string(),call_back);
         
+    if (isCancelled())
+        throw ErrorCodeException("CompleteMultipartUpload", 601, "Upload canceled");
+
     cout << "Completing upload..." << endl;
     completeMultipartUpload(oss_client, m_bucket, upload_path, uploadId, partList);
     }catch(const ErrorCodeException& e){
-        if (!uploadId.empty()) {
+        if (!uploadId.empty() && !isCancelled()) {
             AlibabaCloud::OSS::AbortMultipartUploadRequest request(m_bucket, upload_path, uploadId);
             oss_client.AbortMultipartUpload(request);
         }
-        nRet = e.code();
-        m_lastError.code = std::to_string(e.code());
+        nRet = isCancelled() ? 601 : e.code();
+        m_lastError.code = std::to_string(nRet);
         m_lastError.message = e.msg();
     }catch(const exception& e)
     {
         cerr << "Error: " << e.what() << endl;
-        if (!uploadId.empty()) {
+        if (!uploadId.empty() && !isCancelled()) {
             AlibabaCloud::OSS::AbortMultipartUploadRequest request(m_bucket, upload_path, uploadId);
             oss_client.AbortMultipartUpload(request);
         }
-    
+        nRet = isCancelled() ? 601 : 1000;
     }
     //auto outcome = oss_client.PutObject(request);
-    if(m_cancel)
+    if (isCancelled())
     {
         return 601;
     }

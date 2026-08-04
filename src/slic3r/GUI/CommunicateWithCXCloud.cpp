@@ -260,40 +260,54 @@ int CommunicateWithCXCloud::getUserProfileList(std::vector<UserProfileListItem>&
             json j = json();
             try {
                 j = json::parse(body);
-            } catch (nlohmann::detail::parse_error& err) {
-                BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud getUserProfileList parse body fail";
+                if (j["code"] != 0) {
+                    const int code = j["code"].get<int>();
+                    if (code == 4) {
+                        CXCloudDataCenter::getInstance().setTokenInvalid();
+                    } else {
+                        CXCloudDataCenter::getInstance().setTokenInvalid(true);
+                    }
+                    nRet = 1;       // request failed
+                    setLastError(std::to_string(code), "");
+                    BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud getUserProfileList fail.code=" << j["code"];
+                    return;
+                }
+
+                CXCloudDataCenter::getInstance().setTokenInvalid(true);
+                int total_count = 0;
+                for (auto& file : j["result"]["list"]) {
+                    UserProfileListItem userProfileListItem;
+                    userProfileListItem.id      = file.contains("id") ? file["id"].get<std::string>() : "";
+                    userProfileListItem.lastModifyTime = file.contains("lastModifyTime") ? file["lastModifyTime"].get<long long>() : 0;
+                    if (file["nozzleDiameter"].is_array()) {
+                        for (size_t i = 0; i < file["nozzleDiameter"].size(); ++i) {
+                            userProfileListItem.nozzleDiameter.push_back(file["nozzleDiameter"][i].get<std::string>());
+                        }
+                    }
+                    userProfileListItem.printerIntName = file.contains("printerIntName") ? file["printerIntName"].get<std::string>() : "";
+                    userProfileListItem.type           = file.contains("type") ? file["type"].get<std::string>() : "";
+                    userProfileListItem.version        = file.contains("version") ? file["version"].get<std::string>() : "";
+                    userProfileListItem.zipUrl         = file.contains("zipUrl") ? file["zipUrl"].get<std::string>() : "";
+                    vtUserProfileListItem.push_back(std::move(userProfileListItem));
+                }
+                nRet = 0;
+            } catch (const nlohmann::detail::parse_error& err) {
+                BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud getUserProfileList parse body fail.err=" << err.what();
+                nRet = -1;
+                return;
+            } catch (const nlohmann::json::exception& err) {
+                BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud getUserProfileList json body fail.err=" << err.what();
+                nRet = -1;
+                return;
+            } catch (const std::exception& err) {
+                BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud getUserProfileList fail.err=" << err.what();
+                nRet = -1;
+                return;
+            } catch (...) {
+                BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud getUserProfileList fail.unknown error";
                 nRet = -1;
                 return;
             }
-            if (j["code"] != 0) {
-                if (j["code"].get<int>() == 4) {
-                    CXCloudDataCenter::getInstance().setTokenInvalid();
-                } else {
-                    CXCloudDataCenter::getInstance().setTokenInvalid(true);
-                }
-                nRet = 1;       // 请求失败
-                setLastError(std::to_string(j["code"].get<int>()), "");
-                BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud getUserProfileList fail.code=" << j["code"];
-                return;
-            }
-            CXCloudDataCenter::getInstance().setTokenInvalid(true);
-            int total_count = 0;
-            for (auto& file : j["result"]["list"]) {
-                UserProfileListItem userProfileListItem;
-                userProfileListItem.id      = file.contains("id") ? file["id"].get<std::string>() : "";
-                userProfileListItem.lastModifyTime = file.contains("lastModifyTime") ? file["lastModifyTime"].get<long long>() : 0;
-                if (file["nozzleDiameter"].is_array()) {
-                    for (size_t i = 0; i < file["nozzleDiameter"].size(); ++i) {
-                        userProfileListItem.nozzleDiameter.push_back(file["nozzleDiameter"][i].get<std::string>());
-                    }
-                }
-                userProfileListItem.printerIntName = file.contains("printerIntName") ? file["printerIntName"].get<std::string>() : "";
-                userProfileListItem.type           = file.contains("type") ? file["type"].get<std::string>() : "";
-                userProfileListItem.version        = file.contains("version") ? file["version"].get<std::string>() : "";
-                userProfileListItem.zipUrl         = file.contains("zipUrl") ? file["zipUrl"].get<std::string>() : "";
-                vtUserProfileListItem.push_back(std::move(userProfileListItem));
-            }
-            nRet = 0;
         })
         .on_error([&](std::string body, std::string error, unsigned status) {
             BOOST_LOG_TRIVIAL(error) << "CommunicateWithCXCloud getUserProfileList fail.err=" << error << ",status=" << status;

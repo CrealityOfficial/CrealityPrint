@@ -85,8 +85,11 @@ wxBitmap create_scaled_bitmap(const std::string& bmp_name, wxWindow *win = nullp
 #endif
 
 wxBitmap* get_default_extruder_color_icon(bool thin_icon = false);
+wxBitmap* get_default_extruder_color_icon(wxWindow* parent, bool thin_icon = false);
 std::vector<wxBitmap *> get_extruder_color_icons(bool thin_icon = false);
+std::vector<wxBitmap *> get_extruder_color_icons(wxWindow* parent, bool thin_icon = false);
 wxBitmap * get_extruder_color_icon(std::string color, std::string label, int icon_width, int icon_height);
+void clear_extruder_color_icon_cache();
 namespace Slic3r {
 namespace GUI {
 class BitmapComboBox;

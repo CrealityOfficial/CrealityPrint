@@ -11,7 +11,6 @@
 #include "OpenGLManager.hpp"
 #include "GLCanvas3D.hpp"
 #include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/Utils.hpp"
 #include "Plater.hpp"
 #include "MainFrame.hpp"
 #include "format.hpp"
@@ -739,34 +738,13 @@ void Preview::load_print_as_fff(bool keep_z_range, bool only_gcode)
             //BBS: add more log
             BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(": will load gcode_preview from result, moves count %1%") % m_gcode_result->moves.size();
             
+			PartPlate* current_plate = wxGetApp().plater()->get_partplate_list().get_curr_plate();
+            bool current_has_print_instances = current_plate->has_printable_instances();
+            bool only_gcode_3mf = current_plate->is_slice_result_valid() && wxGetApp().model().objects.empty() && !current_has_print_instances;
+
             // import gcode file, preview using normal mode (no lite mode)
-            bool is_lite_mode = wxGetApp().app_config->get_bool("gcode_preview_lite_mode") && (!only_gcode);
+            bool is_lite_mode = wxGetApp().app_config->get_bool("gcode_preview_lite_mode") && (!only_gcode) && (!only_gcode_3mf);
 
-            // Auto enable lite mode on Linux if memory is tight or preview is huge
-            // This does NOT affect Windows and does not persist the setting.
-#if defined(__linux__)
-            {
-                size_t avail_bytes = Slic3r::available_physical_memory();
-                size_t total_bytes = Slic3r::total_physical_memory();
-                const size_t moves_count = m_gcode_result ? m_gcode_result->moves.size() : 0;
-
-                // Heuristics:
-                // - Consider memory tight if available < 2 GB or available < 12.5% of total.
-                // - Consider preview huge if moves exceed 2 million.
-                const size_t avail_threshold_bytes = size_t(2) * size_t(1024) * size_t(1024) * size_t(1024); // 2 GB
-                const bool low_available = (avail_bytes > 0 && avail_bytes < avail_threshold_bytes);
-                const bool low_ratio     = (total_bytes > 0 && avail_bytes > 0 && (double)avail_bytes / (double)total_bytes < 0.125);
-                const bool huge_preview  = (moves_count > 2000000);
-
-                if (!only_gcode && (low_available || low_ratio || huge_preview)) {
-                    is_lite_mode = true;
-                    // Also enable shell-only surface rendering to further reduce load.
-                    if (m_gcode_result) {
-                        m_gcode_result->all_surface_with_shell = true;
-                    }
-                }
-            }
-#endif
             std::vector<std::pair<EMoveType, size_t>> changed_tmp;
             GCodeProcessorResult* tmp_result = nullptr;
             if (is_lite_mode) {

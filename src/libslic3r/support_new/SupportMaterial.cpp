@@ -1,6 +1,7 @@
 #include "clipper/clipper_z.hpp"
 #include "ClipperUtils.hpp"
 #include "ExtrusionEntityCollection.hpp"
+#include "I18N.hpp"
 #include "Layer.hpp"
 #include "Print.hpp"
 #include "SupportMaterial.hpp"
@@ -9,14 +10,11 @@
 #include "Point.hpp"
 #include "MutablePolygon.hpp"
 
-#include <boost/filesystem.hpp>
-#include <cstdlib>
+#include <atomic>
+#include <chrono>
 #include <cmath>
-#include <fstream>
-#include <iomanip>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <boost/log/trivial.hpp>
 #include <boost/container/static_vector.hpp>
 #include <tbb/parallel_for.h>
@@ -76,45 +74,6 @@ namespace Slic3r {
 
 static constexpr bool support_with_sheath = false;
 
-static std::string support_trim_debug_dir()
-{
-    static const std::string dir = []() {
-        const char *env = std::getenv("C3D_SUPPORT_TRIM_DEBUG");
-        if (env == nullptr || *env == '\0')
-            return std::string();
-        std::string out = env;
-        try {
-            boost::filesystem::create_directories(out);
-        } catch (...) {
-            return std::string();
-        }
-        return out;
-    }();
-    return dir;
-}
-
-static bool support_trim_debug_should_write(double print_z)
-{
-    return ! support_trim_debug_dir().empty();
-}
-
-static void support_trim_debug_write_probe(const char *stage, size_t nonempty_layer_count)
-{
-    const std::string dir = support_trim_debug_dir();
-    if (dir.empty())
-        return;
-
-    std::ofstream os(dir + "/trim_probe.txt", std::ios::out | std::ios::app);
-    if (! os)
-        return;
-
-    const char *env_dir = std::getenv("C3D_SUPPORT_TRIM_DEBUG");
-    os << stage
-       << " nonempty_layers=" << nonempty_layer_count
-       << " dir_env=" << (env_dir ? env_dir : "")
-       << "\n";
-}
-
 static const char* support_trim_layer_type_name(SupporLayerType type)
 {
     switch (type) {
@@ -128,91 +87,6 @@ static const char* support_trim_layer_type_name(SupporLayerType type)
     case SupporLayerType::sltIntermediate:    return "intermediate";
     default:                                  return "unknown";
     }
-}
-
-static void support_trim_debug_write_polygons(std::ostream &os, const char *name, const Polygons &polygons, bool &first_item)
-{
-    if (! first_item)
-        os << ',';
-    first_item = false;
-    os << "\n    \"" << name << "\":[";
-    for (size_t i = 0; i < polygons.size(); ++ i) {
-        if (i > 0)
-            os << ',';
-        os << '[';
-        const Points &points = polygons[i].points;
-        for (size_t j = 0; j < points.size(); ++ j) {
-            if (j > 0)
-                os << ',';
-            os << '[' << unscale<double>(points[j].x()) << ',' << unscale<double>(points[j].y()) << ']';
-        }
-        os << ']';
-    }
-    os << ']';
-}
-
-static void support_trim_debug_write(
-    const SupportGeneratorLayer &support_layer,
-    size_t                       layer_idx,
-    const Polygons              &support_before,
-    const Polygons              &object_slices,
-    const Polygons              &trim_overlap_gap_xy,
-    const Polygons              &trim_overlap_landing_gap,
-    const Polygons              &trim_no_overlap_gap,
-    const Polygons              &trim_sharptail,
-    const Polygons              &trim_xy_overhang,
-    const Polygons              &trim_bottom_bridge,
-    const Polygons              &landing_surface_debug,
-    const Polygons              &landing_probe_debug,
-    const Polygons              &landing_hit_debug,
-    const Polygons              &trim_all,
-    const Polygons              &support_after,
-    coordf_t                     gap_xy,
-    coordf_t                     landing_gap_xy,
-    bool                         use_xy_distance_overhang,
-    coordf_t                     xy_distance_overhang)
-{
-    if (! support_trim_debug_should_write(support_layer.print_z))
-        return;
-
-    std::ostringstream path;
-    path << support_trim_debug_dir() << "/trim_"
-         << support_trim_layer_type_name(support_layer.layer_type) << '_'
-         << layer_idx << "_z_" << std::llround(support_layer.print_z * 1000.) << ".json";
-
-    std::ofstream os(path.str(), std::ios::out | std::ios::trunc);
-    if (! os)
-        return;
-
-    os << std::setprecision(6);
-    os << "{\n"
-       << "  \"version\":1,\n"
-       << "  \"layer_idx\":" << layer_idx << ",\n"
-       << "  \"layer_type\":\"" << support_trim_layer_type_name(support_layer.layer_type) << "\",\n"
-       << "  \"z\":" << support_layer.print_z << ",\n"
-       << "  \"bottom_z\":" << support_layer.bottom_z << ",\n"
-       << "  \"height\":" << support_layer.height << ",\n"
-       << "  \"gap_xy\":" << gap_xy << ",\n"
-       << "  \"landing_gap_xy\":" << landing_gap_xy << ",\n"
-       << "  \"use_xy_distance_overhang\":" << (use_xy_distance_overhang ? "true" : "false") << ",\n"
-       << "  \"xy_distance_overhang\":" << xy_distance_overhang << ",\n"
-       << "  \"items\":{";
-
-    bool first_item = true;
-    support_trim_debug_write_polygons(os, "support_before",     support_before,      first_item);
-    support_trim_debug_write_polygons(os, "object_slices",      object_slices,       first_item);
-    support_trim_debug_write_polygons(os, "trim_overlap_gap_xy", trim_overlap_gap_xy, first_item);
-    support_trim_debug_write_polygons(os, "trim_overlap_landing_gap", trim_overlap_landing_gap, first_item);
-    support_trim_debug_write_polygons(os, "trim_no_overlap_gap", trim_no_overlap_gap, first_item);
-    support_trim_debug_write_polygons(os, "trim_sharptail",     trim_sharptail,      first_item);
-    support_trim_debug_write_polygons(os, "trim_xy_overhang",   trim_xy_overhang,    first_item);
-    support_trim_debug_write_polygons(os, "trim_bottom_bridge", trim_bottom_bridge,  first_item);
-    support_trim_debug_write_polygons(os, "landing_surface",    landing_surface_debug, first_item);
-    support_trim_debug_write_polygons(os, "landing_probe",      landing_probe_debug, first_item);
-    support_trim_debug_write_polygons(os, "landing_hit",        landing_hit_debug,   first_item);
-    support_trim_debug_write_polygons(os, "trim_all",           trim_all,            first_item);
-    support_trim_debug_write_polygons(os, "support_after",      support_after,       first_item);
-    os << "\n  }\n}\n";
 }
 
 #ifdef SLIC3R_DEBUG
@@ -512,6 +386,66 @@ inline void layers_append(SupportGeneratorLayersPtr &dst, const SupportGenerator
     dst.insert(dst.end(), src.begin(), src.end());
 }
 
+static Polygons object_local_bed_clip(const PrintObject& object)
+{
+    if (!object.belt())
+        return {};
+
+    const auto& printable_area = object.print()->config().printable_area.values;
+    if (printable_area.empty() || object.instances().empty())
+        return {};
+
+    const BoundingBoxf bed_bbox(printable_area);
+    Polygon bed_rect;
+    bed_rect.points.emplace_back(Point(scale_(bed_bbox.min.x()), scale_(bed_bbox.min.y())));
+    bed_rect.points.emplace_back(Point(scale_(bed_bbox.max.x()), scale_(bed_bbox.min.y())));
+    bed_rect.points.emplace_back(Point(scale_(bed_bbox.max.x()), scale_(bed_bbox.max.y())));
+    bed_rect.points.emplace_back(Point(scale_(bed_bbox.min.x()), scale_(bed_bbox.max.y())));
+
+    Polygons clip;
+    for (const PrintInstance& instance : object.instances()) {
+        Polygon local_bed = bed_rect;
+        local_bed.translate(Point(-instance.shift.x(), -instance.shift.y()));
+
+        if (clip.empty())
+            clip.emplace_back(std::move(local_bed));
+        else {
+            clip = intersection(clip, Polygons{std::move(local_bed)});
+            if (clip.empty())
+                break;
+        }
+    }
+    return clip;
+}
+
+static void clip_polygons_to_bed(Polygons& polygons, const Polygons& bed_clip)
+{
+    if (!polygons.empty())
+        polygons = intersection(polygons, bed_clip);
+}
+
+static void clip_polygons_to_bed(std::unique_ptr<Polygons>& polygons, const Polygons& bed_clip)
+{
+    if (polygons)
+        clip_polygons_to_bed(*polygons, bed_clip);
+}
+
+static void clip_support_layers_to_bed(const SupportGeneratorLayersPtr& layers, const Polygons& bed_clip)
+{
+    if (bed_clip.empty())
+        return;
+
+    for (SupportGeneratorLayer* layer : layers) {
+        if (layer == nullptr)
+            continue;
+
+        clip_polygons_to_bed(layer->polygons, bed_clip);
+        clip_polygons_to_bed(layer->contact_polygons, bed_clip);
+        clip_polygons_to_bed(layer->overhang_polygons, bed_clip);
+        clip_polygons_to_bed(layer->enforcer_polygons, bed_clip);
+    }
+}
+
 // Support layer that is covered by some form of dense interface.
 static constexpr const std::initializer_list<SupporLayerType> support_types_interface { 
     SupporLayerType::sltRaftInterface, SupporLayerType::sltBottomContact, SupporLayerType::sltBottomInterface, SupporLayerType::sltTopContact, SupporLayerType::sltTopInterface
@@ -528,6 +462,7 @@ void PrintObjectSupportMaterial::generate(PrintObject &object)
     // Layer instances will be allocated by std::deque and they will be kept until the end of this function call.
     // The layers will be referenced by various LayersPtr (of type std::vector<Layer*>)
     SupportGeneratorLayerStorage layer_storage;
+    const Polygons bed_clip = object_local_bed_clip(object);
 
     BOOST_LOG_TRIVIAL(info) << "Support generator - Creating top contacts";
 
@@ -548,6 +483,8 @@ void PrintObjectSupportMaterial::generate(PrintObject &object)
 
     if (object.print()->canceled())
         return;
+
+    clip_support_layers_to_bed(top_contacts, bed_clip);
 
 #ifdef SLIC3R_DEBUG
     static int iRun = 0;
@@ -672,6 +609,15 @@ void PrintObjectSupportMaterial::generate(PrintObject &object)
 //    top_contacts.clear();
 //    intermediate_layers.clear();
 //    interface_layers.clear();
+
+    if (!bed_clip.empty()) {
+        clip_support_layers_to_bed(raft_layers, bed_clip);
+        clip_support_layers_to_bed(bottom_contacts, bed_clip);
+        clip_support_layers_to_bed(top_contacts, bed_clip);
+        clip_support_layers_to_bed(intermediate_layers, bed_clip);
+        clip_support_layers_to_bed(interface_layers, bed_clip);
+        clip_support_layers_to_bed(base_interface_layers, bed_clip);
+    }
 
 #ifdef SLIC3R_DEBUG
     SupportGeneratorLayersPtr layers_sorted =
@@ -1480,13 +1426,15 @@ std::vector<Polygons> PrintObjectSupportMaterial::buildplate_covered(const Print
 struct SupportAnnotations
 {
     SupportAnnotations(const PrintObject &object, const std::vector<Polygons> &buildplate_covered) :
-        enforcers_layers(object.slice_support_enforcers()),
-        blockers_layers(object.slice_support_blockers()),
+        enforcers_layers(object.config().enable_support.value ? object.slice_support_enforcers() : std::vector<Polygons>{}),
+        blockers_layers(object.config().enable_support.value ? object.slice_support_blockers() : std::vector<Polygons>{}),
         buildplate_covered(buildplate_covered)
     {
         // Append custom supports.
-        object.project_and_append_custom_facets(false, EnforcerBlockerType::ENFORCER, enforcers_layers);
-        object.project_and_append_custom_facets(false, EnforcerBlockerType::BLOCKER, blockers_layers);
+        if (object.config().enable_support.value) {
+            object.project_and_append_custom_facets(false, EnforcerBlockerType::ENFORCER, enforcers_layers);
+            object.project_and_append_custom_facets(false, EnforcerBlockerType::BLOCKER, blockers_layers);
+        }
     }
 
     std::vector<Polygons>         enforcers_layers;
@@ -2274,12 +2222,52 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::top_contact_layers(const P
     // Note that layer_id < layer->id when raft_layers > 0 as the layer->id incorporates the raft layers.
     // So layer_id == 0 means first object layer and layer->id == 0 means first print layer if there are no explicit raft layers.
     size_t num_layers = this->has_support() ? object.layer_count() : 1;
+    const size_t layer_id_start = this->has_raft() ? 0 : 1;
+    const size_t total_contact_layers = num_layers - layer_id_start;
+    const std::string detecting_overhangs_text = _u8L("Detecting support overhangs");
+    const std::string processing_overhangs_text = _u8L("Processing support overhangs");
+    const std::string generating_contacts_text = _u8L("Generating support contact layers");
+    const std::string processing_sharp_tails_text = processing_overhangs_text + " (1/4)";
+    const std::string grouping_overhangs_text = processing_overhangs_text + " (2/4)";
+    const std::string classifying_overhangs_text = processing_overhangs_text + " (3/4)";
+    const std::string filtering_overhangs_text = processing_overhangs_text + " (4/4)";
+    constexpr int64_t progress_report_interval_ms = 5000;
+    const auto now_ms = []() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    };
+    std::atomic<int64_t> next_progress_report_ms { now_ms() + progress_report_interval_ms };
+    const auto report_progress = [&object, progress_report_interval_ms, &next_progress_report_ms,
+                                  &now_ms](const std::string& phase, size_t completed, size_t total, bool force) {
+        const int64_t current_ms = now_ms();
+        if (force) {
+            next_progress_report_ms.store(current_ms + progress_report_interval_ms, std::memory_order_relaxed);
+        } else {
+            int64_t next_ms = next_progress_report_ms.load(std::memory_order_relaxed);
+            if (current_ms < next_ms ||
+                !next_progress_report_ms.compare_exchange_strong(
+                    next_ms, current_ms + progress_report_interval_ms, std::memory_order_relaxed))
+                return;
+        }
+
+        const size_t percent_hundredths =
+            total == 0 || completed >= total ? 10000 : completed * 10000 / total;
+        const size_t decimal = percent_hundredths % 100;
+        const std::string percent = std::to_string(percent_hundredths / 100) + "." +
+                                    (decimal < 10 ? "0" : "") + std::to_string(decimal) + "%";
+        const std::string message = !phase.empty() && phase.back() == ')' ?
+                                        phase.substr(0, phase.size() - 1) + ", " + percent + ")" :
+                                        phase + ": " + percent;
+        object.print()->set_status(71, message);
+        BOOST_LOG_TRIVIAL(info) << message;
+    };
     // For each overhang layer, two supporting layers may be generated: One for the overhangs extruded with a bridging flow, 
     // and the other for the overhangs extruded with a normal flow.
     contact_out.assign(num_layers * 2, nullptr);
 
     std::vector<ExPolygons> overhangs_per_layers(num_layers);
-    size_t layer_id_start = this->has_raft() ? 0 : 1;
+    std::atomic<size_t> detected_overhang_layers { 0 };
+    report_progress(detecting_overhangs_text, 0, total_contact_layers, true);
      // main part of overhang detection can be parallel
     tbb::parallel_for(tbb::blocked_range<size_t>(layer_id_start, num_layers),
         [&](const tbb::blocked_range<size_t>& range) {
@@ -2293,11 +2281,15 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::top_contact_layers(const P
 #endif // SLIC3R_DEBUG
                 );
 
+                const size_t completed = detected_overhang_layers.fetch_add(1, std::memory_order_relaxed) + 1;
+                report_progress(detecting_overhangs_text, completed, total_contact_layers, false);
+
                 if (object.print()->canceled())
                     break;
             }
         }
     ); // end tbb::parallel_for
+    report_progress(detecting_overhangs_text, detected_overhang_layers.load(std::memory_order_relaxed), total_contact_layers, true);
 
     if (object.print()->canceled())
         return SupportGeneratorLayersPtr();
@@ -2306,7 +2298,16 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::top_contact_layers(const P
     bool detect_first_sharp_tail_only = false;
     const coordf_t extrusion_width = m_object_config->line_width.value;
     const coordf_t extrusion_width_scaled = scale_(extrusion_width);
-    if (is_auto(m_object_config->support_type.value) && g_config_support_sharp_tails && !detect_first_sharp_tail_only) {
+    const bool detect_sharp_tails =
+        is_auto(m_object_config->support_type.value) && g_config_support_sharp_tails && !detect_first_sharp_tail_only;
+    size_t total_sharp_tail_regions = 0;
+    if (detect_sharp_tails) {
+        for (size_t layer_nr = layer_id_start; layer_nr < num_layers; ++layer_nr)
+            total_sharp_tail_regions += object.get_layer(layer_nr)->lslices.size();
+    }
+    size_t processed_sharp_tail_regions = 0;
+    report_progress(processing_sharp_tails_text, 0, total_sharp_tail_regions, true);
+    if (detect_sharp_tails) {
         for (size_t layer_nr = layer_id_start; layer_nr < num_layers; layer_nr++) {
             if (object.print()->canceled())
                 break;
@@ -2380,9 +2381,12 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::top_contact_layers(const P
                     append(overhangs_per_layers[layer_nr], overhang);
                 }
 
+                ++processed_sharp_tail_regions;
+                report_progress(processing_sharp_tails_text, processed_sharp_tail_regions, total_sharp_tail_regions, false);
             }
         }
     }
+    report_progress(processing_sharp_tails_text, processed_sharp_tail_regions, total_sharp_tail_regions, true);
 
     if (object.print()->canceled())
         return SupportGeneratorLayersPtr();
@@ -2397,20 +2401,35 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::top_contact_layers(const P
         double fw_scaled = scale_(m_object_config->line_width);
         std::set<ExPolygon*> removed_overhang;
 
+        size_t total_overhang_regions = 0;
+        for (size_t layer_id = layer_id_start; layer_id < num_layers; ++layer_id)
+            total_overhang_regions += overhangs_per_layers[layer_id].size();
+        size_t grouped_overhang_regions = 0;
+        report_progress(grouping_overhangs_text, 0, total_overhang_regions, true);
         for (size_t layer_id = layer_id_start; layer_id < num_layers; layer_id++) {
             const Layer* layer = object.get_layer(layer_id);
             for (auto& overhang : overhangs_per_layers[layer_id]) {
                 OverhangCluster* cluster = add_overhang(clusters, &overhang, layer_id, fw_scaled);
                 if (overlaps({ overhang }, layer->cantilevers))
                     cluster->is_cantilever = true;
+                ++grouped_overhang_regions;
+                report_progress(grouping_overhangs_text, grouped_overhang_regions, total_overhang_regions, false);
             }
         }
+        report_progress(grouping_overhangs_text, grouped_overhang_regions, total_overhang_regions, true);
 
+        size_t total_cluster_layers = 0;
+        for (const OverhangCluster& cluster : clusters)
+            total_cluster_layers += cluster.max_layer - cluster.min_layer + 1;
+        size_t classified_cluster_layers = 0;
+        report_progress(classifying_overhangs_text, 0, total_cluster_layers, true);
         for (OverhangCluster& cluster : clusters) {
             // 3. check whether the small overhang is sharp tail
             cluster.is_sharp_tail = false;
             for (size_t layer_id = cluster.min_layer; layer_id <= cluster.max_layer; layer_id++) {
                 const Layer* layer = object.get_layer(layer_id);
+                ++classified_cluster_layers;
+                report_progress(classifying_overhangs_text, classified_cluster_layers, total_cluster_layers, false);
                 if (overlaps(layer->sharp_tails, cluster.merged_overhangs_dilated)) {
                     cluster.is_sharp_tail = true;
                     break;
@@ -2453,19 +2472,24 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::top_contact_layers(const P
                 }
             }
         }
+        report_progress(classifying_overhangs_text, classified_cluster_layers, total_cluster_layers, true);
 
+        size_t filtered_overhang_layers = 0;
+        report_progress(filtering_overhangs_text, 0, total_contact_layers, true);
         for (size_t layer_id = layer_id_start; layer_id < num_layers; layer_id++) {
             auto& layer_overhangs = overhangs_per_layers[layer_id];
-            if (layer_overhangs.empty())
-                continue;
-
-            for (int poly_idx = 0; poly_idx < layer_overhangs.size(); poly_idx++) {
-                auto* overhang = &layer_overhangs[poly_idx];
-                if (removed_overhang.find(overhang) != removed_overhang.end()) {
-                    overhang->clear();
+            if (!layer_overhangs.empty()) {
+                for (int poly_idx = 0; poly_idx < layer_overhangs.size(); poly_idx++) {
+                    auto* overhang = &layer_overhangs[poly_idx];
+                    if (removed_overhang.find(overhang) != removed_overhang.end()) {
+                        overhang->clear();
+                    }
                 }
             }
+            ++filtered_overhang_layers;
+            report_progress(filtering_overhangs_text, filtered_overhang_layers, total_contact_layers, false);
         }
+        report_progress(filtering_overhangs_text, filtered_overhang_layers, total_contact_layers, true);
     }
 
     if (object.print()->canceled())
@@ -2473,6 +2497,8 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::top_contact_layers(const P
 
     // Allocate empty surface areas, one per object layer.
     layer_support_areas.assign(object.total_layer_count(), Polygons());
+    size_t completed_contact_layers = 0;
+    report_progress(generating_contacts_text, completed_contact_layers, total_contact_layers, true);
     for (size_t layer_id = layer_id_start; layer_id < num_layers; layer_id++) {
         const Layer& layer = *object.layers()[layer_id];
         Polygons            overhang_polygons = to_polygons(overhangs_per_layers[layer_id]);
@@ -2536,7 +2562,10 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::top_contact_layers(const P
                 }
             }
         }
+        ++completed_contact_layers;
+        report_progress(generating_contacts_text, completed_contact_layers, total_contact_layers, false);
     }
+    report_progress(generating_contacts_text, completed_contact_layers, total_contact_layers, true);
 
     // Compress contact_out, remove the nullptr items.
     remove_nulls(contact_out);
@@ -3320,8 +3349,6 @@ void PrintObjectSupportMaterial::trim_support_layers_by_object(
     const coordf_t       xy_distance_overhang) const
 {
     const float gap_xy_scaled = float(scale_(gap_xy));
-    const coordf_t landing_gap_xy = 0.;
-    const float landing_gap_xy_scaled = 0.f;
 
     // Collect non-empty layers to be processed in parallel.
     // This is a good idea as pulling a thread from a thread pool for an empty task is expensive.
@@ -3333,10 +3360,8 @@ void PrintObjectSupportMaterial::trim_support_layers_by_object(
             // Non-empty support layer and not a raft layer.
             nonempty_layers.push_back(support_layer);
     }
-    support_trim_debug_write_probe("trim_support_layers_by_object", nonempty_layers.size());
-
         auto xy_distance_overhang_z = [&](const int layer_idx, const Layer& cur_object_layer, const Layer& below_object_layer,
-                                      Polygons& overhang_areas) -> Polygons {
+                                      Polygons& overhang_areas) -> Polygons& {
         // we also want to use the min XY distance when the support is resting on a sloped surface so we calculate the area of the
         // layer below that protrudes beyond the current layer's area and combine it with the current layer's overhang disallowed area
 
@@ -3411,7 +3436,7 @@ void PrintObjectSupportMaterial::trim_support_layers_by_object(
     BOOST_LOG_TRIVIAL(debug) << "PrintObjectSupportMaterial::trim_support_layers_by_object() in parallel - start";
     tbb::parallel_for(
         tbb::blocked_range<size_t>(0, nonempty_layers.size()),
-        [this, &object, &nonempty_layers, gap_extra_above, gap_extra_below, gap_xy, gap_xy_scaled, landing_gap_xy, landing_gap_xy_scaled, use_xy_distance_overhang, xy_distance_overhang, xy_distance_overhang_z](const tbb::blocked_range<size_t>& range) {
+        [this, &object, &nonempty_layers, gap_extra_above, gap_extra_below, gap_xy_scaled, use_xy_distance_overhang, xy_distance_overhang_z](const tbb::blocked_range<size_t>& range) {
             size_t idx_object_layer_overlapping = size_t(-1);
 
             auto is_layers_overlap = [](const SupportGeneratorLayer& support_layer, const Layer& object_layer, coordf_t bridging_height = 0.f) -> bool {
@@ -3427,26 +3452,6 @@ void PrintObjectSupportMaterial::trim_support_layers_by_object(
 
                 return false;
             };
-            auto is_landing_overlap = [&object](const SupportGeneratorLayer& support_layer, size_t object_layer_idx) -> bool {
-                if (support_layer.layer_type == SupporLayerType::sltTopContact ||
-                    support_layer.layer_type == SupporLayerType::sltTopInterface)
-                    return false;
-
-                if (support_layer.idx_object_layer_below != size_t(-1) &&
-                    (object_layer_idx == support_layer.idx_object_layer_below ||
-                     object_layer_idx == support_layer.idx_object_layer_below + 1))
-                    return true;
-
-                const coordf_t z_tolerance = std::max(EPSILON, 0.35 * support_layer.height);
-                if (object_layer_idx > 0) {
-                    const Layer &below_object_layer = *object.layers()[object_layer_idx - 1];
-                    if (std::abs(support_layer.bottom_z - below_object_layer.print_z) <= z_tolerance)
-                        return true;
-                }
-
-                const Layer &object_layer = *object.layers()[object_layer_idx];
-                return std::abs(support_layer.bottom_z - object_layer.print_z) <= z_tolerance;
-            };
             for (size_t idx_layer = range.begin(); idx_layer < range.end(); ++ idx_layer) {
                 SupportGeneratorLayer &support_layer = *nonempty_layers[idx_layer];
                 // BOOST_LOG_TRIVIAL(trace) << "Support generator - trim_support_layers_by_object - trimmming non-empty layer " << idx_layer << " of " << nonempty_layers.size();
@@ -3457,21 +3462,7 @@ void PrintObjectSupportMaterial::trim_support_layers_by_object(
                     object.layers().begin(), object.layers().end(), idx_object_layer_overlapping,
                     [z_threshold](const Layer *layer){ return layer->print_z >= z_threshold; });
                 // Collect all the object layers intersecting with this layer.
-                const bool trim_debug = support_trim_debug_should_write(support_layer.print_z);
-                Polygons support_before = trim_debug ? support_layer.polygons : Polygons();
-                Polygons object_slices;
-                Polygons trim_overlap_gap_xy;
-                Polygons trim_overlap_landing_gap;
-                Polygons trim_no_overlap_gap;
-                Polygons trim_sharptail;
-                Polygons trim_xy_overhang;
-                Polygons trim_bottom_bridge;
-                Polygons landing_surface_debug;
-                Polygons landing_probe_debug;
-                Polygons landing_hit_debug;
                 Polygons polygons_trimming;
-                Polygons polygons_trimming_deferred;
-                bool landing_active = false;
                 size_t i = idx_object_layer_overlapping;
                 for (; i < object.layers().size(); ++ i) {
                     const Layer &object_layer = *object.layers()[i];
@@ -3479,77 +3470,18 @@ void PrintObjectSupportMaterial::trim_support_layers_by_object(
                         break;
 
                     bool is_overlap = is_layers_overlap(support_layer, object_layer);
-                    bool is_landing = landing_active || (is_overlap && is_landing_overlap(support_layer, i));
-                    bool object_slices_collected = false;
-                    if (! landing_active && is_landing && i > 0) {
-                        Polygons cur_outlines;
-                        cur_outlines.reserve(object_layer.lslices.size());
-                        for (const ExPolygon &layer_expoly : object_layer.lslices) {
-                            cur_outlines.push_back(layer_expoly.contour);
-                            if (trim_debug)
-                                object_slices.push_back(layer_expoly.contour);
-                        }
-                        object_slices_collected = true;
-
-                        const Layer &below_object_layer = *object.layers()[i - 1];
-                        Polygons below_outlines;
-                        below_outlines.reserve(below_object_layer.lslices.size());
-                        for (const ExPolygon &below_expoly : below_object_layer.lslices)
-                            below_outlines.push_back(below_expoly.contour);
-
-                        Polygons landing_surface = diff(below_outlines, offset(cur_outlines, float(SCALED_EPSILON), SUPPORT_SURFACES_OFFSET_PARAMETERS));
-                        if (! landing_surface.empty()) {
-                            Polygons support_landing_probe = offset(support_layer.polygons, gap_xy_scaled, SUPPORT_SURFACES_OFFSET_PARAMETERS);
-                            Polygons support_on_landing = intersection(support_landing_probe, landing_surface);
-                            if (trim_debug) {
-                                polygons_append(landing_surface_debug, landing_surface);
-                                polygons_append(landing_probe_debug, support_landing_probe);
-                                polygons_append(landing_hit_debug, support_on_landing);
-                            }
-                            if (! support_on_landing.empty()) {
-                                if (trim_debug)
-                                    polygons_append(trim_overlap_landing_gap, support_on_landing);
-                                landing_active = true;
-                                polygons_append(polygons_trimming_deferred, std::move(below_outlines));
-                                continue;
-                            }
-                        }
-                    }
-                    if (! landing_active && is_landing)
-                        is_landing = false;
                     for (const ExPolygon& expoly : object_layer.lslices) {
-                        if (trim_debug && ! object_slices_collected)
-                            object_slices.push_back(expoly.contour);
                         // BBS
                         bool is_sharptail = overlaps({ expoly }, object_layer.sharp_tails);
-                        coordf_t trimming_offset = is_landing ? landing_gap_xy_scaled :
-                                                   is_sharptail ? scale_(sharp_tail_xy_gap) :
+                        coordf_t trimming_offset = is_sharptail ? scale_(sharp_tail_xy_gap) :
                                                    is_overlap ? gap_xy_scaled :
                                                    scale_(no_overlap_xy_gap);
-                        if (! is_landing && use_xy_distance_overhang && i > 1)
+                        if (use_xy_distance_overhang && i > 1)
                         {
-                            Polygons trim = xy_distance_overhang_z(i, *object.layers()[i], *object.layers()[i - 1], support_layer.polygons);
-                            if (trim_debug)
-                                polygons_append(trim_xy_overhang, trim);
-                            polygons_append(polygons_trimming, std::move(trim));
+                            polygons_append(polygons_trimming, xy_distance_overhang_z(i, *object.layers()[i], *object.layers()[i - 1], support_layer.polygons));
                         }
-                        else {
-                            Polygons trim = offset({ expoly }, trimming_offset, SUPPORT_SURFACES_OFFSET_PARAMETERS);
-                            if (trim_debug) {
-                                if (is_landing)
-                                    polygons_append(trim_overlap_landing_gap, trim);
-                                else if (is_sharptail)
-                                    polygons_append(trim_sharptail, trim);
-                                else if (is_overlap)
-                                    polygons_append(trim_overlap_gap_xy, trim);
-                                else
-                                    polygons_append(trim_no_overlap_gap, trim);
-                            }
-                            if (is_landing || ! is_overlap)
-                                polygons_append(polygons_trimming_deferred, std::move(trim));
-                            else
-                                polygons_append(polygons_trimming, std::move(trim));
-                        }
+                        else
+                            polygons_append(polygons_trimming, offset({ expoly }, trimming_offset, SUPPORT_SURFACES_OFFSET_PARAMETERS));
                     }
                 }
                 if (! m_slicing_params.soluble_interface && m_object_config->thick_bridges) {
@@ -3566,15 +3498,11 @@ void PrintObjectSupportMaterial::trim_support_layers_by_object(
                             bool is_overlap = is_layers_overlap(support_layer, object_layer, bridging_height);
                             coordf_t trimming_offset = is_overlap ? gap_xy_scaled : scale_(no_overlap_xy_gap);
                             Polygons trim = offset(region->fill_surfaces.filter_by_type(stBottomBridge), trimming_offset, SUPPORT_SURFACES_OFFSET_PARAMETERS);
-                            if (trim_debug)
-                                polygons_append(trim_bottom_bridge, trim);
                             polygons_append(polygons_trimming, std::move(trim));
                             if (region->region().config().detect_overhang_wall.value) {
                                 // Add bridging perimeters.
                                 Polygons perimeter_trim;
                                 SupportMaterialInternal::collect_bridging_perimeter_areas(region->perimeters, gap_xy_scaled, perimeter_trim);
-                                if (trim_debug)
-                                    polygons_append(trim_bottom_bridge, perimeter_trim);
                                 polygons_append(polygons_trimming, std::move(perimeter_trim));
                             }
                         }
@@ -3587,15 +3515,7 @@ void PrintObjectSupportMaterial::trim_support_layers_by_object(
                 // perimeter's width. $support contains the full shape of support
                 // material, thus including the width of its foremost extrusion.
                 // We leave a gap equal to a full extrusion width.
-                if (! landing_active)
-                    polygons_append(polygons_trimming, std::move(polygons_trimming_deferred));
                 Polygons support_after = diff(support_layer.polygons, polygons_trimming);
-                if (trim_debug)
-                    support_trim_debug_write(
-                        support_layer, idx_layer, support_before, object_slices,
-                        trim_overlap_gap_xy, trim_overlap_landing_gap, trim_no_overlap_gap, trim_sharptail, trim_xy_overhang,
-                        trim_bottom_bridge, landing_surface_debug, landing_probe_debug, landing_hit_debug, polygons_trimming, support_after,
-                        gap_xy, landing_gap_xy, use_xy_distance_overhang, xy_distance_overhang);
                 support_layer.polygons = std::move(support_after);
             }
         });

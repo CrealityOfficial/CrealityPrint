@@ -1,6 +1,6 @@
 #include "TextLines.hpp"
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelVolume.hpp"

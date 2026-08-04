@@ -2455,6 +2455,10 @@ void PrintConfigDef::init_fff_params()
     def->enum_values.push_back("PA612-CF");
     def->enum_values.push_back("PC-ABS");
     def->enum_values.push_back("ASA-CF");
+    def->enum_values.push_back("ABS-CF");
+    def->enum_values.push_back("PETG-GF");
+    def->enum_values.push_back("ABS-FR");
+    def->enum_values.push_back("PLA-GF");
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionStrings { "PLA" });
 
@@ -3681,7 +3685,7 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Filament to print internal sparse infill.");
     def->min = 0;
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionInt(1));
+    def->set_default_value(new ConfigOptionInt(0));
 
     def = this->add("sparse_infill_line_width", coFloatOrPercent);
     def->label = L("Sparse infill");
@@ -4508,7 +4512,7 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = "Filament to print walls";
     def->min = 0;
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionInt(1));
+    def->set_default_value(new ConfigOptionInt(0));
 
     def = this->add("inner_wall_line_width", coFloatOrPercent);
     def->label = L("Inner wall");
@@ -5122,7 +5126,7 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Filament to print solid infill");
     def->min = 0;
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionInt(1));
+    def->set_default_value(new ConfigOptionInt(0));
 
     def = this->add("internal_solid_infill_line_width", coFloatOrPercent);
     def->label = L("Internal solid infill");
@@ -6171,7 +6175,7 @@ void PrintConfigDef::init_fff_params()
     def        = this->add("transmittance_matrix", coFloats);
     def->label = L("Skeleton flush skin matrix");
     def->tooltip = L("Skin thickness matrix used only when flushing into objects skeleton is enabled.");
-    def->set_default_value(new ConfigOptionFloats{0.f, 4.f, 4.f, 4.f, 0.8f, 0.f, 0.8f, 0.8f, 0.8f, 0.8f, 0.f, 0.8f, 0.8f, 0.8f, 0.8f, 0.f});
+    def->set_default_value(new ConfigOptionFloats{0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f});
 
     def = this->add("flush_volumes_vector", coFloats);
     // BBS: remove _L()
@@ -7452,9 +7456,6 @@ void PrintConfigDef::init_sla_params()
 void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &value)
 {
 
-    if ((opt_key == "wall_filament" || opt_key == "sparse_infill_filament" || opt_key == "solid_infill_filament" ||
-         opt_key == "perimeter_extruder" || opt_key == "infill_extruder" || opt_key == "solid_infill_extruder") && value == "0")
-        value = "1";
 
     //BBS: handle legacy options
     if (opt_key == "enable_wipe_tower") {
@@ -7850,15 +7851,7 @@ t_config_option_keys DynamicPrintConfig::normalize_fdm_2(int num_objects, int us
                 changed_keys.push_back("enable_prime_tower");
             }
             //ept_opt->value = false;
-        } else if (!is_smooth_timelapse && used_filaments > 1) {
-            // Auto-enable prime tower when multiple physical filaments are actually used.
-            // This handles cases where the UI does not auto-enable the option, e.g. when
-            // a mixed filament (which resolves to multiple physical filaments) is selected
-            // at a layer change.
-            if (!ept_opt->value) {
-                ept_opt->value = true;
-                changed_keys.push_back("enable_prime_tower");
-            }
+
         }
 
         if (ept_opt->value) {
@@ -8733,6 +8726,12 @@ CLIMiscConfigDef::CLIMiscConfigDef()
     def->min = 0;
     def->cli_params = "level";
     def->set_default_value(new ConfigOptionInt(1));
+
+    def = this->add("logfile", coString);
+    def->label = "Log file";
+    def->tooltip = "Redirects debug logging to file.\n";
+    def->cli_params = "file";
+    def->set_default_value(new ConfigOptionString());
 
     def = this->add("enable_timelapse", coBool);
     def->label = "Enable timeplapse for print";

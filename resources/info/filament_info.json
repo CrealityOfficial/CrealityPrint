@@ -33,6 +33,10 @@
         "PE-CF",
         "PP-CF",
         "PP-GF",
-        "PHA"
+        "PHA",
+        "ABS-CF",
+        "PETG-GF",
+        "PC-CF",
+        "ABS-FR"
     ]
 }

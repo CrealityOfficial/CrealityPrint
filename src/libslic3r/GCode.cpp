@@ -1182,6 +1182,45 @@ static std::string serialize_string_values(const std::string &key, const std::ve
     return temp_config.opt_serialize(key);
 }
 
+static bool find_config_block_start_from_tail(std::istream &input, std::streamoff &offset)
+{
+    static const std::string marker = "; CONFIG_BLOCK_START";
+    static constexpr std::streamoff block_size = 64 * 1024;
+    static constexpr size_t max_tail_search_size = 1024 * 1024;
+
+    input.clear();
+    input.seekg(0, std::ios::end);
+    std::streamoff read_end = input.tellg();
+    if (read_end <= 0)
+        return false;
+    std::string tail_buffer;
+    while (read_end > 0 && tail_buffer.size() < max_tail_search_size) {
+        const std::streamoff remaining_limit =
+            static_cast<std::streamoff>(max_tail_search_size - tail_buffer.size());
+        const std::streamoff read_size =
+            std::min(block_size, std::min(read_end, remaining_limit));
+
+        read_end -= read_size;
+
+        std::string chunk(static_cast<size_t>(read_size), '\0');
+        input.clear();
+        input.seekg(read_end, std::ios::beg);
+        input.read(&chunk[0], static_cast<std::streamsize>(read_size));
+        if (input.gcount() != static_cast<std::streamsize>(read_size))
+            return false;
+
+        tail_buffer.insert(0, chunk);
+
+        const size_t pos = tail_buffer.rfind(marker);
+        if (pos != std::string::npos) {
+            offset = read_end + static_cast<std::streamoff>(pos);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static bool rewrite_config_block_tail_values(
     const std::string &path, const std::vector<std::pair<std::string, std::string>> &replacements)
 {
@@ -1189,25 +1228,16 @@ static bool rewrite_config_block_tail_values(
         return true;
 
     boost::nowide::ifstream input(path, std::ios::binary);
-    if (!input.is_open())
-        return false;
-
-    std::streamoff config_block_offset = -1;
-    std::streamoff line_start_offset   = 0;
-    std::string    line;
-    while (std::getline(input, line)) {
-        std::string trimmed = line;
-        if (!trimmed.empty() && trimmed.back() == '\r')
-            trimmed.pop_back();
-        if (trimmed == "; CONFIG_BLOCK_START")
-            config_block_offset = line_start_offset;
-
-        const std::streamoff next_offset = input.tellg();
-        line_start_offset = (next_offset >= 0) ? next_offset : line_start_offset;
+    if (!input.is_open()) {
+        BOOST_LOG_TRIVIAL(warning) << "Failed to open G-code file for default filament metadata rewrite, skip rewrite";
+        return true;
     }
 
-    if (config_block_offset < 0)
-        return false;
+    std::streamoff config_block_offset = -1;
+    if (!find_config_block_start_from_tail(input, config_block_offset)) {
+        BOOST_LOG_TRIVIAL(warning) << "CONFIG_BLOCK_START not found in tail, skip default filament metadata rewrite";
+        return true;
+    }
 
     input.clear();
     input.seekg(config_block_offset, std::ios::beg);
@@ -1216,6 +1246,7 @@ static bool rewrite_config_block_tail_values(
 
     std::istringstream tail_stream(tail_text);
     std::string rewritten_tail;
+    std::string line;
     bool inside_config_block = false;
     while (std::getline(tail_stream, line)) {
         std::string trimmed = line;
@@ -5061,7 +5092,8 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
 
             // SoftFever: write compatiple image
             const std::vector<unsigned int> printing_extruders = print.extruders();
-            int first_layer_bed_temperature = get_bed_temperature(0, true, print.config().curr_bed_type, &printing_extruders);
+            const int first_printing_extruder_id = printing_extruders.empty() ? 0 : int(printing_extruders.front());
+            int first_layer_bed_temperature = get_bed_temperature(first_printing_extruder_id, true, print.config().curr_bed_type, &printing_extruders);
             file.write_format("; first_layer_bed_temperature = %d\n",
                                 first_layer_bed_temperature);
             file.write_format(
@@ -5930,7 +5962,7 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
       if (!full_config.empty())
         file.write(full_config);
       // SoftFever: write compatiple info
-      int first_layer_bed_temperature = get_bed_temperature(0, true, print.config().curr_bed_type);
+      int first_layer_bed_temperature = get_bed_temperature(initial_extruder_id, true, print.config().curr_bed_type);
       file.write_format("; first_layer_bed_temperature = %d\n", first_layer_bed_temperature);
       file.write_format("; bed_shape = %s\n", print.full_print_config().opt_serialize("printable_area").c_str());
       file.write_format("; first_layer_temperature = %d\n", print.config().nozzle_temperature_initial_layer.get_at(0));
@@ -6824,8 +6856,13 @@ void GCode::print_machine_envelope(GCodeOutputStream &file, Print &print)
 int GCode::get_bed_temperature(const int extruder_id, const bool is_first_layer, const BedType bed_type,
     const std::vector<unsigned int>* extruder_ids) const
 {
+    
     std::string bed_temp_key = is_first_layer ? get_bed_temp_1st_layer_key(bed_type) : get_bed_temp_key(bed_type);
     const ConfigOptionInts* bed_temp_opt = m_config.option<ConfigOptionInts>(bed_temp_key);
+    const bool is_multi_nozzle_printer = !m_config.single_extruder_multi_material.value && m_config.nozzle_diameter.values.size() > 1;
+    if (!is_multi_nozzle_printer)
+        return bed_temp_opt->get_at(extruder_id);
+
     if (m_config.bed_temperature_mode.value == BedTemperatureMode::UseMaxTemperature) {
         int max_temp = 0;
         bool has_printing_temp = false;
@@ -6850,8 +6887,7 @@ int GCode::get_bed_temperature(const int extruder_id, const bool is_first_layer,
 
         return max_temp;
     }
-    constexpr int first_material_extruder_id = 0;
-    return bed_temp_opt->get_at(first_material_extruder_id);
+    return bed_temp_opt->get_at(extruder_id);
 }
 
 
@@ -8286,9 +8322,10 @@ LayerResult GCode::process_layer(
                                 has_insert_timelapse_gcode = true;
                             }
                         };
-                        auto extrude_all_perimeters = [&]() {
-                            // Print both perimeter groups after the wipe-bearing model features.
+                        auto extrude_perimeters_before_infill = [&]() {
                             gcode += this->extrude_perimeters(print, by_region_specific, first_layer, false);
+                        };
+                        auto extrude_perimeters_after_infill = [&]() {
                             gcode += this->extrude_perimeters(print, by_region_specific, first_layer, true);
                         };
 
@@ -8304,9 +8341,9 @@ LayerResult GCode::process_layer(
 
                         const bool saved_flush_into_skeleton_tail_wipe_enabled = m_flush_into_skeleton_tail_wipe_enabled;
                         m_flush_into_skeleton_tail_wipe_enabled = flush_into_skeleton_order;
+                        extrude_perimeters_before_infill();
                         if (flush_into_skeleton_order) {
-                            // Finish the visible features of every same-color object before spending first-flush material on skeleton.
-                            extrude_all_perimeters();
+                            // Keep clean skin before skeleton so first-flush material is spent on hidden skeleton paths.
                             gcode += this->extrude_skin(print, by_region_specific);
                             maybe_insert_timelapse_before_infill();
 
@@ -8323,12 +8360,12 @@ LayerResult GCode::process_layer(
                                 gcode += this->extrude_infill(print, by_region_specific, false);
                             }
                         } else {
-                            // No skeleton flush: print walls first, then fill.
-                            extrude_all_perimeters();
+                            // No skeleton flush: emit the normal infill stage between the two perimeter passes.
                             maybe_insert_timelapse_before_infill();
                             gcode += this->extrude_infill(print, by_region_specific, false);
                             gcode += this->extrude_skin(print, by_region_specific);
                         }
+                        extrude_perimeters_after_infill();
                         m_flush_into_skeleton_tail_wipe_enabled = saved_flush_into_skeleton_tail_wipe_enabled;
                     }
                     // ironing

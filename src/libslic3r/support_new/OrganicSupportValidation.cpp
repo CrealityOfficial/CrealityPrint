@@ -10,8 +10,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <fstream>
-#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -23,30 +21,6 @@ static double get_min_floating_area()
 {
     static const double a = Slic3r::sqr(Slic3r::scaled<double>(0.5));
     return a;
-}
-
-static double scaled_area_to_mm2(double scaled_area) { return std::abs(scaled_area) * sqr(SCALING_FACTOR); }
-
-// Debug files are intentionally relative to the process working directory so
-// developer-only traces do not depend on a local source checkout path.
-static void append_debug(const std::string& msg, bool clear_first = false)
-{
-    try {
-        std::ofstream ofs("support_debug.txt", clear_first ? std::ios::trunc : std::ios::app);
-        if (ofs.is_open())
-            ofs << msg << '\n';
-    } catch (...) {}
-}
-
-static void append_floating_debug(const std::string& msg, bool clear_first = false)
-{
-    static std::mutex           mtx;
-    std::lock_guard<std::mutex> lk(mtx);
-    try {
-        std::ofstream ofs("organic_floating_debug.txt", clear_first ? std::ios::trunc : std::ios::app);
-        if (ofs.is_open())
-            ofs << msg << '\n';
-    } catch (...) {}
 }
 
 static size_t max_stack_size(const SupportGeneratorLayersPtr& bc, const SupportGeneratorLayersPtr& tc, const SupportGeneratorLayersPtr& im)
@@ -73,84 +47,6 @@ static Polygons combined_support_polygons_at(const SupportGeneratorLayersPtr& bc
     append_layer_polygons(out, im, idx);
     append_layer_polygons(out, tc, idx);
     return out.empty() ? out : union_(out);
-}
-
-static void debug_detect_combined_stack_connectivity(const TreeModelVolumes&          volumes,
-                                                     const TreeSupportSettings&       config,
-                                                     const SupportGeneratorLayersPtr& bc,
-                                                     const SupportGeneratorLayersPtr& tc,
-                                                     const SupportGeneratorLayersPtr& im,
-                                                     const std::string&               tag)
-{
-    // This diagnostic is deliberately file-only. The candidate list can be large
-    // on dense organic supports and would make normal application logs noisy.
-    const size_t num_layers = max_stack_size(bc, tc, im);
-    if (num_layers == 0)
-        return;
-
-    const coord_t tol             = config.xy_distance > 0 ? config.xy_distance / 2 : OVERLAP_TOLERANCE;
-    const double  min_contact     = get_min_floating_area();
-    const double  min_report_area = std::max(get_min_floating_area(), sqr(scaled<double>(1.0)));
-    int           n_reported      = 0;
-    int           n_skipped       = 0;
-    int           n_no_below      = 0;
-    int           n_no_above      = 0;
-
-    append_floating_debug("");
-    append_floating_debug("=== Combined Stack Connectivity: " + tag + " ===");
-    append_floating_debug("  overlap_tol_mm: " + std::to_string(tol * SCALING_FACTOR));
-    append_floating_debug("  min_report_area_mm2: " + std::to_string(scaled_area_to_mm2(min_report_area)));
-
-    for (size_t li = 0; li < num_layers; ++li) {
-        Polygons cur = combined_support_polygons_at(bc, tc, im, li);
-        if (cur.empty())
-            continue;
-
-        Polygons       below     = li > 0 ? combined_support_polygons_at(bc, tc, im, li - 1) : Polygons{};
-        Polygons       above     = li + 1 < num_layers ? combined_support_polygons_at(bc, tc, im, li + 1) : Polygons{};
-        Polygons       below_exp = below.empty() ? Polygons{} : offset(below, tol);
-        Polygons       above_exp = above.empty() ? Polygons{} : offset(above, tol);
-        const Polygons placeable = config.support_rests_on_model ? volumes.getPlaceableAreas(0, LayerIndex(li), [] {}) : Polygons{};
-
-        int iidx = 0;
-        for (const ExPolygon& isl : union_ex(cur)) {
-            Polygons     ip       = to_polygons(isl);
-            const double isl_area = area(ip);
-            if (isl_area < min_report_area) {
-                ++n_skipped;
-                continue;
-            }
-
-            const double below_ov  = li == 0 ? isl_area : (below_exp.empty() ? 0. : area(intersection(ip, below_exp)));
-            const double model_ov  = placeable.empty() ? 0. : area(intersection(ip, placeable));
-            const double above_ov  = above_exp.empty() ? 0. : area(intersection(ip, above_exp));
-            const bool   has_below = li == 0 || below_ov >= min_contact || model_ov >= min_contact;
-            const bool   has_above = above_ov >= min_contact || li + 1 == num_layers;
-
-            if (!has_below)
-                ++n_no_below;
-            if (!has_above)
-                ++n_no_above;
-
-            if (!has_below || !has_above) {
-                ++n_reported;
-                BoundingBox bbox = get_extents(ip);
-                append_floating_debug(
-                    "  [COMBINED_FLOAT_CANDIDATE] tag=" + tag + " L" + std::to_string(li) + " island=" + std::to_string(iidx) +
-                    " area_mm2=" + std::to_string(scaled_area_to_mm2(isl_area)) + " below_ov_mm2=" +
-                    std::to_string(scaled_area_to_mm2(below_ov)) + " model_ov_mm2=" + std::to_string(scaled_area_to_mm2(model_ov)) +
-                    " above_ov_mm2=" + std::to_string(scaled_area_to_mm2(above_ov)) + " has_below=" + std::to_string(has_below) +
-                    " has_above=" + std::to_string(has_above) + " bbox_min=(" + std::to_string(bbox.min.x() * SCALING_FACTOR) + "," +
-                    std::to_string(bbox.min.y() * SCALING_FACTOR) + ")" + " bbox_max=(" + std::to_string(bbox.max.x() * SCALING_FACTOR) +
-                    "," + std::to_string(bbox.max.y() * SCALING_FACTOR) + ")");
-            }
-            ++iidx;
-        }
-    }
-
-    append_floating_debug("  summary: reported=" + std::to_string(n_reported) + " no_below=" + std::to_string(n_no_below) +
-                          " no_above=" + std::to_string(n_no_above) + " skipped_small=" + std::to_string(n_skipped));
-    append_floating_debug("=== Combined Stack Connectivity Complete: " + tag + " ===");
 }
 
 // Commits pending layer writes produced by a successful try_grow_downward call.
@@ -219,7 +115,6 @@ static GrowResult try_grow_downward(const Polygons&                             
 
         if (cur.empty()) {
             // Growth is blocked: discard all pending writes — nothing is committed.
-            append_debug("    [BLOCKED] L" + std::to_string(l) + " area zeroed by clipping");
             pending_writes.clear();
             return GrowResult::kBlocked;
         }
@@ -268,16 +163,9 @@ void validate_and_fix_floating_supports(PrintObject&                  print_obje
     // This avoids cascading decisions based on support that was just generated in
     // the same pass, while still allowing committed repair paths to ground later
     // islands through grounded_cache.
-    append_floating_debug("=== Organic Floating Debug: validation ===", false);
-    append_debug("=== Starting Validation (single-pass dual-snapshot) ===", true);
-    debug_detect_combined_stack_connectivity(volumes, config, bottom_contacts, top_contacts, intermediate_layers, "before_fix");
-
     const size_t interm_size = intermediate_layers.size();
-    if (interm_size < 2) {
-        debug_detect_combined_stack_connectivity(volumes, config, bottom_contacts, top_contacts, intermediate_layers, "after_fix");
-        append_debug("=== Validation Complete (nothing to process) ===");
+    if (interm_size < 2)
         return;
-    }
 
     const size_t  num_layers  = max_stack_size(bottom_contacts, top_contacts, intermediate_layers);
     const coord_t tol         = config.xy_distance > 0 ? config.xy_distance / 2 : OVERLAP_TOLERANCE;
@@ -286,7 +174,7 @@ void validate_and_fix_floating_supports(PrintObject&                  print_obje
     // Step 1: Build snapshots — all immutable during the entire pass.
     //
     // combined_cache[l]: union of all three stacks at layer l (used by grow-path stop
-    //                    conditions and the debug logger).
+    //                    conditions).
     //
     // grounded_cache[l]: subset of combined_cache[l] that is provably connected to the
     //                    build plate or model surface.  Computed bottom-up with island
@@ -344,8 +232,6 @@ void validate_and_fix_floating_supports(PrintObject&                  print_obje
     // Used at write-back to avoid the lossy diff(live, orig) approach.
     std::vector<Polygons> grown_additions_by_layer(interm_size);
 
-    int n_processed = 0, n_kept = 0, n_grown = 0, n_blocked = 0;
-
     // Reusable buffer for transactional pending writes.
     std::vector<std::pair<LayerIndex, Polygons>> pending;
 
@@ -369,13 +255,11 @@ void validate_and_fix_floating_supports(PrintObject&                  print_obje
         int      n_blocked_here = 0;
 
         for (const ExPolygon& isl : islands) {
-            ++n_processed;
             Polygons ip = to_polygons(isl);
 
             // Small islands: keep unconditionally — conservative behavior, no grow/discard.
             if (area(ip) < min_contact) {
                 append(kept, ip);
-                ++n_kept;
                 continue;
             }
 
@@ -392,13 +276,11 @@ void validate_and_fix_floating_supports(PrintObject&                  print_obje
 
             if (has_below) {
                 append(kept, ip);
-                ++n_kept;
                 continue;
             }
 
             // Only unsupported islands reach this point. The downward grow attempt
             // either creates a complete grounded path or discards all pending writes.
-            append_debug("  [FLOAT] L" + std::to_string(L) + " area=" + std::to_string(scaled_area_to_mm2(area(ip))) + "mm2");
 
             // Simulate downward growth — no writes to intermediate_layers yet.
             GrowResult r = try_grow_downward(ip, L - 1, volumes, config, grounded_cache, pending, throw_on_cancel);
@@ -409,12 +291,9 @@ void validate_and_fix_floating_supports(PrintObject&                  print_obje
                 commit_pending_writes(pending, print_object, config, intermediate_layers, layer_storage, grown_additions_by_layer,
                                       grounded_cache);
                 append(kept, ip);
-                ++n_grown;
             } else {
                 // kBlocked: pending is already cleared — no partial writes occur.
-                ++n_blocked;
                 ++n_blocked_here;
-                append_debug("  [DISCARD] L" + std::to_string(L) + " island blocked, removed");
             }
         }
 
@@ -429,10 +308,6 @@ void validate_and_fix_floating_supports(PrintObject&                  print_obje
         // union(orig_im[L], grow-path additions), which is the correct final state.
     }
 
-    append_debug("  Summary: processed=" + std::to_string(n_processed) + " kept=" + std::to_string(n_kept) +
-                 " grown=" + std::to_string(n_grown) + " blocked=" + std::to_string(n_blocked));
-    debug_detect_combined_stack_connectivity(volumes, config, bottom_contacts, top_contacts, intermediate_layers, "after_fix");
-    append_debug("=== Validation Complete ===");
 }
 
 }} // namespace Slic3r::TreeSupport3D

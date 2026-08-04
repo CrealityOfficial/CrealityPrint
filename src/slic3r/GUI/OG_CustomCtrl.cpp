@@ -25,6 +25,11 @@ namespace Slic3r { namespace GUI {
  // BBS: modify param ui style
     constexpr int titleWidth = 20;
     constexpr int ctrlWidth = 50;
+#ifdef __WXOSX__
+    constexpr int ctrlWidthExtra = 0;
+#else
+    constexpr int ctrlWidthExtra = 6;
+#endif
 
 #define DISABLE_BLINKING
 #define DISABLE_UNDO_SYS
@@ -76,6 +81,24 @@ OG_CustomCtrl::OG_CustomCtrl(   wxWindow*            parent,
      this->Bind(wxEVT_LEAVE_WINDOW, &OG_CustomCtrl::OnLeaveWin, this);
 }
 
+wxCoord OG_CustomCtrl::calculate_line_height(const Line& line)
+{
+    wxClientDC dc(this);
+    dc.SetFont(Label::Body_14);
+
+    const std::vector<Option>& option_set = line.get_options();
+
+    if (opt_group->split_multi_line && option_set.size() > 1) {
+        const wxSize label_size = dc.GetTextExtent(line.label);
+        return (label_size.y + m_v_gap2) * option_set.size() + m_v_gap - m_v_gap2 + FromDIP(5);
+    }
+
+    wxString multiline_text;
+    const int label_width = int(opt_group->label_width * m_em_unit);
+    const wxSize label_size = Label::split_lines(dc, label_width, line.label, multiline_text);
+    return label_size.y + m_v_gap + FromDIP(5);
+}
+
 void OG_CustomCtrl::init_ctrl_lines()
 {
     // BBS: Add null pointer check to prevent crash when opt_group is destroyed
@@ -113,16 +136,8 @@ void OG_CustomCtrl::init_ctrl_lines()
         }
         else if (opt_group->label_width != 0 && (!line.label.IsEmpty() || option_set.front().opt.gui_type == ConfigOptionDef::GUIType::legend) )
         {
-            wxSize label_sz = GetTextExtent(line.label);
-            if (opt_group->split_multi_line) {
-                if (option_set.size() > 1) // BBS
-                    height = (label_sz.y + m_v_gap2) * option_set.size() + m_v_gap - m_v_gap2;
-                else
-                    height = label_sz.y * (label_sz.GetWidth() > int(opt_group->label_width * m_em_unit) ? 2 : 1) + m_v_gap;
-            } else {
-                height = label_sz.y * (label_sz.GetWidth() > int(opt_group->label_width * m_em_unit) ? 2 : 1) + m_v_gap;
-            }
-            ctrl_lines.emplace_back(CtrlLine(height + FromDIP(5), this, line, false, opt_group->staticbox));
+            height = calculate_line_height(line);
+            ctrl_lines.emplace_back(CtrlLine(height, this, line, false, opt_group->staticbox));
         }
         else
             assert(false);
@@ -976,7 +991,7 @@ void OG_CustomCtrl::OnLeaveWin(wxMouseEvent& event)
 bool OG_CustomCtrl::update_visibility(ConfigOptionMode mode)
 {
     // BBS: new layout
-    wxCoord    h_pos = (ctrlWidth + get_title_width() - titleWidth + 6) * m_em_unit;
+    wxCoord    h_pos = (ctrlWidth + get_title_width() - titleWidth + ctrlWidthExtra) * m_em_unit;
     wxCoord    h_pos2 = get_title_width() * m_em_unit;
     wxCoord    v_pos = 0;
 
@@ -1096,7 +1111,7 @@ void OG_CustomCtrl::msw_rescale()
 
     m_max_win_width = 0;
 
-    wxCoord    h_pos  = (ctrlWidth + get_title_width() - titleWidth + 6) * m_em_unit;
+    wxCoord    h_pos  = (ctrlWidth + get_title_width() - titleWidth + ctrlWidthExtra) * m_em_unit;
     wxCoord    h_pos2 = get_title_width() * m_em_unit;
     wxCoord    v_pos = 0;
     for (CtrlLine& line : ctrl_lines) {
@@ -1187,18 +1202,8 @@ void OG_CustomCtrl::CtrlLine::msw_rescale()
     if (draw_just_act_buttons)
         height = get_bitmap_size(create_scaled_bitmap("empty")).GetHeight();
 
-    if (ctrl->opt_group->label_width != 0 && !og_line.label.IsEmpty()) {
-        wxSize label_sz = ctrl->GetTextExtent(og_line.label);
-        if (ctrl->opt_group->split_multi_line) { // BBS
-            const std::vector<Option> &option_set = og_line.get_options();
-            if (option_set.size() > 1)
-                height = (label_sz.y + ctrl->m_v_gap2) * option_set.size() + ctrl->m_v_gap - ctrl->m_v_gap2;
-            else
-                height = label_sz.y * (label_sz.GetWidth() > int(ctrl->opt_group->label_width * ctrl->m_em_unit) ? 2 : 1) + ctrl->m_v_gap;
-        } else {
-            height = label_sz.y * (label_sz.GetWidth() > int(ctrl->opt_group->label_width * ctrl->m_em_unit) ? 2 : 1) + ctrl->m_v_gap;
-        }
-    }
+    if (ctrl->opt_group->label_width != 0 && !og_line.label.IsEmpty())
+        height = ctrl->calculate_line_height(og_line);
 
     correct_items_positions();
 }
@@ -1459,12 +1464,13 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
 
 wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString &text, const wxColour *color, int width, bool is_url/* = false*/, bool is_main/* = false*/)
 {
-    
+    const wxFont old_font = dc.GetFont();
+    dc.SetFont(Label::Body_14);
+
     wxString multiline_text;
     auto size = Label::split_lines(dc, width, text, multiline_text);
 
     if (!text.IsEmpty()) {
-        dc.SetFont(Label::Body_14);
         const wxString& out_text = multiline_text.IsEmpty() ? text : multiline_text;
 
         if (ctrl->opt_group->split_multi_line && !is_main) { // BBS
@@ -1477,7 +1483,6 @@ wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString
             rect_label = wxRect(pos, wxSize(size.x, size.y));
 
         wxColour old_clr = dc.GetTextForeground();
-        wxFont old_font = dc.GetFont();
         wxColor clr_url = StateColor::darkModeColorFor("#15BF59");
         if (is_focused /*&& is_url*/) {
         // temporary workaround for the OSX because of strange Bold font behavior on BigSerf
@@ -1496,12 +1501,12 @@ wxCoord OG_CustomCtrl::CtrlLine::draw_text(wxDC &dc, wxPoint pos, const wxString
 #endif /* _WIN32 */
         dc.DrawText(out_text, pos);
         dc.SetTextForeground(old_clr);
-        dc.SetFont(old_font);
 
         if (width < 1)
             width = size.x;
     }
 
+    dc.SetFont(old_font);
     return pos.x + width + ctrl->m_h_gap;
 }
 

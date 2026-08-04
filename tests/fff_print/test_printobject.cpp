@@ -111,24 +111,24 @@ TEST_CASE("PrintObject: cloud role filament compatibility", "[PrintObject]")
         CHECK(region.solid_infill_filament.value == 3);
     }
 
-    SECTION("role filament 1 follows the model volume filament") {
+    SECTION("role filament 1 remains an explicit assignment") {
         config.set_key_value("wall_filament", new ConfigOptionInt(1));
         config.set_key_value("sparse_infill_filament", new ConfigOptionInt(1));
         config.set_key_value("solid_infill_filament", new ConfigOptionInt(1));
 
         print.apply(model, config);
         const PrintRegionConfig &region = print.objects().front()->all_regions().front().get().config();
-        CHECK(region.wall_filament.value == 3);
-        CHECK(region.sparse_infill_filament.value == 3);
-        CHECK(region.solid_infill_filament.value == 3);
+        CHECK(region.wall_filament.value == 1);
+        CHECK(region.sparse_infill_filament.value == 1);
+        CHECK(region.solid_infill_filament.value == 1);
     }
 
     SECTION("model volume filament overrides object fallback filament") {
         model.objects.front()->config.set_key_value("extruder", new ConfigOptionInt(3));
         volume->config.set_key_value("extruder", new ConfigOptionInt(1));
-        config.set_key_value("wall_filament", new ConfigOptionInt(1));
-        config.set_key_value("sparse_infill_filament", new ConfigOptionInt(1));
-        config.set_key_value("solid_infill_filament", new ConfigOptionInt(1));
+        config.set_key_value("wall_filament", new ConfigOptionInt(0));
+        config.set_key_value("sparse_infill_filament", new ConfigOptionInt(0));
+        config.set_key_value("solid_infill_filament", new ConfigOptionInt(0));
 
         print.apply(model, config);
         const PrintRegionConfig &region = print.objects().front()->all_regions().front().get().config();

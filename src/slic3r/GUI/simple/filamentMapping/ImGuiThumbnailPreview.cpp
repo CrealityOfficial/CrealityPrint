@@ -1,11 +1,11 @@
-﻿#include "ImGuiThumbnailPreview.hpp"
+#include "ImGuiThumbnailPreview.hpp"
 
 #include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <vector>
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include "../../GLShader.hpp"
 #include "../../GUI_App.hpp"
@@ -99,7 +99,7 @@ void ImGuiThumbnailPreview::reset()
     }
 
     if (m_recolor_vao != 0) {
-        if (GLEW_VERSION_3_0 || GLEW_ARB_vertex_array_object) {
+        if (GLAD_GL_VERSION_3_0) {
             GLuint vao = (GLuint)m_recolor_vao;
             glDeleteVertexArrays(1, &vao);
         }
@@ -213,7 +213,7 @@ bool ImGuiThumbnailPreview::ensure_recolor_program()
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
-    if ((GLEW_VERSION_3_0 || GLEW_ARB_vertex_array_object) && m_recolor_vao == 0) {
+    if (GLAD_GL_VERSION_3_0 && m_recolor_vao == 0) {
         GLuint vao = 0;
         glGenVertexArrays(1, &vao);
         m_recolor_vao = (unsigned)vao;
@@ -303,7 +303,7 @@ bool ImGuiThumbnailPreview::update_recolored_texture(const ThumbnailData& lit_td
     glGetIntegerv(GL_VIEWPORT, prev_viewport);
     GLint prev_prog = 0;
     glGetIntegerv(GL_CURRENT_PROGRAM, &prev_prog);
-    const bool vao_supported = (GLEW_VERSION_3_0 || GLEW_ARB_vertex_array_object);
+    const bool vao_supported = GLAD_GL_VERSION_3_0;
     GLint prev_vao = 0;
     if (vao_supported)
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao);

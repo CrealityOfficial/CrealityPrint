@@ -55,6 +55,24 @@ msgstr ""
 msgid "Generating support"
 msgstr ""
 
+msgid "Detecting support overhangs"
+msgstr ""
+
+msgid "Processing support overhangs"
+msgstr ""
+
+msgid "Precalculating tree support"
+msgstr ""
+
+msgid "Propagating tree support branches"
+msgstr ""
+
+msgid "Generating tree support areas"
+msgstr ""
+
+msgid "Generating support contact layers"
+msgstr ""
+
 msgid "Checking support necessity"
 msgstr ""
 
@@ -379,6 +397,9 @@ msgstr ""
 msgid ""
 "Filament shrinkage will not be used because filament shrinkage for the used "
 "filaments differs significantly."
+msgstr ""
+
+msgid "The print is empty. The model is not printable with current print settings."
 msgstr ""
 
 msgid "Generating skirt & brim"
@@ -9287,6 +9308,21 @@ msgstr ""
 msgid "Unsupported OpenGL version"
 msgstr ""
 
+msgid ""
+"The current display driver does not provide the required OpenGL support. "
+"The application has switched to software rendering, which may cause the "
+"interface and 3D operations to run slowly. Please update the display driver "
+"when possible."
+msgstr ""
+
+msgid ""
+"The application is using software rendering, which may cause the interface "
+"and 3D operations to run slowly."
+msgstr ""
+
+msgid "Software rendering"
+msgstr ""
+
 #, possible-c-format, possible-boost-format
 msgid ""
 "Unable to load shaders:\n"
@@ -10206,7 +10242,13 @@ msgstr ""
 msgid "Invalid values found in the 3mf:"
 msgstr ""
 
-msgid "Please correct them in the param tabs"
+msgid "Automatically changed to the default value"
+msgstr ""
+
+msgid "You can update them in the param tabs"
+msgstr ""
+
+msgid "Please update them in the param tabs"
 msgstr ""
 
 msgid "The 3mf has following modified G-codes in filament or printer presets:"

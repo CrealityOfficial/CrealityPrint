@@ -5,6 +5,8 @@
 #include <boost/asio.hpp>
 
 #include "TestHelper.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/ModelInstance.hpp"
 #include "libslic3r/Utils.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/Plater.hpp"
@@ -809,6 +811,67 @@ static int new_project(nlohmann::json arg, std::string& payload, std::string& er
     });
     return -1;
 }
+static int move_model_instance(nlohmann::json arg, std::string& payload, std::string& error)
+{
+    call_when_target_eventloop_exec("move_model_instance", arg, [](nlohmann::json arg) {
+        nlohmann::json output;
+        try {
+            auto plater = wxGetApp().plater();
+            if (plater == nullptr) {
+                output["ret"] = 1;
+                output["error"] = "plater is null";
+                Test::Visitor().call_cmd("cmd_respone", output.dump(-1, ' ', true));
+                return;
+            }
+
+            Model& model = plater->model();
+            size_t object_index = arg.value("object_index", 0);
+            size_t instance_index = arg.value("instance_index", 0);
+            if (object_index >= model.objects.size()) {
+                output["ret"] = 1;
+                output["error"] = "object_index out of range";
+                Test::Visitor().call_cmd("cmd_respone", output.dump(-1, ' ', true));
+                return;
+            }
+
+            ModelObject* object = model.objects[object_index];
+            if (object == nullptr || instance_index >= object->instances.size()) {
+                output["ret"] = 1;
+                output["error"] = "instance_index out of range";
+                Test::Visitor().call_cmd("cmd_respone", output.dump(-1, ' ', true));
+                return;
+            }
+
+            ModelInstance* instance = object->instances[instance_index];
+            Vec3d old_offset = instance->get_offset();
+            Vec3d delta(
+                arg.value("delta_x", 10.0),
+                arg.value("delta_y", 0.0),
+                arg.value("delta_z", 0.0)
+            );
+            Vec3d new_offset = old_offset + delta;
+            instance->set_offset(new_offset);
+            object->invalidate_bounding_box();
+            plater->changed_objects({object_index});
+            plater->set_current_canvas_as_dirty();
+            plater->get_current_canvas3D()->render();
+
+            output["ret"] = 0;
+            output["object_index"] = object_index;
+            output["instance_index"] = instance_index;
+            output["old_offset"] = {old_offset.x(), old_offset.y(), old_offset.z()};
+            output["new_offset"] = {new_offset.x(), new_offset.y(), new_offset.z()};
+        } catch (const std::exception& e) {
+            output["ret"] = 1;
+            output["error"] = std::string("move_model_instance exception: ") + e.what();
+        } catch (...) {
+            output["ret"] = 1;
+            output["error"] = "move_model_instance unknown error";
+        }
+        Test::Visitor().call_cmd("cmd_respone", output.dump(-1, ' ', true));
+    });
+    return -1;
+}
 static int trigger_slice(nlohmann::json arg, std::string& payload, std::string& error)
 {
     call_when_target_eventloop_exec("trigger_slice", arg, [](nlohmann::json arg) {
@@ -1173,6 +1236,7 @@ void TestHelper::register_cmd()
     m_cmd2func["app_ready"]            = app_ready;
     m_cmd2func["get_widget_geometry"]  = get_widget_geometry;
     m_cmd2func["new_project"]          = new_project;
+    m_cmd2func["move_model_instance"]  = move_model_instance;
     m_cmd2func["trigger_slice"]        = trigger_slice;
     m_cmd2func["get_slicing_progress"] = get_slicing_progress;
     m_cmd2func["select_printer"]       = select_printer;

@@ -4,6 +4,7 @@
 #include "slic3r/Utils/Http.hpp"
 #include <nlohmann/json.hpp>
 #include "GUI_Init.hpp"
+#include "LinuxDisplayBackend.hpp"
 #include "GUI_ObjectList.hpp"
 #include "GUI_Factories.hpp"
 #include "slic3r/GUI/UserManager.hpp"
@@ -13,6 +14,7 @@
 #include "libslic3r/CrealityVersion.hpp"
 #include "Downloader.hpp"
 #include <string>
+#include <cstring>
 #include <wx/colour.h>
 #include <wx/event.h>
 #include <wx/bitmap.h>
@@ -27,6 +29,7 @@
 #include "slic3r/Utils/NetworkAgent.hpp"
 #include "slic3r/GUI/HMS.hpp"
 #include "slic3r/GUI/WebViewDialog.hpp"
+#include "slic3r/GUI/Widgets/WebView.hpp"
 #include "slic3r/GUI/WebUserLoginDialog.hpp"
 #include "slic3r/GUI/LoginDialog.hpp"
 #include "slic3r/GUI/simple/MCPChatPanel.hpp"
@@ -413,6 +416,107 @@ inline bool isRunningInFlatpak() {
     const char* flatpakInfo = std::getenv("FLATPAK_ID");
     return flatpakInfo != nullptr;
 }
+
+static void ensure_flatpak_user_launcher()
+{
+    static const std::string app_id = "io.github.crealityofficial.CrealityPrint";
+    static const std::string app_name = "CrealityPrint";
+
+    const char *flatpak_id = std::getenv("FLATPAK_ID");
+    if (flatpak_id == nullptr || app_id != flatpak_id)
+        return;
+
+    const char *home = std::getenv("HOME");
+    if (home == nullptr || home[0] == '\0') {
+        BOOST_LOG_TRIVIAL(warning) << "Flatpak launcher repair skipped: HOME is empty";
+        return;
+    }
+
+    try {
+        const boost::filesystem::path data_home = boost::filesystem::path(home) / ".local" / "share";
+        const boost::filesystem::path applications_dir = data_home / "applications";
+        const boost::filesystem::path icons_dir = data_home / "icons";
+        boost::system::error_code ec;
+
+        boost::filesystem::create_directories(applications_dir, ec);
+        if (ec) {
+            BOOST_LOG_TRIVIAL(warning) << "Flatpak launcher repair failed to create applications directory: " << ec.message();
+            return;
+        }
+
+        const boost::filesystem::path desktop_path = applications_dir / (app_id + ".desktop");
+        std::ofstream desktop_file(desktop_path.string(), std::ios::out | std::ios::trunc);
+        if (!desktop_file) {
+            BOOST_LOG_TRIVIAL(warning) << "Flatpak launcher repair failed to open desktop file: " << desktop_path.string();
+            return;
+        }
+
+        desktop_file
+            << "[Desktop Entry]\n"
+            << "Name=" << app_name << "\n"
+            << "GenericName=3D Printing Software\n"
+            << "Icon=" << app_id << "\n"
+            << "Exec=/usr/bin/flatpak run --branch=master --arch=x86_64 --command=entrypoint --file-forwarding "
+            << app_id << " @@u %U @@\n"
+            << "Terminal=false\n"
+            << "Type=Application\n"
+            << "MimeType=model/stl;model/3mf;application/vnd.ms-3mfdocument;application/prs.wavefront-obj;application/x-amf;x-scheme-handler/crealityprintlink;\n"
+            << "Categories=Graphics;Utility;3DGraphics;Engineering;\n"
+            << "Keywords=3D;Printing;Slicer;slice;3D;printer;convert;gcode;stl;obj;amf;SLA\n"
+            << "StartupNotify=false\n"
+            << "StartupWMClass=" << app_name << "\n"
+            << "X-Flatpak=" << app_id << "\n";
+        desktop_file.close();
+
+        boost::filesystem::permissions(desktop_path,
+            boost::filesystem::owner_read | boost::filesystem::owner_write |
+            boost::filesystem::group_read | boost::filesystem::others_read, ec);
+        ec.clear();
+
+        const boost::filesystem::path src_icons_root("/app/share/icons");
+        if (boost::filesystem::exists(src_icons_root)) {
+            boost::filesystem::create_directories(icons_dir, ec);
+            if (ec) {
+                BOOST_LOG_TRIVIAL(warning) << "Flatpak launcher repair failed to create icons directory: " << ec.message();
+                ec.clear();
+            } else {
+                size_t copied_icons = 0;
+                for (boost::filesystem::recursive_directory_iterator it(src_icons_root), end; it != end; ++it) {
+                    if (!boost::filesystem::is_regular_file(it->path()))
+                        continue;
+
+                    const std::string filename = it->path().filename().string();
+                    if (!boost::starts_with(filename, app_id + ".") && !boost::starts_with(filename, app_name + "."))
+                        continue;
+
+                    const std::string src_root = src_icons_root.string();
+                    const std::string src_path = it->path().string();
+                    const std::string rel_path = src_path.size() > src_root.size() + 1 ? src_path.substr(src_root.size() + 1) : filename;
+                    const boost::filesystem::path dst_path = icons_dir / rel_path;
+                    boost::filesystem::create_directories(dst_path.parent_path(), ec);
+                    if (ec) {
+                        BOOST_LOG_TRIVIAL(warning) << "Flatpak launcher repair failed to create icon directory: " << ec.message();
+                        ec.clear();
+                        continue;
+                    }
+
+                    std::string error_message;
+                    if (Slic3r::copy_file(src_path, dst_path.string(), error_message, false) == Slic3r::SUCCESS)
+                        ++copied_icons;
+                    else
+                        BOOST_LOG_TRIVIAL(warning) << "Flatpak launcher repair failed to copy icon " << src_path << ": " << error_message;
+                }
+                BOOST_LOG_TRIVIAL(info) << "Flatpak launcher repair copied " << copied_icons << " icons";
+            }
+        } else {
+            BOOST_LOG_TRIVIAL(warning) << "Flatpak launcher repair icon source does not exist: " << src_icons_root.string();
+        }
+
+        BOOST_LOG_TRIVIAL(info) << "Flatpak launcher repair wrote " << desktop_path.string();
+    } catch (const std::exception &e) {
+        BOOST_LOG_TRIVIAL(warning) << "Flatpak launcher repair failed: " << e.what();
+    }
+}
 #endif
 VersionInfo::VersionInfo() 
 {
@@ -425,14 +529,14 @@ VersionInfo::VersionInfo()
 
 void GUI_App::schedule_software_launch_analytics()
 {
-    if (m_app_launch_initialized)
+    if (m_is_closing || m_app_launch_initialized)
         return;
     if (!is_privacy_checked())
         return;
 
     wxTimer* timer = new wxTimer();
     timer->Bind(wxEVT_TIMER, [this, timer](wxTimerEvent&) {
-        if (m_app_launch_initialized || !is_privacy_checked()) {
+        if (m_is_closing || m_app_launch_initialized || !is_privacy_checked()) {
             timer->Stop();
             delete timer;
             return;
@@ -622,11 +726,25 @@ bool is_associate_files(std::wstring extend)
 }
 #endif
 
+#ifdef __WXGTK__
+static bool gui_app_is_wayland_session()
+{
+    const char* gdk_backend     = ::getenv("GDK_BACKEND");
+    const char* wayland_display = ::getenv("WAYLAND_DISPLAY");
+    const char* session_type    = ::getenv("XDG_SESSION_TYPE");
+
+    return (gdk_backend != nullptr && ::strstr(gdk_backend, "wayland") != nullptr) ||
+           ((gdk_backend == nullptr || *gdk_backend == '\0') &&
+            ((wayland_display && *wayland_display) ||
+             (session_type && ::strcmp(session_type, "wayland") == 0)));
+}
+#endif
+
 class SplashScreen : public wxSplashScreen
 {
 public:
     SplashScreen(const wxBitmap& bitmap, long splashStyle, int milliseconds, wxPoint pos = wxDefaultPosition)
-        : wxSplashScreen(bitmap, splashStyle, milliseconds, static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, wxDefaultPosition, wxDefaultSize,
+        : wxSplashScreen(bitmap, splashStyle, milliseconds, static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, pos, wxDefaultSize,
 #ifdef __APPLE__
             wxBORDER_NONE | wxFRAME_NO_TASKBAR | wxSTAY_ON_TOP
 #else
@@ -635,8 +753,10 @@ public:
         )
     {
         int init_dpi = get_dpi_for_window(this);
-        this->SetPosition(pos);
-        this->CenterOnScreen();
+        if (pos != wxDefaultPosition)
+            this->SetPosition(pos);
+        else
+            this->CenterOnScreen();
         int new_dpi = get_dpi_for_window(this);
 
         m_scale = (float)(new_dpi) / (float)(init_dpi);
@@ -658,6 +778,7 @@ public:
 
         // draw logo and constant info text
         Decorate(m_main_bitmap);
+        set_bitmap(m_main_bitmap);
         wxGetApp().UpdateFrameDarkUI(this);
     }
 
@@ -781,7 +902,13 @@ public:
         wxString official_brief_introduction = m_loading_info + "\n\n" + _L("Official brief introduction");
 
         wxRect rect(FromDIP(32), height * 0.50, FromDIP(210), FromDIP(100));
-        wxFont font(11, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+        const double splash_scale = std::max(1.0, double(width) / 860.0);
+        auto scale_splash_font = [splash_scale](wxFont font) {
+            const int point_size = std::max(1, int(font.GetPointSize() * splash_scale + 0.5));
+            font.SetPointSize(point_size);
+            return font;
+        };
+        wxFont font = scale_splash_font(wxFont(11, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
         wxColour color(0, 0, 0); 
 
         DrawCenteredWrappedText(gc, official_brief_introduction, rect, font, font_color);
@@ -789,10 +916,12 @@ public:
         // Version
          //gc->SetFont(m_constant_text.version_font, font_color);
         wxString version_text = _L("Version:") + m_constant_text.version;
+        wxFont version_font = scale_splash_font(Label::Body_13);
+        gc->SetFont(version_font, font_color);
         wxDouble text_width, text_height;
         gc->GetTextExtent(version_text, &text_width, &text_height);
         wxRect version_rect(FromDIP(32), height * 0.90, FromDIP(210), text_height);
-        DrawCenteredWrappedText(gc, version_text, version_rect, Label::Body_13, font_color);
+        DrawCenteredWrappedText(gc, version_text, version_rect, version_font, font_color);
 #endif
         // Clean up the graphics context
         delete gc;
@@ -1760,14 +1889,35 @@ void GUI_App::post_init()
     }
     if (!switch_to_3d) {
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ", begin load_gl_resources";
+#ifndef __linux__
         mainframe->Freeze();
+#endif
         plater_->canvas3D()->enable_render(false);
         mainframe->select_tab(size_t(MainFrame::tp3DEditor));
         plater_->select_view_3D("3D");
         //BBS init the opengl resource here
-//#ifdef __linux__
-        if (plater_->canvas3D()->get_wxglcanvas()->IsShownOnScreen()&&plater_->canvas3D()->make_current_for_postinit()) {
-//#endif
+#ifdef __linux__
+        const bool glcontext_ready = is_running_on_wayland()
+            ? plater_->canvas3D()->make_current_for_postinit()
+            : (plater_->canvas3D()->get_wxglcanvas()->IsShownOnScreen() &&
+               plater_->canvas3D()->make_current_for_postinit());
+#else
+        const bool glcontext_ready = plater_->canvas3D()->get_wxglcanvas()->IsShownOnScreen() &&
+            plater_->canvas3D()->make_current_for_postinit();
+#endif
+        if (!glcontext_ready) {
+            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": glcontext not ready, postpone init";
+            plater_->canvas3D()->enable_render(true);
+            plater_->canvas3D()->set_as_dirty();
+#ifdef __linux__
+            // Wayland/EGL may not have committed the GL surface yet; ask the
+            // idle loop to retry post_init when the canvas is actually mapped.
+            // Without this, GL function pointers stay null and the first
+            // Preview focus can crash in Camera::apply_viewport.
+            m_post_initialized = false;
+            return;
+#endif
+        } else {
             Size canvas_size = plater_->canvas3D()->get_canvas_size();
             wxGetApp().imgui()->set_display_size(static_cast<float>(canvas_size.get_width()), static_cast<float>(canvas_size.get_height()));
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ", start to init opengl";
@@ -1790,12 +1940,7 @@ void GUI_App::post_init()
                 plater_->canvas3D()->render(false);
                 BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ", finished rendering a first frame for test";
             }
-//#ifdef __linux__
         }
-        else {
-            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << "Found glcontext not ready, postpone the init";
-        }
-//#endif
         if (app_config->get("default_page") == "1")
         {
             mainframe->select_tab(size_t(MainFrame::tp3DEditor));
@@ -1806,7 +1951,9 @@ void GUI_App::post_init()
             mainframe->select_tab(size_t(MainFrame::tpHome));
             mainframe->m_topbar->SetSelection(size_t(MainFrame::tpHome));
          }
+#ifndef __linux__
         mainframe->Thaw();
+#endif
         // If a pending hot-update is waiting (user chose "Install Later" last time),
         // defer the restore-project prompt so the "Update Ready" dialog appears first.
         if (!get_pending_app_update_version().empty()) {
@@ -2833,7 +2980,8 @@ bool GUI_App::init_opengl()
 {
 #ifdef __linux__
     bool status = m_opengl_mgr.init_gl();
-    m_opengl_initialized = true;
+    if (status)
+        m_opengl_initialized = true;
     return status;
 #else
     return m_opengl_mgr.init_gl();
@@ -3219,6 +3367,8 @@ inline auto I18nToLangaugeIndex(const std::string& i18n) -> std::string {
         { std::string("fr_fr"), std::string("9")  },   // 法语（法国）
         { std::string("th")   , std::string("12") },   // 泰语（泰国）
         { std::string("th_th"), std::string("12") },   // 泰语（泰国）
+        { std::string("vi")   , std::string("23") },   // 越南语（越南）
+        { std::string("vi_vn"), std::string("23") },   // 越南语（越南）
         { std::string("nl")   , std::string("13") },   // 荷兰语（荷兰）
         { std::string("nl_nl"), std::string("13") },   // 荷兰语（荷兰）
         { std::string("it")   , std::string("14") },   // 意大利语（意大利）
@@ -3230,8 +3380,11 @@ inline auto I18nToLangaugeIndex(const std::string& i18n) -> std::string {
         { std::string("pl_pl"), std::string("19") },   // 波兰语（波兰）
         { std::string("in")   , std::string("20") },   // 印度尼西亚语（印度尼西亚）
         { std::string("in_in"), std::string("20") },   // 印度尼西亚语（印度尼西亚）
+        { std::string("id")   , std::string("20") },   // 印度尼西亚语（印度尼西亚）
+        { std::string("id_id"), std::string("20") },   // 印度尼西亚语（印度尼西亚）
         { std::string("hu")   , std::string("21") },   // 匈牙利语（匈牙利）
         { std::string("hu_hu"), std::string("21") },   // 匈牙利语（匈牙利）
+        { std::string("uk")   , std::string("22") },   // 乌克兰语
       };
       //uk_ua,sv_se,cs   no map
       // 精确匹配（已归一化）
@@ -3243,12 +3396,11 @@ inline auto I18nToLangaugeIndex(const std::string& i18n) -> std::string {
       if (under != std::string::npos) {
           const std::string base = key.substr(0, under);
           if (auto iter = I18N_INDEX_MAP.find(base); iter != I18N_INDEX_MAP.cend())
-              return iter->second;
+               return iter->second;
       }
 
-      // 未命中时，按地区进行回退：CN -> "1"，其它 -> "0"
-      const std::string country_code = wxGetApp().app_config->get_country_code();
-      return country_code == std::string("CN") ? std::string("1") : std::string("0");
+      // 未命中时统一回退到英文（"0"），避免非中文语言错误显示为中文
+      return std::string("0");
 }
 std::map<std::string, std::string> GUI_App::get_extra_header()
 {
@@ -3409,12 +3561,12 @@ void GUI_App::startTour(int startIndex)
     {
         // step0
         wxRect printerBtn = sidebar().obj_list()->printComboRect();
-        m_UITour->AddStep(0, printerBtn, _L_ZH("Here you can select and add your printer presets"), "", "userGuide_step1", "", wxRIGHT);
+        m_UITour->AddStep(0, printerBtn, _L("Here you can select and add your printer presets"), "", "userGuide_step1", "", wxRIGHT);
     }
 
     //step1
     wxRect wifiBtn = sidebar().obj_list()->wifiBtn();
-    m_UITour->AddStep(1 - startIndex, wifiBtn, _L_ZH("Click 【"), _L_ZH("】 to select Creality printer matching the chosen preset"),
+    m_UITour->AddStep(1 - startIndex, wifiBtn, _L("Click 【"), _L("】 to select Creality printer matching the chosen preset"),
        "userGuide_step2", "wifi", wxRIGHT);
 
     //step2
@@ -3434,7 +3586,7 @@ void GUI_App::startTour(int startIndex)
     #endif
     rect.SetWidth(40 * scale);
     rect.SetHeight(40 * scale);
-    m_UITour->AddStep(2 - startIndex, rect, _L_ZH("Here to import model files"), "", "userGuide_step3", "", wxRIGHT);
+    m_UITour->AddStep(2 - startIndex, rect, _L("Here to import model files"), "", "userGuide_step3", "", wxRIGHT);
 
     // step3
     HoverBorderIcon* flushBtn                     = sidebar().autoMap_button();
@@ -3443,19 +3595,19 @@ void GUI_App::startTour(int startIndex)
     wxPoint          screenPos = flushBtn->GetScreenPosition() - p_rect;
     wxRect           resStep3Rect                 = wxRect(screenPos.x, screenPos.y, step3Rect.width + 150 * scale, step3Rect.height);
     
-    m_UITour->AddStep(3 - startIndex, resStep3Rect, _L_ZH("Click the Mapping button【"),
-                                   _L_ZH("】to map filament colors and types(If the selected device supports multi-color printing)"), "userGuide_step4",
+    m_UITour->AddStep(3 - startIndex, resStep3Rect, _L("Click the Mapping button【"),
+                                   _L("】to map filament colors and types(If the selected device supports multi-color printing)"), "userGuide_step4",
                                "auto_mapping_dark", wxLEFT);
 
     // step4
     wxRect setp4Rect = canvas->getSlicerBtnRec();
-    m_UITour->AddStep(4 - startIndex, setp4Rect, _L_ZH("Click 【Slice plate】 to generate the G-code file for printing"), "",
+    m_UITour->AddStep(4 - startIndex, setp4Rect, _L("Click 【Slice plate】 to generate the G-code file for printing"), "",
                       "userGuide_step5", "",
                                wxUP);
 
     // step5
     wxRect setp5Rect = canvas->getSenderBtnRec();
-    m_UITour->AddStep(5 - startIndex, setp5Rect, _L_ZH("Click 【Send print】, send the file to the selected device and start printing"), "",
+    m_UITour->AddStep(5 - startIndex, setp5Rect, _L("Click 【Send print】, send the file to the selected device and start printing"), "",
                                "userGuide_step6", "", wxUP);
 
     m_UITour->Start();
@@ -3668,6 +3820,7 @@ bool GUI_App::OnInit()
         if (this->init_params->argc >= 2 && this->init_params->argv != nullptr) {
             std::string _arg1 = this->init_params->argv[1];
             if (_arg1 == "version") {
+#ifdef _WIN32
                 // 分配控制台
                 AllocConsole();
 
@@ -3695,7 +3848,9 @@ bool GUI_App::OnInit()
                         } while (ir.EventType != KEY_EVENT || !ir.Event.KeyEvent.bKeyDown);
                     }
                 }
-
+#else
+                std::cout << "Creality Print Version: " << CREALITYPRINT_VERSION << std::endl;
+#endif
                 exit(0);
             }
         }
@@ -3713,9 +3868,7 @@ bool GUI_App::OnInit()
         {
             const auto url = this->init_params->input_files.front();
             if (boost::starts_with(url, "minidump://file=")) {
-#ifdef _WIN32
                 isDumpLauncher = true;
-#endif // _WIN32   
             }
         }
         bool res = on_init_inner(isDumpLauncher);
@@ -3829,11 +3982,18 @@ int GUI_App::OnExit()
         BOOST_LOG_TRIVIAL(error) << "Failed to clean up encrypt bbl network log file";
     }
 
+
+#if defined(__WIN32__) && wxUSE_WEBVIEW_EDGE
+    // CallOnExit() has already destroyed pending windows and their WebView
+    // controls. Release the last shared environment reference while the
+    // wxWidgets WebView module and WebView2 runtime are still available.
+    WebView::ReleaseConfiguration();
+#endif
     int result = wxApp::OnExit();
+
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " end";
     boost::log::core::get()->flush();
-    std::exit(0);
-    return 0;
+    return result;
 }
 
 void GUI_App::OnUnhandledException()
@@ -3866,6 +4026,9 @@ class wxBoostLog : public wxLog
 bool GUI_App::on_init_inner(bool isdump_launcher)
 {
     wxLog::SetActiveTarget(new wxBoostLog());
+#ifdef __linux__
+    ensure_flatpak_user_launcher();
+#endif
 #if BBL_RELEASE_TO_PUBLIC
     wxLog::SetLogLevel(wxLOG_Message);
 #endif
@@ -3890,6 +4053,21 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
     // TODO: Find workaround for GTK4
 #if defined(__WXGTK20__) || defined(__WXGTK3__)
     g_object_set (gtk_settings_get_default (), "gtk-menu-images", TRUE, NULL);
+#endif
+
+#if defined(__WXGTK20__) || defined(__WXGTK3__)
+    // Suppress harmless GTK critical warnings from GTK3/wxWidgets interactions.
+    // These include allocation/events on unrealized widgets and style-context
+    // operations while custom controls are still being constructed.
+    g_log_set_handler("Gtk", G_LOG_LEVEL_CRITICAL,
+        [](const gchar *log_domain, GLogLevelFlags log_level, const gchar *message, gpointer user_data) {
+            if (message && (strstr(message, "gtk_widget_set_allocation") ||
+                            strstr(message, "WIDGET_REALIZED_FOR_EVENT") ||
+                            strstr(message, "gtk_widget_get_style_context") ||
+                            strstr(message, "gtk_style_context_add_provider")))
+                return;
+            g_log_default_handler(log_domain, log_level, message, user_data);
+        }, nullptr);
 #endif
 
 #ifdef WIN32
@@ -4059,15 +4237,30 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
         // Detect position (display) to show the splash screen
         // Now this position is equal to the mainframe position
         wxPoint splashscreen_pos = wxDefaultPosition;
-        if (app_config->has("window_mainframe")) {
+        long splash_style = wxSPLASH_TIMEOUT | wxSPLASH_CENTRE_ON_SCREEN;
+#if defined(__WXGTK__)
+        const bool wayland_session = gui_app_is_wayland_session();
+#else
+        const bool wayland_session = false;
+#endif
+        if (!wayland_session && app_config->has("window_mainframe")) {
             auto metrics = WindowMetrics::deserialize(app_config->get("window_mainframe"));
-            if (metrics)
-                splashscreen_pos = metrics->get_rect().GetPosition();
+            if (metrics) {
+                wxPoint mainframe_pos = metrics->get_rect().GetPosition();
+                int display_index = wxDisplay::GetFromPoint(mainframe_pos);
+                if (display_index != wxNOT_FOUND) {
+                    wxRect display_rect = wxDisplay(display_index).GetClientArea();
+                    splashscreen_pos = wxPoint(display_rect.x + (display_rect.width - bmp.GetWidth()) / 2,
+                                               display_rect.y + (display_rect.height - bmp.GetHeight()) / 2);
+                    splash_style = wxSPLASH_TIMEOUT | wxSPLASH_NO_CENTRE;
+                }
+            }
         }
+
 
         BOOST_LOG_TRIVIAL(info) << "begin to show the splash screen...";
         //BBS use BBL splashScreen
-        scrn = new SplashScreen(bmp, wxSPLASH_CENTRE_ON_SCREEN | wxSPLASH_TIMEOUT, 1500, splashscreen_pos);
+        scrn = new SplashScreen(bmp, splash_style, 1500, splashscreen_pos);
        
         //CusDialog* wDialog = new CusDialog(this->mainframe, wxID_ANY, "Login");
         
@@ -4213,11 +4406,22 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
                     
                     // Check if major version is greater
                     bool is_major_update = (new_major > current_major);
+
+                    // Hotfix: same major.minor.patch, only the 4th field (build id) differs.
+                    // These still go through the hot update flow, but must use the full package
+                    // and tell the updater to force-install it (see m_update_force_full below),
+                    // because the nupkg name only carries the 3-part version and the updater
+                    // would otherwise skip a same-3-part package.
+                    bool is_hotfix_update = (new_major == current_major &&
+                                             new_minor == current_minor &&
+                                             new_patch == current_patch);
+                    m_update_force_full = is_hotfix_update;
 #ifndef _WIN32
                     // Hot update (minor version incremental update) is only supported on Windows.
                     // On macOS/Linux, always treat as a major update so the dialog shows "Download"
                     // and clicking it opens the browser to download the full installer.
                     is_major_update = true;
+                    m_update_force_full = false;
 #endif
                     UpdateVersionDialog dialog(this->mainframe);
                     wxString            extmsg = wxString::FromUTF8(version_info.description);
@@ -4521,6 +4725,13 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
     mainframe->topbar()->SaveNormalRect();
 #endif
     mainframe->Show(true);
+#ifdef __WXMSW__
+    // Show() invalidates the custom topbar, but startup continues synchronously
+    // before the event loop can paint it. Render the entire child tree now so
+    // DWM never presents the toolbar's unpainted background.
+    ::RedrawWindow(mainframe->GetHandle(), nullptr, nullptr,
+        RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+#endif
     BOOST_LOG_TRIVIAL(info) << "main frame firstly shown";
 
     // 启动用户信息文件监听，确保跨实例同步在线模型库登录状态
@@ -4666,6 +4877,12 @@ void  GUI_App::on_init_custom_config()
 }
 void  GUI_App::track_event(const std::string& event, const std::string& data)
 {
+    // Analytics may be delivered by timers that were queued before shutdown.
+    // Never forward them to the main frame after its WebView children start
+    // being destroyed.
+    if (m_is_closing)
+        return;
+
     std::string final_data = data;
     try {
         nlohmann::json js = nlohmann::json::parse(data);
@@ -4680,7 +4897,7 @@ void  GUI_App::track_event(const std::string& event, const std::string& data)
         }
     } catch (...) {
     }
-    if (mainframe) {
+    if (mainframe && !m_is_closing) {
         mainframe->trackEvent(event, final_data);
     }
 }
@@ -4773,6 +4990,7 @@ bool GUI_App::on_init_network(bool try_backup)
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "Don't load plugin as installed_networking is false";
         return false;
     }
+    return false;
     int load_agent_dll = Slic3r::NetworkAgent::initialize_network_module();
     bool create_network_agent = false;
 __retry:
@@ -5515,6 +5733,7 @@ void GUI_App::recreate_GUI(const wxString &msg_name)
     old_main_frame->SetClientObject(new ClientData);
 
     switch_window_pools();
+    old_main_frame->destroy_webviews_for_recreate();
     mainframe = new MainFrame();
     if (is_editor())
         // hide settings tabs after first Layout
@@ -5532,6 +5751,13 @@ void GUI_App::recreate_GUI(const wxString &msg_name)
     m_printhost_job_queue.reset(new PrintHostJobQueue(mainframe->printhost_queue_dlg()));
     load_current_presets();
     mainframe->Show(true);
+#ifdef __WXMSW__
+    // Show() invalidates the custom topbar, but startup continues synchronously
+    // before the event loop can paint it. Render the entire child tree now so
+    // DWM never presents the toolbar's unpainted background.
+    ::RedrawWindow(mainframe->GetHandle(), nullptr, nullptr,
+        RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+#endif
     //mainframe->refresh_plugin_tips();
 
     dlg.Update(90, _L("Loading a mode view") + dots);
@@ -5732,8 +5958,10 @@ void GUI_App::force_colors_update()
 #ifdef _MSW_DARK_MODE
 #ifdef __WINDOWS__
     NppDarkMode::SetDarkMode(dark_mode());
+#if !wxCHECK_VERSION(3, 3, 0)
     if (WXHWND wxHWND = wxToolTip::GetToolTipCtrl())
         NppDarkMode::SetDarkExplorerTheme((HWND)wxHWND);
+#endif
     NppDarkMode::SetDarkTitleBar(mainframe->GetHWND());
 
 
@@ -6512,7 +6740,9 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                         static std::set<std::string> array_keys = {"filament_colour",      "flush_multiplier",
                                                                     "flush_volumes_matrix", "flush_volumes_vector",
                                                                     "wipe_tower_x",         "wipe_tower_y",
-                                                                    "has_scarf_joint_seam",         "arc_tolerance"};
+                                                                    "has_scarf_joint_seam", "arc_tolerance",
+                                                                    "wall_filament", "solid_infill_filament",
+                                                                    "sparse_infill_filament"};
                         json json_out;
                         json_out["type"]          = "process";
                         json_out["setting_id"]    = "GP004";
@@ -6669,6 +6899,219 @@ std::string escapeForJS(const std::string& input)
         }
     }
     return output;
+}
+
+struct DeviceAddPreparation
+{
+    json selected_printers;
+    json profile_json;
+    bool valid{false};
+};
+
+static std::vector<std::string> split_device_add_values(const std::string& values)
+{
+    std::vector<std::string> result;
+    boost::split(result, values, boost::is_any_of(";"), boost::token_compress_on);
+    result.erase(std::remove_if(result.begin(), result.end(), [](const std::string& value) { return value.empty(); }), result.end());
+    return result;
+}
+
+static std::string normalize_device_add_nozzles(const json& value)
+{
+    if (value.is_string())
+        return value.get<std::string>();
+
+    if (!value.is_array())
+        return {};
+
+    std::string result;
+    for (const auto& nozzle : value) {
+        if (!nozzle.is_string())
+            continue;
+        if (!result.empty())
+            result += ";";
+        result += nozzle.get<std::string>();
+    }
+    return result;
+}
+
+static void apply_device_add_config_snapshot(json& profile_json,
+                                             const AppConfig::VendorMap& enabled_vendors,
+                                             const std::map<std::string, std::string>& enabled_filaments)
+{
+    for (auto& model : profile_json["model"]) {
+        if (!model.is_object())
+            continue;
+
+        const std::string model_name  = model.value("model", std::string());
+        const std::string vendor_name = model.value("vendor", std::string());
+        std::string selected;
+        auto vendor_it = enabled_vendors.find(vendor_name);
+        if (vendor_it != enabled_vendors.end()) {
+            auto model_it = vendor_it->second.find(model_name);
+            if (model_it != vendor_it->second.end()) {
+                for (const std::string& nozzle : split_device_add_values(model.value("nozzle_diameter", std::string()))) {
+                    if (model_it->second.find(nozzle) == model_it->second.end())
+                        continue;
+                    if (!selected.empty())
+                        selected += ";";
+                    selected += nozzle;
+                }
+            }
+        }
+        model["nozzle_selected"] = selected;
+    }
+
+    if (profile_json["model"].size() == 1)
+        profile_json["model"][0]["nozzle_selected"] = profile_json["model"][0]["nozzle_diameter"];
+
+    for (auto it = profile_json["filament"].begin(); it != profile_json["filament"].end(); ++it) {
+        if (enabled_filaments.find(it.key()) != enabled_filaments.end())
+            it.value()["selected"] = 1;
+    }
+}
+
+static DeviceAddPreparation prepare_device_add(json selected_printers,
+                                               json profile_json,
+                                               const AppConfig::VendorMap& enabled_vendors,
+                                               const std::map<std::string, std::string>& enabled_filaments)
+{
+    DeviceAddPreparation result;
+    apply_device_add_config_snapshot(profile_json, enabled_vendors, enabled_filaments);
+
+    fs::path printer_list_file = fs::path(resources_dir()).append("profiles").append("Creality").append("machineList.json");
+    json printer_list;
+    if (fs::exists(printer_list_file)) {
+        boost::nowide::ifstream input(printer_list_file.string());
+        input >> printer_list;
+    }
+
+    for (auto it = selected_printers.begin(); it != selected_printers.end(); ++it) {
+        json& selected = it.value();
+        if (!selected.is_object() || !selected.contains("model"))
+            continue;
+
+        std::string vendor = selected.value("vendor", std::string());
+        if (!vendor.empty())
+            continue;
+
+        selected["vendor"] = "Creality";
+        if (!selected["model"].is_string())
+            continue;
+
+        std::string model = selected["model"].get<std::string>();
+        if (model == "K1 Max") model = "CR-K1 Max";
+        if (model == "K1") model = "CR-K1";
+
+        if (!printer_list.contains("printerList"))
+            continue;
+
+        const json* matched_printer = nullptr;
+        for (const auto& printer : printer_list["printerList"]) {
+            if (printer.value("printerIntName", std::string()) != model)
+                continue;
+
+            const std::string nozzle = printer["nozzleDiameter"][0].get<std::string>();
+            if (matched_printer == nullptr || nozzle == "0.4")
+                matched_printer = &printer;
+            if (nozzle == "0.4")
+                break;
+        }
+
+        if (matched_printer == nullptr)
+            continue;
+
+        std::string name = matched_printer->value("name", std::string());
+        if (name.find("Creality") == std::string::npos && name.find("SPARKX") == std::string::npos)
+            name = "Creality " + name;
+        selected["model"] = name;
+
+        const std::string selected_nozzles = selected.contains("nozzle_diameter") ?
+                                                 normalize_device_add_nozzles(selected["nozzle_diameter"]) :
+                                                 std::string();
+        selected["nozzle_diameter"] = selected_nozzles.empty() ?
+                                            (*matched_printer)["nozzleDiameter"][0].get<std::string>() :
+                                            selected_nozzles;
+    }
+
+    struct SelectedNozzle
+    {
+        size_t index;
+        std::string model;
+        std::vector<std::string> diameters;
+        std::vector<bool> selected;
+    };
+
+    std::vector<SelectedNozzle> selected_nozzles;
+    for (size_t index = 0; index < profile_json["model"].size(); ++index) {
+        json& model = profile_json["model"][index];
+        model["nozzle_selected"] = "";
+        for (auto it = selected_printers.begin(); it != selected_printers.end(); ++it) {
+            const json& selected = it.value();
+            if (!selected.is_object() || model.value("model", std::string()) != selected.value("model", std::string()))
+                continue;
+
+            const std::string selected_value = selected.contains("nozzle_diameter") ?
+                                                   normalize_device_add_nozzles(selected["nozzle_diameter"]) :
+                                                   std::string();
+            model["nozzle_selected"] = selected_value;
+            SelectedNozzle nozzle;
+            nozzle.index     = index;
+            nozzle.model     = model.value("model", std::string());
+            nozzle.diameters = split_device_add_values(model.value("nozzle_diameter", std::string()));
+            const auto selected_values = split_device_add_values(selected_value);
+            nozzle.selected.reserve(nozzle.diameters.size());
+            for (const std::string& diameter : nozzle.diameters) {
+                nozzle.selected.push_back(std::find(selected_values.begin(), selected_values.end(), diameter) != selected_values.end());
+            }
+            selected_nozzles.emplace_back(std::move(nozzle));
+            break;
+        }
+    }
+
+    if (selected_nozzles.empty())
+        return result;
+
+    std::set<std::string> selected_filaments;
+    for (const SelectedNozzle& nozzle : selected_nozzles) {
+        json& model = profile_json["model"][nozzle.index];
+        if (!model["materials"].is_string())
+            continue;
+
+        for (const std::string& material : split_device_add_values(model["materials"].get<std::string>())) {
+            bool found = false;
+            if (profile_json["filament"].contains(material)) {
+                for (size_t i = 0; i < nozzle.diameters.size(); ++i) {
+                    if (!nozzle.selected[i])
+                        continue;
+                    const std::string compatible_model = nozzle.model + "++" + nozzle.diameters[i];
+                    if (profile_json["filament"][material].value("models", std::string()).find(compatible_model) != std::string::npos) {
+                        selected_filaments.emplace(material);
+                        found = true;
+                    }
+                }
+            }
+            if (found || material.find('@') != std::string::npos)
+                continue;
+            for (size_t i = 0; i < nozzle.diameters.size(); ++i) {
+                if (!nozzle.selected[i])
+                    continue;
+                const std::string printer_material = material + " @" + nozzle.model + " " + nozzle.diameters[i] + " nozzle";
+                if (profile_json["filament"].contains(printer_material))
+                    selected_filaments.emplace(printer_material);
+            }
+        }
+    }
+
+    for (const std::string& material : selected_filaments) {
+        if (profile_json["filament"].contains(material))
+            profile_json["filament"][material]["selected"] = 1;
+    }
+
+    result.selected_printers = std::move(selected_printers);
+    result.profile_json      = std::move(profile_json);
+    result.valid             = true;
+    return result;
 }
 
 std::string GUI_App::handle_web_request(std::string cmd)
@@ -7553,9 +7996,88 @@ std::string GUI_App::handle_web_request(std::string cmd)
                    wxString strJS = wxString::Format("window.handleStudioCmd('%s');", commandJson.dump());
                    wxGetApp().CallAfter([this, strJS] { run_script(strJS.ToStdString()); });
             } else if (command_str.compare("set_deviceAdd_end") == 0) {
-                json     printersData         = json::parse(strInput);
-                json     selectedPrintersJson            = printersData["selected_printers"];
-                
+                json        printersData     = json::parse(strInput);
+                std::string request_sequence = printersData.value("sequence_id", std::string());
+                bool        background_prepared = printersData.value("_background_prepared", false);
+
+                auto send_result = [this, request_sequence](int result, bool finish_task = true) {
+                    if (finish_task)
+                        m_device_add_in_progress = false;
+
+                    nlohmann::json commandJson;
+                    commandJson["command"]         = "set_deviceAdd_end";
+                    commandJson["sequence_id"]     = request_sequence;
+                    commandJson["data"]["result"] = result;
+                    wxString strJS = wxString::Format("handleStudioCmd(%s)", commandJson.dump(-1, ' ', true));
+                    wxGetApp().CallAfter([this, strJS, result] {
+                        run_script(strJS.ToStdString());
+                        if (result)
+                            reload_homepage();
+                    });
+                };
+
+                if (!background_prepared) {
+                    if (m_device_add_in_progress.exchange(true)) {
+                        send_result(0, false);
+                        return "";
+                    }
+
+                    if (!m_appconfig_new)
+                        m_appconfig_new = new AppConfig();
+
+                    const auto enabled_vendors = app_config->vendors();
+                    const auto enabled_filaments = app_config->has_section(AppConfig::SECTION_FILAMENTS) ?
+                                                       app_config->get_section(AppConfig::SECTION_FILAMENTS) :
+                                                       std::map<std::string, std::string>();
+                    json selected_printers = printersData["selected_printers"];
+
+                    boost::thread prepare_thread = Slic3r::create_thread(
+                        [this, selected_printers = std::move(selected_printers), enabled_vendors, enabled_filaments,
+                         request_sequence, send_result]() mutable {
+                            try {
+                                ProfileFamilyLoader* loader = ProfileFamilyLoader::get_instance();
+                                loader->wait_until_loaded();
+                                json profile_json;
+                                json machine_json;
+                                bool load_custom_from_bundle = false;
+                                loader->get_result(profile_json, machine_json, load_custom_from_bundle);
+
+                                DeviceAddPreparation prepared = prepare_device_add(std::move(selected_printers), std::move(profile_json),
+                                                                                  enabled_vendors, enabled_filaments);
+                                if (!prepared.valid) {
+                                    send_result(0);
+                                    return;
+                                }
+
+                                json deferred_command;
+                                deferred_command["command"]               = "set_deviceAdd_end";
+                                deferred_command["sequence_id"]           = request_sequence;
+                                deferred_command["selected_printers"]     = std::move(prepared.selected_printers);
+                                deferred_command["_prepared_profile"]     = std::move(prepared.profile_json);
+                                deferred_command["_background_prepared"]  = true;
+                                const std::string deferred_payload = deferred_command.dump();
+                                wxGetApp().CallAfter([this, deferred_payload] { handle_web_request(deferred_payload); });
+                            } catch (const std::exception& e) {
+                                BOOST_LOG_TRIVIAL(error) << "Failed to prepare printer configuration: " << e.what();
+                                send_result(0);
+                            } catch (...) {
+                                BOOST_LOG_TRIVIAL(error) << "Failed to prepare printer configuration";
+                                send_result(0);
+                            }
+                        });
+                    prepare_thread.detach();
+                    return "";
+                }
+
+                if (!m_device_add_in_progress) {
+                    send_result(0, false);
+                    return "";
+                }
+
+                try {
+                json selectedPrintersJson = printersData["selected_printers"];
+
+                if (!background_prepared) {
                 for (auto it = selectedPrintersJson.begin(); it != selectedPrintersJson.end(); ++it) {
                     json &OneSelect = it.value();
                     if(OneSelect.contains("vendor"))
@@ -7612,6 +8134,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                         }
                     }
                 }
+                }
                 
                 //std::string dump = selectedPrintersJson.dump();
                 //std::cout << "dump: " << dump;
@@ -7644,24 +8167,9 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     }
                     return results;
                 };
-                auto send_result = [this](int result) {
-                    nlohmann::json commandJson;
-                    commandJson["command"] = "set_deviceAdd_end";
-                    commandJson["data"]["result"] = result;
+                json m_ProfileJson = std::move(printersData["_prepared_profile"]);
 
-                    wxString strJS = wxString::Format("handleStudioCmd(%s)", commandJson.dump(-1, ' ', true));
-                    wxGetApp().CallAfter([this, strJS,result] { 
-                        run_script(strJS.ToStdString()); 
-                        if(result)
-                        {
-                            this->reload_homepage();
-                        }
-                    });
-                };
-                json res;
-                webGetDevicesInfo(res);
-                json m_ProfileJson = res["response"];
-
+                if (!background_prepared) {
                 std::vector<NozzleSelected>        nozzle_selected;
                 std::set<std::string>              selected_filaments;
                 std::set<std::string>              un_selected_filaments;
@@ -7777,6 +8285,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                         m_ProfileJson["filament"][material]["selected"] = 0;
                     }
                 }
+                }
 
                 // 处理打印机用户预设
                 wxGetApp().app_config->set_userPresets("", true);
@@ -7788,7 +8297,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                             preset.m_is_user_printer_hidden = true;
                             string strModelName             = preset.name;
 
-                            json useSelected = selectedPrintersJson["user_data"];
+                            json useSelected = selectedPrintersJson.value("user_data", json::array());
                             for (auto it = useSelected.begin(); it != useSelected.end(); ++it) {
                                 json        useInfo    = it.value();
                                 std::string sFrontName = useInfo["name"].get<std::string>();
@@ -7829,7 +8338,10 @@ std::string GUI_App::handle_web_request(std::string cmd)
 
                 SaveProfile(m_ProfileJson);
                 bool apply_keeped_changes = false;
-                apply_config(app_config, m_appconfig_new, preset_bundle, preset_updater, apply_keeped_changes);
+                if (!apply_config(app_config, m_appconfig_new, preset_bundle, preset_updater, apply_keeped_changes)) {
+                    send_result(0);
+                    return "";
+                }
 
                 if (apply_keeped_changes)
                     apply_keeped_preset_modifications();
@@ -7844,7 +8356,6 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 app_config->set("is_first_install", "1");
                 mainframe->select_tab(size_t(MainFrame::tp3DEditor));
                 mainframe->m_topbar->SetSelection(size_t(MainFrame::tp3DEditor));
-                send_result(1);
                 CallAfter([this] {
                     std::shared_ptr<wxTimer> tour_timer = std::make_shared<wxTimer>();
                     tour_timer->Bind(wxEVT_TIMER, [this,tour_timer](wxTimerEvent&) {
@@ -7871,6 +8382,14 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     });
                     tour_timer->StartOnce(1000);
                 });
+                send_result(1);
+                } catch (const std::exception& e) {
+                    BOOST_LOG_TRIVIAL(error) << "Failed to commit printer configuration: " << e.what();
+                    send_result(0);
+                } catch (...) {
+                    BOOST_LOG_TRIVIAL(error) << "Failed to commit printer configuration";
+                    send_result(0);
+                }
 
             } else if (command_str.compare("finish_bind_device_guide") == 0) {
                 auto send_result = [this](int result) {
@@ -8667,14 +9186,29 @@ void GUI_App::check_new_version_cx_updated(bool show_tips, int by_user)
 
                 // Adjust patch for both versions if it starts with '0'
                 adjust_patch_if_zero_leading(current_version, std::string(CREALITYPRINT_VERSION));
-                
-                if (remote_version <= current_version) {
+
+                if (remote_version < current_version) {
                     if (show_tips) {
                         CallAfter([this]() {
                             this->no_new_version();
                         });
                     }
                     return;
+                }
+
+                // When semver parts are equal, compare build id so hotfix builds
+                // (e.g. 7.1.0.200 vs 7.1.0.100) also trigger the update dialog.
+                if (remote_version == current_version) {
+                    const int current_build_id = parse_creality_version(std::string(CREALITYPRINT_VERSION)).build_id;
+                    const int remote_build_id  = parse_creality_version(version).build_id;
+                    if (remote_build_id <= current_build_id) {
+                        if (show_tips) {
+                            CallAfter([this]() {
+                                this->no_new_version();
+                            });
+                        }
+                        return;
+                    }
                 }
                 
                 // Process description (may be an array)
@@ -8736,6 +9270,21 @@ void GUI_App::check_new_version_cx_updated(bool show_tips, int by_user)
                 bool use_delta = !delta_packages.empty();
                 if (has_full && total_delta_size > 0 && total_delta_size >= full_package.size)
                     use_delta = false;
+
+                // Hotfix: target shares the same major.minor.patch as the installed version
+                // (only the 4th build field differs). Delta packages are patched against a
+                // 3-part baseline and cannot distinguish same-3-part builds, so a hotfix must
+                // use the full package.
+                {
+                    int cur_maj = 0, cur_min = 0, cur_pat = 0;
+                    int new_maj = 0, new_min = 0, new_pat = 0;
+                    sscanf(std::string(CREALITYPRINT_VERSION).c_str(), "%d.%d.%d", &cur_maj, &cur_min, &cur_pat);
+                    sscanf(version.c_str(), "%d.%d.%d", &new_maj, &new_min, &new_pat);
+                    const bool is_hotfix = (new_maj == cur_maj && new_min == cur_min && new_pat == cur_pat);
+                    if (is_hotfix && has_full)
+                        use_delta = false;
+                }
+
                 if (use_delta) {
                     for (const auto& p : delta_packages)
                         packages.push_back(p);
@@ -8795,6 +9344,11 @@ void GUI_App::process_update_packages(const std::vector<PackageInfo>& updater_pa
                                        int by_user)
 {
 #ifdef __WXMSW__
+    // Propagate the hotfix flag to the updater. In a hotfix update the target shares the
+    // same major.minor.patch as the installed version, so the updater must be told to
+    // force-install the full package for a same-3-part version.
+    AppUpdater::getInstance().set_force_full(m_update_force_full);
+
     // Check disk space before showing progress dialog
     long long total_size = 0;
     for (const auto& p : updater_packages) {
@@ -10074,6 +10628,14 @@ bool GUI_App::wait_cloud_token()
 }
 void GUI_App::save_user_default_filaments(AppConfig *new_app_config)
 {
+    std::set<std::string> selected_models;
+    for (const auto& vendor : new_app_config->vendors()) {
+        for (const auto& model : vendor.second) {
+            if (!model.second.empty())
+                selected_models.emplace(model.first);
+        }
+    }
+
     auto add_filament_to_sessiton = [this,new_app_config](std::string machine_name,std::string default_materials){
         std::string section_name = AppConfig::SECTION_FILAMENTS;
             if (new_app_config->has_section(section_name)) {
@@ -10113,6 +10675,10 @@ void GUI_App::save_user_default_filaments(AppConfig *new_app_config)
         auto machine_list = jLocal["machine_model_list"];
         for (const auto& item : machine_list)
         {
+            std::string name = item["name"];
+            if (!selected_models.empty() && selected_models.find(name) == selected_models.end())
+                continue;
+
             std::string sub_path = item["sub_path"];
             fs::path machine_file = fs::path(resources_dir()).append("profiles").append("Creality").append(sub_path);
             boost::nowide::ifstream m(machine_file.string());
@@ -10123,7 +10689,6 @@ void GUI_App::save_user_default_filaments(AppConfig *new_app_config)
             std::vector<std::string> diameters;
             boost::algorithm::split(diameters, nozzle_diameter, boost::is_any_of(";"));
             auto default_materials = j["default_materials"];
-            std::string name = j["name"];
             for (const auto& diameter : diameters) {
                 std::string machine_name = (boost::format( "%1% %2% nozzle") % name % diameter).str();
                 add_filament_to_sessiton(machine_name,default_materials);
@@ -11518,7 +12083,7 @@ void GUI_App::load_current_presets(bool active_preset_combox/*= false*/, bool ch
     // BBS: model config
     for (Tab *tab : model_tabs_list)
 		if (tab->supports_printer_technology(printer_technology)) {
-            tab->rebuild_page_tree();
+            tab->request_page_tree_rebuild();
         }
 }
 
@@ -11859,9 +12424,7 @@ void GUI_App::SaveProfile(json profileJson)
 
     app_config->save();
 
-    std::string strAll = profileJson.dump(-1, ' ', false, json::error_handler_t::ignore);
-
-    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "before save to app_config: " << std::endl << strAll;
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " begin";
 
     // set filaments to app_config
     const std::string&                 section_name = AppConfig::SECTION_FILAMENTS;
@@ -11873,7 +12436,6 @@ void GUI_App::SaveProfile(json profileJson)
         }
     }
     m_appconfig_new->set_section(section_name, section_new);
-    save_user_default_filaments(m_appconfig_new);
     // set vendors to app_config
     Slic3r::AppConfig::VendorMap empty_vendor_map;
     m_appconfig_new->set_vendors(empty_vendor_map);
@@ -11905,6 +12467,8 @@ void GUI_App::SaveProfile(json profileJson)
             }
         }
     }
+
+    save_user_default_filaments(m_appconfig_new);
 
     return;
 }
@@ -12050,9 +12614,34 @@ Notebook* GUI_App::tab_panel() const
 
 NotificationManager * GUI_App::notification_manager()
 {
-    if (plater_)
-        return plater_->get_notification_manager();
-    return nullptr;
+    // During shutdown the Plater (and its pimpl) may already be destroyed while the
+    // plater_ pointer is not yet null, so guard against use-after-free by also checking
+    // the closing flag.
+    if (m_is_closing || !plater_)
+        return nullptr;
+    return plater_->get_notification_manager();
+}
+
+// Called right before closing the app to launch an update. Marks the app as closing and
+// tears down any pending update progress UI so that lingering EVT_APP_UPDATE_* handlers or
+// imgui notification callbacks cannot reach a Plater that is being destroyed.
+void GUI_App::prepare_close_for_update()
+{
+    if (AppUpdater::getInstance().is_downloading())
+        AppUpdater::getInstance().cancel_download();
+
+    // Tear down the update progress notification while the Plater is still alive. This must
+    // happen BEFORE setting m_is_closing, otherwise notification_manager() returns nullptr
+    // and the imgui notification would be left registered, to be touched later during the
+    // Plater destruction.
+    if (g_update_progress_dlg) {
+        g_update_progress_dlg->close_imgui_notification();
+        g_update_progress_dlg->Hide();
+    }
+
+    // From here on, any lingering EVT_APP_UPDATE_* handler or notification callback that
+    // reaches notification_manager() will get nullptr instead of a destroyed pimpl.
+    m_is_closing = true;
 }
 
 // extruders count from selected printer preset
@@ -12106,6 +12695,9 @@ wxString GUI_App::current_language_code_safe() const
 		{ "ru", 	"ru_RU", },
         { "tr", 	"tr_TR", },
         { "pt", 	"pt_BR", },
+        { "vi",     "vi_VN", },
+        { "id",     "id_ID", },
+        { "th",     "th_TH", },
 	};
 	wxString language_code = this->current_language_code().BeforeFirst('_');
 	auto it = mapping.find(language_code);
@@ -12114,6 +12706,45 @@ wxString GUI_App::current_language_code_safe() const
 	else
 		language_code = "en_US";
 	return language_code;
+}
+
+wxString GUI_App::current_frontend_language_code() const
+{
+    const wxString language_code = this->current_language_code();
+
+    // Chinese variants must be matched before removing the region because both share the "zh" prefix.
+    if (language_code == "zh_TW")
+        return "zh_TW";
+    if (language_code == "zh_CN")
+        return "zh_CN";
+
+    const std::map<wxString, wxString> mapping {
+        { "en", "en_GB" },
+        { "ca", "ca_ES" },
+        { "cs", "cs_CZ" },
+        { "sk", "cs_CZ" },
+        { "de", "de_DE" },
+        { "es", "es_ES" },
+        { "fr", "fr_FR" },
+        { "hu", "hu_HU" },
+        { "id", "id_ID" },
+        { "it", "it_IT" },
+        { "ja", "ja_JP" },
+        { "ko", "ko_KR" },
+        { "nl", "nl_NL" },
+        { "pl", "pl_PL" },
+        { "pt", "pt_BR" },
+        { "ru", "ru_RU" },
+        { "sv", "sv_SE" },
+        { "th", "th_TH" },
+        { "tr", "tr_TR" },
+        { "uk", "uk_UA" },
+        { "vi", "vi_VN" },
+        { "zh", "zh_CN" },
+    };
+
+    const auto it = mapping.find(language_code.BeforeFirst('_'));
+    return it != mapping.end() ? it->second : "en_GB";
 }
 
 void GUI_App::open_web_page_localized(const std::string &http_address)
@@ -13030,6 +13661,22 @@ void GUI_App::Update_easy_mode_flag()
     if (auto* canvas = plater_ptr->get_view3D_canvas3D())
         canvas->on_easy_mode_switch();
     plater_ptr->update();
+
+    // When switching back to Pro mode, the right-side settings tabs were hidden
+    // (and their pages not re-activated) while in AI mode. If the config changed
+    // during that time (e.g. loading a 3mf that enables support), the parameter
+    // panel's field enable/disable linkage (toggle_options) is stale — the value
+    // shows correctly but dependent fields stay greyed out. Force a reload +
+    // update so the linkage is recomputed against the current config.
+    if (!easy_mode()) {
+        for (Preset::Type type : {Preset::TYPE_PRINT, Preset::TYPE_FILAMENT, Preset::TYPE_PRINTER}) {
+            if (Tab* tab = get_tab(type)) {
+                tab->update_dirty();
+                tab->reload_config();
+                tab->update();
+            }
+        }
+    }
 
     if (main_frame != nullptr && main_frame->topbar() != nullptr)
         main_frame->topbar()->Refresh();

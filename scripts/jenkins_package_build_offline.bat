@@ -62,16 +62,12 @@ if [%4] == [] (
 setlocal enabledelayedexpansion
 if [%LOCAL_BUILD%]==[OFF] (
     echo TAG_NAME=%TAG_NAME%
-    echo git show-ref %TAG_NAME% 
-    git show-ref %TAG_NAME% | awk -F ' ' '{print $1}' >cmmid
-    cat cmmid
-    set /p CMMID=<cmmid 
-    echo CMMID=!CMMID!
-    git rev-list HEAD | wc -l >maxcmmid
-    git rev-list !CMMID! | wc -l >tagcmmid
-    set /p MAXCMMID=<maxcmmid
-    set /p TAGCMMID=<tagcmmid
-    set /a TAGNUMB=!MAXCMMID!-!TAGCMMID!
+    set TAGNUMB=
+    for /f %%i in ('git rev-list HEAD --count') do set TAGNUMB=%%i
+    if not defined TAGNUMB (
+        echo ERROR: Failed to resolve Git commit count
+        exit /b 1
+    )
     echo TAGNUMB=!TAGNUMB!
     set TAG_NAME=%TAG_NAME%.!TAGNUMB!
 )

@@ -6,6 +6,7 @@
 
 #include <wx/webviewarchivehandler.h>
 #include <wx/webviewfshandler.h>
+#include <wx/textfile.h>
 #include <wx/utils.h>
 #if wxUSE_WEBVIEW_EDGE
 #include <wx/msw/webview_edge.h>
@@ -88,6 +89,31 @@ DWORD DownloadAndInstallWV2RT() {
 class WebViewEdge : public wxWebViewEdge
 {
 public:
+    WebViewEdge(const wxWebViewConfiguration& config, bool defer_navigation)
+        : wxWebViewEdge(config)
+        , m_defer_navigation(defer_navigation)
+    {
+        Bind(wxEVT_WEBVIEW_CREATED, &WebViewEdge::OnWebViewCreated, this);
+    }
+
+    void LoadURL(const wxString& url) override
+    {
+        if (m_defer_navigation && GetNativeBackend() == nullptr) {
+            // WebView2 initialization is asynchronous. During GUI recreation,
+            // the old controls may still be shutting down while new controls
+            // are created. Navigating before wxEVT_WEBVIEW_CREATED can fail
+            // with ERROR_INVALID_STATE.
+            pendingUrl = url;
+            BOOST_LOG_TRIVIAL(warning)
+                << __FUNCTION__ << ": WebView2 backend is not ready; deferring URL: "
+                << url.ToStdString();
+            return;
+        }
+
+        pendingUrl.clear();
+        wxWebViewEdge::LoadURL(url);
+    }
+
     bool SetUserAgent(const wxString &userAgent)
     {
         bool dark = userAgent.Contains("dark");
@@ -152,6 +178,34 @@ public:
         wxWebViewEdge::DoGetClientSize(x, y);
     };
 private:
+    void OnWebViewCreated(wxWebViewEvent& event)
+    {
+        void* backend = GetNativeBackend();
+        if (backend == nullptr) {
+            BOOST_LOG_TRIVIAL(warning)
+                << __FUNCTION__ << ": WebView2 created event received without a backend. webView="
+                << (void*) this;
+            event.Skip();
+            return;
+        }
+
+        BOOST_LOG_TRIVIAL(warning)
+            << __FUNCTION__ << ": WebView2 backend ready. webView=" << (void*) this
+            << ", backend=" << backend;
+
+        if (!pendingUrl.empty()) {
+            const wxString url = std::move(pendingUrl);
+            pendingUrl.clear();
+            BOOST_LOG_TRIVIAL(warning)
+                << __FUNCTION__ << ": loading deferred URL: " << url.ToStdString();
+            wxWebViewEdge::LoadURL(url);
+        }
+
+        event.Skip();
+    }
+
+    const bool m_defer_navigation;
+    wxString pendingUrl;
     wxString pendingUserAgent;
     COREWEBVIEW2_PREFERRED_COLOR_SCHEME pendingColorScheme = COREWEBVIEW2_PREFERRED_COLOR_SCHEME_AUTO;
 };
@@ -160,6 +214,11 @@ private:
 
 class WebViewWebKit : public wxWebViewWebKit
 {
+public:
+#if wxCHECK_VERSION(3, 3, 0)
+    WebViewWebKit() : wxWebViewWebKit(wxWebView::NewConfiguration(wxWebViewBackendWebKit)) {}
+#endif
+
     ~WebViewWebKit() override
     {
         RemoveScriptMessageHandler("wx");
@@ -222,6 +281,9 @@ static std::vector<wxWebView*> g_delay_webviews;
 #ifdef __WIN32__
 static bool g_webview_atexit_registered = false;
 static wxString g_webview_userdata_dir;
+static wxString g_webview_userdata_marker;
+static bool g_webview_userdata_ephemeral = false;
+static std::unique_ptr<wxWebViewConfiguration> g_webview_configuration;
 static bool g_force_single_process = false;
 #endif
 #if defined __linux__
@@ -242,27 +304,134 @@ public:
     wxWebView *m_webView;
 };
 
+#ifdef __WIN32__
+static bool is_valid_webview_profile_name(const wxString& name)
+{
+    return name.StartsWith("profile") && name != "." && name != ".." &&
+           !name.Contains("/") && !name.Contains("\\") && !name.Contains(":");
+}
+
+static bool claim_webview_profile(const wxString& profile_dir, wxString& marker_path)
+{
+    if (!wxFileName::Mkdir(profile_dir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL) &&
+        !wxFileName::DirExists(profile_dir)) {
+        return false;
+    }
+
+    wxFileName marker(profile_dir, ".running");
+    HANDLE marker_handle = CreateFileW(marker.GetFullPath().wc_str(), GENERIC_WRITE, 0, nullptr,
+                                       CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (marker_handle == INVALID_HANDLE_VALUE)
+        return false;
+
+    const wxString pid = wxString::Format("%lu", static_cast<unsigned long>(wxGetProcessId()));
+    const wxScopedCharBuffer pid_utf8 = pid.utf8_str();
+    DWORD written = 0;
+    WriteFile(marker_handle, pid_utf8.data(), static_cast<DWORD>(pid_utf8.length()), &written, nullptr);
+    CloseHandle(marker_handle);
+    marker_path = marker.GetFullPath();
+    return true;
+}
+
+static void save_active_webview_profile(const wxString& active_file_path, const wxString& profile_name)
+{
+    wxTextFile active_file;
+    if (wxFileName::FileExists(active_file_path)) {
+        if (!active_file.Open(active_file_path))
+            return;
+        active_file.Clear();
+    } else if (!active_file.Create(active_file_path)) {
+        return;
+    }
+
+    active_file.AddLine(profile_name);
+    active_file.Write();
+    active_file.Close();
+}
+
+static void initialize_webview_userdata_dir()
+{
+    wxFileName root(wxStandardPaths::Get().GetTempDir(), "");
+    root.AppendDir("slicer_webview_userdata");
+
+    const wxString root_path = root.GetFullPath();
+    if (!wxFileName::Mkdir(root_path, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL) &&
+        !wxFileName::DirExists(root_path)) {
+        wxFileName fallback(wxStandardPaths::Get().GetTempDir(), "");
+        fallback.AppendDir(wxString::Format("slicer_webview_userdata_%lu",
+                                           static_cast<unsigned long>(wxGetProcessId())));
+        wxFileName::Mkdir(fallback.GetFullPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+        g_webview_userdata_dir = fallback.GetFullPath();
+        g_webview_userdata_ephemeral = true;
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                                   << ": failed to create reusable profile root; using per-run folder: "
+                                   << g_webview_userdata_dir.ToStdString();
+        wxSetEnv("WEBVIEW2_USER_DATA_FOLDER", g_webview_userdata_dir);
+        return;
+    }
+
+    const wxString active_file_path = wxFileName(root_path, "active_profile.txt").GetFullPath();
+    wxString profile_name = "profile";
+    if (wxFileName::FileExists(active_file_path)) {
+        wxTextFile active_file;
+        if (active_file.Open(active_file_path) && active_file.GetLineCount() > 0 &&
+            is_valid_webview_profile_name(active_file.GetLine(0))) {
+            profile_name = active_file.GetLine(0);
+        }
+        if (active_file.IsOpened())
+            active_file.Close();
+    }
+
+    wxFileName profile(root_path, "");
+    profile.AppendDir(profile_name);
+    const bool reused_profile = claim_webview_profile(profile.GetFullPath(), g_webview_userdata_marker);
+    if (!reused_profile) {
+        profile_name = wxString::Format("profile_%lu_%llu",
+                                        static_cast<unsigned long>(wxGetProcessId()),
+                                        static_cast<unsigned long long>(GetTickCount64()));
+        profile.AssignDir(root_path);
+        profile.AppendDir(profile_name);
+        if (!claim_webview_profile(profile.GetFullPath(), g_webview_userdata_marker)) {
+            g_webview_userdata_ephemeral = true;
+            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                                       << ": failed to claim reusable and fallback profiles; folder will be removed on exit.";
+        }
+    }
+
+    g_webview_userdata_dir = profile.GetFullPath();
+    save_active_webview_profile(active_file_path, profile_name);
+    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                               << (reused_profile ? ": using reusable WebView2 profile: "
+                                                  : ": active profile is occupied; using fallback profile: ")
+                               << g_webview_userdata_dir.ToStdString();
+    wxSetEnv("WEBVIEW2_USER_DATA_FOLDER", g_webview_userdata_dir);
+}
+#endif
+
 wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
 {
+    bool using_edge_fixed = false;
 #if wxUSE_WEBVIEW_EDGE
     // Check if a fixed version of edge is present in
     // $executable_path/edge_fixed and use it
     wxFileName edgeFixedDir(wxStandardPaths::Get().GetExecutablePath());
     edgeFixedDir.SetFullName("");
     edgeFixedDir.AppendDir("edge_fixed");
-    if (edgeFixedDir.DirExists()) {
+    using_edge_fixed = edgeFixedDir.DirExists();
+    if (using_edge_fixed) {
         wxWebViewEdge::MSWSetBrowserExecutableDir(edgeFixedDir.GetFullPath());
         wxLogMessage("Using fixed edge version");
     }
-    // Use a per-run user data folder to avoid stale WebView2 locks.
-    if (g_webview_userdata_dir.empty()) {
-        wxFileName userdata(wxStandardPaths::Get().GetTempDir(), "");
-        userdata.AppendDir(wxString::Format("slicer_webview_userdata_%d", wxGetProcessId()));
-        wxFileName::Mkdir(userdata.GetFullPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
-        g_webview_userdata_dir = userdata.GetFullPath();
-        // WebView2 will pick up this env var when creating the control.
-        wxSetEnv("WEBVIEW2_USER_DATA_FOLDER", g_webview_userdata_dir);
+    // parepare for single process mode, but edge_fixed2 is not used now, so we don't set it.
+    wxFileName edgeFixedDir2(wxStandardPaths::Get().GetExecutablePath());
+    edgeFixedDir2.SetFullName("");
+    edgeFixedDir2.AppendDir("edge_fixed2");
+    if (edgeFixedDir2.DirExists()) {
+        wxWebViewEdge::MSWSetBrowserExecutableDir(edgeFixedDir2.GetFullPath());
+        wxLogMessage("Using fixed edge version");
     }
+    if (g_webview_userdata_dir.empty())
+        initialize_webview_userdata_dir();
 #endif
     auto url2  = url;
 #ifdef __WIN32__
@@ -274,11 +443,30 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
 #ifdef __WIN32__
     wxString previous_browser_args;
     const bool had_previous_args = wxGetEnv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", &previous_browser_args);
-    if (g_force_single_process) {
+    const bool use_single_process = g_force_single_process && !using_edge_fixed;
+    if (g_force_single_process && using_edge_fixed) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": edge_fixed detected; ignoring WebView2 single-process mode.";
+    }
+    if (use_single_process) {
         wxSetEnv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", wxS("--single-process"));
         BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": enabling WebView2 single-process mode for creation.";
     }
-    wxWebView* webView = new WebViewEdge;
+    // Keep one Edge configuration alive for the whole process. Reusing its
+    // underlying WebView2 environment prevents rapid GUI recreation from
+    // closing one environment while the next controls are being initialized.
+    if (!g_webview_configuration) {
+        wxWebViewConfiguration config = wxWebView::NewConfiguration(wxWebViewBackendEdge);
+        config.SetDataPath(g_webview_userdata_dir);
+        g_webview_configuration = std::make_unique<wxWebViewConfiguration>(config);
+    }
+    // Initial startup keeps the old direct-navigation behaviour. GUI recreation
+    // snapshots a deferred-navigation policy because m_is_recreating_gui may be
+    // reset before the asynchronous WebView2 creation event is delivered.
+    const bool defer_navigation = Slic3r::GUI::wxGetApp().is_recreating_gui();
+    wxWebView* webView = new WebViewEdge(*g_webview_configuration, defer_navigation);
+    BOOST_LOG_TRIVIAL(warning)
+        << __FUNCTION__ << ": WebView2 navigation mode="
+        << (defer_navigation ? "deferred (GUI recreation)" : "direct (initial startup)");
 #elif defined(__WXOSX__)
     wxWebView *webView = new WebViewWebKit;
 #else
@@ -290,7 +478,17 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
         webView->SetUserAgent(wxString::Format("Creality-Slicer/v%s (%s) Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36 Edg/107.0.1418.52", SLIC3R_VERSION, 
             Slic3r::GUI::wxGetApp().dark_mode() ? "dark" : "light"));
-        webView->Create(parent, wxID_ANY, url2, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+        if (defer_navigation) {
+            // During GUI recreation, wait for wxEVT_WEBVIEW_CREATED before
+            // navigating to avoid ERROR_INVALID_STATE while old controls close.
+            webView->Create(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+            if (!url2.empty())
+                webView->LoadURL(url2);
+        } else {
+            // On initial startup let wxWebView2 handle the initial URL as part
+            // of Create(), matching the pre-10ece62d62 behaviour.
+            webView->Create(parent, wxID_ANY, url2, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+        }
         // We register the wxfs:// protocol for testing purposes
         webView->RegisterHandler(wxSharedPtr<wxWebViewHandler>(new wxWebViewArchiveHandler("bbl")));
         // And the memory: file system
@@ -371,7 +569,7 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
     webView->SetRefData(new WebViewRef(webView));
     g_webviews.push_back(webView);
 #ifdef __WIN32__
-    if (g_force_single_process) {
+    if (use_single_process) {
         if (had_previous_args)
             wxSetEnv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", previous_browser_args);
         else
@@ -379,7 +577,17 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
     }
     if (!g_webview_atexit_registered) {
         g_webview_atexit_registered = true;
-        std::atexit([] { WebView::DestroyAll(); });
+        std::atexit([] {
+            // [诊断日志] 记录 atexit 触发时 g_webviews 的大小。
+            // 若为 0，说明 wx 对象树已在 atexit 之前析构完毕，DestroyAll 将无法
+            // 收集到 WebView2 子进程 pid，子进程可能残留在内存中。
+            // 若不为 0，说明 atexit 路径可正常回收子进程。
+            BOOST_LOG_TRIVIAL(warning)
+                << "[WebView][atexit] triggered, g_webviews.size()=" << g_webviews.size()
+                << " (0 means wx already destroyed webviews before atexit fired"
+                << " — orphan msedgewebview2.exe processes may remain)";
+            WebView::DestroyAll();
+        });
     }
 #endif
     return webView;
@@ -398,7 +606,7 @@ void WebView::SetForceSingleProcess(bool force_single_process)
 bool WebView::CheckWebViewRuntime()
 {
     wxWebViewFactoryEdge factory;
-    auto wxVersion = factory.GetVersionInfo();
+    auto wxVersion = factory.GetVersionInfo(wxVersionContext::RunTime);
     return wxVersion.GetMajor() != 0;
 }
 bool WebView::ReInstallWebViewRuntime()
@@ -524,6 +732,9 @@ bool WebView::RunScript(wxWebView *webView, wxString const &javascript)
 
 void WebView::DestroyAll()
 {
+    // caller 字段用于区分是从 GUI_App::OnExit（主动调用，时机可控）
+    // 还是从 atexit 回调（被动兜底，时机不可控）进入的。
+    // 结合上方 atexit 日志里的 g_webviews.size() 可以判断本次调用是否有效。
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " destroying " << g_webviews.size() << " webviews";
 
 #ifdef __WIN32__
@@ -598,14 +809,34 @@ void WebView::DestroyAll()
         BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " WebView2 browser process(es) finished";
     }
 
-    // Now it is safe to remove the per-run user data folder.
-    if (!g_webview_userdata_dir.empty()) {
-        wxFileName::Rmdir(g_webview_userdata_dir, wxPATH_RMDIR_RECURSIVE);
-        g_webview_userdata_dir.clear();
-    }
+
 #endif
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " done";
 }
+
+#if wxUSE_WEBVIEW_EDGE
+void WebView::ReleaseConfiguration()
+{
+#ifdef __WIN32__
+    // Release the shared WebView2 environment before wxWidgets unloads its
+    // WebView module. Leaving this to the CRT static destructors is too late.
+    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " releasing shared WebView2 configuration";
+    g_webview_configuration.reset();
+
+    // Only mark the profile reusable after the shared WebView2 environment is released.
+    if (!g_webview_userdata_marker.empty()) {
+        if (!wxRemoveFile(g_webview_userdata_marker))
+            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " failed to remove WebView2 profile marker: "
+                                       << g_webview_userdata_marker.ToStdString();
+        g_webview_userdata_marker.clear();
+    }
+    if (g_webview_userdata_ephemeral && !g_webview_userdata_dir.empty())
+        wxFileName::Rmdir(g_webview_userdata_dir, wxPATH_RMDIR_RECURSIVE);
+    g_webview_userdata_dir.clear();
+    g_webview_userdata_ephemeral = false;
+#endif
+}
+#endif
 
 void WebView::RecreateAll()
 {

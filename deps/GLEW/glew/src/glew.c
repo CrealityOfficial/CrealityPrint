@@ -41,6 +41,9 @@
 #  include <GL/osmesa.h>
 #elif defined(GLEW_EGL)
 #  include <GL/eglew.h>
+#elif defined(GLEW_DYNAMIC_GL_BACKEND)
+#  include <EGL/egl.h>
+#  include <GL/glxew.h>
 #elif defined(_WIN32)
 /*
  * If NOGDI is defined, wingdi.h won't be included by windows.h, and thus
@@ -158,10 +161,31 @@ void* NSGLGetProcAddress (const GLubyte *name)
 /*
  * Define glewGetProcAddress.
  */
+#if defined(GLEW_DYNAMIC_GL_BACKEND)
+static GLboolean glewRuntimeUsingEGL(void)
+{
+  return eglGetCurrentContext() != EGL_NO_CONTEXT;
+}
+
+static void* glewRuntimeGetProcAddress(const GLubyte* name)
+{
+  if (glewRuntimeUsingEGL())
+  {
+    void* proc = (void*)eglGetProcAddress((const char*)name);
+    if (proc != NULL)
+      return proc;
+  }
+
+  return (void*)(*glXGetProcAddressARB)(name);
+}
+#endif
+
 #if defined(GLEW_REGAL)
 #  define glewGetProcAddress(name) regalGetProcAddress((const GLchar *)name)
 #elif defined(GLEW_OSMESA)
 #  define glewGetProcAddress(name) OSMesaGetProcAddress((const char *)name)
+#elif defined(GLEW_DYNAMIC_GL_BACKEND)
+#  define glewGetProcAddress(name) glewRuntimeGetProcAddress(name)
 #elif defined(GLEW_EGL)
 #  define glewGetProcAddress(name) eglGetProcAddress((const char *)name)
 #elif defined(_WIN32)
@@ -23115,6 +23139,8 @@ GLenum GLEWAPIENTRY glewInit (void)
   return r;
 #elif defined(_WIN32)
   return wglewInit();
+#elif defined(GLEW_DYNAMIC_GL_BACKEND)
+  return glewRuntimeUsingEGL() ? r : glxewInit();
 #elif !defined(__APPLE__) || defined(GLEW_APPLE_GLX) /* _UNIX */
   return glxewInit();
 #else

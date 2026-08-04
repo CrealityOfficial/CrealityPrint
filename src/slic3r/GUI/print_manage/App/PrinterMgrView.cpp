@@ -1,4 +1,4 @@
-#include "PrinterMgrView.hpp"
+﻿#include "PrinterMgrView.hpp"
 
 #include "../../I18N.hpp"
 #include "../AccountDeviceMgr.hpp"
@@ -47,7 +47,9 @@
 #include "video/WebRTCDecoder.h"
 #endif
 #include <slic3r/GUI/print_manage/AppUtils.hpp>
+#if ENABLE_FFMPEG
 #include "video/RTSPDecoder.h"
+#endif
 #include "buildinfo.h"
 #include <cmath>
 #include "slic3r/GUI/UploadFile.hpp"
@@ -575,7 +577,15 @@ void PrinterMgrView::initMqtt()
        token = extra_headers["__CXY_TOKEN_"];
 
     }
-    std::string username= (boost::format("%s:%s:%s")%duid%plat%appVer).str();//"crealityprint:11:6.2.0";
+    // Multiple opened instances share the same duid, which makes the MQTT username
+    // identical; the broker then disconnects the previously connected session.
+    // The local webview server port (e.g. 13666) auto-increments per instance and is
+    // therefore process-unique. The server splits the username by ':' into 3 segments,
+    // so the port must be embedded inside the duid segment (joined with '_') instead of
+    // added as an extra segment. Result: "duid_port:plat:appVer".
+    int server_port = wxGetApp().get_server_port();
+    std::string duid_with_port = duid + "_" + std::to_string(server_port);
+    std::string username= (boost::format("%s:%s:%s")%duid_with_port%plat%appVer).str();//"crealityprint_13666:11:6.2.0";
     std::string password=(boost::format("%s:%s")%userid%token).str();//"3656792567:083fa893b41e1af54dbc32396e41b605986df75622eb6e64b897cea378203f7d";
     bool connected_ = false;
     std::string region = wxGetApp().app_config->get("region");
@@ -730,31 +740,14 @@ void PrinterMgrView::on_switch_to_device_page()
     //update_which_device_is_current();
     forward_init_device_cmd_to_printer_list();
 
-    if(wxGetApp().easy_mode()) {
-        EasyPrintSender sender;
-        std::string     ip   = sender.getDeviceIp();
-        std::string     name = "";
-        if (ip.empty()) {
-            return;
-        }
-
-        // ?????????�????????????
-        static std::string lastIp;
-        static std::string lastName;
-
-        // ??????????????????????????
-        if (ip == lastIp && name == lastName) {
-            return;
-        }
-
-        lastIp   = ip;
-        lastName = name;
-
-        if (!ip.empty()) {
-            sender.jumpToDeviceDetail(ip, name);
-        }
-    }
-
+    // [17140] Product requirement: switching to the device page no longer
+    // auto-opens the "current device" detail page (the Pro edition does not
+    // have this behavior, and the AI edition must stay consistent with Pro).
+    // The device detail page is opened only by the send flow after an AI
+    // send-print succeeds (see EasyPrintSender::startPrintLan /
+    // AISendWorkflowService::on_cloud_print_success), ensuring the page always
+    // shows this print's target device rather than "open current device on
+    // entering the device page".
 }
 
 void PrinterMgrView::reload()

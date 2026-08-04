@@ -17,7 +17,7 @@
 
 #include <imgui/imgui.h>
 #include <unordered_map>
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include "slic3r/GUI/MsgDialog.hpp"
 #include "GLSimpleUtils.hpp"
 

@@ -108,13 +108,13 @@ void GridCellIconRenderer::Draw(wxGrid& grid,
     }
 }
 
-wxSize GridCellIconRenderer::GetBestSize(wxGrid& WXUNUSED(grid),
+wxSize GridCellIconRenderer::GetBestSize(wxGrid& grid,
                                wxGridCellAttr& attr,
                                wxDC& dc,
                                int WXUNUSED(row),
                                int WXUNUSED(col))
 {
-    wxSize size{32, 30};
+    wxSize size{grid.FromDIP(32), grid.FromDIP(30)};
     return size;
 }
 
@@ -163,7 +163,7 @@ void GridCellFilamentsEditor::Create(wxWindow* parent,
     if ( !m_allowOthers )
         style |= wxCB_READONLY;
     ::ComboBox *bitmap_combo = new ComboBox(parent, id, wxEmptyString,
-                               wxDefaultPosition, wxSize(((*m_icons)[0])->GetWidth() + 10, -1), 0, nullptr, CB_NO_DROP_ICON | CB_NO_TEXT | wxCB_READONLY);
+                               wxDefaultPosition, wxSize(((*m_icons)[0])->GetWidth() + parent->FromDIP(10), -1), 0, nullptr, CB_NO_DROP_ICON | CB_NO_TEXT | wxCB_READONLY);
     if (m_icons) {
         int array_count = m_choices.GetCount();
         int icon_count = m_icons->size();
@@ -367,7 +367,7 @@ void GridCellFilamentsRenderer::Draw(wxGrid &grid, wxGridCellAttr &attr, wxDC &d
 
 wxSize GridCellFilamentsRenderer::GetBestSize(wxGrid &grid, wxGridCellAttr &attr, wxDC &dc, int WXUNUSED(row), int WXUNUSED(col))
 {
-    wxSize size{48, -1};
+    wxSize size{grid.FromDIP(48), -1};
     return size;
 }
 
@@ -547,7 +547,7 @@ void GridCellComboBoxRenderer::Draw(wxGrid &grid, wxGridCellAttr &attr, wxDC &dc
 
 wxSize GridCellComboBoxRenderer::GetBestSize(wxGrid &grid, wxGridCellAttr &attr, wxDC &dc, int WXUNUSED(row), int WXUNUSED(col))
 {
-    wxSize size{48, -1};
+    wxSize size{grid.FromDIP(48), -1};
     return size;
 }
 
@@ -566,6 +566,12 @@ void GridCellSupportEditor::DoActivate(int row, int col, wxGrid* grid)
 {
     ObjectGrid* local_table = dynamic_cast<ObjectGrid*>(grid);
     wxGridBlocks cell_array = grid->GetSelectedBlocks();
+    if (cell_array.begin() == cell_array.end()) {
+        wxGridCellBoolEditor::DoActivate(row, col, grid);
+        grid->SelectBlock(row, col, row, col, true);
+        return;
+    }
+
    
     auto left_col = cell_array.begin()->GetLeftCol();
     auto right_col = cell_array.begin()->GetRightCol();
@@ -706,35 +712,33 @@ void GridCellSupportRenderer::Draw(wxGrid& grid,
     if (grid_row->row_type != table->GridRowType::row_volume || col != table->GridColType::col_printable) {
         if (cur_option.value) {
 
-            auto check_on = col ? create_scaled_bitmap("check_on", nullptr, 18) : create_scaled_bitmap("visible", nullptr, 18);
+            auto check_on = col ? create_scaled_bitmap("check_on", &grid, 18) : create_scaled_bitmap("visible", &grid, 18);
             dc.SetPen(*wxTRANSPARENT_PEN);
 
-            auto offsetx = 0;
-            auto offsety = 0;
-
-            #ifdef  __WXOSX_MAC__
-            offsetx = (width - 18) / 2;
-            offsety = (height - 18) / 2;
-            #else
-            offsetx = (width - check_on.GetSize().x) / 2;
-            offsety = (height - check_on.GetSize().y) / 2;
-            #endif //  __WXOSX_MAC__
+            // Keep the old macOS fixed-size centering code commented for reference.
+            // It is disabled because 18px does not match DPI-scaled bitmap sizes.
+            // #ifdef  __WXOSX_MAC__
+            // offsetx = (width - 18) / 2;
+            // offsety = (height - 18) / 2;
+            // #else
+            auto offsetx = (width - check_on.GetSize().x) / 2;
+            auto offsety = (height - check_on.GetSize().y) / 2;
+            // #endif //  __WXOSX_MAC__
 
             dc.DrawBitmap(check_on, rect.x + offsetx, rect.y + offsety);
     } else {
-            auto check_off = col ? create_scaled_bitmap("check_off_focused", nullptr, 18) : create_scaled_bitmap("unVisible", nullptr, 18);
+            auto check_off = col ? create_scaled_bitmap("check_off_focused", &grid, 18) : create_scaled_bitmap("unVisible", &grid, 18);
             dc.SetPen(*wxTRANSPARENT_PEN);
 
-            auto offsetx = 0;
-            auto offsety = 0;
-
-            #ifdef __WXOSX_MAC__
-            offsetx = (width - 18) / 2;
-            offsety = (height - 18) / 2;
-            #else
-            offsetx = (width - check_off.GetSize().x) / 2;
-            offsety = (height - check_off.GetSize().y) / 2;
-            #endif //  __WXOSX_MAC__
+            // Keep the old macOS fixed-size centering code commented for reference.
+            // It is disabled because 18px does not match DPI-scaled bitmap sizes.
+            // #ifdef __WXOSX_MAC__
+            // offsetx = (width - 18) / 2;
+            // offsety = (height - 18) / 2;
+            // #else
+            auto offsetx = (width - check_off.GetSize().x) / 2;
+            auto offsety = (height - check_off.GetSize().y) / 2;
+            // #endif //  __WXOSX_MAC__
 
             dc.DrawBitmap(check_off, rect.x + offsetx, rect.y + offsety);
         }
@@ -755,7 +759,7 @@ wxSize GridCellSupportRenderer::GetBestSize(wxGrid& grid,
 
     wxSize size{width, 20};
 */
-    wxSize size{32, 20};
+    wxSize size{grid.FromDIP(32), grid.FromDIP(20)};
 
     return size;
 }
@@ -2734,8 +2738,9 @@ ObjectTablePanel::ObjectTablePanel( wxWindow* parent, wxWindowID id, const wxPoi
     //m_object_grid_table->SetAttrProvider(new MyGridCellAttrProvider);
     //m_object_grid->AssignTable(m_object_grid_table);
 
-    m_side_window = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, wxSize(FromDIP(440),FromDIP(480)), wxVSCROLL);
-    m_side_window->SetScrollRate( 0, 5 );
+    m_side_window = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition,
+        wxSize(FromDIP(440), FromDIP(480)), wxVSCROLL | wxCLIP_CHILDREN);
+    m_side_window->SetScrollRate(0, 5);
     m_page_sizer = new wxBoxSizer(wxVERTICAL);
     //m_page_top_sizer = new wxBoxSizer(wxHORIZONTAL);
     m_side_window->SetBackgroundColour(wxColour(0xff, 0xff, 0xff));
@@ -2782,7 +2787,6 @@ ObjectTablePanel::ObjectTablePanel( wxWindow* parent, wxWindowID id, const wxPoi
         m_object_grid->SetFocus();
         evt.Skip();
         });
-
     auto m_line_left = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(2, -1), wxTAB_TRAVERSAL);
     m_line_left->SetBackgroundColour(wxColour(0xA6, 0xa9, 0xAA));
 
@@ -2800,8 +2804,8 @@ ObjectTablePanel::ObjectTablePanel( wxWindow* parent, wxWindowID id, const wxPoi
 
 int ObjectTablePanel::init_bitmap()
 {
-    m_undo_bitmap = create_scaled_bitmap("lock_normal", nullptr, 18);
-    m_color_bitmaps = get_extruder_color_icons();
+    m_undo_bitmap = create_scaled_bitmap("lock_normal", this, 18);
+    m_color_bitmaps = get_extruder_color_icons(this);
 
     return 0;
 }
@@ -3244,9 +3248,10 @@ wxSize ObjectTablePanel::get_init_size()
     int width = 0, height = 0;
 
     //compute height
+    const int min_row_size = FromDIP(g_min_row_size);
     int row_count = m_object_grid_table->GetNumberRows();
     if (row_count >= g_overflow_row_count) {
-        height = row_count * g_min_row_size;
+        height = row_count * min_row_size;
     }
     else {
         for (int index = 0; index < m_object_grid_table->GetNumberRows(); index++)
@@ -3254,17 +3259,17 @@ wxSize ObjectTablePanel::get_init_size()
             height += m_object_grid->GetRowSize(index);
         }
     }
-    height += g_extra_height;
+    height += FromDIP(g_extra_height);
 
-    if (height < (g_min_row_count * g_min_row_size))
-        height = g_min_row_count * g_min_row_size;
+    if (height < (g_min_row_count * min_row_size))
+        height = g_min_row_count * min_row_size;
 
     //compute width
     for (int index = 0; index < m_object_grid_table->GetNumberCols(); index++)
     {
         width += m_object_grid->GetColSize(index);
     }
-    width += g_vscroll_width + g_min_setting_width;
+    width += FromDIP(g_vscroll_width) + FromDIP(g_min_setting_width);
 
     size.Set(width, height);
 
@@ -3277,10 +3282,47 @@ void ObjectTablePanel::resetAllValuesInSideWindow(int row, bool is_object, Model
     m_object_settings->resetAllValues(row, is_object, object, config, category);
 }
 
-void ObjectTablePanel::msw_rescale() { 
-    m_object_grid->HideRowLabels();
-}
+void ObjectTablePanel::msw_rescale()
+{
+    if (!m_object_grid)
+        return;
 
+    m_object_grid->HideRowLabels();
+    m_object_grid->SetLabelFont(Label::Head_13);
+
+    if (m_object_grid->GetNumberRows() > 0)
+        m_object_grid->SetRowSize(0, 0);
+    for (int row = 1; row < m_object_grid->GetNumberRows(); ++row)
+        m_object_grid->SetRowSize(row, FromDIP(g_min_row_size));
+
+    auto set_col_width = [this](int col, int width) {
+        if (col >= 0 && col < m_object_grid->GetNumberCols())
+            m_object_grid->SetColSize(col, width);
+    };
+    auto set_min_col_width = [this](int col, int width) {
+        if (col >= 0 && col < m_object_grid->GetNumberCols() && m_object_grid->GetColSize(col) < width)
+            m_object_grid->SetColSize(col, width);
+    };
+
+    set_min_col_width(ObjectGridTable::col_printable, FromDIP(32));
+    set_col_width(ObjectGridTable::col_printable_reset, FromDIP(0));
+    set_col_width(ObjectGridTable::col_name, FromDIP(140));
+    set_col_width(ObjectGridTable::col_filaments_reset, FromDIP(0));
+    set_col_width(ObjectGridTable::col_layer_height_reset, FromDIP(28));
+    set_col_width(ObjectGridTable::col_wall_loops_reset, FromDIP(28));
+    set_col_width(ObjectGridTable::col_fill_density_reset, FromDIP(28));
+    set_min_col_width(ObjectGridTable::col_enable_support, FromDIP(32));
+    set_col_width(ObjectGridTable::col_enable_support_reset, FromDIP(28));
+    set_col_width(ObjectGridTable::col_brim_type, FromDIP(56));
+    set_col_width(ObjectGridTable::col_brim_type_reset, FromDIP(28));
+    set_col_width(ObjectGridTable::col_speed_perimeter_reset, FromDIP(28));
+
+    m_undo_bitmap = create_scaled_bitmap("lock_normal", this, 18);
+    clear_extruder_color_icon_cache();
+    m_color_bitmaps = get_extruder_color_icons(this);
+    m_object_grid->Refresh();
+    Layout();
+}
 // ----------------------------------------------------------------------------
 // ObjectTableDialog
 // ----------------------------------------------------------------------------
@@ -3289,9 +3331,7 @@ ObjectTableDialog::ObjectTableDialog(wxWindow* parent, Plater* platerObj, Model 
     ,
     m_model(modelObj), m_plater(platerObj)
 {
-#ifdef __WINDOWS__
-    SetDoubleBuffered(true);
-#endif //__WINDOWS__
+
     //this->SetBackgroundColour(m_bg_colour);
 
     //m_top_sizer = new wxBoxSizer( wxVERTICAL );

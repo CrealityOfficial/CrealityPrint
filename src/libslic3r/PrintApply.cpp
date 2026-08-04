@@ -9,6 +9,7 @@
 
 #include <boost/log/trivial.hpp>
 #include <algorithm>
+#include <chrono>
 #include <cfloat>
 #include <initializer_list>
 #include <unordered_set>
@@ -1251,7 +1252,7 @@ static double config_float(std::initializer_list<const ConfigBase*> configs, con
 
 static bool is_explicit_role_filament(int extruder)
 {
-    return extruder > 1;
+    return extruder > 0;
 }
 
 static void append_role_extruders(std::vector<unsigned int>& extruders, std::initializer_list<const ConfigBase*> configs)
@@ -1437,7 +1438,12 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         size_t used_filaments = strings_opt->values.size();
         std::vector<std::string> default_colors(used_filaments);
         std::vector<std::string> default_types(used_filaments);
+        const auto used_extruders_color_started_at = std::chrono::steady_clock::now();
         std::vector<unsigned int> used_extruders =  get_used_extruders(model, new_full_config, this->m_plate_index);
+        BOOST_LOG_TRIVIAL(warning) << "[SLICE_PREFLIGHT_TIMING] stage=USED_EXTRUDERS_COLOR_SETUP elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(
+                                          std::chrono::steady_clock::now() - used_extruders_color_started_at)
+                                          .count();
         for(unsigned i : used_extruders) {
             int extruder = i -1;
             if(extruder >= used_filaments)
@@ -1548,7 +1554,12 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
     }
     // Use only physical extruders actually referenced by the model/custom gcode.
     // Auto-generated mixed rows should not make a single-filament print look multi-filament.
+    const auto used_extruders_normalize_started_at = std::chrono::steady_clock::now();
     std::vector<unsigned int> used_extruders = get_used_extruders(model, new_full_config, this->m_plate_index);
+    BOOST_LOG_TRIVIAL(warning) << "[SLICE_PREFLIGHT_TIMING] stage=USED_EXTRUDERS_NORMALIZE elapsed_ms="
+                               << std::chrono::duration<double, std::milli>(
+                                      std::chrono::steady_clock::now() - used_extruders_normalize_started_at)
+                                      .count();
     int used_filaments = int(count_used_physical_extruders(used_extruders, mixed_filament_manager(), num_physical));
     if (new_full_config.opt_bool("single_extruder_multi_material"))
         used_filaments = std::max(used_filaments, int(max_used_filament_id(used_extruders)));
@@ -2183,7 +2194,12 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
     }
 
     //BBS: check the config again
+    const auto new_used_extruders_started_at = std::chrono::steady_clock::now();
     std::vector<unsigned int> new_used_extruders = get_used_extruders(model, new_full_config, this->m_plate_index);
+    BOOST_LOG_TRIVIAL(warning) << "[SLICE_PREFLIGHT_TIMING] stage=USED_EXTRUDERS_FINAL_NORMALIZE elapsed_ms="
+                               << std::chrono::duration<double, std::milli>(
+                                      std::chrono::steady_clock::now() - new_used_extruders_started_at)
+                                      .count();
     int new_used_filaments = int(count_used_physical_extruders(new_used_extruders, mixed_filament_manager(), num_extruders));
     if (new_full_config.opt_bool("single_extruder_multi_material"))
         new_used_filaments = std::max(new_used_filaments, int(max_used_filament_id(new_used_extruders)));

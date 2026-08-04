@@ -554,9 +554,9 @@ void ErrorReportDialog::GetErrorReport()
 
         glfwMakeContextCurrent(window);
 
-        // 初始化GLEW
-        if (glewInit() != GLEW_OK) {
-            std::cerr << "Failed to initialize GLEW!" << std::endl;
+        // 初始化GLAD
+        if (gladLoaderLoadGL() == 0) {
+            std::cerr << "Failed to initialize GLAD!" << std::endl;
             return;
         }
 

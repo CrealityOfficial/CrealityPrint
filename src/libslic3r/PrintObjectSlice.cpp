@@ -1361,6 +1361,9 @@ void PrintObject::slice_volumes()
             });
     }
 
+    const char* xy_compensation_opt_key = m_config.xy_hole_compensation.value != 0.f ?
+                                               "xy_hole_compensation" : "xy_contour_compensation";
+
     // Is any ModelVolume MMU painted?
     if (const auto& volumes = this->model_object()->volumes;
         m_print->config().filament_diameter.size() > 1 && // BBS
@@ -1372,7 +1375,8 @@ void PrintObject::slice_volumes()
             this->active_step_add_warning(
                 PrintStateBase::WarningLevel::CRITICAL,
                 L("An object's XY size compensation will not be used because it is also color-painted.\nXY Size "
-                  "compensation can not be combined with color-painting."));
+                  "compensation can not be combined with color-painting."),
+                PrintStateBase::SlicingDefaultNotification, xy_compensation_opt_key);
             BOOST_LOG_TRIVIAL(info) << "xy compensation will not work for object " << this->model_object()->name << " for multi filament.";
         }
             BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - MMU segmentation";
@@ -1401,7 +1405,8 @@ void PrintObject::slice_volumes()
                 PrintStateBase::WarningLevel::CRITICAL,
                 _u8L("An object has enabled XY Size compensation which will not be used because it is also fuzzy skin painted.\nXY Size "
                      "compensation cannot be combined with fuzzy skin painting.") +
-                    "\n" + (_u8L("Object name")) + ": " + this->model_object()->name);
+                    "\n" + (_u8L("Object name")) + ": " + this->model_object()->name,
+                PrintStateBase::SlicingDefaultNotification, xy_compensation_opt_key);
         }
 
         BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - Fuzzy skin segmentation";

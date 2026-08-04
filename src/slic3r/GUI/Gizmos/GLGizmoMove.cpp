@@ -4,7 +4,7 @@
 #include "slic3r/GUI/Plater.hpp"
 #include "libslic3r/AppConfig.hpp"
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include <wx/utils.h>
 
 namespace Slic3r {

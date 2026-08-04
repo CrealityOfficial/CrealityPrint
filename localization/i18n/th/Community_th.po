@@ -1,0 +1,1127 @@
+msgid ""
+msgstr "Project-Id-Version: \nPOT-Creation-Date: \nPO-Revision-Date: \nLast-Translator: \nLanguage-Team: \nLanguage: th_TH\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\nX-Generator: Poedit 3.5"
+
+msgid "Submit"
+msgstr "ส่ง"
+
+msgid "The file cannot be larger than 0.5M, please choose another SVG"
+msgstr "แฟ้มไม่สามารถมีขนาดใหญ่กว่า 0.5M ได้ โปรดเลือก SVG ตัวอื่น"
+
+msgid "Export 3mf"
+msgstr "ส่งออก 3MF"
+
+msgid "Export stl"
+msgstr "ส่งออก STL"
+
+msgid "project saved"
+msgstr "บันทึกโครงการแล้ว"
+
+msgid "signage work"
+msgstr "งานเซ็นเอกสาร"
+
+msgid "Corner Radius"
+msgstr "มุม:"
+
+msgid "Select"
+msgstr "เลือก"
+
+msgid "Pan"
+msgstr "แพน"
+
+msgid "Copy(ctr+c)"
+msgstr "คัดลอก (ctr+c)"
+
+msgid "Paste(ctr+v)"
+msgstr "วาง (ctr+v)"
+
+msgid "Undo(ctr+z)"
+msgstr "เลิกทํา (ctr+z)"
+
+msgid "Redo(ctr+shift+z)"
+msgstr "ทําซ้ํา (ctr+ shift+z)"
+
+msgid "Delete(Del)"
+msgstr "ลบ"
+
+msgid "Reached the limit of 30 works per person"
+msgstr "เข้าถึงขีดจํากัด 30 งานต่อคน"
+
+msgid "Comming Soon"
+msgstr "การ บรรยาย ใน ไม่ ช้า"
+
+msgid "Current Device"
+msgstr "อุปกรณ์ปัจจุบัน"
+
+msgid "Recently Printed Files"
+msgstr "แฟ้มที่พิมพ์ไม่นานนี้"
+
+msgid "My Devices"
+msgstr "อุปกรณ์ของฉัน"
+
+msgid "Type"
+msgstr "ประเภท"
+
+msgid "Device Name"
+msgstr "ชื่ออุปกรณ์"
+
+msgid "Idle"
+msgstr "ว่าง"
+
+msgid "Printing"
+msgstr "กำลังพิมพ์"
+
+msgid "Complete"
+msgstr "เสร็จสมบูรณ์"
+
+msgid "Print complete"
+msgstr "พิมพ์เสร็จ"
+
+msgid "Printing failed"
+msgstr "การพิมพ์ล้มเหลว"
+
+msgid "Print termination"
+msgstr "หยุดการพิมพ์"
+
+msgid "Printing paused"
+msgstr "การพิมพ์หยุดชั่วคราว"
+
+msgid "Pause in progress"
+msgstr "หยุดการทํางานชั่วคราว"
+
+msgid "STOPPING"
+msgstr "หยุดชั่วคราว"
+
+msgid "In recovery"
+msgstr "ใน การ ฟื้น ตัว"
+
+msgid "Executing print termination command"
+msgstr "ประมวลผลคําสั่งจบการพิมพ์"
+
+msgid "Executing pause printing command"
+msgstr "กําลังประมวลผลคําสั่งหยุดการพิมพ์"
+
+msgid "Executing the command to continue printing"
+msgstr "กําลังประมวลผลคําสั่งที่จะพิมพ์ต่อไป"
+
+msgid "Off Line"
+msgstr "ออฟไลน์"
+
+msgid "Printing File"
+msgstr "การพิมพ์เอกสาร"
+
+msgid "Printing Progress"
+msgstr "ความคืบหน้าการพิมพ์"
+
+msgid "Layer Height"
+msgstr "ความสูง:"
+
+msgid "Consumables Length"
+msgstr "ความยาวสิ้นเปลือง"
+
+msgid "Sync Consumables"
+msgstr "ซิงค์อุปกรณ์สิ้นเปลือง"
+
+msgid "Time required"
+msgstr "เวลาที่ต้องการ"
+
+msgid "Material Rack"
+msgstr "แร็ค ด้าน วัตถุ"
+
+msgid "Connection method"
+msgstr "วิธีการของการเชื่อมต่อ"
+
+msgid "No shelf data available"
+msgstr "ไม่มีข้อมูลชั้นวาง"
+
+msgid ""
+"The number of printer presets cached in the cloud has reached the upper "
+"limit (20). Newly created user presets will not be synchronized to the cloud."
+msgstr "จํานวนของเครื่องพิมพ์ที่ถูกจองไว้ในเมฆ ได้ถึงขีดสุด (20) ผู้ใช้ที่ถูกสร้างใหม่ จะไม่ปรับเทียบข้อมูลกับกลุ่มเมฆ"
+
+msgid ""
+"The presets have not been synced to Creality Cloud yet. Click here to enable "
+"it."
+msgstr "ค่าที่ตั้งล่วงหน้ายังไม่ได้ซิงค์กับ Creality Cloud คลิกที่นี่เพื่อเปิดใช้งาน"
+
+msgid "Please Input"
+msgstr "กรุณาป้อนข้อมูล"
+
+msgid "Consumables"
+msgstr "วัสดุสิ้นเปลือง"
+
+msgid "Technology"
+msgstr "เทคโนโลยี"
+
+msgid "Printer"
+msgstr "เครื่องพิมพ์"
+
+msgid "Parameter Name"
+msgstr "ชื่อพารามิเตอร์"
+
+msgid "Update Time"
+msgstr "ปรับปรุงเวลา"
+
+msgid "Modifications"
+msgstr "การขยายสัญญาณ"
+
+msgid "Operation"
+msgstr "ปฏิบัติการ"
+
+msgid "There are currently no presets synced to Creality Cloud~"
+msgstr "ขณะนี้ไม่มีการตั้งค่าล่วงหน้าที่ซิงค์กับ Creality Cloud~"
+
+msgid "Are you sure delete this preset?"
+msgstr "คุณแน่ใจหรือว่าต้องการจะลบชุดสําเร็จนี้?"
+
+msgid "No"
+msgstr "ไม่"
+
+msgid "Yes"
+msgstr "ใช่"
+
+msgid "The current search results are empty~"
+msgstr "ผลการค้นหาในปัจจุบันว่างเปล่า~"
+
+msgid "You haven't added a device yet"
+msgstr "คุณยังไม่ได้เพิ่มอุปกรณ์เลย"
+
+msgid "The current account is not associated with any devices"
+msgstr "บัญชีผู้ใช้ปัจจุบันไม่ได้ถูกกําหนดให้ใช้กับอุปกรณ์ใด ๆ"
+
+msgid "Please follow the instructions below to add a new device"
+msgstr "โปรดทําตามคําแนะนําด้านล่างนี้เพื่อเพิ่มอุปกรณ์ใหม่"
+
+msgid "Mode One"
+msgstr "โหมดหนึ่ง"
+
+msgid "Mode Two"
+msgstr "โหมดสอง"
+
+msgid "Scan the QR code below"
+msgstr "ค้นหารหัส QR ข้าง ล่าง"
+
+msgid "Add new device"
+msgstr "เพิ่มอุปกรณ์ใหม่"
+
+msgid "If you have already downloaded it"
+msgstr "ถ้าคุณดาวน์โหลดมาแล้ว"
+
+msgid "Download Creality Cloud App"
+msgstr "ดาวน์โหลดแอป Creality Cloud"
+
+msgid "Open the Creality Cloud App"
+msgstr "เปิดแอป Creality Cloud"
+
+msgid "Click on the status bar"
+msgstr "คลิกบนแถบสถานะ"
+
+msgid "Multiple devices"
+msgstr "อุปกรณ์หลายอุปกรณ์"
+
+msgid "Through the multi device list interface"
+msgstr "ผ่านส่วนเชื่อมต่อรายการอุปกรณ์หลากหลาย"
+
+msgid "Scan and Add"
+msgstr "ค้นหาและเพิ่ม"
+
+msgid "OR"
+msgstr "หรือ"
+
+msgid "Manually Add"
+msgstr "เพิ่มด้วยตนเอง"
+
+msgid "Add a new device and click"
+msgstr "เพิ่มอุปกรณ์ใหม่แล้วคลิก"
+
+msgid "Associate my device"
+msgstr "เชื่อมต่ออุปกรณ์ของฉัน"
+
+msgid "Add to your account"
+msgstr "เพิ่มเข้ากับบัญชีผู้ใช้ของคุณ"
+
+msgid "Default Grouping"
+msgstr "การจัดกลุ่มปริยาย"
+
+msgid "Equipment Model"
+msgstr "รุ่นการถอดไพ่"
+
+msgid "Equipment Name"
+msgstr "ชื่อการขอข้อมูล"
+
+msgid "IP Address"
+msgstr "ที่อยู่ IP"
+
+msgid "Equipment Status"
+msgstr "สถานะการขอข้อมูล"
+
+msgid "Print Document"
+msgstr "พิมพ์เอกสาร"
+
+msgid "Printing Speed"
+msgstr "ความเร็วการพิมพ์"
+
+msgid "Action"
+msgstr "การกระทํา"
+
+msgid "Prepare"
+msgstr "เตรียม"
+
+msgid "Preview"
+msgstr "ดูตัวอย่าง"
+
+msgid "Genshin Impact Kerry"
+msgstr "เค อร์ รี"
+
+msgid "CFS data temporarily unavailable"
+msgstr "ไม่มีข้อมูล CFS ชั่วคราว"
+
+msgid "Success"
+msgstr "สำเร็จ"
+
+msgid "Time"
+msgstr "เวลา"
+
+msgid "Lan"
+msgstr "เครือข่ายท้องถิ่น"
+
+msgid "Wan"
+msgstr "วัน"
+
+msgid "Last Sync"
+msgstr "ปรับเทียบข้อมูลล่าสุด"
+
+msgid "Connected"
+msgstr "เชื่อมต่อแล้ว"
+
+msgid "Not connected"
+msgstr "ยังไม่ได้เชื่อมต่อ"
+
+msgid "Rack"
+msgstr "แร็ก"
+
+msgid "Refresh"
+msgstr "รีเฟรช"
+
+msgid "Please first"
+msgstr "กรุณาก่อน"
+
+msgid "Internet unavailable, please try reconnecting!"
+msgstr "ไม่มีอินเทอร์เน็ต โปรดลองเชื่อมต่อใหม่"
+
+msgid "obtain account binding device"
+msgstr "รับอุปกรณ์ที่เชื่อมโยงบัญชีผู้ใช้"
+
+msgid "New Project"
+msgstr "โครงการใหม่"
+
+msgid "Open Project"
+msgstr "เปิดโครงการ"
+
+msgid "Home Page"
+msgstr "หน้าหลัก"
+
+msgid "Workbench"
+msgstr "เตียง ทํา งาน"
+
+msgid "Online Resource"
+msgstr "ทรัพยากรออนไลน์"
+
+msgid "Online Models"
+msgstr "รุ่นของออนไลน์"
+
+msgid "Online Params"
+msgstr "พารัมออนไลน์"
+
+msgid "Modeling Tools"
+msgstr "เครื่องมือจําลอง"
+
+msgid "Guide Forum"
+msgstr "Forum นําทาง"
+
+msgid "Personal Center"
+msgstr "ศูนย์ส่วนตัว"
+
+msgid "My Models"
+msgstr "รุ่นของฉัน"
+
+msgid "My Presets"
+msgstr "ชุด ของ ฉัน"
+
+msgid "My Downloads"
+msgstr "การดาวน์โหลดของฉัน"
+
+msgid "Recently opened"
+msgstr "เพิ่งเปิดใช้"
+
+msgid "More"
+msgstr "เพิ่มเติม"
+
+msgid "Login"
+msgstr "เข้าสู่ระบบ"
+
+msgid "Logout"
+msgstr "ออกจากระบบ"
+
+msgid "Register"
+msgstr "ลงทะเบียน"
+
+msgid "Mobile Login"
+msgstr "ล็อกอินแบบพกพา"
+
+msgid "Email Login"
+msgstr "ล็อกอินทางอีเมล"
+
+msgid "Password Login"
+msgstr "ล็อกอินรหัสผ่าน"
+
+msgid "scan code to login"
+msgstr "ค้นหารหัสสําหรับล็อกอิน"
+
+msgid "Have no account?"
+msgstr "ไม่มีบัญชีเหรอ?"
+
+msgid "Please click"
+msgstr "กรุณาคลิก"
+
+msgid "Verification Code Login"
+msgstr "ล็อกอินรหัสผ่าน"
+
+msgid "Forgot password?"
+msgstr "ลืมรหัสผ่าน?"
+
+msgid "Other login methods"
+msgstr "วิธีการล็อกอินอื่น ๆ"
+
+msgid "Open the Creality Cloud App - Personal Center Scan"
+msgstr "เปิดแอป Creality Cloud - สแกนศูนย์ส่วนบุคคล"
+
+msgid "You are currently on the"
+msgstr "คุณกําลังอยู่ใน"
+
+msgid "Chinese website (+86),"
+msgstr "เว็บไซต์จีน (+86)"
+
+msgid "please use"
+msgstr "กรุณาใช้"
+
+msgid "Chinese version App"
+msgstr "App รุ่นภาษาจีน"
+
+msgid "scan then login"
+msgstr "ค้นหาแล้วล็อกอิน"
+
+msgid "Register Now"
+msgstr "ล็อกอินเดี๋ยวนี้"
+
+msgid "Input Phone Number"
+msgstr "หมายเลขโทรศัพท์นําเข้า"
+
+msgid "Mobile Register"
+msgstr "ลงทะเบียนแบบเคลื่อนที่"
+
+msgid "Email Register"
+msgstr "ล็อกอินด้วยอีเมล"
+
+msgid "Already have account?"
+msgstr "มีบัญชีหรือยัง?"
+
+msgid "Input Verification Code"
+msgstr "รหัสตรวจสอบการนําเข้า"
+
+msgid "Send Verification Code"
+msgstr "ส่งรหัสตรวจสอบ"
+
+msgid "6-18 characters"
+msgstr "ตัวอักษร 6- 18 ตัว"
+
+msgid "I have read and agree"
+msgstr "ฉันได้อ่านและเห็นด้วย"
+
+msgid "Creality Cloud User Registration Agreement"
+msgstr "ข้อตกลงการลงทะเบียนผู้ใช้ Creality Cloud"
+
+msgid "And"
+msgstr "และ"
+
+msgid "Privacy Policy"
+msgstr "ข้อกําหนดปริยาย"
+
+msgid "Reset Password"
+msgstr "ตั้งค่ารหัสผ่านใหม่"
+
+msgid "Email Password Retrieval"
+msgstr "การรับรหัสผ่านทางอีเมล"
+
+msgid "Return To Login"
+msgstr "กลับไปยังล็อกอิน"
+
+msgid "Cancel"
+msgstr "ยกเลิก"
+
+msgid "Confirm"
+msgstr "ยืนยัน"
+
+msgid "Tip"
+msgstr "คําแนะนํา"
+
+msgid "Confirm to logout?"
+msgstr "ยืนยันการออกจากระบบหรือไม่?"
+
+msgid "Model Details"
+msgstr "รายละเอียดรุ่น"
+
+msgid "Category"
+msgstr "ประเภท"
+
+msgid "models total"
+msgstr "จํานวนโมเดลทั้งหมด"
+
+msgid "Print Settings"
+msgstr "ตั้งค่าการพิมพ์"
+
+msgid "Files"
+msgstr "แฟ้ม"
+
+msgid "No Print Settings"
+msgstr "ไม่มีการตั้งค่าการพิมพ์"
+
+msgid "No Print Models"
+msgstr "ไม่มีโมเดลการพิมพ์"
+
+msgid "Download All"
+msgstr "ดาวน์โหลดทั้งหมด"
+
+msgid "Download Then Load"
+msgstr "ดาวน์โหลดแล้วโหลด"
+
+msgid "Upload"
+msgstr "อัปโหลด"
+
+msgid "Recommend"
+msgstr "แนะนํา"
+
+msgid "VIP Free"
+msgstr "ไม่มี VIP"
+
+msgid "Exclusive"
+msgstr "ไม่รวม"
+
+msgid "Multi Color"
+msgstr "สีหลายสี"
+
+msgid "All"
+msgstr "ทั้งหมด"
+
+msgid "Format"
+msgstr "รูปแบบ"
+
+msgid "Price"
+msgstr "ค่า"
+
+msgid "Sort"
+msgstr "ชนิด"
+
+msgid "Free model"
+msgstr "รุ่นอิสระ"
+
+msgid "Fee model"
+msgstr "รุ่นของ Fee"
+
+msgid "Comprehensive Trends"
+msgstr "แนว โน้ม ที่ เข้าใจ ได้"
+
+msgid "Latest Upload"
+msgstr "อัปโหลดล่าสุด"
+
+msgid "Browse"
+msgstr "เรียกดู"
+
+msgid "Like"
+msgstr "เหมือน"
+
+msgid "Favorites"
+msgstr "รายการโปรด"
+
+msgid "Download"
+msgstr "ดาวน์โหลด"
+
+msgid "Purchase"
+msgstr "การซื้อ"
+
+msgid "History"
+msgstr "ประวัติ"
+
+msgid "Clear History"
+msgstr "ล้างประวัติ"
+
+msgid "Popular Search"
+msgstr "การค้นหาแบบป๊อปปูล่า"
+
+msgid "Models"
+msgstr "รุ่น"
+
+msgid "Print Files"
+msgstr "พิมพ์เอกสาร"
+
+msgid "My Upload"
+msgstr "อัพโหลดของฉัน"
+
+msgid "My Like"
+msgstr "ฉันชอบ"
+
+msgid "My Purchase"
+msgstr "การ ซื้อ ของ ผม"
+
+msgid "My Favorites"
+msgstr "ของโปรดฉัน"
+
+msgid "Creative Works"
+msgstr "งาน ก่อ สร้าง"
+
+msgid "Print Config"
+msgstr "ปรับแต่งการพิมพ์"
+
+msgid "Main Page"
+msgstr "หน้าหลัก"
+
+msgid "Project List"
+msgstr "รายการโครงการ"
+
+msgid "Project Editing"
+msgstr "การแก้ไขโครงการ"
+
+msgid "Make My Sign"
+msgstr "ทํา หมาย สําคัญ ของ ฉัน"
+
+msgid "Name plate, badge, sign, anything flat"
+msgstr "แผ่นชื่อ, ตรา, ป้าย, อะไรก็ตามที่แบน"
+
+msgid "Make My Sign Feedback Collection Form"
+msgstr "สร้างแบบฟอร์มรวบรวมคำติชมป้ายของฉัน"
+
+msgid "Details"
+msgstr "รายละเอียด"
+
+msgid "Cloud Slicing"
+msgstr "แปรงทาสี"
+
+msgid "Start"
+msgstr "เริ่ม"
+
+msgid "Input Project Name"
+msgstr "ชื่อโครงการนําเข้า"
+
+msgid "Name Can Not Be Empty"
+msgstr "ชื่อไม่สามารถว่างได้"
+
+msgid "Confirm To Delete?"
+msgstr "ยืนยันที่จะลบหรือไม่?"
+
+msgid "Last Modified Time"
+msgstr "เวลาแก้ไขล่าสุด"
+
+msgid "Input New Name"
+msgstr "นําเข้าชื่อใหม่"
+
+msgid "Load"
+msgstr "โหลด"
+
+msgid "Duplicate"
+msgstr "ทําซ้ํา"
+
+msgid "Rename"
+msgstr "เปลี่ยนชื่อ"
+
+msgid "Delete"
+msgstr "ลบ"
+
+msgid "Confirm to delete?"
+msgstr "ยืนยันที่จะลบหรือไม่?"
+
+msgid "Confirm to cancel favorite?"
+msgstr "ยืนยันที่จะยกเลิกรายการโปรดหรือไม่?"
+
+msgid "Confirm to cancel like?"
+msgstr "ยืนยันที่จะยกเลิกเช่น?"
+
+msgid "Please Login First"
+msgstr "โปรดล็อกอินก่อน"
+
+msgid "Verification code sent successfully"
+msgstr "การส่งรหัสยืนยันเรียบร้อยแล้ว"
+
+msgid "Please agree the User Agreement and Privacy Policy"
+msgstr "โปรดยอมรับข้อตกลงและข้อกําหนดการใช้สิทธิ์ของผู้ใช้"
+
+msgid "Please enter the correct email address"
+msgstr "โปรดป้อนที่อยู่อีเมลที่ถูกต้อง"
+
+msgid "Please enter a password that meets the requirements"
+msgstr "โปรดป้อนรหัสผ่านที่ตรงกับความต้องการ"
+
+msgid "successfully"
+msgstr "สําเร็จ"
+
+msgid "Reset password successfully"
+msgstr "ตั้งค่ารหัสผ่านใหม่อีกครั้ง"
+
+msgid "Saved successfully"
+msgstr "บันทึกเรียบร้อยแล้ว"
+
+msgid "Please enter email"
+msgstr "โปรดป้อนอีเมล"
+
+msgid "Please enter password"
+msgstr "โปรดป้อนรหัสผ่าน"
+
+msgid "Chinese Mainland"
+msgstr "จีนแผ่นดินใหญ่"
+
+msgid "Click to refresh"
+msgstr "คลิกเพื่อรีเฟรช"
+
+msgid "The QR code has expired"
+msgstr "รหัส QR หมดอายุแล้ว"
+
+msgid "Please confirm login on your phone"
+msgstr "กรุณายืนยันการล็อกอินในโทรศัพท์ของคุณ"
+
+msgid "Retrieve password by phone"
+msgstr "รับรหัสผ่านผ่านทางโทรศัพท์"
+
+msgid "File Name"
+msgstr "ชื่อแฟ้ม"
+
+msgid "Open Time"
+msgstr "เวลาเปิด"
+
+msgid "Remove"
+msgstr "นำออก"
+
+msgid "Open Containing Folder"
+msgstr "เปิดโฟลเดอร์ที่บรรจุ"
+
+msgid "Print"
+msgstr "พิมพ์"
+
+msgid "Characters"
+msgstr "อักขระ"
+
+msgid "3D printer"
+msgstr "เครื่องพิมพ์ 3 มิติ"
+
+msgid "Animals"
+msgstr "สัตว์"
+
+msgid "Nature&Plants"
+msgstr "ธรรมชาติ"
+
+msgid "Vehicle"
+msgstr "พาหนะ"
+
+msgid "Biomedical"
+msgstr "ชีว แพทย์"
+
+msgid "Ships"
+msgstr "เรือ"
+
+msgid "Aircraft/Plane"
+msgstr "อากาศยาน/ พาเลน"
+
+msgid "Architecture"
+msgstr "สถาปัตยกรรม"
+
+msgid "Entertainment/Toys"
+msgstr "ความบันเทิง/ ของเล่น"
+
+msgid "Sculpture/Cultural Relics"
+msgstr "แปรงทาสี"
+
+msgid "Mechanical Drawing"
+msgstr "การวาดภาพด้วยกล"
+
+msgid "Electronic appliances"
+msgstr "อุปกรณ์ อิเล็กทรอนิกส์"
+
+msgid "Daily Home Furnishings"
+msgstr "การ ทํา งาน บ้าน ทุก วัน"
+
+msgid "Clothing and jewelry"
+msgstr "เสื้อผ้าและเครื่องประดับ"
+
+msgid "Sports"
+msgstr "กีฬา"
+
+msgid "Food"
+msgstr "อาหาร"
+
+msgid "DIY"
+msgstr "ทำเอง"
+
+msgid "Plate"
+msgstr "แผ่นพิมพ์"
+
+msgid "Tag"
+msgstr "ป้ายกํากับ"
+
+msgid "Uploaded"
+msgstr "อัปโหลดแล้ว"
+
+msgid "Purchase Now"
+msgstr "ซื้อเดี๋ยวนี้"
+
+msgid "You can’t collect your own models!"
+msgstr "คุณสามารถเก็บนางแบบของคุณเอง!"
+
+msgid "Knowledge Sharing (CC) License Agreement"
+msgstr "ความรู้การแบ่งปัน (CC) สัญญาบัตร"
+
+msgid ""
+"Creality Cloud adopts the internationally recognized Copyright License 4.0 "
+"to protect the rights and interests of model owners. The models of "
+"Chuangxiang Cloud platform are shared by a large number of enthusiasts in "
+"the community. If you find any violations of relevant laws and infringement, "
+"please contact us in a timely manner. "
+msgstr ""
+"Creality Cloud ใช้ใบอนุญาตลิขสิทธิ์ 4.0 ที่ได้รับการยอมรับในระดับสากล เพื่อคุ้มครองสิทธิและผลประโยชน์ของเจ้าของโมเดล โมเดลบนแพลตฟอร์ม Creality Cloud ถูกแบ่งปันโดยผู้ใช้งานจำนวนมากในชุมชน หากคุณพบการละเมิดกฎหมายที่เกี่ยวข้องหรือการละเมิดสิทธิ โปรดติดต่อเราโดยเร็ว"
+
+msgid ""
+"Indicates that the original work is created by the creator, and users can "
+"freely use the creator's work"
+msgstr "ระบุว่างานต้นฉบับถูกสร้างขึ้นโดยผู้สร้าง และผู้ใช้สามารถใช้งานสร้างได้อย่างอิสระ"
+
+msgid ""
+"Indicate that the original work is the creator. If changes are made to the "
+"original work, the revised work must still indicate the original author"
+msgstr "ระบุว่าผลงานต้นฉบับคือผู้สร้าง หากมีการเปลี่ยนแปลงงานต้นฉบับ งานที่แก้ไขยังคงต้องระบุถึงผู้แต่งต้นฉบับ"
+
+msgid ""
+"Indicate that the original work is created by the creator, and users can "
+"freely use the creator's work (except for commercial purposes)"
+msgstr "ระบุว่างานต้นฉบับสร้างโดยผู้สร้าง และผู้ใช้สามารถใช้งานสร้างได้อย่างอิสระ (ยกเว้นวัตถุประสงค์เชิงพาณิชย์)"
+
+msgid ""
+"Indicate that the original work is created by the creator, and the user "
+"cannot change the work or use it for commercial purposes"
+msgstr "ระบุว่างานต้นฉบับถูกสร้างโดยผู้สร้าง และผู้ใช้ไม่สามารถเปลี่ยนแปลงงานหรือใช้มันเพื่อวัตถุประสงค์เชิงพาณิชย์ได้"
+
+msgid ""
+"Indicate that the original work is created by the creator and the user "
+"cannot change the work"
+msgstr "ระบุว่างานต้นฉบับถูกสร้างโดยผู้สร้าง และผู้ใช้ไม่สามารถเปลี่ยนแปลงงานได้"
+
+msgid ""
+"Abandon copyright and publicly disclose that anyone can use my work at any "
+"time without permission"
+msgstr "ละทิ้งลิขสิทธิ์และเปิดเผยต่อหน้าสาธารณชนว่าทุกคนสามารถใช้งานของฉันได้ทุกเวลาโดยไม่ขออนุญาต"
+
+msgid ""
+"The 3D model files sold on Creality Cloud have standard licenses and are "
+"subject to certain restrictions upon purchase and download. In particular, "
+"these files cannot be used for any commercial purposes; they are for "
+"personal use only. They may not be shared, transmitted, distributed, "
+"modified, copied, or resold in the form of files or items, including 3D "
+"models or any parts of models"
+msgstr "ไฟล์โมเดล 3 มิติที่ขายบน Creality Cloud มีใบอนุญาตมาตรฐานและอยู่ภายใต้ข้อจำกัดบางประการในการซื้อและดาวน์โหลด โดยเฉพาะอย่างยิ่งไฟล์เหล่านี้ไม่สามารถใช้เพื่อวัตถุประสงค์ทางการค้าใดๆ มีไว้สำหรับใช้ส่วนตัวเท่านั้น ห้ามแชร์ ส่งต่อ แจกจ่าย ดัดแปลง คัดลอก หรือขายต่อในรูปแบบของไฟล์หรือรายการ รวมถึงโมเดล 3 มิติหรือส่วนใดส่วนหนึ่งของโมเดล"
+
+msgid "No Data"
+msgstr "ไม่มีข้อมูล"
+
+msgid "No results were found for"
+msgstr "ไม่พบผลลัพธ์"
+
+msgid "Select All"
+msgstr "เลือกทั้งหมด"
+
+msgid "Import"
+msgstr "นำเข้า"
+
+msgid "You haven't uploaded the model yet, go ahead and upload it~"
+msgstr "คุณยังไม่ได้อัพโหลดรุ่นนี้เลย ไปอัพโหลดเลย~"
+
+msgid "You haven't liked the model yet, go ahead and like the model~"
+msgstr "คุณยังไม่ได้ชอบโมเดลนี้เลย เอาเลย และชอบโมเดลนี้"
+
+msgid "You haven't purchased the model yet, go ahead and buy the model~"
+msgstr "คุณยังไม่ได้ซื้อรุ่นนี้ เชิญซื้อโมเดลได้เลยครับ"
+
+msgid "You haven't collected the model yet, go collect the model~"
+msgstr "เธอยังไม่ได้เก็บตัวอย่าง ไปเก็บนางแบบ"
+
+msgid ""
+"You haven't created a creative work yet, go ahead and create a creative work~"
+msgstr "คุณยังไม่ได้สร้างงานสร้างสรรค์เลย เอาเลย และสร้างงานสร้างสรรค์ขึ้นมา"
+
+msgid ""
+"You haven't uploaded the print configuration yet, go uploaded the print "
+"configuration~"
+msgstr "คุณยังไม่ได้อัพโหลดการปรับแต่งการพิมพ์ ไปอัปโหลดการปรับแต่งการพิมพ์~"
+
+msgid "You haven't printed the model yet, go ahead and print it~"
+msgstr "คุณยังไม่ได้พิมพ์รุ่นนี้เลย ไปพิมพ์เลย~"
+
+msgid ""
+"You haven't uploaded the print file yet, go ahead and upload the print file~"
+msgstr "คุณยังไม่ได้อัพโหลดเอกสารการพิมพ์ ไปแล้วอัปโหลดเอกสารการพิมพ์ไป~"
+
+msgid "You haven't download the model yet, go ahead and download it~"
+msgstr "คุณยังไม่ได้ดาวน์โหลดรุ่นนี้เลย ไปดาวน์โหลดเลย~"
+
+msgid ""
+"You haven't download the print configuration yet, go download the print "
+"configuration~"
+msgstr "คุณยังไม่ได้ดาวน์โหลดการปรับแต่งการพิมพ์ ไปดาวน์โหลดการปรับแต่งการพิมพ์~"
+
+msgid "Approving..."
+msgstr "กําลังปรับปรุง..."
+
+msgid "Approved"
+msgstr "ยอมรับแล้ว"
+
+msgid "Rejected"
+msgstr "ปฏิเสธ"
+
+msgid "Removed"
+msgstr "ลบแล้ว"
+
+msgid "Purchased At"
+msgstr "ซื้อเมื่อ"
+
+msgid "off"
+msgstr "ปิด"
+
+msgid ""
+"Start downloading. Please go to \"Personal Center-My Downloads\" to view."
+msgstr "เริ่มดาวน์โหลด โปรดไปที่ \"ศูนย์ส่วนบุคคล-การดาวน์โหลดของฉัน\" เพื่อดู"
+
+msgid "System Preset Parameters"
+msgstr "พารามิเตอร์ต่าง ๆ ของระบบ"
+
+msgid "Current Version"
+msgstr "รุ่นปัจจุบัน"
+
+msgid "Latest Version"
+msgstr "รุ่นล่าสุด"
+
+msgid "Description"
+msgstr "คําอธิบาย"
+
+msgid "Update"
+msgstr "อัปเดต"
+
+msgid "Ender Series"
+msgstr "อนุกรมตัวสุดท้าย"
+
+msgid "CR Series"
+msgstr "อนุกรม CR"
+
+msgid "Start updating, please wait a moment"
+msgstr "เริ่มการปรับปรุง โปรดรอสักครู่"
+
+msgid "Text"
+msgstr "ข้อความ"
+
+msgid "Shape"
+msgstr "รูปร่าง"
+
+msgid "Emoji"
+msgstr "เอโมจิ"
+
+msgid "SVG"
+msgstr "SVG"
+
+msgid "Holes"
+msgstr "หลุม"
+
+msgid "Thickness"
+msgstr "ความหนา:"
+
+msgid "3D View"
+msgstr "มุมมอง 3 มิติ"
+
+msgid "Base Plate & Border"
+msgstr "กรอบพื้นฐาน"
+
+msgid "Uniform Scale"
+msgstr "ค่า"
+
+msgid "Width"
+msgstr "ความกว้าง"
+
+msgid "Height"
+msgstr "สูง"
+
+msgid "Position"
+msgstr "ตําแหน่ง"
+
+msgid "Rotation"
+msgstr "หมุน"
+
+msgid "Fill"
+msgstr "สี"
+
+msgid "Content"
+msgstr "เนื้อหา"
+
+msgid "FontFamily"
+msgstr "ตระกูลแบบอักษร"
+
+msgid "FontSize"
+msgstr "ขนาดแบบอักษร"
+
+msgid "Size"
+msgstr "ขนาด"
+
+msgid "Wiki Tutorial"
+msgstr "โปรแกรมวิกิพีเดียName"
+
+msgid "Slice parameter setting guide"
+msgstr "การจัดวางพารามิเตอร์"
+
+msgid "Calibration Guide"
+msgstr "การปรับตั้ง"
+
+msgid "Quick Start Guide"
+msgstr "แปรงทาสี"
+
+msgid "Multi color Printing Guide"
+msgstr "คู่มือการพิมพ์แบบหลายสี"
+
+msgid "6.0 Update Description"
+msgstr "รายละเอียดเพิ่มเติม 6.0"
+
+msgid ""
+"Introduce the basic usage of Creality Print and guide users to complete the "
+"first printing task."
+msgstr "แนะนำการใช้งานพื้นฐานของ Creality Print และแนะนำผู้ใช้ให้เสร็จสิ้นงานพิมพ์แรก"
+
+msgid ""
+"After obtaining a multi-color printer, use Creality Print for the first "
+"color printing."
+msgstr "หลังจากได้รับเครื่องพิมพ์หลายสีแล้ว ให้ใช้ Creality Print สำหรับการพิมพ์สีแรก"
+
+msgid ""
+"Briefly introduce the parameter settings for Creality Print slicing, "
+"including the selection of preset parameters, parameter settings, and "
+"saving, to help you better complete 3D printing."
+msgstr "แนะนำการตั้งค่าพารามิเตอร์สำหรับการแบ่งส่วน Creality Print สั้นๆ รวมถึงการเลือกพารามิเตอร์ที่กำหนดไว้ล่วงหน้า การตั้งค่าพารามิเตอร์ และการบันทึก เพื่อช่วยให้คุณพิมพ์ 3D เสร็จสมบูรณ์ได้ดียิ่งขึ้น"
+
+msgid "By adjusting various parameters to achieve the best printing effect."
+msgstr "โดยปรับตัวแปรต่าง ๆ เพื่อบรรลุผลของการพิมพ์ที่ดีที่สุด"
+
+msgid ""
+"Creality Print 6.0 has been upgraded to provide you with a better user "
+"experience."
+msgstr "Creality Print 6.0 ได้รับการอัปเกรดเพื่อให้คุณได้รับประสบการณ์การใช้งานที่ดียิ่งขึ้น"
+
+msgid ""
+"You can select one as the current device on the 'My Devices' or 'Multiple "
+"Devices' pages"
+msgstr "คุณสามารถเลือกอุปกรณ์ตัวหนึ่งเป็นอุปกรณ์ปัจจุบันได้บน 'อุปกรณ์ของฉัน' หรือ 'อุปกรณ์มัลติเพล'"
+
+msgid "System"
+msgstr "ระบบ"
+
+msgid "User"
+msgstr "ผู้ใช้"
+
+msgid "Diameter"
+msgstr "เส้นต่อเนื่อง"
+
+msgid "Vender"
+msgstr "ผู้ส่ง"
+
+msgid "Model"
+msgstr "โมเดล"
+
+msgid "Configuration Name"
+msgstr "ชื่อการปรับแต่ง"
+
+msgid "Firmware Type"
+msgstr "ชนิดของเครื่องแม่ข่าย"
+
+msgid "Search Results"
+msgstr "ผลการค้นหา"
+
+msgid "The model you want is not found. Please search again."
+msgstr "ไม่พบโมเดลที่คุณต้องการ โปรดค้นหาอีกครั้ง"
+
+msgid "System Filaments"
+msgstr "ชุดตกแต่งของระบบ"
+
+msgid "Custom Filaments"
+msgstr "ชุดตกแต่งที่กําหนดเอง"
+
+msgid "Material Type"
+msgstr "ชนิดวัสดุ"
+
+msgid "Brand Supplier"
+msgstr "แปรงทาสี"
+
+msgid "Error"
+msgstr "ข้อผิดพลาด"
+
+msgid "At least one material must be selected."
+msgstr "ต้องเลือกอย่างน้อยหนึ่งวัสดุ"
+
+msgid "Do you want to use the default material list?"
+msgstr "คุณต้องการใช้รายการชุดตกแต่งปริยายหรือไม่?"
+
+msgid "Create New"
+msgstr "สร้างใหม่"
+
+msgid "AI Modeling"
+msgstr "การสร้างแบบจำลอง AI"
+
+msgid "Vast"
+msgstr "ดวงดาว"
+
+msgid "Deemos"
+msgstr "เตือนความจํา"
+
+msgid "Record"
+msgstr "บันทึก"
+
+msgid "Filament Type"
+msgstr "ชนิดแฟ้ม"
+
+msgid "At least one filament must be selected."
+msgstr "ต้องเลือกอย่างน้อยหนึ่งแท่ง"
+
+msgid "Do you want to use default filament?"
+msgstr "คุณต้องการจะใช้แท่งกระดาษปริยายหรือไม่?"
+
+msgid "Add New Filament"
+msgstr "เพิ่มส่วนเชื่อมโยงใหม่"
+
+msgid "Please select at least one printer."
+msgstr "โปรดเลือกเครื่องพิมพ์อย่างน้อยหนึ่งเครื่อง"
+
+msgid "The filament you want is not found"
+msgstr "ไม่พบแท่งกระดาษที่คุณต้องการ"
+
+#~ msgid "Please search for the printer you want..."
+#~ msgstr "กรุณาค้นหาเครื่องพิมพ์ที่ต้องการ..."
+
+#~ msgid "Update All"
+#~ msgstr "อัปเดตทั้งหมด"
+
+msgid "Model not downloaded, click to download the model"
+msgstr "ไม่ได้ดาวน์โหลดรุ่น ให้คลิกเพื่อดาวน์โหลดรุ่น"
+
+msgid "Download the model"
+msgstr "ดาวน์โหลดรุ่น"
+
+msgid ""
+"Creality Print requires the Microsoft WebView2 Runtime,But it has been found that the abnormal operation of Microsoft WebView2 may be related to the installation of Microsoft Edge. \n"
+"Click the Yes to reinstall Microsoft Edge"
+msgstr "Creality Print ต้องใช้ Microsoft WebView2 Runtime แต่พบว่าทำงานผิดปกติอาจเกี่ยวข้องกับการติดตั้ง Microsoft Edge\nคลิก \"ใช่\" เพื่อติดตั้ง Microsoft Edge ใหม่"
+
+msgid "Failed to reinstall the Microsoft WebView2 Runtime. Please reinstall it manually."
+msgstr "การติดตั้ง Microsoft WebView2 Runtime ใหม่ล้มเหลว กรุณาติดตั้งใหม่ด้วยตนเอง"
+
+msgid "tutorial: %s"
+msgstr "บทช่วยสอน: %s"
+
+msgid "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
+msgstr "ติดตั้ง Microsoft WebView2 Runtime ใหม่สำเร็จแล้ว และแอปพลิเคชันจะรีสตาร์ททันที"

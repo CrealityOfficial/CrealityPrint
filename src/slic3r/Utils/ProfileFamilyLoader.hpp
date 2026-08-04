@@ -29,8 +29,10 @@ public:
     static void init() { ProfileFamilyLoader::get_instance(); }
 
     void request_and_wait();
+    void wait_until_loaded();
     void get_result(json& profile_json, json& machine_json, bool& load_custome_from_bundle)
     {
+        std::lock_guard<std::mutex> lock(m_state_mutex);
         profile_json = m_profile_json;
         machine_json = m_machine_json;
         load_custome_from_bundle = m_load_curstom_from_bundle;
@@ -41,7 +43,7 @@ private:
     ProfileFamilyLoader();
     ~ProfileFamilyLoader() = default;
 
-    void request(); // start a load request
+    void request(bool force_reload = false); // start a load request
     void wait();    // wait for request finished
 
     int LoadProfile(json&       output_profile,
@@ -61,6 +63,7 @@ private:
 
 
 private:
+    mutable std::mutex m_state_mutex;
     bool              m_first_frame_loading = false;
     bool              m_first_frame_loaded = false;
     json              m_machine_json; // machine json 
@@ -70,7 +73,7 @@ private:
     json              m_resources_profile_json; // resource profile json
     std::map<std::string, std::string> m_map_machine_thumbnail;
     bool m_load_curstom_from_bundle = false;
-    std::future<int> m_ret;
+    std::shared_future<int> m_ret;
     ThreadPool* tp;
 };
 

@@ -1,7 +1,9 @@
 #set(patch_command git init && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-fix-slicer-build.patch)
 set(_build_static ON)
 set(_build_with_ssl ON)
-if(LINUX)
+# Build paho without SSL on Linux: older CMake versions do not define LINUX,
+# so use the portable UNIX/APPLE split.
+if(UNIX AND NOT APPLE)
     set(_build_with_ssl OFF)
 endif()
 

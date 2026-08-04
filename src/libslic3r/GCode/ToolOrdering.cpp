@@ -1559,15 +1559,13 @@ void ToolOrdering::reorder_extruders_for_minimum_flush_volume()
 
 
     } else {
+        using ToolOrderCacheKey = std::pair<std::vector<unsigned int>, std::optional<unsigned int>>;
         auto extruders_to_hash_key = [](const std::vector<unsigned int>& extruders,
-                                        std::optional<unsigned int>      initial_extruder_id) -> uint32_t {
-            uint32_t hash_key = 0;
-            // high 16 bit define initial extruder ,low 16 bit define extruder set
-            if (initial_extruder_id)
-                hash_key |= (1 << (16 + *initial_extruder_id));
-            for (auto item : extruders)
-                hash_key |= (1 << item);
-            return hash_key;
+                                        std::optional<unsigned int>      initial_extruder_id) -> ToolOrderCacheKey {
+            std::vector<unsigned int> curr_set = extruders;
+            std::sort(curr_set.begin(), curr_set.end());
+            curr_set.erase(std::unique(curr_set.begin(), curr_set.end()), curr_set.end());
+            return { std::move(curr_set), initial_extruder_id };
         };
 
         std::optional<unsigned int> current_extruder_id;

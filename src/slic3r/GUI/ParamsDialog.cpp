@@ -72,7 +72,9 @@ ParamsDialog::ParamsDialog(wxWindow * parent)
     adjust_dialog_in_screen(this, 1300, 650);
     Bind(wxEVT_SHOW, [this](auto &event) {
         if (IsShown()) {
+#ifndef __linux__
             m_winDisabler = new wxWindowDisabler(this);
+#endif
         } else {
             delete m_winDisabler;
             m_winDisabler = nullptr;

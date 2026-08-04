@@ -76,6 +76,7 @@ class _Item {
 public:
     int itemid_{ 0 };
     std::vector<int> extrude_ids;
+    std::vector<int> arrange_group_extrude_ids;
     int filament_temp_type = -1; // -1 means unset. otherwise should be {0,1,2}
     double height{ 0 };
     double print_temp{ 0 };

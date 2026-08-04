@@ -18,7 +18,7 @@
 #include "libslic3r/ModelInstance.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
 #include <wx/window.h>
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 namespace Slic3r::GUI {
 
@@ -872,6 +872,8 @@ void GLGizmoMmuSegmentation::init_model_triangle_selectors()
             continue;
 
         int extruder_idx = (mv->extruder_id() > 0) ? mv->extruder_id() - 1 : 0;
+        if (extruder_idx >= (int) m_extruders_colors.size())
+            extruder_idx = 0;
         std::vector<ColorRGBA> ebt_colors;
         ebt_colors.push_back(m_extruders_colors[size_t(extruder_idx)]);
         ebt_colors.insert(ebt_colors.end(), m_extruders_colors.begin(), m_extruders_colors.end());
@@ -897,6 +899,8 @@ void GLGizmoMmuSegmentation::update_triangle_selectors_colors()
         TriangleSelectorPatch* selector = dynamic_cast<TriangleSelectorPatch*>(m_triangle_selectors[i].get());
         int extruder_idx = m_volumes_extruder_idxs[i];
         int extruder_color_idx = std::max(0, extruder_idx - 1);
+        if (extruder_color_idx >= (int) m_extruders_colors.size())
+            extruder_color_idx = 0;
         std::vector<ColorRGBA> ebt_colors;
         ebt_colors.push_back(m_extruders_colors[extruder_color_idx]);
         ebt_colors.insert(ebt_colors.end(), m_extruders_colors.begin(), m_extruders_colors.end());
@@ -957,7 +961,9 @@ void GLGizmoMmuSegmentation::on_set_state()
             if (canvas == nullptr || !canvas->is_initialized())
                 return;
             canvas->update_volumes_colors_by_extruder();
-            canvas->render();
+            // 不在此处同步 render：Gizmo 退出(state==Off)过程中模型数据可能正被清理，
+            // 同步渲染会访问到已失效的 ModelObject/instances 指针导致崩溃。
+            // 颜色缓存已更新，实际重绘交由下方 EVT_GLCANVAS_FORCE_UPDATE 事件异步触发。
         };
 
         if (wxGetApp().plater() != nullptr) {

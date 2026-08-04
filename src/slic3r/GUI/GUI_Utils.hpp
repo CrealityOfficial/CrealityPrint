@@ -464,6 +464,10 @@ private:
     wxString checkbox_label;
 };
 
+#ifdef __WXGTK3__
+void RemoveButtonBorder(wxWindow* win);
+#endif
+
 
 class WindowMetrics
 {

@@ -183,7 +183,7 @@ public:
 
     // BBS: quick access for volume extruders, 1 based
     mutable std::vector<int> mmuseg_extruders;
-    mutable Timestamp        mmuseg_ts;
+    mutable Timestamp        mmuseg_ts { 0 };
 
     // List of exterior faces
     FacetsAnnotation    exterior_facets;

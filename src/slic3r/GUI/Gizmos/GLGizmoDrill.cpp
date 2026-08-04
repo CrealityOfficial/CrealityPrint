@@ -20,7 +20,7 @@
 
 #include <numeric>
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include "FixModelByWin10.hpp"
 #include <libslic3r/SLA/Hollowing.hpp>
@@ -152,79 +152,61 @@ bool GLGizmoDrill::gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_posi
             return false;
         }
 
-    const ModelInstance*     mi = mo->instances[m_parent.get_selection().get_instance_idx()];
-    std::vector<Transform3d> trafo_matrices;
-    for (const ModelVolume* mv : mo->volumes) {
-        trafo_matrices.emplace_back(mi->get_transformation().get_matrix() * mv->get_matrix());
-    }
 
-    const Camera& camera                       = wxGetApp().plater()->get_camera();
-    Vec3f         normal                       = Vec3f::Zero();
-    Vec3f         hit                          = Vec3f::Zero();
-    size_t        facet                        = 0;
-    Vec3f         closest_hit                  = Vec3f::Zero();
-    Vec3f         closest_normal               = Vec3f::Zero();
-    double        closest_hit_squared_distance = std::numeric_limits<double>::max();
-    int           closest_hit_mesh_id          = -1;
-    double        drillDist                    = 0;
+        const Selection& selection = m_parent.get_selection();
+        if (selection.is_empty())
+            return false;
 
-    // Cast a ray on all meshes, pick the closest hit and save it for the respective mesh
-    for (int mesh_id = 0; mesh_id < int(trafo_matrices.size()); ++mesh_id) {
-        if (m_raycaster->unproject_on_mesh(m_mouse_pos, Transform3d::Identity(), camera, hit, normal,
-                                                m_c->object_clipper()->get_clipping_plane(), &facet)) {
-            // Is this hit the closest to the camera so far?
-            double hit_squared_distance = (camera.get_position() - trafo_matrices[mesh_id] * hit.cast<double>()).squaredNorm();
-            if (hit_squared_distance < closest_hit_squared_distance) {
-                closest_hit_squared_distance = hit_squared_distance;
-                closest_hit_mesh_id          = mesh_id;
-                closest_hit                  = hit;
-                closest_normal               = normal;
+        if (m_state != On || m_volumes_cache.empty() || !m_raycaster)
+            return false;
 
-                {
-                if (m_one_layer_only) {
-                    depth = 0.;
-                    const AABBMesh& aabb = m_raycaster->get_aabb_mesh();
-                    Vec3d orient = normal.cast<double>();
-                    getDirection(orient);
+        const Camera& camera = wxGetApp().plater()->get_camera();
+        Vec3f         normal = Vec3f::Zero();
+        Vec3f         hit    = Vec3f::Zero();
+        size_t        facet  = 0;
+        if (!m_raycaster->unproject_on_mesh(m_mouse_pos, Transform3d::Identity(), camera, hit, normal,
+                                            m_c->object_clipper()->get_clipping_plane(), &facet))
+            return false;
 
-                    std::vector<Vec3d> points;
-                    points.reserve(17);
-                    points.push_back(hit.cast<double>());
-                    generate_circle_points(hit.cast<double>(), orient, m_radius, 16, points);
-                    for (const auto& point : points) {
-                        std::vector<AABBMesh::hit_result> ray_hits = aabb.query_ray_hits(point, -orient, {});
-                        if (ray_hits.empty())
-                            continue;
-                        for (const auto& ray_hit : ray_hits) {
-                            if (ray_hit.normal().dot(-orient) <= 0)
-                                continue;
-                            Vec3d  hitPos   = ray_hit.position();
-                            Vec3d  diff     = hitPos - point;
-                            double distance = diff.norm();
-                            if (distance > depth) {
-                                depth     = distance;
-                            }
-                            break;
-                        }
-                    }
-                    depth += 2.;
-                }
+        const VolumeCacheItem* hit_volume = volume_from_facet(facet);
+        if (hit_volume == nullptr || hit_volume->volume == nullptr)
+            return false;
+
+        auto volume_it = std::find(mo->volumes.begin(), mo->volumes.end(), hit_volume->volume);
+        if (volume_it == mo->volumes.end())
+            return false;
+
+        m_src.trafo      = hit_volume->volume->get_matrix();
+        m_src.volume_idx = int(std::distance(mo->volumes.begin(), volume_it));
+        m_src.mv         = *volume_it;
+
+        if (m_one_layer_only) {
+            depth = 0.;
+            const AABBMesh& aabb = m_raycaster->get_aabb_mesh();
+            Vec3d orient = normal.cast<double>();
+            getDirection(orient);
+
+            std::vector<Vec3d> points;
+            points.reserve(17);
+            points.push_back(hit.cast<double>());
+            generate_circle_points(hit.cast<double>(), orient, m_radius, 16, points);
+            for (const auto& point : points) {
+                std::vector<AABBMesh::hit_result> ray_hits = aabb.query_ray_hits(point, -orient, {});
+                if (ray_hits.empty())
+                    continue;
+                for (const auto& ray_hit : ray_hits) {
+                    if (ray_hit.normal().dot(-orient) <= 0)
+                        continue;
+                    Vec3d  hitPos   = ray_hit.position();
+                    Vec3d  diff     = hitPos - point;
+                    double distance = diff.norm();
+                    if (distance > depth)
+                        depth = distance;
+                    break;
                 }
             }
+            depth += 2.;
         }
-    }
-    if (closest_hit == Vec3f::Zero() && closest_normal == Vec3f::Zero())
-        return false;
-    m_src.trafo      = mo->volumes[closest_hit_mesh_id]->get_matrix();
-    m_src.volume_idx = closest_hit_mesh_id;
-    m_src.mv         = mo->volumes[closest_hit_mesh_id];
-
-    const Selection& selection = m_parent.get_selection();
-    if (selection.is_empty())
-        return false;
-
-    if (m_state != On || m_volumes_cache.empty())
-        return false;
     }
 
     const Camera& camera = wxGetApp().plater()->get_camera();
@@ -358,6 +340,9 @@ void GLGizmoDrill::update_if_needed()
 {
     auto do_update = [this](const std::vector<VolumeCacheItem>& volumes_cache, const Selection& selection) {
         TriangleMesh composite_mesh;
+        m_volume_facet_offsets.clear();
+        m_volume_facet_offsets.reserve(volumes_cache.size() + 1);
+        m_volume_facet_offsets.emplace_back(0);
         for (const auto& vol : volumes_cache) {
 
             TriangleMesh volume_mesh = vol.volume->mesh();
@@ -366,8 +351,11 @@ void GLGizmoDrill::update_if_needed()
             if (vol.world_trafo.matrix().determinant() < 0.0)
                 volume_mesh.flip_triangles();
 
+            m_volume_facet_offsets.emplace_back(m_volume_facet_offsets.back() + volume_mesh.facets_count());
             composite_mesh.merge(volume_mesh);
         }
+
+        m_total_cached_facets = m_volume_facet_offsets.empty() ? 0 : m_volume_facet_offsets.back();
 
         m_raycaster.reset(new MeshRaycaster(std::make_shared<const TriangleMesh>(composite_mesh)));
         m_volumes_cache = volumes_cache;
@@ -402,6 +390,19 @@ void GLGizmoDrill::update_if_needed()
 
     if (m_volumes_cache != volumes_cache)
         do_update(volumes_cache, selection);
+}
+
+const GLGizmoDrill::VolumeCacheItem* GLGizmoDrill::volume_from_facet(size_t facet_idx) const
+{
+    if (facet_idx >= m_total_cached_facets || m_volume_facet_offsets.size() != m_volumes_cache.size() + 1)
+        return nullptr;
+
+    auto it = std::upper_bound(m_volume_facet_offsets.begin(), m_volume_facet_offsets.end(), facet_idx);
+    if (it == m_volume_facet_offsets.begin())
+        return nullptr;
+
+    const size_t volume_idx = size_t(std::distance(m_volume_facet_offsets.begin(), it) - 1);
+    return volume_idx < m_volumes_cache.size() ? &m_volumes_cache[volume_idx] : nullptr;
 }
 
 void GLGizmoDrill::on_render()

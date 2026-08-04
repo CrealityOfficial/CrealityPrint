@@ -1,0 +1,1138 @@
+msgid ""
+msgstr "Project-Id-Version: \nPOT-Creation-Date: \nPO-Revision-Date: \nLast-Translator: \nLanguage-Team: \nLanguage: id_ID\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\nX-Generator: Poedit 3.5"
+
+msgid "Submit"
+msgstr "Kirim"
+
+msgid "The file cannot be larger than 0.5M, please choose another SVG"
+msgstr "Ukuran file tidak boleh lebih dari 0,5M, pilih SVG lain"
+
+msgid "Export 3mf"
+msgstr "Ekspor 3MF"
+
+msgid "Export stl"
+msgstr "Ekspor STL"
+
+msgid "project saved"
+msgstr "proyek disimpan"
+
+msgid "signage work"
+msgstr "pekerjaan tanda tangan"
+
+msgid "Corner Radius"
+msgstr "Radius Pojok"
+
+msgid "Select"
+msgstr "Pilih"
+
+msgid "Pan"
+msgstr "Geser"
+
+msgid "Copy(ctr+c)"
+msgstr "Salin (ctr + c)"
+
+msgid "Paste(ctr+v)"
+msgstr "Tempel (ctr + v)"
+
+msgid "Undo(ctr+z)"
+msgstr "Tak Jadi (ctr + z)"
+
+msgid "Redo(ctr+shift+z)"
+msgstr "Redo (ctr + shift + z)"
+
+msgid "Delete(Del)"
+msgstr "Hapus (Del)"
+
+msgid "Reached the limit of 30 works per person"
+msgstr "Mencapai batas 30 karya per orang"
+
+msgid "Comming Soon"
+msgstr "Segera hadir"
+
+msgid "Current Device"
+msgstr "Perangkat Saat Ini"
+
+msgid "Recently Printed Files"
+msgstr "Berkas Tercetak Baru-baru ini"
+
+msgid "My Devices"
+msgstr "Perangkat Saya"
+
+msgid "Type"
+msgstr "Jenis"
+
+msgid "Device Name"
+msgstr "Nama perangkat"
+
+msgid "Idle"
+msgstr "Diam"
+
+msgid "Printing"
+msgstr "Mencetak"
+
+msgid "Complete"
+msgstr "Lengkap"
+
+msgid "Print complete"
+msgstr "Cetak selesai"
+
+msgid "Printing failed"
+msgstr "Mencetak gagal"
+
+msgid "Print termination"
+msgstr "Cetak penghentian"
+
+msgid "Printing paused"
+msgstr "Mencetak jeda"
+
+msgid "Pause in progress"
+msgstr "Jeda dalam proses"
+
+msgid "STOPPING"
+msgstr "BERHENTI"
+
+msgid "In recovery"
+msgstr "Dalam pemulihan"
+
+msgid "Executing print termination command"
+msgstr "Menjalankan perintah penghentian cetak"
+
+msgid "Executing pause printing command"
+msgstr "Menjalankan perintah pencetakan jeda"
+
+msgid "Executing the command to continue printing"
+msgstr "Menjalankan perintah untuk melanjutkan pencetakan"
+
+msgid "Off Line"
+msgstr "Off Baris"
+
+msgid "Printing File"
+msgstr "Mencetak Berkas"
+
+msgid "Printing Progress"
+msgstr "Proses Pencetakan"
+
+msgid "Layer Height"
+msgstr "Tinggi Lapis"
+
+msgid "Consumables Length"
+msgstr "Panjang Bahan Habis Pakai"
+
+msgid "Sync Consumables"
+msgstr "Sinkronkan Bahan Habis Pakai"
+
+msgid "Time required"
+msgstr "Waktu diperlukan"
+
+msgid "Material Rack"
+msgstr "Rack Bahan"
+
+msgid "Connection method"
+msgstr "Metode koneksi"
+
+msgid "No shelf data available"
+msgstr "Tak ada data rak yang tersedia"
+
+msgid ""
+"The number of printer presets cached in the cloud has reached the upper "
+"limit (20). Newly created user presets will not be synchronized to the cloud."
+msgstr "Jumlah preset printer yang disimpan di cloud telah mencapai batas atas (20). Preset pengguna yang baru dibuat tidak akan disinkronkan ke cloud."
+
+
+msgid ""
+"The presets have not been synced to Creality Cloud yet. Click here to enable "
+"it."
+msgstr "Preset belum disinkronkan ke Creality Cloud. Klik di sini untuk mengaktifkannya."
+
+
+msgid "Please Input"
+msgstr "Silakan Masukan"
+
+msgid "Consumables"
+msgstr "Bahan habis pakai"
+
+msgid "Technology"
+msgstr "Teknologi"
+
+msgid "Printer"
+msgstr "Printer"
+
+msgid "Parameter Name"
+msgstr "Nama Parameter"
+
+msgid "Update Time"
+msgstr "Perbarui Waktu"
+
+msgid "Modifications"
+msgstr "Modifikasi"
+
+msgid "Operation"
+msgstr "Operasi"
+
+msgid "There are currently no presets synced to Creality Cloud~"
+msgstr "Saat ini belum ada preset yang disinkronkan ke Creality Cloud~"
+
+msgid "Are you sure delete this preset?"
+msgstr "Apakah Anda yakin menghapus preset ini?"
+
+msgid "No"
+msgstr "Tidak"
+
+msgid "Yes"
+msgstr "Ya"
+
+msgid "The current search results are empty~"
+msgstr "Hasil pencarian saat ini kosong ~"
+
+msgid "You haven't added a device yet"
+msgstr "Anda belum menambahkan perangkat belum"
+
+msgid "The current account is not associated with any devices"
+msgstr "Akun saat ini tidak terkait dengan perangkat apapun"
+
+msgid "Please follow the instructions below to add a new device"
+msgstr "Mohon ikuti instruksi di bawah ini untuk menambahkan perangkat baru"
+
+msgid "Mode One"
+msgstr "Mode Satu"
+
+msgid "Mode Two"
+msgstr "Mode Dua"
+
+msgid "Scan the QR code below"
+msgstr "Pindai kode QR di bawah ini"
+
+msgid "Add new device"
+msgstr "Tambah perangkat baru"
+
+msgid "If you have already downloaded it"
+msgstr "Jika Anda sudah mengunduhnya"
+
+msgid "Download Creality Cloud App"
+msgstr "Unduh Aplikasi Creality Cloud"
+
+msgid "Open the Creality Cloud App"
+msgstr "Buka Aplikasi Creality Cloud"
+
+msgid "Click on the status bar"
+msgstr "Klik pada bilah status"
+
+msgid "Multiple devices"
+msgstr "Beberapa perangkat"
+
+msgid "Through the multi device list interface"
+msgstr "Melalui antar muka daftar multi perangkat"
+
+msgid "Scan and Add"
+msgstr "Pindai dan Tambah"
+
+msgid "OR"
+msgstr "ATAU"
+
+msgid "Manually Add"
+msgstr "Tambah Secara Manual"
+
+msgid "Add a new device and click"
+msgstr "Tambah suatu perangkat baru dan klik"
+
+msgid "Associate my device"
+msgstr "Associate perangkat saya"
+
+msgid "Add to your account"
+msgstr "Tambahkan ke akun Anda"
+
+msgid "Default Grouping"
+msgstr "Grup Baku"
+
+msgid "Equipment Model"
+msgstr "Model Peralatan"
+
+msgid "Equipment Name"
+msgstr "Nama Peralatan"
+
+msgid "IP Address"
+msgstr "IP Address"
+
+msgid "Equipment Status"
+msgstr "Status Peralatan"
+
+msgid "Print Document"
+msgstr "Cetak Dokumen"
+
+msgid "Printing Speed"
+msgstr "Kecepatan Pencetakan"
+
+msgid "Action"
+msgstr "Aksi"
+
+msgid "Prepare"
+msgstr "Siapkan"
+
+msgid "Preview"
+msgstr "Pratinjau"
+
+msgid "Genshin Impact Kerry"
+msgstr "Kerry Benshin Impact"
+
+msgid "CFS data temporarily unavailable"
+msgstr "Data CFS sementara tidak tersedia"
+
+msgid "Success"
+msgstr "Berhasil"
+
+msgid "Time"
+msgstr "Waktu"
+
+msgid "Lan"
+msgstr "LAN"
+
+msgid "Wan"
+msgstr "WAN"
+
+msgid "Last Sync"
+msgstr "Selaraskan Terakhir"
+
+msgid "Connected"
+msgstr "Terhubung"
+
+msgid "Not connected"
+msgstr "Tidak tersambung"
+
+msgid "Rack"
+msgstr "Rak"
+
+msgid "Refresh"
+msgstr "Segarkan"
+
+msgid "Please first"
+msgstr "Silahkan dulu."
+
+msgid "Internet unavailable, please try reconnecting!"
+msgstr "Internet tidak tersedia, silakan coba menyambung kembali!"
+
+msgid "obtain account binding device"
+msgstr "memperoleh perangkat binding akun"
+
+msgid "New Project"
+msgstr "Proyek Baru"
+
+msgid "Open Project"
+msgstr "Buka Proyek"
+
+msgid "Home Page"
+msgstr "Halaman Rumah"
+
+msgid "Workbench"
+msgstr "Meja kerja"
+
+msgid "Online Resource"
+msgstr "Sumber Daya Daring"
+
+msgid "Online Models"
+msgstr "Model Daring"
+
+msgid "Online Params"
+msgstr "Params Daring"
+
+msgid "Modeling Tools"
+msgstr "Alat Pemodelan"
+
+msgid "Guide Forum"
+msgstr "Forum Panduan"
+
+msgid "Personal Center"
+msgstr "Pusat Pribadi"
+
+msgid "My Models"
+msgstr "Model saya"
+
+msgid "My Presets"
+msgstr "Presetku"
+
+msgid "My Downloads"
+msgstr "Unduhan saya"
+
+msgid "Recently opened"
+msgstr "Baru dibuka"
+
+msgid "More"
+msgstr "Lebih"
+
+msgid "Login"
+msgstr "Masuk"
+
+msgid "Logout"
+msgstr "Keluar"
+
+msgid "Register"
+msgstr "Daftar"
+
+msgid "Mobile Login"
+msgstr "Log Masuk Seluler"
+
+msgid "Email Login"
+msgstr "Log Masuk Surel"
+
+msgid "Password Login"
+msgstr "Log Masuk Sandi"
+
+msgid "scan code to login"
+msgstr "memindai kode ke login"
+
+msgid "Have no account?"
+msgstr "Tidak punya rekening?"
+
+msgid "Please click"
+msgstr "Silakan klik"
+
+msgid "Verification Code Login"
+msgstr "Log Masuk Kode Verifikasi"
+
+msgid "Forgot password?"
+msgstr "Lupa kata sandi?"
+
+msgid "Other login methods"
+msgstr "Metode log masuk lainnya"
+
+msgid "Open the Creality Cloud App - Personal Center Scan"
+msgstr "Buka Aplikasi Creality Cloud - Pindai dari Pusat Pribadi"
+
+msgid "You are currently on the"
+msgstr "Anda saat ini di"
+
+msgid "Chinese website (+86),"
+msgstr "Situs Cina (+ 86),"
+
+msgid "please use"
+msgstr "silahkan gunakan"
+
+msgid "Chinese version App"
+msgstr "App versi Cina"
+
+msgid "scan then login"
+msgstr "scan kemudian login"
+
+msgid "Register Now"
+msgstr "Pendaftaran Sekarang"
+
+msgid "Input Phone Number"
+msgstr "Nomor Telepon Masukan"
+
+msgid "Mobile Register"
+msgstr "Register Mobile"
+
+msgid "Email Register"
+msgstr "Register Surel"
+
+msgid "Already have account?"
+msgstr "Sudah punya rekening?"
+
+msgid "Input Verification Code"
+msgstr "Kode Verifikasi Masukan"
+
+msgid "Send Verification Code"
+msgstr "Kirim Kode Verifikasi"
+
+msgid "6-18 characters"
+msgstr "6-18 karakter"
+
+msgid "I have read and agree"
+msgstr "Saya telah membaca dan setuju"
+
+msgid "Creality Cloud User Registration Agreement"
+msgstr "Perjanjian Pendaftaran Pengguna Creality Cloud"
+
+msgid "And"
+msgstr "Dan"
+
+msgid "Privacy Policy"
+msgstr "Kebijakan Privasi"
+
+msgid "Reset Password"
+msgstr "Atur Ulang Sandi"
+
+msgid "Email Password Retrieval"
+msgstr "Mengambil Sandi Surel"
+
+msgid "Return To Login"
+msgstr "Kembali Ke Log Masuk"
+
+msgid "Cancel"
+msgstr "Batal"
+
+msgid "Confirm"
+msgstr "Konfirmasi"
+
+msgid "Tip"
+msgstr "Tips"
+
+msgid "Confirm to logout?"
+msgstr "Konfirmasi untuk log keluar?"
+
+msgid "Model Details"
+msgstr "Detail model"
+
+msgid "Category"
+msgstr "Kategori"
+
+msgid "models total"
+msgstr "total model"
+
+msgid "Print Settings"
+msgstr "Pengaturan Cetak"
+
+msgid "Files"
+msgstr "Berkas"
+
+msgid "No Print Settings"
+msgstr "Tak Ada Pengaturan Cetak"
+
+msgid "No Print Models"
+msgstr "Tidak Ada Model Cetak"
+
+msgid "Download All"
+msgstr "Unduh Semua"
+
+msgid "Download Then Load"
+msgstr "Unduh Kemudian Muat"
+
+msgid "Upload"
+msgstr "Unggah"
+
+msgid "Recommend"
+msgstr "Sarankan"
+
+msgid "VIP Free"
+msgstr "VIP Bebas"
+
+msgid "Exclusive"
+msgstr "Eksklusif"
+
+msgid "Multi Color"
+msgstr "Warna Multi"
+
+msgid "All"
+msgstr "Semua"
+
+msgid "Format"
+msgstr "Format"
+
+msgid "Price"
+msgstr "Harga"
+
+msgid "Sort"
+msgstr "Urutkan"
+
+msgid "Free model"
+msgstr "Model bebas"
+
+msgid "Fee model"
+msgstr "Model Fee"
+
+msgid "Comprehensive Trends"
+msgstr "Trends Komprehensif"
+
+msgid "Latest Upload"
+msgstr "Upload Terbaru"
+
+msgid "Browse"
+msgstr "Ramban"
+
+msgid "Like"
+msgstr "Seperti"
+
+msgid "Favorites"
+msgstr "Favorit"
+
+msgid "Download"
+msgstr "Unduh"
+
+msgid "Purchase"
+msgstr "Membeli"
+
+msgid "History"
+msgstr "Riwayat"
+
+msgid "Clear History"
+msgstr "Hapus Riwayat"
+
+msgid "Popular Search"
+msgstr "Pencarian Populer"
+
+msgid "Models"
+msgstr "Model"
+
+msgid "Print Files"
+msgstr "Cetak Berkas"
+
+msgid "My Upload"
+msgstr "Upload saya"
+
+msgid "My Like"
+msgstr "Seperti"
+
+msgid "My Purchase"
+msgstr "Pembelian saya"
+
+msgid "My Favorites"
+msgstr "Favorit saya"
+
+msgid "Creative Works"
+msgstr "Kreatif Kerja"
+
+msgid "Print Config"
+msgstr "Cetak Konfigurasi"
+
+msgid "Main Page"
+msgstr "Halaman Utama"
+
+msgid "Project List"
+msgstr "Daftar Proyek"
+
+msgid "Project Editing"
+msgstr "Menyunting Proyek"
+
+msgid "Make My Sign"
+msgstr "Membuat Tanda Saya"
+
+msgid "Name plate, badge, sign, anything flat"
+msgstr "Plat nama, lencana, tanda, apapun yang datar"
+
+msgid "Make My Sign Feedback Collection Form"
+msgstr "Membuat Formulir Feedback Tanda-Ku"
+
+msgid "Details"
+msgstr "Rincian"
+
+msgid "Cloud Slicing"
+msgstr "Awan Mengiris"
+
+msgid "Start"
+msgstr "Mulai"
+
+msgid "Input Project Name"
+msgstr "Nama Proyek Masukan"
+
+msgid "Name Can Not Be Empty"
+msgstr "Nama Tak Bisa Kosong"
+
+msgid "Confirm To Delete?"
+msgstr "Konfirmasi Untuk Hapus?"
+
+msgid "Last Modified Time"
+msgstr "Waktu Diubah Terakhir"
+
+msgid "Input New Name"
+msgstr "Masukan Nama Baru"
+
+msgid "Load"
+msgstr "Muat"
+
+msgid "Duplicate"
+msgstr "Duplikat"
+
+msgid "Rename"
+msgstr "Ganti Nama"
+
+msgid "Delete"
+msgstr "Hapus"
+
+msgid "Confirm to delete?"
+msgstr "Konfirmasi untuk dihapus?"
+
+msgid "Confirm to cancel favorite?"
+msgstr "Konfirmasi untuk membatalkan favorit?"
+
+msgid "Confirm to cancel like?"
+msgstr "Konfirmasi untuk membatalkan seperti?"
+
+msgid "Please Login First"
+msgstr "Silakan Log Masuk Pertama"
+
+msgid "Verification code sent successfully"
+msgstr "Kode verifikasi dikirim dengan sukses"
+
+msgid "Please agree the User Agreement and Privacy Policy"
+msgstr "Mohon setujui perjanjian pengguna dan Kebijakan Privasi"
+
+msgid "Please enter the correct email address"
+msgstr "Silakan masukkan alamat surel yang benar"
+
+msgid "Please enter a password that meets the requirements"
+msgstr "Silakan masukkan sandi yang memenuhi persyaratan"
+
+msgid "successfully"
+msgstr "sukses"
+
+msgid "Reset password successfully"
+msgstr "Atur ulang sandi dengan sukses"
+
+msgid "Saved successfully"
+msgstr "Disimpan dengan sukses"
+
+msgid "Please enter email"
+msgstr "Silakan masukkan email"
+
+msgid "Please enter password"
+msgstr "Silakan masukkan kata sandi"
+
+msgid "Chinese Mainland"
+msgstr "Tiongkok Daratan"
+
+msgid "Click to refresh"
+msgstr "Klik untuk menyegarkan"
+
+msgid "The QR code has expired"
+msgstr "Kode QR telah kedaluwarsa"
+
+msgid "Please confirm login on your phone"
+msgstr "Silakan konfirmasi login di ponsel Anda"
+
+msgid "Retrieve password by phone"
+msgstr "Ambil sandi lewat telepon"
+
+msgid "File Name"
+msgstr "Nama Berkas"
+
+msgid "Open Time"
+msgstr "Buka Waktu"
+
+msgid "Remove"
+msgstr "Hapus"
+
+msgid "Open Containing Folder"
+msgstr "Buka Folder Pemuat"
+
+msgid "Print"
+msgstr "Cetak"
+
+msgid "Characters"
+msgstr "Karakter"
+
+msgid "3D printer"
+msgstr "Pencetak 3D"
+
+msgid "Animals"
+msgstr "Hewan"
+
+msgid "Nature&Plants"
+msgstr "Tanaman & Alam"
+
+msgid "Vehicle"
+msgstr "Kendaraan"
+
+msgid "Biomedical"
+msgstr "Biomedikal"
+
+msgid "Ships"
+msgstr "Kapal"
+
+msgid "Aircraft/Plane"
+msgstr "Pesawat / Pesawat"
+
+msgid "Architecture"
+msgstr "Arsitektur"
+
+msgid "Entertainment/Toys"
+msgstr "Hiburan / Mainan"
+
+msgid "Sculpture/Cultural Relics"
+msgstr "Skultur / Relics Budaya"
+
+msgid "Mechanical Drawing"
+msgstr "Penggambaran Mekanik"
+
+msgid "Electronic appliances"
+msgstr "Peralatan elektronik"
+
+msgid "Daily Home Furnishings"
+msgstr "Perabotan Rumah Harian"
+
+msgid "Clothing and jewelry"
+msgstr "Pakaian dan perhiasan"
+
+msgid "Sports"
+msgstr "Olahraga"
+
+msgid "Food"
+msgstr "Makanan"
+
+msgid "DIY"
+msgstr "DIY"
+
+msgid "Plate"
+msgstr "Pelat"
+
+msgid "Tag"
+msgstr "Tag"
+
+msgid "Uploaded"
+msgstr "Diunggah"
+
+msgid "Purchase Now"
+msgstr "Beli Sekarang"
+
+msgid "You can’t collect your own models!"
+msgstr "Kau tak bisa mengumpulkan modelmu sendiri!"
+
+msgid "Knowledge Sharing (CC) License Agreement"
+msgstr "Persetujuan Lisensi Berbagi Pengetahuan (CC)"
+
+msgid ""
+"Creality Cloud adopts the internationally recognized Copyright License 4.0 "
+"to protect the rights and interests of model owners. The models of "
+"Chuangxiang Cloud platform are shared by a large number of enthusiasts in "
+"the community. If you find any violations of relevant laws and infringement, "
+"please contact us in a timely manner. "
+msgstr "Creality Cloud menggunakan Lisensi Hak Cipta 4.0 yang diakui secara internasional untuk melindungi hak dan kepentingan pemilik model. Model di platform Creality Cloud dibagikan oleh banyak pengguna di komunitas. Jika Anda menemukan pelanggaran hukum terkait atau pelanggaran hak, harap segera hubungi kami. "
+
+msgid ""
+"Indicates that the original work is created by the creator, and users can "
+"freely use the creator's work"
+msgstr "Menunjukkan bahwa karya asli dibuat oleh kreator, dan pengguna dapat menggunakan karya kreator secara bebas"
+
+
+msgid ""
+"Indicate that the original work is the creator. If changes are made to the "
+"original work, the revised work must still indicate the original author"
+msgstr "Menunjukkan bahwa karya asli dibuat oleh kreator. Jika karya asli diubah, karya hasil revisi tetap harus mencantumkan penulis asli"
+
+
+msgid ""
+"Indicate that the original work is created by the creator, and users can "
+"freely use the creator's work (except for commercial purposes)"
+msgstr "Menunjukkan bahwa karya asli dibuat oleh kreator, dan pengguna dapat menggunakan karya kreator secara bebas kecuali untuk tujuan komersial"
+
+
+msgid ""
+"Indicate that the original work is created by the creator, and the user "
+"cannot change the work or use it for commercial purposes"
+msgstr "Menunjukkan bahwa karya asli dibuat oleh kreator, dan pengguna tidak boleh mengubah karya atau menggunakannya untuk tujuan komersial"
+
+
+msgid ""
+"Indicate that the original work is created by the creator and the user "
+"cannot change the work"
+msgstr "Menunjukkan bahwa karya asli dibuat oleh kreator dan pengguna tidak boleh mengubah karya tersebut"
+
+
+msgid ""
+"Abandon copyright and publicly disclose that anyone can use my work at any "
+"time without permission"
+msgstr "Melepaskan hak cipta dan menyatakan secara publik bahwa siapa pun dapat menggunakan karya saya kapan saja tanpa izin"
+
+
+msgid ""
+"The 3D model files sold on Creality Cloud have standard licenses and are "
+"subject to certain restrictions upon purchase and download. In particular, "
+"these files cannot be used for any commercial purposes; they are for "
+"personal use only. They may not be shared, transmitted, distributed, "
+"modified, copied, or resold in the form of files or items, including 3D "
+"models or any parts of models"
+msgstr "File model 3D yang dijual di Creality Cloud memiliki lisensi standar dan tunduk pada batasan tertentu saat dibeli dan diunduh. Secara khusus, file ini tidak boleh digunakan untuk tujuan komersial apa pun; hanya untuk penggunaan pribadi. File ini tidak boleh dibagikan, dikirimkan, didistribusikan, dimodifikasi, disalin, atau dijual kembali dalam bentuk file maupun barang, termasuk model 3D atau bagian mana pun dari model."
+
+msgid "No Data"
+msgstr "Tanpa Data"
+
+msgid "No results were found for"
+msgstr "Tak ada hasil yang ditemukan"
+
+msgid "Select All"
+msgstr "Pilih Semua"
+
+msgid "Import"
+msgstr "Impor"
+
+msgid "You haven't uploaded the model yet, go ahead and upload it~"
+msgstr "Anda belum meng-upload model belum, pergi ke depan dan upload itu ~"
+
+msgid "You haven't liked the model yet, go ahead and like the model~"
+msgstr "Anda belum menyukai model belum, pergi ke depan dan seperti model ~"
+
+msgid "You haven't purchased the model yet, go ahead and buy the model~"
+msgstr "Anda belum membeli model belum, pergi ke depan dan membeli model ~"
+
+msgid "You haven't collected the model yet, go collect the model~"
+msgstr "Anda belum mengumpulkan model belum, pergi mengumpulkan model ~"
+
+msgid ""
+"You haven't created a creative work yet, go ahead and create a creative work~"
+msgstr "Kau belum menciptakan karya kreatif, silahkan dan ciptakan karya kreatif ~"
+
+msgid ""
+"You haven't uploaded the print configuration yet, go uploaded the print "
+"configuration~"
+msgstr "Anda belum mengunggah konfigurasi pencetakan belum, pergi diunggah konfigurasi cetak ~"
+
+msgid "You haven't printed the model yet, go ahead and print it~"
+msgstr "Anda belum mencetak model belum, pergi ke depan dan mencetaknya ~"
+
+msgid ""
+"You haven't uploaded the print file yet, go ahead and upload the print file~"
+msgstr "Anda belum mengunggah berkas pencetakan, silakan dan unggah berkas cetak ~"
+
+msgid "You haven't download the model yet, go ahead and download it~"
+msgstr "Anda belum download model belum, pergi ke depan dan download itu ~"
+
+msgid ""
+"You haven't download the print configuration yet, go download the print "
+"configuration~"
+msgstr "Anda belum mengunduh konfigurasi pencetakan, pergi unduh konfigurasi pencetakan ~"
+
+msgid "Approving..."
+msgstr "Pendekatan..."
+
+msgid "Approved"
+msgstr "Disetujui"
+
+msgid "Rejected"
+msgstr "Ditolak"
+
+msgid "Removed"
+msgstr "Dibuang"
+
+msgid "Purchased At"
+msgstr "Dibeli Pada"
+
+msgid "off"
+msgstr "mati"
+
+msgid ""
+"Start downloading. Please go to \"Personal Center-My Downloads\" to view."
+msgstr "Mulai download. Tolong lihat \"Centermy Downloads\"."
+
+msgid "System Preset Parameters"
+msgstr "Parameter Preset Sistem"
+
+msgid "Current Version"
+msgstr "Versi Kini"
+
+msgid "Latest Version"
+msgstr "Versi Terakhir"
+
+msgid "Description"
+msgstr "Deskripsi"
+
+msgid "Update"
+msgstr "Perbarui"
+
+msgid "Ender Series"
+msgstr "Seri Ender"
+
+msgid "CR Series"
+msgstr "Seri CR"
+
+msgid "Start updating, please wait a moment"
+msgstr "Mulai memperbarui, silakan tunggu sebentar"
+
+msgid "Text"
+msgstr "Teks"
+
+msgid "Shape"
+msgstr "Bentuk"
+
+msgid "Emoji"
+msgstr "Emoji"
+
+msgid "SVG"
+msgstr "SVG"
+
+msgid "Holes"
+msgstr "Lubang"
+
+msgid "Thickness"
+msgstr "Tebal"
+
+msgid "3D View"
+msgstr "Tampilan 3D"
+
+msgid "Base Plate & Border"
+msgstr "Plat Dasar & Batas"
+
+msgid "Uniform Scale"
+msgstr "Skala Uniform"
+
+msgid "Width"
+msgstr "Lebar"
+
+msgid "Height"
+msgstr "Tinggi"
+
+msgid "Position"
+msgstr "Posisi"
+
+msgid "Rotation"
+msgstr "Rotasi"
+
+msgid "Fill"
+msgstr "Isi"
+
+msgid "Content"
+msgstr "Isi"
+
+msgid "FontFamily"
+msgstr "Keluarga font"
+
+msgid "FontSize"
+msgstr "Ukuran Fonta"
+
+msgid "Size"
+msgstr "Ukuran"
+
+msgid "Wiki Tutorial"
+msgstr "Tutorial Wiki"
+
+msgid "Slice parameter setting guide"
+msgstr "Pemandu pengaturan parameter Iris"
+
+msgid "Calibration Guide"
+msgstr "Panduan Kalibrasi"
+
+msgid "Quick Start Guide"
+msgstr "Panduan Awal Cepat"
+
+msgid "Multi color Printing Guide"
+msgstr "Panduan Pencetakan Warna Multi"
+
+msgid "6.0 Update Description"
+msgstr "6.0 Deskripsi Pembaruan"
+
+msgid ""
+"Introduce the basic usage of Creality Print and guide users to complete the "
+"first printing task."
+msgstr "Memperkenalkan penggunaan dasar Creality Print dan memandu pengguna menyelesaikan tugas cetak pertama."
+
+
+msgid ""
+"After obtaining a multi-color printer, use Creality Print for the first "
+"color printing."
+msgstr "Setelah memiliki printer multiwarna, gunakan Creality Print untuk pencetakan warna pertama."
+
+
+msgid ""
+"Briefly introduce the parameter settings for Creality Print slicing, "
+"including the selection of preset parameters, parameter settings, and "
+"saving, to help you better complete 3D printing."
+msgstr "Memperkenalkan secara singkat pengaturan parameter slicing Creality Print, termasuk pemilihan preset, pengaturan parameter, dan penyimpanan, agar Anda dapat menyelesaikan pencetakan 3D dengan lebih baik."
+
+
+msgid "By adjusting various parameters to achieve the best printing effect."
+msgstr "Dengan menyesuaikan berbagai parameter untuk mencapai efek cetak terbaik."
+
+msgid ""
+"Creality Print 6.0 has been upgraded to provide you with a better user "
+"experience."
+msgstr "Creality Print 6.0 telah ditingkatkan untuk memberikan pengalaman pengguna yang lebih baik."
+
+
+msgid ""
+"You can select one as the current device on the 'My Devices' or 'Multiple "
+"Devices' pages"
+msgstr "Anda dapat memilih satu sebagai perangkat saat ini pada halaman 'Perangkat Saya' atau 'Perangkat Berganda'"
+
+msgid "System"
+msgstr "Sistem"
+
+msgid "User"
+msgstr "Pengguna"
+
+msgid "Diameter"
+msgstr "Diameter"
+
+msgid "Vender"
+msgstr "Vender"
+
+msgid "Model"
+msgstr "Model"
+
+msgid "Configuration Name"
+msgstr "Nama Konfigurasi"
+
+msgid "Firmware Type"
+msgstr "Tipe Firmware"
+
+msgid "Search Results"
+msgstr "Hasil Pencarian"
+
+msgid "The model you want is not found. Please search again."
+msgstr "Model yang Anda inginkan tidak ditemukan. Tolong cari lagi."
+
+msgid "System Filaments"
+msgstr "Filamen Sistem"
+
+msgid "Custom Filaments"
+msgstr "Filamen Gubahan"
+
+msgid "Material Type"
+msgstr "Jenis Bahan"
+
+msgid "Brand Supplier"
+msgstr "Pensedia Merek"
+
+msgid "Error"
+msgstr "Kesalahan"
+
+msgid "At least one material must be selected."
+msgstr "Setidaknya satu bahan harus dipilih."
+
+msgid "Do you want to use the default material list?"
+msgstr "Apakah Anda ingin menggunakan daftar baku material?"
+
+msgid "Create New"
+msgstr "Buat Baru"
+
+msgid "AI Modeling"
+msgstr "Pemodelan AI"
+
+msgid "Vast"
+msgstr "Vast"
+
+msgid "Deemos"
+msgstr "Deemos"
+
+msgid "Record"
+msgstr "Rekam"
+
+msgid "Filament Type"
+msgstr "Tipe Filamen"
+
+msgid "At least one filament must be selected."
+msgstr "Setidaknya satu filamen harus dipilih."
+
+msgid "Do you want to use default filament?"
+msgstr "Apakah Anda ingin menggunakan filamen baku?"
+
+msgid "Add New Filament"
+msgstr "Tambah Filamen Baru"
+
+msgid "Please select at least one printer."
+msgstr "Silakan pilih setidaknya satu pencetak."
+
+msgid "The filament you want is not found"
+msgstr "filamen yang Anda inginkan tidak ditemukan"
+
+#~ msgid "Please search for the printer you want..."
+#~ msgstr "Please search for the printer you want..."
+
+#~ msgid "Update All"
+#~ msgstr "Update All"
+
+msgid "Model not downloaded, click to download the model"
+msgstr "Model belum diunduh, klik untuk mengunduh model"
+
+msgid "Download the model"
+msgstr "Unduh model"
+
+msgid ""
+"Creality Print requires the Microsoft WebView2 Runtime,But it has been found that the abnormal operation of Microsoft WebView2 may be related to the installation of Microsoft Edge. \n"
+"Click the Yes to reinstall Microsoft Edge"
+msgstr "Creality Print memerlukan Microsoft WebView2 Runtime, tetapi ditemukan bahwa operasi Microsoft WebView2 yang tidak normal mungkin terkait dengan instalasi Microsoft Edge.\nKlik Ya untuk menginstal ulang Microsoft Edge."
+
+msgid "Failed to reinstall the Microsoft WebView2 Runtime. Please reinstall it manually."
+msgstr "Gagal memasang ulang Runtime Microsoft WebView2. Silakan instal ulang secara manual."
+
+msgid "tutorial: %s"
+msgstr "Tutorial: %s"
+
+msgid "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
+msgstr "Microsoft WebView2 Runtime berhasil diinstal ulang. Aplikasi akan dimulai ulang sekarang."

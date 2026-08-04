@@ -148,8 +148,9 @@ public:
             texCount,
         };
 
-        bool valid() { return m_valid; }
+        bool valid() const { return m_valid; }
 
+        void invalidate() { m_valid = false; }
         bool init_svg_texture();
 
         ImVec2 get_texture_uv0(IM_TEXTURE_NAME name, bool is_press) 
@@ -178,7 +179,7 @@ public:
         ImTextureID get_custom_texture_id(IM_TEXTURE_NAME name, bool selected) const;
 
     private:
-        ImTextureID m_texture_id;
+        ImTextureID m_texture_id = nullptr;
         bool        m_valid = false;
 
         std::array<ImTextureID, texCount> m_custom_texture_ids{};
@@ -193,10 +194,6 @@ public:
             pngTexOnlineDevice,
             pngTexOnlineDeviceGray,
             pngTexOnlineDeviceDarkGray,
-            pngTexCollapseLight,
-            pngTexCollapseDark,
-            pngTexSettingLight,
-            pngTexSettingDark,
             pngTexEditLight,
             pngTexEditDark,
             pngTexRadioSel,
@@ -310,6 +307,10 @@ private:
     wxDataViewItem m_last_selected_item {nullptr};
 
     std::unique_ptr<ObjList_Png_Texture_Wrapper> m_png_textures;
+    ImTextureID m_printer_setting_svg_texture{nullptr};
+    ImTextureID m_printer_collapse_svg_texture{nullptr};
+    unsigned    m_printer_setting_svg_size{0};
+    unsigned    m_printer_collapse_svg_size{0};
 
     struct device_list_data
     {
@@ -678,7 +679,6 @@ public:
     void render_printer_preset_by_ImGui(bool folded_view = false);
     void render_plate_tree_by_ImGui();
     void render_unfold_button();
-    bool get_collapse_icon(ImTextureID& id, ImVec2& uv0, ImVec2& uv1, bool mirror_x);
 
     bool get_object_list_window_focus();
     void set_object_list_window_focus(bool f);

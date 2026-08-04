@@ -4,6 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
+#include <limits>
+#include <sstream>
 #include <typeinfo>
 #include <cassert>
 #include <cstddef>
@@ -977,27 +979,114 @@ void StackImpl::take_snapshot(const std::string& snapshot_name, const Slic3r::Mo
 
 void StackImpl::reduce_noisy_snapshots(const std::string& new_name)
 {
-	// Preceding snapshot must be a "leave gizmo" snapshot.
-	assert(! m_snapshots.empty() && m_snapshots.back().is_topmost() && m_snapshots.back().timestamp == m_active_snapshot_time);
-	auto it_last = m_snapshots.end();
-	-- it_last; -- it_last;
-	assert(it_last != m_snapshots.begin() && (it_last->snapshot_data.snapshot_type == SnapshotType::LeavingGizmoNoAction || it_last->snapshot_data.snapshot_type == SnapshotType::LeavingGizmoWithAction));
-	if (it_last->snapshot_data.snapshot_type == SnapshotType::LeavingGizmoWithAction) {
-		for (-- it_last; it_last->snapshot_data.snapshot_type != SnapshotType::EnteringGizmo; -- it_last) {
-			if (it_last->snapshot_data.snapshot_type == SnapshotType::GizmoAction) {
-                it_last->name = new_name;
-                auto it = it_last;
-				for (-- it; it->snapshot_data.snapshot_type == SnapshotType::GizmoAction; -- it) ;
-				if (++ it < it_last) {
-					// Drop (it, it_last>
-					for (auto &kvp : m_objects)
-						// Drop products of <it + 1, it_last + 1>
-						kvp.second->release_between_timestamps(it->timestamp, (it_last + 1)->timestamp);
-					it_last = this->release_snapshots(it + 1, it_last + 1);
-				}
-			}
-			assert(it_last != m_snapshots.begin());
+	const auto log_rejected = [this, &new_name](const char *reason, size_t boundary_index) {
+		std::ostringstream log;
+		log << "event=reduce_noisy_snapshots_rejected"
+			<< " reason=" << reason
+			<< " new_name=\"" << new_name.substr(0, 128) << '"'
+			<< " snapshot_count=" << m_snapshots.size()
+			<< " active_time=" << m_active_snapshot_time
+			<< " current_time=" << m_current_time;
+		if (boundary_index < m_snapshots.size()) {
+			const Snapshot &boundary = m_snapshots[boundary_index];
+			log << " boundary_index=" << boundary_index
+				<< " boundary_type=" << static_cast<unsigned int>(boundary.snapshot_data.snapshot_type)
+				<< " boundary_time=" << boundary.timestamp
+				<< " boundary_name=\"" << boundary.name.substr(0, 128) << '"';
 		}
+
+		const size_t first_index = m_snapshots.size() > 20 ? m_snapshots.size() - 20 : 0;
+		log << " recent_snapshots=[";
+		for (size_t i = first_index; i < m_snapshots.size(); ++ i) {
+			if (i != first_index)
+				log << ',';
+			const Snapshot &snapshot = m_snapshots[i];
+			log << "{index=" << i
+				<< ",type=" << static_cast<unsigned int>(snapshot.snapshot_data.snapshot_type)
+				<< ",time=" << snapshot.timestamp
+				<< ",name=\"" << snapshot.name.substr(0, 128) << "\"}";
+		}
+		log << ']';
+		BOOST_LOG_TRIVIAL(warning) << log.str();
+	};
+
+	// Validate the whole Gizmo interval before changing snapshot names or object histories.
+	// This keeps a malformed interval intact for normal undo / redo and for diagnostics.
+	if (m_snapshots.size() < 2) {
+		log_rejected("too_few_snapshots", m_snapshots.size());
+		return;
+	}
+
+	const size_t topmost_index = m_snapshots.size() - 1;
+	const Snapshot &topmost = m_snapshots[topmost_index];
+	if (! topmost.is_topmost() || topmost.timestamp != m_active_snapshot_time) {
+		log_rejected("invalid_topmost", topmost_index);
+		return;
+	}
+
+	const size_t leaving_index = topmost_index - 1;
+	const SnapshotType leaving_type = m_snapshots[leaving_index].snapshot_data.snapshot_type;
+	if (leaving_type != SnapshotType::LeavingGizmoNoAction &&
+		leaving_type != SnapshotType::LeavingGizmoWithAction) {
+		log_rejected("invalid_leaving_snapshot", leaving_index);
+		return;
+	}
+
+	size_t entering_index = std::numeric_limits<size_t>::max();
+	size_t scan_index = leaving_index;
+	while (scan_index > 0) {
+		-- scan_index;
+		const Snapshot &snapshot = m_snapshots[scan_index];
+		const SnapshotType type = snapshot.snapshot_data.snapshot_type;
+		if (type == SnapshotType::EnteringGizmo) {
+			entering_index = scan_index;
+			break;
+		}
+
+		// Only Gizmo actions and selection changes belong inside a valid Gizmo interval.
+		// In particular, never search past another LeavingGizmo or a project boundary,
+		// otherwise actions from two independent tools could be merged.
+		if (snapshot.is_topmost() ||
+			(type != SnapshotType::GizmoAction && type != SnapshotType::Selection)) {
+			log_rejected("boundary_before_entering", scan_index);
+			return;
+		}
+	}
+
+	if (entering_index == std::numeric_limits<size_t>::max()) {
+		log_rejected("missing_entering_gizmo", m_snapshots.size());
+		return;
+	}
+
+	if (leaving_type == SnapshotType::LeavingGizmoNoAction)
+		return;
+
+	// The interval is valid. Collapse each consecutive GizmoAction run to its
+	// earliest snapshot, which preserves the state before that run for undo.
+	scan_index = leaving_index;
+	while (scan_index > entering_index + 1) {
+		-- scan_index;
+		if (m_snapshots[scan_index].snapshot_data.snapshot_type != SnapshotType::GizmoAction)
+			continue;
+
+		const size_t action_run_end = scan_index;
+		size_t action_run_begin = action_run_end;
+		while (action_run_begin > entering_index + 1 &&
+			m_snapshots[action_run_begin - 1].snapshot_data.snapshot_type == SnapshotType::GizmoAction)
+			-- action_run_begin;
+
+		m_snapshots[action_run_begin].name = new_name;
+		if (action_run_begin < action_run_end) {
+			const size_t release_begin_time = m_snapshots[action_run_begin].timestamp;
+			const size_t release_end_time = m_snapshots[action_run_end + 1].timestamp;
+			for (auto &kvp : m_objects)
+				kvp.second->release_between_timestamps(release_begin_time, release_end_time);
+			this->release_snapshots(
+				m_snapshots.begin() + action_run_begin + 1,
+				m_snapshots.begin() + action_run_end + 1);
+		}
+
+		scan_index = action_run_begin;
 	}
 }
 

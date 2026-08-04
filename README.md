@@ -79,6 +79,50 @@ Visit our GitHub Releases page for the latest stable version of Creality Print, 
  1. If you run into trouble to execute it, try this command in terminal:  
     `chmod +x /path_to_appimage/CrealityPrint_Linux.AppImage`
     
+# Command line slicing
+
+Creality Print can run slicing jobs from the command line without opening the normal GUI workflow. Use the `--slice` action with one or more input model/project files.
+
+```console
+CrealityPrint.exe --slice 0 --outputdir "C:\output" "C:\models\project.3mf"
+```
+
+`--slice` selects which plate to slice:
+
+- `--slice 0`: slice all plates.
+- `--slice 1`: slice plate 1.
+- `--slice 2`: slice plate 2, and so on.
+
+Useful options:
+
+- `--outputdir <dir>`: directory for generated G-code and CLI result files.
+- `--load_settings "<setting1.json;setting2.json>"`: load process/printer settings. This is usually needed when slicing STL/OBJ files that do not already contain project settings.
+- `--load_filaments "<filament1.json;filament2.json>"`: load filament settings.
+- `--debug <level>`: set log level. `0` is fatal only, `5` is trace.
+- `--logfile <file>`: write debug logs to a file.
+
+Examples:
+
+Slice all plates from a 3MF project:
+
+```console
+CrealityPrint.exe --slice 0 --outputdir "C:\output" "C:\models\example.3mf"
+```
+
+Slice only the first plate and save a log:
+
+```console
+CrealityPrint.exe --slice 1 --outputdir "C:\output" --logfile "C:\output\slice.log" "C:\models\example.3mf"
+```
+
+Slice an STL with external printer/process and filament presets:
+
+```console
+CrealityPrint.exe --slice 0 --outputdir "C:\output" --load_settings "C:\presets\printer.json;C:\presets\process.json" --load_filaments "C:\presets\pla.json" "C:\models\part.stl"
+```
+
+Run `CrealityPrint.exe --help` to see the full list of supported command line options.
+
 # How to compile
 - Windows 64-bit  
   - Tools needed: Visual Studio 2019, Cmake, git, git-lfs, Strawberry Perl.

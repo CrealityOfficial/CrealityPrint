@@ -5,7 +5,7 @@
     "name": "Fiberon PA612-ESD @Creality K2 Plus 0.4 nozzle",
     "from": "system",
     "instantiation": "true",
-    "inherits": "fdm_filament_pa",
+    "inherits": "fdm_filament_pla",
     "activate_air_filtration": "0",
     "activate_chamber_layer": "2",
     "activate_chamber_temp_control": "1",
@@ -70,7 +70,7 @@
     ],
     "filament_toolchange_delay": "0",
     "filament_type": [
-        "PA-CF"
+        "PLA"
     ],
     "filament_unload_time": "0",
     "filament_unloading_speed": "90",

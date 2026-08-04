@@ -1,4 +1,5 @@
-#include <atomic>
+#include <cstdint>
+#include <memory>
 #include "wx/artprov.h"
 #include "wx/cmdline.h"
 #include "wx/notifmsg.h"
@@ -27,6 +28,8 @@
 
 namespace Slic3r {
 namespace GUI {
+
+struct SendToPrinterUiGate;
 
 class Plater;
 class PartPlate;
@@ -72,8 +75,9 @@ private:
     std::string get_onlygcode_plate_data_on_show();
     std::string get_updated_plate_preview_img(int plateIndex);
     void update_send_page_content();
-    void post_script(const wxString& script);
-    void post_close();
+    void invalidate_ui_gate();
+    void run_script_if_ready(const wxString& script);
+    void close_after_upload_stopped(bool invalidate_cancelled_generation = false);
     bool LoadFile(std::string jPath, std::string & sContent);
     void handle_register_complete(const nlohmann::json& json_data);
     void handle_send_gcode(const nlohmann::json& json_data);
@@ -119,6 +123,7 @@ private:
     SendType m_sendtype {Single}; // 1: single, 2: multi
     bool     m_is_first_show {true};
     wxString m_uploadingIp = wxEmptyString;
+    std::string m_upload_task_id;
     std::string m_last_send_format;  // "GCode" or "3MF", stored when upload starts
     bool m_print_send_fired = false; // prevents duplicate print_send event firing
     // when open this SendToPrinterDialog, backup the extruder colors, then restore them when dialog closed
@@ -126,7 +131,9 @@ private:
 
     std::unordered_map<std::string, std::function<void(const nlohmann::json&)>> m_commandHandlers;
     std::string m_mapString;
-    std::atomic<bool> m_isClosed{false};
+    std::shared_ptr<SendToPrinterUiGate> m_ui_gate;
+    bool m_close_pending = false;
+    bool m_close_allowed = false;
     bool m_is_only_gcode_mode = false;
     bool m_send_was_canceled = false;
 };

@@ -1,0 +1,31 @@
+# Auto-detect text/binary by default
+* text=auto
+
+
+# Windows scripts: keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+
+# Shell scripts: LF (explicit for clarity)
+*.sh text eol=lf
+
+
+
+# Binary assets (avoid auto-conversion and diff noise)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.exe binary
+*.dll binary
+*.msi binary
+*.zip binary
+*.7z binary
+*.rar binary

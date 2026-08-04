@@ -35,7 +35,7 @@
 #include <wx/listbook.h>
 #include <wx/numformatter.h>
 #include <wx/headerctrl.h>
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include <cstring>
 
 #include "slic3r/Utils/FixModelByWin10.hpp"
@@ -49,6 +49,7 @@
 #include "Gizmos/GLGizmoScale.hpp"
 
 #include "PhysicalPrinterDialog.hpp"
+#include "ParamsDialog.hpp"
 
 #include "simple/DeviceListSimple.hpp"
 
@@ -379,6 +380,8 @@ ObjectList::~ObjectList()
     if (m_objects_model)
         m_objects_model->DecRef();
     m_png_textures.reset();
+    IMTexture::release_texture(m_printer_setting_svg_texture);
+    IMTexture::release_texture(m_printer_collapse_svg_texture);
 }
 
 bool ObjectList::ObjList_Texture::init_svg_texture()
@@ -595,9 +598,67 @@ void ObjectList::get_selection_indexes(std::vector<int>& obj_idxs, std::vector<i
     obj_idxs.erase(std::unique(obj_idxs.begin(), obj_idxs.end()), obj_idxs.end());
 }
 
+static bool get_mesh_stats_for_object_list(const ModelObject* object, const int vol_idx, TriangleMeshStats& stats)
+{
+    if (object == nullptr)
+        return false;
+
+    if (vol_idx >= 0) {
+        const size_t volume_idx = static_cast<size_t>(vol_idx);
+        if (volume_idx >= object->volumes.size())
+            return false;
+
+        const ModelVolume* volume = object->volumes[volume_idx];
+        if (volume == nullptr)
+            return false;
+
+        std::shared_ptr<const TriangleMesh> mesh = volume->mesh_ptr();
+        if (!mesh)
+            return false;
+
+        stats = mesh->stats();
+        return true;
+    }
+
+    stats.volume = 0.f;
+    for (const ModelVolume* volume : object->volumes) {
+        if (volume == nullptr)
+            continue;
+
+        std::shared_ptr<const TriangleMesh> mesh = volume->mesh_ptr();
+        if (!mesh)
+            continue;
+
+        const TriangleMeshStats& volume_stats = mesh->stats();
+        stats.open_edges += volume_stats.open_edges;
+        stats.repaired_errors.merge(volume_stats.repaired_errors);
+
+        if (volume->is_model_part()) {
+            Transform3d trans = object->instances.empty() ? volume->get_matrix() : (volume->get_matrix() * object->instances[0]->get_matrix());
+            stats.volume += volume_stats.volume * std::fabs(trans.matrix().block(0, 0, 3, 3).determinant());
+            stats.number_of_parts += volume_stats.number_of_parts;
+        }
+    }
+
+    return true;
+}
+
 int ObjectList::get_repaired_errors_count(const int obj_idx, const int vol_idx /*= -1*/) const
 {
-    return obj_idx >= 0 ? (*m_objects)[obj_idx]->get_repaired_errors_count(vol_idx) : 0;
+    if (m_objects == nullptr || obj_idx < 0 || static_cast<size_t>(obj_idx) >= m_objects->size())
+        return 0;
+
+    const ModelObject* object = (*m_objects)[obj_idx];
+    if (object == nullptr)
+        return 0;
+
+    TriangleMeshStats stats;
+    if (!get_mesh_stats_for_object_list(object, vol_idx, stats))
+        return 0;
+
+    const RepairedMeshErrors& repaired_errors = stats.repaired_errors;
+    return repaired_errors.degenerate_facets + repaired_errors.edges_fixed + repaired_errors.facets_removed +
+           repaired_errors.facets_reversed + repaired_errors.backwards_edges;
 }
 
 static std::string get_warning_icon_name(const TriangleMeshStats& stats)
@@ -612,10 +673,12 @@ MeshErrorsInfo ObjectList::get_mesh_errors_info(const int obj_idx,
 {
     if (obj_idx < 0)
         return {{}, {}}; // hide tooltip
-    if (m_objects->size() <= obj_idx)
+    if (m_objects == nullptr || static_cast<size_t>(obj_idx) >= m_objects->size())
         return {{}, {}}; // hide tooltip
-    const TriangleMeshStats& stats = vol_idx == -1 ? (*m_objects)[obj_idx]->get_object_stl_stats() :
-                                                     (*m_objects)[obj_idx]->volumes[vol_idx]->mesh().stats();
+
+    TriangleMeshStats stats;
+    if (!get_mesh_stats_for_object_list((*m_objects)[obj_idx], vol_idx, stats))
+        return {{}, {}}; // hide tooltip
 
     if (!stats.repaired() && stats.manifold()) {
         // if (sidebar_info)
@@ -799,6 +862,44 @@ void ObjectList::update_filament_values_for_items(const size_t filaments_count)
                 for (auto key : keys)
                     if (object->volumes[id]->config.has(key) && object->volumes[id]->config.opt_int(key) > total_filaments)
                         object->volumes[id]->config.erase(key);
+            }
+        }
+
+        // Refresh the displayed filament for height-range (layer) modifier items.
+        // The underlying layer_config_ranges "extruder" values are already
+        // remapped in the model config (e.g. by remap_model_filament_assignments
+        // after a mixed-filament merge). This loop only syncs the tree node
+        // display to those config values; without it the height modifier keeps
+        // showing a stale filament color even though slicing is correct.
+        wxDataViewItem obj_item = m_objects_model->GetItemById(i);
+        ObjectDataViewModelNode* object_node = static_cast<ObjectDataViewModelNode*>(obj_item.GetID());
+        if (object_node && object_node->GetChildCount() > 0) {
+            for (size_t c = 0; c < object_node->GetChildCount(); c++) {
+                ObjectDataViewModelNode* layer_root_node = object_node->GetNthChild(c);
+                if (layer_root_node->GetType() != ItemType::itLayerRoot)
+                    continue;
+                for (size_t j = 0; j < layer_root_node->GetChildCount(); j++) {
+                    ObjectDataViewModelNode* layer_node = layer_root_node->GetNthChild(j);
+                    auto layer_item = wxDataViewItem((void*) layer_node);
+                    if (!layer_item)
+                        continue;
+                    auto l_iter = object->layer_config_ranges.find(layer_node->GetLayerRange());
+                    if (l_iter == object->layer_config_ranges.end())
+                        continue;
+                    auto& layer_range_cfg = l_iter->second;
+                    if (!layer_range_cfg.has("extruder"))
+                        continue;
+                    int layer_extruder = layer_range_cfg.option("extruder")->getInt();
+                    // Bound check against the current total filament count; an
+                    // out-of-range id falls back to the object default.
+                    if (layer_extruder < 0 || size_t(layer_extruder) > total_filaments) {
+                        layer_extruder = 0;
+                        layer_range_cfg.set("extruder", 0);
+                    }
+                    wxString layer_extruder_str = layer_extruder <= 1 ? _(L("default"))
+                                                                      : wxString::Format("%d", layer_extruder);
+                    m_objects_model->SetExtruder(layer_extruder_str, layer_item);
+                }
             }
         }
     }
@@ -3937,7 +4038,9 @@ void ObjectList::add_object_to_list(size_t obj_idx, bool call_selection_changed,
     // std::string item_name_str = (boost::format("[P%1%]%2%") % plate_idx  % model_object->name).str();
     // const wxString& item_name = from_u8(item_name_str);
     const wxString& item_name      = from_u8(model_object->name);
-    std::string     warning_bitmap = get_warning_icon_name(model_object->mesh().stats());
+    // The warning icon only needs topology and repair counters. Reuse the
+    // per-volume statistics instead of assembling a transformed object mesh.
+    std::string     warning_bitmap = get_warning_icon_name(model_object->get_object_stl_stats());
     const auto      item           = m_objects_model->AddObject(model_object, warning_bitmap, model_object->is_cut());
     Expand(m_objects_model->GetParent(item));
 
@@ -5823,7 +5926,9 @@ void ObjectList::sys_color_changed()
         m_objects_model->sys_color_changed();
     }
 
-    m_texture.init_svg_texture();
+    // A system-colour event may be delivered while no OpenGL context is current
+    // (for example while restoring the main window onto another display on macOS).
+    m_texture.invalidate();
 }
 
 void ObjectList::ItemValueChanged(wxDataViewEvent& event)
@@ -6805,8 +6910,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
 
                 ImGui::EndDragDropSource();
 
-                wxDataViewEvent ev;
-                ev.SetItem(wxDataViewItem(node));
+                wxDataViewEvent ev(wxEVT_DATAVIEW_ITEM_BEGIN_DRAG, this, wxDataViewItem(node));
                 OnBeginDrag(ev);
 
                 left_draged = true;
@@ -6815,8 +6919,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
             if (ImGui::BeginDragDropTarget()) {
                 const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(make_drag_drop_payload_label(node).c_str());
                 if (payload) {
-                    wxDataViewEvent ev;
-                    ev.SetItem(wxDataViewItem(node));
+                    wxDataViewEvent ev(wxEVT_DATAVIEW_ITEM_DROP, this, wxDataViewItem(node));
                     OnDrop(ev);
                 }
                 ImGui::EndDragDropTarget();
@@ -6945,8 +7048,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
 
                 ImGui::EndDragDropSource();
 
-                wxDataViewEvent ev;
-                ev.SetItem(wxDataViewItem(node));
+                wxDataViewEvent ev(wxEVT_DATAVIEW_ITEM_BEGIN_DRAG, this, wxDataViewItem(node));
                 OnBeginDrag(ev);
 
                 left_draged = true;
@@ -6955,8 +7057,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
             if (ImGui::BeginDragDropTarget()) {
                 const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(make_drag_drop_payload_label(node).c_str());
                 if (payload) {
-                    wxDataViewEvent ev;
-                    ev.SetItem(wxDataViewItem(node));
+                    wxDataViewEvent ev(wxEVT_DATAVIEW_ITEM_DROP, this, wxDataViewItem(node));
                     OnDrop(ev);
                 }
                 ImGui::EndDragDropTarget();
@@ -7554,7 +7655,7 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
     imgui.title(_u8L("Printer"), true);
     ImGui::SetWindowFontScale(1.0f);
 
-    ImVec2 collapse_size = ImVec2(icon_size.x * 0.8f, icon_size.y * 0.8f);
+    ImVec2 collapse_size = ImVec2(24.0f * scale, 24.0f * scale);
     float  buttons_width = icon_size.x + collapse_size.x + ImGui::GetStyle().ItemSpacing.x;
     float  right_edge    = folded_view ? (300.0f * scale - ImGui::GetStyle().WindowPadding.x) : ImGui::GetWindowContentRegionMax().x;
 
@@ -7570,70 +7671,93 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
         m_texture.init_svg_texture();
     }
     ImTextureID normal_id = m_texture.get_texture_id();
+    const ImU32 icon_tint = is_dark ? IM_COL32(214, 214, 220, 255) : IM_COL32(51, 51, 51, 255);
 
-    if (m_texture.valid()) {
-        ImGui::PushID(ObjList_Texture::IM_TEXTURE_NAME::texSetting);
+    auto ensure_svg_texture = [](ImTextureID& texture, unsigned& cached_size, const std::string& resource, unsigned raster_size) {
+        if (texture != nullptr && cached_size == raster_size)
+            return;
 
-        ImTextureID setting_id = normal_id;
-        if (m_png_textures) {
-            const bool is_dark = wxGetApp().dark_mode();
-            const auto tex_idx =
-                is_dark ? ObjList_Png_Texture_Wrapper::pngTexSettingDark : ObjList_Png_Texture_Wrapper::pngTexSettingLight;
-            auto& tex = m_png_textures->get(tex_idx);
-            if (tex && !tex->vaild()) {
-                const auto png_path =
-                    is_dark ? (Slic3r::resources_dir() + "/images/setting_dark.png") : (Slic3r::resources_dir() + "/images/setting_light.png");
-                tex->load_from_png_file(png_path, true, GLTexture::None, false);
-            }
-            if (tex && tex->vaild()) {
-                setting_id = (ImTextureID) tex->get_id();
-            }
-        }
+        IMTexture::release_texture(texture);
+        cached_size = 0;
+        if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + resource, raster_size, raster_size, texture))
+            cached_size = raster_size;
+    };
 
-        if (ImGui::ImageButton(setting_id, icon_size, ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), 0)) {
-            wxGetApp().run_wizard(ConfigWizard::RR_USER, ConfigWizard::SP_PRINTERS);
-        }
+    const float setting_glyph_size = 18.0f * scale;
+    const float collapse_canvas_size = 22.0f * scale;
+    const unsigned setting_raster_size = std::max(1u, static_cast<unsigned>(std::ceil(setting_glyph_size)));
+    const unsigned collapse_raster_size = std::max(1u, static_cast<unsigned>(std::ceil(collapse_canvas_size)));
+    ensure_svg_texture(m_printer_setting_svg_texture, m_printer_setting_svg_size, "/images/setting_dark_default.svg", setting_raster_size);
+    ensure_svg_texture(m_printer_collapse_svg_texture, m_printer_collapse_svg_size, "/images/fold_dark_default.svg", collapse_raster_size);
 
-        ImGui::PopID();
+    ImDrawList* header_draw_list = ImGui::GetWindowDrawList();
+    auto draw_hover_border = [scale](ImDrawList* draw_list, const ImVec2& min, const ImVec2& max) {
+        draw_list->AddRect(min, max, IM_COL32(21, 191, 89, 255),
+            6.0f * scale, ImDrawFlags_RoundCornersAll, 1.0f * scale);
+    };
+
+    ImGui::PushID(ObjList_Texture::IM_TEXTURE_NAME::texSetting);
+    bool setting_pressed = false;
+    bool setting_hovered = false;
+    const ImVec2 setting_btn_pos = ImGui::GetCursorScreenPos();
+    if (m_printer_setting_svg_texture != nullptr) {
+        setting_pressed = ImGui::InvisibleButton("##printer_setting_svg", icon_size);
+        setting_hovered = ImGui::IsItemHovered();
+        const float glyph_inset = (icon_size.x - setting_glyph_size) * 0.5f;
+        const ImVec2 glyph_min = setting_btn_pos + ImVec2(glyph_inset, glyph_inset);
+        const ImVec2 glyph_max = glyph_min + ImVec2(setting_glyph_size, setting_glyph_size);
+        header_draw_list->AddImage(m_printer_setting_svg_texture, glyph_min, glyph_max,
+            ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), icon_tint);
+    } else if (m_texture.valid()) {
+        setting_pressed = ImGui::ImageButton(normal_id, icon_size,
+            m_texture.get_texture_uv0(ObjList_Texture::IM_TEXTURE_NAME::texSetting, false),
+            m_texture.get_texture_uv1(ObjList_Texture::IM_TEXTURE_NAME::texSetting, false), 0);
+        setting_hovered = ImGui::IsItemHovered();
     }
+
+    if (setting_hovered) {
+        const ImVec2 setting_btn_max(setting_btn_pos.x + icon_size.x, setting_btn_pos.y + icon_size.y);
+        draw_hover_border(header_draw_list, setting_btn_pos, setting_btn_max);
+    }
+
+    if (setting_pressed)
+        wxGetApp().run_wizard(ConfigWizard::RR_USER, ConfigWizard::SP_PRINTERS);
+    ImGui::PopID();
 
     ImGui::SameLine();
 
     // collapse button
     ImGui::PushID(ObjList_Texture::IM_TEXTURE_NAME::texCollapse);
     ImGui::SetCursorPosY(collapse_y);
-    ImTextureID collapse_id = normal_id;
-    ImVec2      collapse_uv0(0.0f, 0.0f);
-    ImVec2      collapse_uv1(1.0f, 1.0f);
-    if (m_png_textures) {
-        const bool is_dark = wxGetApp().dark_mode();
-        const auto tex_idx =
-            is_dark ? ObjList_Png_Texture_Wrapper::pngTexCollapseDark : ObjList_Png_Texture_Wrapper::pngTexCollapseLight;
-        auto& tex = m_png_textures->get(tex_idx);
-        if (tex && !tex->vaild()) {
-            const auto png_path = is_dark ? (Slic3r::resources_dir() + "/images/collapse_dark.png") : (Slic3r::resources_dir() + "/images/collapse_light.png");
-            tex->load_from_png_file(png_path, true, GLTexture::None, false);
-        }
-        if (tex && tex->vaild()) {
-            collapse_id = (ImTextureID) tex->get_id();
-        }
-    }
-    if (folded_view)
-        std::swap(collapse_uv0.x, collapse_uv1.x);
     ImVec2 btn_pos = ImGui::GetCursorScreenPos();
     ImVec2 btn_size = collapse_size;
     bool pressed = ImGui::InvisibleButton("##collapse_btn_rotated", btn_size);
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    ImVec2 collapse_p0 = btn_pos;
-    ImVec2 collapse_p1 = btn_pos + ImVec2(btn_size.x, 0);
-    ImVec2 collapse_p2 = btn_pos + ImVec2(btn_size.x, btn_size.y);
-    ImVec2 collapse_p3 = btn_pos + ImVec2(0, btn_size.y);
-    // rotate 90 deg clockwise by remapping UVs
-    ImVec2 uv_tl = collapse_uv0;
-    ImVec2 uv_tr = ImVec2(collapse_uv1.x, collapse_uv0.y);
-    ImVec2 uv_br = collapse_uv1;
-    ImVec2 uv_bl = ImVec2(collapse_uv0.x, collapse_uv1.y);
-    draw_list->AddImageQuad(collapse_id, collapse_p0, collapse_p1, collapse_p2, collapse_p3, uv_bl, uv_tl, uv_tr, uv_br);
+    const bool hovered = ImGui::IsItemHovered();
+    if (m_printer_collapse_svg_texture != nullptr) {
+        const float canvas_inset = (btn_size.x - collapse_canvas_size) * 0.5f;
+        const ImVec2 canvas_min = btn_pos + ImVec2(canvas_inset, canvas_inset);
+        const ImVec2 canvas_max = canvas_min + ImVec2(collapse_canvas_size, collapse_canvas_size);
+        const float uv_top = folded_view ? 1.0f : 0.0f;
+        const float uv_bottom = folded_view ? 0.0f : 1.0f;
+        const ImU32 arrow_tint = is_dark ? IM_COL32_WHITE : IM_COL32(65, 65, 65, 255);
+        header_draw_list->AddImage(m_printer_collapse_svg_texture, canvas_min, canvas_max,
+            ImVec2(0.0f, uv_top), ImVec2(1.0f, uv_bottom), arrow_tint);
+    } else if (m_texture.valid()) {
+        ImVec2 uv0 = m_texture.get_texture_uv0(ObjList_Texture::IM_TEXTURE_NAME::texCollapse, false);
+        ImVec2 uv1 = m_texture.get_texture_uv1(ObjList_Texture::IM_TEXTURE_NAME::texCollapse, false);
+        if (folded_view)
+            std::swap(uv0.x, uv1.x);
+        const ImVec2 uv_tl = uv0;
+        const ImVec2 uv_tr(uv1.x, uv0.y);
+        const ImVec2 uv_br = uv1;
+        const ImVec2 uv_bl(uv0.x, uv1.y);
+        header_draw_list->AddImageQuad(normal_id, btn_pos, btn_pos + ImVec2(btn_size.x, 0.0f), btn_pos + btn_size,
+            btn_pos + ImVec2(0.0f, btn_size.y), uv_bl, uv_tl, uv_tr, uv_br);
+    }
+    if (hovered) {
+        const ImVec2 btn_max(btn_pos.x + btn_size.x, btn_pos.y + btn_size.y);
+        draw_hover_border(header_draw_list, btn_pos, btn_max);
+    }
     if (pressed) {
         m_left_panel_fold = !folded_view;
         auto* canvas      = wxGetApp().plater()->get_current_canvas3D();
@@ -7912,7 +8036,22 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
         }
     }
 
-    if (ImGui::ImageButton(edit_id, icon_size, ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), 0)) {
+    const bool edit_pressed = ImGui::ImageButton(edit_id, icon_size, ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), 0);
+    const bool edit_hovered = ImGui::IsItemHovered();
+
+    // While the preset settings dialog is open the main window is disabled, so the
+    // 3D canvas stops receiving mouse move events and ImGui keeps reporting this
+    // button as hovered. Both the hover border and the tooltip would then be redrawn
+    // on every frame and stay on screen, so suppress them while the dialog is shown.
+    ParamsDialog* params_dlg = wxGetApp().params_dialog();
+    const bool edit_hover_active = edit_hovered && !should_disable_combo &&
+                                   !(params_dlg != nullptr && params_dlg->IsShown());
+
+    if (edit_hover_active) {
+        draw_hover_border(header_draw_list, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+    }
+
+    if (edit_pressed) {
         // Only allow editing when not in gcode-only or exported file mode
         if (!should_disable_combo) {
             SidebarPrinter& bar = wxGetApp().plater()->sidebar_printer();
@@ -7921,7 +8060,7 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
     }
 
     
-    if (ImGui::IsItemHovered() && !should_disable_combo) {
+    if (edit_hover_active) {
         ImVec4 text_color = is_dark ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.2, 0.2, 0.2, 1.0);
         ImGui::PushStyleColor(ImGuiCol_Text, text_color);
         ImGui::SetTooltip(_u8L("Click to edit preset").c_str());
@@ -7972,8 +8111,13 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
         if (m_device_list_data.datas.empty() || 
             !(current_device.valid && !current_device.address.empty()))
             wifi_id = (ImTextureID) wifiTextureGray->get_id();
-        
-        if (ImGui::ImageButton(wifi_id, {20.0f * scale, 20.0f * scale}))
+
+        const bool wifi_pressed = ImGui::ImageButton(wifi_id, {20.0f * scale, 20.0f * scale});
+        const bool wifi_hovered = ImGui::IsItemHovered();
+        const ImVec2 wifi_btn_min = ImGui::GetItemRectMin();
+        const ImVec2 wifi_btn_max = ImGui::GetItemRectMax();
+
+        if (wifi_pressed)
         {
             ADD_TEST_RESPONE("WIFI", "ENTRY", 0, "");
             // update printer list
@@ -7991,10 +8135,13 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
         {
             ImVec4 mask_col    = is_dark ? ImVec4{0.8588, 0.8588, 0.8588, 0.1} : ImVec4{0.5294, 0.5569, 0.6039, 0.1};
             ImU32  mask_colu32 = IM_COL32(mask_col.x * 255, mask_col.y * 255, mask_col.z * 255, mask_col.w * 255);
-            ImGui::GetCurrentWindow()->DrawList->AddRectFilled(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), mask_colu32, 4.0 * scale);
+            ImGui::GetCurrentWindow()->DrawList->AddRectFilled(wifi_btn_min, wifi_btn_max, mask_colu32, 4.0 * scale);
         }
         ImGui::PopStyleVar(1);
-        if (ImGui::IsItemHovered())
+        if (wifi_hovered) {
+            draw_hover_border(header_draw_list, wifi_btn_min, wifi_btn_max);
+        }
+        if (wifi_hovered)
             if (current_device.valid)
                 ImGui::SetTooltip(("%s", current_device.name.empty() ? current_device.address : current_device.name).c_str());
             else
@@ -8175,21 +8322,6 @@ void ObjectList::render_unfold_button()
 
         ImGui::PopID();
     }
-}
-
-bool ObjectList::get_collapse_icon(ImTextureID& id, ImVec2& uv0, ImVec2& uv1, bool mirror_x)
-{
-    if (!m_texture.valid())
-        m_texture.init_svg_texture();
-    if (!m_texture.valid())
-        return false;
-
-    id = m_texture.get_texture_id();
-    uv0 = m_texture.get_texture_uv0(ObjList_Texture::IM_TEXTURE_NAME::texCollapse, false);
-    uv1 = m_texture.get_texture_uv1(ObjList_Texture::IM_TEXTURE_NAME::texCollapse, false);
-    if (mirror_x)
-        std::swap(uv0.x, uv1.x);
-    return true;
 }
 
 bool ObjectList::get_object_list_window_focus() { return m_obj_list_window_focus; }

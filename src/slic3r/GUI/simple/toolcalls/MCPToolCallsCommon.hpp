@@ -14,6 +14,14 @@ class NotificationManager;
 
 namespace ToolCalls {
 
+enum class NativeExecutionMode
+{
+    BridgeImmediateOrPayloadDeferred,
+    DeferredSliceResult,
+    DeferredSceneSettle,
+    CustomDeferred,
+};
+
 struct BridgeToolRouteSpec
 {
     const char* tool = "";
@@ -27,10 +35,13 @@ struct BridgeToolRouteSpec
     const char* error_message = "";
     bool normalize_apply_config = false;
     bool attach_project_context = false;
+    NativeExecutionMode execution_mode = NativeExecutionMode::BridgeImmediateOrPayloadDeferred;
 };
 
 const std::vector<BridgeToolRouteSpec>& GetBridgeToolRouteSpecs();
 const BridgeToolRouteSpec* FindBridgeToolRouteSpec(const std::string& tool);
+const char* NativeExecutionModeName(NativeExecutionMode mode);
+bool IsDeferredNativeExecution(NativeExecutionMode mode);
 
 nlohmann::json BuildBlockingErrorsPayload(const nlohmann::json& state);
 nlohmann::json BuildExplicitFactsFromState(const nlohmann::json& state);

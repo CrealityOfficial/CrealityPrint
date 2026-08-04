@@ -23,8 +23,13 @@ cp /lib/x86_64-linux-gnu/libsrtp2.so.* usr/lib/
 cp /lib/x86_64-linux-gnu/libasound.so.* usr/lib/
 cp /lib/x86_64-linux-gnu/libopus.so.* usr/lib/
 cp /lib/x86_64-linux-gnu/libspeexdsp.so.* usr/lib/
+cp /lib/x86_64-linux-gnu/libz.so.* usr/lib/
 cp /lib/x86_64-linux-gnu/liblzma.so.* usr/lib/
 cp /lib/x86_64-linux-gnu/libx264.so.* usr/lib/
+cp /usr/lib/x86_64-linux-gnu/libGLU.so.* usr/lib/
+cp /usr/lib/x86_64-linux-gnu/libOpenGL.so.* usr/lib/
+cp /usr/lib/x86_64-linux-gnu/libGLdispatch.so.* usr/lib/
+cp /usr/lib/x86_64-linux-gnu/libexpat.so.* usr/lib/
 cp /usr/lib/x86_64-linux-gnu/libLerc.so.* usr/lib/
 cp /usr/lib/x86_64-linux-gnu/libmspack.so.* usr/lib/
 

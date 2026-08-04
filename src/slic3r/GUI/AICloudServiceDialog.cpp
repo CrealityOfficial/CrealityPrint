@@ -458,6 +458,8 @@ wxString AICloudService_ResultListItem::wrapText(const wxString& text, wxDC& dc,
     
     for (size_t i = 0; i < len; ++i) {
         wxChar ch = text[i];
+        wxString chString;
+        chString += wxUniChar(ch);
         
         if (ch == '\n') {
             if (!currentLine.IsEmpty()) {
@@ -468,7 +470,7 @@ wxString AICloudService_ResultListItem::wrapText(const wxString& text, wxDC& dc,
             continue;
         }
         
-        wxString testLine = currentLine + ch;
+        wxString testLine = currentLine + chString;
         wxSize textSize = dc.GetTextExtent(testLine);
         
         if (textSize.GetWidth() > maxWidth) {
@@ -478,26 +480,30 @@ wxString AICloudService_ResultListItem::wrapText(const wxString& text, wxDC& dc,
                                      (ch >= 0x20000 && ch <= 0x2A6DF);
                 
                 if (isChineseChar) {
-                    result += currentLine + '\n';
-                    currentLine = ch;
+                    result += currentLine;
+                    result += '\n';
+                    currentLine = chString;
                 } else {
                     bool foundSpace = false;
                     for (int j = currentLine.Length() - 1; j >= 0; --j) {
                         if (currentLine[j] == ' ') {
-                            result += currentLine.Left(j) + '\n';
-                            currentLine = currentLine.Mid(j + 1) + ch;
+                            result += currentLine.Left(j);
+                            result += '\n';
+                            currentLine = currentLine.Mid(j + 1) + chString;
                             foundSpace = true;
                             break;
                         }
                     }
                     
                     if (!foundSpace) {
-                        result += currentLine + '\n';
-                        currentLine = ch;
+                        result += currentLine;
+                        result += '\n';
+                        currentLine = chString;
                     }
                 }
             } else {
-                result += ch + '\n';
+                result += chString;
+                result += '\n';
             }
         } else {
             currentLine = testLine;

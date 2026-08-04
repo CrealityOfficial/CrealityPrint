@@ -1,7 +1,9 @@
 #include "Http.hpp"
 
 #include <cstdlib>
+#include <atomic>
 #include <functional>
+#include <mutex>
 #include <thread>
 #include <deque>
 #include <sstream>
@@ -13,6 +15,11 @@
 #include <boost/log/trivial.hpp>
 
 #include <curl/curl.h>
+
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
 
 #ifdef OPENSSL_CERT_OVERRIDE
 #include <openssl/x509.h>
@@ -113,9 +120,12 @@ struct Http::priv
 	std::deque<form_file> form_files;
 	std::string postfields;
 	std::string error_buffer;    // Used for CURLOPT_ERRORBUFFER
-    std::string headers;
+	std::string headers;
 	size_t limit;
-	bool cancel;
+	std::atomic_bool cancel;
+	bool active_cancel_enabled;
+	std::mutex socket_mutex;
+	curl_socket_t active_socket;
     std::unique_ptr<fs::ifstream> putFile;
 
 	std::thread io_thread;
@@ -132,6 +142,8 @@ struct Http::priv
 	static size_t writecb(void *data, size_t size, size_t nmemb, void *userp);
 	static int xfercb(void *userp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow);
 	static int xfercb_legacy(void *userp, double dltotal, double dlnow, double ultotal, double ulnow);
+	static curl_socket_t opensocketcb(void* userp, curlsocktype purpose, struct curl_sockaddr* address);
+	static int closesocketcb(void* userp, curl_socket_t socket);
 	static size_t form_file_read_cb(char *buffer, size_t size, size_t nitems, void *userp);
     static size_t headers_cb(char *buffer, size_t size, size_t nitems, void *userp);
 
@@ -149,6 +161,7 @@ struct Http::priv
 
 	std::string curl_error(CURLcode curlcode);
 	std::string body_size_error();
+	void cancel_request();
 	void http_perform();
 };
 
@@ -169,6 +182,8 @@ Http::priv::priv(const std::string &url)
 	, error_buffer(CURL_ERROR_SIZE + 1, '\0')
 	, limit(0)
 	, cancel(false)
+	, active_cancel_enabled(false)
+	, active_socket(CURL_SOCKET_BAD)
 {
     Http::tls_global_init();
 
@@ -249,14 +264,58 @@ int Http::priv::xfercb(void *userp, curl_off_t dltotal, curl_off_t dlnow, curl_o
 		self->progressfn(progress, cb_cancel);
 	}
 
-	if (cb_cancel) { self->cancel = true; }
+	if (cb_cancel) { self->cancel.store(true, std::memory_order_release); }
 
-	return self->cancel;
+	return self->cancel.load(std::memory_order_acquire) ? 1 : 0;
 }
 
 int Http::priv::xfercb_legacy(void *userp, double dltotal, double dlnow, double ultotal, double ulnow)
 {
 	return xfercb(userp, dltotal, dlnow, ultotal, ulnow);
+}
+
+curl_socket_t Http::priv::opensocketcb(void* userp, curlsocktype, struct curl_sockaddr* address)
+{
+	auto self = static_cast<priv*>(userp);
+	curl_socket_t socket = ::socket(address->family, address->socktype, address->protocol);
+	if (socket == CURL_SOCKET_BAD)
+		return CURL_SOCKET_BAD;
+
+	std::lock_guard<std::mutex> lock(self->socket_mutex);
+	if (self->cancel.load(std::memory_order_acquire)) {
+#ifdef _WIN32
+		::closesocket(socket);
+#else
+		::close(socket);
+#endif
+		return CURL_SOCKET_BAD;
+	}
+	self->active_socket = socket;
+	return socket;
+}
+
+int Http::priv::closesocketcb(void* userp, curl_socket_t socket)
+{
+	auto self = static_cast<priv*>(userp);
+	bool close_socket = false;
+	{
+		std::lock_guard<std::mutex> lock(self->socket_mutex);
+		if (self->active_socket == socket) {
+			self->active_socket = CURL_SOCKET_BAD;
+			close_socket = true;
+		}
+	}
+
+	// cancel_request() may already have closed the descriptor to interrupt
+	// connect/DNS/TLS waits. Do not close a potentially reused descriptor.
+	if (!close_socket)
+		return 0;
+
+#ifdef _WIN32
+	return ::closesocket(socket) == 0 ? 0 : 1;
+#else
+	return ::close(socket) == 0 ? 0 : 1;
+#endif
 }
 
 size_t Http::priv::form_file_read_cb(char *buffer, size_t size, size_t nitems, void *userp)
@@ -412,6 +471,28 @@ std::string Http::priv::body_size_error()
 	return (boost::format("HTTP body data size exceeded limit (%1% bytes)") % limit).str();
 }
 
+void Http::priv::cancel_request()
+{
+	cancel.store(true, std::memory_order_release);
+
+	std::lock_guard<std::mutex> lock(socket_mutex);
+	if (active_socket == CURL_SOCKET_BAD) {
+		BOOST_LOG_TRIVIAL(warning) << "[HttpCancel] no active socket to close (request may still be resolving)";
+		return;
+	}
+
+	const curl_socket_t socket = active_socket;
+	active_socket = CURL_SOCKET_BAD;
+	BOOST_LOG_TRIVIAL(warning) << "[HttpCancel] closing active socket to interrupt request";
+#ifdef _WIN32
+	::shutdown(socket, SD_BOTH);
+	::closesocket(socket);
+#else
+	::shutdown(socket, SHUT_RDWR);
+	::close(socket);
+#endif
+}
+
 void Http::priv::http_perform()
 {
 	::curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
@@ -424,6 +505,12 @@ void Http::priv::http_perform()
 	//BBS set header functions
 	::curl_easy_setopt(curl, CURLOPT_HEADERDATA, static_cast<void *>(this));
 	::curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, headers_cb);
+	if (active_cancel_enabled) {
+		::curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, opensocketcb);
+		::curl_easy_setopt(curl, CURLOPT_OPENSOCKETDATA, static_cast<void*>(this));
+		::curl_easy_setopt(curl, CURLOPT_CLOSESOCKETFUNCTION, closesocketcb);
+		::curl_easy_setopt(curl, CURLOPT_CLOSESOCKETDATA, static_cast<void*>(this));
+	}
 
 	::curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
 #if LIBCURL_VERSION_MAJOR >= 7 && LIBCURL_VERSION_MINOR >= 32
@@ -461,16 +548,15 @@ void Http::priv::http_perform()
     putFile.reset();
 
 	if (res != CURLE_OK) {
-		if (res == CURLE_ABORTED_BY_CALLBACK) {
-			if (cancel) {
-				// The abort comes from the request being cancelled programatically
-				Progress dummyprogress(0, 0, 0, 0, std::string());
-				bool cancel = true;
-				if (progressfn) { progressfn(dummyprogress, cancel); }
-			} else {
-				// The abort comes from the CURLOPT_READFUNCTION callback, which means reading file failed
-				if (errorfn) { errorfn(std::move(buffer), "Error reading file for file upload", 0); }
-			}
+		if (cancel.load(std::memory_order_acquire)) {
+			// Active cancellation may surface as CURLE_ABORTED_BY_CALLBACK or as a
+			// socket send/receive error after shutdown(). Both are cancellation.
+			Progress dummyprogress(0, 0, 0, 0, std::string());
+			bool callback_cancel = true;
+			if (progressfn) { progressfn(dummyprogress, callback_cancel); }
+		} else if (res == CURLE_ABORTED_BY_CALLBACK) {
+			// The abort comes from the CURLOPT_READFUNCTION callback, which means reading file failed
+			if (errorfn) { errorfn(std::move(buffer), "Error reading file for file upload", 0); }
 		}
 		else if (res == CURLE_WRITE_ERROR) {
 			if (errorfn) { errorfn(std::move(buffer), body_size_error(), 0); }
@@ -764,14 +850,20 @@ void Http::perform_sync()
 	if (p) { p->http_perform(); }
 }
 
+Http& Http::enable_active_cancel()
+{
+	if (p) { p->active_cancel_enabled = true; }
+	return *this;
+}
+
 void Http::cancel()
 {
-	if (p) { p->cancel = true; }
+	if (p) { p->cancel_request(); }
 }
 bool Http::is_cancelled() const
 {
 	if (p) {
-		return p->cancel;
+		return p->cancel.load(std::memory_order_acquire);
 	}
 	return false;
 }

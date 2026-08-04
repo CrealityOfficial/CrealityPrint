@@ -9,6 +9,8 @@
 #include "Tab.hpp"
 #include "libslic3r/Utils.hpp"
 
+#include <vector>
+
 namespace Slic3r { namespace GUI {
 GuidePanel::GuidePanel(wxWindow* parent) : wxPanel(parent)
 {
@@ -66,17 +68,15 @@ GuidePanel::GuidePanel(wxWindow* parent) : wxPanel(parent)
     m_TipContent_back->SetFont(Label::Body_16);
     m_TipContent_back->SetForegroundColour(font_fg);
 
-    m_TipContent_back_extension = new wxStaticText(m_MainPanel, wxID_ANY, backText.c_str(), wxDefaultPosition, wxDefaultSize);
-    m_TipContent_back_extension->SetFont(Label::Body_16);
-    m_TipContent_back_extension->SetForegroundColour(font_fg);
-    m_TipContent_back_extension->Wrap(FromDIP(450)); // 设置自动换行宽度
+    m_TipContentExtensionSizer = new wxBoxSizer(wxVERTICAL);
 
     tipSizerH->Add(m_TipContent, 0, wxALIGN_CENTRE_VERTICAL | wxLEFT, FromDIP(12));
     tipSizerH->Add(m_TipBitMap, 0, wxALIGN_CENTRE_VERTICAL, FromDIP(10));
+    tipSizerH->AddSpacer(FromDIP(4));
     tipSizerH->Add(m_TipContent_back, 0, wxALIGN_CENTRE_VERTICAL, FromDIP(10));
 
     tipSizerV->Add(tipSizerH, 0, wxALIGN_LEFT, 0);
-    tipSizerV->Add(m_TipContent_back_extension, 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(12));
+    tipSizerV->Add(m_TipContentExtensionSizer, 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(12));
 
     verSizer->Add(tipSizerV, 1, wxALL | wxEXPAND | wxALIGN_CENTER_HORIZONTAL, FromDIP(5));
 
@@ -106,7 +106,7 @@ GuidePanel::GuidePanel(wxWindow* parent) : wxPanel(parent)
     StateColor report_text(std::pair<wxColour, int>(wxColour(144, 144, 144), StateColor::Disabled),
                            std::pair<wxColour, int>(wxColour(38, 46, 48), StateColor::Enabled));
 
-    m_SkipBtn = new Button(m_MainPanel, _L_ZH("Skip"));
+    m_SkipBtn = new Button(m_MainPanel, _L("Skip"));
     m_SkipBtn->SetBackgroundColor(report_bg);
     m_SkipBtn->SetBorderColor(report_bd);
     m_SkipBtn->SetTextColor(report_text);
@@ -119,7 +119,7 @@ GuidePanel::GuidePanel(wxWindow* parent) : wxPanel(parent)
                             tour->End();
                         }
                     }));
-    m_PreBtn = new Button(m_MainPanel, _L_ZH("Previous"));
+    m_PreBtn = new Button(m_MainPanel, _L("Previous"));
     m_PreBtn->SetBackgroundColor(report_bg);
     m_PreBtn->SetBorderColor(report_bd);
     m_PreBtn->SetTextColor(report_text);
@@ -133,7 +133,7 @@ GuidePanel::GuidePanel(wxWindow* parent) : wxPanel(parent)
                        }
                    }));
 
-    m_NextBtn = new Button(m_MainPanel, _L_ZH("Next"));
+    m_NextBtn = new Button(m_MainPanel, _L("Next"));
     m_NextBtn->SetBackgroundColor(report_bg);
     m_NextBtn->SetBorderColor(report_bd);
     m_NextBtn->SetTextColor(report_text);
@@ -194,7 +194,7 @@ void GuidePanel::UpdateUI(wxRect          pos,
     // if (m_CurStep == 0)
     m_PreBtn->Enable(m_CurStep == 0 ? false : true);
     // m_NextBtn->Enable(m_CurStep == m_TotalStep-1 ? false : true);
-    m_CurStep == m_TotalStep - 1 ? m_NextBtn->SetLabel(_L_ZH("Finish")) : m_NextBtn->SetLabel(_L_ZH("Next"));
+    m_CurStep == m_TotalStep - 1 ? m_NextBtn->SetLabel(_L("Finish")) : m_NextBtn->SetLabel(_L("Next"));
 
     wxSize imgSize;
     if (m_CurStep == 2) {
@@ -219,8 +219,9 @@ void GuidePanel::UpdateUI(wxRect          pos,
     // 更新步骤
     wxString stepText = wxString::Format("%d/%d", m_CurStep + 1, m_TotalStep);
     m_CurStepStatic->SetLabelText(stepText);
-    // 更新提示内容
-    if (m_TipsBack.empty()) {
+    // 更新提示内容。图标是否显示由步骤配置决定，不依赖翻译后的文本结构。
+    const bool hasInlineIcon = !littleImg.empty();
+    if (!hasInlineIcon) {
         m_TipBitMap->Hide();
     } else {
         wxBitmap littleBitMap = create_scaled_bitmap3(littleImg.ToStdString(), m_MainPanel, 17, wxSize(24, 24));
@@ -230,32 +231,138 @@ void GuidePanel::UpdateUI(wxRect          pos,
         m_TipBitMap->Show();
     }
 
-    m_TipContent->SetLabelText(m_TipsFront);
-    std::string lang = wxGetApp().app_config->get("language");
-
-    if (m_CurStep == 1) {
-        wxString firstFive = lang == "zh_CN" ? m_TipsBack : m_TipsBack.SubString(0, m_TipsBack.Length() - 8);
-        wxString remaining = lang == "zh_CN" ? "" : m_TipsBack.SubString(m_TipsBack.Length() - 7, m_TipsBack.Length());
-        m_TipContent_back->SetLabelText(firstFive);
-        m_TipContent_back_extension->SetLabelText(remaining);
-    } else if (m_CurStep == 3) {
-        wxString firstFive = lang == "zh_CN" ? m_TipsBack : m_TipsBack.SubString(0, 27);
-        wxString remaining = lang == "zh_CN" ? "" : m_TipsBack.SubString(28, m_TipsBack.Length());
-        m_TipContent_back->SetLabelText(firstFive);
-        m_TipContent_back_extension->SetLabelText(remaining);
-    } else if (m_CurStep == 5) {
-        wxString firstFive = lang == "zh_CN" ? m_TipsFront : m_TipsFront.SubString(0, m_TipsFront.Length() - 15);
-        wxString remaining = lang == "zh_CN" ? "" : m_TipsFront.SubString(m_TipsFront.Length() - 14, m_TipsFront.Length());
-        m_TipContent->SetLabelText(firstFive);
-        m_TipContent_back_extension->SetLabelText(remaining);
-    } else {
-        m_TipContent_back->SetLabelText(m_TipsBack);
-        m_TipContent_back_extension->SetLabelText("");
+    wxString frontText = m_TipsFront;
+    wxString backText  = m_TipsBack;
+    if (hasInlineIcon) {
+        frontText.Trim();
+        backText.Trim(false);
     }
 
-    // 重新设置换行并适应内容高度
-    // 注意：Wrap() 必须在 SetLabel 之后调用才能生效
-    m_TipContent_back_extension->Wrap(FromDIP(450));
+    m_TipContent->SetLabelText(frontText);
+    m_TipContent_back->SetLabelText(backText);
+    m_TipContentExtensionSizer->Clear(true);
+
+    const int textWrapWidth = FromDIP(450);
+    const auto wrapTextToWidth = [](wxStaticText* textControl, wxString text, int maxWidth) {
+        std::vector<wxString> wrappedLines;
+        text.Trim();
+        text.Trim(false);
+
+        while (!text.empty()) {
+            const size_t lineBreak = text.find('\n');
+            wxString     lineText = lineBreak == wxString::npos ? text : text.Left(lineBreak);
+            size_t       splitPosition = lineText.length();
+
+            if (textControl->GetTextExtent(lineText).GetWidth() > maxWidth) {
+                size_t low  = 1;
+                size_t high = lineText.length();
+                while (low < high) {
+                    const size_t middle = low + (high - low + 1) / 2;
+                    if (textControl->GetTextExtent(lineText.Left(middle)).GetWidth() <= maxWidth)
+                        low = middle;
+                    else
+                        high = middle - 1;
+                }
+                splitPosition = low;
+
+                const size_t wordBoundary = lineText.find_last_of(" \t", splitPosition - 1);
+                if (wordBoundary != wxString::npos && wordBoundary > 0)
+                    splitPosition = wordBoundary;
+            }
+
+            wxString line = lineText.Left(splitPosition);
+            line.Trim();
+            if (!line.empty())
+                wrappedLines.emplace_back(line);
+
+            if (splitPosition < lineText.length()) {
+                const wxString textAfterLineBreak = lineBreak == wxString::npos ? wxString() : text.Mid(lineBreak + 1);
+                text = lineText.Mid(splitPosition);
+                if (!textAfterLineBreak.empty()) {
+                    text += '\n';
+                    text += textAfterLineBreak;
+                }
+            } else if (lineBreak != wxString::npos) {
+                text = text.Mid(lineBreak + 1);
+            } else {
+                text.clear();
+            }
+            text.Trim(false);
+        }
+
+        return wrappedLines;
+    };
+
+    wxString extensionText;
+
+    if (!hasInlineIcon) {
+        m_TipContent->Show();
+        m_TipContent_back->Hide();
+
+        if (m_TipContent->GetTextExtent(frontText).GetWidth() > textWrapWidth) {
+            size_t low  = 1;
+            size_t high = frontText.length();
+            while (low < high) {
+                const size_t middle = low + (high - low + 1) / 2;
+                if (m_TipContent->GetTextExtent(frontText.Left(middle)).GetWidth() <= textWrapWidth)
+                    low = middle;
+                else
+                    high = middle - 1;
+            }
+
+            size_t splitPosition = low;
+            const size_t wordBoundary = frontText.find_last_of(" \t", splitPosition - 1);
+            if (wordBoundary != wxString::npos && wordBoundary > 0)
+                splitPosition = wordBoundary;
+
+            wxString firstLine = frontText.Left(splitPosition);
+            wxString remaining = frontText.Mid(splitPosition);
+            firstLine.Trim();
+            remaining.Trim(false);
+            m_TipContent->SetLabelText(firstLine);
+            extensionText = remaining;
+        }
+    } else {
+        m_TipContent->Show();
+        m_TipContent_back->Show();
+
+        const int suffixWidth = std::max(0, textWrapWidth
+                                           - m_TipContent->GetTextExtent(frontText).GetWidth()
+                                           - FromDIP(24) - FromDIP(4));
+
+        if (m_TipContent_back->GetTextExtent(backText).GetWidth() > suffixWidth) {
+            size_t low  = 0;
+            size_t high = backText.length();
+            while (low < high) {
+                const size_t middle = low + (high - low + 1) / 2;
+                if (m_TipContent_back->GetTextExtent(backText.Left(middle)).GetWidth() <= suffixWidth)
+                    low = middle;
+                else
+                    high = middle - 1;
+            }
+
+            size_t splitPosition = low;
+            if (splitPosition > 0 && splitPosition < backText.length()) {
+                const size_t wordBoundary = backText.find_last_of(" \t", splitPosition - 1);
+                if (wordBoundary != wxString::npos && wordBoundary > 0)
+                    splitPosition = wordBoundary;
+            }
+
+            wxString firstLine = backText.Left(splitPosition);
+            wxString remaining = backText.Mid(splitPosition);
+            firstLine.Trim();
+            remaining.Trim(false);
+            m_TipContent_back->SetLabelText(firstLine);
+            extensionText = remaining;
+        }
+    }
+
+    for (const wxString& line : wrapTextToWidth(m_TipContent, extensionText, textWrapWidth)) {
+        wxStaticText* lineText = new wxStaticText(m_MainPanel, wxID_ANY, line, wxDefaultPosition, wxDefaultSize);
+        lineText->SetFont(Label::Body_16);
+        lineText->SetForegroundColour(m_TipContent->GetForegroundColour());
+        m_TipContentExtensionSizer->Add(lineText, 0, wxEXPAND);
+    }
     
     // 固定宽度和默认高度
     const int fixedWidth = FromDIP(480);

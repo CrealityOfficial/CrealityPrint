@@ -1,6 +1,8 @@
 #include "Check3mfVendor.hpp"
 #include <list>
 #include <thread>
+#include <algorithm>
+#include <cmath>
 #include <boost/log/core.hpp>
 #include "I18N.hpp"
 #include "GUI_App.hpp"
@@ -320,22 +322,83 @@ void Check3mfVendor::setCreality3mf(bool isCreality3mf) {
     m_isCreality3mf = isCreality3mf;
 }
 
-void Check3mfVendor::updatePlateObject(const PlateDataPtrs& plate_data, const Slic3r::Model& model)
+void Check3mfVendor::updatePlateObject(const PlateDataPtrs& plate_data, const Slic3r::Model& model,
+                                       const DynamicPrintConfig& source_config)
 {
-    m_vtPlateObject.clear();
-    std::vector<int> obj_idxs;
-    for (int i = 0; i < plate_data.size(); ++i) {
-        obj_idxs.clear();
-        for (auto item : plate_data[i]->obj_inst_map) {
-            for (int k = 0; k < model.objects.size(); k++) {
-                // if (item.second.second == model.objects[k]->instances[0]->loaded_id)
-                if (item.first == model.objects[k]->from_loaded_id) {
-                    obj_idxs.emplace_back(k);
+    m_vtPlateObject.assign(plate_data.size(), {});
+    if (plate_data.empty() || model.objects.empty())
+        return;
+
+    std::vector<int> object_plate(model.objects.size(), -1);
+    size_t reconstructed_count = 0;
+
+    const ConfigOptionPoints* printable_area = source_config.opt<ConfigOptionPoints>("printable_area");
+    if (printable_area != nullptr && !printable_area->values.empty()) {
+        const BoundingBoxf source_bed_bbox(printable_area->values);
+        const Vec2d        source_bed_size = source_bed_bbox.size();
+        const int          plate_cols = static_cast<int>(std::ceil(std::sqrt(static_cast<double>(plate_data.size()))));
+        constexpr double   plate_gap_ratio = 1.0 / 5.0;
+
+        if (source_bed_bbox.defined && source_bed_size.x() > 0.0 && source_bed_size.y() > 0.0 && plate_cols > 0) {
+            for (size_t object_idx = 0; object_idx < model.objects.size(); ++object_idx) {
+                const ModelObject* object = model.objects[object_idx];
+                if (object == nullptr)
+                    continue;
+
+                for (size_t instance_idx = 0; instance_idx < object->instances.size() && object_plate[object_idx] < 0;
+                     ++instance_idx) {
+                    const BoundingBoxf3 instance_bbox = object->instance_convex_hull_bounding_box(instance_idx);
+                    if (!instance_bbox.defined)
+                        continue;
+
+                    for (size_t plate_idx = 0; plate_idx < plate_data.size(); ++plate_idx) {
+                        const int row = static_cast<int>(plate_idx) / plate_cols;
+                        const int col = static_cast<int>(plate_idx) % plate_cols;
+                        const double origin_x = col * source_bed_size.x() * (1.0 + plate_gap_ratio);
+                        const double origin_y = -row * source_bed_size.y() * (1.0 + plate_gap_ratio);
+                        const double plate_min_x = source_bed_bbox.min.x() + origin_x;
+                        const double plate_max_x = source_bed_bbox.max.x() + origin_x;
+                        const double plate_min_y = source_bed_bbox.min.y() + origin_y;
+                        const double plate_max_y = source_bed_bbox.max.y() + origin_y;
+
+                        const bool intersects_source_plate =
+                            instance_bbox.max.x() >= plate_min_x && instance_bbox.min.x() <= plate_max_x &&
+                            instance_bbox.max.y() >= plate_min_y && instance_bbox.min.y() <= plate_max_y;
+                        if (intersects_source_plate) {
+                            object_plate[object_idx] = static_cast<int>(plate_idx);
+                            m_vtPlateObject[plate_idx].emplace_back(static_cast<int>(object_idx));
+                            ++reconstructed_count;
+                            break;
+                        }
+                    }
                 }
             }
         }
-        m_vtPlateObject.emplace_back(obj_idxs);
     }
+
+    // Keep the explicit map as a fallback for malformed geometry or a missing
+    // source printable_area, but never let it exclude otherwise valid objects.
+    size_t metadata_fallback_count = 0;
+    for (size_t plate_idx = 0; plate_idx < plate_data.size(); ++plate_idx) {
+        for (const auto& item : plate_data[plate_idx]->obj_inst_map) {
+            for (size_t object_idx = 0; object_idx < model.objects.size(); ++object_idx) {
+                if (object_plate[object_idx] < 0 && model.objects[object_idx] != nullptr &&
+                    item.first == model.objects[object_idx]->from_loaded_id) {
+                    object_plate[object_idx] = static_cast<int>(plate_idx);
+                    m_vtPlateObject[plate_idx].emplace_back(static_cast<int>(object_idx));
+                    ++metadata_fallback_count;
+                    break;
+                }
+            }
+        }
+    }
+
+    const size_t unassigned_count =
+        static_cast<size_t>(std::count(object_plate.begin(), object_plate.end(), -1));
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__
+                            << boost::format(": plates=%1%, objects=%2%, reconstructed=%3%, metadata_fallback=%4%, unassigned=%5%")
+                                   % plate_data.size() % model.objects.size() % reconstructed_count % metadata_fallback_count
+                                   % unassigned_count;
 }
 void Check3mfVendor::centerModelToPlate(View3D* view3D, Sidebar* sidebar)
 {
@@ -451,17 +514,27 @@ ChoosePresetDlg::ChoosePresetDlg(wxWindow* parent, const std::string& printerSet
     this->SetIcon(wxIcon(encode_path(icon_path.c_str()), wxBITMAP_TYPE_ICO));
 
     this->SetBackgroundColour(*wxWHITE);
-    this->SetMinSize(wxSize(FromDIP(600), FromDIP(280)));
-    this->SetMaxSize(wxSize(FromDIP(600), FromDIP(280)));
+    const wxSize dialog_size(FromDIP(600), FromDIP(280));
+    const int    content_margin = FromDIP(40);
+    SetSize(dialog_size);
+    const int content_width = std::max(FromDIP(1), GetClientSize().x - 2 * content_margin);
+
     wxBoxSizer* main_sizer = new wxBoxSizer(wxVERTICAL);
-    wxStaticText* tip = new wxStaticText(this, wxID_ANY, _L("This project file is not from Creality Print. Please select the printer preset you want to use for slicing."));
-    tip->SetMinSize(wxSize(FromDIP(520), FromDIP(44)));
-    tip->SetMaxSize(wxSize(FromDIP(520), FromDIP(44)));
-    main_sizer->AddSpacer(FromDIP(20));
-    main_sizer->Add(tip, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(40));
+    wxStaticText* tip = new wxStaticText(
+        this,
+        wxID_ANY,
+        _L("This project file is not from Creality Print. Please select the printer preset you want to use for slicing."),
+        wxDefaultPosition,
+        wxSize(content_width, FromDIP(52)),
+        wxST_NO_AUTORESIZE);
+    tip->SetMinSize(wxSize(content_width, std::max(FromDIP(52), tip->GetBestSize().y)));
+    tip->SetMaxSize(tip->GetMinSize());
+    main_sizer->AddSpacer(FromDIP(32));
+    main_sizer->Add(tip, 0, wxEXPAND | wxLEFT | wxRIGHT, content_margin);
+    main_sizer->AddSpacer(FromDIP(16));
     m_combo = new ::ComboBox(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(), 0, nullptr, wxCB_READONLY);
-    m_combo->SetMinSize(wxSize(FromDIP(520), FromDIP(40)));
-    m_combo->SetMaxSize(wxSize(FromDIP(520), FromDIP(40)));
+    m_combo->SetMinSize(wxSize(content_width, FromDIP(40)));
+    m_combo->SetMaxSize(wxSize(content_width, FromDIP(40)));
     m_combo->Bind(wxEVT_COMBOBOX, &ChoosePresetDlg::OnComboboxSelected, this);
 
     /* std::list<std::string> userPresets;
@@ -580,7 +653,7 @@ ChoosePresetDlg::ChoosePresetDlg(wxWindow* parent, const std::string& printerSet
     m_printerPresetName = m_vtComboText[m_comboLastSelected];
     m_printerPresetIdx  = m_comboLastSelected;
     m_combo->SetToolTip(wxString::FromUTF8(m_printerPresetName));
-    main_sizer->Add(m_combo, 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(40));
+    main_sizer->Add(m_combo, 0, wxEXPAND | wxLEFT | wxRIGHT, content_margin);
     Button* btnOk = new Button(this, _L("OK"));
     StateColor btn_bg_green(std::pair<wxColour, int>(wxColour(21, 191, 89), StateColor::Pressed),
                             std::pair<wxColour, int>(wxColour(21, 191, 89), StateColor::Hovered),
@@ -593,13 +666,17 @@ ChoosePresetDlg::ChoosePresetDlg(wxWindow* parent, const std::string& printerSet
     btnOk->SetMaxSize(wxSize(FromDIP(104), FromDIP(32)));
     btnOk->Bind(wxEVT_LEFT_DOWN, &ChoosePresetDlg::OnOk, this);
 
-    main_sizer->AddSpacer(FromDIP(70));
-    main_sizer->Add(btnOk, 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(248));
+    main_sizer->AddSpacer(FromDIP(32));
+    main_sizer->Add(btnOk, 0, wxALIGN_CENTER_HORIZONTAL);
 
     this->SetSizer(main_sizer);
     wxGetApp().UpdateDlgDarkUI(this);
-    Layout();
     Fit();
+    SetSize(dialog_size);
+    SetMinSize(dialog_size);
+    SetMaxSize(dialog_size);
+    Layout();
+    CenterOnParent();
 }
 
 void ChoosePresetDlg::on_dpi_changed(const wxRect& suggested_rect) {}

@@ -502,6 +502,29 @@ void FilamentButton::render(wxDC& dc)
 
 	memdc.SelectObject(wxNullBitmap);
 	dc.DrawBitmap(bmp, 0, 0);
+#elif defined(__APPLE__)
+    wxSize size = GetSize();
+    if (size.x <= 0 || size.y <= 0)
+        return;
+
+    wxBitmap bmp;
+    if (!bmp.CreateWithDIPSize(size, GetContentScaleFactor())) {
+        doRender(dc);
+        return;
+    }
+
+    wxMemoryDC memdc(bmp);
+    if (!memdc.IsOk()) {
+        doRender(dc);
+        return;
+    }
+
+    const wxColour background = m_back_color.IsOk() ? m_back_color : GetParent()->GetBackgroundColour();
+    memdc.SetBackground(wxBrush(background));
+    memdc.Clear();
+    doRender(memdc);
+    memdc.SelectObject(wxNullBitmap);
+    dc.DrawBitmap(bmp, 0, 0);
 #else
 	doRender(dc);
 #endif
@@ -599,11 +622,11 @@ void FilamentButton::doRender(wxDC& dc)
 	if (!m_label.IsEmpty()) {
 	        int width, height;
 	        wxFont basic_font = dc.GetFont();
-	    #ifdef TARGET_OS_MAC
-	         basic_font.SetPixelSize(wxSize(0, FromDIP(13)));
-	    #else
-	        basic_font.SetPixelSize(wxSize(0, FromDIP(12)));
-	    #endif
+	        basic_font.SetPointSize(Label::Body_13.GetPointSize());
+#ifdef __WXMSW__
+            basic_font = basic_font.Scaled(GetDPIScaleFactor());
+#endif
+	        basic_font.SetWeight(wxFONTWEIGHT_NORMAL);
 	        dc.SetFont(basic_font);
 
         dc.GetTextExtent(m_label, &width, &height);
@@ -655,6 +678,34 @@ void FilamentButton::doRender(wxDC& dc)
 * FilamentPopPanel
 */
 
+void FilamentPopPanel::BindInteractiveChildHover(wxWindow* window)
+{
+    if (!window)
+        return;
+
+    window->Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent& e) {
+        m_mouse_over_interactive_child = true;
+        m_interactive_child_hover_until = wxGetUTCTimeMillis().GetValue() + 500;
+        e.Skip();
+    });
+
+    window->Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent& e) {
+        m_interactive_child_hover_until = wxGetUTCTimeMillis().GetValue() + 500;
+        CallAfter([this]() {
+            if (!(m_filamentCombox && m_filamentCombox->is_drop_down()))
+                m_mouse_over_interactive_child = false;
+        });
+        e.Skip();
+    });
+}
+
+bool FilamentPopPanel::IsInteractiveChildHoverActive() const
+{
+    return m_mouse_over_interactive_child ||
+           (m_interactive_child_hover_until != 0 &&
+            wxGetUTCTimeMillis().GetValue() < m_interactive_child_hover_until);
+}
+
  FilamentPopPanel::FilamentPopPanel(wxWindow* parent, int index)
 	: PopupWindow(parent, wxBORDER_SIMPLE  | wxPU_CONTAINS_CONTROLS)
 {
@@ -687,14 +738,29 @@ void FilamentButton::doRender(wxDC& dc)
                 m_pFilamentItem->resetCFS(true);
                 }
             });
-        m_filamentCombox->Bind(wxEVT_COMBOBOX_DROPDOWN, [this](wxCommandEvent& e) { 
-        #if __APPLE__
-            this->Hide();
-        #endif
-		});
+#if __APPLE__
+        m_filamentCombox->Bind(wxEVT_COMBOBOX_DROPDOWN, [this](wxCommandEvent&) {
+            if (HasCapture())
+                ReleaseMouse();
+            SetTransparent(0);
+        });
+        m_filamentCombox->Bind(wxEVT_COMBOBOX_CLOSEUP, [this](wxCommandEvent&) {
+            m_mouse_over_interactive_child = false;
+            m_interactive_child_hover_until = 0;
+            Hide();
+            SetTransparent(255);
+        });
+        Bind(wxEVT_IDLE, [this](wxIdleEvent& e) {
+            if (!(m_filamentCombox && m_filamentCombox->is_drop_down()))
+                e.Skip();
+        });
+#endif
         m_filamentCombox->Bind(wxEVT_LEFT_DCLICK, [](wxMouseEvent& e) {
             e.Skip(false); 
         });
+        BindInteractiveChildHover(m_filamentCombox);
+        for (wxWindowList::compatibility_iterator node = m_filamentCombox->GetChildren().GetFirst(); node; node = node->GetNext())
+            BindInteractiveChildHover(node->GetData());
 			// filament combox
 	        wxSizerItem* item = m_sizer_main->Add(m_filamentCombox, 1, wxEXPAND | wxALIGN_CENTER_VERTICAL | wxRIGHT, 1);
 	        m_filamentCombox->SetMinSize(wxSize(FromDIP(40), FromDIP(35)));
@@ -824,6 +890,7 @@ void FilamentButton::doRender(wxDC& dc)
                     Slic3r::GUI::wxGetApp().sidebar().set_edit_filament(m_index);
                 }
             });
+            BindInteractiveChildHover(m_edit_btn);
             m_sizer_main->Add(m_edit_btn, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT).Border(wxRIGHT | wxLEFT, 1));
             m_sizer_main->SetItemMinSize(m_edit_btn, edit_btn_min_size);
 		}
@@ -869,6 +936,9 @@ void FilamentPopPanel::Popup(wxPoint position /*= wxDefaultPosition*/)
     if (position != wxDefaultPosition)
 	    SetPosition(position);
 
+#if __APPLE__
+    SetTransparent(255);
+#endif
 	PopupWindow::Popup();
 
 }
@@ -895,6 +965,11 @@ void FilamentPopPanel::Dismiss()
 
 	wxCommandEvent e(EVT_DISMISS);
     GetEventHandler()->ProcessEvent(e);
+}
+
+bool FilamentPopPanel::ShouldDismissOnTopWindowDeactivate()
+{
+    return !((m_filamentCombox && m_filamentCombox->is_drop_down()) || IsInteractiveChildHoverActive());
 }
 
 	void FilamentPopPanel::sys_color_changed()
@@ -1333,7 +1408,10 @@ void FilamentItem::update()
 	// Get the button width
     int btn_width = m_btn_param_list->GetSize().GetWidth();
     wxClientDC dc(m_btn_param_list);
-    dc.SetFont(m_btn_param_list->GetFont());
+    wxFont basic_font = m_btn_param_list->GetFont();
+    basic_font.SetPointSize(Label::Body_13.GetPointSize());
+    basic_font.SetWeight(wxFONTWEIGHT_NORMAL);
+    dc.SetFont(basic_font);
 
 	// Calculate the width of the dropdown icon
     int icon_width = FromDIP(16);// Assume the icon width is 16 pixels
@@ -1490,7 +1568,7 @@ FilamentPanel::FilamentPanel(wxWindow* parent,
 	const wxSize& size, long style)
 	: wxPanel(parent, id, pos, size, style)
 {
-	m_sizer = new wxWrapSizer(wxHORIZONTAL);
+	m_sizer = new wxWrapSizer(wxHORIZONTAL, 0);
 	m_box_sizer = new wxBoxSizer(wxVERTICAL);
 	this->SetSizer(m_box_sizer);
     m_box_sizer->Add(m_sizer, 0, wxLEFT | wxRIGHT, FromDIP(6));

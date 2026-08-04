@@ -37,6 +37,8 @@ class OG_CustomCtrl :public wxPanel
     int     m_max_win_width{0};
     bool    m_is_valid{ true };
 
+    wxCoord calculate_line_height(const Line& line);
+
     struct CtrlLine {
         wxCoord           width{ wxDefaultCoord };
         wxCoord           height{ wxDefaultCoord };

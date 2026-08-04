@@ -47,7 +47,7 @@ Button::Button(wxWindow* parent, wxString text, wxString icon, long style, int i
 bool Button::Create(wxWindow* parent, wxString text, wxString icon, long style, int iconSize, wxWindowID btn_id)
 {
     StaticBox::Create(parent, btn_id, wxDefaultPosition, wxDefaultSize, style);
-    state_handler.attach({&text_color});
+    state_handler.attach(std::vector<StateColor const*>{&text_color});
     state_handler.update_binds();
     //BBS set default font
     SetFont(Label::Body_14);
@@ -259,9 +259,6 @@ void Button::render(wxDC& dc)
         dc.SetBrush(*wxLIGHT_GREY);
         dc.SetPen(wxPen(*wxLIGHT_GREY));
         dc.DrawRectangle(pt, textSize.GetSize());
-#endif
-#ifdef __WXOSX__
-        pt.y -= textSize.x / 2;
 #endif
         dc.DrawText(text, pt);
     }

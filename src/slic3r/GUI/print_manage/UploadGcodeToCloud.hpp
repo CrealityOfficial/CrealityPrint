@@ -76,6 +76,8 @@ private:
     wxSimplebook*						m_rename_switch_panel{ nullptr };
 	Plater*								m_plater{ nullptr };
 	wxStaticBitmap*						m_staticbitmap{ nullptr };
+    wxStaticBitmap*                     m_top_printer_img{ nullptr };
+    wxStaticBitmap*                     m_preview_printer_img{ nullptr };
 	ThumbnailPanel*						m_thumbnailPanel{ nullptr };
     wxCheckBox*                         m_checkbox_calibration { nullptr };
     wxCheckBox*                         m_checkbox_open_cfs { nullptr };
@@ -173,7 +175,7 @@ public:
     void update_user_machine_list();
     // void show_print_failed_info(bool show, int code = 0, wxString description = wxEmptyString, wxString extra = wxEmptyString);
     void update_print_error_info(int code, std::string msg, std::string extra);
-    void on_change_color_mode() { wxGetApp().UpdateDlgDarkUI(this); }
+    void on_change_color_mode();
     wxString format_text(wxString& m_msg);
 	std::vector<std::string> sort_string(std::vector<std::string> strArray);
 
@@ -182,6 +184,9 @@ private:
     std::string build_print_cmd_info();
     std::string build_match_color_cmd_info();
     void                     get_current_plate_color();
+    void apply_action_button_theme();
+    void apply_dialog_theme();
+    void update_printer_icons();
     void update_3mf_info();
     std::string build_switch_printer_details_page_cmd_info();
     void on_progress_update(wxThreadEvent& event);

@@ -291,11 +291,11 @@ void WeightLimitItem::updateItemData(const LimitData* limitData, const LimitData
     if (limitData == nullptr)
         return;
 
-    m_weightMin->GetTextCtrl()->SetLabel(limitData->value1);
-    m_weightMax->GetTextCtrl()->SetLabel(limitData->value2);
-    m_speed->GetTextCtrl()->SetLabel(limitData->speed1);
-    m_Acceleration->GetTextCtrl()->SetLabel(limitData->Acc1);
-    m_temp1->GetTextCtrl()->SetLabel(limitData->Temp1);
+    m_weightMin->GetTextCtrl()->ChangeValue(limitData->value1);
+    m_weightMax->GetTextCtrl()->ChangeValue(limitData->value2);
+    m_speed->GetTextCtrl()->ChangeValue(limitData->speed1);
+    m_Acceleration->GetTextCtrl()->ChangeValue(limitData->Acc1);
+    m_temp1->GetTextCtrl()->ChangeValue(limitData->Temp1);
     m_limitData = *limitData;
     m_editLimitData = m_limitData;
     m_defaultLimitData = defaultLimitData;
@@ -653,11 +653,11 @@ void HeightLimitItem::updateItemData(const WeightLimitItem::LimitData* limitData
 {
     if (limitData == nullptr)
         return;
-    m_heightMin->GetTextCtrl()->SetLabel(limitData->value1);
-    m_heightMax->GetTextCtrl()->SetLabel(limitData->value2);
-    m_speed->GetTextCtrl()->SetLabel(limitData->speed1);
-    m_Acceleration->GetTextCtrl()->SetLabel(limitData->Acc1);
-    m_temp1->GetTextCtrl()->SetLabel(limitData->Temp1);
+    m_heightMin->GetTextCtrl()->ChangeValue(limitData->value1);
+    m_heightMax->GetTextCtrl()->ChangeValue(limitData->value2);
+    m_speed->GetTextCtrl()->ChangeValue(limitData->speed1);
+    m_Acceleration->GetTextCtrl()->ChangeValue(limitData->Acc1);
+    m_temp1->GetTextCtrl()->ChangeValue(limitData->Temp1);
     m_limitData = *limitData;
     m_editLimitData = m_limitData;
     m_defaultLimitData = defaultLimitData;
@@ -948,7 +948,7 @@ void AccelerationAndSpeedLimitPanel::create_limit_item(WeightLimitItem::LimitDat
             item->updateItemData(limitData, defaultLimitData);
         }
         item->setDelBtnClickedCb([this](int idx) {
-            if (idx == -1 && idx >= m_scrolled_window_sizer->GetItemCount())
+            if (idx <= 0 || static_cast<size_t>(idx) >= m_scrolled_window_sizer->GetItemCount())
                 return;
             delLimitItem(idx);
             m_scrolled_window_sizer->Layout();
@@ -964,7 +964,7 @@ void AccelerationAndSpeedLimitPanel::create_limit_item(WeightLimitItem::LimitDat
             item->updateItemData(limitData, defaultLimitData);
         }
         item->setDelBtnClickedCb([this](int idx) {
-            if (idx == -1 && idx >= m_scrolled_window_sizer->GetItemCount())
+            if (idx <= 0 || static_cast<size_t>(idx) >= m_scrolled_window_sizer->GetItemCount())
                 return;
             delLimitItem(idx);
             m_scrolled_window_sizer->Layout();
@@ -1042,16 +1042,13 @@ void AccelerationAndSpeedLimitPanel::parseLimitStr(std::string str,std::vector<W
 
 void AccelerationAndSpeedLimitPanel::on_reset_btn_clicked(wxEvent&)
 {
-    wxSizerItemList& items = m_scrolled_window_sizer->GetChildren();
-    for (auto it = items.begin(); it != items.end();) {
-        if (it == items.begin()) {
-            it++;
-            continue;
-        }
-        wxWindow* child = (*it)->GetWindow();
-        if (child)
+    while (m_scrolled_window_sizer->GetItemCount() > 1) {
+        wxSizerItem* item = m_scrolled_window_sizer->GetItem(static_cast<size_t>(1));
+        wxWindow* child = item != nullptr ? item->GetWindow() : nullptr;
+        if (!m_scrolled_window_sizer->Detach(1))
+            break;
+        if (child != nullptr)
             child->Destroy();
-        it = items.erase(it);
     }
 
     m_scrolled_window_sizer->Layout();
@@ -1098,30 +1095,24 @@ void* AccelerationAndSpeedLimitPanel::getLimitItem(size_t idx)
 }
 
 void AccelerationAndSpeedLimitPanel::delLimitItem(size_t idx) {
-    wxSizerItemList& items = m_scrolled_window_sizer->GetChildren();
-    int i = 0;
-    bool hasDelOne = false;
-    for (auto it = items.begin(); it != items.end();) {
-        wxWindow* child = (*it)->GetWindow();
-        if (!hasDelOne && i == idx) {
-            if (child)
-                child->Destroy();
-            it = items.erase(it);
-            hasDelOne = true;
+    wxSizerItem* item = m_scrolled_window_sizer->GetItem(idx);
+    if (idx == 0 || item == nullptr || !item->IsWindow())
+        return;
+
+    wxWindow* child = item->GetWindow();
+    if (!m_scrolled_window_sizer->Detach(idx))
+        return;
+    child->Destroy();
+
+    const size_t itemCount = m_scrolled_window_sizer->GetItemCount();
+    for (size_t i = idx; i < itemCount; ++i) {
+        wxWindow* remainingChild = m_scrolled_window_sizer->GetItem(i)->GetWindow();
+        if (m_type == "acceleration_limit_mess_enable") {
+            static_cast<WeightLimitItem*>(remainingChild)->updateIdx(i);
+        } else if (m_type == "speed_limit_to_height_enable") {
+            static_cast<HeightLimitItem*>(remainingChild)->updateIdx(i);
         } else {
-            if (hasDelOne) {
-                if (m_type == "acceleration_limit_mess_enable") {
-                    WeightLimitItem* linitItem = static_cast<WeightLimitItem*>(child);
-                    linitItem->updateIdx(i);
-                } else if (m_type == "speed_limit_to_height_enable") {
-                    HeightLimitItem* linitItem = static_cast<HeightLimitItem*>(child);
-                    linitItem->updateIdx(i);
-                } else {
-                    return;
-                }
-            }
-            it++;
-            i++;
+            return;
         }
     }
     if (m_scrolled_window_sizer->GetItemCount() < 7) {

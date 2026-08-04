@@ -46,7 +46,17 @@ if(FFMPEG_VERSION)
             FFmpeg::avfilter
         )
         if(NOT WIN32)
-            list(APPEND VIDEO_LIBS x264)
+            find_library(SLIC3R_X264_LIBRARY
+                NAMES x264
+                PATHS ${CMAKE_PREFIX_PATH}
+                PATH_SUFFIXES lib
+                NO_DEFAULT_PATH
+            )
+            if(SLIC3R_X264_LIBRARY)
+                list(APPEND VIDEO_LIBS ${SLIC3R_X264_LIBRARY})
+            else()
+                list(APPEND VIDEO_LIBS x264)
+            endif()
         endif()
         if(ENABLE_WEBRTC_VIDEO)
             find_library(LIBMETARTC metartc6)

@@ -11,6 +11,8 @@ using namespace Slic3r::GUI;
 
 class BBLTopbar : public wxAuiToolBar
 {
+    wxDECLARE_EVENT_TABLE();
+
 public:
     BBLTopbar(wxWindow* pwin, wxFrame* parent);
     BBLTopbar(wxFrame* parent);
@@ -29,6 +31,7 @@ public:
     void OnMouseLeftDown(wxMouseEvent& event);
     void OnMouseLeftUp(wxMouseEvent& event);
     void OnMouseMotion(wxMouseEvent& event);
+    void OnMouseLeave(wxMouseEvent& event);
     void OnMouseCaptureLost(wxMouseCaptureLostEvent& event);
     void OnMenuClose(wxMenuEvent& event);
     void OnOpenProject(wxAuiToolBarEvent& event);
@@ -87,14 +90,18 @@ public:
 
 private:
 
+    void OnCustomRender(wxDC& dc, const wxAuiToolBarItem& item, const wxRect& rect) override;
+    void DrawTitle(wxDC& dc, const wxRect& rect) const;
     wxRect GetTitleDisplayRect() const;
-    void LayoutTitleLabel();
     void ScheduleFileNameDisplayUpdate();
     void UpdateFileNameDisplayAfterLayout();
-    wxString TruncateTextToWidth(const wxString& text, int maxWidth, Label* label);
+    wxString TruncateTextToWidth(const wxString& text, int maxWidth, wxDC& dc) const;
 
     void OnWindowResize(wxSizeEvent& event);
-
+    void BindWindowDragEvents(wxWindow* window);
+    void OnChildDragLeftDown(wxMouseEvent& event);
+    void OnChildDragLeftUp(wxMouseEvent& event);
+    void OnChildDragMotion(wxMouseEvent& event);
     void OnFileLoaded(const wxString& fileName) { UpdateFileNameDisplay(fileName); }
 
 
@@ -115,7 +122,6 @@ private:
     wxMenu*           m_helpItem{NULL};   
     wxAuiToolBarItem* m_relationsItem1{NULL};   
 
-    Label*            m_title_LabelItem = nullptr;
     wxAuiToolBarItem* m_title_item;
     wxAuiToolBarItem* m_account_item;
     wxAuiToolBarItem* m_model_store_item;
@@ -129,6 +135,7 @@ private:
     wxAuiToolBarItem* m_upload_btn;
     wxAuiToolBarItem* m_feedback_separator_item{nullptr};
     wxAuiToolBarItem* m_feedback_item;
+    wxAuiToolBarItem* m_title_spacer_item{nullptr};
     wxControl* m_easy_mode_switch_ctrl{ nullptr };
     wxAuiToolBarItem* m_easy_mode_switch_item{ nullptr };
     wxControl* m_tabCtrol;
@@ -152,6 +159,10 @@ private:
     bool m_skip_popup_dropdown_menu;
     bool m_skip_popup_calib_menu;
     bool m_file_name_update_scheduled{false};
-
+    bool m_title_enabled{true};
+    bool m_title_tooltip_active{false};
+    bool m_child_drag_candidate{false};
+    wxWindow* m_child_drag_source{nullptr};
+    wxPoint m_child_drag_start_screen;
     wxString m_displayName;
 };

@@ -95,12 +95,6 @@ void InterlockingGenerator::generate_interlocking_structure(PrintObject* print_o
 
         const unsigned int wall_extruder = region.extruder(frExternalPerimeter);
 
-        if (config.sparse_infill_density.value > 0 && region.extruder(frInfill) != wall_extruder) {
-            return 0;
-        }
-        if ((config.top_shell_layers.value > 0 || config.bottom_shell_layers.value > 0) && region.extruder(frSolidInfill) != wall_extruder) {
-            return 0;
-        }
         return wall_extruder;
     };
 

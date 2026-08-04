@@ -4,7 +4,7 @@
 #include "slic3r/GUI/Gizmos/GLGizmosCommon.hpp"
 #include "slic3r/GUI/AnalyticsDataUploadManager.hpp"
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include <imgui/imgui_internal.h>
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/GUI_ObjectSettings.hpp"

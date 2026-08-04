@@ -672,6 +672,58 @@ json SlicerBridge::DoGetSlicerState(const json& /*params*/)
         state["printer_model"] = get_opt(printer_cfg, "printer_model");
         state["nozzle_diameter"] = get_opt(printer_cfg, "nozzle_diameter");
         state["current_filament_type"] = get_opt(filament_cfg, "filament_type");
+
+        // --- software_context: request-level context consumed by the AI knowledge
+        // base (智能问答). Assembled here because the slicer is the source of truth
+        // for the live machine/material configuration. ---
+        json software_context = json::object();
+        software_context["software_version"] = GUI_App::format_display_version();
+
+        // machine_model: strip the leading "Creality " vendor prefix so the AI sees
+        // the bare model name (e.g. "K1 Max" instead of "Creality K1 Max").
+        {
+            std::string machine_model = get_opt(printer_cfg, "printer_model");
+            static const std::string kVendorPrefix = "creality ";
+            if (machine_model.size() >= kVendorPrefix.size() &&
+                LowerAsciiCopy(machine_model.substr(0, kVendorPrefix.size())) == kVendorPrefix) {
+                machine_model = TrimCopy(machine_model.substr(kVendorPrefix.size()));
+            }
+            software_context["machine_model"] = machine_model;
+        }
+
+        // nozzle_diameter is serialized as a (possibly multi-extruder) string such
+        // as "0.4" or "0.4,0.4"; expose the first value as a number.
+        {
+            const std::string nozzle_str = get_opt(printer_cfg, "nozzle_diameter");
+            const size_t split_pos = nozzle_str.find_first_of(",; ");
+            const std::string first_nozzle = (split_pos == std::string::npos)
+                ? nozzle_str
+                : nozzle_str.substr(0, split_pos);
+            try {
+                if (!first_nozzle.empty())
+                    software_context["nozzle_diameter_mm"] = std::stod(first_nozzle);
+            } catch (...) {
+                // leave unset when unparseable
+            }
+        }
+
+        // active_filament_type: reserved field, currently always "".
+        software_context["active_filament_type"] = "";
+
+        // available_filament_types: filament type per loaded slot, in order, so the
+        // array maps one-to-one to the filament slots shown in the UI (no dedup).
+        json available_filament_types = json::array();
+        for (const std::string& preset_name : bundle->filament_presets) {
+            const Preset* preset = bundle->filaments.find_preset(preset_name);
+            if (!preset)
+                continue;
+            available_filament_types.push_back(get_opt(preset->config, "filament_type"));
+        }
+        software_context["available_filament_types"] = available_filament_types;
+
+        software_context["process_preset"] = bundle->prints.get_edited_preset().name;
+
+        state["software_context"] = software_context;
     }
 
     if (!plater)

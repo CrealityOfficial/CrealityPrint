@@ -23,10 +23,10 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
-#include <GL/glew.h>
+#include <glad/gl.h>
 #elif defined(__linux__)
 #include <EGL/egl.h>
-#include <GL/glew.h>
+#include <glad/gl.h>
 #endif
 
 namespace Slic3r {
@@ -973,14 +973,16 @@ struct GpuOrient::Impl {
 #endif
         if (!make_current())
             return false;
-
-        glewExperimental = GL_TRUE;
-        GLenum glew_status = glewInit();
+#if defined(_WIN32)
+        int glad_version = gladLoaderLoadGL();
+#else
+        int glad_version = gladLoadGL(reinterpret_cast<GLADloadfunc>(eglGetProcAddress));
+#endif
         glGetError(); // clear
 
-        if (glew_status != GLEW_OK) {
-            init_error = reinterpret_cast<const char*>(glewGetErrorString(glew_status));
-            BOOST_LOG_TRIVIAL(error) << "GpuOrient: glewInit failed: " << init_error;
+        if (glad_version == 0) {
+            init_error = "failed to load OpenGL functions";
+            BOOST_LOG_TRIVIAL(error) << "GpuOrient: GLAD initialization failed: " << init_error;
             return false;
         }
 

@@ -95,6 +95,7 @@
 #include "slic3r/Utils/TestHelper.hpp"
 #include "slic3r/GUI/AnalyticsDataUploadManager.hpp"
 #include "slic3r/GUI/print_manage/data/DataCenter.hpp"
+#include "slic3r/GUI/simple/MCPChatPanel.hpp"
 #include "slic3r/GUI/simple/bridge/SlicerBridge.hpp"
 
 namespace Slic3r {
@@ -203,7 +204,11 @@ static wxIcon main_frame_icon(GUI_App::EAppMode app_mode)
 }
 
 // BBS
-#ifndef __APPLE__
+#ifdef __WXMSW__
+// wxWidgets 3.3 adds WS_CAPTION whenever native window-button styles are
+// requested. Add those native styles after creating the HWND instead.
+#define BORDERLESS_FRAME_STYLE wxRESIZE_BORDER
+#elif !defined(__APPLE__)
 #define BORDERLESS_FRAME_STYLE (wxRESIZE_BORDER | wxMINIMIZE_BOX | wxMAXIMIZE_BOX | wxCLOSE_BOX)
 #else
 #define BORDERLESS_FRAME_STYLE (wxMINIMIZE_BOX | wxMAXIMIZE_BOX | wxCLOSE_BOX)
@@ -226,6 +231,21 @@ MainFrame::MainFrame()
 {
 #ifdef __WXOSX__
     set_miniaturizable(GetHandle());
+#endif
+#ifdef __WXMSW__
+    // The HWND was deliberately created without wx window-button styles, so it
+    // never had WS_CAPTION. Convert wxWidgets' captionless WS_POPUP window into
+    // an overlapped resizable window and add the native capabilities required by
+    // the custom titlebar.
+    HWND hWnd = GetHandle();
+    const LONG_PTR window_style = ::GetWindowLongPtr(hWnd, GWL_STYLE);
+    const LONG_PTR custom_style = (window_style & ~(WS_CAPTION | WS_POPUP)) |
+        WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+    if (custom_style != window_style) {
+        ::SetWindowLongPtr(hWnd, GWL_STYLE, custom_style);
+        ::SetWindowPos(hWnd, nullptr, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
 #endif
     wxGetApp().start_http_server();
     //if (!wxGetApp().app_config->has("user_mode")) { 
@@ -444,25 +464,6 @@ MainFrame::MainFrame()
     update_layout();
     sizer->SetSizeHints(this);
 
-#ifdef WIN32
-    // SetMaximize causes the window to overlap the taskbar, due to the fact this window has wxMAXIMIZE_BOX off
-    // https://forums.wxwidgets.org/viewtopic.php?t=50634
-    // Fix it here
-    this->Bind(wxEVT_MAXIMIZE, [this](auto &e) {
-        wxDisplay display(this);
-        auto      size = display.GetClientArea().GetSize();
-        auto      pos  = display.GetClientArea().GetPosition();
-        HWND      hWnd = GetHandle();
-        RECT      borderThickness;
-        SetRectEmpty(&borderThickness);
-        AdjustWindowRectEx(&borderThickness, GetWindowLongPtr(hWnd, GWL_STYLE), FALSE, 0);
-        const auto max_size = size + wxSize{-borderThickness.left + borderThickness.right, -borderThickness.top + borderThickness.bottom};
-        const auto current_size = GetSize();
-        SetSize({std::min(max_size.x, current_size.x), std::min(max_size.y, current_size.y)});
-        Move(pos + wxPoint{borderThickness.left, borderThickness.top});
-        e.Skip();
-    });
-#endif // WIN32
     // BBS
     Fit();
 
@@ -544,8 +545,11 @@ MainFrame::MainFrame()
         // propagate event
 
         wxGetApp().remove_mall_system_dialog();
+#if defined(__WIN32__) && wxUSE_WEBVIEW_EDGE
+        // WebView2 process IDs are only available before the wx window tree is destroyed.
+        WebView::DestroyAll();
+#endif
         event.Skip();
-        wxGetApp().OnExit(); 
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__<< ": mainframe finished process close_widow event";
     });
 
@@ -685,7 +689,7 @@ MainFrame::MainFrame()
                  m_topbar->EnableUndoItem(m_plater->can_undo());
                  m_topbar->EnableRedoItem(m_plater->can_redo());
              }
-             #ifdef __linux__
+             /*#ifdef __linux__
                 
                 m_plater->sidebar().Refresh();
                 m_plater->sidebar().Update();
@@ -694,7 +698,7 @@ MainFrame::MainFrame()
                     this->m_param_panel->Refresh();
                     this->m_param_panel->Update();
                 }
-            #endif
+            #endif*/
          }));
 #ifdef _MSW_DARK_MODE
     wxGetApp().UpdateDarkUIWin(this);
@@ -743,7 +747,7 @@ void MainFrame::bind_diff_dialog()
 }
 
 
-#ifdef __WIN32__
+#ifdef __WXMSW__
 
 WXLRESULT MainFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam)
 {
@@ -753,6 +757,27 @@ WXLRESULT MainFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam
      * application to not paint this area on activate and deactivation events so we also handle
      * "WM_NCACTIVATE" message. */
     switch (nMsg) {
+    case WM_GETMINMAXINFO: {
+        // Let wxWidgets apply SetMinSize()/SetSizeHints() to ptMinTrackSize first.
+        const WXLRESULT result = wxFrame::MSWWindowProc(nMsg, wParam, lParam);
+
+        HWND hWnd = GetHandle();
+        HMONITOR monitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO monitor_info{sizeof(monitor_info)};
+        if (monitor && GetMonitorInfo(monitor, &monitor_info)) {
+            MINMAXINFO* min_max_info = reinterpret_cast<MINMAXINFO*>(lParam);
+            const RECT& work_area = monitor_info.rcWork;
+            const RECT& monitor_area = monitor_info.rcMonitor;
+
+            // The maximized outer rectangle is exactly the monitor work area. WM_NCCALCSIZE
+            // must therefore not inset the client rectangle again while maximized.
+            min_max_info->ptMaxPosition.x = work_area.left - monitor_area.left;
+            min_max_info->ptMaxPosition.y = work_area.top - monitor_area.top;
+            min_max_info->ptMaxSize.x = work_area.right - work_area.left;
+            min_max_info->ptMaxSize.y = work_area.bottom - work_area.top;
+        }
+        return result;
+    }
     case WM_NCACTIVATE: {
         /* Returning 0 from this message disable the window from receiving activate events which is not
         desirable. However When a visual style is not active (?) for this window, "lParam" is a handle to an
@@ -761,31 +786,76 @@ WXLRESULT MainFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam
         lParam = -1;
         break;
     }
+    case WM_ACTIVATE: {
+        if (LOWORD(wParam) == WA_INACTIVE) {
+            // Guard against DoSaveLastFocus() crash (see bug #17250):
+            // When MainFrame is deactivated, wxWidgets calls DoSaveLastFocus() which
+            // queries ::GetFocus() and looks up the HWND in its internal map. If the
+            // map contains a dangling wxWindow*, accessing it causes a crash.
+            //
+            // Strategy: walk the focus HWND's parent chain. If no wxWindow is found,
+            // redirect focus to MainFrame to prevent the crash. Also log enough info
+            // to help identify the culprit window if the crash still occurs via other paths.
+            HWND hFocus = ::GetFocus();
+            if (hFocus && hFocus != GetHWND()) {
+                HWND hWalk = hFocus;
+                wxWindow* foundWin = nullptr;
+                int depth = 0;
+                while (hWalk) {
+                    foundWin = wxFindWinFromHandle(hWalk);
+                    if (foundWin) break;
+                    hWalk = ::GetParent(hWalk);
+                    depth++;
+                }
+                if (!foundWin) {
+                    // Dangerous: focus is on a HWND that wxWidgets does not manage at all.
+                    // Collect window class name for diagnostics.
+                    wchar_t className[256] = {0};
+                    ::GetClassNameW(hFocus, className, 255);
+                    HWND hParent = ::GetParent(hFocus);
+                    wchar_t parentClassName[256] = {0};
+                    if (hParent) ::GetClassNameW(hParent, parentClassName, 255);
+
+                    BOOST_LOG_TRIVIAL(warning) << "[DoSaveLastFocus-Guard] REDIRECTING focus to MainFrame."
+                        << " focus_hwnd=" << (void*)hFocus
+                        << " class=" << wxString(className).ToStdString()
+                        << " parent_hwnd=" << (void*)hParent
+                        << " parent_class=" << wxString(parentClassName).ToStdString()
+                        << " depth_searched=" << depth;
+                    ::SetFocus(GetHWND());
+                }
+            }
+        }
+        break;
+    }
     /* To remove the standard window frame, you must handle the WM_NCCALCSIZE message, specifically when
     its wParam value is TRUE and the return value is 0 */
     case WM_NCCALCSIZE:
         if (wParam) {
             HWND hWnd = GetHandle();
-            /* Detect whether window is maximized or not. We don't need to change the resize border when win is
-             *  maximized because all resize borders are gone automatically */
-            WINDOWPLACEMENT wPos;
-            // GetWindowPlacement fail if this member is not set correctly.
-            wPos.length = sizeof(wPos);
-            GetWindowPlacement(hWnd, &wPos);
-            if (wPos.showCmd != SW_SHOWMAXIMIZED) {
-                RECT borderThickness;
-                SetRectEmpty(&borderThickness);
-                AdjustWindowRectEx(&borderThickness, GetWindowLongPtr(hWnd, GWL_STYLE) & ~WS_CAPTION, FALSE, NULL);
-                borderThickness.left *= -1;
-                borderThickness.top *= -1;
-                NCCALCSIZE_PARAMS *sz = reinterpret_cast<NCCALCSIZE_PARAMS *>(lParam);
-                // Add 1 pixel to the top border to make the window resizable from the top border
-                sz->rgrc[0].top += 1; // borderThickness.top;
-                sz->rgrc[0].left += borderThickness.left;
-                sz->rgrc[0].right -= borderThickness.right;
-                sz->rgrc[0].bottom -= borderThickness.bottom;
+            NCCALCSIZE_PARAMS *sz = reinterpret_cast<NCCALCSIZE_PARAMS *>(lParam);
+            const bool is_maximized = ::IsZoomed(hWnd) != FALSE;
+            if (is_maximized) {
+                // WM_GETMINMAXINFO already makes the outer rectangle match rcWork exactly,
+                // so applying resize-border insets here would leave visible gaps on every edge.
                 return 0;
             }
+
+            RECT borderThickness;
+            SetRectEmpty(&borderThickness);
+            // Calculate the resize border from a captionless style. Masking
+            // WS_CAPTION here is defensive: the main HWND is created without it.
+            AdjustWindowRectEx(&borderThickness, GetWindowLongPtr(hWnd, GWL_STYLE) & ~WS_CAPTION, FALSE, NULL);
+            borderThickness.left *= -1;
+            borderThickness.top *= -1;
+
+            // Preserve the resize border in restored mode. Only one pixel is reserved at
+            // the top so the custom titlebar reaches the top edge without a native caption.
+            sz->rgrc[0].top += 1;
+            sz->rgrc[0].left += borderThickness.left;
+            sz->rgrc[0].right -= borderThickness.right;
+            sz->rgrc[0].bottom -= borderThickness.bottom;
+            return 0;
         }
         break;
         
@@ -1005,6 +1075,13 @@ void MainFrame::update_layout()
 void MainFrame::shutdown()
 {
     BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " start";
+
+    // Tear down the floating/embedded AI chat windows while the main window
+    // hierarchy is still valid. In particular, a floating MCPChatPanel may
+    // remember an embedded parent owned by Plater, which must not be accessed
+    // once wxWidgets starts destroying the main frame's children.
+    DestroyAIChatPanelsForGUIRecreate();
+
     // BBS: backup
     Slic3r::set_backup_callback(nullptr);
 #ifdef _WIN32
@@ -1075,6 +1152,26 @@ void MainFrame::shutdown()
 
     BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " end";
     boost::log::core::get()->flush();
+}
+
+void MainFrame::destroy_webviews_for_recreate()
+{
+    auto destroy_view = [this](auto*& view) {
+        if (view == nullptr)
+            return;
+
+        const int page_idx = m_tabpanel ? m_tabpanel->FindPage(view) : wxNOT_FOUND;
+        if (page_idx != wxNOT_FOUND)
+            m_tabpanel->RemovePage(page_idx);
+
+        view->Destroy();
+        view = nullptr;
+    };
+
+    destroy_view(m_webview);
+    destroy_view(m_webmodellibrary_view);
+    destroy_view(m_printer_view);
+    destroy_view(m_printer_mgr_view);
 }
 
 void MainFrame::update_filament_tab_ui()
@@ -2461,32 +2558,30 @@ void MainFrame::on_dpi_changed(const wxRect& suggested_rect)
         msw_rescale_menu(m_menubar->GetMenu(id));
 #endif
 
-    // Workarounds for correct Window rendering after rescale
-
-    /* Even if Window is maximized during moving,
-     * first of all we should imitate Window resizing. So:
-     * 1. cancel maximization, if it was set
-     * 2. imitate resizing
-     * 3. set maximization, if it was set
-     */
-    const bool is_maximized = this->IsMaximized();
-    if (is_maximized)
-        this->Maximize(false);
-
-    /* To correct window rendering (especially redraw of a status bar)
-     * we should imitate window resizing.
-     */
-    const wxSize& sz = this->GetSize();
-    this->SetSize(sz.x + 1, sz.y + 1);
-    //this->SetSize(sz);
+    // Refresh the native minimum tracking size for the new monitor DPI without
+    // discarding the user's restored window size.
     const wxSize min_size = wxGetApp().get_min_size_ex(this);
     SetMinSize(min_size);
-    this->SetSize(min_size);
-    this->Maximize(is_maximized);
+
+    if (!IsMaximized()) {
+        const wxSize current_size = GetSize();
+        const wxSize clamped_size(std::max(current_size.x, min_size.x),
+                                  std::max(current_size.y, min_size.y));
+        if (clamped_size != current_size)
+            SetSize(clamped_size);
+    }
+
+    Layout();
+    Refresh();
 }
 
 void MainFrame::on_sys_color_changed()
 {
+    // Moving a window between displays may synchronously emit this event while
+    // MainFrame and the OpenGL canvases are still being constructed.
+    if (!wxGetApp().initialized())
+        return;
+
     wxBusyCursor wait;
 
     // update label colors in respect to the system mode
@@ -2622,6 +2717,14 @@ static wxMenu* generate_help_menu(MainFrame* mainframe)
                 [](wxCommandEvent&) { Slic3r::GUI::about(); });
     #endif
 #endif
+    // Privacy Policy
+    append_menu_item(helpMenu, wxID_ANY, _L("Privacy Policy"), _L("Privacy Policy"), [](wxCommandEvent&) {
+        const std::string language = wxGetApp().app_config->get("language");
+        const bool        is_chinese = language == "zh_CN" || language == "zh_TW";
+        const std::string url = is_chinese ? "https://wiki.creality.com/zh/software/6-0/privacy"
+                                           : "https://wiki.creality.com/en/software/6-0/privacy";
+        wxLaunchDefaultBrowser(url, wxBROWSER_NEW_WINDOW);
+    });
 #if !defined(CUSTOMIZED) || defined(CUSTOM_FEEDBOOK_ENABLED)
     append_menu_item(helpMenu, wxID_ANY, _L("User Feedback"), _L("User Feedback"), [](wxCommandEvent&) {
         AnalyticsEventPayload payload;

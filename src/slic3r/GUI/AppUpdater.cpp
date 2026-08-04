@@ -784,6 +784,13 @@ void AppUpdater::install_update()
              L"\" --dark-mode=\"" + wdark_mode +
              L"\" --language=\"" + wlanguage +
              L"\" --data-dir=\"" + wDataDir + L"\"";
+
+         // Hotfix update: target shares the same major.minor.patch as the installed version
+         // (only the 4th build field differs). Tell the updater to force-install the full
+         // package for a same-3-part version, which it would otherwise skip.
+         if (m_force_full) {
+             params += L" --force-full=\"1\"";
+         }
          
          BOOST_LOG_TRIVIAL(info) << "AppUpdater: Launching " << boost::nowide::narrow(updater_dest.wstring()) << " with params " << boost::nowide::narrow(params);
          
@@ -794,7 +801,14 @@ void AppUpdater::install_update()
          ::WebView::DestroyAll();
 
          ShellExecuteW(NULL, L"open", wupdater.c_str(), params.c_str(), NULL, SW_SHOWNORMAL);
-         
+
+         // Mark the app as closing and tear down any pending update UI/callbacks BEFORE
+         // closing the main frame. Closing the frame destroys the Plater (and its pimpl),
+         // so any lingering EVT_APP_UPDATE_* handler or imgui notification callback that
+         // reaches GUI_App::notification_manager() -> plater_->get_notification_manager()
+         // would otherwise dereference a destroyed pimpl and crash.
+         wxGetApp().prepare_close_for_update();
+
          // Close main app
          wxGetApp().mainframe->Close(true);
          wxGetApp().ExitMainLoop();
@@ -804,6 +818,7 @@ void AppUpdater::install_update()
         if (m_downloaded_file_path.empty() || !fs::exists(m_downloaded_file_path)) return;
         std::wstring wpath = boost::nowide::widen(m_downloaded_file_path);
         ShellExecuteW(NULL, L"open", wpath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        wxGetApp().prepare_close_for_update();
         wxGetApp().mainframe->Close(true);
         wxGetApp().ExitMainLoop();
     }

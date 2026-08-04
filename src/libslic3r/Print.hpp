@@ -564,7 +564,7 @@ private:
     //BBS
     ExPolygons _shrink_contour_holes(double contour_delta, double hole_delta, const ExPolygons& polys) const;
     // BBS
-    void detect_overhangs_for_lift();
+    void detect_overhangs_for_lift(bool report_status = true);
     void clear_overhangs_for_lift();
 
    void _transform_hole_to_polyholes();

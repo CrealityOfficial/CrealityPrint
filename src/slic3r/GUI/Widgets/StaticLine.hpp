@@ -12,6 +12,8 @@ public:
 public:
     void SetLabel(const wxString& label) override;
 
+    bool SetFont(const wxFont& font) override;
+
     void SetIcon(const wxString& icon);
 
     void SetLineColour(wxColour color);

@@ -1,6 +1,7 @@
 #include "slic3r/GUI/simple/MCPChatPanel.hpp"
 #include "slic3r/GUI/simple/toolcalls/MCPToolCallsCommon.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/Plater.hpp"
 
 #include <boost/log/trivial.hpp>
 
@@ -199,6 +200,11 @@ void MCPChatPanel::HandleSAgentMqttNativeToolRequest(const json& msg)
 
     const std::string request_id = ExtractRequestId(msg);
     const std::string tool = ReadStringKey(msg, "tool");
+    std::string workflow_id = ReadStringKey(msg, "workflow_id");
+    if (workflow_id.empty()) {
+        const json tool_args = msg.value("args", json::object());
+        workflow_id = ReadStringKey(tool_args, "workflow_id");
+    }
 
     if (request_id.empty()) {
         BOOST_LOG_TRIVIAL(warning)
@@ -206,21 +212,23 @@ void MCPChatPanel::HandleSAgentMqttNativeToolRequest(const json& msg)
         return;
     }
 
-    auto publish_ack = [this, &request_id](bool accepted, const std::string& message) {
+    auto publish_ack = [this, &request_id, &workflow_id](bool accepted, const std::string& message) {
         json payload = {
             {"request_id", request_id},
             {"accepted", accepted},
             {"message", message}
         };
+        if (!workflow_id.empty())
+            payload["workflow_id"] = workflow_id;
         if (!m_sagent_mqtt_bridge->PublishToolResponse("ack", payload))
             BOOST_LOG_TRIVIAL(warning) << "[SAgentMQTT][Native] failed to publish ack request_id=" << request_id;
     };
 
-    auto publish_progress = [this, &request_id](int progress,
-                                                const std::string& stage,
-                                                const std::string& message,
-                                                const std::string& status,
-                                                const json& data) {
+    auto publish_progress = [this, &request_id, &workflow_id](int progress,
+                                                              const std::string& stage,
+                                                              const std::string& message,
+                                                              const std::string& status,
+                                                              const json& data) {
         json payload = {
             {"request_id", request_id},
             {"status", status},
@@ -229,17 +237,21 @@ void MCPChatPanel::HandleSAgentMqttNativeToolRequest(const json& msg)
             {"message", message},
             {"data", data}
         };
+        if (!workflow_id.empty())
+            payload["workflow_id"] = workflow_id;
         if (!m_sagent_mqtt_bridge->PublishToolResponse("progress", payload))
             BOOST_LOG_TRIVIAL(warning) << "[SAgentMQTT][Native] failed to publish progress request_id=" << request_id;
     };
 
-    auto publish_result = [this, &request_id](bool ok, const json& result, const json& error) {
+    auto publish_result = [this, &request_id, &workflow_id](bool ok, const json& result, const json& error) {
         json payload = {
             {"request_id", request_id},
             {"ok", ok},
             {"result", ok ? result : json::object()},
             {"error", ok ? json::object() : error}
         };
+        if (!workflow_id.empty())
+            payload["workflow_id"] = workflow_id;
         if (!m_sagent_mqtt_bridge->PublishToolResponse("result", payload))
             BOOST_LOG_TRIVIAL(warning) << "[SAgentMQTT][Native] failed to publish result request_id=" << request_id;
     };
@@ -283,6 +295,59 @@ void MCPChatPanel::HandleSAgentMqttNativeToolRequest(const json& msg)
         }
     }
 
+    // Only inject the MQTT correlation meta fields (request_id / workflow_id) into
+    // the args for deferred workflows that read them back out of args downstream
+    // (e.g. StartSliceRequest parses workflow_id from args). Do NOT inject them for
+    // the immediate bridge path: bridge actions like APPLY_CONFIG validate every
+    // arg key as a slicer config key, so a stray workflow_id would surface as a
+    // spurious "Unknown config key: workflow_id" warning. The publish_* closures
+    // already use the captured workflow_id, so they don't depend on args either.
+    auto inject_correlation_fields = [&](json& target) {
+        if (!request_id.empty() && !target.contains("request_id"))
+            target["request_id"] = request_id;
+        if (!workflow_id.empty() && !target.contains("workflow_id"))
+            target["workflow_id"] = workflow_id;
+    };
+
+    BOOST_LOG_TRIVIAL(info)
+        << "[SAgentMQTT][Native] dispatch request_id=" << request_id
+        << " tool=" << tool
+        << " action=" << spec->action_id
+        << " mode=" << ToolCalls::NativeExecutionModeName(spec->execution_mode)
+        << " workflow_id=" << workflow_id;
+
+    switch (spec->execution_mode) {
+    case ToolCalls::NativeExecutionMode::DeferredSliceResult:
+        inject_correlation_fields(args);
+        BOOST_LOG_TRIVIAL(info)
+            << "[SAgentMQTT][Native] delegating deferred slice request_id=" << request_id
+            << " tool=" << tool
+            << " workflow_id=" << workflow_id;
+        StartSliceRequest(request_id, args, false, true);
+        return;
+    case ToolCalls::NativeExecutionMode::BridgeImmediateOrPayloadDeferred:
+        break;
+    case ToolCalls::NativeExecutionMode::CustomDeferred:
+        inject_correlation_fields(args);
+        BOOST_LOG_TRIVIAL(info)
+            << "[SAgentMQTT][Native] delegating CustomDeferred request_id=" << request_id
+            << " tool=" << tool
+            << " action=" << spec->action_id
+            << " workflow_id=" << workflow_id;
+        HandleSAgentMqttCustomDeferredTool(request_id, tool, std::string(spec->action_id), args, workflow_id);
+        return;
+    case ToolCalls::NativeExecutionMode::DeferredSceneSettle:
+    default:
+        publish_result(
+            false,
+            json::object(),
+            BuildError(
+                "unsupported_execution_mode",
+                std::string("Native execution mode is not implemented: ") + ToolCalls::NativeExecutionModeName(spec->execution_mode),
+                {{"tool", tool}, {"source_action", spec->action_id}, {"execution_mode", ToolCalls::NativeExecutionModeName(spec->execution_mode)}}));
+        return;
+    }
+
     try {
         BOOST_LOG_TRIVIAL(info)
             << "[SAgentMQTT][Native] executing request_id=" << request_id
@@ -318,7 +383,7 @@ void MCPChatPanel::HandleSAgentMqttNativeToolRequest(const json& msg)
             GetEmbeddedAIChatPanel() == this &&
             (!completion_key.empty() || lifecycle == "async_pending" || bridge_result.value("requires_settle", false));
         if (defer_until_completion) {
-            RegisterPendingAsyncToolCall(request_id, tool, bridge_result, true);
+            RegisterPendingAsyncToolCall(request_id, tool, bridge_result, true, workflow_id);
             publish_progress(
                 65,
                 spec->progress_stage,
@@ -351,7 +416,8 @@ void MCPChatPanel::HandleSAgentMqttNativeToolRequest(const json& msg)
 void MCPChatPanel::RegisterPendingAsyncToolCall(const std::string& request_id,
                                                 const std::string& tool_name,
                                                 const json& result_payload,
-                                                bool native_request)
+                                                bool native_request,
+                                                const std::string& workflow_id)
 {
     json payload = result_payload.is_object() ? result_payload : json::object();
     if (!payload.contains("request_id"))
@@ -360,6 +426,7 @@ void MCPChatPanel::RegisterPendingAsyncToolCall(const std::string& request_id,
     PendingAsyncToolCall pending;
     pending.native_request = native_request;
     pending.request_id = request_id;
+    pending.workflow_id = workflow_id;
     pending.tool = tool_name.empty() ? JsonStringValue(payload, "tool", std::string("async_tool")) : tool_name;
     pending.lifecycle = JsonStringValue(payload, "lifecycle", std::string("async_pending"));
     pending.completion_key = ExtractAsyncCompletionKey(payload);
@@ -419,20 +486,26 @@ void MCPChatPanel::CompletePendingAsyncToolCall(const std::string& completion_ke
             if (!m_sagent_mqtt_bridge)
                 return;
 
-            m_sagent_mqtt_bridge->PublishToolResponse("progress", {
+            json progress_payload = {
                 {"request_id", pending.request_id},
                 {"status", "completed"},
                 {"stage", "completed"},
                 {"progress", 100},
                 {"message", result["message"]},
                 {"data", {{"tool", pending.tool}, {"completed_via", result.value("completed_via", std::string())}, {"completion_key", pending.completion_key}}}
-            });
-            m_sagent_mqtt_bridge->PublishToolResponse("result", {
+            };
+            if (!pending.workflow_id.empty())
+                progress_payload["workflow_id"] = pending.workflow_id;
+            m_sagent_mqtt_bridge->PublishToolResponse("progress", progress_payload);
+            json result_payload = {
                 {"request_id", pending.request_id},
                 {"ok", true},
                 {"result", result},
                 {"error", json::object()}
-            });
+            };
+            if (!pending.workflow_id.empty())
+                result_payload["workflow_id"] = pending.workflow_id;
+            m_sagent_mqtt_bridge->PublishToolResponse("result", result_payload);
             return;
         }
 
@@ -468,12 +541,15 @@ void MCPChatPanel::CompletePendingAsyncToolCall(const std::string& completion_ke
     if (pending.native_request) {
         if (!m_sagent_mqtt_bridge)
             return;
-        m_sagent_mqtt_bridge->PublishToolResponse("result", {
+        json result_payload = {
             {"request_id", pending.request_id},
             {"ok", false},
             {"result", json::object()},
             {"error", error}
-        });
+        };
+        if (!pending.workflow_id.empty())
+            result_payload["workflow_id"] = pending.workflow_id;
+        m_sagent_mqtt_bridge->PublishToolResponse("result", result_payload);
         return;
     }
 
@@ -484,5 +560,235 @@ void MCPChatPanel::CompletePendingAsyncToolCall(const std::string& completion_ke
     m_cxagent_bridge->MarkRequestFinished(pending.request_id);
     NotifyCxAgentStatus();
 }
+
+// ---------------------------------------------------------------------------
+// CustomDeferred MQTT-native handler
+// Dispatches CustomDeferred tools that require async completion or special
+// logic not covered by the generic BridgeImmediate path.
+// ---------------------------------------------------------------------------
+void MCPChatPanel::HandleSAgentMqttCustomDeferredTool(const std::string& request_id,
+                                                       const std::string& tool,
+                                                       const std::string& action_id,
+                                                       const json& args,
+                                                       const std::string& workflow_id)
+{
+    if (!m_sagent_mqtt_bridge) {
+        BOOST_LOG_TRIVIAL(warning)
+            << "[SAgentMQTT][CustomDeferred] no MQTT bridge for request_id=" << request_id;
+        return;
+    }
+
+    auto mqtt_publish_result = [this, request_id, workflow_id](bool ok, const json& result, const json& error) {
+        json payload = {
+            {"request_id", request_id},
+            {"ok", ok},
+            {"result", ok ? result : json::object()},
+            {"error", ok ? json::object() : error}
+        };
+        if (!workflow_id.empty())
+            payload["workflow_id"] = workflow_id;
+        m_sagent_mqtt_bridge->PublishToolResponse("result", payload);
+    };
+
+    auto mqtt_publish_progress = [this, request_id, workflow_id](int progress,
+                                                                  const std::string& stage,
+                                                                  const std::string& message,
+                                                                  const std::string& status) {
+        json payload = {
+            {"request_id", request_id},
+            {"status", status},
+            {"stage", stage},
+            {"progress", progress},
+            {"message", message},
+            {"data", json::object()}
+        };
+        if (!workflow_id.empty())
+            payload["workflow_id"] = workflow_id;
+        m_sagent_mqtt_bridge->PublishToolResponse("progress", payload);
+    };
+
+    // ---- open_filament_mapping ----
+    if (action_id == Bridge::ActionID::OPEN_FILAMENT_MAPPING) {
+        mqtt_publish_progress(5, "opening", "Opening filament mapping", "running");
+        CallAfter([this, request_id, workflow_id, mqtt_publish_result, mqtt_publish_progress]() {
+            auto* plater = wxGetApp().plater();
+            if (!plater) {
+                mqtt_publish_result(false, json::object(), {
+                    {"code", "FILAMENT_MAPPING_UNAVAILABLE"},
+                    {"message", "Plater is not available for filament mapping."}
+                });
+                return;
+            }
+            wxPostEvent(plater, wxCommandEvent(Slic3r::GUI::EVT_ON_MAPPING_DEVICE_FILAMENT));
+            json result = {
+                {"mapping_dialog_opened", true},
+                {"source_action", "open_filament_mapping"}
+            };
+            json state_result = Bridge::SlicerBridge::Instance().Execute(
+                Bridge::ActionID::GET_SLICER_STATE, json::object());
+            if (state_result.value("success", false))
+                result["project_context"] = state_result.value("state", json::object());
+            mqtt_publish_progress(100, "completed", "Filament mapping opened", "completed");
+            mqtt_publish_result(true, result, json::object());
+        });
+        return;
+    }
+
+    // ---- send_print / send_to_printer ----
+    if (action_id == Bridge::ActionID::SEND_PRINT) {
+        // Delegate to existing HandleSendToPrinterToolCall which uses
+        // m_cxagent_bridge internally. For the MQTT native path, the
+        // AISendWorkflow callbacks (bound in BindAISendWorkflowCallbacks)
+        // already publish progress/results via MQTT when the request
+        // originates from MQTT native. We register this request_id as a
+        // pending AI-send call tracked for MQTT completion.
+        mqtt_publish_progress(5, "sending", "Preparing send workflow", "running");
+        HandleSendToPrinterMqttNative(request_id, tool, args, workflow_id);
+        return;
+    }
+
+    // ---- new_project ----
+    if (action_id == Bridge::ActionID::NEW_PROJECT) {
+        mqtt_publish_progress(5, "creating", "Creating new project", "running");
+        CallAfter([this, request_id, mqtt_publish_result, mqtt_publish_progress]() {
+            auto* plater = wxGetApp().plater();
+            if (!plater) {
+                mqtt_publish_result(false, json::object(), {
+                    {"code", "NEW_PROJECT_FAILED"},
+                    {"message", "Plater not available"}
+                });
+                return;
+            }
+            const int result_code = plater->new_project(false, false);
+            if (result_code != wxID_YES) {
+                mqtt_publish_result(false, json::object(), {
+                    {"code", "NEW_PROJECT_FAILED"},
+                    {"message", result_code == wxID_CANCEL ? "Create new project cancelled" : "Create new project failed"}
+                });
+                return;
+            }
+            json result = {{"success", true}, {"message", "New project created"}, {"source_action", "new_project"}};
+            json state_result = Bridge::SlicerBridge::Instance().Execute(
+                Bridge::ActionID::GET_SLICER_STATE, json::object());
+            if (state_result.value("success", false))
+                result["project_context"] = state_result.value("state", json::object());
+            mqtt_publish_progress(100, "completed", "New project created", "completed");
+            mqtt_publish_result(true, result, json::object());
+        });
+        return;
+    }
+
+    // ---- save_and_create_new_project ----
+    if (action_id == Bridge::ActionID::SAVE_AND_CREATE_NEW_PROJECT) {
+        const bool skip_save = args.is_object() && args.value("skip_save", false);
+        mqtt_publish_progress(5, "creating", "Saving and creating new project", "running");
+        CallAfter([this, request_id, skip_save, mqtt_publish_result, mqtt_publish_progress]() {
+            auto* plater = wxGetApp().plater();
+            if (!plater) {
+                mqtt_publish_result(false, json::object(), {
+                    {"code", "SAVE_AND_CREATE_NEW_PROJECT_FAILED"},
+                    {"message", "Plater not available"}
+                });
+                return;
+            }
+            if (!skip_save) {
+                const int save_result = plater->save_project(false, FT_PROJECT);
+                if (save_result != wxID_YES) {
+                    mqtt_publish_result(false, json::object(), {
+                        {"code", "SAVE_AND_CREATE_NEW_PROJECT_FAILED"},
+                        {"message", save_result == wxID_CANCEL ? "Save project cancelled" : "Save project failed"}
+                    });
+                    return;
+                }
+            }
+            const int result_code = plater->new_project(true, false);
+            if (result_code != wxID_YES) {
+                mqtt_publish_result(false, json::object(), {
+                    {"code", "SAVE_AND_CREATE_NEW_PROJECT_FAILED"},
+                    {"message", result_code == wxID_CANCEL ? "Create new project cancelled" : "Create new project failed"}
+                });
+                return;
+            }
+            json result = {
+                {"success", true},
+                {"message", skip_save ? "New project created" : "Project saved and new project created"},
+                {"source_action", "save_and_create_new_project"}
+            };
+            json state_result = Bridge::SlicerBridge::Instance().Execute(
+                Bridge::ActionID::GET_SLICER_STATE, json::object());
+            if (state_result.value("success", false))
+                result["project_context"] = state_result.value("state", json::object());
+            mqtt_publish_progress(100, "completed", result.value("message", "Done"), "completed");
+            mqtt_publish_result(true, result, json::object());
+        });
+        return;
+    }
+
+    // ---- capture_device_camera_frame ----
+    if (action_id == Bridge::ActionID::CAPTURE_DEVICE_CAMERA_FRAME) {
+        mqtt_publish_progress(5, "capturing", "Capturing device camera frame", "running");
+        // Delegate to the bridge executor; the capture is async via device API.
+        CallAfter([this, request_id, args, mqtt_publish_result, mqtt_publish_progress]() {
+            try {
+                json bridge_result = Bridge::SlicerBridge::Instance().Execute("capture_device_camera_frame", args);
+                const bool success = bridge_result.value("success", false);
+                if (!success) {
+                    mqtt_publish_result(false, json::object(), {
+                        {"code", bridge_result.value("code", "CAPTURE_CAMERA_FAILED")},
+                        {"message", bridge_result.value("message", "Failed to capture device camera frame.")}
+                    });
+                    return;
+                }
+                mqtt_publish_progress(100, "completed", "Camera frame captured", "completed");
+                mqtt_publish_result(true, bridge_result, json::object());
+            } catch (const std::exception& e) {
+                mqtt_publish_result(false, json::object(), {
+                    {"code", "CAPTURE_CAMERA_FAILED"},
+                    {"message", std::string("Exception: ") + e.what()}
+                });
+            }
+        });
+        return;
+    }
+
+    // ---- recommend_model / smart_model_search / import_model_from_search ----
+    // These are bridge-executable actions; execute and return via MQTT.
+    mqtt_publish_progress(5, "executing", std::string("Executing ") + tool, "running");
+    CallAfter([this, request_id, tool, action_id, args, mqtt_publish_result, mqtt_publish_progress]() {
+        try {
+            json bridge_result = Bridge::SlicerBridge::Instance().Execute(action_id, args);
+            const bool success = bridge_result.value("success", false);
+            if (!success) {
+                mqtt_publish_result(false, json::object(), {
+                    {"code", bridge_result.value("code", "TOOL_EXECUTION_FAILED")},
+                    {"message", bridge_result.value("message", std::string("Failed to execute ") + tool)}
+                });
+                return;
+            }
+            if (!bridge_result.contains("tool"))
+                bridge_result["tool"] = tool;
+            if (!bridge_result.contains("source_action"))
+                bridge_result["source_action"] = action_id;
+
+            // Check if result indicates async pending (model import etc.)
+            const std::string lifecycle = bridge_result.value("lifecycle", std::string());
+            if (lifecycle == "async_pending" || bridge_result.value("requires_settle", false)) {
+                RegisterPendingAsyncToolCall(request_id, tool, bridge_result, true,
+                    bridge_result.value("workflow_id", std::string()));
+                mqtt_publish_progress(65, "executing", std::string("Waiting for ") + tool + " to complete", "running");
+                return;
+            }
+
+            mqtt_publish_progress(100, "completed", std::string(tool) + " completed", "completed");
+            mqtt_publish_result(true, bridge_result, json::object());
+        } catch (const std::exception& e) {
+            mqtt_publish_result(false, json::object(), {
+                {"code", "TOOL_EXECUTION_FAILED"},
+                {"message", std::string("Exception executing ") + tool + ": " + e.what()}
+            });
+        }
+    });
+}
+
 } // namespace GUI
 } // namespace Slic3r

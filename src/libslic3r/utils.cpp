@@ -146,6 +146,11 @@ void set_logging_level(unsigned int level)
 #endif
 }
 
+void set_logging_file(const std::string &file)
+{
+    boost::log::add_file_log(file);
+}
+
 unsigned int level_string_to_boost(std::string level)
 {
     std::map<std::string, int> Control_Param;

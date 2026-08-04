@@ -12,6 +12,7 @@ public:
     static bool DownloadAndInstallWebViewRuntime();
     static bool ReInstallWebViewRuntime();
     static void SetForceSingleProcess(bool force_single_process);
+    static void ReleaseConfiguration();
 #endif
     static void LoadUrl(wxWebView * webView, wxString const &url);
     static void DestroyAll();

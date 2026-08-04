@@ -388,6 +388,8 @@ protected:
     ETools m_tools;
     ConfigOptionMode m_user_mode;
     bool m_fold = {false};
+    ImTextureID m_fold_icon_svg_texture{nullptr};
+    unsigned    m_fold_icon_svg_size{0};
     float m_contentWidth {-1.0f};
 
     std::array<unsigned int, 2> m_layers_z_range;

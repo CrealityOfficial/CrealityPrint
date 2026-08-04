@@ -2,6 +2,10 @@
 
 #include "../wxExtensions.hpp"
 
+#ifdef __WXGTK3__
+#include "../GUI_Utils.hpp"
+#endif
+
 namespace Slic3r { 
 namespace GUI {
 RadioBox::RadioBox(wxWindow *parent)
@@ -10,6 +14,11 @@ RadioBox::RadioBox(wxWindow *parent)
     // SetBackgroundStyle(wxBG_STYLE_TRANSPARENT);
     if (parent) SetBackgroundColour(parent->GetBackgroundColour());
     // Bind(wxEVT_TOGGLEBUTTON, [this](auto& e) { update(); e.Skip(); });
+
+#ifdef __WXGTK3__
+    RemoveButtonBorder(this);
+#endif
+
     SetSize(m_on.GetBmpSize());
     SetMinSize(m_on.GetBmpSize());
     update();
@@ -32,6 +41,7 @@ void RadioBox::Rescale()
     m_on.msw_rescale();
     m_off.msw_rescale();
     SetSize(m_on.GetBmpSize());
+    SetMinSize(m_on.GetBmpSize());
     update();
 }
 

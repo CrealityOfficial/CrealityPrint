@@ -223,7 +223,7 @@ public:
 	// Creates Slicing Error notification with a custom text and no fade out.
     void push_slicing_error_notification(const std::string &text, std::vector<ModelObject const *> objs);
 	// Creates Slicing Warning notification with a custom text and no fade out.
-    void push_slicing_warning_notification(const std::string &text, bool gray, ModelObject const *obj, ObjectID oid, int warning_step, int warning_msg_id, int current_plate_index, NotificationLevel level = NotificationLevel::WarningNotificationLevel);
+    void push_slicing_warning_notification(const std::string &text, bool gray, ModelObject const *obj, ObjectID oid, int warning_step, int warning_msg_id, int current_plate_index, const std::string &opt_key, NotificationLevel level = NotificationLevel::WarningNotificationLevel);
 	// marks slicing errors as gray
 	void set_all_slicing_errors_gray(bool g);
 	// marks slicing warings as gray
@@ -328,7 +328,8 @@ public:
     void bbl_close_plateinfo_notification();
 
     //BBS-- 3mf warning
-    void bbl_show_3mf_warn_notification(const std::string &text);
+    void bbl_show_3mf_warn_notification(const std::string &text, const std::string &opt_key = "",
+                                        bool is_error = false);
     void bbl_close_3mf_warn_notification();
 
     //BBS--preview only mode

@@ -1,0 +1,1142 @@
+msgid ""
+msgstr "Project-Id-Version: \nPOT-Creation-Date: \nPO-Revision-Date: \nLast-Translator: \nLanguage-Team: \nLanguage: vi_VN\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\nX-Generator: Poedit 3.5"
+
+msgid "Submit"
+msgstr "Gửi"
+
+msgid "The file cannot be larger than 0.5M, please choose another SVG"
+msgstr "Tệp không được lớn hơn 0.5M, vui lòng chọn một SVG khác"
+
+msgid "Export 3mf"
+msgstr "Xuất 3mf"
+
+msgid "Export stl"
+msgstr "Xuất khẩu"
+
+msgid "project saved"
+msgstr "dự án đã lưu"
+
+msgid "signage work"
+msgstr "Công việc ký"
+
+msgid "Corner Radius"
+msgstr "Bán kính góc"
+
+msgid "Select"
+msgstr "Chọn"
+
+msgid "Pan"
+msgstr "Di chuyển khung nhìn"
+
+msgid "Copy(ctr+c)"
+msgstr "Chép (ctr+c)"
+
+msgid "Paste(ctr+v)"
+msgstr "Dán (ctr+v)"
+
+msgid "Undo(ctr+z)"
+msgstr "Hủy bước (ctr+z)"
+
+msgid "Redo(ctr+shift+z)"
+msgstr "Làm lại"
+
+msgid "Delete(Del)"
+msgstr "Xoá"
+
+msgid "Reached the limit of 30 works per person"
+msgstr "Đến giới hạn 30 việc làm cho mỗi người"
+
+msgid "Comming Soon"
+msgstr "Không lâu nữa chúng ta sẽ liên lạc"
+
+msgid "Current Device"
+msgstr "Thiết bị hiện có"
+
+msgid "Recently Printed Files"
+msgstr "Tập tin vừa in"
+
+msgid "My Devices"
+msgstr "Thiết bị của tôi"
+
+msgid "Type"
+msgstr "Loại"
+
+msgid "Device Name"
+msgstr "Tên thiết bị"
+
+msgid "Idle"
+msgstr "Rảnh"
+
+msgid "Printing"
+msgstr "Đang in"
+
+msgid "Complete"
+msgstr "Hoàn tất"
+
+msgid "Print complete"
+msgstr "In xong"
+
+msgid "Printing failed"
+msgstr "Việc in bị lỗi"
+
+msgid "Print termination"
+msgstr "& Tắt máy in"
+
+msgid "Printing paused"
+msgstr "In dừng"
+
+msgid "Pause in progress"
+msgstr "Tạm dừng trong tiến trình"
+
+msgid "STOPPING"
+msgstr "Dừng lại"
+
+msgid "In recovery"
+msgstr "Để hồi phục"
+
+msgid "Executing print termination command"
+msgstr "Đang thực hiện lệnh chấm dứt in"
+
+msgid "Executing pause printing command"
+msgstr "Đang thực hiện lệnh dừng in"
+
+msgid "Executing the command to continue printing"
+msgstr "Đang thực hiện lệnh để tiếp tục in"
+
+msgid "Off Line"
+msgstr "Tắt dòng"
+
+msgid "Printing File"
+msgstr "Tập tin in"
+
+msgid "Printing Progress"
+msgstr "Tiến trình in"
+
+msgid "Layer Height"
+msgstr "Chiều cao Lớp"
+
+msgid "Consumables Length"
+msgstr "Chiều dài:"
+
+msgid "Sync Consumables"
+msgstr "Đồng bộ hoá tập tin"
+
+msgid "Time required"
+msgstr "Cần thời gian"
+
+msgid "Material Rack"
+msgstr "Khay vật liệu"
+
+msgid "Connection method"
+msgstr "Phương pháp kết nối"
+
+msgid "No shelf data available"
+msgstr "Không có dữ liệu kệ sẵn sàng"
+
+msgid ""
+"The number of printer presets cached in the cloud has reached the upper "
+"limit (20). Newly created user presets will not be synchronized to the cloud."
+msgstr "Số bộ sẵn của máy in trong đám mây đã lên đến giới hạn trên (20). Những định sẵn người dùng mới được tạo sẽ không được đồng bộ với đám mây."
+
+
+msgid ""
+"The presets have not been synced to Creality Cloud yet. Click here to enable "
+"it."
+msgstr "Bản thiết kế chưa được đồng bộ hóa với Mây Nhân quả. Nhấn vào đây để bật nó."
+
+
+msgid "Please Input"
+msgstr "Nhập"
+
+msgid "Consumables"
+msgstr "Cấu hình"
+
+msgid "Technology"
+msgstr "Công nghệ"
+
+msgid "Printer"
+msgstr "Máy in"
+
+msgid "Parameter Name"
+msgstr "Tham số"
+
+msgid "Update Time"
+msgstr "Thời gian cập nhật"
+
+msgid "Modifications"
+msgstr "Sự sửa đổi"
+
+msgid "Operation"
+msgstr "Thao tác"
+
+msgid "There are currently no presets synced to Creality Cloud~"
+msgstr "Hiện tại chưa có bộ định sẵn nào đồng bộ với tầng mây hình nêm..."
+
+msgid "Are you sure delete this preset?"
+msgstr "Bạn có chắc xóa cài đặt sẵn này không?"
+
+msgid "No"
+msgstr "Không"
+
+msgid "Yes"
+msgstr "Có"
+
+msgid "The current search results are empty~"
+msgstr "Kết quả tìm kiếm hiện thời trống..."
+
+msgid "You haven't added a device yet"
+msgstr "Bạn vẫn chưa thêm một thiết bị"
+
+msgid "The current account is not associated with any devices"
+msgstr "Tài khoản hiện thời không được gắn với thiết bị nào"
+
+msgid "Please follow the instructions below to add a new device"
+msgstr "Vui lòng theo hướng dẫn bên dưới để thêm một thiết bị mới"
+
+msgid "Mode One"
+msgstr "Chế độ 1"
+
+msgid "Mode Two"
+msgstr "Chế độ hai"
+
+msgid "Scan the QR code below"
+msgstr "Quét mã QR bên dưới"
+
+msgid "Add new device"
+msgstr "Thêm thiết bị mới"
+
+msgid "If you have already downloaded it"
+msgstr "Nếu bạn đã tải về rồi"
+
+msgid "Download Creality Cloud App"
+msgstr "Thư mục tải về mặc định"
+
+msgid "Open the Creality Cloud App"
+msgstr "Mở giá trị của đám mây"
+
+msgid "Click on the status bar"
+msgstr "Nhấn vào thanh trạng thái"
+
+msgid "Multiple devices"
+msgstr "Nhiều thiết bị"
+
+msgid "Through the multi device list interface"
+msgstr "Thông qua giao diện danh sách nhiều thiết bị"
+
+msgid "Scan and Add"
+msgstr "Quét và Thêm"
+
+msgid "OR"
+msgstr "OR"
+
+msgid "Manually Add"
+msgstr "Thêm bằng tay"
+
+msgid "Add a new device and click"
+msgstr "Thêm một thiết bị mới rồi nhắp vào"
+
+msgid "Associate my device"
+msgstr "Kết hợp thiết bị của tôi"
+
+msgid "Add to your account"
+msgstr "Thêm vào tài khoản"
+
+msgid "Default Grouping"
+msgstr "Nhóm mặc định"
+
+msgid "Equipment Model"
+msgstr "Mô hình công cụ"
+
+msgid "Equipment Name"
+msgstr "Tên"
+
+msgid "IP Address"
+msgstr "IP Address"
+
+msgid "Equipment Status"
+msgstr "Trạng thái chi tiết"
+
+msgid "Print Document"
+msgstr "In tài liệu"
+
+msgid "Printing Speed"
+msgstr "Tốc độ in"
+
+msgid "Action"
+msgstr "Hành động"
+
+msgid "Prepare"
+msgstr "Chuẩn bị"
+
+msgid "Preview"
+msgstr "Xem trước"
+
+msgid "Genshin Impact Kerry"
+msgstr "Genshin Impact Kerry"
+
+msgid "CFS data temporarily unavailable"
+msgstr "Dữ liệu CFS tạm thời không khả dụng"
+
+msgid "Success"
+msgstr "Thành công"
+
+msgid "Time"
+msgstr "Thời gian"
+
+msgid "Lan"
+msgstr "LAN"
+
+msgid "Wan"
+msgstr "WAN"
+
+msgid "Last Sync"
+msgstr "Đồng bộ hoá"
+
+msgid "Connected"
+msgstr "Đã kết nối"
+
+msgid "Not connected"
+msgstr "Chưa kết nối"
+
+msgid "Rack"
+msgstr "Rack"
+
+msgid "Refresh"
+msgstr "Làm mới"
+
+msgid "Please first"
+msgstr "Xin mời"
+
+msgid "Internet unavailable, please try reconnecting!"
+msgstr "Internet không sẵn sàng, xin hãy thử tái kết nối!"
+
+msgid "obtain account binding device"
+msgstr "Lấy thiết bị tổ hợp tài khoản"
+
+msgid "New Project"
+msgstr "Dự án mới"
+
+msgid "Open Project"
+msgstr "Mở dự án"
+
+msgid "Home Page"
+msgstr "Nhà"
+
+msgid "Workbench"
+msgstr "Bàn làm việc"
+
+msgid "Online Resource"
+msgstr "Tài nguyên trực tuyến"
+
+msgid "Online Models"
+msgstr "Mô hình trực tuyến"
+
+msgid "Online Params"
+msgstr "Tham số trực tuyến"
+
+msgid "Modeling Tools"
+msgstr "Công cụ mô hình"
+
+msgid "Guide Forum"
+msgstr "Diễn đàn hướng dẫn"
+
+msgid "Personal Center"
+msgstr "Trung tâm cá nhân"
+
+msgid "My Models"
+msgstr "Mô hình"
+
+msgid "My Presets"
+msgstr "Định sẵn của tôi"
+
+msgid "My Downloads"
+msgstr "Tải về"
+
+msgid "Recently opened"
+msgstr "Mới mở"
+
+msgid "More"
+msgstr "Thêm nữa"
+
+msgid "Login"
+msgstr "Đăng nhập"
+
+msgid "Logout"
+msgstr "Đăng xuất"
+
+msgid "Register"
+msgstr "Đăng ký"
+
+msgid "Mobile Login"
+msgstr "Đăng nhập Di động"
+
+msgid "Email Login"
+msgstr "Đăng nhập thư điện tử"
+
+msgid "Password Login"
+msgstr "Đăng nhập mật khẩu"
+
+msgid "scan code to login"
+msgstr "quét mã để đăng nhập"
+
+msgid "Have no account?"
+msgstr "Không có tài khoản?"
+
+msgid "Please click"
+msgstr "Hãy nhắp vào"
+
+msgid "Verification Code Login"
+msgstr "Đăng nhập mã xác thực"
+
+msgid "Forgot password?"
+msgstr "Quên mật khẩu à?"
+
+msgid "Other login methods"
+msgstr "Các phương pháp đăng nhập khác"
+
+msgid "Open the Creality Cloud App - Personal Center Scan"
+msgstr "Mở cửa sổ thăm dò tính chất đám mây - cá nhân"
+
+msgid "You are currently on the"
+msgstr "Bạn đang ở trên"
+
+msgid "Chinese website (+86),"
+msgstr "Trang web tiếng Hoa (+86),"
+
+msgid "please use"
+msgstr "Xin vui lòng dùng"
+
+msgid "Chinese version App"
+msgstr "Phiên bản Trung Quốc App"
+
+msgid "scan then login"
+msgstr "quét rồi đăng nhập"
+
+msgid "Register Now"
+msgstr "Đăng ký ngay bây giờ"
+
+msgid "Input Phone Number"
+msgstr "Số điện thoại ở nhà"
+
+msgid "Mobile Register"
+msgstr "Đăng ký bằng di động"
+
+msgid "Email Register"
+msgstr "Thư điện tử"
+
+msgid "Already have account?"
+msgstr "Đã có tài khoản?"
+
+msgid "Input Verification Code"
+msgstr "Mã nhập"
+
+msgid "Send Verification Code"
+msgstr "Gửi mã xác thực"
+
+msgid "6-18 characters"
+msgstr "6- 18 ký tự"
+
+msgid "I have read and agree"
+msgstr "Tôi đã đọc và đồng ý."
+
+msgid "Creality Cloud User Registration Agreement"
+msgstr "Điều kiện đăng ký nhân chứng"
+
+msgid "And"
+msgstr "Và"
+
+msgid "Privacy Policy"
+msgstr "Chính sách riêng tư"
+
+msgid "Reset Password"
+msgstr "Đặt lại mật khẩu"
+
+msgid "Email Password Retrieval"
+msgstr "Lấy lại mật khẩu qua email"
+
+msgid "Return To Login"
+msgstr "Trở lại đăng nhập"
+
+msgid "Cancel"
+msgstr "Hủy"
+
+msgid "Confirm"
+msgstr "Xác nhận"
+
+msgid "Tip"
+msgstr "Mẹo"
+
+msgid "Confirm to logout?"
+msgstr "Xác nhận đăng xuất?"
+
+msgid "Model Details"
+msgstr "Chi tiết mô hình"
+
+msgid "Category"
+msgstr "Loại"
+
+msgid "models total"
+msgstr "Tổng mô hình"
+
+msgid "Print Settings"
+msgstr "Thiết lập in"
+
+msgid "Files"
+msgstr "Tập tin"
+
+msgid "No Print Settings"
+msgstr "Không có thiết lập in"
+
+msgid "No Print Models"
+msgstr "Không có mô hình in"
+
+msgid "Download All"
+msgstr "Tải về hết"
+
+msgid "Download Then Load"
+msgstr "Tải về"
+
+msgid "Upload"
+msgstr "Tải lên"
+
+msgid "Recommend"
+msgstr "Khuyên"
+
+msgid "VIP Free"
+msgstr "VIP miễn phí"
+
+msgid "Exclusive"
+msgstr "Riêng"
+
+msgid "Multi Color"
+msgstr "Nhiều màu"
+
+msgid "All"
+msgstr "Tất cả"
+
+msgid "Format"
+msgstr "Định dạng"
+
+msgid "Price"
+msgstr "Giá"
+
+msgid "Sort"
+msgstr "Sắp xếp"
+
+msgid "Free model"
+msgstr "Mô hình Free"
+
+msgid "Fee model"
+msgstr "Mô hình lege"
+
+msgid "Comprehensive Trends"
+msgstr "Xu hướng tổng hợp"
+
+msgid "Latest Upload"
+msgstr "Tải lên mới nhất"
+
+msgid "Browse"
+msgstr "Duyệt"
+
+msgid "Like"
+msgstr "Như"
+
+msgid "Favorites"
+msgstr "Yêu thích"
+
+msgid "Download"
+msgstr "Tải xuống"
+
+msgid "Purchase"
+msgstr "Purchase"
+
+msgid "History"
+msgstr "Lịch sử"
+
+msgid "Clear History"
+msgstr "Xóa lịch sử"
+
+msgid "Popular Search"
+msgstr "Tìm kiếm phổ biến"
+
+msgid "Models"
+msgstr "Mô hình"
+
+msgid "Print Files"
+msgstr "In tập tin"
+
+msgid "My Upload"
+msgstr "Tải lên"
+
+msgid "My Like"
+msgstr "Kiểu như"
+
+msgid "My Purchase"
+msgstr "Túi xách của tôi"
+
+msgid "My Favorites"
+msgstr "Những điều tôi yêu thích"
+
+msgid "Creative Works"
+msgstr "Công trình sáng tạo"
+
+msgid "Print Config"
+msgstr "Cấu hình in"
+
+msgid "Main Page"
+msgstr "Trang chính"
+
+msgid "Project List"
+msgstr "Danh sách dự án"
+
+msgid "Project Editing"
+msgstr "Sửa dự án"
+
+msgid "Make My Sign"
+msgstr "Ra dấu cho tôi"
+
+msgid "Name plate, badge, sign, anything flat"
+msgstr "Bảng tên, phù hiệu, dấu hiệu, bất cứ thứ gì phẳng"
+
+msgid "Make My Sign Feedback Collection Form"
+msgstr "Làm cho bộ sưu tập phản hồi của tôi"
+
+msgid "Details"
+msgstr "Chi tiết"
+
+msgid "Cloud Slicing"
+msgstr "Cắt mây"
+
+msgid "Start"
+msgstr "Chạy"
+
+msgid "Input Project Name"
+msgstr "Tên dự án nhập"
+
+msgid "Name Can Not Be Empty"
+msgstr "Tên"
+
+msgid "Confirm To Delete?"
+msgstr "Xác nhận để xoá?"
+
+msgid "Last Modified Time"
+msgstr "Thời gian sửa đổi cuối cùng"
+
+msgid "Input New Name"
+msgstr "Tên mới nhập"
+
+msgid "Load"
+msgstr "Tải"
+
+msgid "Duplicate"
+msgstr "Lặp lại"
+
+msgid "Rename"
+msgstr "Thay tên"
+
+msgid "Delete"
+msgstr "Xóa"
+
+msgid "Confirm to delete?"
+msgstr "Xác nhận xóa?"
+
+msgid "Confirm to cancel favorite?"
+msgstr "Xác nhận hủy mục ưa thích?"
+
+msgid "Confirm to cancel like?"
+msgstr "Xác nhận hủy như?"
+
+msgid "Please Login First"
+msgstr "Xin đăng nhập trước"
+
+msgid "Verification code sent successfully"
+msgstr "Mã nhập đã được gửi thành công"
+
+msgid "Please agree the User Agreement and Privacy Policy"
+msgstr "Xin đồng ý hiệp định và chính sách riêng tư của người dùng"
+
+msgid "Please enter the correct email address"
+msgstr "Hãy nhập địa chỉ thư đúng"
+
+msgid "Please enter a password that meets the requirements"
+msgstr "Hãy nhập mật khẩu đáp ứng yêu cầu"
+
+msgid "successfully"
+msgstr "Thành công"
+
+msgid "Reset password successfully"
+msgstr "Đặt lại mật khẩu thành công"
+
+msgid "Saved successfully"
+msgstr "Đã lưu thành công"
+
+msgid "Please enter email"
+msgstr "Hãy nhập thư điện tử"
+
+msgid "Please enter password"
+msgstr "Hãy nhập mật khẩu"
+
+msgid "Chinese Mainland"
+msgstr "Trung Quốc đại lục"
+
+msgid "Click to refresh"
+msgstr "Nhấn vào để cập nhật"
+
+msgid "The QR code has expired"
+msgstr "Mã H0 đã hết hạn"
+
+msgid "Please confirm login on your phone"
+msgstr "Vui lòng xác nhận đăng nhập vào điện thoại của bạn"
+
+msgid "Retrieve password by phone"
+msgstr "Lấy mật khẩu bằng điện thoại"
+
+msgid "File Name"
+msgstr "Tên tập tin"
+
+msgid "Open Time"
+msgstr "Thời gian mở"
+
+msgid "Remove"
+msgstr "Xóa bỏ"
+
+msgid "Open Containing Folder"
+msgstr "Mở thư mục chứa"
+
+msgid "Print"
+msgstr "In"
+
+msgid "Characters"
+msgstr "Ký tự"
+
+msgid "3D printer"
+msgstr "Máy in 3D"
+
+msgid "Animals"
+msgstr "Loài vật"
+
+msgid "Nature&Plants"
+msgstr "Tự nhiên &Plants"
+
+msgid "Vehicle"
+msgstr "Xe hơi"
+
+msgid "Biomedical"
+msgstr "Y học sinh học"
+
+msgid "Ships"
+msgstr "Tàu"
+
+msgid "Aircraft/Plane"
+msgstr "Máy bay/Plane"
+
+msgid "Architecture"
+msgstr "Kiến trúc"
+
+msgid "Entertainment/Toys"
+msgstr "Giải trí/ Đồ chơi"
+
+msgid "Sculpture/Cultural Relics"
+msgstr "Cấu hình"
+
+msgid "Mechanical Drawing"
+msgstr "Vẽ cơ khí"
+
+msgid "Electronic appliances"
+msgstr "Thiết bị điện tử"
+
+msgid "Daily Home Furnishings"
+msgstr "Đồ đạc nhà hàng ngày"
+
+msgid "Clothing and jewelry"
+msgstr "Quần áo và trang sức"
+
+msgid "Sports"
+msgstr "Thể thao"
+
+msgid "Food"
+msgstr "Thức ăn"
+
+msgid "DIY"
+msgstr "DIY"
+
+msgid "Plate"
+msgstr "Bàn in"
+
+msgid "Tag"
+msgstr "Thẻ"
+
+msgid "Uploaded"
+msgstr "Đã tải lên"
+
+msgid "Purchase Now"
+msgstr "Mua ngay bây giờ"
+
+msgid "You can’t collect your own models!"
+msgstr "Anh có thể đi thu thập người mẫu!"
+
+msgid "Knowledge Sharing (CC) License Agreement"
+msgstr "Chia sẻ kiến thức (CC) Giấy phép tương đương"
+
+msgid ""
+"Creality Cloud adopts the internationally recognized Copyright License 4.0 "
+"to protect the rights and interests of model owners. The models of "
+"Chuangxiang Cloud platform are shared by a large number of enthusiasts in "
+"the community. If you find any violations of relevant laws and infringement, "
+"please contact us in a timely manner. "
+msgstr ""
+"Creality Cloud sử dụng giấy phép bản quyền 4.0 được quốc tế công nhận để bảo vệ quyền và lợi ích của chủ sở hữu mô hình. Các mô hình trên nền tảng Creality Cloud được nhiều người dùng trong cộng đồng chia sẻ. Nếu bạn phát hiện hành vi vi phạm pháp luật liên quan hoặc xâm phạm quyền, vui lòng liên hệ với chúng tôi kịp thời. "
+
+msgid ""
+"Indicates that the original work is created by the creator, and users can "
+"freely use the creator's work"
+msgstr "Chỉ ra rằng tác phẩm gốc được tạo ra bởi người tạo ra, và người dùng có thể tự do sử dụng tác phẩm của người sáng tạo"
+
+
+msgid ""
+"Indicate that the original work is the creator. If changes are made to the "
+"original work, the revised work must still indicate the original author"
+msgstr "Chứng minh rằng tác phẩm gốc là người sáng tạo. Nếu thay đổi tác phẩm gốc, tác giả đầu tiên phải là tác giả"
+
+
+msgid ""
+"Indicate that the original work is created by the creator, and users can "
+"freely use the creator's work (except for commercial purposes)"
+msgstr "Chỉ ra rằng tác phẩm gốc được tạo ra bởi người tạo ra, và người dùng có thể tự do sử dụng tác phẩm của người tạo ra (trừ khi vì mục đích thương mại)"
+
+
+msgid ""
+"Indicate that the original work is created by the creator, and the user "
+"cannot change the work or use it for commercial purposes"
+msgstr "Chỉ ra rằng tác phẩm gốc được tạo ra bởi người tạo ra, và người dùng không thể thay đổi công việc hoặc sử dụng nó cho mục đích thương mại"
+
+
+msgid ""
+"Indicate that the original work is created by the creator and the user "
+"cannot change the work"
+msgstr "Chỉ ra rằng tác phẩm gốc được tạo ra bởi người tạo ra và người dùng không thể thay đổi tác phẩm"
+
+
+msgid ""
+"Abandon copyright and publicly disclose that anyone can use my work at any "
+"time without permission"
+msgstr "Bỏ bản quyền và công khai tiết lộ rằng bất cứ ai cũng có thể sử dụng tác phẩm của tôi bất cứ lúc nào mà không có sự cho phép"
+
+
+msgid ""
+"The 3D model files sold on Creality Cloud have standard licenses and are "
+"subject to certain restrictions upon purchase and download. In particular, "
+"these files cannot be used for any commercial purposes; they are for "
+"personal use only. They may not be shared, transmitted, distributed, "
+"modified, copied, or resold in the form of files or items, including 3D "
+"models or any parts of models"
+msgstr ""
+"Các tệp mô hình 3D được bán trên Creality Cloud có giấy phép tiêu chuẩn và chịu một số hạn chế khi mua và tải xuống. Đặc biệt, các tệp này không được sử dụng cho mục đích thương mại; chỉ dành cho mục đích cá nhân. Không được chia sẻ, truyền tải, phân phối, chỉnh sửa, sao chép hoặc bán lại dưới dạng tệp hoặc vật phẩm, bao gồm mô hình 3D hoặc bất kỳ phần nào của mô hình"
+
+msgid "No Data"
+msgstr "Không có dữ liệu"
+
+msgid "No results were found for"
+msgstr "Không tìm thấy kết quả"
+
+msgid "Select All"
+msgstr "Chọn tất cả"
+
+msgid "Import"
+msgstr "Nhập"
+
+msgid "You haven't uploaded the model yet, go ahead and upload it~"
+msgstr "Cậu vẫn chưa tải mẫu lên, tải lên đi..."
+
+msgid "You haven't liked the model yet, go ahead and like the model~"
+msgstr "Anh vẫn chưa thích người mẫu, cứ làm như người mẫu..."
+
+msgid "You haven't purchased the model yet, go ahead and buy the model~"
+msgstr "Anh vẫn chưa mua mẫu, đi mua mẫu đi..."
+
+msgid "You haven't collected the model yet, go collect the model~"
+msgstr "Anh vẫn chưa thu thập mẫu, đi thu thập mẫu..."
+
+msgid ""
+"You haven't created a creative work yet, go ahead and create a creative work~"
+msgstr "Bạn chưa tạo ra một công trình sáng tạo, tiếp tục và tạo ra một công việc sáng tạo..."
+
+msgid ""
+"You haven't uploaded the print configuration yet, go uploaded the print "
+"configuration~"
+msgstr "Bạn chưa tải lên cấu hình in, hãy tải lên cấu hình in..."
+
+msgid "You haven't printed the model yet, go ahead and print it~"
+msgstr "Anh vẫn chưa in mẫu, in đi..."
+
+msgid ""
+"You haven't uploaded the print file yet, go ahead and upload the print file~"
+msgstr "Bạn chưa tải lên tập tin in, hãy tải lên và tải lên tập tin in..."
+
+msgid "You haven't download the model yet, go ahead and download it~"
+msgstr "Bạn chưa tải về mô hình, hãy tải về nó..."
+
+msgid ""
+"You haven't download the print configuration yet, go download the print "
+"configuration~"
+msgstr "Bạn chưa tải về cấu hình in, hãy tải về cấu hình in..."
+
+msgid "Approving..."
+msgstr "Chấp thuận..."
+
+msgid "Approved"
+msgstr "Được chấp nhận"
+
+msgid "Rejected"
+msgstr "Đã từ chối"
+
+msgid "Removed"
+msgstr "Đã gỡ bỏ"
+
+msgid "Purchased At"
+msgstr "Được thanh tẩy"
+
+msgid "off"
+msgstr "tắt"
+
+msgid ""
+"Start downloading. Please go to \"Personal Center-My Downloads\" to view."
+msgstr "Bắt đầu tải. Vui lòng đến \"Personal Center-My downloads\" để xem."
+
+msgid "System Preset Parameters"
+msgstr "Tham số định sẵn hệ thống"
+
+msgid "Current Version"
+msgstr "Phiên bản hiện thời"
+
+msgid "Latest Version"
+msgstr "Phiên bản Mới nhất"
+
+msgid "Description"
+msgstr "Mô tả"
+
+msgid "Update"
+msgstr "Cập nhật"
+
+msgid "Ender Series"
+msgstr "Dòng Ender"
+
+msgid "CR Series"
+msgstr "CR Series"
+
+msgid "Start updating, please wait a moment"
+msgstr "Bắt đầu cập nhật, hãy đợi một chút"
+
+msgid "Text"
+msgstr "Văn bản"
+
+msgid "Shape"
+msgstr "Hình"
+
+msgid "Emoji"
+msgstr "Biểu tượng cảm xúc"
+
+msgid "SVG"
+msgstr "SVG"
+
+msgid "Holes"
+msgstr "Lỗ"
+
+msgid "Thickness"
+msgstr "Độ dầy"
+
+msgid "3D View"
+msgstr "Xem 3D"
+
+msgid "Base Plate & Border"
+msgstr "Đường kẻ"
+
+msgid "Uniform Scale"
+msgstr "Tỷ lệ đồng dạng"
+
+msgid "Width"
+msgstr "Bề rộng:"
+
+msgid "Height"
+msgstr "Chiều cao"
+
+msgid "Position"
+msgstr "Vị trí"
+
+msgid "Rotation"
+msgstr "Xoay"
+
+msgid "Fill"
+msgstr "Điền"
+
+msgid "Content"
+msgstr "Nội dung"
+
+msgid "FontFamily"
+msgstr "Phông chữ"
+
+msgid "FontSize"
+msgstr "Phông chữ"
+
+msgid "Size"
+msgstr "Kích thước"
+
+msgid "Wiki Tutorial"
+msgstr "Trợ lý Wiki"
+
+msgid "Slice parameter setting guide"
+msgstr "Hướng dẫn thiết lập tham số lát"
+
+msgid "Calibration Guide"
+msgstr "Hướng dẫn tính toán"
+
+msgid "Quick Start Guide"
+msgstr "Hướng dẫn bắt đầu nhanh"
+
+msgid "Multi color Printing Guide"
+msgstr "Hướng dẫn in nhiều màu"
+
+msgid "6.0 Update Description"
+msgstr "6. 0 Cập nhật Mô tả"
+
+msgid ""
+"Introduce the basic usage of Creality Print and guide users to complete the "
+"first printing task."
+msgstr "Giới thiệu về cách sử dụng cơ bản của việc in và hướng dẫn người dùng để hoàn thành công việc in đầu tiên."
+
+
+msgid ""
+"After obtaining a multi-color printer, use Creality Print for the first "
+"color printing."
+msgstr "Sau khi mua một máy in đa màu, hãy dùng Crema Print để in màu đầu tiên."
+
+
+msgid ""
+"Briefly introduce the parameter settings for Creality Print slicing, "
+"including the selection of preset parameters, parameter settings, and "
+"saving, to help you better complete 3D printing."
+msgstr "Hãy giới thiệu ngắn gọn các thiết lập tham số cho việc in đường gạch chân, bao gồm việc chọn tham số sẵn, thiết lập tham số và lưu, để giúp bạn hoàn thành tốt hơn 3D."
+
+
+msgid "By adjusting various parameters to achieve the best printing effect."
+msgstr "Bằng cách điều chỉnh nhiều tham số khác nhau để đạt hiệu quả in ấn tốt nhất."
+
+msgid ""
+"Creality Print 6.0 has been upgraded to provide you with a better user "
+"experience."
+msgstr "Thư mục In 6.0 đã được nâng cấp để cung cấp cho bạn một trải nghiệm người dùng tốt hơn."
+
+
+msgid ""
+"You can select one as the current device on the 'My Devices' or 'Multiple "
+"Devices' pages"
+msgstr "Bạn có thể chọn một là thiết bị hiện thời trên trang « Thiết bị của tôi » hay « Thiết bị »"
+
+msgid "System"
+msgstr "Hệ thống"
+
+msgid "User"
+msgstr "Người dùng"
+
+msgid "Diameter"
+msgstr "Diameter"
+
+msgid "Vender"
+msgstr "Vender"
+
+msgid "Model"
+msgstr "Mô hình"
+
+msgid "Configuration Name"
+msgstr "Tên cấu hình"
+
+msgid "Firmware Type"
+msgstr "Loại firmware"
+
+msgid "Search Results"
+msgstr "Kết quả tìm kiếm"
+
+msgid "The model you want is not found. Please search again."
+msgstr "Không tìm thấy mô hình bạn muốn. Xin hãy tìm lại."
+
+msgid "System Filaments"
+msgstr "Filament hệ thống"
+
+msgid "Custom Filaments"
+msgstr "Tự chọn"
+
+msgid "Material Type"
+msgstr "Kiểu vật liệu"
+
+msgid "Brand Supplier"
+msgstr "Nhà cung cấp thương hiệu"
+
+msgid "Error"
+msgstr "Lỗi"
+
+msgid "At least one material must be selected."
+msgstr "Phải chọn ít nhất một tài liệu."
+
+msgid "Do you want to use the default material list?"
+msgstr "Bạn có muốn dùng danh sách vật liệu mặc định không?"
+
+msgid "Create New"
+msgstr "Tạo mới"
+
+msgid "AI Modeling"
+msgstr "Tạo mô hình AI"
+
+msgid "Vast"
+msgstr "Vast"
+
+msgid "Deemos"
+msgstr "Deemos"
+
+msgid "Record"
+msgstr "Thu"
+
+msgid "Filament Type"
+msgstr "Kiểu ổ cắm"
+
+msgid "At least one filament must be selected."
+msgstr "Phải chọn ít nhất một sợi dây."
+
+msgid "Do you want to use default filament?"
+msgstr "Bạn có muốn dùng sợi dây mặc định không?"
+
+msgid "Add New Filament"
+msgstr "Thêm mục mới"
+
+msgid "Please select at least one printer."
+msgstr "Hãy chọn ít nhất một máy in."
+
+msgid "The filament you want is not found"
+msgstr "Không tìm thấy sợi dây anh muốn."
+
+#~ msgid "Please search for the printer you want..."
+#~ msgstr "Please search for the printer you want..."
+
+#~ msgid "Update All"
+#~ msgstr "Update All"
+
+msgid "Model not downloaded, click to download the model"
+msgstr "Chưa tải về mô hình, hãy nhấn vào để tải về mô hình"
+
+msgid "Download the model"
+msgstr "Tải về mẫu"
+
+msgid ""
+"Creality Print requires the Microsoft WebView2 Runtime,But it has been found that the abnormal operation of Microsoft WebView2 may be related to the installation of Microsoft Edge. \n"
+"Click the Yes to reinstall Microsoft Edge"
+msgstr ""
+"Creality Print cần Microsoft WebView2 Runtime, nhưng phát hiện hoạt động bất thường của Microsoft WebView2 có thể liên quan đến cài đặt Microsoft Edge.\n"
+"Nhấn Có để cài đặt lại Microsoft Edge"
+
+msgid "Failed to reinstall the Microsoft WebView2 Runtime. Please reinstall it manually."
+msgstr "Lỗi cài đặt lại thời gian chạy của MicrosoftView2. Hãy cài đặt lại bằng tay."
+
+msgid "tutorial: %s"
+msgstr "hướng dẫn: %s"
+
+msgid "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
+msgstr "Thời gian chạy Microsoft WebView2 đã được cài đặt lại thành công. Ứng dụng sẽ khởi chạy lại ngay bây giờ."

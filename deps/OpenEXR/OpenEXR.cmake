@@ -32,6 +32,11 @@ else()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(_patch_cmd ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-OpenEXR-GCC13.patch)
+elseif (WIN32 AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "ARM64")
+    # On Windows ARM64, ImfSimd.h unconditionally enables SSE2 for any MSVC build
+    # (_MSC_VER >= 1300), which fails to compile on ARM. Patch the guard to only
+    # apply on x86/x64. See 0001-arm64-disable-sse2.patch.
+    set(_patch_cmd ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-arm64-disable-sse2.patch)
 else ()
     set(_patch_cmd "")
 endif ()

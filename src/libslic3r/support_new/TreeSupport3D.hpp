@@ -83,6 +83,7 @@ struct SupportElementStateBits
     SupportElementStateBits()
         : to_buildplate(false)
         , to_model_gracious(false)
+        , non_gracious_model_landing_confirmed(false)
         , use_min_xy_dist(false)
         , supports_roof(false)
         , can_use_safe_radius(false)
@@ -106,6 +107,10 @@ struct SupportElementStateBits
      * \brief Will the branch be able to rest completely on a flat surface, be it buildplate or model ?
      */
     bool to_model_gracious : 1;
+
+    /*! \brief A non-gracious root was already confirmed to rest on the model using
+     * the same current-layer / lower-layer remainder test as normal tree support. */
+    bool non_gracious_model_landing_confirmed : 1;
 
     /*!
      * \brief Whether the min_xy_distance can be used to get avoidance or similar. Will only be true if support_xy_overrides_z=Z overrides X/Y.
@@ -326,7 +331,8 @@ using SupportElements = std::deque<SupportElement>;
     return support_element_collision_radius(settings, elem.state);
 }
 
-void create_layer_pathing(const TreeModelVolumes&       volumes,
+void create_layer_pathing(Print&                        print,
+                          const TreeModelVolumes&       volumes,
                           const TreeSupportSettings&    config,
                           std::vector<SupportElements>& move_bounds,
                           std::function<void()>         throw_on_cancel);

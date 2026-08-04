@@ -22,27 +22,36 @@ std::string KlipperInterface::extractIP(const std::string& str)
     return str;  
 }
 
-void KlipperInterface::cancelSendFileToDevice()
+void KlipperInterface::cancelSendFileToDevice(const UploadCancelToken& cancelToken)
 {
-    m_bCancelSend = true;
-    if (m_pHttp != nullptr) {
-        m_pHttp->cancel();
-    }
+    request_upload_cancel(cancelToken);
 }
 
-std::future<void> KlipperInterface::sendFileToDevice(const std::string& serverIp, int port, const std::string& uploadFileName, const std::string& localFilePath, std::function<void(float, double)> progressCallback, std::function<void(int)> uploadStatusCallback, std::function<void(std::string)> onCompleteCallback)
+std::future<void> KlipperInterface::sendFileToDevice(const std::string& serverIp, int port, const std::string& uploadFileName, const std::string& localFilePath, std::function<void(float, double)> progressCallback, std::function<void(int)> uploadStatusCallback, std::function<void(std::string)> onCompleteCallback, UploadCancelToken cancelToken)
 {
     std::string ip = extractIP(serverIp);
     std::string urlLoad = "/server/files/upload";
     return std::async(std::launch::async, [=]() {
         bool res = false;
+        if (is_upload_cancelled(cancelToken)) {
+            if (uploadStatusCallback)
+                uploadStatusCallback(601);
+            return;
+        }
 
         std::string urlUpload = "http://" + ip + ":" + std::to_string(port) + urlLoad;
 
         BOOST_LOG_TRIVIAL(info) << boost::format("%1%: Uploading file %2% to %3%") % uploadFileName % localFilePath % urlUpload;
 
+        UploadFileUseGuard file_use(cancelToken);
+        if (!file_use) {
+            if (uploadStatusCallback)
+                uploadStatusCallback(601);
+            return;
+        }
         auto http = Slic3r::Http::post(urlUpload);
-        m_pHttp   = &http;
+        http.enable_active_cancel();
+        UploadRequestCancelWatcher cancel_watcher(cancelToken, [&http] { http.cancel(); });
 
         std::string temp_upload_name = uploadFileName;
 
@@ -88,6 +97,7 @@ std::future<void> KlipperInterface::sendFileToDevice(const std::string& serverIp
                     res = false;
             })
             .on_progress([&](Slic3r::Http::Progress progress, bool& cancel) {
+             cancel = is_upload_cancelled(cancelToken);
              if (progressCallback)
              {
                  time_t now = time(NULL);
@@ -119,7 +129,7 @@ std::future<void> KlipperInterface::sendFileToDevice(const std::string& serverIp
              .perform_sync();
                   if (!res && uploadStatusCallback)
                   {
-                      if (m_bCancelSend) 
+                      if (is_upload_cancelled(cancelToken))
                       {
                           uploadStatusCallback(601); // 601 means cancel succeeded
                       } else 

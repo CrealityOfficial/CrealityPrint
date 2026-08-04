@@ -6,6 +6,7 @@
 ///////////////////////////////////////////////////////////////////////////
 #include "ParamsPanel.hpp"
 #include "Widgets/StateColor.hpp"
+#include "Widgets/ComboBox.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/ModelVolume.hpp"
@@ -462,11 +463,12 @@ ParamsPanel::ParamsPanel( wxWindow* parent, wxWindowID id, const wxPoint& pos, c
 
         m_process_icon = new ScalableButton(m_top_panel, wxID_ANY, is_dark?"process_dark_default":"process_light_default");
 
-        m_title_label = new Label(m_top_panel, Label::Head_14, _L("Process"));
+        m_title_label = new Label(m_top_panel, Label::Head_16, _L("Process"));
 
         //int width, height;
         // BBS: new layout
         m_mode_region = new SwitchButton(m_top_panel);
+        m_mode_region->SetFont(Label::Body_13);
         m_mode_region->SetMaxSize({em_unit(this) * 12, -1});
         m_mode_region->SetLabels(_L("Global"), _L("Objects"));
 
@@ -569,7 +571,20 @@ ParamsPanel::ParamsPanel( wxWindow* parent, wxWindowID id, const wxPoint& pos, c
             	wxVSCROLL | wxHSCROLL) // hide hori-bar will cause hidden field mis-position
         {
             // ShowScrollBar(GetHandle(), SB_BOTH, FALSE);
+            Bind(wxEVT_MOUSEWHEEL, [](wxMouseEvent& e) {
+                ComboBox::DismissActiveDropDown();
+                e.Skip();
+                });
+            Bind(wxEVT_SCROLLWIN_THUMBTRACK, [](wxScrollWinEvent& e) {
+                ComboBox::DismissActiveDropDown();
+                e.Skip();
+                });
+            Bind(wxEVT_SCROLLWIN_THUMBRELEASE, [](wxScrollWinEvent& e) {
+                ComboBox::DismissActiveDropDown();
+                e.Skip();
+                });
             Bind(wxEVT_SCROLL_CHANGED, [this](auto& e) {
+                ComboBox::DismissActiveDropDown();
                 wxWindow* child = dynamic_cast<wxWindow*>(e.GetEventObject());
                 if (child != this)
                     EnsureVisible(child);
@@ -1409,7 +1424,7 @@ void ParamsPanel::OnToggled(wxCommandEvent& event)
 
     if (m_mode_region && m_mode_region->GetValue() && m_current_tab) {
         wxWindowUpdateLocker locker(GetParent());
-        set_active_tab(nullptr);
+        set_active_tab(m_current_tab);
     }
 
     m_page_view->Update();
@@ -1454,11 +1469,14 @@ void ParamsPanel::set_active_tab(wxPanel* tab)
         wxGetApp().plater()->get_process_toolbar().on_params_panel_tab_changed(cur_tab);
         if (m_current_tab == cur_tab)
             return;
-        if (cur_tab)
+        if (cur_tab) {
+            cur_tab->ensure_page_tree_rebuilt();
             cur_tab->restore_last_select_item();
+        }
         return;
     }
 
+    cur_tab->ensure_page_tree_rebuilt();
     m_current_tab = tab;
     on_active_tab_changed();
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(": set current to %1%, type=%2%") % cur_tab % cur_tab?cur_tab->type():-1;

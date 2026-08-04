@@ -194,7 +194,7 @@ protected:
     virtual void on_dpi_changed(const wxRect &suggested_rect) override;
     virtual void on_sys_color_changed() override;
 
-#ifdef __WIN32__
+#ifdef __WXMSW__
     WXLRESULT MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam) override;
 #endif
 
@@ -259,6 +259,7 @@ public:
 
 	// Called when closing the application and when switching the application language.
 	void 		shutdown();
+    void        destroy_webviews_for_recreate();
 
     Plater*     plater() { return m_plater; }
 

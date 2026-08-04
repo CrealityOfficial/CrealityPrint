@@ -5,7 +5,6 @@
 #include <filesystem>
 #include <functional>
 #include <nlohmann/json.hpp>
-#include <Windows.h>
 #include <algorithm>
 #include <sstream>
 #include <fstream>

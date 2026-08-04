@@ -1,0 +1,1286 @@
+msgid ""
+msgstr "Project-Id-Version: \nPOT-Creation-Date: \nPO-Revision-Date: \nLast-Translator: \nLanguage-Team: \nLanguage: vi_VN\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\nX-Generator: Poedit 3.5"
+
+msgid "All"
+msgstr "Tất cả"
+
+msgid "Idle"
+msgstr "Rảnh"
+
+msgid "Loading"
+msgstr "Đang tải"
+
+msgid "Blanking"
+msgstr "Trắng"
+
+msgid "Printer"
+msgstr "Máy in"
+
+msgid "Printer(WiFi)"
+msgstr "Máy in (WiFi)"
+
+msgid "Creality"
+msgstr "Creality"
+
+msgid "Bambu"
+msgstr "Bambu"
+
+msgid "Sonic Pad"
+msgstr "Sonic Pad"
+
+msgid "Other"
+msgstr "Khác"
+
+msgid "Name Address File"
+msgstr "Tên"
+
+msgid "Device group"
+msgstr "Nhóm thiết bị"
+
+msgid "Device State"
+msgstr "Trạng thái thiết bị"
+
+msgid "Device Type"
+msgstr "Thiết bị"
+
+msgid "Add Group"
+msgstr "Thêm nhóm"
+
+msgid "Scan Add"
+msgstr "Thêm quét"
+
+msgid "Manual Add"
+msgstr "Thêm thủ công"
+
+msgid "Edit Name"
+msgstr "Sửa tên"
+
+msgid "Remove"
+msgstr "Xóa bỏ"
+
+msgid "Device Model"
+msgstr "Mô hình thiết bị"
+
+msgid "Current Device"
+msgstr "Thiết bị hiện có"
+
+msgid "Device Name"
+msgstr "Tên thiết bị"
+
+msgid "Device Address"
+msgstr "Địa chỉ"
+
+msgid "Copy"
+msgstr "Chép"
+
+msgid "Print File"
+msgstr "In tập tin"
+
+msgid "Operation"
+msgstr "Thao tác"
+
+msgid "Details"
+msgstr "Chi tiết"
+
+msgid "English"
+msgstr "Tiếng Anh"
+
+msgid "Simplified Chinese"
+msgstr "Tiếng Trung giản thể"
+
+msgid "Create Device Group"
+msgstr "Tạo nhóm thiết bị"
+
+msgid "Ok"
+msgstr "OK"
+
+msgid "Cancel"
+msgstr "Hủy"
+
+msgid "Reset"
+msgstr "Đặt lại"
+
+msgid "Rename Device Group"
+msgstr "Thay tên nhóm thiết bị"
+
+msgid "Rename Device Name"
+msgstr "Thay tên mục"
+
+msgid "Printing Progress"
+msgstr "Tiến trình in"
+
+msgid "Add Device"
+msgstr "Thêm thiết bị"
+
+msgid "Add multiple devices"
+msgstr "Thêm nhiều thiết bị"
+
+msgid "How to find an IP address?"
+msgstr "Làm thế nào để tìm địa chỉ IP?"
+
+msgid "The device already exists"
+msgstr "Thiết bị đã có"
+
+msgid "The device does not exist"
+msgstr "Thiết bị không tồn tại"
+
+msgid "Device added successfully"
+msgstr "Thiết bị đã được thêm thành công"
+
+msgid "Test"
+msgstr "Thử"
+
+msgid "Back"
+msgstr "Quay lại"
+
+msgid "Warning"
+msgstr "Cảnh báo"
+
+msgid "Filament Status"
+msgstr "Trạng thái phụ"
+
+msgid "Filament Match"
+msgstr "Khớp miếng"
+
+msgid "Confirm"
+msgstr "Xác nhận"
+
+msgid "Upload GCode file name"
+msgstr "Tải lên tên tập tin GCode"
+
+msgid "Print calibration"
+msgstr "Cấu hình in"
+
+msgid "Enable CFS"
+msgstr "Bật CFS"
+
+msgid "Printing Information"
+msgstr "Thông tin in ấn"
+
+msgid "Control"
+msgstr "Ctrl"
+
+msgid "File"
+msgstr "Tệp"
+
+msgid "Records"
+msgstr "Thu"
+
+msgid "Timelapse Video"
+msgstr "Video timelapse"
+
+msgid "Object deletion"
+msgstr "Xóa đối tượng"
+
+msgid "Camera"
+msgstr "Máy ảnh"
+
+msgid "Temperature"
+msgstr "Nhiệt độ"
+
+msgid "Layer"
+msgstr "Lớp"
+
+msgid "Printing time"
+msgstr "Thời gian in"
+
+msgid "Remaining time"
+msgstr "Thời gian còn lại"
+
+msgid "Finish Time"
+msgstr "Kết thúc thời gian"
+
+msgid "Ultrafast"
+msgstr "Siêu nhanh"
+
+msgid "Standard"
+msgstr "Chuẩn"
+
+msgid "Stable"
+msgstr "Ổn định"
+
+msgid "Silent"
+msgstr "Yên lặng"
+
+msgid "Cannot be empty"
+msgstr "Không thể rỗng"
+
+msgid "Already exists"
+msgstr "Đã có"
+
+msgid "Copy successful"
+msgstr "Chép thành công"
+
+msgid "Removing a group will delete the devices in the group. Are you sure you want to remove it?"
+msgstr "Gỡ bỏ nhóm sẽ xoá các thiết bị trong nhóm. Anh có chắc muốn loại bỏ nó không?"
+
+msgid "Printing"
+msgstr "Đang in"
+
+msgid "Printing Complete"
+msgstr "In xong"
+
+msgid "Printing Failed"
+msgstr "Lỗi in"
+
+msgid "Print Abort"
+msgstr "Hủy bỏ in"
+
+msgid "Printing Paused"
+msgstr "Tạm dừng in"
+
+msgid "Printing Pausing"
+msgstr "Đang in"
+
+msgid "Printing Stopping"
+msgstr "Đang in"
+
+msgid "Printing Restoring"
+msgstr "Đang in lại"
+
+msgid "Executing print termination command"
+msgstr "Đang thực hiện lệnh chấm dứt in"
+
+msgid "Executing pause command"
+msgstr "Đang thực hiện lệnh tạm dừng"
+
+msgid "Executing the command to continue printing"
+msgstr "Đang thực hiện lệnh để tiếp tục in"
+
+msgid "Pause"
+msgstr "Tạm dừng"
+
+msgid "Stop"
+msgstr "Dừng"
+
+msgid "Continue"
+msgstr "Tiếp tục"
+
+msgid "Printing speed"
+msgstr "Tốc độ in"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Retry"
+msgstr "Thử lại"
+
+msgid "Printing Speed:"
+msgstr "Printing Speed: "
+
+msgid "Wind Speed"
+msgstr "Tốc độ Gió"
+
+msgid "Model fan"
+msgstr "quạt mô hình"
+
+msgid "Case fan"
+msgstr "quạt phân biệt chữ hoa/ thường"
+
+msgid "Side fan"
+msgstr "fan bên"
+
+msgid "LED light"
+msgstr "Đèn LED"
+
+msgid "Millimetre"
+msgstr "Mili- mét"
+
+msgid "Extrusion distance"
+msgstr "Khoảng cách Rộng ra"
+
+msgid "Extrusion speed"
+msgstr "Tốc độ mở rộng"
+
+msgid "Mm/sec"
+msgstr "Mm/sec"
+
+msgid "Please check"
+msgstr "Xin kiểm tra"
+
+msgid "Does the printer camera device work properly."
+msgstr "Thiết bị máy in hoạt động đúng."
+
+msgid "Chuangxiang Cloud devices will soon support this feature in the future, stay tuned!"
+msgstr "Trong tương lai, các thiết bị của Mây Chungxiang sẽ nhanh chóng hỗ trợ tính năng này, hãy tiếp tục điều chỉnh!"
+
+msgid "Relate to my account"
+msgstr "Liên quan đến tài khoản của tôi"
+
+msgid "My Device"
+msgstr "Thiết bị của tôi"
+
+msgid "Continue Print"
+msgstr "Tiếp tục in"
+
+msgid "Cancel Print"
+msgstr "Thôi in"
+
+msgid "Reconnecting"
+msgstr "Đang kết nối lại"
+
+msgid "IP Address"
+msgstr "IP Address"
+
+msgid "Add Status"
+msgstr "Thêm trạng thái"
+
+msgid "Add"
+msgstr "Thêm"
+
+msgid "Rescan"
+msgstr "Quét lại"
+
+msgid "Device Total"
+msgstr "Thiết bị tổng"
+
+msgid "Device added"
+msgstr "Thiết bị thêm"
+
+msgid "No device added"
+msgstr "Chưa thêm thiết bị"
+
+msgid "All Device"
+msgstr "Thiết bị"
+
+msgid "Selected devices"
+msgstr "Thiết bị đã chọn"
+
+msgid "Searching for device..."
+msgstr "Đang tìm thiết bị..."
+
+msgid "Verification..."
+msgstr "Mở đích"
+
+msgid "Connecting..."
+msgstr "Đang kết nối..."
+
+msgid "Device Details"
+msgstr "Chi tiết thiết bị"
+
+msgid "Remove Device"
+msgstr "Bỏ thiết bị"
+
+msgid "Move To"
+msgstr "Chuyển tới"
+
+msgid "Remove Group"
+msgstr "Bỏ"
+
+msgid "Edit Group"
+msgstr "Sửa nhóm"
+
+msgid "Debug"
+msgstr "gỡ lỗi"
+
+msgid "Offline"
+msgstr "Ngoại tuyến"
+
+msgid "Creality Cloud binds devices"
+msgstr "Đám mây ảnh hưởng đến thực thể"
+
+msgid "Merge with existing devices"
+msgstr "Gộp với thiết bị hiện có"
+
+msgid "Update success"
+msgstr "Cập nhật thành công"
+
+msgid "Import"
+msgstr "Nhập"
+
+msgid "File Name"
+msgstr "Tên tập tin"
+
+msgid "Video Name"
+msgstr "Tên ảnh động"
+
+msgid "File Size"
+msgstr "Cỡ tập tin"
+
+msgid "Storey"
+msgstr "Layer"
+
+msgid "Create Time"
+msgstr "Tạo thời gian"
+
+msgid "Consumable Length"
+msgstr "Chiều dài:"
+
+msgid "Name"
+msgstr "Tên"
+
+msgid "Start Time"
+msgstr "Thời gian chạy"
+
+msgid "End Time"
+msgstr "Hết giờ"
+
+msgid "Total Duration"
+msgstr "Tổng thời gian"
+
+msgid "Size"
+msgstr "Kích thước"
+
+msgid "Historical Records"
+msgstr "Lịch sử"
+
+msgid "Delayed Photography"
+msgstr "Ảnh chụp bị trễ"
+
+msgid "Start printing"
+msgstr "Bắt đầu in"
+
+msgid "Start Printing (Calibrate First)"
+msgstr "Bắt đầu in (trước công cụ)"
+
+msgid "Restart printing"
+msgstr "Khởi động lại in"
+
+msgid "Reprint (Calibrate First)"
+msgstr "In lại (trước tiên)"
+
+msgid "Delete File"
+msgstr "Xoá tập tin"
+
+msgid "Delete succeeded!"
+msgstr "Xoá thành công"
+
+msgid "Cancel Delete"
+msgstr "Thôi"
+
+msgid "Rename"
+msgstr "Thay tên"
+
+msgid "Please enter a file name"
+msgstr "Hãy nhập tên tập tin"
+
+msgid "File name cannot be empty!"
+msgstr "Không cho phép tên tập tin rỗng!"
+
+msgid "Rename succeeded!"
+msgstr "Thay tên đã thành công."
+
+msgid "Rename Cancel"
+msgstr "Xoá nhóm"
+
+msgid "Are you sure you want to delete this file?"
+msgstr "Bạn có chắc muốn xoá tập tin này không?"
+
+msgid "Please return to the printer before starting the printing operation!"
+msgstr "Xin vui lòng trở lại máy in trước khi bắt đầu hoạt động in!"
+
+msgid "Please import a Gcode slice file!"
+msgstr "Hãy nhập một tập tin lát Gde!"
+
+msgid "The file is being printed, please import after printing"
+msgstr "Tập tin đang được in, xin nhập sau khi in"
+
+msgid "Import succeeded"
+msgstr "Nhập thành công"
+
+msgid "Import failed"
+msgstr "Nhập thất bại"
+
+msgid "MultiColor"
+msgstr "Nhiều màu"
+
+msgid "Yes"
+msgstr "Có"
+
+msgid "No"
+msgstr "Không"
+
+msgid "Selected Files"
+msgstr "Tập tin đã chọn"
+
+msgid "Delete"
+msgstr "Xóa"
+
+msgid "Export"
+msgstr "Xuất"
+
+msgid "Copy link"
+msgstr "Chép liên kết"
+
+msgid "G-code file has been deleted and cannot be printed"
+msgstr "Tập tin mã G đã bị xoá và không thể in"
+
+msgid "Copy link successfully"
+msgstr "Chép liên kết thành công"
+
+msgid "Project"
+msgstr "Dự án"
+
+msgid "Current"
+msgstr "Hiện tại"
+
+msgid "Target"
+msgstr "Mục tiêu"
+
+msgid "Nozzle"
+msgstr "Mũi"
+
+msgid "HotBed"
+msgstr "HotBed"
+
+msgid "Chamber"
+msgstr "Phòng"
+
+msgid "The temperature range is unreasonable"
+msgstr "Nhiệt độ không hợp lý."
+
+msgid "Exclusion succeeded!"
+msgstr "Việc loại trừ đã thành công!"
+
+msgid "Whether to exclude selected models?"
+msgstr "Có nên loại bỏ mô hình đã chọn không?"
+
+msgid "Exclude object"
+msgstr "Siêu dữ liệu"
+
+msgid "This object is excluded!"
+msgstr "Vật này bị loại trừ!"
+
+msgid "Only a single model remains and does not support exclusion"
+msgstr "Chỉ còn lại một mô hình duy nhất và không hỗ trợ việc loại trừ"
+
+msgid "Consumables"
+msgstr "Cấu hình"
+
+msgid "Spool Holder"
+msgstr "Bảng tạm"
+
+msgid "Guide"
+msgstr "Hướng dẫn"
+
+msgid "Feed"
+msgstr "Nạp"
+
+msgid "Retract"
+msgstr "Rút lui"
+
+msgid "RFID consumables information does not support modification"
+msgstr "Thông tin vật tư RFID không hỗ trợ chỉnh sửa"
+
+msgid "It does not support setting consumables information during printing."
+msgstr "Nó không hỗ trợ việc thiết lập thông tin có thể truy cập trong khi in."
+
+msgid "Material box setting"
+msgstr "Thiết lập hộp vật liệu"
+
+msgid "Try Again"
+msgstr "Thử lại"
+
+msgid "CFS Humidity"
+msgstr "Độ ẩm CFS"
+
+msgid "Scope"
+msgstr "Phạm vị"
+
+msgid "Unit"
+msgstr "Đơn vị"
+
+msgid "Normal"
+msgstr "Chuẩn"
+
+msgid "High"
+msgstr "Cao"
+
+msgid "Too high"
+msgstr "Cao quá"
+
+msgid "Detection on insertion"
+msgstr "Phát hiện khi chèn"
+
+msgid "When a new material line is inserted, the system automatically reads the material line information, which takes about 20 seconds."
+msgstr "Khi một đường vật chất mới được chèn vào, hệ thống tự động đọc thông tin về đường vật chất, cần khoảng 20 giây."
+
+msgid "Detection at startup"
+msgstr "Phát hiện khi khởi chạy"
+
+msgid "Each time the machine is turned on, the system automatically reads the material line information, which takes about 1 minute."
+msgstr "Mỗi lần máy được bật lên, hệ thống tự động đọc thông tin vật liệu, cần khoảng 1 phút."
+
+msgid "Automatic feeding system"
+msgstr "Hệ thống tự động nạp"
+
+msgid "When the material line is exhausted, it will automatically switch to a consumable with exactly the same properties."
+msgstr "Khi đường vật chất bị cạn kiệt, nó sẽ tự động chuyển sang có thể đi lại với cùng một tính chất."
+
+msgid "Automatic refill"
+msgstr "Tự động thêm"
+
+msgid "Brand"
+msgstr "Nhãn"
+
+msgid "Type"
+msgstr "Loại"
+
+msgid "Color"
+msgstr "Màu"
+
+msgid "Nozzle temperature"
+msgstr "Nhiệt độ mũi"
+
+msgid "Pressure in advance"
+msgstr "Áp lực trước"
+
+msgid "Temperature range invalide,please reset"
+msgstr "Phạm vi nhiệt độ không hợp lệ, hãy đặt lại"
+
+msgid "The printer parameters have been modified. If you continue, it will overwrite the current parameters of the printer"
+msgstr "Tham số máy in đã bị thay đổi. Nếu bạn tiếp tục, nó sẽ ghi đè lên các tham số hiện thời của máy in"
+
+msgid "The color can not be empty."
+msgstr "Màu sắc không thể rỗng."
+
+msgid "Please select a material for feed handling"
+msgstr "Hãy chọn một tài liệu cho việc xử lý thức ăn"
+
+msgid "All Plates Stats"
+msgstr "Mọi đĩa"
+
+msgid "One-Click Printing"
+msgstr "In ấn một chip"
+
+msgid "Send G-code"
+msgstr "Gởi mã G"
+
+msgid "Do not send empty disk data"
+msgstr "Không gửi dữ liệu trống trên đĩa"
+
+msgid "Print"
+msgstr "In"
+
+msgid "CFS slot selection"
+msgstr "Chọn khe CFS"
+
+msgid "The printing status does not allow machine operation!"
+msgstr "Trạng thái in không cho phép thao tác máy móc!"
+
+msgid "Please re-enter the target value!"
+msgstr "Hãy nhập lại giá trị mục tiêu!"
+
+msgid "The file cannot be restored after deletion. Are you sure to continue?"
+msgstr "Không thể phục hồi tập tin sau khi xoá. Anh chắc là sẽ tiếp tục chứ?"
+
+msgid "This operation cannot be undone. Are you sure to continue sending the termination command?"
+msgstr "Không thể hủy bỏ chiến dịch này. Anh có chắc là tiếp tục gửi lệnh hủy bỏ không?"
+
+msgid "Creality Print camera function does not currently support devices that are only bound to Creality Cloud"
+msgstr "Chức năng in chân dung của máy ảnh không hỗ trợ thiết bị chỉ được gắn liền với đám mây đại diện"
+
+msgid "Select a slot and click the 'Feed'/'Retract' button"
+msgstr "Select a slot and click the \"Feed\"/\"Retract\" button"
+
+msgid "Temperature will heat up to 240°C before feed"
+msgstr "Nhiệt độ sẽ tăng lên 240°C trước khi ăn."
+
+msgid "Extruding"
+msgstr "Đang xoá"
+
+msgid "Finish"
+msgstr "Hoàn tất"
+
+msgid "Temperature will heat up to 240°C before retreat"
+msgstr "Nhiệt độ sẽ tăng lên 240°C trước khi rút lui."
+
+msgid "Retract Prepare"
+msgstr "Chuẩn bị rút lui"
+
+msgid "Retracting"
+msgstr "Đang rút lui"
+
+msgid "Retract Finish"
+msgstr "Rút lại kết thúc"
+
+msgid "Feed nozzle heating (220℃) 220℃ is an example, the actual operating temperature is based on the maximum temperature of the consumables"
+msgstr "Cho vòi nước nóng (20 °C) 220 °C là một ví dụ, nhiệt độ thực tế hoạt động dựa trên nhiệt độ tối đa của các cơ thể"
+
+msgid "Feeding inspection line position"
+msgstr "Đang cung cấp dữ liệu vị trí"
+
+msgid "Feeding and cutting line"
+msgstr "Đường ống ăn và cắt"
+
+msgid "Feed back to the current material line"
+msgstr "Tải lại dòng vật liệu hiện tại"
+
+msgid "Feeding and delivering new material line"
+msgstr "Cung cấp thức ăn và hàng hóa mới"
+
+msgid "Feeding and biting line"
+msgstr "Ăn và cắn dây"
+
+msgid "Feed flushing old material line"
+msgstr "Nạp đường xả vật liệu cũ"
+
+msgid "Check the feed line position"
+msgstr "Kiểm tra vị trí đường dây dữ liệu"
+
+msgid "Cutting line"
+msgstr "Đường cắt"
+
+msgid "Retract the current material line"
+msgstr "Thu hồi dữ liệu hiện thời"
+
+msgid "Flushing old material line"
+msgstr "Đường dẫn vật liệu cũ"
+
+msgid "An unknown error was detected in printing"
+msgstr "Phát hiện lỗi không xác định khi in"
+
+msgid "Motor drive abnormality"
+msgstr "Bất thường bộ truyền động động cơ"
+
+msgid "internal error"
+msgstr "lỗi nội bộ"
+
+msgid "Communication abnormality"
+msgstr "Liên lạc bất thường"
+
+msgid "Not heating as expected"
+msgstr "Không nóng như mong đợi"
+
+msgid "Unknown exception"
+msgstr "Ngoại lệ không rõ"
+
+msgid "Extruder abnormality"
+msgstr "Sự khác thường quá mức"
+
+msgid "Print file coordinates are abnormal"
+msgstr "Tọa độ tập tin in là bất thường"
+
+msgid "Chatter optimization sensor abnormality"
+msgstr "Cảm biến tối ưu hóa âm thanh"
+
+msgid "Fan abnormality"
+msgstr "Fan bất thường"
+
+msgid "A print quality issue has been detected and printing has been paused"
+msgstr "Phát hiện vấn đề chất lượng in và đã tạm dừng in"
+
+msgid "Unknown error"
+msgstr "Lỗi không rõ"
+
+msgid "Foreign object detected on the printing platform, printing paused"
+msgstr "Phát hiện vật thể lạ trên nền tảng in ấn, bị dừng in"
+
+msgid "Motherboard Connection Failure"
+msgstr "Lỗi kết nối"
+
+msgid "Nozzle connection abnormal"
+msgstr "Kết nối đầu phun bất thường"
+
+msgid "Hotbed Connection Abnormal"
+msgstr "Kết nối"
+
+msgid "Detected unfinished task, do you wish to continue printing"
+msgstr "Phát hiện tác vụ chưa hoàn thành, bạn có muốn tiếp tục in"
+
+msgid "Filament runout, printing paused, please refill"
+msgstr "Hết xăng, ngừng in, làm ơn đổ đầy"
+
+msgid "A model warping issue has been detected，printing has been paused"
+msgstr "Một vấn đề về sự biến đổi mô hình đã được phát hiện."
+
+msgid "Detected waste chute is block. Please clean it up and try again."
+msgstr "Phát hiện ra dù rác là một khối. Xin hãy dọn dẹp và thử lại."
+
+msgid "Belt tension abnormal. Please rerun the Input Shaping before using the printer."
+msgstr "Căng thẳng thắt lưng bất thường. Hãy chạy lại sơ đồ nhập trước khi dùng máy in."
+
+msgid "FR2357: CFS filament in use. To print with spool holder, unload CFS filament and reload spool holder before printing."
+msgstr ""
+"FR2357: Filament CFS đang được sử dụng. Để in bằng giá cuộn, hãy rút filament CFS và nạp lại filament trên giá cuộn trước khi in."
+
+msgid "FR2358: Spool holder filament in use. To print with CFS, unload spool holder filament and reload CFS filament before printing."
+msgstr ""
+"FR2358: Filament trên giá cuộn đang được sử dụng. Để in bằng CFS, hãy rút filament trên giá cuộn và nạp lại filament CFS trước khi in."
+
+msgid "Abnormal temperature of the temperature chamber"
+msgstr "Nhiệt độ bất thường của căn phòng nhiệt độ"
+
+msgid "network anomaly"
+msgstr "mạng bất thường"
+
+msgid "AI detected print quality issues"
+msgstr "AI phát hiện vấn đề chất lượng in"
+
+msgid "z-Touch abnormality"
+msgstr "z-Touch bất thường"
+
+msgid "File anomaly"
+msgstr "Tập tin bất thường"
+
+msgid "Abnormal hot bed temperature"
+msgstr "Nhiệt độ giường nóng bất thường"
+
+msgid "Printing quality issues detected by AI"
+msgstr "Gặp lỗi khi in"
+
+msgid "TF0501: Heat break fan speed detected to be too low."
+msgstr "TF0501: phát hiện tốc độ quạt phá nhiệt quá thấp."
+
+msgid "Mainboard fan exception"
+msgstr "Ngoại lệ người hâm mộ bảng chính"
+
+msgid "Detected a issue with the print quality of the first layer"
+msgstr "Phát hiện ra vấn đề với chất lượng in của lớp thứ nhất"
+
+msgid "Current file does not support flow detection"
+msgstr "Tập tin hiện thời không hỗ trợ phát hiện luồng"
+
+msgid "AI LiDAR anomaly"
+msgstr "Bất thường AI LiDAR"
+
+msgid "AI LiDAR calibration failure"
+msgstr "Hiệu chuẩn AI LiDAR thất bại"
+
+msgid "AI LiDAR alignment failure"
+msgstr "Căn chỉnh AI LiDAR thất bại"
+
+msgid "Current storage space usage has reached %s, please clean up in time"
+msgstr "Dung lượng lưu trữ đã sử dụng đạt %s, vui lòng dọn dẹp kịp thời"
+
+msgid "Chamber temp too high, camera off. It'll auto-on when temp normalizes"
+msgstr "Nhiệt độ phòng quá cao, tắt máy quay. Nó sẽ tự động khi thời tiết bình thường"
+
+msgid "Camera failed to start, try restarting"
+msgstr "Máy ảnh không khởi chạy được nên thử khởi chạy lại"
+
+msgid "Current file does not support flow ratio calibration, printing with default values."
+msgstr "Tập tin hiện thời không hỗ trợ khả năng cân chỉnh tỷ lệ luồng, in với giá trị mặc định."
+
+msgid "Current filament does not support flow ratio calibration, printing with default values."
+msgstr "Các sợi hiện thời không hỗ trợ khả năng cân chỉnh tỷ lệ luồng, in với giá trị mặc định."
+
+msgid "Auto PA calibration image anomaly, printing with default values."
+msgstr "Tự động cân chỉnh ảnh bất thường, in với giá trị mặc định."
+
+msgid "Auto PA calibration failed, printing with default values."
+msgstr "Bộ cân chỉnh tự động bị lỗi, in với giá trị mặc định."
+
+msgid "A model warping issue has been detected."
+msgstr "Đã phát hiện một vấn đề biến đổi mô hình."
+
+msgid "TF0526: Model fan speed detected to be too low."
+msgstr "Phát hiện tốc độ fan hâm mộ mô hình quá thấp."
+
+msgid "FO0528: rinter seems to be printing without extruding."
+msgstr "FO0528: hình như là in mà không cần phải hướng dẫn."
+
+msgid "Axis movement error"
+msgstr "Lỗi di chuyển trục"
+
+msgid "Machine preparation"
+msgstr "Chuẩn bị máy"
+
+msgid "System error, try restarting"
+msgstr "Lỗi hệ thống, thử khởi chạy lại"
+
+msgid "The nozzle temperature is below the minimum extrusion temperature"
+msgstr "Nhiệt độ vòi dưới nhiệt độ tiểu cầu tối thiểu"
+
+msgid "Unable to obtain nozzle temperature, the thermistor may be disconnected"
+msgstr "Không thể đạt được nhiệt độ vòi, bộ điều khiển có thể bị ngắt kết nối"
+
+msgid "Hotbed thermistor open circuit"
+msgstr "Mạch cảm biến nhiệt bàn in bị hở"
+
+msgid "The chamber thermistor may be open circuit"
+msgstr "Phòng cách ly có thể mở mạch điện."
+
+msgid "The motherboard temperature is abnormal"
+msgstr "Nhiệt độ của người máy là bất thường"
+
+msgid "Nozzle temperature exceeds limit, thermistor may be short-circuited"
+msgstr "Nhiệt độ Nozzle quá giới hạn, bộ phận hô hấp có thể bị mạch ngắn"
+
+msgid "Hotbed thermistor short circuit"
+msgstr "Mạch cảm biến nhiệt bàn in bị chập"
+
+msgid "The chamber thermistor may be short circuit"
+msgstr "Phòng cách ly có thể ngắn"
+
+msgid "Chamber heating issue, please ensure the printer is sealed"
+msgstr "Phòng sưởi có vấn đề, xin hãy đảm bảo máy in được đóng kín."
+
+msgid "The nozzle is not heating as expected"
+msgstr "Cái vòi không nóng như mong đợi"
+
+msgid "The heat bed is not heating as expected"
+msgstr "Cái giường nóng không ấm như mong đợi"
+
+msgid "Print file is corrupted"
+msgstr "Tập tin in bị hỏng"
+
+msgid "X-axis homing abnormality"
+msgstr "Bất thường khi home trục X"
+
+msgid "Y-axis homing abnormality"
+msgstr "Bất thường khi home trục Y"
+
+msgid "Z-axis homing abnormality"
+msgstr "Bất thường khi home trục Z"
+
+msgid "X-axis print coordinates out of range"
+msgstr "Tọa độ in trục X ngoài phạm vi"
+
+msgid "Y-axis print coordinates out of range"
+msgstr "Tọa độ in trục Y ngoài phạm vi"
+
+msgid "Z-axis print coordinates out of range"
+msgstr "Tọa độ in Z-axis ngoài phạm vi"
+
+msgid "Z Offset Exceeds Limit"
+msgstr "Hạn chế hiệu số Z"
+
+msgid "Belt tension module abnormal."
+msgstr "Mô-đun căng thẳng thắt lưng bất thường."
+
+msgid "Auto belt tension failure"
+msgstr "Thắt dây an toàn bị hỏng"
+
+msgid "The nozzle leveling sensor may have a hardware failure."
+msgstr "Bộ cảm biến San lấp miệng có thể bị hỏng phần cứng."
+
+msgid "The nozzle leveling sensor may be damaged or the wiping module may have fallen off. Please check or try restarting."
+msgstr "Cảm biến San hô bằng vòi có thể bị hư hoặc mô- đun quét có thể bị rơi. Vui lòng kiểm tra hoặc thử khởi chạy lại."
+
+msgid "Z-axis homing issue,may have an external disturbance "
+msgstr "Z-axis quay cuồng, có thể có một sự xáo trộn bên ngoài"
+
+msgid "[Printing] XY Motor: XY motor speed limit exceeded. The motor will be released. Please reduce the print speed or re-slice and print again.Z Motor: Z motor speed limit exceeded. The motor will be released. Please reduce the print speed or re-slice and print again.E Motor: Extruder speed limit exceeded. The motor will be released. Please reduce the print speed or re-slice and print again.[Not Printing] XY Motor: XY motor speed limit exceeded. The motor will be released. Please reduce the XY motor movement speed.Z Motor: Z motor speed limit exceeded. The motor will be released. Please reduce the Z motor movement speed.E Motor: Extruder speed limit exceeded. The motor will be released. Please reduce the extruder movement speed."
+msgstr ""
+"[Đang in] Động cơ XY: vượt quá giới hạn tốc độ động cơ XY. Động cơ sẽ được nhả. Vui lòng giảm tốc độ in hoặc cắt lớp lại rồi in lại. Động cơ Z: vượt quá giới hạn tốc độ động cơ Z. Động cơ sẽ được nhả. Vui lòng giảm tốc độ in hoặc cắt lớp lại rồi in lại. Động cơ E: vượt quá giới hạn tốc độ đầu đùn. Động cơ sẽ được nhả. Vui lòng giảm tốc độ in hoặc cắt lớp lại rồi in lại. [Không in] Động cơ XY: vượt quá giới hạn tốc độ động cơ XY. Động cơ sẽ được nhả. Vui lòng giảm tốc độ di chuyển của động cơ XY. Động cơ Z: vượt quá giới hạn tốc độ động cơ Z. Động cơ sẽ được nhả. Vui lòng giảm tốc độ di chuyển của động cơ Z. Động cơ E: vượt quá giới hạn tốc độ đầu đùn. Động cơ sẽ được nhả. Vui lòng giảm tốc độ di chuyển của đầu đùn."
+
+msgid "[X/Y/E/Z1/Z2] step-servo position issue, please try again after resolving"
+msgstr "Vấn đề vị trí step-servo [X/Y/E/Z1/Z2], vui lòng thử lại sau khi xử lý"
+
+msgid "[Printing] XY Motor: An obstacle was detected during the extruder's movement. This print has been canceled and the motor is released.Z Motor: An obstacle was detected during the heated bed's movement. This print has been canceled and the motor is released.E Motor: An extrusion anomaly was detected, possibly a clog, tangle, or jam. Printing has been paused.[Not Printing] XY Motorstep-servo: An obstacle was detected during the nozzle's movement. The motor will be released.Z Motor: An obstacle was detected during the heated bed's movement. The motor will be released.E Motor: An extrusion anomaly was detected, possibly a clog, tangle, or jam. The motor will be released."
+msgstr ""
+"[Đang in] Động cơ XY: Phát hiện vật cản khi đầu đùn di chuyển. Lệnh in này đã bị hủy và động cơ được nhả. Động cơ Z: Phát hiện vật cản khi bàn nhiệt di chuyển. Lệnh in này đã bị hủy và động cơ được nhả. Động cơ E: Phát hiện bất thường khi đùn, có thể bị tắc, rối hoặc kẹt. Đã tạm dừng in. [Không in] Động cơ XY step-servo: Phát hiện vật cản khi đầu phun di chuyển. Động cơ sẽ được nhả. Động cơ Z: Phát hiện vật cản khi bàn nhiệt di chuyển. Động cơ sẽ được nhả. Động cơ E: Phát hiện bất thường khi đùn, có thể bị tắc, rối hoặc kẹt. Động cơ sẽ được nhả."
+
+msgid "X Motor: X motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.Y Motor: Y motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.Z1 Motor: Z1 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.Z2 Motor: Z2 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.E Motor: Extruder motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr ""
+"Động cơ X: phát hiện lỗi nhận dạng động cơ X. Dây động cơ có thể kết nối không đúng hoặc động cơ có thể bị hỏng. Động cơ Y: phát hiện lỗi nhận dạng động cơ Y. Dây động cơ có thể kết nối không đúng hoặc động cơ có thể bị hỏng. Động cơ Z1: phát hiện lỗi nhận dạng động cơ Z1. Dây động cơ có thể kết nối không đúng hoặc động cơ có thể bị hỏng. Động cơ Z2: phát hiện lỗi nhận dạng động cơ Z2. Dây động cơ có thể kết nối không đúng hoặc động cơ có thể bị hỏng. Động cơ E: phát hiện lỗi nhận dạng động cơ đầu đùn. Dây động cơ có thể kết nối không đúng hoặc động cơ có thể bị hỏng."
+
+
+msgid "communication issue, please try again after resolving."
+msgstr "Xin hãy thử lại sau khi giải quyết xong vấn đề liên lạc."
+
+msgid "Retract issue, check for filament or spool jams. Click &quot;Retry&quot; after resolving."
+msgstr "Rút lại vấn đề, kiểm tra dây hoặc tắc ống. Nhấn &quot;Rery &quot; sau khi giải quyết."
+
+msgid "Feed issue, check for filament or spool jams. Click &quot;Retry&quot; after resolving."
+msgstr "Chất dinh dưỡng, kiểm tra sợi dây hoặc tắc ống dẫn. Nhấn &quot;Rery &quot; sau khi giải quyết."
+
+msgid "System error."
+msgstr "Lỗi hệ thống."
+
+msgid "Feed issue , filament may be stuck from loader to CFS hub. Please resolve the issue and click the &quot;Retry&quot; button."
+msgstr "Lỗi nạp filament, filament có thể bị kẹt từ bộ nạp đến hub CFS. Vui lòng xử lý sự cố rồi nhấn nút &quot;Retry&quot;."
+
+msgid "Feed issue , filament may be blocked between the CFS hub and extruder filament detector. Please resolve the issue and click &quot;Retry&quot; button."
+msgstr ""
+"Lỗi nạp filament, filament có thể bị chặn giữa hub CFS và cảm biến filament của đầu đùn. Vui lòng xử lý sự cố rồi nhấn nút &quot;Retry&quot;."
+
+msgid "Feed issue , filament may be jammed between the extruder sensor and the extruder gear. Please resolve the issue and click the &quot;Retry&quot; button."
+msgstr ""
+"Lỗi nạp filament, filament có thể bị kẹt giữa cảm biến đầu đùn và bánh răng đầu đùn. Vui lòng xử lý sự cố rồi nhấn nút &quot;Retry&quot;."
+
+msgid "Feed issue , filament may be stuck between the CFS hub sensor and the gear. Please resolve the issue and click the &quot;Retry&quot; button."
+msgstr ""
+"Lỗi nạp filament, filament có thể bị kẹt giữa cảm biến hub CFS và bánh răng. Vui lòng xử lý sự cố rồi nhấn nút &quot;Retry&quot;."
+
+msgid "filament runs out, please refill."
+msgstr "Dây buộc hết rồi."
+
+msgid "Command failed, current scenario does not support this command."
+msgstr "Lệnh bị lỗi, kịch bản hiện thời không hỗ trợ lệnh này."
+
+msgid "Cutter issue, cutter might be jammed, please try again after resolving"
+msgstr "Máy cắt có thể bị kẹt, hãy thử lại sau khi giải quyết xong."
+
+msgid "RFID cannot be read, please manually edit filament"
+msgstr "Không thể đọc được, xin vui lòng sửa đổi sợi dây bằng tay"
+
+msgid "PTFE tube may have detached from the pneumatic fitting, Printing paused, please try again after resolving"
+msgstr "Ống PTFE có thể đã tuột khỏi đầu nối khí nén. Đã tạm dừng in, vui lòng thử lại sau khi xử lý."
+
+msgid "Extruder may be clogged. Click &quot;Retry&quot; after resolving."
+msgstr "Thuốc trừ sâu có thể bị tắc. Nhấn &quot;Rery &quot; sau khi giải quyết."
+
+msgid "The filament buffer signal is abnormal,the buffer may be stuck or the filament may be tangle."
+msgstr "Tín hiệu đệm sợi là bất thường, bộ đệm có thể bị kẹt hoặc sợi tơ bị rối."
+
+msgid "Filament may tangled, please try again after resolving"
+msgstr "Đồ đạc có thể bị rối loạn, hãy thử lại sau khi giải quyết xong."
+
+msgid "filament may be broken in CFS."
+msgstr "Filament có thể bị đứt trong CFS."
+
+msgid "Retract issue, filament cannot be returned to CFS hub. Please resolve the issue and click the &quot;Retry&quot; button."
+msgstr "Lỗi rút filament, filament không thể quay về hub CFS. Vui lòng xử lý sự cố rồi nhấn nút &quot;Retry&quot;."
+
+msgid "Retract issue, filaments may be inserted into the CFS hub. Remove and click the &quot;Retry&quot; button."
+msgstr "Lỗi rút filament, filament có thể đã bị đưa vào hub CFS. Hãy lấy ra rồi nhấn nút &quot;Retry&quot;."
+
+msgid "Retract issue, Filament Buffer failure. Please resolve and click &quot;Retry&quot; button."
+msgstr "Vấn đề rút lại, thất bại. Hãy giải quyết và nhấn &quot; Hãy thử &quot; cái nút."
+
+msgid "TR2852: Filament detector triggered abnormally, possibly due to an external material rack being used with CFS."
+msgstr "TR2852: Filament detector triggered abnormally, possibly due to an external filaments rack being used with CFS."
+
+msgid "CFS temperature and humidity sensor abnormal."
+msgstr "Thân nhiệt và cảm biến độ ẩm bất thường."
+
+msgid "TC2854: Filament detected in the extruder, affecting the cutter calibration. Please remove the filament and try again."
+msgstr "TC2854: Chất nổ phát hiện trong chất tẩy, ảnh hưởng đến khả năng cân bằng. Làm ơn bỏ sợi dây ra và thử lại."
+
+msgid "TC2855: Cutter calibrat failed. Please try again after resolving."
+msgstr "Cutter calibra thất bại. Hãy thử lại sau khi giải quyết xong."
+
+msgid "TC2856: Cutter issue, the cutter may be jammed or missing. Click &quot;Retry&quot; after resolving."
+msgstr "TC2856: Lỗi dao cắt, dao có thể bị kẹt hoặc bị thiếu. Nhấn &quot;Retry&quot; sau khi xử lý."
+
+msgid "CFS feeding motor overload, maybe excessive load or unload resistance or the filament tangled or stuck."
+msgstr "Có thể là quá tải hoặc quá tải kháng thể hoặc dây rối loạn hoặc bị kẹt."
+
+msgid "FS2858: CFS EEPROM abnormal."
+msgstr "FS2858:"
+
+msgid "FO2859: CFS filament odometry abnormal."
+msgstr "FO2859:"
+
+msgid "FB2860: CFS filament buffer abnormal."
+msgstr "FB2860: Bộ đệm filament CFS bất thường."
+
+msgid "FS2861: CFS left RFID board abnormal."
+msgstr "FS2861: Bo RFID bên trái của CFS bất thường."
+
+msgid "FS2862: CFS right RFID board abnormal."
+msgstr "FS2862: Bo RFID bên phải của CFS bất thường."
+
+msgid "The file where the last unexpected stop was detected"
+msgstr "Tệp phát hiện lần dừng bất thường gần nhất"
+
+msgid "No filaments detected, do you want to continue printing?"
+msgstr "Không phát hiện sợi lông, bạn có muốn tiếp tục in không?"
+
+msgid "There is no filaments in the current rack"
+msgstr "Không có sợi lông nào trên giá hiện tại"
+
+msgid "No matching automatic refill filaments"
+msgstr "Không có sợi dây tự động tương ứng"
+
+msgid "Axis movement exceeded limit"
+msgstr "Di chuyển trục vượt quá giới hạn"
+
+msgid "Default"
+msgstr "Mặc định"
+
+msgid "Using Creality Filament System (CFS) for easy filament management, including automatic refilling, multi-color printing, and support printing."
+msgstr "Sử dụng Creality Filament System (CFS) để quản lý filament dễ dàng, bao gồm tự động nạp lại, in nhiều màu và in hỗ trợ."
+
+msgid "Creality Cloud devices currently do not support displaying preview PNG"
+msgstr "Hiện thiết bị Creality Cloud chưa hỗ trợ hiển thị PNG xem trước"
+
+msgid "Invalid hostname"
+msgstr "Tên máy không hợp lệ"
+
+msgid "Printing preparation in progress..."
+msgstr "Đang chuẩn bị in..."
+
+msgid "Filament Weight"
+msgstr "Độ mờ đục"
+
+msgid "Feed issue, filament failed to exit extruder.Please resolve and click 'Retry' button."
+msgstr "Vấn đề ăn uống, sợi dây không thể thoát ra được. Vui lòng giải quyết và nhấn nút « Thử »."
+
+msgid "The current printer's material rack consumables do not exist. Do you want to continue printing?"
+msgstr "Các tài liệu của máy in hiện tại không tồn tại. Bạn có muốn tiếp tục in không?"
+
+msgid "Hotbed failed to return to the maximum Z-axis position or tilt calibration at this position failed,please try again after resolving."
+msgstr "Hotbed không thể trở lại vị trí tối đa Z-axis hoặc độ nghiêng tại vị trí này thất bại, hãy thử lại sau khi giải quyết."
+
+msgid "Abnormal resistance in the Y-axis movement direction,  motor released. Fix issue and restart."
+msgstr "Phát hiện lực cản bất thường theo hướng di chuyển trục Y, động cơ đã được nhả. Hãy khắc phục sự cố và khởi động lại."
+
+msgid "Abnormal resistance under the hotbed, motor released. Fix issue and restart."
+msgstr "Kháng cự bất thường ở dưới giường nóng, động cơ được thả ra. Sửa chữa vấn đề và khởi động lại."
+
+msgid "Extruder extrusion anomaly, possible clog or blockage. motor released."
+msgstr "Quá mức bất thường, có thể là tắc nghẽn hoặc tắc nghẽn. Động cơ tự phát."
+
+msgid "Extruder speed limit exceeded. The motor will be released. Please reduce the extruder movement speed."
+msgstr "Tốc độ tối đa vượt quá giới hạn. Động cơ sẽ được thả. Làm ơn giảm tốc độ vận động của thuốc trừ sâu."
+
+msgid "Y motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "Phát hiện lỗi nhận diện động cơ Y. Dây điện có thể nối không đúng cách hoặc động cơ có thể bị hư."
+
+msgid "Z1 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "@ info: status Dây điện có thể nối không đúng cách hoặc động cơ có thể bị hư."
+
+msgid "Z2 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "@ info: status Dây điện có thể nối không đúng cách hoặc động cơ có thể bị hư."
+
+msgid "E motor identification error detected. The motor wire may be connected improperly or the motor may be damaged."
+msgstr "Phát hiện lỗi nhận diện động cơ E. Dây điện có thể nối không đúng cách hoặc động cơ có thể bị hư."
+
+msgid "[x or y or e] axis servo motor hardware abnormality/[z1 or z2] axis servo motor hardware abnormality, the platform plate will drop"
+msgstr "[x hay y hoặc e] phần cứng động cơ trục bất thường / [z1 hoặc z2] phần cứng động cơ vận động bất thường, các tấm nền sẽ giảm"
+
+msgid "X/Y/Z/E axis step-servo motor initialization error, motor communication line may be connected incorrectly"
+msgstr "X/Y/Z/E trục bước-Servo lỗi khởi tạo động động, dòng kết nối giao tiếp động có thể được kết nối không đúng"
+
+msgid "Chamber heater fan abnormal, chamber heating closed."
+msgstr "quạt nhiệt độ phòng bất thường, phòng sưởi đóng lại."
+
+msgid "Belt tension module error, left side belt communication line may be connected improperly. "
+msgstr "Belt tension module error, left side belt communication line may be connected improperly."
+
+msgid "Belt tension module error, right side belt tension module not calibrated, please recalibrate the module."
+msgstr "Lỗi mô-đun căng thắt lưng, mô-đun căng dây bên phải không hiệu chỉnh, hãy điều chỉnh lại mô-đun."
+
+msgid "Belt tension module error, left side belt tension module not calibrated, please recalibrate the module. "
+msgstr "Lỗi mô-đun căng đai, mô-đun căng đai bên trái chưa được hiệu chuẩn, vui lòng hiệu chuẩn lại mô-đun. "
+
+msgid "Belt tension module error, please troubleshoot and try recalibrating. "
+msgstr "Belt tension module error, please troubleshoot and try recalibrating."
+
+msgid "Belt tension timeout failure, please try retightening or restarting. "
+msgstr "Lỗi thời gian thắt dây an toàn, xin hãy cố sửa lại hoặc khởi động lại."
+
+msgid "Abnormal belt tensioning module, right belt tensioning module calibration value abnormal, please recalibrate the module."
+msgstr "Mô-đun căng dây bất thường, căng dây đai bên phải giá trị cân chỉnh mô-đun bất thường, hãy điều chỉnh lại mô-đun."
+
+msgid "Abnormal belt tensioning module, left belt tensioning module calibration value abnormal, please recalibrate the module."
+msgstr "Mô-đun thắt lưng bất thường, mô-đun căng dây bên trái giá trị cân chỉnh của mô-đun bất thường, hãy điều chỉnh lại mô-đun."
+
+msgid "Hotbed failed to reach the maximum position. Check for sensor issues or bed tilt.Please check and retry."
+msgstr "Không đạt được vị trí tối đa. Kiểm tra vấn đề cảm biến hoặc độ nghiêng giường. Vui lòng kiểm tra và thử lại."
+
+msgid "Abnormal heat break fan"
+msgstr "Quạt tản nhiệt heat break bất thường"
+
+msgid "MCU task scheduling failed, possibly due to high load or communication issues."
+msgstr "Việc lập trình tác vụ MCU thất bại, có thể do quá tải hoặc vấn đề giao tiếp."
+
+msgid "Extruder MCU temperature is too high, possibly due to high chamber temperature or delayed cooling of the extruder motherboard."
+msgstr "Nhiệt độ quá cao, có thể do nhiệt độ phòng cao hoặc chậm làm mát của bảng mạch chủ."
+
+msgid "Cutter not detected."
+msgstr "Cutter không phát hiện ra."
+
+msgid "Feed issue, filament buffer failure. Please resolve and click \"Retry\" button."
+msgstr "Vấn đề dinh dưỡng, hệ thống đệm bị hỏng. Vui lòng giải quyết và nhấn nút « Thử »."
+
+msgid "Detected printing plate is missing, printing paused"
+msgstr "Phát hiện biển số in bị thiếu, bị dừng in"
+
+msgid "Detected printing plate is missing and foreign object on the printing plate, printing paused"
+msgstr "Detected printing plate is missing and foreign object on the printing plate, printing pause"
+
+msgid "Flow ratio calibration image anomaly, printing with default values."
+msgstr "Tỷ lệ hiệu chỉnh ảnh bất thường chảy, in với giá trị mặc định."
+
+msgid "Flow ratio calibration failed, printing with default values."
+msgstr "Tỷ lệ chảy thất bại, in với giá trị mặc định."
+
+msgid "Detected waste chute is block. "
+msgstr "Detected waste chute is block."
+
+msgid "Nozzle  camera failed to start, try restarting."
+msgstr "Máy ảnh không khởi chạy được, hãy thử khởi chạy lại."
+
+msgid "The five-way connection is occupied, please return the material first! "
+msgstr "Kết nối 5 chiều đã bị chiếm, xin hãy trả lại tài liệu trước!"
+
+msgid "The extruder is occupied and pre-loading cannot be performed."
+msgstr "Không thể thực hiện quá trình này."
+
+#~ msgid ""
+#~ "The device has not been added yet. You can add it by clicking the button "
+#~ "below."
+#~ msgstr ""
+#~ "The device has not been added yet. You can add it by clicking the button "
+#~ "below."
+
+#~ msgid ""
+#~ "During device self-test, printing and sending files are not supported"
+#~ msgstr ""
+#~ "During device self-test, printing and sending files are not supported"
+
+#~ msgid "Scan the QR code below"
+#~ msgstr "Scan the QR code below"
+
+#~ msgid "Download Creality Cloud App"
+#~ msgstr "Download Creality Cloud App"
+
+#~ msgid "Add new device"
+#~ msgstr "Add new device"
+
+#~ msgid "If you have already downloaded it"
+#~ msgstr "If you have already downloaded it"
+
+#~ msgid "Open the Creality Cloud App"
+#~ msgstr "Open the Creality Cloud App"
+
+#~ msgid "The object being printed does not support exclusion"
+#~ msgstr "The object being printed does not support exclusion"
+
+#~ msgid "There is no group yet. Click below to add a group."
+#~ msgstr "There is no group yet. Click below to add a group."
+
+#~ msgid ""
+#~ "Only the group is removed, and the devices in the group are moved to the "
+#~ "first group."
+#~ msgstr ""
+#~ "Only the group is removed, and the devices in the group are moved to the "
+#~ "first group."
+
+#~ msgid "Tip"
+#~ msgstr "Tip"
+
+#~ msgid "Refresh"
+#~ msgstr "Refresh"
+
+#~ msgid "Management Groups"
+#~ msgstr "Management Groups"
+
+#~ msgid "New group"
+#~ msgstr "New group"
+
+#~ msgid "Group name cannot be empty"
+#~ msgstr "Group name cannot be empty"
+
+#~ msgid "The current group name already exists"
+#~ msgstr "The current group name already exists"
+
+#~ msgid ""
+#~ "The current printer's material rack consumables do not exist. Do you want "
+#~ "to continue printing？"
+#~ msgstr ""
+#~ "The current printer's material rack consumables do not exist. Do you want "
+#~ "to continue printing？"
+
+msgid "Ignore"
+msgstr "Bỏ qua"
+
+msgid ""
+"Creality Print requires the Microsoft WebView2 Runtime,But it has been found that the abnormal operation of Microsoft WebView2 may be related to the installation of Microsoft Edge. \n"
+"Click the Yes to reinstall Microsoft Edge"
+msgstr ""
+"Creality Print cần Microsoft WebView2 Runtime, nhưng phát hiện hoạt động bất thường của Microsoft WebView2 có thể liên quan đến cài đặt Microsoft Edge.\n"
+"Nhấn Có để cài đặt lại Microsoft Edge"
+
+msgid "Failed to reinstall the Microsoft WebView2 Runtime. Please reinstall it manually."
+msgstr "Lỗi cài đặt lại thời gian chạy của MicrosoftView2. Hãy cài đặt lại bằng tay."
+
+msgid "tutorial: %s"
+msgstr "hướng dẫn: %s"
+
+msgid "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
+msgstr "Thời gian chạy Microsoft WebView2 đã được cài đặt lại thành công. Ứng dụng sẽ khởi chạy lại ngay bây giờ."

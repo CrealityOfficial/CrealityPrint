@@ -263,7 +263,19 @@ nlohmann::json DataCenter::_get_acive_device()
 
                     if (printer["mac"] == mac) {
                         if (printer["deviceType"] == 0/* && printer["online"].get<bool>()*/) { // now support bundle offline device
-                            device_local = printer;
+                            // The same MAC may have multiple LAN entries (e.g. the same
+                            // device added twice with different IPs, one online and one
+                            // offline). Selection rule is kept consistent with the device
+                            // list popup manager_duplicate_deivce:
+                            //   1) prefer the online entry, so it is not overwritten by a
+                            //      stale offline entry with the old IP;
+                            //   2) if all are offline, keep the last one visited (after an
+                            //      IP change the new entry comes later and is more accurate).
+                            bool cur_local_online = !device_local.empty() && device_local.contains("online") && device_local["online"].get<bool>();
+                            bool new_local_online = printer.contains("online") && printer["online"].get<bool>();
+                            if (device_local.empty() || new_local_online || !cur_local_online) {
+                                device_local = printer;
+                            }
                         }
                         else if (printer["deviceType"] == 1) {
                             device_cxy = printer;
@@ -272,7 +284,11 @@ nlohmann::json DataCenter::_get_acive_device()
                             device_fluidd = printer;
                         }
 
-                        if (!device_local.empty() && !device_cxy.empty())
+                        // Only break early once an online LAN entry has been found;
+                        // otherwise keep iterating so we don't miss an updated online
+                        // entry under the same MAC.
+                        bool local_online = !device_local.empty() && device_local.contains("online") && device_local["online"].get<bool>();
+                        if (local_online && !device_cxy.empty())
                             break;
                     }
                 }

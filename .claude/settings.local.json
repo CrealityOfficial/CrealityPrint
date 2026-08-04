@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh -p 33335 cxsw@172.20.180.14 \"sleep 10 && docker ps -a --filter 'name=cxagent' && echo '---' && curl -s http://127.0.0.1:8787/healthz 2>&1 || docker logs cxagent-server --tail 20 2>&1\")",
+      "Bash(ssh -p 33335 cxsw@172.20.180.14 \"docker logs cxagent-server --tail 50 2>&1\")",
+      "Bash(docker build:*)",
+      "Bash(ssh -p 33335 cxsw@172.20.180.14 \"cat /etc/os-release 2>/dev/null | head -5 && dpkg -l 2>/dev/null | grep compose; apt list --installed 2>/dev/null | grep compose\")",
+      "Bash(ssh -p 33335 cxsw@172.20.180.14 ':*)",
+      "Bash(tar czf:*)",
+      "Bash(scp -P 33335 /tmp/cxagent-server.tar.gz cxsw@172.20.180.14:/home/cxsw/cxagent/)",
+      "Bash(scp -P 33335 /tmp/cxagent-server.tar.gz cxsw@172.20.180.14:/tmp/)",
+      "Bash(scp -P 33335 C:/work/CxAgent/server/.env cxsw@172.20.180.14:/home/cxsw/cxagent/server/.env)"
+    ]
+  }
+}

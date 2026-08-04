@@ -1,4 +1,4 @@
-﻿// [FORMATTED BY CLANG-FORMAT 2026-05-11 19:10:09]
+// [FORMATTED BY CLANG-FORMAT 2026-05-11 19:10:09]
 #include "libslic3r/libslic3r.h"
 #include "GLCanvas3D.hpp"
 
@@ -27,6 +27,7 @@
 #include "Tab.hpp"
 #include "GUI_Preview.hpp"
 #include "OpenGLManager.hpp"
+#include "LinuxDisplayBackend.hpp"
 #include "Plater.hpp"
 #include "MainFrame.hpp"
 #include "GUI_App.hpp"
@@ -63,7 +64,7 @@
 #include "simple/PrintSettingsPanel.hpp"
 #include "simple/MCPChatPanel.hpp"
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include <wx/glcanvas.h>
 #include <wx/bitmap.h>
@@ -1436,7 +1437,13 @@ GLCanvas3D::~GLCanvas3D()
     m_sel_plate_toolbar.del_all_item();
     m_sel_plate_toolbar.del_stats_item();
 
-    s_full_screen_mesh.reset();
+    release_shared_gl_resources();
+}
+
+void GLCanvas3D::release_shared_gl_resources()
+{
+    if (_set_current())
+        s_full_screen_mesh.reset();
 }
 
 void GLCanvas3D::post_event(wxEvent&& event)
@@ -1531,8 +1538,10 @@ void GLCanvas3D::on_change_color_mode(bool is_dark, bool reinit)
     // Preview Slider
     IMSlider* m_layers_slider = get_gcode_viewer().get_layers_slider();
     IMSlider* m_moves_slider  = get_gcode_viewer().get_moves_slider();
-    m_layers_slider->on_change_color_mode(is_dark);
-    m_moves_slider->on_change_color_mode(is_dark);
+    if (m_layers_slider != nullptr)
+        m_layers_slider->on_change_color_mode(is_dark);
+    if (m_moves_slider != nullptr)
+        m_moves_slider->on_change_color_mode(is_dark);
     // Partplate
     wxGetApp().plater()->get_partplate_list().on_change_color_mode(is_dark);
 
@@ -2110,8 +2119,19 @@ void GLCanvas3D::render(bool only_init)
     if (!_is_shown_on_screen() || !_set_current() || !wxGetApp().init_opengl())
         return;
 
-    if (!is_initialized() && !init())
-        return;
+    if (!is_initialized()) {
+        if (!init())
+            return;
+        // On Wayland, GL init may be deferred until the EGL surface is ready.
+        // Reload once so models loaded before GL init get GPU buffers.
+        m_needs_deferred_reload = true;
+    }
+
+    if (m_needs_deferred_reload && m_model && !m_model->objects.empty()) {
+        m_needs_deferred_reload = false;
+        reload_scene(true, true);
+    }
+
     if (m_canvas_type == ECanvasType::CanvasView3D && m_gizmos.get_current_type() == GLGizmosManager::Undefined) {
         enable_return_toolbar(false);
     }
@@ -2488,6 +2508,12 @@ void GLCanvas3D::render_thumbnail(ThumbnailData&            thumbnail_data,
                                   bool                      ban_light,
                                   const std::string&        view_type)
 {
+    if (!_set_current()) {
+        BOOST_LOG_TRIVIAL(error) << "render_thumbnail: failed to set the OpenGL context";
+        thumbnail_data.reset();
+        return;
+    }
+
     GLShaderProgram* shader = nullptr;
     if (for_picking)
         shader = wxGetApp().get_shader("flat");
@@ -4673,22 +4699,14 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
         if ((evt.LeftDown() || (evt.Moving() && (evt.AltDown() || evt.ShiftDown()))) && m_canvas != nullptr) {
             m_canvas->SetFocus();
 
-            ImGuiWindow* win = nullptr;
-            if (wxGetApp().easy_mode())
-                win = ImGui::FindWindowByName("##obj_drawer");
-            if (win == nullptr)
-                win = ImGui::FindWindowByName("##obj_tree");
-            if (win) {
-                ImRect rect;
-                rect.Min = win->Pos;
-                rect.Max = rect.Min + win->Size;
-                if (rect.Contains(ImVec2(evt.GetX(), evt.GetY()))) {
-                    if (!wxGetApp().obj_list()->get_left_panel_fold()) {
-                        unregister_all_extra_render_event();
-                    }
-
-                    wxGetApp().obj_list()->set_object_list_window_focus(true);
+            ImGuiWindow* object_window  = ImGui::FindWindowByName(wxGetApp().easy_mode() ? "##obj_drawer" : "##obj_tree");
+            ImGuiWindow* hovered_window = ImGui::GetCurrentContext()->HoveredWindow;
+            if (object_window != nullptr && hovered_window != nullptr && hovered_window->RootWindow == object_window) {
+                if (!wxGetApp().obj_list()->get_left_panel_fold()) {
+                    unregister_all_extra_render_event();
                 }
+
+                wxGetApp().obj_list()->set_object_list_window_focus(true);
             }
         }
         m_mouse.position = evt.Leaving() ? Vec2d(-1.0, -1.0) : pos.cast<double>();
@@ -5361,11 +5379,19 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
 
 void GLCanvas3D::on_paint(wxPaintEvent& evt)
 {
-    if (m_initialized)
+    if (m_initialized) {
+#ifdef __WXMSW__
+        // Idle events are not dispatched during the Windows resize modal loop,
+        // so render immediately to avoid blank frames.
+        _refresh_if_shown_on_screen();
+        m_dirty = false;
+#else
         m_dirty = true;
-    else
+#endif
+    } else {
         // Call render directly, so it gets initialized immediately, not from On Idle handler.
         this->render();
+    }
 }
 
 void GLCanvas3D::force_set_focus() { m_canvas->SetFocus(); };
@@ -6488,7 +6514,18 @@ void GLCanvas3D::apply_retina_scale(Vec2d& screen_coordinate) const
 #endif // ENABLE_RETINA_GL
 }
 
-bool GLCanvas3D::_is_shown_on_screen() const { return (m_canvas != nullptr) ? m_canvas->IsShownOnScreen() : false; }
+bool GLCanvas3D::_is_shown_on_screen() const
+{
+    if (m_canvas == nullptr)
+        return false;
+#ifdef __linux__
+    if (is_running_on_wayland()) {
+        const wxSize size = m_canvas->GetSize();
+        return m_canvas->IsShown() && size.GetWidth() > 0 && size.GetHeight() > 0;
+    }
+#endif
+    return m_canvas->IsShownOnScreen();
+}
 
 // Getter for the const char*[]
 static bool string_getter(const bool is_undo, int idx, const char** out_text)
@@ -8371,51 +8408,51 @@ void GLCanvas3D::render_thumbnail_framebuffer_ext(ThumbnailData&            thum
     //     glsafe(::glEnable(GL_MULTISAMPLE));
 
     GLint max_samples;
-    glsafe(::glGetIntegerv(GL_MAX_SAMPLES_EXT, &max_samples));
+    glsafe(::glGetIntegerv(GL_MAX_SAMPLES, &max_samples));
     GLsizei num_samples = max_samples / 2;
 
     GLuint render_fbo;
-    glsafe(::glGenFramebuffersEXT(1, &render_fbo));
-    glsafe(::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, render_fbo));
+    glsafe(::glGenFramebuffers(1, &render_fbo));
+    glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, render_fbo));
 
     GLuint render_tex        = 0;
     GLuint render_tex_buffer = 0;
     if (multisample) {
         // use renderbuffer instead of texture to avoid the need to use glTexImage2DMultisample which is available only since OpenGL 3.2
-        glsafe(::glGenRenderbuffersEXT(1, &render_tex_buffer));
-        glsafe(::glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, render_tex_buffer));
-        glsafe(::glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, num_samples, GL_RGBA8, w, h));
-        glsafe(::glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, render_tex_buffer));
+        glsafe(::glGenRenderbuffers(1, &render_tex_buffer));
+        glsafe(::glBindRenderbuffer(GL_RENDERBUFFER, render_tex_buffer));
+        glsafe(::glRenderbufferStorageMultisample(GL_RENDERBUFFER, num_samples, GL_RGBA8, w, h));
+        glsafe(::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, render_tex_buffer));
     } else {
         glsafe(::glGenTextures(1, &render_tex));
         glsafe(::glBindTexture(GL_TEXTURE_2D, render_tex));
         glsafe(::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
         glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
         glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-        glsafe(::glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, render_tex, 0));
+        glsafe(::glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_tex, 0));
     }
 
     GLuint render_depth;
-    glsafe(::glGenRenderbuffersEXT(1, &render_depth));
-    glsafe(::glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, render_depth));
+    glsafe(::glGenRenderbuffers(1, &render_depth));
+    glsafe(::glBindRenderbuffer(GL_RENDERBUFFER, render_depth));
     if (multisample)
-        glsafe(::glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, num_samples, GL_DEPTH_COMPONENT24, w, h));
+        glsafe(::glRenderbufferStorageMultisample(GL_RENDERBUFFER, num_samples, GL_DEPTH_COMPONENT24, w, h));
     else
-        glsafe(::glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, w, h));
+        glsafe(::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h));
 
-    glsafe(::glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, render_depth));
+    glsafe(::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_depth));
 
     GLenum drawBufs[] = {GL_COLOR_ATTACHMENT0};
     glsafe(::glDrawBuffers(1, drawBufs));
 
-    if (::glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) == GL_FRAMEBUFFER_COMPLETE_EXT) {
+    if (::glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
         render_thumbnail_internal(thumbnail_data, thumbnail_params, partplate_list, model_objects, volumes, extruder_colors, shader,
                                   camera_type, use_top_view, for_picking, ban_light, view_type);
 
         if (multisample) {
             GLuint resolve_fbo;
-            glsafe(::glGenFramebuffersEXT(1, &resolve_fbo));
-            glsafe(::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, resolve_fbo));
+            glsafe(::glGenFramebuffers(1, &resolve_fbo));
+            glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, resolve_fbo));
 
             GLuint resolve_tex;
             glsafe(::glGenTextures(1, &resolve_tex));
@@ -8423,21 +8460,21 @@ void GLCanvas3D::render_thumbnail_framebuffer_ext(ThumbnailData&            thum
             glsafe(::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
             glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
             glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-            glsafe(::glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, resolve_tex, 0));
+            glsafe(::glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resolve_tex, 0));
 
             glsafe(::glDrawBuffers(1, drawBufs));
 
-            if (::glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) == GL_FRAMEBUFFER_COMPLETE_EXT) {
-                glsafe(::glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, render_fbo));
-                glsafe(::glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, resolve_fbo));
-                glsafe(::glBlitFramebufferEXT(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR));
+            if (::glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
+                glsafe(::glBindFramebuffer(GL_READ_FRAMEBUFFER, render_fbo));
+                glsafe(::glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolve_fbo));
+                glsafe(::glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR));
 
-                glsafe(::glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, resolve_fbo));
+                glsafe(::glBindFramebuffer(GL_READ_FRAMEBUFFER, resolve_fbo));
                 glsafe(::glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, (void*) thumbnail_data.pixels.data()));
             }
 
             glsafe(::glDeleteTextures(1, &resolve_tex));
-            glsafe(::glDeleteFramebuffersEXT(1, &resolve_fbo));
+            glsafe(::glDeleteFramebuffers(1, &resolve_fbo));
         } else
             glsafe(::glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, (void*) thumbnail_data.pixels.data()));
 
@@ -8446,13 +8483,13 @@ void GLCanvas3D::render_thumbnail_framebuffer_ext(ThumbnailData&            thum
 #endif // ENABLE_THUMBNAIL_GENERATOR_DEBUG_OUTPUT
     }
 
-    glsafe(::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0));
-    glsafe(::glDeleteRenderbuffersEXT(1, &render_depth));
+    glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, 0));
+    glsafe(::glDeleteRenderbuffers(1, &render_depth));
     if (render_tex_buffer != 0)
-        glsafe(::glDeleteRenderbuffersEXT(1, &render_tex_buffer));
+        glsafe(::glDeleteRenderbuffers(1, &render_tex_buffer));
     if (render_tex != 0)
         glsafe(::glDeleteTextures(1, &render_tex));
-    glsafe(::glDeleteFramebuffersEXT(1, &render_fbo));
+    glsafe(::glDeleteFramebuffers(1, &render_fbo));
 
     // if (!multisample)
     //     glsafe(::glDisable(GL_MULTISAMPLE));
@@ -9419,7 +9456,7 @@ bool GLCanvas3D::_init_collapse_toolbar() { return wxGetApp().plater()->init_col
 
 bool GLCanvas3D::_init_process_toolbar() { return wxGetApp().plater()->init_process_toolbar(); }
 
-bool GLCanvas3D::_set_current() { return m_context != nullptr && m_canvas->SetCurrent(*m_context); }
+bool GLCanvas3D::_set_current() { return m_canvas != nullptr && m_context != nullptr && m_canvas->SetCurrent(*m_context); }
 
 void GLCanvas3D::_resize(unsigned int w, unsigned int h)
 {
@@ -9447,9 +9484,9 @@ void GLCanvas3D::_resize(unsigned int w, unsigned int h)
 
 #ifdef _WIN32
     // On Windows, if manually scaled here, rendering issues can occur when the system's Display
-    // scaling is greater than 300% as the font's size gets to be to large. So, use imgui font
+    // scaling is greater than or equal to 300% as the font's size gets too large. So, use imgui font
     // scaling instead (see: ImGuiWrapper::init_font() and issue #3401)
-    font_size *= (font_size > 30.0f) ? 1.0f : 1.5f;
+    font_size *= (font_size >= 30.0f) ? 1.0f : 1.5f;
 #else
     // On Linux/GTK, reduce the overall ImGui font scale slightly for a more compact UI
 #ifdef __WXGTK__
@@ -9746,8 +9783,8 @@ void GLCanvas3D::_rectangular_selection_picking_pass()
                 glsafe(::glGenFramebuffers(1, &render_fbo));
                 glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, render_fbo));
             } else {
-                glsafe(::glGenFramebuffersEXT(1, &render_fbo));
-                glsafe(::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, render_fbo));
+                glsafe(::glGenFramebuffers(1, &render_fbo));
+                glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, render_fbo));
             }
             glsafe(::glGenTextures(1, &render_tex));
             glsafe(::glBindTexture(GL_TEXTURE_2D, render_tex));
@@ -9761,11 +9798,11 @@ void GLCanvas3D::_rectangular_selection_picking_pass()
                 glsafe(::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height));
                 glsafe(::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_depth));
             } else {
-                glsafe(::glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, render_tex, 0));
-                glsafe(::glGenRenderbuffersEXT(1, &render_depth));
-                glsafe(::glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, render_depth));
-                glsafe(::glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, width, height));
-                glsafe(::glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, render_depth));
+                glsafe(::glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_tex, 0));
+                glsafe(::glGenRenderbuffers(1, &render_depth));
+                glsafe(::glBindRenderbuffer(GL_RENDERBUFFER, render_depth));
+                glsafe(::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height));
+                glsafe(::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_depth));
             }
             const GLenum drawBufs[] = {GL_COLOR_ATTACHMENT0};
             glsafe(::glDrawBuffers(1, drawBufs));
@@ -9773,7 +9810,7 @@ void GLCanvas3D::_rectangular_selection_picking_pass()
                 if (::glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
                     use_framebuffer = false;
             } else {
-                if (::glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) != GL_FRAMEBUFFER_COMPLETE_EXT)
+                if (::glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
                     use_framebuffer = false;
             }
         }
@@ -9886,11 +9923,11 @@ void GLCanvas3D::_rectangular_selection_picking_pass()
             if (render_fbo != 0)
                 glsafe(::glDeleteFramebuffers(1, &render_fbo));
         } else if (framebuffers_type == OpenGLManager::EFramebufferType::Ext) {
-            glsafe(::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0));
+            glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, 0));
             if (render_depth != 0)
-                glsafe(::glDeleteRenderbuffersEXT(1, &render_depth));
+                glsafe(::glDeleteRenderbuffers(1, &render_depth));
             if (render_fbo != 0)
-                glsafe(::glDeleteFramebuffersEXT(1, &render_fbo));
+                glsafe(::glDeleteFramebuffers(1, &render_fbo));
         }
 
         if (render_tex != 0)
@@ -10891,9 +10928,13 @@ void GLCanvas3D::_check_and_update_toolbar_icon_scale()
         return;
     }
 
-    // float scale = wxGetApp().toolbar_icon_scale();
-    float scale    = sc;
-    Size  cnv_size = get_canvas_size();
+    float scale = wxGetApp().toolbar_icon_scale() * sc;
+#ifdef WIN32
+    // toolbar_icon_scale() already includes the Windows DPI scale. Keep the GL
+    // layout scale at 1 so the nearest-filtered SVG atlas stays pixel-aligned.
+    scale = sc;
+#endif
+    Size cnv_size = get_canvas_size();
 
     // BBS: GUI refactor: GLToolbar
     int size_i = int(GLToolbar::Default_Icons_Size * scale);
@@ -10919,6 +10960,33 @@ void GLCanvas3D::_check_and_update_toolbar_icon_scale()
     ProcessBar::GLToolbar& toolbar = wxGetApp().plater()->get_process_toolbar();
     toolbar.set_scale(sc_const);
 #else
+
+    m_main_toolbar.set_scale(1.0f);
+    m_assemble_view_toolbar.set_scale(1.0f);
+    m_separator_toolbar.set_scale(1.0f);
+    m_gizmos.set_overlay_scale(1.0f);
+
+#ifdef WIN32
+    // Scale the non-icon parts explicitly to integer pixels. Fractional border
+    // and gap sizes shift the atlas off the pixel grid at 125%/175% DPI and
+    // make its antialiased SVG edges appear jagged with nearest filtering.
+    const auto sync_scaled_layout = [sc](GLToolbar& toolbar, float border, float separator, float gap) {
+        const auto scaled_size = [sc](float value) { return std::max(1.0f, std::round(value * sc)); };
+        const GLToolbar::Layout layout = toolbar.get_layout();
+        border                         = scaled_size(border);
+        separator                      = scaled_size(separator);
+        gap                            = scaled_size(gap);
+        if (layout.border != border)
+            toolbar.set_border(border);
+        if (layout.separator_size != separator)
+            toolbar.set_separator_size(separator);
+        if (layout.gap_size != gap)
+            toolbar.set_gap_size(gap);
+    };
+    sync_scaled_layout(m_main_toolbar, 10.0f, 1.0f, 10.0f);
+    sync_scaled_layout(m_assemble_view_toolbar, 4.0f, 10.0f, 4.0f);
+    sync_scaled_layout(m_separator_toolbar, 1.0f, 1.0f, 10.0f);
+#endif
 
     if(!wxGetApp().easy_mode()) {
         // BBS: GUI refactor: GLToolbar

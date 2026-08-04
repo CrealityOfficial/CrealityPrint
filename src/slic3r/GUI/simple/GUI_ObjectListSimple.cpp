@@ -33,7 +33,7 @@
 #include <wx/listbook.h>
 #include <wx/numformatter.h>
 #include <wx/headerctrl.h>
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include "slic3r/Utils/FixModelByWin10.hpp"
 #include "libslic3r/Format/bbs_3mf.hpp"

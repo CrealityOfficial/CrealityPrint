@@ -13,7 +13,7 @@
 #include "libslic3r/ModelVolume.hpp"
 #include "libslic3r/QuadricEdgeCollapse.hpp"
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include <thread>
 

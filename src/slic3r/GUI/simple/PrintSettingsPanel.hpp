@@ -109,17 +109,6 @@ private:
     }
     template<typename T> struct ConfigOptionType;
 
-    template<> struct ConfigOptionType<int>
-    {
-        using type = ConfigOptionInt;
-    };
-    template<> struct ConfigOptionType<float>
-    {
-        using type = ConfigOptionFloat;
-    };
-
-    template<> struct ConfigOptionType<unsigned> { using type = ConfigOptionPercent; };
-
     void load_from_config(PrintSettings& s, const DynamicPrintConfig& config)
     {
         // 质量档位单独处理
@@ -164,6 +153,10 @@ private:
     float         animated_highlight_x = -1.0f; // 初始化为无效值
     bool          m_initialized = false;
 };
+
+template<> struct PrintSettingsPanel::ConfigOptionType<int>      { using type = ConfigOptionInt; };
+template<> struct PrintSettingsPanel::ConfigOptionType<float>    { using type = ConfigOptionFloat; };
+template<> struct PrintSettingsPanel::ConfigOptionType<unsigned> { using type = ConfigOptionPercent; };
 
 using PrintSettings = PrintSettingsPanel::PrintSettings;
 }

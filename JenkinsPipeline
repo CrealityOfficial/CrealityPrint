@@ -127,7 +127,7 @@ pipeline {
                         return
                     }
                 }
-                bat "python scripts\\generate_creality_presets.py -b %VERSION_EXTRA% -n \"3.0.0\""
+                bat "python scripts\\generate_creality_presets.py -b %VERSION_EXTRA% -n \"3.0.0\" -v \"%APP_VERSION%\""
             }
         }
 

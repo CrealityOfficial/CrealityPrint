@@ -22,6 +22,7 @@
 #include "libslic3r/Utils.hpp"
 #include "slic3r/GUI/simple/MCPChatPanel.hpp"
 #include <wx/weakref.h>
+#include <boost/algorithm/string.hpp>
 #include <boost/log/trivial.hpp>
 
 using namespace Slic3r;
@@ -603,6 +604,8 @@ namespace DM {
          this->Handler({ "get_model_match" }, [](wxWebView* browse, const std::string& data, nlohmann::json& json_data, const std::string cmd) {
             std::string printmodelA = json_data["modelA"];
             std::string printmodelB = json_data["modelB"];
+            const std::string fallback_model_a = json_data.value("printerModelA", std::string());
+            const std::string fallback_model_b = json_data.value("printerModelB", std::string());
             int match_result = 0;
             if(printmodelA != printmodelB)
             {
@@ -633,7 +636,33 @@ namespace DM {
                         }
                     
                 }else{
-                    match_result = 1;
+                    auto normalize_model = [](std::string model) {
+                        boost::algorithm::trim(model);
+                        if (!model.empty()
+                            && !boost::algorithm::istarts_with(model, "Creality")
+                            && !boost::algorithm::istarts_with(model, "SPARKX")) {
+                            model = "Creality " + model;
+                        }
+                        return model;
+                    };
+
+                    std::string printer_model_a = fallback_model_a;
+                    std::string printer_model_b = fallback_model_b;
+                    if (preset && preset->config.has("printer_model")) {
+                        printer_model_a = preset->config.opt_string("printer_model", true);
+                    }
+                    if (preset2 && preset2->config.has("printer_model")) {
+                        printer_model_b = preset2->config.opt_string("printer_model", true);
+                    }
+
+                    printer_model_a = normalize_model(printer_model_a);
+                    printer_model_b = normalize_model(printer_model_b);
+
+                    match_result = !printer_model_a.empty()
+                        && !printer_model_b.empty()
+                        && boost::algorithm::iequals(printer_model_a, printer_model_b)
+                        ? 0
+                        : 1;
                 }
                 
                 

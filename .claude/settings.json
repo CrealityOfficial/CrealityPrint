@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"docker ps -a | grep postgres\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"apt-get update -o Dir::Etc::sourcelist='/etc/apt/sources.list' && apt-get install -y nginx\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"systemctl status nginx --no-pager | head -10 && curl -s http://localhost/ | head -20\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"curl -s http://localhost/healthz && curl -s http://localhost/api/debug/echo\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"ps aux | grep '[u]vicorn' && curl -s http://localhost:8787/healthz\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"curl -s -X POST http://localhost/api/chat/completions -H 'Content-Type: application/json' -d '{\\\\\"query\\\\\":\\\\\"test\\\\\"}' | head -c 200\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"curl -s http://localhost:8787/docs | head -50\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"curl -s http://localhost:8787/openapi.json | python3 -c 'import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(list\\(d.get\\(\\\\\"paths\\\\\",{}\\).keys\\(\\)\\), indent=2\\)\\)'\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"curl -s http://localhost/api/billing/me\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"ls -la /etc/nginx/ssl/ 2>/dev/null || echo 'No SSL directory'\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"which certbot && certbot --version\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"mkdir -p /etc/nginx/ssl && openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/ssl/cxagent.key -out /etc/nginx/ssl/cxagent.crt -subj '/CN=cxagent.crealitycloud.cn/O=CxAgent/C=CN'\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"curl -sk https://localhost/healthz && echo '' && curl -s http://localhost/ | head -5\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"curl -sI http://localhost/ | head -5 && echo '---' && curl -sk https://localhost/ | head -10\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"curl -sk https://localhost/healthz && echo '' && curl -sk https://localhost/api/billing/me\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"apt-get update -o Dir::Etc::sourcelist='/etc/apt/sources.list' && apt-get install -y certbot python3-certbot-nginx\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"certbot --nginx -d cxagent.crealitycloud.cn --non-interactive --agree-tos --email admin@crealitycloud.cn --redirect\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"curl -sI https://cxagent.crealitycloud.cn/ | head -10 && echo '---' && curl -sk https://cxagent.crealitycloud.cn/healthz\")",
+      "Bash(ssh -p 22 root@cxagent.crealitycloud.cn \"rm -rf /etc/nginx/ssl && certbot certificates\")",
+      "Bash(chmod +x f:/work/Community/CrealityCommunity/AIChatPage/publish-remote.sh)",
+      "Read(//tmp/**)"
+    ]
+  }
+}

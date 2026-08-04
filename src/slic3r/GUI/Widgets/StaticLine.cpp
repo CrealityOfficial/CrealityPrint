@@ -32,6 +32,14 @@ void StaticLine::SetLabel(const wxString& label)
     Refresh();
 }
 
+bool StaticLine::SetFont(const wxFont& font)
+{
+    const bool changed = wxWindow::SetFont(font);
+    messureSize();
+    Refresh();
+    return changed;
+}
+
 void StaticLine::SetIcon(const wxString &icon)
 {
     if (icon.IsEmpty()) {
@@ -83,8 +91,11 @@ void StaticLine::messureSize()
     }
     if (vertical)
         szContent.y += 10;
-    else
+    else {
         szContent.x += 10;
+        if (!GetLabel().IsEmpty())
+            szContent.y += FromDIP(2);
+    }
 
     if(GetLabel() == " " && !vertical)//a horizontal line
         szContent.y = 3;

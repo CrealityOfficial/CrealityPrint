@@ -1,4 +1,4 @@
-﻿#include <cstddef>
+#include <cstddef>
 #include <algorithm>
 #include <numeric>
 #include <vector>
@@ -6,7 +6,7 @@
 #include <string>
 #include <regex>
 #include <future>
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
@@ -112,7 +112,7 @@ static double config_float(std::initializer_list<const ConfigBase*> configs, con
 
 static bool is_explicit_role_filament(int extruder)
 {
-    return extruder > 1;
+    return extruder > 0;
 }
 
 static void append_role_extruders(std::vector<int>& extruders, std::initializer_list<const ConfigBase*> configs)
@@ -228,6 +228,7 @@ PartPlate::~PartPlate()
 
 void PartPlate::init()
 {
+	m_plate_index = -1;
 	m_locked = false;
 	m_ready_for_slice = true;
 	m_slice_result_valid = false;
@@ -1729,7 +1730,9 @@ std::vector<int> PartPlate::get_extruders_under_cli(bool conside_custom_gcode, D
         //BBS
         int nums_extruders = 0;
         if (const ConfigOptionStrings *color_option = dynamic_cast<const ConfigOptionStrings *>(full_config.option("filament_colour"))) {
-            nums_extruders = wxGetApp().preset_bundle->mixed_filaments.total_filaments(color_option->values.size());
+            nums_extruders = wxTheApp && wxGetApp().preset_bundle
+                ? wxGetApp().preset_bundle->mixed_filaments.total_filaments(color_option->values.size())
+                : static_cast<int>(color_option->values.size());
             if (m_model->plates_custom_gcodes.find(m_plate_index) != m_model->plates_custom_gcodes.end()) {
                 for (auto item : m_model->plates_custom_gcodes.at(m_plate_index).gcodes) {
                     if (item.type == CustomGCode::Type::ToolChange && item.extruder <= nums_extruders)
@@ -1873,7 +1876,7 @@ Vec3d PartPlate::estimate_wipe_tower_size(const DynamicPrintConfig & config, con
     bool                    use_rib_wall      = use_rib_wall_opt ? use_rib_wall_opt->value : true;
 
     double depth = plate_extruder_size == 1 ? 0 : d;
-    int    nozzle_nums = wxGetApp().preset_bundle->get_printer_extruder_count();
+    int    nozzle_nums = (wxTheApp && wxGetApp().preset_bundle) ? wxGetApp().preset_bundle->get_printer_extruder_count() : 1;
     double volume      = wipe_volume * (nozzle_nums == 2 ? plate_extruder_size : (plate_extruder_size - 1));
     if (use_rib_wall) {
         depth = std::sqrt(volume / layer_height);
@@ -1973,10 +1976,8 @@ bool PartPlate::operator<(PartPlate& plate) const
 //set the plate's index
 void PartPlate::set_index(int index)
 {
-	BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(": plate_id update from %1% to %2%") % m_plate_index % index;
-
 	m_plate_index = index;
-	if (m_print != nullptr)
+	if(m_print != nullptr)
 		m_print->set_plate_index(index);
 }
 
@@ -2078,6 +2079,9 @@ Vec3d PartPlate::get_center_origin()
 
 void PartPlate::generate_plate_name_texture()
 {
+    if (!m_partplate_list || !m_partplate_list->m_plater || !wxGetApp().preset_bundle)
+        return;
+
     // generate m_name_texture texture from m_name with generate_from_text_string
     m_name_texture.reset();
 	m_name_texture_dark.reset();
@@ -2907,6 +2911,9 @@ bool PartPlate::set_shape(const Pointfs& shape, const Pointfs& exclude_areas, Ve
 		m_exclude_area = std::move(new_exclude_areas);
 		calc_bounding_boxes();
 
+		if (!m_plater)
+			return true;
+
 		ExPolygon logo_poly;
 		generate_logo_polygon(logo_poly);
 		m_logo_triangles.reset();
@@ -2927,15 +2934,17 @@ bool PartPlate::set_shape(const Pointfs& shape, const Pointfs& exclude_areas, Ve
 		const BoundingBox& pp_bbox = poly.contour.bounding_box();
 		calc_gridlines(poly, pp_bbox);
 
-		bool machine_is_belt = wxGetApp().preset_bundle->machine_is_belt();
+		if (m_plater && wxGetApp().preset_bundle) {
+			bool machine_is_belt = wxGetApp().preset_bundle->machine_is_belt();
 
-		for (int i=e_at_close;i<=e_at_set;++i)
-            calc_vertex_for_icons(i - 1, m_action_icon[i], machine_is_belt);
-        //calc_vertex_for_icons_background(m_right_top);
+			for (int i=e_at_close;i<=e_at_set;++i)
+                calc_vertex_for_icons(i - 1, m_action_icon[i], machine_is_belt);
+            //calc_vertex_for_icons_background(m_right_top);
 
-		calc_vertex_for_number(false, m_plate_idx_icon);
+			calc_vertex_for_number(false, m_plate_idx_icon);
 
-        generate_plate_name_texture();
+            generate_plate_name_texture();
+		}
 	}
 
 	calc_height_limit();
@@ -3826,8 +3835,9 @@ int PartPlateList::create_plate(bool adjust_position)
 	Vec3d origin;
 	int new_index;
 
-	// make sure belt only have one plater
-	if (wxGetApp().preset_bundle->machine_is_belt())
+	// In CLI mode there is no GUI plater/preset bundle yet; skip the GUI-only
+	// belt guard and let the loaded print config drive slicing.
+	if (m_plater && wxGetApp().preset_bundle && wxGetApp().preset_bundle->machine_is_belt())
 		if (m_plate_list.size() >= 1)
 			return -1;
 
@@ -4150,7 +4160,8 @@ int PartPlateList::select_plate(int index)
 		//wxQueueEvent(m_plater, new SimpleEvent(EVT_GLCANVAS_PLATE_SELECT));
 	}
 
-    Slic3r::GUI::NotifyAIChatSceneChanged();
+    if (m_plater)
+        Slic3r::GUI::NotifyAIChatSceneChanged();
 	return 0;
 }
 
@@ -5148,7 +5159,8 @@ bool PartPlateList::set_shapes(const Pointfs& shape, const Pointfs& exclude_area
 		pos = compute_shape_position(i, m_plate_cols);
 		plate->set_shape(shape, exclude_areas, pos, height_to_lid, height_to_rod);
 	}
-	set_verder_type(wxGetApp().preset_bundle->get_current_vendor_type());
+	if (wxTheApp && wxGetApp().preset_bundle)
+		set_verder_type(wxGetApp().preset_bundle->get_current_vendor_type());
 	calc_bounding_boxes();
 
 	update_logo_texture_filename(texture_filename);

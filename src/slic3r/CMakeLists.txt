@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.13)
 project(libslic3r_gui)
 
 include(PrecompiledHeader)
@@ -116,6 +116,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/GLCanvas3D.hpp
     GUI/GLCanvas3D.cpp
     GUI/GLEnums.hpp
+    GUI/LinuxDisplayBackend.cpp
+    GUI/LinuxDisplayBackend.hpp
     GUI/SceneRaycaster.hpp
     GUI/SceneRaycaster.cpp
     GUI/OpenGLManager.hpp
@@ -922,7 +924,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SLIC3R_GUI_SOURCES})
 
 encoding_check(libslic3r_gui)
 
-target_link_libraries(libslic3r_gui libslic3r cereal::cereal imgui imguizmo minilzo GLEW::GLEW OpenGL::GL hidapi ${wxWidgets_LIBRARIES} glfw  libcurl OpenSSL::SSL OpenSSL::Crypto noise::noise)
+target_link_libraries(libslic3r_gui libslic3r cereal::cereal imgui imguizmo minilzo glad OpenGL::GL hidapi ${wxWidgets_LIBRARIES} glfw  libcurl OpenSSL::SSL OpenSSL::Crypto noise::noise)
 if (HAS_IMATISTL)
     if (IMATISTL_TARGET)
         target_link_libraries(libslic3r_gui ${IMATISTL_TARGET})

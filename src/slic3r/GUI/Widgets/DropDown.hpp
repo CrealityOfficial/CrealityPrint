@@ -103,6 +103,8 @@ public:
     void Rescale();
 
     bool HasDismissLongTime();
+
+    void Popup(wxWindow *focus = nullptr) override;
     
 protected:
     void OnDismiss() override;

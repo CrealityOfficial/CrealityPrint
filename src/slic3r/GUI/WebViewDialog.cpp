@@ -251,7 +251,7 @@ wxString WebViewPanel::GetURL()
     // 3. c++ webview 加载 http://127.0.0.1:%d/#/；添加 # 是因为使用了 hash 路由
     // wxString url     = wxString::Format("http://127.0.0.1:%d/#/",wxGetApp().get_server_port()); // 127.0.0.1 访问创想云 cdn 图片会
     // 403，因此使用 localhost
-    wxString lang = wxGetApp().app_config->get("language") != "" ? wxGetApp().app_config->get("language") : "en_GB";
+    wxString lang = wxGetApp().current_frontend_language_code();
 
     std::string type = std::string(PROJECT_VERSION_EXTRA);
     type.erase(std::remove(type.begin(), type.end(), ' '), type.end());
@@ -814,7 +814,7 @@ void WebViewPanel::OnScriptMessage(wxWebViewEvent& evt)
         if (Slic3r::GUI::wxGetApp().mainframe->m_webview) {
             std::vector<wxString> prefs;
 
-            wxString    strlang           = wxGetApp().current_language_code_safe();
+            wxString    strlang           = wxGetApp().current_frontend_language_code();
             std::string country_code      = wxGetApp().app_config->get("region");
             std::string use_inches        = wxGetApp().app_config->get("use_inches");
             std::string syncPresetEnabled = wxGetApp().app_config->get("sync_user_preset") == "true" ? "1" : "0";

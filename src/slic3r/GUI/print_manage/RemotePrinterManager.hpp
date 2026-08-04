@@ -2,17 +2,25 @@
 #define REMOTE_PRINTER_MANAGER_H
 
 #include <functional>
+#include <future>
+#include <memory>
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
 #include <thread>
+#include <deque>
+#include <map>
+#include <queue>
+#include <string>
+#include <unordered_map>
+#include <vector>
 #include "Device/LanPrinterInterface.hpp"
 #include "Device/OctoPrintInterface.hpp"
 #include "Device/KlipperInterface.hpp"
 #include "Device/Klipper4408Interface.hpp"
 #include <curl/curl.h>
 #include "Device/KlipperCXInterface.hpp"
-#include <condition_variable>
+#include "UploadCancellation.hpp"
 namespace RemotePrint {
 
 // Upload file timeout (seconds)
@@ -27,6 +35,15 @@ enum class RemotePrinerType {
     REMOTE_PRINTER_TYPE_KLIPPER,    // klipper
     REMOTE_PRINTER_TYPE_KLIPPER4408, // klipper4408
     REMOTE_PRINTER_TYPE_CX,
+};
+
+enum class UploadTaskState {
+    Queued,
+    Running,
+    CancelRequested,
+    Cancelled,
+    Succeeded,
+    Failed,
 };
 
 size_t read_callback(void* ptr, size_t size, size_t nmemb, void* stream);
@@ -62,18 +79,19 @@ public:
     ~RemotePrinterManager();
 
     void uploadThread();
-    void pushUploadTasks(const std::string&               ipAddress,
+    std::string pushUploadTasks(const std::string&               ipAddress,
                         const std::string&                      fileName,
                         const std::string&                      filePath,
                         std::function<void(std::string, float,double)> progressCallback,
                         std::function<void(std::string, int)>   uploadStatusCallback = nullptr, 
                         std::function<void(std::string, std::string)>   onCompleteCallback = nullptr);
-    void pushUploadMultTasks(const std::string&               ipAddress,
+    std::string pushUploadMultTasks(const std::string&               ipAddress,
                         const std::string&                      fileName,
                         const std::string&                      filePath,
                         std::function<void(std::string, float,double)> progressCallback,
                         std::function<void(std::string, int)>   uploadStatusCallback = nullptr, 
                         std::function<void(std::string, std::string)>   onCompleteCallback = nullptr);
+    bool cancelUploadTask(const std::string& taskId);
     void cancelUpload(const std::string& ipAddress);
     void uploadFileByLan(const std::string& ipAddress,
                          const std::string& fileName,
@@ -92,27 +110,56 @@ public:
     int getUploadTimeout() const { return m_uploadTimeoutSeconds; }
 
 private:
+    using ProgressCallback = std::function<void(std::string, float, double)>;
+    using StatusCallback = std::function<void(std::string, int)>;
+    using CompleteCallback = std::function<void(std::string, std::string)>;
+
+    struct ManagedUploadTask {
+        std::string taskId;
+        std::string ipAddress;
+        std::string fileName;
+        std::string filePath;
+        ProgressCallback progressCallback;
+        StatusCallback statusCallback;
+        CompleteCallback completeCallback;
+        UploadCancelToken cancelToken = make_upload_cancel_token();
+        std::atomic<UploadTaskState> state {UploadTaskState::Queued};
+        std::atomic_bool terminal {false};
+        std::atomic_bool statusDelivered {false};
+        std::atomic_bool statusReported {false};
+        std::atomic_bool backgroundCleanup {false};
+        std::atomic_int reportedStatus {0};
+    };
+
     RemotePrinterManager();
 
     RemotePrinterManager(const RemotePrinterManager&)            = delete;
     RemotePrinterManager& operator=(const RemotePrinterManager&) = delete;
 
-    void pushFile(const std::string&                      ipAddress,
-                  const std::string&                      fileName,
-                  const std::string&                      filePath,
-                  std::function<void(std::string, float,double)> progressCallback,
-                  std::function<void(std::string, int)>   uploadStatusCallback = nullptr,
-                  std::function<void(std::string, std::string)> onCompleteCallback = nullptr);
+    std::shared_ptr<ManagedUploadTask> createUploadTask(
+        const std::string& ipAddress,
+        const std::string& fileName,
+        const std::string& filePath,
+        ProgressCallback progressCallback,
+        StatusCallback statusCallback,
+        CompleteCallback completeCallback);
+    void runUploadTask(const std::shared_ptr<ManagedUploadTask>& task);
+    void pushFile(const std::shared_ptr<ManagedUploadTask>& task);
+    void deliverStatus(const std::shared_ptr<ManagedUploadTask>& task, int statusCode);
+    void finishTask(const std::shared_ptr<ManagedUploadTask>& task, UploadTaskState state, int statusCode);
+    void unregisterTask(const std::shared_ptr<ManagedUploadTask>& task);
     void workerThread();
-    LanPrinterInterface*  m_pLanPrinterInterface;
-    OctoPrintInterface*   m_pOctoPrinterInterface;
-    KlipperInterface*     m_pKlipperInterface;
-    Klipper4408Interface* m_pKlipper4408Interface;
-    KlipperCXInterface* m_pKlipperCXInterface;
+    LanPrinterInterface*  m_pLanPrinterInterface {nullptr};
+    OctoPrintInterface*   m_pOctoPrinterInterface {nullptr};
+    KlipperInterface*     m_pKlipperInterface {nullptr};
+    Klipper4408Interface* m_pKlipper4408Interface {nullptr};
+    KlipperCXInterface*   m_pKlipperCXInterface {nullptr};
 
     std::mutex m_mtxUpload;
     std::condition_variable m_cvUpload;
-    std::deque<std::tuple<std::string, std::string, std::string, std::function<void(std::string, float,double)>, std::function<void(std::string, int)>, std::function<void(std::string, std::string)> >> m_uploadTasks;
+    std::deque<std::shared_ptr<ManagedUploadTask>> m_uploadTasks;
+    std::unordered_map<std::string, std::shared_ptr<ManagedUploadTask>> m_tasksById;
+    std::unordered_map<std::string, std::string> m_latestTaskByAddress;
     std::queue<std::function<void()>> tasks;
     std::vector<std::thread> m_multUploadThreads;
     std::thread m_uploadThread;
@@ -123,17 +170,18 @@ private:
 
     RemotePrinerType determinePrinterType(const std::string& ipAddress);
 
+    std::mutex m_mtxPrinterMeta;
     std::vector<std::string> oldPrinters;
     std::map<std::string,int> mapKlipperPort;
     std::condition_variable condition;
     std::atomic<bool> stop_flag;
     std::mutex queue_mutex;
     std::map<std::string, UploadTask> m_lastUploadMap;
+    std::atomic_uint64_t m_nextTaskId {1};
+    std::atomic_int m_preparingCleanupTasks {0};
 
     int m_uploadTimeoutSeconds = REMOTE_PRINTER_UPLOAD_TIMEOUT_SECONDS;
-    std::unordered_map<std::string, int>               m_retryCountMap;
-    std::unordered_map<std::string, std::atomic<bool>> m_cancelUploadMap;
 };
-} // namespace RemotePrintManage
+} // namespace RemotePrint
 
 #endif // REMOTE_PRINTER_MANAGER_H

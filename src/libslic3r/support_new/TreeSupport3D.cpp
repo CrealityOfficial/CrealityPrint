@@ -28,10 +28,10 @@
 #include "OrganicSupportValidation.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <cstdint>
-#include <fstream>
 #include <functional>
 #include <numeric>
 #include <optional>
@@ -39,7 +39,6 @@
 #include <string>
 #include <mutex>
 #include <string_view>
-#include <thread>
 #include <unordered_set>
 
 #include <boost/log/trivial.hpp>
@@ -132,53 +131,11 @@ static inline void check_self_intersections(const ExPolygon& expoly, const std::
 
 static auto tiny_area_threshold = sqr(scaled<double>(0.001));
 
-static constexpr bool organic_floating_debug_enabled = true;
-static constexpr bool organic_stage_debug_enabled    = true;
-static constexpr bool organic_vertical_enforcer_cleanup_enabled = true;
+// This cleanup is a guard for pathological painted meshes, not part of normal painted-support geometry generation.
 static constexpr double organic_vertical_enforcer_cleanup_grid_size_mm = 0.5;
-static constexpr size_t organic_vertical_enforcer_cleanup_max_points_per_layer = 500;
+static constexpr size_t organic_vertical_enforcer_cleanup_trigger_points_per_layer = 500;
 static constexpr size_t organic_vertical_enforcer_circle_segments = 24;
-static constexpr size_t organic_vertical_enforcer_debug_layer_point_threshold  = 500;
 static constexpr size_t organic_painted_support_cleanup_layer_polygon_threshold = 300;
-
-static inline double scaled_area_to_mm2(double scaled_area) { return std::abs(scaled_area) * sqr(SCALING_FACTOR); }
-
-static void append_organic_floating_debug(const std::string& message, bool clear_first = false)
-{
-    if (!organic_floating_debug_enabled)
-        return;
-    static std::mutex           debug_mutex;
-    std::lock_guard<std::mutex> lock(debug_mutex);
-    try {
-        // Use a relative path so traces follow the active working directory and
-        // never write into a developer-specific checkout path.
-        std::ofstream ofs("organic_floating_debug.txt", clear_first ? std::ios::trunc : std::ios::app);
-        if (ofs.is_open())
-            ofs << message << '\n';
-    } catch (...) {
-        // Ignore debug logging failures.
-    }
-}
-
-static void append_organic_stage_debug(const std::string& message, bool clear_first = false)
-{
-    if (!organic_stage_debug_enabled)
-        return;
-    static std::mutex           debug_mutex;
-    std::lock_guard<std::mutex> lock(debug_mutex);
-    try {
-        std::ofstream ofs("organic_stage_debug.txt", clear_first ? std::ios::trunc : std::ios::app);
-        if (ofs.is_open())
-            ofs << message << '\n';
-    } catch (...) {
-        // Ignore debug logging failures.
-    }
-}
-
-static long long elapsed_ms_since(const std::chrono::steady_clock::time_point& start)
-{
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-}
 
 static size_t polygon_point_count(const Polygons& polygons)
 {
@@ -255,38 +212,6 @@ static void append_cleaned_painted_support_layers(std::vector<Polygons>& target_
 
     for (size_t layer_idx = 0; layer_idx < painted_layers.size(); ++layer_idx)
         append(target_layers[layer_idx], std::move(painted_layers[layer_idx]));
-}
-
-static bool organic_initial_detail_debug_layer(size_t layer_idx, size_t point_count)
-{
-    if (point_count >= 200000)
-        return true;
-
-    switch (layer_idx) {
-    case 456:
-    case 457:
-    case 458:
-    case 499:
-    case 500:
-    case 1008:
-    case 1045:
-    case 1370:
-    case 1414:
-        return true;
-    default:
-        return false;
-    }
-}
-
-static bool organic_overhang_source_debug_layer(size_t support_layer_idx, size_t point_count)
-{
-    return organic_initial_detail_debug_layer(support_layer_idx, point_count);
-}
-
-static std::string polygon_stats_string(const char* name, const Polygons& polygons)
-{
-    return std::string(name) + "_polys=" + std::to_string(polygons.size()) + " " + name + "_points=" +
-           std::to_string(polygon_point_count(polygons));
 }
 
 static std::vector<std::pair<TreeSupportSettings, std::vector<size_t>>> group_meshes(const Print&               print,
@@ -374,11 +299,11 @@ static std::vector<std::pair<TreeSupportSettings, std::vector<size_t>>> group_me
     std::vector<Polygons> out(num_layers, Polygons{});
 
     const PrintObjectConfig& config                 = print_object.config();
-    const bool               support_auto           = is_auto(config.support_type.value);
+    const bool               support_auto           = config.enable_support.value && is_auto(config.support_type.value);
     const int                support_enforce_layers = config.enforce_support_layers.value;
-    std::vector<Polygons>    enforcers_layers{print_object.slice_support_enforcers()};
-    std::vector<Polygons>    blockers_layers{print_object.slice_support_blockers()};
-    if (print_object.model_object()->is_fdm_support_painted()) {
+    std::vector<Polygons>    enforcers_layers{config.enable_support.value ? print_object.slice_support_enforcers() : std::vector<Polygons>{}};
+    std::vector<Polygons>    blockers_layers{config.enable_support.value ? print_object.slice_support_blockers() : std::vector<Polygons>{}};
+    if (config.enable_support.value && print_object.model_object()->is_fdm_support_painted()) {
         std::vector<Polygons> painted_enforcers_layers;
         std::vector<Polygons> painted_blockers_layers;
         print_object.project_and_append_custom_facets(false, EnforcerBlockerType::ENFORCER, painted_enforcers_layers);
@@ -1010,30 +935,15 @@ public:
                                                     false);
             }
 
-            // Add all tips as roof to the roof storage.  Keep sampled points on
-            // the same line connected so fallback roofs don't become isolated
-            // pads on each branch tip.
+            // Add all tips as roof to the roof storage.
             Polygons new_roofs;
-            Polylines roof_lines;
-            for (const LineInformation& line : lines) {
-                if (line.size() > 1) {
-                    Polyline roof_line;
-                    roof_line.points.reserve(line.size());
-                    for (const std::pair<Point, LineStatus>& p : line)
-                        roof_line.points.emplace_back(p.first);
-                    roof_lines.emplace_back(std::move(roof_line));
-                    continue;
-                }
+            for (const LineInformation& line : lines)
                 for (const std::pair<Point, LineStatus>& p : line) {
                     Polygon roof_circle{m_base_circle};
                     roof_circle.scale(config.min_radius / m_base_radius);
                     roof_circle.translate(p.first);
                     new_roofs.emplace_back(std::move(roof_circle));
                 }
-            }
-            if (!roof_lines.empty())
-                append(new_roofs, offset(roof_lines, float(config.min_radius), ClipperLib::jtRound, scaled<float>(0.01),
-                                         ClipperLib::etOpenRound));
             this->add_roof(std::move(new_roofs), this_layer_idx, dtt_roof_tip + supports_roof_layers);
         }
 
@@ -1380,7 +1290,9 @@ void sample_overhang_area(
         const double overhang_perimeter = total_length(overhang_area);
         append(polylines, uncovered_edge_polylines(overhang_area, collect_points(polylines)));
         size_t       point_count        = count_polyline_points(polylines);
-        const size_t min_support_points = std::max(coord_t(1), std::min(coord_t(3), coord_t(overhang_perimeter / connect_length)));
+        const coord_t min_point_floor   = large_horizontal_roof ? coord_t(1) : coord_t(2);
+        const size_t min_support_points =
+            std::max(min_point_floor, std::min(coord_t(3), coord_t(overhang_perimeter / connect_length)));
         if (point_count <= min_support_points) {
             // add the outer wall (of the overhang) to ensure it is correct supported instead. Try placing the support points in a way that
             // they fully support the outer wall, instead of just the with half of the the support line width. I assume that even small
@@ -1521,13 +1433,6 @@ void generate_initial_areas(const PrintObject&            print_object,
 
     RichInterfacePlacer rich_interface_placer{interface_placer, volumes, force_tip_to_roof, num_support_layers, move_bounds};
 
-    append_organic_stage_debug("[ORGANIC_STAGE][INITIAL_AREAS_TASKS] object_layers=" + std::to_string(print_object.layer_count()) +
-                               " support_layers=" + std::to_string(num_support_layers) +
-                               " raw_overhang_tasks=" + std::to_string(raw_overhangs.size()) +
-                               " overhang_layers=" + std::to_string(nonempty_polygon_layers(overhangs)) +
-                               " overhang_polys=" + std::to_string(total_polygon_count(overhangs)) +
-                               " overhang_points=" + std::to_string(total_polygon_point_count(overhangs)));
-
     tbb::parallel_for(tbb::blocked_range<size_t>(0, raw_overhangs.size()), [&volumes, &config, &raw_overhangs, &mesh_group_settings,
                                                                             min_xy_dist, roof_enabled, num_support_roof_layers,
                                                                             extra_outset, circle_length_to_half_linewidth_change,
@@ -1536,47 +1441,16 @@ void generate_initial_areas(const PrintObject&            print_object,
         for (size_t raw_overhang_idx = range.begin(); raw_overhang_idx < range.end(); ++raw_overhang_idx) {
             size_t          layer_idx    = raw_overhangs[raw_overhang_idx].layer_idx;
             const Polygons& overhang_raw = *raw_overhangs[raw_overhang_idx].overhang;
-            const auto      task_start   = std::chrono::steady_clock::now();
-            const size_t    overhang_raw_points = polygon_point_count(overhang_raw);
-            const bool      detail_debug         = organic_initial_detail_debug_layer(layer_idx, overhang_raw_points);
-            auto polygon_stats_string = [&](const char* name, const Polygons& polygons) -> std::string {
-                return detail_debug ? Slic3r::TreeSupport3D::polygon_stats_string(name, polygons) : std::string();
-            };
-            auto detail_begin = [&](const std::string& step, const std::string& extra = std::string()) {
-                if (detail_debug)
-                    append_organic_stage_debug("[INITIAL_DETAIL][BEGIN] idx=" + std::to_string(raw_overhang_idx) + "/" +
-                                               std::to_string(raw_overhangs.size()) + " layer=" + std::to_string(layer_idx) +
-                                               " step=" + step + (extra.empty() ? "" : " " + extra));
-            };
-            auto detail_end = [&](const std::string& step, const std::chrono::steady_clock::time_point& start,
-                                  const std::string& extra = std::string()) {
-                if (detail_debug)
-                    append_organic_stage_debug("[INITIAL_DETAIL][END] idx=" + std::to_string(raw_overhang_idx) + "/" +
-                                               std::to_string(raw_overhangs.size()) + " layer=" + std::to_string(layer_idx) +
-                                               " step=" + step + " elapsed_ms=" + std::to_string(elapsed_ms_since(start)) +
-                                               (extra.empty() ? "" : " " + extra));
-            };
-            append_organic_stage_debug("[ORGANIC_TASK][BEGIN] stage=generate_initial_areas idx=" + std::to_string(raw_overhang_idx) +
-                                       "/" + std::to_string(raw_overhangs.size()) + " layer=" + std::to_string(layer_idx) +
-                                       " polys=" + std::to_string(overhang_raw.size()) +
-                                       " points=" + std::to_string(overhang_raw_points) +
-                                       " tid=" + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id())));
 
             // take the least restrictive avoidance possible
             Polygons relevant_forbidden;
             {
-                auto step_start = std::chrono::steady_clock::now();
-                detail_begin("relevant_forbidden.raw");
                 const Polygons& relevant_forbidden_raw = config.support_rests_on_model ?
                                                              volumes.getCollision(config.getRadius(0), layer_idx, min_xy_dist) :
                                                              volumes.getAvoidance(config.getRadius(0), layer_idx, AvoidanceType::Fast,
                                                                                   false, min_xy_dist);
-                detail_end("relevant_forbidden.raw", step_start, polygon_stats_string("raw", relevant_forbidden_raw));
                 // prevent rounding errors down the line, points placed directly on the line of the forbidden area may not be added otherwise.
-                step_start = std::chrono::steady_clock::now();
-                detail_begin("relevant_forbidden.union_offset", polygon_stats_string("raw", relevant_forbidden_raw));
                 relevant_forbidden = offset(union_ex(relevant_forbidden_raw), scaled<float>(0.005), jtMiter, 1.2);
-                detail_end("relevant_forbidden.union_offset", step_start, polygon_stats_string("out", relevant_forbidden));
             }
 
             // every overhang has saved if a roof should be generated for it. This can NOT be done in the for loop as an area may NOT have a
@@ -1587,13 +1461,8 @@ void generate_initial_areas(const PrintObject&            print_object,
             {
                 // When support_offset = 0 safe_offset_inc will only be the difference between overhang_raw and relevant_forbidden, that has
                 // to be calculated anyway.
-                auto step_start = std::chrono::steady_clock::now();
-                detail_begin("overhang_regular.safe_offset_inc",
-                             polygon_stats_string("in", overhang_raw) + " " + polygon_stats_string("collision", relevant_forbidden) +
-                                 " support_offset=" + std::to_string(mesh_group_settings.support_offset));
                 overhang_regular = safe_offset_inc(overhang_raw, mesh_group_settings.support_offset, relevant_forbidden,
                                                    config.min_radius * 1.75 + config.xy_min_distance, 0, 1);
-                detail_end("overhang_regular.safe_offset_inc", step_start, polygon_stats_string("out", overhang_regular));
                 // check_self_intersections(overhang_regular, "overhang_regular1");
                 // Snapshot before the extra_outset loop so we can isolate what it adds.
                 const Polygons overhang_base_regular = overhang_regular;
@@ -1602,26 +1471,14 @@ void generate_initial_areas(const PrintObject&            print_object,
                 Polygons        overhang_raw_offset_storage;
                 const Polygons* overhang_raw_offset = &overhang_raw;
                 if (mesh_group_settings.support_offset != 0) {
-                    step_start = std::chrono::steady_clock::now();
-                    detail_begin("remaining_overhang.raw_offset", polygon_stats_string("in", overhang_raw));
                     overhang_raw_offset_storage = offset(union_ex(overhang_raw), mesh_group_settings.support_offset, jtMiter, 1.2);
                     overhang_raw_offset         = &overhang_raw_offset_storage;
-                    detail_end("remaining_overhang.raw_offset", step_start, polygon_stats_string("out", *overhang_raw_offset));
                 }
 
-                step_start = std::chrono::steady_clock::now();
-                detail_begin("remaining_overhang.regular_offset", polygon_stats_string("in", overhang_regular));
                 Polygons overhang_regular_offset =
                     offset(union_ex(overhang_regular), config.support_line_width * 0.5, jtMiter, 1.2);
-                detail_end("remaining_overhang.regular_offset", step_start, polygon_stats_string("out", overhang_regular_offset));
 
-                step_start = std::chrono::steady_clock::now();
-                detail_begin("remaining_overhang.diff_intersection",
-                             polygon_stats_string("raw_offset", *overhang_raw_offset) + " " +
-                                 polygon_stats_string("regular_offset", overhang_regular_offset) + " " +
-                                 polygon_stats_string("forbidden", relevant_forbidden));
                 Polygons remaining_overhang = intersection(diff(*overhang_raw_offset, overhang_regular_offset), relevant_forbidden);
-                detail_end("remaining_overhang.diff_intersection", step_start, polygon_stats_string("out", remaining_overhang));
                 const Polygons remaining_overhang_seed = remaining_overhang;
 
                 // Offset the area to compensate for large tip radiis. Offset happens in multiple steps to ensure the tip is as close to the
@@ -1639,54 +1496,20 @@ void generate_initial_areas(const PrintObject&            print_object,
                     extra_total_offset_acc += offset_current_step;
                     const Polygons& raw_collision = volumes.getCollision(0, layer_idx, true);
                     const coord_t   offset_step   = config.xy_min_distance + config.support_line_width;
-                    if (detail_debug)
-                        append_organic_stage_debug("[INITIAL_DETAIL][LOOP] idx=" + std::to_string(raw_overhang_idx) + "/" +
-                                                   std::to_string(raw_overhangs.size()) + " layer=" + std::to_string(layer_idx) +
-                                                   " step=extra_outset iter=" + std::to_string(extra_loop_iter) +
-                                                   " acc=" + std::to_string(extra_total_offset_acc) +
-                                                   " current_step=" + std::to_string(offset_current_step) + " " +
-                                                   polygon_stats_string("remaining", remaining_overhang) + " " +
-                                                   polygon_stats_string("regular", overhang_regular) + " " +
-                                                   polygon_stats_string("collision", raw_collision));
                     // Reducing the remaining overhang by the areas already supported.
                     // FIXME 1.5 * extra_total_offset_acc seems to be too much, it may remove some remaining overhang without being
                     // supported at all.
-                    step_start = std::chrono::steady_clock::now();
-                    detail_begin("extra_outset.reduce.safe_offset_inc",
-                                 "iter=" + std::to_string(extra_loop_iter) + " " + polygon_stats_string("in", overhang_regular) + " " +
-                                     polygon_stats_string("collision", raw_collision));
                     Polygons reduced_supported = safe_offset_inc(overhang_regular, 1.5 * extra_total_offset_acc, raw_collision,
                                                                  offset_step, 0, 1);
-                    detail_end("extra_outset.reduce.safe_offset_inc", step_start, polygon_stats_string("out", reduced_supported));
 
-                    step_start = std::chrono::steady_clock::now();
-                    detail_begin("extra_outset.reduce.diff",
-                                 "iter=" + std::to_string(extra_loop_iter) + " " + polygon_stats_string("remaining", remaining_overhang) +
-                                     " " + polygon_stats_string("supported", reduced_supported));
                     remaining_overhang = diff(remaining_overhang, reduced_supported);
-                    detail_end("extra_outset.reduce.diff", step_start, polygon_stats_string("out", remaining_overhang));
                     // Extending the overhangs by the inflated remaining overhangs.
-                    step_start = std::chrono::steady_clock::now();
-                    detail_begin("extra_outset.extend.safe_offset_inc",
-                                 "iter=" + std::to_string(extra_loop_iter) + " " + polygon_stats_string("in", remaining_overhang) + " " +
-                                     polygon_stats_string("collision", raw_collision));
                     Polygons extended_remaining =
                         safe_offset_inc(remaining_overhang, extra_total_offset_acc, raw_collision, offset_step, 0, 1);
-                    detail_end("extra_outset.extend.safe_offset_inc", step_start, polygon_stats_string("out", extended_remaining));
 
-                    step_start = std::chrono::steady_clock::now();
-                    detail_begin("extra_outset.extend.diff",
-                                 "iter=" + std::to_string(extra_loop_iter) + " " + polygon_stats_string("extended", extended_remaining) +
-                                     " " + polygon_stats_string("forbidden", relevant_forbidden));
                     Polygons extend_addition = diff(extended_remaining, relevant_forbidden);
-                    detail_end("extra_outset.extend.diff", step_start, polygon_stats_string("out", extend_addition));
 
-                    step_start = std::chrono::steady_clock::now();
-                    detail_begin("extra_outset.extend.union",
-                                 "iter=" + std::to_string(extra_loop_iter) + " " + polygon_stats_string("regular", overhang_regular) +
-                                     " " + polygon_stats_string("addition", extend_addition));
                     overhang_regular = union_(overhang_regular, extend_addition);
-                    detail_end("extra_outset.extend.union", step_start, polygon_stats_string("out", overhang_regular));
                     // check_self_intersections(overhang_regular, "overhang_regular2");
                     ++extra_loop_iter;
                 }
@@ -1694,39 +1517,19 @@ void generate_initial_areas(const PrintObject&            print_object,
                 // If the base area is empty, this is likely a narrow overhang whose tips are produced entirely
                 // by this loop, so use the full tip reach. Otherwise keep additions close to the original
                 // overhang projection to prevent side branches escaping into exterior voids.
-                step_start = std::chrono::steady_clock::now();
-                detail_begin("extra_additions.diff",
-                             polygon_stats_string("regular", overhang_regular) + " " + polygon_stats_string("base", overhang_base_regular));
                 const Polygons extra_additions = diff(overhang_regular, overhang_base_regular);
-                detail_end("extra_additions.diff", step_start, polygon_stats_string("out", extra_additions));
-                if (!extra_additions.empty() && !remaining_overhang_seed.empty()) {
+                constexpr bool clip_extra_outset_additions = false;
+                if (clip_extra_outset_additions && !extra_additions.empty() && !remaining_overhang_seed.empty()) {
                     const coord_t eps           = scaled<float>(0.005);
                     const coord_t support_reach = config.min_radius + config.support_line_width / 2 + eps;
-                    step_start = std::chrono::steady_clock::now();
-                    detail_begin("supportable_region.seed_offset", polygon_stats_string("seed", remaining_overhang_seed));
                     Polygons supportable_region = offset(union_ex(remaining_overhang_seed), support_reach, jtRound, scaled<float>(0.01));
-                    detail_end("supportable_region.seed_offset", step_start, polygon_stats_string("out", supportable_region));
                     if (!overhang_base_regular.empty()) {
-                        step_start = std::chrono::steady_clock::now();
-                        detail_begin("supportable_region.overhang_projection", polygon_stats_string("raw", overhang_raw));
                         const Polygons overhang_projection = offset(union_ex(overhang_raw), config.support_line_width / 2 + eps, jtRound,
                                                                     scaled<float>(0.01));
-                        detail_end("supportable_region.overhang_projection", step_start, polygon_stats_string("out", overhang_projection));
 
-                        step_start = std::chrono::steady_clock::now();
-                        detail_begin("supportable_region.intersection",
-                                     polygon_stats_string("region", supportable_region) + " " +
-                                         polygon_stats_string("projection", overhang_projection));
                         supportable_region                 = intersection(supportable_region, overhang_projection);
-                        detail_end("supportable_region.intersection", step_start, polygon_stats_string("out", supportable_region));
                     }
-                    step_start = std::chrono::steady_clock::now();
-                    detail_begin("overhang_regular.final_trim_union",
-                                 polygon_stats_string("base", overhang_base_regular) + " " +
-                                     polygon_stats_string("extra", extra_additions) + " " +
-                                     polygon_stats_string("supportable", supportable_region));
                     overhang_regular = union_(overhang_base_regular, intersection(extra_additions, supportable_region));
-                    detail_end("overhang_regular.final_trim_union", step_start, polygon_stats_string("out", overhang_regular));
                 }
 #if 0
                 // If the xy distance overrides the z distance, some support needs to be inserted further down.
@@ -1778,30 +1581,16 @@ void generate_initial_areas(const PrintObject&            print_object,
 
             if (roof_enabled) {
                 static constexpr const coord_t support_roof_offset = 0;
-                auto                           step_start          = std::chrono::steady_clock::now();
-                detail_begin("roof.safe_offset_inc",
-                             polygon_stats_string("in", overhang_raw) + " " + polygon_stats_string("collision", relevant_forbidden));
                 Polygons overhang_roofs = safe_offset_inc(overhang_raw, support_roof_offset, relevant_forbidden,
                                                           config.min_radius * 2 + config.xy_min_distance, 0, 1);
-                detail_end("roof.safe_offset_inc", step_start, polygon_stats_string("out", overhang_roofs));
                 if (mesh_group_settings.minimum_support_area > 0)
                     remove_small(overhang_roofs, mesh_group_settings.minimum_roof_area);
-                step_start = std::chrono::steady_clock::now();
-                detail_begin("roof.diff_regular",
-                             polygon_stats_string("regular", overhang_regular) + " " + polygon_stats_string("roofs", overhang_roofs));
                 overhang_regular = diff(overhang_regular, overhang_roofs, ApplySafetyOffset::Yes);
-                detail_end("roof.diff_regular", step_start, polygon_stats_string("out", overhang_regular));
                 // check_self_intersections(overhang_regular, "overhang_regular3");
-                step_start = std::chrono::steady_clock::now();
-                detail_begin("roof.union_ex", polygon_stats_string("roofs", overhang_roofs));
                 ExPolygons roof_parts = union_ex(overhang_roofs);
-                detail_end("roof.union_ex", step_start, "parts=" + std::to_string(roof_parts.size()));
                 for (ExPolygon& roof_part : roof_parts) {
-                    step_start = std::chrono::steady_clock::now();
-                    detail_begin("roof.sample_overhang_area", "part_points=" + std::to_string(roof_part.contour.size()));
                     sample_overhang_area(to_polygons(std::move(roof_part)), true, layer_idx, num_support_roof_layers, connect_length,
                                          mesh_group_settings, rich_interface_placer);
-                    detail_end("roof.sample_overhang_area", step_start);
                     throw_on_cancel();
                 }
             }
@@ -1810,21 +1599,12 @@ void generate_initial_areas(const PrintObject&            print_object,
             if (mesh_group_settings.minimum_support_area > 0)
                 remove_small(overhang_regular, mesh_group_settings.minimum_support_area);
 
-            auto step_start = std::chrono::steady_clock::now();
-            detail_begin("support.union_ex", polygon_stats_string("regular", overhang_regular));
             ExPolygons support_parts = union_ex(overhang_regular);
-            detail_end("support.union_ex", step_start, "parts=" + std::to_string(support_parts.size()));
             for (ExPolygon& support_part : support_parts) {
-                step_start = std::chrono::steady_clock::now();
-                detail_begin("support.sample_overhang_area", "part_points=" + std::to_string(support_part.contour.size()));
                 sample_overhang_area(to_polygons(std::move(support_part)), false, layer_idx, num_support_roof_layers, connect_length,
                                      mesh_group_settings, rich_interface_placer);
-                detail_end("support.sample_overhang_area", step_start);
                 throw_on_cancel();
             }
-            append_organic_stage_debug("[ORGANIC_TASK][END] stage=generate_initial_areas idx=" + std::to_string(raw_overhang_idx) +
-                                       "/" + std::to_string(raw_overhangs.size()) + " layer=" + std::to_string(layer_idx) +
-                                       " elapsed_ms=" + std::to_string(elapsed_ms_since(task_start)));
         }
     });
 
@@ -2652,6 +2432,44 @@ static bool merge_influence_areas_two_elements(const TreeModelVolumes&    volume
     if (merging_gracious_and_non_gracious || merging_min_and_regular_xy)
         return false;
 
+    // Painted support points on a nearly vertical model wall may be inserted on many consecutive layers. Prevent their build-plate
+    // branches from merging only when the targets are also confirmed to lie on the same near-vertical model wall.
+    static constexpr double min_target_merge_angle_from_vertical = 25.0 * M_PI / 180.0;
+    static const double     min_target_xy_per_z                  = std::tan(min_target_merge_angle_from_vertical);
+    static const double     max_vertical_wall_normal_z          = std::sin(min_target_merge_angle_from_vertical);
+    static constexpr double max_target_surface_distance_mm      = 2.0;
+    static constexpr double max_wall_normal_angle               = 20.0 * M_PI / 180.0;
+    static const double     min_wall_normal_dot                  = std::cos(max_wall_normal_angle);
+    static constexpr double same_wall_plane_tolerance_mm        = 1.0;
+
+    // Cheap checks first: no model-surface query is made unless both branches go to the build plate and their targets are vertically aligned.
+    if (dst.state.to_buildplate && src.state.to_buildplate) {
+        const LayerIndex target_layer_delta = std::abs(dst.state.target_height - src.state.target_height);
+        if (target_layer_delta > 0) {
+            const double target_delta_z_mm      = double(target_layer_delta) * unscaled<double>(config.layer_height);
+            const double min_target_delta_xy_mm = target_delta_z_mm * min_target_xy_per_z;
+            const double target_delta_xy_mm     =
+                unscaled<double>((dst.state.target_position - src.state.target_position).cast<double>().norm());
+            if (target_delta_xy_mm <= min_target_delta_xy_mm) {
+                // Query and validate one target at a time so each failed test avoids all remaining work.
+                const auto dst_surface = volumes.getModelSurfaceInfo(dst.state.target_position, dst.state.target_height);
+                if (dst_surface && dst_surface->distance_mm <= max_target_surface_distance_mm &&
+                    std::abs(dst_surface->normal.z()) <= max_vertical_wall_normal_z) {
+                    const auto src_surface = volumes.getModelSurfaceInfo(src.state.target_position, src.state.target_height);
+                    if (src_surface && src_surface->distance_mm <= max_target_surface_distance_mm &&
+                        std::abs(src_surface->normal.z()) <= max_vertical_wall_normal_z &&
+                        dst_surface->normal.dot(src_surface->normal) >= min_wall_normal_dot) {
+                        const Vec3d average_normal = (dst_surface->normal + src_surface->normal).normalized();
+                        const double distance_across_wall =
+                            std::abs((src_surface->closest_point - dst_surface->closest_point).dot(average_normal));
+                        if (distance_across_wall <= same_wall_plane_tolerance_mm)
+                            return false;
+                    }
+                }
+            }
+        }
+    }
+
     const bool dst_radius_bigger = support_element_collision_radius(config, dst.state) >
                                    support_element_collision_radius(config, src.state);
     const SupportElementMerging& smaller_rad       = dst_radius_bigger ? src : dst;
@@ -2981,7 +2799,8 @@ static void merge_influence_areas(const TreeModelVolumes&             volumes,
  *
  * \param move_bounds[in,out] All currently existing influence areas
  */
-void create_layer_pathing(const TreeModelVolumes&       volumes,
+void create_layer_pathing(Print&                        print,
+                          const TreeModelVolumes&       volumes,
                           const TreeSupportSettings&    config,
                           std::vector<SupportElements>& move_bounds,
                           std::function<void()>         throw_on_cancel)
@@ -3003,9 +2822,20 @@ void create_layer_pathing(const TreeModelVolumes&       volumes,
                                                         1000 / std::max(config.maximum_move_distance_slow, coord_t(20))),
                                                3000 / config.layer_height);
     size_t merge_every_x_layers     = 1;
+    const std::string propagating_text = _u8L("Propagating tree support branches");
+    const size_t total_layers = move_bounds.size() > 1 ? move_bounds.size() - 1 : 0;
+    const auto propagation_message = [&propagating_text, total_layers](size_t completed) {
+        const size_t percent_hundredths =
+            total_layers == 0 || completed >= total_layers ? 10000 : completed * 10000 / total_layers;
+        const size_t decimal = percent_hundredths % 100;
+        return propagating_text + ": " + std::to_string(percent_hundredths / 100) + "." +
+               (decimal < 10 ? "0" : "") + std::to_string(decimal) + "%";
+    };
     // Calculate the influence areas for each layer below (Top down)
     // This is done by first increasing the influence area by the allowed movement distance, and merging them with other influence areas if possible
-    for (int layer_idx = int(move_bounds.size()) - 1; layer_idx > 0; --layer_idx)
+    for (int layer_idx = int(move_bounds.size()) - 1; layer_idx > 0; --layer_idx) {
+        const size_t completed_layers = move_bounds.size() - size_t(layer_idx);
+        print.set_status(60, propagation_message(completed_layers));
         if (SupportElements& prev_layer = move_bounds[layer_idx]; !prev_layer.empty()) {
             // merging is expensive and only parallelized to a max speedup of 2. As such it may be useful in some cases to only merge every
             // few layers to improve performance.
@@ -3106,6 +2936,8 @@ void create_layer_pathing(const TreeModelVolumes&       volumes,
 #endif
             throw_on_cancel();
         }
+    }
+    print.set_status(60, propagation_message(total_layers));
 
     BOOST_LOG_TRIVIAL(info) << "Time spent with creating influence areas' subtasks: Increasing areas " << dur_inc.count() / 1000000
                             << " ms merging areas: " << (dur_total - dur_inc).count() / 1000000 << " ms";
@@ -3146,12 +2978,86 @@ static void set_points_on_areas(const SupportElement& elem, SupportElements* lay
         }
 }
 
-static void set_to_model_contact_simple(SupportElement& elem)
+struct NonGraciousModelLandingEvaluation
+{
+    Polygons current_support;
+    Polygons model_contact;
+    Polygons propagated_rest;
+    bool     should_stop{false};
+};
+
+// Evaluate a non-gracious model landing using principles equivalent to normal tree support,
+// while keeping the organic implementation and state completely independent:
+// clip the current support against the configured XYZ collision, require at least 45% contact
+// on the layer below, then judge the remainder against the full collision of the lower layer.
+static NonGraciousModelLandingEvaluation evaluate_non_gracious_model_landing(
+    const TreeModelVolumes&       volumes,
+    const TreeSupportSettings&    config,
+    const Polygons&               candidate_support,
+    LayerIndex                    current_layer_idx,
+    std::function<void()>         throw_on_cancel)
+{
+    NonGraciousModelLandingEvaluation result;
+    if (candidate_support.empty() || current_layer_idx <= 0 || !config.support_rests_on_model)
+        return result;
+
+    result.current_support = diff_clipped(candidate_support, volumes.getCollision(0, current_layer_idx, false));
+    const double current_support_area = area(result.current_support);
+    if (current_support_area <= 0.)
+        return result;
+
+    const LayerIndex lower_layer_idx = current_layer_idx - 1;
+    // getPlaceableAreas() is indexed by the support layer being evaluated; internally it already
+    // accounts for the bottom Z distance and selects the corresponding model layer below.
+    result.model_contact = intersection_clipped(
+        result.current_support, volumes.getPlaceableAreas(0, current_layer_idx, throw_on_cancel));
+    const double model_contact_area = area(result.model_contact);
+    if (model_contact_area < 0.45 * current_support_area)
+        return result;
+
+    Polygons rest_after_model_landing = diff_clipped(result.current_support, result.model_contact);
+    result.propagated_rest = diff_clipped(rest_after_model_landing, volumes.getCollision(0, lower_layer_idx, false));
+    if (result.propagated_rest.empty()) {
+        result.should_stop = true;
+        return result;
+    }
+
+    const double  propagated_rest_area = area(result.propagated_rest);
+    const auto    propagated_bbox_size = get_extents(result.propagated_rest).size();
+    const coord_t propagated_width     = std::min(propagated_bbox_size[0], propagated_bbox_size[1]);
+    if (config.support_line_width <= 0) {
+        result.should_stop = propagated_rest_area < 0.5 * current_support_area;
+        return result;
+    }
+
+    const bool rest_eroded_empty =
+        offset(result.propagated_rest, -config.support_line_width / 2, ClipperLib::jtMiter, 1.2).empty();
+    const bool direct_narrow_stop =
+        propagated_width <= coord_t(3.0 * double(config.support_line_width)) || rest_eroded_empty;
+    const bool small_wide_stop =
+        propagated_rest_area < 0.5 * current_support_area &&
+        propagated_width <= coord_t(5.0 * double(config.support_line_width));
+    result.should_stop = direct_narrow_stop || small_wide_stop;
+    return result;
+}
+
+static void set_to_model_contact_simple(const TreeModelVolumes&    volumes,
+                                        const TreeSupportSettings& config,
+                                        SupportElement&            elem,
+                                        std::function<void()>      throw_on_cancel)
 {
     const Point best           = move_inside_if_outside(elem.influence_area, elem.state.next_position);
     elem.state.result_on_layer = best;
+
+    Polygon root_circle = make_circle(support_element_radius(config, elem.state), SUPPORT_TREE_CIRCLE_RESOLUTION);
+    root_circle.translate(best);
+    const NonGraciousModelLandingEvaluation landing = evaluate_non_gracious_model_landing(
+        volumes, config, Polygons{std::move(root_circle)}, elem.state.layer_idx, throw_on_cancel);
+    elem.state.non_gracious_model_landing_confirmed = landing.should_stop;
+
     BOOST_LOG_TRIVIAL(debug) << "Added NON gracious Support On Model Point (" << best.x() << "," << best.y() << "). The current layer is "
-                             << elem.state.layer_idx;
+                             << elem.state.layer_idx << ", landing confirmed "
+                             << elem.state.non_gracious_model_landing_confirmed;
 }
 
 /*!
@@ -3194,7 +3100,7 @@ static void set_to_model_contact_to_model_gracious(const TreeModelVolumes&      
         tree_supports_show_error("Could not fine valid placement on model! Just placing it down anyway. Could cause floating branches."sv,
                                  true);
         first_elem.state.to_model_gracious = false;
-        set_to_model_contact_simple(first_elem);
+        set_to_model_contact_simple(volumes, config, first_elem, throw_on_cancel);
     } else {
         // Found a gracious area above first_elem. Remove all below last_successfull_layer.
         {
@@ -3311,7 +3217,7 @@ void create_nodes_from_area(const TreeModelVolumes&       volumes,
                     if (elem.state.to_model_gracious)
                         set_to_model_contact_to_model_gracious(volumes, config, move_bounds, elem, throw_on_cancel);
                     else
-                        set_to_model_contact_simple(elem);
+                        set_to_model_contact_simple(volumes, config, elem, throw_on_cancel);
                 }
             }
             if (!elem.state.deleted && !elem.state.marked && elem.state.target_height == layer_idx)
@@ -4301,6 +4207,63 @@ void organic_smooth_branches_avoid_collisions(const PrintObject&                
                                               const std::vector<size_t>&                          linear_data_layers,
                                               std::function<void()>                               throw_on_cancel)
 {
+    const std::string smoothing_text = _u8L("Generating tree support areas") + " (1/4)";
+    constexpr int64_t progress_report_interval_ms = 5000;
+    const auto now_ms = []() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    };
+    std::atomic<int64_t> next_progress_report_ms{now_ms()};
+    const auto report_progress = [&print_object, progress_report_interval_ms, &next_progress_report_ms, &now_ms](
+                                     const std::string& phase, size_t completed, size_t total, bool force) {
+        const int64_t current_ms = now_ms();
+        if (force) {
+            next_progress_report_ms.store(current_ms + progress_report_interval_ms, std::memory_order_relaxed);
+        } else {
+            int64_t next_ms = next_progress_report_ms.load(std::memory_order_relaxed);
+            if (current_ms < next_ms ||
+                !next_progress_report_ms.compare_exchange_strong(
+                    next_ms, current_ms + progress_report_interval_ms, std::memory_order_relaxed))
+                return;
+        }
+        const size_t percent_hundredths =
+            total == 0 || completed >= total ? 10000 : completed * 10000 / total;
+        const size_t decimal = percent_hundredths % 100;
+        const std::string percent = std::to_string(percent_hundredths / 100) + "." +
+                                    (decimal < 10 ? "0" : "") + std::to_string(decimal) + "%";
+        const std::string message = !phase.empty() && phase.back() == ')' ?
+                                        phase.substr(0, phase.size() - 1) + ", " + percent + ")" :
+                                        phase + ": " + percent;
+        print_object.print()->set_status(65, message);
+        BOOST_LOG_TRIVIAL(info) << message;
+    };
+    const auto report_iteration_progress =
+        [&print_object, progress_report_interval_ms, &next_progress_report_ms, &now_ms, &smoothing_text](
+            size_t iteration, size_t completed, size_t total, bool force) {
+            const int64_t current_ms = now_ms();
+            if (force) {
+                next_progress_report_ms.store(current_ms + progress_report_interval_ms, std::memory_order_relaxed);
+            } else {
+                int64_t next_ms = next_progress_report_ms.load(std::memory_order_relaxed);
+                if (current_ms < next_ms ||
+                    !next_progress_report_ms.compare_exchange_strong(
+                        next_ms, current_ms + progress_report_interval_ms, std::memory_order_relaxed))
+                    return;
+            }
+
+            const size_t completed_hundredths =
+                total == 0 ? 0 : std::min<size_t>(99, completed * 100 / total);
+            const size_t percent_hundredths =
+                std::min<size_t>(10000, (iteration + 1) * 100 + completed_hundredths);
+            const size_t decimal = percent_hundredths % 100;
+            const std::string message =
+                smoothing_text.substr(0, smoothing_text.size() - 1) + ", " +
+                std::to_string(percent_hundredths / 100) + "." +
+                (decimal < 10 ? "0" : "") + std::to_string(decimal) + "%)";
+            print_object.print()->set_status(65, message);
+            BOOST_LOG_TRIVIAL(info) << message;
+        };
+
     struct LayerCollisionCache
     {
         coord_t            min_element_radius{std::numeric_limits<coord_t>::max()};
@@ -4326,7 +4289,9 @@ void organic_smooth_branches_avoid_collisions(const PrintObject&                
 
     throw_on_cancel();
 
-    for (LayerIndex layer_idx = 0; layer_idx < LayerIndex(layer_collision_cache.size()); ++layer_idx)
+    const size_t collision_layer_count = layer_collision_cache.size();
+    report_progress(smoothing_text, 0, collision_layer_count, true);
+    for (LayerIndex layer_idx = 0; layer_idx < LayerIndex(layer_collision_cache.size()); ++layer_idx) {
         if (LayerCollisionCache& l = layer_collision_cache[layer_idx]; !l.min_element_radius_known())
             l.min_element_radius = 0;
         else {
@@ -4343,6 +4308,9 @@ void organic_smooth_branches_avoid_collisions(const PrintObject&                
             l.aabbtree_lines = AABBTreeLines::build_aabb_tree_over_indexed_lines(l.lines);
             throw_on_cancel();
         }
+        report_progress(smoothing_text, size_t(layer_idx) + 1, collision_layer_count, false);
+    }
+    report_progress(smoothing_text, collision_layer_count, collision_layer_count, true);
 
     struct CollisionSphere
     {
@@ -4429,11 +4397,14 @@ void organic_smooth_branches_avoid_collisions(const PrintObject&                
         for (CollisionSphere& collision_sphere : collision_spheres)
             collision_sphere.prev_position = collision_sphere.position;
         std::atomic<size_t> num_moved{0};
+        std::atomic<size_t> completed_spheres{0};
+        report_iteration_progress(iter, 0, collision_spheres.size(), true);
         tbb::parallel_for(tbb::blocked_range<size_t>(0, collision_spheres.size()), [&collision_spheres, &layer_collision_cache,
                                                                                     &slicing_params, &config, &linear_data_layers,
-                                                                                    &num_moved, &throw_on_cancel](
+                                                                                    &num_moved, &throw_on_cancel, &completed_spheres,
+                                                                                    &report_iteration_progress, iter](
                                                                                        const tbb::blocked_range<size_t> range) {
-            for (size_t collision_sphere_id = range.begin(); collision_sphere_id < range.end(); ++collision_sphere_id)
+            for (size_t collision_sphere_id = range.begin(); collision_sphere_id < range.end(); ++collision_sphere_id) {
                 if (CollisionSphere& collision_sphere = collision_spheres[collision_sphere_id]; !collision_sphere.locked) {
                     // Calculate collision of multiple 2D layers against a collision sphere.
                     collision_sphere.last_collision_depth = -std::numeric_limits<double>::max();
@@ -4501,7 +4472,11 @@ void organic_smooth_branches_avoid_collisions(const PrintObject&                
 
                     throw_on_cancel();
                 }
+                const size_t completed = completed_spheres.fetch_add(1, std::memory_order_relaxed) + 1;
+                report_iteration_progress(iter, completed, collision_spheres.size(), false);
+            }
         });
+        report_iteration_progress(iter, collision_spheres.size(), collision_spheres.size(), true);
 #if 0
         std::vector<double> stat;
         for (CollisionSphere& collision_sphere : collision_spheres)
@@ -4820,15 +4795,9 @@ static void generate_support_areas(Print&                     print,
                                    const std::vector<size_t>& print_object_ids,
                                    std::function<void()>      throw_on_cancel)
 {
-    append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=generate_support_areas objects=" + std::to_string(print_object_ids.size()),
-                               true);
-    const auto support_areas_debug_start = std::chrono::steady_clock::now();
-
     // Settings with the indexes of meshes that use these settings.
     std::vector<std::pair<TreeSupportSettings, std::vector<size_t>>> grouped_meshes = group_meshes(print, print_object_ids);
     if (grouped_meshes.empty()) {
-        append_organic_stage_debug("[ORGANIC_STAGE][END] stage=generate_support_areas reason=no_groups elapsed_ms=" +
-                                   std::to_string(elapsed_ms_since(support_areas_debug_start)));
         return;
     }
 
@@ -4846,9 +4815,6 @@ static void generate_support_areas(Print&                     print,
         BOOST_LOG_TRIVIAL(info) << "Processing support tree mesh group " << counter + 1 << " of " << grouped_meshes.size() << " containing "
                                 << grouped_meshes[counter].second.size() << " meshes.";
         auto t_start = std::chrono::high_resolution_clock::now();
-        const auto group_debug_start = std::chrono::steady_clock::now();
-        append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=mesh_group group=" + std::to_string(counter + 1) + "/" +
-                                   std::to_string(grouped_meshes.size()) + " meshes=" + std::to_string(processing.second.size()));
 
 #ifdef SLIC3R_TREESUPPORTS_PROGRESS
         m_progress_multiplier = 1.0 / double(grouped_meshes.size());
@@ -4872,83 +4838,23 @@ static void generate_support_areas(Print&                     print,
 
 #if 1
         // use smart overhang detection
-        const auto overhang_debug_start = std::chrono::steady_clock::now();
-        append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=detect_overhangs group=" + std::to_string(counter + 1));
         std::vector<Polygons> overhangs;
         tree_support->detect_overhangs();
         // volumes.addSharpTail(tree_support->overhang_sharps);
         const int num_raft_layers = int(config.raft_layers.size());
         const int num_layers      = int(print_object.layer_count()) + num_raft_layers;
         overhangs.resize(num_layers);
-        std::vector<size_t> source_item_count(num_layers, 0);
-        std::vector<size_t> source_sharp_tail_count(num_layers, 0);
-        std::vector<size_t> source_before_polys(num_layers, 0);
-        std::vector<size_t> source_before_points(num_layers, 0);
-        std::vector<size_t> source_after_polys(num_layers, 0);
-        std::vector<size_t> source_after_points(num_layers, 0);
         for (size_t i = 0; i < print_object.layer_count(); i++) {
             const size_t support_layer_idx = i + num_raft_layers;
-            size_t       item_idx          = 0;
             for (auto& expoly_type : print_object.get_layer(i)->loverhangs_with_type) {
                 Polygons polys = to_polygons(expoly_type.first);
                 const bool   is_sharp_tail = (expoly_type.second & TreeSupport::SharpTail) != 0;
-                const size_t before_polys  = polys.size();
-                const size_t before_points = polygon_point_count(polys);
-                const size_t layer_points_prev = source_after_points[support_layer_idx];
 
                 if (is_sharp_tail) {
                     polys = offset(polys, scale_(0.2));
                 }
-                const size_t after_polys       = polys.size();
-                const size_t after_points      = polygon_point_count(polys);
-
-                ++source_item_count[support_layer_idx];
-                source_sharp_tail_count[support_layer_idx] += is_sharp_tail ? 1 : 0;
-                source_before_polys[support_layer_idx] += before_polys;
-                source_before_points[support_layer_idx] += before_points;
-                source_after_polys[support_layer_idx] += after_polys;
-                source_after_points[support_layer_idx] += after_points;
-
-                if (organic_overhang_source_debug_layer(support_layer_idx, std::max(before_points, after_points)) ||
-                    organic_overhang_source_debug_layer(support_layer_idx, layer_points_prev + after_points)) {
-                    append_organic_stage_debug("[OVERHANG_SOURCE][ITEM] group=" + std::to_string(counter + 1) +
-                                               " object_layer=" + std::to_string(i) +
-                                               " support_layer=" + std::to_string(support_layer_idx) +
-                                               " item=" + std::to_string(item_idx) +
-                                               " type=" + std::to_string(static_cast<int>(expoly_type.second)) +
-                                               " sharp_tail=" + std::to_string(is_sharp_tail ? 1 : 0) +
-                                               " before_polys=" + std::to_string(before_polys) +
-                                               " before_points=" + std::to_string(before_points) +
-                                               " after_polys=" + std::to_string(after_polys) +
-                                               " after_points=" + std::to_string(after_points) +
-                                               " layer_points_before_append=" + std::to_string(layer_points_prev) +
-                                               " layer_points_after_append=" + std::to_string(layer_points_prev + after_points));
-                }
 
                 append(overhangs[support_layer_idx], polys);
-                ++item_idx;
-            }
-        }
-        for (size_t layer_idx = 0; layer_idx < overhangs.size(); ++layer_idx) {
-            const size_t final_polys  = overhangs[layer_idx].size();
-            const size_t final_points = polygon_point_count(overhangs[layer_idx]);
-            if (organic_overhang_source_debug_layer(layer_idx, final_points) ||
-                organic_overhang_source_debug_layer(layer_idx, source_before_points[layer_idx]) ||
-                organic_overhang_source_debug_layer(layer_idx, source_after_points[layer_idx])) {
-                append_organic_stage_debug("[OVERHANG_SOURCE][LAYER] group=" + std::to_string(counter + 1) +
-                                           " support_layer=" + std::to_string(layer_idx) +
-                                           " object_layer=" +
-                                           (layer_idx >= size_t(num_raft_layers) ?
-                                                std::to_string(layer_idx - size_t(num_raft_layers)) :
-                                                std::string("raft")) +
-                                           " items=" + std::to_string(source_item_count[layer_idx]) +
-                                           " sharp_tail_items=" + std::to_string(source_sharp_tail_count[layer_idx]) +
-                                           " before_polys=" + std::to_string(source_before_polys[layer_idx]) +
-                                           " before_points=" + std::to_string(source_before_points[layer_idx]) +
-                                           " after_polys=" + std::to_string(source_after_polys[layer_idx]) +
-                                           " after_points=" + std::to_string(source_after_points[layer_idx]) +
-                                           " final_polys=" + std::to_string(final_polys) +
-                                           " final_points=" + std::to_string(final_points));
             }
         }
 
@@ -4956,31 +4862,10 @@ static void generate_support_areas(Print&                     print,
         std::vector<float> zs          = zs_from_layers(print_object.layers());
         const coord_t      base_radius = scaled<coord_t>(0.5);
         Polygon            base_circle = make_circle_num_segments(base_radius, organic_vertical_enforcer_circle_segments);
-        std::vector<size_t> vertical_enforcer_input_points(num_layers, 0);
-        std::vector<size_t> vertical_enforcer_added_points(num_layers, 0);
-        std::vector<size_t> vertical_enforcer_skipped_points(num_layers, 0);
-        std::vector<size_t> vertical_enforcer_duplicate_points(num_layers, 0);
-        std::vector<size_t> vertical_enforcer_cap_skipped_points(num_layers, 0);
         std::vector<Points> vertical_enforcer_points_by_layer(num_layers);
         const coord_t       vertical_enforcer_grid_size =
             scaled<coord_t>(organic_vertical_enforcer_cleanup_grid_size_mm);
-        std::vector<std::unordered_set<uint64_t>> vertical_enforcer_seen_cells(
-            organic_vertical_enforcer_cleanup_enabled ? num_layers : 0);
-        const size_t        circle_points = base_circle.size();
-        const size_t        vertical_enforcer_total = tree_support->m_vertical_enforcer_points.size();
         const size_t        z_distance_delta = config.z_distance_top_layers + 1;
-        size_t              vertical_enforcer_total_added = 0;
-        size_t              vertical_enforcer_total_skipped = 0;
-        size_t              vertical_enforcer_total_duplicates = 0;
-        size_t              vertical_enforcer_total_cap_skipped = 0;
-        append_organic_stage_debug("[VERTICAL_ENFORCER][BEGIN] group=" + std::to_string(counter + 1) +
-                                   " input_points=" + std::to_string(vertical_enforcer_total) +
-                                   " circle_points=" + std::to_string(circle_points) +
-                                   " cleanup_enabled=" + std::to_string(organic_vertical_enforcer_cleanup_enabled ? 1 : 0) +
-                                   " cleanup_grid_mm=" +
-                                   std::to_string(organic_vertical_enforcer_cleanup_grid_size_mm) +
-                                   " cleanup_max_points_per_layer=" +
-                                   std::to_string(organic_vertical_enforcer_cleanup_max_points_per_layer));
         for (auto& pt_and_normal : tree_support->m_vertical_enforcer_points) {
             auto pt     = pt_and_normal.first;
             auto iter   = std::lower_bound(zs.begin(), zs.end(), pt.z());
@@ -4988,18 +4873,7 @@ static void generate_support_areas(Print&                     print,
                 size_t layer_nr = iter - zs.begin();
                 if (layer_nr > 0 && layer_nr < print_object.layer_count()) {
                     const size_t support_layer_idx = layer_nr + num_raft_layers;
-                    ++vertical_enforcer_input_points[support_layer_idx];
                     const Point point = to_2d(pt).cast<coord_t>();
-                    if (organic_vertical_enforcer_cleanup_enabled) {
-                        auto& seen_cells = vertical_enforcer_seen_cells[support_layer_idx];
-                        if (!seen_cells.insert(grid_cell_key(point, vertical_enforcer_grid_size)).second) {
-                            ++vertical_enforcer_duplicate_points[support_layer_idx];
-                            ++vertical_enforcer_skipped_points[support_layer_idx];
-                            ++vertical_enforcer_total_duplicates;
-                            ++vertical_enforcer_total_skipped;
-                            continue;
-                        }
-                    }
                     vertical_enforcer_points_by_layer[support_layer_idx].emplace_back(point);
                 }
             }
@@ -5008,90 +4882,29 @@ static void generate_support_areas(Print&                     print,
             const Points& layer_points = vertical_enforcer_points_by_layer[layer_idx];
             if (layer_points.empty())
                 continue;
-            const size_t emit_points =
-                organic_vertical_enforcer_cleanup_enabled ?
-                    std::min(layer_points.size(), organic_vertical_enforcer_cleanup_max_points_per_layer) :
-                    layer_points.size();
-            if (emit_points < layer_points.size()) {
-                const size_t skipped = layer_points.size() - emit_points;
-                vertical_enforcer_cap_skipped_points[layer_idx] += skipped;
-                vertical_enforcer_skipped_points[layer_idx] += skipped;
-                vertical_enforcer_total_cap_skipped += skipped;
-                vertical_enforcer_total_skipped += skipped;
+
+            Points cleaned_points;
+            const Points* points_to_emit = &layer_points;
+            if (layer_points.size() > organic_vertical_enforcer_cleanup_trigger_points_per_layer) {
+                std::unordered_set<uint64_t> seen_cells;
+                cleaned_points.reserve(layer_points.size());
+                for (const Point& point : layer_points)
+                    if (seen_cells.insert(grid_cell_key(point, vertical_enforcer_grid_size)).second)
+                        cleaned_points.emplace_back(point);
+                points_to_emit = &cleaned_points;
             }
-            for (size_t point_idx = 0; point_idx < emit_points; ++point_idx) {
-                const size_t source_idx = emit_points < layer_points.size() ?
-                                              point_idx * layer_points.size() / emit_points :
-                                              point_idx;
+
+            for (size_t point_idx = 0; point_idx < points_to_emit->size(); ++point_idx) {
                 Polygon circle = base_circle;
-                circle.translate(layer_points[source_idx]);
+                circle.translate((*points_to_emit)[point_idx]);
                 overhangs[layer_idx].emplace_back(std::move(circle));
-                ++vertical_enforcer_added_points[layer_idx];
-                ++vertical_enforcer_total_added;
             }
         }
-        for (size_t layer_idx = 0; layer_idx < vertical_enforcer_input_points.size(); ++layer_idx) {
-            const size_t input_points     = vertical_enforcer_input_points[layer_idx];
-            const size_t added_points     = vertical_enforcer_added_points[layer_idx];
-            const size_t skipped_points   = vertical_enforcer_skipped_points[layer_idx];
-            const size_t duplicate_points = vertical_enforcer_duplicate_points[layer_idx];
-            const size_t cap_skipped      = vertical_enforcer_cap_skipped_points[layer_idx];
-            if (input_points >= organic_vertical_enforcer_debug_layer_point_threshold || skipped_points > 0 ||
-                organic_overhang_source_debug_layer(layer_idx, added_points * circle_points)) {
-                append_organic_stage_debug("[VERTICAL_ENFORCER][LAYER] group=" + std::to_string(counter + 1) +
-                                           " support_layer=" + std::to_string(layer_idx) +
-                                           " object_layer=" +
-                                           (layer_idx >= size_t(num_raft_layers) ?
-                                                std::to_string(layer_idx - size_t(num_raft_layers)) :
-                                                std::string("raft")) +
-                                           " initial_area_layer=" +
-                                           (layer_idx >= z_distance_delta ?
-                                                std::to_string(layer_idx - z_distance_delta) :
-                                                std::string("none")) +
-                                           " input_points=" + std::to_string(input_points) +
-                                           " added_points=" + std::to_string(added_points) +
-                                           " skipped_points=" + std::to_string(skipped_points) +
-                                           " duplicate_points=" + std::to_string(duplicate_points) +
-                                           " cap_skipped_points=" + std::to_string(cap_skipped) +
-                                           " circle_points=" + std::to_string(circle_points) +
-                                           " added_polys=" + std::to_string(added_points) +
-                                           " added_polygon_points=" + std::to_string(added_points * circle_points));
-            }
-        }
-        append_organic_stage_debug("[VERTICAL_ENFORCER][END] group=" + std::to_string(counter + 1) +
-                                   " input_points=" + std::to_string(vertical_enforcer_total) +
-                                   " added_points=" + std::to_string(vertical_enforcer_total_added) +
-                                   " skipped_points=" + std::to_string(vertical_enforcer_total_skipped) +
-                                   " duplicate_points=" + std::to_string(vertical_enforcer_total_duplicates) +
-                                   " cap_skipped_points=" + std::to_string(vertical_enforcer_total_cap_skipped) +
-                                   " added_polygon_points=" + std::to_string(vertical_enforcer_total_added * circle_points) +
-                                   " cleanup_enabled=" + std::to_string(organic_vertical_enforcer_cleanup_enabled ? 1 : 0) +
-                                   " cleanup_grid_mm=" +
-                                   std::to_string(organic_vertical_enforcer_cleanup_grid_size_mm));
-        append_organic_stage_debug("[ORGANIC_STAGE][END] stage=detect_overhangs group=" + std::to_string(counter + 1) +
-                                   " layers=" + std::to_string(overhangs.size()) +
-                                   " nonempty_layers=" + std::to_string(nonempty_polygon_layers(overhangs)) +
-                                   " polys=" + std::to_string(total_polygon_count(overhangs)) +
-                                   " points=" + std::to_string(total_polygon_point_count(overhangs)) +
-                                   " elapsed_ms=" + std::to_string(elapsed_ms_since(overhang_debug_start)));
 #else
-        const auto overhang_debug_start = std::chrono::steady_clock::now();
-        append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=generate_overhangs group=" + std::to_string(counter + 1));
         std::vector<Polygons> overhangs = generate_overhangs(config, *print.get_object(processing.second.front()), throw_on_cancel);
-        append_organic_stage_debug("[ORGANIC_STAGE][END] stage=generate_overhangs group=" + std::to_string(counter + 1) +
-                                   " layers=" + std::to_string(overhangs.size()) +
-                                   " nonempty_layers=" + std::to_string(nonempty_polygon_layers(overhangs)) +
-                                   " polys=" + std::to_string(total_polygon_count(overhangs)) +
-                                   " points=" + std::to_string(total_polygon_point_count(overhangs)) +
-                                   " elapsed_ms=" + std::to_string(elapsed_ms_since(overhang_debug_start)));
 #endif
         // ### Precalculate avoidances, collision etc.
-        const auto precalculate_debug_start = std::chrono::steady_clock::now();
-        append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=precalculate group=" + std::to_string(counter + 1));
         size_t num_support_layers = precalculate(print, overhangs, processing.first, processing.second, volumes, throw_on_cancel);
-        append_organic_stage_debug("[ORGANIC_STAGE][END] stage=precalculate group=" + std::to_string(counter + 1) +
-                                   " support_layers=" + std::to_string(num_support_layers) +
-                                   " elapsed_ms=" + std::to_string(elapsed_ms_since(precalculate_debug_start)));
 
         bool has_support                      = num_support_layers > 0;
         bool has_raft                         = config.raft_layers.size() > 0;
@@ -5107,13 +4920,6 @@ static void generate_support_areas(Print&                     print,
             const Point       bbox_size  = bbox.size();
             const coord_t     short_side = std::min(bbox_size.x(), bbox_size.y());
             const coord_t     long_side  = std::max(bbox_size.x(), bbox_size.y());
-            append_organic_stage_debug(
-                std::string("[ORGANIC_LONG_ROOF] type=") + type +
-                " object_layer=" + std::to_string(object_layer_idx) +
-                " support_layer=" + std::to_string(support_layer_idx) +
-                " short_mm=" + std::to_string(unscale<double>(short_side)) +
-                " long_mm=" + std::to_string(unscale<double>(long_side)) +
-                " area_mm2=" + std::to_string(scaled_area_to_mm2(area(roofs))));
         };
         size_t highest_long_bridge_roof_layer = 0;
         if (!tree_support->long_bridge_roofs_by_layer.empty())
@@ -5128,8 +4934,6 @@ static void generate_support_areas(Print&                     print,
         has_support = has_support || highest_long_bridge_roof_layer > 0;
 
         if (num_support_layers == 0) {
-            append_organic_stage_debug("[ORGANIC_STAGE][END] stage=mesh_group group=" + std::to_string(counter + 1) +
-                                       " reason=no_support_layers elapsed_ms=" + std::to_string(elapsed_ms_since(group_debug_start)));
             ++counter;
             continue;
         }
@@ -5188,26 +4992,11 @@ static void generate_support_areas(Print&                     print,
             auto t_precalc = std::chrono::high_resolution_clock::now();
             // value is the area where support may be placed. As this is calculated in CreateLayerPathing it is saved and reused in draw_areas
             std::vector<SupportElements> move_bounds(num_support_layers);
-
-            const auto initial_debug_start = std::chrono::steady_clock::now();
-            append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=generate_initial_areas group=" + std::to_string(counter + 1) +
-                                       " meshes=" + std::to_string(processing.second.size()) +
-                                       " support_layers=" + std::to_string(num_support_layers));
             for (size_t mesh_idx : processing.second) {
-                const auto mesh_initial_debug_start = std::chrono::steady_clock::now();
-                append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=generate_initial_areas.mesh mesh_idx=" +
-                                           std::to_string(mesh_idx));
                 generate_initial_areas(*print.get_object(mesh_idx), volumes, config, overhangs, move_bounds, interface_placer,
                                        throw_on_cancel);
-                append_organic_stage_debug("[ORGANIC_STAGE][END] stage=generate_initial_areas.mesh mesh_idx=" +
-                                           std::to_string(mesh_idx) + " elapsed_ms=" +
-                                           std::to_string(elapsed_ms_since(mesh_initial_debug_start)));
             }
-            append_organic_stage_debug("[ORGANIC_STAGE][END] stage=generate_initial_areas group=" + std::to_string(counter + 1) +
-                                       " elapsed_ms=" + std::to_string(elapsed_ms_since(initial_debug_start)));
             if (support_params.has_top_contacts) {
-                const auto internal_roofs_debug_start = std::chrono::steady_clock::now();
-                append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=add_internal_solid_roofs group=" + std::to_string(counter + 1));
                 const std::vector<ExPolygons>& long_internal_solid_roofs_by_layer = tree_support->long_internal_solid_roofs_by_layer;
                 for (size_t layer_idx = 0; layer_idx < long_internal_solid_roofs_by_layer.size(); ++layer_idx) {
                     std::optional<size_t> support_layer_idx = support_layer_for_object_layer(layer_idx);
@@ -5220,8 +5009,6 @@ static void generate_support_areas(Print&                     print,
                     log_long_roof("internal_solid", layer_idx, *support_layer_idx, long_internal_solid_roofs_by_layer[layer_idx]);
                     interface_placer.add_roof(to_polygons(roof_expolys), *support_layer_idx, 0);
                 }
-                append_organic_stage_debug("[ORGANIC_STAGE][END] stage=add_internal_solid_roofs group=" + std::to_string(counter + 1) +
-                                           " elapsed_ms=" + std::to_string(elapsed_ms_since(internal_roofs_debug_start)));
             }
             auto t_gen = std::chrono::high_resolution_clock::now();
 
@@ -5241,22 +5028,16 @@ static void generate_support_areas(Print&                     print,
 
             // ### Propagate the influence areas downwards. This is an inherently serial operation.
             print.set_status(60, _L("Generating support"));
-            const auto pathing_debug_start = std::chrono::steady_clock::now();
-            append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=create_layer_pathing group=" + std::to_string(counter + 1));
-            create_layer_pathing(volumes, config, move_bounds, throw_on_cancel);
-            append_organic_stage_debug("[ORGANIC_STAGE][END] stage=create_layer_pathing group=" + std::to_string(counter + 1) +
-                                       " elapsed_ms=" + std::to_string(elapsed_ms_since(pathing_debug_start)));
+            create_layer_pathing(print, volumes, config, move_bounds, throw_on_cancel);
             auto t_path = std::chrono::high_resolution_clock::now();
 
             // ### Set a point in each influence area
-            const auto nodes_debug_start = std::chrono::steady_clock::now();
-            append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=create_nodes_from_area group=" + std::to_string(counter + 1));
+            print.set_status(63, _L("Generating support"));
             create_nodes_from_area(volumes, config, move_bounds, throw_on_cancel);
-            append_organic_stage_debug("[ORGANIC_STAGE][END] stage=create_nodes_from_area group=" + std::to_string(counter + 1) +
-                                       " elapsed_ms=" + std::to_string(elapsed_ms_since(nodes_debug_start)));
             auto t_place = std::chrono::high_resolution_clock::now();
 
             // ### draw these points as circles
+            print.set_status(65, _L("Generating support"));
 #if 0
             indexed_triangle_set branches = draw_branches(*print.get_object(processing.second.front()), volumes, config, move_bounds, throw_on_cancel);
             // Reduce memory footprint. After this point only slice_branches() will use volumes and from that only collisions with zero radius will be used.
@@ -5265,18 +5046,12 @@ static void generate_support_areas(Print&                     print,
                 bottom_contacts, top_contacts, intermediate_layers, layer_storage, throw_on_cancel);
 #else
             // this new function give correct result when raft is also enabled
-            const auto draw_debug_start = std::chrono::steady_clock::now();
-            append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=organic_draw_branches group=" + std::to_string(counter + 1));
             organic_draw_branches(*print.get_object(processing.second.front()), volumes, config, move_bounds, bottom_contacts, top_contacts,
                                   interface_placer, intermediate_layers, layer_storage, throw_on_cancel);
-            append_organic_stage_debug("[ORGANIC_STAGE][END] stage=organic_draw_branches group=" + std::to_string(counter + 1) +
-                                       " elapsed_ms=" + std::to_string(elapsed_ms_since(draw_debug_start)));
 #endif
 
             auto trim_layers_from_current_model_body = [&print_object, num_raft_layers](SupportGeneratorLayersPtr& layers,
                                                                                          const char* layer_type_name) {
-                size_t trimmed_layers = 0;
-                double trimmed_area   = 0.;
                 for (size_t layer_idx = 0; layer_idx < layers.size(); ++layer_idx) {
                     SupportGeneratorLayer* layer = layers[layer_idx];
                     if (layer == nullptr || layer->polygons.empty() || layer_idx < size_t(num_raft_layers))
@@ -5290,45 +5065,19 @@ static void generate_support_areas(Print&                     print,
                     if (object_layer == nullptr || object_layer->lslices.empty())
                         continue;
 
-                    const double before_area = area(layer->polygons);
                     layer->polygons = diff_clipped(layer->polygons, union_(to_polygons(object_layer->lslices)));
-                    const double after_area = area(layer->polygons);
-                    if (before_area > after_area + tiny_area_threshold) {
-                        ++trimmed_layers;
-                        trimmed_area += before_area - after_area;
-                        append_organic_stage_debug(
-                            std::string("[ORGANIC_MODEL_CLIP] type=") + layer_type_name +
-                            " support_layer=" + std::to_string(layer_idx) +
-                            " object_layer=" + std::to_string(object_layer_idx) +
-                            " trimmed_mm2=" + std::to_string(scaled_area_to_mm2(before_area - after_area)));
-                    }
                 }
-                if (trimmed_layers > 0)
-                    append_organic_stage_debug(
-                        std::string("[ORGANIC_MODEL_CLIP][SUMMARY] type=") + layer_type_name +
-                        " layers=" + std::to_string(trimmed_layers) +
-                        " trimmed_mm2=" + std::to_string(scaled_area_to_mm2(trimmed_area)));
             };
             trim_layers_from_current_model_body(top_contacts, "top_contact");
             trim_layers_from_current_model_body(interface_layers, "top_interface");
             trim_layers_from_current_model_body(base_interface_layers, "top_base_interface");
 
             // tree_support->move_bounds_to_contact_nodes(move_bounds, print_object, config);
-
-            const auto remove_layers_debug_start = std::chrono::steady_clock::now();
-            append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=remove_undefined_layers group=" + std::to_string(counter + 1));
             remove_undefined_layers();
-            append_organic_stage_debug("[ORGANIC_STAGE][END] stage=remove_undefined_layers group=" + std::to_string(counter + 1) +
-                                       " elapsed_ms=" + std::to_string(elapsed_ms_since(remove_layers_debug_start)));
-
-            const auto interface_debug_start = std::chrono::steady_clock::now();
-            append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=generate_interface_layers group=" + std::to_string(counter + 1));
             std::tie(interface_layers, base_interface_layers) = generate_interface_layers(print_object.config(), support_params,
                                                                                           bottom_contacts, top_contacts, interface_layers,
                                                                                           base_interface_layers, intermediate_layers,
                                                                                           layer_storage);
-            append_organic_stage_debug("[ORGANIC_STAGE][END] stage=generate_interface_layers group=" + std::to_string(counter + 1) +
-                                       " elapsed_ms=" + std::to_string(elapsed_ms_since(interface_debug_start)));
 
             auto t_draw      = std::chrono::high_resolution_clock::now();
             auto dur_pre_gen = 0.001 * std::chrono::duration_cast<std::chrono::microseconds>(t_precalc - t_start).count();
@@ -5359,25 +5108,17 @@ static void generate_support_areas(Print&                     print,
             remove_undefined_layers();
         } else {
             // No raft.
-            append_organic_stage_debug("[ORGANIC_STAGE][END] stage=mesh_group group=" + std::to_string(counter + 1) +
-                                       " reason=no_support_no_raft elapsed_ms=" +
-                                       std::to_string(elapsed_ms_since(group_debug_start)));
             ++counter;
             continue;
         }
 
         // Produce the support G-code.
-        const auto support_layers_debug_start = std::chrono::steady_clock::now();
-        append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=generate_support_layers group=" + std::to_string(counter + 1));
         std::vector<Polygons>     buildplate_covered;
         SupportGeneratorLayersPtr raft_layers   = generate_raft_base(print_object, support_params, print_object.slicing_parameters(),
                                                                      top_contacts, interface_layers, base_interface_layers,
                                                                      intermediate_layers, layer_storage, buildplate_covered);
         SupportGeneratorLayersPtr layers_sorted = generate_support_layers(print_object, raft_layers, bottom_contacts, top_contacts,
                                                                           intermediate_layers, interface_layers, base_interface_layers);
-        append_organic_stage_debug("[ORGANIC_STAGE][END] stage=generate_support_layers group=" + std::to_string(counter + 1) +
-                                   " layers_sorted=" + std::to_string(layers_sorted.size()) +
-                                   " elapsed_ms=" + std::to_string(elapsed_ms_since(support_layers_debug_start)));
 
         // todo : The support is out of the platform issue
         //// BBS: This is a hack to avoid the support being generated outside the bed area. See #4769.
@@ -5387,14 +5128,9 @@ static void generate_support_areas(Print&                     print,
 
         // Don't fill in the tree supports, make them hollow with just a single sheath line.
         print.set_status(69, _L("Generating support"));
-        const auto toolpaths_debug_start = std::chrono::steady_clock::now();
-        append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=generate_support_toolpaths group=" + std::to_string(counter + 1) +
-                                   " support_layers=" + std::to_string(print_object.support_layers().size()));
         generate_support_toolpaths(print_object.support_layers(), print_object.config(), support_params, print_object.slicing_parameters(),
                                    raft_layers, bottom_contacts, top_contacts, intermediate_layers, interface_layers,
                                    base_interface_layers);
-        append_organic_stage_debug("[ORGANIC_STAGE][END] stage=generate_support_toolpaths group=" + std::to_string(counter + 1) +
-                                   " elapsed_ms=" + std::to_string(elapsed_ms_since(toolpaths_debug_start)));
 
         auto t_end = std::chrono::high_resolution_clock::now();
         BOOST_LOG_TRIVIAL(info) << "Total time of organic tree support: "
@@ -5430,12 +5166,8 @@ static void generate_support_areas(Print&                     print,
 #endif /* SLIC3R_DEBUG */
 
         ++counter;
-        append_organic_stage_debug("[ORGANIC_STAGE][END] stage=mesh_group group=" + std::to_string(counter) +
-                                   " elapsed_ms=" + std::to_string(elapsed_ms_since(group_debug_start)));
     }
 
-    append_organic_stage_debug("[ORGANIC_STAGE][END] stage=generate_support_areas elapsed_ms=" +
-                               std::to_string(elapsed_ms_since(support_areas_debug_start)));
     //   storage.support.generated = true;
 }
 
@@ -5456,17 +5188,41 @@ void organic_draw_branches(PrintObject&                  print_object,
 
                            std::function<void()> throw_on_cancel)
 {
-    const auto organic_draw_debug_start = std::chrono::steady_clock::now();
-    append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=organic_draw_branches.inner move_bound_layers=" +
-                               std::to_string(move_bounds.size()));
+    const std::string generating_tree_areas_text = _u8L("Generating tree support areas");
+    constexpr int64_t progress_report_interval_ms = 5000;
+    const auto now_ms = []() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    };
+    std::atomic<int64_t> next_progress_report_ms{now_ms()};
+    const auto report_progress = [&print_object, progress_report_interval_ms, &next_progress_report_ms, &now_ms](
+                                     const std::string& phase, size_t completed, size_t total, bool force) {
+        const int64_t current_ms = now_ms();
+        if (force) {
+            next_progress_report_ms.store(current_ms + progress_report_interval_ms, std::memory_order_relaxed);
+        } else {
+            int64_t next_ms = next_progress_report_ms.load(std::memory_order_relaxed);
+            if (current_ms < next_ms ||
+                !next_progress_report_ms.compare_exchange_strong(
+                    next_ms, current_ms + progress_report_interval_ms, std::memory_order_relaxed))
+                return;
+        }
+        const size_t percent_hundredths =
+            total == 0 || completed >= total ? 10000 : completed * 10000 / total;
+        const size_t decimal = percent_hundredths % 100;
+        const std::string percent = std::to_string(percent_hundredths / 100) + "." +
+                                    (decimal < 10 ? "0" : "") + std::to_string(decimal) + "%";
+        const std::string message = !phase.empty() && phase.back() == ')' ?
+                                        phase.substr(0, phase.size() - 1) + ", " + percent + ")" :
+                                        phase + ": " + percent;
+        print_object.print()->set_status(65, message);
+        BOOST_LOG_TRIVIAL(info) << message;
+    };
 
     // All SupportElements are put into a layer independent storage to improve parallelization.
     std::vector<std::pair<SupportElement*, int>> elements_with_link_down;
     std::vector<size_t>                          linear_data_layers;
-    append_organic_floating_debug("=== Organic Floating Debug: organic_draw_branches ===", true);
     {
-        const auto link_debug_start = std::chrono::steady_clock::now();
-        append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=organic_draw_branches.build_links");
         std::vector<std::pair<SupportElement*, int>> map_downwards_old;
         std::vector<std::pair<SupportElement*, int>> map_downwards_new;
         linear_data_layers.emplace_back(0);
@@ -5504,27 +5260,14 @@ void organic_draw_branches(PrintObject&                  print_object,
             std::swap(map_downwards_old, map_downwards_new);
             linear_data_layers.emplace_back(elements_with_link_down.size());
         }
-        append_organic_stage_debug("[ORGANIC_STAGE][END] stage=organic_draw_branches.build_links elements=" +
-                                   std::to_string(elements_with_link_down.size()) +
-                                   " elapsed_ms=" + std::to_string(elapsed_ms_since(link_debug_start)));
     }
 
     throw_on_cancel();
-
-    const auto smooth_debug_start = std::chrono::steady_clock::now();
-    append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=organic_smooth_branches_avoid_collisions elements=" +
-                               std::to_string(elements_with_link_down.size()));
     organic_smooth_branches_avoid_collisions(print_object, volumes, config, elements_with_link_down, linear_data_layers, throw_on_cancel);
-    append_organic_stage_debug("[ORGANIC_STAGE][END] stage=organic_smooth_branches_avoid_collisions elapsed_ms=" +
-                               std::to_string(elapsed_ms_since(smooth_debug_start)));
 
     // Reduce memory footprint. After this point only finalize_interface_and_support_areas() will use volumes and from that only collisions
     // with zero radius will be used.
-    const auto clear_volumes_debug_start = std::chrono::steady_clock::now();
-    append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=clear_all_but_object_collision");
     volumes.clear_all_but_object_collision();
-    append_organic_stage_debug("[ORGANIC_STAGE][END] stage=clear_all_but_object_collision elapsed_ms=" +
-                               std::to_string(elapsed_ms_since(clear_volumes_debug_start)));
 
     // Unmark all nodes.
     for (SupportElements& elements : move_bounds)
@@ -5577,9 +5320,9 @@ void organic_draw_branches(PrintObject&                  print_object,
         for (const ExPolygon& expoly : layer->lslices)
             outlines.emplace_back(expoly.contour);
 
-        return config.xy_min_distance == 0 ?
+        return config.xy_distance == 0 ?
                    union_(outlines) :
-                   offset(union_ex(outlines), config.xy_min_distance, ClipperLib::jtMiter, 1.2);
+                   offset(union_ex(outlines), config.xy_distance, ClipperLib::jtMiter, 1.2);
     };
     auto current_layer_model_body = [&print_object, &config](LayerIndex layer_idx) -> Polygons {
         const LayerIndex raft_layers = LayerIndex(config.raft_layers.size());
@@ -5596,7 +5339,6 @@ void organic_draw_branches(PrintObject&                  print_object,
 
         return union_(to_polygons(layer->lslices));
     };
-
     struct TreeVisitor
     {
         static void visit_recursive(std::vector<SupportElements>& move_bounds, SupportElement& start_element, Tree& out)
@@ -5650,9 +5392,6 @@ void organic_draw_branches(PrintObject&                  print_object,
             }
         }
     };
-
-    const auto collect_trees_debug_start = std::chrono::steady_clock::now();
-    append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=organic_draw_branches.collect_trees");
     for (LayerIndex layer_idx = 0; layer_idx + 1 < LayerIndex(move_bounds.size()); ++layer_idx) {
         //        int ielement;
         for (SupportElement& start_element : move_bounds[layer_idx]) {
@@ -5688,33 +5427,66 @@ void organic_draw_branches(PrintObject&                  print_object,
     size_t branch_count = 0;
     for (const Tree& tree : trees)
         branch_count += tree.branches.size();
-    append_organic_stage_debug("[ORGANIC_STAGE][END] stage=organic_draw_branches.collect_trees trees=" + std::to_string(trees.size()) +
-                               " branches=" + std::to_string(branch_count) +
-                               " elapsed_ms=" + std::to_string(elapsed_ms_since(collect_trees_debug_start)));
+    const std::string generating_branches_text = generating_tree_areas_text + " (2/4)";
+    std::atomic<size_t> completed_branches{0};
+    report_progress(generating_branches_text, 0, branch_count, true);
 
     const SlicingParameters& slicing_params = print_object.slicing_parameters();
     MeshSlicingParams        mesh_slicing_params;
     mesh_slicing_params.mode = MeshSlicingParams::SlicingMode::Positive;
 
-    std::atomic<bool> has_support_out_of_bed = false;
+    // Return the XY position of the branch center line at a horizontal mesh slicing plane.
+    // Branch paths contain one center per support layer, therefore all regular tube slices
+    // are covered by a linear interpolation between two consecutive path nodes.
+    auto branch_center_at_z = [&slicing_params, &config](const Branch& branch, double z) {
+        const auto point_on_layer = [](const SupportElement& element) {
+            return unscaled<double>(element.state.result_on_layer);
+        };
+        for (size_t path_idx = 1; path_idx < branch.path.size(); ++path_idx) {
+            const SupportElement& lower = *branch.path[path_idx - 1];
+            const SupportElement& upper = *branch.path[path_idx];
+            const double z0 = layer_z(slicing_params, config, lower.state.layer_idx);
+            const double z1 = layer_z(slicing_params, config, upper.state.layer_idx);
+            if (z <= z1) {
+                const double t = std::clamp((z - z0) / (z1 - z0), 0., 1.);
+                const Vec2d  p = (1. - t) * point_on_layer(lower) + t * point_on_layer(upper);
+                return Point(scale_(p.x()), scale_(p.y()));
+            }
+        }
+        const Vec2d p = point_on_layer(*branch.path.back());
+        return Point(scale_(p.x()), scale_(p.y()));
+    };
 
-    const auto slice_trees_debug_start = std::chrono::steady_clock::now();
-    append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=organic_draw_branches.slice_trees trees=" + std::to_string(trees.size()) +
-                               " branches=" + std::to_string(branch_count));
+    auto contains_fuzzy = [](const Polygons& polygons, const Point& point) {
+        if (contains(polygons, point))
+            return true;
+        Point moved = point;
+        move_inside(polygons, moved, 0);
+        return (point - moved).cast<double>().norm() < scaled<double>(0.025);
+    };
+
+    auto keep_branch_center_component = [&contains_fuzzy](const Polygons& clipped, const Point& center) {
+        ExPolygons kept;
+        for (ExPolygon& component : union_ex(clipped)) {
+            if (contains_fuzzy(to_polygons(component), center))
+                kept.emplace_back(std::move(component));
+        }
+        return to_polygons(std::move(kept));
+    };
+
+    std::atomic<bool> has_support_out_of_bed = false;
     tbb::parallel_for(
         tbb::blocked_range<size_t>(0, trees.size(), 1),
-        [&trees, &volumes, &config, &slicing_params, &move_bounds, &mesh_slicing_params, &has_support_out_of_bed, &top_contacts,
-         &current_layer_model_xy_avoidance, &throw_on_cancel](const tbb::blocked_range<size_t>& range) {
+        [&trees, &volumes, &config, &slicing_params, &move_bounds, &mesh_slicing_params,
+         &has_support_out_of_bed, &top_contacts,
+         &current_layer_model_xy_avoidance, &branch_center_at_z, &contains_fuzzy, &keep_branch_center_component,
+         &throw_on_cancel, &completed_branches, &report_progress, &generating_branches_text,
+         branch_count](const tbb::blocked_range<size_t>& range) {
             indexed_triangle_set  partial_mesh;
             std::vector<float>    slice_z;
             std::vector<Polygons> bottom_contacts;
             for (size_t tree_id = range.begin(); tree_id < range.end(); ++tree_id) {
-                const auto tree_debug_start = std::chrono::steady_clock::now();
                 Tree& tree = trees[tree_id];
-                append_organic_stage_debug("[ORGANIC_TASK][BEGIN] stage=organic_draw_branches.slice_tree tree=" +
-                                           std::to_string(tree_id) + "/" + std::to_string(trees.size()) +
-                                           " branches=" + std::to_string(tree.branches.size()) +
-                                           " tid=" + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id())));
                 for (size_t branch_idx = 0; branch_idx < tree.branches.size(); ++branch_idx) {
                     const Branch& branch = tree.branches[branch_idx];
                     // Triangulate the tube.
@@ -5749,22 +5521,28 @@ void organic_draw_branches(PrintObject&                  print_object,
                     bottom_contacts.clear();
                     // FIXME parallelize?
                     for (LayerIndex i = 0; i < LayerIndex(slices.size()); ++i) {
-                        const double area_before_collision = area(slices[i]);
-                        slices[i] =
-                            diff_clipped(slices[i],
-                                         volumes.getCollision(0, layer_begin + i,
-                                                              true)); // FIXME parent_uses_min || draw_area.element->state.use_min_xy_dist);
-                        const double area_after_collision = area(slices[i]);
+                        const LayerIndex absolute_layer_idx = layer_begin + i;
+                        Polygons         slice_before_collision = slices[i];
+                        // Spherical branch end caps may make layer_end exceed move_bounds by a layer.
+                        // Never index the per-move-bound cache in that case; calculate the rare
+                        // out-of-range layer directly, preserving the common cached fast path.
+                        if (absolute_layer_idx < 0) {
+                            slices[i].clear();
+                            continue;
+                        }
+                        slices[i] = diff_clipped(slices[i], volumes.getCollision(0, absolute_layer_idx, true));
 
-                        if (organic_floating_debug_enabled && area_before_collision > tiny_area_threshold &&
-                            (slices[i].empty() || area_after_collision < 0.2 * area_before_collision)) {
-                            append_organic_floating_debug(
-                                "[COLLISION_CLIP] tree=" + std::to_string(tree_id) + " layer=" + std::to_string(layer_begin + i) +
-                                " branch_root_layer=" + std::to_string(branch.path.front()->state.layer_idx) +
-                                " branch_tip_layer=" + std::to_string(branch.path.back()->state.layer_idx) +
-                                " has_root=" + std::to_string(branch.has_root) + " has_tip=" + std::to_string(branch.has_tip) +
-                                " area_before_mm2=" + std::to_string(scaled_area_to_mm2(area_before_collision)) +
-                                " area_after_mm2=" + std::to_string(scaled_area_to_mm2(area_after_collision)));
+                        // A model collision may cut a circular tube slice into detached crescents. Those crescents
+                        // are not a branch once the branch center line has been swallowed by the model. Keep only
+                        // the connected component containing this branch's center. The pre-clip containment guard
+                        // excludes small spherical end-cap slices whose projection need not contain the endpoint.
+                        const Point branch_center = branch_center_at_z(branch, slice_z[i]);
+                        if (!slice_before_collision.empty() && contains_fuzzy(slice_before_collision, branch_center) &&
+                            !slices[i].empty()) {
+                            Polygons centered_component = keep_branch_center_component(slices[i], branch_center);
+                            if (area(centered_component) + tiny_area_threshold < area(slices[i])) {
+                                slices[i] = std::move(centered_component);
+                            }
                         }
 
                         if (!has_support_out_of_bed) { // no need to perform time-consuming diff every time
@@ -5775,16 +5553,7 @@ void organic_draw_branches(PrintObject&                  print_object,
                             }
                         }
 
-                        const double area_before_bed_clip = area(slices[i]);
-                        slices[i]                         = intersection(slices[i], volumes.m_bed_area);
-                        const double area_after_bed_clip  = area(slices[i]);
-                        if (organic_floating_debug_enabled && area_before_bed_clip > tiny_area_threshold &&
-                            area_after_bed_clip < 0.2 * area_before_bed_clip) {
-                            append_organic_floating_debug("[BED_CLIP] tree=" + std::to_string(tree_id) +
-                                                          " layer=" + std::to_string(layer_begin + i) +
-                                                          " area_before_mm2=" + std::to_string(scaled_area_to_mm2(area_before_bed_clip)) +
-                                                          " area_after_mm2=" + std::to_string(scaled_area_to_mm2(area_after_bed_clip)));
-                        }
+                        slices[i] = intersection(slices[i], volumes.m_bed_area);
                     }
 
                     if (!branch.has_root && !top_contacts.empty()) {
@@ -5853,32 +5622,27 @@ void organic_draw_branches(PrintObject&                  print_object,
                     if (slices.front().empty()) {
                         // Some of the initial layers are empty.
                         num_empty = std::find_if(slices.begin(), slices.end(), [](auto& s) { return !s.empty(); }) - slices.begin();
-                        if (organic_floating_debug_enabled && num_empty > 0 && num_empty < slices.size()) {
-                            append_organic_floating_debug(
-                                "[EMPTY_ROOT_SLICES] tree=" + std::to_string(tree_id) + " layer_begin=" + std::to_string(layer_begin) +
-                                " skipped_empty_layers=" + std::to_string(num_empty) +
-                                " first_non_empty_layer=" + std::to_string(layer_begin + LayerIndex(num_empty)) +
-                                " has_root=" + std::to_string(branch.has_root) + " root_to_model_gracious=" +
-                                std::to_string(branch.has_root ? branch.path.front()->state.to_model_gracious : false) +
-                                " root_to_buildplate=" + std::to_string(branch.has_root ? branch.path.front()->state.to_buildplate : false));
-                        }
                     } else {
                         if (branch.has_root) {
                             if (branch.path.front()->state.to_model_gracious) {
                                 const Polygons root_placeable      = volumes.getPlaceableAreas(0, layer_begin, [] {});
                                 const Polygons root_bottom_contact = intersection_clipped(slices.front(), root_placeable);
-                                if (organic_floating_debug_enabled && layer_begin > 0 &&
-                                    area(root_bottom_contact) < sqr(scaled<double>(0.2))) {
-                                    append_organic_floating_debug(
-                                        "[ROOT_GRACIOUS] tree=" + std::to_string(tree_id) + " layer_begin=" + std::to_string(layer_begin) +
-                                        " root_area_mm2=" + std::to_string(scaled_area_to_mm2(area(slices.front()))) +
-                                        " placeable_overlap_mm2=" + std::to_string(scaled_area_to_mm2(area(root_bottom_contact))) +
-                                        " support_floor_layers=" + std::to_string(config.settings.support_floor_layers));
-                                }
                                 if (config.settings.support_floor_layers > 0)
                                     // FIXME one may just take the whole tree slice as bottom interface.
                                     bottom_contacts.emplace_back(root_bottom_contact);
                             } else if (layer_begin > 0) {
+                                // The node-stage test uses an ideal root circle. Revalidate the tag against the
+                                // actual organic mesh slice before suppressing downward repair layers.
+                                NonGraciousModelLandingEvaluation root_landing;
+                                if (branch.path.front()->state.non_gracious_model_landing_confirmed)
+                                    root_landing = evaluate_non_gracious_model_landing(
+                                        volumes, config, slices.front(), layer_begin, [] {});
+
+                                if (root_landing.should_stop) {
+                                    // Keep precisely the current-layer printable region. The confirmed landing is
+                                    // carried by the model below, so no bottom_extra_slices are needed.
+                                    slices.front() = std::move(root_landing.current_support);
+                                } else {
                                 // Drop down areas that do rest non - gracefully on the model to ensure the branch actually rests on something.
                                 struct BottomExtraSlice
                                 {
@@ -5896,23 +5660,26 @@ void organic_draw_branches(PrintObject&                  print_object,
                                 double support_area_min_radius = M_PI * sqr(double(config.branch_radius));
                                 double support_area_stop = std::max(0.2 * M_PI * sqr(double(bottom_radius)), 0.5 * support_area_min_radius);
                                 const double model_contact_area_stop = 0.5 * support_area_stop;
-                                // The old radius-derived stop threshold is useful for contact size, but too large
-                                // for deciding whether the clipped remainder is only a fragment.  Use explicit
-                                // remainder thresholds instead:
-                                //  - strong landing: a real contact core exists, so up to 1mm2 / 50% remainder may stop.
-                                //  - weak/no landing: only stop when the remainder is a tiny 0.25mm2 / 20% fragment.
-                                const double weak_rest_area_stop     = sqr(scaled<double>(0.5));
-                                const double strong_rest_area_stop   = sqr(scaled<double>(1.0));
-                                const double weak_rest_area_ratio    = 0.2;
-                                const double strong_rest_area_ratio  = 0.5;
+                                const double weak_rest_area_stop  = sqr(scaled<double>(0.5));
+                                const double weak_rest_area_ratio = 0.2;
                                 // Only propagate until the rest area is smaller than this threshold.
                                 // double                          support_area_min = 0.1 * support_area_min_radius;
+                                bool drop_was_clipped_or_touched_model = false;
                                 for (LayerIndex layer_idx = layer_begin - 1; layer_idx >= layer_bottommost; --layer_idx) {
                                     Polygons candidate_support = rest_support.empty() ? slices.front() : rest_support;
                                     const double candidate_area = area(candidate_support);
+                                    // Keep repaired landing slices out of the configured Z-gap layers as well as
+                                    // the current model outline.
+                                    Polygons current_support =
+                                        diff_clipped(candidate_support, volumes.getCollision(0, layer_idx, false));
+                                    const double current_support_area = area(current_support);
+                                    const double collision_trimmed_area = candidate_area - current_support_area;
+                                    if (collision_trimmed_area > tiny_area_threshold)
+                                        drop_was_clipped_or_touched_model = true;
+
                                     if (layer_idx > 0 && config.support_rests_on_model) {
                                         const Polygons& model_placeable = volumes.getPlaceableAreas(0, layer_idx, [] {});
-                                        Polygons model_contact = intersection_clipped(candidate_support, model_placeable);
+                                        Polygons model_contact = intersection_clipped(current_support, model_placeable);
                                         Polygons current_wall_avoidance;
                                         if (!model_contact.empty()) {
                                             current_wall_avoidance = current_layer_model_xy_avoidance(layer_idx);
@@ -5920,115 +5687,79 @@ void organic_draw_branches(PrintObject&                  print_object,
                                                 model_contact = diff_clipped(model_contact, current_wall_avoidance);
                                         }
                                         const double model_contact_area = area(model_contact);
-                                        const double model_stop_area = std::min(support_area_stop, 0.5 * candidate_area);
-                                        const coord_t model_stop_core_offset = std::max<coord_t>(1, config.support_line_width / 2);
-                                        // Shrink the raw model contact before accepting it as a strong landing.  A
-                                        // thin side touch can have non-zero contact area, but it should disappear after
-                                        // this inset and therefore should not stop propagation by itself.
-                                        Polygons model_stop_contact = intersection_clipped(
-                                            candidate_support,
-                                            offset(model_contact, -model_stop_core_offset, ClipperLib::jtMiter, 1.2));
                                         if (model_contact_area > 0.) {
-                                            // rest_support is the only geometry that may propagate to lower layers.
-                                            // It is clipped by the model/avoidance collision and must not include the
-                                            // landing patch added below.
-                                            rest_support = diff_clipped(candidate_support, volumes.getCollision(0, layer_idx, true));
-                                            Polygons layer_support = rest_support;
+                                            drop_was_clipped_or_touched_model = true;
+                                            Polygons layer_support = current_support;
                                             // The contact patch is only for the current layer landing shape:
                                             // keep a small printable bridge to the model surface so the repaired root
                                             // does not visually reopen at the model boundary.
                                             Polygons model_contact_patch = intersection_clipped(
                                                 offset(model_contact, config.support_line_width, ClipperLib::jtRound, scaled<float>(0.01)),
-                                                offset(candidate_support, config.support_line_width / 2, ClipperLib::jtRound, scaled<float>(0.01)));
+                                                offset(current_support, config.support_line_width / 2, ClipperLib::jtRound, scaled<float>(0.01)));
                                             if (!current_wall_avoidance.empty())
                                                 model_contact_patch = diff_clipped(model_contact_patch, current_wall_avoidance);
+
+                                            // Remove the landed portion before model_contact may be moved into the
+                                            // emitted landing patch, then clip the remainder on the layer below.
+                                            Polygons rest_after_model_landing =
+                                                diff_clipped(current_support, model_contact);
+                                            Polygons propagated_rest = layer_idx > layer_bottommost ?
+                                                                          diff_clipped(rest_after_model_landing,
+                                                                                       volumes.getCollision(0, layer_idx - 1, false)) :
+                                                                          Polygons{};
                                             polygons_append(layer_support,
                                                             model_contact_patch.empty() ? std::move(model_contact) :
                                                                                           std::move(model_contact_patch));
                                             layer_support = union_safety_offset(layer_support);
-                                            const double rest_support_area  = area(rest_support);
                                             const double layer_support_area = area(layer_support);
-                                            const double model_stop_contact_area = area(model_stop_contact);
-                                            const bool   has_strong_model_landing = model_stop_contact_area >= model_stop_area;
-                                            const bool   rest_is_small_after_strong_landing =
-                                                rest_support_area < strong_rest_area_stop &&
-                                                rest_support_area < strong_rest_area_ratio * candidate_area;
-                                            const bool rest_is_fragment_after_weak_landing =
-                                                rest_support_area < weak_rest_area_stop &&
-                                                rest_support_area < weak_rest_area_ratio * candidate_area;
-                                            const double compact_partial_core_min =
-                                                std::max(sqr(scaled<double>(0.20)), 0.12 * candidate_area);
-                                            const bool compact_partial_model_landing_should_stop =
-                                                candidate_area < sqr(scaled<double>(3.0)) &&
-                                                model_contact_area >= 0.45 * candidate_area &&
-                                                rest_support_area <= 0.55 * candidate_area &&
-                                                model_stop_contact_area >= compact_partial_core_min;
-                                            // Small one/two-line-width roots may be adequately carried after a partial
-                                            // model landing. Use a smaller contact-core inset, while still rejecting
-                                            // thin side touches that collapse under this inset.
-                                            bool narrow_partial_landing_should_stop = false;
-                                            if (candidate_area < sqr(scaled<double>(8.0)) &&
-                                                model_contact_area >= 0.45 * candidate_area &&
-                                                rest_support_area <= 0.60 * candidate_area) {
-                                                const auto candidate_bbox_size = get_extents(candidate_support).size();
-                                                const bool candidate_is_narrow =
-                                                    std::min(candidate_bbox_size[0], candidate_bbox_size[1]) <=
-                                                        coord_t(2.5 * double(config.support_line_width)) ||
-                                                    offset(candidate_support, -config.support_line_width, ClipperLib::jtMiter, 1.2).empty();
-                                                if (candidate_is_narrow) {
-                                                    const coord_t narrow_model_stop_core_offset =
-                                                        std::max<coord_t>(1, config.support_line_width / 4);
-                                                    Polygons narrow_model_stop_contact = intersection_clipped(
-                                                        candidate_support,
-                                                        offset(model_contact, -narrow_model_stop_core_offset, ClipperLib::jtMiter, 1.2));
-                                                    const double narrow_model_stop_contact_area = area(narrow_model_stop_contact);
-                                                    narrow_partial_landing_should_stop =
-                                                        narrow_model_stop_contact_area >=
-                                                        std::min(0.2 * model_contact_area, sqr(scaled<double>(0.2)));
-                                                }
-                                            }
-
                                             if (!layer_support.empty())
                                                 bottom_extra_slices.push_back({std::move(layer_support), layer_support_area});
 
-                                            // Strong landing: require a real contact core, not just a thin side touch.
-                                            // A vertical side can still produce a large contact core, so do not stop
-                                            // unless collision clipping also consumed most of the downward-propagating body.
-                                            // Because the landing is confirmed, the remainder may be larger than a tiny
-                                            // fragment: use the strong 1mm2 / 50% guard to allow clean stops on shelves.
-                                            if ((has_strong_model_landing && rest_is_small_after_strong_landing) ||
-                                                compact_partial_model_landing_should_stop ||
-                                                narrow_partial_landing_should_stop)
+                                            // As for normal trees, only a contact carrying at least 45% of the current
+                                            // support may stop the drop. Judge the remainder after removing the landed
+                                            // part and clipping it by the full collision of the layer below.
+                                            bool model_landing_should_stop =
+                                                model_contact_area >= 0.45 * current_support_area;
+                                            if (model_landing_should_stop && !propagated_rest.empty()) {
+                                                const auto propagated_bbox_size = get_extents(propagated_rest).size();
+                                                const coord_t propagated_width =
+                                                    std::min(propagated_bbox_size[0], propagated_bbox_size[1]);
+                                                const bool rest_eroded_empty =
+                                                    offset(propagated_rest, -config.support_line_width / 2,
+                                                           ClipperLib::jtMiter, 1.2).empty();
+                                                const double propagated_rest_area = area(propagated_rest);
+                                                const bool direct_narrow_stop =
+                                                    propagated_width <= coord_t(3.0 * double(config.support_line_width)) ||
+                                                    rest_eroded_empty;
+                                                const bool small_wide_stop =
+                                                    propagated_rest_area < 0.5 * current_support_area &&
+                                                    propagated_width <= coord_t(5.0 * double(config.support_line_width));
+                                                model_landing_should_stop = direct_narrow_stop || small_wide_stop;
+                                            }
+                                            if (model_landing_should_stop)
                                                 break;
 
-                                            // Weak landing: some contact exists, but not enough core area survived the
-                                            // inset above.  Keep the current-layer patch for printability, but continue
-                                            // downward unless the clipped remainder is truly fragment-sized.
-                                            // Propagation is decided by the clipped remainder only.  The patch above is
-                                            // current-layer contact material; counting it here would keep a root dropping
-                                            // after the actual support body has already been eaten by an upper-small /
-                                            // lower-large model step or sloped side. XY-distance avoidance may remove a
-                                            // lot of area without making the remainder a fragment, so require both fixed
-                                            // and relative area tests for the weak-landing stop decision.
-                                            if (rest_is_fragment_after_weak_landing)
+                                            // Do not propagate the portion that has already landed on the model.
+                                            rest_support = std::move(propagated_rest);
+                                            if (rest_support.empty())
                                                 break;
-
                                             continue;
                                         }
                                     }
 
-                                    rest_support = diff_clipped(candidate_support, volumes.getCollision(0, layer_idx, true));
+                                    rest_support = std::move(current_support);
                                     double rest_support_area = area(rest_support);
+                                    const bool rest_is_propagated_tiny_fragment =
+                                        drop_was_clipped_or_touched_model && rest_support_area < model_contact_area_stop;
                                     const bool rest_is_no_model_fragment =
                                         rest_support_area < weak_rest_area_stop &&
                                         rest_support_area < weak_rest_area_ratio * candidate_area;
                                     // No model landing on this layer. Stop once only a tiny clipped fragment remains;
                                     // propagating that fragment creates stray support instead of a useful root.
-                                    if (rest_is_no_model_fragment) {
+                                    if (rest_is_no_model_fragment || rest_is_propagated_tiny_fragment) {
                                         // Don't propagate a fraction of the tree contact surface.
                                         break;
                                     }
-                                    const double collision_trimmed_area = candidate_area - rest_support_area;
                                     bool narrow_collision_landing_should_stop = false;
                                     if (candidate_area < sqr(scaled<double>(8.0)) &&
                                         collision_trimmed_area > 0.35 * candidate_area &&
@@ -6042,8 +5773,9 @@ void organic_draw_branches(PrintObject&                  print_object,
                                         if (candidate_is_narrow_by_bbox || candidate_eroded_empty)
                                             narrow_collision_landing_should_stop = true;
                                     }
-                                    if (narrow_collision_landing_should_stop)
+                                    if (narrow_collision_landing_should_stop) {
                                         break;
+                                    }
                                     bottom_extra_slices.push_back({rest_support, rest_support_area});
                                 }
                             // Now remove those bottom slices that are not supported at all.
@@ -6070,6 +5802,7 @@ void organic_draw_branches(PrintObject&                  print_object,
                                 auto it_dst = slices.begin();
                                 for (auto it_src = bottom_extra_slices.rbegin(); it_src != bottom_extra_slices.rend(); ++it_src)
                                     *it_dst++ = std::move(it_src->polygons);
+                                }
                             }
                         }
 
@@ -6092,48 +5825,6 @@ void organic_draw_branches(PrintObject&                  print_object,
                     while (!slices.empty() && slices.back().empty()) {
                         slices.pop_back();
                         --layer_end;
-                    }
-                    if (!slices.empty()) {
-                        const double min_contact_area          = sqr(scaled<double>(0.5));
-                        const double min_report_area           = sqr(scaled<double>(1.0));
-                        const double branch_area               = std::accumulate(slices.begin(), slices.end(), 0.,
-                                                                                 [](double sum, const Polygons& polys) { return sum + area(polys); });
-                        const bool   bottom_topology_connected = !branch.has_root;
-                        const bool   top_topology_connected    = !branch.has_tip;
-                        double       bottom_model_overlap      = 0.;
-                        bool         bottom_connected          = bottom_topology_connected;
-                        bool         top_connected             = top_topology_connected;
-
-                        if (branch.has_root) {
-                            if (layer_begin == 0 || branch.path.front()->state.to_buildplate) {
-                                bottom_connected = layer_begin == 0;
-                            } else if (config.support_rests_on_model) {
-                                Polygons placeable = volumes.getPlaceableAreas(0, layer_begin, [] {});
-                                if (!placeable.empty())
-                                    bottom_model_overlap = area(intersection(slices.front(), placeable));
-                                bottom_connected = bottom_model_overlap >= min_contact_area;
-                            }
-                        }
-
-                        if (branch.has_tip)
-                            top_connected = layer_end > branch.path.back()->state.layer_idx;
-
-                        if (organic_floating_debug_enabled && branch_area >= min_report_area && (!bottom_connected || !top_connected)) {
-                            append_organic_floating_debug(
-                                "[BRANCH_TOPOLOGY_CHECK] tree=" + std::to_string(tree_id) + " branch=" + std::to_string(branch_idx) +
-                                " first_layer=" + std::to_string(layer_begin) + " last_layer=" + std::to_string(layer_end - 1) +
-                                " path_root_layer=" + std::to_string(branch.path.front()->state.layer_idx) + " path_tip_layer=" +
-                                std::to_string(branch.path.back()->state.layer_idx) + " has_root=" + std::to_string(branch.has_root) +
-                                " has_tip=" + std::to_string(branch.has_tip) + " bottom_connected=" + std::to_string(bottom_connected) +
-                                " top_connected=" + std::to_string(top_connected) +
-                                " both_disconnected=" + std::to_string(!bottom_connected && !top_connected) +
-                                " root_to_buildplate=" + std::to_string(branch.path.front()->state.to_buildplate) +
-                                " root_to_model_gracious=" + std::to_string(branch.path.front()->state.to_model_gracious) +
-                                " tip_supports_roof=" + std::to_string(branch.path.back()->state.supports_roof) +
-                                " tip_missing_roof_layers=" + std::to_string(branch.path.back()->state.missing_roof_layers) +
-                                " bottom_model_overlap_mm2=" + std::to_string(scaled_area_to_mm2(bottom_model_overlap)) +
-                                " branch_area_mm2=" + std::to_string(scaled_area_to_mm2(branch_area)));
-                        }
                     }
                     if (layer_begin < layer_end) {
                         LayerIndex new_begin = tree.first_layer_id == -1 ? layer_begin : std::min(tree.first_layer_id, layer_begin);
@@ -6170,50 +5861,53 @@ void organic_draw_branches(PrintObject&                  print_object,
                         }
                         tree.first_layer_id = new_begin;
                     }
+                    const size_t completed = completed_branches.fetch_add(1, std::memory_order_relaxed) + 1;
+                    report_progress(generating_branches_text, completed, branch_count, false);
                 }
-                append_organic_stage_debug("[ORGANIC_TASK][END] stage=organic_draw_branches.slice_tree tree=" +
-                                           std::to_string(tree_id) + "/" + std::to_string(trees.size()) +
-                                           " elapsed_ms=" + std::to_string(elapsed_ms_since(tree_debug_start)));
             }
         },
         tbb::simple_partitioner());
-    append_organic_stage_debug("[ORGANIC_STAGE][END] stage=organic_draw_branches.slice_trees elapsed_ms=" +
-                               std::to_string(elapsed_ms_since(slice_trees_debug_start)));
+    report_progress(generating_branches_text, branch_count, branch_count, true);
 
     if (has_support_out_of_bed) {
         print_object.set_has_support_outside(true);
     }
-
-    const auto merge_tree_slices_debug_start = std::chrono::steady_clock::now();
-    append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=organic_draw_branches.merge_tree_slices trees=" + std::to_string(trees.size()));
+    // Flatten to slice-level parallelism. With painted-support scenarios the tree count is large
+    // (hundreds) and per-tree slice counts are wildly uneven, so the previous per-tree partitioning
+    // left cores idle waiting for a handful of heavy trees. Each slice's union_ touches only its own
+    // polygons/num_branches, so per-slice tasks are independent and TBB can steal freely across cores.
+    std::vector<Slice*> slices_to_merge;
+    {
+        size_t total = 0;
+        for (const Tree& tree : trees)
+            for (const Slice& slice : tree.slices)
+                if (slice.num_branches > 1)
+                    ++total;
+        slices_to_merge.reserve(total);
+        for (Tree& tree : trees)
+            for (Slice& slice : tree.slices)
+                if (slice.num_branches > 1)
+                    slices_to_merge.push_back(&slice);
+    }
+    const std::string merging_areas_text = generating_tree_areas_text + " (3/4)";
+    const size_t merge_count = slices_to_merge.size();
+    std::atomic<size_t> completed_merges{0};
+    report_progress(merging_areas_text, 0, merge_count, true);
     tbb::parallel_for(
-        tbb::blocked_range<size_t>(0, trees.size(), 1),
-        [&trees, &throw_on_cancel](const tbb::blocked_range<size_t>& range) {
-            for (size_t tree_id = range.begin(); tree_id < range.end(); ++tree_id) {
-                const auto tree_debug_start = std::chrono::steady_clock::now();
-                Tree& tree = trees[tree_id];
-                append_organic_stage_debug("[ORGANIC_TASK][BEGIN] stage=organic_draw_branches.merge_tree tree=" +
-                                           std::to_string(tree_id) + "/" + std::to_string(trees.size()) +
-                                           " slices=" + std::to_string(tree.slices.size()) +
-                                           " tid=" + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id())));
-                for (Slice& slice : tree.slices)
-                    if (slice.num_branches > 1) {
-                        slice.polygons        = union_(slice.polygons);
-                        slice.bottom_contacts = union_(slice.bottom_contacts);
-                        slice.num_branches    = 1;
-                    }
-                throw_on_cancel();
-                append_organic_stage_debug("[ORGANIC_TASK][END] stage=organic_draw_branches.merge_tree tree=" +
-                                           std::to_string(tree_id) + "/" + std::to_string(trees.size()) +
-                                           " elapsed_ms=" + std::to_string(elapsed_ms_since(tree_debug_start)));
+        tbb::blocked_range<size_t>(0, slices_to_merge.size()),
+        [&slices_to_merge, &throw_on_cancel, &completed_merges, &report_progress, &merging_areas_text,
+         merge_count](const tbb::blocked_range<size_t>& range) {
+            for (size_t i = range.begin(); i < range.end(); ++i) {
+                Slice* slice          = slices_to_merge[i];
+                slice->polygons        = union_(slice->polygons);
+                slice->bottom_contacts = union_(slice->bottom_contacts);
+                slice->num_branches    = 1;
+                const size_t completed = completed_merges.fetch_add(1, std::memory_order_relaxed) + 1;
+                report_progress(merging_areas_text, completed, merge_count, false);
             }
-        },
-        tbb::simple_partitioner());
-    append_organic_stage_debug("[ORGANIC_STAGE][END] stage=organic_draw_branches.merge_tree_slices elapsed_ms=" +
-                               std::to_string(elapsed_ms_since(merge_tree_slices_debug_start)));
-
-    const auto combine_slices_debug_start = std::chrono::steady_clock::now();
-    append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=organic_draw_branches.combine_slices");
+            throw_on_cancel();
+        });
+    report_progress(merging_areas_text, merge_count, merge_count, true);
 
     size_t num_layers = 0;
     for (Tree& tree : trees)
@@ -6235,25 +5929,18 @@ void organic_draw_branches(PrintObject&                  print_object,
                     }
                 }
         }
-    append_organic_stage_debug("[ORGANIC_STAGE][END] stage=organic_draw_branches.combine_slices layers=" + std::to_string(slices.size()) +
-                               " elapsed_ms=" + std::to_string(elapsed_ms_since(combine_slices_debug_start)));
-
-    const auto allocate_layers_debug_start = std::chrono::steady_clock::now();
-    append_organic_stage_debug("[ORGANIC_STAGE][BEGIN] stage=organic_draw_branches.allocate_layers layers=" +
-                               std::to_string(std::min(move_bounds.size(), slices.size())));
+    const std::string finalizing_layers_text = generating_tree_areas_text + " (4/4)";
+    const size_t final_layer_count = std::min(move_bounds.size(), slices.size());
+    std::atomic<size_t> completed_final_layers{0};
+    report_progress(finalizing_layers_text, 0, final_layer_count, true);
     tbb::parallel_for(
-        tbb::blocked_range<size_t>(0, std::min(move_bounds.size(), slices.size()), 1),
+        tbb::blocked_range<size_t>(0, final_layer_count, 1),
         [&print_object, &config, &slices, &bottom_contacts, &top_contacts, &intermediate_layers, &layer_storage,
-         &current_layer_model_body, &throw_on_cancel](const tbb::blocked_range<size_t>& range) {
+         &current_layer_model_body, &throw_on_cancel, &completed_final_layers, &report_progress,
+         &finalizing_layers_text, final_layer_count](const tbb::blocked_range<size_t>& range) {
             for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
-                const auto layer_debug_start = std::chrono::steady_clock::now();
                 Slice& slice = slices[layer_idx];
                 if (slice.num_branches > 0)
-                    append_organic_stage_debug("[ORGANIC_TASK][BEGIN] stage=organic_draw_branches.allocate_layer layer=" +
-                                               std::to_string(layer_idx) + " branches=" + std::to_string(slice.num_branches) +
-                                               " polys=" + std::to_string(slice.polygons.size()) +
-                                               " points=" + std::to_string(polygon_point_count(slice.polygons)) +
-                                               " tid=" + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id())));
                 assert(intermediate_layers[layer_idx] == nullptr);
                 Polygons base_layer_polygons     = slice.num_branches > 1 ? union_(slice.polygons) : std::move(slice.polygons);
                 Polygons bottom_contact_polygons = slice.num_branches > 1 ? union_(slice.bottom_contacts) :
@@ -6302,18 +5989,13 @@ void organic_draw_branches(PrintObject&                  print_object,
                 }
 
                 throw_on_cancel();
-                if (slice.num_branches > 0)
-                    append_organic_stage_debug("[ORGANIC_TASK][END] stage=organic_draw_branches.allocate_layer layer=" +
-                                               std::to_string(layer_idx) +
-                                               " elapsed_ms=" + std::to_string(elapsed_ms_since(layer_debug_start)));
+                const size_t completed = completed_final_layers.fetch_add(1, std::memory_order_relaxed) + 1;
+                report_progress(finalizing_layers_text, completed, final_layer_count, false);
             }
         },
         tbb::simple_partitioner());
-    append_organic_stage_debug("[ORGANIC_STAGE][END] stage=organic_draw_branches.allocate_layers elapsed_ms=" +
-                               std::to_string(elapsed_ms_since(allocate_layers_debug_start)));
+    report_progress(finalizing_layers_text, final_layer_count, final_layer_count, true);
 
-    append_organic_stage_debug("[ORGANIC_STAGE][END] stage=organic_draw_branches.inner elapsed_ms=" +
-                               std::to_string(elapsed_ms_since(organic_draw_debug_start)));
 }
 
 } // namespace TreeSupport3D

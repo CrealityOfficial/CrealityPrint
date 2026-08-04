@@ -42,7 +42,13 @@ public:
     bool prepare_cached_installer(const std::string& url, const std::string& version);
 
     bool prepare_cached_hot_update_from_version(const std::string& version, const std::string& manual_url = "");
-    
+
+    // Hotfix update flag: when the target version shares the same major.minor.patch as the
+    // installed version (only the 4th build field differs), the updater must force-install
+    // the full package because the nupkg name only carries the 3-part version.
+    void set_force_full(bool force_full) { m_force_full = force_full; }
+    bool get_force_full() const { return m_force_full; }
+
     // Cancel current download
     void cancel_download();
     
@@ -95,6 +101,7 @@ private:
     Http::Ptr m_http;
     std::atomic_bool m_cancel{ false };
     bool m_is_hot_update = false;
+    bool m_force_full = false;
 };
 
 }

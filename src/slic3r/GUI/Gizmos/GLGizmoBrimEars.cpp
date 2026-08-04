@@ -1,5 +1,5 @@
 #include "GLGizmoBrimEars.hpp"
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/Camera.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmosCommon.hpp"
@@ -245,7 +245,7 @@ bool GLGizmoBrimEars::unproject_on_mesh(const Vec2d &mouse_pos, std::pair<Vec3f,
     const Selection         &selection = m_parent.get_selection();
     const GLVolume          *volume    = selection.get_volume(*selection.get_volume_idxs().begin());
     Geometry::Transformation trafo     = volume->get_instance_transformation();
-    // trafo.set_offset(trafo.get_offset() + Vec3d(0., 0., m_c->selection_info()->get_sla_shift()));//sla shift看起来可以删�?
+    // trafo.set_offset(trafo.get_offset() + Vec3d(0., 0., m_c->selection_info()->get_sla_shift()));//sla shift看起来可以删�?
 
     double               clp_dist = m_c->object_clipper()->get_position();
     const ClippingPlane *clp      = m_c->object_clipper()->get_clipping_plane();

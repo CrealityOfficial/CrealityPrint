@@ -1134,8 +1134,8 @@ void AnalyticsDataUploadManager::track_model_action(const std::string& event_nam
         if (js.find("client_id") == js.end())
             js["client_id"] = system_id;
     }
-    if (js.find("user_id") == js.end())
-        js["user_id"] = wxGetApp().get_user().userId;
+    if (js.find("user_account_id") == js.end())
+        js["user_account_id"] = wxGetApp().get_user().userId;
     wxGetApp().track_event(event_name, js.dump());
 }
 

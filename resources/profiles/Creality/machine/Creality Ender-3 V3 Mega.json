@@ -1,0 +1,13 @@
+{
+    "type": "machine_model",
+    "name": "Creality Ender-3 V3 Mega",
+    "nozzle_diameter": "0.4",
+    "bed_model": "creality_k1_buildplate_model.stl",
+    "default_bed_type": "Epoxy Resin Plate",
+    "bed_texture": "",
+    "family": "Creality",
+    "hotend_model": "",
+    "machine_tech": "FFF",
+    "model_id": "Creality_Ender_3_V3_Mega",
+    "default_materials": "Hyper PLA;Hyper PLA-CF;Hyper PETG;Hyper ABS;CR-PLA;CR-Silk;CR-PETG;CR-ABS;ENDER FAST PLA;Generic PETG;Generic PLA;Generic PLA-Silk;Generic ABS"
+}

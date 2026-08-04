@@ -9,6 +9,10 @@
 #include "libslic3r/MacUtils.hpp"
 #endif
 
+#ifdef __WXGTK3__
+#include "../GUI_Utils.hpp"
+#endif
+
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
@@ -26,6 +30,11 @@ SwitchButton::SwitchButton(wxWindow* parent, wxWindowID id)
 	SetBackgroundColour(StaticBox::GetParentBackgroundColor(parent));
 	Bind(wxEVT_TOGGLEBUTTON, [this](auto& e) { update(); e.Skip(); });
 	SetFont(Label::Body_12);
+
+#ifdef __WXGTK3__
+    Slic3r::GUI::RemoveButtonBorder(this);
+#endif
+
 	Rescale();
 }
 
@@ -80,6 +89,7 @@ void SwitchButton::Rescale()
 		wxSize thumbSize;
 		wxSize trackSize;
 		wxClientDC dc(this);
+        dc.SetFont(GetFont());
 #ifdef __WXOSX__
         dc.SetFont(dc.GetFont().Scaled(scale));
 #endif
@@ -123,6 +133,10 @@ void SwitchButton::Rescale()
             memdc.SelectObject(bmp);
 #endif
             memdc.SetFont(dc.GetFont());
+#ifdef __WXMSW__
+            const double scale = GetDPIScaleFactor();
+            fontScale = scale;
+#endif
             if (fontScale) {
                 memdc.SetFont(dc.GetFont().Scaled(fontScale));
                 textSize[0] = memdc.GetTextExtent(labels[0]);
@@ -161,6 +175,8 @@ void SwitchButton::Rescale()
 			memdc.SelectObject(wxNullBitmap);
 #ifdef __WXOSX__
             bmp = wxBitmap(bmp.ConvertToImage(), -1, scale);
+#elif defined(__WXMSW__)
+            bmp.SetScaleFactor(scale);
 #endif
 			(i == 0 ? m_off : m_on).bmp() = bmp;
 		}

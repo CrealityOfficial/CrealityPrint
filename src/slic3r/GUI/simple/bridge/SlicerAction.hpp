@@ -96,6 +96,11 @@ namespace ActionID {
     constexpr const char* ADD_PLATE         = "add_plate";
     constexpr const char* DELETE_PLATE      = "delete_plate";
     constexpr const char* TOGGLE_PREVIEW_LITE_MODE = "toggle_preview_lite_mode";
+    constexpr const char* NEW_PROJECT         = "new_project";
+    constexpr const char* SAVE_AND_CREATE_NEW_PROJECT = "save_and_create_new_project";
+    constexpr const char* OPEN_FILAMENT_MAPPING = "open_filament_mapping";
+    constexpr const char* SEND_PRINT          = "send_print";
+    constexpr const char* CAPTURE_DEVICE_CAMERA_FRAME = "capture_device_camera_frame";
 }
 
 } // namespace Bridge

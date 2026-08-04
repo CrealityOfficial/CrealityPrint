@@ -328,6 +328,18 @@ wxWindow* BitmapChoiceRenderer::CreateEditorCtrl(wxWindow* parent, wxRect labelR
     else
         c_editor->SetSelection(atoi(data.GetText().c_str()) - 1);
 
+    c_editor->Bind(wxEVT_SET_FOCUS, [c_editor](wxFocusEvent& evt) {
+#ifdef __WXGTK__
+        c_editor->CallAfter([c_editor]() {
+            if (c_editor->IsShownOnScreen())
+                c_editor->ForceDropdownOpen();
+        });
+#else
+        c_editor->ForceDropdownOpen();
+#endif
+        evt.Skip();
+    });
+
 #ifdef __linux__
     c_editor->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent& evt) {
         // to avoid event propagation to other sidebar items

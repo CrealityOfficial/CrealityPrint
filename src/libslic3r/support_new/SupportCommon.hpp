@@ -55,6 +55,7 @@ struct ContourSupportLayerInput {
     Polylines input_paths;
     Polylines supported_anchor_paths;
     Polygons  legal_region;
+    Polygons  support_surface_region;
     const ExPolygons* model_region {nullptr};
     coordf_t  print_z {0.};
     coord_t   line_width {0};
@@ -65,6 +66,11 @@ struct ContourSupportPlan {
     std::vector<Polylines> patch_paths_by_layer;
     std::vector<Polylines> paths_to_support_by_layer;
 };
+
+ContourSupportPlan plan_tree_contour_repair_paths(std::vector<ContourSupportLayerInput> layers,
+                                                   size_t n_raft_layers,
+                                                   double max_bridge_length,
+                                                   bool write_debug = false);
 
 ContourSupportPlan plan_contour_support_paths(std::vector<ContourSupportLayerInput> layers,
                                                size_t n_raft_layers,

@@ -313,13 +313,17 @@ bool fix_model_by_imati_stl_gui(ModelObject& model_object, int volume_idx,
     };
 
     auto worker_thread = std::thread([&model_object, &volumes, &ivolume, &on_progress, &success, &canceled, &finished, &condition, &mtx, &progress, &trace_id]() {
+#ifdef HAS_IMATISTL
         RepairMessageBridge bridge;
+#endif
         try {
+#ifdef HAS_IMATISTL
             bridge.canceled  = &canceled;
             bridge.condition = &condition;
             bridge.mutex     = &mtx;
             bridge.progress  = &progress;
             s_repair_message_bridge = &bridge;
+#endif
 
             std::vector<TriangleMesh> meshes_repaired;
             meshes_repaired.reserve(volumes.size());
@@ -362,7 +366,9 @@ bool fix_model_by_imati_stl_gui(ModelObject& model_object, int volume_idx,
             finished = true;
             on_progress(L("Unknown error during mesh repair."), 100);
         }
+#ifdef HAS_IMATISTL
         s_repair_message_bridge = nullptr;
+#endif
     });
 
     while (!finished) {

@@ -184,6 +184,9 @@ public:
 	Ptr perform();
 	// Starts performing the request on the current thread
 	void perform_sync();
+	// Enables socket shutdown when cancel() is called from another thread.
+	// Intended for synchronous uploads that may otherwise block without progress callbacks.
+	Http& enable_active_cancel();
 	// Cancels a request in progress
 	void cancel();
 	bool is_cancelled() const;

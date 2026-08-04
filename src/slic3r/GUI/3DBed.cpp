@@ -17,7 +17,7 @@
 #include "Camera.hpp"
 #include "CrealityBedModelMapping.hpp"
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include <array>
 
 #include <boost/algorithm/string/predicate.hpp>

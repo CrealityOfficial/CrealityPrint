@@ -564,12 +564,14 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
         }
     }
 
-    // Some partial/legacy configs may not carry these keys in DynamicPrintConfig.
-    auto* wall_generator_opt = dynamic_cast<ConfigOptionEnum<PerimeterGeneratorType>*>(config->option("wall_generator", false));
-    auto* fuzzy_skin_mode_opt = dynamic_cast<ConfigOptionEnum<FuzzySkinMode>*>(config->option("fuzzy_skin_mode", false));
-    if (wall_generator_opt != nullptr && fuzzy_skin_mode_opt != nullptr) {
-        bool have_arachne = wall_generator_opt->value == PerimeterGeneratorType::Arachne;
-        if (fuzzy_skin_mode_opt->value != FuzzySkinMode::Displacement && !have_arachne) {
+    // Fuzzy skin [Extrusion]/[Combined] modes require the Arachne wall generator.
+    // Note: in a DynamicPrintConfig the coEnum options are stored as ConfigOptionEnumGeneric
+    // (derived from ConfigOptionInt), NOT as ConfigOptionEnum<T>. A dynamic_cast to
+    // ConfigOptionEnum<T>* would therefore always yield nullptr and skip the linkage.
+    // Use opt_enum<>() which reads the value through the virtual getInt() and works for both.
+    if (config->has("wall_generator") && config->has("fuzzy_skin_mode")) {
+        bool have_arachne = config->opt_enum<PerimeterGeneratorType>("wall_generator") == PerimeterGeneratorType::Arachne;
+        if (config->opt_enum<FuzzySkinMode>("fuzzy_skin_mode") != FuzzySkinMode::Displacement && !have_arachne) {
             wxString msg_text = _(L("Both [Extrusion] and [Combined] modes of Fuzzy Skin require the Arachne Wall Generator to be enabled."));
             msg_text += "\n\n" + _(L("Change these settings automatically?\n"
                                         "Yes - Enable Arachne Wall Generator\n"
@@ -806,7 +808,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
         "support_interface_pattern", "support_interface_top_layers", "support_interface_bottom_layers",
         "bridge_no_support", "max_bridge_length", "support_top_z_distance", "support_bottom_z_distance",
         "support_type", "support_on_build_plate_only", "support_critical_regions_only","support_interface_not_for_body",
-        "support_object_xy_distance", "independent_support_layer_height","minimum_support_area","support_xy_overrides_z","ironing_support_layer","tree_hybrid_cross_height","support_object_first_layer_gap","raft_first_layer_density","raft_first_layer_expansion","tree_support_wall_count","tree_support_wall_count_tree","bridge_no_support","raft_layers","support_remove_small_overhang","support_interface_min_area"})
+        "support_object_xy_distance", "independent_support_layer_height","minimum_support_area","support_xy_overrides_z","ironing_support_layer","tree_hybrid_cross_height","support_object_first_layer_gap","raft_first_layer_density","raft_first_layer_expansion","tree_support_wall_count","tree_support_wall_count_tree","bridge_no_support","support_remove_small_overhang","support_interface_min_area"})
         toggle_field(el, have_support_material);
     toggle_field("support_threshold_angle", have_support_material && is_auto(support_type));
     toggle_field("support_base_pattern_tree", have_support_material && is_tree(support_type) && support_style != smsTreeOrganic);
@@ -982,10 +984,15 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
 
     toggle_line("support_interface_not_for_body",config->opt_int("support_interface_filament")&&!config->opt_int("support_filament"));
 
-    bool has_fuzzy_skin = (config->opt_enum<FuzzySkinType>("fuzzy_skin") != FuzzySkinType::None);
-    for (auto el : { "fuzzy_skin_thickness", "fuzzy_skin_point_distance", "fuzzy_skin_first_layer"})
-        toggle_line(el, has_fuzzy_skin);
+    // bool has_fuzzy_skin = (config->opt_enum<FuzzySkinType>("fuzzy_skin") != FuzzySkinType::None);
+    // for (auto el : { "fuzzy_skin_thickness", "fuzzy_skin_point_distance", "fuzzy_skin_first_layer"})
+    //     toggle_line(el, has_fuzzy_skin);
     
+    NoiseType fuzzy_skin_noise_type = config->opt_enum<NoiseType>("fuzzy_skin_noise_type");
+    toggle_line("fuzzy_skin_scale", fuzzy_skin_noise_type != NoiseType::Classic);
+    toggle_line("fuzzy_skin_octaves", fuzzy_skin_noise_type != NoiseType::Classic && fuzzy_skin_noise_type != NoiseType::Voronoi);
+    toggle_line("fuzzy_skin_persistence", fuzzy_skin_noise_type == NoiseType::Perlin || fuzzy_skin_noise_type == NoiseType::Billow);
+
     bool have_arachne = config->opt_enum<PerimeterGeneratorType>("wall_generator") == PerimeterGeneratorType::Arachne;
     for (auto el : { "wall_transition_length", "wall_transition_filter_deviation", "wall_transition_angle",
         "min_feature_size", "min_length_factor", "min_bead_width", "wall_distribution_count", "initial_layer_min_bead_width"})

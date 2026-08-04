@@ -273,7 +273,7 @@ wxString GuideFrame::SetStartPage(GuidePage startpage, bool load)
         TargetUrl = from_u8((boost::filesystem::path(resources_dir()) / "web/guide/21/index.html").make_preferred().string());
     }
 
-    wxString strlang = wxGetApp().app_config->get("language");
+    wxString strlang = wxGetApp().current_frontend_language_code();
     int     customized = 0;
 #ifdef CUSTOMIZED
     customized = 1;

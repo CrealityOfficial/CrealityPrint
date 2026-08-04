@@ -9,6 +9,21 @@
 namespace Slic3r {
 namespace GUI {
 
+namespace {
+
+void apply_reverse_dpi_zoom(wxWindow* window, WebModelLibraryView* view)
+{
+    wxWebView* browser = view ? view->GetWebView() : nullptr;
+    if (!window || !browser || !browser->GetNativeBackend())
+        return;
+
+    const double dpi_scale = window->GetDPIScaleFactor();
+    const float  page_zoom = dpi_scale > 0.0 ? static_cast<float>(1.0 / dpi_scale) : 1.0f;
+    browser->SetZoomFactor(page_zoom);
+}
+
+} // namespace
+
 ModelDetailDialog::ModelDetailDialog(wxWindow*       parent,
                                      const wxString& url,
                                      const wxString& title)
@@ -16,9 +31,10 @@ ModelDetailDialog::ModelDetailDialog(wxWindow*       parent,
                wxID_ANY,
                title.IsEmpty() ? wxString(_L("Model Detail")) : title,
                wxDefaultPosition,
-               wxSize(1100, 780),
+               wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX)
 {
+    SetSize(wxSize(1100, 780));
     SetBackgroundColour(wxColour(54, 54, 56));
 
     // Reuse WebModelLibraryView so UA, cookies, CXSWGroupInterface script
@@ -31,11 +47,20 @@ ModelDetailDialog::ModelDetailDialog(wxWindow*       parent,
 
     wxWebView* browser = m_view->GetWebView();
     if (browser) {
+        Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent& evt) {
+            evt.Skip();
+            CallAfter([this]() {
+                if (m_load_count > 0)
+                    apply_reverse_dpi_zoom(this, m_view);
+            });
+        });
+
         // On first page load, WebView2 is fully initialised - re-inject cookies
         // and reload so the auth headers are sent correctly.
         // The dialog remains hidden during this whole cycle thanks to Show() override.
         browser->Bind(wxEVT_WEBVIEW_LOADED, [this](wxWebViewEvent& evt) {
             m_load_count++;
+            apply_reverse_dpi_zoom(this, m_view);
             if (!m_cookies_injected) {
                 m_cookies_injected = true;
                 BOOST_LOG_TRIVIAL(info) << "[ModelDetailDialog] First load complete (count=" << m_load_count

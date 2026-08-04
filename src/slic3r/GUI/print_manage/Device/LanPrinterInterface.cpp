@@ -14,9 +14,17 @@ std::future<void> LanPrinterInterface::sendFileToDevice(const std::string&      
                                                         const std::string&         fileName,
                                                         const std::string&         filePath,
                                                         std::function<void(float,double)> callback,
-                                                        std::function<void(int)>   errorCallback, std::function<void(std::string)> onCompleteCallback)
+                                                        std::function<void(int)>   errorCallback,
+                                                        std::function<void(std::string)> onCompleteCallback,
+                                                        UploadCancelToken cancelToken)
 {
     return std::async(std::launch::async, [=]() {
+        if (is_upload_cancelled(cancelToken)) {
+            if (errorCallback)
+                errorCallback(601);
+            return;
+        }
+
         // 1. 初始化CURL
 
         CURL* curl = curl_easy_init();
@@ -37,6 +45,12 @@ std::future<void> LanPrinterInterface::sendFileToDevice(const std::string&      
             }
         } guard{ curl };
 
+        UploadFileUseGuard file_use(cancelToken);
+        if (!file_use) {
+            if (errorCallback)
+                errorCallback(601);
+            return;
+        }
 
         FILE* fd = nullptr;
 #if defined(_MSC_VER) || defined(__MINGW64__)
@@ -67,7 +81,8 @@ std::future<void> LanPrinterInterface::sendFileToDevice(const std::string&      
         curl_off_t fileSize = ftell(fd);  
         fseek(fd, 0, SEEK_SET);
 
-        callback(10,0);
+        if (callback)
+            callback(10, 0);
 
         std::string sFileName = fileName;
         sFileName = std::regex_replace(sFileName, std::regex("[\\\\/:*?\"'<>|#&=+]"), "");
@@ -78,18 +93,27 @@ std::future<void> LanPrinterInterface::sendFileToDevice(const std::string&      
         curl_easy_setopt(curl, CURLOPT_READDATA, fd);
         curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, fileSize);
 
-        // 5. 设置读取回调
-        //curl_easy_setopt(curl, CURLOPT_READFUNCTION, [](void* ptr, size_t size, size_t nmemb, void* stream) {
-        //    int n;
-        //    FILE* f = (FILE*)stream;
-        //    if (ferror(f))
-        //    {
-        //        return CURL_READFUNC_ABORT;
-        //    }
+        struct ProgressContext
+        {
+            UploadCancelToken token;
+            std::function<void(float, double)> callback;
+        } progressContext {cancelToken, callback};
 
-        //    n = fread(ptr, size, nmemb, f) * size;
-        //    return n;
-        //    });
+        curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+        curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION,
+            +[](void* data, curl_off_t, curl_off_t, curl_off_t uploadTotal, curl_off_t uploaded) -> int {
+                auto* context = static_cast<ProgressContext*>(data);
+                if (is_upload_cancelled(context->token))
+                    return 1;
+
+                if (context->callback && uploadTotal > 0) {
+                    const float percent = static_cast<float>(uploaded) /
+                                          static_cast<float>(uploadTotal) * 100.0f;
+                    context->callback(percent, 0);
+                }
+                return 0;
+            });
+        curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &progressContext);
 
         //设置超时
         curl_easy_setopt(curl, CURLOPT_FTP_RESPONSE_TIMEOUT, 30L);
@@ -102,7 +126,7 @@ std::future<void> LanPrinterInterface::sendFileToDevice(const std::string&      
         {
             if (errorCallback)
             {
-                errorCallback(res);
+                errorCallback(is_upload_cancelled(cancelToken) ? 601 : res);
             }
         }
         else

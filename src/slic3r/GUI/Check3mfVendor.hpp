@@ -25,7 +25,8 @@ public:
     void doSelectPrinterPreset();
     bool isCreality3mf();
     void setCreality3mf(bool isCreality3mf);
-    void updatePlateObject(const PlateDataPtrs& plate_data, const Slic3r::Model& model);
+    void updatePlateObject(const PlateDataPtrs& plate_data, const Slic3r::Model& model,
+                           const DynamicPrintConfig& source_config);
     void centerModelToPlate(View3D* view3D, Sidebar* sidebar);
 
 private:

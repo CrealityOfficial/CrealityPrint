@@ -408,10 +408,7 @@ int PrinterPresetConfig::LoadProfile() {
         BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ", error: " << e.what() << std::endl;
     }
 
-    std::string strAll = m_ProfileJson.dump(-1, ' ', false, json::error_handler_t::ignore);
-    // wxLogMessage("GUIDE: profile_json_s2  %s ", m_ProfileJson.dump(-1, ' ', false, json::error_handler_t::ignore));
-
-    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ", finished, json contents: " << std::endl << strAll;
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ", finished";
     return 0;
 }
 

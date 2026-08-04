@@ -86,6 +86,16 @@ namespace GUI {
 
 static const std::vector<std::string> plate_keys = { "curr_bed_type", "first_layer_print_sequence", "first_layer_sequence_choice", "other_layers_print_sequence", "other_layers_sequence_choice", "print_sequence", "spiral_mode"};
 
+static const char* preset_search_icon_name()
+{
+    return wxGetApp().dark_mode() ? "search" : "search_light";
+}
+
+static wxColour preset_top_panel_colour()
+{
+    return wxGetApp().dark_mode() ? wxColour("#4B4B4D") : wxColour("#FFFFFF");
+}
+
 void Tab::Highlighter::set_timer_owner(wxEvtHandler* owner, int timerid/* = wxID_ANY*/)
 {
     m_timer.SetOwner(owner, timerid);
@@ -93,15 +103,25 @@ void Tab::Highlighter::set_timer_owner(wxEvtHandler* owner, int timerid/* = wxID
 
 void Tab::Highlighter::init(std::pair<OG_CustomCtrl*, bool*> params)
 {
+    init(params.first, params.second, false);
+}
+
+void Tab::Highlighter::init(wxWindow* window, bool* show_blink_ptr, bool highlight_foreground)
+{
     if (m_timer.IsRunning())
         invalidate();
-    if (!params.first || !params.second)
+    if (!window || !show_blink_ptr)
         return;
 
     m_timer.Start(300, false);
 
-    m_custom_ctrl = params.first;
-    m_show_blink_ptr = params.second;
+    m_custom_ctrl = window;
+    m_show_blink_ptr = show_blink_ptr;
+    m_highlight_foreground = highlight_foreground;
+    if (m_highlight_foreground) {
+        m_original_colour = m_custom_ctrl->GetForegroundColour();
+        m_custom_ctrl->SetForegroundColour("#15BF59");
+    }
 
     *m_show_blink_ptr = true;
     m_custom_ctrl->Refresh();
@@ -113,18 +133,23 @@ void Tab::Highlighter::invalidate()
 
     if (m_custom_ctrl && m_show_blink_ptr) {
         *m_show_blink_ptr = false;
+        if (m_highlight_foreground)
+            m_custom_ctrl->SetForegroundColour(m_original_colour);
         m_custom_ctrl->Refresh();
         m_show_blink_ptr = nullptr;
         m_custom_ctrl = nullptr;
     }
 
     m_blink_counter = 0;
+    m_highlight_foreground = false;
 }
 
 void Tab::Highlighter::blink()
 {
     if (m_custom_ctrl && m_show_blink_ptr) {
         *m_show_blink_ptr = !*m_show_blink_ptr;
+        if (m_highlight_foreground)
+            m_custom_ctrl->SetForegroundColour(*m_show_blink_ptr ? wxColour("#15BF59") : m_original_colour);
         m_custom_ctrl->Refresh();
     }
     else
@@ -190,6 +215,11 @@ void Tab::set_type()
 //BBS: GUI refactor, change tab to fit into ParamsPanel
 void Tab::create_preset_tab()
 {
+#ifdef __WXGTK__
+    SetBackgroundStyle(wxBG_STYLE_PAINT);
+    SetDoubleBuffered(true);
+    Bind(wxEVT_ERASE_BACKGROUND, [](wxEraseEvent&) {});
+#endif
 //move to ParamsPanel
 /*#ifdef __WINDOWS__
     SetDoubleBuffered(true);
@@ -251,7 +281,7 @@ void Tab::create_preset_tab()
 
     m_top_panel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     // BBS: open this tab by select first
-    m_top_panel->SetBackgroundColour(*wxWHITE);
+    m_top_panel->SetBackgroundColour(preset_top_panel_colour());
     m_top_panel->Bind(wxEVT_LEFT_UP, [this](auto & e) {
         restore_last_select_item();
     });
@@ -296,7 +326,7 @@ void Tab::create_preset_tab()
 
     add_scaled_button(m_top_panel, &m_undo_btn,        m_bmp_white_bullet.name());
     add_scaled_button(m_top_panel, &m_undo_to_sys_btn, m_bmp_white_bullet.name());
-    add_border_hover_icon(m_top_panel, &m_btn_search, is_dark ? "search" : "search_light", wxSize(FromDIP(24), FromDIP(24)));
+    add_border_hover_icon(m_top_panel, &m_btn_search, preset_search_icon_name(), wxSize(FromDIP(24), FromDIP(24)));
     m_btn_search->SetToolTip(_L("Search in preset"));
     
 
@@ -595,7 +625,10 @@ void Tab::create_preset_tab()
     // (update_mode->update_visibility->rebuild_page_tree). This does not work, during the
     // second call of rebuild_page_tree m_tabctrl->GetFirstVisibleItem(); returns zero
     // for some unknown reason (and the page is not refreshed until user does a selection).
-    rebuild_page_tree();
+    if (m_type == Preset::TYPE_MODEL || m_type == Preset::TYPE_PLATE)
+        defer_page_tree_rebuild();
+    else
+        rebuild_page_tree();
 
     m_completed = true;
     m_tabctrl->SetBackgroundColor(wxColor(0, 255, 0));
@@ -1362,7 +1395,11 @@ void Tab::sys_color_changed()
     bool is_dark = wxGetApp().dark_mode();
     m_btn_save_preset->SetBitmap_(is_dark ?  "save_dark_default" : "save_light_default");  
     m_btn_delete_preset->SetBitmap_(is_dark ? "cross" : "cross_light");  
-    m_btn_search->SetBitmap_(is_dark ? "search" : "search_light");  
+    if (m_top_panel) {
+        m_top_panel->SetBackgroundColour(preset_top_panel_colour());
+        m_top_panel->Refresh();
+    }
+    m_btn_search->SetBitmap_(preset_search_icon_name());
 
     if (m_detach_preset_btn)
         m_detach_preset_btn->msw_rescale();
@@ -2406,6 +2443,10 @@ void Tab::activate_option(const std::string& opt_key, const wxString& category)
     // And do it before finding of the cur_item to avoid a case when Tab isn't activated jet and all treeItems are invisible
     //BBS: GUI refactor
     //wxGetApp().mainframe->select_tab(this);
+    if (m_type == Preset::TYPE_PRINTER || m_type == Preset::TYPE_FILAMENT) {
+        m_parent->set_active_tab(this);
+        m_parent->OnPanelShowInit();
+    }
     wxGetApp().mainframe->select_tab((wxPanel*)m_parent);
 
     while (cur_item >= 0) {
@@ -2463,6 +2504,15 @@ void Tab::activate_option(const std::string& opt_key, const wxString& category)
        field = get_field("single_extruder_multi_material");
        if (field)
            set_focus(field->getWindow());
+    }
+
+    if (opt_key == "before_layer_change_gcode" && m_active_page) {
+        for (const auto& opt_group : m_active_page->m_optgroups) {
+            if (Field* title_field = opt_group->get_fieldc(opt_key, -1); title_field && opt_group->stb) {
+                m_highlighter.init(opt_group->stb, title_field->get_blink_ptr(), true);
+                return;
+            }
+        }
     }
 
     m_highlighter.init(get_custom_ctrl_with_blinking_ptr(opt_key));
@@ -3395,7 +3445,9 @@ wxSizer* TabPrint::create_flush_into_skeleton_widget(wxWindow* parent)
         auto& project_config = m_preset_bundle->project_config;
         auto* tm_opt = project_config.option<ConfigOptionFloats>("transmittance_matrix");
         auto* extruders_opt = project_config.option<ConfigOptionFloats>("flush_volumes_vector");
-        const std::vector<std::string> extruder_colours = plater->get_extruder_colors_from_plater_config();
+        const auto* filament_colours_opt = project_config.option<ConfigOptionStrings>("filament_colour");
+        const std::vector<std::string> extruder_colours =
+            filament_colours_opt != nullptr ? filament_colours_opt->values : std::vector<std::string>{};
         const int n = (int) extruder_colours.size();
         if (tm_opt == nullptr || extruders_opt == nullptr || n <= 0)
             return;
@@ -4962,6 +5014,11 @@ void TabFilament::clear_pages()
 
 void TabFilament::create_preset_tab()
 {
+#ifdef __WXGTK__
+    SetBackgroundStyle(wxBG_STYLE_PAINT);
+    SetDoubleBuffered(true);
+    Bind(wxEVT_ERASE_BACKGROUND, [](wxEraseEvent&) {});
+#endif
     //move to ParamsPanel
 /*#ifdef __WINDOWS__
     SetDoubleBuffered(true);
@@ -5021,7 +5078,7 @@ void TabFilament::create_preset_tab()
 
     m_top_panel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     // BBS: open this tab by select first
-    m_top_panel->SetBackgroundColour(*wxWHITE);
+    m_top_panel->SetBackgroundColour(preset_top_panel_colour());
     m_top_panel->Bind(wxEVT_LEFT_UP, [this](auto& e) {
         restore_last_select_item();
         });
@@ -5030,6 +5087,7 @@ void TabFilament::create_preset_tab()
     //add_scaled_button(panel, &m_btn_compare_preset, "compare");
     add_border_hover_icon(m_top_panel, &m_btn_save_preset, "save", wxSize(FromDIP(24), FromDIP(24)));
     add_border_hover_icon(m_top_panel, &m_btn_delete_preset, "cross", wxSize(FromDIP(24), FromDIP(24)));
+    m_btn_save_preset->Hide();
     //if (m_type == Preset::Type::TYPE_PRINTER)
     //    add_scaled_button(panel, &m_btn_edit_ph_printer, "cog");
 
@@ -5066,7 +5124,7 @@ void TabFilament::create_preset_tab()
 
     add_scaled_button(m_top_panel, &m_undo_btn, m_bmp_white_bullet.name());
     add_scaled_button(m_top_panel, &m_undo_to_sys_btn, m_bmp_white_bullet.name());
-    add_border_hover_icon(m_top_panel, &m_btn_search, "search", wxSize(FromDIP(24), FromDIP(24)));
+    add_border_hover_icon(m_top_panel, &m_btn_search, preset_search_icon_name(), wxSize(FromDIP(24), FromDIP(24)));
     m_btn_search->SetToolTip(_L("Search in preset"));
 
     //search input
@@ -5099,8 +5157,6 @@ void TabFilament::create_preset_tab()
     m_search_input->Bind(wxCUSTOMEVT_EXIT_SEARCH, [this](wxCommandEvent&) {
         Freeze();
 
-        m_btn_save_preset->Show();
-        m_btn_delete_preset->Show(); // ORCA: fixes delete preset button visible while search box focused
         m_undo_btn->Show();          // ORCA: fixes revert preset button visible while search box focused
         m_btn_search->Show();
         m_search_item->Hide();
@@ -5212,8 +5268,8 @@ void TabFilament::create_preset_tab()
 #endif
     //m_top_sizer->Add(m_btn_save_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
     //m_top_sizer->Add(m_btn_delete_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
-    m_btn_save_preset->SetSize(0, 0);
-    m_btn_delete_preset->SetSize(0, 0);
+    m_btn_save_preset->Hide();
+    m_btn_delete_preset->Hide();
     m_top_sizer->Add(m_btn_search, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
     m_top_sizer->Add(m_search_item, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
     //m_search_item->Show();
@@ -6607,6 +6663,9 @@ void Tab::load_current_preset(Preset::Type trigger/* = Preset::Type::TYPE_INVALI
 //Regerenerate content of the page tree.
 void Tab::rebuild_page_tree()
 {
+    if (m_page_tree_rebuild_deferred)
+        return;
+
     // get label of the currently selected item
     auto sel_item = m_tabctrl->GetSelection();
     // BBS: fix new layout, record last select
@@ -6659,13 +6718,29 @@ void Tab::rebuild_page_tree()
     }
 }
 
+void Tab::request_page_tree_rebuild()
+{
+    if (m_parent->get_current_tab() != this) {
+        defer_page_tree_rebuild();
+        return;
+    }
+    m_page_tree_rebuild_deferred = false;
+    rebuild_page_tree();
+}
+
+void Tab::ensure_page_tree_rebuilt()
+{
+    if (!m_page_tree_rebuild_deferred)
+        return;
+    m_page_tree_rebuild_deferred = false;
+    rebuild_page_tree();
+}
+
 void Tab::update_btns_enabling()
 {
-    // we can delete any preset from the physical printer
-    // and any user preset
     const Preset& preset = m_presets->get_edited_preset();
-    bool res = (m_type == Preset::TYPE_PRINT && !preset.is_default && !preset.is_system);
-    m_btn_delete_preset->Show(res);
+    const bool can_delete = m_type == Preset::TYPE_PRINT && !preset.is_default && !preset.is_system;
+    m_btn_delete_preset->Show(can_delete);
 
     //if (m_btn_edit_ph_printer)
     //    m_btn_edit_ph_printer->SetToolTip( m_preset_bundle->physical_printers.has_selection() ?
@@ -7905,6 +7980,11 @@ bool TabPrinter::changedSelectPrint(std::string presetName)
 
 void TabPrinter::create_preset_tab()
 {
+#ifdef __WXGTK__
+    SetBackgroundStyle(wxBG_STYLE_PAINT);
+    SetDoubleBuffered(true);
+    Bind(wxEVT_ERASE_BACKGROUND, [](wxEraseEvent&) {});
+#endif
     //move to ParamsPanel
 /*#ifdef __WINDOWS__
     SetDoubleBuffered(true);
@@ -7964,7 +8044,7 @@ void TabPrinter::create_preset_tab()
 
     m_top_panel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     // BBS: open this tab by select first
-    m_top_panel->SetBackgroundColour(*wxWHITE);
+    m_top_panel->SetBackgroundColour(preset_top_panel_colour());
     m_top_panel->Bind(wxEVT_LEFT_UP, [this](auto& e) {
         restore_last_select_item();
         });
@@ -7973,6 +8053,7 @@ void TabPrinter::create_preset_tab()
     //add_scaled_button(panel, &m_btn_compare_preset, "compare");
     add_border_hover_icon(m_top_panel, &m_btn_save_preset, "save", wxSize(FromDIP(24), FromDIP(24)));
     add_border_hover_icon(m_top_panel, &m_btn_delete_preset, "cross", wxSize(FromDIP(24), FromDIP(24)));
+    m_btn_save_preset->Hide();
     //if (m_type == Preset::Type::TYPE_PRINTER)
     //    add_scaled_button(panel, &m_btn_edit_ph_printer, "cog");
 
@@ -8009,7 +8090,7 @@ void TabPrinter::create_preset_tab()
 
     add_scaled_button(m_top_panel, &m_undo_btn, m_bmp_white_bullet.name());
     add_scaled_button(m_top_panel, &m_undo_to_sys_btn, m_bmp_white_bullet.name());
-    add_border_hover_icon(m_top_panel, &m_btn_search, "search", wxSize(FromDIP(24), FromDIP(24)));
+    add_border_hover_icon(m_top_panel, &m_btn_search, preset_search_icon_name(), wxSize(FromDIP(24), FromDIP(24)));
     m_btn_search->SetToolTip(_L("Search in preset"));
 
     //search input
@@ -8042,8 +8123,6 @@ void TabPrinter::create_preset_tab()
     m_search_input->Bind(wxCUSTOMEVT_EXIT_SEARCH, [this](wxCommandEvent&) {
         Freeze();
 
-        m_btn_save_preset->Show();
-        m_btn_delete_preset->Show(); // ORCA: fixes delete preset button visible while search box focused
         m_undo_btn->Show();          // ORCA: fixes revert preset button visible while search box focused
         m_btn_search->Show();
         m_search_item->Hide();
@@ -8155,8 +8234,8 @@ void TabPrinter::create_preset_tab()
 #endif
     //m_top_sizer->Add(m_btn_save_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
     //m_top_sizer->Add(m_btn_delete_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
-    m_btn_save_preset->SetSize(0, 0);
-    m_btn_delete_preset->SetSize(0, 0);
+    m_btn_save_preset->Hide();
+    m_btn_delete_preset->Hide();
     m_top_sizer->Add(m_btn_search, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
     m_top_sizer->Add(m_search_item, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
     //m_search_item->Show();

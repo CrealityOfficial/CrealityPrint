@@ -12,7 +12,7 @@
 
 #include "libslic3r/PresetBundle.hpp"
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 namespace Slic3r {
 namespace GUI {
@@ -109,7 +109,7 @@ void SelectionInfo::on_update()
     m_model_object = nullptr;
 
     
-    /* ¾É´úÂë£¬²âÊÔÎÞÎÊÌâºó¿ÉÉ¾
+    /* ï¿½É´ï¿½ï¿½ë£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¾
     // BBS still keep object pointer when selection is volume
     // if (selection.is_single_full_instance()) {
     if (!selection.is_empty()) {

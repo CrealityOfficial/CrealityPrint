@@ -19,6 +19,7 @@
 #include <cmath>
 #include <deque>
 #include <limits>
+#include <mutex>
 #include <numeric>
 #include <boost/container/static_vector.hpp>
 #include <boost/log/trivial.hpp>
@@ -48,45 +49,6 @@
 #include <cassert>
 
 namespace Slic3r {
-
-static double support_debug_area_mm2(double scaled_area) { return std::abs(scaled_area) * sqr(SCALING_FACTOR); }
-
-// Relative path keeps the optional repair trace local to the running process
-// instead of writing into a developer-specific checkout directory.
-static void append_footprint_repair_debug(const std::string& msg, bool clear_first = false)
-{
-    std::ofstream ofs("footprint_repair_debug.txt", clear_first ? std::ios::trunc : std::ios::app);
-    if (ofs)
-        ofs << msg << '\n';
-}
-
-static void append_footprint_repair_island_debug(const char*        result,
-                                                 int                upper_idx,
-                                                 size_t             lower_idx,
-                                                 double             upper_area,
-                                                 double             missing_area,
-                                                 double             repair_area,
-                                                 double             generated_overlap,
-                                                 double             tol_masked_area,
-                                                 const BoundingBox& bbox)
-{
-    std::ostringstream ss;
-    ss << "[FOOT_REPAIR_ISLAND] result=" << result << " upper=" << upper_idx << " lower=" << lower_idx
-       << " upper_area_mm2=" << support_debug_area_mm2(upper_area) << " missing_mm2=" << support_debug_area_mm2(missing_area)
-       << " repair_mm2=" << support_debug_area_mm2(repair_area) << " generated_overlap_mm2=" << support_debug_area_mm2(generated_overlap)
-       << " tol_masked_mm2=" << support_debug_area_mm2(tol_masked_area) << " bbox_min=(" << unscale<double>(bbox.min.x()) << ","
-       << unscale<double>(bbox.min.y()) << ")"
-       << " bbox_max=(" << unscale<double>(bbox.max.x()) << "," << unscale<double>(bbox.max.y()) << ")";
-    append_footprint_repair_debug(ss.str());
-}
-
-static Polygons support_extrusions_covered_by_width(const ExtrusionEntitiesPtr& extrusions)
-{
-    Polygons covered;
-    for (const ExtrusionEntity* entity : extrusions)
-        entity->polygons_covered_by_width(covered, float(SCALED_EPSILON));
-    return covered;
-}
 
 // how much we extend support around the actual contact area
 // FIXME this should be dependent on the nozzle diameter!
@@ -569,6 +531,7 @@ static inline void fill_expolygons_generate_paths(ExtrusionEntitiesPtr&         
     FillParams fill_params;
     fill_params.density     = density;
     fill_params.dont_adjust = true;
+    fill_params.extrusion_role = role;
     if (role == ExtrusionRole ::erSupportMaterialInterface && interface_pattern == smipMonotonicLine) {
         fill_params.monotonic = true;
         fill_params.dont_sort = false;
@@ -716,7 +679,7 @@ void tree_supports_generate_paths(ExtrusionEntitiesPtr&    dst,
     const double spacing = flow.scaled_spacing();
     // Clip the sheath path to avoid the extruder to get exactly on the first point of the loop.
     const double        clip_length   = spacing * 0.15;
-    // Disable the seam anchor by default: it creates visible protruding scars on organic tree walls.
+    // Disable the seam anchor by default: it creates visible protruding scars on tree support walls.
     const double        anchor_length = spacing * 6.;
     constexpr bool      emit_inner_tree_walls = true;
     ClipperLib_Z::Paths anchor_candidates;
@@ -844,7 +807,7 @@ void tree_supports_generate_paths(ExtrusionEntitiesPtr&    dst,
             ExtrusionEntitiesPtr& out = eec ? eec->entities : dst;
             extrusion_entities_append_paths(out, std::move(polylines), ExtrusionRole::erSupportMaterial, flow.mm3_per_mm(), flow.width(),
                                             flow.height(),
-                                            // Disable reversal of the path to keep organic wall seams deterministic.
+                                            // Disable reversal of the path to keep tree support wall seams deterministic.
                                             false);
         }
         if (eec) {
@@ -890,6 +853,36 @@ static void filter_short_contour_support_paths(Polylines& polylines, double min_
                     polylines.end());
 }
 
+static void filter_small_flat_contour_support_paths(Polylines& polylines, coord_t line_width)
+{
+    if (line_width <= 0)
+        return;
+
+    const double max_flat_path_length    = 16.0 * double(line_width);
+    const double min_slender_path_length = 8.0 * double(line_width);
+    const double max_slender_path_length = 40.0 * double(line_width);
+    const double max_slender_path_width  = 1.5 * double(line_width);
+    size_t       dst                     = 0;
+    for (size_t src = 0; src < polylines.size(); ++src) {
+        Polyline& pl     = polylines[src];
+        bool      remove = pl.size() < 2 || pl.length() <= max_flat_path_length;
+        if (!remove) {
+            const BoundingBox bbox       = get_extents(pl);
+            const Point       size       = bbox.size();
+            const coord_t     long_span  = std::max(size.x(), size.y());
+            const coord_t     short_span = std::min(size.x(), size.y());
+            remove = double(long_span) >= min_slender_path_length &&
+                     double(long_span) <= max_slender_path_length &&
+                     double(short_span) <= max_slender_path_width;
+        }
+        if (!remove) {
+            if (dst != src)
+                polylines[dst] = std::move(pl);
+            ++dst;
+        }
+    }
+    polylines.resize(dst);
+}
 static void remove_overlapping_contour_support_paths(Polylines& polylines, coord_t overlap_distance)
 {
     if (polylines.size() < 2 || overlap_distance <= 0)
@@ -2102,6 +2095,619 @@ static void clip_contour_support_paths_from_model_region(Polylines& polylines, c
     polylines = diff_pl(polylines, *model_region);
 }
 
+static Polylines tree_contour_paths_requiring_support(const Polylines& source_paths,
+                                                      const Polygons& lower_supported,
+                                                      coord_t line_width,
+                                                      double max_bridge_length)
+{
+    if (source_paths.empty() || line_width <= 0)
+        return {};
+
+    const double  min_patch_length       = 2.0 * double(line_width);
+    const double  merge_supported_gap    = double(line_width);
+    const coord_t demand_region_radius   = line_width / 2;
+    const coord_t overlap_merge_distance = line_width / 2;
+
+    const Polygons demand_region = offset(source_paths, demand_region_radius, ClipperLib::jtRound, scaled<float>(0.01));
+    if (demand_region.empty())
+        return {};
+
+    Polygons unsupported_region = lower_supported.empty() ? demand_region : diff(demand_region, lower_supported);
+    if (unsupported_region.empty())
+        return {};
+
+    if (area(unsupported_region) < sqr(double(line_width)))
+        return {};
+
+    Polylines raw_paths = intersection_pl(source_paths, unsupported_region);
+    if (raw_paths.empty())
+        return {};
+
+    Polylines demand_paths = simplify_contour_support_patch_paths(
+        std::move(raw_paths), source_paths, min_patch_length, max_bridge_length,
+        merge_supported_gap, overlap_merge_distance, nullptr, nullptr);
+    filter_short_contour_support_paths(demand_paths, min_patch_length);
+    return demand_paths;
+}
+
+static void filter_tree_same_layer_bridgeable_paths(Polylines& paths_to_support,
+                                                    const Polylines& anchors,
+                                                    coord_t line_width,
+                                                    double max_bridge_length)
+{
+    if (paths_to_support.empty() || anchors.empty() || line_width <= 0 || max_bridge_length <= 0.)
+        return;
+
+    // Treat existing same-layer paths as physical line-width coverage, split the repair
+    // path at every contact, then reuse the contour bridge graph to keep only unsupported
+    // connected intervals whose accumulated extrusion length exceeds the bridge limit.
+    const Polygons same_layer_supported =
+        offset(anchors, line_width / 2, ClipperLib::jtRound, scaled<float>(0.01));
+    paths_to_support = tree_contour_paths_requiring_support(
+        paths_to_support, same_layer_supported, line_width, max_bridge_length);
+}
+
+ContourSupportPlan plan_tree_contour_repair_paths(std::vector<ContourSupportLayerInput> layers,
+                                                   size_t n_raft_layers,
+                                                   double max_bridge_length,
+                                                   bool write_debug)
+{
+    struct LayerDebugEntry {
+        coordf_t  z {0.};
+        Polygons  legal_region;
+        Polylines input_contours;
+        Polylines generated_contours;
+        Polylines support_surface_paths;
+        Polygons  support_surface_region;
+        Polygons  model_support_from_below;
+        Polygons  original_supported;
+    };
+    struct PropagationStepDebugEntry {
+        int       layer_idx {-1};
+        coordf_t  z {0.};
+        std::string stop_reason;
+        Polylines requiring_support;
+        Polylines after_model_clip;
+        Polylines after_short_filter;
+        Polylines patch_candidates;
+        Polylines same_layer_anchors;
+        Polygons  same_layer_surface_coverage;
+        Polylines after_independent_filter;
+        Polylines to_support_initial;
+        Polylines after_surface_adhesion;
+        Polylines after_same_layer_filter;
+        Polylines after_free_filter;
+        Polylines after_to_support_model_clip;
+        Polylines to_support_final;
+        Polygons  next_layer_supported;
+        Polylines next_requiring_support;
+    };
+    struct PropagationDebugEntry {
+        int       upper_idx {-1};
+        int       first_lower_idx {-1};
+        coordf_t  upper_z {0.};
+        std::string status;
+        bool      committed {false};
+        Polylines upper_contours;
+        Polygons  first_lower_supported;
+        Polylines initial_requiring_support;
+        std::vector<PropagationStepDebugEntry> steps;
+    };
+    struct CleanupDebugEntry {
+        coordf_t  z {0.};
+        Polylines patch_input;
+        Polylines patch_after_model_clip;
+        Polylines patch_after_surface_clip;
+        Polylines patch_after_overlap_remove;
+        Polylines patch_after_independent_filter;
+        Polylines patch_final;
+        Polylines to_support_input;
+        Polylines to_support_after_model_clip;
+        Polylines to_support_after_overlap_remove;
+        Polylines to_support_after_independent_filter;
+        Polylines to_support_final;
+    };
+
+    ContourSupportPlan plan;
+    plan.patch_paths_by_layer.resize(layers.size());
+    plan.paths_to_support_by_layer.resize(layers.size());
+    if (layers.empty())
+        return plan;
+
+    std::vector<LayerDebugEntry>       layer_debug(write_debug ? layers.size() : 0);
+    std::vector<PropagationDebugEntry> propagation_debug(write_debug ? layers.size() : 0);
+    std::vector<CleanupDebugEntry>     cleanup_debug(write_debug ? layers.size() : 0);
+
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, layers.size()),
+                      [&layers, &layer_debug, write_debug](const tbb::blocked_range<size_t>& range) {
+                          for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
+                              ContourSupportLayerInput& layer = layers[layer_idx];
+                              if (write_debug) {
+                                  layer_debug[layer_idx].z              = layer.print_z;
+                                  layer_debug[layer_idx].legal_region   = layer.legal_region;
+                                  layer_debug[layer_idx].input_contours = layer.layer_contours;
+                                  layer_debug[layer_idx].support_surface_paths = layer.printed_paths;
+                                  layer_debug[layer_idx].support_surface_region = layer.support_surface_region;
+                              }
+                              if (!layer.legal_region.empty()) {
+                                  layer.layer_contours.clear();
+                                  append_centerline_contours_for_support_plan(layer.layer_contours, layer.legal_region, layer.line_width);
+                              }
+                              if (write_debug)
+                                  layer_debug[layer_idx].generated_contours = layer.layer_contours;
+                          }
+                      });
+
+    std::vector<Polygons>  original_supported_by_layer(layers.size());
+    std::vector<Polygons>  support_surface_coverage_by_layer(layers.size());
+    std::vector<Polygons>  model_support_from_below_by_layer(layers.size());
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, layers.size()),
+                      [&layers, &original_supported_by_layer, &support_surface_coverage_by_layer,
+                       &model_support_from_below_by_layer, &layer_debug, write_debug](const tbb::blocked_range<size_t>& range) {
+                          for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
+                              const ContourSupportLayerInput& layer = layers[layer_idx];
+                              if (layer.valid && layer.line_width > 0) {
+                                  Polygons& surface_coverage = support_surface_coverage_by_layer[layer_idx];
+                                  if (!layer.support_surface_region.empty())
+                                      append(surface_coverage, offset(layer.support_surface_region, layer.line_width / 2,
+                                                                      ClipperLib::jtRound, scaled<float>(0.01)));
+                                  if (!layer.printed_paths.empty())
+                                      append(surface_coverage, offset(layer.printed_paths, layer.line_width / 2,
+                                                                      ClipperLib::jtRound, scaled<float>(0.01)));
+                                  if (!surface_coverage.empty())
+                                      surface_coverage = union_safety_offset(surface_coverage);
+
+                                  // For the transition upper=(layer_idx + 1) -> lower=layer_idx, the part of the
+                                  // lower model not occupied by the upper model is a newly exposed ledge. It supports
+                                  // the upper repair demand just like an already printed lower support surface.
+                                  if (layer_idx + 1 < layers.size() && layer.model_region != nullptr &&
+                                      !layer.model_region->empty()) {
+                                      const ExPolygons* upper_model = layers[layer_idx + 1].model_region;
+                                      Polygons model_ledge = upper_model == nullptr || upper_model->empty() ?
+                                          to_polygons(*layer.model_region) : diff(*layer.model_region, *upper_model);
+                                      if (!model_ledge.empty())
+                                          model_support_from_below_by_layer[layer_idx] =
+                                              offset(model_ledge, layer.line_width / 2,
+                                                     ClipperLib::jtRound, scaled<float>(0.01));
+                                  }
+
+                                  Polygons supported;
+                                  if (!layer.layer_contours.empty())
+                                      append(supported, offset(layer.layer_contours, layer.line_width / 2,
+                                                               ClipperLib::jtRound, scaled<float>(0.01)));
+                                  append(supported, surface_coverage);
+                                  append(supported, model_support_from_below_by_layer[layer_idx]);
+                                  if (!supported.empty())
+                                      original_supported_by_layer[layer_idx] = union_safety_offset(supported);
+                              }
+                              if (write_debug) {
+                                  layer_debug[layer_idx].model_support_from_below =
+                                      model_support_from_below_by_layer[layer_idx];
+                                  layer_debug[layer_idx].original_supported = original_supported_by_layer[layer_idx];
+                              }
+                          }
+                      });
+
+    std::vector<std::mutex> layer_mutexes(layers.size());
+    const int begin_upper = int(n_raft_layers) + 1;
+    const int end_upper   = int(layers.size());
+    tbb::parallel_for(tbb::blocked_range<int>(begin_upper, end_upper),
+                      [&layers, &original_supported_by_layer, &support_surface_coverage_by_layer,
+                       &plan, &layer_mutexes, &propagation_debug, n_raft_layers, max_bridge_length, write_debug](
+                          const tbb::blocked_range<int>& range) {
+                          for (int upper_idx = range.begin(); upper_idx < range.end(); ++upper_idx) {
+                              const ContourSupportLayerInput& upper = layers[size_t(upper_idx)];
+                              PropagationDebugEntry dbg;
+                              if (write_debug) {
+                                  dbg.upper_idx      = upper_idx;
+                                  dbg.first_lower_idx = upper_idx - 1;
+                                  dbg.upper_z        = upper.print_z;
+                                  dbg.upper_contours = upper.layer_contours;
+                              }
+                              if (upper.layer_contours.empty()) {
+                                  if (write_debug) {
+                                      dbg.status = "skip_empty_upper";
+                                      propagation_debug[size_t(upper_idx)] = std::move(dbg);
+                                  }
+                                  continue;
+                              }
+
+                              int current_layer = upper_idx - 1;
+                              if (current_layer < int(n_raft_layers)) {
+                                  if (write_debug) {
+                                      dbg.status = "skip_raft";
+                                      propagation_debug[size_t(upper_idx)] = std::move(dbg);
+                                  }
+                                  continue;
+                              }
+
+                              const ContourSupportLayerInput& first_print_layer = layers[size_t(current_layer)];
+                              if (write_debug)
+                                  dbg.first_lower_supported = original_supported_by_layer[size_t(current_layer)];
+                              if (first_print_layer.line_width <= 0) {
+                                  if (write_debug) {
+                                      dbg.status = "skip_invalid_lower";
+                                      propagation_debug[size_t(upper_idx)] = std::move(dbg);
+                                  }
+                                  continue;
+                              }
+
+                              Polylines current_paths = tree_contour_paths_requiring_support(
+                                  upper.layer_contours, original_supported_by_layer[size_t(current_layer)],
+                                  first_print_layer.line_width, max_bridge_length);
+                              if (write_debug)
+                                  dbg.initial_requiring_support = current_paths;
+
+                              struct ContourPatchTrailEntry {
+                                  int       layer_idx {-1};
+                                  Polylines patch_paths;
+                                  Polylines paths_to_support;
+                              };
+                              std::vector<ContourPatchTrailEntry> patch_trail;
+
+                              while (!current_paths.empty() && current_layer >= int(n_raft_layers)) {
+                                  const ContourSupportLayerInput& print_layer = layers[size_t(current_layer)];
+                                  PropagationStepDebugEntry step_dbg;
+                                  if (write_debug) {
+                                      step_dbg.layer_idx          = current_layer;
+                                      step_dbg.z                  = print_layer.print_z;
+                                      step_dbg.requiring_support  = current_paths;
+                                  }
+                                  if (print_layer.line_width <= 0) {
+                                      if (write_debug) {
+                                          step_dbg.stop_reason = "invalid_layer";
+                                          dbg.steps.push_back(std::move(step_dbg));
+                                      }
+                                      break;
+                                  }
+
+                                  clip_contour_support_paths_from_model_region(current_paths, print_layer.model_region);
+                                  if (write_debug)
+                                      step_dbg.after_model_clip = current_paths;
+                                  filter_short_contour_support_paths(current_paths, 2.0 * double(print_layer.line_width));
+                                  if (write_debug)
+                                      step_dbg.after_short_filter = current_paths;
+                                  if (current_paths.empty()) {
+                                      if (write_debug) {
+                                          step_dbg.stop_reason = "empty_after_short_filter";
+                                          dbg.steps.push_back(std::move(step_dbg));
+                                      }
+                                      break;
+                                  }
+
+                                  Polylines patch_paths = current_paths;
+                                  if (write_debug)
+                                      step_dbg.patch_candidates = patch_paths;
+                                  const Polygons& same_layer_surface_coverage =
+                                      support_surface_coverage_by_layer[size_t(current_layer)];
+                                  if (write_debug)
+                                      step_dbg.same_layer_surface_coverage = same_layer_surface_coverage;
+                                  Polylines independent_anchors = print_layer.layer_contours;
+                                  if (!same_layer_surface_coverage.empty())
+                                      append(independent_anchors, intersection_pl(patch_paths, same_layer_surface_coverage));
+                                  if (write_debug)
+                                      step_dbg.same_layer_anchors = independent_anchors;
+                                  const double max_independent_short_length = 4.0 * double(print_layer.line_width);
+                                  filter_short_independent_contour_support_paths(
+                                      patch_paths, independent_anchors, max_independent_short_length,
+                                      double(print_layer.line_width));
+                                  if (write_debug)
+                                      step_dbg.after_independent_filter = patch_paths;
+                                  if (patch_paths.empty()) {
+                                      if (write_debug) {
+                                          step_dbg.stop_reason = "empty_after_independent_filter";
+                                          dbg.steps.push_back(std::move(step_dbg));
+                                      }
+                                      break;
+                                  }
+
+                                  Polylines paths_to_support = patch_paths;
+                                  if (write_debug)
+                                      step_dbg.to_support_initial = paths_to_support;
+
+                                  // A support surface printed at this Z glues the overlapping part of the repair path.
+                                  // Only the part outside its half-line-width-expanded footprint needs lower support.
+                                  if (!same_layer_surface_coverage.empty())
+                                      paths_to_support = diff_pl(paths_to_support, same_layer_surface_coverage);
+                                  if (write_debug)
+                                      step_dbg.after_surface_adhesion = paths_to_support;
+
+                                  // Only short and direct same-layer attachments are allowed to stop propagation.
+                                  // Long or winding glued paths still need lower support.
+                                  filter_tree_same_layer_bridgeable_paths(
+                                      paths_to_support, print_layer.layer_contours, print_layer.line_width, max_bridge_length);
+                                  if (write_debug)
+                                      step_dbg.after_same_layer_filter = paths_to_support;
+                                  const double max_nonpropagating_free_length =
+                                      std::max(3.0 * double(print_layer.line_width), 0.4 * max_bridge_length);
+                                  filter_short_free_contour_support_paths(paths_to_support, max_nonpropagating_free_length,
+                                                                          double(print_layer.line_width));
+                                  if (write_debug)
+                                      step_dbg.after_free_filter = paths_to_support;
+                                  clip_contour_support_paths_from_model_region(paths_to_support, print_layer.model_region);
+                                  if (write_debug)
+                                      step_dbg.after_to_support_model_clip = paths_to_support;
+                                  filter_short_contour_support_paths(paths_to_support, 2.0 * double(print_layer.line_width));
+                                  if (write_debug)
+                                      step_dbg.to_support_final = paths_to_support;
+
+                                  patch_trail.push_back({current_layer, patch_paths, paths_to_support});
+
+                                  if (paths_to_support.empty()) {
+                                      if (write_debug) {
+                                          step_dbg.stop_reason = "supported";
+                                          dbg.steps.push_back(std::move(step_dbg));
+                                      }
+                                      break;
+                                  }
+                                  if (current_layer == int(n_raft_layers)) {
+                                      if (write_debug) {
+                                          step_dbg.stop_reason = "reached_raft_boundary";
+                                          dbg.steps.push_back(std::move(step_dbg));
+                                      }
+                                      break;
+                                  }
+
+                                  const int next_layer = current_layer - 1;
+                                  const ContourSupportLayerInput& lower = layers[size_t(next_layer)];
+                                  if (lower.line_width <= 0) {
+                                      if (write_debug) {
+                                          step_dbg.stop_reason = "invalid_next_layer";
+                                          dbg.steps.push_back(std::move(step_dbg));
+                                      }
+                                      break;
+                                  }
+
+                                  if (write_debug)
+                                      step_dbg.next_layer_supported = original_supported_by_layer[size_t(next_layer)];
+
+                                  Polylines next_paths = tree_contour_paths_requiring_support(
+                                      paths_to_support, original_supported_by_layer[size_t(next_layer)],
+                                      lower.line_width, max_bridge_length);
+                                  if (write_debug)
+                                      step_dbg.next_requiring_support = next_paths;
+                                  if (next_paths.empty()) {
+                                      if (write_debug) {
+                                          step_dbg.stop_reason = "supported_by_next_layer";
+                                          dbg.steps.push_back(std::move(step_dbg));
+                                      }
+                                      break;
+                                  }
+
+                                  if (write_debug) {
+                                      step_dbg.stop_reason = "propagate";
+                                      dbg.steps.push_back(std::move(step_dbg));
+                                  }
+
+                                  current_paths = std::move(next_paths);
+                                  current_layer = next_layer;
+                              }
+
+                              for (ContourPatchTrailEntry& entry : patch_trail) {
+                                  std::lock_guard<std::mutex> lock(layer_mutexes[size_t(entry.layer_idx)]);
+                                  append(plan.patch_paths_by_layer[size_t(entry.layer_idx)], std::move(entry.patch_paths));
+                                  append(plan.paths_to_support_by_layer[size_t(entry.layer_idx)], std::move(entry.paths_to_support));
+                              }
+                              if (write_debug) {
+                                  dbg.committed = !patch_trail.empty();
+                                  dbg.status    = current_paths.empty() ? "no_repair_needed" :
+                                                  patch_trail.empty()   ? "discarded" : "committed";
+                                  propagation_debug[size_t(upper_idx)] = std::move(dbg);
+                              }
+                          }
+                      });
+
+    tbb::parallel_for(tbb::blocked_range<size_t>(n_raft_layers, layers.size()),
+                      [&layers, &support_surface_coverage_by_layer, &plan, &cleanup_debug, write_debug](
+                          const tbb::blocked_range<size_t>& range) {
+                          for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
+                              const coord_t line_width = layers[layer_idx].line_width;
+                              Polylines cleaned = std::move(plan.patch_paths_by_layer[layer_idx]);
+                              if (write_debug) {
+                                  cleanup_debug[layer_idx].z           = layers[layer_idx].print_z;
+                                  cleanup_debug[layer_idx].patch_input = cleaned;
+                              }
+                              if (!cleaned.empty()) {
+                                  clip_contour_support_paths_from_model_region(cleaned, layers[layer_idx].model_region);
+                                  if (write_debug)
+                                      cleanup_debug[layer_idx].patch_after_model_clip = cleaned;
+                                  if (!support_surface_coverage_by_layer[layer_idx].empty())
+                                      cleaned = diff_pl(cleaned, support_surface_coverage_by_layer[layer_idx]);
+                                  if (write_debug)
+                                      cleanup_debug[layer_idx].patch_after_surface_clip = cleaned;
+                                  remove_overlapping_contour_support_paths(cleaned, line_width / 2);
+                                  if (write_debug)
+                                      cleanup_debug[layer_idx].patch_after_overlap_remove = cleaned;
+                                  Polylines independent_anchors = layers[layer_idx].layer_contours;
+                                  if (!support_surface_coverage_by_layer[layer_idx].empty())
+                                      append(independent_anchors,
+                                             to_polylines(support_surface_coverage_by_layer[layer_idx]));
+                                  filter_short_independent_contour_support_paths(cleaned, independent_anchors,
+                                                                                 4.0 * double(line_width), double(line_width));
+                                  if (write_debug)
+                                      cleanup_debug[layer_idx].patch_after_independent_filter = cleaned;
+                                  filter_short_contour_support_paths(cleaned, 2.0 * double(line_width));
+                              }
+                              if (write_debug)
+                                  cleanup_debug[layer_idx].patch_final = cleaned;
+                              Polylines cleaned_to_support = std::move(plan.paths_to_support_by_layer[layer_idx]);
+                              if (write_debug)
+                                  cleanup_debug[layer_idx].to_support_input = cleaned_to_support;
+                              if (!cleaned_to_support.empty()) {
+                                  clip_contour_support_paths_from_model_region(cleaned_to_support, layers[layer_idx].model_region);
+                                  if (write_debug)
+                                      cleanup_debug[layer_idx].to_support_after_model_clip = cleaned_to_support;
+                                  remove_overlapping_contour_support_paths(cleaned_to_support, line_width / 2);
+                                  if (write_debug)
+                                      cleanup_debug[layer_idx].to_support_after_overlap_remove = cleaned_to_support;
+                                  filter_short_independent_contour_support_paths(
+                                      cleaned_to_support, layers[layer_idx].layer_contours,
+                                                                                 4.0 * double(line_width), double(line_width));
+                                  if (write_debug)
+                                      cleanup_debug[layer_idx].to_support_after_independent_filter = cleaned_to_support;
+                                  filter_short_contour_support_paths(cleaned_to_support, 2.0 * double(line_width));
+                              }
+                              if (write_debug)
+                                  cleanup_debug[layer_idx].to_support_final = cleaned_to_support;
+                              plan.patch_paths_by_layer[layer_idx] = std::move(cleaned);
+                              plan.paths_to_support_by_layer[layer_idx] = std::move(cleaned_to_support);
+                          }
+                      });
+
+    if (write_debug) {
+        boost::filesystem::create_directories("C:/temp");
+        const std::string json_path = "C:/temp/tree_contour_repair_debug.json";
+        std::ofstream f(json_path, std::ios::trunc);
+        if (!f.is_open()) {
+            fprintf(stderr, "[tree_contour_repair_debug] ERROR: cannot open %s\n", json_path.c_str());
+        } else {
+            fprintf(stderr, "[tree_contour_repair_debug] writing %s\n", json_path.c_str());
+            auto write_pts = [&](const Points& pts, bool close) {
+                f << "[";
+                for (size_t i = 0; i < pts.size(); ++i) {
+                    if (i)
+                        f << ",";
+                    f << "[" << std::fixed << std::setprecision(3) << unscale<double>(pts[i].x()) << ","
+                      << unscale<double>(pts[i].y()) << "]";
+                }
+                if (close && !pts.empty())
+                    f << ",[" << unscale<double>(pts.front().x()) << "," << unscale<double>(pts.front().y()) << "]";
+                f << "]";
+            };
+            auto write_polylines = [&](const Polylines& polylines) {
+                f << "[";
+                for (size_t i = 0; i < polylines.size(); ++i) {
+                    if (i)
+                        f << ",";
+                    write_pts(polylines[i].points, false);
+                }
+                f << "]";
+            };
+            auto write_polygons = [&](const Polygons& polygons) {
+                f << "[";
+                for (size_t i = 0; i < polygons.size(); ++i) {
+                    if (i)
+                        f << ",";
+                    write_pts(polygons[i].points, true);
+                }
+                f << "]";
+            };
+            auto write_polyline_stage = [&](const char* name, const Polylines& polylines, bool& first) {
+                if (!first)
+                    f << ",";
+                first = false;
+                f << "\"" << name << "\":";
+                write_polylines(polylines);
+            };
+
+            f << "{\"layer_preparation\":[\n";
+            for (size_t layer_idx = 0; layer_idx < layer_debug.size(); ++layer_idx) {
+                const LayerDebugEntry& e = layer_debug[layer_idx];
+                if (layer_idx)
+                    f << ",\n";
+                f << "{\"layer_idx\":" << layer_idx << ",\"z\":" << std::fixed << std::setprecision(3) << e.z
+                  << ",\"stages\":{\"legal_region\":";
+                write_polygons(e.legal_region);
+                f << ",\"input_contours\":";
+                write_polylines(e.input_contours);
+                f << ",\"generated_contours\":";
+                write_polylines(e.generated_contours);
+                f << ",\"support_surface_paths\":";
+                write_polylines(e.support_surface_paths);
+                f << ",\"support_surface_region\":";
+                write_polygons(e.support_surface_region);
+                f << ",\"model_support_from_below\":";
+                write_polygons(e.model_support_from_below);
+                f << ",\"original_supported\":";
+                write_polygons(e.original_supported);
+                f << "}}";
+            }
+
+            f << "\n],\"propagations\":[\n";
+            bool first_propagation = true;
+            for (size_t upper_idx = size_t(begin_upper); upper_idx < propagation_debug.size(); ++upper_idx) {
+                const PropagationDebugEntry& e = propagation_debug[upper_idx];
+                if (!first_propagation)
+                    f << ",\n";
+                first_propagation = false;
+                f << "{\"upper_idx\":" << e.upper_idx << ",\"first_lower_idx\":" << e.first_lower_idx
+                  << ",\"upper_z\":" << std::fixed << std::setprecision(3) << e.upper_z << ",\"status\":\""
+                  << e.status << "\",\"committed\":" << (e.committed ? "true" : "false") << ",\"stages\":{";
+                bool first_stage = true;
+                write_polyline_stage("upper_contours", e.upper_contours, first_stage);
+                if (!first_stage)
+                    f << ",";
+                first_stage = false;
+                f << "\"first_lower_supported\":";
+                write_polygons(e.first_lower_supported);
+                write_polyline_stage("initial_requiring_support", e.initial_requiring_support, first_stage);
+                f << "},\"steps\":[";
+                for (size_t step_idx = 0; step_idx < e.steps.size(); ++step_idx) {
+                    const PropagationStepDebugEntry& step = e.steps[step_idx];
+                    if (step_idx)
+                        f << ",";
+                    f << "{\"layer_idx\":" << step.layer_idx << ",\"z\":" << std::fixed << std::setprecision(3) << step.z
+                      << ",\"stop_reason\":\"" << step.stop_reason << "\",\"stages\":{";
+                    bool first_step_stage = true;
+                    write_polyline_stage("requiring_support", step.requiring_support, first_step_stage);
+                    write_polyline_stage("after_model_clip", step.after_model_clip, first_step_stage);
+                    write_polyline_stage("after_short_filter", step.after_short_filter, first_step_stage);
+                    write_polyline_stage("patch_candidates", step.patch_candidates, first_step_stage);
+                    write_polyline_stage("same_layer_anchors", step.same_layer_anchors, first_step_stage);
+                    if (!first_step_stage)
+                        f << ",";
+                    f << "\"same_layer_surface_coverage\":";
+                    write_polygons(step.same_layer_surface_coverage);
+                    first_step_stage = false;
+                    write_polyline_stage("after_independent_filter", step.after_independent_filter, first_step_stage);
+                    write_polyline_stage("to_support_initial", step.to_support_initial, first_step_stage);
+                    write_polyline_stage("after_surface_adhesion", step.after_surface_adhesion, first_step_stage);
+                    write_polyline_stage("after_same_layer_filter", step.after_same_layer_filter, first_step_stage);
+                    write_polyline_stage("after_free_filter", step.after_free_filter, first_step_stage);
+                    write_polyline_stage("after_to_support_model_clip", step.after_to_support_model_clip, first_step_stage);
+                    write_polyline_stage("to_support_final", step.to_support_final, first_step_stage);
+                    if (!first_step_stage)
+                        f << ",";
+                    f << "\"next_layer_supported\":";
+                    write_polygons(step.next_layer_supported);
+                    first_step_stage = false;
+                    write_polyline_stage("next_requiring_support", step.next_requiring_support, first_step_stage);
+                    f << "}}";
+                }
+                f << "]}";
+            }
+
+            f << "\n],\"cleanup\":[\n";
+            bool first_cleanup = true;
+            for (size_t layer_idx = n_raft_layers; layer_idx < cleanup_debug.size(); ++layer_idx) {
+                const CleanupDebugEntry& e = cleanup_debug[layer_idx];
+                if (!first_cleanup)
+                    f << ",\n";
+                first_cleanup = false;
+                f << "{\"layer_idx\":" << layer_idx << ",\"z\":" << std::fixed << std::setprecision(3) << e.z
+                  << ",\"stages\":{";
+                bool first_stage = true;
+                write_polyline_stage("patch_input", e.patch_input, first_stage);
+                write_polyline_stage("patch_after_model_clip", e.patch_after_model_clip, first_stage);
+                write_polyline_stage("patch_after_surface_clip", e.patch_after_surface_clip, first_stage);
+                write_polyline_stage("patch_after_overlap_remove", e.patch_after_overlap_remove, first_stage);
+                write_polyline_stage("patch_after_independent_filter", e.patch_after_independent_filter, first_stage);
+                write_polyline_stage("patch_final", e.patch_final, first_stage);
+                write_polyline_stage("to_support_input", e.to_support_input, first_stage);
+                write_polyline_stage("to_support_after_model_clip", e.to_support_after_model_clip, first_stage);
+                write_polyline_stage("to_support_after_overlap_remove", e.to_support_after_overlap_remove, first_stage);
+                write_polyline_stage("to_support_after_independent_filter", e.to_support_after_independent_filter, first_stage);
+                write_polyline_stage("to_support_final", e.to_support_final, first_stage);
+                f << "}}";
+            }
+            f << "\n]}\n";
+            fprintf(stderr, "[tree_contour_repair_debug] done\n");
+        }
+    }
+
+    return plan;
+}
+
 ContourSupportPlan plan_contour_support_paths(std::vector<ContourSupportLayerInput> layers,
                                                size_t n_raft_layers,
                                                double max_bridge_length,
@@ -2263,14 +2869,18 @@ ContourSupportPlan plan_contour_support_paths(std::vector<ContourSupportLayerInp
             filter_contour_support_paths_connected_to_anchors(patch_paths_to_support, anchored_input_paths, double(lower.line_width));
         }
         filter_short_free_contour_support_paths(patch_paths_to_support, max_nonpropagating_free_length, double(lower.line_width));
-        // legal_region is only the original organic tree footprint for this layer.  Extra
+        // legal_region is only the original tree footprint for this layer.  Extra
         // contour patches may legitimately be outside that footprint, so using it as the
         // propagation bound would stop valid model-outside repairs.  For propagation we only
         // need to prevent paths from continuing into the model itself.
         clip_contour_support_paths_from_model_region(patch_paths_to_support, lower.model_region);
         filter_short_contour_support_paths(patch_paths_to_support, 2.0 * double(lower.line_width));
+        filter_small_flat_contour_support_paths(patch_paths_to_support, lower.line_width);
         clip_contour_support_paths_from_model_region(patch_paths, lower.model_region);
         filter_short_contour_support_paths(patch_paths, 2.0 * double(lower.line_width));
+        filter_small_flat_contour_support_paths(patch_paths, lower.line_width);
+        if (patch_paths.empty())
+            continue;
 
         if (write_debug) {
             dbg.propagation_break        = !patch_paths.empty() && patch_paths_to_support.empty();
@@ -3313,28 +3923,26 @@ void generate_support_toolpaths(SupportLayerPtrs&                support_layers,
         for (size_t support_layer_id = range.begin(); support_layer_id < range.end(); ++support_layer_id) {
             SupportLayer& support_layer = *support_layers[support_layer_id];
             LayerCache&   layer_cache   = layer_caches[support_layer_id];
-            //             const float   support_interface_angle = ((support_params.support_style == smsGrid && config.support_interface_pattern
-            //             != smipRectilinearInterlaced) || config.support_interface_pattern == smipRectilinear) ?
-            //                 support_params.interface_angle : support_params.raft_interface_angle(support_layer.interface_id());
+            const bool interlaced_interface = config.support_interface_pattern == smipRectilinearInterlaced;
 
-            /*   float   support_interface_angle = 0.0;
-               if ((support_params.support_style == smsGrid && config.support_interface_pattern != smipRectilinearInterlaced &&
-               config.support_interface_pattern != smipAuto))
-               {
-                   support_interface_angle = support_params.interface_angle;
-               }
-               else if (config.support_interface_pattern == smipRectilinear)
-               {
-                   support_interface_angle = support_params.interface_angle;
-               }
-               else
-               {
-                   support_interface_angle = support_params.raft_interface_angle(support_layer.interface_id());
-               }*/
-            const float support_interface_angle = (support_params.support_style == smsGrid ||
-                                                   config.support_interface_pattern == smipRectilinear) ?
-                                                      support_params.interface_angle :
-                                                      support_params.raft_interface_angle(support_layer.interface_id());
+            float support_interface_angle;
+            if (interlaced_interface) {
+                // Interlacing follows the position in the print_z-sorted support layer sequence.
+                // Do not use interface_id(): a contact-only layer may inherit the interface ID of
+                // the layer supporting it, so adjacent physical layers (for example 48 and 49) do
+                // not necessarily have adjacent interface IDs.
+                support_interface_angle = support_params.interface_angle +
+                                          ((support_layer_id & 1) ? float(M_PI_2) : 0.f);
+            } else if (config.support_interface_pattern == smipRectilinear) {
+                // Plain rectilinear keeps the same direction on every interface layer.
+                support_interface_angle = support_params.interface_angle;
+            } else if (support_params.support_style == smsGrid) {
+                // Grid-style support aligns its interface with the configured interface angle.
+                support_interface_angle = support_params.interface_angle;
+            } else {
+                // Other interface patterns retain the existing alternating raft-angle strategy.
+                support_interface_angle = support_params.raft_interface_angle(support_layer.interface_id());
+            }
 
             // Find polygons with the same print_z.
             SupportGeneratorLayerExtruded& bottom_contact_layer = layer_cache.bottom_contact_layer;
@@ -3426,27 +4034,58 @@ void generate_support_toolpaths(SupportLayerPtrs&                support_layers,
                     // FIXME Bottom interfaces are extruded with the briding flow. Some bridging layers have its height slightly reduced,
                     // therefore
                     //  the bridging flow does not quite apply. Reduce the flow to area of an ellipse? (A = pi * a * b)
-                    auto* filler            = raft_contact ? filler_raft_contact : filler_interface.get();
-                    auto  interface_flow    = layer_ex.layer->bridging ?
-                                                  Flow::bridging_flow(layer_ex.layer->height,
-                                                                      support_params.support_material_bottom_interface_flow.nozzle_diameter()) :
-                                                  (raft_contact      ? &support_params.raft_interface_flow :
-                                                   interface_as_base ? &support_params.support_material_flow :
-                                                                       &support_params.support_material_interface_flow)
-                                                  ->with_height(float(layer_ex.layer->height));
-                    filler->angle           = interface_as_base ?
-                                                  // If zero interface layers are configured, use the same angle as for the base layers.
-                                        angles[support_layer_id % angles.size()] :
-                                                  // Use interface angle for the interface layers.
-                                        raft_contact ? support_params.raft_interface_angle(support_layer.interface_id()) :
-                                                                 support_interface_angle;
-                    double density          = raft_contact      ? support_params.raft_interface_density :
-                                              interface_as_base ? support_params.support_density :
-                                                                  support_params.interface_density;
-                    filler->spacing         = raft_contact      ? support_params.raft_interface_flow.spacing() :
-                                              interface_as_base ? support_params.support_material_flow.spacing() :
-                                                                  support_params.support_material_interface_flow.spacing();
+                    Fill* filler = filler_interface.get();
+                    if (raft_contact)
+                        filler = filler_raft_contact;
+
+                    Flow interface_flow;
+                    if (layer_ex.layer->bridging) {
+                        interface_flow = Flow::bridging_flow(
+                            layer_ex.layer->height,
+                            support_params.support_material_bottom_interface_flow.nozzle_diameter());
+                    } else if (raft_contact) {
+                        interface_flow = support_params.raft_interface_flow.with_height(float(layer_ex.layer->height));
+                    } else if (interface_as_base) {
+                        interface_flow = support_params.support_material_flow.with_height(float(layer_ex.layer->height));
+                    } else {
+                        interface_flow = support_params.support_material_interface_flow.with_height(float(layer_ex.layer->height));
+                    }
+
+                    // Angle priority matches the original nested expression:
+                    // interface-as-base first, raft contact second, normal interface last.
+                    if (interface_as_base) {
+                        filler->angle = angles[support_layer_id % angles.size()];
+                    } else if (raft_contact) {
+                        filler->angle = support_params.raft_interface_angle(support_layer.interface_id());
+                    } else {
+                        filler->angle = support_interface_angle;
+                    }
+
+                    // Spacing and density have a different priority from angle. A raft contact may
+                    // also be interface-as-base, but it must still use raft spacing and density.
+                    double density;
+                    if (raft_contact) {
+                        filler->spacing = support_params.raft_interface_flow.spacing();
+                        density         = support_params.raft_interface_density;
+                    } else if (interface_as_base) {
+                        filler->spacing = support_params.support_material_flow.spacing();
+                        density         = support_params.support_density;
+                    } else {
+                        filler->spacing = support_params.support_material_interface_flow.spacing();
+                        density         = support_params.interface_density;
+                    }
+
+                    // Interlaced rotation is already included in support_interface_angle. Leaving
+                    // layer_id undefined prevents FillRectilinear from applying a second 90-degree
+                    // rotation and cancelling the explicit layer-parity angle above.
+                    filler->layer_id = size_t(-1);
+
                     filler->link_max_length = coord_t(scale_(filler->spacing * link_max_length_factor / density));
+
+                    ExtrusionRole role = ExtrusionRole::erSupportMaterialInterface;
+                    if (interface_as_base)
+                        role = ExtrusionRole::erSupportMaterial;
+
                     fill_expolygons_generate_paths(
                         // Destination
                         layer_ex.extrusions,
@@ -3455,7 +4094,7 @@ void generate_support_toolpaths(SupportLayerPtrs&                support_layers,
                         // Filler and its parameters
                         filler, float(density),
                         // Extrusion parameters
-                        interface_as_base ? ExtrusionRole::erSupportMaterial : ExtrusionRole::erSupportMaterialInterface, interface_flow);
+                        role, interface_flow);
 
                     // if (!is_tree(config.support_type) && interface_layer_type == InterfaceLayerType::TopContact) {
                     //     if (config.ironing_support_layer && slicing_params.gap_support_object >
@@ -3622,893 +4261,121 @@ void generate_support_toolpaths(SupportLayerPtrs&                support_layers,
         } // for each support_layer_id
     });
 
+    std::vector<ExtrusionEntitiesPtr> organic_contour_repair_extrusions(layer_caches.size());
     if (is_organic_tree_support && organic_contour_repair_enabled && layer_caches.size() > 1) {
-        // Flip to false to disable per-layer patch debug snapshot recording,
-        // the duplicated intermediate filter runs that feed those snapshots,
-        // and the patch_debug.json dump. Kept enabled for now while the new
-        // pipeline is still being validated.
-        static constexpr bool kEnablePatchDebug = false;
-
-        // Stage 1: collect unchanged legal organic regions. These are the source
-        // polygons that bound where contour-only toolpaths may be emitted.
         std::vector<Polygons>  legal_regions(layer_caches.size());
         std::vector<Polylines> legal_contours(layer_caches.size());
         std::vector<Polylines> patch_contours(layer_caches.size());
-        std::vector<Polylines> patch_contours_to_support(layer_caches.size());
 
-        auto append_outer_contours = [](Polylines& dst, const Polygons& polygons) {
-            for (const ExPolygon& expoly : union_ex(polygons)) {
-                if (expoly.contour.empty())
-                    continue;
-                Polyline pl(expoly.contour.points);
-                pl.points.emplace_back(pl.points.front());
-                dst.emplace_back(std::move(pl));
-            }
-        };
-
-        auto append_printed_contours = [&legal_contours, &patch_contours](Polylines& dst, size_t layer_idx) {
-            dst.reserve(dst.size() + legal_contours[layer_idx].size() + patch_contours[layer_idx].size());
-            for (const Polyline& contour : legal_contours[layer_idx])
-                dst.emplace_back(contour);
-            for (const Polyline& contour : patch_contours[layer_idx])
-                dst.emplace_back(contour);
-        };
-
-        auto append_contours_needing_support = [&legal_contours, &patch_contours_to_support](Polylines& dst, size_t layer_idx) {
-            dst.reserve(dst.size() + legal_contours[layer_idx].size() + patch_contours_to_support[layer_idx].size());
-            for (const Polyline& contour : legal_contours[layer_idx])
-                dst.emplace_back(contour);
-            for (const Polyline& contour : patch_contours_to_support[layer_idx])
-                dst.emplace_back(contour);
-        };
-
-        auto filter_short_contours = [](Polylines& polylines, double min_length) {
-            polylines.erase(std::remove_if(polylines.begin(), polylines.end(),
-                                           [min_length](const Polyline& pl) { return pl.size() < 2 || pl.length() < min_length; }),
-                            polylines.end());
-        };
-
-        auto remove_overlapping_contours = [](Polylines& polylines, coord_t overlap_distance) {
-            if (polylines.size() < 2 || overlap_distance <= 0)
-                return;
-
-            std::sort(polylines.begin(), polylines.end(),
-                      [](const Polyline& a, const Polyline& b) { return a.length() > b.length(); });
-
-            // Maintain an incremental union of the offset envelope of kept
-            // polylines instead of re-offsetting the entire `kept` vector on
-            // every iteration. The previous version did O(N) work per polyline
-            // (offset of a growing list), making the loop O(NÂ²) in Clipper
-            // calls; this version does O(1) Clipper ops per polyline.
-            Polylines kept;
-            Polygons  kept_envelope;
-            for (Polyline& polyline : polylines) {
-                if (polyline.points.size() < 2)
-                    continue;
-
-                Polylines remaining{std::move(polyline)};
-                if (!kept_envelope.empty())
-                    remaining = diff_pl(remaining, kept_envelope);
-                if (remaining.empty())
-                    continue;
-
-                Polygons added_envelope = offset(remaining, overlap_distance,
-                                                 ClipperLib::jtRound, scaled<float>(0.01));
-                if (kept_envelope.empty())
-                    kept_envelope = std::move(added_envelope);
-                else if (!added_envelope.empty())
-                    kept_envelope = union_(kept_envelope, added_envelope);
-
-                append(kept, std::move(remaining));
-            }
-            polylines = std::move(kept);
-        };
-
-        auto filter_short_free_contours_for_support = [](Polylines& polylines, double max_free_length,
-                                                         double attach_distance,
-                                                         const Points& cut_points = {}) {
-            if (polylines.empty() || max_free_length <= 0. || attach_distance <= 0.)
-                return;
-
-            struct EndpointRef {
-                size_t polyline_idx {0};
-                bool   front {false};
-                Point  point;
-            };
-
-            std::vector<EndpointRef> endpoints;
-            endpoints.reserve(2 * polylines.size());
-            for (size_t polyline_idx = 0; polyline_idx < polylines.size(); ++polyline_idx) {
-                const Polyline& pl = polylines[polyline_idx];
-                if (pl.points.empty())
-                    continue;
-                endpoints.push_back({polyline_idx, true,  pl.points.front()});
-                endpoints.push_back({polyline_idx, false, pl.points.back()});
-            }
-
-            // Build KD-trees over endpoint XY coords for O(log N) radius
-            // queries. Use plain struct functors (not capturing lambdas) as the
-            // coordinate function so the tree's template type stays a normal
-            // assignable/copyable class â€capturing lambdas leak a deleted
-            // move-assign into the tree type and trip MSVC when any other
-            // lambda captures the tree by reference.
-            struct EndpointCoord {
-                const std::vector<EndpointRef>* eps;
-                coord_t operator()(size_t idx, size_t dim) const {
-                    return dim == 0 ? (*eps)[idx].point.x() : (*eps)[idx].point.y();
-                }
-            };
-            EndpointCoord endpoint_coord{&endpoints};
-            KDTreeIndirect<2, coord_t, EndpointCoord>
-                endpoint_tree(endpoint_coord, endpoints.size());
-
-            struct CutCoord {
-                const Points* pts;
-                coord_t operator()(size_t idx, size_t dim) const {
-                    return dim == 0 ? (*pts)[idx].x() : (*pts)[idx].y();
-                }
-            };
-            CutCoord cut_coord{&cut_points};
-            KDTreeIndirect<2, coord_t, CutCoord>
-                cut_tree(cut_coord, cut_points.size());
-
-            const coord_t attach_radius =
-                coord_t(std::ceil(attach_distance > 0. ? attach_distance : 0.));
-
-            // Inline the connectivity checks directly into the remove_if
-            // predicate with an explicit capture list (no auto-typed helper
-            // lambdas captured by [&]). MSVC otherwise fails to deduce the
-            // captured closure types â€endpoint_tree/cut_tree contain a
-            // capturing lambda member, and capturing a lambda that captures a
-            // lambda by reference confuses its type deduction.
-            size_t polyline_idx = 0;
-            polylines.erase(std::remove_if(polylines.begin(), polylines.end(),
-                [&polyline_idx, &endpoints, &cut_points, &endpoint_tree, &cut_tree, attach_radius, max_free_length]
-                (const Polyline& pl) -> bool {
-                    const size_t current_idx = polyline_idx++;
-                    if (pl.size() < 2)
-                        return true;
-
-                    const double length = pl.length();
-                    if (length > max_free_length)
-                        return false;
-
-                    // Any cut endpoint means this is a deduplication
-                    // artifact â€remove from propagation entirely.
-                    if (!cut_points.empty()) {
-                        if (!find_nearby_points(cut_tree, pl.points.front(), attach_radius).empty() ||
-                            !find_nearby_points(cut_tree, pl.points.back(),  attach_radius).empty())
-                            return true;
-                    }
-
-                    // Dangling check for non-cut polylines: only one end is
-                    // connected to another polyline endpoint.
-                    auto endpoint_is_connected = [&endpoints, &endpoint_tree, attach_radius, current_idx]
-                                                 (bool front, const Point& point) -> bool {
-                        if (endpoints.empty())
-                            return false;
-                        for (size_t idx : find_nearby_points(endpoint_tree, point, attach_radius)) {
-                            const EndpointRef& e = endpoints[idx];
-                            if (e.polyline_idx == current_idx && e.front == front)
-                                continue;
-                            return true;
-                        }
-                        return false;
-                    };
-                    const bool front_connected = endpoint_is_connected(true,  pl.points.front());
-                    const bool back_connected  = endpoint_is_connected(false, pl.points.back());
-                    return front_connected != back_connected;
-                }),
-                polylines.end());
-        };
-
-        auto filter_bridgeable_unsupported_contours = [](Polylines& polylines, const Polylines& source_contours,
-                                                         double max_bridge_length, double merge_supported_gap) {
-            if (max_bridge_length <= 0.)
-                return;
-            if (polylines.empty() || source_contours.empty())
-                return;
-
-            struct Projection {
-                size_t contour_idx {0};
-                double distance {0.};
-                double dist2 {std::numeric_limits<double>::max()};
-                bool   valid {false};
-            };
-            struct UnsupportedInterval {
-                size_t patch_idx {0};
-                double begin {0.};
-                double end {0.};
-            };
-            struct MergedUnsupportedInterval {
-                size_t begin_idx {0};
-                size_t end_idx {0};
-                double begin {0.};
-                double end {0.};
-            };
-
-            // Flatten all source_contour segments into a single Line vector and
-            // index them with an AABB tree. Each segment carries a side-table
-            // entry so we can recover (contour_idx, parametric distance along
-            // its contour) from a tree query. Replaces an O(N segments) linear
-            // scan per projection with O(log N). At the same pass, build a
-            // per-contour prefix-length array (one entry per polyline point),
-            // total length and closed-flag â€point_at_distance and the merge
-            // loop reuse these instead of recomputing each time.
-            std::vector<Line>                indexed_lines;
-            std::vector<size_t>              line_to_contour;
-            std::vector<double>              line_to_prefix;
-            std::vector<std::vector<double>> contour_prefix(source_contours.size());
-            std::vector<double>              contour_length_cache(source_contours.size(), 0.);
-            std::vector<char>                contour_closed_cache(source_contours.size(), 0);
-            {
-                size_t total_segments = 0;
-                for (const Polyline& contour : source_contours)
-                    if (contour.points.size() > 1)
-                        total_segments += contour.points.size() - 1;
-                indexed_lines.reserve(total_segments);
-                line_to_contour.reserve(total_segments);
-                line_to_prefix.reserve(total_segments);
-                for (size_t contour_idx = 0; contour_idx < source_contours.size(); ++contour_idx) {
-                    const Polyline& contour = source_contours[contour_idx];
-                    std::vector<double>& pref = contour_prefix[contour_idx];
-                    pref.reserve(contour.points.size());
-                    if (!contour.points.empty())
-                        pref.push_back(0.);
-                    double prefix = 0.;
-                    for (size_t i = 1; i < contour.points.size(); ++i) {
-                        const Point& a = contour.points[i - 1];
-                        const Point& b = contour.points[i];
-                        const double len = (b - a).cast<double>().norm();
-                        if (len > 1e-6) {
-                            indexed_lines.emplace_back(a, b);
-                            line_to_contour.push_back(contour_idx);
-                            line_to_prefix.push_back(prefix);
-                            prefix += len;
-                        }
-                        pref.push_back(prefix);
-                    }
-                    contour_length_cache[contour_idx] = prefix;
-                    contour_closed_cache[contour_idx] =
-                        contour.points.size() > 2 && contour.points.front() == contour.points.back();
-                }
-            }
-            const bool have_index = !indexed_lines.empty();
-            AABBTreeLines::LinesDistancer<Line> distancer = have_index ?
-                AABBTreeLines::LinesDistancer<Line>(std::move(indexed_lines)) :
-                AABBTreeLines::LinesDistancer<Line>();
-
-            auto project_to_source_contours = [&distancer, &line_to_contour, &line_to_prefix, have_index]
-                                              (const Point& point) -> Projection {
-                Projection best;
-                if (!have_index)
-                    return best;
-                auto [dist, line_idx, np] = distancer.distance_from_lines_extra<false>(point);
-                if (line_idx == size_t(-1) || !std::isfinite(dist))
-                    return best;
-                const Line&  seg   = distancer.get_line(line_idx);
-                const double along = (np - seg.a.cast<double>()).norm();
-                best.contour_idx = line_to_contour[line_idx];
-                best.distance    = line_to_prefix[line_idx] + along;
-                best.dist2       = dist * dist;
-                best.valid       = true;
-                return best;
-            };
-
-            // Binary search over the cached prefix array. Each entry of pref
-            // matches one polyline point, so `upper_bound(pref, d) - 1` gives
-            // the start of the segment that contains parametric distance d.
-            auto point_at_distance = [&source_contours, &contour_prefix, &contour_length_cache]
-                                     (size_t ci, double distance) -> Point {
-                const Polyline& contour = source_contours[ci];
-                if (contour.points.empty())
-                    return Point(0, 0);
-                if (distance <= 0.)
-                    return contour.points.front();
-                const std::vector<double>& pref = contour_prefix[ci];
-                const double total = contour_length_cache[ci];
-                if (distance >= total)
-                    return contour.points.back();
-                auto it = std::upper_bound(pref.begin(), pref.end(), distance);
-                if (it == pref.begin())
-                    return contour.points.front();
-                if (it == pref.end())
-                    return contour.points.back();
-                const size_t i = size_t(it - pref.begin());
-                const double prefix_before = pref[i - 1];
-                const double seg_len       = pref[i] - prefix_before;
-                if (seg_len <= 1e-6)
-                    return contour.points[i];
-                const Vec2d a = contour.points[i - 1].cast<double>();
-                const Vec2d b = contour.points[i].cast<double>();
-                const double t = std::clamp((distance - prefix_before) / seg_len, 0., 1.);
-                const Vec2d p = a + t * (b - a);
-                return Point(coord_t(std::llround(p.x())), coord_t(std::llround(p.y())));
-            };
-
-            auto copy_contour_interval = [&source_contours, &contour_prefix, &contour_length_cache, &point_at_distance]
-                                         (size_t ci, double begin, double end) -> Polyline {
-                Polyline copied;
-                const Polyline& contour = source_contours[ci];
-                const double contour_length = contour_length_cache[ci];
-                if (contour.points.size() < 2 || contour_length <= 1e-6 || end <= begin)
-                    return copied;
-
-                auto add_point = [&copied](const Point& point) {
-                    if (copied.points.empty() || copied.points.back() != point)
-                        copied.points.emplace_back(point);
-                };
-
-                const std::vector<double>& pref = contour_prefix[ci];
-
-                auto append_range = [&](double range_begin, double range_end) {
-                    range_begin = std::clamp(range_begin, 0., contour_length);
-                    range_end   = std::clamp(range_end,   0., contour_length);
-                    if (range_end <= range_begin)
-                        return;
-
-                    add_point(point_at_distance(ci, range_begin));
-
-                    // Skip directly to the first polyline point strictly inside
-                    // (range_begin, range_end) using binary search on the
-                    // cached prefix array.
-                    auto it = std::upper_bound(pref.begin(), pref.end(), range_begin);
-                    for (size_t i = size_t(it - pref.begin()); i < pref.size(); ++i) {
-                        if (pref[i] >= range_end)
-                            break;
-                        if (pref[i] > range_begin)
-                            add_point(contour.points[i]);
-                    }
-
-                    add_point(point_at_distance(ci, range_end));
-                };
-
-                append_range(begin, std::min(end, contour_length));
-                if (end > contour_length)
-                    append_range(0., end - contour_length);
-                return copied;
-            };
-
-            std::vector<std::vector<UnsupportedInterval>> intervals_by_contour(source_contours.size());
-            Polylines copied_unsupported_contours;
-
-            for (size_t patch_idx = 0; patch_idx < polylines.size(); ++patch_idx) {
-                const Polyline& patch = polylines[patch_idx];
-                if (patch.points.size() < 2)
-                    continue;
-
-                bool any_projected_segment = false;
-                for (size_t point_idx = 1; point_idx < patch.points.size(); ++point_idx) {
-                    if (patch.points[point_idx - 1] == patch.points[point_idx])
-                        continue;
-
-                    const Projection first = project_to_source_contours(patch.points[point_idx - 1]);
-                    const Projection last  = project_to_source_contours(patch.points[point_idx]);
-                    if (!first.valid || !last.valid || first.contour_idx != last.contour_idx) {
-                        const double seg_len = (patch.points[point_idx] - patch.points[point_idx - 1])
-                                                   .cast<double>().norm();
-                        if (seg_len > max_bridge_length * 0.5) {
-                            Polyline fallback;
-                            fallback.points.emplace_back(patch.points[point_idx - 1]);
-                            fallback.points.emplace_back(patch.points[point_idx]);
-                            copied_unsupported_contours.emplace_back(std::move(fallback));
-                        }
-                        continue;
-                    }
-
-                    double begin = std::min(first.distance, last.distance);
-                    double end   = std::max(first.distance, last.distance);
-                    // On closed source contours, the two projections split the
-                    // ring into two arcs (the "forward" one [min, max] and the
-                    // "wrap" one going through the seam). Picking by parametric
-                    // min/max alone fails when a small patch segment straddles
-                    // the seam: a 4mm arc from 98mmâ†mm would be read as the
-                    // 96mm arc on the far side of the ring. Decide by which
-                    // arc's midpoint actually lies near the patch segment.
-                    const double seg_source_length = contour_length_cache[first.contour_idx];
-                    const bool   seg_source_closed = bool(contour_closed_cache[first.contour_idx]);
-                    if (seg_source_closed && seg_source_length > 1e-6 && end > begin) {
-                        const double forward_len = end - begin;
-                        const double wrap_len    = seg_source_length - forward_len;
-                        if (wrap_len > 1e-6 && forward_len > 1e-6) {
-                            const double forward_mid_d = 0.5 * (begin + end);
-                            double       wrap_mid_d    = end + 0.5 * wrap_len;
-                            if (wrap_mid_d >= seg_source_length)
-                                wrap_mid_d -= seg_source_length;
-
-                            const Point forward_mid = point_at_distance(first.contour_idx, forward_mid_d);
-                            const Point wrap_mid    = point_at_distance(first.contour_idx, wrap_mid_d);
-                            const Vec2d patch_mid   = 0.5 * (patch.points[point_idx - 1].cast<double>() +
-                                                             patch.points[point_idx].cast<double>());
-                            const double forward_dist2 = (forward_mid.cast<double>() - patch_mid).squaredNorm();
-                            const double wrap_dist2    = (wrap_mid.cast<double>()    - patch_mid).squaredNorm();
-
-                            if (wrap_dist2 < forward_dist2) {
-                                // Express the seam-crossing arc as [max, min + L]
-                                // so copy_contour_interval's existing
-                                // end > contour_length branch emits the wrapped
-                                // piece.
-                                const double new_begin = std::max(first.distance, last.distance);
-                                const double new_end   = std::min(first.distance, last.distance) + seg_source_length;
-                                begin = new_begin;
-                                end   = new_end;
-                            }
-                        }
-                    }
-                    if (end - begin <= 1e-6)
-                        continue;
-
-                    intervals_by_contour[first.contour_idx].push_back({patch_idx, begin, end});
-                    any_projected_segment = true;
-                }
-
-                if (!any_projected_segment && patch.length() > max_bridge_length)
-                    copied_unsupported_contours.emplace_back(patch);
-            }
-
-            for (size_t contour_idx = 0; contour_idx < intervals_by_contour.size(); ++contour_idx) {
-                std::vector<UnsupportedInterval>& intervals = intervals_by_contour[contour_idx];
-                if (intervals.empty())
-                    continue;
-
-                std::sort(intervals.begin(), intervals.end(),
-                          [](const UnsupportedInterval& a, const UnsupportedInterval& b) { return a.begin < b.begin; });
-
-                std::vector<MergedUnsupportedInterval> merged_intervals;
-                size_t merged_begin_idx = 0;
-                double merged_begin = intervals.front().begin;
-                double merged_end   = intervals.front().end;
-                auto flush_merged_interval = [&](size_t end_idx) {
-                    merged_intervals.push_back({merged_begin_idx, end_idx, merged_begin, merged_end});
-                };
-
-                for (size_t i = 1; i < intervals.size(); ++i) {
-                    if (intervals[i].begin - merged_end <= merge_supported_gap) {
-                        merged_end = std::max(merged_end, intervals[i].end);
-                        continue;
-                    }
-
-                    flush_merged_interval(i);
-                    merged_begin_idx = i;
-                    merged_begin     = intervals[i].begin;
-                    merged_end       = intervals[i].end;
-                }
-                flush_merged_interval(intervals.size());
-
-                const double source_length  = contour_length_cache[contour_idx];
-                const bool   closed_contour = bool(contour_closed_cache[contour_idx]);
-
-                if (closed_contour && merged_intervals.size() > 1) {
-                    const double wrap_gap = source_length - merged_intervals.back().end + merged_intervals.front().begin;
-                    if (wrap_gap <= merge_supported_gap) {
-                        MergedUnsupportedInterval wrapped = merged_intervals.back();
-                        wrapped.end_idx = merged_intervals.front().end_idx;
-                        wrapped.end     = merged_intervals.front().end + source_length;
-                        merged_intervals.back() = wrapped;
-                        merged_intervals.erase(merged_intervals.begin());
-                    }
-                }
-
-                for (size_t merged_idx = 0; merged_idx < merged_intervals.size(); ++merged_idx) {
-                    const MergedUnsupportedInterval& merged = merged_intervals[merged_idx];
-                    const double unsupported_length = merged.end - merged.begin;
-                    const bool covers_whole_contour = source_length <= 1e-6 ||
-                        unsupported_length >= source_length - merge_supported_gap;
-
-                    double prev_supported_gap = 0.;
-                    double next_supported_gap = 0.;
-                    if (!covers_whole_contour) {
-                        if (closed_contour) {
-                            const MergedUnsupportedInterval& prev = merged_intervals[(merged_idx + merged_intervals.size() - 1) % merged_intervals.size()];
-                            const MergedUnsupportedInterval& next = merged_intervals[(merged_idx + 1) % merged_intervals.size()];
-                            prev_supported_gap = merged.begin - prev.end;
-                            if (prev_supported_gap < 0.)
-                                prev_supported_gap += source_length;
-                            next_supported_gap = next.begin - merged.end;
-                            if (next_supported_gap < 0.)
-                                next_supported_gap += source_length;
-                        } else {
-                            prev_supported_gap = merged.begin;
-                            next_supported_gap = source_length - merged.end;
-                        }
-                    }
-
-                    const bool has_reliable_anchor = !covers_whole_contour &&
-                        (prev_supported_gap > merge_supported_gap || next_supported_gap > merge_supported_gap);
-                    if (!has_reliable_anchor || unsupported_length > max_bridge_length) {
-                        Polyline copied = copy_contour_interval(contour_idx, merged.begin, merged.end);
-                        if (copied.points.size() >= 2)
-                            copied_unsupported_contours.emplace_back(std::move(copied));
-                    }
-                }
-            }
-
-            polylines = std::move(copied_unsupported_contours);
-        };
-
-        auto simplify_printed_patch_paths = [&](Polylines patch_paths,
-                                                const Polylines& upper_contours,
-                                                double           min_patch_length,
-                                                double           max_bridge_length,
-                                                double           merge_supported_gap,
-                                                coord_t          overlap_merge_distance) {
-            filter_bridgeable_unsupported_contours(patch_paths, upper_contours, max_bridge_length, merge_supported_gap);
-            remove_overlapping_contours(patch_paths, overlap_merge_distance);
-
-            filter_short_contours(patch_paths, min_patch_length);
-            if (patch_paths.empty())
-                return patch_paths;
-
-            remove_overlapping_contours(patch_paths, overlap_merge_distance);
-            filter_short_contours(patch_paths, min_patch_length);
-            return patch_paths;
-        };
-
-        // Stage 2: initialize each organic base layer from its existing extrusion
-        // region. This does not alter the region; it only records the legal bound.
-        // Initial exterior contours are independent per layer, so extract them in
-        // parallel before the sequential top-down patch propagation starts.
         tbb::parallel_for(tbb::blocked_range<size_t>(n_raft_layers, layer_caches.size()),
-                          [&layer_caches, &legal_regions, &legal_contours, &append_outer_contours](
-                              const tbb::blocked_range<size_t>& range) {
+                          [&layer_caches, &legal_regions](const tbb::blocked_range<size_t>& range) {
                               for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
                                   const SupportGeneratorLayerExtruded& base_layer = layer_caches[layer_idx].base_layer;
                                   if (!base_layer.empty() && !base_layer.polygons_to_extrude().empty() &&
-                                      base_layer.layer->bottom_z >= EPSILON) {
+                                      base_layer.layer->bottom_z >= EPSILON)
                                       legal_regions[layer_idx] = union_safety_offset(base_layer.polygons_to_extrude());
-                                      append_outer_contours(legal_contours[layer_idx], legal_regions[layer_idx]);
-                                  }
                               }
                           });
 
-        const coord_t line_width       = coord_t(support_params.support_material_flow.scaled_width());
-        const double  min_patch_length = 2.0 * double(line_width);
+        const coord_t line_width = coord_t(support_params.support_material_flow.scaled_width());
         const double  max_bridge_length = scale_(config.max_bridge_length.value);
-        const double  max_nonpropagating_free_length = std::max(3.0 * double(line_width), 0.4 * max_bridge_length);
-        const double  merge_supported_gap = double(line_width);
-        const coord_t demand_region_radius = line_width / 2;
-        const coord_t overlap_merge_distance = line_width / 4;
 
         std::vector<ContourSupportLayerInput> contour_support_layers(layer_caches.size());
         const PrintObject* object = support_layers.empty() ? nullptr : support_layers.front()->object();
-        size_t object_layer_idx = 0;
-        auto append_special_surface_paths = [](const SupportGeneratorLayerExtruded& layer_ex, Polylines& dst) {
+        auto append_special_surface_geometry = [](const SupportGeneratorLayerExtruded& layer_ex,
+                                                  Polygons& regions,
+                                                  Polylines& fallback_paths) {
+            if (!layer_ex.empty() && !layer_ex.polygons_to_extrude().empty()) {
+                append(regions, layer_ex.polygons_to_extrude());
+                return;
+            }
             for (const ExtrusionEntity* entity : layer_ex.extrusions)
                 if (entity != nullptr)
-                    entity->collect_polylines(dst);
+                    entity->collect_polylines(fallback_paths);
         };
-        for (size_t layer_idx = n_raft_layers; layer_idx < layer_caches.size(); ++layer_idx) {
-            LayerCache& layer_cache = layer_caches[layer_idx];
-            SupportGeneratorLayerExtruded& base_layer = layer_cache.base_layer;
-            Polylines special_surface_paths;
-            append_special_surface_paths(layer_cache.bottom_contact_layer, special_surface_paths);
-            append_special_surface_paths(layer_cache.top_contact_layer, special_surface_paths);
-            append_special_surface_paths(layer_cache.interface_layer, special_surface_paths);
-            append_special_surface_paths(layer_cache.base_interface_layer, special_surface_paths);
-            if ((legal_regions[layer_idx].empty() || base_layer.empty()) && special_surface_paths.empty())
-                continue;
+        auto find_model_region = [object](coordf_t print_z) -> const ExPolygons* {
+            if (object == nullptr || object->layer_count() == 0)
+                return nullptr;
 
-            const coordf_t support_print_z = support_layers[layer_idx]->print_z;
-            if (object != nullptr && object->layer_count() > 0) {
-                while (object_layer_idx + 1 < object->layer_count() &&
-                       object->get_layer(int(object_layer_idx + 1))->print_z <= support_print_z + EPSILON)
-                    ++object_layer_idx;
+            size_t lo = 0;
+            size_t hi = object->layer_count();
+            while (lo < hi) {
+                const size_t mid = lo + (hi - lo) / 2;
+                if (object->get_layer(int(mid))->print_z <= print_z + EPSILON)
+                    lo = mid + 1;
+                else
+                    hi = mid;
             }
-
-            ContourSupportLayerInput& input = contour_support_layers[layer_idx];
-            input.layer_contours = legal_contours[layer_idx];
-            input.legal_region   = legal_regions[layer_idx];
-            input.printed_paths  = std::move(special_surface_paths);
-            // The legal region is the existing organic tree footprint, not the whole
-            // model-outside printable area.  Cache the model slice separately so contour
-            // patch propagation can stop at model material without being clipped back to
-            // the original tree footprint.
-            if (object != nullptr && object->layer_count() > 0 &&
-                object->get_layer(int(object_layer_idx))->print_z <= support_print_z + EPSILON)
-                input.model_region = &object->get_layer(int(object_layer_idx))->lslices;
-            input.print_z        = support_print_z;
-            input.line_width     = line_width;
-            input.valid          = true;
-        }
+            return lo == 0 ? nullptr : &object->get_layer(int(lo - 1))->lslices;
+        };
+        tbb::parallel_for(tbb::blocked_range<size_t>(n_raft_layers, layer_caches.size()),
+                          [&layer_caches, &support_layers, &legal_regions, &legal_contours, &contour_support_layers,
+                           &append_special_surface_geometry, &find_model_region, line_width](
+                              const tbb::blocked_range<size_t>& range) {
+                              for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
+                                  const LayerCache& layer_cache = layer_caches[layer_idx];
+                                  const SupportGeneratorLayerExtruded& base_layer = layer_cache.base_layer;
+                                  Polylines special_surface_paths;
+                                  Polygons  special_surface_regions;
+                                  append_special_surface_geometry(
+                                      layer_cache.bottom_contact_layer, special_surface_regions, special_surface_paths);
+                                  append_special_surface_geometry(
+                                      layer_cache.top_contact_layer, special_surface_regions, special_surface_paths);
+                                  append_special_surface_geometry(
+                                      layer_cache.interface_layer, special_surface_regions, special_surface_paths);
+                                  append_special_surface_geometry(
+                                      layer_cache.base_interface_layer, special_surface_regions, special_surface_paths);
+                                  // The first-layer base flange is generated before organic contour repair and is
+                                  // therefore an existing printed support surface, not repair demand. It is excluded
+                                  // from legal_regions by the bottom_z check above, so add its physical coverage here.
+                                  if (legal_regions[layer_idx].empty() && !base_layer.empty())
+                                      append_special_surface_geometry(
+                                          base_layer, special_surface_regions, special_surface_paths);
+                                  if (!special_surface_regions.empty())
+                                      special_surface_regions = union_safety_offset(special_surface_regions);
+                                  const coordf_t support_print_z = support_layers[layer_idx]->print_z;
+                                  ContourSupportLayerInput& input = contour_support_layers[layer_idx];
+                                  input.layer_contours         = legal_contours[layer_idx];
+                                  input.legal_region           = legal_regions[layer_idx];
+                                  input.printed_paths          = std::move(special_surface_paths);
+                                  input.support_surface_region = std::move(special_surface_regions);
+                                  input.model_region           = find_model_region(support_print_z);
+                                  input.print_z                = support_print_z;
+                                  input.line_width             = line_width;
+                                  input.valid                  = true;
+                              }
+                          });
 
         ContourSupportPlan contour_support_plan =
-            plan_contour_support_paths(std::move(contour_support_layers), n_raft_layers, max_bridge_length, true, false);
-        patch_contours            = std::move(contour_support_plan.patch_paths_by_layer);
-        patch_contours_to_support = std::move(contour_support_plan.paths_to_support_by_layer);
-
-        // Stage 3: top-down contour support planning. Coverage is computed from
-        // exterior contour centerlines only; holes and inner walls are ignored.
-        // The complete planned path set of a layer is:
-        //   original exterior contours + extra patch contours.
-        // Patches are not validated in isolation; once added to layer l, they are
-        // simply part of layer l's contour set, and their support need naturally
-        // propagates to layer l - 1 through the same gap detection loop.
-        if constexpr (kEnablePatchDebug) {
-
-        // Debug: per-layer data collected for HTML visualisation.
-        struct PatchDebugEntry {
-            int      upper_idx {-1};
-            int      lower_idx {-1};
-            coordf_t z         {0.};
-            // skip reason (mutually exclusive)
-            bool skip_legal      {false};
-            bool skip_upper      {false};
-            bool skip_unsupported{false};
-            bool skip_simplified {false};
-            bool propagation_break{false}; // patch emitted but NOT tracked
-            // geometry snapshots
-            Polygons  legal_lower;
-            Polylines lower_contours_snap;
-            Polygons  lower_supported_snap;
-            Polylines upper_contours_snap;
-            Polygons  unsupported_region_snap;
-            Polylines raw_patches_snap;
-            Polylines after_bridge_filter_snap;
-            Polylines after_overlap_remove_snap;
-            Polylines simplified_patches_snap;
-            Polylines to_support_snap;
-        };
-        std::vector<PatchDebugEntry> dbg_entries;
-        dbg_entries.reserve(layer_caches.size());
-
-        for (int upper_idx = int(layer_caches.size()) - 1; upper_idx > int(n_raft_layers); --upper_idx) {
-            const size_t lower_idx = size_t(upper_idx - 1);
-
-            PatchDebugEntry dbg;
-            if constexpr (kEnablePatchDebug) {
-                dbg.upper_idx = upper_idx;
-                dbg.lower_idx = int(lower_idx);
-                dbg.z         = support_layers[lower_idx]->print_z;
-            }
-
-            if (legal_regions[size_t(upper_idx)].empty() || legal_regions[lower_idx].empty()) {
-                if constexpr (kEnablePatchDebug) {
-                    dbg.skip_legal = true;
-                    dbg_entries.push_back(std::move(dbg));
-                }
-                continue;
-            }
-
-            //const coordf_t z_gap = std::max<coordf_t>(EPSILON,support_layers[size_t(upper_idx)]->print_z - support_layers[lower_idx]->print_z);
-            //const coord_t reach = line_width + coord_t(scale_(z_gap));
-            const coord_t reach = line_width / 2;
-            Polylines lower_contours;
-            append_printed_contours(lower_contours, lower_idx);
-            Polygons lower_supported = lower_contours.empty() ? Polygons{} :
-                offset(lower_contours, reach, ClipperLib::jtRound, scaled<float>(0.01));
-            Polylines upper_contours;
-            append_contours_needing_support(upper_contours, size_t(upper_idx));
-            if (upper_contours.empty()) {
-                if constexpr (kEnablePatchDebug) {
-                    dbg.skip_upper = true;
-                    dbg.legal_lower           = legal_regions[lower_idx];
-                    dbg.lower_contours_snap   = lower_contours;
-                    dbg.lower_supported_snap  = lower_supported;
-                    dbg_entries.push_back(std::move(dbg));
-                }
-                continue;
-            }
-
-            const Polygons upper_demand_region =
-                offset(upper_contours, demand_region_radius, ClipperLib::jtRound, scaled<float>(0.01));
-            Polygons unsupported_region = lower_supported.empty() ?
-                upper_demand_region :
-                diff(upper_demand_region, lower_supported);
-            // Do not clip unsupported_region to legal_regions[lower_idx]: upper_contours
-            // already originates from legal_regions[upper_idx], so patches are inherently
-            // bounded. Clipping to the lower legal region falsely truncates ring contours
-            // where the lower polygon boundary does not exactly match the upper one.
-
-            // Early exit: a surviving patch needs at minimum a contour strip of
-            // length min_patch_length and width ~line_width, i.e. area â‰
-            // 2 * sqr(line_width). Anything well below that cannot produce a
-            // patch that survives filter_short_contours, so skip the
-            // intersection_pl + simplify chain entirely.
-            const double min_unsupported_area = sqr(double(line_width));
-            if (!unsupported_region.empty() && area(unsupported_region) < min_unsupported_area) {
-                if constexpr (kEnablePatchDebug) {
-                    dbg.skip_unsupported            = true;
-                    dbg.legal_lower                 = legal_regions[lower_idx];
-                    dbg.lower_contours_snap         = lower_contours;
-                    dbg.lower_supported_snap        = lower_supported;
-                    dbg.upper_contours_snap         = upper_contours;
-                    dbg.unsupported_region_snap     = std::move(unsupported_region);
-                    dbg_entries.push_back(std::move(dbg));
-                }
-                continue;
-            }
-
-            Polylines raw_patches = unsupported_region.empty() ? Polylines{} :
-                intersection_pl(upper_contours, unsupported_region);
-
-            // Debug: run each simplification step separately to capture intermediate
-            // states. This duplicates work done by simplify_printed_patch_paths below,
-            // so it is only executed when the debug flag is on.
-            Polylines dbg_after_bridge;
-            Polylines dbg_after_overlap;
-            if constexpr (kEnablePatchDebug) {
-                dbg_after_bridge = Polylines(raw_patches);
-                filter_bridgeable_unsupported_contours(dbg_after_bridge, upper_contours,
-                                                       max_bridge_length, merge_supported_gap);
-                dbg_after_overlap = dbg_after_bridge;
-                remove_overlapping_contours(dbg_after_overlap, overlap_merge_distance);
-            }
-
-            Polylines patch_paths = simplify_printed_patch_paths(
-                Polylines(raw_patches), upper_contours, min_patch_length,
-                max_bridge_length, merge_supported_gap, overlap_merge_distance);
-
-            if (patch_paths.empty()) {
-                if constexpr (kEnablePatchDebug) {
-                    dbg.skip_unsupported            = unsupported_region.empty();
-                    dbg.skip_simplified             = !unsupported_region.empty();
-                    dbg.legal_lower                 = legal_regions[lower_idx];
-                    dbg.lower_contours_snap         = lower_contours;
-                    dbg.lower_supported_snap        = lower_supported;
-                    dbg.upper_contours_snap         = upper_contours;
-                    dbg.unsupported_region_snap     = unsupported_region;
-                    dbg.raw_patches_snap            = std::move(raw_patches);
-                    dbg.after_bridge_filter_snap    = std::move(dbg_after_bridge);
-                    dbg.after_overlap_remove_snap   = std::move(dbg_after_overlap);
-                    dbg_entries.push_back(std::move(dbg));
-                }
-                continue;
-            }
-
-            // Collect endpoints from raw_patches before simplification.
-            // Any endpoint in patch_paths that is NOT in this original set is a
-            // cut point produced by remove_overlapping_contours. Treat these as
-            // "connected" so that stubs terminating at a cut point are correctly
-            // identified as dangling by filter_short_free_contours_for_support.
-            Points orig_endpoints;
-            for (const Polyline& pl : raw_patches)
-                if (pl.size() >= 2) {
-                    orig_endpoints.emplace_back(pl.first_point());
-                    orig_endpoints.emplace_back(pl.last_point());
-                }
-            // Index orig_endpoints with a KD-tree so the "is this an original
-            // endpoint?" check is O(log N) per query instead of O(N).
-            struct OrigCoord {
-                const Points* pts;
-                coord_t operator()(size_t idx, size_t dim) const {
-                    return dim == 0 ? (*pts)[idx].x() : (*pts)[idx].y();
-                }
-            };
-            OrigCoord orig_coord{&orig_endpoints};
-            KDTreeIndirect<2, coord_t, OrigCoord>
-                orig_tree(orig_coord, orig_endpoints.size());
-            const coord_t attach_radius = coord_t(std::ceil(double(line_width)));
-
-            Points cut_points;
-            for (const Polyline& pl : patch_paths) {
-                if (pl.size() < 2) continue;
-                for (const Point& pt : {pl.first_point(), pl.last_point()}) {
-                    const bool is_orig = !orig_endpoints.empty() &&
-                        !find_nearby_points(orig_tree, pt, attach_radius).empty();
-                    if (!is_orig)
-                        cut_points.emplace_back(pt);
-                }
-            }
-
-            Polylines patch_paths_to_support = patch_paths;
-            filter_short_free_contours_for_support(patch_paths_to_support, max_nonpropagating_free_length,
-                                                   double(line_width), cut_points);
-
-            if constexpr (kEnablePatchDebug) {
-                dbg.propagation_break       = !patch_paths.empty() && patch_paths_to_support.empty();
-                dbg.legal_lower             = legal_regions[lower_idx];
-                dbg.lower_contours_snap     = lower_contours;
-                dbg.lower_supported_snap    = lower_supported;
-                dbg.upper_contours_snap     = upper_contours;
-                dbg.unsupported_region_snap = unsupported_region;
-                dbg.raw_patches_snap            = std::move(raw_patches);
-                dbg.after_bridge_filter_snap    = std::move(dbg_after_bridge);
-                dbg.after_overlap_remove_snap   = std::move(dbg_after_overlap);
-                dbg.simplified_patches_snap     = patch_paths;
-                dbg.to_support_snap             = patch_paths_to_support;
-                dbg_entries.push_back(std::move(dbg));
-            }
-
-            append(patch_contours[lower_idx], std::move(patch_paths));
-            append(patch_contours_to_support[lower_idx], std::move(patch_paths_to_support));
-        }
-
-        // Write JSON data for external visualisation (see æ£€æŸ¥è„šæœview_patch_debug.py).
-        if constexpr (kEnablePatchDebug) {
-            fprintf(stderr, "[patch_debug] entries=%zu\n", dbg_entries.size());
-            boost::filesystem::create_directories("C:/temp");
-            const std::string json_path = "C:/temp/patch_debug.json";
-            std::ofstream f(json_path);
-            if (!f.is_open()) {
-                fprintf(stderr, "[patch_debug] ERROR: cannot open %s\n", json_path.c_str());
-            } else {
-                fprintf(stderr, "[patch_debug] writing %s\n", json_path.c_str());
-
-                // helpers --------------------------------------------------
-                auto write_pts = [&](const Points& pts, bool close) {
-                    f << "[";
-                    for (size_t i = 0; i < pts.size(); ++i) {
-                        if (i) f << ",";
-                        f << "[" << std::fixed << std::setprecision(3)
-                          << unscale<double>(pts[i].x()) << ","
-                          << unscale<double>(pts[i].y()) << "]";
-                    }
-                    if (close && !pts.empty())
-                        f << ",[" << unscale<double>(pts[0].x()) << ","
-                                  << unscale<double>(pts[0].y()) << "]";
-                    f << "]";
-                };
-                auto write_polylines = [&](const Polylines& pls) {
-                    f << "[";
-                    for (size_t i = 0; i < pls.size(); ++i) {
-                        if (i) f << ",";
-                        write_pts(pls[i].points, false);
-                    }
-                    f << "]";
-                };
-                auto write_polygons = [&](const Polygons& polys) {
-                    f << "[";
-                    for (size_t i = 0; i < polys.size(); ++i) {
-                        if (i) f << ",";
-                        write_pts(polys[i].points, true);
-                    }
-                    f << "]";
-                };
-                // ----------------------------------------------------------
-
-                f << "{\"layers\":[\n";
-                for (size_t ei = 0; ei < dbg_entries.size(); ++ei) {
-                    const PatchDebugEntry& e = dbg_entries[ei];
-                    if (ei) f << ",\n";
-
-                    const char* st  = e.skip_legal        ? "skip_legal"       :
-                                      e.skip_upper        ? "skip_upper"       :
-                                      e.skip_unsupported  ? "skip_unsupported" :
-                                      e.skip_simplified   ? "skip_simplified"  :
-                                      e.propagation_break ? "break"            : "ok";
-                    f << "{\"upper_idx\":" << e.upper_idx
-                      << ",\"lower_idx\":" << e.lower_idx
-                      << ",\"z\":"         << std::fixed << std::setprecision(3) << e.z
-                      << ",\"status\":\""  << st << "\""
-                      << ",\"stages\":{"
-                      << "\"legal_lower\":";      write_polygons(e.legal_lower);
-                    f << ",\"lower_contours\":";  write_polylines(e.lower_contours_snap);
-                    f << ",\"lower_supported\":"; write_polygons(e.lower_supported_snap);
-                    f << ",\"upper_contours\":";  write_polylines(e.upper_contours_snap);
-                    f << ",\"unsupported_region\":"; write_polygons(e.unsupported_region_snap);
-                    f << ",\"raw_patches\":";          write_polylines(e.raw_patches_snap);
-                    f << ",\"after_bridge_filter\":";  write_polylines(e.after_bridge_filter_snap);
-                    f << ",\"after_overlap_remove\":"; write_polylines(e.after_overlap_remove_snap);
-                    f << ",\"simplified_patches\":";   write_polylines(e.simplified_patches_snap);
-                    f << ",\"to_support\":";      write_polylines(e.to_support_snap);
-                    f << "}}";
-                }
-                f << "\n]}\n";
-                fprintf(stderr, "[patch_debug] done\n");
-            }
-        }
-        }
+            plan_tree_contour_repair_paths(std::move(contour_support_layers), n_raft_layers, max_bridge_length,false);
+        patch_contours = std::move(contour_support_plan.patch_paths_by_layer);
 
         // Stage 4: emit the original exterior contours and any extra patch
         // contours. They are emitted separately only to preserve the planned
         // contour set; semantically they are one complete layer path set.
         for (size_t layer_idx = n_raft_layers; layer_idx < layer_caches.size(); ++layer_idx) {
             SupportGeneratorLayerExtruded& base_layer = layer_caches[layer_idx].base_layer;
-            if (legal_regions[layer_idx].empty() || base_layer.empty())
+            if (legal_regions[layer_idx].empty() && patch_contours[layer_idx].empty())
                 continue;
 
             SupportParameters support_params2 = support_params;
-            Flow flow = support_params.support_material_flow.with_height(float(base_layer.layer->height));
-            tree_supports_generate_paths(base_layer.extrusions, legal_regions[layer_idx], flow, support_params2);
-            if (!patch_contours[layer_idx].empty())
-                extrusion_entities_append_paths(base_layer.extrusions, std::move(patch_contours[layer_idx]),
+            const float layer_height = float(base_layer.empty() ? support_layers[layer_idx]->height : base_layer.layer->height);
+            Flow flow = support_params.support_material_flow.with_height(layer_height);
+            if (!legal_regions[layer_idx].empty() && !base_layer.empty())
+                tree_supports_generate_paths(base_layer.extrusions, legal_regions[layer_idx], flow, support_params2);
+            if (!patch_contours[layer_idx].empty()) {
+                ExtrusionEntitiesPtr& repair_extrusions = base_layer.empty() ?
+                    organic_contour_repair_extrusions[layer_idx] : base_layer.extrusions;
+                extrusion_entities_append_paths(repair_extrusions, std::move(patch_contours[layer_idx]),
                                                 ExtrusionRole::erSupportMaterial, flow.mm3_per_mm(), flow.width(), flow.height(), false);
+            }
         }
     }
 
     // Now modulate the support layer height in parallel.
     tbb::parallel_for(tbb::blocked_range<size_t>(n_raft_layers, support_layers.size()),
-                      [&support_layers, &layer_caches, &support_params, &bbox_object](const tbb::blocked_range<size_t>& range) {
+                      [&support_layers, &layer_caches, &organic_contour_repair_extrusions,
+                       &support_params, &bbox_object](const tbb::blocked_range<size_t>& range) {
                           for (size_t support_layer_id = range.begin(); support_layer_id < range.end(); ++support_layer_id) {
                               SupportLayer& support_layer = *support_layers[support_layer_id];
                               LayerCache&   layer_cache   = layer_caches[support_layer_id];
@@ -4520,6 +4387,8 @@ void generate_support_toolpaths(SupportLayerPtrs&                support_layers,
                                                                            layer_cache_item.overlapping);
                                   support_layer.support_fills.append(std::move(layer_cache_item.layer_extruded->extrusions));
                               }
+                              support_layer.support_fills.append(
+                                  std::move(organic_contour_repair_extrusions[support_layer_id]));
 
                               // Orca: Generate iron toolpath for contact layer
                               if (!layer_cache.polys_to_iron.empty()) {

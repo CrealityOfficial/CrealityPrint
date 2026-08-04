@@ -38,7 +38,7 @@
     "filament_cooling_moves": "4",
     "filament_cost": "14",
     "filament_density": "1.23",
-    "filament_deretraction_speed": "40",
+    "filament_deretraction_speed": "10",
     "filament_diameter": "1.75",
     "filament_end_gcode": [
         ";filament end gcode \n"
@@ -61,9 +61,9 @@
     "filament_retract_lift_enforce": "nil",
     "filament_retract_restart_extra": "nil",
     "filament_retract_when_changing_layer": "nil",
-    "filament_retraction_length": "0.8",
+    "filament_retraction_length": "0.4",
     "filament_retraction_minimum_travel": "nil",
-    "filament_retraction_speed": "40",
+    "filament_retraction_speed": "10",
     "filament_shrink": "100%",
     "filament_soluble": "0",
     "filament_start_gcode": [

@@ -10,6 +10,7 @@
 #include <string>
 #include <wx/event.h>
 #include <wx/gdicmn.h>
+#include <wx/hyperlink.h>
 #include <wx/language.h>
 #include <wx/colour.h>
 #include <wx/window.h>
@@ -140,7 +141,7 @@ wxBoxSizer *PreferencesDialog::create_item_language_combobox(
         if (vlist[i] == wxLocale::GetLanguageInfo(wxLANGUAGE_CHINESE_SIMPLIFIED)) {
             language_name = wxString::FromUTF8("\xe4\xb8\xad\xe6\x96\x87\x28\xe7\xae\x80\xe4\xbd\x93\x29");
         }
-        else if (vlist[i] == wxLocale::GetLanguageInfo(wxLANGUAGE_CHINESE)) {
+        else if (vlist[i] == wxLocale::GetLanguageInfo(wxLANGUAGE_CHINESE_TAIWAN)) {
             language_name = wxString::FromUTF8("\xe4\xb8\xad\xe6\x96\x87\x28\xe7\xb9\x81\xe4\xbd\x93\x29");
         }
         else if (vlist[i] == wxLocale::GetLanguageInfo(wxLANGUAGE_SPANISH)) {
@@ -191,6 +192,15 @@ wxBoxSizer *PreferencesDialog::create_item_language_combobox(
         else if (vlist[i] == wxLocale::GetLanguageInfo(wxLANGUAGE_PORTUGUESE_BRAZILIAN)) {
             language_name = wxString::FromUTF8("Português (Brasil)");
         }
+        else if (vlist[i]->Language == wxLANGUAGE_VIETNAMESE) {
+            language_name = wxString::FromUTF8("Ti\xe1\xba\xbfng Vi\xe1\xbb\x87t");
+        }
+        else if (vlist[i]->Language == wxLANGUAGE_INDONESIAN) {
+            language_name = wxString::FromUTF8("Bahasa Indonesia");
+        }
+        else if (vlist[i]->Language == wxLANGUAGE_THAI) {
+            language_name = wxString::FromUTF8("\xe0\xb9\x84\xe0\xb8\x97\xe0\xb8\xa2");
+        }
 
         if (app_config->get(param) == vlist[i]->CanonicalName) {
             m_current_language_selected = i;
@@ -220,7 +230,7 @@ wxBoxSizer *PreferencesDialog::create_item_language_combobox(
         if (combobox->GetSelection() == m_current_language_selected)
             return;
 
-        if (e.GetString().mb_str() != app_config->get(param)) {
+        if (std::string(e.GetString().mb_str()) != app_config->get(param)) {
             {
                 //check if the project has changed
                 if (wxGetApp().plater()->is_project_dirty()) {
@@ -779,34 +789,28 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxWindow *pa
         wxColour textColor = is_dark ? wxColor("#4287FF") : wxColour("#387DFF");
 
         wxString text = _L("(Content of the collected data)");
-        wxBitmap   bitmap(1, 1);
-        wxMemoryDC dc;
-        dc.SelectObject(bitmap);
-        dc.SetBackground(color);        
-        dc.SetBackgroundMode(wxBRUSHSTYLE_TRANSPARENT); 
-        dc.SetFont(::Label::Body_13);
-        dc.SetTextForeground(textColor);
-        wxCoord w, h;
-        dc.GetTextExtent(text, &w, &h);
-        bitmap.Create(w, h, wxBITMAP_SCREEN_DEPTH);
-        dc.SelectObject(wxNullBitmap);
-        dc.SelectObject(bitmap);
-        dc.Clear();
-        dc.DrawText(text, 0, 0);
+        std::string default_url = "https://wiki.creality.com/en/software/6-0/privacy";
+        if (wxGetApp().app_config->get("language").find("zh") == 0) {
+            default_url = "https://wiki.creality.com/zh/software/6-0/privacy";
+        }
 
-        wxStaticBitmap* bitmapCtrl = new wxStaticBitmap(panel, wxID_ANY, bitmap, wxDefaultPosition, wxDefaultSize);
-        bitmapCtrl->Bind(wxEVT_LEFT_UP, [=](wxMouseEvent& event) {
+        wxHyperlinkCtrl* link = new wxHyperlinkCtrl(panel, wxID_ANY, text, wxString::FromUTF8(default_url.c_str()),
+                                                    wxDefaultPosition, wxDefaultSize, wxHL_DEFAULT_STYLE);
+        link->SetFont(::Label::Body_13);
+        link->SetBackgroundColour(color);
+        link->SetNormalColour(textColor);
+        link->SetHoverColour(textColor);
+        link->SetVisitedColour(textColor);
+        link->Bind(wxEVT_HYPERLINK, [=](wxHyperlinkEvent&) {
             std::string url = "https://wiki.creality.com/en/software/6-0/privacy";
-            if (wxGetApp().app_config->get("language").find("zh")==0) {
-                 url = "https://wiki.creality.com/zh/software/6-0/privacy"; 
+            if (wxGetApp().app_config->get("language").find("zh") == 0) {
+                 url = "https://wiki.creality.com/zh/software/6-0/privacy";
             }
             wxGetApp().open_browser_with_warning_dialog(url);
-            event.Skip();
         });
 
-        // 将位图控件添加到面板中
         wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
-        sizer->Add(bitmapCtrl, 0, wxALL, 5);
+        sizer->Add(link, 0, wxALL, FromDIP(5));
         panel->SetSizer(sizer);
 
         m_sizer_checkbox->Add(panel, 0, wxALIGN_CENTER | wxALL, 3);
@@ -1412,7 +1416,7 @@ wxWindow* PreferencesDialog::create_general_page()
     wxLanguage supported_languages[]{
         wxLANGUAGE_ENGLISH,
         wxLANGUAGE_CHINESE_SIMPLIFIED,
-        wxLANGUAGE_CHINESE,
+        wxLANGUAGE_CHINESE_TAIWAN,
         wxLANGUAGE_GERMAN,
         wxLANGUAGE_CZECH,
         wxLANGUAGE_FRENCH,
@@ -1428,7 +1432,10 @@ wxWindow* PreferencesDialog::create_general_page()
         wxLANGUAGE_TURKISH,
         wxLANGUAGE_POLISH,
         wxLANGUAGE_CATALAN,
-        wxLANGUAGE_PORTUGUESE_BRAZILIAN
+        wxLANGUAGE_PORTUGUESE_BRAZILIAN,
+        wxLANGUAGE_VIETNAMESE,
+        wxLANGUAGE_INDONESIAN,
+        wxLANGUAGE_THAI
     };
 
     // wxLanguage supported_languages[]{
@@ -1454,7 +1461,7 @@ wxWindow* PreferencesDialog::create_general_page()
         if (langinfo == nullptr) continue;
         int language_num = sizeof(supported_languages) / sizeof(supported_languages[0]);
         for (auto si = 0; si < language_num; si++) {
-            if (langinfo == wxLocale::GetLanguageInfo(supported_languages[si])) {
+            if (langinfo->Language == supported_languages[si]) {
                 language_infos.emplace_back(langinfo);
             }
         }

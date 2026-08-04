@@ -3,6 +3,8 @@
 
 #include <wx/dcgraph.h>
 
+ComboBox *ComboBox::active_drop_down = nullptr;
+
 BEGIN_EVENT_TABLE(ComboBox, TextInput)
 
 EVT_LEFT_DOWN(ComboBox::mouseDown)
@@ -71,11 +73,24 @@ ComboBox::ComboBox(wxWindow *parent,
         GetEventHandler()->ProcessEvent(e);
     });
     drop.Bind(EVT_DISMISS, [this](auto &) {
+        if (active_drop_down == this)
+            active_drop_down = nullptr;
         drop_down = false;
         wxCommandEvent e(wxEVT_COMBOBOX_CLOSEUP);
         GetEventHandler()->ProcessEvent(e);
     });
+    Bind(wxEVT_DESTROY, [this](wxWindowDestroyEvent &e) {
+        if (active_drop_down == this)
+            active_drop_down = nullptr;
+        e.Skip();
+    });
     for (int i = 0; i < n; ++i) Append(choices[i]);
+}
+
+void ComboBox::DismissActiveDropDown()
+{
+    if (active_drop_down)
+        active_drop_down->dismissDropDown();
 }
 
 void ComboBox::EnableAutoPopupDirection(bool enable)
@@ -293,14 +308,31 @@ public:
     DECLARE_EVENT_TABLE()
 };
 
+void ComboBox::ForceDropdownOpen()
+{
+    if (!IsEnabled() || drop_down)
+        return;
+
+    DismissActiveDropDown();
+    drop.autoPosition();
+    drop_down = true;
+    active_drop_down = this;
+    drop.Popup(&drop);
+
+    wxCommandEvent e(wxEVT_COMBOBOX_DROPDOWN);
+    GetEventHandler()->ProcessEvent(e);
+}
+
 void ComboBox::mouseDown(wxMouseEvent &event)
 {
     SetFocus();
     if (drop_down) {
-        drop.Hide();
+        dismissDropDown();
     } else if (drop.HasDismissLongTime()) {
+        DismissActiveDropDown();
         drop.autoPosition();
         drop_down = true;
+        active_drop_down = this;
         //drop.Raise();
         drop.Popup();
         
@@ -312,7 +344,10 @@ void ComboBox::mouseDown(wxMouseEvent &event)
 void ComboBox::mouseWheelMoved(wxMouseEvent &event)
 {
     event.Skip();
-    if (drop_down) return;
+    if (drop_down) {
+        dismissDropDown();
+        return;
+    }
     auto delta = event.GetWheelRotation() < 0 ? 1 : -1;
     unsigned int n = GetSelection() + delta;
     if (n < GetCount()) {
@@ -321,16 +356,19 @@ void ComboBox::mouseWheelMoved(wxMouseEvent &event)
     }
 }
 
+
 void ComboBox::keyDown(wxKeyEvent& event)
 {
     switch (event.GetKeyCode()) {
         case WXK_RETURN:
         case WXK_SPACE:
             if (drop_down) {
-                drop.DismissAndNotify();
+                dismissDropDown();
             } else if (drop.HasDismissLongTime()) {
+                DismissActiveDropDown();
                 drop.autoPosition();
                 drop_down = true;
+                active_drop_down = this;
                 drop.Popup();
                 wxCommandEvent e(wxEVT_COMBOBOX_DROPDOWN);
                 GetEventHandler()->ProcessEvent(e);
@@ -361,7 +399,15 @@ void ComboBox::keyDown(wxKeyEvent& event)
 void ComboBox::onMove(wxMoveEvent &event)
 {
     event.Skip();
-    drop.Hide();
+    if (drop_down)
+        dismissDropDown();
+}
+
+void ComboBox::dismissDropDown()
+{
+    if (!drop_down && active_drop_down != this)
+        return;
+    drop.DismissAndNotify();
 }
 
 void ComboBox::OnEdit()

@@ -70,16 +70,12 @@ if [%5] == [] (
 setlocal enabledelayedexpansion
 if [%LOCAL_BUILD%]==[OFF] (
     echo TAG_NAME=%TAG_NAME%
-    echo git show-ref %TAG_NAME% 
-    git show-ref %TAG_NAME% | awk -F ' ' '{print $1}' >cmmid
-    cat cmmid
-    set /p CMMID=<cmmid 
-    echo CMMID=!CMMID!
-    git rev-list HEAD | wc -l >maxcmmid
-    git rev-list !CMMID! | wc -l >tagcmmid
-    set /p MAXCMMID=<maxcmmid
-    set /p TAGCMMID=<tagcmmid
-    set /a TAGNUMB=!MAXCMMID!-!TAGCMMID!
+    set TAGNUMB=
+    for /f %%i in ('git rev-list HEAD --count') do set TAGNUMB=%%i
+    if not defined TAGNUMB (
+        echo ERROR: Failed to resolve Git commit count
+        exit /b 1
+    )
     echo TAGNUMB=!TAGNUMB!
     set TAG_NAME=%TAG_NAME%.!TAGNUMB!
 )
@@ -87,12 +83,20 @@ setlocal disabledelayedexpansion
 
 SET BUILD_DEPLIB=%ROOT_C3D%\dep_Release
 SET ENV_DEPS=%DEPS_DLL_PATH_RELEASE%
+SET USE_WORKSPACE_DEPS=1
 echo ENV_DEPS=%ENV_DEPS%
 if [%ENV_DEPS%] == [] (
     echo "ENV_DEPS is empty"
 ) else (
     SET BUILD_DEPLIB=%ENV_DEPS%
+    SET USE_WORKSPACE_DEPS=0
 )
+SET REBUILD_DEPS_REQUESTED=0
+if /I "%REBUILD_DEPS%"=="true" SET REBUILD_DEPS_REQUESTED=1
+if /I "%REBUILD_DEPS%"=="1" SET REBUILD_DEPS_REQUESTED=1
+if /I "%REBUILD_DEPS%"=="yes" SET REBUILD_DEPS_REQUESTED=1
+if /I "%REBUILD_DEPS%"=="on" SET REBUILD_DEPS_REQUESTED=1
+echo REBUILD_DEPS=%REBUILD_DEPS_REQUESTED%
 
 for /f "delims=" %%i in ('where signtool.exe 2^>nul') do (
     set SIGNTOOL_CMD=%%i
@@ -114,24 +118,44 @@ for /f "delims=" %%i in ('dir /b /ad /o-n "C:\Program Files\Windows Kits\10\bin"
 )
 
 :AfterFindSignTool
+if "%USE_WORKSPACE_DEPS%"=="0" (
+    if "%REBUILD_DEPS_REQUESTED%"=="1" (
+        echo "REBUILD_DEPS is ignored because DEPS_DLL_PATH_RELEASE is set: %BUILD_DEPLIB%"
+    )
+    if exist "%BUILD_DEPLIB%" (
+        goto C3DGenerate
+    )
+    echo "External deps directory does not exist: %BUILD_DEPLIB%"
+    exit /b 1
+)
+
+if "%REBUILD_DEPS_REQUESTED%"=="1" (
+    echo "REBUILD_DEPS is enabled, rebuild workspace deps."
+    SET BUILD_DEPS_ARG=-r
+    goto DepBuild
+)
+
 if exist "%BUILD_DEPLIB%" (
+    echo "Use workspace deps: %BUILD_DEPLIB%"
     goto C3DGenerate
 )
+echo "Workspace deps directory does not exist, build deps: %BUILD_DEPLIB%"
 
 :DepBuild
 echo "Current ACTION = DepBuild"
 echo "build dep release"
-call build_deps.bat Release
+call "%ROOT_C3D%\build_deps.bat" Release %BUILD_DEPS_ARG% || exit /b 1
 
 :C3DGenerate
+cd /d "%ROOT_C3D%"
 echo "C3DGenerate..."
 echo call run_gettext.bat
 if [%5] == [] (
-    call run_gettext.bat || exit /b 1
+    call "%ROOT_C3D%\run_gettext.bat" || exit /b 1
 ) else (
     echo customum gettext
-    call ./customized/%CUSTOM_TYPE%/copy_resources.bat || exit /b 1
-    call ./customized/%CUSTOM_TYPE%/run_gettext.bat || exit /b 1
+    call "%ROOT_C3D%\customized\%CUSTOM_TYPE%\copy_resources.bat" || exit /b 1
+    call "%ROOT_C3D%\customized\%CUSTOM_TYPE%\run_gettext.bat" || exit /b 1
 )
 
 SET C3D_BUILD_DIR=%ROOT_C3D%\build_Release

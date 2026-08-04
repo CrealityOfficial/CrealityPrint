@@ -18,6 +18,7 @@ class ComboBox : public wxWindowWithItems<TextInput, wxItemContainer>
     DropDown               drop;
     bool     drop_down = false;
     bool     text_off = false;
+    static ComboBox *active_drop_down;
 
 public:
     std::vector<wxBitmap> icons_backup;
@@ -32,6 +33,7 @@ public:
              int             flags     = wxPU_CONTAINS_CONTROLS);
 
     DropDown & GetDropDown() { return drop; }
+    static void DismissActiveDropDown();
 
     void EnableAutoPopupDirection(bool enable = true);
 
@@ -72,6 +74,7 @@ public:
     void     SetItemBitmap(unsigned int n, wxBitmap const &bitmap);
     bool     is_drop_down(){return drop_down;}
     void     DeleteOneItem(unsigned int pos) { DoDeleteOneItem(pos); }
+    void     ForceDropdownOpen();
 protected:
     virtual int  DoInsertItems(const wxArrayStringsAdapter &items,
                                unsigned int                 pos,
@@ -98,6 +101,7 @@ private:
     void mouseDown(wxMouseEvent &event);
     void mouseWheelMoved(wxMouseEvent &event);
     void keyDown(wxKeyEvent &event);
+    void dismissDropDown();
     void onMove(wxMoveEvent &event);
 
     DECLARE_EVENT_TABLE()

@@ -1,4 +1,4 @@
-#include "EasyPrintSender.hpp"
+﻿#include "EasyPrintSender.hpp"
 #include "CxCloudPrintExecutor.hpp"
 #include "../../print_manage/RemotePrinterManager.hpp"
 #include <nlohmann/json.hpp>
@@ -132,6 +132,25 @@ static std::string baseName(const std::string& fullPath)
 
 std::string EasyPrintSender::getDeviceIp()
 {
+    // Prefer the real-time device data from DataCenter to resolve the current device address.
+    // The same physical device may have both a LAN connection (deviceType=0) and a Creality Cloud
+    // bound connection (deviceType=1), sharing the same mac. DataCenter's current device
+    // (_get_acive_device) already selects the address by the following priority:
+    //   - When both LAN and cloud exist: return LAN if it is online, otherwise return cloud;
+    //   - When only cloud exists: return cloud.
+    // So when the LAN connection is offline (or removed) while the cloud connection is still online,
+    // it returns the cloud device address, avoiding jumping to an offline, non-interactive LAN detail page.
+    try {
+        const DM::Device& cur_dev = DM::DataCenter::Ins().get_current_device_data();
+        if (cur_dev.valid && !cur_dev.address.empty()) {
+            return cur_dev.address;
+        }
+    } catch (std::exception& e) {
+        logMessage("EasyPrintSender::getDeviceIp", std::string("read DataCenter current device failed: ") + e.what());
+    }
+
+    // Fallback: when DataCenter has no valid real-time data, read the current device address
+    // from the persisted deviceInfo.json.
     try {
 
         boost::filesystem::path device_file = boost::filesystem::path(Slic3r::data_dir()) / "deviceInfo.json";
@@ -150,19 +169,22 @@ std::string EasyPrintSender::getDeviceIp()
                 for (auto& dev : group["list"]) {
                     if (dev["mac"] == curMac) {
                         if (dev.contains("address") && !dev["address"].is_null() && !dev["address"].get<std::string>().empty()) {
-                            return dev["address"]; 
-                        } else { return curMac; // 婵炲瓨绮嶉崹褰掝敂椤掑倹濯奸柟顖嗗本校 fallback �?MAC 
+                            return dev["address"];
+                        } else {
+                            return curMac; // fallback to MAC when no valid address
                         }
                     }
                 }
             }
         }
         logMessage("EasyPrintSender::getDeviceIp", "闂佸搫鐗滄禍婵囩珶濮椻偓瀹曟岸骞忓畝濠傛櫗婵?IP");
-        return "";
+        logMessage("EasyPrintSender::getDeviceIp", "no current device ip found");
     } catch (std::exception& e) {
-        logMessage("EasyPrintSender::getDeviceIp", std::string("闁荤喐鐟辩徊楣冩�?deviceInfo.json 闂佸憡鍨跺浠嬪�? ") + e.what());
-        return "";
+        logMessage("EasyPrintSender::getDeviceIp", std::string("闁荤喐鐟辩徊楣冩�?deviceInfo.json 闂佸憡鍨跺浠嬪�? ") + e.what());
+        logMessage("EasyPrintSender::getDeviceIp", std::string("read deviceInfo.json failed: ") + e.what());
     }
+
+    return "";
 }
 
 #include <algorithm>
@@ -211,7 +233,7 @@ void EasyPrintSender::handleUploadComplete(const std::string&                   
     try {
         auto j = nlohmann::json::parse(result);
 
-        // 闁诲繒鍋愰崑鎾绘煕閳哄啫鏋旂紓宥咁槹濞煎寮幐搴ｎ槬闂佸搫绉堕崢褏妲愰敓鐘虫櫖婵繃绫峝e=200, message=OK (婵犮垹鐖㈤崘顏呯槗闂佸憡鍔栭悷銈囩箔婢舵劕鏋侀煫鍥ㄦ煥�?
+        // 闁诲繒鍋愰崑鎾绘煕閳哄啫鏋旂紓宥咁槹濞煎寮幐搴ｎ槬闂佸搫绉堕崢褏妲愰敓鐘虫櫖婵繃绫峝e=200, message=OK (婵犮垹鐖㈤崘顏呯槗闂佸憡鍔栭悷銈囩箔婢舵劕鏋侀煫鍥ㄦ煥�?
         if (j.contains("code") && j["code"] == 200 && j.contains("message")) {
             std::string msgVal = j["message"].get<std::string>();
             if (equalsIgnoreCase(msgVal, "OK")) {
@@ -219,7 +241,7 @@ void EasyPrintSender::handleUploadComplete(const std::string&                   
             }
         }
 
-        // 婵炲瓨绮嶉崹褰掝敂椤掍焦浜ら柡鍌涘缁€鈧梺鍝勭Ф閸樠呮閿熺姵鏅慨婵囩睄de=0, msg=ok (婵犮垹鐖㈤崘顏呯槗闂佸憡鍔栭悷銈囩箔婢舵劕鏋侀煫鍥ㄦ煥�?
+        // 婵炲瓨绮嶉崹褰掝敂椤掍焦浜ら柡鍌涘缁€鈧梺鍝勭Ф閸樠呮閿熺姵鏅慨婵囩睄de=0, msg=ok (婵犮垹鐖㈤崘顏呯槗闂佸憡鍔栭悷銈囩箔婢舵劕鏋侀煫鍥ㄦ煥�?
         else if (j.contains("code") && j["code"] == 0 && j.contains("msg")) {
             std::string msgVal = j["msg"].get<std::string>();
             if (equalsIgnoreCase(msgVal, "ok")) {
@@ -318,7 +340,7 @@ std::string EasyPrintSender::getDeviceAddress()
         logMessage("EasyPrintSender::getDeviceAddress", "闂佸搫鐗滄禍婵囩珶濮椻偓瀹曟岸骞忓畝濠傛櫗婵?Address");
         return "";
     } catch (std::exception& e) {
-        logMessage("EasyPrintSender::getDeviceAddress", std::string("闂佸吋鍎抽崲鑼躲亹閸モ晜濯奸柟顖嗗本�?Address 闂佸憡鍨跺浠嬪�? ") + e.what());
+        logMessage("EasyPrintSender::getDeviceAddress", std::string("闂佸吋鍎抽崲鑼躲亹閸モ晜濯奸柟顖嗗本�?Address 闂佸憡鍨跺浠嬪�? ") + e.what());
         return "";
     }
 }
@@ -410,7 +432,7 @@ void EasyPrintSender::startPrintCloud(const std::string&    deviceId,
         return;
     }
 
-    // 闂佺懓鐏氶幐绋跨暤閸愵喖鍌ㄩ柣鏂款殠�?uploadResult
+    // 闂佺懓鐏氶幐绋跨暤閸愵喖鍌ㄩ柣鏂款殠�?uploadResult
     logMessage("EasyPrintSender::startPrintCloud", "uploadResult raw=" + uploadResult);
 
     int            statusCode = 0;
@@ -534,7 +556,11 @@ bool EasyPrintSender::startPrintLan(const std::string& ip, const nlohmann::json&
 {   
     nlohmann::json dataJson = printData;
 
-    // 闂婎偄娲ら幊姗€濡磋箛鏇熷仒闁靛鍎辩敮鐘绘煟閵娿儱顏╅柣鈯欏啠�?
+    // [17140] Target device name of this print job; used to jump and open the
+    // device detail page after the print starts successfully.
+    const std::string device_name = printData.value("printer_name", std::string());
+
+    // 闂婎偄娲ら幊姗€濡磋箛鏇熷仒闁靛鍎辩敮鐘绘煟閵娿儱顏╅柣鈯欏啠�?
     dataJson["allPlate"]   = false;
     dataJson["printer_ip"] = ip;
 
@@ -608,15 +634,27 @@ bool EasyPrintSender::startPrintLan(const std::string& ip, const nlohmann::json&
             // view->run_script(jsStr);
             view->ExecuteScriptCommand(jsStr, false);
 
-            std::thread([]() {
+            std::thread([ip, device_name]() {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
-                wxGetApp().CallAfter([]() {
+                wxGetApp().CallAfter([ip, device_name]() {
                     if (auto* current_view = wxGetApp().mainframe->get_printer_mgr_view())
                     {
-                        wxGetApp().mainframe->switch_to_device_page();
-                        current_view->request_reopen_detail_video();  
+                        // [17140] Product requirement: after an AI send-print
+                        // succeeds, always jump to and open the detail page of
+                        // THIS print's device, with LAN and WAN behaving the
+                        // same. The old "auto-open current device detail on
+                        // entering the device page" logic has been removed (see
+                        // PrinterMgrView::on_switch_to_device_page), so open the
+                        // detail page here using this print's device address.
+                        // jumpToDeviceDetail already switches to the device page,
+                        // so there is no need to call switch_to_device_page again.
+                        EasyPrintSender detail_sender;
+                        detail_sender.jumpToDeviceDetail(ip, device_name);
+
+                        // Reopen the video stream after the detail page is opened,
+                        // reusing the LAN detail video reopen fix.
+                        current_view->request_reopen_detail_video();
                     }
-                        
                 });
             }).detach();
         }
@@ -627,21 +665,22 @@ void EasyPrintSender::jumpToDeviceDetail(const std::string& ip, const std::strin
 {
     wxGetApp().mainframe->switch_to_device_page();
 
-    static std::string lastIp, lastName;
-    if (ip == lastIp && name == lastName) {
-        // 閻庤鐡曠亸娆戝垝閿熺姴鎹堕柕濞垮妿缁犵懓鈽夐幙鍐ф捣妞ゆ梹娲樺鍕炊椤忓秴娈滈梺璇″灠閹虫﹢濡存径鎰櫖閻忕偠鍋愰悷婵嬫煕閹邦剛效闁革絽鎲″鍕吋閸涱収娼遍�?
-        return;
-    }
-    lastIp   = ip;
-    lastName = name;
+    // [17140] Removed the previous static lastIp/lastName de-duplication:
+    // the product requires the detail page to open on EVERY successful AI
+    // send-print. The old de-dup caused "after closing the detail page,
+    // printing the same device again without switching model no longer opens
+    // the detail page". That de-dup was originally a debounce for the
+    // "auto-open current device detail on entering the device page" behavior,
+    // which has been removed (see PrinterMgrView::on_switch_to_device_page);
+    // all current callers are expected to open the detail every time.
 
-    // 闂佸搫顑呯€氫即鍩€椤掑倸孝闁规枼鍓濈粋?JSON
+    // Build the forward_device_detail command JSON.
     nlohmann::json commandJson;
     commandJson["command"] = "forward_device_detail";
     commandJson["ip"]      = ip;
     commandJson["name"]    = name;
 
-    // 闂佺懓鍢查崥瀣�?JS 闁荤姴顑呴崯浼村极閵堝洠鍋撳☉娆樻畼妞ゆ垳鐒︾粙?
+    // 闂佺懓鍢查崥瀣�?JS 闁荤姴顑呴崯浼村极閵堝洠鍋撳☉娆樻畼妞ゆ垳鐒︾粙?
     std::string jsStr = "window.handleStudioCmd('" + commandJson.dump() + "');";
 
     PrinterMgrView* view = wxGetApp().mainframe->get_printer_mgr_view();
@@ -721,7 +760,7 @@ bool EasyPrintSender::updatePrinterState(const std::string& ip)
         return false;
     }
 
-    // 闂佺儵鏅涢悺銊ф暜閹绢喖绠柛顭戝枛瀵潡姊洪幓鎺旂闁哄棛鍠栭�?
+    // 闂佺儵鏅涢悺銊ф暜閹绢喖绠柛顭戝枛瀵潡姊洪幓鎺旂闁哄棛鍠栭�?
     auto data = Slic3r::GUI::SimpleDeviceMgr::instance().get_device_list_data_simple(true);
 
     // 闂備緡鍓欑粔鏉戭啅婵犳艾绠ラ柍褜鍓熷鍨緞鎼搭喖鏅繝銏ｆ硾濞村嫮妲愬┑瀣闁诡垎鍐帓闂佸憡鐗曠紞濠囧储閵堝鍎?IP
@@ -731,13 +770,13 @@ bool EasyPrintSender::updatePrinterState(const std::string& ip)
             // 闂佸憡甯囬崐鏍蓟閸ヮ剙鍙婃い鏍ㄧ閸庡﹦绱掔仦鐐仢婵?
             bool isIdle = item.online && item.state == 0;
 
-            // 闁哄鐗婇幐鎼佸吹椤撱垹绫嶉柕澶堝劤�?
+            // 闁哄鐗婇幐鎼佸吹椤撱垹绫嶉柕澶堝劤�?
             std::ostringstream oss;
             oss << "Device IP=" << ip << ", Name=" << item.name << ", Model=" << item.model_name << ", MAC=" << item.mac
                 << ", Online=" << (item.online ? "true" : "false") << ", State=" << item.state << ", Idle=" << (isIdle ? "true" : "false");
             logMessage("PrinterState", oss.str());
 
-            return isIdle; // 缂備礁鏈钘壩涢懞銉︿氦闁哄倹瀵х粈�?true闂佹寧绋戦懟顖炲箚娓氣偓�?false
+            return isIdle; // 缂備礁鏈钘壩涢懞銉︿氦闁哄倹瀵х粈�?true闂佹寧绋戦懟顖炲箚娓氣偓�?false
         }
     }
 
@@ -768,7 +807,7 @@ bool EasyPrintSender::updatePrinterState()
     for (const auto& kv : data.datas) {
         const auto& item = kv.second;
 
-        // 闂佸憡鐗曠紞濠囧储閵堝绾ч柍銉ュ级椤愪粙鏌ㄥ☉娆戠叝缂侀硸鍙冨畷?IP闂佹寧绋戦懟顖炲矗閹€�?MAC
+        // 闂佸憡鐗曠紞濠囧储閵堝绾ч柍銉ュ级椤愪粙鏌ㄥ☉娆戠叝缂侀硸鍙冨畷?IP闂佹寧绋戦懟顖炲矗閹€�?MAC
         bool match = (item.address == ipOrMac) || (item.mac == ipOrMac);
         if (!match)
             continue;

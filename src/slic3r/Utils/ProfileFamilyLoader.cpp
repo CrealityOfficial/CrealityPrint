@@ -386,32 +386,48 @@ ProfileFamilyLoader::ProfileFamilyLoader()
 {
     tp = new ThreadPool;
     request();
-    m_first_frame_loading = true;
 }
 
-void ProfileFamilyLoader::request()
+void ProfileFamilyLoader::request(bool force_reload)
 {
-    if (m_first_frame_loading)
-    {
+    std::lock_guard<std::mutex> lock(m_state_mutex);
+    if (m_first_frame_loading) {
         tp->max_fire_power();
         return;
     }
-    if (m_first_frame_loaded)
-        tp->max_fire_power();
+    if (m_first_frame_loaded && !force_reload)
+        return;
 
-    m_ret = std::async([this]()->int { 
-        auto ret = LoadProfile(m_profile_json, m_machine_json, m_load_curstom_from_bundle); 
+    m_first_frame_loading = true;
+    m_ret = std::async(std::launch::async, [this]()->int {
+        auto ret = LoadProfile(m_profile_json, m_machine_json, m_load_curstom_from_bundle);
+        std::lock_guard<std::mutex> lock(m_state_mutex);
         m_first_frame_loading = false;
         m_first_frame_loaded  = true;
         return ret;
-    });
+    }).share();
 }
 
-void ProfileFamilyLoader::wait() { m_ret.get(); }
+void ProfileFamilyLoader::wait()
+{
+    std::shared_future<int> result;
+    {
+        std::lock_guard<std::mutex> lock(m_state_mutex);
+        result = m_ret;
+    }
+    if (result.valid())
+        result.get();
+}
 
 void ProfileFamilyLoader::request_and_wait()
 {
-    request();
+    request(true);
+    wait();
+}
+
+void ProfileFamilyLoader::wait_until_loaded()
+{
+    request(false);
     wait();
 }
 

@@ -43,6 +43,11 @@ struct SidebarPrinter::priv
 bool SidebarPrinter::bShow = false;
 SidebarPrinter::SidebarPrinter(Plater* parent): wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(400, 150)), p(new priv())
 {
+#ifdef __WXGTK__
+    SetBackgroundStyle(wxBG_STYLE_PAINT);
+    SetDoubleBuffered(true);
+    Bind(wxEVT_ERASE_BACKGROUND, [](wxEraseEvent&) {});
+#endif
     p->plater = parent;
 
     wxBoxSizer* vsizer_printer = new wxBoxSizer(wxVERTICAL);

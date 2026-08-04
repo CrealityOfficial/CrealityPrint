@@ -37,7 +37,7 @@ private:
     wxStaticBitmap* m_TipBitMap                 = nullptr;
     wxStaticText*   m_TipContent                = nullptr;
     wxStaticText*   m_TipContent_back           = nullptr;
-    wxStaticText*   m_TipContent_back_extension = nullptr;
+    wxBoxSizer*     m_TipContentExtensionSizer   = nullptr;
     wxStaticText*   m_CurStepStatic             = nullptr;
     wxPanel*        m_MainPanel                 = nullptr;
     Button*         m_SkipBtn                   = nullptr;

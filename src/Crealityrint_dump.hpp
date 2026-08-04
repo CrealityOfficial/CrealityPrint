@@ -10,7 +10,8 @@
 #include <wx/statline.h>
 #include <wx/filename.h>
 #include <filesystem>
-#include <GL/glew.h>
+#include <glad/gl.h>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include "libslic3r_version.h"
 #include "nlohmann/json.hpp"
@@ -139,9 +140,9 @@ public:
 
             glfwMakeContextCurrent(window);
 
-            // 初始化GLEW
-            if (glewInit() != GLEW_OK) {
-                std::cerr << "Failed to initialize GLEW!" << std::endl;
+            // 初始化GLAD
+            if (gladLoaderLoadGL() == 0) {
+                std::cerr << "Failed to initialize GLAD!" << std::endl;
                 return ;
             }
 

@@ -24,18 +24,29 @@ bool isGCodeFile(const boost::filesystem::path& filePath) {
     }
     return extStr == ".gcode";
 }
-std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serverIp, int port, const std::string& uploadFileName, const std::string& localFilePath, std::function<void(float,double)> progressCallback, std::function<void(int)> uploadStatusCallback, std::function<void(std::string)> onCompleteCallback) {
+std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serverIp, int port, const std::string& uploadFileName, const std::string& localFilePath, std::function<void(float,double)> progressCallback, std::function<void(int)> uploadStatusCallback, std::function<void(std::string)> onCompleteCallback, UploadCancelToken cancelToken) {
     return std::async(std::launch::async, [=]() {
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " start";
     bool res = false;
+    if (is_upload_cancelled(cancelToken)) {
+        if (uploadStatusCallback)
+            uploadStatusCallback(601);
+        return;
+    }
 
     std::string urlUpload = "http://" + serverIp + ":" + std::to_string(80) + "/upload/" + Slic3r::Http::url_encode(uploadFileName);
 
     BOOST_LOG_TRIVIAL(info) << boost::format("%1%: Uploading file %2% to %3%") % uploadFileName % localFilePath % urlUpload;
 
+    UploadFileUseGuard file_use(cancelToken);
+    if (!file_use) {
+        if (uploadStatusCallback)
+            uploadStatusCallback(601);
+        return;
+    }
     auto http = Slic3r::Http::post(urlUpload);
-    //m_pHttp   = &http;
-    mapHttp.emplace(serverIp, &http);
+    http.enable_active_cancel();
+    UploadRequestCancelWatcher cancel_watcher(cancelToken, [&http] { http.cancel(); });
     std::string temp_upload_name = uploadFileName;
     
     http.clear_header();
@@ -71,12 +82,13 @@ std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serv
         .on_error([&](std::string body, std::string error, unsigned status) {
             BOOST_LOG_TRIVIAL(error) << boost::format("%1%: Error uploading file: %2%, HTTP %3%, body: `%4%`") % uploadFileName % error % status %
                                             body;
-            if (uploadStatusCallback) {
-                uploadStatusCallback(status);
+            if (uploadStatusCallback && !is_upload_cancelled(cancelToken)) {
+                uploadStatusCallback(status == 0 ? CURLE_HTTP_RETURNED_ERROR : status);
             }
             res = false;
         })
         .on_progress([&](Slic3r::Http::Progress progress, bool& cancel) {
+             cancel = is_upload_cancelled(cancelToken);
              if (cancel) {
                 // Upload was canceled
                 BOOST_LOG_TRIVIAL(info) << boost::format("%1%: Upload canceled") % uploadFileName;
@@ -104,9 +116,8 @@ std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serv
            
         })
         .perform_sync();
-        mapHttp.erase(serverIp);
         if (!res && uploadStatusCallback) {
-            if (http.is_cancelled()) {
+            if (http.is_cancelled() || is_upload_cancelled(cancelToken)) {
                 uploadStatusCallback(601); // 601 表示取消成功
             } else {
                 //uploadStatusCallback(CURLE_HTTP_RETURNED_ERROR);
@@ -117,17 +128,10 @@ std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serv
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " end!!!";
 }
 
-void Klipper4408Interface::cancelSendFileToDevice(std::string ipAddress)
+void Klipper4408Interface::cancelSendFileToDevice(const UploadCancelToken& cancelToken)
 {
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " start";
-    m_bCancelSend = true;
-    if(mapHttp.count(ipAddress) == 0) {
-        return;
-    }
-    Slic3r::Http*     http = mapHttp.at(ipAddress);
-    if (http != nullptr) {
-        http->cancel();
-    }
+    request_upload_cancel(cancelToken);
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " end";
 }
 

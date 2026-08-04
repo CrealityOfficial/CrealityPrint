@@ -9,7 +9,7 @@
 #include <string_view>
 using namespace std::literals;
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 namespace Slic3r {
 
@@ -114,6 +114,16 @@ std::pair<bool, std::string> GLShadersManager::init()
 void GLShadersManager::shutdown()
 {
     m_shaders.clear();
+}
+
+bool GLShadersManager::has_valid_programs() const
+{
+    if (m_shaders.empty())
+        return false;
+
+    return std::all_of(m_shaders.begin(), m_shaders.end(), [](const std::unique_ptr<GLShaderProgram>& shader) {
+        return shader && shader->get_id() > 0 && ::glIsProgram(shader->get_id()) == GL_TRUE;
+    });
 }
 
 GLShaderProgram* GLShadersManager::get_shader(const std::string& shader_name)

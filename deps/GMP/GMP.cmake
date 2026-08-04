@@ -1,10 +1,6 @@
 
 set(_srcdir ${CMAKE_CURRENT_LIST_DIR}/gmp)
-# Default empty patch command; enable only for LoongArch builds
 set(patch_command "")
-if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "loongarch")
-    set(patch_command git init && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-loongarch64-build.patch)
-endif()
 if (IN_GIT_REPO)
     set(GMP_DIRECTORY_FLAG --directory ${BINARY_DIR_REL}/dep_GMP-prefix/src/dep_GMP)
 endif ()
@@ -74,7 +70,7 @@ else ()
         DOWNLOAD_DIR ${DEP_DOWNLOAD_DIR}/GMP
         PATCH_COMMAND ${patch_command}
         BUILD_IN_SOURCE ON
-        CONFIGURE_COMMAND  env "CC=${CMAKE_C_COMPILER}" "CXX=${CMAKE_CXX_COMPILER}" "CFLAGS=${_gmp_ccflags}" "CXXFLAGS=${_gmp_ccflags}" ./configure ${_cross_compile_arg} --enable-shared=no --enable-cxx=yes --enable-static=yes "--prefix=${DESTDIR}" ${_gmp_build_tgt}
+        CONFIGURE_COMMAND  env "CFLAGS=${_gmp_ccflags}" "CXXFLAGS=${_gmp_ccflags}" ./configure ${_cross_compile_arg} --enable-shared=no --enable-cxx=yes --enable-static=yes "--prefix=${DESTDIR}" ${_gmp_build_tgt}
         BUILD_COMMAND     make -j
         INSTALL_COMMAND   make install
     )

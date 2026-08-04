@@ -59,7 +59,8 @@ public:
     void RegisterPendingAsyncToolCall(const std::string& request_id,
                                       const std::string& tool_name,
                                       const nlohmann::json& result_payload,
-                                      bool native_request);
+                                      bool native_request,
+                                      const std::string& workflow_id = std::string());
     void CompletePendingAsyncToolCall(const std::string& completion_key,
                                       bool success,
                                       const std::string& message,
@@ -74,7 +75,6 @@ private:
     void OnError(wxWebViewEvent& evt);
     void OnSceneUpdateTimer(wxTimerEvent& evt);
     void OnScheduledRefreshTimer(wxTimerEvent& evt);
-    void OnSliceProcessCompleted(Slic3r::SlicingProcessCompletedEvent& evt);
     void OnExportFinished(wxCommandEvent& evt);
 
     using CommandHandler = std::function<void(const nlohmann::json&)>;
@@ -82,13 +82,27 @@ private:
     void RegisterAllHandlers();
 
     void ExecuteBridgeAction(const std::string& action_id, const nlohmann::json& data);
+    // Opens the Simple-UI device-list popup (AI "switch device" action). This is a
+    // UI action distinct from the select_printer bridge action (which switches to a
+    // specific target printer); here we just surface the picker for the user.
+    void HandleOpenDeviceList(const nlohmann::json& data);
     void StartSliceRequest(const std::string& request_id,
                            const nlohmann::json& args,
-                           bool notify_cxagent_bridge);
+                           bool notify_cxagent_bridge,
+                           bool notify_sagent_mqtt_bridge = false);
     void HandleCxAgentMessage(const nlohmann::json& msg);
     void HandleCxAgentToolCall(const nlohmann::json& msg);
     bool ShouldUseSAgentMqttNativePath(const nlohmann::json& msg) const;
     void HandleSAgentMqttNativeToolRequest(const nlohmann::json& msg);
+    void HandleSAgentMqttCustomDeferredTool(const std::string& request_id,
+                                            const std::string& tool,
+                                            const std::string& action_id,
+                                            const nlohmann::json& args,
+                                            const std::string& workflow_id);
+    void HandleSendToPrinterMqttNative(const std::string& request_id,
+                                       const std::string& tool,
+                                       const nlohmann::json& args,
+                                       const std::string& workflow_id);
     void HandleCxAgentCancelCall(const nlohmann::json& msg);
     void BindAISendWorkflowCallbacks();
     void ReplayAISendCardsToJS();
@@ -132,6 +146,16 @@ private:
     nlohmann::json BuildCxAgentStatusJson() const;
     Bridge::SAgentMqttBridge::Config BuildSAgentMqttConfig(const nlohmann::json& data);
     void PublishSAgentMqttMessage(const nlohmann::json& data);
+    void PublishSAgentMqttToolProgress(const std::string& request_id,
+                                        int progress,
+                                        const std::string& stage,
+                                        const std::string& message,
+                                        const std::string& status,
+                                        const nlohmann::json& data);
+    void PublishSAgentMqttToolResult(const std::string& request_id,
+                                      bool ok,
+                                      const nlohmann::json& result,
+                                      const nlohmann::json& error);
     nlohmann::json BuildCompletedSliceResult(const std::string& exported_gcode_path = std::string()) const;
     std::string ResolveCxAgentBaseUrl(const nlohmann::json& data) const;
     std::string ResolveAISendCardId(const nlohmann::json& data) const;
@@ -181,11 +205,13 @@ private:
     struct PendingAISendToolCall {
         std::string request_id;
         std::string card_id;
+        std::string workflow_id;
         std::string tool_name = "send_to_printer";
         nlohmann::json tool_args = nlohmann::json::object();
         bool from_agent = true;
         bool waiting_user_action = true;
         bool terminal_reported = false;
+        bool native_mqtt_request = false;
     };
 
     std::unordered_map<std::string, PendingAISendToolCall> m_pending_ai_send_calls_by_request;
@@ -197,14 +223,18 @@ private:
         bool active = false;
         bool awaiting_export = false;
         bool notify_cxagent_bridge = false;
+        bool notify_sagent_mqtt_bridge = false;
         std::string request_id;
+        std::string workflow_id;
         std::string export_strategy;
         std::string output_path;
     } m_pending_slice_request;
+    std::unordered_set<std::string> m_observed_slice_requests;
 
     struct PendingAsyncToolCall {
         bool native_request = false;
         std::string request_id;
+        std::string workflow_id;
         std::string tool;
         std::string lifecycle;
         std::string completion_key;
@@ -234,6 +264,7 @@ private:
     void OnClose(wxCloseEvent& evt);
     void OnIconize(wxIconizeEvent& evt);
     void OnParentIconize(wxIconizeEvent& evt);
+    void ApplyDisplaySizeLimits(const wxSize& preferred_size);
     void on_dpi_changed(const wxRect& suggested_rect) override;
 
     MCPChatPanel* m_chat_panel = nullptr;

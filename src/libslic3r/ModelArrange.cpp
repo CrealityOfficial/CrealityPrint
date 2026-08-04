@@ -2,6 +2,7 @@
 
 #include <libslic3r/Model.hpp>
 #include <libslic3r/ModelInstance.hpp>
+#include <libslic3r/ModelVolume.hpp>
 #include <libslic3r/Geometry/ConvexHull.hpp>
 #include <libslic3r/Print.hpp>
 
@@ -9,8 +10,51 @@
 #include "libslic3r/FDM/Filament.hpp"
 #include "MTUtils.hpp"
 
+#include <algorithm>
+
 namespace Slic3r {
 
+static void append_unique_extruder_id(std::vector<int>& extruders, int extruder_id)
+{
+    if (extruder_id <= 0)
+        return;
+    if (std::find(extruders.begin(), extruders.end(), extruder_id) == extruders.end())
+        extruders.push_back(extruder_id);
+}
+
+static std::vector<int> get_arrange_group_extruder_ids(ModelInstance* instance, const DynamicPrintConfig& config)
+{
+    std::vector<int> extruders;
+    ModelObject* obj = instance->get_object();
+
+    for (const ModelVolume* volume : obj->volumes) {
+        if (!volume->is_model_part())
+            continue;
+        for (int extruder_id : volume->get_extruders())
+            append_unique_extruder_id(extruders, extruder_id);
+    }
+
+    for (const auto& layer_range : obj->layer_config_ranges) {
+        if (!layer_range.second.has("extruder"))
+            continue;
+        const int extruder_id = layer_range.second.option("extruder")->getInt();
+        append_unique_extruder_id(extruders, extruder_id);
+    }
+
+    auto support_enabled_opt = obj->get_config_value<ConfigOptionBool>(config, "enable_support");
+    const bool support_enabled = support_enabled_opt && support_enabled_opt->getBool();
+    if (support_enabled) {
+        if (auto support_filament_opt = obj->get_config_value<ConfigOptionInt>(config, "support_filament"))
+            append_unique_extruder_id(extruders, support_filament_opt->getInt());
+        if (auto support_interface_filament_opt = obj->get_config_value<ConfigOptionInt>(config, "support_interface_filament"))
+            append_unique_extruder_id(extruders, support_interface_filament_opt->getInt());
+    }
+
+    if (extruders.empty())
+        append_unique_extruder_id(extruders, 1);
+
+    return extruders;
+}
 arrangement::ArrangePolygons get_arrange_polys(const Model &model, ModelInstancePtrs &instances)
 {
     size_t count = 0;
@@ -123,6 +167,7 @@ arrangement::ArrangePolygon get_arrange_poly(ModelInstance* inst, const Slic3r::
 ArrangePolygon get_instance_arrange_poly(ModelInstance* instance, const Slic3r::DynamicPrintConfig& config)
 {
     ArrangePolygon ap = get_arrange_poly(PtrWrapper{ instance }, config);
+    ap.arrange_group_extrude_ids = get_arrange_group_extruder_ids(instance, config);
 
     //BBS: add temperature information
     if (config.has("curr_bed_type")) {

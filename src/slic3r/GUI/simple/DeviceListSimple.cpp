@@ -1,4 +1,4 @@
-﻿#include "DeviceListSimple.hpp"
+#include "DeviceListSimple.hpp"
 
 #include "MCPChatPanel.hpp"
 
@@ -25,7 +25,7 @@
 #include <unordered_map>
 #include <set>
 #include <limits>
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include "slic3r/GUI/MsgDialog.hpp"
 #include "GLSimpleUtils.hpp"
 #include "slic3r/GUI/simple/SimpleModelMgr.hpp"
@@ -473,7 +473,12 @@ void Simple_Device_List_Data::manager_duplicate_deivce(std::pair<std::string, st
     }
     if (online_local_device_key.empty())
     {
-        auto local_key = cloud_local_pair.second[0];
+        if (cloud_local_pair.second.empty())
+            return;
+        // When all are offline, keep the last local entry (after an IP change the new
+        // entry comes later and better reflects the real state). This stays consistent
+        // with the current-device selection in DataCenter::_get_acive_device.
+        auto local_key = cloud_local_pair.second.back();
         datas[local_key].visible = true;
         if (!cloud_key.empty())
         {
@@ -922,8 +927,8 @@ bool SimpleDeviceMgr::get_cur_device_info(std::string& out_title,
                                           std::string& out_subtitle,
                                           std::string& out_icon_path)
 {
-    static const std::string default_title    = _u8L("Current No Device");
-    static const std::string default_subtitle = _u8L("Please add printer");
+    const std::string default_title    = _u8L("Current No Device");
+    const std::string default_subtitle = _u8L("Please add printer");
     static const std::string       default_icon     = Slic3r::resources_dir() + "/images/current_no_device_simple.svg";
 
     const DM::Device& cur_dev = DM::DataCenter::Ins().get_current_device_data();
@@ -1127,7 +1132,13 @@ void SimpleDeviceMgr::rebuild_device_list(Simple_Device_List_Data& out, const st
             if (current_device.valid)
                 is_current = current_device.mac == device.mac;
 
-            auto key_name = device.name.empty() ? (device.modelName + device.mac + device.address) : device.name;
+            // key_name must be unique. Using device.name alone makes the same device
+            // added twice with different IPs (same name, same MAC) produce identical
+            // key_names, which causes overwrites in datas(map) and online/offline(set),
+            // and pushes duplicate keys into mac_2_key_map so dedup fails, leaving the
+            // list showing duplicates or keeping the stale offline entry.
+            // Append mac + address to guarantee uniqueness (dedup still groups by mac).
+            auto key_name = (device.name.empty() ? device.modelName : device.name) + "_" + device.mac + "_" + device.address;
             if (device.deviceType == 1)
                 key_name += "_##CXYDevice##_" + std::to_string(std::rand());
 
@@ -1309,17 +1320,20 @@ void render_device_list_popup(GLCanvas3D& canvas, float /*x*/, float /*y*/, floa
         const std::string btn_label   = _u8L(" add printer");
         ImVec2            text_sz   = ImGui::CalcTextSize(btn_label.c_str());
 
-        const float win_w   = ImGui::GetWindowSize().x;
-        const float marginX = 12.0f * scale; // move link a bit left
-        float       start_x = win_w - text_sz.x - marginX;
-        if (start_x < 0.0f)
-            start_x = 0.0f;
+        const float content_left  = ImGui::GetWindowContentRegionMin().x;
+        const float content_right = ImGui::GetWindowContentRegionMax().x;
+        const float marginX       = 4.0f * scale;
+        //const float text_guard    = 5.0f * scale;
+        const float link_w        = text_sz.x;
+        float       start_x       = content_right - link_w - marginX;
+        if (start_x < content_left)
+            start_x = content_left;
 
         ImGui::SameLine();
         ImGui::SetCursorPosX(start_x);
 
         ImVec2 link_pos_screen = ImGui::GetCursorScreenPos();
-        ImGui::InvisibleButton("##select_remove_printers_simple", text_sz);
+        ImGui::InvisibleButton("##select_remove_printers_simple", ImVec2(link_w, text_sz.y));
         bool link_clicked = ImGui::IsItemClicked();
 
         ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -1409,10 +1423,10 @@ void render_device_list_popup(GLCanvas3D& canvas, float /*x*/, float /*y*/, floa
     const float pad      = 12.0f * scale;
     const float radius   = 8.0f  * scale;
     const float min_card_w = 150.0f * scale;
-    const float card_gap_x = 20.0f * scale;
+    const float card_gap_x = 16.0f * scale;
     const float cell_gap_x = 0.5f * card_gap_x;
     const float cell_gap_y = 8.0f * scale;
-    const float avail_w    = std::max(1.0f, ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize - 4.0f * scale);
+    const float avail_w    = std::max(1.0f, ImGui::GetContentRegionAvail().x);
     const int columns = std::min(3, std::max(1, static_cast<int>((avail_w + card_gap_x) / (min_card_w + card_gap_x))));
     const float card_w = std::max(min_card_w, (avail_w - card_gap_x * static_cast<float>(columns - 1)) / static_cast<float>(columns));
     const float img_w  = std::max(1.0f, card_w - pad);

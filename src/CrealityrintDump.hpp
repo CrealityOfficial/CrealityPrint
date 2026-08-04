@@ -11,7 +11,8 @@
 #include <wx/statline.h>
 #include <wx/filename.h>
 #include <filesystem>
-#include <GL/glew.h>
+#include <glad/gl.h>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <curl/curl.h>
 #include <iostream>

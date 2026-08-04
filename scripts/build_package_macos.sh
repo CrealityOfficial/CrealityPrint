@@ -55,16 +55,28 @@ if [ -z "$BUILD_TARGET" ]; then
 fi
 
 if [ -z "$SLICER_CMAKE_GENERATOR" ]; then
-  export SLICER_CMAKE_GENERATOR="Xcode"
+  export SLICER_CMAKE_GENERATOR="Ninja"
 fi
 
 if [ -z "$SLICER_BUILD_TARGET" ]; then
-  export SLICER_BUILD_TARGET="ALL_BUILD"
+  export SLICER_BUILD_TARGET="all"
 fi
 
 if [ -z "$DEPS_CMAKE_GENERATOR" ]; then
-  export DEPS_CMAKE_GENERATOR="Unix Makefiles"
+  export DEPS_CMAKE_GENERATOR="Ninja"
 fi
+
+if ! command -v ninja >/dev/null 2>&1; then
+    echo "Error: ninja is required for macOS builds."
+    exit 1
+fi
+if ! command -v ccache >/dev/null 2>&1; then
+    echo "Error: ccache is required for macOS builds."
+    exit 1
+fi
+CCACHE_PROGRAM="$(command -v ccache)"
+export CCACHE_BASEDIR="${CCACHE_BASEDIR:-$(pwd)}"
+export CCACHE_NOHASHDIR="${CCACHE_NOHASHDIR:-true}"
 
 if [ -z "$OSX_DEPLOYMENT_TARGET" ]; then
   export OSX_DEPLOYMENT_TARGET="11.3"
@@ -97,9 +109,19 @@ echo " - ARCH: $ARCH"
 echo " - BUILD_CONFIG: $BUILD_CONFIG"
 echo " - BUILD_TARGET: $BUILD_TARGET"
 echo " - CMAKE_GENERATOR: $SLICER_CMAKE_GENERATOR for Slicer, $DEPS_CMAKE_GENERATOR for deps"
+echo " - CCACHE: $CCACHE_PROGRAM"
+echo " - CCACHE_DIR: ${CCACHE_DIR:-$HOME/.cache/ccache}"
 echo " - OSX_DEPLOYMENT_TARGET: $OSX_DEPLOYMENT_TARGET"
 echo " - SLICER_BUILD_TARGET=$SLICER_BUILD_TARGET"
 echo " - BUILD_TARGET=$BUILD_TARGET"
+
+REBUILD_DEPS_REQUESTED=0
+case "${REBUILD_DEPS:-0}" in
+    1|true|TRUE|yes|YES|on|ON)
+        REBUILD_DEPS_REQUESTED=1
+        ;;
+esac
+echo " - REBUILD_DEPS=$REBUILD_DEPS_REQUESTED"
 
 
 PROJECT_DIR="$(pwd)" #"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -121,13 +143,39 @@ fi
 # 读取环境变量 MY_DIR
 DEPS_PATH=$DEPS_ENV_DIR
 if [ -z "${DEPS_PATH}" ]; then
-    echo "env ${DEPS_PATH} is empty."
-    export BUILD_TARGET="all"
+    echo "DEPS_ENV_DIR is empty, use workspace deps."
 else
     DEPS=$DEPS_PATH
+fi
+if [ "$REBUILD_DEPS_REQUESTED" = "1" ]; then
+    export BUILD_TARGET="all"
+elif [ ! -d "$DEPS/usr/local" ]; then
+    echo "Deps directory is missing, build deps: $DEPS"
+    export BUILD_TARGET="all"
+else
     export BUILD_TARGET="slicer"
 fi
 echo "=====DEPS=====: $DEPS"
+
+function reset_build_dir_on_generator_change() {
+    local build_dir="$1"
+    local expected_generator="$2"
+    local cache_file="$build_dir/CMakeCache.txt"
+
+    if [ ! -f "$cache_file" ]; then
+        return
+    fi
+
+    local cached_generator
+    cached_generator="$(sed -n 's/^CMAKE_GENERATOR:INTERNAL=//p' "$cache_file" | head -n 1)"
+    if [ -n "$cached_generator" ] && [ "$cached_generator" != "$expected_generator" ]; then
+        echo "CMake generator changed from $cached_generator to $expected_generator; cleaning $build_dir"
+        rm -rf "$build_dir"
+    fi
+}
+
+reset_build_dir_on_generator_change "$PROJECT_BUILD_DIR" "$SLICER_CMAKE_GENERATOR"
+reset_build_dir_on_generator_change "$DEPS_BUILD_DIR" "$DEPS_CMAKE_GENERATOR"
 
 #DEPS_PATH="/Users/creality/Orca_work/c3d_6.0/C3DSlicer/deps/build_x86_64/dep_x86_64"
 
@@ -138,9 +186,10 @@ function build_deps() {
         set -x
         
         # Clean deps build directory if requested
-        if [ "$CLEAN_BUILD" = true ]; then
+        if [ "$CLEAN_BUILD" = true ] || [ "$REBUILD_DEPS_REQUESTED" = "1" ]; then
             echo "🧹 Cleaning deps build directory: $DEPS_BUILD_DIR"
             rm -rf "$DEPS_BUILD_DIR"
+            rm -rf "$DEPS"
             echo "✓ Deps build directory cleaned"
         fi
         
@@ -152,6 +201,8 @@ function build_deps() {
                 -DDESTDIR="$DEPS" \
                 -DOPENSSL_ARCH="darwin64-${ARCH}-cc" \
                 -DCMAKE_BUILD_TYPE="$BUILD_CONFIG" \
+                -DCMAKE_C_COMPILER_LAUNCHER="$CCACHE_PROGRAM" \
+                -DCMAKE_CXX_COMPILER_LAUNCHER="$CCACHE_PROGRAM" \
                 -DCMAKE_OSX_ARCHITECTURES:STRING="${ARCH}" \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET="${OSX_DEPLOYMENT_TARGET}"
         fi
@@ -482,6 +533,8 @@ function build_slicer() {
                 -DCMAKE_PREFIX_PATH="$DEPS/usr/local" \
                 -DCMAKE_INSTALL_PREFIX="$PWD/CrealityPrint" \
                 -DCMAKE_BUILD_TYPE="$BUILD_CONFIG" \
+                -DCMAKE_C_COMPILER_LAUNCHER="$CCACHE_PROGRAM" \
+                -DCMAKE_CXX_COMPILER_LAUNCHER="$CCACHE_PROGRAM" \
                 -DCMAKE_MACOSX_RPATH=ON \
                 -DCMAKE_INSTALL_RPATH="${DEPS}/usr/local" \
                 -DCMAKE_MACOSX_BUNDLE=ON \
@@ -530,3 +583,4 @@ case "${BUILD_TARGET}" in
         ;;
 esac
 
+"$CCACHE_PROGRAM" --show-stats || true

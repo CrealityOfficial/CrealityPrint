@@ -790,15 +790,17 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
         gridsizer_simple->Add(m_new.back(),0);
     }
 
+    m_sizer_simple->Add(gridsizer_simple, 0, wxEXPAND | wxALL, FromDIP(10));
+
     m_sizer = new wxBoxSizer(wxVERTICAL);
     m_sizer->Add(m_page_simple, 0, wxEXPAND, 0);
     m_sizer->Add(m_page_advanced, 0, wxEXPAND, 0);
 
-    m_sizer->SetSizeHints(this);
     SetSizer(m_sizer);
-    this->Layout();
 
     toggle_advanced(); // to show/hide what is appropriate
+    m_sizer->SetSizeHints(this);
+    this->Layout();
     
     header_line_panel->Bind(wxEVT_PAINT, [this](wxPaintEvent&) {
         wxPaintDC dc(header_line_panel);

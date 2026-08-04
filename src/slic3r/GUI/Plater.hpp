@@ -155,9 +155,10 @@ public:
     void sys_color_changed();
     void search();
     void jump_to_option(size_t selected);
+    void jump_to_option(const std::string& opt_key);
     void jump_to_option(const std::string& opt_key, Preset::Type type, const std::wstring& category);
     // BBS. Add on_filaments_change() method.
-    void on_filaments_change(size_t num_filaments);
+    void on_filaments_change(size_t num_filaments, int deleted_filament_id = -1);
     void add_filament();
     void delete_filament(size_t filament_id = size_t(-1), int replace_filament_id = -1);    // 0 base, -1 means default
     void add_custom_filament(wxColour new_col);
@@ -623,7 +624,7 @@ public:
     // BBS: return false if not changed
     bool leave_gizmos_stack();
 
-    void on_filaments_change(size_t extruders_count);
+    void on_filaments_change(size_t extruders_count, int deleted_filament_id = -1);
 
     void on_filaments_delete(size_t extruders_count, size_t filament_id, int replace_filament_id = -1);
     // BBS
@@ -1036,7 +1037,7 @@ private:
 };
 std::string      check_boolean_possible(const std::vector<const ModelVolume *> &volumes, csg::BooleanFailReason& fail_reason);
 std::vector<int> get_min_flush_volumes(const DynamicPrintConfig& full_config);
-bool             sync_skeleton_flush_matrix_to_filaments(DynamicConfig& project_config, const std::vector<std::string>& extruder_colours);
+bool             sync_skeleton_flush_matrix_to_filaments(DynamicConfig& project_config, const std::vector<std::string>& extruder_colours, int deleted_filament_id = -1);
 } // namespace GUI
 } // namespace Slic3r
 

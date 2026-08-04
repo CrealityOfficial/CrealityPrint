@@ -11,7 +11,7 @@
 #include "slic3r/GUI/GUI_Preview.hpp"
 #include "slic3r/Utils/TestHelper.hpp"
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #define SHORT_TYPE_POSITION_SCALE (50.0)
 #define SHORT_TYPE_POSITION_SCALE_INVERSE (1.0 / SHORT_TYPE_POSITION_SCALE)
@@ -799,21 +799,6 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
     // Import gcode file, preview using normal mode (no lite mode)
     bool is_lite_mode_cfg = (wxGetApp().app_config->get_bool("gcode_preview_lite_mode") && (!m_only_gcode_in_preview));
 
-    // Auto enable lite mode on Linux if memory is tight or preview is huge.
-#if defined(__linux__)
-    {
-        size_t avail_bytes = Slic3r::available_physical_memory();
-        size_t total_bytes = Slic3r::total_physical_memory();
-        const size_t moves_count_local = gcode_result.moves.size();
-        const size_t avail_threshold_bytes = size_t(2) * size_t(1024) * size_t(1024) * size_t(1024); // 2 GB
-        const bool low_available = (avail_bytes > 0 && avail_bytes < avail_threshold_bytes);
-        const bool low_ratio     = (total_bytes > 0 && avail_bytes > 0 && (double)avail_bytes / (double)total_bytes < 0.125);
-        const bool huge_preview  = (moves_count_local > 2000000);
-        if (!m_only_gcode_in_preview && (low_available || low_ratio || huge_preview))
-            is_lite_mode_cfg = true;
-    }
-#endif
-
     const bool is_lite_mode = m_is_lite_mode = is_lite_mode_cfg;
 
     unsigned int progress_count = 0;
@@ -992,11 +977,11 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
         // BBS: get the point number and then judge whether the remaining buffer is enough
         size_t points_num = curr.is_arc_move_with_interpolation_points() ? curr.interpolation_points.size() + 1 : 1;
         size_t vertices_size_to_add = (t_buffer.render_primitive_type == TBuffer::ERenderPrimitiveType::BatchedModel) ? t_buffer.model.data.vertices_size_bytes() : points_num * t_buffer.max_vertices_per_segment_size_bytes();
-        if (v_multibuffer.empty()) { // <--- Ö»ÔÚÕâÀïÌí¼ÓÈÕÖ¾Âß¼­
-            // --- ¼ì²âµ½ÖÂÃü´íÎó£º¼´½«·ÃÎÊ¿Õ vector µÄ back() ---
+        if (v_multibuffer.empty()) { // <--- Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ß¼ï¿½
+            // --- ï¿½ï¿½âµ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ó£º¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¿ï¿½ vector ï¿½ï¿½ back() ---
             std::ostringstream error_msg;
-            // »ñÈ¡¾¡¿ÉÄÜ¶àµÄÏà¹ØÉÏÏÂÎÄÐÅÏ¢
-            const GCodeProcessorResult::MoveVertex& prev = gcode_result.moves[i - 1]; // È·±£ i > 0
+            // ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ü¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+            const GCodeProcessorResult::MoveVertex& prev = gcode_result.moves[i - 1]; // È·ï¿½ï¿½ i > 0
             error_msg << "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
                       << __FUNCTION__ << ": IMMINENT CRASH DETECTED!"<< ")\n"
                       << "Reason: v_multibuffer is unexpectedly EMPTY right before accessing back().size()!\n"
@@ -1006,13 +991,13 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
                       << "---------------- Context Information -----------------\n"
                       << "Loop Index (i): " << i
                       << "\n"
-                      // << "Move ID (move_id): " << move_id << "\n" // Èç¹û move_id ÔÚ´Ë×÷ÓÃÓò¿ÉÓÃ
+                      // << "Move ID (move_id): " << move_id << "\n" // ï¿½ï¿½ï¿½ move_id ï¿½Ú´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                       << "Buffer ID (id): " << (int) id << "\n"
                       << "Overall State: vertices.size()=" << vertices.size() << ", m_buffers.size()=" << m_buffers.size()
                       << "\n"
                       // << "Target TBuffer Info: render_primitive_type=" << static_cast<int>(t_buffer.render_primitive_type) << "\n" //
-                      // Èç¹û t_buffer ¿ÉÓÃ
-                      // << "Calculated vertices_size_to_add: " << vertices_size_to_add << "\n" // Èç¹û vertices_size_to_add ¿ÉÓÃ
+                      // ï¿½ï¿½ï¿½ t_buffer ï¿½ï¿½ï¿½ï¿½
+                      // << "Calculated vertices_size_to_add: " << vertices_size_to_add << "\n" // ï¿½ï¿½ï¿½ vertices_size_to_add ï¿½ï¿½ï¿½ï¿½
                       << "--- Current Move (curr) ---\n"
                       << "  Type: " << static_cast<int>(curr.type) << " (" << buffer_id(curr.type) << ")\n"
                       << "  Position: (" << curr.position.x() << ", " << curr.position.y() << ", " << curr.position.z() << ")\n"
@@ -1022,10 +1007,10 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
                       << "  Position: (" << prev.position.x() << ", " << prev.position.y() << ", " << prev.position.z() << ")\n"
                       << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
 
-            // 1. Ê¹ÓÃÈÕÖ¾¿â¼ÇÂ¼´íÎó (FATAL ¼¶±ð)
+            // 1. Ê¹ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ (FATAL ï¿½ï¿½ï¿½ï¿½)
             BOOST_LOG_TRIVIAL(error) << error_msg.str();
 
-            // 2. Ç¿ÖÆË¢ÐÂÈÕÖ¾¿â»º³åÇø (¹Ø¼ü²½Öè)
+            // 2. Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½â»ºï¿½ï¿½ï¿½ï¿½ (ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½)
             BOOST_LOG_TRIVIAL(warning) << "Attempting to flush logs before expected crash...";
             try {
                 boost::log::core::get()->flush();
@@ -1036,7 +1021,7 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
                 BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": FAILED TO INITIATE LOG FLUSH! Unknown exception.";
             }
 
-            // 3. ¶ÌÔÝÑÓ³Ù£¬¸øÈÕÖ¾Ð´ÈëÁô³öÊ±¼ä (²»×èÈûºóÌ¨ÈÕÖ¾Ïß³Ì)
+            // 3. ï¿½ï¿½ï¿½ï¿½ï¿½Ó³Ù£ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½Ö¾ï¿½ß³ï¿½)
             const int delay_ms = 1000;
             BOOST_LOG_TRIVIAL(info) << "Introducing " << delay_ms << "ms delay to aid log writing...";
             std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
@@ -1052,7 +1037,7 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
                 BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": FAILED TO INITIATE LOG FLUSH! Unknown exception.";
             }
 
-            // 4. ²»×öÈÎºÎ×èÖ¹£¬ÈÃ´úÂë×ÔÈ»Ö´ÐÐµ½ÏÂÒ»ÐÐµ¼ÖÂ±ÀÀ£
+            // 4. ï¿½ï¿½ï¿½ï¿½ï¿½Îºï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½È»Ö´ï¿½Ðµï¿½ï¿½ï¿½Ò»ï¿½Ðµï¿½ï¿½Â±ï¿½ï¿½ï¿½
             BOOST_LOG_TRIVIAL(error) << ">>> Now executing the line expected to crash <<<";
 
         }   
@@ -2089,7 +2074,8 @@ void LegacyRenderer::refresh_render_paths(bool keep_sequential_current_first, bo
                 if (m_view_type == EViewType::ColorPrint && !m_tools.m_tool_visibles[path.extruder_id])
                     continue;
 
-                if (show_surface && role_been_filtered_in_lite_mode(path.role))
+				// some path type = Travel and role = erSolidInfill should not be filtered
+                if (show_surface && path.type == EMoveType::Extrude && role_been_filtered_in_lite_mode(path.role))
                     continue;
 
                 if (enable_preview_lod) {
@@ -2739,7 +2725,7 @@ void LegacyRenderer::render(int canvas_width, int canvas_height)
 
     bool empty_roles = m_roles.empty();
     bool ban_shells_render = false;
-    if (wxGetApp().preset_bundle->machine_is_belt() && empty_roles) // Â·¾¶Ã»äÖÈ¾Íê³ÉÊ±£¬cr30½ûÖ¹ÏÔÊ¾°ëÍ¸Ã÷ÂÖÀª
+    if (wxGetApp().preset_bundle->machine_is_belt() && empty_roles) // Â·ï¿½ï¿½Ã»ï¿½ï¿½È¾ï¿½ï¿½ï¿½Ê±ï¿½ï¿½cr30ï¿½ï¿½Ö¹ï¿½ï¿½Ê¾ï¿½ï¿½Í¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         ban_shells_render = true;
 
     if (!ban_shells_render)

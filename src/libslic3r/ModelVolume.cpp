@@ -5,6 +5,7 @@
 #include "Model.hpp"
 #include "Print.hpp"
 
+#include <algorithm>
 #include <map>
 #include <boost/log/trivial.hpp>
 
@@ -103,16 +104,28 @@ std::vector<int> ModelVolume::get_extruders() const
         return std::vector<int>();
 
     if (mmu_segmentation_facets.timestamp() != mmuseg_ts) {
-        std::vector<indexed_triangle_set> its_per_type;
         mmuseg_extruders.clear();
         mmuseg_ts = mmu_segmentation_facets.timestamp();
-        mmu_segmentation_facets.get_facets(*this, its_per_type);
-        for (int idx = 1; idx < its_per_type.size(); idx++) {
-            indexed_triangle_set& its = its_per_type[idx];
-            if (its.indices.empty())
-                continue;
 
-            mmuseg_extruders.push_back(idx);
+        // This query only needs the used state IDs. Rebuilding a complete
+        // indexed mesh for every possible state is prohibitively expensive
+        // for large models and became much worse when the state range grew
+        // from 16 to 255.
+        const TriangleSelector::TriangleSplittingData& facet_data = mmu_segmentation_facets.get_data();
+        const std::vector<bool>* used_states = &facet_data.used_states;
+        TriangleSelector::TriangleSplittingData recovered_states;
+        if (!mmu_segmentation_facets.empty() && !facet_data.bitstream.empty() &&
+            std::none_of(used_states->begin(), used_states->end(), [](bool used) { return used; })) {
+            // Compatibility fallback for annotations serialized before the
+            // used-state cache existed. Decode the compact bitstream once.
+            recovered_states = facet_data;
+            recovered_states.reset_used_states();
+            recovered_states.update_used_states(recovered_states.triangles_to_split.front().bitstream_start_idx);
+            used_states = &recovered_states.used_states;
+        }
+        for (size_t idx = 1; idx < used_states->size(); ++idx) {
+            if ((*used_states)[idx])
+                mmuseg_extruders.push_back(static_cast<int>(idx));
         }
     }
 
@@ -505,7 +518,39 @@ void FacetsAnnotation::get_facets(const ModelVolume& mv, std::vector<indexed_tri
 {
     TriangleSelector selector(mv.mesh());
     selector.deserialize(m_data, false);
-    selector.get_facets(facets_per_type);
+
+    // Keep the output indexed by the full state range, but only rebuild meshes
+    // for states that are actually present. Iterating every possible state made
+    // this path scan the complete model 256 times after ExtruderMax was raised
+    // from 16 to 255, even when the model used only one or two colors.
+    const size_t state_count = static_cast<size_t>(EnforcerBlockerType::ExtruderMax) + 1;
+    facets_per_type.clear();
+    facets_per_type.resize(state_count);
+    facets_per_type[static_cast<size_t>(EnforcerBlockerType::NONE)] = selector.get_facets(EnforcerBlockerType::NONE);
+
+    const std::vector<bool>* used_states = &m_data.used_states;
+    TriangleSelector::TriangleSplittingData recovered_states;
+    const bool used_states_missing = !this->empty() &&
+        std::none_of(used_states->begin(), used_states->end(), [](bool used) { return used; });
+    if (used_states_missing && !m_data.bitstream.empty()) {
+        // Compatibility fallback for annotations serialized without a valid
+        // used-state index. Decode the compact bitstream once.
+        recovered_states = m_data;
+        recovered_states.reset_used_states();
+        recovered_states.update_used_states(recovered_states.triangles_to_split.front().bitstream_start_idx);
+        used_states = &recovered_states.used_states;
+    } else if (used_states_missing) {
+        // Preserve the legacy behavior for malformed annotations that cannot
+        // rebuild their state index. This is intentionally the slow path.
+        selector.get_facets(facets_per_type);
+        return;
+    }
+
+    const size_t end = std::min(state_count, used_states->size());
+    for (size_t state = 1; state < end; ++state) {
+        if ((*used_states)[state])
+            facets_per_type[state] = selector.get_facets(static_cast<EnforcerBlockerType>(state));
+    }
 }
 
 void FacetsAnnotation::set_enforcer_block_type_limit(const ModelVolume& mv,
@@ -555,6 +600,7 @@ bool FacetsAnnotation::set(const TriangleSelector& selector)
 void FacetsAnnotation::reset()
 {
     m_data.triangles_to_split.clear();
+    m_data.reset_used_states();
     m_data.bitstream.clear();
     this->touch();
 }

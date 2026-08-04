@@ -15,12 +15,21 @@ import appdirs
 from typing import Dict
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool
 https_adapter = requests.adapters.HTTPAdapter(pool_connections=2, pool_maxsize=5)
+USER_AGENT_SUFFIX = "(dark) Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36 Edg/107.0.1418.52"
 
 def _generateDUID() -> str:
     return str(uuid.uuid1())[-12:]
 
-def getCommonHeaders() -> Dict[str, str]:
+def getUserAgent(app_version: str) -> str:
+    version = app_version.strip()
+    if not version:
+        raise ValueError("app_version is required")
+    normalized_version = version if version.startswith("v") else f"v{version}"
+    return f"Creality-Slicer/{normalized_version} {USER_AGENT_SUFFIX}"
+
+def getCommonHeaders(app_version: str) -> Dict[str, str]:
     headers = {
+        "User-Agent": getUserAgent(app_version),
         "Content-Type": "application/json; charset=UTF-8",
         "__CXY_APP_ID_": "creality_model",
         "__CXY_OS_LANG_": "0",
@@ -49,7 +58,7 @@ def processLocalParamPack(working_path, build_type, engine_type, engine_version)
             shutil.rmtree(default_path)
         shutil.copytree(os.path.join(working_path, "resources", "sliceconfig", server_path_prefix), default_path)    
         print("use local parampack:"+os.path.join(working_path, "resources", "sliceconfig", server_path_prefix))     
-def downloadParamPack(working_path, build_type, engine_type, engine_version) -> None:
+def downloadParamPack(working_path, build_type, engine_type, engine_version, app_version) -> None:
     server_path_prefixes = ["server_0"]
     base_urls = ['https://api.crealitycloud.cn/', 'https://api.crealitycloud.com/']
     base_alpha_urls = ['https://admin-pre.crealitycloud.cn/', 'https://admin-pre.crealitycloud.cn/']
@@ -72,7 +81,7 @@ def downloadParamPack(working_path, build_type, engine_type, engine_version) -> 
             
             response = requests.post(
                 base_url + "api/cxy/v2/slice/profile/official/printerList", data=json.dumps({"engineVersion": engine_version}), 
-                headers=getCommonHeaders()).text
+                headers=getCommonHeaders(app_version)).text
             response = json.loads(response)
             print(str(response))
             if (response["code"] == 0):
@@ -86,6 +95,7 @@ def downloadParamPack(working_path, build_type, engine_type, engine_version) -> 
                 printer_list = response["result"]["printerList"]
                 session = requests.Session()
                 session.mount('https://', https_adapter)
+                session.headers.update({"User-Agent": getUserAgent(app_version)})
                 #session2 = requests.Session()
                 for printer in printer_list:
                     zip_url = printer['zipUrl']
@@ -130,7 +140,7 @@ def downloadParamPack(working_path, build_type, engine_type, engine_version) -> 
         try:
             response = requests.post(
                 base_url + "api/cxy/v2/slice/profile/official/materialList", data=json.dumps({"engineVersion": engine_version, "pageSize": 1000}), 
-                headers=getCommonHeaders()).text
+                headers=getCommonHeaders(app_version)).text
             response = json.loads(response)
             if (response["code"] == 0):
                 file_path = os.path.join(default_path, "materialList.json")
@@ -160,4 +170,4 @@ def downloadParamPack(working_path, build_type, engine_type, engine_version) -> 
 
 
 # if __name__ == "__main__":
-#     downloadParamPack("D:\\work\\c3d_5.0.2\\c3d","Release", "orca", "1.6.0")
+#     downloadParamPack("D:\\work\\c3d_5.0.2\\c3d", "Release", "orca", "1.6.0", "7.2.0.5226")

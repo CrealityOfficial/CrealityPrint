@@ -1,0 +1,12 @@
+diff --git a/build/cmake/setup.h.in b/build/cmake/setup.h.in
+--- a/build/cmake/setup.h.in
++++ b/build/cmake/setup.h.in
+@@ -156,6 +156,8 @@
+ 
+ #cmakedefine01 wxUSE_THREADS
+ 
++#define wxUSE_COMPILER_TLS 1
++
+ #cmakedefine01 wxUSE_STREAMS
+ 
+ #cmakedefine01 wxUSE_PRINTF_POS_PARAMS

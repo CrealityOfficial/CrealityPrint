@@ -6,6 +6,17 @@ import ParamPackUtil
 import json
 from PIL import Image
 from datetime import datetime
+
+DEPRECATED_FILAMENT_KEYS = {
+    "dont_slow_down_outer_wall",
+}
+
+DEPRECATED_PROCESS_KEYS = {
+    "wall_filament",
+    "solid_infill_filament",
+    "sparse_infill_filament",
+}
+
 def delete_json_folder(directory_path):
     print(directory_path)
     for file_name in os.listdir(directory_path):
@@ -337,6 +348,8 @@ def process_process_json(printer,package_path, out_path):
                     del process_data["has_scarf_joint_seam"]
                 if "arc_tolerance" in process_data:
                     del process_data["arc_tolerance"]
+                for key in DEPRECATED_PROCESS_KEYS:
+                    process_data.pop(key, None)
                 if "ensure_vertical_shell_thickness" in process_data:
                     if process_data["ensure_vertical_shell_thickness"] == "1" or process_data["ensure_vertical_shell_thickness"] == "true":
                         process_data["ensure_vertical_shell_thickness"] = "ensure_all"
@@ -376,6 +389,8 @@ def process_filament_json(printer,package_path, out_path):
             with open(filament_json_file, 'r',encoding='utf-8') as file:
                 data = json.load(file)
                 filament_data.update(data["engine_data"])
+                for key in DEPRECATED_FILAMENT_KEYS:
+                    filament_data.pop(key, None)
                 filament_data["filament_id"] = data["metadata"]["id"]
                 machine_profile_name = printer["name"].strip()+" "+printer["nozzleDiameter"][0]+" nozzle"
                 basename = os.path.splitext(filename)[0]
@@ -412,6 +427,16 @@ def process_filament_json(printer,package_path, out_path):
                     filament_data["inherits"] = "fdm_filament_pa"
                 elif filament_type == "HIPS":
                     filament_data["inherits"] = "fdm_filament_hips"
+                elif filament_type == "ABS-CF":
+                    filament_data["inherits"] = "fdm_filament_abs"
+                elif filament_type == "PETG-GF":
+                    filament_data["inherits"] = "fdm_filament_petg"
+                elif filament_type == "PC-CF":
+                    filament_data["inherits"] = "fdm_filament_pc"
+                elif filament_type == "ABS-FR":
+                    filament_data["inherits"] = "fdm_filament_abs"
+                elif filament_type == "PLA-GF":
+                    filament_data["inherits"] = "fdm_filament_pla"
                 elif filament_type == "BVOH":
                     filament_data["inherits"] = "fdm_filament_common"
                     filament_data["filament_adhesiveness_category"] = "797"
@@ -535,10 +560,11 @@ def main():
     build_type = 'Beta'
     engine_type = 'orca'
     engine_version = '2.2.3'
+    app_version = '7.2.0.5226'
     use_local_package = 0
     argv = sys.argv[1:]
     try:
-        opts, args = getopt.getopt(argv, '-d-c-t:-b:-n:-p:')
+        opts, args = getopt.getopt(argv, '-d-c-t:-b:-n:-p:-v:')
         print("getopt.getopt -> :" + str(opts))
     except getopt.GetoptError:
         print("create.py -t <type>")
@@ -550,9 +576,11 @@ def main():
             engine_version = arg
         if opt in ('-p'):
             use_local_package = arg
+        if opt in ('-v'):
+            app_version = arg
     working_path = working_path_from_ci(sys.path[0])
     print("[cmake/ci] working path :" + working_path)
-    ParamPackUtil.downloadParamPack(working_path, build_type, engine_type, engine_version)
+    ParamPackUtil.downloadParamPack(working_path, build_type, engine_type, engine_version, app_version)
     make_parameter_package(0, engine_version)
     #make_parameter_package(1)
 

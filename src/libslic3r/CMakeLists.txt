@@ -332,6 +332,8 @@ set(lisbslic3r_sources
     Preset.hpp
     PresetBundle.cpp
     PresetBundle.hpp
+    PresetConfigCache.cpp
+    PresetConfigCache.hpp
     ProjectTask.cpp
     ProjectTask.hpp
     PrincipalComponents2D.hpp
@@ -725,7 +727,29 @@ endif()
 
 if(NOT BUILD_CLOUD_SLICER)
     if(NOT WIN32)
-        target_link_libraries(libslic3r freetype)
+        find_package(Freetype QUIET)
+        if(NOT TARGET Freetype::Freetype AND NOT TARGET freetype)
+            find_package(freetype CONFIG QUIET)
+        endif()
+        set(_slic3r_freetype_lib freetype)
+        if(TARGET Freetype::Freetype)
+            set(_slic3r_freetype_lib Freetype::Freetype)
+        elseif(TARGET freetype)
+            set(_slic3r_freetype_lib freetype)
+        elseif(FREETYPE_LIBRARIES)
+            set(_slic3r_freetype_lib ${FREETYPE_LIBRARIES})
+        else()
+            find_library(SLIC3R_FREETYPE_LIBRARY
+                NAMES freetype
+                PATHS ${CMAKE_PREFIX_PATH}
+                PATH_SUFFIXES lib
+                NO_DEFAULT_PATH
+            )
+            if(SLIC3R_FREETYPE_LIBRARY)
+                set(_slic3r_freetype_lib ${SLIC3R_FREETYPE_LIBRARY})
+            endif()
+        endif()
+        target_link_libraries(libslic3r ${_slic3r_freetype_lib})
         if (NOT APPLE)
             execute_process(
                 COMMAND bash -c "source /etc/os-release && echo $VERSION_ID"

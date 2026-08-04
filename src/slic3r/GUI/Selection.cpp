@@ -1,4 +1,4 @@
-﻿#include "libslic3r/libslic3r.h"
+#include "libslic3r/libslic3r.h"
 #include "Selection.hpp"
 
 #include "3DScene.hpp"
@@ -27,7 +27,7 @@
 #include "libslic3r/BuildVolume.hpp"
 #endif // ENABLE_ENHANCED_PRINT_VOLUME_FIT
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/log/trivial.hpp>

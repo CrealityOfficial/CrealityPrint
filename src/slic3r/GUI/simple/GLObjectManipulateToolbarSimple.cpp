@@ -1,4 +1,4 @@
-﻿#include "libslic3r/libslic3r.h"
+#include "libslic3r/libslic3r.h"
 #include "SupportSimple.hpp"
 #include "DeviceListSimple.hpp"
 #include "GLCanvas3D.hpp"
@@ -61,7 +61,7 @@
 #include "slic3r/Utils/RetinaHelper.hpp"
 #endif
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 #include <wx/glcanvas.h>
 #include <wx/bitmap.h>

@@ -626,7 +626,7 @@ StringObjectException SLAPrint::validate(StringObjectException *exception, Polyg
            mo->sla_points_status == sla::PointsStatus::UserModified &&
            mo->sla_support_points.empty())
             return {L("Cannot proceed without support points! "
-                     "Add support points or disable support generation."), po};
+                     "Add support points or disable support generation."), po, "supports_enable"};
 
         sla::SupportTreeConfig cfg = make_support_cfg(po->config());
 
@@ -638,7 +638,7 @@ StringObjectException SLAPrint::validate(StringObjectException *exception, Polyg
         if(supports_en && !builtinpad.enabled && elv < cfg.head_fullwidth())
             return {L(
                 "Elevation is too low for object. Use the \"Pad around "
-                "object\" feature to print the object without elevation."), po};
+                "object\" feature to print the object without elevation."), po, "pad_around_object"};
 
         if(supports_en && builtinpad.enabled &&
            cfg.pillar_base_safety_distance_mm < builtinpad.object_gap_mm) {
@@ -646,11 +646,11 @@ StringObjectException SLAPrint::validate(StringObjectException *exception, Polyg
                 "The endings of the support pillars will be deployed on the "
                 "gap between the object and the pad. 'Support base safety "
                 "distance' has to be greater than the 'Pad object gap' "
-                "parameter to avoid this."), po};
+                "parameter to avoid this."), po, "support_base_safety_distance"};
         }
 
         std::string pval = padcfg.validate();
-        if (!pval.empty()) return {pval, po};
+        if (!pval.empty()) return {pval, po, "pad_brim_size"};
     }
 
     double expt_max = m_printer_config.max_exposure_time.getFloat();
@@ -658,14 +658,14 @@ StringObjectException SLAPrint::validate(StringObjectException *exception, Polyg
     double expt_cur = m_material_config.exposure_time.getFloat();
 
     if (expt_cur < expt_min || expt_cur > expt_max)
-        return {L("Exposition time is out of printer profile bounds.")};
+        return {L("Exposition time is out of printer profile bounds."), nullptr, "exposure_time"};
 
     double iexpt_max = m_printer_config.max_initial_exposure_time.getFloat();
     double iexpt_min = m_printer_config.min_initial_exposure_time.getFloat();
     double iexpt_cur = m_material_config.initial_exposure_time.getFloat();
 
     if (iexpt_cur < iexpt_min || iexpt_cur > iexpt_max)
-        return {L("Initial exposition time is out of printer profile bounds.")};
+        return {L("Initial exposition time is out of printer profile bounds."), nullptr, "initial_exposure_time"};
 
     return {};
 }
