@@ -12166,6 +12166,18 @@ void GUI_App::MacOpenURL(const wxString& url)
 {
     if (url.empty())
         return;
+    
+    // Fix for macOS cold start: If not yet post-initialized, store the URL in 
+    // init_params->input_files so that post_init() will detect it and set 
+    // switch_to_3d = true. This prevents trigger_restore_project() from calling 
+    // new_project() which would clear the model that will be loaded from this URL.
+    // This makes macOS behavior consistent with Windows.
+    if (!m_post_initialized) {
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": cold start detected, storing URL to init_params: " << url.ToStdString();
+        this->init_params->input_files.emplace_back(into_u8(url));
+        return;  // post_init() will call start_download() for us
+    }
+    
     start_download(boost::nowide::narrow(url));
 }
 
