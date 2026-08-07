@@ -515,14 +515,12 @@ if (WIN32)
     install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/MicrosoftEdgeSetup.exe DESTINATION ".")
     set(_webview2_offline_installer
         "${CMAKE_SOURCE_DIR}/package/runtime/MicrosoftEdgeWebView2RuntimeInstallerX64.exe")
-    if (EXISTS "${_webview2_offline_installer}")
+    if (CREALITYPRINT_REQUIRE_OFFLINE_WEBVIEW2_INSTALLER)
+        # Preserve the historical behavior: clean source checkouts configure,
+        # while install fails if the required packaging input is still absent.
         install(FILES "${_webview2_offline_installer}" DESTINATION ".")
-    elseif (CREALITYPRINT_REQUIRE_OFFLINE_WEBVIEW2_INSTALLER)
-        message(FATAL_ERROR
-            "Required offline WebView2 Runtime installer is missing: "
-            "${_webview2_offline_installer}. Supply the packaging input or "
-            "explicitly set CREALITYPRINT_REQUIRE_OFFLINE_WEBVIEW2_INSTALLER=OFF "
-            "for a developer source install without offline WebView2 recovery.")
+    elseif (EXISTS "${_webview2_offline_installer}")
+        install(FILES "${_webview2_offline_installer}" DESTINATION ".")
     else ()
         message(WARNING
             "Offline WebView2 Runtime installer is not present. The WebView2 "

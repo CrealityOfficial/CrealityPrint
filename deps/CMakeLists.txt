@@ -164,7 +164,9 @@ function(orcaslicer_add_cmake_project projectname)
                 CMAKE_GENERATOR_INSTANCE "${CMAKE_GENERATOR_INSTANCE}")
         endif ()
 
-        set(_build_native_args -- "/p:CL_MPCount=${CREALITYPRINT_BUILD_JOBS}")
+        if (CMAKE_GENERATOR MATCHES "^Visual Studio ")
+            set(_build_native_args -- "/p:CL_MPCount=${CREALITYPRINT_BUILD_JOBS}")
+        endif ()
     endif ()
 
 if (NOT IS_CROSS_COMPILE OR NOT APPLE)

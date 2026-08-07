@@ -71,7 +71,6 @@ orcaslicer_add_cmake_project(
         3rdparty/libwebp
         3rdparty/lunasvg
         3rdparty/pcre
-    GIT_SUBMODULES_RECURSE ON
     # Scintilla contains paths longer than the legacy Windows Git limit.  Set
     # this only for the ExternalProject clone; do not require global Git state.
     GIT_CONFIG core.longpaths=true
