@@ -1,5 +1,15 @@
 cmake_minimum_required(VERSION 3.13)
 
+option(CREALITYPRINT_REQUIRE_OFFLINE_WEBVIEW2_INSTALLER
+    "Require the offline WebView2 Runtime installer when installing on Windows" ON)
+
+set(CREALITYPRINT_BUILD_JOBS "" CACHE STRING
+    "Maximum compiler processes for supported builds; empty preserves the legacy default")
+if (NOT "${CREALITYPRINT_BUILD_JOBS}" STREQUAL "" AND
+    NOT "${CREALITYPRINT_BUILD_JOBS}" MATCHES "^[1-9][0-9]*$")
+    message(FATAL_ERROR "CREALITYPRINT_BUILD_JOBS must be a positive integer or empty")
+endif ()
+
 if (APPLE)
     # if CMAKE_OSX_DEPLOYMENT_TARGET is not set, set it to 11.3
     if (NOT CMAKE_OSX_DEPLOYMENT_TARGET)
@@ -180,7 +190,11 @@ endif ()
 
 if (MSVC)
     if (SLIC3R_MSVC_COMPILE_PARALLEL AND NOT IS_CLANG_CL)
-           add_compile_options(/MP)
+        if ("${CREALITYPRINT_BUILD_JOBS}" STREQUAL "")
+            add_compile_options(/MP)
+        else ()
+            add_compile_options("/MP${CREALITYPRINT_BUILD_JOBS}")
+        endif ()
     endif ()
     # /bigobj (Increase Number of Sections in .Obj file)
     # error C3859: virtual memory range for PCH exceeded; please recompile with a command line option of '-Zm90' or greater

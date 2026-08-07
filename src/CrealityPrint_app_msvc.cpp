@@ -32,7 +32,7 @@ extern "C"
 //#include <boost/algorithm/string/classification.hpp>
 
 #include <stdio.h>
-#include "../libslic3r/buildinfo.h"
+#include "buildinfo.h"
 #ifdef SLIC3R_GUI
 class OpenGLVersionCheck
 {

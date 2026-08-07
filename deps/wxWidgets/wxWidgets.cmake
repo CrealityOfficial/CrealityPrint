@@ -21,16 +21,33 @@ if (MSVC)
         -Dwx_SOURCE_DIR=<SOURCE_DIR>
         -Dwx_PATCH_FILE=${CMAKE_CURRENT_LIST_DIR}/0001-define-compiler-tls-in-cmake-setup.patch
         -P ${CMAKE_CURRENT_LIST_DIR}/apply-compiler-tls-patch.cmake)
-    unset(_wx_msgfmt CACHE)
-    unset(_wx_msgmerge CACHE)
-    find_program(_wx_msgfmt msgfmt.exe PATHS
-        "C:/Program Files/Poedit/GettextTools/bin"
-        "C:/Program Files/Git/usr/bin"
-        NO_DEFAULT_PATH)
-    find_program(_wx_msgmerge msgmerge.exe PATHS
-        "C:/Program Files/Poedit/GettextTools/bin"
-        "C:/Program Files/Git/usr/bin"
-        NO_DEFAULT_PATH)
+    set(CREALITYPRINT_MSGFMT_EXECUTABLE "" CACHE FILEPATH
+        "Exact msgfmt executable used by wxWidgets")
+    set(CREALITYPRINT_MSGMERGE_EXECUTABLE "" CACHE FILEPATH
+        "Exact msgmerge executable used by wxWidgets")
+    if (NOT "${CREALITYPRINT_MSGFMT_EXECUTABLE}" STREQUAL "" OR
+        NOT "${CREALITYPRINT_MSGMERGE_EXECUTABLE}" STREQUAL "")
+        if ("${CREALITYPRINT_MSGFMT_EXECUTABLE}" STREQUAL "" OR
+            "${CREALITYPRINT_MSGMERGE_EXECUTABLE}" STREQUAL "")
+            message(FATAL_ERROR "Both CrealityPrint gettext executable paths must be supplied together")
+        endif ()
+        get_filename_component(_wx_msgfmt "${CREALITYPRINT_MSGFMT_EXECUTABLE}" REALPATH)
+        get_filename_component(_wx_msgmerge "${CREALITYPRINT_MSGMERGE_EXECUTABLE}" REALPATH)
+        if (NOT EXISTS "${_wx_msgfmt}" OR NOT EXISTS "${_wx_msgmerge}")
+            message(FATAL_ERROR "The configured CrealityPrint gettext executable path does not exist")
+        endif ()
+    else ()
+        unset(_wx_msgfmt CACHE)
+        unset(_wx_msgmerge CACHE)
+        find_program(_wx_msgfmt msgfmt.exe PATHS
+            "C:/Program Files/Poedit/GettextTools/bin"
+            "C:/Program Files/Git/usr/bin"
+            NO_DEFAULT_PATH)
+        find_program(_wx_msgmerge msgmerge.exe PATHS
+            "C:/Program Files/Poedit/GettextTools/bin"
+            "C:/Program Files/Git/usr/bin"
+            NO_DEFAULT_PATH)
+    endif ()
     if (_wx_msgfmt AND _wx_msgmerge)
         set(_wx_gettext_args
             -DGETTEXT_MSGFMT_EXECUTABLE:FILEPATH=${_wx_msgfmt}
@@ -44,9 +61,19 @@ endif ()
 
 orcaslicer_add_cmake_project(
     wxWidgets
+    # The wxWidgets fork uses git submodules for PCRE and other bundled
+    # libraries.  GitHub source archives contain only empty gitlink
+    # directories, so use the immutable superproject commit and let Git check
+    # out the exact submodule commits recorded by it.
     GIT_REPOSITORY "https://github.com/SoftFever/Orca-deps-wxWidgets"
-    GIT_TAG v3.3.2
-    GIT_SHALLOW ON
+    GIT_TAG db1005db3dea2c37a46fb455a9a02e37aa360751
+    GIT_SUBMODULES
+        3rdparty/libwebp
+        3rdparty/lunasvg
+        3rdparty/pcre
+    # Scintilla contains paths longer than the legacy Windows Git limit.  Set
+    # this only for the ExternalProject clone; do not require global Git state.
+    GIT_CONFIG core.longpaths=true
     PATCH_COMMAND ${_wx_patch_command}
     DEPENDS ${PNG_PKG} ${ZLIB_PKG} ${EXPAT_PKG} ${JPEG_PKG}
     CMAKE_ARGS
@@ -55,6 +82,7 @@ orcaslicer_add_cmake_project(
         "-DCMAKE_DEBUG_POSTFIX:STRING=${_wx_debug_postfix}"
         -DwxBUILD_DEBUG_LEVEL=0
         -DwxBUILD_SAMPLES=OFF
+        -DwxBUILD_TESTS=OFF
         ${_wx_shared}
         -DwxUSE_MEDIACTRL=ON
         -DwxUSE_DETECT_SM=OFF

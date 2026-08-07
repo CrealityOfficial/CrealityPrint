@@ -198,6 +198,108 @@
                 "CMAKE_OSX_DEPLOYMENT_TARGET": "11.3",
                 "CMAKE_MACOSX_BUNDLE": "ON"
             }
+        },
+        {
+            "name": "_windows-vs2026-v143-x64",
+            "hidden": true,
+            "generator": "Visual Studio 18 2026",
+            "architecture": {
+                "value": "x64",
+                "strategy": "set"
+            },
+            "toolset": {
+                "value": "v143,host=x64",
+                "strategy": "set"
+            },
+            "binaryDir": "${sourceDir}/out/build/app/${presetName}",
+            "installDir": "${sourceDir}/out/install/app/${presetName}",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_SYSTEM_VERSION": {
+                    "type": "STRING",
+                    "value": "10.0.26100.0"
+                },
+                "BBL_RELEASE_TO_PUBLIC": {
+                    "type": "BOOL",
+                    "value": true
+                },
+                "GENERATE_ORCA_HEADER": {
+                    "type": "BOOL",
+                    "value": true
+                },
+                "ENABLE_BREAKPAD": {
+                    "type": "BOOL",
+                    "value": true
+                },
+                "CREALITYPRINT_REQUIRE_OFFLINE_WEBVIEW2_INSTALLER": {
+                    "type": "BOOL",
+                    "value": false
+                },
+                "CREALITYPRINT_BUILD_JOBS": {
+                    "type": "STRING",
+                    "value": "8"
+                },
+                "SLIC3R_BUILD_TESTS": {
+                    "type": "BOOL",
+                    "value": false
+                },
+                "SLIC3R_STATIC": {
+                    "type": "BOOL",
+                    "value": true
+                },
+                "UPDATE_ONLINE_MACHINES": {
+                    "type": "BOOL",
+                    "value": true
+                },
+                "WIN10SDK_PATH": {
+                    "type": "PATH",
+                    "value": "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0"
+                },
+                "CMAKE_PREFIX_PATH": {
+                    "type": "PATH",
+                    "value": "${sourceDir}/out/install/deps/${presetName}/usr/local"
+                },
+                "CMAKE_FIND_USE_PACKAGE_ROOT_PATH": {
+                    "type": "BOOL",
+                    "value": false
+                },
+                "CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH": {
+                    "type": "BOOL",
+                    "value": false
+                },
+                "CMAKE_FIND_USE_PACKAGE_REGISTRY": {
+                    "type": "BOOL",
+                    "value": false
+                },
+                "CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY": {
+                    "type": "BOOL",
+                    "value": false
+                },
+                "CMAKE_EXPORT_NO_PACKAGE_REGISTRY": {
+                    "type": "BOOL",
+                    "value": true
+                }
+            }
+        },
+        {
+            "name": "windows-vs2026-v143-x64-release",
+            "displayName": "Windows VS2026 v143 x64 Release",
+            "description": "Build CrealityPrint Release with VS2026 and the v143 toolset",
+            "inherits": "_windows-vs2026-v143-x64",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "type": "STRING",
+                    "value": "Release"
+                },
+                "CMAKE_CONFIGURATION_TYPES": {
+                    "type": "STRING",
+                    "value": "Release"
+                }
+            }
         }
     ],
     "buildPresets": [
@@ -213,6 +315,23 @@
             "configurePreset": "x64-release",
             "inherits": "x64-debug",
             "description": "Windows Release Build"
+        },
+        {
+            "name": "windows-vs2026-v143-x64-release",
+            "displayName": "Build Windows VS2026 v143 x64 Release",
+            "configurePreset": "windows-vs2026-v143-x64-release",
+            "configuration": "Release",
+            "jobs": 8
+        },
+        {
+            "name": "windows-vs2026-v143-x64-release-install",
+            "displayName": "Install Windows VS2026 v143 x64 Release",
+            "configurePreset": "windows-vs2026-v143-x64-release",
+            "configuration": "Release",
+            "targets": [
+                "install"
+            ],
+            "jobs": 8
         }
     ],
     "testPresets": [

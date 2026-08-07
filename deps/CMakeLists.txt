@@ -20,7 +20,7 @@
 # therefore, unfortunatelly, the installation cannot be copied/moved elsewhere without re-installing wxWidgets.
 #
 
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.13)
 if (APPLE)
     # if CMAKE_OSX_DEPLOYMENT_TARGET is not set, set it to 11.3
     if (NOT CMAKE_OSX_DEPLOYMENT_TARGET)
@@ -39,6 +39,14 @@ ProcessorCount(NPROC)
 if (NPROC EQUAL 0)
     set(NPROC 1)
 endif ()
+
+set(CREALITYPRINT_BUILD_JOBS "${NPROC}" CACHE STRING
+    "Maximum parallel jobs for dependency child builds")
+if (NOT "${CREALITYPRINT_BUILD_JOBS}" MATCHES "^[1-9][0-9]*$")
+    message(FATAL_ERROR "CREALITYPRINT_BUILD_JOBS must be a positive integer")
+endif ()
+option(CREALITYPRINT_STRICT_PATH_TOOLCHAIN_MATCH
+    "Require cl.exe on PATH to be the compiler selected by CMake" OFF)
 
 set(DESTDIR "${CMAKE_CURRENT_BINARY_DIR}/destdir" CACHE PATH "Destination directory")
 set(DEP_DOWNLOAD_DIR ${CMAKE_CURRENT_BINARY_DIR}/../DL_CACHE CACHE PATH "Path for downloaded source packages.")
@@ -93,6 +101,28 @@ message(STATUS "OrcaSlicer deps debug build: ${DEP_DEBUG}")
 
 find_package(Git REQUIRED)
 
+# Some dependency projects use custom nmake-based build steps. Ensure those
+# commands see the same compiler selected by the parent Visual Studio generator
+# instead of silently falling back to another toolset from PATH.
+if (MSVC AND CREALITYPRINT_STRICT_PATH_TOOLCHAIN_MATCH)
+    find_program(DEP_PATH_CL_EXECUTABLE NAMES cl.exe cl)
+    if (NOT DEP_PATH_CL_EXECUTABLE)
+        message(FATAL_ERROR "MSVC was selected, but cl.exe is not available on PATH")
+    endif ()
+
+    get_filename_component(_selected_cl "${CMAKE_CXX_COMPILER}" REALPATH)
+    get_filename_component(_path_cl "${DEP_PATH_CL_EXECUTABLE}" REALPATH)
+    file(TO_CMAKE_PATH "${_selected_cl}" _selected_cl)
+    file(TO_CMAKE_PATH "${_path_cl}" _path_cl)
+    string(TOLOWER "${_selected_cl}" _selected_cl_cmp)
+    string(TOLOWER "${_path_cl}" _path_cl_cmp)
+    if (NOT _selected_cl_cmp STREQUAL _path_cl_cmp)
+        message(FATAL_ERROR
+            "The selected compiler (${_selected_cl}) differs from cl.exe on PATH (${_path_cl}). "
+            "Enter a developer shell for the selected toolset before configuring dependencies.")
+    endif ()
+endif ()
+
 # The default command line for patching. Only works for newer 
 set(PATCH_CMD ${GIT_EXECUTABLE} apply --verbose --ignore-space-change --whitespace=fix)
 
@@ -114,10 +144,29 @@ function(orcaslicer_add_cmake_project projectname)
     endif ()
 
     set(_gen "")
-    set(_build_j "-j${NPROC}")
+    set(_build_parallel_args --parallel "${CREALITYPRINT_BUILD_JOBS}")
+    set(_build_native_args "")
     if (MSVC)
-        set(_gen CMAKE_GENERATOR "${DEP_MSVC_GEN}" CMAKE_GENERATOR_PLATFORM "${DEP_PLATFORM}")
-        set(_build_j "/m")
+        set(_gen CMAKE_GENERATOR "${CMAKE_GENERATOR}")
+
+        if (CMAKE_GENERATOR_PLATFORM)
+            list(APPEND _gen
+                CMAKE_GENERATOR_PLATFORM "${CMAKE_GENERATOR_PLATFORM}")
+        endif ()
+
+        if (CMAKE_GENERATOR_TOOLSET)
+            list(APPEND _gen
+                CMAKE_GENERATOR_TOOLSET "${CMAKE_GENERATOR_TOOLSET}")
+        endif ()
+
+        if (CMAKE_GENERATOR_INSTANCE)
+            list(APPEND _gen
+                CMAKE_GENERATOR_INSTANCE "${CMAKE_GENERATOR_INSTANCE}")
+        endif ()
+
+        if (CMAKE_GENERATOR MATCHES "^Visual Studio ")
+            set(_build_native_args -- "/p:CL_MPCount=${CREALITYPRINT_BUILD_JOBS}")
+        endif ()
     endif ()
 
 if (NOT IS_CROSS_COMPILE OR NOT APPLE)
@@ -141,8 +190,8 @@ if (NOT IS_CROSS_COMPILE OR NOT APPLE)
             ${DEP_CMAKE_OPTS}
             ${P_ARGS_CMAKE_ARGS}
        ${P_ARGS_UNPARSED_ARGUMENTS}
-       BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release -- ${_build_j}
-       INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config Release
+       BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release ${_build_parallel_args} ${_build_native_args}
+       INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config Release ${_build_parallel_args} ${_build_native_args}
     )
 elseif(FLATPAK)
     # the only reason this is here is because of the HACK at the bottom for ci
@@ -170,8 +219,8 @@ elseif(FLATPAK)
             ${DEP_CMAKE_OPTS}
             ${P_ARGS_CMAKE_ARGS}
        ${P_ARGS_UNPARSED_ARGUMENTS}
-       BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release -- ${_build_j}
-       INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config Release
+       BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release ${_build_parallel_args} ${_build_native_args}
+       INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config Release ${_build_parallel_args} ${_build_native_args}
        # HACK: save space after each compile job, because CI
        # reasoning: cmake changes directory after this command, so just keep only the folders
        # so that it can navigate out
@@ -193,8 +242,8 @@ else()
             ${DEP_CMAKE_OPTS}
             ${P_ARGS_CMAKE_ARGS}
        ${P_ARGS_UNPARSED_ARGUMENTS}
-       BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release -- ${_build_j}
-       INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config Release 
+       BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release ${_build_parallel_args} ${_build_native_args}
+       INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config Release ${_build_parallel_args} ${_build_native_args}
     )
 
 endif()

@@ -333,6 +333,8 @@ if (WIN32)
     endif()
 
     add_executable(${STARTUP_PROJECT_NAME} WIN32 CrealityPrint_app_msvc.cpp ${CMAKE_CURRENT_BINARY_DIR}/CrealityPrint.rc)
+    target_include_directories(${STARTUP_PROJECT_NAME} PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/libslic3r")
     # Generate debug symbols even in release mode.
     if(MSVC)
         target_link_options(${STARTUP_PROJECT_NAME} PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
@@ -511,7 +513,20 @@ if (WIN32)
         install(FILES "${_mesa_opengl_dll}" DESTINATION "mesa")
     endif ()
     install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/MicrosoftEdgeSetup.exe DESTINATION ".")
-    install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/MicrosoftEdgeWebView2RuntimeInstallerX64.exe DESTINATION ".")
+    set(_webview2_offline_installer
+        "${CMAKE_SOURCE_DIR}/package/runtime/MicrosoftEdgeWebView2RuntimeInstallerX64.exe")
+    if (CREALITYPRINT_REQUIRE_OFFLINE_WEBVIEW2_INSTALLER)
+        # Preserve the historical behavior: clean source checkouts configure,
+        # while install fails if the required packaging input is still absent.
+        install(FILES "${_webview2_offline_installer}" DESTINATION ".")
+    elseif (EXISTS "${_webview2_offline_installer}")
+        install(FILES "${_webview2_offline_installer}" DESTINATION ".")
+    else ()
+        message(WARNING
+            "Offline WebView2 Runtime installer is not present. The WebView2 "
+            "bootstrap installer will still be installed, but this install tree "
+            "cannot provide offline WebView2 recovery.")
+    endif ()
     install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/vcredist_x64.exe DESTINATION ".")
     install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/STLThumb-Windows_0.5.0.exe DESTINATION ".")
     install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/stl-thumb.exe DESTINATION ".")
