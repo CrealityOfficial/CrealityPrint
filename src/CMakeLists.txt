@@ -333,6 +333,8 @@ if (WIN32)
     endif()
 
     add_executable(${STARTUP_PROJECT_NAME} WIN32 CrealityPrint_app_msvc.cpp ${CMAKE_CURRENT_BINARY_DIR}/CrealityPrint.rc)
+    target_include_directories(${STARTUP_PROJECT_NAME} PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/libslic3r")
     # Generate debug symbols even in release mode.
     if(MSVC)
         target_link_options(${STARTUP_PROJECT_NAME} PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
