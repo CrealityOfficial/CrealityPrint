@@ -1,5 +1,5 @@
-# Creality Print 6.0  
-Creality Print 6.0 is an open source slicer for FDM printers.   [Offical Wiki](https://wiki.creality.com/en/software) 
+# Creality Print 7.0
+Creality Print 7.0 is an open source slicer for FDM printers.   [Offical Wiki](https://wiki.creality.com/en/software)
 
 # Join community
 
