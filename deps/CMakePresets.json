@@ -1,0 +1,111 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 4,
+        "minor": 2,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "_windows-vs2026-v143-x64",
+            "hidden": true,
+            "generator": "Visual Studio 18 2026",
+            "architecture": {
+                "value": "x64",
+                "strategy": "set"
+            },
+            "toolset": {
+                "value": "v143,host=x64",
+                "strategy": "set"
+            },
+            "binaryDir": "${sourceDir}/../out/build/deps/${presetName}",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_SYSTEM_VERSION": {
+                    "type": "STRING",
+                    "value": "10.0.26100.0"
+                },
+                "CMAKE_POLICY_VERSION_MINIMUM": {
+                    "type": "STRING",
+                    "value": "3.5"
+                },
+                "DEP_CMAKE_OPTS": {
+                    "type": "STRING",
+                    "value": "-DCMAKE_POLICY_VERSION_MINIMUM:STRING=3.5"
+                },
+                "DESTDIR": {
+                    "type": "PATH",
+                    "value": "${sourceDir}/../out/install/deps/${presetName}"
+                },
+                "DEP_DOWNLOAD_DIR": {
+                    "type": "PATH",
+                    "value": "${sourceDir}/../out/download-cache"
+                },
+                "DEP_DEBUG": {
+                    "type": "BOOL",
+                    "value": false
+                },
+                "ORCA_INCLUDE_DEBUG_INFO": {
+                    "type": "BOOL",
+                    "value": false
+                },
+                "ENABLE_BREAKPAD": {
+                    "type": "BOOL",
+                    "value": true
+                },
+                "CREALITYPRINT_BUILD_JOBS": {
+                    "type": "STRING",
+                    "value": "8"
+                },
+                "CREALITYPRINT_STRICT_PATH_TOOLCHAIN_MATCH": {
+                    "type": "BOOL",
+                    "value": true
+                },
+                "OPENSSL_PERL_EXECUTABLE": {
+                    "type": "FILEPATH",
+                    "value": "C:/Strawberry/perl/bin/perl.exe"
+                },
+                "CREALITYPRINT_MSGFMT_EXECUTABLE": {
+                    "type": "FILEPATH",
+                    "value": "${sourceDir}/../tools/msgfmt.exe"
+                },
+                "CREALITYPRINT_MSGMERGE_EXECUTABLE": {
+                    "type": "FILEPATH",
+                    "value": "${sourceDir}/../tools/msgmerge.exe"
+                }
+            }
+        },
+        {
+            "name": "windows-vs2026-v143-x64-release",
+            "displayName": "Windows VS2026 v143 x64 Release dependencies",
+            "description": "Build public Release dependencies with VS2026 and the v143 toolset",
+            "inherits": "_windows-vs2026-v143-x64",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "type": "STRING",
+                    "value": "Release"
+                },
+                "CMAKE_CONFIGURATION_TYPES": {
+                    "type": "STRING",
+                    "value": "Release"
+                }
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "windows-vs2026-v143-x64-release",
+            "displayName": "Build Windows VS2026 v143 x64 Release dependencies",
+            "configurePreset": "windows-vs2026-v143-x64-release",
+            "configuration": "Release",
+            "targets": [
+                "deps"
+            ],
+            "jobs": 1
+        }
+    ]
+}

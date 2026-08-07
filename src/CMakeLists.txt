@@ -513,7 +513,22 @@ if (WIN32)
         install(FILES "${_mesa_opengl_dll}" DESTINATION "mesa")
     endif ()
     install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/MicrosoftEdgeSetup.exe DESTINATION ".")
-    install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/MicrosoftEdgeWebView2RuntimeInstallerX64.exe DESTINATION ".")
+    set(_webview2_offline_installer
+        "${CMAKE_SOURCE_DIR}/package/runtime/MicrosoftEdgeWebView2RuntimeInstallerX64.exe")
+    if (EXISTS "${_webview2_offline_installer}")
+        install(FILES "${_webview2_offline_installer}" DESTINATION ".")
+    elseif (CREALITYPRINT_REQUIRE_OFFLINE_WEBVIEW2_INSTALLER)
+        message(FATAL_ERROR
+            "Required offline WebView2 Runtime installer is missing: "
+            "${_webview2_offline_installer}. Supply the packaging input or "
+            "explicitly set CREALITYPRINT_REQUIRE_OFFLINE_WEBVIEW2_INSTALLER=OFF "
+            "for a developer source install without offline WebView2 recovery.")
+    else ()
+        message(WARNING
+            "Offline WebView2 Runtime installer is not present. The WebView2 "
+            "bootstrap installer will still be installed, but this install tree "
+            "cannot provide offline WebView2 recovery.")
+    endif ()
     install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/vcredist_x64.exe DESTINATION ".")
     install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/STLThumb-Windows_0.5.0.exe DESTINATION ".")
     install(FILES ${CMAKE_SOURCE_DIR}/package/runtime/stl-thumb.exe DESTINATION ".")

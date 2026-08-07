@@ -124,7 +124,13 @@ CrealityPrint.exe --slice 0 --outputdir "C:\output" --load_settings "C:\presets\
 Run `CrealityPrint.exe --help` to see the full list of supported command line options.
 
 # How to compile
-- Windows 64-bit  
+- Windows 64-bit with Visual Studio 2026 and the v143 toolset
+  - Use the additive `windows-vs2026-v143-x64-release` presets through
+    `pwsh -File scripts/build_windows_vs2026.ps1 -Target All -Fresh`.
+  - See [Windows VS2026/v143 clean build](doc/windows-vs2026-build.md) for
+    prerequisites, output paths, and safety checks.
+
+- Legacy Windows 64-bit (Visual Studio 2019)
   - Tools needed: Visual Studio 2019, Cmake, git, git-lfs, Strawberry Perl.
       - You will require cmake version 3.14 or later, which is available [on their website](https://cmake.org/download/).
       - Strawberry Perl is [available on their github repository](https://github.com/StrawberryPerl/Perl-Dist-Strawberry/releases/).
