@@ -71,8 +71,25 @@ std::future<void> LanPrinterInterface::sendFileToDevice(const std::string&      
 
         std::string sFileName = fileName;
         sFileName = std::regex_replace(sFileName, std::regex("[\\\\/:*?\"'<>|#&=+]"), "");
+
+        // Escape the filename as a single FTP URL path segment.
+        // Legacy Creality LAN printers accept spaces in filenames, but libcurl
+        // requires them (and other non-URL-safe bytes) to be percent-encoded
+        // in the URL. libcurl decodes the escaped path for the FTP STOR command,
+        // so the printer still receives the original filename.
+        char* escapedFileName = curl_easy_escape(curl, sFileName.c_str(), static_cast<int>(sFileName.size()));
+        if (!escapedFileName)
+        {
+            if (errorCallback)
+                errorCallback(CURLE_URL_MALFORMAT);
+            return;
+        }
+
+        std::string encodedFileName(escapedFileName);
+        curl_free(escapedFileName);
+
         // 4. 配置基础FTP选项
-        const std::string url = "ftp://" + strIp + "/mmcblk0p1/creality/gztemp/" + sFileName;
+        const std::string url = "ftp://" + strIp + "/mmcblk0p1/creality/gztemp/" + encodedFileName;
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
         curl_easy_setopt(curl, CURLOPT_READDATA, fd);
