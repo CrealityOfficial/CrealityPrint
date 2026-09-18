@@ -17,7 +17,7 @@ on:
 jobs:
   build_orca:
     name: Build Creality Print
-    runs-on: ${{ inputs.os }}
+    runs-on: ${{ inputs.os == 'windows-latest' && 'windows-2022' || inputs.os }}
     env:
       date:
       ver:
