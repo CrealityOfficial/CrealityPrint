@@ -144,7 +144,12 @@ private:
     boost::asio::deadline_timer *m_video_timer=nullptr;
     boost::asio::streambuf proxy_buff;
     boost::asio::steady_timer timer_;
-    std::map<std::string, SocketPtr> m_proxy_sockets;
+    SocketPtr m_upstream_socket;
+    bool m_proxy_done{false};
+
+    void close_upstream();
+    void fail_proxy(int status_code, const std::string& message);
+    void arm_proxy_timeout(SocketPtr socket_ptr);
 public:
     session(HttpServer::IOServer& server, boost::asio::ip::tcp::socket socket) : server(server), socket(std::move(socket)),timer_(server.io_service) {
         
