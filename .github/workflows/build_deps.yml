@@ -25,7 +25,7 @@ jobs:
     name: Build Deps
     if: inputs.build-deps-only || inputs.valid-cache != true
     # if: true
-    runs-on: ${{ inputs.os }}
+    runs-on: ${{ inputs.os == 'windows-latest' && 'windows-2022' || inputs.os }}
     env:
       date:
     steps:
