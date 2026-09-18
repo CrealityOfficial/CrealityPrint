@@ -90,6 +90,21 @@ jobs:
           WindowsSDKVersion: '10.0.22000.0\'
         run: .\test_build.bat slicer
 
+      - name: Pack custom Windows portable build
+        if: inputs.os == 'windows-latest'
+        working-directory: ${{ github.workspace }}/build
+        shell: cmd
+        run: '"C:/Program Files/7-Zip/7z.exe" a -tzip "CrealityPrint_Windows_%ver%_LegacyLANFix.zip" "OrcaSlicer\\*"'
+
+      - name: Upload custom Windows artifact
+        if: inputs.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: CrealityPrint-Windows-${{ env.ver }}-LegacyLANFix
+          path: ${{ github.workspace }}/build/CrealityPrint_Windows_${{ env.ver }}_LegacyLANFix.zip
+          if-no-files-found: error
+          retention-days: 14
+
       # - name: Create installer Win
       #   if: inputs.os == 'windows-latest'
       #   working-directory: ${{ github.workspace }}/build
