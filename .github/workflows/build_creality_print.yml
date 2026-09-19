@@ -80,7 +80,11 @@ jobs:
         run: |
           cd package
           cd runtime
-          curl -LJO https://github.com/CrealityOfficial/CrealityPrint/releases/download/tools/MicrosoftEdgeWebView2RuntimeInstallerX64.exe
+          curl.exe --fail --location --retry 3 --remote-header-name --remote-name https://github.com/CrealityOfficial/CrealityPrint/releases/download/tools/MicrosoftEdgeWebView2RuntimeInstallerX64.exe
+          curl.exe --fail --location --retry 3 --output vcredist_x64.exe https://aka.ms/vc14/vc_redist.x64.exe
+          if (-not (Test-Path vcredist_x64.exe -PathType Leaf) -or (Get-Item vcredist_x64.exe).Length -lt 1MB) {
+            throw 'Microsoft Visual C++ x64 Redistributable download is missing or invalid.'
+          }
 
       - name: Patch v7.2.0 Windows ImatiSTL guard
         if: inputs.os == 'windows-latest'
