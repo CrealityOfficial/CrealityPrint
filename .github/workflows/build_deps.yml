@@ -53,6 +53,18 @@ jobs:
         shell: powershell
         run: |
             choco install strawberryperl
+
+            # The 7.2.0 source references OpenCASCADE but this snapshot omitted
+            # deps/OCCT. Restore the matching dependency definition from the
+            # official CrealityPrint tree before building dependencies.
+            New-Item -ItemType Directory -Force -Path "deps/OCCT" | Out-Null
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CrealityOfficial/CrealityPrint/master/deps/OCCT/OCCT.cmake" -OutFile "deps/OCCT/OCCT.cmake"
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CrealityOfficial/CrealityPrint/master/deps/OCCT/0001-OCCT-fix.patch" -OutFile "deps/OCCT/0001-OCCT-fix.patch"
+            $depsCmake = Get-Content "deps/CMakeLists.txt" -Raw
+            if ($depsCmake -notmatch 'include\(OCCT/OCCT\.cmake\)') {
+              Add-Content "deps/CMakeLists.txt" "`ninclude(OCCT/OCCT.cmake)"
+            }
+
             $maxAttempts = 3
             for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
               Write-Host "Dependency build attempt $attempt of $maxAttempts"
