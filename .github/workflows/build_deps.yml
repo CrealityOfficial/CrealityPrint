@@ -53,6 +53,12 @@ jobs:
         shell: powershell
         run: |
             choco install strawberryperl
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            # OpenSSL 1.1's Configure script requires Text::Template. The
+            # current Strawberry Perl package on the runner does not include it.
+            cpan -T Text::Template
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
             # The 7.2.0 source references OpenCASCADE but this snapshot omitted
             # deps/OCCT. Restore the matching dependency definition from the
@@ -69,9 +75,16 @@ jobs:
             for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
               Write-Host "Dependency build attempt $attempt of $maxAttempts"
               .\test_build.bat deps
-              if ($LASTEXITCODE -eq 0) { break }
-              if ($attempt -eq $maxAttempts) { exit $LASTEXITCODE }
-              Write-Host "Dependency build failed, retrying in 20 seconds..."
+
+              # test_build.bat currently masks dependency failures with exit 0.
+              # Verify a late dependency explicitly so a partial cache cannot be
+              # accepted as a successful dependency build.
+              if (Test-Path "deps/build/OrcaSlicer_dep/usr/local/lib/paho-mqtt3a-static.lib") { break }
+              if ($attempt -eq $maxAttempts) {
+                Write-Error "Dependency build did not complete: paho-mqtt library is missing."
+                exit 1
+              }
+              Write-Host "Dependency build incomplete, retrying in 20 seconds..."
               Start-Sleep -Seconds 20
             }
             .\test_build.bat pack
