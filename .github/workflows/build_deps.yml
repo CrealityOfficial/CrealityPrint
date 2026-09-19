@@ -71,22 +71,62 @@ jobs:
               Add-Content "deps/CMakeLists.txt" "`ninclude(OCCT/OCCT.cmake)"
             }
 
+            function Find-PahoMqttCppConfig {
+              $root = Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep'
+              if (-not (Test-Path $root)) { return $null }
+              return Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -ieq 'PahoMqttCppConfig.cmake' -or $_.Name -ieq 'pahomqttcpp-config.cmake' } |
+                Select-Object -First 1 -ExpandProperty FullName
+            }
+
+            function Test-RequiredDeps {
+              $pahoC = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep') -Recurse -File `
+                -Filter 'paho-mqtt3*-static.lib' -ErrorAction SilentlyContinue |
+                Select-Object -First 1 -ExpandProperty FullName
+              $pahoCppConfig = Find-PahoMqttCppConfig
+              $occtConfig = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep') -Recurse -File `
+                -Filter 'OpenCASCADEConfig.cmake' -ErrorAction SilentlyContinue |
+                Select-Object -First 1 -ExpandProperty FullName
+
+              Write-Host "Dependency validation:"
+              Write-Host "  Paho MQTT C library: $pahoC"
+              Write-Host "  Paho MQTT C++ config: $pahoCppConfig"
+              Write-Host "  OpenCASCADE config: $occtConfig"
+
+              return ($pahoC -and $pahoCppConfig -and $occtConfig)
+            }
+
             $maxAttempts = 3
             for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
               Write-Host "Dependency build attempt $attempt of $maxAttempts"
               .\test_build.bat deps
 
-              # test_build.bat currently masks dependency failures with exit 0.
-              # Verify a late dependency explicitly so a partial cache cannot be
-              # accepted as a successful dependency build.
-              if (Test-Path "deps/build/OrcaSlicer_dep/usr/local/lib/paho-mqtt3a-static.lib") { break }
+              if (Test-RequiredDeps) { break }
               if ($attempt -eq $maxAttempts) {
-                Write-Error "Dependency build did not complete: paho-mqtt library is missing."
+                Write-Error "Full dependency build did not produce all required artifacts."
                 exit 1
               }
               Write-Host "Dependency build incomplete, retrying in 20 seconds..."
               Start-Sleep -Seconds 20
             }
+
+            # Paho MQTT has two external projects: dep_MQTTC is the C library,
+            # while dep_MQTT is the C++ wrapper that installs PahoMqttCppConfig.cmake.
+            # The slicer requires the C++ package config, so explicitly ensure it exists.
+            if (-not (Find-PahoMqttCppConfig)) {
+              Write-Host "Paho MQTT C++ package config is missing; building dep_MQTT explicitly."
+              cmake --build "deps/build" --config Release --target dep_MQTT -- /m
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "Explicit dep_MQTT build failed."
+                exit $LASTEXITCODE
+              }
+            }
+
+            if (-not (Test-RequiredDeps)) {
+              Write-Error "Dependency validation failed after explicit dep_MQTT build."
+              exit 1
+            }
+
             .\test_build.bat pack
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             cd ${{ github.workspace }}/deps/build
