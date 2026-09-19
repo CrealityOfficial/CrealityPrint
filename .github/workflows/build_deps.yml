@@ -50,10 +50,20 @@ jobs:
       - name: Build on Windows
         if: inputs.os == 'windows-latest'
         working-directory: ${{ github.workspace }}
+        shell: powershell
         run: |
             choco install strawberryperl
-            .\test_build.bat deps
+            $maxAttempts = 3
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              Write-Host "Dependency build attempt $attempt of $maxAttempts"
+              .\test_build.bat deps
+              if ($LASTEXITCODE -eq 0) { break }
+              if ($attempt -eq $maxAttempts) { exit $LASTEXITCODE }
+              Write-Host "Dependency build failed, retrying in 20 seconds..."
+              Start-Sleep -Seconds 20
+            }
             .\test_build.bat pack
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             cd ${{ github.workspace }}/deps/build
 
   build_creality_print:
