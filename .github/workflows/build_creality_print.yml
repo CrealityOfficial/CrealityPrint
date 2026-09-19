@@ -110,8 +110,19 @@ jobs:
       - name: Pack custom Windows portable build
         if: inputs.os == 'windows-latest'
         working-directory: ${{ github.workspace }}/build
-        shell: cmd
-        run: '"C:/Program Files/7-Zip/7z.exe" a -tzip "CrealityPrint_Windows_%ver%_LegacyLANFix.zip" "OrcaSlicer\\*"'
+        shell: pwsh
+        run: |
+          $appDir = Join-Path $PWD 'OrcaSlicer'
+          $exe = Join-Path $appDir 'CrealityPrint.exe'
+          $resources = Join-Path $appDir 'resources'
+          if (-not (Test-Path $exe -PathType Leaf)) {
+            throw "Portable build validation failed: CrealityPrint.exe is missing at $exe"
+          }
+          if (-not (Test-Path $resources -PathType Container)) {
+            throw "Portable build validation failed: resources directory is missing at $resources"
+          }
+          & 'C:/Program Files/7-Zip/7z.exe' a -tzip "CrealityPrint_Windows_${{ env.ver }}_LegacyLANFix.zip" 'OrcaSlicer\*'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload custom Windows artifact
         if: inputs.os == 'windows-latest'
@@ -139,4 +150,3 @@ jobs:
       #   working-directory: ${{ github.workspace }}/build/src/Release
       #   shell: cmd
       #   run: '"C:/Program Files/7-Zip/7z.exe" a -m0=lzma2 -mx9 Debug_PDB_${{ env.ver }}_for_developers_only.7z  *.pdb'
-

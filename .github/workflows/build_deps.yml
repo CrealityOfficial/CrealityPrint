@@ -54,14 +54,6 @@ jobs:
             cpan -T Text::Template
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-            New-Item -ItemType Directory -Force -Path "deps/OCCT" | Out-Null
-            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CrealityOfficial/CrealityPrint/master/deps/OCCT/OCCT.cmake" -OutFile "deps/OCCT/OCCT.cmake"
-            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CrealityOfficial/CrealityPrint/master/deps/OCCT/0001-OCCT-fix.patch" -OutFile "deps/OCCT/0001-OCCT-fix.patch"
-            $depsCmake = Get-Content "deps/CMakeLists.txt" -Raw
-            if ($depsCmake -notmatch 'include\(OCCT/OCCT\.cmake\)') {
-              Add-Content "deps/CMakeLists.txt" "`ninclude(OCCT/OCCT.cmake)"
-            }
-
             function Find-PahoMqttCppConfig {
               $root = Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep'
               if (-not (Test-Path $root)) { return $null }
@@ -75,14 +67,12 @@ jobs:
               $pahoC = Get-ChildItem -Path $root -Recurse -File -Filter 'paho-mqtt3*-static.lib' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
               $occtConfig = Get-ChildItem -Path $root -Recurse -File -Filter 'OpenCASCADEConfig.cmake' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
               $ffmpegHeader = Join-Path $root 'usr\local\include\libavutil\imgutils.h'
-              $imatiHeader = Get-ChildItem -Path $root -Recurse -File -Filter 'imatistl.h' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 
               Write-Host "Core dependency validation:"
               Write-Host "  Paho MQTT C library: $pahoC"
               Write-Host "  OpenCASCADE config: $occtConfig"
               Write-Host "  FFmpeg imgutils header: $ffmpegHeader ($(Test-Path $ffmpegHeader))"
-              Write-Host "  ImatiSTL header: $imatiHeader"
-              return ($pahoC -and $occtConfig -and (Test-Path $ffmpegHeader) -and $imatiHeader)
+              return ($pahoC -and $occtConfig -and (Test-Path $ffmpegHeader))
             }
 
             $maxAttempts = 3
@@ -92,14 +82,8 @@ jobs:
 
               if (Test-CoreDeps) { break }
               if ($attempt -eq $maxAttempts) {
-                Write-Host "Normal dependency build is incomplete; explicitly building FFmpeg and ImatiSTL."
-                cmake --build "deps/build" --config Release --target dep_FFmpeg dep_ImatiSTL -- /m
-                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                if (-not (Test-CoreDeps)) {
-                  Write-Error "Dependency validation failed after explicit FFmpeg/ImatiSTL build."
-                  exit 1
-                }
-                break
+                Write-Error "Full dependency build did not produce the required Windows artifacts."
+                exit 1
               }
               Write-Host "Core dependency build incomplete, retrying in 20 seconds..."
               Start-Sleep -Seconds 20
