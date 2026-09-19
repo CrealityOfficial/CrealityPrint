@@ -71,17 +71,18 @@ jobs:
             }
 
             function Test-CoreDeps {
-              $pahoC = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep') -Recurse -File `
-                -Filter 'paho-mqtt3*-static.lib' -ErrorAction SilentlyContinue |
-                Select-Object -First 1 -ExpandProperty FullName
-              $occtConfig = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep') -Recurse -File `
-                -Filter 'OpenCASCADEConfig.cmake' -ErrorAction SilentlyContinue |
-                Select-Object -First 1 -ExpandProperty FullName
+              $root = Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep'
+              $pahoC = Get-ChildItem -Path $root -Recurse -File -Filter 'paho-mqtt3*-static.lib' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+              $occtConfig = Get-ChildItem -Path $root -Recurse -File -Filter 'OpenCASCADEConfig.cmake' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+              $ffmpegHeader = Join-Path $root 'usr\local\include\libavutil\imgutils.h'
+              $imatiHeader = Get-ChildItem -Path $root -Recurse -File -Filter 'imatistl.h' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 
               Write-Host "Core dependency validation:"
               Write-Host "  Paho MQTT C library: $pahoC"
               Write-Host "  OpenCASCADE config: $occtConfig"
-              return ($pahoC -and $occtConfig)
+              Write-Host "  FFmpeg imgutils header: $ffmpegHeader ($(Test-Path $ffmpegHeader))"
+              Write-Host "  ImatiSTL header: $imatiHeader"
+              return ($pahoC -and $occtConfig -and (Test-Path $ffmpegHeader) -and $imatiHeader)
             }
 
             $maxAttempts = 3
@@ -91,16 +92,19 @@ jobs:
 
               if (Test-CoreDeps) { break }
               if ($attempt -eq $maxAttempts) {
-                Write-Error "Full dependency build did not produce required core artifacts."
-                exit 1
+                Write-Host "Normal dependency build is incomplete; explicitly building FFmpeg and ImatiSTL."
+                cmake --build "deps/build" --config Release --target dep_FFmpeg dep_ImatiSTL -- /m
+                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                if (-not (Test-CoreDeps)) {
+                  Write-Error "Dependency validation failed after explicit FFmpeg/ImatiSTL build."
+                  exit 1
+                }
+                break
               }
               Write-Host "Core dependency build incomplete, retrying in 20 seconds..."
               Start-Sleep -Seconds 20
             }
 
-            # dep_MQTT is an EXCLUDE_FROM_ALL external project, so the normal
-            # dependency target can finish without installing the C++ wrapper.
-            # Build it explicitly before validating its package config.
             if (-not (Find-PahoMqttCppConfig)) {
               Write-Host "Paho MQTT C++ package config is missing; building dep_MQTT explicitly."
               cmake --build "deps/build" --config Release --target dep_MQTT -- /m
