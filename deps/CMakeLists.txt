@@ -438,6 +438,7 @@ else()
         dep_OSS
         dep_Assimp
         dep_ImatiSTL
+        dep_FFmpeg
         dep_MQTTC
         dep_MQTT
         dep_libnoise

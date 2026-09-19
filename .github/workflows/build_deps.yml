@@ -24,13 +24,10 @@ jobs:
   build_deps:
     name: Build Deps
     if: inputs.build-deps-only || inputs.valid-cache != true
-    # if: true
-    runs-on: ${{ inputs.os }}
+    runs-on: ${{ inputs.os == 'windows-latest' && 'windows-2022' || inputs.os }}
     env:
       date:
     steps:
-
-      # Setup the environment
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -44,16 +41,72 @@ jobs:
 
       - uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~3.28.0"  # use most recent 3.28.x version
+          cmakeVersion: "~3.28.0"
 
-      # Build Dependencies
       - name: Build on Windows
         if: inputs.os == 'windows-latest'
         working-directory: ${{ github.workspace }}
+        shell: powershell
         run: |
             choco install strawberryperl
-            .\test_build.bat deps
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            cpan -T Text::Template
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            function Find-PahoMqttCppConfig {
+              $root = Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep'
+              if (-not (Test-Path $root)) { return $null }
+              return Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -ieq 'PahoMqttCppConfig.cmake' -or $_.Name -ieq 'pahomqttcpp-config.cmake' } |
+                Select-Object -First 1 -ExpandProperty FullName
+            }
+
+            function Test-CoreDeps {
+              $root = Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep'
+              $pahoC = Get-ChildItem -Path $root -Recurse -File -Filter 'paho-mqtt3*-static.lib' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+              $occtConfig = Get-ChildItem -Path $root -Recurse -File -Filter 'OpenCASCADEConfig.cmake' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+              $ffmpegHeader = Join-Path $root 'usr\local\include\libavutil\imgutils.h'
+
+              Write-Host "Core dependency validation:"
+              Write-Host "  Paho MQTT C library: $pahoC"
+              Write-Host "  OpenCASCADE config: $occtConfig"
+              Write-Host "  FFmpeg imgutils header: $ffmpegHeader ($(Test-Path $ffmpegHeader))"
+              return ($pahoC -and $occtConfig -and (Test-Path $ffmpegHeader))
+            }
+
+            $maxAttempts = 3
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              Write-Host "Dependency build attempt $attempt of $maxAttempts"
+              .\test_build.bat deps
+
+              if (Test-CoreDeps) { break }
+              if ($attempt -eq $maxAttempts) {
+                Write-Error "Full dependency build did not produce the required Windows artifacts."
+                exit 1
+              }
+              Write-Host "Core dependency build incomplete, retrying in 20 seconds..."
+              Start-Sleep -Seconds 20
+            }
+
+            if (-not (Find-PahoMqttCppConfig)) {
+              Write-Host "Paho MQTT C++ package config is missing; building dep_MQTT explicitly."
+              cmake --build "deps/build" --config Release --target dep_MQTT -- /m
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "Explicit dep_MQTT build failed."
+                exit $LASTEXITCODE
+              }
+            }
+
+            $pahoCppConfig = Find-PahoMqttCppConfig
+            Write-Host "Paho MQTT C++ config after explicit build: $pahoCppConfig"
+            if (-not $pahoCppConfig) {
+              Write-Error "Dependency validation failed: dep_MQTT did not install PahoMqttCppConfig.cmake."
+              exit 1
+            }
+
             .\test_build.bat pack
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             cd ${{ github.workspace }}/deps/build
 
   build_creality_print:

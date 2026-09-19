@@ -7,6 +7,7 @@ on:
      - master
      - release/*
      - windows
+     - custom-v7.2.0-legacy-lan-fixes
     paths:
      - 'deps/**'
      - 'src/**'
@@ -44,7 +45,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-  
+
 
 jobs:
   build_all:
@@ -57,11 +58,10 @@ jobs:
           - os: windows-latest
           # - os: ubuntu-22.04
           # - os: ubuntu-24.04
-            arch: arm64
+            arch: x64
     uses: ./.github/workflows/build_check_cache.yml
     with:
       os: ${{ matrix.os }}
       arch: ${{ matrix.arch }}
       build-deps-only: ${{ inputs.build-deps-only || false }}
     secrets: inherit
-  

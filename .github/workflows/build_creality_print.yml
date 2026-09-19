@@ -17,7 +17,7 @@ on:
 jobs:
   build_orca:
     name: Build Creality Print
-    runs-on: ${{ inputs.os }}
+    runs-on: ${{ inputs.os == 'windows-latest' && 'windows-2022' || inputs.os }}
     env:
       date:
       ver:
@@ -80,7 +80,28 @@ jobs:
         run: |
           cd package
           cd runtime
-          curl -LJO https://github.com/CrealityOfficial/CrealityPrint/releases/download/tools/MicrosoftEdgeWebView2RuntimeInstallerX64.exe
+          curl.exe --fail --location --retry 3 --remote-header-name --remote-name https://github.com/CrealityOfficial/CrealityPrint/releases/download/tools/MicrosoftEdgeWebView2RuntimeInstallerX64.exe
+          curl.exe --fail --location --retry 3 --output vcredist_x64.exe https://aka.ms/vc14/vc_redist.x64.exe
+          if (-not (Test-Path vcredist_x64.exe -PathType Leaf) -or (Get-Item vcredist_x64.exe).Length -lt 1MB) {
+            throw 'Microsoft Visual C++ x64 Redistributable download is missing or invalid.'
+          }
+
+      - name: Patch v7.2.0 Windows ImatiSTL guard
+        if: inputs.os == 'windows-latest'
+        working-directory: ${{ github.workspace }}
+        shell: pwsh
+        run: |
+          $path = 'src/slic3r/Utils/FixModelByImatiSTL.cpp'
+          $text = Get-Content $path -Raw
+          $text = $text -replace '(?m)^        RepairMessageBridge bridge;\r?$', "#ifdef HAS_IMATISTL`n        RepairMessageBridge bridge;`n#endif"
+          $text = $text -replace '(?ms)^            bridge\.canceled  = &canceled;\r?\n            bridge\.condition = &condition;\r?\n            bridge\.mutex     = &mtx;\r?\n            bridge\.progress  = &progress;\r?\n            s_repair_message_bridge = &bridge;\r?$', "#ifdef HAS_IMATISTL`n            bridge.canceled  = &canceled;`n            bridge.condition = &condition;`n            bridge.mutex     = &mtx;`n            bridge.progress  = &progress;`n            s_repair_message_bridge = &bridge;`n#endif"
+          $text = $text -replace '(?m)^        s_repair_message_bridge = nullptr;\r?$', "#ifdef HAS_IMATISTL`n        s_repair_message_bridge = nullptr;`n#endif"
+          Set-Content -Path $path -Value $text -NoNewline -Encoding utf8
+          $guarded = Select-String -Path $path -Pattern '^\s*RepairMessageBridge bridge;' -Context 1,0
+          if (-not $guarded -or $guarded.Context.PreContext -notmatch '#ifdef HAS_IMATISTL') {
+            Write-Error 'Failed to apply ImatiSTL compile guard.'
+            exit 1
+          }
 
       - name: Build slicer Win
         if: inputs.os == 'windows-latest'
@@ -89,6 +110,32 @@ jobs:
           WindowsSdkDir: 'C:\Program Files (x86)\Windows Kits\10\'
           WindowsSDKVersion: '10.0.22000.0\'
         run: .\test_build.bat slicer
+
+      - name: Pack custom Windows portable build
+        if: inputs.os == 'windows-latest'
+        working-directory: ${{ github.workspace }}/build
+        shell: pwsh
+        run: |
+          $appDir = Join-Path $PWD 'OrcaSlicer'
+          $exe = Join-Path $appDir 'CrealityPrint.exe'
+          $resources = Join-Path $appDir 'resources'
+          if (-not (Test-Path $exe -PathType Leaf)) {
+            throw "Portable build validation failed: CrealityPrint.exe is missing at $exe"
+          }
+          if (-not (Test-Path $resources -PathType Container)) {
+            throw "Portable build validation failed: resources directory is missing at $resources"
+          }
+          & 'C:/Program Files/7-Zip/7z.exe' a -tzip "CrealityPrint_Windows_${{ env.ver }}_LegacyLANFix.zip" 'OrcaSlicer\*'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload custom Windows artifact
+        if: inputs.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: CrealityPrint-Windows-${{ env.ver }}-LegacyLANFix
+          path: ${{ github.workspace }}/build/CrealityPrint_Windows_${{ env.ver }}_LegacyLANFix.zip
+          if-no-files-found: error
+          retention-days: 14
 
       # - name: Create installer Win
       #   if: inputs.os == 'windows-latest'
@@ -107,4 +154,3 @@ jobs:
       #   working-directory: ${{ github.workspace }}/build/src/Release
       #   shell: cmd
       #   run: '"C:/Program Files/7-Zip/7z.exe" a -m0=lzma2 -mx9 Debug_PDB_${{ env.ver }}_for_developers_only.7z  *.pdb'
-
