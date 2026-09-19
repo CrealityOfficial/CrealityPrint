@@ -20,6 +20,8 @@ orcaslicer_add_cmake_project(MQTTC
     -DPAHO_WITH_SSL=${_build_with_ssl}
     -DPAHO_ENABLE_TESTING=OFF
     -DPAHO_BUILD_SAMPLES=OFF
+    -DOPENSSL_ROOT_DIR:PATH=${DESTDIR}
+    -DOPENSSL_USE_STATIC_LIBS:BOOL=TRUE
   #PATCH_COMMAND ${patch_command}
 )
 orcaslicer_add_cmake_project(MQTT
@@ -32,9 +34,17 @@ orcaslicer_add_cmake_project(MQTT
     -DPAHO_BUILD_STATIC=${_build_static}
     -DPAHO_BUILD_SHARED=OFF
     -DPAHO_WITH_SSL=${_build_with_ssl}
+    -DOPENSSL_ROOT_DIR:PATH=${DESTDIR}
+    -DOPENSSL_USE_STATIC_LIBS:BOOL=TRUE
   #PATCH_COMMAND ${patch_command}
 )
 
+# Paho C must be configured only after the selected OpenSSL has been installed.
+# Otherwise parallel Windows builds can compile it against the runner's OpenSSL 3
+# while the application links the bundled OpenSSL 1.1.
+if (OPENSSL_PKG)
+    add_dependencies(dep_MQTTC ${OPENSSL_PKG})
+endif()
 add_dependencies(dep_MQTT dep_MQTTC dep_CURL)
 
 if (MSVC)
