@@ -24,13 +24,10 @@ jobs:
   build_deps:
     name: Build Deps
     if: inputs.build-deps-only || inputs.valid-cache != true
-    # if: true
     runs-on: ${{ inputs.os == 'windows-latest' && 'windows-2022' || inputs.os }}
     env:
       date:
     steps:
-
-      # Setup the environment
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -44,9 +41,8 @@ jobs:
 
       - uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~3.28.0"  # use most recent 3.28.x version
+          cmakeVersion: "~3.28.0"
 
-      # Build Dependencies
       - name: Build on Windows
         if: inputs.os == 'windows-latest'
         working-directory: ${{ github.workspace }}
@@ -55,14 +51,9 @@ jobs:
             choco install strawberryperl
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-            # OpenSSL 1.1's Configure script requires Text::Template. The
-            # current Strawberry Perl package on the runner does not include it.
             cpan -T Text::Template
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-            # The 7.2.0 source references OpenCASCADE but this snapshot omitted
-            # deps/OCCT. Restore the matching dependency definition from the
-            # official CrealityPrint tree before building dependencies.
             New-Item -ItemType Directory -Force -Path "deps/OCCT" | Out-Null
             Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CrealityOfficial/CrealityPrint/master/deps/OCCT/OCCT.cmake" -OutFile "deps/OCCT/OCCT.cmake"
             Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CrealityOfficial/CrealityPrint/master/deps/OCCT/0001-OCCT-fix.patch" -OutFile "deps/OCCT/0001-OCCT-fix.patch"
@@ -79,21 +70,18 @@ jobs:
                 Select-Object -First 1 -ExpandProperty FullName
             }
 
-            function Test-RequiredDeps {
+            function Test-CoreDeps {
               $pahoC = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep') -Recurse -File `
                 -Filter 'paho-mqtt3*-static.lib' -ErrorAction SilentlyContinue |
                 Select-Object -First 1 -ExpandProperty FullName
-              $pahoCppConfig = Find-PahoMqttCppConfig
               $occtConfig = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'deps\build\OrcaSlicer_dep') -Recurse -File `
                 -Filter 'OpenCASCADEConfig.cmake' -ErrorAction SilentlyContinue |
                 Select-Object -First 1 -ExpandProperty FullName
 
-              Write-Host "Dependency validation:"
+              Write-Host "Core dependency validation:"
               Write-Host "  Paho MQTT C library: $pahoC"
-              Write-Host "  Paho MQTT C++ config: $pahoCppConfig"
               Write-Host "  OpenCASCADE config: $occtConfig"
-
-              return ($pahoC -and $pahoCppConfig -and $occtConfig)
+              return ($pahoC -and $occtConfig)
             }
 
             $maxAttempts = 3
@@ -101,18 +89,18 @@ jobs:
               Write-Host "Dependency build attempt $attempt of $maxAttempts"
               .\test_build.bat deps
 
-              if (Test-RequiredDeps) { break }
+              if (Test-CoreDeps) { break }
               if ($attempt -eq $maxAttempts) {
-                Write-Error "Full dependency build did not produce all required artifacts."
+                Write-Error "Full dependency build did not produce required core artifacts."
                 exit 1
               }
-              Write-Host "Dependency build incomplete, retrying in 20 seconds..."
+              Write-Host "Core dependency build incomplete, retrying in 20 seconds..."
               Start-Sleep -Seconds 20
             }
 
-            # Paho MQTT has two external projects: dep_MQTTC is the C library,
-            # while dep_MQTT is the C++ wrapper that installs PahoMqttCppConfig.cmake.
-            # The slicer requires the C++ package config, so explicitly ensure it exists.
+            # dep_MQTT is an EXCLUDE_FROM_ALL external project, so the normal
+            # dependency target can finish without installing the C++ wrapper.
+            # Build it explicitly before validating its package config.
             if (-not (Find-PahoMqttCppConfig)) {
               Write-Host "Paho MQTT C++ package config is missing; building dep_MQTT explicitly."
               cmake --build "deps/build" --config Release --target dep_MQTT -- /m
@@ -122,8 +110,10 @@ jobs:
               }
             }
 
-            if (-not (Test-RequiredDeps)) {
-              Write-Error "Dependency validation failed after explicit dep_MQTT build."
+            $pahoCppConfig = Find-PahoMqttCppConfig
+            Write-Host "Paho MQTT C++ config after explicit build: $pahoCppConfig"
+            if (-not $pahoCppConfig) {
+              Write-Error "Dependency validation failed: dep_MQTT did not install PahoMqttCppConfig.cmake."
               exit 1
             }
 
