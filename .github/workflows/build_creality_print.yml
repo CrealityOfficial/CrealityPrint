@@ -89,11 +89,12 @@ jobs:
         run: |
           $path = 'src/slic3r/Utils/FixModelByImatiSTL.cpp'
           $text = Get-Content $path -Raw
-          $text = $text.Replace("        RepairMessageBridge bridge;`n        try {", "#ifdef HAS_IMATISTL`n        RepairMessageBridge bridge;`n#endif`n        try {")
-          $text = $text.Replace("            bridge.canceled  = &canceled;`n            bridge.condition = &condition;`n            bridge.mutex     = &mtx;`n            bridge.progress  = &progress;`n            s_repair_message_bridge = &bridge;", "#ifdef HAS_IMATISTL`n            bridge.canceled  = &canceled;`n            bridge.condition = &condition;`n            bridge.mutex     = &mtx;`n            bridge.progress  = &progress;`n            s_repair_message_bridge = &bridge;`n#endif")
-          $text = $text.Replace("        s_repair_message_bridge = nullptr;`n    });", "#ifdef HAS_IMATISTL`n        s_repair_message_bridge = nullptr;`n#endif`n    });")
+          $text = $text -replace '(?m)^        RepairMessageBridge bridge;\r?$', "#ifdef HAS_IMATISTL`n        RepairMessageBridge bridge;`n#endif"
+          $text = $text -replace '(?ms)^            bridge\.canceled  = &canceled;\r?\n            bridge\.condition = &condition;\r?\n            bridge\.mutex     = &mtx;\r?\n            bridge\.progress  = &progress;\r?\n            s_repair_message_bridge = &bridge;\r?$', "#ifdef HAS_IMATISTL`n            bridge.canceled  = &canceled;`n            bridge.condition = &condition;`n            bridge.mutex     = &mtx;`n            bridge.progress  = &progress;`n            s_repair_message_bridge = &bridge;`n#endif"
+          $text = $text -replace '(?m)^        s_repair_message_bridge = nullptr;\r?$', "#ifdef HAS_IMATISTL`n        s_repair_message_bridge = nullptr;`n#endif"
           Set-Content -Path $path -Value $text -NoNewline -Encoding utf8
-          if ((Select-String -Path $path -Pattern '^\s*RepairMessageBridge bridge;' -Context 1,0).Context.PreContext -notmatch '#ifdef HAS_IMATISTL') {
+          $guarded = Select-String -Path $path -Pattern '^\s*RepairMessageBridge bridge;' -Context 1,0
+          if (-not $guarded -or $guarded.Context.PreContext -notmatch '#ifdef HAS_IMATISTL') {
             Write-Error 'Failed to apply ImatiSTL compile guard.'
             exit 1
           }
