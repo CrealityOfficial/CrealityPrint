@@ -16,7 +16,9 @@ orcaslicer_add_cmake_project(MQTTC
   URL_HASH SHA256=60ce2cfdc146fcb81c621cb8b45874d2eb1d4693105d048f60e31b8f3468be90
   CMAKE_ARGS
     -DPAHO_BUILD_STATIC=${_build_static} 
-    -DPAHO_WITH_SSL=${_build_with_ssl} 
+    -DPAHO_WITH_SSL=${_build_with_ssl}
+    -DPAHO_ENABLE_TESTING=OFF
+    -DPAHO_BUILD_SAMPLES=OFF
   #PATCH_COMMAND ${patch_command}
 )
 orcaslicer_add_cmake_project(MQTT
