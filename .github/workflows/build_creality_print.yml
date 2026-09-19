@@ -82,6 +82,22 @@ jobs:
           cd runtime
           curl -LJO https://github.com/CrealityOfficial/CrealityPrint/releases/download/tools/MicrosoftEdgeWebView2RuntimeInstallerX64.exe
 
+      - name: Patch v7.2.0 Windows ImatiSTL guard
+        if: inputs.os == 'windows-latest'
+        working-directory: ${{ github.workspace }}
+        shell: pwsh
+        run: |
+          $path = 'src/slic3r/Utils/FixModelByImatiSTL.cpp'
+          $text = Get-Content $path -Raw
+          $text = $text.Replace("        RepairMessageBridge bridge;`n        try {", "#ifdef HAS_IMATISTL`n        RepairMessageBridge bridge;`n#endif`n        try {")
+          $text = $text.Replace("            bridge.canceled  = &canceled;`n            bridge.condition = &condition;`n            bridge.mutex     = &mtx;`n            bridge.progress  = &progress;`n            s_repair_message_bridge = &bridge;", "#ifdef HAS_IMATISTL`n            bridge.canceled  = &canceled;`n            bridge.condition = &condition;`n            bridge.mutex     = &mtx;`n            bridge.progress  = &progress;`n            s_repair_message_bridge = &bridge;`n#endif")
+          $text = $text.Replace("        s_repair_message_bridge = nullptr;`n    });", "#ifdef HAS_IMATISTL`n        s_repair_message_bridge = nullptr;`n#endif`n    });")
+          Set-Content -Path $path -Value $text -NoNewline -Encoding utf8
+          if ((Select-String -Path $path -Pattern '^\s*RepairMessageBridge bridge;' -Context 1,0).Context.PreContext -notmatch '#ifdef HAS_IMATISTL') {
+            Write-Error 'Failed to apply ImatiSTL compile guard.'
+            exit 1
+          }
+
       - name: Build slicer Win
         if: inputs.os == 'windows-latest'
         working-directory: ${{ github.workspace }}
