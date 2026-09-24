@@ -2317,12 +2317,12 @@ bool SelectMachineDialog::is_same_nozzle_diameters(std::string& tag_nozzle_type,
         PresetBundle* preset_bundle = wxGetApp().preset_bundle;
         auto opt_nozzle_diameters = preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloats>("nozzle_diameter");
 
-        const ConfigOptionEnum<NozzleType>* nozzle_type = preset_bundle->printers.get_edited_preset().config.option<ConfigOptionEnum<NozzleType>>("nozzle_type");
+        const auto *nozzle_type = preset_bundle->printers.get_edited_preset().config.option<ConfigOptionEnumsGenericNullable>("nozzle_type");
 
-        if (nozzle_type->value == NozzleType::ntHardenedSteel) {
+        if (nozzle_type->get_at(0) == NozzleType::ntHardenedSteel) {
             preset_nozzle_type = "hardened_steel";
         }
-        else if (nozzle_type->value == NozzleType::ntStainlessSteel) {
+        else if (nozzle_type->get_at(0) == NozzleType::ntStainlessSteel) {
             preset_nozzle_type = "stainless_steel";
         }
 

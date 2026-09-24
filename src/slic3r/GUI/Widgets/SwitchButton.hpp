@@ -8,7 +8,10 @@
 #include "Label.hpp"
 #include "Button.hpp"
 
+#include <vector>
+
 wxDECLARE_EVENT(wxCUSTOMEVT_SWITCH_POS, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_MULTISWITCH_SELECTION, wxCommandEvent);
 
 class SwitchButton : public wxBitmapToggleButton
 {
@@ -77,6 +80,36 @@ protected:
 
 private:
     bool auto_disable_when_switch = false;
+};
+
+// A compact segmented selector used by process presets with two or more
+// physical extruders. Unlike SwitchBoard, the number of segments is dynamic.
+class MultiSwitchBoard : public wxWindow
+{
+public:
+    enum class Style { Segmented, Underline };
+
+    MultiSwitchBoard(wxWindow* parent = nullptr, Style style = Style::Segmented,
+                     wxWindowID id = wxID_ANY);
+
+    void SetOptions(const std::vector<wxString>& options);
+    unsigned int GetCount() const { return static_cast<unsigned int>(m_options.size()); }
+
+    int  GetSelection() const { return m_selection; }
+    void SetSelection(int selection);
+    void Rescale();
+    void sys_color_changed();
+
+    bool Enable(bool enable = true) override;
+
+private:
+    void paintEvent(wxPaintEvent& event);
+    void on_left_down(wxMouseEvent& event);
+    void update_min_size();
+
+    std::vector<wxString> m_options;
+    int                   m_selection {-1};
+    Style                 m_style {Style::Segmented};
 };
 
 #endif // !slic3r_GUI_SwitchButton_hpp_

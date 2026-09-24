@@ -27,6 +27,7 @@ private:
 };
 
 void recalc_flushing_volumes(DynamicPrintConfig& config, PresetBundle& bundle);
+void recalc_flushing_volumes(PresetBundle& bundle);
 }
 
 #endif

@@ -85,6 +85,7 @@ private:
     void handle_cancel_send(const nlohmann::json& json_data);
     void handle_start_heartbeat_cmd(const nlohmann::json& json_data);
     void handle_stop_heartbeat_cmd(const nlohmann::json& json_data);
+    void handle_set_video_elapse_cmd(const nlohmann::json& json_data);
     std::string build_match_color_cmd_info(int plateIndex, const std::string& ipAddress);
     void handle_request_color_match_info(const nlohmann::json& json_data);
     void handle_receive_color_match_info(const nlohmann::json& json_data);
@@ -96,6 +97,9 @@ private:
     void get_filament_length_info(std::vector<int> plate_extruders, Slic3r::GUI::PartPlate* plate, nlohmann::json& jsonArray);
     void get_temperature_info(std::vector<int> plate_extruders, Slic3r::GUI::PartPlate* plate,  nlohmann::json& json_data);
     void get_gcode_temperature_info(Slic3r::GUI::PartPlate* plate,  nlohmann::json& json_data);
+    // Creality multi-nozzle: append per-plate nozzle grouping fields (physical nozzle diameters,
+    // per-filament nozzle id/diameter). No-op / single-nozzle stays byte-for-byte compatible.
+    void get_nozzle_info(std::vector<int> plate_extruders, Slic3r::GUI::PartPlate* plate, nlohmann::json& json_data);
     void notify_update_plate_thumbnail_data(const nlohmann::json& json_data);
     void post_notify_event(const std::vector<int>& plate_extruders, const std::vector<std::string>& extruder_match_colors, bool bUpdateSelf=true);
     void restore_extruder_colors();

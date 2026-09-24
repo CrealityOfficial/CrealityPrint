@@ -1,10 +1,11 @@
-﻿#ifndef slic3r_Plater_hpp_
+#ifndef slic3r_Plater_hpp_
 #define slic3r_Plater_hpp_
 
 #include <memory>
 #include <vector>
 #include <boost/filesystem/path.hpp>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "nlohmann/json.hpp"
 
@@ -69,6 +70,10 @@ namespace UndoRedo {
 
 namespace GUI {
 
+enum class ZaaUiChangeScope;
+enum class ZaaUiReentryAction;
+struct ZaaUiNormalizationRequest;
+
 class MainFrame;
 class ConfigOptionsGroup;
 class ObjectSettings;
@@ -97,6 +102,7 @@ enum class ActionButtonType : int;
 wxDECLARE_EVENT(EVT_SLICING_UPDATE, Slic3r::SlicingStatusEvent);
 wxDECLARE_EVENT(EVT_PUBLISH,        wxCommandEvent);
 wxDECLARE_EVENT(EVT_OPEN_PLATESETTINGSDIALOG,        wxCommandEvent);
+wxDECLARE_EVENT(EVT_PATHOLOGICAL_PROBE_REPAIR, wxCommandEvent);
 wxDECLARE_EVENT(EVT_REPAIR_MODEL,        wxCommandEvent);
 wxDECLARE_EVENT(EVT_FILAMENT_COLOR_CHANGED,        wxCommandEvent);
 wxDECLARE_EVENT(EVT_INSTALL_PLUGIN_NETWORKING,        wxCommandEvent);
@@ -139,6 +145,7 @@ public:
     Sidebar &operator=(const Sidebar &) = delete;
     ~Sidebar();
     wxString get_filament_map_string();
+    bool prepare_filament_nozzle_mapping_for_slice(bool will_post_slice_event = false, bool slice_all = false, int plate_index = -1);
     void create_printer_preset(int iType = 0);
     void add_other_printer();
     void remove_unused_filament_combos(const size_t current_extruder_count);
@@ -168,7 +175,8 @@ public:
     // version which overwrites all new colors with the last one.
     // target_count: final physical filament count after this call
     // new_colors: colors for the new filaments, must have exactly (target_count - current) entries
-    void add_filaments_batch(int target_count, const std::vector<wxColour>& new_colors);
+    void add_filaments_batch(int target_count, const std::vector<wxColour>& new_colors,
+                             const std::vector<std::string>& preset_names = {});
     //new 
     void delete_filament_bbl(size_t filament_id = size_t(-1), int replace_filament_id = -1); // 0 base, -1 means default
     void change_filament(size_t from_id, size_t to_id);                                  // 0 base
@@ -220,7 +228,7 @@ public:
     void                    update_ui_from_settings();
 	bool                    show_object_list(bool show) const;
     void                    finish_param_edit();
-    void                    auto_calc_flushing_volumes(const int modify_id);
+    void                    auto_calc_flushing_volumes(const int modify_id, bool persist = true);
     void                    jump_to_object(ObjectDataViewModelNode* item);
     void                    can_search();
     void                    set_edit_filament(int index);
@@ -243,6 +251,11 @@ public:
     void clear_all_filament();
 
 private:
+    bool can_add_filament() const;
+    void update_filament_add_button_states();
+    void begin_auto_mapping_feedback();
+    void finish_auto_mapping_feedback(uint64_t generation, bool success, const std::string& error = {});
+
     struct priv;
     std::unique_ptr<priv> p;
 
@@ -582,6 +595,24 @@ public:
     void changed_object(ModelObject &object);
     void changed_object(int obj_idx);
     void changed_objects(const std::vector<size_t>& object_idxs);
+    wxString get_zaa_ui_conflict_message(const ZaaUiNormalizationRequest& request,
+                                         const ModelObjectPtrs& scoped_objects,
+                                         const DynamicPrintConfig* changed_config = nullptr,
+                                         bool* conflict_unresolvable = nullptr,
+                                         bool spiral_already_enabled = false);
+    bool apply_zaa_ui_normalization(const ZaaUiNormalizationRequest& request, const ModelObjectPtrs& scoped_objects,
+                                    DynamicPrintConfig* changed_config, bool snapshot_already_taken,
+                                    bool* changed_feature_rejected = nullptr,
+                                    bool conflict_already_confirmed = false);
+    // Serialize modal confirmation and mutation phases across Global/Object/Plate.
+    // The transaction owner distinguishes a harmless duplicate field callback
+    // from a competing enable queued by wxWidgets' nested modal event loop.
+    bool try_begin_zaa_ui_normalization(const std::string& changed_key, ZaaUiChangeScope scope,
+                                        const DynamicPrintConfig* changed_config);
+    void end_zaa_ui_normalization();
+    bool is_zaa_ui_normalization_in_progress() const;
+    ZaaUiReentryAction get_zaa_ui_reentry_action(const std::string& changed_key, ZaaUiChangeScope scope,
+                                                  bool changed_feature_enabled) const;
     void schedule_background_process(bool schedule = true);
     bool is_background_process_update_scheduled() const;
     void suppress_background_process(const bool stop_background_process) ;
@@ -663,6 +694,7 @@ public:
     View3D*  get_vew3D();
     void reset_scene_filament_source_snapshot();
     bool capture_scene_filament_source_snapshot_if_needed();
+    void rebaseline_scene_filament_source_snapshot();
     nlohmann::json get_scene_filament_source_snapshot() const;
     bool has_scene_filament_source_snapshot() const;
 
@@ -991,7 +1023,7 @@ private:
     bool m_exported_file { false };
     bool skip_thumbnail_invalid { false };
     bool m_loading_project { false };
-    std::string m_preview_only_filename;
+    std::string m_preview_only_filename; // UTF-8, like other std::string file paths.
     int m_valid_plates_count { 0 };
 
     bool m_isLoadingGCode{false};
@@ -1036,7 +1068,7 @@ private:
     bool m_was_scheduled;
 };
 std::string      check_boolean_possible(const std::vector<const ModelVolume *> &volumes, csg::BooleanFailReason& fail_reason);
-std::vector<int> get_min_flush_volumes(const DynamicPrintConfig& full_config);
+std::vector<int> get_min_flush_volumes(const DynamicPrintConfig& full_config, size_t physical_nozzle_id = 0);
 bool             sync_skeleton_flush_matrix_to_filaments(DynamicConfig& project_config, const std::vector<std::string>& extruder_colours, int deleted_filament_id = -1);
 } // namespace GUI
 } // namespace Slic3r

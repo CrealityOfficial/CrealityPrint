@@ -25,8 +25,8 @@
             },
             "windows": {
                 "type": "cppvsdbg",
-                "program": "${workspaceFolder}\\build_Release\\src\\Release\\CrealityPrint.exe",
-                "cwd": "${workspaceFolder}\\build_Release\\src\\Release",
+                "program": "${command:cmake.launchTargetPath}",
+                "cwd": "${command:cmake.getLaunchTargetDirectory}",
                 "env": {
                     "SLIC3R_RESOURCES_DIR": "${workspaceFolder}/resources"
                 }

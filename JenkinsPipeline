@@ -5,6 +5,7 @@ pipeline {
         string(name: 'BRANCH', defaultValue: 'release-260330', description: 'Git branch to build (配合 Jenkins 多分支或手动指定)')
         string(name: 'APP_VERSION', defaultValue: '7.0.0', description: 'Sets CREALITYPRINT_VERSION passed to CMake')
         string(name: 'VERSION_EXTRA', defaultValue: 'Alpha', description: 'Sets PROJECT_VERSION_EXTRA (Alpha/Beta/Release)')
+        string(name: 'CP_BUILD_CPU', defaultValue: '0', description: 'CP build CPU concurrency; 0 uses all logical processors')
         // ========== New parameters for Web sync and packaging options ==========
         string(name: 'WEB_BRANCH', defaultValue: 'release-260330', description: 'Community repository branch for Web resources')
         booleanParam(name: 'SYNC_WEB', defaultValue: true, description: 'Sync Web resources from Community repo')
@@ -29,6 +30,7 @@ pipeline {
         // ========== Community repository for Web resources ==========
         COMMUNITY_REPO = 'ssh://jenkins@172.20.180.12:29418/yanfa4/CrealityCommunity'
         FEISHU_WEBHOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/6355c46f-75e2-4f64-b762-aa601586225d'
+        WINDOWS_SIGN_SERVICE_URL = 'http://172.20.180.14:3001'
     }
     stages {
         stage('Checkout') {
@@ -48,6 +50,20 @@ pipeline {
                     def commitCount = bat(returnStdout: true, script: "@git rev-list HEAD --count").trim()
                     env.APP_VERSION = "${params.APP_VERSION}.${commitCount}"
                     echo "Version: ${env.APP_VERSION} (commit count: ${commitCount})"
+                }
+            }
+        }
+
+        stage('Validate Build Parameters') {
+            steps {
+                script {
+                    // Keep older/manual invocations compatible: an omitted or blank value means max concurrency.
+                    def cpuLimit = params.CP_BUILD_CPU?.trim() ?: '0'
+                    if (!(cpuLimit ==~ /^(0|[1-9][0-9]*)$/)) {
+                        error "CP_BUILD_CPU must be 0 (all logical processors) or a positive integer, got: '${params.CP_BUILD_CPU}'"
+                    }
+                    env.CP_BUILD_CPU_LIMIT = cpuLimit
+                    echo "CP build CPU concurrency: ${cpuLimit == '0' ? 'all logical processors' : cpuLimit}"
                 }
             }
         }
@@ -183,8 +199,25 @@ if not defined VS_INSTALL (
   exit /b 1
 )
 call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
-cmake --build %BUILD_DIR% --target CrealityPrint_Slicer --config %BUILD_TYPE% -- -m
+set "CP_BUILD_JOBS=%NUMBER_OF_PROCESSORS%"
+if not "%CP_BUILD_CPU_LIMIT%"=="0" set "CP_BUILD_JOBS=%CP_BUILD_CPU_LIMIT%"
+echo CP build parallelism: %CP_BUILD_JOBS% jobs
+cmake --build %BUILD_DIR% --target %PROCESS_NAME%_app_gui --config %BUILD_TYPE% --parallel %CP_BUILD_JOBS%
 """
+            }
+        }
+
+        stage('Sign DLLs') {
+            steps {
+                bat '''
+@echo off
+set DLL_OUTPUT_DIR=%WORKSPACE%\\%BUILD_DIR%\\src\\%BUILD_TYPE%
+echo Checking and signing DLLs in %DLL_OUTPUT_DIR%...
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%WORKSPACE%\\scripts\\sign_windows_dlls.ps1" ^
+    -SearchRoot "%DLL_OUTPUT_DIR%" ^
+    -SignServiceUrl "%WINDOWS_SIGN_SERVICE_URL%"
+if errorlevel 1 exit /b 1
+'''
             }
         }
 
@@ -204,15 +237,15 @@ echo updater.exe signed successfully.
 
         stage('Sign CrealityPrint.exe') {
             steps {
-                bat """
-set EXE_PATH=%WORKSPACE%\\%BUILD_DIR%\\%PROCESS_NAME%\\%PROCESS_NAME%.exe
+                bat '''
+@echo off
+set "EXE_PATH=%WORKSPACE%\\%BUILD_DIR%\\src\\%BUILD_TYPE%\\%PROCESS_NAME%.exe"
 echo Signing CrealityPrint.exe: %EXE_PATH%
-"C:\\curl.exe" -X POST -F file=@%EXE_PATH% http://172.20.180.14:3001/sign
-"C:\\curl.exe" -L http://172.20.180.14:3001/exe/%PROCESS_NAME%.exe -o %WORKSPACE%\\CrealityPrint_signed.exe
-copy /Y %WORKSPACE%\\CrealityPrint_signed.exe %EXE_PATH%
-del /Q %WORKSPACE%\\CrealityPrint_signed.exe
-echo CrealityPrint.exe signed successfully.
-"""
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%WORKSPACE%\\scripts\\sign_windows_file.ps1" ^
+    -FilePath "%EXE_PATH%" ^
+    -SignServiceUrl "%WINDOWS_SIGN_SERVICE_URL%"
+if errorlevel 1 exit /b 1
+'''
             }
         }
 

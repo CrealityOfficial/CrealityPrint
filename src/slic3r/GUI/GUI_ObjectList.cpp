@@ -1,6 +1,8 @@
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/PresetBundle.hpp"
 #include "GUI_ObjectList.hpp"
+#include "slic3r/Utils/PrinterCover.hpp"
+#include "OfficialFilamentColorDialog.hpp"
 #include "GUI_Factories.hpp"
 // #include "GUI_ObjectLayers.hpp"
 #include "GUI_App.hpp"
@@ -353,6 +355,15 @@ ObjectList::ObjectList(wxWindow* parent) : wxDataViewCtrl(parent, wxID_ANY, wxDe
         // mark to update device list
         m_device_list_dirty_mark = true;
         m_device_list_dirty_mark_fluidd = true;
+
+        if (m_pending_nozzle_sync_request_id != 0) {
+            const bool response_handled = sync_nozzle_information_from_bound_device();
+            if (response_handled || --m_pending_nozzle_sync_updates_left <= 0) {
+                m_pending_nozzle_sync_device_mac.clear();
+                m_pending_nozzle_sync_request_id = 0;
+                m_pending_nozzle_sync_updates_left = 0;
+            }
+        }
 
         if(wxGetApp().easy_mode()) {
             Slic3r::GUI::SimpleDeviceMgr::instance().get_device_list_data_simple(true);
@@ -2777,8 +2788,8 @@ void ObjectList::del_layer_from_object(const int obj_idx, const t_layer_height_r
                             << ", ranges_size_before=" << ranges.size();
 
     // Minimal safety: clear layer tab configs to avoid dangling UI pointers
-    if (auto tab_layer = dynamic_cast<TabPrintModel*>(wxGetApp().get_layer_tab())) {
-        tab_layer->set_model_config({});
+    if (auto tab_layer = dynamic_cast<TabPrintLayer*>(wxGetApp().get_layer_tab())) {
+        tab_layer->set_layer_configs({});
         BOOST_LOG_TRIVIAL(warning) << "[LayerRangeErase] Cleared TabPrintLayer m_object_configs before erase";
     }
 
@@ -2792,8 +2803,8 @@ void ObjectList::del_layer_from_object(const int obj_idx, const t_layer_height_r
 void ObjectList::del_layers_from_object(const int obj_idx)
 {
     // Ensure UI layer settings do not hold dangling pointers into layer_config_ranges we are about to clear.
-    if (auto tab_layer = dynamic_cast<TabPrintModel*>(wxGetApp().get_layer_tab()))
-        tab_layer->set_model_config({});
+    if (auto tab_layer = dynamic_cast<TabPrintLayer*>(wxGetApp().get_layer_tab()))
+        tab_layer->set_layer_configs({});
 
     auto &ranges = object(obj_idx)->layer_config_ranges;
     BOOST_LOG_TRIVIAL(warning) << "[LayerRangesClear] obj_idx=" << obj_idx
@@ -3250,6 +3261,12 @@ void ObjectList::merge(bool to_multipart_object)
 
 void ObjectList::layers_editing()
 {
+    // Variable layer height combined with mixed color sublayer produces a
+    // visibly choppy gradient. Warn the user when they add a layer range
+    // from the object list while mixed color sublayer is on. Mirrors the
+    // second call site in BambuStudio.
+    ConfigManipulation::warn_mixed_sublayer_variable_layer(this);
+
     const Selection& selection = scene_selection();
     const int        obj_idx   = selection.get_object_idx();
     wxDataViewItem   item      = obj_idx >= 0 && GetSelectedItemsCount() > 1 && selection.is_single_full_object() ?
@@ -4636,6 +4653,12 @@ bool ObjectList::edit_layer_range(const t_layer_height_range& range, const t_lay
 
     auto& ranges = object(obj_idx)->layer_config_ranges;
 
+    // Moving a range erases its map node and invalidates the ModelConfig*
+    // retained by the Layer tab. Clear those bindings before the node moves;
+    // the normal selection refresh will bind the newly inserted range again.
+    if (auto* tab_layer = dynamic_cast<TabPrintLayer*>(wxGetApp().get_layer_tab()))
+        tab_layer->set_layer_configs({});
+
     {
         ModelConfig config = std::move(ranges[range]);
         ranges.erase(range);
@@ -5764,6 +5787,31 @@ void ObjectList::fix_through_netfabb()
         }
     }
 
+    // Repair rebuilds the mesh. Ask for confirmation only when one of the
+    // selected repair targets actually carries painted surface data.
+    bool has_paint = false;
+    if (vol_idxs.empty()) {
+        for (int obj_idx : obj_idxs) {
+            const ModelObject *obj = object(obj_idx);
+            if (obj != nullptr && (obj->is_mm_painted() || obj->is_fuzzy_skin_painted() ||
+                                   obj->is_fdm_support_painted() || obj->is_seam_painted())) {
+                has_paint = true;
+                break;
+            }
+        }
+    } else if (const ModelObject *obj = object(obj_idxs.front())) {
+        for (int vol_idx : vol_idxs) {
+            const ModelVolume *volume = obj->volumes[vol_idx];
+            if (volume != nullptr && (volume->is_mm_painted() || volume->is_fuzzy_skin_painted() ||
+                                      volume->is_fdm_support_painted() || volume->is_seam_painted())) {
+                has_paint = true;
+                break;
+            }
+        }
+    }
+    if (has_paint && !wxGetApp().confirm_mesh_paint_warning())
+        return;
+
     auto plater = wxGetApp().plater();
 
     auto fix_and_update_progress = [this, plater, model_names](const int obj_idx, const int vol_idx, int model_idx,
@@ -5783,7 +5831,8 @@ void ObjectList::fix_through_netfabb()
             msg += "\n";
         }
 
-        plater->clear_before_change_mesh(obj_idx);
+        // Repair now re-projects all paint layers onto the rebuilt mesh.
+        // Clearing them here would discard the source data before that happens.
         std::string res;
         if (!fix_model(*(object(obj_idx)), vol_idx, progress_dlg, msg, res))
             return false;
@@ -6149,7 +6198,7 @@ void ObjectList::on_plate_deleted(int plate_idx)
     }
 }
 
-void ObjectList::reload_all_plates(bool notify_partplate)
+void ObjectList::reload_all_plates(bool notify_partplate, bool do_info_update)
 {
     m_prevent_canvas_selection_update = true;
 
@@ -6174,7 +6223,7 @@ void ObjectList::reload_all_plates(bool notify_partplate)
     std::vector<size_t> obj_idxs;
     obj_idxs.reserve(m_objects->size());
     while (obj_idx < m_objects->size()) {
-        add_object_to_list(obj_idx, false, notify_partplate);
+        add_object_to_list(obj_idx, false, notify_partplate, do_info_update);
         obj_idxs.push_back(obj_idx);
         ++obj_idx;
     }
@@ -7283,8 +7332,43 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
             std::vector<std::string> ext_names;
             std::vector<ImVec4>      color_values;
             std::vector<ImVec4>      text_colors;
+            std::vector<FilamentColorAppearance::Appearance> appearances;
+            const auto draw_appearance = [](const FilamentColorAppearance::Appearance& appearance,
+                                            ImVec2 origin, float width, float height, bool rounded) {
+                if (!appearance.special()) return;
+                auto* draw = ImGui::GetWindowDrawList();
+                const int w = std::max(1, static_cast<int>(width));
+                const int h = std::max(1, static_cast<int>(height));
+                const float radius = rounded ? height / 2.f : 0.f;
+                for (int y = 0; y < h; ++y) {
+                    const float dy = y + 0.5f - radius;
+                    const float inset = rounded ? radius - std::sqrt(std::max(0.f, radius * radius - dy * dy)) : 0.f;
+                    const int left = std::max(0, static_cast<int>(std::ceil(inset)));
+                    const int right = std::min(w, static_cast<int>(std::floor(width - inset)));
+                    for (int x = left; x < right;) {
+                        const auto c = FilamentColorAppearance::pixel(appearance, x, y, w, std::max(2, h / 4));
+                        int end = x + 1;
+                        while (end < right && FilamentColorAppearance::equal(c,
+                            FilamentColorAppearance::pixel(appearance, end, y, w, std::max(2, h / 4)))) ++end;
+                        draw->AddRectFilled(ImVec2(origin.x + x, origin.y + y), ImVec2(origin.x + end, origin.y + y + 1), IM_COL32(c.Red(), c.Green(), c.Blue(), 255));
+                        x = end;
+                    }
+                }
+            };
+            const auto draw_outlined_text = [](ImVec2 position, ImU32 color, const char* label) {
+                auto* draw = ImGui::GetWindowDrawList();
+                const ImVec4 foreground = ImGui::ColorConvertU32ToFloat4(color);
+                const ImU32 outline = (foreground.x + foreground.y + foreground.z < 1.5f)
+                    ? IM_COL32(255, 255, 255, 255) : IM_COL32(0, 0, 0, 255);
+                draw->AddText(ImVec2(position.x - 1, position.y), outline, label);
+                draw->AddText(ImVec2(position.x + 1, position.y), outline, label);
+                draw->AddText(ImVec2(position.x, position.y - 1), outline, label);
+                draw->AddText(ImVec2(position.x, position.y + 1), outline, label);
+                draw->AddText(position, color, label);
+            };
 
             if (volume_type == ModelVolumeType::PARAMETER_MODIFIER || type & ItemType::itLayer) {
+                appearances.push_back({});
                 extruder_colors.emplace_back("#ffffff");
                 ext_names.emplace_back(_u8L("default"));
                 color_values.emplace_back(ImVec4(0.0, 0.0, 0.0, 0.0));
@@ -7299,17 +7383,21 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
                 size_t t = i + 1;
                 ext_names.emplace_back(std::to_string(t));
 
-                wxColor wxc(sub_string);
-                ImVec4  color_v4 = ImVec4(wxc.Red() / 255.0, wxc.Green() / 255.0, wxc.Blue() / 255.0, 1.0);
+                wxColor wxc = FilamentColorAppearance::parse(sub_string);
+                appearances.push_back(FilamentColorAppearance::resolve(i, wxc));
+                if (appearances.back().special())
+                    wxc = FilamentColorAppearance::pixel(appearances.back(), 25, 10, 50, 5);
+                ImVec4 color_v4 = ImVec4(wxc.Red() / 255.0, wxc.Green() / 255.0, wxc.Blue() / 255.0, 1.0);
                 color_values.emplace_back(color_v4);
 
-                float gray = color_v4.x * 0.299f + color_v4.y * 0.587f + color_v4.z * 0.114f;
-                if (gray > 0.5f) {
-                    gray = 0.0f;
+                if (appearances.back().special()) {
+                    const wxColour foreground = FilamentColorAppearance::foreground(appearances.back());
+                    const float gray = foreground == *wxBLACK ? 0.0f : 1.0f;
+                    text_colors.emplace_back(ImVec4(gray, gray, gray, 1.0f));
                 } else {
-                    gray = 1.0f;
+                    const float gray = color_v4.x * 0.299f + color_v4.y * 0.587f + color_v4.z * 0.114f;
+                    text_colors.emplace_back(gray > 0.5f ? ImVec4(0, 0, 0, 1) : ImVec4(1, 1, 1, 1));
                 }
-                text_colors.emplace_back(ImVec4(gray, gray, gray, 1.0f));
             }
 
             int ext_idx = 0;
@@ -7388,7 +7476,14 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
                         ImGui::SetCursorPos(pp);
                     }
 
+                    const ImVec2 badge_pos = ImGui::GetCursorScreenPos();
                     ImGui::Button(cur_name.c_str(), size);
+                    if (appearances[n].special()) {
+                        draw_appearance(appearances[n], badge_pos, size.x, size.y, false);
+                        const ImVec2 text_size = ImGui::CalcTextSize(cur_name.c_str());
+                        draw_outlined_text(ImVec2(badge_pos.x + (size.x - text_size.x) / 2,
+                            badge_pos.y + (size.y - text_size.y) / 2), ImGui::ColorConvertFloat4ToU32(text_color), cur_name.c_str());
+                    }
 
                     ImGui::PopStyleColor(5);
 
@@ -7399,6 +7494,8 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
                 ImGui::PopStyleVar(1);
                 ImGui::EndCombo();
             }
+
+            draw_appearance(appearances.at(ext_idx), p_min, ext_column_width, ImGui::GetFrameHeight(), true);
 
             // draw border for default extruder
             if (ext == _(L("default"))) {
@@ -7445,6 +7542,10 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
                 float x = pos.x + (item_width - text_size.x) * 0.5f;
                 ImGui::SetCursorPos(ImVec2(x, pos.y + style.FramePadding.y));
 
+                if (appearances.at(ext_idx).special()) {
+                    const ImVec2 text_pos = ImGui::GetCursorScreenPos();
+                    draw_outlined_text(text_pos, ImGui::ColorConvertFloat4ToU32(title_color), ext_name.c_str());
+                }
                 ImGui::Text("%s", ext_name.c_str());
 
                 if (need_tooltips) {
@@ -7632,6 +7733,11 @@ void GUI::ObjectList::render_current_device_name(const float max_right)
     }
 }
 
+static std::string bound_device_mac_for_current_printer_preset()
+{
+    return get_preset_bound_device_mac(wxGetApp().preset_bundle->printers.get_selected_preset());
+}
+
 void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
 {
     float  scale     = wxGetApp().plater()->get_current_canvas3D()->get_scale();
@@ -7662,7 +7768,7 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
     ImGui::SameLine();
 
     float setting_y  = row_start_y + (ImGui::GetFrameHeight() - icon_size.y) * 0.5f;
-    float collapse_y = row_start_y + (ImGui::GetFrameHeight() - collapse_size.y) * 0.5f + (folded_view ? 2.0f * scale : -2.0f * scale);
+    float collapse_y = row_start_y + (ImGui::GetFrameHeight() - collapse_size.y) * 0.5f;
 
     ImGui::SetCursorPos(ImVec2(right_edge - buttons_width, setting_y));
 
@@ -7809,9 +7915,9 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
     ImGui::SameLine();
 
     // Printer
-    SidebarPrinter&          bar               = wxGetApp().plater()->sidebar_printer();
-    std::vector<std::string> items             = bar.texts_of_combo_printer();
-    int                      item_selected_idx = bar.get_selection_combo_printer(); // Here we store our selection data as an index.
+    SidebarPrinter&            bar              = wxGetApp().plater()->sidebar_printer();
+    const PrinterSelectorModel selector_model   = bar.printer_selector_model();
+    const PrinterMachineItem*  selected_machine = selector_model.selected_machine_item();
     
     // Pass in the preview value visible before opening the combo (it could technically be different contents or not pulled from items[])
 
@@ -7837,30 +7943,37 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
     window->DC.CursorPos = window->DC.CursorPos + ImVec2(pading, pading);
 
     const char* combo_preview_value = "";
-    if (0 <= item_selected_idx && item_selected_idx < items.size()) {
-        combo_preview_value = items[item_selected_idx].c_str();
-    }
+    if (selected_machine != nullptr)
+        combo_preview_value = selected_machine->display_name.c_str();
 
     ImGui::PushItemWidth(printer_combo_width);
     ImGui::PushStyleColor(ImGuiCol_FrameBg, transparent);
     ImGui::PushStyleColor(ImGuiCol_Header, ImGuiWrapper::COL_CREALITY);
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGuiWrapper::COL_CREALITY);
-    ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGuiWrapper::COL_CREALITY);
 
-    static bool next_loop_open = false;
-    static int  selected_idx   = -1;
-    if (next_loop_open && selected_idx >= 0 && selected_idx < items.size()) {
+    static bool                    next_loop_open = false;
+    static PrinterMachineKey       pending_machine_key;
+    static bool                    management_action_pending = false;
+    static PrinterManagementAction pending_management_action = PrinterManagementAction::ManagePrinters;
+    if (next_loop_open) {
         next_loop_open = false;
-        bar.select_printer_preset(items[selected_idx], selected_idx);
-        selected_idx = -1;
+        bar.select_machine(pending_machine_key);
+    }
+    if (management_action_pending) {
+        const PrinterManagementAction action = pending_management_action;
+        management_action_pending = false;
+        bar.execute_printer_management(action);
     }
     // set preset bundle device by mac
-    auto               cur_frame_preset_name = wxGetApp().preset_bundle->printers.get_selected_preset_name();
-    const bool         changed_preset        = !cur_frame_preset_name.empty() && m_last_preset_name != cur_frame_preset_name;
-    if (changed_preset)
-    {
+    auto cur_frame_preset_name = wxGetApp().preset_bundle->printers.get_selected_preset_name();
+    const bool changed_preset = !cur_frame_preset_name.empty() && m_last_preset_name != cur_frame_preset_name;
+    if (changed_preset) {
+        const bool first_rendered_preset = m_last_preset_name.empty();
         m_last_preset_name = cur_frame_preset_name;
-        set_cur_device_by_cur_preset();
+        // The first rendered preset is startup state, not a user preset switch.
+        // Keep changed_preset true so the device list is loaded, but do not let an
+        // unbound preset overwrite the device restored from deviceInfo.json.
+        if (!first_rendered_preset)
+            set_cur_device_by_cur_preset();
     }
 
     bool selected_match = false;
@@ -7951,51 +8064,62 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
     }
     m_PrintCombo = rect;
     if (click) {
-        int item_count = items.size();
-        for (int n = 0; n < item_count; n++) {
-            const bool is_selected = (item_selected_idx == n);
-            if (ImGui::CPSelectable(items[n].c_str(), is_selected)) {
-                // bar.select_printer_preset(items[n], n);
-                next_loop_open = true;
-                selected_idx   = n;
+        const auto draw_printer_option = [scale, transparent](const char* label, bool is_selected) {
+            const ImVec4 option_hover_background = is_selected ? ImGuiWrapper::COL_CREALITY : transparent;
+            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, option_hover_background);
+            ImGui::PushStyleColor(ImGuiCol_HeaderActive, option_hover_background);
+            const bool pressed = ImGui::CPSelectable(label, is_selected);
+            if (ImGui::IsItemHovered() && !is_selected) {
+                ImVec2 hover_min = ImGui::GetItemRectMin();
+                ImVec2 hover_max = ImGui::GetItemRectMax();
+                const float horizontal_inset = std::max(1.0f, scale) * 0.3f;
+                const float vertical_inset = std::max(1.0f, scale);
+                hover_min.x += horizontal_inset;
+                hover_max.x -= horizontal_inset;
+                hover_min.y += vertical_inset;
+                hover_max.y -= vertical_inset;
+                ImDrawList* hover_draw_list = ImGui::GetWindowDrawList();
+                hover_draw_list->PushClipRect(ImGui::GetWindowPos(), ImGui::GetWindowPos() + ImGui::GetWindowSize(), false);
+                hover_draw_list->AddRect(hover_min, hover_max,
+                                         ImGui::GetColorU32(ImGuiWrapper::COL_CREALITY), 0.0f,
+                                         ImDrawFlags_RoundCornersAll, std::max(1.0f, scale));
+                hover_draw_list->PopClipRect();
             }
+            ImGui::PopStyleColor(2);
+            return pressed;
+        };
 
-            /*if (is_selected) {
-                if (selected_match) {
-                    ImGui::SameLine();
-                    ImGui::Image(normal_id, ImVec2(ImGui::GetFontSize(), ImGui::GetFontSize()),
-                                 m_texture.get_texture_uv0(ObjList_Texture::IM_TEXTURE_NAME::texPresetMatch, true),
-                                 m_texture.get_texture_uv1(ObjList_Texture::IM_TEXTURE_NAME::texPresetMatch, true));
-                }
-            } else {
-                bool tmp_match = false;
-                if (!model_name.empty()) {
-                    Preset* a_preset = Slic3r::GUI::wxGetApp().preset_bundle->printers.find_preset(items[n]);
-
-                    if (a_preset) {
-                        std::string a_preset_model = a_preset->config.opt_string("printer_model");
-                        if (!a_preset_model.empty()) {
-                            tmp_match = match_func(model_name, a_preset_model);
-                        }
-                    }
+        for (const PrinterSelectorSection& section : selector_model.sections) {
+            ImGui::PushID(static_cast<int>(section.origin));
+            ImGui::CPSelectable(section.display_name.c_str(), false, ImGuiSelectableFlags_Disabled);
+            for (const PrinterMachineItem& item : section.machines) {
+                const bool is_selected = selector_model.has_selected_machine && item.key == selector_model.selected_machine;
+                ImGui::PushID(item.key.machine_id.c_str());
+                if (draw_printer_option(item.display_name.c_str(), is_selected)) {
+                    next_loop_open      = true;
+                    pending_machine_key = item.key;
                 }
 
-                if (tmp_match) {
-                    ImGui::SameLine();
-                    ImGui::Image(normal_id, ImVec2(ImGui::GetFontSize(), ImGui::GetFontSize()),
-                                 m_texture.get_texture_uv0(ObjList_Texture::IM_TEXTURE_NAME::texPresetMatch, true),
-                                 m_texture.get_texture_uv1(ObjList_Texture::IM_TEXTURE_NAME::texPresetMatch, true));
-                }
-            }*/
-
-            // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-            if (is_selected)
-                ImGui::SetItemDefaultFocus();
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
+                ImGui::PopID();
+            }
+            ImGui::PopID();
+        }
+        for (const PrinterManagementItem& item : selector_model.management_items) {
+            ImGui::PushID(static_cast<int>(item.action));
+            if (draw_printer_option(item.display_name.c_str(), false)) {
+                pending_management_action = item.action;
+                management_action_pending = true;
+                ImGui::CloseCurrentPopup();
+                wxGetApp().imgui()->set_requires_extra_frame();
+            }
+            ImGui::PopID();
         }
         ImGui::EndCombo();
     }
 
-    ImGui::PopStyleColor(4);
+    ImGui::PopStyleColor(2);
     ImGui::PopItemWidth();
 
     {
@@ -8141,11 +8265,19 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
         if (wifi_hovered) {
             draw_hover_border(header_draw_list, wifi_btn_min, wifi_btn_max);
         }
-        if (wifi_hovered)
-            if (current_device.valid)
-                ImGui::SetTooltip(("%s", current_device.name.empty() ? current_device.address : current_device.name).c_str());
-            else
-                ImGui::SetTooltip(_u8L("Click to bind the device").c_str());
+        const auto current_item = std::find_if(
+            m_device_list_data.datas.begin(), m_device_list_data.datas.end(),
+            [](const auto& item) { return item.second.isCurrent; });
+        if (wifi_hovered) {
+            if (current_item != m_device_list_data.datas.end()) {
+                const auto& device  = current_item->second;
+                const auto& tooltip = device.name.empty() ? device.address : device.name;
+                ImGui::SetTooltip("%s", tooltip.c_str());
+            } else {
+                const auto tooltip = _u8L("Click to bind the device");
+                ImGui::SetTooltip("%s", tooltip.c_str());
+            }
+        }
         
         // draw device list popup
         ImVec2 popupSize{(336 + 15) * scale, 360 * scale};
@@ -8202,8 +8334,6 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
             ImGui::PushItemWidth(bed_type_combo_width);
             ImGui::PushStyleColor(ImGuiCol_FrameBg, transparent);
             ImGui::PushStyleColor(ImGuiCol_Header, ImGuiWrapper::COL_CREALITY);
-            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGuiWrapper::COL_CREALITY);
-            ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGuiWrapper::COL_CREALITY);
 
             int bed_type_selected_idx = bar.get_selection_bed_type(); // Here we store our selection data as an index.
             // Pass in the preview value visible before opening the combo (it could technically be different contents or not pulled
@@ -8232,10 +8362,30 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
                                      ImGuiComboFlags_HeightLargest, 200.0f * scale, 30.0f * scale)) {
                 for (int n = 0; n < bed_types.size(); n++) {
                     const bool is_selected = (bed_type_selected_idx == n);
+                    const ImVec4 option_hover_background = is_selected ? ImGuiWrapper::COL_CREALITY : transparent;
+                    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, option_hover_background);
+                    ImGui::PushStyleColor(ImGuiCol_HeaderActive, option_hover_background);
                     if (ImGui::Selectable(bed_types[n].c_str(), is_selected)) {
                         BOOST_LOG_TRIVIAL(warning) << "n=" << n << "; bed_types=" << bed_types[n].c_str();
                         bar.select_bed_type(n);
                     }
+                    if (ImGui::IsItemHovered() && !is_selected) {
+                        ImVec2 hover_min = ImGui::GetItemRectMin();
+                        ImVec2 hover_max = ImGui::GetItemRectMax();
+                        const float horizontal_inset = std::max(1.0f, scale) * 0.3f;
+                        const float vertical_inset = std::max(1.0f, scale);
+                        hover_min.x += horizontal_inset;
+                        hover_max.x -= horizontal_inset;
+                        hover_min.y += vertical_inset;
+                        hover_max.y -= vertical_inset;
+                        ImDrawList* hover_draw_list = ImGui::GetWindowDrawList();
+                        hover_draw_list->PushClipRect(ImGui::GetWindowPos(), ImGui::GetWindowPos() + ImGui::GetWindowSize(), false);
+                        hover_draw_list->AddRect(hover_min, hover_max,
+                                                 ImGui::GetColorU32(ImGuiWrapper::COL_CREALITY), 0.0f,
+                                                 ImDrawFlags_RoundCornersAll, std::max(1.0f, scale));
+                        hover_draw_list->PopClipRect();
+                    }
+                    ImGui::PopStyleColor(2);
 
                     // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
                     if (is_selected)
@@ -8249,7 +8399,7 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
                 ImGui::PopItemFlag();
             }
 
-            ImGui::PopStyleColor(4);
+            ImGui::PopStyleColor(2);
             ImGui::PopItemWidth();
 
             ImVec2 min  = ImGui::GetItemRectMin();
@@ -8296,7 +8446,295 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
         }
     }
 
+    // Nozzle diameter selection. A single-extruder selection switches the
+    // actual printer preset; multi-extruder selections update each physical
+    // extruder's project variant without changing the printer preset.
+    const int nozzle_extruder_count = std::max(1, wxGetApp().preset_bundle->get_printer_extruder_count());
+    const bool multi_nozzle_printer = bar.is_multi_extruder();
+
+    const bool legacy_single_nozzle = !multi_nozzle_printer && !wxGetApp().preset_bundle->has_structured_nozzle_variants();
+    auto nozzle_label = [legacy_single_nozzle](const NozzleVariantInfo &variant) {
+        const std::string specification = legacy_single_nozzle ? variant.variant_id :
+            (boost::format("%.1f") % variant.nozzle_diameter).str();
+        return specification + "-" + _u8L("Standard");
+    };
+    const float nozzle_combo_height = 24.0f * scale;
+    auto draw_nozzle_combo = [&](int physical_extruder_id, float width) {
+        const std::vector<NozzleVariantInfo> variants = bar.nozzle_items(physical_extruder_id);
+        if (variants.empty()) {
+            ImGui::Dummy(ImVec2(width, nozzle_combo_height));
+            return;
+        }
+
+        const int selected_variant = bar.get_selection_nozzle_variant(physical_extruder_id);
+        const auto selected = std::find_if(variants.begin(), variants.end(), [selected_variant](const NozzleVariantInfo &item) {
+            return item.variant_index == selected_variant;
+        });
+        const std::string preview = selected == variants.end() ? std::string() : nozzle_label(*selected);
+
+        ImGui::PushID(physical_extruder_id);
+        const ImVec4 combo_background = is_dark ? ImVec4(0.18f, 0.18f, 0.19f, 1.0f)
+                                                 : ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+        const ImVec4 combo_hovered = is_dark ? ImVec4(0.21f, 0.21f, 0.22f, 1.0f)
+                                              : ImVec4(0.97f, 0.98f, 0.98f, 1.0f);
+        const ImVec4 combo_border = is_dark ? ImVec4(0.39f, 0.40f, 0.43f, 1.0f)
+                                             : ImVec4(0.64f, 0.67f, 0.71f, 1.0f);
+        const float vertical_padding = std::max(1.0f, (nozzle_combo_height - ImGui::GetTextLineHeight()) * 0.5f);
+        ImGui::SetNextItemWidth(width);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f * scale, vertical_padding));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f * scale);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, combo_background);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, combo_hovered);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, combo_hovered);
+        ImGui::PushStyleColor(ImGuiCol_Border, combo_border);
+        ImGui::PushStyleColor(ImGuiCol_Button, combo_background);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, combo_hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, combo_hovered);
+        ImGui::PushStyleColor(ImGuiCol_Header, ImGuiWrapper::COL_CREALITY);
+        if (should_disable_combo) {
+            ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        }
+        const ImVec2 combo_min = ImGui::GetCursorScreenPos();
+        const ImVec2 combo_max = combo_min + ImVec2(width, nozzle_combo_height);
+        const float arrow_half_width = 4.0f * scale;
+        const float arrow_half_height = 2.5f * scale;
+        const ImVec2 arrow_center(combo_max.x - 11.0f * scale, (combo_min.y + combo_max.y) * 0.5f);
+        const ImU32 arrow_color = ImGui::GetColorU32(should_disable_combo ? ImGuiCol_TextDisabled : ImGuiCol_Text);
+        const float arrow_thickness = std::max(1.0f, 1.4f * scale);
+        ImDrawList *combo_draw_list = ImGui::GetWindowDrawList();
+        const bool combo_open = ImGui::BeginCombo("##combo_nozzle_variant", preview.c_str(),
+                                                  ImGuiComboFlags_HeightLargest | ImGuiComboFlags_NoArrowButton);
+        combo_draw_list->AddLine(arrow_center + ImVec2(-arrow_half_width, -arrow_half_height),
+                                 arrow_center + ImVec2(0.0f, arrow_half_height), arrow_color, arrow_thickness);
+        combo_draw_list->AddLine(arrow_center + ImVec2(0.0f, arrow_half_height),
+                                 arrow_center + ImVec2(arrow_half_width, -arrow_half_height), arrow_color, arrow_thickness);
+        if (combo_open) {
+            for (const NozzleVariantInfo &variant : variants) {
+                const bool is_selected = variant.variant_index == selected_variant;
+                const std::string label = nozzle_label(variant);
+                // Keep the selected nozzle filled green. Other options use the
+                // same green outline hover treatment as the application's
+                // standard dropdowns instead of another filled background.
+                const ImVec4 option_hover_background = is_selected ? ImGuiWrapper::COL_CREALITY : transparent;
+                ImGui::PushStyleColor(ImGuiCol_HeaderHovered, option_hover_background);
+                ImGui::PushStyleColor(ImGuiCol_HeaderActive, option_hover_background);
+                if (ImGui::Selectable(label.c_str(), is_selected)) {
+                    const int target_extruder = physical_extruder_id;
+                    const int target_variant = variant.variant_index;
+                    wxGetApp().CallAfter([target_extruder, target_variant]() {
+                        if (wxGetApp().plater() != nullptr)
+                            wxGetApp().plater()->sidebar_printer().select_nozzle_variant(target_extruder,
+                                                                                       target_variant);
+                    });
+                }
+                if (ImGui::IsItemHovered() && !is_selected) {
+                    ImVec2 hover_min = ImGui::GetItemRectMin();
+                    ImVec2 hover_max = ImGui::GetItemRectMax();
+                    const float horizontal_inset = std::max(1.0f, scale) * 0.6f;
+                    const float vertical_inset = std::max(1.0f, scale);
+                    hover_min.x += horizontal_inset;
+                    hover_max.x -= horizontal_inset;
+                    hover_min.y += vertical_inset;
+                    hover_max.y -= vertical_inset;
+                    ImGui::GetWindowDrawList()->AddRect(hover_min, hover_max,
+                                                        ImGui::GetColorU32(ImGuiWrapper::COL_CREALITY), 0.0f,
+                                                        ImDrawFlags_RoundCornersAll, std::max(1.0f, scale));
+                }
+                ImGui::PopStyleColor(2);
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+        if (should_disable_combo) {
+            ImGui::PopStyleColor();
+            ImGui::PopItemFlag();
+        }
+        ImGui::PopStyleColor(8);
+        ImGui::PopStyleVar(3);
+        ImGui::PopID();
+    };
+
+    auto draw_nozzle_index_badge = [scale](int index, float row_height) {
+        const float badge_diameter = 16.0f * scale;
+        const float badge_offset_y = std::max(0.0f, (row_height - badge_diameter) * 0.5f);
+        const ImVec2 badge_pos = ImGui::GetCursorScreenPos() + ImVec2(0.0f, badge_offset_y);
+        const ImVec2 badge_center = badge_pos + ImVec2(badge_diameter * 0.5f, badge_diameter * 0.5f);
+        ImGui::Dummy(ImVec2(badge_diameter, row_height));
+
+        ImDrawList *draw_list = ImGui::GetWindowDrawList();
+        draw_list->AddCircleFilled(badge_center, badge_diameter * 0.5f, IM_COL32(142, 150, 161, 255), 24);
+
+        const std::string index_text = std::to_string(index + 1);
+        const ImVec2 text_size = ImGui::CalcTextSize(index_text.c_str());
+        draw_list->AddText(badge_center - text_size * 0.5f, IM_COL32_WHITE, index_text.c_str());
+    };
+
+    ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
+    if (!multi_nozzle_printer) {
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(_u8L("Nozzle diameter").c_str());
+        ImGui::SameLine();
+        const float label_width = ImGui::CalcTextSize(_u8L("Nozzle diameter").c_str()).x;
+        draw_nozzle_combo(0, 280.0f * scale - label_width - style.FramePadding.x * 2.0f);
+    } else {
+        const float total_width = 280.0f * scale;
+        const float row_start_x = ImGui::GetCursorPosX();
+        const float header_y    = ImGui::GetCursorPosY();
+        ImGui::TextUnformatted(_u8L("Nozzle diameter").c_str());
+
+        const std::string bound_device_mac  = bound_device_mac_for_current_printer_preset();
+        const DM::Device& bound_device      = DM::DataCenter::Ins().get_current_device_data();
+        const bool        has_bound_device  = !bound_device_mac.empty() && bound_device.valid &&
+                                               !bound_device.address.empty() &&
+                                               bound_device.mac == bound_device_mac;
+        const std::string sync_text         = _u8L("Sync information");
+        const float  sync_icon_size = 14.0f * scale;
+        const float  sync_spacing   = 5.0f * scale;
+        const float  sync_padding_x = 7.0f * scale;
+        const float  sync_padding_y = 4.0f * scale;
+        const ImVec2 sync_text_size = ImGui::CalcTextSize(sync_text.c_str());
+        const ImVec2 sync_content_size(sync_icon_size + sync_spacing + sync_text_size.x,
+                                       std::max(sync_icon_size, sync_text_size.y));
+        const ImVec2 sync_button_size(sync_content_size.x + sync_padding_x * 2.0f,
+                                      sync_content_size.y + sync_padding_y * 2.0f);
+        const ImVec4 sync_color = has_bound_device ? ImGuiWrapper::COL_CREALITY :
+            (is_dark ? ImVec4(1.0f, 1.0f, 1.0f, 0.4f) : ImVec4(0.188f, 0.216f, 0.239f, 0.4f));
+
+        ImGui::SetCursorPos(ImVec2(row_start_x + total_width - sync_button_size.x, header_y));
+        ImGui::PushID("nozzle_sync_information");
+        const bool   sync_pressed = ImGui::InvisibleButton("##button", sync_button_size);
+        const bool   sync_hovered = ImGui::IsItemHovered();
+        const ImVec2 sync_min     = ImGui::GetItemRectMin();
+        const ImVec2 sync_max     = ImGui::GetItemRectMax();
+
+        if (sync_hovered && has_bound_device)
+            draw_hover_border(header_draw_list, sync_min, sync_max);
+
+        const unsigned sync_raster_size = std::max(1u, static_cast<unsigned>(std::ceil(sync_icon_size)));
+        static ImTextureID sync_texture      = nullptr;
+        static unsigned    sync_texture_size = 0;
+        ensure_svg_texture(sync_texture, sync_texture_size, "/images/nozzle_sync.svg", sync_raster_size);
+
+        if (sync_texture != nullptr) {
+            const float icon_offset_y = std::max(0.0f, (sync_content_size.y - sync_icon_size) * 0.5f);
+            const ImVec2 icon_min     = sync_min + ImVec2(sync_padding_x, sync_padding_y + icon_offset_y);
+            ImGui::GetWindowDrawList()->AddImage(sync_texture, icon_min,
+                                                  icon_min + ImVec2(sync_icon_size, sync_icon_size),
+                                                  ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f),
+                                                  ImGui::GetColorU32(sync_color));
+        }
+
+        const float text_offset_y = std::max(0.0f, (sync_content_size.y - sync_text_size.y) * 0.5f);
+        const ImVec2 text_pos = sync_min + ImVec2(sync_padding_x + sync_icon_size + sync_spacing,
+                                                  sync_padding_y + text_offset_y);
+        ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(sync_color), sync_text.c_str());
+        if (sync_pressed && has_bound_device)
+            request_nozzle_information_from_bound_device();
+        ImGui::PopID();
+
+        ImGui::SetCursorPosY(header_y + sync_button_size.y);
+        const float cell_spacing = 14.0f * scale;
+        const float cell_width = (total_width - cell_spacing) * 0.5f;
+        const float grid_start_y = ImGui::GetCursorPosY() + 8.0f * scale;
+        const float combo_height = nozzle_combo_height;
+        const float row_spacing = 6.0f * scale;
+        const float badge_width = 16.0f * scale;
+        const float badge_combo_spacing = 7.0f * scale;
+        for (int i = 0; i < nozzle_extruder_count; ++i) {
+            const int row = i / 2;
+            const int column = i % 2;
+            ImGui::SetCursorPos(ImVec2(row_start_x + column * (cell_width + cell_spacing),
+                                      grid_start_y + row * (combo_height + row_spacing)));
+            ImGui::BeginGroup();
+            draw_nozzle_index_badge(i, combo_height);
+            ImGui::SameLine(0.0f, badge_combo_spacing);
+            draw_nozzle_combo(i, cell_width - badge_width - badge_combo_spacing);
+            ImGui::EndGroup();
+        }
+
+        const int nozzle_rows = (nozzle_extruder_count + 1) / 2;
+        const float grid_bottom_y = grid_start_y + nozzle_rows * combo_height +
+                                    std::max(0, nozzle_rows - 1) * row_spacing;
+        ImGui::SetCursorPosY(grid_bottom_y);
+    }
+
     ImGui::PopStyleColor(2);
+}
+
+void ObjectList::request_nozzle_information_from_bound_device()
+{
+    const std::string device_mac = bound_device_mac_for_current_printer_preset();
+    const DM::Device& current_device = DM::DataCenter::Ins().get_current_device_data();
+    if (device_mac.empty() || !current_device.valid || current_device.address.empty() ||
+        current_device.mac != device_mac || wxGetApp().mainframe == nullptr ||
+        wxGetApp().mainframe->get_printer_mgr_view() == nullptr)
+        return;
+
+    if (++m_nozzle_sync_request_serial == 0)
+        ++m_nozzle_sync_request_serial;
+    m_pending_nozzle_sync_device_mac  = device_mac;
+    m_pending_nozzle_sync_request_id  = m_nozzle_sync_request_serial;
+    m_pending_nozzle_sync_updates_left = 10;
+
+    nlohmann::json command_json;
+    command_json["command"] = "request_nozzle_list";
+    command_json["data"] = {
+        {"device_id", device_mac},
+        {"request_id", m_pending_nozzle_sync_request_id}
+    };
+    const std::string encoded_command = RemotePrint::Utils::url_encode(command_json.dump(-1, ' ', true));
+    wxGetApp().mainframe->get_printer_mgr_view()->ExecuteScriptCommand(encoded_command);
+}
+
+bool ObjectList::sync_nozzle_information_from_bound_device()
+{
+    const DM::Device& current_device = DM::DataCenter::Ins().get_current_device_data();
+    if (m_pending_nozzle_sync_request_id == 0 ||
+        bound_device_mac_for_current_printer_preset() != m_pending_nozzle_sync_device_mac ||
+        !current_device.valid || current_device.address.empty() ||
+        current_device.mac != m_pending_nozzle_sync_device_mac)
+        return true;
+
+    const nlohmann::json device = DM::DataCenter::Ins().find_printer_by_mac(m_pending_nozzle_sync_device_mac);
+    if (!device.is_object() || !device.contains("nozzleSyncRequestId") ||
+        !device["nozzleSyncRequestId"].is_number_integer() ||
+        device["nozzleSyncRequestId"].get<std::uint64_t>() != m_pending_nozzle_sync_request_id)
+        return false;
+
+    if (!device.is_object() || !device.contains("nozzleList") || !device["nozzleList"].is_object() ||
+        !device["nozzleList"].contains("nozzles") || !device["nozzleList"]["nozzles"].is_array())
+        return false;
+
+    const nlohmann::json& device_nozzles = device["nozzleList"]["nozzles"];
+    SidebarPrinter&       bar             = wxGetApp().plater()->sidebar_printer();
+    const int extruder_count = std::max(1, wxGetApp().preset_bundle->get_printer_extruder_count());
+    if (device_nozzles.size() < size_t(extruder_count))
+        return true;
+
+    std::vector<int> target_variant_indices(size_t(extruder_count), -1);
+    for (int extruder_id = 0; extruder_id < extruder_count; ++extruder_id) {
+        const nlohmann::json& nozzle = device_nozzles[size_t(extruder_id)];
+        if (!nozzle.is_object() || !nozzle.contains("flow") || !nozzle["flow"].is_number() ||
+            !nozzle.contains("diameter") || !nozzle["diameter"].is_number())
+            return true;
+        const double diameter = nozzle["diameter"].get<double>();
+        const int flow = nozzle["flow"].get<int>();
+        const NozzleVolumeType desired_volume_type = flow == 1 ? nvtHighFlow : nvtStandard;
+        const std::vector<NozzleVariantInfo> variants = bar.nozzle_items(extruder_id);
+        const auto target = std::find_if(variants.begin(), variants.end(), [diameter, desired_volume_type](const NozzleVariantInfo& item) {
+            return std::abs(item.nozzle_diameter - diameter) < EPSILON &&
+                   item.nozzle_volume_type == desired_volume_type;
+        });
+        if (target == variants.end())
+            return true;
+        target_variant_indices[size_t(extruder_id)] = target->variant_index;
+    }
+
+    bar.select_nozzle_variants(target_variant_indices);
+    return true;
 }
 
 void ObjectList::render_unfold_button()
@@ -8579,26 +9017,18 @@ void ObjectList::update_printer_model_texture()
     if (printer_model.empty())
         return;
 
-    // update printer texture when first init or printer model changed
+    const auto revision = printer_cover_revision();
     auto& printer_texture = m_png_textures->get(ObjList_Png_Texture_Wrapper::pngTexPrinterModel);
-    if (printer_model != m_last_printer_model)
+    if (printer_model != m_last_printer_model || revision != m_last_printer_cover_revision)
     {
         m_last_printer_model = printer_model;
+        m_last_printer_cover_revision = revision;
+        m_device_list_dirty_mark = m_device_list_dirty_mark_fluidd = true;
         printer_texture->reset();
-
-        // update texture
-        const auto& model2CoverMap = wxGetApp().app_config->get_model2cover_path();
-        auto        key            = wxGetApp().app_config->make_model2cover_path_key("", printer_model);
-        std::string coverPath; 
-        if (model2CoverMap.find(key) != model2CoverMap.end())
-        {
-            coverPath = model2CoverMap.at(key);
-        }
-        if (coverPath.empty())
-        {
-            coverPath = Slic3r::resources_dir() + "/images/printer_default.png";
-        }
-        printer_texture->load_from_png_file(coverPath, true, GLTexture::None, false);
+        const auto cover = wxGetApp().app_config->get_printer_cover(printer_model);
+        if (!printer_texture->load_from_png_file(cover, true, GLTexture::None, false))
+            printer_texture->load_from_png_file(Slic3r::resources_dir() + "/images/printer_default.png",
+                                                true, GLTexture::None, false);
     }
 }
 
@@ -8608,10 +9038,13 @@ void ObjectList::update_printer_device_list_data(std::string vendor, bool bForce
         return;
 
     std::srand(std::time(nullptr));
-    m_device_list_dirty_mark = false;
     auto devicesData = DM::DataCenter::Ins().GetData();
-    auto printerData         = devicesData["data"];
-    const auto& model2CoverMap = wxGetApp().app_config->get_model2cover_path();
+    if (!devicesData.contains("data") || !devicesData["data"].is_object() ||
+        !devicesData["data"].contains("printerList") || !devicesData["data"]["printerList"].is_array())
+        return;
+
+    m_device_list_dirty_mark = false;
+    const auto& printerData = devicesData["data"];
     PresetBundle& preset_bundle       = *wxGetApp().preset_bundle;
     auto          preset              = preset_bundle.printers.get_edited_preset();
     auto          current_printer_model       = preset.config.opt_string("printer_model");
@@ -8641,20 +9074,18 @@ void ObjectList::update_printer_device_list_data(std::string vendor, bool bForce
                     continue;
                 }
             }
-            auto key  = wxGetApp().app_config->make_model2cover_path_key("", current_printer_model);
-            auto iter = model2CoverMap.find(key);
-            auto coverPath = Slic3r::resources_dir() + "/images/printer_default.png";
-            if (iter != model2CoverMap.end())
-            {
-                coverPath = iter->second;
-            }
+            auto coverPath = wxGetApp().app_config->get_printer_cover(current_printer_model);
             bool              is_current     = false;
             const DM::Device& current_device = DM::DataCenter::Ins().get_current_device_data();
             if (current_device.valid)
             {
                 is_current = current_device.mac == device.mac;
             }
-            auto key_name = device.name.empty() ? (device.modelName + device.mac + device.address) : device.name;
+            // Device names are not unique (for example, multiple printers may all
+            // be named "creality"). Include stable device identity fields so a
+            // later entry is not silently rejected by datas.insert().
+            auto key_name = (device.name.empty() ? device.modelName : device.name) +
+                            "_" + device.mac + "_" + device.address + "_" + std::to_string(device.deviceType);
             if (device.deviceType == 1)
             {
                 key_name += "_##CXYDevice##_" + std::to_string(std::rand());
@@ -8673,10 +9104,13 @@ void ObjectList::update_other_printer_device_list_data(bool bForce)
         return;
 
     std::srand(std::time(nullptr));
-    m_device_list_dirty_mark_fluidd = false;
     auto devicesData = DM::DataCenter::Ins().GetData();
-    auto printerData         = devicesData["data"];
-    const auto& model2CoverMap = wxGetApp().app_config->get_model2cover_path();
+    if (!devicesData.contains("data") || !devicesData["data"].is_object() ||
+        !devicesData["data"].contains("printerList") || !devicesData["data"]["printerList"].is_array())
+        return;
+
+    m_device_list_dirty_mark_fluidd = false;
+    const auto& printerData = devicesData["data"];
     PresetBundle& preset_bundle       = *wxGetApp().preset_bundle;
     auto          preset              = preset_bundle.printers.get_edited_preset();
     auto          current_printer_model       = preset.config.opt_string("printer_model");
@@ -8701,13 +9135,7 @@ void ObjectList::update_other_printer_device_list_data(bool bForce)
                 continue;
             }
 
-            auto key  = wxGetApp().app_config->make_model2cover_path_key("", current_printer_model);
-            auto iter = model2CoverMap.find(key);
-            auto coverPath = Slic3r::resources_dir() + "/images/printer_default.png";
-            if (iter != model2CoverMap.end())
-            {
-                coverPath = iter->second;
-            }
+            auto coverPath = wxGetApp().app_config->get_printer_cover(current_printer_model);
             bool              is_current     = false;
             const DM::Device& current_device = DM::DataCenter::Ins().get_current_device_data();
             if (current_device.valid)
@@ -9008,25 +9436,7 @@ void ObjectList::draw_device_list_content()
 
 bool ObjectList::set_cur_device_by_cur_preset()
 {
-    std::string selected_mac;
-    auto        cur_preset        = wxGetApp().preset_bundle->printers.get_selected_preset();
-    auto        cur_preset_config = cur_preset.config;
-    if (wxGetApp().preset_bundle->printers.get_selected_preset().is_system) {
-        auto cache         = EasyCache::get_instance().data();
-        auto printer_model = cur_preset_config.opt_string("printer_model");
-        if (cache.contains("system_preset_bundle_deivce") && cache["system_preset_bundle_deivce"].contains(printer_model)) {
-            std::string json_key   = "unique";
-            auto        nozzle_dia = cur_preset_config.opt_serialize("nozzle_diameter");
-            if (!nozzle_dia.empty())
-                json_key = nozzle_dia;
-
-            if (cache["system_preset_bundle_deivce"][printer_model].contains(json_key))
-                selected_mac = cache["system_preset_bundle_deivce"][printer_model][json_key];
-        }
-    } else {
-        if (cur_preset_config.has("printer_select_mac"))
-            selected_mac = cur_preset_config.opt_string("printer_select_mac");
-    }
+    const std::string selected_mac = bound_device_mac_for_current_printer_preset();
 
     nlohmann::json commandJson;
     nlohmann::json dataJson;
@@ -9061,6 +9471,7 @@ bool ObjectList::set_cur_device_by_mac(std::string mac_addr)
         } else {
             cache["system_preset_bundle_deivce"][printer_model][nozzle_dia] = mac_addr;
         }
+        EasyCache::get_instance().flush();
     } else {
         auto& seled_config = printer_collection.get_edited_preset().config;
         seled_config.set_key_value("printer_select_mac", new ConfigOptionString(mac_addr));
@@ -9121,11 +9532,21 @@ ObjectList::ObjList_Png_Texture_Wrapper::~ObjList_Png_Texture_Wrapper()
 }
 
 void ObjectList::device_list_data::push(std::string name, device_list_item_data item)
-{ 
+{
+    const auto revision = printer_cover_revision();
+    if (cover_revision != revision) {
+        for (const auto& entry : cover2textureId)
+            if (entry.second != GLTexture::INVAILD_ID)
+                glsafe(::glDeleteTextures(1, &entry.second));
+        cover2textureId.clear();
+        cover_revision = revision;
+    }
     if (cover2textureId.find(item.cover_path) == cover2textureId.end())
     {
         auto& texture = objPtr->m_png_textures->get(ObjList_Png_Texture_Wrapper::pngTexDeviceListIItem);
-        texture->load_from_png_file(item.cover_path, true, GLTexture::None, false);
+        if (!texture->load_from_png_file(item.cover_path, true, GLTexture::None, false))
+            texture->load_from_png_file(Slic3r::resources_dir() + "/images/printer_default.png",
+                                       true, GLTexture::None, false);
         cover2textureId.insert({item.cover_path, texture->get_id()});
         texture->reset(true); // delay until ~device_list_data() releases the id
     }

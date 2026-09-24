@@ -1,10 +1,12 @@
 #include "Extruder.hpp"
+#include "RetractConfigTrace.hpp"
 #include "PrintConfig.hpp"
 
 namespace Slic3r {
 
 double Extruder::m_share_E = 0.;
 double Extruder::m_share_retracted = 0.;
+double Extruder::m_share_restart_extra = 0.;
 
 Extruder::Extruder(unsigned int id, GCodeConfig *config, bool share_extruder) :
     m_id(id),
@@ -54,11 +56,11 @@ double Extruder::retract(double length, double restart_extra)
         if (m_config->use_relative_e_distances)
             m_share_E = 0.;
         double to_retract = std::max(0., length - m_share_retracted);
-        m_restart_extra = restart_extra;
         if (to_retract > 0.) {
             m_share_E             -= to_retract;
             m_absolute_E          -= to_retract;
             m_share_retracted     += to_retract;
+            m_share_restart_extra  = restart_extra;
         }
         return to_retract;
     } else {
@@ -66,11 +68,11 @@ double Extruder::retract(double length, double restart_extra)
         if (m_config->use_relative_e_distances)
             m_E = 0.;
         double to_retract = std::max(0., length - m_retracted);
-        m_restart_extra = restart_extra;
         if (to_retract > 0.) {
             m_E             -= to_retract;
             m_absolute_E    -= to_retract;
             m_retracted     += to_retract;
+            m_restart_extra = restart_extra;
         }
         return to_retract;
     }
@@ -80,10 +82,10 @@ double Extruder::unretract()
 {
     // BBS
     if (m_share_extruder) {
-        double dE = m_share_retracted + m_restart_extra;
+        double dE = m_share_retracted + m_share_restart_extra;
         this->extrude(dE);
         m_share_retracted     = 0.;
-        m_restart_extra = 0.;
+        m_share_restart_extra = 0.;
         return dE;
     } else {
         double dE = m_retracted + m_restart_extra;
@@ -103,12 +105,14 @@ void Extruder::set_retracted(double retracted, double restart_extra)
     if (restart_extra < - EPSILON)
         throw Slic3r::RuntimeError("Custom G-code reports negative z_restart_extra.");
 
+    double& retracted_state = m_share_extruder ? m_share_retracted : m_retracted;
+    double& restart_extra_state = m_share_extruder ? m_share_restart_extra : m_restart_extra;
     if (retracted > EPSILON) {
-        m_retracted     = retracted;
-        m_restart_extra = restart_extra < EPSILON ? 0 : restart_extra;
+        retracted_state     = retracted;
+        restart_extra_state = restart_extra < EPSILON ? 0 : restart_extra;
     } else {
-        m_retracted     = 0.;
-        m_restart_extra = 0;
+        retracted_state     = 0.;
+        restart_extra_state = 0.;
     }
 }
 
@@ -190,9 +194,15 @@ int Extruder::deretract_speed() const
 
 double Extruder::retract_restart_extra() const
 {
-    return m_config->retract_restart_extra.get_at(m_id);
+    RetractConfigTrace trace("Extruder.retract_restart_extra", this);
+    trace.note("READ_BEGIN", " config=", m_config, " tool=", m_id);
+    const double value = m_config->retract_restart_extra.get_at(m_id);
+    trace.note("READ_END", " value=", value);
+    return value;
 }
 
+// Print materializes printer Pn defaults and filament Tn overrides into a
+// logical-tool indexed runtime config, so toolchange values use m_id as well.
 double Extruder::retract_length_toolchange() const
 {
     return m_config->retract_length_toolchange.get_at(m_id);
@@ -200,7 +210,11 @@ double Extruder::retract_length_toolchange() const
 
 double Extruder::retract_restart_extra_toolchange() const
 {
-    return m_config->retract_restart_extra_toolchange.get_at(m_id);
+    RetractConfigTrace trace("Extruder.retract_restart_extra_toolchange", this);
+    trace.note("READ_BEGIN", " config=", m_config, " tool=", m_id);
+    const double value = m_config->retract_restart_extra_toolchange.get_at(m_id);
+    trace.note("READ_END", " value=", value);
+    return value;
 }
 
 double Extruder::travel_slope() const

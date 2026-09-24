@@ -124,6 +124,7 @@ public:
 	// Control TLS certificate and hostname verification for this request.
 	Http& ssl_verify_peer(bool set);
 	Http& ssl_verify_host(bool set);
+	Http& ssl_ignore_certificate_time(bool set);
 
 	// Add a HTTP multipart form field
 	Http& form_add(const std::string &name, const std::string &contents);

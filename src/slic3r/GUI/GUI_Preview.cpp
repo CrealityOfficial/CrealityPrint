@@ -660,6 +660,20 @@ void Preview::load_print_as_fff(bool keep_z_range, bool only_gcode)
 
     //BBS: add m_loaded_print logic
     const Print *print = m_process->fff_print();
+    auto* plater = wxGetApp().plater();
+    const bool overview =
+        plater->get_partplate_list().get_nonempty_plate_list().size() > 1 &&
+        (m_canvas->is_all_plates_selected() ||
+         (plater->isSliceAll() && plater->is_background_process_slicing()));
+    if (overview) {
+        // Statistics use the CPU slice results. Defer toolpath buffers until a
+        // plate is selected, including the final reload of a slice-all run.
+        m_loaded_print = nullptr;
+        load_shells(*print, true);
+        m_canvas->set_as_dirty();
+        m_canvas_widget->Refresh();
+        return;
+    }
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(" %1%: previous print %2%, new print %3%")%__LINE__ %m_loaded_print %print;
     if ((m_loaded_print&&(m_loaded_print == print)) || m_process->current_printer_technology() != ptFFF) {
         BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(" %1%: already loaded before, return directly")%__LINE__;

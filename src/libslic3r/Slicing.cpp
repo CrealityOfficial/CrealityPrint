@@ -1,6 +1,8 @@
+#include <cmath>
 #include <limits>
 
 #include "libslic3r.h"
+#include "Exception.hpp"
 #include "Slicing.hpp"
 #include "SlicingAdaptive.hpp"
 #include "PrintConfig.hpp"
@@ -33,21 +35,37 @@ static const coordf_t MIN_LAYER_HEIGHT_DEFAULT = 0.07;
 static const double   LAYER_HEIGHT_CHANGE_STEP = 0.04;
 static const size_t   LAYER_WIDTH_SMOOTH_WINDOW = 17;
 
-// Minimum layer height for the variable layer height algorithm.
-inline coordf_t min_layer_height_from_nozzle(const PrintConfig &print_config, int idx_nozzle)
+// Resolve a zero-based logical filament to its physical nozzle before reading
+// physical-nozzle parameters.
+inline coordf_t min_layer_height_from_filament(const PrintConfig &print_config, unsigned int filament_id)
 {
-    coordf_t min_layer_height = print_config.min_layer_height.get_at(idx_nozzle - 1);
+    const unsigned int physical_nozzle_id = get_physical_nozzle_index(print_config, filament_id);
+    coordf_t min_layer_height = print_config.min_layer_height.get_at(physical_nozzle_id);
     return (min_layer_height == 0.) ? MIN_LAYER_HEIGHT_DEFAULT : std::max(MIN_LAYER_HEIGHT, min_layer_height);
 }
 
-// Maximum layer height for the variable layer height algorithm, 3/4 of a nozzle dimaeter by default,
-// it should not be smaller than the minimum layer height.
-inline coordf_t max_layer_height_from_nozzle(const PrintConfig &print_config, int idx_nozzle)
+inline coordf_t max_layer_height_from_filament(const PrintConfig &print_config, unsigned int filament_id)
 {
-    coordf_t min_layer_height = min_layer_height_from_nozzle(print_config, idx_nozzle);
-    coordf_t max_layer_height = print_config.max_layer_height.get_at(idx_nozzle - 1);
-    coordf_t nozzle_dmr       = print_config.nozzle_diameter.get_at(idx_nozzle - 1);
+    const unsigned int physical_nozzle_id = get_physical_nozzle_index(print_config, filament_id);
+    coordf_t min_layer_height = min_layer_height_from_filament(print_config, filament_id);
+    coordf_t max_layer_height = print_config.max_layer_height.get_at(physical_nozzle_id);
+    coordf_t nozzle_dmr       = print_config.nozzle_diameter.get_at(physical_nozzle_id);
     return std::max(min_layer_height, (max_layer_height == 0.) ? (0.75 * nozzle_dmr) : max_layer_height);
+}
+
+inline coordf_t nozzle_diameter_from_configured_filament(const PrintConfig              &print_config,
+                                                         int                             configured_filament,
+                                                         const std::vector<unsigned int> &object_filaments)
+{
+    if (configured_filament > 0)
+        return get_physical_nozzle_diameter(print_config, unsigned(configured_filament - 1));
+    if (object_filaments.empty())
+        return get_physical_nozzle_diameter(print_config, 0);
+
+    coordf_t diameter = 0.;
+    for (unsigned int filament_id : object_filaments)
+        diameter = std::max(diameter, get_physical_nozzle_diameter(print_config, filament_id));
+    return diameter;
 }
 
 // Minimum layer height for the variable layer height algorithm.
@@ -76,14 +94,12 @@ SlicingParameters SlicingParameters::create_from_config(const PrintConfig&      
     coordf_t initial_layer_print_height = (print_config.initial_layer_print_height.value <= 0) ?
                                               object_config.layer_height.value :
                                               print_config.initial_layer_print_height.value;
-    // If object_config.support_filament == 0 resp. object_config.support_interface_filament == 0,
-    // print_config.nozzle_diameter.get_at(size_t(-1)) returns the 0th nozzle diameter,
-    // which is consistent with the requirement that if support_filament == 0 resp. support_interface_filament == 0,
-    // support will not trigger tool change, but it will use the current nozzle instead.
-    // In that case all the nozzles have to be of the same diameter.
-    coordf_t support_material_extruder_dmr           = print_config.nozzle_diameter.get_at(object_config.support_filament.value - 1);
-    coordf_t support_material_interface_extruder_dmr = print_config.nozzle_diameter.get_at(object_config.support_interface_filament.value -
-                                                                                           1);
+    // Zero means that support follows the current object filament. Use the
+    // largest active diameter instead of relying on unsigned underflow.
+    coordf_t support_material_extruder_dmr = nozzle_diameter_from_configured_filament(
+        print_config, object_config.support_filament.value, object_extruders);
+    coordf_t support_material_interface_extruder_dmr = nozzle_diameter_from_configured_filament(
+        print_config, object_config.support_interface_filament.value, object_extruders);
     bool     soluble_interface                       = object_config.support_top_z_distance.value == 0.;
 
     SlicingParameters params;
@@ -107,22 +123,33 @@ SlicingParameters SlicingParameters::create_from_config(const PrintConfig&      
     // Miniumum/maximum of the minimum layer height over all extruders.
     params.min_layer_height = MIN_LAYER_HEIGHT;
     params.max_layer_height = std::numeric_limits<double>::max();
+    auto apply_filament_layer_height_limits = [&print_config, &params](unsigned int filament_id) {
+        params.min_layer_height = std::max(params.min_layer_height,
+                                           min_layer_height_from_filament(print_config, filament_id));
+        params.max_layer_height = std::min(params.max_layer_height,
+                                           max_layer_height_from_filament(print_config, filament_id));
+    };
+    auto apply_configured_filament_layer_height_limits = [&apply_filament_layer_height_limits, &object_extruders](int configured_filament) {
+        if (configured_filament > 0) {
+            apply_filament_layer_height_limits(unsigned(configured_filament - 1));
+        } else if (object_extruders.empty()) {
+            apply_filament_layer_height_limits(0);
+        } else {
+            for (unsigned int filament_id : object_extruders)
+                apply_filament_layer_height_limits(filament_id);
+        }
+    };
     if (object_config.enable_support.value || params.base_raft_layers > 0 || object_config.enforce_support_layers > 0) {
         // Has some form of support. Add the support layers to the minimum / maximum layer height limits.
-        params.min_layer_height        = std::max(min_layer_height_from_nozzle(print_config, object_config.support_filament),
-                                           min_layer_height_from_nozzle(print_config, object_config.support_interface_filament));
-        params.max_layer_height        = std::min(max_layer_height_from_nozzle(print_config, object_config.support_filament),
-                                           max_layer_height_from_nozzle(print_config, object_config.support_interface_filament));
+        apply_configured_filament_layer_height_limits(object_config.support_filament.value);
+        apply_configured_filament_layer_height_limits(object_config.support_interface_filament.value);
         params.max_suport_layer_height = params.max_layer_height;
     }
     if (object_extruders.empty()) {
-        params.min_layer_height = std::max(params.min_layer_height, min_layer_height_from_nozzle(print_config, 0));
-        params.max_layer_height = std::min(params.max_layer_height, max_layer_height_from_nozzle(print_config, 0));
+        apply_filament_layer_height_limits(0);
     } else {
-        for (unsigned int extruder_id : object_extruders) {
-            params.min_layer_height = std::max(params.min_layer_height, min_layer_height_from_nozzle(print_config, extruder_id));
-            params.max_layer_height = std::min(params.max_layer_height, max_layer_height_from_nozzle(print_config, extruder_id));
-        }
+        for (unsigned int filament_id : object_extruders)
+            apply_filament_layer_height_limits(filament_id);
     }
     params.min_layer_height = std::min(params.min_layer_height, params.layer_height);
     params.max_layer_height = std::max(params.max_layer_height, params.layer_height);
@@ -572,30 +599,25 @@ void smooth_layer_width_profile_gaussian(std::vector<double>& layer_width_profil
     layer_width_profile = smoothed_profile;
 }
 
-std::vector<double> layer_width_profile_adaptive(const SlicingParameters& slicing_params,
-                                                 const ModelObject&       object,
-                                                 std::vector<coordf_t>    layer_height_profile,
-                                                 const double             ow_width,
-                                                 Transform3d              trafo)
+std::vector<double> layer_width_profile_adaptive(const SlicingParameters&     slicing_params,
+                                                 const ModelObject&           object,
+                                                 const std::vector<coordf_t>& object_layers,
+                                                 const double                 ow_width,
+                                                 Transform3d                  trafo)
 {
-    layer_height_profile = generate_object_layers(slicing_params, layer_height_profile, false);
     SlicingAdaptive as;
     as.set_slicing_parameters(slicing_params, ow_width, trafo);
     as.prepare(object);
     std::vector<coordf_t> layer_width_profile;
     size_t current_facet = 0;
 
-    int print_z_idx = 0;
-    while (layer_height_profile[print_z_idx] + EPSILON < slicing_params.object_print_z_height()) {
-        if (print_z_idx > layer_height_profile.size())
+    layer_width_profile.reserve(object_layers.size() / 2);
+    for (size_t layer_index = 0; 2 * layer_index + 1 < object_layers.size(); ++layer_index) {
+        const coordf_t lower = object_layers[2 * layer_index];
+        if (lower + EPSILON >= slicing_params.object_print_z_height())
             break;
-        float height = layer_height_profile[print_z_idx + 1] - layer_height_profile[print_z_idx];
-        float width  = as.next_layer_width(layer_height_profile[print_z_idx], height, current_facet);
-
-        print_z_idx += 2;
-        layer_width_profile.push_back(width);
-        if (print_z_idx >= layer_height_profile.size())
-            break;
+        const coordf_t height = object_layers[2 * layer_index + 1] - lower;
+        layer_width_profile.push_back(as.next_layer_width(lower, height, current_facet));
     }
     smooth_layer_width_profile_gaussian(layer_width_profile, LAYER_WIDTH_SMOOTH_WINDOW);
     return layer_width_profile;
@@ -939,6 +961,36 @@ std::vector<coordf_t> generate_object_layers(
     if (is_precise_z_height)
         adjust_layer_series_to_align_object_height(slicing_params, out);
     return out;
+}
+
+PreparedLayerSchedule make_prepared_layer_schedule(
+    const std::vector<coordf_t> &flat_boundaries,
+    const std::vector<coordf_t> &widths)
+{
+    if ((flat_boundaries.size() & 1) != 0)
+        throw LogicError("Prepared layer schedule has an odd boundary count");
+
+    const size_t layer_count = flat_boundaries.size() / 2;
+    if (!widths.empty() && widths.size() != layer_count)
+        throw LogicError("Prepared layer schedule width count mismatch");
+
+    PreparedLayerSchedule schedule;
+    schedule.reserve(layer_count);
+    for (size_t layer_index = 0; layer_index < layer_count; ++layer_index) {
+        const coordf_t lower = flat_boundaries[2 * layer_index];
+        const coordf_t upper = flat_boundaries[2 * layer_index + 1];
+        const coordf_t width = widths.empty() ? 0.0 : widths[layer_index];
+        if (!std::isfinite(lower) || !std::isfinite(upper) || !std::isfinite(width))
+            throw LogicError("Prepared layer schedule contains a non-finite value");
+        if (upper <= lower)
+            throw LogicError("Prepared layer schedule contains a non-positive interval");
+        if (layer_index > 0 && lower != schedule.back().object_z_upper_mm)
+            throw LogicError("Prepared layer schedule contains discontinuous intervals");
+        if (width < 0.0)
+            throw LogicError("Prepared layer schedule contains a negative width");
+        schedule.push_back({layer_index, lower, upper, width});
+    }
+    return schedule;
 }
 
 // Check whether the layer height profile describes a fixed layer height profile.

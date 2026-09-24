@@ -97,6 +97,7 @@ class PingCodeBindDialog;
 class PrinterPresetConfig;
 class UITour;
 class LoginDialog;
+class SatisfactionSurveyManager;
 
 // Forward declaration
 struct PackageInfo;
@@ -243,6 +244,8 @@ private:
 
 public:
     std::chrono::steady_clock::time_point m_perf_slice_start_time;
+    // 供 LoginDialog 异步回调校验对话框实例是否仍有效
+    LoginDialog* get_login_dialog() const { return m_login_dialog; }
 private:
 
     wxFont		    m_small_font;
@@ -272,6 +275,8 @@ private:
 
     std::unique_ptr<Downloader> m_downloader;
     std::map<std::string, std::unique_ptr<ModelDownloader>> model_downloaders_;
+    std::unique_ptr<SatisfactionSurveyManager> m_satisfaction_survey_manager;
+    std::atomic<bool> m_startup_update_check_running {false};
 
     //BBS
     bool m_is_closing {false};
@@ -373,6 +378,9 @@ private:
     ~GUI_App() override;
 
     void show_message_box(std::string msg) { wxMessageBox(msg); }
+    // Warn before a mesh-rebuilding operation transfers painted surface data
+    // approximately. Returns true only when the user chooses to continue.
+    bool confirm_mesh_paint_warning();
     EAppMode get_app_mode() const { return m_app_mode; }
     Slic3r::DeviceManager* getDeviceManager() { return m_device_manager; }
     Slic3r::TaskManager*   getTaskManager() { return m_task_manager; }
@@ -381,6 +389,8 @@ private:
     bool is_editor() const { return m_app_mode == EAppMode::Editor; }
     bool is_gcode_viewer() const { return m_app_mode == EAppMode::GCodeViewer; }
     bool is_recreating_gui() const { return m_is_recreating_gui; }
+    SatisfactionSurveyManager* satisfaction_survey_manager() const { return m_satisfaction_survey_manager.get(); }
+    bool can_show_satisfaction_survey() const;
     std::string logo_name() const { return is_editor() ? "CrealityPrint" : "CrealityPrint-gcodeviewer"; }
 
     void set_cloud_model_download(const std::string& data) { m_cloud_download_model.push_back(data); }
@@ -729,6 +739,13 @@ private:
     int             filaments_cnt() const;
     PrintSequence   global_print_sequence() const;
     bool check_machine_list();
+    void start_async_material_list_update();
+    // Re-download machineList.json for the current login region and refresh the machine
+    // list cached by ProfileFamilyLoader. Returns immediately; the work runs on a
+    // detached worker thread. Call this whenever the login region changes, otherwise the
+    // add-printer navigation tree keeps showing the series of the previous region until
+    // the next restart.
+    void refresh_machine_list_for_region();
     std::vector<Tab *>      tabs_list;
     std::vector<Tab *>      model_tabs_list;
     Tab*                    plate_tab;

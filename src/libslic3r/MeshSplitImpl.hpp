@@ -190,6 +190,76 @@ std::vector<indexed_triangle_set> its_split(const Its &its)
     return ret;
 }
 
+// Split while recording, for every result face, the index of the source face.
+// The split only reindexes vertices; face geometry and order inside each patch
+// are otherwise unchanged, so this map transfers serialized facet annotations
+// without geometric approximation.
+template<class Its, class OutputIt, class RelationshipOutputIt>
+void its_split_and_keep_relationship(const Its &m, OutputIt out_it, RelationshipOutputIt relationship_out)
+{
+    using namespace meshsplit_detail;
+
+    const indexed_triangle_set &its = ItsWithNeighborsIndex_<Its>::get_its(m);
+
+    struct VertexConv {
+        size_t part_id = std::numeric_limits<size_t>::max();
+        size_t vertex_image;
+    };
+    std::vector<VertexConv> vidx_conv(its.vertices.size());
+    meshsplit_detail::NeighborVisitor visitor(its, meshsplit_detail::ItsWithNeighborsIndex_<Its>::get_index(m));
+
+    std::vector<size_t> facets;
+    for (size_t part_id = 0;; ++part_id) {
+        facets.clear();
+        visitor.visit([&facets](size_t idx) { facets.emplace_back(idx); return true; });
+        if (facets.empty())
+            break;
+        std::sort(facets.begin(), facets.end());
+
+        indexed_triangle_set mesh;
+        mesh.indices.reserve(facets.size());
+        mesh.vertices.reserve(std::min(facets.size() * 3, its.vertices.size()));
+        std::unordered_map<int, int> relationship;
+        relationship.reserve(facets.size());
+
+        for (size_t face_id : facets) {
+            const auto &face = its.indices[face_id];
+            Vec3i32 new_face;
+            for (size_t v = 0; v < 3; ++v) {
+                const auto vi = face(v);
+                if (vidx_conv[vi].part_id != part_id) {
+                    vidx_conv[vi] = {part_id, mesh.vertices.size()};
+                    mesh.vertices.emplace_back(its.vertices[size_t(vi)]);
+                }
+                new_face(v) = int32_t(vidx_conv[vi].vertex_image);
+            }
+            relationship.emplace(int(mesh.indices.size()), int(face_id));
+            mesh.indices.emplace_back(new_face);
+        }
+
+        *out_it = std::move(mesh);
+        *relationship_out = std::move(relationship);
+        ++out_it;
+        ++relationship_out;
+    }
+}
+
+struct SplitMeshesWithRelationships {
+    std::vector<indexed_triangle_set> itses;
+    std::vector<std::unordered_map<int, int>> relationships;
+};
+
+template<class Its>
+SplitMeshesWithRelationships its_split_and_save_relationship(const Its &its)
+{
+    SplitMeshesWithRelationships result;
+    result.itses.reserve(3);
+    result.relationships.reserve(3);
+    its_split_and_keep_relationship(its, std::back_inserter(result.itses),
+                                    std::back_inserter(result.relationships));
+    return result;
+}
+
 template<class Its>
 bool its_is_splittable(const Its &m)
 {

@@ -40,6 +40,36 @@
     "filament_type": [
         "PPS"
     ],
+    "filament_adhesiveness_category": [
+        "801"
+    ],
+    "filament_dev_chamber_drying_bed_temperature": [
+        "100"
+    ],
+    "filament_dev_ams_drying_time": [
+        "12",
+        "12",
+        "12",
+        "12"
+    ],
+    "filament_dev_ams_drying_ams_limitations": [
+        "-1"
+    ],
+    "filament_dev_ams_drying_heat_distortion_temperature": [
+        "165"
+    ],
+    "filament_dev_drying_cooling_temperature": [
+        "150"
+    ],
+    "filament_dev_ams_drying_temperature": [
+        "65",
+        "85",
+        "65",
+        "85"
+    ],
+    "filament_dev_drying_softening_temperature": [
+        "150"
+    ],
     "hot_plate_temp": [
         "110"
     ],
@@ -67,6 +97,12 @@
     "slow_down_layer_time": [
         "2"
     ],
+    "supertack_plate_temp": [
+        "0"
+    ],
+    "supertack_plate_temp_initial_layer": [
+        "0"
+    ],
     "temperature_vitrification": [
         "125"
     ],
@@ -75,5 +111,8 @@
     ],
     "textured_plate_temp_initial_layer": [
         "110"
+    ],
+    "filament_end_gcode": [
+        "; filament end gcode \n\n"
     ]
 }

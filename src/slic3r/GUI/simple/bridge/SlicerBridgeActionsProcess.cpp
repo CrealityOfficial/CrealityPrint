@@ -8,6 +8,7 @@
 #include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/Tab.hpp"
 #include "slic3r/GUI/simple/gpu/GpuOrient.hpp"
+#include "slic3r/GUI/Jobs/OrientJob.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelObject.hpp"
 #include "libslic3r/ModelInstance.hpp"
@@ -123,26 +124,6 @@ const char* ao_mode_label(orientation::EOrientType t)
     }
 }
 
-// Build an OrientMesh from a ModelInstance, mirroring OrientJob::get_orient_mesh.
-orientation::OrientMesh ao_make_orient_mesh(ModelInstance* instance)
-{
-    orientation::OrientMesh om;
-    auto* obj = instance->get_object();
-    om.name = obj->name;
-    om.mesh = obj->mesh();
-    if (obj->config.has("support_threshold_angle")) {
-        om.overhang_angle = obj->config.opt_int("support_threshold_angle");
-    } else {
-        const Slic3r::DynamicPrintConfig& full_cfg = wxGetApp().preset_bundle->full_config();
-        om.overhang_angle = full_cfg.opt_int("support_threshold_angle");
-    }
-    om.setter = [instance](const orientation::OrientMesh& p) {
-        instance->rotate(p.rotation_matrix);
-        instance->get_object()->invalidate_bounding_box();
-        instance->get_object()->ensure_on_bed();
-    };
-    return om;
-}
 
 } // anonymous namespace
 
@@ -182,11 +163,13 @@ json SlicerBridge::DoAutoOrient(const json& params)
             for (auto* mi : obj->instances)
                 if (mi && mi->printable) ++printable_count;
         items.reserve(printable_count);
-        for (auto* obj : model.objects) {
+        for (size_t object_index = 0; object_index < model.objects.size(); ++object_index) {
+            ModelObject* obj = model.objects[object_index];
             if (!obj) continue;
-            for (auto* mi : obj->instances) {
+            for (size_t instance_index = 0; instance_index < obj->instances.size(); ++instance_index) {
+                ModelInstance* mi = obj->instances[instance_index];
                 if (!mi || !mi->printable) continue;
-                items.emplace_back(ao_make_orient_mesh(mi));
+                items.emplace_back(OrientJob::create_orientation_input(mi, object_index, instance_index));
             }
         }
 
@@ -224,6 +207,7 @@ json SlicerBridge::DoAutoOrient(const json& params)
 
     // 4) CPU async fallback through the existing OrientJob worker. OrientSettings
     //    was already updated above so the worker will pick up the requested mode.
+    plater->set_prepare_state(Job::PREPARE_STATE_DEFAULT);
     plater->orient();
     return {{"success", true},
             {"message", std::string("Auto orient queued (CPU, ") + ao_mode_label(orient_type) + ")"}};
@@ -235,6 +219,10 @@ json SlicerBridge::DoAutoArrange(const json& /*params*/)
     if (!plater)
         return {{"success", false}, {"message", "Plater not available"}};
 
+    // The Business Tool resolves and selects the exact targets before invoking
+    // this action. Use the same mode as the UI's "Arrange Selected" command so
+    // stale global/current-plate state cannot expand the operation's scope.
+    plater->set_prepare_state(Job::PREPARE_STATE_EXTRA);
     plater->arrange();
     return {{"success", true}, {"message", "Auto arrange completed"}};
 }
@@ -663,6 +651,22 @@ json SlicerBridge::DoStartSlice(const json& params)
         }
     }
 
+    // Apply the latest global and per-object configuration before checking
+    // whether the plate may be sliced. MainFrame::slice_plate() checks the
+    // existing slice-valid flag before its own update, so without this sync a
+    // just-modified object config can be mistaken for an unchanged plate and
+    // the slice request silently does nothing.
+    plater->apply_background_progress();
+    if (!mainframe->get_enable_slice_status()) {
+        return {
+            {"success", false},
+            {"code", "SLICE_NOT_STARTED"},
+            {"message", "Current plate is not ready for slicing after applying the latest configuration"},
+            {"target_plate_index", target_plate_idx},
+            {"target_plate_number", target_plate_idx + 1}
+        };
+    }
+
     mainframe->slice_plate(MainFrame::eSlicePlate);
     return {
         {"success", true},
@@ -704,38 +708,112 @@ json SlicerBridge::DoSendToPrinter(const json& params)
 
 json SlicerBridge::DoExportGcode(const json& /*params*/)
 {
+    auto* mainframe = wxGetApp().mainframe;
     auto* plater = wxGetApp().plater();
-    if (!plater)
-        return {{"success", false}, {"message", "Plater not available"}};
+    if (!mainframe || !plater)
+        return {{"success", false}, {"status", "not_ready"}, {"source_action", ActionID::EXPORT_GCODE}, {"message", "G-code export is not available"}};
+
+    if (!mainframe->can_export_gcode())
+        return {{"success", false}, {"status", "not_ready"}, {"source_action", ActionID::EXPORT_GCODE}, {"message", "The current plate has not been sliced"}};
 
     plater->export_gcode(false);
-    return {{"success", true}, {"message", "G-code export started"}};
+    if (!plater->is_export_gcode_scheduled())
+        return {{"success", true}, {"status", "cancelled"}, {"source_action", ActionID::EXPORT_GCODE}, {"message", "G-code export cancelled"}};
+
+    return {
+        {"success", true},
+        {"status", "exporting"},
+        {"source_action", ActionID::EXPORT_GCODE},
+        {"message", "G-code export is in progress"},
+        {"lifecycle", "async_pending"},
+        {"requires_async_completion", true},
+        {"async_completion", {
+            {"completion_key", "job:export_gcode"},
+            {"completion_source", "EVT_EXPORT_GCODE_FINISHED"},
+            {"job_type", "export_gcode"}
+        }}
+    };
 }
 
-json SlicerBridge::DoArrangeSinglePlate(const json& /*params*/)
+json SlicerBridge::DoArrangeSinglePlate(const json& params)
 {
     auto* plater = wxGetApp().plater();
     if (!plater)
         return {{"success", false}, {"message", "Plater not available"}};
-    if (!plater->can_arrange())
-        return {{"success", false}, {"message", "Arrange is currently unavailable"}};
 
-    plater->select_curr_plate_all();
+    PartPlateList& plate_list = plater->get_partplate_list();
+    const int plate_count = plate_list.get_plate_count();
+    int target_plate_index = plate_list.get_curr_plate_index();
+    const bool has_plate_number = params.is_object() && params.contains("plate_number");
+    const bool has_plate_index = params.is_object() && params.contains("plate_index");
+    if (has_plate_number && has_plate_index)
+        return {{"success", false}, {"message", "Pass only one of plate_number or plate_index"}};
+
+    if (has_plate_number) {
+        if (!params["plate_number"].is_number_integer())
+            return {{"success", false}, {"message", "plate_number must be an integer"}};
+        target_plate_index = params["plate_number"].get<int>() - 1;
+    } else if (has_plate_index) {
+        if (!params["plate_index"].is_number_integer())
+            return {{"success", false}, {"message", "plate_index must be an integer"}};
+        target_plate_index = params["plate_index"].get<int>();
+    }
+
+    if (target_plate_index < 0 || target_plate_index >= plate_count) {
+        return {
+            {"success", false},
+            {"message", "Target plate is out of range"},
+            {"target_plate_index", target_plate_index},
+            {"plate_count", plate_count}
+        };
+    }
+
+    const bool activate_only = params.is_object() && params.value("activate_only", false);
+    if (!activate_only && !plater->can_arrange())
+        return {{"success", false}, {"message", "Arrange is currently unavailable"}};
+    if (target_plate_index != plate_list.get_curr_plate_index() &&
+        plater->select_plate(target_plate_index, false) != 0) {
+        return {
+            {"success", false},
+            {"message", "Failed to switch to target plate before arranging"},
+            {"target_plate_index", target_plate_index}
+        };
+    }
+    if (activate_only) {
+        return {
+            {"success", true},
+            {"message", "Target plate activated"},
+            {"target_plate_index", target_plate_index},
+            {"target_plate_number", target_plate_index + 1},
+            {"arrange_started", false}
+        };
+    }
+
+    plater->set_prepare_state(Job::PREPARE_STATE_MENU);
     plater->arrange();
-    return {{"success", true}, {"message", "Arrange job started for current plate"}};
+    return {
+        {"success", true},
+        {"message", "Arrange job started for current plate"},
+        {"target_plate_index", target_plate_index},
+        {"target_plate_number", target_plate_index + 1},
+        {"lifecycle", "async_pending"},
+        {"requires_settle", true},
+        {"requires_async_completion", true},
+        {"async_completion", {
+            {"completion_key", "job:auto_arrange"},
+            {"completion_source", "ArrangeJob::finalize"},
+            {"job_type", "arrange"}
+        }}
+    };
 }
 
 json SlicerBridge::DoArrangeAllPlates(const json& /*params*/)
 {
-    auto* plater = wxGetApp().plater();
-    if (!plater)
-        return {{"success", false}, {"message", "Plater not available"}};
-    if (!plater->can_arrange())
-        return {{"success", false}, {"message", "Arrange is currently unavailable"}};
-
-    plater->select_all();
-    plater->arrange();
-    return {{"success", true}, {"message", "Global arrange job started"}};
+    return {
+        {"success", false},
+        {"code", "ARRANGE_ALL_PLATES_REQUIRES_ORCHESTRATION"},
+        {"message", "Global arrange is disabled because it may move models across plates and remove empty plates. Arrange each existing plate independently instead."}
+    };
 }
 
 } // namespace Bridge

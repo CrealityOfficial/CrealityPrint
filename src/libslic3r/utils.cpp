@@ -1,3 +1,4 @@
+#include "DataDirectoryVersion.hpp"
 #include "Utils.hpp"
 #include "I18N.hpp"
 
@@ -306,19 +307,20 @@ const std::string& custom_gcodes_dir()
 Slic3r::I18N::translate_fn_type Slic3r::I18N::translate_fn = nullptr;
 static std::string g_data_dir;
 
+std::string data_directory_name()
+{
+    std::string name = CREALITYPRINT_DATA_VERSION;
+    if (boost::algorithm::icontains(std::string(PROJECT_VERSION_EXTRA), "alpha")) name += " Alpha";
+    return name;
+}
+
 void set_data_dir(const std::string &dir, bool use_directly)
 {
 	if(use_directly)
 	{
 		g_data_dir = dir;
 	}else{
-		//A.0
-		std::string version_dir = CREALITYPRINT_VERSION_MAJOR + std::string(".0");
-		std::string version = std::string(PROJECT_VERSION_EXTRA);
-	    bool  is_alpha = boost::algorithm::icontains(version, "alpha");
-	   if (is_alpha) {
-	 	version_dir = version_dir + std::string(" Alpha");
-	   }
+		const std::string version_dir = data_directory_name();
 
 		if(dir.empty())
 		{

@@ -1,6 +1,11 @@
+#include "libslic3r/DataDirectoryMigration.hpp"
+#include "libslic3r/DeviceAddUtils.hpp"
+#include "DataDirectoryVersion.hpp"
 #include "boost/filesystem/operations.hpp"
 #include "libslic3r/Technologies.hpp"
 #include "GUI_App.hpp"
+#include "BaseColorSpectraCache.hpp"
+#include "OfficialMaterialColorCache.hpp"
 #include "slic3r/Utils/Http.hpp"
 #include <nlohmann/json.hpp>
 #include "GUI_Init.hpp"
@@ -38,6 +43,7 @@
 #include "slic3r/GUI/print_manage/utils/cxmdns.h"
 #include "slic3r/GUI/print_manage/Utils.hpp"
 #include "Widgets/HoverBorderIcon.hpp"
+#include "Widgets/Label.hpp"
 #include "slic3r/GUI/MsgDialog.hpp"
 // Localization headers: include libslic3r version first so everything in this file
 // uses the slic3r/GUI version (the macros will take precedence over the functions).
@@ -51,6 +57,7 @@
 #include <algorithm>
 #include <iterator>
 #include <exception>
+#include <stdexcept>
 #include <cstdlib>
 #include <cctype>
 #include <regex>
@@ -73,6 +80,10 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/detail/sha1.hpp>
+#ifdef _WIN32
+#include <boost/algorithm/hex.hpp>
+#include <boost/uuid/detail/md5.hpp>
+#endif
 
 #ifndef _WIN32
 #include <sys/statvfs.h>
@@ -109,6 +120,8 @@
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelVolume.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "MaterialListDownloader.hpp"
+#include "MachineListDownloader.hpp"
 #include "libslic3r/Thread.hpp"
 #include "libslic3r/miniz_extension.hpp"
 #include "libslic3r/Color.hpp"
@@ -133,6 +146,7 @@
 #include "../Utils/Http.hpp"
 #include "../Utils/UndoRedo.hpp"
 #include "../Utils/ProfileFamilyLoader.hpp"
+#include "../Utils/PrinterCover.hpp"
 #include "../Utils/TestHelper.hpp"
 #include "../Utils/mouse_scheme.hpp"
 #include "slic3r/Config/Snapshot.hpp"
@@ -157,6 +171,8 @@
 #include "CloudDownloadProgressDialog.hpp"
 #include "AppUpdater.hpp"
 #include "AppUpdateDialogs.hpp"
+#include "SatisfactionSurveyIntegration.hpp"
+#include "SatisfactionSurveyManager.hpp"
 
 #include "BitmapCache.hpp"
 #include "Notebook.hpp"
@@ -243,6 +259,346 @@ class MainFrame;
 
 static AppUpdateProgressDialog* g_update_progress_dlg = nullptr;
 static bool g_update_ready_dialog_showing = false;
+static std::atomic<bool> g_async_material_list_update_running { false };
+static std::atomic<bool> g_async_machine_list_refresh_running { false };
+static std::atomic<bool> g_app_exiting { false };
+
+using PresetNameReplacements = std::vector<std::pair<std::string, std::string>>;
+
+static bool replace_legacy_preset_name(std::string& value, const PresetNameReplacements& replacements)
+{
+    bool changed = false;
+    for (const auto& [old_name, new_name] : replacements) {
+        if (old_name.empty() || old_name == new_name)
+            continue;
+
+        size_t pos = 0;
+        while ((pos = value.find(old_name, pos)) != std::string::npos) {
+            value.replace(pos, old_name.size(), new_name);
+            pos += new_name.size();
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+static bool migrate_json_preset_names(nlohmann::json& value, const PresetNameReplacements& replacements)
+{
+    bool changed = false;
+    if (value.is_string()) {
+        std::string migrated = value.get<std::string>();
+        if (replace_legacy_preset_name(migrated, replacements)) {
+            value = std::move(migrated);
+            changed = true;
+        }
+    } else if (value.is_array()) {
+        for (auto& item : value)
+            changed = migrate_json_preset_names(item, replacements) || changed;
+    } else if (value.is_object()) {
+        for (auto& item : value)
+            changed = migrate_json_preset_names(item, replacements) || changed;
+
+        std::vector<std::pair<std::string, std::string>> renamed_keys;
+        for (auto it = value.begin(); it != value.end(); ++it) {
+            std::string migrated_key = it.key();
+            if (replace_legacy_preset_name(migrated_key, replacements))
+                renamed_keys.emplace_back(it.key(), std::move(migrated_key));
+        }
+        for (const auto& [old_key, new_key] : renamed_keys) {
+            // Keep an already migrated value when old and new data coexist.
+            if (!value.contains(new_key))
+                value[new_key] = std::move(value[old_key]);
+            value.erase(old_key);
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+#ifdef _WIN32
+static std::string preset_migration_md5_line(const std::string_view data)
+{
+    using boost::uuids::detail::md5;
+    md5 md5_hash;
+    md5::digest_type md5_digest {};
+    std::string md5_digest_str;
+    md5_hash.process_bytes(data.data(), data.size());
+    md5_hash.get_digest(md5_digest);
+    boost::algorithm::hex(md5_digest, md5_digest + std::size(md5_digest), std::back_inserter(md5_digest_str));
+    return "# MD5 checksum " + md5_digest_str + "\n";
+}
+#endif
+
+static bool write_migrated_json(const fs::path& path, const nlohmann::json& value, bool app_config)
+{
+    const std::string serialized = value.dump(4);
+    fs::path tmp_path = path;
+    tmp_path += (boost::format(".%1%.preset-name-migration.tmp") % get_current_pid()).str();
+
+    boost::nowide::ofstream output(tmp_path.string(), std::ios::out | std::ios::trunc);
+    if (!output.is_open()) {
+        BOOST_LOG_TRIVIAL(error) << "Failed to open preset-name migration output: " << tmp_path.string();
+        return false;
+    }
+    output << serialized << '\n';
+#ifdef _WIN32
+    if (app_config)
+        output << preset_migration_md5_line(serialized);
+#else
+    (void) app_config;
+#endif
+    output.close();
+    if (!output) {
+        BOOST_LOG_TRIVIAL(error) << "Failed to write preset-name migration output: " << tmp_path.string();
+        boost::system::error_code remove_error;
+        fs::remove(tmp_path, remove_error);
+        return false;
+    }
+
+    if (app_config) {
+        std::string copy_error;
+        if (copy_file(tmp_path.string(), path.string() + ".bak", copy_error, false) != SUCCESS)
+            BOOST_LOG_TRIVIAL(error) << "Failed to update the migrated application config backup: " << copy_error;
+    }
+
+    const std::error_code rename_error = rename_file(tmp_path.string(), path.string());
+    if (rename_error) {
+        BOOST_LOG_TRIVIAL(error) << "Failed to replace migrated JSON " << path.string() << ": " << rename_error.message();
+        boost::system::error_code remove_error;
+        fs::remove(tmp_path, remove_error);
+        return false;
+    }
+    return true;
+}
+
+static bool migrate_json_file(const fs::path& path, const PresetNameReplacements& replacements,
+                              bool app_config = false, bool* completed = nullptr)
+{
+    if (completed != nullptr)
+        *completed = false;
+    try {
+        boost::nowide::ifstream input(path.string());
+        if (!input.is_open())
+            return false;
+
+        std::stringstream buffer;
+        buffer << input.rdbuf();
+        std::string contents = buffer.str();
+        if (app_config) {
+            const size_t json_end = contents.find_last_of('}');
+            if (json_end == std::string::npos)
+                return false;
+            contents.resize(json_end + 1);
+        }
+
+        nlohmann::json value = nlohmann::json::parse(contents);
+        if (!migrate_json_preset_names(value, replacements)) {
+            if (completed != nullptr)
+                *completed = true;
+            return false;
+        }
+        const bool written = write_migrated_json(path, value, app_config);
+        if (completed != nullptr)
+            *completed = written;
+        return written;
+    } catch (const std::exception& error) {
+        BOOST_LOG_TRIVIAL(error) << "Failed to migrate preset names in " << path.string() << ": " << error.what();
+        return false;
+    }
+}
+
+static PresetNameReplacements legacy_multi_extruder_preset_names()
+{
+    PresetNameReplacements replacements;
+    const auto collect_replacements = [&replacements](const fs::path& profile_root) {
+        const fs::path manifest = profile_root / "Creality.json";
+        try {
+            boost::nowide::ifstream input(manifest.string());
+            if (!input.is_open())
+                return;
+
+            const nlohmann::json vendor = nlohmann::json::parse(input);
+            if (!vendor.contains("machine_list") || !vendor["machine_list"].is_array())
+                return;
+
+            for (const auto& entry : vendor["machine_list"]) {
+                const std::string sub_path = entry.value("sub_path", std::string());
+                if (sub_path.empty())
+                    continue;
+
+                const fs::path machine_path = profile_root / "Creality" / sub_path;
+                boost::nowide::ifstream machine_input(machine_path.string());
+                if (!machine_input.is_open())
+                    continue;
+
+                const nlohmann::json machine = nlohmann::json::parse(machine_input);
+                const std::string current_name = machine.value("name", entry.value("name", std::string()));
+                const std::string model = machine.value("printer_model", std::string());
+                const auto nozzle_it = machine.find("nozzle_diameter");
+                if (machine.value("type", std::string()) != "machine" || current_name.empty() ||
+                    model == "Creality Sermoon D3 Pro" || boost::ends_with(current_name, " nozzle") ||
+                    nozzle_it == machine.end() || !nozzle_it->is_array() || nozzle_it->size() <= 1)
+                    continue;
+
+                std::string variant = machine.value("printer_variant", std::string());
+                if (variant.empty() && !nozzle_it->empty() && nozzle_it->front().is_string())
+                    variant = nozzle_it->front().get<std::string>();
+                if (variant.empty())
+                    continue;
+
+                replacements.emplace_back(current_name + " " + variant + " nozzle", current_name);
+            }
+        } catch (const std::exception& error) {
+            BOOST_LOG_TRIVIAL(error) << "Failed to collect legacy multi-extruder preset names from " << manifest.string()
+                                     << ": " << error.what();
+        }
+    };
+
+    // A printer installed by an online parameter update may exist only in the
+    // writable system bundle. Inspect it as well as the bundled resources.
+    collect_replacements(fs::path(resources_dir()).append("profiles"));
+    collect_replacements(fs::path(data_dir()).append(PRESET_SYSTEM_DIR));
+
+    std::sort(replacements.begin(), replacements.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.first.size() > rhs.first.size();
+    });
+    replacements.erase(std::unique(replacements.begin(), replacements.end()), replacements.end());
+    return replacements;
+}
+
+static bool migrate_loaded_app_config_preset_names(AppConfig& config,
+                                                   const PresetNameReplacements& replacements)
+{
+    bool changed = false;
+    for (const std::string& section_name : {AppConfig::SECTION_FILAMENTS, std::string("presets")}) {
+        if (!config.has_section(section_name))
+            continue;
+
+        const std::map<std::string, std::string>& old_section = config.get_section(section_name);
+        std::map<std::string, std::string> new_section;
+        for (const auto& [old_key, old_value] : old_section) {
+            std::string new_key = old_key;
+            std::string new_value = old_value;
+            changed = replace_legacy_preset_name(new_key, replacements) || changed;
+            changed = replace_legacy_preset_name(new_value, replacements) || changed;
+
+            // Prefer a value that was already stored under the current name.
+            if (new_section.find(new_key) == new_section.end() || new_key == old_key)
+                new_section[new_key] = std::move(new_value);
+        }
+        if (new_section != old_section)
+            config.set_section(section_name, new_section);
+    }
+    return changed;
+}
+
+static bool migrate_user_preset_names(const fs::path& user_root, const PresetNameReplacements& replacements)
+{
+    if (replacements.empty() || !fs::exists(user_root))
+        return true;
+
+    std::vector<fs::path> files;
+    bool completed = true;
+    try {
+        for (fs::recursive_directory_iterator it(user_root), end; it != end; ++it)
+            if (fs::is_regular_file(it->path()))
+                files.emplace_back(it->path());
+    } catch (const fs::filesystem_error& error) {
+        BOOST_LOG_TRIVIAL(error) << "Failed to scan user presets for name migration: " << error.what();
+        completed = false;
+    }
+
+    size_t migrated_json_count = 0;
+    for (const fs::path& path : files) {
+        if (!boost::iequals(path.extension().string(), ".json"))
+            continue;
+        bool file_completed = false;
+        if (migrate_json_file(path, replacements, false, &file_completed))
+            ++migrated_json_count;
+        completed = file_completed && completed;
+    }
+
+    size_t renamed_file_count = 0;
+    for (const fs::path& path : files) {
+        const std::string extension = path.extension().string();
+        if (!boost::iequals(extension, ".json") && !boost::iequals(extension, ".info"))
+            continue;
+
+        std::string migrated_filename = path.filename().string();
+        if (!replace_legacy_preset_name(migrated_filename, replacements))
+            continue;
+
+        const fs::path destination = path.parent_path() / migrated_filename;
+        try {
+            if (fs::exists(destination)) {
+                BOOST_LOG_TRIVIAL(warning) << "Skipped preset-name file migration because the target already exists: "
+                                           << destination.string();
+                continue;
+            }
+            fs::rename(path, destination);
+            ++renamed_file_count;
+        } catch (const fs::filesystem_error& error) {
+            BOOST_LOG_TRIVIAL(error) << "Failed to rename user preset " << path.string() << ": " << error.what();
+            completed = false;
+        }
+    }
+
+    if (migrated_json_count != 0 || renamed_file_count != 0)
+        BOOST_LOG_TRIVIAL(info) << "Migrated legacy multi-extruder user presets: JSON files=" << migrated_json_count
+                                << ", renamed files=" << renamed_file_count;
+    return completed;
+}
+
+static PresetNameReplacements migrate_legacy_multi_extruder_preset_names(AppConfig& config, bool& completed)
+{
+    completed = true;
+    const PresetNameReplacements replacements = legacy_multi_extruder_preset_names();
+    if (replacements.empty())
+        return replacements;
+
+    const fs::path config_path(config.config_path());
+    if (fs::exists(config_path)) {
+        bool config_completed = false;
+        if (migrate_json_file(config_path, replacements, true, &config_completed))
+            BOOST_LOG_TRIVIAL(info) << "Migrated legacy multi-extruder preset names in " << config_path.string();
+        completed = config_completed && completed;
+    }
+
+    completed = migrate_user_preset_names(fs::path(data_dir()).append(PRESET_USER_DIR), replacements) && completed;
+    return replacements;
+}
+
+static fs::path legacy_multi_extruder_preset_name_migration_marker()
+{
+    // Bump the suffix when another one-time preset-name migration is added.
+    return fs::path(data_dir()).append("preset_name_migration_v2.done");
+}
+
+static bool mark_legacy_multi_extruder_preset_name_migration_complete(const fs::path& marker)
+{
+    fs::path tmp_marker = marker;
+    tmp_marker += (boost::format(".%1%.tmp") % get_current_pid()).str();
+    boost::nowide::ofstream output(tmp_marker.string(), std::ios::out | std::ios::trunc);
+    if (!output.is_open())
+        return false;
+    output << "legacy_multi_extruder_preset_names_v2\n";
+    output.close();
+    if (!output) {
+        boost::system::error_code remove_error;
+        fs::remove(tmp_marker, remove_error);
+        return false;
+    }
+
+    const std::error_code rename_error = rename_file(tmp_marker.string(), marker.string());
+    if (rename_error) {
+        boost::system::error_code remove_error;
+        fs::remove(tmp_marker, remove_error);
+        BOOST_LOG_TRIVIAL(error) << "Failed to write preset-name migration marker " << marker.string()
+                                 << ": " << rename_error.message();
+        return false;
+    }
+    return true;
+}
 
 // "Update Ready" can be triggered from multiple entry points (download complete event,
 // pending-install prompt on startup, update check hitting local cache, etc).
@@ -1100,10 +1456,10 @@ static const FileWildcards file_wildcards_by_type[FT_SIZE] = {
     /* FT_GCODE_3MF */   { "Gcode 3MF files"sv,    { ".gcode.3mf"sv } },
 #ifdef __APPLE__
     /* FT_MODEL */
-    {"All"sv, {".3mf"sv, ".stl"sv, ".oltp"sv, ".stp"sv, ".step"sv, ".svg"sv, ".amf"sv, ".obj"sv, ".usd"sv, ".usda"sv, ".usdc"sv, ".usdz"sv, ".abc"sv, ".ply"sv,".dae"sv,".3ds"sv,".off"sv}},
+    {"All"sv, {".3mf"sv, ".stl"sv, ".oltp"sv, ".stp"sv, ".step"sv, ".svg"sv, ".amf"sv, ".obj"sv, ".gltf"sv, ".glb"sv, ".fbx"sv, ".usd"sv, ".usda"sv, ".usdc"sv, ".usdz"sv, ".abc"sv, ".ply"sv,".dae"sv,".3ds"sv,".off"sv}},
 #else
     /* FT_MODEL */
-    {"All"sv, {".3mf"sv, ".stl"sv, ".oltp"sv, ".stp"sv, ".step"sv, ".svg"sv, ".amf"sv, ".obj"sv, ".dae"sv, ".3ds"sv, ".ply"sv, ".off"sv}},
+    {"All"sv, {".3mf"sv, ".stl"sv, ".oltp"sv, ".stp"sv, ".step"sv, ".svg"sv, ".amf"sv, ".obj"sv, ".gltf"sv, ".glb"sv, ".fbx"sv, ".dae"sv, ".3ds"sv, ".ply"sv, ".off"sv}},
 #endif
     /* FT_ZIP */     { "ZIP files"sv,       { ".zip"sv } },
     /* FT_PROJECT */ { "Project files"sv,   { ".3mf"sv, ".cxprj"sv } },
@@ -1529,6 +1885,15 @@ void GUI_App::reload_region_sensitive_views()
 {
     auto mf = mainframe;
     if (!mf) return;
+    if (auto* ai_view = mf->get_ai_creation_view()) {
+        ai_view->SetStartPage(wxString::FromUTF8(get_ai_creation_webaddress()));
+        // Preserve lazy loading for a tab that has never been opened.
+        if (ai_view->IsInitialized()) {
+            ai_view->UpdateUserAgent();
+            ai_view->open_default_page();
+        }
+    }
+
     auto mlv = mf->get_modellibrary_view();
     if (!mlv) return;
 
@@ -1648,8 +2013,9 @@ void GUI_App::post_login_status_cmd(bool isSuccess, UserInfo user)
     GUI::wxGetApp().run_script(strJS);
     
 
-    // 关闭LoginDialog窗口
-    if (m_login_dialog) {
+    // 关闭LoginDialog窗口；登录成功路径与文件监听器都可能触发本函数，
+    // 对话框已被关闭时再次 EndModal 会触发 AppKit 窗口事务断言崩溃
+    if (m_login_dialog && m_login_dialog->IsShown()) {
         m_login_dialog->EndModal(isSuccess ? wxID_OK : wxID_CANCEL);
     }
 }
@@ -1689,8 +2055,8 @@ void GUI_App::on_user_info_file_event(wxFileSystemWatcherEvent& evt)
         NotifyAIChatLoginStatusChanged();
         CallAfter([this] {
             post_login_status_cmd(false, {});
-            if (mainframe && mainframe->get_modellibrary_view()) {
-                mainframe->get_modellibrary_view()->UpdateUserAgent();
+            if (mainframe) {
+                mainframe->update_model_webviews_user_agent();
             }
         });
     };
@@ -1735,8 +2101,8 @@ void GUI_App::on_user_info_file_event(wxFileSystemWatcherEvent& evt)
 
             CallAfter([this, user] {
                 post_login_status_cmd(!user.token.empty(), user);
-                if (mainframe && mainframe->get_modellibrary_view()) {
-                    mainframe->get_modellibrary_view()->UpdateUserAgent();
+                if (mainframe) {
+                    mainframe->update_model_webviews_user_agent();
                 }
             });
         } catch (const std::exception& e) {
@@ -1781,6 +2147,12 @@ void GUI_App::post_init()
     assert(initialized());
     if (! this->initialized())
         throw Slic3r::RuntimeError("Calling post_init() while not yet initialized");
+
+    if (!m_enable_test && is_editor() && app_config != nullptr && !m_satisfaction_survey_manager) {
+        m_satisfaction_survey_manager = std::make_unique<SatisfactionSurveyManager>(
+            *app_config, CxBuildInfo::getVersion(), CxBuildInfo::getBuildType());
+        install_satisfaction_survey_event_filter();
+    }
 
     if (app_config->get("sync_user_preset") == "true") {
         // BBS loading user preset
@@ -1943,8 +2315,24 @@ void GUI_App::post_init()
         }
         if (app_config->get("default_page") == "1")
         {
-            mainframe->select_tab(size_t(MainFrame::tp3DEditor));
-            mainframe->m_topbar->SetSelection(size_t(MainFrame::tp3DEditor));
+            // First launch: keep the home page in front so the home-page SPA
+            // (get_is_first_install -> deviceAddEnd=0) renders the onboarding
+            // guide (machine -> LAN connect -> new user tour). With default_page
+            // set to "1" the app would otherwise open the 3D editor and the
+            // guide would never show on a clean install.
+#if defined(__WXOSX__) && defined(CREALITYPRINT_APP_STORE)
+            // First-launch: keep the home page in front so the home-page SPA
+            // renders the onboarding guide. Other platforms keep the original
+            // default page.
+            if (m_app_first_launch) {
+                mainframe->select_tab(size_t(MainFrame::tpHome));
+                mainframe->m_topbar->SetSelection(size_t(MainFrame::tpHome));
+            } else
+#endif
+            {
+                mainframe->select_tab(size_t(MainFrame::tp3DEditor));
+                mainframe->m_topbar->SetSelection(size_t(MainFrame::tp3DEditor));
+            }
         }
         else if (is_editor())
         {
@@ -1956,6 +2344,8 @@ void GUI_App::post_init()
 #endif
         // If a pending hot-update is waiting (user chose "Install Later" last time),
         // defer the restore-project prompt so the "Update Ready" dialog appears first.
+        if (m_satisfaction_survey_manager)
+            m_satisfaction_survey_manager->expect_startup_restore();
         if (!get_pending_app_update_version().empty()) {
             m_restore_project_deferred = true;
         } else {
@@ -2033,7 +2423,17 @@ void GUI_App::post_init()
     // Neither wxShowEvent nor wxWindowCreateEvent work reliably.
     //this->check_creality_privacy_version();
     if (this->preset_updater) { // G-Code Viewer does not initialize preset_updater.
+        if (this->preset_updater->version_check_enabled() &&
+            app_config->get("is_first_install") == "1") {
+            // Reserve the lowest-priority dialog slot before the updater's
+            // worker thread starts, closing the scheduling race with survey UI.
+            m_startup_update_check_running.store(true, std::memory_order_release);
+        }
         CallAfter([this] {
+            // First-launch onboarding is driven by the home page SPA through
+            // get_is_first_install/deviceAddEnd, matching the regular release.
+            // A modal guide here would consume the first-install state and skip
+            // the LAN-connect and new-user-tour steps.
             //bool cw_showed = this->config_wizard_startup();
 #if CUSTOM_CXCLOUD
             std::string http_url = get_http_url(app_config->get_country_code());
@@ -2135,6 +2535,10 @@ void GUI_App::post_init()
         }
     }
     BOOST_LOG_TRIVIAL(info) << "finished post_init";
+    if (m_satisfaction_survey_manager) {
+        m_satisfaction_survey_manager->begin_startup_check();
+        m_satisfaction_survey_manager->notify_post_init_finished(mainframe);
+    }
     
 //BBS: remove the single instance currently
 #ifdef _WIN32
@@ -2175,6 +2579,8 @@ void GUI_App::post_init()
 #endif // AUTOMATION_TOOL
 
 #endif
+    if (is_enable_test())
+        Test::mark_app_ready();
 }
 
 wxDEFINE_EVENT(EVT_ENTER_FORCE_UPGRADE, wxCommandEvent);
@@ -2233,8 +2639,37 @@ void GUI_App::shutdown()
     }
 
     if (m_is_recreating_gui) return;
+    uninstall_satisfaction_survey_event_filter();
+    if (m_satisfaction_survey_manager)
+        m_satisfaction_survey_manager->shutdown();
+    g_app_exiting = true;
     m_is_closing = true;
     BOOST_LOG_TRIVIAL(info) << "GUI_App::shutdown exit";
+}
+
+bool GUI_App::can_show_satisfaction_survey() const
+{
+    if (!initialized() || !is_editor() || m_is_closing || m_is_recreating_gui ||
+        m_restore_project_deferred ||
+        m_enable_test || mainframe == nullptr || mainframe->IsBeingDeleted() ||
+        !mainframe->IsShownOnScreen() || mainframe->IsIconized() ||
+        !mainframe->IsActive() || !dialogStack.empty() ||
+        m_startup_update_check_running.load(std::memory_order_acquire) ||
+        g_update_ready_dialog_showing ||
+        (g_update_progress_dlg != nullptr && g_update_progress_dlg->IsShown()) ||
+        (m_UITour != nullptr && m_UITour->IsShown()))
+        return false;
+
+    if (plater_ != nullptr && plater_->is_background_process_slicing())
+        return false;
+
+    // Include modeless startup windows (for example update progress), which do
+    // not participate in dialogStack.
+    for (wxWindow* window : wxTopLevelWindows) {
+        if (window != nullptr && window != mainframe && window->IsShown())
+            return false;
+    }
+    return true;
 }
 
 
@@ -2935,6 +3370,8 @@ void GUI_App::init_networking_callbacks()
 GUI_App::~GUI_App()
 {
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__<< boost::format(": enter");
+    uninstall_satisfaction_survey_event_filter();
+    m_satisfaction_survey_manager.reset();
     if (app_config != nullptr) {
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__<< boost::format(": destroy app_config");
         delete app_config;
@@ -3110,6 +3547,18 @@ void GUI_App::reinstall_webview_runtime()
 }
 #endif
 
+bool GUI_App::confirm_mesh_paint_warning()
+{
+    MessageDialog dlg(nullptr,
+        _L("This operation rebuilds the model's mesh. Painted color, supports, seam and "
+           "fuzzy-skin will be transferred to the new mesh by a best-effort approximation, "
+           "so the result may be slightly off and, in rare cases, some painting may be lost.\n\n"
+           "Do you want to continue?"),
+        _L("Painting may change"),
+        wxICON_WARNING | wxYES_NO | wxNO_DEFAULT);
+    return dlg.ShowModal() == wxID_YES;
+}
+
 void GUI_App::init_app_config()
 {
 	// Profiles for the alpha are stored into the PrusaSlicer-alpha directory to not mix with the current release.
@@ -3122,59 +3571,34 @@ void GUI_App::init_app_config()
 	// Unix: ~/ .Slic3r
 	// Windows : "C:\Users\username\AppData\Roaming\Slic3r" or "C:\Documents and Settings\username\Application Data\Slic3r"
 	// Mac : "~/Library/Application Support/Slic3r"
-    bool is_copy_after = false;
     if (data_dir().empty()) {
-        boost::filesystem::path data_dir_path;
-        std::string lastAppUserForder;
-        std::string curUserForder;
-        #ifndef __linux__
-            std::string data_dir = wxStandardPaths::Get().GetUserDataDir().ToUTF8().data();
-
-            if (!data_dir.empty() && !boost::filesystem::exists(data_dir)) {
-                m_app_first_launch = true;
-            }
-
-            //BBS create folder if not exists
-            data_dir_path = boost::filesystem::path(data_dir);
-
-            set_data_dir(data_dir);
-            #ifdef __APPLE__
-            lastAppUserForder = data_dir + "/" + SLIC3R_APP_USE_FORDER + "/" + std::string("6.0");
-            #else
-            lastAppUserForder = data_dir + "\\" + SLIC3R_APP_USE_FORDER + "\\" + std::string("6.0");
-            #endif
-            curUserForder     = Slic3r::data_dir();
-        #else
-            // Since version 2.3, config dir on Linux is in ${XDG_CONFIG_HOME}.
-            // https://github.com/prusa3d/PrusaSlicer/issues/2911
-            wxString dir;
-            if (! wxGetEnv(wxS("XDG_CONFIG_HOME"), &dir) || dir.empty() )
-                dir = wxFileName::GetHomeDir() + wxS("/.config");
-            set_data_dir((dir + "/" + GetAppName()).ToUTF8().data());
-            data_dir_path = boost::filesystem::path(data_dir());
-            lastAppUserForder = std::string((dir + "/" + GetAppName()).ToUTF8().data())
-                + "/" + SLIC3R_APP_USE_FORDER + "/6.0";
-	    curUserForder = Slic3r::data_dir();
-        #endif
-        if (!boost::filesystem::exists(data_dir_path)){
-            boost::filesystem::create_directory(data_dir_path);
-        }
+#ifndef __linux__
+        const std::string root = wxStandardPaths::Get().GetUserDataDir().ToUTF8().data();
+        m_app_first_launch = !root.empty() && !fs::exists(root);
+        set_data_dir(root);
+#else
+        wxString root;
+        if (!wxGetEnv(wxS("XDG_CONFIG_HOME"), &root) || root.empty())
+            root = wxFileName::GetHomeDir() + wxS("/.config");
+        set_data_dir((root + "/" + GetAppName()).ToUTF8().data());
+#endif
+        DataMigration::Options migration;
+        migration.target = std::filesystem::u8path(Slic3r::data_dir());
+        migration.resources = std::filesystem::u8path(resources_dir());
+        migration.data_version = CREALITYPRINT_DATA_VERSION;
+        migration.application_version = CREALITYPRINT_VERSION;
+        migration.alpha = boost::algorithm::icontains(std::string(PROJECT_VERSION_EXTRA), "alpha");
+        migration.validate_preset = DataMigration::validate_preset_readonly;
         try {
-            if (std::string(CREALITYPRINT_VERSION_MAJOR) == "7" && !Slic3r::data_dir().empty() &&
-                fs::is_empty(curUserForder) && boost::filesystem::exists(lastAppUserForder)) {
-                if (!boost::filesystem::exists(curUserForder))
-                    boost::filesystem::create_directories(curUserForder);
-                fs::copy_options option = fs::copy_options::recursive | fs::copy_options::copy_symlinks;
-                fs::copy(lastAppUserForder, curUserForder, option);
-
-                is_copy_after = true;
-                
-            }
-        } catch (const fs::filesystem_error& e) {}
-
-        // Change current dirtory of application
+            DataMigration::initialize(migration);
+        } catch (const std::exception& error) {
+            // Include filesystem/permission failures in the non-interactive migration error path.
+            throw DataMigration::Error(error.what());
+        }
+        fs::create_directories(fs::path(Slic3r::data_dir()) / "log");
         chdir(encode_path((Slic3r::data_dir() + "/log").c_str()).c_str());
     } else {
+        // Explicit --datadir keeps its existing behavior and never imports another installation.
         m_datadir_redefined = true;
     }
 
@@ -3196,15 +3620,32 @@ void GUI_App::init_app_config()
     if (!app_config)
         app_config = new AppConfig();
     // app_config = new AppConfig(is_editor() ? AppConfig::EAppMode::Editor : AppConfig::EAppMode::GCodeViewer);
+
+    // Multi-extruder printer presets no longer include the nozzle suffix (except D3 Pro).
+    // Migrate the persisted config and user presets before they are loaded.
+    PresetNameReplacements migrated_preset_names;
+    const fs::path preset_name_migration_marker =
+        legacy_multi_extruder_preset_name_migration_marker();
+    if (!DataMigration::preserves_user_presets(std::filesystem::u8path(data_dir())) &&
+        !fs::exists(preset_name_migration_marker)) {
+        bool migration_completed = false;
+        migrated_preset_names = migrate_legacy_multi_extruder_preset_names(*app_config, migration_completed);
+        if (migration_completed &&
+            mark_legacy_multi_extruder_preset_name_migration_complete(preset_name_migration_marker))
+            BOOST_LOG_TRIVIAL(info) << "Completed one-time multi-extruder preset-name migration";
+        else if (!migration_completed)
+            BOOST_LOG_TRIVIAL(warning) << "Preset-name migration was incomplete and will be retried next launch";
+    }
     
     m_config_corrupted = false;
 	// load settings
 	m_app_conf_exists = app_config->exists();
-	if (m_app_conf_exists) {
+    if (m_app_conf_exists) {
         std::string error = app_config->load();
-        if (is_copy_after) {
-            //6.0 is max_recent_count=18.。 so here set 30
-            app_config->set("max_recent_count", "30");
+        if (!error.empty()) {
+            BOOST_LOG_TRIVIAL(warning) << "Skipping loaded preset-name migration because application config failed to load";
+        } else if (migrate_loaded_app_config_preset_names(*app_config, migrated_preset_names)) {
+            BOOST_LOG_TRIVIAL(info) << "Migrated legacy multi-extruder preset names in loaded application config";
         }
         if (!error.empty()) {
             // Orca: if the config file is corrupted, we will show a error dialog and create a default config file.
@@ -3814,6 +4255,7 @@ void GUI_App::init_single_instance_checker(const std::string &name, const std::s
 
 bool GUI_App::OnInit()
 {
+    ::Label::initSysFont();
     system_memory_stats(__FUNCTION__);
     try {
 #if AUTO_CONVERT_3MF
@@ -3933,6 +4375,7 @@ bool GUI_App::OnInit()
 
 int GUI_App::OnExit()
 {
+    g_app_exiting = true;
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " start";
 
     // Clear resumable state on exit: remove any *.part files under the update cache root.
@@ -3985,9 +4428,9 @@ int GUI_App::OnExit()
 
 #if defined(__WIN32__) && wxUSE_WEBVIEW_EDGE
     // CallOnExit() has already destroyed pending windows and their WebView
-    // controls. Release the last shared environment reference while the
-    // wxWidgets WebView module and WebView2 runtime are still available.
-    WebView::ReleaseConfiguration();
+    // controls. It is now safe to release the shared WebView2 environment,
+    // wait for the PIDs captured by BeginShutdown(), and clean the profile.
+    WebView::FinalizeShutdown();
 #endif
     int result = wxApp::OnExit();
 
@@ -4026,6 +4469,8 @@ class wxBoostLog : public wxLog
 bool GUI_App::on_init_inner(bool isdump_launcher)
 {
     wxLog::SetActiveTarget(new wxBoostLog());
+    BaseColorSpectraCache::initialize();
+    OfficialMaterialColors::initialize_from_resources();
 #ifdef __linux__
     ensure_flatpak_user_launcher();
 #endif
@@ -4319,6 +4764,10 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
 
 #if !defined(CUSTOMIZED) || defined(CUSTOM_CHECKUPDATE_ENABLED)
         Bind(EVT_SLIC3R_VERSION_ONLINE, [this](const wxCommandEvent& evt) {
+#if defined(CREALITYPRINT_APP_STORE) && defined(__WXOSX__)
+            // Mac App Store updates are delivered by the store, never by an external download.
+            return;
+#endif
             if (this->plater_ != nullptr) {
                 // this->plater_->get_notification_manager()->push_notification(NotificationType::NewAppAvailable);
                 //BBS show msg box to download new version
@@ -4467,6 +4916,9 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
 #endif
 
         Bind(EVT_ENTER_FORCE_UPGRADE, [this](const wxCommandEvent& evt) {
+#if defined(CREALITYPRINT_APP_STORE) && defined(__WXOSX__)
+            return;
+#endif
             if (this->mainframe == nullptr || this->m_is_closing)
                 return;
             wxString       version_str      = wxString::FromUTF8(this->app_config->get("upgrade", "version"));
@@ -4725,6 +5177,12 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
     mainframe->topbar()->SaveNormalRect();
 #endif
     mainframe->Show(true);
+#ifdef __WXOSX__
+    // App Store review (Guideline 4): activate on launch so the App menu and
+    // Dock icon appear; without this the window stays inactive on fresh installs.
+    Slic3r::activate_app();
+    mainframe->Raise();
+#endif
 #ifdef __WXMSW__
     // Show() invalidates the custom topbar, but startup continues synchronously
     // before the event loop can paint it. Render the entire child tree now so
@@ -4733,6 +5191,8 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
         RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
 #endif
     BOOST_LOG_TRIVIAL(info) << "main frame firstly shown";
+    start_async_material_list_update();
+    OfficialMaterialColors::refresh_async();
 
     // 启动用户信息文件监听，确保跨实例同步在线模型库登录状态
     start_user_info_watcher();
@@ -5345,8 +5805,8 @@ void GUI_App::Update_dark_mode_flag()
 
     // 当主题偏好被切换时，刷新所有WebView的主题
     // 1. 更新在线模型库的UA和Cookies
-    if (mainframe && mainframe->get_modellibrary_view()) {
-        mainframe->get_modellibrary_view()->UpdateUserAgent();
+    if (mainframe) {
+        mainframe->update_model_webviews_user_agent();
     }
     
     // 2. 通知AI工具重新应用主题
@@ -5751,6 +6211,12 @@ void GUI_App::recreate_GUI(const wxString &msg_name)
     m_printhost_job_queue.reset(new PrintHostJobQueue(mainframe->printhost_queue_dlg()));
     load_current_presets();
     mainframe->Show(true);
+#ifdef __WXOSX__
+    // App Store review (Guideline 4): activate on launch so the App menu and
+    // Dock icon appear; without this the window stays inactive on fresh installs.
+    Slic3r::activate_app();
+    mainframe->Raise();
+#endif
 #ifdef __WXMSW__
     // Show() invalidates the custom topbar, but startup continues synchronously
     // before the event loop can paint it. Render the entire child tree now so
@@ -6218,6 +6684,52 @@ int GUI_App::request_user_unbind(std::string dev_id)
     }
     return result;
 }
+void GUI_App::start_async_material_list_update()
+{
+    bool expected = false;
+    if (!g_async_material_list_update_running.compare_exchange_strong(expected, true))
+        return;
+
+    const std::string base_url = get_cloud_api_url();
+    const std::map<std::string, std::string> extra_headers = get_extra_header();
+    std::thread([base_url, extra_headers]() {
+        const bool updated = MaterialListDownloader::download_official_material_list(base_url, extra_headers, 2, 5);
+        g_async_material_list_update_running = false;
+
+        if (!updated || g_app_exiting || wxTheApp == nullptr)
+            return;
+
+        wxTheApp->CallAfter([]() {
+            GUI_App& app = wxGetApp();
+            if (g_app_exiting || app.mainframe == nullptr)
+                return;
+            app.mainframe->update_side_preset_ui();
+        });
+    }).detach();
+}
+void GUI_App::refresh_machine_list_for_region()
+{
+    bool expected = false;
+    if (!g_async_machine_list_refresh_running.compare_exchange_strong(expected, true))
+        return;
+
+    // Snapshot the region-dependent endpoint and headers on the calling (UI) thread:
+    // app_config and the agent must not be touched from the worker.
+    const std::string                        base_url      = get_cloud_api_url();
+    const std::map<std::string, std::string> extra_headers = get_extra_header();
+
+    std::thread([base_url, extra_headers]() {
+        const bool downloaded = MachineListDownloader::download_official_machine_list(base_url, extra_headers, 2, 5);
+        // LoadMachineJson() translates series names through _L(), so skip the reparse once
+        // the app is tearing down rather than touching wxWidgets from a detached thread.
+        if (downloaded && !g_app_exiting)
+            ProfileFamilyLoader::get_instance()->reload_machine_list();
+        else if (!downloaded)
+            BOOST_LOG_TRIVIAL(info) << "refresh_machine_list_for_region: download skipped or failed, the previously "
+                                       "cached machine list stays in use";
+        g_async_machine_list_refresh_running = false;
+    }).detach();
+}
 bool GUI_App::check_machine_list()
 {
 #ifdef WIN32    
@@ -6227,6 +6739,7 @@ bool GUI_App::check_machine_list()
     }
 #endif
     bool result = false;
+    bool machine_list_downloaded = false;
     auto printer_list_file = fs::path(data_dir()).append("system").append("Creality").append("machineList.json").string();
     //boost::filesystem::remove(printer_list_file);
     std::string base_url              = get_cloud_api_url();
@@ -6262,11 +6775,19 @@ bool GUI_App::check_machine_list()
                                         boost::nowide::ofstream c;
                                         c.open(out_printer_list_file, std::ios::out | std::ios::trunc);
                                         c << std::setw(4) << printer_list << std::endl;
+                                        c.close();
+                                        machine_list_downloaded = !c.fail();
                                         return true;
                                     }catch(...){
                                         return false;
                                     }
                                 }).perform_sync();
+
+    // The full profile family is loaded once per process, so a list downloaded here is
+    // otherwise only visible after a restart. Reparsing this single file is cheap and
+    // keeps the add-printer navigation tree in sync with what was just written.
+    if (machine_list_downloaded)
+        ProfileFamilyLoader::get_instance()->reload_machine_list();
 
     //download material list
      auto material_list_file = fs::path(data_dir()).append("system").append("Creality").append("materialList.json").string();
@@ -6318,26 +6839,41 @@ bool GUI_App::check_machine_list()
         contents=buffer.str();
         json jLocal = json::parse(contents);
         json pmodels = jLocal["printerList"];
-        for (const auto& printer : pmodels) 
+        std::map<std::string, size_t> queued_multi_extruder_profiles;
+        for (const auto& printer : pmodels)
         {
             std::string name = printer["name"].get<std::string>();
-            std::string version = printer["version"].get<std::string>();
-            std::string nozzleDiameter = printer["nozzleDiameter"][0].get<std::string>();
-            std::string machine_name = "";
+            const json& nozzle_diameters = printer["nozzleDiameter"];
+            std::string nozzleDiameter = nozzle_diameters[0].get<std::string>();
+            const std::string printer_int_name = printer.value("printerIntName", std::string());
+            const bool omit_nozzle_from_name = nozzle_diameters.size() > 1 &&
+                printer_int_name != "Sermoon D3 Pro" && name != "Creality Sermoon D3 Pro";
+            std::string printer_model;
             if(name.find("Creality") != std::string::npos||name.find("SPARKX") != std::string::npos){
-                //Creality Ender-3 0.4 nozzle
-                boost::format fmt("%s %s nozzle");
-                fmt % name % nozzleDiameter;
-                machine_name = fmt.str();
+                printer_model = name;
             }else{
-                boost::format fmt("Creality %s %s nozzle");
-                fmt % name % nozzleDiameter;
-                machine_name = fmt.str();
+                printer_model = "Creality " + name;
             }
+            const std::string machine_name = omit_nozzle_from_name ? printer_model :
+                (boost::format("%1% %2% nozzle") % printer_model % nozzleDiameter).str();
             boost::filesystem::path filePath = boost::filesystem::path(data_dir()).append("system").append("Creality").append("machine").append(machine_name + ".json");
             if (!boost::filesystem::exists(filePath))
             {
-                printer_version_list.push_back(printer);
+                if (!omit_nozzle_from_name) {
+                    printer_version_list.push_back(printer);
+                    continue;
+                }
+
+                const auto queued = queued_multi_extruder_profiles.find(machine_name);
+                if (queued == queued_multi_extruder_profiles.end()) {
+                    queued_multi_extruder_profiles.emplace(machine_name, printer_version_list.size());
+                    printer_version_list.push_back(printer);
+                } else {
+                    const std::string queued_nozzle =
+                        printer_version_list[queued->second]["nozzleDiameter"][0].get<std::string>();
+                    if (queued_nozzle != "0.4" && nozzleDiameter == "0.4")
+                        printer_version_list[queued->second] = printer;
+                }
             }
         }
         json j;
@@ -6359,24 +6895,314 @@ bool GUI_App::check_machine_list()
     return true;
 }
 std::mutex mtx;
+
+static std::vector<std::string> update_package_nozzle_diameters(const pt::ptree& printer)
+{
+    std::vector<std::string> nozzles;
+    if (const auto child = printer.get_child_optional("nozzleDiameter"))
+        for (const auto& nozzle : *child)
+            nozzles.emplace_back(nozzle.second.data());
+    return nozzles;
+}
+
+static std::string update_package_printer_model(const pt::ptree& printer)
+{
+    std::string model = printer.get<std::string>("name", "");
+    if (model.find("Creality") == std::string::npos && model.find("SPARKX") == std::string::npos)
+        model = "Creality " + model;
+    return model;
+}
+
+static bool update_package_uses_bare_multi_extruder_name(const pt::ptree& printer)
+{
+    const std::vector<std::string> nozzles = update_package_nozzle_diameters(printer);
+    return nozzles.size() > 1 &&
+        printer.get<std::string>("printerIntName", "") != "Sermoon D3 Pro" &&
+        update_package_printer_model(printer) != "Creality Sermoon D3 Pro";
+}
+
+static fs::path downloaded_update_package_path(const pt::ptree& printer)
+{
+    const std::string zip_url = printer.get<std::string>("zipUrl", "");
+    const size_t separator = zip_url.find_last_of('/');
+    if (zip_url.empty() || separator == std::string::npos)
+        return {};
+    return fs::path(fs::temp_directory_path()).append(zip_url.substr(separator + 1));
+}
+
+static bool update_package_has_multi_extruder_variant_schema(const fs::path& archive_path,
+                                                              size_t physical_extruder_count,
+                                                              std::vector<std::string>* supported_nozzles = nullptr)
+{
+    if (physical_extruder_count <= 1 || archive_path.empty() || !fs::exists(archive_path))
+        return false;
+
+    mz_zip_archive archive;
+    mz_zip_zero_struct(&archive);
+    if (!open_zip_reader(&archive, archive_path.string().c_str()))
+        return false;
+
+    bool has_variant_schema = false;
+    const mz_uint entry_count = mz_zip_reader_get_num_files(&archive);
+    for (mz_uint index = 0; index < entry_count && !has_variant_schema; ++index) {
+        mz_zip_archive_file_stat stat;
+        if (!mz_zip_reader_file_stat(&archive, index, &stat))
+            continue;
+
+        std::string name(stat.m_filename);
+        std::replace(name.begin(), name.end(), '\\', '/');
+        if (name.find('/') != std::string::npos || !boost::algorithm::iends_with(name, ".json"))
+            continue;
+
+        try {
+            std::vector<unsigned char> buffer(stat.m_uncomp_size);
+            if (!mz_zip_reader_extract_to_mem(&archive, index, buffer.data(), buffer.size(), 0))
+                continue;
+            const json definition = json::parse(reinterpret_cast<const char*>(buffer.data()),
+                                                reinterpret_cast<const char*>(buffer.data() + buffer.size()));
+            has_variant_schema = definition.contains("printer") &&
+                definition["printer"].contains("extruder_variant_list") &&
+                definition["printer"]["extruder_variant_list"].is_array() &&
+                !definition["printer"]["extruder_variant_list"].empty();
+            if (supported_nozzles != nullptr && definition.contains("printer") &&
+                definition["printer"].contains("nozzle_variant_diameters") &&
+                definition["printer"]["nozzle_variant_diameters"].is_array()) {
+                for (const json& diameter : definition["printer"]["nozzle_variant_diameters"]) {
+                    if (!diameter.is_string())
+                        continue;
+                    const std::string value = diameter.get<std::string>();
+                    if (std::find(supported_nozzles->begin(), supported_nozzles->end(), value) == supported_nozzles->end())
+                        supported_nozzles->push_back(value);
+                }
+            }
+        } catch (const std::exception& error) {
+            BOOST_LOG_TRIVIAL(warning) << "Failed to inspect update package " << archive_path.string()
+                                       << ": " << error.what();
+        }
+    }
+    close_zip_reader(&archive);
+    return has_variant_schema;
+}
+
+static std::vector<pt::ptree> select_update_param_packages(const pt::ptree& packages)
+{
+    struct SelectedPackage
+    {
+        size_t result_index;
+        std::pair<bool, bool> rank;
+    };
+
+    std::vector<pt::ptree> result;
+    std::map<std::string, SelectedPackage> selected_multi_extruder_packages;
+    for (const auto& item : packages) {
+        const pt::ptree& printer = item.second;
+        if (!update_package_uses_bare_multi_extruder_name(printer)) {
+            result.push_back(printer);
+            continue;
+        }
+
+        const std::vector<std::string> nozzles = update_package_nozzle_diameters(printer);
+        const std::string profile_name = update_package_printer_model(printer);
+        const std::pair<bool, bool> rank {
+            update_package_has_multi_extruder_variant_schema(downloaded_update_package_path(printer), nozzles.size()),
+            !nozzles.empty() && nozzles.front() == "0.4"
+        };
+        const auto selected = selected_multi_extruder_packages.find(profile_name);
+        if (selected == selected_multi_extruder_packages.end()) {
+            selected_multi_extruder_packages.emplace(profile_name, SelectedPackage {result.size(), rank});
+            result.push_back(printer);
+        } else if (rank > selected->second.rank) {
+            result[selected->second.result_index] = printer;
+            selected->second.rank = rank;
+        }
+    }
+
+    for (const auto& [profile_name, selected] : selected_multi_extruder_packages) {
+        BOOST_LOG_TRIVIAL(info) << "Multi-extruder parameter update " << profile_name << " selected "
+                                << downloaded_update_package_path(result[selected.result_index]).filename().string();
+    }
+    return result;
+}
+
+static pt::ptree include_multi_extruder_update_candidates(const pt::ptree& requested_packages,
+                                                          const fs::path& machine_list_path)
+{
+    pt::ptree result = requested_packages;
+    std::set<std::string> requested_models;
+    std::set<std::string> package_urls;
+    for (const auto& item : requested_packages) {
+        const pt::ptree& printer = item.second;
+        package_urls.insert(printer.get<std::string>("zipUrl", ""));
+        if (update_package_uses_bare_multi_extruder_name(printer))
+            requested_models.insert(update_package_printer_model(printer));
+    }
+    if (requested_models.empty() || !fs::exists(machine_list_path))
+        return result;
+
+    try {
+        pt::ptree machine_list;
+        pt::read_json(machine_list_path.string(), machine_list);
+        const auto printers = machine_list.get_child_optional("printerList");
+        if (!printers)
+            return result;
+
+        for (const auto& item : *printers) {
+            const pt::ptree& printer = item.second;
+            if (!update_package_uses_bare_multi_extruder_name(printer) ||
+                requested_models.find(update_package_printer_model(printer)) == requested_models.end())
+                continue;
+
+            const std::string zip_url = printer.get<std::string>("zipUrl", "");
+            if (!zip_url.empty() && package_urls.insert(zip_url).second)
+                result.push_back(std::make_pair("", printer));
+        }
+    } catch (const std::exception& error) {
+        BOOST_LOG_TRIVIAL(warning) << "Failed to expand multi-extruder parameter packages from "
+                                   << machine_list_path.string() << ": " << error.what();
+    }
+    return result;
+}
+
+static void update_multi_extruder_package_alias_versions(json& cache_json,
+                                                         const pt::ptree& packages,
+                                                         const std::set<std::string>& updated_models)
+{
+    if (updated_models.empty())
+        return;
+    if (!cache_json.contains("Creality") || !cache_json["Creality"].is_array())
+        cache_json["Creality"] = json::array();
+
+    for (const auto& item : packages) {
+        const pt::ptree& printer = item.second;
+        if (!update_package_uses_bare_multi_extruder_name(printer))
+            continue;
+
+        const std::string model = update_package_printer_model(printer);
+        if (updated_models.find(model) == updated_models.end())
+            continue;
+
+        const std::vector<std::string> nozzles = update_package_nozzle_diameters(printer);
+        if (nozzles.empty())
+            continue;
+
+        bool found = false;
+        for (json& cached : cache_json["Creality"]) {
+            if (cached.value("name", std::string()) != model ||
+                !cached.contains("nozzleDiameter") || !cached["nozzleDiameter"].is_array() ||
+                cached["nozzleDiameter"].empty() || !cached["nozzleDiameter"][0].is_string() ||
+                cached["nozzleDiameter"][0].get<std::string>() != nozzles.front())
+                continue;
+
+            cached["showVersion"] = printer.get<std::string>("showVersion", "");
+            cached["updating"] = false;
+            found = true;
+            break;
+        }
+        if (!found) {
+            json cached;
+            cached["name"] = model;
+            cached["nozzleDiameter"] = nozzles;
+            cached["showVersion"] = printer.get<std::string>("showVersion", "");
+            cached["updating"] = false;
+            cache_json["Creality"].push_back(std::move(cached));
+        }
+    }
+}
+
+static void normalize_multi_extruder_filament_variants(json& filament_data)
+{
+    static const std::vector<std::string> legacy_extruder_variants(4, "Direct Drive Standard");
+    static const std::vector<std::string> legacy_nozzle_variants {"0", "1", "2", "3"};
+
+    const bool has_extruder_variants = filament_data.contains("filament_extruder_variant");
+    const bool has_nozzle_variants   = filament_data.contains("filament_nozzle_variant");
+    if (!has_extruder_variants && !has_nozzle_variants) {
+        filament_data["filament_extruder_variant"] = legacy_extruder_variants;
+        filament_data["filament_nozzle_variant"]   = legacy_nozzle_variants;
+    } else if (!has_extruder_variants || !has_nozzle_variants ||
+               !filament_data["filament_extruder_variant"].is_array() ||
+               !filament_data["filament_nozzle_variant"].is_array() ||
+               filament_data["filament_extruder_variant"].empty() ||
+               filament_data["filament_extruder_variant"].size() !=
+                   filament_data["filament_nozzle_variant"].size()) {
+        throw std::runtime_error(
+            "Multi-extruder material selectors filament_extruder_variant and "
+            "filament_nozzle_variant must be non-empty arrays of equal length");
+    }
+
+    const size_t variant_count = filament_data["filament_nozzle_variant"].size();
+    for (const std::string& key : filament_options_with_variant) {
+        if (key == "filament_extruder_variant" || key == "filament_nozzle_variant" ||
+            !filament_data.contains(key))
+            continue;
+
+        json& value = filament_data[key];
+        if (!value.is_array()) {
+            const json common_value = value;
+            value = json::array();
+            for (size_t index = 0; index < variant_count; ++index)
+                value.push_back(common_value);
+            continue;
+        }
+        if (value.size() == 1) {
+            const json common_value = value.front();
+            value = json::array();
+            for (size_t index = 0; index < variant_count; ++index)
+                value.push_back(common_value);
+            continue;
+        }
+        if (value.size() == variant_count)
+            continue;
+
+        if (value.size() > variant_count && value.size() % variant_count == 0) {
+            json canonical_row = json::array();
+            for (size_t index = 0; index < variant_count; ++index)
+                canonical_row.push_back(value[index]);
+
+            bool rows_differ = false;
+            for (size_t offset = variant_count; offset < value.size() && !rows_differ;
+                 offset += variant_count) {
+                for (size_t index = 0; index < variant_count; ++index) {
+                    if (value[offset + index] != canonical_row[index]) {
+                        rows_differ = true;
+                        break;
+                    }
+                }
+            }
+            if (rows_differ) {
+                BOOST_LOG_TRIVIAL(warning)
+                    << "Multi-extruder material option " << key
+                    << " has conflicting physical-extruder rows; using the first row";
+            }
+            value = std::move(canonical_row);
+            continue;
+        }
+
+        const bool all_same = !value.empty() &&
+            std::all_of(std::next(value.begin()), value.end(),
+                        [&value](const json& item) { return item == value.front(); });
+        if (all_same) {
+            const json common_value = value.front();
+            value = json::array();
+            for (size_t index = 0; index < variant_count; ++index)
+                value.push_back(common_value);
+            continue;
+        }
+
+        throw std::runtime_error(
+            "Multi-extruder material option " + key + " has " + std::to_string(value.size()) +
+            " values, expected 1 or " + std::to_string(variant_count));
+    }
+}
+
 bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& materials_json)
 {
-        std::string printer_model  = v.get_child("name").data();
-        if(printer_model.find("Creality") == std::string::npos){
-            if(printer_model.find("SPARKX") == std::string::npos)
-            {
-                printer_model = "Creality " + printer_model;
-            } 
-        }
+        std::string printer_model  = update_package_printer_model(v);
         std::string showVersion = v.get_child("showVersion").data();
         std::string zipUrl      = v.get_child("zipUrl").data();
-        std::string thumbnail      = v.get_child("thumbnail").data();
-        std::vector<std::string> nozzleDiameters;
-        for (auto& nozzleDiameter : v.get_child("nozzleDiameter")) {
-            nozzleDiameters.emplace_back(nozzleDiameter.second.data());
-        }
-        int         start_pos = zipUrl.find_last_of("/");
-        fs::path tmp_path = fs::path(fs::temp_directory_path()).append(zipUrl.substr(start_pos + 1));
+        std::string thumbnail      = v.get<std::string>("thumbnail", "");
+        std::vector<std::string> nozzleDiameters = update_package_nozzle_diameters(v);
+        fs::path tmp_path = downloaded_update_package_path(v);
         
         if(!fs::exists(tmp_path))
         {
@@ -6385,6 +7211,13 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
         bool bHasUpdateMachine = false;        
         auto        old_machine_name = tmp_path.stem().string();
         std::string nozzle           = nozzleDiameters.empty() ? "0.4" : nozzleDiameters[0];
+        const std::string printer_int_name = v.get<std::string>("printerIntName", "");
+        const bool has_multiple_extruders = nozzleDiameters.size() > 1;
+        const bool omit_nozzle_from_name =
+            has_multiple_extruders &&
+            printer_int_name != "Sermoon D3 Pro" &&
+            printer_model != "Creality Sermoon D3 Pro";
+        const std::string nozzle_qualified_machine_name = printer_model + " " + nozzle + " nozzle";
 
         mz_zip_archive archive_in;
         mz_zip_zero_struct(&archive_in);
@@ -6395,28 +7228,41 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
         mz_uint                  num_entries = mz_zip_reader_get_num_files(&archive_in);
         mz_zip_archive_file_stat stat;
         std::string              machine_name;
-        std::string              out_machine_name = printer_model + " " + nozzle + " nozzle";
+        std::string              out_machine_name =
+            omit_nozzle_from_name ? printer_model : nozzle_qualified_machine_name;
+        std::vector<std::string> supported_nozzles;
+        bool uses_multi_extruder_variant_schema =
+            update_package_has_multi_extruder_variant_schema(tmp_path, nozzleDiameters.size(), &supported_nozzles);
+        if (supported_nozzles.empty())
+            supported_nozzles.push_back(nozzle);
         
-        auto updateProfile = [&](std::string type, json element) {
+        auto updateProfile = [&](const std::string& type, json element) {
             std::lock_guard<std::mutex> lock(mtx);
-            if(type=="machine_list"){
-                if (profile_json.contains("machine_list")) {
-                    //json machine_list = profile_json["machine_list"];
-                    //machine_list.push_back(element);
-                    profile_json["machine_list"].push_back(element);
-                } 
-            }else if(type=="process_list"){
-                    if (profile_json.contains("process_list")) {
-                        profile_json["process_list"].push_back(element);
-                    }
-            }else if(type=="filament_list"){
-                    if (profile_json.contains("filament_list")) {
-                        profile_json["filament_list"].push_back(element);
-                    }
-            }else if(type=="machine_model_list"){
-                if (profile_json.contains("machine_model_list")) {
-                    profile_json["machine_model_list"].push_back(element);
+            if (!profile_json.contains(type) || !profile_json[type].is_array())
+                return;
+
+            for (json& current : profile_json[type]) {
+                if (current.value("name", std::string()) == element.value("name", std::string()) ||
+                    current.value("sub_path", std::string()) == element.value("sub_path", std::string())) {
+                    current = std::move(element);
+                    return;
                 }
+            }
+            profile_json[type].push_back(std::move(element));
+        };
+        auto removeProfile = [&](const std::string& type, const std::string& name,
+                                 const std::string& sub_path) {
+            std::lock_guard<std::mutex> lock(mtx);
+            if (!profile_json.contains(type) || !profile_json[type].is_array())
+                return;
+
+            json& profiles = profile_json[type];
+            for (auto it = profiles.begin(); it != profiles.end();) {
+                if (it->value("name", std::string()) == name ||
+                    it->value("sub_path", std::string()) == sub_path)
+                    it = profiles.erase(it);
+                else
+                    ++it;
             }
         };
         auto getDefaultMaterials = [=](json top_materials){
@@ -6456,6 +7302,11 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                                                     reinterpret_cast<const char*>(buffer_input.data() +
                                                                                     buffer_input.size()));
                     if (name.find('/') == name.npos) {
+                        uses_multi_extruder_variant_schema = uses_multi_extruder_variant_schema ||
+                            (nozzleDiameters.size() > 1 && json_in.contains("printer") &&
+                            json_in["printer"].contains("extruder_variant_list") &&
+                            json_in["printer"]["extruder_variant_list"].is_array() &&
+                            !json_in["printer"]["extruder_variant_list"].empty());
                         json json_out;
                         std::string default_bed_type = "High Temp Plate";
                         json_out["type"] = "machine";
@@ -6476,14 +7327,22 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                         json_out["default_print_profile"] = preferred_process + " @" + out_machine_name;
 
                         json filament_array;
-                        filament_array.push_back("Hyper PLA @" + printer_model + " " + nozzle +
-                                                    " nozzle");
+                        filament_array.push_back("Hyper PLA @" + out_machine_name);
                         json_out["default_filament_profile"] = filament_array;
-                        if (json_out.contains("nozzle_diameter")) {
-                            json nozzle_array;
-                            nozzle_array.push_back(json_out["nozzle_diameter"]);
-                            json_out["nozzle_diameter"] = nozzle_array;
+                        // The package stores all supported nozzle variants in
+                        // extruders[0].engine_data.nozzle_diameter. That list is
+                        // not the physical extruder layout selected by the
+                        // device entry. Wrapping it would create [[...]], which
+                        // is parsed as a single extruder. Use the selected
+                        // nozzle list from the update response instead.
+                        json selected_nozzle_diameters = json::array();
+                        if (has_multiple_extruders) {
+                            for (const std::string& diameter : nozzleDiameters)
+                                selected_nozzle_diameters.push_back(diameter);
+                        } else {
+                            selected_nozzle_diameters.push_back(nozzle);
                         }
+                        json_out["nozzle_diameter"] = std::move(selected_nozzle_diameters);
                         if (json_out.contains("printer_variant")) {
                             json_out["printer_variant"] = nozzle;
                         }
@@ -6500,7 +7359,7 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                         json_out["name"] = out_machine_name;
                         json_out["inherits"] = "fdm_creality_common";
                         std::hash<std::string> hash_fn;
-                        json_out["setting_id"] = std::to_string(hash_fn(out_machine_name)).substr(1,6);
+                        json_out["setting_id"] = std::to_string(hash_fn(nozzle_qualified_machine_name)).substr(1,6);
                         json_out["support_multi_bed_types"] = "1";
                         for (auto it = json_out.begin(); it != json_out.end(); ) {
                             if (it.value().is_string()) {
@@ -6512,16 +7371,32 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             }
                             ++it;
                         }
+                        const std::string supported_nozzle_list = boost::algorithm::join(supported_nozzles, ";");
+                        const std::string machine_model_file_name = printer_model + "_model";
                         auto out_machine_model_json_file = fs::path(data_dir()).append("system")
                                                                             .append("Creality")
                                                                             .append("machine")
-                                                                            .append(printer_model + ".json")
+                                                                            .append(machine_model_file_name + ".json")
                                                                             .string();
+                        auto legacy_machine_model_json_file = fs::path(data_dir()).append("system")
+                                                                               .append("Creality")
+                                                                               .append("machine")
+                                                                               .append(printer_model + ".json")
+                                                                               .string();
+                        if (!fs::exists(out_machine_model_json_file) &&
+                            fs::exists(legacy_machine_model_json_file)) {
+                            boost::nowide::ifstream legacy_file(legacy_machine_model_json_file);
+                            std::stringstream legacy_buffer;
+                            legacy_buffer << legacy_file.rdbuf();
+                            json legacy_json = json::parse(legacy_buffer.str());
+                            if (legacy_json.value("type", std::string()) == "machine_model")
+                                fs::rename(legacy_machine_model_json_file, out_machine_model_json_file);
+                        }
                         if(!fs::exists(out_machine_model_json_file)){
                             json json_out;
                             json_out["type"] = "machine_model";
                             json_out["name"] = printer_model;
-                            json_out["nozzle_diameter"] = nozzle;
+                            json_out["nozzle_diameter"] = supported_nozzle_list;
                             json_out["bed_model"] = "creality_k1_buildplate_model.stl";
                             if(printer_model.find("SPARKX") != std::string::npos)
                             {
@@ -6540,10 +7415,6 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             c.open(out_machine_model_json_file, std::ios::out | std::ios::trunc);
                             c << std::setw(4) << json_out << std::endl;
                             c.close();
-                            json new_elem;
-                            new_elem["name"] = printer_model;
-                            new_elem["sub_path"] = "machine/" + printer_model + ".json";
-                            updateProfile("machine_model_list", new_elem);
                         }else{
                             std::string contents;
                             boost::nowide::ifstream t(out_machine_model_json_file);
@@ -6552,10 +7423,17 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             contents=buffer.str();
                             json json_in = json::parse(contents);
                             auto nozzles = json_in["nozzle_diameter"].get<std::string>();
-                            if(nozzles.find(nozzle) == std::string::npos){
-                                nozzles = nozzles + ";" + nozzle;
-                                json_in["nozzle_diameter"] = nozzles;
+                            std::vector<std::string> existing_nozzles;
+                            boost::algorithm::split(existing_nozzles, nozzles, boost::is_any_of(";"));
+                            for (const std::string& supported_nozzle : supported_nozzles) {
+                                if (std::find(existing_nozzles.begin(), existing_nozzles.end(), supported_nozzle) == existing_nozzles.end()) {
+                                    if (!nozzles.empty())
+                                        nozzles += ";";
+                                    nozzles += supported_nozzle;
+                                    existing_nozzles.push_back(supported_nozzle);
+                                }
                             }
+                            json_in["nozzle_diameter"] = nozzles;
                             std::vector<std::string> materials;
                             boost::algorithm::split(materials, default_materials, boost::is_any_of(";"));
                             for(std::string default_material:materials){
@@ -6570,6 +7448,10 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             c.close();
 
                         }
+                        json new_model_elem;
+                        new_model_elem["name"] = printer_model;
+                        new_model_elem["sub_path"] = "machine/" + machine_model_file_name + ".json";
+                        updateProfile("machine_model_list", new_model_elem);
                         auto out_machine_json_file = fs::path(data_dir()).append("system")
                                                             .append("Creality")
                                                             .append("machine")
@@ -6580,11 +7462,8 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             c.open(out_machine_json_file, std::ios::out | std::ios::trunc);
                             c << std::setw(4) << json_out << std::endl;
                             c.close();
-                            json new_elem;
-                            new_elem["name"] = out_machine_name;
-                            new_elem["sub_path"] = "machine/" + out_machine_name + ".json";
-                            updateProfile("machine_list", new_elem);
                             bHasUpdateMachine = true;
+
                         }else{
                             auto out_machine_json_file_tmp = out_machine_json_file+".tmp";
                             boost::nowide::ofstream c;
@@ -6594,6 +7473,22 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             fs::remove(out_machine_json_file);
                             fs::rename(out_machine_json_file_tmp, out_machine_json_file);
                         }
+                        if (omit_nozzle_from_name) {
+                            for (const std::string& legacy_nozzle : supported_nozzles) {
+                                const std::string legacy_name = printer_model + " " + legacy_nozzle + " nozzle";
+                                auto legacy_machine_json_file = fs::path(data_dir()).append("system")
+                                                                            .append("Creality")
+                                                                            .append("machine")
+                                                                            .append(legacy_name + ".json");
+                                if (fs::exists(legacy_machine_json_file))
+                                    fs::remove(legacy_machine_json_file);
+                                removeProfile("machine_list", legacy_name, "machine/" + legacy_name + ".json");
+                            }
+                        }
+                        json new_elem;
+                        new_elem["name"] = out_machine_name;
+                        new_elem["sub_path"] = "machine/" + out_machine_name + ".json";
+                        updateProfile("machine_list", new_elem);
                     } else if (boost::algorithm::istarts_with(name, "Materials")) {
                         static std::set<std::string> array_keys = {"filament_type", "filament_vendor", "filament_start_gcode",
                                                     "filament_end_gcode"};
@@ -6612,7 +7507,8 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                         if (index != std::string::npos) {
                             basename = basename.substr(0, index);
                         }
-                        basename = basename + " @" + printer_model + " " + nozzle + " nozzle";
+                        const std::string filament_name = basename;
+                        basename = basename + " @" + out_machine_name;
                         json_out["name"] = basename;
                         json compatible_printers_array;
                         compatible_printers_array.push_back(out_machine_name);
@@ -6687,6 +7583,23 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             }
                             ++it;
                         }
+                        if (uses_multi_extruder_variant_schema)
+                            normalize_multi_extruder_filament_variants(json_out);
+                        if (omit_nozzle_from_name) {
+                            for (const std::string& legacy_nozzle : supported_nozzles) {
+                                const std::string legacy_basename = filament_name + " @" + printer_model + " " +
+                                    legacy_nozzle + " nozzle";
+                                auto old_filament_json_file = fs::path(data_dir())
+                                                                  .append("system")
+                                                                  .append("Creality")
+                                                                  .append("filament")
+                                                                  .append(legacy_basename + ".json");
+                                if (fs::exists(old_filament_json_file))
+                                    fs::remove(old_filament_json_file);
+                                removeProfile("filament_list", legacy_basename,
+                                              "filament/" + legacy_basename + ".json");
+                            }
+                        }
                         auto out_filament_json_file = fs::path(data_dir())
                                                             .append("system")
                                                             .append("Creality")
@@ -6698,10 +7611,6 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             c.open(out_filament_json_file, std::ios::out | std::ios::trunc);
                             c << std::setw(4) << json_out << std::endl;
                             c.close();
-                            json new_elem;
-                            new_elem["name"] = basename;
-                            new_elem["sub_path"] = "filament/" + basename + ".json";
-                            updateProfile("filament_list", new_elem);
                         }else{
                             auto out_filament_json_file_tmp = out_filament_json_file+".tmp";
                             boost::nowide::ofstream c;
@@ -6711,6 +7620,10 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             fs::remove(out_filament_json_file);
                             fs::rename(out_filament_json_file_tmp, out_filament_json_file);
                         }
+                        json new_elem;
+                        new_elem["name"] = basename;
+                        new_elem["sub_path"] = "filament/" + basename + ".json";
+                        updateProfile("filament_list", new_elem);
                         //judge if the material is in the default materials list
                         auto* app_config = GUI::wxGetApp().app_config;
                         if(app_config->has_printer_settings(out_machine_name))
@@ -6756,7 +7669,8 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             basename = basename.substr(0, index);
                         }
                         boost::trim_right(basename);
-                        basename = basename + " @" + printer_model + " " + nozzle + " nozzle";
+                        const std::string process_name = basename;
+                        basename = basename + " @" + out_machine_name;
                         json_out["name"] = basename;
                         json compatible_printers_array;
                         compatible_printers_array.push_back(out_machine_name);
@@ -6780,6 +7694,21 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             }
                             ++it;
                         }
+                        if (omit_nozzle_from_name) {
+                            for (const std::string& legacy_nozzle : supported_nozzles) {
+                                const std::string legacy_basename = process_name + " @" + printer_model + " " +
+                                    legacy_nozzle + " nozzle";
+                                auto old_process_json_file = fs::path(data_dir())
+                                                                .append("system")
+                                                                .append("Creality")
+                                                                .append("process")
+                                                                .append(legacy_basename + ".json");
+                                if (fs::exists(old_process_json_file))
+                                    fs::remove(old_process_json_file);
+                                removeProfile("process_list", legacy_basename,
+                                              "process/" + legacy_basename + ".json");
+                            }
+                        }
                         auto out_process_json_file = fs::path(data_dir())
                                                             .append("system")
                                                             .append("Creality")
@@ -6791,10 +7720,6 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             c.open(out_process_json_file, std::ios::out | std::ios::trunc);
                             c << std::setw(4) << json_out << std::endl;
                             c.close();
-                            json new_elem;
-                            new_elem["name"] = basename;
-                            new_elem["sub_path"] = "process/" + basename + ".json";
-                            updateProfile("process_list", new_elem);
                         }else{
                             auto out_process_json_file_tmp = out_process_json_file+".tmp";
                             boost::nowide::ofstream c;
@@ -6804,6 +7729,10 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             fs::remove(out_process_json_file);
                             fs::rename(out_process_json_file_tmp, out_process_json_file);
                         }
+                        json new_elem;
+                        new_elem["name"] = basename;
+                        new_elem["sub_path"] = "process/" + basename + ".json";
+                        updateProfile("process_list", new_elem);
                     }
                 }
                 catch (const std::exception& e) {
@@ -6817,6 +7746,7 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
         if (!close_zip_reader(&archive_in)) {
             return false;
         }
+        sync_printer_cover("Creality", printer_model, thumbnail);
         std::lock_guard<std::mutex> lock(mtx);
 
 
@@ -6916,25 +7846,6 @@ static std::vector<std::string> split_device_add_values(const std::string& value
     return result;
 }
 
-static std::string normalize_device_add_nozzles(const json& value)
-{
-    if (value.is_string())
-        return value.get<std::string>();
-
-    if (!value.is_array())
-        return {};
-
-    std::string result;
-    for (const auto& nozzle : value) {
-        if (!nozzle.is_string())
-            continue;
-        if (!result.empty())
-            result += ";";
-        result += nozzle.get<std::string>();
-    }
-    return result;
-}
-
 static void apply_device_add_config_snapshot(json& profile_json,
                                              const AppConfig::VendorMap& enabled_vendors,
                                              const std::map<std::string, std::string>& enabled_filaments)
@@ -6979,60 +7890,21 @@ static DeviceAddPreparation prepare_device_add(json selected_printers,
     DeviceAddPreparation result;
     apply_device_add_config_snapshot(profile_json, enabled_vendors, enabled_filaments);
 
-    fs::path printer_list_file = fs::path(resources_dir()).append("profiles").append("Creality").append("machineList.json");
-    json printer_list;
-    if (fs::exists(printer_list_file)) {
-        boost::nowide::ifstream input(printer_list_file.string());
-        input >> printer_list;
-    }
-
-    for (auto it = selected_printers.begin(); it != selected_printers.end(); ++it) {
-        json& selected = it.value();
-        if (!selected.is_object() || !selected.contains("model"))
-            continue;
-
-        std::string vendor = selected.value("vendor", std::string());
-        if (!vendor.empty())
-            continue;
-
-        selected["vendor"] = "Creality";
-        if (!selected["model"].is_string())
-            continue;
-
-        std::string model = selected["model"].get<std::string>();
-        if (model == "K1 Max") model = "CR-K1 Max";
-        if (model == "K1") model = "CR-K1";
-
-        if (!printer_list.contains("printerList"))
-            continue;
-
-        const json* matched_printer = nullptr;
-        for (const auto& printer : printer_list["printerList"]) {
-            if (printer.value("printerIntName", std::string()) != model)
-                continue;
-
-            const std::string nozzle = printer["nozzleDiameter"][0].get<std::string>();
-            if (matched_printer == nullptr || nozzle == "0.4")
-                matched_printer = &printer;
-            if (nozzle == "0.4")
-                break;
+    auto load_catalog = [](const fs::path& path) {
+        json catalog;
+        try {
+            if (fs::exists(path)) {
+                boost::nowide::ifstream input(path.string());
+                input >> catalog;
+            }
+        } catch (const std::exception& e) {
+            BOOST_LOG_TRIVIAL(warning) << "Cannot read printer catalog " << path.string() << ": " << e.what();
         }
-
-        if (matched_printer == nullptr)
-            continue;
-
-        std::string name = matched_printer->value("name", std::string());
-        if (name.find("Creality") == std::string::npos && name.find("SPARKX") == std::string::npos)
-            name = "Creality " + name;
-        selected["model"] = name;
-
-        const std::string selected_nozzles = selected.contains("nozzle_diameter") ?
-                                                 normalize_device_add_nozzles(selected["nozzle_diameter"]) :
-                                                 std::string();
-        selected["nozzle_diameter"] = selected_nozzles.empty() ?
-                                            (*matched_printer)["nozzleDiameter"][0].get<std::string>() :
-                                            selected_nozzles;
-    }
+        return catalog;
+    };
+    const json system_catalog = load_catalog(fs::path(data_dir()) / "system" / "Creality" / "machineList.json");
+    const json bundled_catalog = load_catalog(fs::path(resources_dir()) / "profiles" / "Creality" / "machineList.json");
+    DeviceAddUtils::resolve_printer_selections(selected_printers, profile_json["model"], system_catalog, bundled_catalog);
 
     struct SelectedNozzle
     {
@@ -7048,11 +7920,12 @@ static DeviceAddPreparation prepare_device_add(json selected_printers,
         model["nozzle_selected"] = "";
         for (auto it = selected_printers.begin(); it != selected_printers.end(); ++it) {
             const json& selected = it.value();
-            if (!selected.is_object() || model.value("model", std::string()) != selected.value("model", std::string()))
+            if (!selected.is_object() || model.value("model", std::string()) != selected.value("model", std::string()) ||
+                model.value("vendor", std::string()) != selected.value("vendor", std::string()))
                 continue;
 
             const std::string selected_value = selected.contains("nozzle_diameter") ?
-                                                   normalize_device_add_nozzles(selected["nozzle_diameter"]) :
+                                                   DeviceAddUtils::normalize_nozzles(selected["nozzle_diameter"]) :
                                                    std::string();
             model["nozzle_selected"] = selected_value;
             SelectedNozzle nozzle;
@@ -7096,9 +7969,14 @@ static DeviceAddPreparation prepare_device_add(json selected_printers,
             for (size_t i = 0; i < nozzle.diameters.size(); ++i) {
                 if (!nozzle.selected[i])
                     continue;
-                const std::string printer_material = material + " @" + nozzle.model + " " + nozzle.diameters[i] + " nozzle";
-                if (profile_json["filament"].contains(printer_material))
+                std::string printer_material = material + " @" + nozzle.model;
+                if (profile_json["filament"].contains(printer_material)) {
                     selected_filaments.emplace(printer_material);
+                } else {
+                    printer_material += " " + nozzle.diameters[i] + " nozzle";
+                    if (profile_json["filament"].contains(printer_material))
+                        selected_filaments.emplace(printer_material);
+                }
             }
         }
     }
@@ -7270,6 +8148,12 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 bool old_login = m_user.bLogin;
                 wxString old_token = m_user.token;
                 wxString old_uid = m_user.userId;
+                const bool next_login = input.size() >= 4;
+                const wxString next_uid = next_login ? wxString(input[3]) : wxString();
+                if (old_login != next_login || old_uid != next_uid) {
+                    // Finish old-account work before replacing credentials or presets.
+                    SyncUserPresets::getInstance().logout();
+                }
                 if (4 <= input.size()) {
                     m_user.token    = input[0];
                     m_user.nickName = input[1];
@@ -7298,8 +8182,8 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 const bool uid_unchanged   = (old_uid   == m_user.userId);
                 if (login_unchanged && token_unchanged && uid_unchanged)
                     return "";
-                if (mainframe && mainframe->get_modellibrary_view()) {
-                    mainframe->get_modellibrary_view()->UpdateUserAgent();
+                if (mainframe) {
+                    mainframe->update_model_webviews_user_agent();
                 }
                 // 统一刷新社区主页与在线模型库视图，并广播跨实例消息
                 //this->reload_homepage();
@@ -7321,7 +8205,6 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     
                  } else {
                      stop_sync_user_preset();
-                     SyncUserPresets::getInstance().logout();
                      enable_user_preset_folder(false);
                      if (preset_bundle) {
                          //preset_bundle->remove_users_preset(*app_config);
@@ -7854,10 +8737,15 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     }else{
                         return "";
                     }
+                const fs::path machine_list_file = fs::path(data_dir()).append("system")
+                                                                    .append("Creality")
+                                                                    .append("machineList.json");
+                const pt::ptree update_packages =
+                    include_multi_extruder_update_candidates(data_node, machine_list_file);
                 //下载机器参数包               
                 try{
                     CurlConnectionPool pool(3);
-                    for(auto &v:data_node)
+                    for(const auto &v:update_packages)
                     {
                         std::string zipUrl      = v.second.get_child("zipUrl").data();
                         int         start_pos = zipUrl.find_last_of("/");
@@ -7871,10 +8759,24 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     return "";
                 }
                 std::vector<boost::thread> threads;
-                for(auto &v:data_node)
+                const std::vector<pt::ptree> selected_packages = select_update_param_packages(update_packages);
+                std::set<std::string> updated_multi_extruder_models;
+                for(const pt::ptree& package : selected_packages)
                 {
-                    UpdateParamPackage(v.second,boost::ref(profile_json),boost::ref(cache_json),boost::ref(materials_json));
+                    if (UpdateParamPackage(package,boost::ref(profile_json),boost::ref(cache_json),boost::ref(materials_json)) &&
+                        update_package_uses_bare_multi_extruder_name(package))
+                        updated_multi_extruder_models.insert(update_package_printer_model(package));
                     //threads.emplace_back(UpdateParamPackage, v.second,boost::ref(profile_json),boost::ref(cache_json),boost::ref(materials_json));
+                }
+                update_multi_extruder_package_alias_versions(cache_json, update_packages,
+                                                              updated_multi_extruder_models);
+
+                // UpdateParamPackage removes selected archives. Remove the unselected
+                // aliases as well after inspecting their variant metadata.
+                for (const auto& item : update_packages) {
+                    const fs::path package_path = downloaded_update_package_path(item.second);
+                    if (!package_path.empty() && fs::exists(package_path))
+                        fs::remove(package_path);
                 }
                 
                 
@@ -7898,6 +8800,11 @@ std::string GUI_App::handle_web_request(std::string cmd)
                                                                     ForwardCompatibilitySubstitutionRule::EnableSilentDisableSystem);
                     GUI::wxGetApp().load_current_presets();
                     GUI::wxGetApp().plater()->set_bed_shape();
+                }
+                if (auto* plater = wxGetApp().plater()) {
+                    if (auto* canvas = plater->get_current_canvas3D())
+                        canvas->set_as_dirty();
+                    plater->Refresh();
                 }
                 UpdateParams::getInstance().hasUpdateParams();
                 });
@@ -7996,7 +8903,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                    wxString strJS = wxString::Format("window.handleStudioCmd('%s');", commandJson.dump());
                    wxGetApp().CallAfter([this, strJS] { run_script(strJS.ToStdString()); });
             } else if (command_str.compare("set_deviceAdd_end") == 0) {
-                json        printersData     = json::parse(strInput);
+                json printersData = json::parse(cmd);
                 std::string request_sequence = printersData.value("sequence_id", std::string());
                 bool        background_prepared = printersData.value("_background_prepared", false);
 
@@ -8239,10 +9146,14 @@ std::string GUI_App::handle_web_request(std::string cmd)
                                     if (pos == std::string::npos) {
                                         for (int i = 0; i < nozzle.diameters.size(); ++i) {
                                             if (nozzle.selected[i] > 0) {
-                                                std::string new_material = material + " @" + nozzle.model + " " + nozzle.diameters[i] +
-                                                                           " nozzle";
-                                                if (m_ProfileJson["filament"].contains(new_material))
+                                                std::string new_material = material + " @" + nozzle.model;
+                                                if (m_ProfileJson["filament"].contains(new_material)) {
                                                     selected_filaments.emplace(new_material);
+                                                } else {
+                                                    new_material += " " + nozzle.diameters[i] + " nozzle";
+                                                    if (m_ProfileJson["filament"].contains(new_material))
+                                                        selected_filaments.emplace(new_material);
+                                                }
                                             }
                                         }
                                     }
@@ -8257,10 +9168,14 @@ std::string GUI_App::handle_web_request(std::string cmd)
                                     if (pos == std::string::npos) {
                                         for (int i = 0; i < nozzle.diameters.size(); ++i) {
                                             if (nozzle.selected[i] > 0) {
-                                                std::string new_material = material + " @" + nozzle.model + " " + nozzle.diameters[i] +
-                                                                           " nozzle";
-                                                if (m_ProfileJson["filament"].contains(new_material))
+                                                std::string new_material = material + " @" + nozzle.model;
+                                                if (m_ProfileJson["filament"].contains(new_material)) {
                                                     un_selected_filaments.emplace(new_material);
+                                                } else {
+                                                    new_material += " " + nozzle.diameters[i] + " nozzle";
+                                                    if (m_ProfileJson["filament"].contains(new_material))
+                                                        un_selected_filaments.emplace(new_material);
+                                                }
                                             }
                                         }
                                     }
@@ -8449,8 +9364,14 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 json        regionData = json::parse(strInput);
                 std::string region = regionData["region"];
                 AppConfig* config = GUI::wxGetApp().app_config;
+                const std::string previous_region = config->get("region");
                 config->set("region", region);
                 wxGetApp().update_publish_status();
+                // The printer catalogue differs per region, so the cached machine list has
+                // to be refetched; otherwise the add-printer tree keeps the old region's
+                // series until the next restart.
+                if (previous_region != region)
+                    wxGetApp().refresh_machine_list_for_region();
             }
             else if (command_str.compare("get_system_id") == 0) {
                 nlohmann::json systemInfo;
@@ -8696,6 +9617,11 @@ void GUI_App::process_msg_loop()
 
 void GUI_App::check_update(bool show_tips, int by_user)
 {
+#if defined(CREALITYPRINT_APP_STORE) && defined(__WXOSX__)
+    (void)show_tips;
+    (void)by_user;
+    return;
+#endif
     if (version_info.version_str.empty()) return;
     if (version_info.url.empty()) return;
 
@@ -8917,6 +9843,11 @@ void GUI_App::trigger_deferred_restore_project()
 
 void GUI_App::check_new_version(bool show_tips, int by_user)
 {
+#if defined(CREALITYPRINT_APP_STORE) && defined(__WXOSX__)
+    (void)show_tips;
+    (void)by_user;
+    return;
+#endif
     std::string platform = "windows";
 
 #ifdef __WINDOWS__
@@ -8991,6 +9922,16 @@ Semver get_version(const std::string& str, const std::regex& regexp) {
 }
 void GUI_App::check_new_version_cx(bool show_tips, int by_user)
 {
+#if defined(CREALITYPRINT_APP_STORE) && defined(__WXOSX__)
+    (void)show_tips;
+    (void)by_user;
+    return;
+#endif
+
+    const bool automatic_startup_check = !show_tips && by_user == 0;
+    if (automatic_startup_check)
+        m_startup_update_check_running.store(true, std::memory_order_release);
+
     int palform_ = 0;
     #ifdef __WINDOWS__
         palform_ = 1;
@@ -9020,14 +9961,26 @@ void GUI_App::check_new_version_cx(bool show_tips, int by_user)
     http.header("Content-Type", "application/json")
         .header("__CXY_REQUESTID_", to_string(uuid))
         .set_post_body(j.dump())
-        .on_error([&](std::string body, std::string error, unsigned http_status) {
+        .on_error([this, automatic_startup_check](std::string body, std::string error, unsigned http_status) {
           (void)body;
           BOOST_LOG_TRIVIAL(error) << format("Error getting: `%1%`: HTTP %2%, %3%", "check_new_version_sf", http_status,
                                              error);
+          if (automatic_startup_check) {
+              CallAfter([this]() {
+                  m_startup_update_check_running.store(false, std::memory_order_release);
+              });
+          }
         })
         .timeout_connect(2)
         .timeout_max(10)
-        .on_complete([&, show_tips, palform_, by_user](std::string body, unsigned status) {
+        .on_complete([this, show_tips, palform_, by_user, automatic_startup_check](std::string body, unsigned status) {
+                Slic3r::ScopeGuard startup_check_completion([this, automatic_startup_check]() {
+                    if (automatic_startup_check) {
+                        CallAfter([this]() {
+                            m_startup_update_check_running.store(false, std::memory_order_release);
+                        });
+                    }
+                });
                 if (status != 200)
                     return;
                
@@ -9082,6 +10035,8 @@ void GUI_App::check_new_version_cx(bool show_tips, int by_user)
 
 void GUI_App::check_new_version_cx_updated(bool show_tips, int by_user)
 {
+    const bool automatic_startup_check = !show_tips && by_user == 0;
+
     // Convert version to 3-part format for compatibility
     std::string version_base = std::string(CREALITYPRINT_VERSION);
     // Add 'V' prefix for cloud API request
@@ -9107,17 +10062,29 @@ void GUI_App::check_new_version_cx_updated(bool show_tips, int by_user)
         .set_post_body(req_body_str)
         .timeout_connect(TIMEOUT_CONNECT)
         .timeout_max(TIMEOUT_RESPONSE)
-        .on_error([this, show_tips](std::string body, std::string error, unsigned http_status) {
+        .on_error([this, show_tips, automatic_startup_check](std::string body, std::string error, unsigned http_status) {
             BOOST_LOG_TRIVIAL(error) << "[CrealityPrint Update]check_new_version_cx_updated error http_status=" << http_status << " error=" << error << " response body: " << body;
             // Network failed — unblock deferred restore project (if any) on the UI thread.
             CallAfter([this]() { this->trigger_deferred_restore_project(); });
+            if (automatic_startup_check) {
+                CallAfter([this]() {
+                    m_startup_update_check_running.store(false, std::memory_order_release);
+                });
+            }
             if (show_tips) {
                 CallAfter([this]() {
                     this->show_dialog(_L("Network connection timed out. Please check your network settings and try again."));
                 });
             }
         })
-        .on_complete([this, show_tips, by_user](std::string body, unsigned status) {
+        .on_complete([this, show_tips, by_user, automatic_startup_check](std::string body, unsigned status) {
+            Slic3r::ScopeGuard startup_check_completion([this, automatic_startup_check]() {
+                if (automatic_startup_check) {
+                    CallAfter([this]() {
+                        m_startup_update_check_running.store(false, std::memory_order_release);
+                    });
+                }
+            });
             if (status != 200) {
                 BOOST_LOG_TRIVIAL(error) << "[CrealityPrint Update]check_new_version_cx_updated unexpected status " << status;
                 CallAfter([this]() { this->trigger_deferred_restore_project(); });
@@ -9475,6 +10442,11 @@ void GUI_App::process_update_packages(const std::vector<PackageInfo>& updater_pa
 }
 void GUI_App::check_new_version_sf(bool show_tips, int by_user)
 {
+#if defined(CREALITYPRINT_APP_STORE) && defined(__WXOSX__)
+    (void)show_tips;
+    (void)by_user;
+    return;
+#endif
     AppConfig* app_config = wxGetApp().app_config;
     bool       check_stable_only = app_config->get_bool("check_stable_update_only");
     auto       version_check_url = app_config->version_check_url(check_stable_only);
@@ -12542,7 +13514,9 @@ bool GUI_App::apply_config(AppConfig* app_config, AppConfig* app_config_new, Pre
         // for (const auto& vendor_profile : preset_bundle->vendors) {
         for (const auto model_it : model_maps) {
             if (model_it.second.size() > 0) {
-                variant               = *model_it.second.begin();
+                // Prefer the standard nozzle when selecting a newly added printer.
+                const auto default_variant = model_it.second.find("0.4");
+                variant = default_variant != model_it.second.end() ? *default_variant : *model_it.second.begin();
                 const auto config_old = old_enabled_vendors.find(bundle_name);
                 if (config_old == old_enabled_vendors.end())
                     return model_it.first;
@@ -12955,7 +13929,15 @@ void GUI_App::window_pos_center(wxTopLevelWindow *window)
 
 bool GUI_App::config_wizard_startup()
 {
-    if (!m_app_conf_exists || preset_bundle->printers.only_default_printers()) {
+#if defined(CREALITYPRINT_APP_STORE)
+    // App Store builds: only offer the legacy wizard when the SPA guide was
+    // never finished. Other platforms keep the original condition unchanged.
+    const bool guide_finished = app_config->get("firstguide", "finish") == "1";
+    if (!guide_finished && (!m_app_conf_exists || preset_bundle->printers.only_default_printers()))
+#else
+    if (!m_app_conf_exists || preset_bundle->printers.only_default_printers())
+#endif
+    {
         BOOST_LOG_TRIVIAL(info) << "run wizard...";
         run_wizard(ConfigWizard::RR_DATA_EMPTY, ConfigWizard::SP_CUSTOM);
         BOOST_LOG_TRIVIAL(info) << "finished run wizard";
@@ -13493,8 +14475,8 @@ void GUI_App::on_interinstance_message(const std::string& msg)
         }
 
         // 刷新模型库 UA 与 Cookies（依赖 app_config 的最新 token/uid）
-        if (mainframe && mainframe->get_modellibrary_view()) {
-            mainframe->get_modellibrary_view()->UpdateUserAgent();
+        if (mainframe) {
+            mainframe->update_model_webviews_user_agent();
         }
         // 刷新社区与模型库视图，避免手动 F5
         this->reload_homepage();

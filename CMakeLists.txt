@@ -1,9 +1,17 @@
 cmake_minimum_required(VERSION 3.13)
 
+# Data compatibility epoch; independent of the application release version.
+set(CREALITYPRINT_DATA_VERSION "7.3" CACHE STRING "User data directory compatibility version")
+
+option(CREALITYPRINT_APP_STORE "Build the macOS App Store variant" OFF)
+
 if (APPLE)
-    # if CMAKE_OSX_DEPLOYMENT_TARGET is not set, set it to 11.3
     if (NOT CMAKE_OSX_DEPLOYMENT_TARGET)
-        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.3" CACHE STRING "Minimum OS X deployment version" FORCE)
+        if (CREALITYPRINT_APP_STORE)
+            set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum OS X deployment version" FORCE)
+        else()
+            set(CMAKE_OSX_DEPLOYMENT_TARGET "11.3" CACHE STRING "Minimum OS X deployment version" FORCE)
+        endif()
     endif ()
     message(STATUS "CMAKE_OSX_DEPLOYMENT_TARGET: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
 endif ()
@@ -75,6 +83,7 @@ include(GNUInstallDirs)
 include(CMakeDependentOption)
 
 project(${SOLUTION_NAME})
+include(MSVCNinjaEncoding)
 message("CREALITYPRINT_VERSION=${CREALITYPRINT_VERSION}")
 message("PROCESS_NAME=${PROCESS_NAME}")
 
@@ -93,6 +102,11 @@ endif()
 
 option(SLIC3R_STATIC 			"Compile CrealityPrint with static libraries (Boost, TBB, glew)" ${SLIC3R_STATIC_INITIAL})
 option(SLIC3R_GUI    			"Compile CrealityPrint with GUI components (OpenGL, wxWidgets)" 1)
+set(CREALITYPRINT_BUNDLE_IDENTIFIER "com.creality.crealityprint" CACHE STRING "macOS application bundle identifier")
+set(CREALITYPRINT_BUILD_NUMBER "${CREALITYPRINT_VERSION}" CACHE STRING "macOS CFBundleVersion for App Store uploads")
+if (APPLE AND CREALITYPRINT_APP_STORE)
+    add_compile_definitions(CREALITYPRINT_APP_STORE=1)
+endif()
 option(SLIC3R_DEV_AUE_CUSTOM_PREVIEW "Enable development-only AUE custom preview in GCodeViewer" OFF)
 option(SLIC3R_FHS               "Assume CrealityPrint is to be installed in a FHS directory structure" 0)
 option(SLIC3R_WX_STABLE         "Build against wxWidgets stable (3.0) as oppsed to dev (3.1) on Linux" 0)
@@ -125,7 +139,10 @@ if (APPLE)
     if (CMAKE_MACOSX_BUNDLE)
         set(CMAKE_INSTALL_RPATH @executable_path/../Frameworks)
     endif()
-    SET(CMAKE_XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.creality.crealityprint")
+    set(CMAKE_XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${CREALITYPRINT_BUNDLE_IDENTIFIER}")
+    if (CREALITYPRINT_APP_STORE)
+        set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_SOURCE_DIR}/scripts/app_store.entitlements")
+    endif()
 
     message(STATUS "Orca: IS_CROSS_COMPILE: ${IS_CROSS_COMPILE}")
 endif ()
@@ -180,12 +197,19 @@ endif ()
 
 if (MSVC)
     if (SLIC3R_MSVC_COMPILE_PARALLEL AND NOT IS_CLANG_CL)
-           add_compile_options(/MP)
+           add_compile_options(/MP /FS)
     endif ()
     # /bigobj (Increase Number of Sections in .Obj file)
     # error C3859: virtual memory range for PCH exceeded; please recompile with a command line option of '-Zm90' or greater
     # Generate symbols at every build target, even for the release.
-    add_compile_options(-bigobj -Zm520 /Zi)
+    # ccache cannot cache MSVC compilations using /Zi or /ZI. /Z7 keeps the
+    # debug information in the object file and is cacheable.
+    set(_msvc_debug_info_option /Zi)
+    if (CMAKE_C_COMPILER_LAUNCHER MATCHES "ccache" OR
+        CMAKE_CXX_COMPILER_LAUNCHER MATCHES "ccache")
+        set(_msvc_debug_info_option /Z7)
+    endif ()
+    add_compile_options(-bigobj -Zm520 ${_msvc_debug_info_option})
     # Disable STL4007: Many result_type typedefs and all argument_type, first_argument_type, and second_argument_type typedefs are deprecated in C++17.
     #FIXME Remove this line after eigen library adapts to the new C++17 adaptor rules.
     add_compile_options(-D_SILENCE_CXX17_ADAPTOR_TYPEDEFS_DEPRECATION_WARNING)
@@ -507,40 +531,6 @@ if (SLIC3R_PROFILE)
     message("CrealityPrint will be built with a Shiny invasive profiler")
     add_definitions(-DSLIC3R_PROFILE)
 endif ()
-
-# Disable optimization for RelWithDebInfo
-if(CMAKE_C_FLAGS_RELWITHDEBINFO MATCHES "/O2")
-    string(REGEX REPLACE "/O2" "/Od" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
-endif()
-
-if(CMAKE_CXX_FLAGS_RELWITHDEBINFO MATCHES "/O2")
-    string(REGEX REPLACE "/O2" "/Od" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-endif()
-
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    if(CMAKE_C_FLAGS_RELWITHDEBINFO MATCHES "-O2")
-        string(REGEX REPLACE "-O2" "-O0" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
-    endif()
-
-    if(CMAKE_CXX_FLAGS_RELWITHDEBINFO MATCHES "-O2")
-        string(REGEX REPLACE "-O2" "-O0" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-    endif()
-endif()
-
-if(MSVC)
-    if(CMAKE_C_FLAGS_RELWITHDEBINFO MATCHES "/Ob1")
-        string(REGEX REPLACE "/Ob1" "/Ob0" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
-    endif()
-    if(CMAKE_CXX_FLAGS_RELWITHDEBINFO MATCHES "/Ob1")
-        string(REGEX REPLACE "/Ob1" "/Ob0" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-    endif()
-
-    set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} /RTC1")
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /RTC1")
-endif()
-
-list(REMOVE_DUPLICATES CMAKE_C_FLAGS_RELWITHDEBINFO)
-list(REMOVE_DUPLICATES CMAKE_CXX_FLAGS_RELWITHDEBINFO)
 
 # Find and configure boost
 if(SLIC3R_STATIC)
@@ -927,6 +917,7 @@ function(crealityprint_copy_dlls target config postfix output_dlls)
             ${CMAKE_PREFIX_PATH}/bin/ffmpeg/libmp3lame.dll
             ${CMAKE_PREFIX_PATH}/bin/ffmpeg/modplug.dll
             ${CMAKE_PREFIX_PATH}/bin/ffmpeg/swresample-4.dll
+            ${CMAKE_PREFIX_PATH}/bin/ffmpeg/swscale-6.dll
             ${CMAKE_PREFIX_PATH}/bin/ffmpeg/theoradec.dll
             ${CMAKE_PREFIX_PATH}/bin/ffmpeg/theoraenc.dll
             ${CMAKE_PREFIX_PATH}/bin/ffmpeg/snappy.dll
@@ -959,6 +950,7 @@ function(crealityprint_copy_dlls target config postfix output_dlls)
             ${_out_dir}/modplug.dll
             ${_out_dir}/theoradec.dll
             ${_out_dir}/swresample-4.dll
+            ${_out_dir}/swscale-6.dll
             ${_out_dir}/theoraenc.dll
             ${_out_dir}/snappy.dll
             ${_out_dir}/pthreadVC3.dll
@@ -1042,6 +1034,10 @@ endif()
 
 if (NOT WIN32 AND NOT APPLE)
     set(SLIC3R_APP_CMD ${PROCESS_NAME})
+    find_path(CREALITY_PANGO_RUNTIME_DIR NAMES libpango-1.0.so.0
+        PATHS ${CMAKE_PREFIX_PATH} PATH_SUFFIXES lib/creality-pango/lib
+        NO_DEFAULT_PATH)
+    mark_as_advanced(CREALITY_PANGO_RUNTIME_DIR)
     configure_file(${LIBDIR}/platform/unix/build_appimage.sh.in ${CMAKE_CURRENT_BINARY_DIR}/build_appimage.sh @ONLY)
 endif()
 

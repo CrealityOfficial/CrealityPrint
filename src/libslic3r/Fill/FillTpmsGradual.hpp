@@ -12,6 +12,14 @@ struct Point
 {
     double x, y;
 };
+
+// Extract contour lines from a scalar field using marching squares algorithm.
+void drawContour(double                                            contourValue,
+                 int                                               gridSize_w,
+                 int                                               gridSize_h,
+                 std::vector<std::vector<double>>&                 data,
+                 std::vector<std::vector<MarchingSquares::Point>>& posxy,
+                 Polylines&                                        repls);
 }
 
 class TpmsGradual : public Fill

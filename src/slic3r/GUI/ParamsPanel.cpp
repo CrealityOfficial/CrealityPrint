@@ -8,6 +8,7 @@
 #include "Widgets/StateColor.hpp"
 #include "Widgets/ComboBox.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/MaterialListManager.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/ModelVolume.hpp"
 
@@ -44,6 +45,34 @@
 
 namespace Slic3r {
 namespace GUI {
+
+
+static wxString params_panel_remove_dirty_prefix(const wxString& name)
+{
+    std::string clean_name = Preset::remove_suffix_modified(into_u8(name));
+    if (boost::algorithm::starts_with(clean_name, "* "))
+        clean_name = clean_name.substr(2);
+    return from_u8(clean_name);
+}
+
+static wxString params_panel_dirty_prefix()
+{
+    return from_u8(Preset::suffix_modified());
+}
+
+static bool params_panel_has_dirty_prefix(const wxString& name)
+{
+    const std::string name_u8 = into_u8(name);
+    return boost::algorithm::starts_with(name_u8, Preset::suffix_modified()) ||
+           boost::algorithm::starts_with(name_u8, "* ");
+}
+
+static wxString params_panel_preset_display_name(const Preset& preset, bool is_filament)
+{
+    if (is_filament && preset.is_system)
+        return from_u8(MaterialListManager::instance().display_name_with_material_alias(preset));
+    return from_u8(preset.label(true));
+}
 
     ImageTooltipPanel::ImageTooltipPanel(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
         : wxPanel(parent, id, pos, size, style), m_backgroundImage(nullptr)
@@ -772,6 +801,10 @@ void ParamsPanel::create_layout_printerAndFilament()
                     return;
                 }
                 wxString        itemString = data->GetData();
+                wxString        presetString = itemString;
+                auto            preset_it = m_preset_name_by_display.find(itemString);
+                if (preset_it != m_preset_name_by_display.end())
+                    presetString = preset_it->second;
                 const std::string item_u8 = into_u8(itemString);
                 const std::string cur_u8  = into_u8(m_curPreset);
 
@@ -796,7 +829,7 @@ void ParamsPanel::create_layout_printerAndFilament()
                             updateItemState();
                             return;
                         }
-                        optRes = tab_printer->changedSelectPrint(into_u8(itemString));
+                        optRes = tab_printer->changedSelectPrint(into_u8(presetString));
                     } else {
                         auto* tab_filament = dynamic_cast<TabFilament*>(m_tab_filament);
                         if (!tab_filament) {
@@ -810,7 +843,7 @@ void ParamsPanel::create_layout_printerAndFilament()
                             updateItemState();
                             return;
                         }
-                        optRes = tab_filament->changedSelectFilament(into_u8(itemString));
+                        optRes = tab_filament->changedSelectFilament(into_u8(presetString));
                     }
                 } catch (const std::exception& ex) {
                     BOOST_LOG_TRIVIAL(warning) << "ParamsPanel: preset tree selection exception"
@@ -1644,9 +1677,27 @@ void ParamsPanel::msw_rescale()
     if (m_search_btn) m_search_btn->msw_rescale();
     if (m_compare_btn) m_compare_btn->msw_rescale();
     if (m_tips_arrow) m_tips_arrow->msw_rescale();
+
+    const wxSize preset_type_button_size(FromDIP(100), FromDIP(30));
+    for (Button* button : {m_btn_system, m_btn_user}) {
+        if (button == nullptr)
+            continue;
+
+        button->SetFont(::Label::Body_14);
+        button->SetMinSize(preset_type_button_size);
+        button->Rescale();
+        button->SetSize(preset_type_button_size);
+        button->Refresh();
+    }
+    if (m_btnsPanel) {
+        m_btnsPanel->InvalidateBestSize();
+        m_btnsPanel->Layout();
+        m_btnsPanel->Fit();
+    }
+
     if (m_left_sizer) m_left_sizer->SetMinSize(wxSize(36 * em_unit(this), -1));
     if (m_mode_sizer)
-        m_mode_sizer->SetMinSize(-1, FromDIP(3) * em_unit(this));
+        m_mode_sizer->SetMinSize(-1, FromDIP(35));
     if (m_mode_region)
         ((SwitchButton* )m_mode_region)->Rescale();
     if (m_mode_view)
@@ -1684,67 +1735,48 @@ bool ParamsPanel::get_switch_of_object()
 
 void ParamsPanel::refreshCurTreeItem(bool isDirty)
 {
-    // 获取前两个字符
-    wxString str = m_curPreset.Mid(0, 2);
-    wxString str1 = str == "* " ? m_curPreset.Mid(2, -1) : m_curPreset;
-    std::string presetName = std::string(str1.ToUTF8().data());
-    // 查找 Preset
-    Preset* p = nullptr;
-    if (m_ws == WS_PRINTER) {
-        p = wxGetApp().preset_bundle->printers.find_preset(presetName);
-    }
-    else {
-        p = wxGetApp().preset_bundle->filaments.find_preset(presetName);
-    }
-
-    // 检查 Preset 是否有效
-    if (!p) {
+    wxString cleanItemName = params_panel_remove_dirty_prefix(m_curPreset);
+    if (cleanItemName.IsEmpty())
         return;
-    }
 
-    // 获取 Preset 的标签
-    wxString itemName = from_u8(p->label(true));
-
-    // 更新 itemName 根据 isDirty 状态
-    if (isDirty) {
-        if (itemName.Mid(0, 2) != "* ") {
-            itemName = "* " + itemName;
-        }
-    }
-    else {
-        if (itemName.Mid(0, 2) == "* ") {
-            itemName = itemName.Mid(2, -1);
-        }
-    }
-
-    // 检查 itemName 是否为空
-    if (itemName.IsEmpty()) {
+    wxString itemName = isDirty ? params_panel_dirty_prefix() + cleanItemName : cleanItemName;
+    if (itemName == m_curPreset)
         return;
-    }
 
-    // 检查 m_preset_listBox 和 m_curItem 是否有效
     wxTreeItemId curItem = getItemIdByName(m_curPreset);
+    if (!curItem.IsOk())
+        curItem = getItemIdByName(cleanItemName);
+    if (!curItem.IsOk())
+        curItem = getItemIdByName(params_panel_dirty_prefix() + cleanItemName);
+    if (!curItem.IsOk() && m_preset_listBox)
+        curItem = m_preset_listBox->GetSelection();
+
     if (m_preset_listBox && curItem.IsOk()) {
         wxString ellipsizedText = wxControl::Ellipsize(itemName, wxClientDC(this), wxELLIPSIZE_MIDDLE, FromDIP(200));
-        MyTreeItemData* data           = dynamic_cast<MyTreeItemData*>(m_preset_listBox->GetItemData(curItem));
-        if (!data) {
+        MyTreeItemData* data = dynamic_cast<MyTreeItemData*>(m_preset_listBox->GetItemData(curItem));
+        if (!data)
             return;
-        }
+
+        wxString presetLabel = cleanItemName;
+        auto preset_it = m_preset_name_by_display.find(m_curPreset);
+        if (preset_it == m_preset_name_by_display.end())
+            preset_it = m_preset_name_by_display.find(cleanItemName);
+        if (preset_it != m_preset_name_by_display.end())
+            presetLabel = params_panel_remove_dirty_prefix(preset_it->second);
+
         data->setData(itemName);
+        m_preset_name_by_display[itemName] = presetLabel;
+        m_preset_name_by_display[cleanItemName] = presetLabel;
+        m_preset_name_by_display[params_panel_dirty_prefix() + cleanItemName] = presetLabel;
         m_preset_listBox->SetItemText(curItem, ellipsizedText);
-        wxTreeItemId curItem = getItemIdByName(itemName);
         m_preset_listBox->Refresh();
         m_preset_listBox->Update();
         m_preset_listBox->UpdateWindowUI();
     }
 
-    // 更新 m_curPreset
     m_curPreset = itemName;
-
-    // 刷新当前窗口
     Refresh();
 }
-
 void ParamsPanel::notify_object_config_changed()
 {
     this->notify_config_changed();
@@ -1819,7 +1851,29 @@ void ParamsPanel::notify_config_changed()
             }
         }
     }
+    const bool had_dirty_prefix = params_panel_has_dirty_prefix(m_curPreset);
     refreshCurTreeItem(is_dirt);
+    if (!is_dirt && had_dirty_prefix && m_ps == PS_SYSTEM) {
+        m_curPreset = params_panel_remove_dirty_prefix(m_curPreset);
+        filteredData(m_curVentor, m_printerType, 2);
+    }
+    if (!is_dirt && had_dirty_prefix) {
+        CallAfter([this]() {
+            if (!m_current_tab)
+                return;
+            bool is_dirty_later = false;
+            if (Tab* tab = dynamic_cast<Tab*>(m_current_tab)) {
+                if (PresetCollection* presets = tab->get_presets())
+                    is_dirty_later = presets->get_edited_preset().is_dirty;
+            }
+            const bool had_dirty_prefix_later = params_panel_has_dirty_prefix(m_curPreset);
+            refreshCurTreeItem(is_dirty_later);
+            if (!is_dirty_later && had_dirty_prefix_later && m_ps == PS_SYSTEM) {
+                m_curPreset = params_panel_remove_dirty_prefix(m_curPreset);
+                filteredData(m_curVentor, m_printerType, 2);
+            }
+        });
+    }
     
     // m_btn_reset->Enable(is_dirt);  // no need this reset button
 }
@@ -2191,7 +2245,7 @@ void ParamsPanel::OnParentDialogOpen()
 
     m_printerType = _L("ALL");
     m_curVentor = _L("ALL"); //getVendor(preset);
-    m_curPreset = from_u8(preset.label(true));
+    m_curPreset = params_panel_preset_display_name(preset, m_ws == WS_FILAMENT);
     
     filteredData(m_curVentor, m_printerType);
     updateItemState();
@@ -2416,6 +2470,7 @@ void ParamsPanel::filteredData(wxString choseVentor, wxString chosePrinterType, 
     m_system_print_list.clear();
     m_user_print_list.clear();
     m_project_print_list.clear();
+    m_preset_name_by_display.clear();
 
     getDatas(m_system_print_list, m_user_print_list, m_project_print_list, m_print_list, m_ventor_list);
 
@@ -2588,7 +2643,8 @@ void ParamsPanel::getDatas(std::vector<wxString>& systemPrintList, std::vector<w
 
         wxString ventor = from_u8(getVendor(preset));
         wxString presetType = from_u8(getPresetType(preset));
-        wxString itemName = from_u8(preset.label(true));
+        wxString itemName = params_panel_preset_display_name(preset, m_ws == WS_FILAMENT);
+        m_preset_name_by_display[itemName] = from_u8(preset.label(true));
 
 
         if (preset.is_default || preset.is_system)

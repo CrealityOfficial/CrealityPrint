@@ -99,6 +99,13 @@ void Button::SetInactiveIcon(const wxString &icon)
     Refresh();
 }
 
+void Button::SetIconAtTextTopRight(bool enabled)
+{
+    iconAtTextTopRight = enabled;
+    messureSize();
+    Refresh();
+}
+
 void Button::SetMinSize(const wxSize& size)
 {
     minSize = size;
@@ -210,7 +217,7 @@ void Button::render(wxDC& dc)
         icon = active_icon;
     else
         icon = inactive_icon;
-    int padding = 5;
+    int padding = iconAtTextTopRight ? FromDIP(2) : 5;
     if (icon.bmp().IsOk()) {
         if (szContent.y > 0) {
             //BBS norrow size between text and icon
@@ -218,6 +225,9 @@ void Button::render(wxDC& dc)
         }
         szIcon = icon.GetBmpSize();
         szContent.x += szIcon.x;
+        // Reserve equal space on both sides to keep the label centered.
+        if (iconAtTextTopRight)
+            szContent.x += szIcon.x + FromDIP(2);
         if (szIcon.y > szContent.y)
             szContent.y = szIcon.y;
         if (szContent.x > size.x) {
@@ -235,7 +245,12 @@ void Button::render(wxDC& dc)
     }
     // start draw
     wxPoint pt = rcContent.GetLeftTop();
-    if (icon.bmp().IsOk()) {
+    if (icon.bmp().IsOk() && iconAtTextTopRight) {
+        pt.x += szIcon.x + padding;
+        const int text_y = rcContent.y + (rcContent.height - textSize.height) / 2;
+        const int icon_y = std::max(FromDIP(2), text_y + textSize.height / 2 - szIcon.y);
+        dc.DrawBitmap(icon.bmp(), wxPoint(pt.x + textSize.width + padding, icon_y));
+    } else if (icon.bmp().IsOk()) {
         pt.y += (rcContent.height - szIcon.y) / 2;
         dc.DrawBitmap(icon.bmp(), pt);
         //BBS norrow size between text and icon
@@ -272,10 +287,13 @@ void Button::messureSize()
     if (this->active_icon.bmp().IsOk()) {
         if (szContent.y > 0) {
             //BBS norrow size between text and icon
-            szContent.x += 5;
+            szContent.x += iconAtTextTopRight ? FromDIP(2) : 5;
         }
         wxSize szIcon = this->active_icon.GetBmpSize();
         szContent.x += szIcon.x;
+        // Reserve equal space on both sides to keep the label centered.
+        if (iconAtTextTopRight)
+            szContent.x += szIcon.x + FromDIP(2);
         if (szIcon.y > szContent.y)
             szContent.y = szIcon.y;
     }

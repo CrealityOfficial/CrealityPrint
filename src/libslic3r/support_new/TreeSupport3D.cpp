@@ -21,6 +21,7 @@
 #include "Polyline.hpp"
 #include "MutablePolygon.hpp"
 #include "SupportCommon.hpp"
+#include "../Diagnostics/Fingerprint.hpp"
 #include "TriangleMeshSlicer.hpp"
 #include "TreeSupport.hpp"
 #include "I18N.hpp"
@@ -319,7 +320,7 @@ static std::vector<std::pair<TreeSupportSettings, std::vector<size_t>>> group_me
     const coordf_t radius_sample_resolution  = g_config_tree_support_collision_resolution;
 
     // calc the extrudable expolygons of each layer
-    const coordf_t extrusion_width        = config.line_width.value;
+    const coordf_t extrusion_width        = support_material_flow(&print_object).width();
     const coordf_t extrusion_width_scaled = scale_(extrusion_width);
     tbb::parallel_for(tbb::blocked_range<size_t>(0, print_object.layer_count()), [&](const tbb::blocked_range<size_t>& range) {
         for (size_t layer_nr = range.begin(); layer_nr < range.end(); layer_nr++) {
@@ -1388,8 +1389,9 @@ void generate_initial_areas(const PrintObject&            print_object,
     const bool   roof_enabled            = num_support_roof_layers > 0;
 
     // 这里config.min_radius乘与0.1 是为了解决bug11332。可能会引发支撑面比较细小的情况，需要找到案例验证
+    // 此处不再需要乘以0.1，通过调节最小接触面面积到1.0即可解决bug11332
     const bool force_tip_to_roof = roof_enabled && (interface_placer.support_parameters.soluble_interface ||
-                                                    sqr<double>(config.min_radius * 0.1) * M_PI > mesh_group_settings.minimum_roof_area);
+                                                    sqr<double>(config.min_radius/* * 0.1*/) * M_PI > mesh_group_settings.minimum_roof_area);
     // cap for how much layer below the overhang a new support point may be added, as other than with regular support every new inserted
     // point may cause extra material and time cost.  Could also be an user setting or differently calculated. Idea is that if an overhang
     // does not turn valid in double the amount of layers a slope of support angle would take to travel xy_distance, nothing reasonable will
@@ -4840,6 +4842,7 @@ static void generate_support_areas(Print&                     print,
         // use smart overhang detection
         std::vector<Polygons> overhangs;
         tree_support->detect_overhangs();
+        Diagnostics::fingerprint("path.support.organic.overhangs", print_object, static_cast<const PrintObject &>(print_object).layers());
         // volumes.addSharpTail(tree_support->overhang_sharps);
         const int num_raft_layers = int(config.raft_layers.size());
         const int num_layers      = int(print_object.layer_count()) + num_raft_layers;
@@ -5029,11 +5032,13 @@ static void generate_support_areas(Print&                     print,
             // ### Propagate the influence areas downwards. This is an inherently serial operation.
             print.set_status(60, _L("Generating support"));
             create_layer_pathing(print, volumes, config, move_bounds, throw_on_cancel);
+            Diagnostics::fingerprint("path.support.organic.influence_areas", print_object, move_bounds);
             auto t_path = std::chrono::high_resolution_clock::now();
 
             // ### Set a point in each influence area
             print.set_status(63, _L("Generating support"));
             create_nodes_from_area(volumes, config, move_bounds, throw_on_cancel);
+            Diagnostics::fingerprint("path.support.organic.nodes", print_object, move_bounds);
             auto t_place = std::chrono::high_resolution_clock::now();
 
             // ### draw these points as circles
@@ -5119,6 +5124,7 @@ static void generate_support_areas(Print&                     print,
                                                                      intermediate_layers, layer_storage, buildplate_covered);
         SupportGeneratorLayersPtr layers_sorted = generate_support_layers(print_object, raft_layers, bottom_contacts, top_contacts,
                                                                           intermediate_layers, interface_layers, base_interface_layers);
+        Diagnostics::fingerprint("path.support.organic.areas", print_object, static_cast<const PrintObject &>(print_object).support_layers());
 
         // todo : The support is out of the platform issue
         //// BBS: This is a hack to avoid the support being generated outside the bed area. See #4769.
@@ -5131,6 +5137,7 @@ static void generate_support_areas(Print&                     print,
         generate_support_toolpaths(print_object.support_layers(), print_object.config(), support_params, print_object.slicing_parameters(),
                                    raft_layers, bottom_contacts, top_contacts, intermediate_layers, interface_layers,
                                    base_interface_layers);
+        Diagnostics::fingerprint("path.support.organic.toolpaths", print_object, static_cast<const PrintObject &>(print_object).support_layers());
 
         auto t_end = std::chrono::high_resolution_clock::now();
         BOOST_LOG_TRIVIAL(info) << "Total time of organic tree support: "

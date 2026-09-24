@@ -1492,10 +1492,13 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
                 color_idx == 0 || config.wall_filament == int(color_idx)) {
                 //BBS: the extrusion line width is outer wall rather than inner wall
                 const size_t wall_extruder_idx = std::max(0, int(config.wall_filament.value) - 1);
-                const double nozzle_diameter   = print_object.print()->config().nozzle_diameter.get_at(wall_extruder_idx);
-                double       outer_wall_line_width = config.get_abs_value("outer_wall_line_width", nozzle_diameter);
+                const size_t nozzle_index       = get_physical_nozzle_index(print_object.print()->config(), wall_extruder_idx);
+                const double nozzle_diameter   = get_physical_nozzle_diameter(print_object.print()->config(), wall_extruder_idx);
+                double       outer_wall_line_width = nozzle_variant_abs_value(
+                    config.outer_wall_line_width, nozzle_index, nozzle_diameter);
                 if (outer_wall_line_width <= 0.) {
-                    const double default_line_width = print_object.config().get_abs_value("line_width", nozzle_diameter);
+                    const double default_line_width = nozzle_variant_abs_value(
+                        print_object.config().line_width, nozzle_index, nozzle_diameter);
                     if (default_line_width > 0.) {
                         outer_wall_line_width = default_line_width;
                     } else {
@@ -1508,7 +1511,7 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
                 out.extrusion_width     = std::max<float>(out.extrusion_width, outer_wall_line_width);
                 out.top_shell_layers    = std::max<int>(out.top_shell_layers, config.top_shell_layers);
                 out.bottom_shell_layers = std::max<int>(out.bottom_shell_layers, config.bottom_shell_layers);
-                out.small_region_threshold = config.gap_infill_speed.value > 0 ?
+                out.small_region_threshold = config.gap_infill_speed.get_at(nozzle_index) > 0 ?
                                              // Gap fill enabled. Enable a single line of 1/2 extrusion width.
                                              0.5f * outer_wall_line_width :
                                              // Gap fill disabled. Enable two lines slightly overlapping.
@@ -2395,7 +2398,8 @@ static std::vector<std::vector<ExPolygons>> apply_mixed_filament_indentation(
                 unsigned int filament_id = unsigned(extruder_idx); // channel index IS the 1-based filament_id
                 
                 // 检查是否是混色耗材
-                if (mixed_mgr.is_mixed(filament_id, num_physical)) {
+                const MixedFilament *mixed = mixed_mgr.mixed_filament_from_id(filament_id, num_physical);
+                if (mixed != nullptr && mixed->is_available(num_physical)) {
                     // 应用收缩（正值）或扩张（负值）
                     if (!segmented_regions[layer_idx][extruder_idx].empty()) {
                         segmented_regions[layer_idx][extruder_idx] = 
@@ -2415,7 +2419,7 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(
     const std::function<void()> &throw_on_cancel_callback)
 {
     // Include mixed/virtual filaments in the segmentation channels.
-    // num_facets_states = total filaments (physical + enabled mixed) + 1 (for NONE state).
+    // num_facets_states = total filaments (physical + allocated mixed slots) + 1 (for NONE state).
     const size_t num_physical = print_object.print()->config().filament_colour.size();
     const MixedFilamentManager &mixed_mgr = print_object.print()->mixed_filament_manager();
     const size_t num_facets_states = mixed_mgr.total_filaments(num_physical) + 1;

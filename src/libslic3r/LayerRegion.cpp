@@ -1,4 +1,5 @@
 #include "Layer.hpp"
+#include "ZaaPathGeometry.hpp"
 #include "BridgeDetector.hpp"
 #include "ClipperUtils.hpp"
 #include "Geometry.hpp"
@@ -11,6 +12,7 @@
 
 #include <string>
 #include <map>
+#include <cmath>
 
 #include <boost/log/trivial.hpp>
 #include <boost/algorithm/clamp.hpp>
@@ -33,7 +35,7 @@ Flow LayerRegion::bridging_flow(FlowRole role, bool thick_bridge) const
     const PrintRegionConfig &region_config  = region.config();
     const PrintObject       &print_object   = *this->layer()->object();
     Flow bridge_flow;
-    auto nozzle_diameter = float(print_object.print()->config().nozzle_diameter.get_at(region.extruder(role) - 1));
+    auto nozzle_diameter = float(get_physical_nozzle_diameter(print_object.print()->config(), region.extruder(role) - 1));
     if (thick_bridge) {
         // The old Slic3r way (different from all other slicers): Use rounded extrusions.
         // Get the configured nozzle_diameter for the extruder associated to the flow role requested.
@@ -120,7 +122,7 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const LayerRe
         g.process_classic();
 }
 
-#if 0
+#if 1
 
 // Extract surfaces of given type from surfaces, extract fill (layer) thickness of one of the surfaces.
 static ExPolygons fill_surfaces_extract_expolygons(Surfaces &surfaces, std::initializer_list<SurfaceType> surface_types, double &thickness)
@@ -472,25 +474,44 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
     export_region_fill_surfaces_to_svg_debug("4_process_external_surfaces-initial");
 #endif /* SLIC3R_DEBUG_SLICE_PROCESSING */
 
-    // Width of the perimeters.
-    float shell_width = 0;
-    float expansion_min = 0;
+    const double infill_density = this->region().config().sparse_infill_density.value;
+    float        shell_width    = 0;
+    float        expansion_min  = 0;
+    float        max_margin     = 0;
+    float        default_margin = 0;
     if (int num_perimeters = this->region().config().wall_loops; num_perimeters > 0) {
-        Flow external_perimeter_flow = this->flow(frExternalPerimeter);
-        Flow perimeter_flow          = this->flow(frPerimeter);
+        const Flow external_perimeter_flow = this->flow(frExternalPerimeter);
+        const Flow perimeter_flow          = this->flow(frPerimeter);
         shell_width  = 0.5f * external_perimeter_flow.scaled_width() + external_perimeter_flow.scaled_spacing();
         shell_width += perimeter_flow.scaled_spacing() * (num_perimeters - 1);
         expansion_min = perimeter_flow.scaled_spacing();
+        max_margin     = shell_width * float(std::sqrt(2.));
+        default_margin = max_margin;
+        if (std::abs(infill_density - 100.) < EPSILON) {
+            // Keep C3's smaller automatic margin for fully solid models. There is no
+            // sparse infill to anchor into, so a larger value only reclassifies
+            // internal-solid regions as top surfaces (bug 17500).
+            default_margin = 0.5f * (external_perimeter_flow.scaled_width() + perimeter_flow.scaled_spacing()) +
+                             perimeter_flow.scaled_spacing() * (num_perimeters - 1);
+        }
     } else {
         // TODO: Maybe there is better solution when printing with zero perimeters, but this works reasonably well, given the situation
         shell_width   = float(SCALED_EPSILON);
-        expansion_min = float(SCALED_EPSILON);;
+        expansion_min = float(SCALED_EPSILON);
+        max_margin = default_margin = float(SCALED_EPSILON);
     }
 
-    // Scaled expansions of the respective external surfaces.
-    float                           expansion_top           = shell_width * sqrt(2.);
-    float                           expansion_bottom        = expansion_top;
-    float                           expansion_bottom_bridge = expansion_top;
+    float configured_margin = float(scale_(this->region().config().external_infill_margin.get_abs_value(unscaled(max_margin))));
+    if (infill_density <= 0.)
+        configured_margin = std::min(configured_margin, max_margin);
+
+    // A zero configured value means automatic expansion for top and bottom surfaces,
+    // but it still disables the optional internal-solid to sparse-infill expansion.
+    const float solid_infill_expansion    = configured_margin;
+    const float external_surface_expansion = configured_margin < SCALED_EPSILON ? default_margin : configured_margin;
+    const float expansion_top             = external_surface_expansion;
+    const float expansion_bottom          = external_surface_expansion;
+    const float expansion_bottom_bridge   = max_margin;
     // Expand by waves of expansion_step size (expansion_step is scaled), but with no more steps than max_nr_expansion_steps.
     const float                     expansion_step          = scaled<float>(0.1);
     // Don't take more than max_nr_steps for small expansion_step.
@@ -538,9 +559,26 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
     expansion_zones.pop_back();
 
     expansion_zones.at(0).parameters = RegionExpansionParameters::build(expansion_bottom, expansion_step, max_nr_expansion_steps);
+    expansion_zones.at(1).parameters = RegionExpansionParameters::build(expansion_bottom, expansion_step, max_nr_expansion_steps);
     Surfaces bottoms = expand_merge_surfaces(this->fill_surfaces.surfaces, stBottom, expansion_zones, closing_radius);
 
+    // Preserve C3's explicit "external_infill_margin" behavior for internal
+    // solid infill. A value of zero intentionally skips this expansion.
+    if (solid_infill_expansion >= SCALED_EPSILON &&
+        !expansion_zones[0].expolygons.empty() && !expansion_zones[1].expolygons.empty()) {
+        const auto params = RegionExpansionParameters::build(solid_infill_expansion, expansion_step, max_nr_expansion_steps);
+        std::vector<RegionExpansion> solid_expansions =
+            propagate_waves(expansion_zones[0].expolygons, expansion_zones[1].expolygons, params);
+        if (!solid_expansions.empty()) {
+            expansion_zones[0].expolygons =
+                merge_expansions_into_expolygons(std::move(expansion_zones[0].expolygons), std::move(solid_expansions));
+            expansion_zones[0].expolygons = closing_ex(expansion_zones[0].expolygons, closing_radius);
+            expansion_zones[1].expolygons = diff_ex(expansion_zones[1].expolygons, expansion_zones[0].expolygons);
+        }
+    }
+
     expansion_zones.at(0).parameters = RegionExpansionParameters::build(expansion_top, expansion_step, max_nr_expansion_steps);
+    expansion_zones.at(1).parameters = RegionExpansionParameters::build(expansion_top, expansion_step, max_nr_expansion_steps);
     Surfaces tops = expand_merge_surfaces(this->fill_surfaces.surfaces, stTop, expansion_zones, closing_radius);
 
     // turn too small internal regions into solid regions according to the user setting
@@ -947,14 +985,38 @@ void LayerRegion::prepare_fill_surfaces()
                 surface.surface_type = stInternal;
     }
 
+}
+
+void LayerRegion::classify_internal_fill_surfaces(const ExPolygons &sparse_internal_components)
+{
+    const bool spiral_mode = this->layer()->object()->print()->config().spiral_mode;
     if (!spiral_mode && this->region().config().sparse_infill_density.value > 0) {
         // Turn too small internal regions into solid regions according to the user setting
         // scaling an area requires two calls!
-        double min_area    = scale_(scale_(this->region().config().minimum_sparse_infill_area.value));
+        const double min_area = scale_(scale_(this->region().config().minimum_sparse_infill_area.value));
+        const bool fully_solid = fabs(this->region().config().sparse_infill_density.value - 100.) < EPSILON;
         // Turn all internal sparse infill into solid infill, if sparse_infill_density is 100%
-        for (Surface& surface : this->fill_surfaces.surfaces)
-            if (surface.surface_type == stInternal && (fabs(this->region().config().sparse_infill_density.value - 100.) < EPSILON || surface.area() <= min_area))
+        for (Surface &surface : this->fill_surfaces.surfaces) {
+            if (surface.surface_type != stInternal)
+                continue;
+
+            if (fully_solid) {
                 surface.surface_type = stInternalSolid;
+                continue;
+            }
+
+            bool is_small_component = surface.area() <= min_area;
+            if (is_small_component && !sparse_internal_components.empty() && !surface.empty()) {
+                const Point &sample = surface.expolygon.contour.points.front();
+                const auto sparse_component = std::find_if(sparse_internal_components.begin(), sparse_internal_components.end(),
+                    [&sample](const ExPolygon &expolygon) { return expolygon.contains(sample); });
+                if (sparse_component != sparse_internal_components.end())
+                    is_small_component = sparse_component->area() <= min_area;
+            }
+
+            if (is_small_component)
+                surface.surface_type = stInternalSolid;
+        }
     }
 
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
@@ -1057,6 +1119,8 @@ void LayerRegion::simplify_entity_collection(ExtrusionEntityCollection* entity_c
         else
             throw Slic3r::InvalidArgument("Invalid extrusion entity supplied to simplify_entity_collection()");
     }
+    if (this->layer()->object()->zaa_layer_uses_offset_plane(*this->layer()))
+        zaa_prune_no_motion_paths(*entity_collection);
 }
 
 void LayerRegion::simplify_path(ExtrusionPath* path)
@@ -1065,8 +1129,16 @@ void LayerRegion::simplify_path(ExtrusionPath* path)
     const bool spiral_mode = print_config.spiral_mode;
     const bool enable_arc_fitting = print_config.enable_arc_fitting;
     const auto scaled_resolution = scaled<double>(print_config.resolution.value);
+    const bool requires_zaa_linear_simplification =
+        this->layer()->object()->zaa_layer_uses_offset_plane(*this->layer()) && zaa_role_is_eligible(path->role());
+    path->set_zaa_path_policy(ZaaPathPolicy::Conventional);
+    // Simplification runs before the next plan. A conventional layer must not
+    // retain a sidecar created by an earlier ZAA planning pass.
+    path->clear_path3();
 
-    if (enable_arc_fitting &&
+    if (requires_zaa_linear_simplification) {
+        zaa_simplify_path(*path, scaled_resolution);
+    } else if (enable_arc_fitting &&
         !spiral_mode) {
         if (this->layer()->object()->print()->calib_params().mode == CalibMode::Calib_Arc2Lerance) {
             path->simplify_by_fitting_arc(this->m_region->config().arc_tolerance * 1000);
@@ -1086,19 +1158,27 @@ void LayerRegion::simplify_multi_path(ExtrusionMultiPath* multipath)
     const bool spiral_mode = print_config.spiral_mode;
     const bool enable_arc_fitting = print_config.enable_arc_fitting;
     const auto scaled_resolution = scaled<double>(print_config.resolution.value);
+    const bool zaa_layer_uses_offset_plane =
+        this->layer()->object()->zaa_layer_uses_offset_plane(*this->layer());
 
-    for (size_t i = 0; i < multipath->paths.size(); ++i) {
-        if (enable_arc_fitting &&
+    for (ExtrusionPath &path : multipath->paths) {
+        const bool requires_zaa_linear_simplification =
+            zaa_layer_uses_offset_plane && zaa_role_is_eligible(path.role());
+        path.set_zaa_path_policy(ZaaPathPolicy::Conventional);
+        path.clear_path3();
+        if (requires_zaa_linear_simplification) {
+            zaa_simplify_path(path, scaled_resolution);
+        } else if (enable_arc_fitting &&
             !spiral_mode) {
             if (this->layer()->object()->print()->calib_params().mode == CalibMode::Calib_Arc2Lerance) {
-                multipath->paths[i].simplify_by_fitting_arc(this->m_region->config().arc_tolerance * 1000);
+                path.simplify_by_fitting_arc(this->m_region->config().arc_tolerance * 1000);
             }
-            else if(multipath->paths[i].role() == erInternalInfill)
-                multipath->paths[i].simplify_by_fitting_arc(SCALED_SPARSE_INFILL_RESOLUTION);
+            else if(path.role() == erInternalInfill)
+                path.simplify_by_fitting_arc(SCALED_SPARSE_INFILL_RESOLUTION);
             else
-                multipath->paths[i].simplify_by_fitting_arc(scaled_resolution);
+                path.simplify_by_fitting_arc(scaled_resolution);
         } else {
-            multipath->paths[i].simplify(scaled_resolution);
+            path.simplify(scaled_resolution);
         }
     }
 }
@@ -1109,19 +1189,27 @@ void LayerRegion::simplify_loop(ExtrusionLoop* loop)
     const bool spiral_mode = print_config.spiral_mode;
     const bool enable_arc_fitting = print_config.enable_arc_fitting;
     const auto scaled_resolution = scaled<double>(print_config.resolution.value);
+    const bool zaa_layer_uses_offset_plane =
+        this->layer()->object()->zaa_layer_uses_offset_plane(*this->layer());
 
-    for (size_t i = 0; i < loop->paths.size(); ++i) {
-        if (enable_arc_fitting &&
+    for (ExtrusionPath &path : loop->paths) {
+        const bool requires_zaa_linear_simplification =
+            zaa_layer_uses_offset_plane && zaa_role_is_eligible(path.role());
+        path.set_zaa_path_policy(ZaaPathPolicy::Conventional);
+        path.clear_path3();
+        if (requires_zaa_linear_simplification) {
+            zaa_simplify_path(path, scaled_resolution);
+        } else if (enable_arc_fitting &&
             !spiral_mode) {
             if (this->layer()->object()->print()->calib_params().mode == CalibMode::Calib_Arc2Lerance) {
-                loop->paths[i].simplify_by_fitting_arc(this->m_region->config().arc_tolerance * 1000);
+                path.simplify_by_fitting_arc(this->m_region->config().arc_tolerance * 1000);
             }
-            else if(loop->paths[i].role() == erInternalInfill)
-                loop->paths[i].simplify_by_fitting_arc(SCALED_SPARSE_INFILL_RESOLUTION);
+            else if(path.role() == erInternalInfill)
+                path.simplify_by_fitting_arc(SCALED_SPARSE_INFILL_RESOLUTION);
             else
-                loop->paths[i].simplify_by_fitting_arc(scaled_resolution);
+                path.simplify_by_fitting_arc(scaled_resolution);
         } else {
-            loop->paths[i].simplify(scaled_resolution);
+            path.simplify(scaled_resolution);
         }
     }
 }

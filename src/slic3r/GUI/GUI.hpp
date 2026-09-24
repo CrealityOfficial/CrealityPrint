@@ -80,6 +80,7 @@ boost::filesystem::path	into_path(const wxString &str);
 std::string get_vertion_type();
 std::string get_cloud_api_url();
 std::string get_cloud_webaddress();
+std::string get_ai_creation_webaddress();
 std::string get_file_md5(const std::string& path);
 std::string user_feedback_website();
 

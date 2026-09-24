@@ -29,7 +29,10 @@ std::string Utils::url_encode(const std::string& value)
 
     for (unsigned char c : value) {
         // 保持字母数字和其他安全字符不变
-        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+        // URI unreserved characters are ASCII-only. Locale-sensitive isalnum()
+        // can leave individual UTF-8 bytes unescaped and corrupt the payload.
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
             escaped << c;
         } else {
             // 其他字符进行百分比编码

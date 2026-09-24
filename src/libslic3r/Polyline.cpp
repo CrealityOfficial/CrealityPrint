@@ -4,6 +4,8 @@
 #include "ExPolygon.hpp"
 #include "Line.hpp"
 #include "Polygon.hpp"
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <utility>
 
@@ -634,6 +636,150 @@ void ThickPolyline::start_at_index(int index)
         std::rotate(this->width.begin(), this->width.begin() + 2 * index, this->width.end());
         this->points.emplace_back(this->points.front());
     }
+}
+
+Polyline Polyline3::to_polyline() const
+{
+    Polyline result;
+    result.points.reserve(points.size());
+    for (const Vec3crd &point : points)
+        result.points.emplace_back(point.x(), point.y());
+    return result;
+}
+
+double Polyline3::length_xy() const
+{
+    double length = 0.0;
+    for (size_t index = 1; index < points.size(); ++index) {
+        const Vec3crd &a = points[index - 1];
+        const Vec3crd &b = points[index];
+        length += std::hypot(double(b.x()) - double(a.x()), double(b.y()) - double(a.y()));
+    }
+    return length;
+}
+
+double Polyline3::length_3d() const
+{
+    return MultiPoint3::length();
+}
+
+void Polyline3::reverse()
+{
+    std::reverse(points.begin(), points.end());
+}
+
+void Polyline3::clip_end(double distance)
+{
+    while (distance > 0.0 && !points.empty()) {
+        const Vec3crd last_point = points.back();
+        points.pop_back();
+        if (points.empty())
+            return;
+
+        const Vec3crd &previous_point = points.back();
+        const Vec2d last_xy = Point(last_point.x(), last_point.y()).cast<double>();
+        const Vec2d direction = Point(previous_point.x(), previous_point.y()).cast<double>() - last_xy;
+        const double length_squared = direction.squaredNorm();
+        if (length_squared > distance * distance) {
+            const double ratio = distance / std::sqrt(length_squared);
+            const Point clipped_xy = (last_xy + direction * ratio).cast<coord_t>();
+            const coord_t clipped_z = coord_t(std::llround(
+                double(last_point.z()) + (double(previous_point.z()) - double(last_point.z())) * ratio));
+            // Integer XY quantization may collapse the clipped endpoint onto
+            // the preceding point. Do not create a zero-length ZAA segment.
+            if (clipped_xy.x() == previous_point.x() && clipped_xy.y() == previous_point.y())
+                return;
+            points.emplace_back(clipped_xy.x(), clipped_xy.y(), clipped_z);
+            return;
+        }
+
+        distance -= std::sqrt(length_squared);
+    }
+}
+
+bool Polyline3::split_at_xy(const Point &query, Point &actual_xy, Polyline3 *before, Polyline3 *after) const
+{
+    if (before == nullptr || after == nullptr || before == after || points.size() < 2)
+        return false;
+
+    const Polyline xy = this->to_polyline();
+    bool has_non_zero_xy_segment = false;
+    for (size_t index = 0; index + 1 < xy.points.size(); ++index) {
+        if (xy.points[index] != xy.points[index + 1]) {
+            has_non_zero_xy_segment = true;
+            break;
+        }
+    }
+    if (!has_non_zero_xy_segment)
+        return false;
+
+    const auto split_at_index = [this](size_t index, Polyline3 &before_result, Polyline3 &after_result) {
+        before_result.points.insert(before_result.points.end(), points.begin(), points.begin() + index + 1);
+        after_result.points.insert(after_result.points.end(), points.begin() + index, points.end());
+    };
+
+    // Match Polyline::split_at(): an exact vertex remains the vertex, while a
+    // non-vertex split keeps the requested XY coordinate as the new seam.
+    const int exact_vertex = xy.find_point(query);
+    if (exact_vertex != -1) {
+        Polyline3 before_result;
+        Polyline3 after_result;
+        split_at_index(size_t(exact_vertex), before_result, after_result);
+        *before = std::move(before_result);
+        *after = std::move(after_result);
+        actual_xy = query;
+        return true;
+    }
+
+    size_t best_segment = 0;
+    Point closest_xy = xy.first_point();
+    double minimum_distance = (closest_xy - query).cast<double>().norm();
+    for (size_t index = 0; index + 1 < xy.points.size(); ++index) {
+        const Point projected_xy = query.projection_onto(Line(xy.points[index], xy.points[index + 1]));
+        const double distance = (projected_xy - query).cast<double>().norm();
+        if (distance < minimum_distance) {
+            closest_xy = projected_xy;
+            minimum_distance = distance;
+            best_segment = index;
+        }
+    }
+
+    const Point &a_xy = xy.points[best_segment];
+    const Point &b_xy = xy.points[best_segment + 1];
+    const double dx = double(b_xy.x()) - double(a_xy.x());
+    const double dy = double(b_xy.y()) - double(a_xy.y());
+    const double length_squared = dx * dx + dy * dy;
+    const double segment_u = length_squared == 0.0 ? 0.0 :
+        std::max(0.0, std::min(1.0,
+            ((double(query.x()) - double(a_xy.x())) * dx +
+             (double(query.y()) - double(a_xy.y())) * dy) / length_squared));
+    const Vec3crd &a = points[best_segment];
+    const Vec3crd &b = points[best_segment + 1];
+    const coord_t split_z = coord_t(std::llround(
+        double(a.z()) + (double(b.z()) - double(a.z())) * segment_u));
+    const Vec3crd split_point(query.x(), query.y(), split_z);
+
+    Polyline3 before_result;
+    Polyline3 after_result;
+    const int closest_vertex = xy.find_point(closest_xy);
+    if (closest_vertex != -1) {
+        // Preserve the legacy endpoint path order when the 2D projection
+        // quantizes to a vertex.
+        split_at_index(size_t(closest_vertex), before_result, after_result);
+        before_result.points.emplace_back(split_point);
+        after_result.points.insert(after_result.points.begin(), split_point);
+    } else {
+        before_result.points.insert(before_result.points.end(), points.begin(), points.begin() + best_segment + 1);
+        before_result.points.emplace_back(split_point);
+        after_result.points.reserve(points.size() - best_segment + 1);
+        after_result.points.emplace_back(split_point);
+        after_result.points.insert(after_result.points.end(), points.begin() + best_segment + 1, points.end());
+    }
+
+    *before = std::move(before_result);
+    *after = std::move(after_result);
+    actual_xy = query;
+    return true;
 }
 
 Lines3 Polyline3::lines() const

@@ -430,10 +430,25 @@ MCPChatPanel::MCPChatPanel(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
         this,
         [this](const json& params) { return ExecuteAISendToPrinterAction(params); });
 
-    if (auto* plater = wxGetApp().plater())
-    {
-        plater->Bind(Slic3r::GUI::EVT_EXPORT_GCODE_FINISHED, &MCPChatPanel::OnExportFinished, this);
-    }
+    auto bind_export_finished = [this, async_lifetime]() {
+        if (async_lifetime.expired() || m_export_event_source != nullptr)
+            return;
+        // During MainFrame recreation the global Plater may still refer to
+        // the previous frame. Embedded chat must bind to its actual owner.
+        Plater* plater = nullptr;
+        for (wxWindow* parent = GetParent(); parent && !plater; parent = parent->GetParent())
+            plater = dynamic_cast<Plater*>(parent);
+        if (!plater)
+            plater = wxGetApp().plater(); // Floating chat has no Plater ancestor.
+        if (plater && !plater->IsBeingDeleted()) {
+            plater->Bind(Slic3r::GUI::EVT_EXPORT_GCODE_FINISHED, &MCPChatPanel::OnExportFinished, this);
+            m_export_event_source = plater;
+        }
+    };
+    if (wxGetApp().plater())
+        bind_export_finished();
+    else
+        wxGetApp().CallAfter(bind_export_finished);
 }
 
 MCPChatPanel::~MCPChatPanel()
@@ -441,13 +456,16 @@ MCPChatPanel::~MCPChatPanel()
     m_shutting_down = true;
     m_page_loaded = false;
     m_js_ready = false;
-    // Stop the WebView before nulling the pointer so that any in-flight
-    // navigation or script execution is cancelled.  DestroyAll() in
-    // GUI_App::OnExit() will handle the msedgewebview2.exe child processes;
-    // we must not call Destroy() here because the wx window tree owns the
-    // lifetime of m_browser.
+    // Do not call Stop() here. During application exit it can enqueue more
+    // WebView/wx events while the parent window tree is already being deleted.
+    // Disable delivery now; the parent still owns and destroys the control.
     if (m_browser) {
-        m_browser->Stop();
+        m_browser->SetEvtHandlerEnabled(false);
+        m_browser->Unbind(wxEVT_DESTROY, &MCPChatPanel::OnBrowserDestroyed, this);
+        m_browser->Unbind(wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, &MCPChatPanel::OnScriptMessage, this);
+        m_browser->Unbind(wxEVT_WEBVIEW_NAVIGATING, &MCPChatPanel::OnNavigationRequest, this);
+        m_browser->Unbind(wxEVT_WEBVIEW_LOADED, &MCPChatPanel::OnNavigationComplete, this);
+        m_browser->Unbind(wxEVT_WEBVIEW_ERROR, &MCPChatPanel::OnError, this);
     }
     m_browser = nullptr;
     m_async_lifetime.reset();
@@ -455,9 +473,9 @@ MCPChatPanel::~MCPChatPanel()
     Bridge::SlicerBridge::Instance().ClearSendToPrinterDelegate(this);
     UnregisterEmbeddedAIChatPanel(this);
 
-    if (auto* plater = wxGetApp().plater())
-    {
-        plater->Unbind(Slic3r::GUI::EVT_EXPORT_GCODE_FINISHED, &MCPChatPanel::OnExportFinished, this);
+    if (m_export_event_source) {
+        m_export_event_source->Unbind(Slic3r::GUI::EVT_EXPORT_GCODE_FINISHED, &MCPChatPanel::OnExportFinished, this);
+        m_export_event_source = nullptr;
     }
     m_scene_update_timer.Stop();
     m_scheduled_refresh_timer.Stop();
@@ -499,30 +517,7 @@ void MCPChatPanel::InitWebView()
 
     m_browser->Bind(wxEVT_DESTROY, &MCPChatPanel::OnBrowserDestroyed, this);
     m_browser->Bind(wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, &MCPChatPanel::OnScriptMessage, this);
-    // 拦截页面内导航：只允许停留在初始页面???origin，其他外部链接用系统浏览器打开
-    m_browser->Bind(wxEVT_WEBVIEW_NAVIGATING, [this](wxWebViewEvent& evt) {
-        const wxString url = evt.GetURL();
-        // ???http/https（如 file://、about:blank、blob: 等）直接放行
-        if (!url.StartsWith("http://") && !url.StartsWith("https://")) {
-            return;
-        }
-        // 第一次导航（初始页面加载）：记录 origin 并放???
-        if (m_chat_page_origin.IsEmpty()) {
-            wxURI uri(url);
-            m_chat_page_origin = uri.GetScheme() + "://" + uri.GetServer();
-            const wxString port = uri.GetPort();
-            if (!port.IsEmpty())
-                m_chat_page_origin += ":" + port;
-            return;
-        }
-        // ???origin 的导航放行（SPA 内部路由???
-        if (url.StartsWith(m_chat_page_origin)) {
-            return;
-        }
-        // 其他外部链接：用系统浏览器打开，阻???WebView 内嵌导航
-        wxLaunchDefaultBrowser(url);
-        evt.Veto();
-    });
+    m_browser->Bind(wxEVT_WEBVIEW_NAVIGATING, &MCPChatPanel::OnNavigationRequest, this);
     // target="_blank" 新窗口请求也用系统浏览器打开
     m_browser->Bind(wxEVT_WEBVIEW_NEWWINDOW, [](wxWebViewEvent& evt) {
         const wxString url = evt.GetURL();
@@ -541,6 +536,29 @@ void MCPChatPanel::InitWebView()
     sizer->Add(m_browser, 1, wxEXPAND);
     SetSizer(sizer);
     Layout();
+}
+
+void MCPChatPanel::OnNavigationRequest(wxWebViewEvent& evt)
+{
+    const wxString url = evt.GetURL();
+    // 非 http/https（如 file://、about:blank、blob: 等）直接放行。
+    if (!url.StartsWith("http://") && !url.StartsWith("https://"))
+        return;
+
+    // 第一次导航记录初始页面 origin，后续只允许同源导航。
+    if (m_chat_page_origin.IsEmpty()) {
+        wxURI uri(url);
+        m_chat_page_origin = uri.GetScheme() + "://" + uri.GetServer();
+        const wxString port = uri.GetPort();
+        if (!port.IsEmpty())
+            m_chat_page_origin += ":" + port;
+        return;
+    }
+    if (url.StartsWith(m_chat_page_origin))
+        return;
+
+    wxLaunchDefaultBrowser(url);
+    evt.Veto();
 }
 
 void MCPChatPanel::OnBrowserDestroyed(wxWindowDestroyEvent& evt)
@@ -1944,8 +1962,16 @@ void MCPChatPanel::PostCxAgentJson(const std::string& request_command,
 
 void MCPChatPanel::OnExportFinished(wxCommandEvent& evt)
 {
-    if (!m_pending_slice_request.active || !m_pending_slice_request.awaiting_export)
+    CompletePendingAsyncToolCall(
+        "job:export_gcode",
+        true,
+        "G-code export completed",
+        json::object());
+
+    if (!m_pending_slice_request.active || !m_pending_slice_request.awaiting_export) {
+        evt.Skip();
         return;
+    }
 
     const std::string request_id = m_pending_slice_request.request_id;
     const bool notify_cxagent_bridge = m_pending_slice_request.notify_cxagent_bridge && m_cxagent_bridge;
@@ -1979,6 +2005,7 @@ void MCPChatPanel::OnExportFinished(wxCommandEvent& evt)
     m_pending_slice_request = {};
     m_observed_slice_requests.erase(request_id);
     NotifyCxAgentStatus();
+    evt.Skip();
 }
 
 nlohmann::json MCPChatPanel::BuildCxAgentStatusJson() const
@@ -2206,6 +2233,8 @@ nlohmann::json MCPChatPanel::BuildCompletedSliceResult(const std::string& export
     result["toolpath_outside"] = current_result->toolpath_outside;
     result["warnings"] = json::array();
     for (const auto& warning : current_result->warnings) {
+        if (ToolCalls::ShouldSuppressSliceWarningForAI(warning.msg, warning.error_code))
+            continue;
         result["warnings"].push_back({
             {"level", warning.level},
             {"message", warning.msg},

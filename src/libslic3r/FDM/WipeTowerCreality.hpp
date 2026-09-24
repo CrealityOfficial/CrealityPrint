@@ -50,12 +50,11 @@ public:
                          float        wipe_volume       = 0.f,
                          float        purge_volume      = 0.f,
                          bool         flush_into_skeleton = false,
-                         bool         round_wipe_wall     = false);
+                         bool         round_wipe_wall     = false,
+                         const std::optional<FilamentChangeTopology>& topology = std::nullopt);
 
 	// Iterates through prepared m_plan, generates ToolChangeResults and appends them to "result"
 	void generate(std::vector<std::vector<WipeTower::ToolChangeResult>> &result);
-
-	WipeTower::ToolChangeResult only_generate_out_wall();
 
     float get_depth() const { return m_wipe_tower_depth; }
 	std::vector<std::pair<float, float>> get_z_and_depth_pairs() const;
@@ -70,6 +69,7 @@ public:
         BoundingBoxf res = BoundingBoxf(unscale(box.min), unscale(box.max));
         return res;
     }
+    const std::map<float, Polylines>& get_outer_wall() const { return m_outer_wall; }
     Polygon  get_wipe_tower_stable_cone() const { return m_wipe_tower_stable_cone; }
 
 	void set_last_layer_extruder_fill(bool extruder_fill)
@@ -110,8 +110,7 @@ public:
         } else
             ++ m_num_layer_changes;
 
-		// Calculate extrusion flow from desired line width, nozzle diameter, filament diameter and layer_height:
-		m_extrusion_flow = extrusion_flow(layer_height);
+        // Extrusion is resolved per path/tool, including deferred block fills.
 	}
 
 	// Return the wipe tower position.
@@ -147,9 +146,13 @@ public:
         float               max_e_speed = std::numeric_limits<float>::max();
         std::vector<float>  ramming_speed;
         float               nozzle_diameter;
+        float               perimeter_width;
+        float               max_layer_height;
         float               filament_area;
         int                 category;
         float               retract_length;
+        float               retraction_minimum_travel = 0.f;
+        float               retract_restart_extra = 0.f;
         float               retract_speed;
         float               wipe_dist;
     };
@@ -172,7 +175,7 @@ public:
                                                    bool                  extrude_fill    = true,
                                                    bool                  interface_solid = false);
 	WipeTower::ToolChangeResult finish_layer_new(bool extrude_perimeter = true, bool extrude_fill = true, bool extrude_fill_wall = true);
-    Vec2f                       get_next_pos(const WipeTower::box_coordinates& cleaning_box, float wipe_length);
+    Vec2f                       get_next_pos(const WipeTower::box_coordinates& cleaning_box, float wipe_length, size_t tool);
 
 	Polygon generate_support_wall_new(WipeTowerWriterCreality&          writer,
                                       const WipeTower::box_coordinates& wt_box,
@@ -204,8 +207,18 @@ private:
 
     const float Width_To_Nozzle_Ratio = 1.25f; // desired line width (oval) in multiples of nozzle diameter - may not be actually neccessary to adjust
     const float WT_EPSILON            = 1e-3f;
-    float filament_area() const {
-        return m_filpar[0].filament_area; // all extruders are assumed to have the same filament diameter at this point
+    float perimeter_width_for_tool(size_t tool) const { return m_filpar.at(tool).perimeter_width; }
+    float extrusion_flow_for_tool(size_t tool, float height, float width_multiplier = 1.f) const {
+        return height * (perimeter_width_for_tool(tool) * width_multiplier - height * (1.f - float(M_PI) / 4.f)) /
+               m_filpar.at(tool).filament_area;
+    }
+    // Common clearance only; it must never determine another tool's extrusion.
+    float wipe_inset(size_t tool, bool first_layer) const {
+        return 0.5f * (m_layout_width + perimeter_width_for_tool(tool) * (first_layer ? 1.f : m_extra_flow));
+    }
+    float wipe_padding(size_t tool, bool first_layer) const {
+        return 0.5f * std::max(0.f, m_layout_width - perimeter_width_for_tool(tool)) *
+               (first_layer ? 1.f : std::max(1.f, m_extra_flow));
     }
 
 	bool   m_enable_timelapse_print = false;
@@ -215,6 +228,7 @@ private:
 	float  m_wipe_tower_height  = 0.f;
 	float  m_wipe_tower_cone_angle = 0.f;
     Polygon m_wipe_tower_stable_cone;
+    BoundingBox m_base_outer_wall_box; // First structural wall, shifted but not rotated; excludes gaps and brim.
     float  m_wipe_tower_brim_width      = 0.f; 	// Width of brim (mm) from config
     float  m_wipe_tower_brim_width_real = 0.f; 	// Width of brim (mm) after generation
 	float  m_wipe_tower_rotation_angle = 0.f; // Wipe tower rotation angle in degrees (with respect to x axis)
@@ -238,6 +252,7 @@ private:
 	// G-code generator parameters.
     float           m_bridging                  = 0.f;
     bool            m_no_sparse_layers          = false;
+    int             m_wipe_tower_filament        = 0; // 1-based physical filament; 0 is automatic.
     bool            m_adhesion                  = true;
     GCodeFlavor     m_gcode_flavor;
 
@@ -251,8 +266,7 @@ private:
     float m_bed_width; // width of the bed bounding box
     Vec2f m_bed_bottom_left; // bottom-left corner coordinates (for rectangular beds)
 
-	float m_perimeter_width = 0.4f * Width_To_Nozzle_Ratio; // Width of an extrusion line, also a perimeter spacing for 100% infill.
-	float m_extrusion_flow = 0.038f; //0.029f;// Extrusion flow is derived from m_perimeter_width, layer height and filament diameter.
+	float m_layout_width = 0.4f * Width_To_Nozzle_Ratio; // Maximum base width of tools participating in this tower.
 
 	// Extruder specific parameters.
     std::vector<FilamentParameters> m_filpar;
@@ -272,16 +286,16 @@ private:
     float           m_extra_flow             = 1.f;
 	bool 			m_left_to_right   = true;
 	float			m_extra_spacing   = 1.f;
+    PrimeTowerStartIroningType m_start_ironing_type = PrimeTowerStartIroningType::ptsiReciprocating;
+    float           m_start_offset           = 0.f;
+    float           m_wipe_tower_corner_rib_length = 0.f;
 
     bool is_first_layer() const { return size_t(m_layer_info - m_plan.begin()) == m_first_layer_idx; }
 
 	// Calculates extrusion flow needed to produce required line width for given layer height
-	float extrusion_flow(float layer_height = -1.f) const	// negative layer_height - return current m_extrusion_flow
-	{
-		if ( layer_height < 0 )
-			return m_extrusion_flow;
-		return layer_height * ( m_perimeter_width - layer_height * (1.f-float(M_PI)/4.f)) / filament_area();
-	}
+    float extrusion_flow(float layer_height = -1.f) const {
+        return extrusion_flow_for_tool(m_current_tool, layer_height < 0.f ? m_layer_height : layer_height);
+    }
 
 	// Calculates length of extrusion line to extrude given volume
 	float volume_to_length(float volume, float line_width, float layer_height) const {
@@ -308,10 +322,13 @@ private:
             float purge_volume;
             bool  round_wipe_wall{false};
             bool  flush_into_skeleton{false};
+            std::optional<FilamentChangeTopology> filament_change_topology;
             float round_wipe_wall_bottom_depth{0.f};
             float round_wipe_wall_top_depth{0.f};
             ToolChange(
-                size_t old, size_t newtool, float depth = 0.f, float ramming_depth = 0.f, float fwl = 0.f, float wv = 0.f, float w1 = 0, float pv = 0.f, bool flush_skeleton = false, bool round_wall = false)
+                size_t old, size_t newtool, float depth = 0.f, float ramming_depth = 0.f, float fwl = 0.f, float wv = 0.f, float w1 = 0, float pv = 0.f,
+                bool flush_skeleton = false, bool round_wall = false,
+                const std::optional<FilamentChangeTopology>& topology = std::nullopt)
                 : old_tool{old}
                 , new_tool{newtool}
                 , required_depth{depth}
@@ -322,6 +339,7 @@ private:
                 , purge_volume{ pv }
                 , round_wipe_wall{round_wall}
                 , flush_into_skeleton{flush_skeleton}
+                , filament_change_topology{topology}
             {}
 		};
 		float z;		// z position of the layer
@@ -362,7 +380,8 @@ private:
 	void toolchange_Change(
 		WipeTowerWriterCreality &writer,
         const size_t		new_tool,
-		const std::string& 		new_material);
+		const std::string& 		new_material,
+        const Vec2f&          purge_start_pos);
 
 	void toolchange_Wipe(
 		WipeTowerWriterCreality &writer,

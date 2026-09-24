@@ -65,7 +65,12 @@ void ProgressDialog::Init()
     m_winDisabler   = NULL;
     m_tempEventLoop = NULL;
 
-    SetWindowStyle(wxDEFAULT_DIALOG_STYLE);
+    long window_style = wxDEFAULT_DIALOG_STYLE;
+#ifdef __WXOSX__
+    // Keep the modeless progress dialog above its disabled parent window.
+    window_style |= wxFRAME_FLOAT_ON_PARENT;
+#endif
+    SetWindowStyle(window_style);
 }
 
 ProgressDialog::ProgressDialog() : wxDialog() { Init(); }
@@ -276,6 +281,9 @@ bool ProgressDialog::Create(const wxString &title, const wxString &message, int 
 
     Show();
     Enable();
+#ifdef __WXOSX__
+    Raise();
+#endif
     if (m_elapsed) { SetTimeLabel(0, m_elapsed); }
 
     Update();

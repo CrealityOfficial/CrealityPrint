@@ -376,12 +376,36 @@ bool MCPChatPanel::TryHandleLayoutToolCall(const std::string& request_id,
             {"source_action", selected.action_id}
         };
 
+        const std::string lifecycle = ToLowerCopy(JsonStringValue(bridge_result, "lifecycle", std::string()));
+        const json async_completion = bridge_result.value("async_completion", json::object());
+        if (!lifecycle.empty())
+            result["lifecycle"] = lifecycle;
+        if (bridge_result.value("requires_settle", false))
+            result["requires_settle"] = true;
+        if (bridge_result.value("requires_async_completion", false))
+            result["requires_async_completion"] = true;
+        if (async_completion.is_object() && !async_completion.empty())
+            result["async_completion"] = async_completion;
+
         json state_result = Bridge::SlicerBridge::Instance().Execute(
             Bridge::ActionID::GET_SLICER_STATE,
             json::object());
 
         if (state_result.value("success", false))
             result["project_context"] = state_result.value("state", json::object());
+
+        if (lifecycle == "async_pending" || result.value("requires_settle", false) ||
+            result.contains("async_completion")) {
+            RegisterPendingAsyncToolCall(request_id, selected.tool, result, false);
+            m_cxagent_bridge->SendToolProgress(
+                request_id,
+                65,
+                selected.progress_done_message,
+                selected.progress_stage,
+                "running");
+            NotifyCxAgentStatus();
+            return;
+        }
 
         m_cxagent_bridge->SendToolProgress(
             request_id,

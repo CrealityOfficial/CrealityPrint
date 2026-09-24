@@ -337,6 +337,7 @@ class ParamsPanel : public wxPanel
         wxString m_curVentor = wxString();
         wxString m_printerType = wxString();
         wxString m_curPreset = wxString();
+        std::map<wxString, wxString> m_preset_name_by_display;
         //wxTreeItemId                                                   m_curItem;
 
         wxColor m_normal_color = wxColor(110, 110, 115);

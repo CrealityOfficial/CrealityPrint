@@ -1000,7 +1000,10 @@ public:
     float get_easy_mode_overlay_safe_right_px() const;
     float get_easy_mode_overlay_safe_bottom_px() const;
 
+    void sync_volumes_extruder_ids();
+    void sync_shells_extruder_ids();
     void update_volumes_colors_by_extruder();
+    void update_shells_color_by_extruder(const DynamicPrintConfig* config);
 
     void update_volumes_colors_by_config(const DynamicPrintConfig* config);
 

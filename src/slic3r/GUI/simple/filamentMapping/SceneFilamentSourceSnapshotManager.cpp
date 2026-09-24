@@ -24,13 +24,19 @@ bool SceneFilamentSourceSnapshotManager::initialized() const
 
 bool SceneFilamentSourceSnapshotManager::capture_from_current_config_if_needed()
 {
-    if (m_initialized)
-        return true;
-
+    // The snapshot is content-addressed by a fingerprint over color / preset /
+    // type of every scene filament. Relying on callers to invalidate it by hand
+    // is fragile: several paths that rewrite "filament_colour" (AMS/CFS color
+    // sync, the ImGui filament panel, FilamentItem::update_bk_color) never call
+    // Plater::reset_scene_filament_source_snapshot(), which left the AI mapping
+    // card showing stale source colors next to up-to-date preset names.
     nlohmann::json source_items = nlohmann::json::array();
     std::string    fingerprint;
     if (!build_items_from_current_config(source_items, fingerprint))
-        return false;
+        return m_initialized;
+
+    if (m_initialized && fingerprint == m_scene_fingerprint)
+        return true;
 
     m_items = std::move(source_items);
     m_scene_fingerprint = std::move(fingerprint);
@@ -59,6 +65,17 @@ nlohmann::json SceneFilamentSourceSnapshotManager::export_items() const
     if (!m_initialized)
         return nlohmann::json::array();
     return m_items;
+}
+
+void SceneFilamentSourceSnapshotManager::rebaseline_fingerprint_to_current_config()
+{
+    if (!m_initialized)
+        return;
+
+    nlohmann::json ignored_items = nlohmann::json::array();
+    std::string    fingerprint;
+    if (build_items_from_current_config(ignored_items, fingerprint))
+        m_scene_fingerprint = std::move(fingerprint);
 }
 
 bool SceneFilamentSourceSnapshotManager::is_easy_mode_active() const

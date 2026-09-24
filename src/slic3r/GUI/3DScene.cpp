@@ -32,6 +32,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <array>
+#include <chrono>
+#include <cstdint>
 
 #include <boost/log/trivial.hpp>
 
@@ -104,6 +107,163 @@ Slic3r::ColorRGBA adjust_color_for_rendering(const Slic3r::ColorRGBA &colors)
 }
 
 namespace Slic3r {
+using MMUSegRenderCacheKey = std::pair<const TriangleMesh*, ObjectBase::Timestamp>;
+using MMUSegRenderCacheValue = std::vector<std::weak_ptr<GUI::GLModel::RenderData>>;
+
+static std::map<MMUSegRenderCacheKey, MMUSegRenderCacheValue> s_mmuseg_render_cache;
+
+namespace {
+enum class LodRenderPath { High, Middle, Small, MiddleFallback, SmallFallback, Painted, Range, Wireframe, Outline };
+
+struct LodRenderBucket
+{
+    std::uint64_t draw_calls{0};
+    std::uint64_t submitted_indices{0};
+};
+
+struct LodRenderStats
+{
+    LodRenderBucket                       high;
+    LodRenderBucket                       middle;
+    LodRenderBucket                       small_lod;
+    LodRenderBucket                       middle_fallback;
+    LodRenderBucket                       small_fallback;
+    LodRenderBucket                       painted;
+    LodRenderBucket                       range;
+    LodRenderBucket                       wireframe;
+    LodRenderBucket                       outline;
+    std::uint64_t                         frames{0};
+    std::chrono::steady_clock::time_point window_start;
+
+    std::uint64_t total_draw_calls() const
+    {
+        return high.draw_calls + middle.draw_calls + small_lod.draw_calls + middle_fallback.draw_calls + small_fallback.draw_calls +
+               painted.draw_calls + range.draw_calls + wireframe.draw_calls + outline.draw_calls;
+    }
+
+    void reset()
+    {
+        high            = {};
+        middle          = {};
+        small_lod       = {};
+        middle_fallback = {};
+        small_fallback  = {};
+        painted         = {};
+        range           = {};
+        wireframe       = {};
+        outline         = {};
+        frames          = 0;
+    }
+};
+
+std::array<LodRenderStats, 3> s_lod_render_stats;
+int                           s_lod_current_canvas_type = 0;
+bool                          s_lod_frame_active        = false;
+bool                          s_lod_scene_pass_active   = false;
+
+class LodRenderPassScope
+{
+public:
+    explicit LodRenderPassScope(bool active) : m_previous(s_lod_scene_pass_active) { s_lod_scene_pass_active = active; }
+    ~LodRenderPassScope() { s_lod_scene_pass_active = m_previous; }
+
+private:
+    bool m_previous;
+};
+
+int normalize_lod_canvas_type(int canvas_type) { return canvas_type >= 0 && canvas_type < 3 ? canvas_type : 0; }
+
+const char* lod_canvas_name(int canvas_type)
+{
+    switch (canvas_type) {
+    case 0: return "prepare";
+    case 1: return "preview";
+    case 2: return "assemble";
+    default: return "unknown";
+    }
+}
+
+const char* lod_level_name(LOD_LEVEL lod)
+{
+    switch (lod) {
+    case LOD_LEVEL::MIDDLE: return "middle";
+    case LOD_LEVEL::SMALL: return "small";
+    default: return "high";
+    }
+}
+
+std::uintptr_t lod_mesh_id(const TriangleMesh* mesh) { return reinterpret_cast<std::uintptr_t>(mesh); }
+
+void record_lod_render(LodRenderPath path, size_t submitted_indices, size_t draw_calls = 1)
+{
+    if (!s_lod_frame_active || !s_lod_scene_pass_active)
+        return;
+
+    LodRenderStats&  stats  = s_lod_render_stats[normalize_lod_canvas_type(s_lod_current_canvas_type)];
+    LodRenderBucket* bucket = nullptr;
+    switch (path) {
+    case LodRenderPath::High: bucket = &stats.high; break;
+    case LodRenderPath::Middle: bucket = &stats.middle; break;
+    case LodRenderPath::Small: bucket = &stats.small_lod; break;
+    case LodRenderPath::MiddleFallback: bucket = &stats.middle_fallback; break;
+    case LodRenderPath::SmallFallback: bucket = &stats.small_fallback; break;
+    case LodRenderPath::Painted: bucket = &stats.painted; break;
+    case LodRenderPath::Range: bucket = &stats.range; break;
+    case LodRenderPath::Wireframe: bucket = &stats.wireframe; break;
+    case LodRenderPath::Outline: bucket = &stats.outline; break;
+    }
+    if (bucket == nullptr)
+        return;
+    bucket->draw_calls += draw_calls;
+    bucket->submitted_indices += submitted_indices;
+}
+} // namespace
+
+void begin_lod_render_diagnostics(int canvas_type)
+{
+    s_lod_current_canvas_type = normalize_lod_canvas_type(canvas_type);
+    s_lod_frame_active        = true;
+    LodRenderStats& stats     = s_lod_render_stats[s_lod_current_canvas_type];
+    if (stats.window_start.time_since_epoch().count() == 0)
+        stats.window_start = std::chrono::steady_clock::now();
+}
+
+void report_lod_render_diagnostics(int canvas_type)
+{
+    s_lod_frame_active                     = false;
+    const int       normalized_canvas_type = normalize_lod_canvas_type(canvas_type);
+    LodRenderStats& stats                  = s_lod_render_stats[normalized_canvas_type];
+    if (stats.window_start.time_since_epoch().count() == 0)
+        stats.window_start = std::chrono::steady_clock::now();
+
+    ++stats.frames;
+    const auto   now        = std::chrono::steady_clock::now();
+    const double elapsed_ms = std::chrono::duration<double, std::milli>(now - stats.window_start).count();
+    if (elapsed_ms < 2000.0)
+        return;
+
+    if (stats.total_draw_calls() > 0) {
+        BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=render_summary canvas=" << lod_canvas_name(normalized_canvas_type)
+                                   << " interval_ms=" << elapsed_ms << " frames=" << stats.frames << " high_calls=" << stats.high.draw_calls
+                                   << " high_indices=" << stats.high.submitted_indices << " middle_calls=" << stats.middle.draw_calls
+                                   << " middle_indices=" << stats.middle.submitted_indices << " small_calls=" << stats.small_lod.draw_calls
+                                   << " small_indices=" << stats.small_lod.submitted_indices
+                                   << " middle_fallback_calls=" << stats.middle_fallback.draw_calls
+                                   << " middle_fallback_indices=" << stats.middle_fallback.submitted_indices
+                                   << " small_fallback_calls=" << stats.small_fallback.draw_calls
+                                   << " small_fallback_indices=" << stats.small_fallback.submitted_indices
+                                   << " painted_calls=" << stats.painted.draw_calls
+                                   << " painted_indices=" << stats.painted.submitted_indices << " range_calls=" << stats.range.draw_calls
+                                   << " range_indices=" << stats.range.submitted_indices
+                                   << " wireframe_calls=" << stats.wireframe.draw_calls
+                                   << " wireframe_indices=" << stats.wireframe.submitted_indices
+                                   << " outline_calls=" << stats.outline.draw_calls
+                                   << " outline_indices=" << stats.outline.submitted_indices;
+    }
+
+    stats.reset();
+    stats.window_start = now;
+}
 
 const float GLVolume::SinkingContours::HalfWidth = 0.25f;
 
@@ -282,6 +442,7 @@ GLVolume::GLVolume(float r, float g, float b, float a, bool create_index_data)
     , is_extrusion_path(false)
     , force_transparent(false)
     , force_native_color(false)
+    , preserve_mmuseg_colors(false)
     , force_neutral_color(false)
     , force_sinking_contours(false)
     , picking(false)
@@ -377,18 +538,20 @@ ColorRGBA color_from_model_volume(const ModelVolume& model_volume)
 }
 
 
-bool GLVolume::simplify_mesh(const TriangleMesh& mesh, std::shared_ptr<GUI::GLModel> model, LOD_LEVEL lod) const
-{
-    return simplify_mesh(mesh.its, model, lod);
-}
 #define SUPER_LARGE_FACES 500000
 #define LARGE_FACES 100000
-bool GLVolume::simplify_mesh(const indexed_triangle_set& _its, std::shared_ptr<GUI::GLModel> model, LOD_LEVEL lod) const
+bool GLVolume::simplify_mesh(std::shared_ptr<const TriangleMesh> mesh, std::shared_ptr<GUI::GLModel> model, LOD_LEVEL lod)
 {
-    if (_its.indices.size() == 0 || _its.vertices.size() == 0) {
+    if (!mesh) {
+        BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=task_rejected lod=" << lod_level_name(lod) << " reason=null_mesh";
         return false;
     }
-    auto its     = std::make_unique<indexed_triangle_set>(_its);
+    const indexed_triangle_set& _its = mesh->its;
+    if (_its.indices.size() == 0 || _its.vertices.size() == 0) {
+        BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=task_rejected lod=" << lod_level_name(lod)
+                                   << " mesh_id=" << lod_mesh_id(mesh.get()) << " reason=empty_mesh";
+        return false;
+    }
     auto m_state = std::make_unique<State>();
     if (lod == LOD_LEVEL::MIDDLE) {
         m_state->config.max_error = 0.5f;
@@ -409,7 +572,18 @@ bool GLVolume::simplify_mesh(const indexed_triangle_set& _its, std::shared_ptr<G
 
     // std::mutex  m_state_mutex;
     std::thread m_worker = std::thread(
-        [model](std::unique_ptr<indexed_triangle_set> its, std::unique_ptr<State> state) {
+        [source_mesh = std::move(mesh), model, lod](std::unique_ptr<State> state) {
+            const std::uintptr_t source_mesh_id   = lod_mesh_id(source_mesh.get());
+            const auto           started_at       = std::chrono::steady_clock::now();
+            const size_t         input_face_count = source_mesh->its.indices.size();
+            const auto          elapsed_ms       = [&started_at]() {
+                return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started_at).count();
+            };
+            BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=task_start lod=" << lod_level_name(lod)
+                                       << " mesh_id=" << source_mesh_id << " input_faces=" << input_face_count;
+            // Copy on the worker rather than blocking the GUI thread while a
+            // project is still being loaded.
+            auto its = std::make_unique<indexed_triangle_set>(source_mesh->its);
             // Checks that the UI thread did not request cancellation, throws if so.
             std::function<void(void)> throw_on_cancel = []() {};
             std::function<void(int)>  statusfn        = [&state](int percent) { state->progress = percent; };
@@ -425,12 +599,14 @@ bool GLVolume::simplify_mesh(const indexed_triangle_set& _its, std::shared_ptr<G
                 state->result.reset();
                 state->status = State::Status::running;
             }
-            int          init_face_count = its->indices.size();
-            TriangleMesh origin_mesh(*its);
+            const size_t init_face_count = its->indices.size();
             try { // Start the actual calculation.
                 its_quadric_edge_collapse(*its, triangle_count, &max_error, throw_on_cancel, statusfn);
-            } catch (std::exception&) {
+            } catch (const std::exception& ex) {
                 state->status = State::idle;
+                BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=simplify_end lod=" << lod_level_name(lod)
+                                           << " mesh_id=" << source_mesh_id
+                                           << " result=exception elapsed_ms=" << elapsed_ms() << " error=" << ex.what();
                 return;
             }
             if (state->status == State::Status::running) {
@@ -439,14 +615,18 @@ bool GLVolume::simplify_mesh(const indexed_triangle_set& _its, std::shared_ptr<G
                 state->result = std::move(its);
             }
             if (state->result) {
-                int end_face_count = (*state->result).indices.size();
+                const size_t end_face_count = (*state->result).indices.size();
                 if (init_face_count < 200 || (init_face_count < 1000 && end_face_count < init_face_count * 0.5)) {
+                    BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=simplify_end lod=" << lod_level_name(lod)
+                                               << " mesh_id=" << source_mesh_id
+                                               << " result=rejected reason=small_mesh_guard input_faces=" << init_face_count
+                                               << " output_faces=" << end_face_count << " elapsed_ms=" << elapsed_ms();
                     return;
                 }
                 TriangleMesh mesh(*state->result);
                 float        eps        = 1.0f;
-                Vec3f        origin_min = origin_mesh.stats().min - Vec3f(eps, eps, eps);
-                Vec3f        origin_max = origin_mesh.stats().max + Vec3f(eps, eps, eps);
+                Vec3f        origin_min = source_mesh->stats().min - Vec3f(eps, eps, eps);
+                Vec3f        origin_max = source_mesh->stats().max + Vec3f(eps, eps, eps);
                 if (origin_min.x() < mesh.stats().min.x() && origin_min.y() < mesh.stats().min.y() &&
                     origin_min.z() < mesh.stats().min.z() && origin_max.x() > mesh.stats().max.x() &&
                     origin_max.y() > mesh.stats().max.y() && origin_max.z() > mesh.stats().max.z()) {
@@ -454,30 +634,52 @@ bool GLVolume::simplify_mesh(const indexed_triangle_set& _its, std::shared_ptr<G
                         model->init_from(mesh);
                     }*/
                     if (wxTheApp) {
-                        wxTheApp->CallAfter([model, mesh]() {
+                        BOOST_LOG_TRIVIAL(warning)
+                            << "[LOD_DIAG] stage=simplify_end lod=" << lod_level_name(lod) << " mesh_id=" << source_mesh_id
+                            << " result=success input_faces=" << init_face_count
+                            << " output_faces=" << end_face_count << " elapsed_ms=" << elapsed_ms();
+                        wxTheApp->CallAfter([model, mesh, lod, source_mesh_id, init_face_count, end_face_count]() {
                             if (model && model.use_count() >= 2) {
                                 model->init_from(mesh);
+                                BOOST_LOG_TRIVIAL(warning)
+                                    << "[LOD_DIAG] stage=model_initialized lod=" << lod_level_name(lod) << " mesh_id=" << source_mesh_id
+                                    << " input_faces=" << init_face_count
+                                    << " output_faces=" << end_face_count << " indices=" << model->indices_count();
+                            } else {
+                                BOOST_LOG_TRIVIAL(warning)
+                                    << "[LOD_DIAG] stage=model_discarded lod=" << lod_level_name(lod) << " mesh_id=" << source_mesh_id
+                                    << " reason=owner_released";
                             }
                         });
+                    } else {
+                        BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=model_discarded lod=" << lod_level_name(lod)
+                                                   << " mesh_id=" << source_mesh_id << " reason=no_event_loop";
                     }
                 } else {
                     state->status = State::cancelling;
+                    BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=simplify_end lod=" << lod_level_name(lod)
+                                               << " mesh_id=" << source_mesh_id
+                                               << " result=rejected reason=invalid_bounds input_faces=" << init_face_count
+                                               << " output_faces=" << end_face_count << " elapsed_ms=" << elapsed_ms();
                 }
+            } else {
+                BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=simplify_end lod=" << lod_level_name(lod)
+                                           << " mesh_id=" << source_mesh_id
+                                           << " result=cancelled elapsed_ms=" << elapsed_ms();
             }
         },
-        std::move(its), std::move(m_state));
+        std::move(m_state));
     if (m_worker.joinable()) {
         m_worker.detach();
     }
     return true;
 }
 
-
 Transform3d GLVolume::world_matrix() const
 {
-    Transform3d m = m_instance_transformation.get_matrix() * m_volume_transformation.get_matrix();
-    Vec3d ofs2ass = m_offset_to_assembly * (GLVolume::explosion_ratio - 1.0);
-    Vec3d volofs2obj = m_volume_transformation.get_offset() * (GLVolume::explosion_ratio - 1.0);
+    Transform3d m          = m_instance_transformation.get_matrix() * m_volume_transformation.get_matrix();
+    Vec3d       ofs2ass    = m_offset_to_assembly * (GLVolume::explosion_ratio - 1.0);
+    Vec3d       volofs2obj = m_volume_transformation.get_offset() * (GLVolume::explosion_ratio - 1.0);
 
     m.translation()(2) += m_sla_shift_z;
     m.translate(ofs2ass + volofs2obj);
@@ -605,8 +807,8 @@ void GLVolume::render_with_outline(const Transform3d &view_model_matrix)
     // the objects' size differences, making it look like borders.
     glStencilFunc(GL_NOTEQUAL, 0xff, 0xFF);
     glStencilMask(0x00);
-    float scale = 1.02f;
-    ColorRGBA body_color = { 1.0f, 1.0f, 1.0f, 1.0f }; //red
+    float     scale      = 1.02f;
+    ColorRGBA body_color = {1.0f, 1.0f, 1.0f, 1.0f}; // red
 
     model.set_color(body_color);
     shader->set_uniform("is_outline", true);
@@ -614,10 +816,14 @@ void GLVolume::render_with_outline(const Transform3d &view_model_matrix)
     Transform3d matrix = view_model_matrix;
     matrix.scale(scale);
     shader->set_uniform("view_model_matrix", matrix);
-    if (tverts_range == std::make_pair<size_t, size_t>(0, -1))
+    if (tverts_range == std::make_pair<size_t, size_t>(0, -1)) {
         model.render();
-    else
+        record_lod_render(LodRenderPath::Outline, model.indices_count());
+    } else {
         model.render(this->tverts_range);
+        const size_t submitted_indices = tverts_range.second > tverts_range.first ? tverts_range.second - tverts_range.first : 0;
+        record_lod_render(LodRenderPath::Outline, submitted_indices);
+    }
 
     shader->set_uniform("view_model_matrix", view_model_matrix);
     shader->set_uniform("is_outline", false);
@@ -625,21 +831,23 @@ void GLVolume::render_with_outline(const Transform3d &view_model_matrix)
     glDisable(GL_STENCIL_TEST);
 }
 
-//BBS add render for simple case
-void GLVolume::simple_render(GLShaderProgram* shader, ModelObjectPtrs& model_objects, std::vector<ColorRGBA>& extruder_colors, bool ban_light)
+// BBS add render for simple case
+void GLVolume::simple_render(GLShaderProgram*        shader,
+                             ModelObjectPtrs&        model_objects,
+                             std::vector<ColorRGBA>& extruder_colors,
+                             bool                    ban_light)
 {
     if (this->is_left_handed())
         glFrontFace(GL_CW);
     glsafe(::glCullFace(GL_BACK));
 
-	auto                      camera        = GUI::wxGetApp().plater()->get_camera();
+    auto                      camera        = GUI::wxGetApp().plater()->get_camera();
     auto                      zoom          = camera.get_zoom();
     Transform3d               vier_mat      = camera.get_view_matrix();
     Matrix4d                  vier_proj_mat = camera.get_projection_matrix().matrix() * vier_mat.matrix();
     const std::array<int, 4>& viewport      = camera.get_viewport();
-	
 
-    bool color_volume = false;
+    bool         color_volume = false;
     ModelObject* model_object = nullptr;
     ModelVolume* model_volume = nullptr;
     do {
@@ -647,77 +855,116 @@ void GLVolume::simple_render(GLShaderProgram* shader, ModelObjectPtrs& model_obj
             break;
         model_object = model_objects[object_idx()];
 
-        if (volume_idx() >=  model_object->volumes.size())
+        if (volume_idx() >= model_object->volumes.size())
             break;
         model_volume = model_object->volumes[volume_idx()];
         if (model_volume->mmu_segmentation_facets.empty())
             break;
 
-        color_volume = true;
-        if (model_volume->mmu_segmentation_facets.timestamp() != mmuseg_ts) {
+        color_volume                              = true;
+        const ObjectBase::Timestamp annotation_ts = model_volume->mmu_segmentation_facets.timestamp();
+        if (annotation_ts != mmuseg_ts) {
             mmuseg_models.clear();
-            std::vector<indexed_triangle_set> its_per_color;
-            model_volume->mmu_segmentation_facets.get_facets(*model_volume, its_per_color);
-            mmuseg_models.resize(its_per_color.size());
-            for (int idx = 0; idx < its_per_color.size(); idx++) {
-                mmuseg_models[idx].init_from(its_per_color[idx]);
+
+            const MMUSegRenderCacheKey                             cache_key{model_volume->mesh_ptr().get(), annotation_ts};
+            auto                                                   cache_it  = s_mmuseg_render_cache.find(cache_key);
+            bool                                                   cache_hit = cache_it != s_mmuseg_render_cache.end();
+            std::vector<std::shared_ptr<GUI::GLModel::RenderData>> cached_render_data;
+            if (cache_hit) {
+                cached_render_data.reserve(cache_it->second.size());
+                for (const std::weak_ptr<GUI::GLModel::RenderData>& weak_data : cache_it->second) {
+                    std::shared_ptr<GUI::GLModel::RenderData> render_data = weak_data.lock();
+                    if (!render_data) {
+                        cache_hit = false;
+                        cached_render_data.clear();
+                        break;
+                    }
+                    cached_render_data.emplace_back(std::move(render_data));
+                }
             }
 
-            mmuseg_ts = model_volume->mmu_segmentation_facets.timestamp();
+            if (cache_hit) {
+                mmuseg_models.resize(cached_render_data.size());
+                for (size_t idx = 0; idx < cached_render_data.size(); ++idx)
+                    mmuseg_models[idx].set_render_data(std::move(cached_render_data[idx]));
+            } else {
+                std::vector<indexed_triangle_set> its_per_color;
+                model_volume->mmu_segmentation_facets.get_facets(*model_volume, its_per_color);
+                mmuseg_models.resize(its_per_color.size());
+                MMUSegRenderCacheValue cache_value;
+                cache_value.reserve(its_per_color.size());
+                for (size_t idx = 0; idx < its_per_color.size(); ++idx) {
+                    mmuseg_models[idx].init_from(its_per_color[idx]);
+                    mmuseg_models[idx].set_render_data_share_state(true);
+                    cache_value.emplace_back(mmuseg_models[idx].get_render_data());
+                }
+                s_mmuseg_render_cache[cache_key] = std::move(cache_value);
+            }
+
+            mmuseg_ts = annotation_ts;
         }
     } while (0);
 
     if (color_volume && !picking) {
-        const bool use_render_color_override = force_native_color || force_neutral_color;
+        const bool use_render_color_override = !preserve_mmuseg_colors && (force_native_color || force_neutral_color);
+        size_t     painted_draw_calls        = 0;
+        size_t     painted_indices           = 0;
 
         for (int idx = 0; idx < mmuseg_models.size(); idx++) {
-            GUI::GLModel &m = mmuseg_models[idx];
+            GUI::GLModel& m = mmuseg_models[idx];
             if (!m.is_initialized())
                 continue;
 
             if (shader) {
                 if (use_render_color_override) {
                     m.set_color(render_color);
-                }
-                else if (idx == 0) {
+                } else if (idx == 0) {
                     int extruder_id = model_volume->extruder_id();
-                    //to make black not too hard too see
+                    // to make black not too hard too see
                     ColorRGBA new_color = adjust_color_for_rendering(extruder_colors[extruder_id - 1]);
                     if (ban_light) {
-                        new_color[3] = (255 - (extruder_id - 1))/255.0f;
+                        new_color[3] = (255 - (extruder_id - 1)) / 255.0f;
                     }
+                    if (preserve_mmuseg_colors)
+                        new_color.a(render_color.a());
                     m.set_color(new_color);
                     // shader->set_uniform("uniform_color", new_color);
-                }
-                else {
+                } else {
                     if (idx <= extruder_colors.size()) {
-                        //to make black not too hard too see
+                        // to make black not too hard too see
                         ColorRGBA new_color = adjust_color_for_rendering(extruder_colors[idx - 1]);
                         if (ban_light) {
-                            new_color[3] = (255 - (idx - 1))/255.0f;
+                            new_color[3] = (255 - (idx - 1)) / 255.0f;
                         }
+                        if (preserve_mmuseg_colors)
+                            new_color.a(render_color.a());
                         m.set_color(new_color);
                         // shader->set_uniform("uniform_color", new_color);
-                    }
-                    else {
-                        //to make black not too hard too see
+                    } else {
+                        // to make black not too hard too see
                         ColorRGBA new_color = adjust_color_for_rendering(extruder_colors[0]);
                         if (ban_light) {
                             new_color[3] = (255 - 0) / 255.0f;
                         }
+                        if (preserve_mmuseg_colors)
+                            new_color.a(render_color.a());
                         m.set_color(new_color);
                         // shader->set_uniform("uniform_color", new_color);
                     }
                 }
             }
-            if (tverts_range == std::make_pair<size_t, size_t>(0, -1))
+            if (tverts_range == std::make_pair<size_t, size_t>(0, -1)) {
                 m.render();
-            else
+                painted_indices += m.indices_count();
+            } else {
                 m.render(this->tverts_range);
+                painted_indices += tverts_range.second > tverts_range.first ? tverts_range.second - tverts_range.first : 0;
+            }
+            ++painted_draw_calls;
         }
+        record_lod_render(LodRenderPath::Painted, painted_indices, painted_draw_calls);
     } else {
-
-		m_lod_update_index++;
+        m_lod_update_index++;
         if (abs(zoom - LAST_CAMERA_ZOOM_VALUE) > ZOOM_THRESHOLD || m_lod_update_index >= LOD_UPDATE_FREQUENCY) {
             m_lod_update_index     = 0;
             LAST_CAMERA_ZOOM_VALUE = zoom;
@@ -725,45 +972,62 @@ void GLVolume::simple_render(GLShaderProgram* shader, ModelObjectPtrs& model_obj
                                                                                      viewport[3]);
         }
 
-        if (tverts_range == std::make_pair<size_t, size_t>(0, -1))
-        {
+        if (tverts_range == std::make_pair<size_t, size_t>(0, -1)) {
             if (m_cur_lod_level == LOD_LEVEL::SMALL && model_small && model_small->is_initialized()) {
 #if 0
 				if (!picking && GUI::wxGetApp().app_config->get_bool("lod_debug")) {
                     model_small->set_color(model.get_color() * 0.5f);
 				} else
 #endif
-				{
+                {
                     model_small->set_color(model.get_color());
-				}
-				model_small->render();
+                }
+                if (!picking)
+                    record_lod_render(LodRenderPath::Small, model_small->indices_count());
+                model_small->render();
             } else if (m_cur_lod_level == LOD_LEVEL::MIDDLE && model_middle && model_middle->is_initialized()) {
 #if 0
 				if (!picking && GUI::wxGetApp().app_config->get_bool("lod_debug")) {
                     model_middle->set_color(model.get_color() * 0.8f);
-                } else 
+                } else
 #endif // 0
-				{
-					model_middle->set_color(model.get_color());
+                {
+                    model_middle->set_color(model.get_color());
                 }
+                if (!picking)
+                    record_lod_render(LodRenderPath::Middle, model_middle->indices_count());
                 model_middle->render();
             } else {
+                if (!picking) {
+                    if (m_cur_lod_level == LOD_LEVEL::SMALL)
+                        record_lod_render(LodRenderPath::SmallFallback, model.indices_count());
+                    else if (m_cur_lod_level == LOD_LEVEL::MIDDLE)
+                        record_lod_render(LodRenderPath::MiddleFallback, model.indices_count());
+                    else
+                        record_lod_render(LodRenderPath::High, model.indices_count());
+                }
                 model.render();
             }
-            
-            if (GUI::wxGetApp().plater()->is_show_wireframe() && GUI::wxGetApp().plater()->get_current_canvas3D()->get_canvas_type() == GUI::GLCanvas3D::ECanvasType::CanvasView3D && !picking)
-            {
+
+            if (GUI::wxGetApp().plater()->is_show_wireframe() &&
+                GUI::wxGetApp().plater()->get_current_canvas3D()->get_canvas_type() == GUI::GLCanvas3D::ECanvasType::CanvasView3D &&
+                !picking) {
                 const ColorRGBA color = model.get_color();
                 model.set_color(ColorRGBA::DARK_GRAY());
                 glsafe(::glLineWidth(1.0f));
                 glsafe(::glPolygonMode(GL_FRONT_AND_BACK, GL_LINE));
+                record_lod_render(LodRenderPath::Wireframe, model.indices_count());
                 model.render();
                 glsafe(::glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
                 model.set_color(color);
             }
-        }
-        else
+        } else {
+            if (!picking) {
+                const size_t submitted_indices = tverts_range.second > tverts_range.first ? tverts_range.second - tverts_range.first : 0;
+                record_lod_render(LodRenderPath::Range, submitted_indices);
+            }
             model.render(this->tverts_range);
+        }
     }
     if (this->is_left_handed())
         glFrontFace(GL_CCW);
@@ -1000,15 +1264,14 @@ int GLVolumeCollection::load_object_volume(
     GLVolume& v = *this->volumes.back();
     v.set_color(color_from_model_volume(*model_volume));
     v.name = model_volume->name;
-	
+
 #if ENABLE_SMOOTH_NORMALS
     v.model.init_from(mesh, true);
 #else
-	if (!v.model.is_initialized()) {
-		//colorful volume can't enable LOD
-		if (lod_enabled && model_volume->mmu_segmentation_facets.empty()) {
-
-			// Enable LOD based on current conditions
+    if (!v.model.is_initialized()) {
+        // colorful volume can't enable LOD
+        if (lod_enabled && model_volume->mmu_segmentation_facets.empty()) {
+            // Enable LOD based on current conditions
             size_t avail = Slic3r::available_physical_memory();
             size_t total = Slic3r::total_physical_memory();
 
@@ -1019,33 +1282,53 @@ int GLVolumeCollection::load_object_volume(
 
             bool mem_enouge = (avail > 0 && total > 0 && (avail - estimate_mem) / total > 0.2f);
             if (mem_enouge) {
-                if (!v.model_middle) {
+                if (!v.model_middle)
                     v.model_middle = std::make_shared<GUI::GLModel>();
-                }
-                v.simplify_mesh(mesh, v.model_middle, LOD_LEVEL::MIDDLE);
-
-                if (!v.model_small) {
+                if (!v.model_small)
                     v.model_small = std::make_shared<GUI::GLModel>();
-                }
-                v.simplify_mesh(mesh, v.model_small, LOD_LEVEL::SMALL);
-            }
-		}
-        v.model.init_from(*mesh_ptr);
-	}
 
+                auto mesh_shared = model_volume->mesh_ptr();
+                auto middle      = v.model_middle;
+                auto small_model = v.model_small;
+                BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=schedule mesh_id=" << lod_mesh_id(mesh_ptr)
+                                           << " object_idx=" << obj_idx << " volume_idx=" << volume_idx << " faces=" << face_size
+                                           << " available_mb=" << static_cast<double>(avail) / (1024.0 * 1024.0)
+                                           << " total_mb=" << static_cast<double>(total) / (1024.0 * 1024.0)
+                                           << " estimated_mb=" << static_cast<double>(estimate_mem) / (1024.0 * 1024.0);
+                auto start_lod = [mesh_shared = std::move(mesh_shared), middle = std::move(middle), small_model = std::move(small_model)]() {
+                    GLVolume::simplify_mesh(mesh_shared, middle, LOD_LEVEL::MIDDLE);
+                    GLVolume::simplify_mesh(mesh_shared, small_model, LOD_LEVEL::SMALL);
+                };
+                // Finish the modal import before starting optional LOD work.
+                // Mesh copies and simplification then happen on workers.
+                if (wxTheApp)
+                    wxTheApp->CallAfter(std::move(start_lod));
+                else
+                    start_lod();
+            } else {
+                BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=skip mesh_id=" << lod_mesh_id(mesh_ptr)
+                                           << " object_idx=" << obj_idx << " volume_idx=" << volume_idx
+                                           << " reason=memory faces=" << face_size
+                                           << " available_mb=" << static_cast<double>(avail) / (1024.0 * 1024.0)
+                                           << " total_mb=" << static_cast<double>(total) / (1024.0 * 1024.0)
+                                           << " estimated_mb=" << static_cast<double>(estimate_mem) / (1024.0 * 1024.0);
+            }
+        } else if (lod_enabled) {
+            BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=skip mesh_id=" << lod_mesh_id(mesh_ptr) << " object_idx=" << obj_idx
+                                       << " volume_idx=" << volume_idx << " reason=painted";
+        }
+        v.model.init_from(*mesh_ptr);
+    }
     if (exist_volume != nullptr) {
         v.mesh_raycaster = exist_volume->mesh_raycaster;
-    }
-    else
-    {
+    } else {
         v.mesh_raycaster = std::make_shared<GUI::MeshRaycaster>(model_volume->mesh_ptr());
     }
 
 #endif // ENABLE_SMOOTH_NORMALS
     v.composite_id = GLVolume::CompositeID(obj_idx, volume_idx, instance_idx);
 
-    if (model_volume->is_model_part())
-    {
+    if (model_volume->is_model_part()) {
         // GLVolume will reference a convex hull from model_volume!
         v.set_convex_hull(model_volume->get_convex_hull_shared_ptr());
         if (extruder_id != -1)
@@ -1311,10 +1594,17 @@ int GLVolumeCollection::get_selection_support_threshold_angle(bool &enable_suppo
     return  support_threshold_angle ;
 }
 
-//BBS: add outline drawing logic
-void GLVolumeCollection::render(GUI::ERenderPipelineStage render_pipeline_stage, GLVolumeCollection::ERenderType type, bool disable_cullface, const Transform3d& view_matrix, const Transform3d& projection_matrix,
-    std::function<bool(const GLVolume&)> filter_func, bool with_outline) const
+// BBS: add outline drawing logic
+void GLVolumeCollection::render(GUI::ERenderPipelineStage            render_pipeline_stage,
+                                GLVolumeCollection::ERenderType      type,
+                                bool                                 disable_cullface,
+                                const Transform3d&                   view_matrix,
+                                const Transform3d&                   projection_matrix,
+                                std::function<bool(const GLVolume&)> filter_func,
+                                bool                                 with_outline) const
 {
+    LodRenderPassScope lod_render_pass_scope(GUI::ERenderPipelineStage::Silhouette != render_pipeline_stage);
+
     GLVolumeWithIdAndZList to_render = volumes_to_render(volumes, type, view_matrix, filter_func);
     if (to_render.empty())
         return;

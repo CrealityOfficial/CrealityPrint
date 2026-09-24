@@ -35,6 +35,17 @@ enum VendorType {
 
 namespace Slic3r {
 
+struct NozzleVariantInfo
+{
+    int              variant_index      = 0;
+    std::string      variant_id;
+    double           nozzle_diameter    = 0.4;
+    NozzleVolumeType nozzle_volume_type = nvtStandard;
+    bool             is_default         = false;
+    double           min_layer_height   = 0.0;
+    double           max_layer_height   = 0.0;
+};
+
 // Bundle of Print + Filament + Printer presets.
 class PresetBundle
 {
@@ -112,6 +123,13 @@ public:
     //BBS: get vendor's current version
     Semver get_vendor_profile_version(std::string vendor_name);
 
+    // Vendor (brand) name of the selected printer preset, empty for presets without a system parent.
+    std::string get_selected_printer_vendor_name() const;
+
+    // Parameter package version ("showVersion") of the selected printer preset. Reads the vendor's
+    // profile_version.json, so call it from the slicing entry point rather than per G-code export.
+    std::string get_selected_printer_profile_version() const;
+
     // Orca: get vendor type
     VendorType get_current_vendor_type();
     // Vendor related handy functions
@@ -134,6 +152,17 @@ public:
 
     // Export selections (current print, current filaments, current printer) into config.ini
     void            export_selections(AppConfig &config);
+    std::string     printer_model_identity(const Preset &preset) const;
+    double          default_flush_multiplier() const;
+    void            load_flush_multiplier(AppConfig &config);
+    void            save_flush_multiplier(AppConfig &config);
+    void            restore_flush_multiplier_after_project_load(AppConfig &config,
+                        const std::string &previous_model, double previous_multiplier);
+    void            restore_flush_multiplier_after_project_load(AppConfig &config,
+                        const std::string &previous_model, double previous_multiplier, double project_multiplier);
+    void            restore_flush_multiplier_after_project_load(AppConfig &config,
+                        const std::string &previous_model, double previous_multiplier, double project_multiplier,
+                        bool is_native_project);
 
     // BBS
     void            set_num_filaments(unsigned int n, std::string new_col = "");
@@ -145,6 +174,7 @@ public:
 
     // Orca: update selected filament and print
     void           update_selections(AppConfig &config);
+    void           update_selections(AppConfig &config, bool restore_flush_volumes);
     void set_calibrate_printer(std::string name);
 
     void set_is_validation_mode(bool mode) { validation_mode = mode; }
@@ -203,6 +233,21 @@ public:
     bool                        has_defauls_only() const
         { return prints.has_defaults_only() && filaments.has_defaults_only() && printers.has_defaults_only(); }
     int  get_printer_extruder_count() const;
+    bool has_structured_nozzle_variants() const;
+    std::vector<NozzleVariantInfo> get_nozzle_variants(size_t physical_extruder_id) const;
+    NozzleVariantInfo              get_selected_nozzle_variant(size_t physical_extruder_id) const;
+    std::vector<int>               get_selected_nozzle_variant_indices() const;
+    bool                           has_mixed_selected_nozzle_variants() const;
+    std::string                    initialize_project_filament_mapping();
+    void                           sync_project_filament_mapping_mode();
+    bool                           should_preserve_project_filament_mapping() const { return m_preserve_project_filament_mapping; }
+    void                           set_preserve_project_filament_mapping(bool preserve) { m_preserve_project_filament_mapping = preserve; }
+    bool                           m_preserve_project_filament_mapping { false };
+    // Transient import state: resolve missing assignments before slicing.
+    bool                           m_project_filament_mapping_pending { false };
+    FilamentMapMode                 m_pending_filament_mapping_mode { fmmAutoForSaving };
+    std::vector<bool>              get_print_preset_nozzle_compatibility(const Preset &preset, bool hard_limits = false) const;
+    bool                            is_print_preset_compatible_with_nozzle_variants(const Preset &preset) const;
 
     DynamicPrintConfig          full_config() const;
     // full_config() with the some "useless" config removed.
@@ -267,6 +312,7 @@ public:
 
     // Read out the number of extruders from an active printer preset,
     // update size and content of filament_presets.
+    void migrate_flush_volume_matrix_for_nozzle_count_change(size_t old_nozzle_count, size_t new_nozzle_count);
     void update_multi_material_filament_presets(size_t to_delete_filament_id = size_t(-1), size_t old_num_filaments_override = 0, int replace_filament_id = -1);
 
     // Update mixed filament ID remap when physical filaments change
@@ -301,6 +347,8 @@ public:
     void load_user_printer_state(const AppConfig &config);
 
     const std::string&          get_preset_name_by_alias(const Preset::Type& preset_type, const std::string& alias) const;
+    std::string                 get_preset_display_name_with_material_alias(const Preset::Type& preset_type, const Preset& preset) const;
+    std::string                 get_filament_preset_name_by_material_alias(const std::string& alias) const;
 
     const int                   get_required_hrc_by_filament_type(const std::string& filament_type) const;
     // Save current preset of a provided type under a new name. If the name is different from the old one,
@@ -372,6 +420,8 @@ private:
     // apply defaults based on enabled printers when no filaments/materials are installed.
     void                        load_installed_filaments(AppConfig &config);
     void                        load_installed_sla_materials(AppConfig &config);
+
+    void                        sync_project_filament_mapping_count(size_t filament_count);
 
     // Load print, filament & printer presets from a config. If it is an external config, then the name is extracted from the external path.
     // and the external config is just referenced, not stored into user profile directory.

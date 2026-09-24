@@ -1438,8 +1438,51 @@ void ObjectGridTable::update_filament_to_config(ModelConfig* config, std::string
 }
 
 
+// The single speed cell represents the first process variant. Other variants are
+// edited in the settings panel and must survive edits/resets of this cell.
+static ConfigOptionFloat table_outer_wall_speed(const DynamicPrintConfig& global_config,
+                                               const ModelConfig* object_config = nullptr,
+                                               const ModelConfig* volume_config = nullptr)
+{
+    const ConfigOption* options[] = {
+        volume_config ? volume_config->option("outer_wall_speed") : nullptr,
+        object_config ? object_config->option("outer_wall_speed") : nullptr,
+        global_config.option("outer_wall_speed"),
+        print_config_def.get("outer_wall_speed")->default_value.get()
+    };
+    for (const ConfigOption* option : options) {
+        if (const auto* values = dynamic_cast<const ConfigOptionVector<double>*>(option)) {
+            if (!values->values.empty() && std::isfinite(values->values.front()))
+                return ConfigOptionFloat(values->values.front());
+        } else if (const auto* value = dynamic_cast<const ConfigOptionFloat*>(option)) {
+            // Accept legacy object overrides, but always write the current vector type.
+            if (std::isfinite(value->value))
+                return *value;
+        }
+    }
+    throw ConfigurationError("Missing outer_wall_speed default");
+}
+
 void ObjectGridTable::update_value_to_config(ModelConfig* config, std::string& key, ConfigOption& new_value,  ConfigOption& ori_value)
 {
+    if (key == "outer_wall_speed") {
+        ConfigOptionFloatsNullable values;
+        if (const auto* existing = dynamic_cast<const ConfigOptionVector<double>*>(config->option(key)))
+            values.values = existing->values;
+        if (values.values.empty()) {
+            const auto& global_config = wxGetApp().preset_bundle->prints.get_edited_preset().config;
+            const auto* global_values = dynamic_cast<const ConfigOptionVector<double>*>(global_config.option(key));
+            const size_t variant_count = global_values ? std::max(size_t(1), global_values->values.size()) : 1;
+            values.values.assign(variant_count, ConfigOptionFloatsNullable::nil_value());
+        }
+        values.values.front() = new_value != ori_value ? new_value.getFloat() : ConfigOptionFloatsNullable::nil_value();
+        if (values.is_nil())
+            config->erase(key);
+        else
+            config->set_key_value(key, values.clone());
+        config->touch();
+        return;
+    }
     if (!config->has(key))
     {
         if (ori_value != new_value)
@@ -1909,6 +1952,7 @@ void ObjectGridTable::init_cols(ObjectGrid *object_grid)
     col = new ObjectGridCol(coEnum, "brim_type_reset", L("Support"), true, true, false, false, wxALIGN_LEFT);
     m_col_data.push_back(col);
 
+    // The scalar cell edits the first process variant; the side panel exposes all variants.
     //object/volume speed
     col       = new ObjectGridCol(coFloat, "outer_wall_speed", L("Speed"), false, false, true, true, wxALIGN_LEFT);
     col->size = object_grid->GetTextExtent(L("Outer wall speed")).x;
@@ -1983,8 +2027,8 @@ void ObjectGridTable::construct_object_configs(ObjectGrid *object_grid)
         object_grid->ori_enable_support = *(global_config.option<ConfigOptionBool>(m_col_data[col_enable_support]->key));
         object_grid->brim_type = *(get_object_config_value<ConfigOptionEnum<BrimType>>(global_config, object_grid->config, m_col_data[col_brim_type]->key));
         object_grid->ori_brim_type = *(global_config.option<ConfigOptionEnum<BrimType>>(m_col_data[col_brim_type]->key));
-        object_grid->speed_perimeter = *(get_object_config_value<ConfigOptionFloat>(global_config, object_grid->config, m_col_data[col_speed_perimeter]->key));
-        object_grid->ori_speed_perimeter = *(global_config.option<ConfigOptionFloat>(m_col_data[col_speed_perimeter]->key));
+        object_grid->speed_perimeter = table_outer_wall_speed(global_config, object_grid->config);
+        object_grid->ori_speed_perimeter = table_outer_wall_speed(global_config);
         m_grid_data.push_back(object_grid);
 
         int volume_count = object->volumes.size();
@@ -2033,7 +2077,7 @@ void ObjectGridTable::construct_object_configs(ObjectGrid *object_grid)
             volume_grid->ori_enable_support = object_grid->enable_support;
             volume_grid->brim_type = *(get_volume_config_value<ConfigOptionEnum<BrimType>>(global_config, object_grid->config, volume_grid->config, m_col_data[col_brim_type]->key));
             volume_grid->ori_brim_type = object_grid->brim_type;
-            volume_grid->speed_perimeter = *(get_volume_config_value<ConfigOptionFloat>(global_config, object_grid->config, volume_grid->config, m_col_data[col_speed_perimeter]->key));
+            volume_grid->speed_perimeter = table_outer_wall_speed(global_config, object_grid->config, volume_grid->config);
             volume_grid->ori_speed_perimeter = object_grid->speed_perimeter;
             m_grid_data.push_back(volume_grid);
         }
@@ -2079,8 +2123,8 @@ void ObjectGridTable::reload_object_data(ObjectGridRow* grid_row, const std::str
         grid_row->ori_enable_support = *(global_config.option<ConfigOptionBool>(m_col_data[col_enable_support]->key));
         grid_row->brim_type = *(get_object_config_value<ConfigOptionEnum<BrimType>>(global_config, grid_row->config, m_col_data[col_brim_type]->key));
         grid_row->ori_brim_type = *(global_config.option<ConfigOptionEnum<BrimType>>(m_col_data[col_brim_type]->key));
-        grid_row->speed_perimeter = *(get_object_config_value<ConfigOptionFloat>(global_config, grid_row->config, m_col_data[col_speed_perimeter]->key));
-        grid_row->ori_speed_perimeter = *(global_config.option<ConfigOptionFloat>(m_col_data[col_speed_perimeter]->key));
+        grid_row->speed_perimeter = table_outer_wall_speed(global_config, grid_row->config);
+        grid_row->ori_speed_perimeter = table_outer_wall_speed(global_config);
     }
     else if (category == L("Quality")) {
         grid_row->layer_height = *(get_object_config_value<ConfigOptionFloat>(global_config, grid_row->config, m_col_data[col_layer_height]->key));
@@ -2101,8 +2145,8 @@ void ObjectGridTable::reload_object_data(ObjectGridRow* grid_row, const std::str
         grid_row->ori_brim_type = *(global_config.option<ConfigOptionEnum<BrimType>>(m_col_data[col_brim_type]->key));
     }
     else if (category == L("Speed")) {
-        grid_row->speed_perimeter = *(get_object_config_value<ConfigOptionFloat>(global_config, grid_row->config, m_col_data[col_speed_perimeter]->key));
-        grid_row->ori_speed_perimeter = *(global_config.option<ConfigOptionFloat>(m_col_data[col_speed_perimeter]->key));
+        grid_row->speed_perimeter = table_outer_wall_speed(global_config, grid_row->config);
+        grid_row->ori_speed_perimeter = table_outer_wall_speed(global_config);
     }
 }
 
@@ -2119,7 +2163,7 @@ void ObjectGridTable::reload_part_data(ObjectGridRow* volume_row, ObjectGridRow*
         volume_row->ori_enable_support = object_row->enable_support;
         volume_row->brim_type = *(get_volume_config_value<ConfigOptionEnum<BrimType>>(global_config, object_row->config, volume_row->config, m_col_data[col_brim_type]->key));
         volume_row->ori_brim_type = object_row->brim_type;
-        volume_row->speed_perimeter = *(get_volume_config_value<ConfigOptionFloat>(global_config, object_row->config, volume_row->config, m_col_data[col_speed_perimeter]->key));
+        volume_row->speed_perimeter = table_outer_wall_speed(global_config, object_row->config, volume_row->config);
         volume_row->ori_speed_perimeter = object_row->speed_perimeter;
     }
     else if (category == L("Quality")) {
@@ -2156,10 +2200,7 @@ void ObjectGridTable::reload_part_data(ObjectGridRow* volume_row, ObjectGridRow*
         volume_row->ori_brim_type = object_row->brim_type;
     }
     else if (category == L("Speed")) {
-        volume_row->speed_perimeter = *(get_volume_config_value<ConfigOptionFloat>(global_config, object_row->config, volume_row->config, m_col_data[col_speed_perimeter]->key));
-        if (volume_row->speed_perimeter == object_row->speed_perimeter) {
-            volume_row->config->erase(m_col_data[col_speed_perimeter]->key);
-        }
+        volume_row->speed_perimeter = table_outer_wall_speed(global_config, object_row->config, volume_row->config);
         volume_row->ori_speed_perimeter = object_row->speed_perimeter;
     }
 }

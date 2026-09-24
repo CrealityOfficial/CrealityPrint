@@ -149,3 +149,39 @@ TEST_CASE("PrintObject: cloud role filament compatibility", "[PrintObject]")
         CHECK(region.solid_infill_filament.value == 2);
     }
 }
+
+TEST_CASE("PrintObject: filament mapping refreshes physical-nozzle slicing parameters", "[PrintObject][FilamentMap]")
+{
+    DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+    config.set_num_extruders(2);
+    config.option<ConfigOptionFloats>("nozzle_diameter")->values  = {0.2, 0.4};
+    config.option<ConfigOptionFloats>("min_layer_height")->values = {0.04, 0.08};
+    config.option<ConfigOptionFloats>("max_layer_height")->values = {0.14, 0.32};
+    config.option<ConfigOptionInts>("filament_map")->values       = {1, 2};
+
+    Model model;
+    Print print;
+    Test::init_print({TestMesh::cube_20x20x20, TestMesh::cube_20x20x20}, print, model, config);
+    model.objects[0]->volumes.front()->config.set_key_value("extruder", new ConfigOptionInt(1));
+    model.objects[1]->volumes.front()->config.set_key_value("extruder", new ConfigOptionInt(2));
+    print.apply(model, config);
+
+    const SlicingParameters first_before  = print.objects()[0]->slicing_parameters();
+    const SlicingParameters second_before = print.objects()[1]->slicing_parameters();
+    REQUIRE(first_before.min_layer_height == Approx(0.04));
+    REQUIRE(first_before.max_layer_height == Approx(0.20));
+    REQUIRE(second_before.min_layer_height == Approx(0.08));
+    REQUIRE(second_before.max_layer_height == Approx(0.32));
+    REQUIRE_FALSE(equal_layering(first_before, second_before));
+
+    // Reassign both logical filaments to the same 0.4 mm physical nozzle. The
+    // cached SlicingParameters must be rebuilt from the new physical mapping.
+    config.option<ConfigOptionInts>("filament_map")->values = {2, 2};
+    print.apply(model, config);
+
+    const SlicingParameters first_after  = print.objects()[0]->slicing_parameters();
+    const SlicingParameters second_after = print.objects()[1]->slicing_parameters();
+    REQUIRE(first_after.min_layer_height == Approx(0.08));
+    REQUIRE(first_after.max_layer_height == Approx(0.32));
+    REQUIRE(equal_layering(first_after, second_after));
+}

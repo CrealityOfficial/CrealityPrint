@@ -1089,7 +1089,7 @@ msgid "At least one filament must be selected."
 msgstr "ต้องเลือกอย่างน้อยหนึ่งแท่ง"
 
 msgid "Do you want to use default filament?"
-msgstr "คุณต้องการจะใช้แท่งกระดาษปริยายหรือไม่?"
+msgstr "ต้องการใช้ filament เดิมหรือไม่"
 
 msgid "Add New Filament"
 msgstr "เพิ่มส่วนเชื่อมโยงใหม่"

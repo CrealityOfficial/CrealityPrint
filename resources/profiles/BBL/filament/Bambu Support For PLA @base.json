@@ -5,17 +5,33 @@
     "from": "system",
     "filament_id": "GFS02",
     "instantiation": "false",
+    "description": "This is a non-water-soluble support filament, and usually it is only for the support structure and not for the model body. To get better printing quality, please refer to this wiki: Printing Tips for Support Filament and Support Function.",
     "cool_plate_temp": [
         "40"
     ],
     "cool_plate_temp_initial_layer": [
         "40"
     ],
+    "filament_adhesiveness_category": [
+        "702"
+    ],
     "filament_cost": [
-        "69.98"
+        "39.98"
     ],
     "filament_density": [
         "1.30"
+    ],
+    "filament_dev_ams_drying_heat_distortion_temperature": [
+        "50"
+    ],
+    "filament_dev_ams_drying_temperature": [
+        "60",
+        "60",
+        "50",
+        "50"
+    ],
+    "filament_dev_drying_softening_temperature": [
+        "55"
     ],
     "filament_is_support": [
         "1"

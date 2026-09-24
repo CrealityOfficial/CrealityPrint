@@ -24,6 +24,8 @@ using namespace nlohmann;
 
 namespace Slic3r {
 
+class Preset;
+
 struct ProfilePrinter
 {
 	std::string vendor;
@@ -218,8 +220,8 @@ public:
         return m_printer_settings[printer][name];
     }
     std::string set_printer_setting(std::string printer, std::string name, std::string value) {
+        m_dirty = true;
         return m_printer_settings[printer][name] = value;
-        m_dirty                = true;
     }
 
 
@@ -298,6 +300,7 @@ public:
 
 	std::string make_model2cover_path_key(std::string vendor, std::string printer_model);
 	const std::map<std::string, std::string>& get_model2cover_path();
+    std::string get_printer_cover(const std::string& printer_model, const std::string& vendor = "");
 
 	void set_mouse_device(const std::string& name, double translation_speed, double translation_deadzone, float rotation_speed, float rotation_deadzone, double zoom_speed, bool swap_yz, bool invert_x, bool invert_y, bool invert_z, bool invert_yaw, bool invert_pitch, bool invert_roll);
 	std::vector<std::string> get_mouse_device_names() const;
@@ -402,6 +405,9 @@ private:
     EasyCache();
     nlohmann::json m_data;
 };
+
+// Returns the device MAC bound to a system or user printer preset.
+std::string get_preset_bound_device_mac(const Preset& preset);
 
 } // namespace Slic3r
 

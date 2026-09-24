@@ -5,6 +5,7 @@
 #include <cmath>
 #include <limits>
 #include <random>
+#include <stack>
 
 #include <boost/container/small_vector.hpp>
 #include <boost/log/trivial.hpp>
@@ -22,6 +23,7 @@
 #include "../PerimeterGenerator.hpp"
 
 #include "FillRectilinear.hpp"
+#include "FillAIInfill.hpp"
 
 // #define SLIC3R_DEBUG
 // #define INFILL_DEBUG_OUTPUT
@@ -80,6 +82,105 @@ static inline coordf_t segment_length(const Polygon &poly, size_t seg1, const Po
     return len;
 }
 
+static void reorder_solid_skeleton_wipe_polylines(Polylines &polylines, size_t corner_index)
+{
+    if (polylines.empty())
+        return;
+
+    struct WipeRow
+    {
+        Polyline polyline;
+        coord_t  y;
+        coord_t  min_x;
+        coord_t  max_x;
+    };
+
+    auto abs_coord = [](coord_t v) -> coord_t { return v < 0 ? -v : v; };
+
+    std::vector<WipeRow> rows;
+    rows.reserve(polylines.size());
+
+    auto add_row = [&](Polyline row) {
+        row.remove_duplicate_points();
+        if (row.points.size() < 2)
+            return;
+
+        BoundingBox bbox;
+        for (const Point &point : row.points)
+            bbox.merge(point);
+        if (!bbox.defined)
+            return;
+
+        const coord_t dx = bbox.max.x() - bbox.min.x();
+        const coord_t dy = bbox.max.y() - bbox.min.y();
+        if (dx <= 0 || dx < dy)
+            return;
+
+        rows.push_back(WipeRow{ std::move(row), bbox.center().y(), bbox.min.x(), bbox.max.x() });
+    };
+
+    for (const Polyline &polyline : polylines) {
+        if (polyline.points.size() < 2)
+            continue;
+
+        if (polyline.points.size() == 2) {
+            add_row(polyline);
+            continue;
+        }
+
+        for (size_t i = 1; i < polyline.points.size(); ++i) {
+            const Point &a = polyline.points[i - 1];
+            const Point &b = polyline.points[i];
+            const coord_t dx = abs_coord(b.x() - a.x());
+            const coord_t dy = abs_coord(b.y() - a.y());
+            if (dx >= dy && dx > 0)
+                add_row(Polyline(a, b));
+        }
+    }
+
+    if (rows.empty())
+        return;
+
+    const size_t corner = corner_index % 4;
+    const bool bottom_to_top = corner == 0 || corner == 1;
+    const bool first_starts_left = corner == 0 || corner == 3;
+
+    std::stable_sort(rows.begin(), rows.end(), [bottom_to_top](const WipeRow &lhs, const WipeRow &rhs) {
+        if (lhs.y != rhs.y)
+            return bottom_to_top ? lhs.y < rhs.y : lhs.y > rhs.y;
+        if (lhs.min_x != rhs.min_x)
+            return lhs.min_x < rhs.min_x;
+        return lhs.max_x < rhs.max_x;
+    });
+
+    size_t point_count = 0;
+    for (size_t i = 0; i < rows.size(); ++i) {
+        WipeRow &row = rows[i];
+        const bool starts_left = (i % 2 == 0) ? first_starts_left : !first_starts_left;
+        const bool is_left_to_right = row.polyline.points.front().x() <= row.polyline.points.back().x();
+        if (starts_left != is_left_to_right)
+            row.polyline.reverse();
+        point_count += row.polyline.points.size();
+    }
+
+    Polyline serpentine;
+    serpentine.points.reserve(point_count);
+    for (const WipeRow &row : rows) {
+        for (const Point &point : row.polyline.points) {
+            if (!serpentine.points.empty() && serpentine.points.back() == point)
+                continue;
+            serpentine.points.push_back(point);
+        }
+    }
+    serpentine.remove_duplicate_points();
+    if (serpentine.points.size() < 2)
+        return;
+
+    polylines.clear();
+    polylines.emplace_back(std::move(serpentine));
+}
+
+
 // Append a segment of a closed polygon to a polyline.
 // The segment indices seg1 and seg2 signify an end point of an edge in the forward direction of the loop.
 // Only insert intermediate points between seg1 and seg2.
@@ -128,6 +229,8 @@ struct SegmentIntersection
     // y position of the intersection, rational number.
     int64_t     pos_p { 0 };
     uint32_t    pos_q { 1 };
+    // Index of the previous point in the contour.
+    size_t      prev_idx { 0 };
 
     coord_t     pos() const {
         // Division rounds both positive and negative down to zero.
@@ -366,6 +469,93 @@ struct SegmentedIntersectionLine
     // List of intersection points with polygons, sorted increasingly by the y axis.
     std::vector<SegmentIntersection>    intersections;
 };
+
+static void order_low_before_high_at_same_rounded_position(std::vector<SegmentIntersection> &intersections)
+{
+    for (size_t group_begin = 0; group_begin < intersections.size();) {
+        const coord_t rounded_position = intersections[group_begin].pos();
+        size_t        group_end        = group_begin + 1;
+        while (group_end < intersections.size() && intersections[group_end].pos() == rounded_position)
+            ++group_end;
+
+        // Keep the exact-rational ordering slots of other contours unchanged. Only reorder
+        // intersections belonging to the same contour when quantization puts them together.
+        for (size_t i = group_begin; i < group_end; ++i) {
+            if (!intersections[i].is_high())
+                continue;
+
+            const size_t contour = intersections[i].iContour;
+            auto low = std::find_if(intersections.begin() + i + 1, intersections.begin() + group_end,
+                                    [contour](const SegmentIntersection &intersection) {
+                                        return intersection.iContour == contour && intersection.is_low();
+                                    });
+            if (low != intersections.begin() + group_end)
+                std::iter_swap(intersections.begin() + i, low);
+        }
+
+        group_begin = group_end;
+    }
+}
+
+static void adjust_sort_for_segment_intersections(std::vector<SegmentIntersection> &intersections)
+{
+    using IntersectionType = SegmentIntersection::SegmentIntersectionType;
+    std::stack<IntersectionType> stack;
+    auto is_valid_type = [&stack](IntersectionType type) {
+        if (stack.empty()) {
+            return type == IntersectionType::OUTER_LOW;
+        } else {
+            auto top_type = stack.top();
+            switch (type) {
+            case SegmentIntersection::OUTER_LOW: return false;
+            case SegmentIntersection::OUTER_HIGH: return top_type == IntersectionType::OUTER_LOW;
+            case SegmentIntersection::INNER_LOW: return top_type == IntersectionType::OUTER_LOW || top_type == IntersectionType::INNER_HIGH;
+            case SegmentIntersection::INNER_HIGH: return top_type == IntersectionType::INNER_LOW;
+            default: break;
+            }
+            return true;
+        }
+    };
+
+    std::vector<bool> visited(intersections.size(), false);
+    std::vector<int>  index_group;
+    for (size_t i = 0; i < intersections.size();) {
+        if (is_valid_type(intersections[i].type)) {
+            index_group.clear();
+            if (intersections[i].type == SegmentIntersection::OUTER_LOW || intersections[i].type == SegmentIntersection::INNER_LOW) {
+                stack.push(intersections[i].type);
+            } else if (intersections[i].type == SegmentIntersection::OUTER_HIGH || intersections[i].type == SegmentIntersection::INNER_HIGH) {
+                stack.pop();
+            }
+            ++i;
+        } else {
+            visited[i] = true;
+            for (size_t j = i + 1; j < intersections.size(); ++j) {
+                const int64_t distance = std::abs(int64_t(intersections[j].pos()) - int64_t(intersections[i].pos()));
+                if (!visited[j] && distance < int64_t(scale_(EPSILON)))
+                    index_group.push_back(int(j));
+            }
+
+            if (!index_group.empty()) {
+                int swap_index = -1;
+                for (auto index : index_group) {
+                    if (!visited[index]) {
+                        swap_index     = index;
+                        visited[index] = true;
+                        break;
+                    }
+                }
+
+                if (swap_index != -1) {
+                    std::swap(intersections[i], intersections[swap_index]);
+                    continue;
+                }
+            }
+
+            ++i;
+        }
+    }
+}
 
 static SegmentIntersection phony_outer_intersection(SegmentIntersection::SegmentIntersectionType type, coord_t pos)
 {
@@ -802,6 +992,7 @@ static std::vector<SegmentedIntersectionLine> slice_region_by_vertical_lines(con
                 SegmentIntersection is;
                 is.iContour = iContour;
                 is.iSegment = iSegment;
+                is.prev_idx = iPrev;
                 assert(l <= this_x);
                 assert(r >= this_x);
                 // Calculate the intersection position in y axis. x is known.
@@ -843,6 +1034,12 @@ static std::vector<SegmentedIntersectionLine> slice_region_by_vertical_lines(con
                 // +-1 to take rounding into account.
                 assert(is.pos() + 1 >= std::min(p1.y(), p2.y()));
                 assert(is.pos() <= std::max(p1.y(), p2.y()) + 1);
+                //BBS: check segment intersection type
+                const coord_t dir = p2.x() - p1.x();
+                const bool    low = dir > 0;
+                is.type = poly_with_offset.is_contour_outer(iContour) ?
+                    (low ? SegmentIntersection::OUTER_LOW : SegmentIntersection::OUTER_HIGH) :
+                    (low ? SegmentIntersection::INNER_LOW : SegmentIntersection::INNER_HIGH);
                 segs[i].intersections.push_back(is);
             }
         }
@@ -853,6 +1050,12 @@ static std::vector<SegmentedIntersectionLine> slice_region_by_vertical_lines(con
         SegmentedIntersectionLine &sil = segs[i_seg];
         // Sort the intersection points using exact rational arithmetic.
         std::sort(sil.intersections.begin(), sil.intersections.end());
+        // Quantization may put LOW/HIGH intersections of one contour at the same
+        // rounded position. Normalize those ties without weakening std::sort's ordering contract.
+        order_low_before_high_at_same_rounded_position(sil.intersections);
+        // At reduced coordinate precision, nearby intersections may need to be reordered
+        // to restore a valid LOW/HIGH nesting sequence.
+        adjust_sort_for_segment_intersections(sil.intersections);
         // Assign the intersection types, remove duplicate or overlapping intersection points.
         // When a loop vertex touches a vertical line, intersection point is generated for both segments.
         // If such two segments are oriented equally, then one of them is removed.
@@ -862,16 +1065,11 @@ static std::vector<SegmentedIntersectionLine> slice_region_by_vertical_lines(con
         size_t j = 0;
         for (size_t i = 0; i < sil.intersections.size(); ++ i) {
             // What is the orientation of the segment at the intersection point?
-            SegmentIntersection       &is       = sil.intersections[i];
+            SegmentIntersection        &is       = sil.intersections[i];
             const size_t               iContour = is.iContour;
-            const Points              &contour  = poly_with_offset.contour(iContour).points;
             const size_t               iSegment = is.iSegment;
-            const size_t               iPrev    = prev_idx_modulo(iSegment, contour);
-            const coord_t              dir      = contour[iSegment].x() - contour[iPrev].x();
-            const bool                 low      = dir > 0;
-            is.type = poly_with_offset.is_contour_outer(iContour) ?
-                (low ? SegmentIntersection::OUTER_LOW : SegmentIntersection::OUTER_HIGH) :
-                (low ? SegmentIntersection::INNER_LOW : SegmentIntersection::INNER_HIGH);
+            const size_t               iPrev    = is.prev_idx;
+            const bool                 low      = is.type == SegmentIntersection::OUTER_LOW || is.type == SegmentIntersection::INNER_LOW;
             bool take_next = true;
             if (j > 0) {
                 SegmentIntersection &is2 = sil.intersections[j - 1];
@@ -880,7 +1078,7 @@ static std::vector<SegmentedIntersectionLine> slice_region_by_vertical_lines(con
                     if (is.pos_p == is2.pos_p) {
                         // Two successive segments meet exactly at the vertical line.
                         // Verify that the segments of sil.intersections[i] and sil.intersections[j-1] are adjoint.
-                        assert(iSegment == prev_idx_modulo(is2.iSegment, contour) || is2.iSegment == iPrev);
+                        assert(iSegment == is2.prev_idx || is2.iSegment == iPrev);
                         assert(is.type == is2.type);
                         // Two successive segments of the same direction (both to the right or both to the left)
                         // meet exactly at the vertical line.
@@ -3205,8 +3403,7 @@ bool FillRectilinear::fill_surface_by_lines(const Surface *surface, const FillPa
 
 
 
-				//std::vector<coord_t> thresholds = { -10000000 , -20000000, -30000000 };
-				std::vector<coord_t> thresholds = { -1000000 , -1500000, -3000000,-5000000 };
+				std::vector<coord_t> thresholds = AIInfill::depth_thresholds();
 
 				//test		
 				std::vector<std::vector<float>> sdf_values(x_segcount + 1, std::vector<float>(y_segcount + 1, 1));
@@ -3218,7 +3415,7 @@ bool FillRectilinear::fill_surface_by_lines(const Surface *surface, const FillPa
 						coord_t cur_y = new_base_y0 - y * line_spacing;
 						const Point pt(cur_x, cur_y);
 						float sdf = grid.signed_distance_bilinear(pt);
-						sdf_values[x][y] = sdf / 1000000.0f;
+						sdf_values[x][y] = unscale<float>(sdf);
 					}
 				}
 				//testout_csv(sdf_values);
@@ -3235,7 +3432,7 @@ bool FillRectilinear::fill_surface_by_lines(const Surface *surface, const FillPa
 					size_t posi = --totalsize;
 					coordf_t grid_edge_len = std::pow(2, posi);
 					if (std::min(std::ceil(x_segcount / grid_edge_len), std::ceil(y_segcount / grid_edge_len)) >= 3
-						&& line_spacing * grid_edge_len < 10 * 1000000)
+						&& line_spacing * grid_edge_len < AIInfill::max_grid_edge())
 					{
 						maxlevel = posi;
 						root_grid_x = std::ceil(x_segcount / grid_edge_len);
@@ -3819,8 +4016,7 @@ bool FillRectilinear::fill_surface_by_multilines(const Surface *surface, FillPar
 
 
 
-        //std::vector<coord_t> thresholds = { -10000000 , -20000000, -30000000 };
-        std::vector<coord_t> thresholds = { -1000000 , -1500000, -3000000,-5000000 };
+        std::vector<coord_t> thresholds = AIInfill::depth_thresholds();
 
         //test		
 		std::vector<std::vector<float>> sdf_values(x_segcount + 1, std::vector<float>(y_segcount + 1, 1));
@@ -3832,7 +4028,7 @@ bool FillRectilinear::fill_surface_by_multilines(const Surface *surface, FillPar
 				coord_t cur_y = new_base_y0 - y * line_spacing;
 				const Point pt(cur_x, cur_y);
 				float sdf = grid.signed_distance_bilinear(pt);
-				sdf_values[x][y] = sdf / 1000000.0f;
+				sdf_values[x][y] = unscale<float>(sdf);
 			}
 		}
 		//testout_csv(sdf_values);
@@ -3849,7 +4045,7 @@ bool FillRectilinear::fill_surface_by_multilines(const Surface *surface, FillPar
             size_t posi = --totalsize;
             coordf_t grid_edge_len = std::pow(2, posi);
             if (std::min(std::ceil(x_segcount / grid_edge_len), std::ceil(y_segcount / grid_edge_len)) >= 3
-                && line_spacing* grid_edge_len < 10*1000000)
+                && line_spacing* grid_edge_len < AIInfill::max_grid_edge())
             {
                 maxlevel = posi;
                 root_grid_x = std::ceil(x_segcount / grid_edge_len);
@@ -4291,7 +4487,7 @@ if ((params.pattern == ipLateralLattice || params.pattern == ipLateralHoneycomb 
 
     if (!polylines_out2.empty())
     {
-        polylines_out = polylines_out2;
+        polylines_out = intersection_pl(polylines_out2, poly_with_offset_base.polygons_outer);
     }
     //add by wxj end
 
@@ -4303,13 +4499,18 @@ Polylines FillRectilinear::fill_surface(const Surface *surface, const FillParams
     Polylines polylines_out;
     // Orca Todo: fow now don't use fill_surface_by_multilines for zipzag infill
     bool use_ai = params.config && params.config->ai_infill.value;
-    if (params.full_infill() || params.pattern == ipCrossZag || params.pattern == ipZigZag || params.pattern == ipLockedZag || use_ai) {
+    // Keep the established graph traversal for ordinary single-line rectilinear infill.
+    // The multiline connector is only needed for an actual line group; using it for
+    // multiline == 1 fragments otherwise continuous islands into short paths.
+    if (params.full_infill() || params.multiline <= 1 || params.pattern == ipCrossZag || params.pattern == ipZigZag || params.pattern == ipLockedZag || use_ai) {
         if (!fill_surface_by_lines(surface, params, 0.f, 0.f, polylines_out))
             BOOST_LOG_TRIVIAL(error) << "FillRectilinear::fill_surface() fill_surface_by_lines() failed to fill a region.";
     } else {
         if (!fill_surface_by_multilines(surface, params, {{0.f, 0.f}}, polylines_out))
             BOOST_LOG_TRIVIAL(error) << "FillRectilinear::fill_surface() fill_surface_by_multilines() failed to fill a region.";
     }
+    if (params.solid_skeleton_wipe_path)
+        reorder_solid_skeleton_wipe_polylines(polylines_out, params.solid_skeleton_start_corner);
     return polylines_out;
 }
 
@@ -4786,6 +4987,10 @@ void FillLockedZag::fill_surface_locked_zag(const Surface*                      
 
     std::unique_ptr<Fill> skeleton_f = std::unique_ptr<Fill>(Fill::new_from_type(this->skeleton_pattern));
     skeleton_f->copy_fill_data(static_cast<Fill*>(this));
+    if (params.solid_skeleton_wipe_path)
+        // LockedZag adds another 90 degrees for its skeleton. A 90-degree
+        // base angle therefore produces horizontal X-axis wiping lines.
+        skeleton_f->angle = float(M_PI / 2.);
     if (this->skeleton_pattern != ipCrossZag)
         zig_params.horiz_move = 0;
     auto it = this->lock_param.skeleton_density_params.begin();
@@ -4821,6 +5026,8 @@ void FillLockedZag::fill_surface_locked_zag(const Surface*                      
     auto                  skin_density = this->lock_param.skin_density_params.begin();
     std::unique_ptr<Fill> skin_f       = std::unique_ptr<Fill>(Fill::new_from_type(this->skin_pattern));
     skin_params.locked_zag             = false;
+    skin_params.solid_skeleton_wipe_path = false;
+    skin_params.solid_skeleton_start_corner = 0;
     skin_f->copy_fill_data(static_cast<Fill*>(this));
     if (this->skeleton_pattern != ipCrossZag)
         zig_params.horiz_move = 0;
@@ -4879,7 +5086,7 @@ void FillLockedZag::fill_surface_extrusion(const Surface* surface, const FillPar
     if (!thick_polylines.empty() || !multi_width_polyline.empty()) {
         ExtrusionEntityCollection* eec = nullptr;
         out.push_back(eec = new ExtrusionEntityCollection());
-        eec->no_sort = this->no_sort();
+        eec->no_sort = this->no_sort() || params.solid_skeleton_wipe_path;
         size_t idx   = eec->entities.size();
         for (std::pair<Polylines, Flow>& poly_with_flow : multi_width_polyline) {
             double flow_mm3_per_mm = poly_with_flow.second.mm3_per_mm();
@@ -4889,8 +5096,15 @@ void FillLockedZag::fill_surface_extrusion(const Surface* surface, const FillPar
                 flow_mm3_per_mm = new_flow.mm3_per_mm();
                 flow_width      = new_flow.width();
             }
+            const size_t first_new_entity = eec->entities.size();
             extrusion_entities_append_paths(eec->entities, std::move(poly_with_flow.first), params.extrusion_role, flow_mm3_per_mm,
                                             float(flow_width), poly_with_flow.second.height());
+            if (params.extrusion_role == erInternalInfill) {
+                for (size_t entity_idx = first_new_entity; entity_idx < eec->entities.size(); ++entity_idx) {
+                    if (auto* path = dynamic_cast<ExtrusionPath*>(eec->entities[entity_idx]); path != nullptr)
+                        path->set_locked_zag_skeleton(true);
+                }
+            }
         }
         if (!params.can_reverse) {
             for (size_t i = idx; i < eec->entities.size(); i++)

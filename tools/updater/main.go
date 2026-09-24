@@ -86,6 +86,7 @@ var (
 	procIsWindowEnabled            = modUser32.NewProc("IsWindowEnabled")
 	procScreenToClient             = modUser32.NewProc("ScreenToClient")
 	procEnumWindows                = modUser32.NewProc("EnumWindows")
+	procGetShellWindow             = modUser32.NewProc("GetShellWindow")
 	procGetWindowThreadProcessId   = modUser32.NewProc("GetWindowThreadProcessId")
 	procBeginPaint                 = modUser32.NewProc("BeginPaint")
 	procEndPaint                   = modUser32.NewProc("EndPaint")
@@ -116,7 +117,10 @@ var (
 
 	procCreateFontIndirectW = modGdi32.NewProc("CreateFontIndirectW")
 
-	procRegGetValueW = modAdvapi32.NewProc("RegGetValueW")
+	procRegGetValueW             = modAdvapi32.NewProc("RegGetValueW")
+	procOpenProcessToken        = modAdvapi32.NewProc("OpenProcessToken")
+	procDuplicateTokenEx        = modAdvapi32.NewProc("DuplicateTokenEx")
+	procCreateProcessWithTokenW = modAdvapi32.NewProc("CreateProcessWithTokenW")
 
 	procRmStartSession      = modRstrtmgr.NewProc("RmStartSession")
 	procRmRegisterResources = modRstrtmgr.NewProc("RmRegisterResources")
@@ -217,6 +221,12 @@ const (
 	processQueryLimitedInformation = 0x00001000
 	processTerminate               = 0x00000001
 	synchronize                    = 0x00100000
+	tokenDuplicate                 = 0x0002
+	tokenQuery                     = 0x0008
+	maximumAllowed                 = 0x02000000
+	securityImpersonation          = 2
+	tokenPrimary                   = 1
+	logonWithProfile               = 0x00000001
 	waitObject0                    = 0x00000000
 	waitTimeout                    = 0x00000102
 	errorMoreData                  = 234
@@ -710,8 +720,8 @@ func createDpiFont(dpi int32) uintptr {
 	lf := logFontW{}
 	lf.lfHeight = -scaleDPI(13, dpi) // ~9.75pt — matches Windows default UI font at 96 DPI
 	lf.lfWeight = 400
-	lf.lfCharSet = 1   // DEFAULT_CHARSET
-	lf.lfQuality = 5   // CLEARTYPE_QUALITY
+	lf.lfCharSet = 1 // DEFAULT_CHARSET
+	lf.lfQuality = 5 // CLEARTYPE_QUALITY
 	faceName := syscall.StringToUTF16("Segoe UI")
 	n := len(faceName)
 	if n > 32 {
@@ -1319,18 +1329,18 @@ func drawButton(hwnd uintptr, hdc uintptr, st *btnState) {
 		if penWidth < 1 {
 			penWidth = 1
 		}
-	
+
 		closePen, _, _ := procCreatePen.Call(psSolid, uintptr(penWidth), textColor)
 		oldClosePen, _, _ := procSelectObject.Call(hdc, closePen)
-	
+
 		// 绘制第一条线：左上到右下
 		procMoveToEx.Call(hdc, uintptr(centerX-halfSize), uintptr(centerY-halfSize), 0)
 		procLineTo.Call(hdc, uintptr(centerX+halfSize), uintptr(centerY+halfSize))
-	
+
 		// 绘制第二条线：右上到左下
 		procMoveToEx.Call(hdc, uintptr(centerX+halfSize), uintptr(centerY-halfSize), 0)
 		procLineTo.Call(hdc, uintptr(centerX-halfSize), uintptr(centerY+halfSize))
-	
+
 		procSelectObject.Call(hdc, oldClosePen)
 		procDeleteObject.Call(closePen)
 	} else {
@@ -1500,15 +1510,15 @@ func cancelBtnWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintpt
 
 		radius := int32(scaleDPI(10, gInstallDpi)) // DPI-缩放圆角
 		procRoundRect.Call(hdc, uintptr(rc.left), uintptr(rc.top), uintptr(rc.right), uintptr(rc.bottom), uintptr(radius), uintptr(radius))
-		
+
 		procSelectObject.Call(hdc, oldPen)
 		procSelectObject.Call(hdc, oldBrush)
 		procDeleteObject.Call(pen)
 		procDeleteObject.Call(brush)
-		
+
 		procSetBkMode.Call(hdc, bkTransparent)
 		procSetTextColor.Call(hdc, textColor)
-		
+
 		text := toUTF16Ptr(getText("cancel"))
 		drawRc := rc
 		// Select the DPI-scaled font so DrawTextW renders at the correct size.
@@ -1654,24 +1664,81 @@ func launchCrealityPrint(log func(args ...interface{}), installDir string) {
 	exePath := filepath.Join(installDir, "CrealityPrint.exe")
 	if _, err := os.Stat(exePath); err != nil {
 		log("skip launch, CrealityPrint.exe not found:", err)
+		messageBox(getText("manual_start_required"), getText("install_complete"), mbOK|mbIconInformation|mbSystemModal)
 		return
 	}
-	verb := toUTF16Ptr("open")
-	file := toUTF16Ptr(exePath)
-	dir := toUTF16Ptr(installDir)
-	ret, _, err := procShellExecuteW.Call(
+
+	shellWindow, _, _ := procGetShellWindow.Call()
+	if shellWindow == 0 {
+		log("GetShellWindow failed")
+		messageBox(getText("manual_start_required"), getText("install_complete"), mbOK|mbIconInformation|mbSystemModal)
+		return
+	}
+
+	var shellPID uint32
+	procGetWindowThreadProcessId.Call(shellWindow, uintptr(unsafe.Pointer(&shellPID)))
+	if shellPID == 0 {
+		log("GetWindowThreadProcessId failed for Explorer shell")
+		messageBox(getText("manual_start_required"), getText("install_complete"), mbOK|mbIconInformation|mbSystemModal)
+		return
+	}
+
+	shellProcess := openProcess(processQueryLimitedInformation, shellPID)
+	if shellProcess == 0 {
+		log("OpenProcess failed for Explorer shell, pid:", shellPID)
+		messageBox(getText("manual_start_required"), getText("install_complete"), mbOK|mbIconInformation|mbSystemModal)
+		return
+	}
+	defer closeHandle(shellProcess)
+
+	var shellToken uintptr
+	if ok, _, err := procOpenProcessToken.Call(shellProcess, tokenDuplicate|tokenQuery, uintptr(unsafe.Pointer(&shellToken))); ok == 0 {
+		log("OpenProcessToken failed for Explorer shell:", err)
+		messageBox(getText("manual_start_required"), getText("install_complete"), mbOK|mbIconInformation|mbSystemModal)
+		return
+	}
+	defer closeHandle(shellToken)
+
+	var primaryToken uintptr
+	if ok, _, err := procDuplicateTokenEx.Call(
+		shellToken,
+		maximumAllowed,
 		0,
-		uintptr(unsafe.Pointer(verb)),
-		uintptr(unsafe.Pointer(file)),
+		securityImpersonation,
+		tokenPrimary,
+		uintptr(unsafe.Pointer(&primaryToken)),
+	); ok == 0 {
+		log("DuplicateTokenEx failed for Explorer shell token:", err)
+		messageBox(getText("manual_start_required"), getText("install_complete"), mbOK|mbIconInformation|mbSystemModal)
+		return
+	}
+	defer closeHandle(primaryToken)
+
+	application := toUTF16Ptr(exePath)
+	workingDir := toUTF16Ptr(installDir)
+	desktop := toUTF16Ptr(`winsta0\default`)
+	startup := syscall.StartupInfo{Cb: uint32(unsafe.Sizeof(syscall.StartupInfo{})), Desktop: desktop}
+	var process syscall.ProcessInformation
+	ok, _, err := procCreateProcessWithTokenW.Call(
+		primaryToken,
+		logonWithProfile,
+		uintptr(unsafe.Pointer(application)),
 		0,
-		uintptr(unsafe.Pointer(dir)),
-		swShow,
+		0,
+		0,
+		uintptr(unsafe.Pointer(workingDir)),
+		uintptr(unsafe.Pointer(&startup)),
+		uintptr(unsafe.Pointer(&process)),
 	)
-	if ret <= 32 {
-		log("launch CrealityPrint.exe failed:", ret, err)
+	if ok != 0 {
+		closeHandle(uintptr(process.Thread))
+		closeHandle(uintptr(process.Process))
+		log("launched CrealityPrint.exe with Explorer user token:", exePath)
 		return
 	}
-	log("launched CrealityPrint.exe:", exePath)
+
+	log("failed to launch CrealityPrint.exe with Explorer user token:", err)
+	messageBox(getText("manual_start_required"), getText("install_complete"), mbOK|mbIconInformation|mbSystemModal)
 }
 
 func installWndProc(hwnd uintptr, msgID uint32, wParam, lParam uintptr) uintptr {
@@ -2401,6 +2468,8 @@ func getText(key string, args ...interface{}) string {
 			return "正在完成安装"
 		case "install_complete":
 			return "安装完成"
+		case "manual_start_required":
+			return "更新已完成，但无法以普通用户权限自动启动 CrealityPrint。请从桌面或开始菜单手动启动。"
 		case "update_exception":
 			return "更新过程中出现异常。程序已恢复到原有稳定版本，可继续正常使用。"
 		case "incomplete_rollback_ok":
@@ -2455,6 +2524,8 @@ func getText(key string, args ...interface{}) string {
 		return "Finishing installation"
 	case "install_complete":
 		return "Installation complete"
+	case "manual_start_required":
+		return "The update is complete, but CrealityPrint could not be started with standard user privileges. Please start it manually from the desktop or Start menu."
 	case "update_exception":
 		return "An exception occurred during the update. The program has been restored to the previous stable version and can continue to be used normally."
 	case "incomplete_rollback_ok":

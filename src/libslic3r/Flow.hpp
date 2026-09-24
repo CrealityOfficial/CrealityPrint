@@ -8,6 +8,8 @@
 namespace Slic3r {
 
 class PrintObject;
+class PrintRegion;
+class Print;
 
 // Extra spacing of bridge threads, in mm.
 #define BRIDGE_EXTRA_SPACING 0.05
@@ -120,7 +122,7 @@ public:
     // Extrusion width from full config, taking into account the defaults (when set to zero) and ratios (percentages).
     // Precise value depends on layer index (1st layer vs. other layers vs. variable layer height),
     // on active extruder etc. Therefore the value calculated by this function shall be used as a hint only.
-	static double extrusion_width(const std::string &opt_key, const ConfigOptionFloatOrPercent *opt, const ConfigOptionResolver &config, const unsigned int first_printing_extruder = 0);
+	static double extrusion_width(const std::string &opt_key, const ConfigOptionFloatsOrPercentsNullable *opt, const ConfigOptionResolver &config, const unsigned int first_printing_extruder = 0);
 	static double extrusion_width(const std::string &opt_key, const ConfigOptionResolver &config, const unsigned int first_printing_extruder = 0);
 
 private:
@@ -144,6 +146,32 @@ private:
     bool        m_bridge { false };
     float       m_adaptive_width {0};
 };
+
+// Effective input shared by validation and path generation. Keep the source key
+// so a fallback error points to the parameter that actually supplied the width.
+enum class FlowWidthError { None, TooSmall, TooLarge };
+struct FlowWidthConfig
+{
+    FlowRole role;
+    ConfigOptionFloatOrPercent width;
+    double nozzle_diameter;
+    const char *source_key;
+
+    Flow flow(float height, float adaptive_width = 0.f) const;
+    FlowWidthError validate(double height) const;
+};
+
+// Filament IDs are 1-based. Mixed filaments use the same representative member
+// as resolve_filament_mapping(), including before its runtime proxy is installed.
+size_t resolve_flow_nozzle_index(const Print &print, unsigned int filament_id);
+FlowWidthConfig resolve_model_flow_width(const PrintObject &object, const PrintRegion &region,
+                                        FlowRole role, bool first_layer = false);
+FlowWidthConfig resolve_support_flow_width(const PrintObject &object, bool is_interface, bool first_layer = false);
+FlowWidthConfig resolve_infill_detail_flow_width(const PrintObject &object, const PrintRegion &region,
+                                                FlowRole role, bool skin);
+
+FlowWidthConfig resolve_skirt_flow_width(const Print &print);
+FlowWidthConfig resolve_brim_flow_width(const Print &print);
 
 extern Flow support_material_flow(const PrintObject* object, float layer_height = 0.f);
 extern Flow support_transition_flow(const PrintObject *object); //BBS

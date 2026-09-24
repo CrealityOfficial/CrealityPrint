@@ -327,7 +327,7 @@ private:
             int         device_type;
             bool        visible = true;
 
-            std::string apiKey;         // fluidd�豸
+            std::string apiKey;         // fluidd设备
             std::string deviceUI;
             std::string caFile;
             int hostType;
@@ -359,6 +359,7 @@ private:
 
     private:
         std::map<std::string, unsigned int> cover2textureId;
+        uint64_t cover_revision = 0;
         ObjectList*                         objPtr = nullptr;
 
     } m_device_list_data;
@@ -369,6 +370,7 @@ private:
     bool                       m_device_list_dirty_mark = true;
     bool                       m_device_list_dirty_mark_fluidd = true;
     std::string                m_last_printer_model;
+    uint64_t                   m_last_printer_cover_revision = 0;
 
 #ifdef __WXMSW__
     // Workaround for entering the column editing mode on Windows. Simulate keyboard enter when another column of the active line is selected.
@@ -665,7 +667,7 @@ public:
     // BBS
     void on_plate_added(PartPlate* part_plate);
     void on_plate_deleted(int plate_index);
-    void reload_all_plates(bool notify_partplate = false);
+    void reload_all_plates(bool notify_partplate = false, bool do_info_update = true);
     void on_plate_selected(int plate_index);
     void notify_instance_updated(int obj_idx);
     void object_config_options_changed(const ObjectVolumeID& ov_id);
@@ -741,6 +743,13 @@ public:
         wxDataViewItemArray& selecteds);
 
     void render_current_device_name(const float max_right);
+    void request_nozzle_information_from_bound_device();
+    bool sync_nozzle_information_from_bound_device();
+
+    std::string   m_pending_nozzle_sync_device_mac;
+    std::uint64_t m_nozzle_sync_request_serial {0};
+    std::uint64_t m_pending_nozzle_sync_request_id {0};
+    int           m_pending_nozzle_sync_updates_left {0};
 
     void request_scroll_to_node_imgui(ObjectDataViewModelNode* node);
     void consume_scroll_request_imgui(ObjectDataViewModelNode* node, float center = 0.5f);

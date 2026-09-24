@@ -94,14 +94,19 @@ int FlushVolCalculator::calc_flush_vol(unsigned char src_a, unsigned char src_r,
     return std::min((int)flush_volume, m_max_flush_vol);
 }
 
-std::vector<int> get_min_flush_volumes(const DynamicPrintConfig& full_config)
+std::vector<int> get_min_flush_volumes(const DynamicPrintConfig& full_config, size_t physical_nozzle_id)
 {
     std::vector<int>extra_flush_volumes;
     //const auto& full_config = wxGetApp().preset_bundle->full_config();
     //auto& printer_config = wxGetApp().preset_bundle->printers.get_edited_preset().config;
 
-    const ConfigOption* nozzle_volume_opt = full_config.option("nozzle_volume");
-    int nozzle_volume_val = nozzle_volume_opt ? (int)nozzle_volume_opt->getFloat() : 0;
+    const auto* nozzle_volume_opt = full_config.option<ConfigOptionFloatsNullable>("nozzle_volume");
+    const size_t nozzle_volume_idx = nozzle_volume_opt != nullptr && !nozzle_volume_opt->empty() &&
+                                         physical_nozzle_id < nozzle_volume_opt->size() ?
+                                     physical_nozzle_id : 0;
+    int nozzle_volume_val = nozzle_volume_opt != nullptr && !nozzle_volume_opt->empty() &&
+                                    !nozzle_volume_opt->is_nil(nozzle_volume_idx) ?
+                                int(nozzle_volume_opt->get_at(nozzle_volume_idx)) : 0;
 
     const ConfigOptionInt* enable_long_retraction_when_cut_opt = full_config.option<ConfigOptionInt>("enable_long_retraction_when_cut");
     int machine_enabled_level = 0;
@@ -111,9 +116,9 @@ std::vector<int> get_min_flush_volumes(const DynamicPrintConfig& full_config)
     }
     const ConfigOptionBools* long_retractions_when_cut_opt = full_config.option<ConfigOptionBools>("long_retractions_when_cut");
     bool machine_activated = false;
-    if (long_retractions_when_cut_opt) {
-        machine_activated = long_retractions_when_cut_opt->values[0] == 1;
-        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": get long_retractions_when_cut from config, value=%1%, activated=%2%")%long_retractions_when_cut_opt->values[0] %machine_activated;
+    if (long_retractions_when_cut_opt && !long_retractions_when_cut_opt->empty()) {
+        machine_activated = long_retractions_when_cut_opt->get_at(physical_nozzle_id) == 1;
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": get long_retractions_when_cut from config, value=%1%, activated=%2%")%int(long_retractions_when_cut_opt->get_at(physical_nozzle_id)) %machine_activated;
     }
 
     size_t filament_size = full_config.option<ConfigOptionFloats>("filament_diameter")->values.size();
@@ -139,7 +144,9 @@ std::vector<int> get_min_flush_volumes(const DynamicPrintConfig& full_config)
 
     for (size_t idx = 0; idx < filament_size; ++idx) {
         int extra_flush_volume = nozzle_volume_val;
-        int retract_length = machine_enabled_level && machine_activated ? printer_retraction_distance_when_cut[0] : 0;
+        const double printer_retract_length = printer_retraction_distance_when_cut.empty() ? 18.0 :
+            printer_retraction_distance_when_cut[std::min(physical_nozzle_id, printer_retraction_distance_when_cut.size() - 1)];
+        int retract_length = machine_enabled_level && machine_activated ? int(printer_retract_length) : 0;
 
         unsigned char filament_activated = filament_long_retractions_when_cut[idx];
         double filament_retract_length = filament_retraction_distance_when_cut[idx];
@@ -150,7 +157,7 @@ std::vector<int> get_min_flush_volumes(const DynamicPrintConfig& full_config)
             if (!std::isnan(filament_retract_length))
                 retract_length = (int)filament_retraction_distance_when_cut[idx];
             else
-                retract_length = printer_retraction_distance_when_cut[0];
+                retract_length = int(printer_retract_length);
         }
 
         extra_flush_volume -= PI * 1.75 * 1.75 / 4 * retract_length;
@@ -185,19 +192,24 @@ int calc_flushing_volume_from_rgb(const Slic3r::ColorRGB& from_, const Slic3r::C
 
 void recalc_flushing_volumes(DynamicPrintConfig& config, PresetBundle& preset_bundle)
 {
-    std::vector<double> m_matrix  = (config.option<ConfigOptionFloats>("flush_volumes_matrix"))->values;
-    const std::vector<double>& init_extruders   = (config.option<ConfigOptionFloats>("flush_volumes_vector"))->values;
-    ConfigOptionFloat*         flush_multi_opt  = config.option<ConfigOptionFloat>("flush_multiplier");
-    float                      flush_multiplier = flush_multi_opt ? flush_multi_opt->getFloat() : 1.f;
+    ConfigOptionFloats* flush_matrix_opt = config.option<ConfigOptionFloats>("flush_volumes_matrix");
+    const ConfigOptionStrings* filament_colours_opt = config.option<ConfigOptionStrings>("filament_colour");
+    if (flush_matrix_opt == nullptr || filament_colours_opt == nullptr)
+        return;
 
-    const std::vector<std::string> extruder_colours  = config.option<ConfigOptionStrings>("filament_colour")->values;
-    std::vector<int> m_min_flush_volume  = get_min_flush_volumes(config);
-    unsigned int m_number_of_extruders                 = (int) (sqrt(m_matrix.size()) + 0.001);
+    const std::vector<std::string>& extruder_colours = filament_colours_opt->values;
+    const size_t                    filament_count   = extruder_colours.size();
+    const size_t                    nozzle_count     = std::max(1, preset_bundle.get_printer_extruder_count());
+    const size_t                    block_size      = filament_count * filament_count;
+
+    // Always start from an empty matrix. In particular, callers importing a
+    // third-party project must not retain any values or dimensions from the 3MF.
+    std::vector<double> m_matrix(block_size * nozzle_count, 0.0);
 
     std::vector<Slic3r::ColorRGB> m_colours;
-    for (const std::string& color : extruder_colours) {
+    for (size_t index = 0; index < filament_count; ++index) {
         Slic3r::ColorRGB rgb;
-        Slic3r::decode_color(color, rgb);
+        Slic3r::decode_color(extruder_colours[index], rgb);
         m_colours.push_back(rgb);
     }
 
@@ -205,12 +217,12 @@ void recalc_flushing_volumes(DynamicPrintConfig& config, PresetBundle& preset_bu
     std::vector<std::vector<Slic3r::ColorRGB>> multi_colors;
 
     // Support for multi-color filament
-    for (int i = 0; i < m_colours.size(); ++i) {
+    for (size_t i = 0; i < m_colours.size(); ++i) {
         std::vector<Slic3r::ColorRGB> single_filament;
         if (i < ams_multi_color_filament.size()) {
             if (!ams_multi_color_filament[i].empty()) {
                 std::vector<std::string> colors = ams_multi_color_filament[i];
-                for (int j = 0; j < colors.size(); ++j) {
+                for (size_t j = 0; j < colors.size(); ++j) {
                     Slic3r::ColorRGB rgb;
                     Slic3r::decode_color(colors[j], rgb);                    
                     single_filament.push_back(rgb);
@@ -223,22 +235,35 @@ void recalc_flushing_volumes(DynamicPrintConfig& config, PresetBundle& preset_bu
         multi_colors.push_back(single_filament);
     }
 
-    for (int from_idx = 0; from_idx < multi_colors.size(); ++from_idx) {
-        bool is_from_support = is_support_filament(preset_bundle, from_idx);
-        for (int to_idx = 0; to_idx < multi_colors.size(); ++to_idx) {
-            bool is_to_support = is_support_filament(preset_bundle, to_idx);
-            if (from_idx == to_idx) {
-                ;// edit_boxes[to_idx][from_idx]->SetValue(std::to_string(0));
-            } else {
+    for (size_t nozzle_id = 0; nozzle_id < nozzle_count; ++nozzle_id) {
+        const std::vector<int> min_flush_volume = get_min_flush_volumes(config, nozzle_id);
+        if (min_flush_volume.size() < filament_count) {
+            BOOST_LOG_TRIVIAL(error) << "[FlushVolCalc] Invalid minimum flushing volume data: nozzle_id=" << nozzle_id
+                                       << ", size=" << min_flush_volume.size()
+                                       << ", filament_count=" << filament_count;
+            return;
+        }
+
+        const size_t matrix_offset = nozzle_id * block_size;
+        for (size_t from_idx = 0; from_idx < multi_colors.size(); ++from_idx) {
+            const bool is_from_support = is_support_filament(preset_bundle, int(from_idx));
+            for (size_t to_idx = 0; to_idx < multi_colors.size(); ++to_idx) {
+                const size_t matrix_index = matrix_offset + filament_count * from_idx + to_idx;
+                if (from_idx == to_idx) {
+                    m_matrix[matrix_index] = 0;
+                    continue;
+                }
+
+                const bool is_to_support = is_support_filament(preset_bundle, int(to_idx));
                 int flushing_volume = 0;
                 if (is_to_support) {
                     flushing_volume = Slic3r::g_flush_volume_to_support;
                 } else {
-                    for (int i = 0; i < multi_colors[from_idx].size(); ++i) {
+                    for (size_t i = 0; i < multi_colors[from_idx].size(); ++i) {
                         const Slic3r::ColorRGB& from = multi_colors[from_idx][i];
-                        for (int j = 0; j < multi_colors[to_idx].size(); ++j) {
+                        for (size_t j = 0; j < multi_colors[to_idx].size(); ++j) {
                             const Slic3r::ColorRGB& to     = multi_colors[to_idx][j];
-                            int             volume = calc_flushing_volume_from_rgb(from, to, m_min_flush_volume[from_idx]);
+                            int             volume = calc_flushing_volume_from_rgb(from, to, min_flush_volume[from_idx]);
                             flushing_volume        = std::max(flushing_volume, volume);
                         }
                     }
@@ -248,13 +273,27 @@ void recalc_flushing_volumes(DynamicPrintConfig& config, PresetBundle& preset_bu
                     }
                 }
 
-                m_matrix[m_number_of_extruders * from_idx + to_idx] = flushing_volume;
-                //flushing_volume                                     = int(flushing_volume * get_flush_multiplier());
-                //edit_boxes[to_idx][from_idx]->SetValue(std::to_string(flushing_volume));
+                m_matrix[matrix_index] = flushing_volume;
             }
         }
     }
 
-    config.option<ConfigOptionFloats>("flush_volumes_matrix")->values = m_matrix;    
+    flush_matrix_opt->values = std::move(m_matrix);
+}
+
+void recalc_flushing_volumes(PresetBundle& preset_bundle)
+{
+    DynamicPrintConfig full_config = preset_bundle.full_config();
+    recalc_flushing_volumes(full_config, preset_bundle);
+
+    const ConfigOptionFloats* recalculated_matrix = full_config.option<ConfigOptionFloats>("flush_volumes_matrix");
+    ConfigOptionFloats* project_matrix = preset_bundle.project_config.option<ConfigOptionFloats>("flush_volumes_matrix");
+    if (recalculated_matrix != nullptr && project_matrix != nullptr)
+        project_matrix->values = recalculated_matrix->values;
+
+    // The imported values were discarded, so this remains an automatically
+    // managed matrix and may be recalculated again after a colour change.
+    if (ConfigOptionBool* changed = preset_bundle.project_config.option<ConfigOptionBool>("flush_volumes_changed"))
+        changed->value = false;
 }
 }

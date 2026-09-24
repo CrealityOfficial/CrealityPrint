@@ -1,31 +1,48 @@
 ﻿#include "PrinterMgrView.hpp"
+#include "TimeLapseShareManager.hpp"
+#include "../Device/LanDeviceProbe.hpp"
 
 #include "../../I18N.hpp"
 #include "../AccountDeviceMgr.hpp"
 #include "slic3r/GUI/wxExtensions.hpp"
+#include "slic3r/GUI/MsgDialog.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
 #include "slic3r/GUI/Notebook.hpp"
 #include "slic3r/GUI/PartPlate.hpp"
 #include "libslic3r/Thread.hpp"
+#include "libslic3r/Utils.hpp"
+#include "libslic3r/miniz_extension.hpp"
 #include "libslic3r_version.h"
+#include "slic3r/Utils/TestHelper.hpp"
 
 #include <algorithm>
+#include <atomic>
+#include <cctype>
+#include <cstdint>
+#include <chrono>
+#include <mutex>
 #include <regex>
 #include <string>
+#include <thread>
+#include <utility>
 #include <wx/sizer.h>
+#include <wx/mstream.h>
 #include <wx/string.h>
 #include <wx/toolbar.h>
 #include <wx/textdlg.h>
 #include "wx/evtloop.h"
 #include <wx/thread.h>
+#include <wx/window.h>
 
 #include <slic3r/GUI/Widgets/WebView.hpp>
 #include <wx/webview.h>
 #include "slic3r/GUI/print_manage/RemotePrinterManager.hpp"
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/beast/core/detail/base64.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
+#include <boost/nowide/cstdio.hpp>
 #include <wx/strconv.h>
 #include <sstream>
 #include <vector>
@@ -35,6 +52,7 @@
 #include "slic3r/GUI/print_manage/Utils.hpp"
 #include "slic3r/GUI/print_manage/AccountDeviceMgr.hpp"
 #include "slic3r/GUI/AnalyticsDataUploadManager.hpp"
+#include "slic3r/GUI/SatisfactionSurveyIntegration.hpp"
 #include "wx/event.h"
 #include "../data/DataCenter.hpp"
 #include "../AppMgr.hpp"
@@ -52,24 +70,7 @@
 #endif
 #include "buildinfo.h"
 #include <cmath>
-#include "slic3r/GUI/UploadFile.hpp"
-#include "../../../Utils/TestHelper.hpp"
-#ifdef __WXGTK__
-#include <algorithm>
-#include <cctype>
-#include <fstream>
-#include <memory>
-#include <sstream>
-#include <unordered_map>
-#include <thread>
-#include <atomic>
-#include <boost/asio.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/beast/core/flat_buffer.hpp>
-#include <boost/beast/core/buffers_to_string.hpp>
-
 #include "../AppUtils.hpp"
-#endif
 #include "simple/sendWorkflow/EasyPrintSender.hpp"
 
 namespace pt = boost::property_tree;
@@ -77,349 +78,162 @@ namespace pt = boost::property_tree;
 namespace Slic3r {
 namespace GUI {
 
-#ifdef __WXGTK__
-static wxString GetWebSocketProxyScript()
+struct PrinterMgrView::TimeLapseShareEventBridge
 {
-    const char* script =
-        "(function(){"
-        "if(window.__wsProxyInstalled){return;}"
-        "window.__wsProxyInstalled=true;"
-        "function __install(){"
-        "if(!window.wx||!window.wx.postMessage){return false;}"
-        "var STATE_CONNECTING=0,STATE_OPEN=1,STATE_CLOSING=2,STATE_CLOSED=3;"
-        "function ProxyWebSocket(url,protocols){"
-        "this.url=url;this.protocol='';this.readyState=STATE_CONNECTING;"
-        "this.binaryType='blob';this.extensions='';this.bufferedAmount=0;"
-        "this.onopen=null;this.onmessage=null;this.onclose=null;this.onerror=null;"
-        "var id=ProxyWebSocket.__nextId++;this.__id=id;ProxyWebSocket.__sockets[id]=this;"
-        "ProxyWebSocket.__send({type:'open',id:id,url:url,protocols:protocols});"
-        "}"
-        "ProxyWebSocket.__nextId=1;"
-        "ProxyWebSocket.__sockets={};"
-        "ProxyWebSocket.__send=function(msg){"
-        "try{window.wx.postMessage(JSON.stringify({command:'ws_proxy',payload:msg}));}catch(e){}"
-        "};"
-        "ProxyWebSocket.prototype.send=function(data){"
-        "if(this.readyState!==STATE_OPEN&&this.readyState!==STATE_CONNECTING){throw new Error('WebSocket is not open');}"
-        "ProxyWebSocket.__send({type:'send',id:this.__id,data:String(data)});"
-        "};"
-        "ProxyWebSocket.prototype.close=function(code,reason){"
-        "if(this.readyState===STATE_CLOSING||this.readyState===STATE_CLOSED){return;}"
-        "this.readyState=STATE_CLOSING;"
-        "ProxyWebSocket.__send({type:'close',id:this.__id,code:code,reason:reason});"
-        "};"
-        "ProxyWebSocket.CONNECTING=STATE_CONNECTING;"
-        "ProxyWebSocket.OPEN=STATE_OPEN;"
-        "ProxyWebSocket.CLOSING=STATE_CLOSING;"
-        "ProxyWebSocket.CLOSED=STATE_CLOSED;"
-        "ProxyWebSocket.__dispatch=function(evt){"
-        "var s=ProxyWebSocket.__sockets[evt.id];if(!s){return;}"
-        "switch(evt.event){"
-        "case'open':s.readyState=STATE_OPEN;if(typeof s.onopen==='function'){s.onopen({type:'open',target:s});}break;"
-        "case'message':if(typeof s.onmessage==='function'){s.onmessage({type:'message',data:evt.data,target:s});}break;"
-        "case'close':s.readyState=STATE_CLOSED;if(typeof s.onclose==='function'){s.onclose({type:'close',code:evt.code||1000,reason:evt.reason||'',wasClean:!!evt.wasClean,target:s});}delete ProxyWebSocket.__sockets[evt.id];break;"
-        "case'error':if(typeof s.onerror==='function'){s.onerror({type:'error',message:evt.message||'',target:s});}break;"
-        "}"
-        "};"
-        "window.WebSocket=ProxyWebSocket;"
-        "window.__nativeWebSocketCallback=function(evt){ProxyWebSocket.__dispatch(evt);};"
-        "return true;"
-        "}"
-        "if(!__install()){"
-        "var __t=0,__max=200;"
-        "var __timer=setInterval(function(){"
-        "if(__install()||++__t>=__max){clearInterval(__timer);}"
-        "},50);"
-        "}"
-        "})();";
-    return wxString::FromUTF8(script);
-}
-
-namespace {
-
-using tcp = boost::asio::ip::tcp;
-namespace websocket = boost::beast::websocket;
-
-struct WsProxySession : public std::enable_shared_from_this<WsProxySession>
-{
-    int id;
-    std::string url;
-    PrinterMgrView* owner;
-    std::shared_ptr<boost::asio::io_context> ioc;
-    std::unique_ptr<websocket::stream<tcp::socket>> ws;
-    boost::beast::flat_buffer buffer;
-    std::thread thread;
-    std::atomic<bool> closed;
-
-    WsProxySession(int i, const std::string& u, PrinterMgrView* o)
-        : id(i)
-        , url(u)
-        , owner(o)
-        , ioc(std::make_shared<boost::asio::io_context>())
-        , closed(false)
-    {
-    }
-
-    ~WsProxySession()
-    {
-        stop();
-    }
-
-    void start()
-    {
-        auto self = shared_from_this();
-        thread = std::thread([self]() { self->run(); });
-    }
-
-    static void parse_ws_url(const std::string& raw_url, std::string& host, std::string& port, std::string& target)
-    {
-        std::string tmp = raw_url;
-        if (tmp.rfind("ws://", 0) == 0)
-            tmp = tmp.substr(5);
-        else if (tmp.rfind("wss://", 0) == 0)
-            tmp = tmp.substr(6);
-        std::string hostport = tmp;
-        target = "/";
-        std::size_t pos_slash = tmp.find('/');
-        if (pos_slash != std::string::npos) {
-            hostport = tmp.substr(0, pos_slash);
-            target = tmp.substr(pos_slash);
-            if (target.empty())
-                target = "/";
-        }
-        std::size_t pos_colon = hostport.find(':');
-        if (pos_colon == std::string::npos) {
-            host = hostport;
-            port = "80";
-        } else {
-            host = hostport.substr(0, pos_colon);
-            port = hostport.substr(pos_colon + 1);
-            if (port.empty())
-                port = "80";
-        }
-    }
-
-    void run()
-    {
-        try {
-            std::string host;
-            std::string port;
-            std::string target;
-            parse_ws_url(url, host, port, target);
-            tcp::resolver resolver(*ioc);
-            ws.reset(new websocket::stream<tcp::socket>(*ioc));
-            auto results = resolver.resolve(host, port);
-            boost::asio::connect(ws->next_layer(), results.begin(), results.end());
-            ws->handshake(host, target);
-            on_open();
-            do_read();
-            ioc->run();
-        } catch (const std::exception& e) {
-            on_error(e.what());
-            on_close(1006, e.what(), false);
-        }
-    }
-
-    void do_read()
-    {
-        auto self = shared_from_this();
-        ws->async_read(buffer, [self](const boost::system::error_code& ec, std::size_t) {
-            if (ec) {
-                bool wasClean = ec == websocket::error::closed;
-                int code = wasClean ? 1000 : 1006;
-                self->on_close(code, ec.message(), wasClean);
-                return;
-            }
-            std::string data = boost::beast::buffers_to_string(self->buffer.data());
-            self->buffer.consume(self->buffer.size());
-            self->on_message(data);
-            self->do_read();
-        });
-    }
-
-    void send_text(const std::string& text)
-    {
-        auto self = shared_from_this();
-        boost::asio::post(*ioc, [self, text]() {
-            if (!self->ws)
-                return;
-            self->ws->async_write(boost::asio::buffer(text), [self](const boost::system::error_code& ec, std::size_t) {
-                if (ec)
-                    self->on_error(ec.message());
-            });
-        });
-    }
-
-    void close(int code, const std::string& reason)
-    {
-        auto self = shared_from_this();
-        boost::asio::post(*ioc, [self, code, reason]() {
-            if (!self->ws)
-                return;
-            boost::beast::websocket::close_reason cr;
-            cr.code = static_cast<boost::beast::websocket::close_code>(code == 0 ? 1000 : code);
-            cr.reason = reason;
-            self->ws->async_close(cr, [self](const boost::system::error_code& ec) {
-                if (ec)
-                    self->on_error(ec.message());
-                self->ioc->stop();
-            });
-        });
-    }
-
-    void stop()
-    {
-        if (ioc)
-            ioc->stop();
-        if (thread.joinable())
-            thread.join();
-    }
-
-    void on_open()
-    {
-        send_event("open", "", 0, "", true);
-    }
-
-    void on_message(const std::string& data)
-    {
-        send_event("message", data, 0, "", true);
-    }
-
-    void on_error(const std::string& message)
-    {
-        send_event("error", "", 0, message, false);
-    }
-
-    void on_close(int code, const std::string& reason, bool wasClean)
-    {
-        if (closed.exchange(true))
-            return;
-        send_event("close", "", code, reason, wasClean);
-    }
-
-    void send_event(const std::string& event, const std::string& data, int code, const std::string& reason, bool wasClean);
+    std::atomic<bool> active {true};
+    PrinterMgrView* view {nullptr};
 };
 
-static std::mutex g_ws_proxy_mutex;
-static std::unordered_map<PrinterMgrView*, std::unordered_map<int, std::shared_ptr<WsProxySession>>> g_ws_proxy_sessions;
-
-static void send_ws_event_to_js(PrinterMgrView* view,
-                                int id,
-                                const std::string& event,
-                                const std::string& data,
-                                int code,
-                                const std::string& reason,
-                                bool wasClean)
+static std::string json_string_value(const nlohmann::json& value, const char* key)
 {
-    if (!view)
+    const auto it = value.find(key);
+    return it != value.end() && it->is_string() ? it->get<std::string>() : std::string();
+}
+
+static nlohmann::json gcode_file_size_bytes(const std::string& file_path)
+{
+    if (file_path.empty())
+        return nullptr;
+
+    boost::system::error_code ec;
+    const boost::filesystem::path path(file_path);
+    if (!boost::filesystem::is_regular_file(path, ec) || ec)
+        return nullptr;
+
+    const auto file_size = boost::filesystem::file_size(path, ec);
+    if (ec)
+        return nullptr;
+
+    return static_cast<std::uint64_t>(file_size);
+}
+
+static std::string normalize_device_mac(const std::string& mac)
+{
+    std::string normalized;
+    normalized.reserve(mac.size());
+    for (unsigned char ch : mac) {
+        if (ch == ':' || ch == '-' || ch == '.' || std::isspace(ch))
+            continue;
+        if (!std::isxdigit(ch))
+            return {};
+        normalized.push_back(static_cast<char>(std::toupper(ch)));
+    }
+    return normalized.size() == 12 ? normalized : std::string();
+}
+
+static std::string json_identifier_value(const nlohmann::json& value, const char* key)
+{
+    const auto it = value.find(key);
+    if (it == value.end())
+        return {};
+    if (it->is_string())
+        return it->get<std::string>();
+    if (it->is_number_unsigned())
+        return std::to_string(it->get<std::uint64_t>());
+    if (it->is_number_integer())
+        return std::to_string(it->get<std::int64_t>());
+    return {};
+}
+
+static std::string make_cloud_account_session(const std::string& user_id, const std::string& token)
+{
+    if (user_id.empty() || token.empty())
+        return {};
+    return std::to_string(user_id.size()) + ':' + user_id + token;
+}
+
+static std::string current_cloud_account_session()
+{
+    try {
+        const boost::filesystem::path user_file = boost::filesystem::path(Slic3r::data_dir()) / "user_info.json";
+        if (!boost::filesystem::is_regular_file(user_file))
+            return {};
+
+        nlohmann::json user;
+        boost::nowide::ifstream input(user_file.string());
+        input >> user;
+        return make_cloud_account_session(user.value("userId", std::string()),
+                                          user.value("token", std::string()));
+    } catch (...) {
+        return {};
+    }
+}
+
+struct DeviceWebViewHandle {
+    wxWindowID id {wxID_NONE};
+    std::uintptr_t address {0};
+};
+
+static DeviceWebViewHandle make_device_webview_handle(wxWebView* browser)
+{
+    if (!wxIsMainThread() || browser == nullptr)
+        return {};
+
+    return {browser->GetId(), reinterpret_cast<std::uintptr_t>(static_cast<wxWindow*>(browser))};
+}
+
+static wxWebView* resolve_device_webview(const DeviceWebViewHandle& handle)
+{
+    if (!wxIsMainThread() || handle.address == 0)
+        return nullptr;
+
+    wxWindow* window = wxWindow::FindWindowById(handle.id);
+    if (window == nullptr || reinterpret_cast<std::uintptr_t>(window) != handle.address)
+        return nullptr;
+
+    wxWebView* browser = dynamic_cast<wxWebView*>(window);
+    return browser != nullptr && !browser->IsBeingDeleted() ? browser : nullptr;
+}
+
+static void post_device_webview_command(const DeviceWebViewHandle& weak_browser,
+                                        const std::string& command,
+                                        nlohmann::json data)
+{
+    if (wxTheApp == nullptr)
         return;
-    nlohmann::json j;
-    j["id"] = id;
-    j["event"] = event;
-    if (!data.empty())
-        j["data"] = data;
-    if (code != 0)
-        j["code"] = code;
-    if (!reason.empty())
-        j["reason"] = reason;
-    j["wasClean"] = wasClean;
-    std::string payload = j.dump();
-    std::string encoded = RemotePrint::Utils::url_encode(payload);
-    wxString script = wxString::Format("window.__nativeWebSocketCallback(JSON.parse(decodeURIComponent('%s')));", encoded);
-    wxString copy = script;
-    wxTheApp->CallAfter([view, copy]() {
-        try {
-            view->run_script(copy.ToStdString());
-        } catch (...) {
-        }
+
+    nlohmann::json message;
+    message["command"] = command;
+    message["data"] = std::move(data);
+    const std::string encoded = RemotePrint::Utils::url_encode(message.dump());
+    wxTheApp->CallAfter([weak_browser, encoded] {
+        wxWebView* browser = resolve_device_webview(weak_browser);
+        if (browser == nullptr)
+            return;
+        DM::AppUtils::PostMsg(
+            browser, wxString::Format("window.handleStudioCmd('%s');", encoded).ToStdString());
     });
 }
 
-void WsProxySession::send_event(const std::string& event,
-                                const std::string& data,
-                                int code,
-                                const std::string& reason,
-                                bool wasClean)
+static bool has_printable_gcode_in_3mf(const std::string& file_path)
 {
-    send_ws_event_to_js(owner, id, event, data, code, reason, wasClean);
-}
+    mz_zip_archive archive;
+    mz_zip_zero_struct(&archive);
+    if (!Slic3r::open_zip_reader(&archive, file_path))
+        return false;
 
-static void handle_ws_proxy_command(PrinterMgrView* view, const nlohmann::json& payload)
-{
-    if (!view)
-        return;
-    if (!payload.is_object())
-        return;
-    std::string type = payload.value("type", "");
-    int id = payload.value("id", -1);
-    if (id <= 0)
-        return;
-    if (type == "open") {
-        std::string url = payload.value("url", "");
-        auto session = std::make_shared<WsProxySession>(id, url, view);
-        {
-            std::lock_guard<std::mutex> lock(g_ws_proxy_mutex);
-            g_ws_proxy_sessions[view][id] = session;
-        }
-        session->start();
-    } else if (type == "send") {
-        std::string data = payload.value("data", "");
-        std::shared_ptr<WsProxySession> session;
-        {
-            std::lock_guard<std::mutex> lock(g_ws_proxy_mutex);
-            auto it_view = g_ws_proxy_sessions.find(view);
-            if (it_view == g_ws_proxy_sessions.end())
-                return;
-            auto it = it_view->second.find(id);
-            if (it == it_view->second.end())
-                return;
-            session = it->second;
-        }
-        if (session)
-            session->send_text(data);
-    } else if (type == "close") {
-        int code = 0;
-        if (payload.contains("code") && payload["code"].is_number_integer())
-            code = payload["code"].get<int>();
-        std::string reason = payload.value("reason", "");
-        std::shared_ptr<WsProxySession> session;
-        {
-            std::lock_guard<std::mutex> lock(g_ws_proxy_mutex);
-            auto it_view = g_ws_proxy_sessions.find(view);
-            if (it_view == g_ws_proxy_sessions.end())
-                return;
-            auto it = it_view->second.find(id);
-            if (it == it_view->second.end())
-                return;
-            session = it->second;
-            it_view->second.erase(it);
-        }
-        if (session)
-            session->close(code, reason);
-    }
-}
+    bool found = false;
+    const mz_uint file_count = mz_zip_reader_get_num_files(&archive);
+    for (mz_uint index = 0; index < file_count; ++index) {
+        mz_zip_archive_file_stat stat;
+        if (!mz_zip_reader_file_stat(&archive, index, &stat) || stat.m_is_directory)
+            continue;
 
-static void cleanup_ws_proxy_for(PrinterMgrView* view)
-{
-    std::unordered_map<int, std::shared_ptr<WsProxySession>> sessions;
-    {
-        std::lock_guard<std::mutex> lock(g_ws_proxy_mutex);
-        auto it = g_ws_proxy_sessions.find(view);
-        if (it != g_ws_proxy_sessions.end()) {
-            std::cout << "[ws_proxy] cleanup view=" << view
-                      << " session_count=" << it->second.size() << std::endl;
-            sessions.swap(it->second);
-            g_ws_proxy_sessions.erase(it);
+        const std::string name = stat.m_filename;
+        if (boost::istarts_with(name, "Metadata/") && boost::iends_with(name, ".gcode")) {
+            found = true;
+            break;
         }
     }
-    for (auto& kv : sessions) {
-        if (kv.second)
-            kv.second->close(1001, "view destroyed");
-    }
+
+    Slic3r::close_zip_reader(&archive);
+    return found;
 }
 
-} 
-#endif
+/*
+* 1.获取ip后,先验证tcp能否连上,httpsOpen/httpOpen
+* 2.再连接对应的https 或 http
+*/
 
 PrinterMgrView::PrinterMgrView(wxWindow *parent)
         : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
@@ -434,23 +248,73 @@ PrinterMgrView::PrinterMgrView(wxWindow *parent)
         wxLogError("Could not init m_browser");
         return;
     }
+    const DeviceWebViewHandle browser_handle = make_device_webview_handle(m_browser);
+    m_browser_handle_id.store(browser_handle.id, std::memory_order_release);
+    m_browser_handle_address.store(browser_handle.address, std::memory_order_release);
+#if defined(__linux__)
+    WebView::ConfigureHardwareAccelerationForMjpeg(m_browser);
+#endif
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " m_browser address: " << (void*) m_browser;
 
-#ifdef __WXGTK__
-    bool uos_env = DM::is_uos_system();
-    std::cout << "[PrinterMgrView::PrinterMgrView] is_uos_system=" << (uos_env ? "true" : "false") << std::endl;
-    if (uos_env) {
-        wxString script = GetWebSocketProxyScript();
-        if (!script.IsEmpty()) {
-            std::cout << "[PrinterMgrView::PrinterMgrView] AddUserScript ws_proxy" << std::endl;
-            m_browser->AddUserScript(script);
-        } else {
-            std::cout << "[PrinterMgrView::PrinterMgrView] ws_proxy script empty, skip" << std::endl;
-        }
+    m_time_lapse_share_event_bridge = std::make_shared<TimeLapseShareEventBridge>();
+    m_time_lapse_share_event_bridge->view = this;
+    std::weak_ptr<TimeLapseShareEventBridge> weak_share_bridge = m_time_lapse_share_event_bridge;
+    m_time_lapse_share_manager = std::make_unique<TimeLapseShare::TimeLapseShareManager>(
+        [weak_share_bridge](const TimeLapseShare::ShareEvent& event) {
+            const auto bridge = weak_share_bridge.lock();
+            if (!bridge || !bridge->active.load(std::memory_order_acquire) || wxTheApp == nullptr)
+                return;
+
+            wxTheApp->CallAfter([bridge, event] {
+                if (bridge->active.load(std::memory_order_acquire) && bridge->view != nullptr)
+                    bridge->view->send_time_lapse_share_event(event);
+            });
+        },
+        [] { return current_cloud_account_session(); });
+
+    // Reuse the weak UI lifetime bridge: queued events cannot outlive this view.
+    m_cloud_mqtt = std::make_unique<CloudDeviceMqttSession>(MakeCloudDeviceMqttTransport,
+        [weak_share_bridge](CloudDeviceMqttSession::Event event) {
+            auto bridge = weak_share_bridge.lock();
+            if (!bridge || !bridge->active.load() || wxTheApp == nullptr) return;
+            wxTheApp->CallAfter([bridge, event = std::move(event)] {
+                if (!bridge->active.load() || !bridge->view) return;
+                auto* view = bridge->view;
+                // Account/token may have changed while this event was queued.
+                view->initMqtt();
+                if (!view->m_cloud_mqtt || !view->m_cloud_mqtt->IsCurrent(event.generation)) return;
+                if (event.state == "message") {
+                    view->processMqttMessage({}, event.payload);
+                    return;
+                }
+                BOOST_LOG_TRIVIAL(info) << "[CloudDeviceMQTT] state=" << event.state
+                    << " generation=" << event.generation << " attempt=" << event.attempt
+                    << " retry_ms=" << event.retry_delay.count() << " error=" << event.error;
+                nlohmann::json command = {{"command", "cloud_device_mqtt_state"}, {"data", {
+                    {"address", event.address}, {"userId", event.user_id}, {"region", event.region},
+                    {"state", event.state}, {"generation", event.generation}, {"error", event.error}}}};
+                if (view->m_browser)
+                    view->run_script(wxString::Format("window.handleStudioCmd('%s');",
+                        RemotePrint::Utils::url_encode(command.dump(-1, ' ', true))).ToStdString());
+            });
+        });
+    m_cloud_mqtt_timer.SetOwner(this);
+    Bind(wxEVT_TIMER, [this](wxTimerEvent&) { initMqtt(); }, m_cloud_mqtt_timer.GetId());
+    m_cloud_mqtt_timer.Start(2000);
+
+    m_ws_proxy = std::make_unique<WebSocketProxy::Manager>(
+        [this](const std::string& script) {
+            if (m_browser)
+                run_script(script);
+        });
+    wxString ws_proxy_script = WebSocketProxy::GetWebSocketProxyScript();
+    if (!ws_proxy_script.IsEmpty()) {
+        std::cout << "[PrinterMgrView::PrinterMgrView] AddUserScript ws_proxy, policy=lan_device"
+                  << std::endl;
+        m_browser->AddUserScript(ws_proxy_script);
     } else {
-        std::cout << "[PrinterMgrView::PrinterMgrView] skip ws_proxy script, not UOS" << std::endl;
+        std::cout << "[PrinterMgrView::PrinterMgrView] ws_proxy script empty, skip" << std::endl;
     }
-#endif
 
     m_browser->Bind(wxEVT_WEBVIEW_ERROR, &PrinterMgrView::OnError, this);
     m_browser->Bind(wxEVT_WEBVIEW_LOADED, &PrinterMgrView::OnLoaded, this);
@@ -480,6 +344,10 @@ PrinterMgrView::PrinterMgrView(wxWindow *parent)
 
     RegisterHandler("request_user_operation_state", [this](const nlohmann::json& json_data) {
         this->handle_request_user_operation_state(json_data);
+    });
+
+    RegisterHandler("request_device_address_correction", [this](const nlohmann::json&) {
+        this->correct_device();
     });
 
     RegisterHandler("get_user_custom_color_list", [this](const nlohmann::json& json_data) {
@@ -547,171 +415,106 @@ inline int get_current_milliseconds(void) {
 }
 void PrinterMgrView::destoryMqtt()
 {
-    if(client)
-    {
-        try {
-            if(client->isConnected())
-            {
-                client->disconnect();
-            }
-        } catch (const mqtt::exception& exc) {
-            std::cerr << "destoryMqtt failed: " << exc.what() << std::endl;
-        }
-        delete client;
-        client = nullptr;
+    m_cloud_mqtt_timer.Stop();
+    if (m_cloud_mqtt) {
+        m_cloud_mqtt->Shutdown();
+        m_cloud_mqtt.reset();
     }
+    m_curDeviceDN.clear();
+    m_cloud_mqtt_user.clear();
 }
+
 void PrinterMgrView::initMqtt()
 {
-    std::map<std::string, std::string> extra_headers = Slic3r::GUI::wxGetApp().get_extra_header();
-    std::string duid = "";
-    std::string plat = "11";
-    std::string appVer = "";
-    std::string userid;
-    std::string token;
-    if(extra_headers.count("__CXY_DUID_"))
-    {
-        duid = extra_headers["__CXY_DUID_"];
-        appVer = extra_headers["__CXY_APP_VER_"];
-       userid = extra_headers["__CXY_UID_"];
-       token = extra_headers["__CXY_TOKEN_"];
-
+    if (!m_cloud_mqtt) return;
+    // Capture credentials only on the UI thread; workers never read GUI_App.
+    const auto& user = wxGetApp().get_user();
+    if (!user.bLogin || user.userId.empty() || user.token.empty()) {
+        m_curDeviceDN.clear();
+        m_cloud_mqtt_user.clear();
+        m_cloud_mqtt->SetTarget({}, {});
+        return;
     }
-    // Multiple opened instances share the same duid, which makes the MQTT username
-    // identical; the broker then disconnects the previously connected session.
-    // The local webview server port (e.g. 13666) auto-increments per instance and is
-    // therefore process-unique. The server splits the username by ':' into 3 segments,
-    // so the port must be embedded inside the duid segment (joined with '_') instead of
-    // added as an extra segment. Result: "duid_port:plat:appVer".
-    int server_port = wxGetApp().get_server_port();
-    std::string duid_with_port = duid + "_" + std::to_string(server_port);
-    std::string username= (boost::format("%s:%s:%s")%duid_with_port%plat%appVer).str();//"crealityprint_13666:11:6.2.0";
-    std::string password=(boost::format("%s:%s")%userid%token).str();//"3656792567:083fa893b41e1af54dbc32396e41b605986df75622eb6e64b897cea378203f7d";
-    bool connected_ = false;
-    std::string region = wxGetApp().app_config->get("region");
-    if(region=="China")
-    {
-        client = new MQTTClient("tcp://mqtt.crealitycloud.cn:1883", "sync_client_"+std::to_string(get_current_milliseconds()));
-    }else{
-        client = new MQTTClient("tcp://mqtt.crealitycloud.com:1883", "sync_client_"+std::to_string(get_current_milliseconds()));
-    }
-    
-    try {
-            client->setConnectionCallback([](bool connected) {
-                std::cout << "Connection status: " << (connected ? "Connected" : "Disconnected") << std::endl;
-            });
-            
-            // ???????????
-            if (!client->connect(username,password)) {
-                std::cerr << "Failed to connect to MQTT server" << std::endl;
-                return ;
-            }
-            
-             // ???????????�??
-            const std::string publishTopic = "v1/devices/me/rpc/request/";
-            bool ret =client->subscribe(publishTopic+std::string("+"), 0, [&](const std::string& topic, const std::string& payload) {
-                std::cout << "Received message on topic '" << topic << "': " << payload << std::endl;
-                wxTheApp->CallAfter([this, topic,payload]() {
-                    processMqttMessage(topic,payload);
-                });
-            });
-            if(!ret)
-            {
-                return;
-            }
-            
-            return ;
-            
-    } catch (const mqtt::exception& exc) {
-            std::cerr << "Connect failed: " << exc.what() << std::endl;
-            return ;
-        }
+    if (!m_cloud_mqtt_user.empty() && m_cloud_mqtt_user != user.userId)
+        m_curDeviceDN.clear();
+    m_cloud_mqtt_user = user.userId;
+    const auto headers = wxGetApp().get_extra_header();
+    auto header = [&](const char* key) {
+        const auto it = headers.find(key);
+        return it == headers.end() ? std::string() : it->second;
+    };
+    CloudDeviceMqttSession::Config config;
+    config.user_id = user.userId;
+    config.region = wxGetApp().app_config->get("region");
+    config.broker = config.region == "China" ? "tcp://mqtt.crealitycloud.cn:1883" : "tcp://mqtt.crealitycloud.com:1883";
+    const std::string instance = header("__CXY_DUID_") + "_" + std::to_string(wxGetApp().get_server_port());
+    config.client_id = "cloud_device_" + std::to_string(Slic3r::get_current_pid());
+    config.username = instance + ":11:" + header("__CXY_APP_VER_");
+    config.password = user.userId + ":" + user.token;
+    m_cloud_mqtt->SetTarget(std::move(config), m_curDeviceDN);
 }
-void PrinterMgrView::processMqttMessage(std::string topic,std::string playload)
+
+void PrinterMgrView::processMqttMessage(std::string, std::string payload)
 {
-    if(client && client->isConnected())
-    {
-        if (!m_browser->IsBusy())
-         {
-            try {
-                // Convert payload (possibly ANSI/GBK) to UTF-8 for downstream JS using wxWidgets.
-                // Base64-encode to keep transport safe.
-                std::string encoded_payload;
-                if (!playload.empty()) {
-                    const std::size_t encoded_size = boost::beast::detail::base64::encoded_size(playload.size());
-                    encoded_payload.resize(encoded_size);
-                    boost::beast::detail::base64::encode(&encoded_payload[0], playload.data(), playload.size());
-                }
-                nlohmann::json commandJson;
-                commandJson["command"] = "mqtt_message";
-                commandJson["data"]    = encoded_payload;
-
-                const auto commandStr = commandJson.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
-                wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandStr));
-                run_script(strJS.ToStdString());
-            } catch (const std::exception& e) {
-                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " failed to process MQTT payload: " << e.what();
-            }
-        }
-        std::string requestId = topic.substr(26);
-        nlohmann::json reply;
-        reply["code"] = 0;
-        client->publish(std::string("v1/devices/me/rpc/response/")+requestId, reply.dump(),0);
-    }
-    
+    // Already matched to the active account, session and device by the session bridge.
+    if (!m_browser) return;
+    std::string encoded(boost::beast::detail::base64::encoded_size(payload.size()), '\0');
+    if (!payload.empty())
+        boost::beast::detail::base64::encode(encoded.data(), payload.data(), payload.size());
+    nlohmann::json command = {{"command", "mqtt_message"}, {"data", encoded}};
+    run_script(wxString::Format("window.handleStudioCmd('%s');",
+        RemotePrint::Utils::url_encode(command.dump(-1, ' ', true))).ToStdString());
 }
+
 void PrinterMgrView::setMqttDeviceDN(std::string dn)
 {
-    if(!client)
-    {
-       initMqtt(); 
-    }
-    if(client && client->isConnected())
-    {
-        if(m_curDeviceDN!="")
-        {
-            nlohmann::json dns;
-            dns.push_back(m_curDeviceDN);
-            nlohmann::json params;
-            params["delMonitorDevice"]["dn"]= dns;
-            nlohmann::json payload;
-            payload["method"] = "set";
-            payload["params"] = params;
-            client->publish(std::string("v1/devices/me/attributes/")+std::to_string(get_current_milliseconds()), payload.dump(),0);
-        }
-        m_curDeviceDN = dn;
-        nlohmann::json dns;
-        dns.push_back(m_curDeviceDN);
-        nlohmann::json params;
-        params["addMonitorDevice"]["dn"]= dns;
-        nlohmann::json payload;
-        payload["method"] = "set";
-        payload["params"] = params;
-        client->publish(std::string("v1/devices/me/attributes/")+std::to_string(get_current_milliseconds()), payload.dump(),0);
-    }
- }
+    // Refresh account first, then retain the requested target even if connection fails.
+    initMqtt();
+    m_curDeviceDN = std::move(dn);
+    initMqtt();
+}
 PrinterMgrView::~PrinterMgrView()
 {
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " Address: " << (void*) this;
+    m_browser_handle_address.store(0, std::memory_order_release);
+    m_browser_handle_id.store(wxID_NONE, std::memory_order_release);
+    SetEvtHandlerEnabled(false);
+    m_cloud_mqtt_timer.Stop();
+    m_scanExit.store(true, std::memory_order_release);
+    if (m_browser) {
+        m_browser->Unbind(wxEVT_WEBVIEW_ERROR, &PrinterMgrView::OnError, this);
+        m_browser->Unbind(wxEVT_WEBVIEW_LOADED, &PrinterMgrView::OnLoaded, this);
+        Unbind(wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, &PrinterMgrView::OnScriptMessage, this, m_browser->GetId());
+    }
+    if (m_time_lapse_share_event_bridge) {
+        m_time_lapse_share_event_bridge->active.store(false, std::memory_order_release);
+        m_time_lapse_share_event_bridge->view = nullptr;
+    }
+    if (m_time_lapse_share_manager) {
+        m_time_lapse_share_manager->Shutdown();
+        m_time_lapse_share_manager.reset();
+    }
+    m_time_lapse_share_event_bridge.reset();
     UnregisterHandler("save_user_operation_state");
     UnregisterHandler("request_user_operation_state");
     UnregisterHandler("get_user_custom_color_list");
     UnregisterHandler("set_user_custom_color_list");
+    if (m_ws_proxy) {
+        m_ws_proxy->Shutdown();
+        m_ws_proxy.reset();
+    }
 #ifdef __WXGTK__
     m_freshTimer->Stop();
     m_browser->Stop();
     m_browser->RemoveScriptMessageHandler("wx");
 #endif
-
-#ifdef __WXGTK__
-    cleanup_ws_proxy_for(this);
-#endif
     DM::AppMgr::Ins().UnRegister(m_browser);
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " Start";
-    SetEvtHandlerEnabled(false);
-    m_scanExit = true;
     destoryMqtt();
-    m_scanPoolThread.join();
+    if (m_scanPoolThread.joinable())
+        m_scanPoolThread.join();
+    if (m_deviceScanThread.joinable())
+        m_deviceScanThread.join();
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " End";
 }
 
@@ -807,21 +610,14 @@ void PrinterMgrView::SendAPIKey()
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << "[LOAD_URL_ACTION] START. webView=" << (void*) m_browser
                                << ", Backend Ptr BEFORE: " << backend_before ;
     m_browser->AddUserScript(script);
-#ifdef __WXGTK__
-    bool uos_env = DM::is_uos_system();
-    std::cout << "[PrinterMgrView::SendAPIKey] is_uos_system=" << (uos_env ? "true" : "false") << std::endl;
-    if (uos_env) {
-        wxString ws_script = GetWebSocketProxyScript();
-        if (!ws_script.IsEmpty()) {
-            std::cout << "[PrinterMgrView::SendAPIKey] AddUserScript ws_proxy" << std::endl;
-            m_browser->AddUserScript(ws_script);
-        } else {
-            std::cout << "[PrinterMgrView::SendAPIKey] ws_proxy script empty, skip" << std::endl;
-        }
+    wxString ws_script = WebSocketProxy::GetWebSocketProxyScript();
+    if (!ws_script.IsEmpty()) {
+        std::cout << "[PrinterMgrView::SendAPIKey] AddUserScript ws_proxy, policy=lan_device"
+                  << std::endl;
+        m_browser->AddUserScript(ws_script);
     } else {
-        std::cout << "[PrinterMgrView::SendAPIKey] skip ws_proxy script, not UOS" << std::endl;
+        std::cout << "[PrinterMgrView::SendAPIKey] ws_proxy script empty, skip" << std::endl;
     }
-#endif
     m_browser->Reload();
 
     void* backend_after = m_browser->GetNativeBackend();
@@ -903,20 +699,22 @@ void PrinterMgrView::OnLoaded(wxWebViewEvent &evt)
     DM::DeviceMgr::Ins().Load();
     AccountDeviceMgr::getInstance().load();
     json groupData = DM::DeviceMgr::Ins().GetData();
-    for (auto it = groupData["groups"].begin(); it != groupData["groups"].end(); it++)
-        {
-            auto& group = it.value();
-            if (group.contains("list"))
+    {
+        std::lock_guard<std::mutex> device_pool_lock(m_devicePoolMutex);
+        for (auto it = groupData["groups"].begin(); it != groupData["groups"].end(); it++)
             {
-                for (auto jt = group["list"].begin(); jt != group["list"].end(); jt++)
+                auto& group = it.value();
+                if (group.contains("list"))
                 {
-                    std::string address = jt.value()["address"].get<std::string>();
-                    std::string mac = jt.value()["mac"].get<std::string>();
-                    m_devicePool[mac] = address;
+                    for (auto jt = group["list"].begin(); jt != group["list"].end(); jt++)
+                    {
+                        std::string address = jt.value()["address"].get<std::string>();
+                        std::string mac = jt.value()["mac"].get<std::string>();
+                        m_devicePool[mac] = address;
+                    }
                 }
             }
-        }
-    correct_device();
+    }
     //setMqttDeviceDN("61643612032A19");
 }
 
@@ -996,12 +794,29 @@ bool PrinterMgrView::request_check_upload_file_ready(const std::string& printer_
         "window.handleStudioCmd('%s');",
         RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
 
-    wxGetApp().CallAfter([this, strJS]() {
+    const std::uintptr_t browser_address = m_browser_handle_address.load(std::memory_order_acquire);
+    const DeviceWebViewHandle weak_browser {
+        m_browser_handle_id.load(std::memory_order_acquire),
+        browser_address
+    };
+    wxGetApp().CallAfter([weak_browser, strJS, request_id]() {
         try {
-            if (this == nullptr || this->IsBeingDeleted() || m_browser == nullptr)
+            wxWebView* browser = resolve_device_webview(weak_browser);
+            if (browser == nullptr) {
+                BOOST_LOG_TRIVIAL(error) << "[UPLOAD_FILE_READY][dispatch_failed]"
+                                         << " request_id=" << request_id
+                                         << ", reason=device_webview_unavailable";
                 return;
-            run_script(strJS.ToStdString());
+            }
+            WebView::RunScript(browser, strJS.ToStdString());
+        } catch (const std::exception& e) {
+            BOOST_LOG_TRIVIAL(error) << "[UPLOAD_FILE_READY][dispatch_failed]"
+                                     << " request_id=" << request_id
+                                     << ", exception=" << e.what();
         } catch (...) {
+            BOOST_LOG_TRIVIAL(error) << "[UPLOAD_FILE_READY][dispatch_failed]"
+                                     << " request_id=" << request_id
+                                     << ", exception=unknown";
         }
     });
 
@@ -1033,11 +848,147 @@ bool PrinterMgrView::request_check_upload_file_ready(const std::string& printer_
                             << ", message=" << message;
     return ready;
 }
+
+void PrinterMgrView::handle_start_time_lapse_share(const nlohmann::json& json_data)
+{
+    TimeLapseShare::ShareRequest request;
+    request.request_id = json_identifier_value(json_data, "requestId");
+    request.address = json_string_value(json_data, "address");
+    request.video = json_string_value(json_data, "video");
+    request.video_id = json_identifier_value(json_data, "videoid");
+    if (request.video_id.empty())
+        request.video_id = json_identifier_value(json_data, "videoId");
+    request.gcode_name = json_string_value(json_data, "gcodename");
+    request.video_name = json_string_value(json_data, "videoname");
+
+    request.request_headers = wxGetApp().get_extra_header();
+    const auto user_it = request.request_headers.find("__CXY_UID_");
+    const auto token_it = request.request_headers.find("__CXY_TOKEN_");
+    if (user_it != request.request_headers.end())
+        request.user_id = user_it->second;
+    if (token_it != request.request_headers.end())
+        request.account_session = make_cloud_account_session(request.user_id, token_it->second);
+
+    TimeLapseShare::ShareEvent error_event;
+    error_event.type = TimeLapseShare::EventType::Error;
+    error_event.request_id = request.request_id;
+    error_event.stage = "error";
+
+    if (request.user_id.empty() || request.account_session.empty()) {
+        error_event.error_code = "not_logged_in";
+        error_event.error_message = "A Creality Cloud account is required to share a time-lapse video";
+        send_time_lapse_share_event(error_event);
+        return;
+    }
+    if (!request.IsValid()) {
+        error_event.error_code = "invalid_request";
+        error_event.error_message = "requestId, address, video and videoid are required";
+        send_time_lapse_share_event(error_event);
+        return;
+    }
+
+    const auto device = DM::DeviceMgr::Ins().FindByAddress(request.address);
+    if (!device) {
+        error_event.error_code = "device_not_found";
+        error_event.error_message = "The local printer is not present in the saved device list";
+        send_time_lapse_share_event(error_event);
+        return;
+    }
+
+    request.secure_connection = device->secureConnection;
+    if (request.secure_connection)
+        request.ca_file = Slic3r::resources_dir() + "/cert/ca.crt";
+
+    if (!m_time_lapse_share_manager) {
+        error_event.error_code = "manager_unavailable";
+        error_event.error_message = "The time-lapse share manager is not available";
+        send_time_lapse_share_event(error_event);
+        return;
+    }
+
+    const auto start_result = m_time_lapse_share_manager->Start(std::move(request));
+    if (!start_result.accepted && start_result.error_code != "duplicate_request") {
+        error_event.error_code = start_result.error_code;
+        error_event.error_message = start_result.error_message;
+        send_time_lapse_share_event(error_event);
+    }
+}
+
+void PrinterMgrView::handle_cancel_time_lapse_share(const nlohmann::json& json_data)
+{
+    const std::string request_id = json_identifier_value(json_data, "requestId");
+    if (!request_id.empty()) {
+        if (m_time_lapse_share_manager)
+            (void) m_time_lapse_share_manager->Cancel(request_id);
+        return;
+    }
+
+    TimeLapseShare::ShareEvent event;
+    event.type = TimeLapseShare::EventType::Error;
+    event.request_id = request_id;
+    event.stage = "error";
+    event.error_code = "invalid_request";
+    event.error_message = "requestId is required";
+    send_time_lapse_share_event(event);
+}
+
+void PrinterMgrView::send_time_lapse_share_event(const TimeLapseShare::ShareEvent& event)
+{
+    if (m_browser == nullptr)
+        return;
+
+    nlohmann::json data;
+    data["requestId"] = event.request_id;
+    data["stage"] = event.stage;
+
+    if (event.type == TimeLapseShare::EventType::Progress) {
+        data["progress"] = event.percentage;
+        data["transferredBytes"] = event.transferred_bytes;
+        data["totalBytes"] = event.total_bytes;
+    } else if (event.type == TimeLapseShare::EventType::Complete) {
+        data["progress"] = 100;
+        data["objectKey"] = event.object_key;
+        data["filekey"] = event.file_key;
+        data["title"] = event.title;
+        data["alreadyExists"] = event.already_existed;
+    } else if (event.type == TimeLapseShare::EventType::Error) {
+        data["code"] = event.error_code;
+        data["message"] = event.error_message;
+    }
+
+    nlohmann::json command_json;
+    command_json["command"] = TimeLapseShare::EventCommand(event.type);
+    command_json["data"] = std::move(data);
+    const std::string command = command_json.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
+    const wxString script = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(command));
+    run_script(script.ToStdString());
+}
+
+std::string filterInvalidFileNameChars(const std::string& input) {
+    std::string result = input;
+    for (char& c : result) {
+        if (c == '\\' || c == '/' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+            c = '-';
+        }
+    }
+    return result;
+}
+
 void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
 {
     try
     {
 
+        // Invalidate old credentials before the shared get_user route returns to JS.
+        const auto incoming = json::parse(evt.GetString().ToUTF8().data());
+        if (incoming.value("command", std::string()) == "get_user") initMqtt();
+        if (incoming.value("command", std::string()) == "set_cloud_device_mqtt") {
+            const auto& user = wxGetApp().get_user();
+            const auto dn = incoming.value("address", std::string());
+            if (dn.empty() || incoming.value("userId", std::string()) == user.userId)
+                setMqttDeviceDN(dn);
+            return;
+        }
         if (DM::AppMgr::Ins().Invoke(m_browser, evt.GetString().ToUTF8().data()))
         {
             return;
@@ -1050,36 +1001,31 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
         wxString strCmd = j["command"];
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;Command:" << strCmd;
         
-#ifdef __WXGTK__
         if (strCmd == "ws_proxy") {
-            bool uos_env = DM::is_uos_system();
-            if (uos_env && j.contains("payload")) {
-                handle_ws_proxy_command(this, j["payload"]);
+            if (j.contains("payload")) {
+                if (m_ws_proxy)
+                    m_ws_proxy->HandleCommand(j["payload"]);
                 return;
             }
         }
-#endif
-        if(strCmd == "get_oss_info")
-        {
-            UploadFile uploadFile;
-            json ossInfo = uploadFile.getCloudUploadInfo();
-            nlohmann::json commandJson;
-            commandJson["command"] = "oss_info";
-            commandJson["data"]    = RemotePrint::Utils::url_encode(ossInfo.dump(-1, ' ', true));
-
-            wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
-
-            wxTheApp->CallAfter([this, strJS]() {
-                try
-                {
-                    if (!m_browser->IsBusy()) {
-                        run_script(strJS.ToStdString());
-                    }
-                }
-                catch (...)
-                {
-                }
-            });
+        if (strCmd == "set_device_detail_state") {
+            if (m_ws_proxy) {
+                WebSocketProxy::DeviceDetailState state;
+                state.visible = j.value("visible", false);
+                state.source = j.value("source", std::string("none"));
+                state.address = j.value("address", std::string());
+                state.mac = j.value("mac", std::string());
+                m_ws_proxy->SetDeviceDetailState(std::move(state));
+            }
+            return;
+        }
+        if (strCmd == "start_time_lapse_share") {
+            handle_start_time_lapse_share(j);
+            return;
+        }
+        if (strCmd == "cancel_time_lapse_share") {
+            handle_cancel_time_lapse_share(j);
+            return;
         }
         if (strCmd == "get_printer_progress")
         {
@@ -1098,8 +1044,11 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
             std::string uploadName = j["uploadName"].get<std::string>();
             bool oldPrinter = j["oldPrinter"];
             int  moonrakerPort = j["moonrakerPort"];
+            const bool secureConnection = j.value("secureConnection", false);
 
-            // ??????? IP ?l????????????????�???
+            RemotePrint::RemotePrinterManager::getInstance().setSecureConnectionMap(ipAddress, secureConnection);
+
+            // 清除对应 IP 的旧触发标志，允许重新触发
             m_print_send_fired_ips.erase(ipAddress);
 
             // ?????l???????????
@@ -1188,7 +1137,9 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
                         commandJson["data"] = RemotePrint::Utils::url_encode(json_str);
                         wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
 
-                        wxTheApp->CallAfter([this, strJS]() {
+                        wxTheApp->CallAfter([this, strJS, ip, statusCode]() {
+                            if (statusCode != 0)
+                                notify_satisfaction_survey_multi_device_upload_result(ip, false);
                             try
                             {
                                 if (!m_browser->IsBusy()) {
@@ -1238,11 +1189,12 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
 
                         wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
 
-                        wxTheApp->CallAfter([this, strJS]() {
+                        wxTheApp->CallAfter([this, strJS, ip]() {
                             try
                             {
                                 if (!m_browser->IsBusy()) {
                                     run_script(strJS.ToStdString());
+                                    notify_satisfaction_survey_multi_device_upload_result(ip, true);
                                 }
                             }
                             catch (...)
@@ -1309,24 +1261,71 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
             ExecuteScriptCommand(RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
         }else if(strCmd == "down_files")
         {
-            
-            json urls = j["urls"];
+            std::string address = j.value("address", "");
+            bool secureConnection = j.value("secureConnection", false);
             std::string path_type = j["file_type"];
-            
+
+            if (address.empty() || !j.contains("files") || !j["files"].is_array()) {
+                return;
+            }
+
             wxDirDialog dlg(this, _L("Please Select"), "", wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
-            
+
             if (dlg.ShowModal() != wxID_OK) {
                 return;
             }
             wxString path = dlg.GetPath();
-            std::vector<std::string> download_infos;
-            for (auto iter = urls.begin(); iter != urls.end(); iter++)
+            std::vector<DownloadItem> download_items;
+            for (const auto& file : j["files"])
             {
-                std::string url = iter->get<std::string>();
-                download_infos.push_back(url);
+                if (!file.is_object() || !file.contains("name") || !file.contains("path")) {
+                    continue;
+                }
+
+                DownloadItem item;
+                item.name = file["name"].get<std::string>();
+                item.path = file["path"].get<std::string>();
+                download_items.push_back(item);
             }
-            this->down_files(download_infos, path.ToUTF8().data(), path_type);
-            
+
+            if (download_items.empty()) {
+                return;
+            }
+
+            const std::string save_path = path.ToUTF8().data();
+            std::vector<DownloadItem> confirmed_items;
+            confirmed_items.reserve(download_items.size());
+
+            for (const auto& item : download_items)
+            {
+                const std::string safe_name = filterInvalidFileNameChars(item.name);
+                boost::filesystem::path target_path = save_path;
+                target_path /= safe_name;
+
+                if (boost::filesystem::exists(target_path))
+                {
+                    MessageDialog overwrite_dialog(
+                        this,
+                        wxString::Format(
+                            _L("A file exists with the same name: %s, do you want to override it."),
+                            from_u8(safe_name)),
+                        _L("Overwrite file"),
+                        wxYES_NO | wxNO_DEFAULT);
+
+                    if (overwrite_dialog.ShowModal() != wxID_YES) {
+                        continue;
+                    }
+                }
+
+                confirmed_items.push_back(item);
+            }
+
+            if (confirmed_items.empty()) {
+                return;
+            }
+
+            this->down_files(address, secureConnection, confirmed_items, save_path, path_type);
+
 
         }
         else if (strCmd == "down_file")
@@ -1347,7 +1346,7 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
         }
         else if (strCmd == "scan_device")
         {
-            scan_device();
+            scan_device(json_string_value(j, "requestId"));
         }else if(strCmd == "viewDetialEvent")
         {
              std::string address = j["address"];
@@ -1462,6 +1461,16 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
             wxString strJS = wxString::Format("window.handleStudioCmd('%s');", commandJson.dump());
             run_script(strJS.ToStdString());
         }
+        else if (strCmd == "upload_file_secure")
+        {
+            std::string strIp = j["url"];
+            uploadFileSecure(strIp);
+        }
+        else if (strCmd == "upload_device_file")
+        {
+            uploadDeviceFile(j.value("address", std::string()),
+                             j.value("requestId", std::string()));
+        }
         else if (strCmd == "browse_fluidd_ca_file")
         {
             wxString path = openCAFile();
@@ -1498,9 +1507,12 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
         }
         else if (strCmd == "diagnosis_lan_connect")
         {
-            std::string ip = j["ip"];
-            Slic3r::create_thread([this, ip] {
-                int result = DM::LANConnectCheck::checkLan(ip, _ctrl);
+            const std::string ip = j.value("ip", std::string());
+            const bool secure_connection = j.value("secureConnection", false);
+            const int wss_port = j.value("wssPort", 0);
+            Slic3r::create_thread([this, ip, secure_connection, wss_port] {
+                int result = DM::LANConnectCheck::checkLan(
+                    ip, secure_connection, wss_port, _ctrl);
                 nlohmann::json commandJson;
                 nlohmann::json resultJson;
                 commandJson["command"] = "diagnosis_lan_connect_result";
@@ -1680,6 +1692,15 @@ std::string PrinterMgrView::get_plate_data_on_show()
             json_data["plate_index"]        = plate->get_index();
             json_data["upload_gcode__name"] = std::move(default_gcode_name);
 
+            std::string gcode_path;
+            if (Slic3r::GUI::wxGetApp().plater()->only_gcode_mode()) {
+                if (const GCodeProcessorResult* slice_result = plate->get_slice_result())
+                    gcode_path = slice_result->filename;
+            } else {
+                gcode_path = plate->get_tmp_gcode_path();
+            }
+            json_data["gcode_size"] = gcode_file_size_bytes(gcode_path);
+
             nlohmann::json extruders_json = nlohmann::json::array();
             for (const auto& extruder : plate_extruders) {
                 extruders_json.push_back(extruder);
@@ -1748,9 +1769,9 @@ void PrinterMgrView::run_script(std::string content)
 {
     if (m_browser == nullptr || m_browser->IsBeingDeleted())
         return;
-    void* backend_after = m_browser->GetNativeBackend();
     WebView::RunScript(m_browser, content);
 }
+
 std::string getFileNameFromURL(const std::string& url) {
     // Use std::istringstream to parse URL
     std::istringstream iss(url);
@@ -1768,29 +1789,28 @@ std::string getFileNameFromURL(const std::string& url) {
  
     return fileName;
 }
-std::string filterInvalidFileNameChars(const std::string& input) {
-    std::string result = input;
-    for (char& c : result) {
-        if (c == '\\' || c == '/' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
-            c = '-';
-        }
-    }
-    return result;
-}
-void PrinterMgrView::down_files(std::vector<std::string> download_infos, std::string savePath, std::string path_type )
-{        
-        boost::thread import_thread = Slic3r::create_thread([savePath, download_infos, this] {
-            for(auto& download_info : download_infos)
+
+void PrinterMgrView::down_files(const std::string& address, bool secureConnection, const std::vector<DownloadItem>& download_items, std::string savePath, std::string path_type )
+{
+        boost::thread import_thread = Slic3r::create_thread([savePath, address, secureConnection, download_items, this] {
+            for (const auto& item : download_items)
             {
-                boost::filesystem::path  target_path = savePath; 
-                target_path = target_path / filterInvalidFileNameChars(getFileNameFromURL(Http::url_decode(download_info)));   
+                boost::filesystem::path target_path = savePath;
+                target_path = target_path / filterInvalidFileNameChars(item.name);
+                const std::string scheme = secureConnection ? "https" : "http";
+                const std::string download_info = scheme + "://" + address + item.path;
                 wxString download_url(download_info.c_str());
                 fs::path tmp_path = target_path;
-                tmp_path += wxSecretString::Format("%s",".download");
+                tmp_path += wxSecretString::Format("%s", ".download");
 
                 auto filesize = 0;
                 bool size_limit = false;
                 auto http = Http::get(download_url.ToStdString());
+                if (secureConnection) {
+                    http.ca_file(Slic3r::resources_dir() + "/cert/ca.crt")
+                        .ssl_verify_peer(true)
+                        .ssl_verify_host(false).ssl_ignore_certificate_time(true);
+                }
 
                 http.on_progress([filesize, size_limit, this](Http::Progress progress, bool& cancel) {
                         if (progress.dltotal != 0) {
@@ -1917,29 +1937,98 @@ void PrinterMgrView::down_file(std::string download_info, std::string filename, 
 }
 void PrinterMgrView::correct_device()
 {
-    
+    const DeviceWebViewHandle weak_browser = make_device_webview_handle(m_browser);
     if (m_scanPoolThread.joinable() && !m_scanPoolThread.try_join_for(boost::chrono::seconds(0))) {
+        post_device_webview_command(weak_browser, "device_address_correction_result", {
+            {"accepted", false},
+            {"completed", false},
+            {"busy", true}
+        });
         return;
     }
+
+    struct StoredDeviceSnapshot {
+        std::string mac;
+        std::string address;
+        std::size_t count {0};
+    };
+
+    std::unordered_map<std::string, StoredDeviceSnapshot> stored_devices;
+    const nlohmann::json persisted_devices = DM::DeviceMgr::Ins().GetData();
+    const auto groups = persisted_devices.find("groups");
+    if (groups != persisted_devices.end() && groups->is_array()) {
+        for (const auto& group : *groups) {
+            if (!group.is_object() || !group.contains("list") || !group["list"].is_array())
+                continue;
+            for (const auto& item : group["list"]) {
+                if (!item.is_object())
+                    continue;
+                const std::string mac = item.value("mac", std::string());
+                const std::string normalized_mac = normalize_device_mac(mac);
+                if (normalized_mac.empty())
+                    continue;
+
+                auto existing = stored_devices.find(normalized_mac);
+                if (existing != stored_devices.end()) {
+                    ++existing->second.count;
+                    continue;
+                }
+
+                StoredDeviceSnapshot snapshot;
+                snapshot.mac = mac;
+                snapshot.address = item.value("address", std::string());
+                snapshot.count = 1;
+                stored_devices.emplace(normalized_mac, std::move(snapshot));
+            }
+        }
+    }
+
+    post_device_webview_command(weak_browser, "device_address_correction_result", {
+        {"accepted", true},
+        {"completed", false},
+        {"busy", false}
+    });
     m_scanPoolThread = Slic3r::create_thread(
-        [this] {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        [this, weak_browser, stored_devices = std::move(stored_devices)] {
+            int correction_count = 0;
+            // std::this_thread::sleep_for(std::chrono::milliseconds(1500));  不再需要，此函数改成由前端控制触发时机
             std::vector<std::string> prefix;
             prefix.push_back("CXSWBox");
             prefix.push_back("creality");
             prefix.push_back("Creality");
             std::vector<std::string> vtIp,vtBoxIp;
-            if(m_scanExit)
+            if (m_scanExit.load(std::memory_order_acquire))
             {
                     return 0;
                 }
-            auto vtDevice = cxnet::syncDiscoveryService(prefix);
+            std::vector<cxnet::machine_info> vtDevice;
+            try {
+                vtDevice = cxnet::syncDiscoveryService(prefix);
+            } catch (const std::exception& e) {
+                post_device_webview_command(weak_browser, "device_address_correction_result", {
+                    {"accepted", true},
+                    {"completed", true},
+                    {"busy", false},
+                    {"corrections", correction_count},
+                    {"error", e.what()}
+                });
+                return 0;
+            } catch (...) {
+                post_device_webview_command(weak_browser, "device_address_correction_result", {
+                    {"accepted", true},
+                    {"completed", true},
+                    {"busy", false},
+                    {"corrections", correction_count},
+                    {"error", "device discovery failed"}
+                });
+                return 0;
+            }
             //cxnet::machine_info info;
             //info.answer = "1";
             //info.machineIp = "172.23.215.56";
             //vtDevice.push_back(info);
             for (auto& item : vtDevice) {
-                if(m_scanExit)
+                if (m_scanExit.load(std::memory_order_acquire))
                 {
                     return 0;
                 }
@@ -1950,40 +2039,73 @@ void PrinterMgrView::correct_device()
                 }
                 else
                 {
+                std::regex legacyAnswerRegex("_creality(\\d{2})(\\d{4}).+");
+                std::smatch legacyMatches;
+                if (!std::regex_match(answer, legacyMatches, legacyAnswerRegex)) {
+                    RemotePrint::ProbeOptions probeOptions;
+                    probeOptions.cancelled = [this] {
+                        return m_scanExit.load(std::memory_order_acquire);
+                    };
+                    const auto probeResult = RemotePrint::LanDeviceProbe().probe(
+                        item.machineIp, RemotePrint::ProbePolicy::PreferSecure, probeOptions);
+                    if (probeResult.ok()) {
+                        nlohmann::json profile = probeResult.profile->to_json();
+                        const std::string normalized_mac =
+                            normalize_device_mac(probeResult.profile->mac);
+                        const auto stored = stored_devices.find(normalized_mac);
+                        BOOST_LOG_TRIVIAL(error)
+                            << "[address-correction] probed: ip=" << item.machineIp
+                            << ", mac=" << probeResult.profile->mac
+                            << ", model=" << probeResult.profile->model
+                            << ", name=" << answer
+                            << ", stored=" << (stored != stored_devices.end())
+                            << ", unique="
+                            << (stored != stored_devices.end() && stored->second.count == 1);
+                        if (stored == stored_devices.end() || stored->second.count != 1)
+                            continue;
+
+
+                        const std::string& address = item.machineIp;
+                        if (stored->second.address != address) {
+                            profile["mac"] = stored->second.mac;
+                            profile["ip"] = address;
+                            post_device_webview_command(weak_browser, "correct_device", std::move(profile));
+                            ++correction_count;
+                        }
+                    }
+                    continue;
+                }
+
                 std::string url = (boost::format("http://%1%/info") % item.machineIp).str();
                 Slic3r::Http http_url = Slic3r::Http::get(url);    
                 http_url.timeout_connect(1)
                 .timeout_max(5)
                 .on_complete(
-                [this,item](std::string body, unsigned status) {
+                [item, weak_browser, &stored_devices, &correction_count](std::string body, unsigned status) {
                     try {
                         json j = json::parse(body);
                         std::string mac = j["mac"].get<std::string>();
                         std::string vtIp = item.machineIp;
-                        if(m_devicePool.count(mac))
-                        {
-                            if(m_devicePool[mac] == vtIp)
-                            {
-                                return; // Device already exists with the same IP
-                            }
-                            else
-                            {
-                                
-                                nlohmann::json dataJson;
-                                dataJson["mac"] = mac;  
-                                dataJson["ip"] = vtIp;   
+                        const auto stored = stored_devices.find(normalize_device_mac(mac));
+                        const std::string model = j.value("model", std::string());
+                        const std::string name = j.value("name", model);
+                        BOOST_LOG_TRIVIAL(error)
+                            << "[address-correction] probed legacy: ip=" << vtIp
+                            << ", mac=" << mac
+                            << ", model=" << model
+                            << ", name=" << name
+                            << ", stored=" << (stored != stored_devices.end())
+                            << ", unique="
+                            << (stored != stored_devices.end() && stored->second.count == 1);
+                        if (stored == stored_devices.end() || stored->second.count != 1 ||
+                            stored->second.address == vtIp)
+                            return;
 
-                                nlohmann::json commandJson;
-                                commandJson["command"] = "correct_device";
-                                commandJson["data"]    = dataJson;
-
-                                wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump()));           
-                                wxGetApp().CallAfter([this, strJS] { run_script(strJS.ToStdString()); });            
-                            }
-                        }
-                        m_devicePool.emplace(
-                            std::make_pair(mac, vtIp)
-                        );
+                        nlohmann::json dataJson;
+                        dataJson["mac"] = stored->second.mac;
+                        dataJson["ip"] = vtIp;
+                        post_device_webview_command(weak_browser, "correct_device", std::move(dataJson));
+                        ++correction_count;
                     }
                     catch (std::exception& e) {
                         BOOST_LOG_TRIVIAL(error) << "Error parsing JSON: " << e.what();
@@ -1996,13 +2118,40 @@ void PrinterMgrView::correct_device()
                 }
             }
 
+            post_device_webview_command(weak_browser, "device_address_correction_result", {
+                {"accepted", true},
+                {"completed", true},
+                {"busy", false},
+                {"corrections", correction_count}
+            });
             return 0;
         });
 }
-void PrinterMgrView::scan_device() 
+void PrinterMgrView::scan_device(const std::string& request_id)
 {
-    boost::thread _thread = Slic3r::create_thread(
-        [this] {
+    const DeviceWebViewHandle weak_browser = make_device_webview_handle(m_browser);
+    if (m_deviceScanThread.joinable() &&
+        !m_deviceScanThread.try_join_for(boost::chrono::seconds(0))) {
+        if (!request_id.empty()) {
+            nlohmann::json busyResult = {
+                {"requestId", request_id},
+                {"status", 1},
+                {"errorType", "scan_busy"},
+                {"servers", nlohmann::json::array()},
+                {"serverInfos", nlohmann::json::array()},
+                {"boxs", nlohmann::json::array()},
+                {"klipper", nlohmann::json::array()}
+            };
+            post_device_webview_command(weak_browser, "scan_device", std::move(busyResult));
+        }
+        return;
+    }
+
+    m_deviceScanThread = Slic3r::create_thread(
+        [this, weak_browser, request_id] {
+            if (m_scanExit.load(std::memory_order_acquire))
+                return;
+
              
             std::vector<std::string> prefix;
             prefix.push_back("CXSWBox");
@@ -2011,6 +2160,8 @@ void PrinterMgrView::scan_device()
             std::vector<std::string> vtIp,vtBoxIp,vtKlipperIp;
             auto vtDevice = cxnet::syncDiscoveryService(prefix);
             for (auto& item : vtDevice) {
+                if (m_scanExit.load(std::memory_order_acquire))
+                    return;
 
                 std::string answer = item.answer;
                 if (answer.substr(0, 8) == "_CXSWBox")
@@ -2039,22 +2190,42 @@ void PrinterMgrView::scan_device()
                 }
             }
 
+            {   //发送"校验中"状态
+                nlohmann::json verifyingData = request_id.empty()
+                    ? nlohmann::json("")
+                    : nlohmann::json{{"requestId", request_id}};
+                post_device_webview_command(weak_browser, "scan_device_verifying", std::move(verifyingData));
+            }
+
+            RemotePrint::ProbeOptions probe_options;
+            probe_options.preflight_ports = true;
+            probe_options.https_timeout_seconds = 2;
+            probe_options.http_timeout_seconds = 3;
+            probe_options.cancelled = [this] {
+                return m_scanExit.load(std::memory_order_acquire);
+            };
+            const auto probe_results = RemotePrint::LanDeviceProbe().probe_many(
+                vtIp, RemotePrint::ProbePolicy::PreferSecure, probe_options);
+
+            nlohmann::json serverInfos = nlohmann::json::array();
+            for (const auto& result : probe_results) {
+                if (result.ok())
+                    serverInfos.push_back(result.profile->to_json());
+            }
+
             nlohmann::json dataJson;
+            dataJson["status"] = 0;
             dataJson["servers"] = vtIp;  
+            dataJson["serverInfos"] = serverInfos;  //返回打印机/info信息,前端不必再连接获取
             dataJson["boxs"] = vtBoxIp;   
             dataJson["klipper"] = vtKlipperIp;   
+            if (!request_id.empty())
+                dataJson["requestId"] = request_id;
 
-            nlohmann::json commandJson;
-            commandJson["command"] = "scan_device";
-            commandJson["data"]    = dataJson;
-
-            wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump()));           
-            wxGetApp().CallAfter([this, strJS] { run_script(strJS.ToStdString()); });            
+            if (m_scanExit.load(std::memory_order_acquire))
+                return;
+            post_device_webview_command(weak_browser, "scan_device", std::move(dataJson));
         });
- 
-
-   /* if (_thread.joinable())
-        _thread.join();*/
 }
 
 void     PrinterMgrView::RequestDeviceListFromDB() 
@@ -2265,7 +2436,7 @@ void PrinterMgrView::update_current_cxy_device_filament(const std::string& mac)
         {"command", "update_current_cxy_device_filament"}, {"data", mac}
     };
 
-    ExecuteScriptCommand(commandJson.dump());
+    ExecuteScriptCommand(commandJson.dump(), true);
 }
 
 void PrinterMgrView::forward_init_device_cmd_to_printer_list()
@@ -2725,7 +2896,8 @@ int PrinterMgrView::getFileListFromLanDevice(const std::string strIp)
     {
         return -1;
     }
-    Slic3r::create_thread([this,strIp]{
+    const DeviceWebViewHandle weak_browser = make_device_webview_handle(m_browser);
+    Slic3r::create_thread([weak_browser, strIp] {
         CURL* curl = curl_easy_init();
         if (!curl)
         {
@@ -2821,11 +2993,12 @@ int PrinterMgrView::getFileListFromLanDevice(const std::string strIp)
             commandJson["data"] = dataJson;
 
             wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
-            wxGetApp().CallAfter([this, strJS] { 
-                    if (this == nullptr || this->IsBeingDeleted())
-                        return;
-                    run_script(strJS.ToStdString()); 
-                });
+            wxGetApp().CallAfter([weak_browser, strJS] {
+                wxWebView* browser = resolve_device_webview(weak_browser);
+                if (browser == nullptr)
+                    return;
+                WebView::RunScript(browser, strJS.ToStdString());
+            });
             //run_script(strJS.ToStdString());
         }
         return 0;
@@ -2930,6 +3103,149 @@ int PrinterMgrView::uploadeFileLanDevice(const std::string strIp)
     }
 }
 
+void PrinterMgrView::uploadFileSecure(const std::string& strIp)
+{
+    startDeviceFileUpload(strIp, true, std::string(), true);
+}
+
+void PrinterMgrView::uploadDeviceFile(const std::string& address, const std::string& requestId)
+{
+    const DeviceWebViewHandle weak_browser = make_device_webview_handle(m_browser);
+    auto send_failure = [weak_browser, address, requestId](const std::string& error_code) {
+        nlohmann::json data;
+        data["requestId"] = requestId;
+        data["address"] = address;
+        data["status"] = "failed";
+        data["errorCode"] = error_code;
+        data["statusCode"] = 0;
+        post_device_webview_command(weak_browser, "upload_device_file_result", std::move(data));
+    };
+
+    if (address.empty() || requestId.empty()) {
+        send_failure("invalid_request");
+        return;
+    }
+
+    const auto device = DM::DeviceMgr::Ins().FindByAddress(address);
+    if (!device) {
+        send_failure("device_not_found");
+        return;
+    }
+    const bool is_local_creality_device = device->connectType == 3;
+    if (!is_local_creality_device || device->oldPrinter || device->moonrakerPort > 0) {
+        send_failure("unsupported_device");
+        return;
+    }
+
+    startDeviceFileUpload(address, device->secureConnection, requestId, false);
+}
+
+void PrinterMgrView::startDeviceFileUpload(const std::string& address,
+                                           bool secureConnection,
+                                           const std::string& requestId,
+                                           bool legacyEvents)
+{
+    const DeviceWebViewHandle weak_browser = make_device_webview_handle(m_browser);
+    const auto terminal_sent = std::make_shared<std::atomic<bool>>(false);
+    auto send_progress = [weak_browser, address, requestId, legacyEvents, terminal_sent](int progress) {
+        if (terminal_sent->load(std::memory_order_acquire))
+            return;
+
+        if (legacyEvents) {
+            post_device_webview_command(weak_browser, "upload_file_secure_progress", progress);
+            return;
+        }
+
+        nlohmann::json data;
+        data["requestId"] = requestId;
+        data["address"] = address;
+        data["progress"] = progress;
+        post_device_webview_command(weak_browser, "upload_device_file_progress", std::move(data));
+    };
+    auto send_result = [weak_browser, address, requestId, legacyEvents, terminal_sent](
+                           const std::string& status, const std::string& error_code, int status_code) {
+        if (terminal_sent->exchange(true, std::memory_order_acq_rel))
+            return;
+
+        if (legacyEvents) {
+            post_device_webview_command(weak_browser, "upload_file_secure", status == "success" ? 1 : 0);
+            return;
+        }
+
+        nlohmann::json data;
+        data["requestId"] = requestId;
+        data["address"] = address;
+        data["status"] = status;
+        data["errorCode"] = error_code;
+        data["statusCode"] = status_code;
+        post_device_webview_command(weak_browser, "upload_device_file_result", std::move(data));
+    };
+
+    wxString input_file;
+    input_file.Clear();
+    wxFileDialog dialog(this,
+        _L("Choose files"),
+        "", "",
+        _L("Printable files (*.gcode;*.3mf)|*.gcode;*.3mf|All files|*.*"),
+        wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+
+    if (dialog.ShowModal() == wxID_OK)
+        input_file = dialog.GetPath();
+    else
+    {
+        send_result("cancelled", std::string(), 0);
+        return;
+    }
+
+    const std::string input_file_path = into_u8(input_file);
+    fs::path path = into_path(input_file);
+    wxString lower_file = input_file.Lower();
+    const bool is_gcode = is_gcode_file(input_file_path);
+    const bool is_3mf = lower_file.EndsWith(".3mf");
+    if (!is_gcode && !is_3mf) {
+        send_result("failed", "invalid_file", 0);
+        return;
+    }
+    if (is_3mf && !has_printable_gcode_in_3mf(input_file_path)) {
+        send_result("failed", "invalid_3mf", 0);
+        return;
+    }
+
+    send_progress(1);
+
+    fs::path name = path.filename();
+
+    auto& printer_mgr = RemotePrint::RemotePrinterManager::getInstance();
+    if (legacyEvents)
+        printer_mgr.setSecureConnectionMap(address, secureConnection);
+    printer_mgr.pushUploadTasksWithProfile(
+        address,
+        name.string(),
+        path.string(),
+        secureConnection,
+        [send_progress](const std::string& ipAddress, float progress, double speed) {
+            (void)ipAddress;
+            (void)speed;
+            send_progress(static_cast<int>(progress));
+        },
+        [send_result](const std::string& ipAddress, int statusCode) {
+            (void)ipAddress;
+            if (statusCode == CURLE_OK)
+                return;
+            if (statusCode == 601)
+                send_result("cancelled", std::string(), statusCode);
+            else
+                send_result("failed", "upload_failed", statusCode);
+        },
+        [send_result](const std::string& ipAddress, std::string body) {
+            (void)ipAddress;
+            wxString lower_body = wxString::FromUTF8(body.c_str()).Lower();
+            if (lower_body.Find("ok") != wxNOT_FOUND)
+                send_result("success", std::string(), CURLE_OK);
+            else
+                send_result("failed", "invalid_response", CURLE_HTTP_RETURNED_ERROR);
+        });
+}
 wxString PrinterMgrView::openCAFile()
 {
     static const auto filemasks = _L("Certificate files (*.crt, *.pem)|*.crt;*.pem|All files|*.*");
@@ -2946,6 +3262,7 @@ wxString PrinterMgrView::openCAFile()
 std::vector<std::string> PrinterMgrView::get_all_device_macs() const 
 {
     std::vector<std::string> macs;
+    std::lock_guard<std::mutex> lock(m_devicePoolMutex);
     for (const auto& pair : m_devicePool) {
         macs.push_back(pair.first);
     }

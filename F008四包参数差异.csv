@@ -1,0 +1,387 @@
+﻿分类,文件/实体,key,差异类型,0.2 (F008-0.2.zip),0.4 (F008-0.4.zip),0.6 (F008-0.6.zip),0.8 (F008-0.8.zip)
+机型参数,Machine/printer,adaptive_bed_mesh_margin,key缺失,0,【key不存在】,【key不存在】,【key不存在】
+机型参数,Machine/printer,bbl_use_printhost,key缺失,0,0,【key不存在】,【key不存在】
+机型参数,Machine/printer,bed_mesh_max,key缺失,"99999,99999","99999,99999",【key不存在】,【key不存在】
+机型参数,Machine/printer,bed_mesh_min,key缺失,"-99999,-99999","-99999,-99999",【key不存在】,【key不存在】
+机型参数,Machine/printer,bed_mesh_probe_distance,key缺失,"50,50","50,50",【key不存在】,【key不存在】
+机型参数,Machine/printer,color_bed_exclude_area,key缺失,,【key不存在】,【key不存在】,【key不存在】
+机型参数,Machine/printer,default_print_profile,值不一致,0.10mm Standard @K2 Plus,0.20mm Standard@K2 Plus,0.30mm Standard @K2 Plus,0.40mm Standard@K2 Plus
+机型参数,Machine/printer,enable_long_retraction_when_cut,值不一致,0,2,0,0
+机型参数,Machine/printer,inherits,值不一致,fdm_creality_common,fdm_process_common_klipper,fdm_creality_common,fdm_creality_common
+机型参数,Machine/printer,machine_tool_change_time,key缺失,0,【key不存在】,【key不存在】,【key不存在】
+机型参数,Machine/printer,material_flow_temp_graph,key缺失,"[[3.0,210],[10.0,220],[12.0,230]]","[[3.0,210],[10.0,220],[12.0,230]]",【key不存在】,【key不存在】
+机型参数,Machine/printer,nozzle_height,key缺失,4,【key不存在】,【key不存在】,【key不存在】
+机型参数,Machine/printer,nozzle_volume,值不一致,183,268,183,183
+机型参数,Machine/printer,pellet_modded_printer,key缺失,0,【key不存在】,【key不存在】,【key不存在】
+机型参数,Machine/printer,prime_tower_position_type,key缺失,Middle Upper,【key不存在】,【key不存在】,【key不存在】
+机型参数,Machine/printer,printer_structure,值不一致,i3,undefine,undefine,i3
+喷头参数,Extruder/0,long_retractions_when_cut,值不一致；key缺失,0,1,【key不存在】,【key不存在】
+喷头参数,Extruder/0,max_layer_height,值不一致,0.14,0.32,0.42,0.56
+喷头参数,Extruder/0,min_layer_height,值不一致,0.04,0.08,0.12,0.16
+喷头参数,Extruder/0,nozzle_diameter,值不一致,0.2,0.4,0.6,0.8
+喷头参数,Extruder/0,retract_before_wipe,值不一致,70%,70,70%,70%
+喷头参数,Extruder/0,retract_length_toolchange,值不一致,0,2,0,0
+喷头参数,Extruder/0,retraction_distances_when_cut,值不一致；key缺失,18,30,【key不存在】,【key不存在】
+喷头参数,Extruder/0,retraction_length,值不一致,0.5,0.8,1.5,3
+喷头参数,Extruder/0,travel_slope,key缺失,3,【key不存在】,【key不存在】,【key不存在】
+耗材参数,Materials/CR-ABS-1.75.json,activate_chamber_layer,key缺失,【key不存在】,2,【key不存在】,【key不存在】
+耗材参数,Materials/CR-ABS-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/CR-ABS-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/CR-ABS-1.75.json,filament_max_volumetric_speed,值不一致,1,18,18,18
+耗材参数,Materials/CR-PETG-1.75.json,cool_plate_temp_initial_layer,值不一致,60,70,70,70
+耗材参数,Materials/CR-PETG-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/CR-PETG-1.75.json,eng_plate_temp,值不一致,0,50,0,0
+耗材参数,Materials/CR-PETG-1.75.json,eng_plate_temp_initial_layer,值不一致,0,55,0,0
+耗材参数,Materials/CR-PETG-1.75.json,filament_cost,值不一致,14,20,14,14
+耗材参数,Materials/CR-PETG-1.75.json,filament_density,值不一致,1.23,1.24,1.23,1.23
+耗材参数,Materials/CR-PETG-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/CR-PETG-1.75.json,filament_max_volumetric_speed,值不一致,1,18,18,18
+耗材参数,Materials/CR-PETG-1.75.json,filament_ramming_parameters,值不一致,"""120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6""",120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6,"""120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6""","""120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6"""
+耗材参数,Materials/CR-PETG-1.75.json,filament_retract_before_wipe,值不一致,nil,100,nil,nil
+耗材参数,Materials/CR-PETG-1.75.json,filament_retraction_length,值不一致,0.8,1.2,nil,nil
+耗材参数,Materials/CR-PETG-1.75.json,nozzle_temperature,值不一致,250,240,250,250
+耗材参数,Materials/CR-PETG-1.75.json,nozzle_temperature_initial_layer,值不一致,250,240,250,250
+耗材参数,Materials/CR-PETG-1.75.json,overhang_fan_speed,值不一致,90,100,90,90
+耗材参数,Materials/CR-PETG-1.75.json,pressure_advance,值不一致,0.07,0.07,0.052,0.07
+耗材参数,Materials/CR-PETG-1.75.json,temperature_vitrification,值不一致,80,60,80,80
+耗材参数,Materials/CR-PLA Fluo-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/CR-PLA Fluo-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/CR-PLA Fluo-1.75.json,filament_max_volumetric_speed,值不一致,1,18,18,18
+耗材参数,Materials/CR-PLA Matte-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/CR-PLA Matte-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/CR-PLA Matte-1.75.json,filament_max_volumetric_speed,值不一致,1,18,18,18
+耗材参数,Materials/CR-PLA Matte-1.75.json,filament_retract_before_wipe,值不一致,nil,100,nil,nil
+耗材参数,Materials/CR-PLA Matte-1.75.json,filament_retraction_length,值不一致,nil,1.2,nil,nil
+耗材参数,Materials/CR-PLA-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/CR-PLA-1.75.json,filament_cost,值不一致,18,25,18,18
+耗材参数,Materials/CR-PLA-1.75.json,filament_density,值不一致,1.24,1.25,1.24,1.24
+耗材参数,Materials/CR-PLA-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/CR-PLA-1.75.json,filament_max_volumetric_speed,值不一致,1,18,18,18
+耗材参数,Materials/CR-Silk-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/CR-Silk-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/CR-Silk-1.75.json,filament_max_volumetric_speed,值不一致,1,10,12,12
+耗材参数,Materials/CR-Silk-1.75.json,filament_retraction_length,值不一致,0.8,nil,nil,nil
+耗材参数,Materials/CR-Silk-1.75.json,nozzle_temperature,值不一致,230,220,230,230
+耗材参数,Materials/CR-Silk-1.75.json,nozzle_temperature_initial_layer,值不一致,230,220,230,230
+耗材参数,Materials/CR-Silk-1.75.json,slow_down_layer_time,值不一致,4,8,4,4
+耗材参数,Materials/ENDER FAST PLA-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/ENDER FAST PLA-1.75.json,eng_plate_temp_initial_layer,值不一致,50,55,50,50
+耗材参数,Materials/ENDER FAST PLA-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/ENDER FAST PLA-1.75.json,filament_max_volumetric_speed,值不一致,2,23,23,23
+耗材参数,Materials/ENDER FAST PLA-1.75.json,filament_ramming_parameters,值不一致,"""120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6""",120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6,"""120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6""","""120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6"""
+耗材参数,Materials/ENDER FAST PLA-1.75.json,filament_wipe_distance,值不一致,nil,1,nil,nil
+耗材参数,Materials/ENDER FAST PLA-1.75.json,pressure_advance,值不一致,0.05,0.04,0.035,0.03
+耗材参数,Materials/Generic ABS-1.75.json,activate_chamber_layer,key缺失,【文件不存在】,2,【key不存在】,【key不存在】
+耗材参数,Materials/Generic ABS-1.75.json,enable_pressure_advance,值不一致,【文件不存在】,0,1,1
+耗材参数,Materials/Generic ABS-1.75.json,filament_deretraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Generic ABS-1.75.json,filament_end_gcode,值不一致,【文件不存在】,";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Generic ABS-1.75.json,filament_retract_before_wipe,值不一致,【文件不存在】,nil,nil,100
+耗材参数,Materials/Generic ABS-1.75.json,filament_retraction_length,值不一致,【文件不存在】,nil,nil,2
+耗材参数,Materials/Generic ABS-1.75.json,filament_retraction_minimum_travel,值不一致,【文件不存在】,nil,2,2
+耗材参数,Materials/Generic ABS-1.75.json,filament_retraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Generic ABS-1.75.json,filament_shrinkage_compensation_z,key缺失,【文件不存在】,【key不存在】,100%,100%
+耗材参数,Materials/Generic ABS-1.75.json,pressure_advance,值不一致,【文件不存在】,0.06,0.05,0.04
+耗材参数,Materials/Generic PA-CF-1.75.json,activate_air_filtration,值不一致,【文件不存在】,1,0,0
+耗材参数,Materials/Generic PA-CF-1.75.json,enable_pressure_advance,值不一致,【文件不存在】,0,1,1
+耗材参数,Materials/Generic PA-CF-1.75.json,filament_deretraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Generic PA-CF-1.75.json,filament_end_gcode,值不一致,【文件不存在】,";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Generic PA-CF-1.75.json,filament_flow_ratio,值不一致,【文件不存在】,0.93,0.9,0.9
+耗材参数,Materials/Generic PA-CF-1.75.json,filament_retraction_length,值不一致,【文件不存在】,1.5,1.2,0.8
+耗材参数,Materials/Generic PA-CF-1.75.json,filament_retraction_minimum_travel,值不一致,【文件不存在】,nil,2,2
+耗材参数,Materials/Generic PA-CF-1.75.json,filament_retraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Generic PA-CF-1.75.json,pressure_advance,值不一致,【文件不存在】,0.04,0.032,0.028
+耗材参数,Materials/Generic PAHT-CF-1.75.json,activate_chamber_layer,key缺失,【文件不存在】,2,【key不存在】,【key不存在】
+耗材参数,Materials/Generic PAHT-CF-1.75.json,cool_plate_temp,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Generic PAHT-CF-1.75.json,cool_plate_temp_initial_layer,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Generic PAHT-CF-1.75.json,enable_pressure_advance,值不一致,【文件不存在】,0,1,1
+耗材参数,Materials/Generic PAHT-CF-1.75.json,filament_cost,值不一致,【文件不存在】,100,70,70
+耗材参数,Materials/Generic PAHT-CF-1.75.json,filament_deretraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Generic PAHT-CF-1.75.json,filament_end_gcode,值不一致,【文件不存在】,";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Generic PAHT-CF-1.75.json,filament_flow_ratio,值不一致,【文件不存在】,0.93,0.9,0.9
+耗材参数,Materials/Generic PAHT-CF-1.75.json,filament_retract_before_wipe,值不一致,【文件不存在】,80,100,100
+耗材参数,Materials/Generic PAHT-CF-1.75.json,filament_retraction_length,值不一致,【文件不存在】,1.2,nil,2
+耗材参数,Materials/Generic PAHT-CF-1.75.json,filament_retraction_minimum_travel,值不一致,【文件不存在】,nil,2,2
+耗材参数,Materials/Generic PAHT-CF-1.75.json,filament_retraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Generic PAHT-CF-1.75.json,filament_shrinkage_compensation_z,key缺失,【文件不存在】,【key不存在】,100%,100%
+耗材参数,Materials/Generic PAHT-CF-1.75.json,hot_plate_temp,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Generic PAHT-CF-1.75.json,hot_plate_temp_initial_layer,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Generic PAHT-CF-1.75.json,nozzle_temperature,值不一致,【文件不存在】,300,290,290
+耗材参数,Materials/Generic PAHT-CF-1.75.json,nozzle_temperature_initial_layer,值不一致,【文件不存在】,300,290,290
+耗材参数,Materials/Generic PAHT-CF-1.75.json,nozzle_temperature_range_low,值不一致,【文件不存在】,300,280,280
+耗材参数,Materials/Generic PAHT-CF-1.75.json,pressure_advance,值不一致,【文件不存在】,0.036,0.032,0.028
+耗材参数,Materials/Generic PAHT-CF-1.75.json,textured_plate_temp,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Generic PAHT-CF-1.75.json,textured_plate_temp_initial_layer,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Generic PETG-1.75.json,enable_pressure_advance,值不一致,【文件不存在】,0,1,1
+耗材参数,Materials/Generic PETG-1.75.json,fan_max_speed,值不一致,【文件不存在】,80,80,90
+耗材参数,Materials/Generic PETG-1.75.json,filament_deretraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Generic PETG-1.75.json,filament_end_gcode,值不一致,【文件不存在】,";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Generic PETG-1.75.json,filament_retract_before_wipe,值不一致,【文件不存在】,nil,nil,100
+耗材参数,Materials/Generic PETG-1.75.json,filament_retraction_length,值不一致,【文件不存在】,nil,nil,0.6
+耗材参数,Materials/Generic PETG-1.75.json,filament_retraction_minimum_travel,值不一致,【文件不存在】,nil,2,2
+耗材参数,Materials/Generic PETG-1.75.json,filament_retraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Generic PETG-1.75.json,filament_shrinkage_compensation_z,key缺失,【文件不存在】,【key不存在】,100%,100%
+耗材参数,Materials/Generic PETG-1.75.json,overhang_fan_threshold,值不一致,【文件不存在】,25%,25%,10%
+耗材参数,Materials/Generic PETG-1.75.json,pressure_advance,值不一致,【文件不存在】,0.1,0.08,0.04
+耗材参数,Materials/Generic PETG-1.75.json,slow_down_layer_time,值不一致,【文件不存在】,8,8,12
+耗材参数,Materials/Generic PETG-1.75.json,slow_down_min_speed,值不一致,【文件不存在】,10,20,20
+耗材参数,Materials/Generic PLA-1.75.json,enable_pressure_advance,值不一致,【文件不存在】,0,1,1
+耗材参数,Materials/Generic PLA-1.75.json,filament_deretraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Generic PLA-1.75.json,filament_end_gcode,值不一致,【文件不存在】,";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Generic PLA-1.75.json,filament_retraction_length,值不一致,【文件不存在】,1.2,nil,0.8
+耗材参数,Materials/Generic PLA-1.75.json,filament_retraction_minimum_travel,值不一致,【文件不存在】,nil,2,2
+耗材参数,Materials/Generic PLA-1.75.json,filament_retraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Generic PLA-1.75.json,filament_shrinkage_compensation_z,key缺失,【文件不存在】,【key不存在】,100%,100%
+耗材参数,Materials/Generic PLA-1.75.json,pressure_advance,值不一致,【文件不存在】,0.04,0.036,0.028
+耗材参数,Materials/Generic PLA-1.75.json,slow_down_layer_time,值不一致,【文件不存在】,6,6,10
+耗材参数,Materials/HP-ASA-1.75.json,activate_chamber_layer,key缺失,【key不存在】,2,【key不存在】,【key不存在】
+耗材参数,Materials/HP-ASA-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/HP-ASA-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/HP-ASA-1.75.json,filament_max_volumetric_speed,值不一致,1,14,14,14
+耗材参数,Materials/HP-ASA-1.75.json,filament_retraction_length,值不一致,0.8,nil,nil,nil
+耗材参数,Materials/HP-TPU-1.75.json,enable_pressure_advance,值不一致,【文件不存在】,0,1,1
+耗材参数,Materials/HP-TPU-1.75.json,filament_end_gcode,值不一致,【文件不存在】,";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/HP-TPU-1.75.json,filament_retraction_length,值不一致,【文件不存在】,1.2,2,nil
+耗材参数,Materials/HP-TPU-1.75.json,pressure_advance,值不一致,【文件不存在】,0.4,0.03,0.03
+耗材参数,Materials/Hyper ABS-1.75.json,activate_chamber_layer,key缺失,【key不存在】,2,【key不存在】,【key不存在】
+耗材参数,Materials/Hyper ABS-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/Hyper ABS-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Hyper ABS-1.75.json,filament_max_volumetric_speed,值不一致,2,23,23,23
+耗材参数,Materials/Hyper Luminous-1.75.json,enable_pressure_advance,值不一致,【文件不存在】,0,1,1
+耗材参数,Materials/Hyper Luminous-1.75.json,filament_deretraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Hyper Luminous-1.75.json,filament_flow_ratio,值不一致,【文件不存在】,0.99,0.98,1
+耗材参数,Materials/Hyper Luminous-1.75.json,filament_retraction_length,值不一致,【文件不存在】,1,0.8,0.8
+耗材参数,Materials/Hyper Luminous-1.75.json,filament_retraction_minimum_travel,值不一致,【文件不存在】,nil,3,2
+耗材参数,Materials/Hyper Luminous-1.75.json,filament_retraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Hyper Luminous-1.75.json,inherits,值不一致,【文件不存在】,Hyper PLA @Creality K2 Plus 0.4 nozzle,Hyper PLA @Creality K2 Plus 0.6 nozzle,Hyper PLA @Creality K2 Plus 0.8 nozzle
+耗材参数,Materials/Hyper Luminous-1.75.json,material_flow_temp_graph,值不一致,【文件不存在】,"[[0.5,210],[1.2,210],[1.5,220]]","[[1.9,210],[2.1,210],[2.2,220]]","[[3.0,210],[3.3,220],[3.5,220]]"
+耗材参数,Materials/Hyper Luminous-1.75.json,pressure_advance,值不一致,【文件不存在】,0.042,0.028,0.015
+耗材参数,Materials/Hyper Luminous-1.75.json,slow_down_layer_time,值不一致,【文件不存在】,10,10,12
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,activate_chamber_layer,key缺失,【文件不存在】,2,【key不存在】,【key不存在】
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,cool_plate_temp,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,cool_plate_temp_initial_layer,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,enable_pressure_advance,值不一致,【文件不存在】,0,1,1
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,filament_deretraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,filament_end_gcode,值不一致,【文件不存在】,";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,filament_flow_ratio,值不一致,【文件不存在】,0.93,0.9,0.9
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,filament_retract_before_wipe,值不一致,【文件不存在】,80,100,100
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,filament_retraction_length,值不一致,【文件不存在】,1.2,nil,2
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,filament_retraction_minimum_travel,值不一致,【文件不存在】,nil,2,2
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,filament_retraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,filament_shrinkage_compensation_z,key缺失,【文件不存在】,【key不存在】,100%,100%
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,hot_plate_temp,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,hot_plate_temp_initial_layer,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,pressure_advance,值不一致,【文件不存在】,0.036,0.032,0.028
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,textured_plate_temp,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Hyper PAHT-CF-1.75.json,textured_plate_temp_initial_layer,值不一致,【文件不存在】,90,100,100
+耗材参数,Materials/Hyper PC-1.75.json,activate_chamber_layer,key缺失,【key不存在】,2,【key不存在】,【key不存在】
+耗材参数,Materials/Hyper PC-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/Hyper PC-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Hyper PC-1.75.json,filament_max_volumetric_speed,值不一致,2,18,18,18
+耗材参数,Materials/Hyper PETG-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/Hyper PETG-1.75.json,filament_cost,值不一致,24.99,25,24.99,24.99
+耗材参数,Materials/Hyper PETG-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Hyper PETG-1.75.json,filament_max_volumetric_speed,值不一致,2,23,23,23
+耗材参数,Materials/Hyper PETG-1.75.json,filament_retraction_length,值不一致,0.8,1.2,2,3
+耗材参数,Materials/Hyper PETG-1.75.json,nozzle_temperature,值不一致,240,250,240,240
+耗材参数,Materials/Hyper PETG-1.75.json,nozzle_temperature_initial_layer,值不一致,240,250,240,240
+耗材参数,Materials/Hyper PETG-1.75.json,pressure_advance,值不一致,0.07,0.05,0.066,0.032
+耗材参数,Materials/Hyper PETG-1.75.json,temperature_vitrification,值不一致,74.3,75,74.3,74.3
+耗材参数,Materials/Hyper PLA-1.75.json,activate_chamber_layer,key缺失,【key不存在】,2,【key不存在】,【key不存在】
+耗材参数,Materials/Hyper PLA-1.75.json,enable_pressure_advance,值不一致,1,0,1,1
+耗材参数,Materials/Hyper PLA-1.75.json,eng_plate_temp_initial_layer,值不一致,50,55,50,50
+耗材参数,Materials/Hyper PLA-1.75.json,filament_cost,值不一致,30,20,30,32
+耗材参数,Materials/Hyper PLA-1.75.json,filament_density,值不一致,1.24,1.24,1.24,1.27
+耗材参数,Materials/Hyper PLA-1.75.json,filament_end_gcode,值不一致,"; filament end gcode 
+",";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Hyper PLA-1.75.json,filament_max_volumetric_speed,值不一致,2,23,23,23
+耗材参数,Materials/Hyper PLA-1.75.json,filament_ramming_parameters,值不一致,"""120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6""",120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6,"""120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6""","""120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6"""
+耗材参数,Materials/Hyper PLA-1.75.json,pressure_advance,值不一致,0.04,0.044,0.032,0.024
+耗材参数,Materials/Hyper PLA-1.75.json,slow_down_layer_time,值不一致,4,6,4,4
+耗材参数,Materials/Hyper PLA-CF-1.75.json,enable_pressure_advance,值不一致,【文件不存在】,0,1,1
+耗材参数,Materials/Hyper PLA-CF-1.75.json,filament_end_gcode,值不一致,【文件不存在】,";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Hyper PLA-CF-1.75.json,filament_retraction_length,值不一致,【文件不存在】,1,nil,nil
+耗材参数,Materials/Hyper PPA-CF-1.75.json,activate_chamber_layer,key缺失,【文件不存在】,2,【key不存在】,【key不存在】
+耗材参数,Materials/Hyper PPA-CF-1.75.json,enable_pressure_advance,值不一致,【文件不存在】,0,1,1
+耗材参数,Materials/Hyper PPA-CF-1.75.json,filament_deretraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Hyper PPA-CF-1.75.json,filament_end_gcode,值不一致,【文件不存在】,";filament end gcode 
+","; filament end gcode 
+","; filament end gcode 
+"
+耗材参数,Materials/Hyper PPA-CF-1.75.json,filament_flow_ratio,值不一致,【文件不存在】,0.93,0.88,0.88
+耗材参数,Materials/Hyper PPA-CF-1.75.json,filament_retract_before_wipe,值不一致,【文件不存在】,80,80,100
+耗材参数,Materials/Hyper PPA-CF-1.75.json,filament_retraction_length,值不一致,【文件不存在】,1.2,nil,2
+耗材参数,Materials/Hyper PPA-CF-1.75.json,filament_retraction_minimum_travel,值不一致,【文件不存在】,nil,2,2
+耗材参数,Materials/Hyper PPA-CF-1.75.json,filament_retraction_speed,值不一致,【文件不存在】,nil,30,30
+耗材参数,Materials/Hyper PPA-CF-1.75.json,filament_shrinkage_compensation_z,key缺失,【文件不存在】,【key不存在】,100%,100%
+耗材参数,Materials/Hyper PPA-CF-1.75.json,pressure_advance,值不一致,【文件不存在】,0.04,0.036,0.028
+耗材参数,Materials/Soleyin Basic PETG-1.75.json,filament_deretraction_speed,值不一致,【文件不存在】,40,30,30
+耗材参数,Materials/Soleyin Basic PETG-1.75.json,filament_flow_ratio,值不一致,【文件不存在】,0.98,0.97,0.95
+耗材参数,Materials/Soleyin Basic PETG-1.75.json,filament_retraction_length,值不一致,【文件不存在】,nil,0.6,1
+耗材参数,Materials/Soleyin Basic PETG-1.75.json,filament_retraction_minimum_travel,值不一致,【文件不存在】,1,2,2
+耗材参数,Materials/Soleyin Basic PETG-1.75.json,filament_retraction_speed,值不一致,【文件不存在】,40,30,30
+耗材参数,Materials/Soleyin Basic PETG-1.75.json,inherits,值不一致,【文件不存在】,CR-PETG @Creality K2 Plus 0.4 nozzle,CR-PETG @Creality K2 Plus 0.6 nozzle,CR-PETG @Creality K2 Plus 0.8 nozzle
+耗材参数,Materials/Soleyin Basic PETG-1.75.json,material_flow_temp_graph,值不一致,【文件不存在】,"[[0.5,230],[1.2,230],[1.2,250]]","[[1.9,220],[2.3,220],[2.9,250]]","[[2.8,220],[3.0,220],[3.2,250]]"
+耗材参数,Materials/Soleyin Basic PETG-1.75.json,pressure_advance,值不一致,【文件不存在】,0.074,0.044,0.03
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,accel_to_decel_factor,值不一致,50%,100%,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,acceleration_limit_mess,值不一致,,"[[0.5,1.0,100,6000],[1.0,1.5,80,5500],[1.5,2.0,60,5000]]",【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,bottom_shell_layers,值不一致,5,7,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,bridge_speed,值不一致,25,50,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,gap_infill_speed,值不一致,50,250,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,infill_wall_overlap,值不一致,30,30%,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,initial_layer_acceleration,值不一致,500,2000,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,initial_layer_infill_speed,值不一致,60,105,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,initial_layer_line_width,值不一致,0.25,0.5,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,initial_layer_print_height,值不一致,0.1,0.2,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,initial_layer_speed,值不一致,40,60,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,inner_wall_line_width,值不一致,0.25,0.45,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,inner_wall_speed,值不一致,150,350,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,internal_bridge_speed,值不一致,70,150%,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,internal_solid_infill_line_width,值不一致,0.22,0.42,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,internal_solid_infill_pattern,值不一致,zig-zag,monotonic,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,internal_solid_infill_speed,值不一致,150,250,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,ironing_flow,值不一致,10%,8,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,line_width,值不一致,0.22,0.42,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,outer_wall_line_width,值不一致,0.22,0.42,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,outer_wall_speed,值不一致,100,200,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,overhang_totally_speed,值不一致,25,50,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,prime_tower_width,值不一致,60,40,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,sparse_infill_line_width,值不一致,0.25,0.45,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,sparse_infill_speed,值不一致,120,350,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,speed_limit_to_height,值不一致,,"[[100,150,100,6000],[150,200,80,5500],[200,250,60,5000]]",【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,support_line_width,值不一致,0.2,0.4,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,top_shell_layers,值不一致,7,9,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,top_surface_acceleration,值不一致,2000,5000,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,top_surface_line_width,值不一致,0.22,0.42,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,top_surface_speed,值不一致,100,200,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.08mm Standard@K2 Plus.json,wall_loops,值不一致,4,2,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,accel_to_decel_factor,值不一致,50%,100%,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,acceleration_limit_mess,值不一致,,"[[0.5,1.0,100,6000],[1.0,1.5,80,5500],[1.5,2.0,60,5000]]",【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,bridge_speed,值不一致,25,50,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,gap_infill_speed,值不一致,50,250,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,infill_wall_overlap,值不一致,30,30%,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,initial_layer_acceleration,值不一致,500,2000,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,initial_layer_infill_speed,值不一致,60,105,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,initial_layer_line_width,值不一致,0.25,0.5,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,initial_layer_print_height,值不一致,0.1,0.2,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,initial_layer_speed,值不一致,40,60,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,inner_wall_line_width,值不一致,0.25,0.45,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,inner_wall_speed,值不一致,150,300,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,internal_bridge_speed,值不一致,70,150%,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,internal_solid_infill_line_width,值不一致,0.22,0.42,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,internal_solid_infill_pattern,值不一致,zig-zag,monotonic,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,internal_solid_infill_speed,值不一致,150,250,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,line_width,值不一致,0.22,0.42,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,outer_wall_line_width,值不一致,0.22,0.42,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,outer_wall_speed,值不一致,100,200,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,overhang_totally_speed,值不一致,25,50,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,prime_tower_width,值不一致,60,40,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,sparse_infill_line_width,值不一致,0.25,0.45,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,sparse_infill_speed,值不一致,120,300,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,speed_limit_to_height,值不一致,,"[[100,150,100,6000],[150,200,80,5500],[200,250,60,5000]]",【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,support_line_width,值不一致,0.2,0.4,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,top_shell_layers,值不一致,7,6,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,top_surface_acceleration,值不一致,2000,5000,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,top_surface_line_width,值不一致,0.22,0.42,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,top_surface_speed,值不一致,100,200,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.12mm Standard@K2 Plus.json,wall_loops,值不一致,4,2,【文件不存在】,【文件不存在】
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,acceleration_limit_mess,值不一致,【文件不存在】,"[[0.5,1.0,100,6000],[1.0,1.5,80,5500],[1.5,2.0,60,5000]]",,
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,bridge_speed,值不一致,【文件不存在】,50,25,25
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,gap_infill_speed,值不一致,【文件不存在】,250,50,50
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,infill_wall_overlap,值不一致,【文件不存在】,30%,30,30
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,inherits,值不一致,【文件不存在】,0.18mm Standard @Creality K2 Plus 0.6 nozzle,0.30mm Standard @Creality K2 Plus 0.6 nozzle,0.18mm Standard @Creality K2 Plus 0.6 nozzle
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,initial_layer_acceleration,值不一致,【文件不存在】,2000,500,500
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,initial_layer_infill_speed,值不一致,【文件不存在】,105,60,60
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,initial_layer_line_width,值不一致,【文件不存在】,0.5,0.62,0.82
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,initial_layer_print_height,值不一致,【文件不存在】,0.2,0.3,0.4
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,initial_layer_speed,值不一致,【文件不存在】,60,40,40
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,inner_wall_line_width,值不一致,【文件不存在】,0.45,0.62,0.82
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,inner_wall_speed,值不一致,【文件不存在】,300,150,150
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,internal_bridge_speed,值不一致,【文件不存在】,150%,70,70
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,internal_solid_infill_line_width,值不一致,【文件不存在】,0.42,0.62,0.82
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,internal_solid_infill_speed,值不一致,【文件不存在】,250,150,150
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,line_width,值不一致,【文件不存在】,0.42,0.62,0.82
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,outer_wall_line_width,值不一致,【文件不存在】,0.42,0.62,0.82
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,outer_wall_speed,值不一致,【文件不存在】,200,100,100
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,overhang_3_4_speed,值不一致,【文件不存在】,30,20,20
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,overhang_totally_speed,值不一致,【文件不存在】,50,25,25
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,prime_tower_width,值不一致,【文件不存在】,40,60,60
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,sparse_infill_line_width,值不一致,【文件不存在】,0.45,0.62,0.82
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,sparse_infill_speed,值不一致,【文件不存在】,250,120,120
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,speed_limit_to_height,值不一致,【文件不存在】,"[[100,150,100,6000],[150,200,80,5500],[200,250,60,5000]]",,
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,staggered_inner_seams,值不一致,【文件不存在】,0,1,1
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,support_line_width,值不一致,【文件不存在】,0.4,0.6,0.8
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,top_shell_layers,值不一致,【文件不存在】,5,4,4
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,top_surface_acceleration,值不一致,【文件不存在】,5000,2000,2000
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,top_surface_line_width,值不一致,【文件不存在】,0.42,0.62,0.82
+工艺参数,Processes/0.24mm Standard@K2 Plus.json,top_surface_speed,值不一致,【文件不存在】,200,100,100

@@ -185,7 +185,7 @@ void WebModelLibraryView::load_url(const wxString& url)
 
 void WebModelLibraryView::open_default_page()
 {
-    load_url(get_cloud_webaddress() + "model-category/3d-print-all");
+    load_url(m_start_url.IsEmpty() ? wxString(get_cloud_webaddress() + "model-category/3d-print-all") : m_start_url);
 }
 
 void WebModelLibraryView::search(const wxString& query)
@@ -202,8 +202,8 @@ void WebModelLibraryView::search(const wxString& query)
 
 void WebModelLibraryView::SetStartPage(const wxString& url)
 {
-    m_start_url   = url;
-    m_current_url = url;
+    // Configuring the home page must not mark the view as already loaded.
+    m_start_url = url;
 }
 
 void WebModelLibraryView::RunScript(const wxString& javascript)

@@ -14,6 +14,14 @@
 #include "RammingChart.hpp"
 class Button;
 class Label;
+class ComboBox;
+
+struct WipingNozzleData {
+    wxString           label;
+    std::vector<float> matrix;
+    std::vector<int>   min_flush_volumes;
+    int                nozzle_volume { 0 };
+};
 
 
 class RammingPanel : public wxPanel {
@@ -47,10 +55,12 @@ private:
 class WipingPanel : public wxPanel {
 public:
     // BBS
-    WipingPanel(wxWindow* parent, const std::vector<float>& matrix, const std::vector<float>& extruders, const std::vector<std::string>& extruder_colours, Button* calc_button,
-        const std::vector<int>& extra_flush_volume, float flush_multiplier);
+    WipingPanel(wxWindow* parent, const std::vector<float>& matrix, const std::vector<float>& extruders,
+        const std::vector<std::string>& extruder_colours, unsigned int filament_count, Button* calc_button,
+        const std::vector<int>& extra_flush_volume, int nozzle_volume, float flush_multiplier);
     std::vector<float> read_matrix_values();
     std::vector<float> read_extruders_values();
+    bool load_matrix(const std::vector<float>& matrix, const std::vector<int>& extra_flush_volume, int nozzle_volume);
     void toggle_advanced(bool user_action = false);
     void create_panels(wxWindow* parent, const int num);
     void calc_flushing_volumes();
@@ -70,6 +80,7 @@ private:
     bool advanced_matches_simple();
     int calc_flushing_volume(const wxColour& from, const wxColour& to,int min_flush_volume);
     void update_warning_texts();
+    void update_reset_button();
     void on_set_sys_value();    
     std::vector<wxSpinCtrl*> m_old;
     std::vector<wxSpinCtrl*> m_new;
@@ -90,7 +101,7 @@ private:
     std::vector<wxButton *> icon_list1;
     std::vector<wxButton *> icon_list2;
 
-    const std::vector<int> m_min_flush_volume;
+    std::vector<int>       m_min_flush_volume;
     const int m_max_flush_volume;
     int                    m_type_flush_volume;
 
@@ -108,8 +119,8 @@ private:
 class WipingDialog : public Slic3r::GUI::DPIDialog
 {
 public:
-    WipingDialog(wxWindow* parent, const std::vector<float>& matrix, const std::vector<float>& extruders, const std::vector<std::string>& extruder_colours,
-        const std::vector<int>&extra_flush_volume,float flush_multiplier);
+    WipingDialog(wxWindow* parent, const std::vector<WipingNozzleData>& nozzle_data,
+        const std::vector<float>& extruders, const std::vector<std::string>& extruder_colours, float flush_multiplier);
     std::vector<float> get_matrix() const    { return m_output_matrix; }
     std::vector<float> get_extruders() const { return m_output_extruders; }
     wxBoxSizer* create_btn_sizer(long flags);
@@ -125,7 +136,13 @@ public:
     void on_dpi_changed(const wxRect &suggested_rect) override;
    
 private:
+    bool commit_current_nozzle();
+    bool switch_nozzle(size_t nozzle_id);
+
     WipingPanel*  m_panel_wiping  = nullptr;
+    ComboBox*     m_nozzle_choice = nullptr;
+    std::vector<WipingNozzleData> m_nozzle_data;
+    size_t        m_current_nozzle_id { 0 };
     std::vector<float> m_output_matrix;
     std::vector<float> m_output_extruders;
     std::unordered_map<int, Button *> m_button_list;

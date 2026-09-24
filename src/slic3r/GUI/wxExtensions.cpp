@@ -1,16 +1,20 @@
 #include "wxExtensions.hpp"
+#include "OfficialFilamentColorDialog.hpp"
 
 #include <stdexcept>
 #include <cmath>
 
 #include <wx/gdicmn.h>
 #include <wx/bitmap.h>
+#include <wx/display.h>
+#include <wx/image.h>
 #include <wx/sizer.h>
 
 #include <boost/algorithm/string/replace.hpp>
 
 #include "GUI.hpp"
 #include "GUI_App.hpp"
+#include "MainFrame.hpp"
 #include "GUI_ObjectList.hpp"
 #include "I18N.hpp"
 #include "GUI_Utils.hpp"
@@ -24,24 +28,25 @@
 // msw_menuitem_bitmaps is used for MSW and OSX
 static std::map<int, std::string> msw_menuitem_bitmaps;
 #ifdef __WXMSW__
-void msw_rescale_menu(wxMenu* menu)
+void msw_rescale_menu(wxMenu* menu, wxWindow* owner)
 {
 	struct update_icons {
-		static void run(wxMenuItem* item) {
+		static void run(wxMenuItem* item, wxWindow* owner) {
 			const auto it = msw_menuitem_bitmaps.find(item->GetId());
 			if (it != msw_menuitem_bitmaps.end()) {
-				const wxBitmap& item_icon = create_menu_bitmap(it->second);
+				const wxBitmap& item_icon = create_menu_bitmap(it->second, owner);
 				if (item_icon.IsOk())
 					item->SetBitmap(item_icon);
 			}
+
 			if (item->IsSubMenu())
 				for (wxMenuItem *sub_item : item->GetSubMenu()->GetMenuItems())
-					update_icons::run(sub_item);
+					update_icons::run(sub_item, owner);
 		}
 	};
 
 	for (wxMenuItem *item : menu->GetMenuItems())
-		update_icons::run(item);
+		update_icons::run(item, owner);
 }
 #endif /* __WXMSW__ */
 #endif /* no __WXGTK__ */
@@ -434,9 +439,39 @@ static wxBitmap bitmap_for_window_dpi(const wxBitmap& bitmap, wxWindow* win)
     return result;
 }
 
-wxBitmap create_menu_bitmap(const std::string& bmp_name)
+static double menu_display_scale(wxWindow* owner)
 {
-    return create_scaled_bitmap(bmp_name, nullptr, 16, false, "", true);
+    // During a cross-monitor drag the owner HWND can still report the source
+    // DPI. The menu opens at the pointer, so query that display directly.
+    const int display_index = wxDisplay::GetFromPoint(wxGetMousePosition());
+    if (display_index != wxNOT_FOUND) {
+        const wxSize ppi = wxDisplay(static_cast<unsigned>(display_index)).GetPPI();
+        if (ppi.x > 0)
+            return std::max(1.0, static_cast<double>(ppi.x) / DPI_DEFAULT);
+    }
+
+    return owner ? std::max(1.0, static_cast<double>(get_dpi_for_window(owner)) / DPI_DEFAULT) : 1.0;
+}
+
+wxBitmap create_menu_bitmap(const std::string& bmp_name, wxWindow* owner)
+{
+    if (owner == nullptr)
+        owner = Slic3r::GUI::wxGetApp().mainframe;
+
+    constexpr int menu_icon_px = 16;
+    wxBitmap bitmap = create_scaled_bitmap(bmp_name, owner, menu_icon_px, false, "", true);
+    if (bitmap.IsOk() && bitmap.GetHeight() > 0 && bitmap.GetHeight() != menu_icon_px) {
+        wxImage image = bitmap.ConvertToImage();
+        const int target_width = std::max(1, int(std::lround(
+            double(image.GetWidth()) * menu_icon_px / image.GetHeight())));
+        image.Rescale(target_width, menu_icon_px, wxIMAGE_QUALITY_HIGH);
+        bitmap = wxBitmap(image);
+    }
+#ifdef __WXMSW__
+    if (bitmap.IsOk())
+        bitmap.SetScaleFactor(1.0);
+#endif
+    return bitmap;
 }
 
 // win is used to get a correct em_unit value
@@ -608,6 +643,30 @@ std::vector<wxBitmap*> get_extruder_color_icons(bool thin_icon/* = false*/)
     return get_extruder_color_icons(nullptr, thin_icon);
 }
 
+std::vector<wxBitmap*> get_menu_extruder_color_icons(bool thin_icon/* = false*/, int icon_size_px/* = 24*/)
+{
+#ifndef __WXMSW__
+    return get_extruder_color_icons(thin_icon);
+#else
+    std::vector<wxBitmap*> bmps;
+    const std::vector<std::string> colors = Slic3r::GUI::wxGetApp().plater()->get_extruder_colors_from_plater_config();
+    const int menu_swatch_px = std::max(1, icon_size_px);
+    const int icon_width = thin_icon ? menu_swatch_px : 44;
+    const int icon_height = menu_swatch_px;
+
+    bmps.reserve(colors.size());
+    int index = 0;
+    for (const std::string& color : colors) {
+        const std::string label = std::to_string(++index);
+        wxBitmap* bitmap = get_extruder_color_icon(color, label, icon_width, icon_height, index - 1, "-menu");
+        if (bitmap)
+            bitmap->SetScaleFactor(1.0);
+        bmps.push_back(bitmap);
+    }
+    return bmps;
+#endif
+}
+
 std::vector<wxBitmap*> get_extruder_color_icons(wxWindow* parent, bool thin_icon/* = false*/)
 {
     // Create the bitmap with color bars.
@@ -629,16 +688,28 @@ std::vector<wxBitmap*> get_extruder_color_icons(wxWindow* parent, bool thin_icon
     for (const std::string &color : colors)
     {
         auto label = std::to_string(++index);
-        bmps.push_back(get_extruder_color_icon(color, label, icon_width, icon_height));
+        bmps.push_back(get_extruder_color_icon(color, label, icon_width, icon_height, index - 1));
     }
 
     return bmps;
 }
 
-wxBitmap *get_extruder_color_icon(std::string color, std::string label, int icon_width, int icon_height)
+wxBitmap *get_extruder_color_icon(std::string color, std::string label, int icon_width, int icon_height, int filament_slot, const std::string& cache_tag)
 {
     Slic3r::GUI::BitmapCache& bmp_cache = extruder_color_icon_cache();
-    std::string bitmap_key = color + "-h" + std::to_string(icon_height) + "-w" + std::to_string(icon_width) + "-i" + label;
+    std::string bitmap_key = cache_tag + color + "-h" + std::to_string(icon_height) + "-w" + std::to_string(icon_width) + "-i" + label;
+#ifdef __WXMSW__
+    // Keep physical menu bitmaps for different destination displays separate.
+    if (cache_tag == "-menu") {
+        wxWindow* mainframe = static_cast<wxWindow*>(Slic3r::GUI::wxGetApp().mainframe);
+        bitmap_key += "-dpi" + std::to_string(int(std::lround(menu_display_scale(mainframe) * 100.0)));
+    }
+#endif
+    const auto appearance = Slic3r::GUI::FilamentColorAppearance::resolve(
+        filament_slot < 0 ? size_t(-1) : size_t(filament_slot), Slic3r::GUI::FilamentColorAppearance::parse(color));
+    for (const auto& stop : appearance.colors)
+        bitmap_key += wxString::Format("-%02X%02X%02X%02X", stop.Red(), stop.Green(), stop.Blue(), stop.Alpha()).ToStdString();
+    bitmap_key += appearance.gradient ? "-gradient" : "-bands";
 
     wxBitmap *bitmap = bmp_cache.find(bitmap_key);
     if (bitmap == nullptr) {
@@ -646,6 +717,14 @@ wxBitmap *get_extruder_color_icon(std::string color, std::string label, int icon
         // Slic3r::GUI::BitmapCache::parse_color(color, rgb);
         // there is no neede to scale created solid bitmap
         wxColor clr(color);
+        // Filament colours use #RRGGBBAA; parse alpha explicitly rather than
+        // depending on platform-specific wxColour string parsing.
+        if (color.size() == 9 && color.front() == '#') {
+            unsigned long rgba = 0;
+            if (wxString::FromUTF8(color.substr(1).c_str()).ToULong(&rgba, 16))
+                clr = wxColour((rgba >> 24) & 0xff, (rgba >> 16) & 0xff,
+                               (rgba >> 8) & 0xff, rgba & 0xff);
+        }
         bitmap = bmp_cache.insert(bitmap_key, wxBitmap(icon_width, icon_height));
 #ifndef __WXMSW__
         wxMemoryDC dc;
@@ -653,20 +732,25 @@ wxBitmap *get_extruder_color_icon(std::string color, std::string label, int icon
         wxClientDC cdc((wxWindow *) Slic3r::GUI::wxGetApp().mainframe);
         wxMemoryDC dc(&cdc);
 #endif
-        wxFont label_font = ::Label::Body_12;
-        label_font.SetPixelSize(wxSize(0, std::max(1, icon_height * 3 / 4)));
-        dc.SetFont(label_font);
         dc.SelectObject(*bitmap);
-        if (clr.Alpha() == 0) {
-            int             size        = icon_height * 2;
-            static wxBitmap transparent = *Slic3r::GUI::BitmapCache().load_svg("transparent", size, size);
-            if (transparent.GetHeight() != size) transparent = *Slic3r::GUI::BitmapCache().load_svg("transparent", size, size);
-            wxPoint pt(0, 0);
-            while (pt.x < icon_width) {
-                dc.DrawBitmap(transparent, pt);
-                pt.x += size;
-            }
-            clr.SetRGB(0xffffff); // for text color
+        wxFont label_font = ::Label::Body_12;
+        label_font.MakeBold();
+        // Measure on the destination DC: native font DPI mapping and long
+        // labels (e.g. "64" or "new 63") must both fit the raster bounds.
+        int label_pixel_height = std::max(1, icon_height * 9 / 10);
+        const int text_padding = std::max(1, icon_height / 20);
+        const int text_width = std::max(1, icon_width - 2 * text_padding);
+        const int text_height = std::max(1, icon_height - 2 * text_padding);
+        wxSize size;
+        do {
+            label_font.SetPixelSize(wxSize(0, label_pixel_height));
+            dc.SetFont(label_font);
+            size = dc.GetTextExtent(wxString(label));
+            if (size.x <= text_width && size.y <= text_height)
+                break;
+        } while (--label_pixel_height > 0);
+        if (appearance.special()) {
+            dc.DrawBitmap(Slic3r::GUI::FilamentColorAppearance::bitmap(appearance, icon_width, icon_height), 0, 0);
             dc.SetBrush(*wxTRANSPARENT_BRUSH);
         } else {
             dc.SetBackground(wxBrush(clr));
@@ -677,9 +761,20 @@ wxBitmap *get_extruder_color_icon(std::string color, std::string label, int icon
             dc.SetPen(*wxGREY_PEN);
             dc.DrawRectangle(0, 0, icon_width, icon_height);
         }
-        auto size = dc.GetTextExtent(wxString(label));
-        dc.SetTextForeground(clr.GetLuminance() < 0.51 ? *wxWHITE : *wxBLACK);
-        dc.DrawText(label, (icon_width - size.x) / 2, (icon_height - size.y) / 2);
+        const wxColour foreground = appearance.special()
+            ? Slic3r::GUI::FilamentColorAppearance::foreground(appearance)
+            : (clr.GetLuminance() < 0.51 ? *wxWHITE : *wxBLACK);
+        const int text_x = (icon_width - size.x) / 2;
+        const int text_y = (icon_height - size.y) / 2;
+        if (appearance.special()) {
+            dc.SetTextForeground(foreground == *wxBLACK ? *wxWHITE : *wxBLACK);
+            dc.DrawText(label, text_x - 1, text_y);
+            dc.DrawText(label, text_x + 1, text_y);
+            dc.DrawText(label, text_x, text_y - 1);
+            dc.DrawText(label, text_x, text_y + 1);
+        }
+        dc.SetTextForeground(foreground);
+        dc.DrawText(label, text_x, text_y);
         dc.SelectObject(wxNullBitmap);
     }
     return bitmap;

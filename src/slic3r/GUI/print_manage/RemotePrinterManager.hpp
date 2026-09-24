@@ -70,6 +70,7 @@ public:
     {
         std::string                                     fileName;
         std::string                                     filePath;
+        bool                                            secureConnection = false;
         std::function<void(std::string, float, double)> progressCallback;
         std::function<void(std::string, int)>           uploadStatusCallback;
         std::function<void(std::string, std::string)>   onCompleteCallback;
@@ -79,6 +80,14 @@ public:
     ~RemotePrinterManager();
 
     void uploadThread();
+    void pushUploadTasksWithProfile(const std::string&               ipAddress,
+                        const std::string&                      fileName,
+                        const std::string&                      filePath,
+                        bool                                    secureConnection,
+                        std::function<void(std::string, float,double)> progressCallback,
+                        std::function<void(std::string, int)>   uploadStatusCallback = nullptr,
+                        std::function<void(std::string, std::string)>   onCompleteCallback = nullptr);
+
     std::string pushUploadTasks(const std::string&               ipAddress,
                         const std::string&                      fileName,
                         const std::string&                      filePath,
@@ -103,6 +112,8 @@ public:
     void setOldPrinterMap(std::string& ipAddress);
     void setKlipperPrinterMap(const std::string& ipAddress,int port);
     int getKlipperPrinterMap(const std::string& ipAddress);
+    void setSecureConnectionMap(const std::string& ipAddress, bool secureConnection);
+    bool getSecureConnection(const std::string& ipAddress) const;
     void addDownloadTask(const std::function<void()>& task);
     void retryUpload(const std::string& ipAddress);
 
@@ -119,6 +130,7 @@ private:
         std::string ipAddress;
         std::string fileName;
         std::string filePath;
+        bool secureConnection = false;
         ProgressCallback progressCallback;
         StatusCallback statusCallback;
         CompleteCallback completeCallback;
@@ -170,9 +182,10 @@ private:
 
     RemotePrinerType determinePrinterType(const std::string& ipAddress);
 
-    std::mutex m_mtxPrinterMeta;
+    mutable std::mutex m_mtxPrinterMeta;
     std::vector<std::string> oldPrinters;
     std::map<std::string,int> mapKlipperPort;
+    std::map<std::string, bool> mapSecureConnection;
     std::condition_variable condition;
     std::atomic<bool> stop_flag;
     std::mutex queue_mutex;

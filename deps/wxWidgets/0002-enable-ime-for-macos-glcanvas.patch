@@ -1,0 +1,79 @@
+diff --git a/src/osx/cocoa/glcanvas.mm b/src/osx/cocoa/glcanvas.mm
+index 95e25d99f5..a871bc9a53 100644
+--- a/src/osx/cocoa/glcanvas.mm
++++ b/src/osx/cocoa/glcanvas.mm
+@@ -95,7 +95,7 @@ WXGLPixelFormat WXGLChoosePixelFormat(const int *GLAttrs,
+     return [[NSOpenGLPixelFormat alloc] initWithAttributes:attribs];
+ }
+ 
+-@interface wxNSCustomOpenGLView : NSOpenGLView
++@interface wxNSCustomOpenGLView : NSOpenGLView <NSTextInputClient>
+ {
+ }
+ 
+@@ -139,6 +139,65 @@ WXGLPixelFormat WXGLChoosePixelFormat(const int *GLAttrs,
+         impl->doCommandBySelector(aSelector, self, _cmd);
+ }
+ 
++// NSOpenGLView does not implement NSTextInputClient. Without these methods,
++// interpretKeyEvents: cannot complete marked-text input used by CJK IMEs.
++- (void)insertText:(id)aString replacementRange:(NSRange)replacementRange
++{
++    wxUnusedVar(replacementRange);
++    [self insertText:aString];
++}
++
++- (void)setMarkedText:(id)aString selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange
++{
++    wxUnusedVar(aString);
++    wxUnusedVar(selectedRange);
++    wxUnusedVar(replacementRange);
++}
++
++- (void)unmarkText
++{
++}
++
++- (NSRange)selectedRange
++{
++    return NSMakeRange(NSNotFound, 0);
++}
++
++- (NSRange)markedRange
++{
++    return NSMakeRange(NSNotFound, 0);
++}
++
++- (BOOL)hasMarkedText
++{
++    return NO;
++}
++
++- (NSAttributedString *)attributedSubstringForProposedRange:(NSRange)aRange actualRange:(NSRangePointer)actualRange
++{
++    wxUnusedVar(aRange);
++    wxUnusedVar(actualRange);
++    return nil;
++}
++
++- (NSArray *)validAttributesForMarkedText
++{
++    return nil;
++}
++
++- (NSRect)firstRectForCharacterRange:(NSRange)aRange actualRange:(NSRangePointer)actualRange
++{
++    wxUnusedVar(aRange);
++    wxUnusedVar(actualRange);
++    return NSMakeRect(0, 0, 0, 0);
++}
++
++- (NSUInteger)characterIndexForPoint:(NSPoint)aPoint
++{
++    wxUnusedVar(aPoint);
++    return NSNotFound;
++}
++
+ - (NSOpenGLContext *) openGLContext
+ {
+     // Prevent the NSOpenGLView from making it's own context

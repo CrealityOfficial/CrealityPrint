@@ -7,6 +7,7 @@
 #define slic3r_AABBTreeIndirect_hpp_
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <type_traits>
 #include <vector>
@@ -242,6 +243,7 @@ namespace detail {
 		using IndexedFaceType 	= AIndexedFaceType;
 		using TreeType			= ATreeType;
 		using VectorType 		= AVectorType;
+		using Scalar             = typename VectorType::Scalar;
 
 		const std::vector<VertexType> 		&vertices;
 		const std::vector<IndexedFaceType> 	&faces;
@@ -253,60 +255,149 @@ namespace detail {
 
 		// epsilon for ray-triangle intersection, see intersect_triangle1()
 		const double  						 eps;
+        const unsigned parallel_mask{
+            (std::isinf(invdir.x()) ? 1u : 0u) |
+            (std::isinf(invdir.y()) ? 2u : 0u) |
+            (std::isinf(invdir.z()) ? 4u : 0u)};
+        const unsigned sign_mask{
+            (invdir.x() < Scalar(0) ? 1u : 0u) |
+            (invdir.y() < Scalar(0) ? 2u : 0u) |
+            (invdir.z() < Scalar(0) ? 4u : 0u)};
 	};
 
     template<typename VertexType, typename IndexedFaceType, typename TreeType, typename VectorType>
     struct RayIntersectorHits : RayIntersector<VertexType, IndexedFaceType, TreeType, VectorType> {
-		std::vector<igl::Hit>				 hits;
+		using Scalar = typename VectorType::Scalar;
+		std::vector<igl::Hit>					 hits;
+		Scalar                               bbox_min_t{};
+		Scalar                               bbox_max_t{};
 	};
 
-	//FIXME implement SSE for float AABB trees with float ray queries.
-	// SSE/SSE2 is supported by any Intel/AMD x64 processor.
-	// SSE support requires 16 byte alignment of the AABB nodes, representing the bounding boxes with 4+4 floats,
-	// storing the node index as the 4th element of the bounding box min value etc.
-	// https://www.flipcode.com/archives/SSE_RayBox_Intersection_Test.shtml
-	template <typename Derivedsource, typename Deriveddir, typename Scalar>
-	inline bool ray_box_intersect_invdir(
-  		const Eigen::MatrixBase<Derivedsource> 	&origin,
-  		const Eigen::MatrixBase<Deriveddir> 	&inv_dir,
-  		Eigen::AlignedBox<Scalar,3> 			 box,
-  		const Scalar 							&t0,
-  		const Scalar 							&t1) {
-		// http://people.csail.mit.edu/amy/papers/box-jgt.pdf
-		// "An Efficient and Robust Ray–Box Intersection Algorithm"
-		if (inv_dir.x() < 0)
-			std::swap(box.min().x(), box.max().x());
-		if (inv_dir.y() < 0)
-			std::swap(box.min().y(), box.max().y());
-        Scalar tmin = (box.min().x() - origin.x()) * inv_dir.x();
-		Scalar tymax = (box.max().y() - origin.y()) * inv_dir.y();
-		if (tmin > tymax)
-			return false;
-        Scalar tmax = (box.max().x() - origin.x()) * inv_dir.x();
-		Scalar tymin = (box.min().y()  - origin.y()) * inv_dir.y();
-		if (tymin > tmax)
-			return false;
-		if (tymin > tmin)
-			tmin = tymin;
-		if (tymax < tmax)
-			tmax = tymax;
-		if (inv_dir.z() < 0)
-			std::swap(box.min().z(), box.max().z());
-		Scalar tzmin = (box.min().z()  - origin.z()) * inv_dir.z();
-		if (tzmin > tmax)
-			return false;
-		Scalar tzmax = (box.max().z() - origin.z()) * inv_dir.z();
-		if (tmin > tzmax)
-			return false;
-		if (tzmin > tmin)
-			tmin = tzmin;
-		if (tzmax < tmax)
-			tmax = tzmax;
-        return tmin < t1 && tmax > t0;
-	}
+    template<typename VertexType, typename IndexedFaceType, typename TreeType, typename VectorType>
+    struct RayIntersectorBoundedFirstHit : RayIntersector<VertexType, IndexedFaceType, TreeType, VectorType> {
+        double min_t{0.0};
+        double max_t{std::numeric_limits<double>::infinity()};
+        double best_t{std::numeric_limits<double>::infinity()};
+    };
 
-	// The following intersect_triangle() is derived from raytri.c routine intersect_triangle1()
-	// Ray-Triangle Intersection Test Routines
+    // The slab test uses strict endpoint comparisons. Expand the values in the
+    // tree scalar type so an accepted endpoint cannot prune its parent node.
+    template<typename Scalar>
+    static inline Scalar ray_range_min(double min_t)
+    {
+        const Scalar value = static_cast<Scalar>(min_t);
+        return std::nextafter(value, -std::numeric_limits<Scalar>::infinity());
+    }
+
+    template<typename Scalar>
+    static inline Scalar ray_range_max(double max_t)
+    {
+        if (std::isinf(max_t))
+            return std::numeric_limits<Scalar>::infinity();
+        const Scalar value = static_cast<Scalar>(max_t);
+        return std::nextafter(value, std::numeric_limits<Scalar>::infinity());
+    }
+
+    //FIXME implement SSE for float AABB trees with float ray queries.
+    // SSE/SSE2 is supported by any Intel/AMD x64 processor.
+    // SSE support requires 16 byte alignment of the AABB nodes, representing the bounding boxes with 4+4 floats,
+    // storing the node index as the 4th element of the bounding box min value etc.
+    // https://www.flipcode.com/archives/SSE_RayBox_Intersection_Test.shtml
+    // Slab test with per-ray direction classification. Parallel axes are
+    // handled before multiplication to avoid 0 * infinity at box boundaries.
+    template <typename RayIntersectorType, typename Scalar>
+    inline bool ray_box_intersect_invdir(
+        const RayIntersectorType             &ray_intersector,
+        Eigen::AlignedBox<Scalar,3>            box,
+        const Scalar                          &t0,
+        const Scalar                          &t1)
+    {
+        const auto &origin = ray_intersector.origin;
+        const auto &inv_dir = ray_intersector.invdir;
+        const unsigned parallel_mask = ray_intersector.parallel_mask;
+        const unsigned sign_mask = ray_intersector.sign_mask;
+        Scalar tmin = t0;
+        Scalar tmax = t1;
+
+        if ((parallel_mask & 1u) != 0) {
+            if (origin.x() < box.min().x() || origin.x() > box.max().x())
+                return false;
+        } else {
+            const Scalar near_bound = (sign_mask & 1u) != 0 ? box.max().x() : box.min().x();
+            const Scalar far_bound = (sign_mask & 1u) != 0 ? box.min().x() : box.max().x();
+            const Scalar near_t = (near_bound - origin.x()) * inv_dir.x();
+            const Scalar far_t = (far_bound - origin.x()) * inv_dir.x();
+            if (near_t > tmin)
+                tmin = near_t;
+            if (far_t < tmax)
+                tmax = far_t;
+            if (tmin > tmax)
+                return false;
+        }
+
+        if ((parallel_mask & 2u) != 0) {
+            if (origin.y() < box.min().y() || origin.y() > box.max().y())
+                return false;
+        } else {
+            const Scalar near_bound = (sign_mask & 2u) != 0 ? box.max().y() : box.min().y();
+            const Scalar far_bound = (sign_mask & 2u) != 0 ? box.min().y() : box.max().y();
+            const Scalar near_t = (near_bound - origin.y()) * inv_dir.y();
+            const Scalar far_t = (far_bound - origin.y()) * inv_dir.y();
+            if (near_t > tmin)
+                tmin = near_t;
+            if (far_t < tmax)
+                tmax = far_t;
+            if (tmin > tmax)
+                return false;
+        }
+
+        if ((parallel_mask & 4u) != 0) {
+            if (origin.z() < box.min().z() || origin.z() > box.max().z())
+                return false;
+        } else {
+            const Scalar near_bound = (sign_mask & 4u) != 0 ? box.max().z() : box.min().z();
+            const Scalar far_bound = (sign_mask & 4u) != 0 ? box.min().z() : box.max().z();
+            const Scalar near_t = (near_bound - origin.z()) * inv_dir.z();
+            const Scalar far_t = (far_bound - origin.z()) * inv_dir.z();
+            if (near_t > tmin)
+                tmin = near_t;
+            if (far_t < tmax)
+                tmax = far_t;
+            if (tmin > tmax)
+                return false;
+        }
+
+        return tmin < t1 && tmax > t0;
+    }
+
+    template <typename Derivedsource, typename Deriveddir, typename Scalar>
+    inline Scalar ray_box_entry_t(
+        const Eigen::MatrixBase<Derivedsource> &origin,
+        const Eigen::MatrixBase<Deriveddir>   &inv_dir,
+        Eigen::AlignedBox<Scalar,3>             box)
+    {
+        Scalar entry = std::numeric_limits<Scalar>::lowest();
+        for (int axis = 0; axis < 3; ++axis) {
+            const Scalar inv = inv_dir[axis];
+            const auto origin_axis = origin[axis];
+            const Scalar box_min = box.min()[axis];
+            const Scalar box_max = box.max()[axis];
+            if (std::isinf(inv)) {
+                if (origin_axis < box_min || origin_axis > box_max)
+                    return std::numeric_limits<Scalar>::infinity();
+                continue;
+            }
+            Scalar slab_min = (box_min - origin_axis) * inv;
+            Scalar slab_max = (box_max - origin_axis) * inv;
+            if (slab_min > slab_max)
+                std::swap(slab_min, slab_max);
+            if (slab_min > entry)
+                entry = slab_min;
+        }
+        return entry;
+    }
+
+	// The following intersect_triangle() is derived from raytri.c routine intersect_triangle1()	// Ray-Triangle Intersection Test Routines
 	// Different optimizations of my and Ben Trumbore's
 	// code from journals of graphics tools (JGT)
 	// http://www.acm.org/jgt/
@@ -391,7 +482,6 @@ namespace detail {
 		}
 		return eps;
 	}
-
     template<typename RayIntersectorType, typename Scalar>
 	static inline bool intersect_ray_recursive_first_hit(
         RayIntersectorType 	   &ray_intersector,
@@ -402,7 +492,7 @@ namespace detail {
         const auto &node = ray_intersector.tree.node(node_idx);
         assert(node.is_valid());
 		
-        if (! ray_box_intersect_invdir(ray_intersector.origin, ray_intersector.invdir, node.bbox.template cast<Scalar>(), Scalar(0), min_t))
+        if (! ray_box_intersect_invdir(ray_intersector, node.bbox.template cast<Scalar>(), Scalar(0), min_t))
 			return false;
 
 	  	if (node.is_leaf()) {
@@ -440,35 +530,142 @@ namespace detail {
 	}
 
     template<typename RayIntersectorType>
-	static inline void intersect_ray_recursive_all_hits(RayIntersectorType &ray_intersector, size_t node_idx)
+	static inline void intersect_ray_recursive_all_hits(
+        RayIntersectorType &ray_intersector,
+        size_t             node_idx,
+        double             min_t,
+        double             max_t)
 	{
         using Scalar = typename RayIntersectorType::VectorType::Scalar;
 
-		const auto &node = ray_intersector.tree.node(node_idx);
-		assert(node.is_valid());
+        const auto &node = ray_intersector.tree.node(node_idx);
+        assert(node.is_valid());
 
-        if (! ray_box_intersect_invdir(ray_intersector.origin, ray_intersector.invdir, node.bbox.template cast<Scalar>(),
-    			Scalar(0), std::numeric_limits<Scalar>::infinity()))
-			return;
+        if (!ray_box_intersect_invdir(
+                ray_intersector,
+                node.bbox.template cast<Scalar>(),
+                ray_intersector.bbox_min_t,
+                ray_intersector.bbox_max_t))
+            return;
 
-	  	if (node.is_leaf()) {
-            auto   face = ray_intersector.faces[node.idx];
-		    double t, u, v;
-		    if (intersect_triangle(
-		    		ray_intersector.origin, ray_intersector.dir, 
-		    		ray_intersector.vertices[face(0)], ray_intersector.vertices[face(1)], ray_intersector.vertices[face(2)], 
+        if (node.is_leaf()) {
+            auto face = ray_intersector.faces[node.idx];
+            double t, u, v;
+            if (intersect_triangle(
+                    ray_intersector.origin,
+                    ray_intersector.dir,
+                    ray_intersector.vertices[face(0)],
+                    ray_intersector.vertices[face(1)],
+                    ray_intersector.vertices[face(2)],
+                    t, u, v, ray_intersector.eps) && t > 0.) {
+                const float emitted_t = float(t);
+                const double accepted_t = double(emitted_t);
+                if (std::isfinite(accepted_t) && accepted_t >= min_t && accepted_t <= max_t)
+                    ray_intersector.hits.emplace_back(
+                        igl::Hit{int(node.idx), -1, float(u), float(v), emitted_t});
+            }
+        } else {
+            const size_t left = node_idx * 2 + 1;
+            const size_t right = left + 1;
+            intersect_ray_recursive_all_hits(ray_intersector, left, min_t, max_t);
+            intersect_ray_recursive_all_hits(ray_intersector, right, min_t, max_t);
+        }
+    }
+
+    // Keep the legacy positive half-infinite query on its dedicated hot path.
+    // An exact zero lower bound skips boxes touching the ray at t=0 only,
+    // while retaining every box that may contain a positive hit.
+    template<typename RayIntersectorType>
+    static inline void intersect_ray_recursive_all_hits_legacy(RayIntersectorType &ray_intersector, size_t node_idx)
+    {
+        using Scalar = typename RayIntersectorType::VectorType::Scalar;
+
+        const auto &node = ray_intersector.tree.node(node_idx);
+        assert(node.is_valid());
+
+        if (! ray_box_intersect_invdir(ray_intersector, node.bbox.template cast<Scalar>(),
+                Scalar(0), std::numeric_limits<Scalar>::infinity()))
+            return;
+
+        if (node.is_leaf()) {
+            auto face = ray_intersector.faces[node.idx];
+            double t, u, v;
+            if (intersect_triangle(
+                    ray_intersector.origin, ray_intersector.dir,
+                    ray_intersector.vertices[face(0)], ray_intersector.vertices[face(1)], ray_intersector.vertices[face(2)],
                     t, u, v, ray_intersector.eps)
-		    	&& t > 0.) {
-                ray_intersector.hits.emplace_back(igl::Hit{ int(node.idx), -1, float(u), float(v), float(t) });
-			}
-	  	} else {
-			// Left / right child node index.
-			size_t left  = node_idx * 2 + 1;
-			size_t right = left + 1;
-		  	intersect_ray_recursive_all_hits(ray_intersector, left);
-		  	intersect_ray_recursive_all_hits(ray_intersector, right);
-		}
-	}
+                    && t > 0.) {
+                const float emitted_t = float(t);
+                const double accepted_t = double(emitted_t);
+                if (std::isfinite(accepted_t))
+                    ray_intersector.hits.emplace_back(igl::Hit{ int(node.idx), -1, float(u), float(v), emitted_t });
+            }
+        } else {
+            // Left / right child node index.
+            size_t left  = node_idx * 2 + 1;
+            size_t right = left + 1;
+            intersect_ray_recursive_all_hits_legacy(ray_intersector, left);
+            intersect_ray_recursive_all_hits_legacy(ray_intersector, right);
+        }
+    }
+
+    template<typename RayIntersectorType>
+    static inline void intersect_ray_recursive_bounded_first_hit(
+        RayIntersectorType &ray_intersector,
+        size_t              node_idx,
+        igl::Hit           &hit)
+    {
+        using Scalar = typename RayIntersectorType::VectorType::Scalar;
+
+        const auto &node = ray_intersector.tree.node(node_idx);
+        assert(node.is_valid());
+
+        const double search_max = std::min(ray_intersector.max_t, ray_intersector.best_t);
+        if (!ray_box_intersect_invdir(
+                ray_intersector,
+                node.bbox.template cast<Scalar>(),
+                ray_range_min<Scalar>(ray_intersector.min_t),
+                ray_range_max<Scalar>(search_max)))
+            return;
+
+        if (node.is_leaf()) {
+            const auto face = ray_intersector.faces[node.idx];
+            double t, u, v;
+            if (!intersect_triangle(
+                    ray_intersector.origin,
+                    ray_intersector.dir,
+                    ray_intersector.vertices[face(0)],
+                    ray_intersector.vertices[face(1)],
+                    ray_intersector.vertices[face(2)],
+                    t, u, v, ray_intersector.eps) || t <= 0.0)
+                return;
+
+            const float emitted_t = float(t);
+            const double accepted_t = double(emitted_t);
+            if (!std::isfinite(accepted_t) ||
+                accepted_t < ray_intersector.min_t ||
+                accepted_t > ray_intersector.max_t ||
+                accepted_t >= ray_intersector.best_t)
+                return;
+
+            ray_intersector.best_t = accepted_t;
+            hit = igl::Hit{int(node.idx), -1, float(u), float(v), emitted_t};
+            return;
+        }
+
+        size_t first = node_idx * 2 + 1;
+        size_t second = first + 1;
+        const auto first_entry = ray_box_entry_t(
+            ray_intersector.origin, ray_intersector.invdir,
+            ray_intersector.tree.node(first).bbox.template cast<Scalar>());
+        const auto second_entry = ray_box_entry_t(
+            ray_intersector.origin, ray_intersector.invdir,
+            ray_intersector.tree.node(second).bbox.template cast<Scalar>());
+        if (second_entry < first_entry)
+            std::swap(first, second);
+        intersect_ray_recursive_bounded_first_hit(ray_intersector, first, hit);
+        intersect_ray_recursive_bounded_first_hit(ray_intersector, second, hit);
+    }
 
     // Real-time collision detection, Ericson, Chapter 5
     template<typename Vector>
@@ -746,6 +943,36 @@ inline bool intersect_ray_first_hit(
         ray_intersector, size_t(0), std::numeric_limits<Scalar>::infinity(), hit);
 }
 
+// Find the nearest intersection inside a bounded ray interval.
+template<typename VertexType, typename IndexedFaceType, typename TreeType, typename VectorType>
+inline bool intersect_ray_first_hit(
+    const std::vector<VertexType>       &vertices,
+    const std::vector<IndexedFaceType>  &faces,
+    const TreeType                      &tree,
+    const VectorType                    &origin,
+    const VectorType                    &dir,
+    igl::Hit                            &hit,
+    double                              min_t,
+    double                              max_t,
+    const double                        eps = 0.000001)
+{
+    hit = igl::Hit{-1, -1, 0.f, 0.f, std::numeric_limits<float>::infinity()};
+    if (!std::isfinite(min_t) || min_t < 0.0 ||
+        std::isnan(max_t) || max_t < min_t || tree.empty())
+        return false;
+
+    auto ray_intersector = detail::RayIntersectorBoundedFirstHit<
+        VertexType, IndexedFaceType, TreeType, VectorType>{
+        {vertices, faces, tree,
+         origin, dir, VectorType(dir.cwiseInverse()),
+         eps}
+    };
+    ray_intersector.min_t = min_t;
+    ray_intersector.max_t = max_t;
+    detail::intersect_ray_recursive_bounded_first_hit(ray_intersector, 0, hit);
+    return hit.id >= 0 && std::isfinite(hit.t);
+}
+
 // Find all intersections of a ray with indexed triangle set.
 // Intersection test is calculated with the accuracy of VectorType::Scalar
 // even if the triangle mesh and the AABB Tree are built with floats.
@@ -753,38 +980,87 @@ inline bool intersect_ray_first_hit(
 // If the ray intersects a shared edge of two triangles, hits for both triangles are returned.
 template<typename VertexType, typename IndexedFaceType, typename TreeType, typename VectorType>
 inline bool intersect_ray_all_hits(
-	// Indexed triangle set - 3D vertices.
-	const std::vector<VertexType> 		&vertices,
-	// Indexed triangle set - triangular faces, references to vertices.
-	const std::vector<IndexedFaceType> 	&faces,
-	// AABBTreeIndirect::Tree over vertices & faces, bounding boxes built with the accuracy of vertices.
-	const TreeType 						&tree,
-	// Origin of the ray.
-	const VectorType					&origin,
-	// Direction of the ray.
-	const VectorType 					&dir,
-	// All intersections of the ray with the indexed triangle set, sorted by parameter t.
-	std::vector<igl::Hit> 				&hits,
-	// Epsilon for the ray-triangle intersection, it should be proportional to an average triangle edge length.
-	const double 						 eps = 0.000001)
+    // Indexed triangle set - 3D vertices.
+    const std::vector<VertexType>       &vertices,
+    // Indexed triangle set - triangular faces, references to vertices.
+    const std::vector<IndexedFaceType>  &faces,
+    // AABBTreeIndirect::Tree over vertices & faces, bounding boxes built with the accuracy of vertices.
+    const TreeType                      &tree,
+    // Origin of the ray.
+    const VectorType                    &origin,
+    // Direction of the ray.
+    const VectorType                    &dir,
+    // All intersections inside [min_t, max_t], sorted by parameter t.
+    std::vector<igl::Hit>               &hits,
+    // Minimum accepted ray parameter, inclusive.
+    double                              min_t,
+    // Maximum accepted ray parameter, inclusive.
+    double                              max_t,
+    // Epsilon for the ray-triangle intersection, it should be proportional to an average triangle edge length.
+    const double                        eps = 0.000001)
 {
+    if (!std::isfinite(min_t) || min_t < 0.0 ||
+        std::isnan(max_t) || max_t < min_t) {
+        hits.clear();
+        return false;
+    }
+
     auto ray_intersector = detail::RayIntersectorHits<VertexType, IndexedFaceType, TreeType, VectorType> {
         { vertices, faces, {tree},
         origin, dir, VectorType(dir.cwiseInverse()),
         eps }
-	};
-	if (tree.empty()) {
-		hits.clear();
-	} else {
-		// Reusing the output memory if there is some memory already pre-allocated.
+    };
+    if (tree.empty()) {
+        hits.clear();
+    } else {
+        // Reusing the output memory if there is some memory already pre-allocated.
         ray_intersector.hits = std::move(hits);
         ray_intersector.hits.clear();
         ray_intersector.hits.reserve(8);
-		detail::intersect_ray_recursive_all_hits(ray_intersector, 0);
-		hits = std::move(ray_intersector.hits);
-	    std::sort(hits.begin(), hits.end(), [](const auto &l, const auto &r) { return l.t < r.t; });
-	}
-	return ! hits.empty();
+        using Scalar = typename VectorType::Scalar;
+        ray_intersector.bbox_min_t = detail::ray_range_min<Scalar>(min_t);
+        ray_intersector.bbox_max_t = detail::ray_range_max<Scalar>(max_t);
+        detail::intersect_ray_recursive_all_hits(ray_intersector, 0, min_t, max_t);
+        hits = std::move(ray_intersector.hits);
+        std::sort(hits.begin(), hits.end(), [](const auto &l, const auto &r) { return l.t < r.t; });
+    }
+    return !hits.empty();
+}
+
+// The legacy all-hits API keeps the original positive half-infinite range.
+template<typename VertexType, typename IndexedFaceType, typename TreeType, typename VectorType>
+inline bool intersect_ray_all_hits(
+    // Indexed triangle set - 3D vertices.
+    const std::vector<VertexType>       &vertices,
+    // Indexed triangle set - triangular faces, references to vertices.
+    const std::vector<IndexedFaceType>  &faces,
+    // AABBTreeIndirect::Tree over vertices & faces, bounding boxes built with the accuracy of vertices.
+    const TreeType                      &tree,
+    // Origin of the ray.
+    const VectorType                    &origin,
+    // Direction of the ray.
+    const VectorType                    &dir,
+    // All positive intersections of the ray with the indexed triangle set, sorted by parameter t.
+    std::vector<igl::Hit>               &hits,
+    // Epsilon for the ray-triangle intersection, it should be proportional to an average triangle edge length.
+    const double                        eps = 0.000001)
+{
+    auto ray_intersector = detail::RayIntersectorHits<VertexType, IndexedFaceType, TreeType, VectorType> {
+        {vertices, faces, {tree},
+         origin, dir, VectorType(dir.cwiseInverse()),
+         eps}
+    };
+    if (tree.empty()) {
+        hits.clear();
+    } else {
+        ray_intersector.hits = std::move(hits);
+        ray_intersector.hits.clear();
+        ray_intersector.hits.reserve(8);
+        detail::intersect_ray_recursive_all_hits_legacy(ray_intersector, 0);
+        hits = std::move(ray_intersector.hits);
+        std::sort(hits.begin(), hits.end(), [](const auto &l, const auto &r) { return l.t < r.t; });
+    }
+    return !hits.empty();
 }
 
 // Finding a closest triangle, its closest point and squared distance to the closest point

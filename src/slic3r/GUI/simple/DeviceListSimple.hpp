@@ -124,6 +124,8 @@ private:
     int m_last_selected_preset_idx = -1;
 
     bool m_device_list_dirty_mark = true;
+    uint64_t m_cover_revision_all = 0;
+    uint64_t m_cover_revision_same_model = 0;
     Simple_Device_List_Data m_simple_device_list_data;
     Simple_Device_List_Data m_same_model_device_list_data;
 

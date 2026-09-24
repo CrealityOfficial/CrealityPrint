@@ -1,5 +1,7 @@
 #include "GCodeWriter.hpp"
+#include "RetractConfigTrace.hpp"
 #include "CustomGCode.hpp"
+#include "I18N.hpp"
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
@@ -26,7 +28,11 @@ bool GCodeWriter::supports_separate_travel_acceleration(GCodeFlavor flavor)
 
 void GCodeWriter::apply_print_config(const PrintConfig &print_config)
 {
+    RetractConfigTrace trace("Writer.apply_config", this);
+    trace.config("INPUT", print_config);
+    trace.config("BEFORE", config);
     this->config.apply(print_config, true);
+    trace.config("AFTER", config);
     m_single_extruder_multi_material = print_config.single_extruder_multi_material.value;
     bool use_mach_limits = print_config.gcode_flavor.value == gcfMarlinLegacy || print_config.gcode_flavor.value == gcfMarlinFirmware ||
                            print_config.gcode_flavor.value == gcfKlipper || print_config.gcode_flavor.value == gcfRepRapFirmware;
@@ -49,11 +55,17 @@ void GCodeWriter::apply_print_config(const PrintConfig &print_config)
 
 void GCodeWriter::set_extruders(std::vector<unsigned int> extruder_ids)
 {
+    RetractConfigTrace trace("Writer.set_extruders", this);
+    trace.note("STATE", " config=", &config, " old_active=", m_extruder, " old_count=", m_extruders.size(), " new_count=", extruder_ids.size());
     std::sort(extruder_ids.begin(), extruder_ids.end());
     m_extruders.clear();
     m_extruders.reserve(extruder_ids.size());
-    for (unsigned int extruder_id : extruder_ids)
+    for (unsigned int extruder_id : extruder_ids) {
+        trace.note("CREATE_BEGIN", " tool=", extruder_id, " config=", &config);
         m_extruders.emplace_back(Extruder(extruder_id, &this->config, config.single_extruder_multi_material.value));
+        trace.note("CREATE_END", " tool=", extruder_id, " extruder=", &m_extruders.back(),
+                   " bound_config=", m_extruders.back().diagnostic_config_address());
+    }
     
     /*  we enable support for multiple extruder if any extruder greater than 0 is used
         (even if prints only uses that one) since we need to output Tx commands
@@ -230,13 +242,18 @@ std::string  GCodeWriter::set_temperatured(float temperature, bool wait, int too
 }
 
 // BBS
+void GCodeWriter::sync_bed_temperature(int temperature, bool reached)
+{
+    m_last_bed_temperature = temperature;
+    m_last_bed_temperature_reached = reached;
+}
+
 std::string GCodeWriter::set_bed_temperature(int temperature, bool wait)
 {
     if (temperature == m_last_bed_temperature && (! wait || m_last_bed_temperature_reached))
         return std::string();
 
-    m_last_bed_temperature = temperature;
-    m_last_bed_temperature_reached = wait;
+    sync_bed_temperature(temperature, wait);
 
     std::string code, comment;
     std::ostringstream gcode;
@@ -298,7 +315,7 @@ std::string GCodeWriter::set_travel_acceleration()
     if (m_has_auto_travel_acceleration_override) {
         acceleration = m_auto_travel_acceleration_override;
     } else if (m_is_first_layer && !m_first_layer_travel_accelerations.empty()) {
-        size_t extruder_id = m_extruder ? m_extruder->id() : 0;
+        size_t extruder_id = get_physical_nozzle_index(config, m_extruder ? m_extruder->id() : 0);
         if (extruder_id < m_first_layer_travel_accelerations.size()) {
             acceleration = m_first_layer_travel_accelerations[extruder_id];
         } else {
@@ -413,7 +430,7 @@ std::string GCodeWriter::set_jerk_xy(double jerk)
 
 }
 
-std::string GCodeWriter::set_accel_and_jerk(unsigned int acceleration, double jerk)
+std::string GCodeWriter::set_accel_and_jerk(unsigned int acceleration, double jerk, bool force)
 {
     // Only Klipper supports setting acceleration and jerk at the same time. Throw an error if we try to do this on other flavours.
     if(FLAVOR_IS_NOT(gcfKlipper))
@@ -426,7 +443,8 @@ std::string GCodeWriter::set_accel_and_jerk(unsigned int acceleration, double je
     bool is_empty = true;
     std::ostringstream gcode;
     gcode << "SET_VELOCITY_LIMIT";
-    if ((acceleration != 0 && acceleration != m_last_acceleration) || m_last_dec != this->config.accel_to_decel_factor) {
+    if ((acceleration != 0 && (force || acceleration != m_last_acceleration)) ||
+        (!force && m_last_dec != this->config.accel_to_decel_factor)) {
         gcode << " ACCEL=" << acceleration;
         if (this->config.accel_to_decel_enable) {
             gcode << " ACCEL_TO_DECEL=" << acceleration * this->config.accel_to_decel_factor / 100;
@@ -439,7 +457,7 @@ std::string GCodeWriter::set_accel_and_jerk(unsigned int acceleration, double je
     if (m_max_jerk > 0 && jerk > m_max_jerk)
         jerk = m_max_jerk;
 
-    if (jerk > 0.01 && !is_approx(jerk, m_last_jerk)) {
+    if (jerk > 0.01 && (force || !is_approx(jerk, m_last_jerk))) {
         gcode << " SQUARE_CORNER_VELOCITY=" << jerk;
         m_last_jerk = jerk;
         is_empty = false;
@@ -454,6 +472,13 @@ std::string GCodeWriter::set_accel_and_jerk(unsigned int acceleration, double je
 
     return gcode.str();
 
+}
+
+std::string GCodeWriter::set_print_acceleration_and_jerk(unsigned int acceleration, double jerk)
+{
+    if (FLAVOR_IS(gcfKlipper))
+        return this->set_accel_and_jerk(acceleration, jerk);
+    return this->set_print_acceleration(acceleration) + this->set_jerk_xy(jerk);
 }
 
 std::string GCodeWriter::set_pressure_advance(double pa) const
@@ -530,12 +555,24 @@ std::string GCodeWriter::toolchange_prefix() const
            FLAVOR_IS(gcfSailfish)  ? "M108 T" : "T";
 }
 
+std::string GCodeWriter::set_extruder(unsigned int extruder_id)
+{
+    RetractConfigTrace trace("Writer.set_extruder", this);
+    trace.note("SELECT_BEGIN", " tool=", extruder_id);
+    trace_retraction_state();
+    return this->need_toolchange(extruder_id) ? this->toolchange(extruder_id) : "";
+}
+
 std::string GCodeWriter::toolchange(unsigned int extruder_id, bool change_tool)
 {
+    RetractConfigTrace trace("Writer.toolchange", this);
+    trace.note("SELECT_BEGIN", " tool=", extruder_id, " count=", m_extruders.size());
     // set the new extruder
 	auto it_extruder = Slic3r::lower_bound_by_predicate(m_extruders.begin(), m_extruders.end(), [extruder_id](const Extruder &e) { return e.id() < extruder_id; });
     assert(it_extruder != m_extruders.end() && it_extruder->id() == extruder_id);
     m_extruder = &*it_extruder;
+
+    trace_retraction_state();
 
     // return the toolchange command
     // if we are running a single-extruder setup, just set the extruder and return nothing
@@ -554,12 +591,16 @@ std::string GCodeWriter::toolchange(unsigned int extruder_id, bool change_tool)
 
 void GCodeWriter::init_extruder(unsigned int extruder_id)
 {
+    RetractConfigTrace trace("Writer.init_extruder", this);
+    trace.note("SELECT_BEGIN", " tool=", extruder_id, " active=", m_extruder);
+    trace_retraction_state();
     if (m_extruder != nullptr)
         return;
 
     auto it_extruder = Slic3r::lower_bound_by_predicate(m_extruders.begin(), m_extruders.end(), [extruder_id](const Extruder &e) { return e.id() < extruder_id; });
     assert(it_extruder != m_extruders.end() && it_extruder->id() == extruder_id);
     m_extruder = &*it_extruder;
+    trace_retraction_state();
 }
 
 std::string GCodeWriter::set_speed(double F, const std::string &comment, const std::string &cooling_marker)
@@ -587,8 +628,10 @@ std::string GCodeWriter::travel_to_xy(const Vec2d &point, const std::string &com
     
     GCodeG1Formatter w;
     w.emit_xy(point_on_plate);
-    auto speed = m_is_first_layer
-        ? this->config.get_abs_value("initial_layer_travel_speed") : this->config.travel_speed.value;
+    const size_t nozzle_idx = get_physical_nozzle_index(this->config, m_extruder ? m_extruder->id() : 0);
+    const double configured_travel_speed = this->config.travel_speed.get_at(nozzle_idx);
+    double speed = m_is_first_layer ? this->config.initial_layer_travel_speed.get_abs_value(configured_travel_speed)
+                                    : configured_travel_speed;
     if (limitSpeed > 0.0f)
     {
         speed = std::min(speed, limitSpeed);
@@ -600,6 +643,20 @@ std::string GCodeWriter::travel_to_xy(const Vec2d &point, const std::string &com
 }
 
 std::string GCodeWriter::travel_to_xyz(const Vec3d &point, const std::string &comment,const double limitSpeed)
+{
+    return this->_travel_to_xyz(point, comment, limitSpeed, true);
+}
+
+std::string GCodeWriter::travel_to_xyz_exact(const Vec3d &point, const std::string &comment,const double limitSpeed)
+{
+    return this->_travel_to_xyz(point, comment, limitSpeed, false);
+}
+
+std::string GCodeWriter::_travel_to_xyz(
+    const Vec3d &point,
+    const std::string &comment,
+    double limitSpeed,
+    bool apply_legacy_zero_z_guard)
 {
     // FIXME: This function was not being used when travel_speed_z was separated (bd6badf).
     // Calculation of feedrate was not updated accordingly. If you want to use
@@ -613,10 +670,12 @@ std::string GCodeWriter::travel_to_xyz(const Vec3d &point, const std::string &co
         // BBS
     Vec3d dest_point = point;
     double prev_z = m_pos(2);
-    if (std::abs(dest_point(2)) < EPSILON && prev_z > EPSILON)
+    if (apply_legacy_zero_z_guard && std::abs(dest_point(2)) < EPSILON && prev_z > EPSILON)
         dest_point(2) = prev_z;
-    auto travel_speed =
-        m_is_first_layer ? this->config.get_abs_value("initial_layer_travel_speed") : this->config.travel_speed.value;
+    const size_t nozzle_idx = get_physical_nozzle_index(this->config, m_extruder ? m_extruder->id() : 0);
+    const double configured_travel_speed = this->config.travel_speed.get_at(nozzle_idx);
+    double travel_speed = m_is_first_layer ? this->config.initial_layer_travel_speed.get_abs_value(configured_travel_speed)
+                                           : configured_travel_speed;
     if (limitSpeed > 0.0f)
     {
         travel_speed = std::min(travel_speed, limitSpeed);
@@ -719,7 +778,7 @@ std::string GCodeWriter::travel_to_xyz(const Vec3d &point, const std::string &co
     Vec3d point_on_plate = { dest_point(0) - m_x_offset, dest_point(1) - m_y_offset, dest_point(2) };
     std::string out_string;
     GCodeG1Formatter w;
-    double speed = this->config.travel_speed.value;
+    double speed = configured_travel_speed;
     if (limitSpeed > 0.0f)
     {
         speed = std::min(speed, limitSpeed);
@@ -728,13 +787,13 @@ std::string GCodeWriter::travel_to_xyz(const Vec3d &point, const std::string &co
     {
         //force to move xy first then z after filament change
         w.emit_xy(Vec2d(point_on_plate.x(), point_on_plate.y()));
-        w.emit_f(this->config.travel_speed.value * 60.0);
+        w.emit_f(speed * 60.0);
         w.emit_comment(GCodeWriter::full_gcode_comment, comment);
         out_string = w.string() + _travel_to_z(point_on_plate.z(), comment, limitSpeed);
     } else {
         GCodeG1Formatter w;
         w.emit_xyz(point_on_plate);
-        w.emit_f(this->config.travel_speed.value * 60.0);
+        w.emit_f(speed * 60.0);
         w.emit_comment(GCodeWriter::full_gcode_comment, comment);
         out_string = w.string();
     }
@@ -763,16 +822,30 @@ std::string GCodeWriter::travel_to_z(double z, const std::string &comment,const 
     return set_travel_acceleration() + this->_travel_to_z(z, comment, limitSpeed);
 }
 
-std::string GCodeWriter::_travel_to_z(double z, const std::string &comment,const double limitSpeed)
+std::string GCodeWriter::travel_to_z_exact(double z, const std::string &comment, const double limitSpeed)
+{
+    // ZAA calls this after unretract; compare the coordinates at emitted precision.
+    const bool emit_z = GCodeFormatter::quantize_xyzf(m_pos(2)) != GCodeFormatter::quantize_xyzf(z);
+    m_pos(2) = z;
+    if (!emit_z)
+        return "";
+
+    // Lift bookkeeping must already be settled by the caller; WriterReady owns the violation check.
+    return set_travel_acceleration() + this->_travel_to_z(z, comment, limitSpeed, true);
+}
+
+std::string GCodeWriter::_travel_to_z(double z, const std::string &comment,const double limitSpeed, bool force_emit_z)
 {
     // Only emit Z if it actually changes. Prevents writing Z0 when current Z is already correct.
-    const bool emit_z = (std::abs(m_pos(2) - z) >= EPSILON);
+    const bool emit_z = force_emit_z || (std::abs(m_pos(2) - z) >= EPSILON);
     m_pos(2) = z;
 
-    double speed = this->config.travel_speed_z.value;
+    const size_t nozzle_idx = get_physical_nozzle_index(this->config, m_extruder ? m_extruder->id() : 0);
+    const double configured_travel_speed = this->config.travel_speed.get_at(nozzle_idx);
+    double speed = this->config.travel_speed_z.get_at(nozzle_idx);
     if (speed == 0.) {
-        speed = m_is_first_layer ? this->config.get_abs_value("initial_layer_travel_speed")
-                                 : this->config.travel_speed.value;
+        speed = m_is_first_layer ? this->config.initial_layer_travel_speed.get_abs_value(configured_travel_speed)
+                                 : configured_travel_speed;
     }
     if (limitSpeed > 0.0f)
     {
@@ -792,10 +865,12 @@ std::string GCodeWriter::_spiral_travel_to_z(double z, const Vec2d &ij_offset, c
     const bool emit_z = (std::abs(m_pos(2) - z) >= EPSILON);
     m_pos(2) = z;
 
-    double speed = this->config.travel_speed_z.value;
+    const size_t nozzle_idx = get_physical_nozzle_index(this->config, m_extruder ? m_extruder->id() : 0);
+    const double configured_travel_speed = this->config.travel_speed.get_at(nozzle_idx);
+    double speed = this->config.travel_speed_z.get_at(nozzle_idx);
     if (speed == 0.) {
-        speed = m_is_first_layer ? this->config.get_abs_value("initial_layer_travel_speed")
-                                 : this->config.travel_speed.value;
+        speed = m_is_first_layer ? this->config.initial_layer_travel_speed.get_abs_value(configured_travel_speed)
+                                 : configured_travel_speed;
     }
     
     std::string output = "G17\n";
@@ -876,31 +951,106 @@ std::string GCodeWriter::extrude_arc_to_xy(const Vec2d& point, const Vec2d& cent
 
 std::string GCodeWriter::extrude_to_xyz(const Vec3d &point, double dE, const std::string &comment, bool force_no_extrusion)
 {
-    double prev_z = m_pos(2);
-    m_pos = point;
-    // Guard against unintended Z0: if incoming Z is zero but we already have a valid Z, keep the previous height.
-    if (std::abs(point(2)) < EPSILON && prev_z > EPSILON)
-        m_pos(2) = prev_z;
-    m_lifted = 0;
+    return this->_extrude_to_xyz(point, dE, comment, force_no_extrusion, true);
+}
+
+Vec3d GCodeWriter::_output_xyz_exact(const Vec3d &point) const
+{
+    return {point.x() - m_x_offset, point.y() - m_y_offset, point.z()};
+}
+
+Vec3d GCodeWriter::preview_extrude_to_xyz_exact(const Vec3d &point) const
+{
+    const Vec3d output = this->_output_xyz_exact(point);
+    return {
+        GCodeFormatter::quantize_xyzf(output.x()),
+        GCodeFormatter::quantize_xyzf(output.y()),
+        GCodeFormatter::quantize_xyzf(output.z())
+    };
+}
+
+std::string GCodeWriter::extrude_to_xyz_exact(
+    const Vec3d &point,
+    double dE,
+    const std::string &comment,
+    bool force_no_extrusion)
+{
+    return this->_extrude_to_xyz(point, dE, comment, force_no_extrusion, false);
+}
+
+std::string GCodeWriter::_extrude_to_xyz(
+    const Vec3d &point,
+    double dE,
+    const std::string &comment,
+    bool force_no_extrusion,
+    bool apply_legacy_zero_z_guard)
+{
+    Vec3d destination = point;
+    const double previous_z = m_pos(2);
+    if (apply_legacy_zero_z_guard && std::abs(destination(2)) < EPSILON && previous_z > EPSILON)
+        destination(2) = previous_z;
+
+    m_pos = destination;
+    m_lifted = 0.0;
     if (!force_no_extrusion)
         m_extruder->extrude(dE);
-    
-    //BBS: take plate offset into consider
-    Vec3d point_on_plate = { point(0) - m_x_offset, point(1) - m_y_offset, point(2) };
-    if (std::abs(point_on_plate(2)) < EPSILON && prev_z > EPSILON)
-        point_on_plate(2) = prev_z;
 
     GCodeG1Formatter w;
-    w.emit_xyz(point_on_plate);
+    w.emit_xyz(this->_output_xyz_exact(destination));
     if (!force_no_extrusion)
         w.emit_e(m_extruder->E());
-    //BBS
     w.emit_comment(GCodeWriter::full_gcode_comment, comment);
     return w.string();
 }
 
+GCodeWriter::ReadySnapshot GCodeWriter::ready_snapshot(
+    unsigned int expected_extruder_id,
+    const Vec3d &expected_start_xyz,
+    double layer_print_z_mm) const
+{
+    ReadySnapshot snapshot;
+    snapshot.expected_extruder_id = expected_extruder_id;
+    snapshot.writer_extruder_present = m_extruder != nullptr;
+    snapshot.writer_position_known = m_is_current_pos_clear;
+    snapshot.writer_stored_xyz = m_pos;
+    snapshot.expected_start_xyz = expected_start_xyz;
+    snapshot.writer_emitted_xyz = this->preview_extrude_to_xyz_exact(m_pos);
+    snapshot.expected_emitted_xyz = this->preview_extrude_to_xyz_exact(expected_start_xyz);
+    snapshot.writer_nominal_z_mm = layer_print_z_mm + m_z_offset;
+    snapshot.active_lift_mm = m_lifted;
+    snapshot.pending_lift_mm = m_to_lift;
+    if (m_extruder != nullptr) {
+        snapshot.actual_extruder_id = m_extruder->id();
+        snapshot.retracted_mm = m_extruder->retracted();
+        snapshot.restart_extra_mm = m_extruder->restart_extra();
+    }
+    return snapshot;
+}
+
+void GCodeWriter::trace_retraction_state() const
+{
+    if (!RetractConfigTrace::enabled()) return;
+    RetractConfigTrace trace("Writer.ownership", this);
+    trace.note("ADDRESSES", " config=", &config, " active=", m_extruder, " count=", m_extruders.size());
+    // Compare addresses first; never inspect an active pointer outside our container.
+    const auto found = std::find_if(m_extruders.begin(), m_extruders.end(),
+        [this](const Extruder& value) { return &value == m_extruder; });
+    if (found == m_extruders.end()) {
+        trace.note("NOT_OWNED");
+        return;
+    }
+    const bool config_matches = found->diagnostic_config_address() == &config;
+    trace.note("OWNED", " tool=", found->id(), " bound_config=", found->diagnostic_config_address(),
+               " config_matches=", config_matches);
+    // Do not follow the bound pointer, even if a stale copy points to readable memory.
+    if (config_matches) trace.config("OWNED_CONFIG", config);
+}
+
 std::string GCodeWriter::retract(bool before_wipe, double retract_length)
 {
+    RetractConfigTrace trace("Writer.retract", this);
+    trace.note("ARGS", " before_wipe=", before_wipe, " length_override=", retract_length);
+    trace_retraction_state();
     double factor = before_wipe ? m_extruder->retract_before_wipe() : 1.;
     assert(factor >= 0. && factor <= 1. + EPSILON);
     return this->_retract(
@@ -912,6 +1062,8 @@ std::string GCodeWriter::retract(bool before_wipe, double retract_length)
 
 std::string GCodeWriter::retract_for_toolchange(bool before_wipe, double retract_length)
 {
+    RetractConfigTrace trace("Writer.retract_for_toolchange", this);
+    trace_retraction_state();
     double factor = before_wipe ? m_extruder->retract_before_wipe() : 1.;
     assert(factor >= 0. && factor <= 1. + EPSILON);
     return this->_retract(

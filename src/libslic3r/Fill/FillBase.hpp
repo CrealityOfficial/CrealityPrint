@@ -36,6 +36,11 @@
 #endif
 namespace Slic3r {
 
+inline constexpr bool zaa_locks_top_fill_rotation(bool lock_active, bool is_top_surface, bool is_bridge) noexcept
+{
+    return lock_active && is_top_surface && !is_bridge;
+}
+
 class Surface;
 enum InfillPattern : int;
 
@@ -101,6 +106,11 @@ struct FillParams
     Flow            flow;
     ExtrusionRole   extrusion_role{ ExtrusionRole(0) };
     bool            using_internal_flow{ false };
+    // Purge skeletons are already dense, volume-sized fills. Generic gap fill would
+    // add unaccounted material and turn their collection into a mixed-role collection.
+    bool            enable_gap_fill{ true };
+    bool            solid_skeleton_wipe_path{ false };
+    size_t          solid_skeleton_start_corner{ 0 };
     //BBS: only used for new top surface pattern
     float           no_extrusion_overlap{ 0.0 };
     const           PrintRegionConfig* config{ nullptr };
@@ -143,6 +153,10 @@ public:
 
     // Octree builds on mesh for usage in the adaptive cubic infill
     FillAdaptive::Octree* adapt_fill_octree = nullptr;
+
+    // OpenVDB SDF grid for field-driven infill (FillField)
+    // Stores FillTensorHandle (computed in PrintObject, queried in FillField)
+    void* field_sdf_grid = nullptr;
 
     // PrintConfig and PrintObjectConfig are used by infills that use Arachne (Concentric and FillEnsuring).
     // Orca: also used by gap fill function.
@@ -196,6 +210,7 @@ public:
         loop_clipping         = f->loop_clipping;
         bounding_box          = f->bounding_box;
         adapt_fill_octree     = f->adapt_fill_octree;
+        field_sdf_grid        = f->field_sdf_grid;
         no_overlap_expolygons = f->no_overlap_expolygons;
     };
 

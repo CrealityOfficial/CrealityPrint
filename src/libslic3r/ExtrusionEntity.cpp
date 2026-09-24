@@ -4,9 +4,11 @@
 #include "ClipperUtils.hpp"
 #include "Extruder.hpp"
 #include "Flow.hpp"
+#include "Exception.hpp"
 #include <cmath>
 #include <limits>
 #include <sstream>
+#include <utility>
 #include "Utils.hpp"
 
 #define L(s) (s)
@@ -15,28 +17,186 @@ namespace Slic3r {
     
 static const double slope_inner_outer_wall_gap = 0.4;
 
+namespace {
+
+using PolylineFittingResult = decltype(std::declval<Polyline &>().fitting_result);
+
+static_assert(noexcept(std::declval<Points &>().swap(std::declval<Points &>())),
+              "ZAA transaction requires no-throw point storage exchange");
+static_assert(noexcept(std::declval<PolylineFittingResult &>().swap(std::declval<PolylineFittingResult &>())),
+              "ZAA transaction requires no-throw fitting-result exchange");
+static_assert(noexcept(std::declval<std::unique_ptr<ExtrusionPath3> &>().swap(
+                  std::declval<std::unique_ptr<ExtrusionPath3> &>())),
+              "ZAA transaction requires no-throw 3D-path exchange");
+
+void reject_unmodeled_path3_topology_change(const ExtrusionPath &path, const char *operation)
+{
+    if (path.has_path3())
+        throw LogicError(operation);
+}
+
+} // namespace
+
+ExtrusionPath3::ExtrusionPath3(Polyline3 polyline)
+    : m_polyline(std::move(polyline))
+{
+}
+
+std::unique_ptr<ExtrusionPath3> ExtrusionPath3::clone() const
+{
+    return std::make_unique<ExtrusionPath3>(*this);
+}
+
+void ExtrusionPath3::reverse()
+{
+    m_polyline.reverse();
+}
+
+void ExtrusionPath3::clip_end(double distance)
+{
+    m_polyline.clip_end(distance);
+}
+
+bool ExtrusionPath3::split_at_xy(const Point &query,
+                                  Point &actual_xy,
+                                  std::unique_ptr<ExtrusionPath3> &before,
+                                  std::unique_ptr<ExtrusionPath3> &after) const
+{
+    if (&before == &after)
+        return false;
+
+    Polyline3 before_polyline;
+    Polyline3 after_polyline;
+    if (!m_polyline.split_at_xy(query, actual_xy, &before_polyline, &after_polyline))
+        return false;
+
+    before = std::make_unique<ExtrusionPath3>(std::move(before_polyline));
+    after = std::make_unique<ExtrusionPath3>(std::move(after_polyline));
+    return true;
+}
+
+bool ExtrusionPath3::append(const ExtrusionPath3 &suffix)
+{
+    if (suffix.m_polyline.points.empty())
+        return true;
+    if (m_polyline.points.empty()) {
+        m_polyline = suffix.m_polyline;
+        return true;
+    }
+    if (m_polyline.points.back() != suffix.m_polyline.points.front())
+        return false;
+
+    m_polyline.points.insert(m_polyline.points.end(), suffix.m_polyline.points.begin() + 1, suffix.m_polyline.points.end());
+    return true;
+}
+
+const Polyline3 &ExtrusionPath3::polyline3() const
+{
+    return m_polyline;
+}
+
+double ExtrusionPath3::length_xy() const
+{
+    return m_polyline.length_xy();
+}
+
+double ExtrusionPath3::length_3d() const
+{
+    return m_polyline.length_3d();
+}
+
+void ExtrusionPath::set_path3(std::unique_ptr<ExtrusionPath3> path3)
+{
+    if (!path3)
+        throw InvalidArgument("ExtrusionPath::set_path3 requires a non-null 3D path");
+
+    polyline = path3->polyline3().to_polyline();
+    m_path3 = std::move(path3);
+}
+
+bool ExtrusionPath::split_at_xy(const Point &query, Point &actual_xy, ExtrusionPath *before, ExtrusionPath *after) const
+{
+    if (before == nullptr || after == nullptr || before == after || polyline.points.size() < 2)
+        return false;
+
+    if (m_path3) {
+        std::unique_ptr<ExtrusionPath3> before_path3;
+        std::unique_ptr<ExtrusionPath3> after_path3;
+        if (!m_path3->split_at_xy(query, actual_xy, before_path3, after_path3))
+            return false;
+
+        ExtrusionPath before_result(polyline, *this);
+        ExtrusionPath after_result(polyline, *this);
+        before_result.set_path3(std::move(before_path3));
+        after_result.set_path3(std::move(after_path3));
+        *before = std::move(before_result);
+        *after = std::move(after_result);
+        return true;
+    }
+
+    Point split_xy = query;
+    Polyline before_polyline;
+    Polyline after_polyline;
+    polyline.split_at(split_xy, &before_polyline, &after_polyline);
+    ExtrusionPath before_result(std::move(before_polyline), *this);
+    ExtrusionPath after_result(std::move(after_polyline), *this);
+    *before = std::move(before_result);
+    *after = std::move(after_result);
+    actual_xy = split_xy;
+    return true;
+}
+
+void ExtrusionPath::append_path3(const ExtrusionPath &suffix)
+{
+    if (!m_path3 || !suffix.m_path3)
+        throw LogicError("ExtrusionPath::append_path3 requires two 3D paths");
+    if (!m_path3->append(*suffix.m_path3))
+        throw LogicError("ExtrusionPath::append_path3 requires matching 3D endpoints");
+
+    polyline = m_path3->polyline3().to_polyline();
+}
+
+void ExtrusionPath::reverse()
+{
+    if (m_path3) {
+        m_path3->reverse();
+        polyline = m_path3->polyline3().to_polyline();
+    } else {
+        polyline.reverse();
+    }
+}
+
 void ExtrusionPath::intersect_expolygons(const ExPolygons &collection, ExtrusionEntityCollection* retval) const
 {
+    reject_unmodeled_path3_topology_change(*this, "ExtrusionPath::intersect_expolygons does not support a 3D path");
     this->_inflate_collection(intersection_pl(Polylines{ polyline }, collection), retval);
 }
 
 void ExtrusionPath::subtract_expolygons(const ExPolygons &collection, ExtrusionEntityCollection* retval) const
 {
+    reject_unmodeled_path3_topology_change(*this, "ExtrusionPath::subtract_expolygons does not support a 3D path");
     this->_inflate_collection(diff_pl(Polylines{ this->polyline }, collection), retval);
 }
 
 void ExtrusionPath::clip_end(double distance)
 {
-    this->polyline.clip_end(distance);
+    if (m_path3) {
+        m_path3->clip_end(distance);
+        polyline = m_path3->polyline3().to_polyline();
+    } else {
+        polyline.clip_end(distance);
+    }
 }
 
 void ExtrusionPath::simplify(double tolerance)
 {
+    reject_unmodeled_path3_topology_change(*this, "ExtrusionPath::simplify does not support a 3D path");
     this->polyline.simplify(tolerance);
 }
 
 void ExtrusionPath::simplify_by_fitting_arc(double tolerance)
 {
+    reject_unmodeled_path3_topology_change(*this, "ExtrusionPath::simplify_by_fitting_arc does not support a 3D path");
     this->polyline.simplify_by_fitting_arc(tolerance);
 }
 
@@ -69,9 +229,11 @@ void ExtrusionPath::polygons_covered_by_spacing(Polygons &out, const float scale
 
 bool ExtrusionPath::can_merge(const ExtrusionPath& other)
 {
-    return overhang_degree == other.overhang_degree && curve_degree == other.curve_degree && mm3_per_mm == other.mm3_per_mm &&
+    return !this->has_path3() && !other.has_path3() &&
+           overhang_degree == other.overhang_degree && curve_degree == other.curve_degree && mm3_per_mm == other.mm3_per_mm &&
            width == other.width && height == other.height && m_can_reverse == other.m_can_reverse && m_role == other.m_role &&
-           m_no_extrusion == other.m_no_extrusion && smooth_speed == other.smooth_speed;
+           m_no_extrusion == other.m_no_extrusion && smooth_speed == other.smooth_speed &&
+           m_zaa_path_policy == other.m_zaa_path_policy;
 }
 
 void ExtrusionMultiPath::reverse()
@@ -169,50 +331,69 @@ double ExtrusionLoop::length() const
     return len;
 }
 
+bool ExtrusionLoop::split_and_rotate_at_xy(size_t path_idx, const Point &seam_xy)
+{
+    if (path_idx >= paths.size())
+        return false;
+
+    const ExtrusionPath &source = paths[path_idx];
+    ExtrusionPath before;
+    ExtrusionPath after;
+    Point actual_xy;
+    if (!source.split_at_xy(seam_xy, actual_xy, &before, &after))
+        return false;
+    // A legacy 2D path may have an arc-fitting record. Splitting one of its
+    // sampled vertices canonicalizes that endpoint onto the fitted arc, so its
+    // emitted XY can intentionally differ from the requested sample. A 3D
+    // sidecar has no arc representation and must retain its exact XY mirror.
+    if (source.has_path3() && actual_xy != seam_xy) {
+        throw LogicError("ExtrusionLoop::split_and_rotate_at_xy changed the requested seam point");
+    }
+
+    if (paths.size() == 1) {
+        if (before.polyline.is_valid() && after.polyline.is_valid()) {
+            if (after.has_path3()) {
+                if (!before.has_path3())
+                    throw LogicError("ExtrusionLoop::split_and_rotate_at_xy produced mixed path dimensions");
+                after.append_path3(before);
+            } else {
+                if (before.has_path3())
+                    throw LogicError("ExtrusionLoop::split_and_rotate_at_xy produced mixed path dimensions");
+                after.polyline.append(std::move(before.polyline));
+            }
+            paths.front() = std::move(after);
+        } else if (after.polyline.is_valid()) {
+            paths.front() = std::move(after);
+        } else if (before.polyline.is_valid()) {
+            paths.front() = std::move(before);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    ExtrusionPaths reordered;
+    reordered.reserve(paths.size() + 1);
+    if (after.polyline.is_valid())
+        reordered.emplace_back(std::move(after));
+    reordered.insert(reordered.end(), paths.begin() + path_idx + 1, paths.end());
+    reordered.insert(reordered.end(), paths.begin(), paths.begin() + path_idx);
+    if (before.polyline.is_valid())
+        reordered.emplace_back(std::move(before));
+    if (reordered.empty())
+        return false;
+
+    paths.swap(reordered);
+    return true;
+}
+
 bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsilon)
 {
-    for (ExtrusionPaths::iterator path = this->paths.begin(); path != this->paths.end(); ++path) {
-        if (int idx = path->polyline.find_point(point, scaled_epsilon); idx != -1) {
-            if (this->paths.size() == 1) {
-                // just change the order of points
-                Polyline p1, p2;
-                path->polyline.split_at_index(idx, &p1, &p2);
-                if (p1.is_valid() && p2.is_valid()) {
-                    p2.append(std::move(p1));
-                    std::swap(path->polyline.points, p2.points);
-                    std::swap(path->polyline.fitting_result, p2.fitting_result);
-                }
-            } else {
-                // new paths list starts with the second half of current path
-                ExtrusionPaths new_paths;
-                Polyline p1, p2;
-                path->polyline.split_at_index(idx, &p1, &p2);
-                new_paths.reserve(this->paths.size() + 1);
-                {
-                    ExtrusionPath p = *path;
-                    std::swap(p.polyline.points, p2.points);
-                    std::swap(p.polyline.fitting_result, p2.fitting_result);
-                    if (p.polyline.is_valid()) new_paths.push_back(p);
-                }
-            
-                // then we add all paths until the end of current path list
-                new_paths.insert(new_paths.end(), path+1, this->paths.end());  // not including this path
-            
-                // then we add all paths since the beginning of current list up to the previous one
-                new_paths.insert(new_paths.end(), this->paths.begin(), path);  // not including this path
-            
-                // finally we add the first half of current path
-                {
-                    ExtrusionPath p = *path;
-                    std::swap(p.polyline.points, p1.points);
-                    std::swap(p.polyline.fitting_result, p1.fitting_result);
-                    if (p.polyline.is_valid()) new_paths.push_back(p);
-                }
-                // we can now override the old path list with the new one and stop looping
-                std::swap(this->paths, new_paths);
-            }
-            return true;
-        }
+    for (size_t path_idx = 0; path_idx < paths.size(); ++path_idx) {
+        const ExtrusionPath &path = paths[path_idx];
+        const int vertex_idx = path.polyline.find_point(point, scaled_epsilon);
+        if (vertex_idx != -1)
+            return split_and_rotate_at_xy(path_idx, path.polyline.points[size_t(vertex_idx)]);
     }
     return false;
 }
@@ -249,55 +430,28 @@ ExtrusionLoop::ClosestPathPoint ExtrusionLoop::get_closest_path_and_point(const 
 // Splitting an extrusion loop, possibly made of multiple segments, some of the segments may be bridging.
 void ExtrusionLoop::split_at(const Point &point, bool prefer_non_overhang, const double scaled_epsilon)
 {
-    if (this->paths.empty())
+    if (paths.empty())
         return;
-    
-    auto [path_idx, segment_idx, p] = get_closest_path_and_point(point, prefer_non_overhang);
 
-    // Snap p to start or end of segment_idx if closer than scaled_epsilon.
+    auto [path_idx, segment_idx, seam_xy] = get_closest_path_and_point(point, prefer_non_overhang);
+
+    // Snap seam_xy to the closest endpoint of the selected segment when requested.
     {
-        const Point *p1 = this->paths[path_idx].polyline.points.data() + segment_idx;
-        const Point *p2 = p1;
-        ++p2;
-        double       d2_1 = (point - *p1).cast<double>().squaredNorm();
-        double       d2_2 = (point - *p2).cast<double>().squaredNorm();
-        const double thr2 = scaled_epsilon * scaled_epsilon;
-        if (d2_1 < d2_2) {
-            if (d2_1 < thr2) p = *p1;
-        } else {
-            if (d2_2 < thr2) p = *p2;
+        const Point *segment_begin = paths[path_idx].polyline.points.data() + segment_idx;
+        const Point *segment_end = segment_begin + 1;
+        const double distance_to_begin = (point - *segment_begin).cast<double>().squaredNorm();
+        const double distance_to_end = (point - *segment_end).cast<double>().squaredNorm();
+        const double threshold_squared = scaled_epsilon * scaled_epsilon;
+        if (distance_to_begin < distance_to_end) {
+            if (distance_to_begin < threshold_squared)
+                seam_xy = *segment_begin;
+        } else if (distance_to_end < threshold_squared) {
+            seam_xy = *segment_end;
         }
     }
-    
-    // now split path_idx in two parts
-    const ExtrusionPath &path = this->paths[path_idx];
-    ExtrusionPath p1(path.overhang_degree, path.curve_degree, path.role(), path.mm3_per_mm, path.width, path.height, path.perimeter_index);
-    ExtrusionPath p2(path.overhang_degree, path.curve_degree, path.role(), path.mm3_per_mm, path.width, path.height, path.perimeter_index);
-    path.polyline.split_at(p, &p1.polyline, &p2.polyline);
-    
-    if (this->paths.size() == 1) {
-        if (!p1.polyline.is_valid()) {
-            std::swap(this->paths.front().polyline.points, p2.polyline.points);
-            std::swap(this->paths.front().polyline.fitting_result, p2.polyline.fitting_result);
-        }
-        else if (!p2.polyline.is_valid()) {
-            std::swap(this->paths.front().polyline.points, p1.polyline.points);
-            std::swap(this->paths.front().polyline.fitting_result, p1.polyline.fitting_result);
-        }
-        else {
-            p2.polyline.append(std::move(p1.polyline));
-            std::swap(this->paths.front().polyline.points, p2.polyline.points);
-            std::swap(this->paths.front().polyline.fitting_result, p2.polyline.fitting_result);
-        }
-    } else {
-        // install the two paths
-        this->paths.erase(this->paths.begin() + path_idx);
-        if (p2.polyline.is_valid()) this->paths.insert(this->paths.begin() + path_idx, p2);
-        if (p1.polyline.is_valid()) this->paths.insert(this->paths.begin() + path_idx, p1);
-    }
-    
-    // split at the new vertex
-    this->split_at_vertex(p);
+
+    if (!split_and_rotate_at_xy(path_idx, seam_xy))
+        throw LogicError("ExtrusionLoop::split_at could not split the selected path");
 }
 
 void ExtrusionLoop::clip_end(double distance, ExtrusionPaths* paths) const
@@ -311,7 +465,7 @@ void ExtrusionLoop::clip_end(double distance, ExtrusionPaths* paths) const
             paths->pop_back();
             distance -= len;
         } else {
-            last.polyline.clip_end(distance);
+            last.clip_end(distance);
             break;
         }
     }

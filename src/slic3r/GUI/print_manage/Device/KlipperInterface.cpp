@@ -59,11 +59,10 @@ std::future<void> KlipperInterface::sendFileToDevice(const std::string& serverIp
         progressCallback(0.1f, 0.0f);
 
         progressCallback(1.0f, 0.0f);
-        std::string filePath = wxString::FromUTF8(localFilePath.c_str()).ToStdString();
+        const boost::filesystem::path localPath(localFilePath);
         time_t last_time = time(NULL);
         int percent = 0;
-        http.header("Content-Type", "multipart/form-data")
-            .mime_form_add_file(temp_upload_name, filePath.c_str()).timeout_connect(5)
+        http.form_add_file("file", localPath, temp_upload_name).timeout_connect(5)
             .on_complete([&](std::string body, unsigned status){
                 if (status == 200 || status == 201)
                 {

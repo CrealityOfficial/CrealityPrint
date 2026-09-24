@@ -1,4 +1,5 @@
 #include "Http.hpp"
+#include "DeviceTlsPolicy.hpp"
 
 #include <cstdlib>
 #include <atomic>
@@ -124,6 +125,7 @@ struct Http::priv
 	size_t limit;
 	std::atomic_bool cancel;
 	bool active_cancel_enabled;
+	bool ignore_certificate_time{false};
 	std::mutex socket_mutex;
 	curl_socket_t active_socket;
     std::unique_ptr<fs::ifstream> putFile;
@@ -139,6 +141,7 @@ struct Http::priv
 	~priv();
 
 	static bool ca_file_supported(::CURL *curl);
+	static CURLcode ssl_context_callback(CURL*, void*, void*);
 	static size_t writecb(void *data, size_t size, size_t nmemb, void *userp);
 	static int xfercb(void *userp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow);
 	static int xfercb_legacy(void *userp, double dltotal, double dlnow, double ultotal, double ulnow);
@@ -165,6 +168,20 @@ struct Http::priv
 	void http_perform();
 };
 
+CURLcode Http::priv::ssl_context_callback(CURL*, void* ssl_context, void* user_data)
+{
+    auto* self = static_cast<priv*>(user_data);
+    if (self == nullptr || !self->ignore_certificate_time)
+        return CURLE_OK;
+
+    std::string error;
+    if (!DeviceTlsPolicy::ignore_certificate_time_from_curl(ssl_context, error)) {
+        BOOST_LOG_TRIVIAL(error) << "Failed to configure device TLS policy: " << error;
+        return CURLE_SSL_CERTPROBLEM;
+    }
+
+    return CURLE_OK;
+}
 // add a dummy log callback
 static int log_trace(CURL* handle, curl_infotype type,
 	char* data, size_t size,
@@ -717,6 +734,20 @@ Http& Http::ssl_verify_host(bool set)
 }
 
 
+Http& Http::ssl_ignore_certificate_time(bool set)
+{
+    if (p) {
+        p->ignore_certificate_time = set;
+        if (set) {
+            ::curl_easy_setopt(p->curl, CURLOPT_SSL_CTX_FUNCTION, &priv::ssl_context_callback);
+            ::curl_easy_setopt(p->curl, CURLOPT_SSL_CTX_DATA, p.get());
+        } else {
+            ::curl_easy_setopt(p->curl, CURLOPT_SSL_CTX_FUNCTION, nullptr);
+            ::curl_easy_setopt(p->curl, CURLOPT_SSL_CTX_DATA, nullptr);
+        }
+    }
+    return *this;
+}
 Http& Http::form_add(const std::string &name, const std::string &contents)
 {
 	if (p) {

@@ -266,7 +266,7 @@ public:
 
     bool has_spiral_mode_config() const;
     bool get_spiral_vase_mode() const;
-    void set_spiral_vase_mode(bool spiral_mode, bool as_global);
+    bool set_spiral_vase_mode(bool spiral_mode, bool as_global, bool conflict_already_handled = false);
 
     //static const int plate_x_offset = 20; //mm
     //static const double plate_x_gap = 0.2;
@@ -611,6 +611,9 @@ class PartPlateList : public ObjectBase
     void generate_icon_textures();
     void release_icon_textures();
 
+    // Reconcile a newly admitted object's process settings with an already
+    // effective Spiral-vase Plate, regardless of which UI entry moved it.
+    void reconcile_spiral_vase_after_instance_added(PartPlate& plate, int obj_id, bool is_new);
 
     friend class cereal::access;
     friend class UndoRedo::StackImpl;

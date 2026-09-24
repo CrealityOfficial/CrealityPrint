@@ -150,7 +150,7 @@ struct SupportParameters {
 		this->raft_interface_fill_pattern = this->raft_interface_density > 0.95 ? ipRectilinear : ipSupportBase;
         if (object_config.support_interface_pattern == smipGrid)
             this->contact_fill_pattern = ipGrid;
-        else if (object_config.support_interface_pattern == smipRectilinearInterlaced || object_config.support_interface_pattern == smipAuto)
+        else if (object_config.support_interface_pattern == smipRectilinearInterlaced)
             this->contact_fill_pattern = ipRectilinear;
         else if (object_config.support_interface_pattern == smipMonotonicLine)
             this->contact_fill_pattern = ipMonotonic;
@@ -192,10 +192,13 @@ struct SupportParameters {
 	        assert(slicing_params.raft_layers() == 0);
 	    }
 
-        support_extrusion_width = object_config.support_line_width.value > 0 ? object_config.support_line_width : object_config.line_width;
+        const size_t support_nozzle_index = get_physical_nozzle_index(print_config, object_config.support_interface_filament - 1);
+        const auto nozzle_diameter = print_config.nozzle_diameter.get_at(support_nozzle_index);
+        const double configured_support_width = nozzle_variant_abs_value(object_config.support_line_width, support_nozzle_index, nozzle_diameter);
+        const double configured_default_width = nozzle_variant_abs_value(object_config.line_width, support_nozzle_index, nozzle_diameter);
+        support_extrusion_width = configured_support_width > 0 ? configured_support_width : configured_default_width;
         // Check if set to zero, use default if so.
         if (support_extrusion_width <= 0.0) {
-            const auto nozzle_diameter               = print_config.nozzle_diameter.get_at(object_config.support_interface_filament - 1);
             support_extrusion_width = Flow::auto_extrusion_width(FlowRole::frSupportMaterial, (float) nozzle_diameter);
         }
 

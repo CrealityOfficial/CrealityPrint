@@ -1,6 +1,7 @@
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Utils.hpp"
 #include "AppConfig.hpp"
+#include "PrinterCover.hpp"
 //BBS
 #include "Preset.hpp"
 #include "Exception.hpp"
@@ -1013,6 +1014,24 @@ std::string AppConfig::load()
     // Override missing or keys with their defaults.
     this->set_defaults();
     m_dirty = false;
+    // Complete nozzle variants for models already enabled in older configurations.
+    const auto &profile_machines = get_profile_machines();
+    for (const auto &vendor_entry : m_vendors) {
+        const auto profile_vendor = profile_machines.find(vendor_entry.first);
+        if (profile_vendor == profile_machines.end())
+            continue;
+        for (const auto &model_entry : vendor_entry.second) {
+            if (model_entry.second.empty())
+                continue;
+            const auto profile_model = std::find_if(profile_vendor->second.models.begin(), profile_vendor->second.models.end(),
+                [&model_entry](const ProfileModel &model) { return model.model == model_entry.first; });
+            if (profile_model == profile_vendor->second.models.end())
+                continue;
+            for (const auto &nozzle : profile_model->nozzles)
+                if (model_entry.second.find(nozzle) == model_entry.second.end())
+                    set_variant(vendor_entry.first, model_entry.first, nozzle, true);
+        }
+    }
     return "";
 }
 
@@ -1297,6 +1316,24 @@ std::string AppConfig::load()
     // Override missing or keys with their defaults.
     this->set_defaults();
     m_dirty = false;
+    // Complete nozzle variants for models already enabled in older configurations.
+    const auto &profile_machines = get_profile_machines();
+    for (const auto &vendor_entry : m_vendors) {
+        const auto profile_vendor = profile_machines.find(vendor_entry.first);
+        if (profile_vendor == profile_machines.end())
+            continue;
+        for (const auto &model_entry : vendor_entry.second) {
+            if (model_entry.second.empty())
+                continue;
+            const auto profile_model = std::find_if(profile_vendor->second.models.begin(), profile_vendor->second.models.end(),
+                [&model_entry](const ProfileModel &model) { return model.model == model_entry.first; });
+            if (profile_model == profile_vendor->second.models.end())
+                continue;
+            for (const auto &nozzle : profile_model->nozzles)
+                if (model_entry.second.find(nozzle) == model_entry.second.end())
+                    set_variant(vendor_entry.first, model_entry.first, nozzle, true);
+        }
+    }
     return "";
 }
 
@@ -1541,6 +1578,19 @@ const std::map<std::string, ProfilePrinter*>& AppConfig::get_profile_printers()
         Loc_LoadProfile(m_profile_machines, m_profile_printers);
     }
     return m_profile_printers;
+}
+
+std::string AppConfig::get_printer_cover(const std::string& printer_model, const std::string& vendor)
+{
+    auto cover = find_printer_cover(data_dir(), resources_dir(), vendor.empty() ? "Creality" : vendor, printer_model);
+    if (!cover.empty())
+        return cover;
+    const auto& covers = get_model2cover_path();
+    const auto it = covers.find(make_model2cover_path_key(vendor, printer_model));
+    boost::system::error_code ec;
+    if (it != covers.end() && boost::filesystem::is_regular_file(it->second, ec))
+        return it->second;
+    return (boost::filesystem::path(resources_dir()) / "images" / "printer_default.png").string();
 }
 
 std::string AppConfig::make_model2cover_path_key(std::string vendor, std::string printer_model) 
@@ -1834,6 +1884,32 @@ void EasyCache::flush()
 std::string EasyCache::get_file_path()
 {
     return (boost::filesystem::path(Slic3r::data_dir()) / "extra_config.json").make_preferred().string();
+}
+
+std::string get_preset_bound_device_mac(const Preset& preset)
+{
+    const auto& config = preset.config;
+    if (!preset.is_system)
+        return config.has("printer_select_mac") ? config.opt_string("printer_select_mac") : std::string();
+
+    const auto& cache = EasyCache::get_instance().data();
+    if (!cache.is_object())
+        return {};
+
+    const auto bindings_it = cache.find("system_preset_bundle_deivce");
+    if (bindings_it == cache.end() || !bindings_it->is_object())
+        return {};
+
+    const auto model_it = bindings_it->find(config.opt_string("printer_model"));
+    if (model_it == bindings_it->end() || !model_it->is_object())
+        return {};
+
+    std::string json_key = config.opt_serialize("nozzle_diameter");
+    if (json_key.empty())
+        json_key = "unique";
+
+    const auto mac_it = model_it->find(json_key);
+    return mac_it != model_it->end() && mac_it->is_string() ? mac_it->get<std::string>() : std::string();
 }
 
 EasyCache::~EasyCache() { flush(); }

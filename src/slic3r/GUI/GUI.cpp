@@ -132,6 +132,19 @@ void change_opt_value(DynamicPrintConfig& config, const t_config_option_key& opt
             double val = std::stod(str); // locale-dependent (on purpose - the input is the actual content of the field)
 			config.set_key_value(opt_key, new ConfigOptionFloatOrPercent(val, percent));
 			break;}
+		case coFloatsOrPercents:{
+			std::string str = boost::any_cast<std::string>(value);
+			bool percent = false;
+			if (!str.empty() && str.back() == '%') {
+				str.pop_back();
+				percent = true;
+			}
+			const double val = std::stod(str);
+			ConfigOptionFloatOrPercent scalar(val, percent);
+			auto* vector = dynamic_cast<ConfigOptionVectorBase*>(config.option(opt_key));
+			if (vector != nullptr)
+				vector->set_at(&scalar, opt_index, 0);
+			break;}
 		case coPercent:
 			config.set_key_value(opt_key, new ConfigOptionPercent(boost::any_cast<double>(value)));
 			break;
@@ -666,6 +679,22 @@ std::string get_cloud_api_url()
     }
     return url;
 }
+std::string get_ai_creation_webaddress()
+{
+    // Local frontend debugging is opt-in and takes precedence over build/region.
+    wxString local_test;
+    if (wxGetEnv("CREALITY_AI_CREATION_LOCAL", &local_test) && local_test == "1")
+        return "http://172.21.10.169:9090/makenow/ModelingTools/Home";
+
+    // get_vertion_type() classifies both Dev and Alpha builds as Alpha.
+    if (get_vertion_type() == "Alpha")
+        return "https://makenow-dev.crealitycloud.cn/makenow/ModelingTools/Home";
+
+    return wxGetApp().app_config->get_country_code() == "CN"
+        ? "https://makenow.crealitycloud.cn/makenow/ModelingTools/Home"
+        : "https://makenow.crealitycloud.com/makenow/ModelingTools/Home";
+}
+
 std::string get_cloud_webaddress()
 {
 	std::string url;

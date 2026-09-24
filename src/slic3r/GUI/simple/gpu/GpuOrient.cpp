@@ -1,6 +1,11 @@
 #include "GpuOrient.hpp"
 
 #include "libslic3r/Geometry.hpp"
+#include "slic3r/GUI/OpenGLManager.hpp"
+
+#if defined(__APPLE__)
+#include "GpuOrientMetal.hpp"
+#endif
 
 #include <algorithm>
 #include <atomic>
@@ -887,6 +892,13 @@ struct GpuOrient::Impl {
 
     Impl()
     {
+#if defined(_WIN32)
+        if (GUI::OpenGLManager::is_software_renderer()) {
+            init_error = "software rendering is active";
+            BOOST_LOG_TRIVIAL(info) << "GpuOrient disabled: " << init_error;
+            return;
+        }
+#endif
         try {
 #if defined(_WIN32)
             ctx = create_gl_context();
@@ -1329,6 +1341,14 @@ inline bool is_face_appearance(const indexed_triangle_set& its, int face_idx) {
                 const auto& hvs  = hull.its.vertices;
                 const auto& hidx = hull.its.indices;
 
+                // Hull indices address the hull's own compact vertex array. Append
+                // those vertices to the shared GPU vertex buffer and offset the
+                // indices so bottom-hull evaluation reads the correct positions.
+                const uint32_t hull_vertex_base = uint32_t(out_vertices.size());
+                out_vertices.reserve(out_vertices.size() + hvs.size());
+                for (const Vec3f& v : hvs)
+                    out_vertices.push_back({v.x(), v.y(), v.z(), 0.f});
+
                 for (int i = 0; i < hf; ++i) {
                     if (params.stopcondition && (i & ((1 << 16) - 1)) == 0 && params.stopcondition()) {
                         if (error) *error = "Canceled";
@@ -1357,9 +1377,9 @@ inline bool is_face_appearance(const indexed_triangle_set& its, int face_idx) {
 
                     HullFaceGpu hfg;
                     hfg.area_plain = area_plain;
-                    hfg.i0 = uint32_t(tri[0]);
-                    hfg.i1 = uint32_t(tri[1]);
-                    hfg.i2 = uint32_t(tri[2]);
+                    hfg.i0 = hull_vertex_base + uint32_t(tri[0]);
+                    hfg.i1 = hull_vertex_base + uint32_t(tri[1]);
+                    hfg.i2 = hull_vertex_base + uint32_t(tri[2]);
                     hfg.pad0 = 0;
                     out_hull_faces.push_back(hfg);
                 }
@@ -2099,14 +2119,45 @@ inline bool is_face_appearance(const indexed_triangle_set& its, int face_idx) {
         return true;
     }
 
+#elif defined(__APPLE__)
+    std::mutex  mutex;
+    bool        ok = false;
+    std::string init_error;
+
+    Impl()
+    {
+        try {
+            ok = metal::available(&init_error);
+        } catch (const std::exception& exception) {
+            init_error = exception.what();
+            ok = false;
+        }
+        if (!ok)
+            BOOST_LOG_TRIVIAL(error) << "GpuOrient Metal init failed: " << init_error;
+    }
+
+    ~Impl() = default;
+
+    bool available() const noexcept { return ok; }
+    const std::string& error() const noexcept { return init_error; }
+
+    bool orient(OrientMeshs& items, const OrientParams& params, std::string* error)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (!ok) {
+            if (error) *error = init_error;
+            return false;
+        }
+        return metal::orient(items, params, error);
+    }
 #else
-    // macOS and other unsupported platforms - stub
+    // Other unsupported platforms - CPU fallback only.
     Impl() = default;
     ~Impl() = default;
     bool available() const noexcept { return false; }
     const std::string& error() const noexcept { static const std::string empty; return empty; }
     bool orient(OrientMeshs&, const OrientParams&, std::string*) { return false; }
-#endif // _WIN32 || __linux__
+#endif // _WIN32 || __linux__ || __APPLE__
 };
 
 // --------------------------- public facade ---------------------------
@@ -2116,11 +2167,7 @@ GpuOrient::~GpuOrient() = default;
 
 bool GpuOrient::available() const noexcept
 {
-#if defined(_WIN32) || (defined(__linux__) && !defined(__APPLE__))
     return impl_ && impl_->available();
-#else
-    return false;
-#endif
 }
 
 bool GpuOrient::orient(OrientMeshs &items,
@@ -2132,7 +2179,6 @@ bool GpuOrient::orient(OrientMeshs &items,
     (void)excludes;
     if (error) error->clear();
 
-#if defined(_WIN32) || (defined(__linux__) && !defined(__APPLE__))
     if (impl_ && impl_->available()) {
         std::string tmp;
         std::string* out_err = error ? error : &tmp;
@@ -2151,7 +2197,6 @@ bool GpuOrient::orient(OrientMeshs &items,
         if (!fallback_to_cpu)
             return false;
     }
-#endif
 
     if (fallback_to_cpu) {
         ::Slic3r::orientation::orient(items, excludes, params);

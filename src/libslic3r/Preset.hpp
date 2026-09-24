@@ -80,6 +80,11 @@ enum ConfigFileType
 
 //BBS: add a function to load the version from xxx.json
 extern Semver get_version_from_json(std::string file_path);
+
+// Look up the parameter package version ("showVersion") of a printer model / nozzle diameter
+// combination in <data_dir>/system/<vendor>/profile_version.json. Returns an empty string when the
+// vendor has no parameter package installed or the combination is not listed.
+extern std::string get_printer_profile_show_version(const std::string &vendor_name, const std::string &printer_model, double nozzle_diameter);
 //BBS: add a function to load the key-values from xxx.json
 extern int get_values_from_json(std::string file_path, std::vector<std::string>& keys, std::map<std::string, std::string>& key_values);
 
@@ -365,6 +370,16 @@ bool is_compatible_with_print  (const PresetWithVendorProfile &preset, const Pre
 bool is_compatible_with_printer(const PresetWithVendorProfile &preset, const PresetWithVendorProfile &active_printer, const DynamicPrintConfig *extra_config);
 bool is_compatible_with_printer(const PresetWithVendorProfile &preset, const PresetWithVendorProfile &active_printer);
 
+// Restore dirty project values saved as active variant rows into a complete
+// preset variant table. The returned keys were handled by this function and
+// must not be copied from the compact project config a second time.
+std::set<std::string> restore_project_variant_overrides(
+    Preset::Type preset_type,
+    DynamicPrintConfig &target_config,
+    const DynamicPrintConfig &project_config,
+    const DynamicPrintConfig &source_config,
+    const std::set<std::string> &different_settings);
+
 enum class PresetSelectCompatibleType {
 	// Never select a compatible preset if the newly selected profile is not compatible.
 	Never,
@@ -603,6 +618,8 @@ public:
     const Preset*   find_preset(const std::string &name, bool first_visible_if_not_found = false) const
         { return const_cast<PresetCollection*>(this)->find_preset(name, first_visible_if_not_found); }
 
+    // Resolve an explicit system rename only when no preset owns the original name.
+    std::string canonical_preset_name(const std::string &name) const;
     Preset* find_preset_by_id(const std::string& settings_id);
 
     size_t          first_visible_idx() const;
@@ -697,7 +714,7 @@ public:
     bool            select_preset_by_name(const std::string &name, bool force);
     bool is_base_preset(const Preset &preset) const { return preset.is_system || (preset.is_user() && preset.inherits().empty()); }
 
-    // Generate a file path from a profile name. Add the ".ini" suffix if it is missing.
+    // Generate a JSON path without overwriting a different preset on the filesystem.
     std::string     path_from_name(const std::string &new_name, bool detach = false) const;
     std::string     path_for_preset(const Preset & preset) const;
 
@@ -983,7 +1000,7 @@ public:
         return const_cast<PhysicalPrinterCollection*>(this)->find_printer(name, case_sensitive_search);
     }
 
-    // Generate a file path from a profile name. Add the ".ini" suffix if it is missing.
+    // Generate a JSON path without overwriting a different preset on the filesystem.
     std::string     path_from_name(const std::string& new_name) const;
 
     const DynamicPrintConfig& default_config() const { return m_default_config; }

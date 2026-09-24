@@ -5,6 +5,7 @@
 
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
+#include <wx/image.h>
 #include <boost/log/trivial.hpp>
 
 BEGIN_EVENT_TABLE(TextInput, wxPanel)
@@ -127,10 +128,15 @@ void TextInput::SetMaxLength(int maxLength)
 {
     text_ctrl->SetMaxLength(maxLength);
 }
-void TextInput::SetIcon(const wxBitmap &icon)
+void TextInput::SetIconBitmapWithoutRescale(const wxBitmap& bitmap)
 {
     this->icon = ScalableBitmap();
-    this->icon.bmp() = icon;
+    this->icon.bmp() = bitmap;
+}
+
+void TextInput::SetIcon(const wxBitmap &icon)
+{
+    SetIconBitmapWithoutRescale(icon);
     Rescale();
 }
 
@@ -156,8 +162,38 @@ void TextInput::SetTextColor(StateColor const& color)
 
 void TextInput::Rescale()
 {
-    if (!this->icon.name().empty())
+    if (!this->icon.name().empty()) {
         this->icon.msw_rescale();
+
+#ifdef __WXMSW__
+        // A child window may still report the previous monitor DPI while handling
+        // the move event. Use the top-level window's destination scale and enforce
+        // the icon's physical 16-DIP size so an old 4K arrow cannot remain at 1080p.
+        if (wxWindow* top = wxGetTopLevelParent(this)) {
+            const int target_height = std::max(1, int(std::lround(this->icon.px_cnt() * top->GetDPIScaleFactor())));
+            wxBitmap& bitmap = this->icon.bmp();
+            if (bitmap.IsOk() && bitmap.GetHeight() > 0 && bitmap.GetHeight() != target_height) {
+                wxImage image = bitmap.ConvertToImage();
+                const int target_width = std::max(1, int(std::lround(double(image.GetWidth()) * target_height / image.GetHeight())));
+                image.Rescale(target_width, target_height, wxIMAGE_QUALITY_HIGH);
+                bitmap = wxBitmap(image);
+            }
+            // TextInput paints in physical client coordinates; do not let bitmap
+            // metadata apply an additional monitor scale during DrawBitmap().
+            if (bitmap.IsOk())
+                bitmap.SetScaleFactor(1.0);
+        }
+#endif
+    }
+
+    if (text_ctrl) {
+        text_ctrl->SetFont(Label::Body_14);
+        text_ctrl->InvalidateBestSize();
+        wxSize text_size = text_ctrl->GetSize();
+        text_size.SetHeight(text_ctrl->GetBestSize().GetHeight());
+        text_ctrl->SetSize(text_size);
+    }
+
     messureSize();
     Refresh();
 }
@@ -177,14 +213,15 @@ bool TextInput::Enable(bool enable)
 
 void TextInput::SetMinSize(const wxSize& size)
 {
-    wxSize size2 = size;
-    if (size2.y < 0) {
-#ifdef __WXMAC__
-        if (GetPeer()) // peer is not ready in Create on mac
-#endif
-        size2.y = GetSize().y;
+    wxSize resolved = size;
+    if (resolved.y < 0) {
+        // A default height means "fit this single-line control", not "allow
+        // the sizer to collapse it". Always derive it from current DPI metrics
+        // instead of retaining a physical height from the previous monitor.
+        resolved.y = text_ctrl ? text_ctrl->GetBestSize().y + FromDIP(8)
+                               : FromDIP(24);
     }
-    wxWindow::SetMinSize(size2);
+    wxWindow::SetMinSize(resolved);
 }
 
 void TextInput::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -370,13 +407,14 @@ void TextInput::messureSize()
     else
         dc.SetFont(Label::Body_12);
     labelSize = dc.GetTextExtent(wxWindow::GetLabel());
-    wxSize textSize = text_ctrl->GetSize();
-    int h = textSize.y + 8;
-    if (size.y < h) {
-        size.y = h;
-    }
-    wxSize minSize = size;
-    minSize.x = GetMinWidth();
-    SetMinSize(minSize);
+
+    // Recompute the single-line height from the current monitor's font on every
+    // pass. Using the previous physical height as a lower bound makes fields
+    // grow irreversibly after repeated mixed-DPI moves.
+    const int height = text_ctrl ? text_ctrl->GetBestSize().y + FromDIP(8) : FromDIP(24);
+    size.y = std::max(1, height);
+
+    wxSize minSize(GetMinWidth(), size.y);
+    wxWindow::SetMinSize(minSize);
     SetSize(size);
 }

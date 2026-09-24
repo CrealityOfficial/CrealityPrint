@@ -13,7 +13,7 @@
   <key>CFBundleShortVersionString</key>
   <string>@SLIC3R_APP_NAME@ @SLIC3R_BUILD_ID@</string>
   <key>CFBundleIdentifier</key>
-  <string>com.creality.crealityprint/</string>
+  <string>@CREALITYPRINT_BUNDLE_IDENTIFIER@</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundlePackageType</key>
@@ -22,9 +22,9 @@
   <string>????</string>
   <key>CFBundleVersion</key>
   <string>@SLIC3R_BUILD_ID@</string>
-  <key>CFBundleURLTypes</key>
   <key>ATSApplicationFontsPath</key>
   <string>fonts/</string>
+  <key>CFBundleURLTypes</key>
   <array>
     <dict>  
         <key>CFBundleURLSchemes</key>  

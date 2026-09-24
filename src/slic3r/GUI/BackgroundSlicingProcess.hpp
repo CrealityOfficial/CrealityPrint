@@ -110,6 +110,8 @@ public:
 
 	// BBS
 	void set_export_finished_event(int event_id) { m_event_export_finished_id = event_id; }
+	// Sent as soon as the final temporary G-code is ready for a read-only probe.
+	void set_gcode_ready_event(int event_id) { m_event_gcode_ready_id = event_id; }
 
 	// Activate either m_fff_print or m_sla_print.
 	// Return true if changed.
@@ -145,7 +147,7 @@ public:
 	bool 		empty() const;
 	// Validate the print. Returns an empty string if valid, returns an error message if invalid.
 	// Call validate before calling start().
-    StringObjectException validate(StringObjectException *warning = nullptr, Polygons* collison_polygons = nullptr, std::vector<std::pair<Polygon, float>>* height_polygons = nullptr);
+    StringObjectException validate(StringObjectException *warning = nullptr, Polygons* collison_polygons = nullptr, std::vector<std::pair<Polygon, float>>* height_polygons = nullptr, bool before_filament_mapping = false);
 
 	// Set the export path of the G-code.
 	// Once the path is set, the G-code
@@ -304,6 +306,8 @@ private:
 	int                         m_event_export_began_id         = 0;
 	// wxWidgets command ID to be sent to the plater to inform that the G-code is exported end.
 	int							m_event_export_finished_id		= 0;
+	// wxWidgets command ID used to start the pathological probe on the UI-owned worker.
+	int                         m_event_gcode_ready_id           = 0;
 
 };
 

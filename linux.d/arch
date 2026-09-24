@@ -20,6 +20,7 @@ export REQUIRED_DEV_PACKAGES=(
     mesa
     ninja
     openssl
+    patchelf
     texinfo
     wayland-protocols
     webkit2gtk

@@ -3409,7 +3409,7 @@ void dispatch(output_t& output, const input_t& input)
            /* context_uptr->dbg_cb(MC_DEBUG_SOURCE_KERNEL, MC_DEBUG_TYPE_OTHER, 0, MC_DEBUG_SEVERITY_NOTIFICATION,
                                  "cutpath edge has less than 2 intersection vertices (face sm=" + std::to_string(sm_face) +
                                      ", cm=" + std::to_string(cm_face) + ")");*/
-            continue; // Ìø¹ıÕâÌõ cutpath edge
+            continue; // è·³è¿‡è¿™æ¡ cutpath edge
         }
 
 

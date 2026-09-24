@@ -12,7 +12,7 @@ while getopts ":h" opt; do
   esac
 done
 
-echo -n "[9/9] Generating Linux deb package..."
+echo -n "[9/9] Generating Linux deb and debug symbol packages..."
 
 # Prepare staging directories
 PKG_NAME_LOWER=$(echo "@SLIC3R_APP_NAME@" | tr '[:upper:]' '[:lower:]')
@@ -33,27 +33,69 @@ case "${ARCH_DPKG:-$ARCH_RAW}" in
 esac
 
 DEB_ROOT="deb_root"
+DEBUG_ROOT="deb_debug_root"
 APP_DIR="opt/@SLIC3R_APP_NAME@"
 BIN_DIR="$APP_DIR/bin"
+LIB_DIR="$APP_DIR/lib"
 RES_DIR="$APP_DIR/resources"
+DEBUG_BIN_DIR="usr/lib/debug/$BIN_DIR"
 USR_BIN="usr/bin"
 USR_SHARE_APPS="usr/share/applications"
 USR_ICONS="usr/share/icons/hicolor"
 
-rm -rf "$DEB_ROOT" 2>/dev/null
+rm -rf "$DEB_ROOT" "$DEBUG_ROOT" 2>/dev/null
 mkdir -p "$DEB_ROOT/DEBIAN" \
          "$DEB_ROOT/$BIN_DIR" \
+         "$DEB_ROOT/$LIB_DIR" \
          "$DEB_ROOT/$RES_DIR" \
          "$DEB_ROOT/$USR_BIN" \
          "$DEB_ROOT/$USR_SHARE_APPS" \
          "$DEB_ROOT/$USR_ICONS/32x32/apps" \
          "$DEB_ROOT/$USR_ICONS/128x128/apps" \
          "$DEB_ROOT/$USR_ICONS/192x192/apps"
+mkdir -p "$DEBUG_ROOT/DEBIAN" "$DEBUG_ROOT/$DEBUG_BIN_DIR"
 
 # Copy resources (contents, not the folder itself) and binary
 mkdir -p "$DEB_ROOT/$RES_DIR"
 cp -a ../resources/. "$DEB_ROOT/$RES_DIR/"
+chmod -R a+rX "$DEB_ROOT/$RES_DIR"
 cp -f src/@SLIC3R_APP_CMD@ "$DEB_ROOT/$BIN_DIR/@SLIC3R_APP_CMD@"
+
+# Bundle libmspack because it is unavailable from some supported UOS package
+# sources. Resolve the exact library used by the built executable so the
+# packaged library always matches the target architecture.
+SOURCE_BINARY="src/@SLIC3R_APP_CMD@"
+STAGED_BINARY="$DEB_ROOT/$BIN_DIR/@SLIC3R_APP_CMD@"
+MSPACK_LIB=$(ldd "$SOURCE_BINARY" | awk '$1 == "libmspack.so.0" { print $3; exit }')
+PATCHELF_TOOL=$(command -v patchelf || true)
+if [ -z "$MSPACK_LIB" ] || [ ! -f "$MSPACK_LIB" ]; then
+  echo
+  echo "Error: unable to resolve libmspack.so.0 for $SOURCE_BINARY." >&2
+  exit 1
+fi
+if [ -z "$PATCHELF_TOOL" ]; then
+  echo
+  echo "Error: patchelf is required to bundle libmspack.so.0." >&2
+  exit 1
+fi
+cp -L "$MSPACK_LIB" "$DEB_ROOT/$LIB_DIR/libmspack.so.0"
+chmod 644 "$DEB_ROOT/$LIB_DIR/libmspack.so.0"
+"$PATCHELF_TOOL" --set-rpath '$ORIGIN/../lib' "$STAGED_BINARY"
+
+# Keep full DWARF symbols in a separate dbgsym package and strip the runtime binary.
+OBJCOPY_TOOL=$(command -v llvm-objcopy || command -v objcopy || true)
+STRIP_TOOL=$(command -v llvm-strip || command -v strip || true)
+if [ -z "$OBJCOPY_TOOL" ] || [ -z "$STRIP_TOOL" ]; then
+  echo
+  echo "Error: objcopy and strip are required to create split debug symbols." >&2
+  exit 1
+fi
+
+DEBUG_BINARY="$DEBUG_ROOT/$DEBUG_BIN_DIR/@SLIC3R_APP_CMD@.debug"
+"$OBJCOPY_TOOL" --only-keep-debug "$STAGED_BINARY" "$DEBUG_BINARY"
+"$STRIP_TOOL" --strip-unneeded "$STAGED_BINARY"
+"$OBJCOPY_TOOL" --add-gnu-debuglink="$DEBUG_BINARY" "$STAGED_BINARY"
+chmod 644 "$DEBUG_BINARY"
 
 # Wrapper in /usr/bin
 cat << EOF > "$DEB_ROOT/$USR_BIN/@SLIC3R_APP_CMD@"
@@ -91,7 +133,7 @@ Section: utils
 Priority: optional
 Architecture: $ARCH
 Maintainer: Creality <support@creality.com>
-Depends: libc6, libstdc++6, libgtk-3-0, libx11-6, libgl1, libglu1-mesa, libpangocairo-1.0-0, libgdk-pixbuf2.0-0, libdbus-1-3
+Depends: libc6, libstdc++6, libgtk-3-0, libx11-6, libgl1, libopengl0, libglu1-mesa, libpangocairo-1.0-0, libgdk-pixbuf2.0-0, libdbus-1-3
 Description: @SLIC3R_APP_NAME@ 3D slicing application
  @SLIC3R_APP_NAME@ packaged for Debian-based systems.
 EOF
@@ -114,7 +156,23 @@ exit 0
 EOF
 chmod 755 "$DEB_ROOT/DEBIAN/postinst"
 
+# Debug symbol package. GDB searches /usr/lib/debug followed by the original
+# executable path, which matches DEBUG_BIN_DIR above.
+cat << EOF > "$DEBUG_ROOT/DEBIAN/control"
+Package: ${PKG_NAME_LOWER}-dbgsym
+Version: @CREALITYPRINT_VERSION@-@PROJECT_VERSION_EXTRA@
+Section: debug
+Priority: optional
+Architecture: $ARCH
+Maintainer: Creality <support@creality.com>
+Depends: $PKG_NAME_LOWER (= @CREALITYPRINT_VERSION@-@PROJECT_VERSION_EXTRA@)
+Description: Debug symbols for @SLIC3R_APP_NAME@
+ Detached DWARF debug symbols for @SLIC3R_APP_NAME@.
+EOF
+
 DEB_NAME="@SLIC3R_APP_NAME@-V@CREALITYPRINT_VERSION@-@PROJECT_VERSION_EXTRA@-$ARCH.deb"
-dpkg-deb --build "$DEB_ROOT" "$DEB_NAME"
+DEBUG_DEB_NAME="@SLIC3R_APP_NAME@-V@CREALITYPRINT_VERSION@-@PROJECT_VERSION_EXTRA@-$ARCH-dbgsym.deb"
+dpkg-deb --root-owner-group --build "$DEB_ROOT" "$DEB_NAME"
+dpkg-deb --root-owner-group --build "$DEBUG_ROOT" "$DEBUG_DEB_NAME"
 
 echo "done"

@@ -14,6 +14,7 @@
 #include "slic3r/GUI/wxExtensions.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
+#include "slic3r/GUI/SatisfactionSurveyIntegration.hpp"
 #include "libslic3r_version.h"
 #include "libslic3r/Utils.hpp"
 #include "../../print_manage/data/DataCenter.hpp"
@@ -634,9 +635,9 @@ bool EasyPrintSender::startPrintLan(const std::string& ip, const nlohmann::json&
             // view->run_script(jsStr);
             view->ExecuteScriptCommand(jsStr, false);
 
-            std::thread([ip, device_name]() {
+            std::thread([ip, device_name, uploadName]() {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
-                wxGetApp().CallAfter([ip, device_name]() {
+                wxGetApp().CallAfter([ip, device_name, uploadName]() {
                     if (auto* current_view = wxGetApp().mainframe->get_printer_mgr_view())
                     {
                         // [17140] Product requirement: after an AI send-print
@@ -649,7 +650,11 @@ bool EasyPrintSender::startPrintLan(const std::string& ip, const nlohmann::json&
                         // jumpToDeviceDetail already switches to the device page,
                         // so there is no need to call switch_to_device_page again.
                         EasyPrintSender detail_sender;
-                        detail_sender.jumpToDeviceDetail(ip, device_name);
+                        detail_sender.jumpToDeviceDetail(
+                            ip,
+                            device_name,
+                            EasyPrintSender::DeviceDetailOpenReason::SuccessfulPrint,
+                            uploadName);
 
                         // Reopen the video stream after the detail page is opened,
                         // reusing the LAN detail video reopen fix.
@@ -661,7 +666,10 @@ bool EasyPrintSender::startPrintLan(const std::string& ip, const nlohmann::json&
     });
     return true;
 }
-void EasyPrintSender::jumpToDeviceDetail(const std::string& ip, const std::string& name)
+void EasyPrintSender::jumpToDeviceDetail(const std::string& ip,
+                                         const std::string& name,
+                                         DeviceDetailOpenReason reason,
+                                         std::string operation_id)
 {
     wxGetApp().mainframe->switch_to_device_page();
 
@@ -686,10 +694,15 @@ void EasyPrintSender::jumpToDeviceDetail(const std::string& ip, const std::strin
     PrinterMgrView* view = wxGetApp().mainframe->get_printer_mgr_view();
 
     if (view) {
-        wxGetApp().mainframe->CallAfter([=]() {
-            if (view) {
-                view->run_script("console.log('forward_device_detail injected from C++');");
-                view->run_script(jsStr);
+        wxGetApp().mainframe->CallAfter([ip, operation_id = std::move(operation_id), reason, jsStr]() {
+            if (wxTheApp != nullptr && wxGetApp().mainframe != nullptr) {
+                PrinterMgrView* current_view = wxGetApp().mainframe->get_printer_mgr_view();
+                if (current_view == nullptr)
+                    return;
+                if (reason == DeviceDetailOpenReason::SuccessfulPrint)
+                    Slic3r::GUI::record_ai_satisfaction_survey_print(ip, operation_id);
+                current_view->run_script("console.log('forward_device_detail injected from C++');");
+                current_view->run_script(jsStr);
             }
         });
     }
@@ -862,5 +875,3 @@ void EasyPrintSender::openLoginPage()
 
     logMessage("EasyPrintSender::openLoginPage", "end");
 }
-
-

@@ -3,6 +3,7 @@
 
 #include "../libslic3r.h"
 #include "../PrintConfig.hpp"
+#include "ZaaIntervalProtocol.hpp"
 
 #include <queue>
 
@@ -88,6 +89,7 @@ private:
     // Indicate if extrude set speed block was opened using the tag ";_EXTRUDE_SET_SPEED"
     // or not (not opened, or it was closed using the tag ";_EXTRUDE_END").
     bool                            opened_extrude_set_speed_block = false;
+    ZaaIntervalTracker              m_zaa_interval;
 
     enum GCodeLineType {
         GCODELINETYPE_INVALID,
@@ -172,6 +174,8 @@ private:
         float       max_volumetric_extrusion_rate_slope_negative;
 
         bool        adjustable_flow       = false;
+        bool        zaa_protected         = false;
+        bool        zaa_boundary          = false;
 
         bool        extrude_set_speed_tag = false;
         bool        extrude_end_tag       = false;

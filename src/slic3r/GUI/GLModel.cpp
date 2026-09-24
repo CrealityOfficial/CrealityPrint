@@ -13,6 +13,9 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+
 
 #if ENABLE_SMOOTH_NORMALS
 #include <igl/per_face_normals.h>
@@ -491,28 +494,43 @@ void GLModel::init_from(const indexed_triangle_set& its)
         return;
     }
 
-    Geometry& data = m_render_data->geometry;
-    data.format = { Geometry::EPrimitiveType::Triangles, Geometry::EVertexLayout::P3N3 };
-    data.reserve_vertices(3 * its.indices.size());
-    data.reserve_indices(3 * its.indices.size());
+    Geometry&    data       = m_render_data->geometry;
+    const size_t face_count = its.indices.size();
+    data.format              = {Geometry::EPrimitiveType::Triangles, Geometry::EVertexLayout::P3N3};
+    data.vertices.resize(face_count * 3 * 6);
+    data.indices.resize(face_count * 3);
 
-    // vertices + indices
-    unsigned int vertices_counter = 0;
-    for (uint32_t i = 0; i < its.indices.size(); ++i) {
-        const stl_triangle_vertex_indices& face = its.indices[i];
-        const stl_vertex                  vertex[3] = { its.vertices[face[0]], its.vertices[face[1]], its.vertices[face[2]] };
-        const stl_vertex                  n = face_normal_normalized(vertex);
-        for (size_t j = 0; j < 3; ++j) {
-            data.add_vertex(vertex[j], n);
+    auto fill_faces = [&its, &data](const tbb::blocked_range<size_t>& range) {
+        float*        vertices = data.vertices.data();
+        unsigned int* indices  = data.indices.data();
+        for (size_t i = range.begin(); i != range.end(); ++i) {
+            const stl_triangle_vertex_indices& face = its.indices[i];
+            const stl_vertex vertex[3] = {its.vertices[face[0]], its.vertices[face[1]], its.vertices[face[2]]};
+            const stl_vertex normal    = face_normal_normalized(vertex);
+            const size_t     vertex_id = i * 3;
+            for (size_t j = 0; j < 3; ++j) {
+                const size_t offset = (vertex_id + j) * 6;
+                vertices[offset]     = vertex[j].x();
+                vertices[offset + 1] = vertex[j].y();
+                vertices[offset + 2] = vertex[j].z();
+                vertices[offset + 3] = normal.x();
+                vertices[offset + 4] = normal.y();
+                vertices[offset + 5] = normal.z();
+                indices[vertex_id + j] = static_cast<unsigned int>(vertex_id + j);
+            }
         }
-        vertices_counter += 3;
-        data.add_triangle(vertices_counter - 3, vertices_counter - 2, vertices_counter - 1);
-    }
+    };
 
-    // update bounding box
-    for (size_t i = 0; i < vertices_count(); ++i) {
-        m_render_data->geometry.m_bounding_box.merge(data.extract_position_3(i).cast<double>());
-    }
+    constexpr size_t parallel_threshold = 100000;
+    if (face_count >= parallel_threshold)
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, face_count, 16384), fill_faces);
+    else
+        fill_faces(tbb::blocked_range<size_t>(0, face_count));
+
+    // Bounding indexed vertices is equivalent and avoids a second pass over
+    // the three-times-larger expanded render buffer.
+    for (const stl_vertex& vertex : its.vertices)
+        data.m_bounding_box.merge(vertex.cast<double>());
 }
 
 void GLModel::init_from(const Polygons& polygons, float z)

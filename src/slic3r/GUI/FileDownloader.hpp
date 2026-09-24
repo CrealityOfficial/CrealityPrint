@@ -1,68 +1,51 @@
 #ifndef slic3r_GUI_CurlConnectionPool_hpp_
 #define slic3r_GUI_CurlConnectionPool_hpp_
-#include <iostream>
-#include <string>
-#include <vector>
-#include <fstream>
+
+#include <boost/nowide/fstream.hpp>
 #include <curl/curl.h>
+#include <deque>
+#include <functional>
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
 
 class CurlConnectionPool {
 public:
-    // 构造函数，指定最大并发连接数
     explicit CurlConnectionPool(int max_connections = 5);
-    
-    // 析构函数
     ~CurlConnectionPool();
-    
-    // 添加下载任务
-    bool addDownload(const std::string url, const std::string filename);
-    
-    // 执行所有下载任务
-    void performDownloads();
-    
-    // 禁止拷贝和赋值
+
+    // Queue metadata only; open files and curl handles when a slot is free.
+    bool addDownload(const std::string& url, const std::string& filename);
+    // Failed/cancelled downloads leave no partial file. Successful files remain.
+    bool performDownloads(const std::function<bool()>& cancelled = {});
+
     CurlConnectionPool(const CurlConnectionPool&) = delete;
     CurlConnectionPool& operator=(const CurlConnectionPool&) = delete;
 
 private:
-    // 下载项结构
     struct DownloadItem {
         std::string url;
         std::string filename;
         boost::nowide::ofstream stream;
-        
-        DownloadItem(const std::string& u, const std::string& f) 
-            : url(u), filename(f), stream(f,boost::nowide::ofstream::binary) {}
-        
-        // 移动构造函数
-        DownloadItem(DownloadItem&& other) noexcept
-            : url(std::move(other.url)),
-              filename(std::move(other.filename)){}
-        
-        // 禁止拷贝
+        CURL* handle = nullptr;
+        bool opened = false;
+        bool completed = false;
+
+        DownloadItem(std::string u, std::string f);
+        ~DownloadItem();
         DownloadItem(const DownloadItem&) = delete;
         DownloadItem& operator=(const DownloadItem&) = delete;
     };
-    
-    // 静态回调函数
-    static size_t writeDataCallback(void* ptr, size_t size, size_t nmemb, void* userdata);
-    
-    // 清理完成的下载项
-    void cleanupCompletedDownloads();
-    
-    // libcurl multi handle
+
+    static size_t writeDataCallback(void* ptr, size_t size, size_t nmemb, void* userdata) noexcept;
+    bool startNextDownload();
+    bool cleanupCompletedDownloads();
+    void clearActiveDownloads() noexcept;
+
     CURLM* multi_handle_;
-    
-    // 当前运行的下载数
-    int still_running_;
-    
-    // 最大并发连接数
-    int max_connections_;
-    
-    // 所有下载项
-    std::vector<std::shared_ptr<DownloadItem>> download_items_;
-    
-    // 所有easy handles
-    std::vector<CURL*> easy_handles_;
+    size_t max_connections_;
+    std::deque<std::pair<std::string, std::string>> pending_;
+    std::map<CURL*, std::unique_ptr<DownloadItem>> active_;
 };
 #endif

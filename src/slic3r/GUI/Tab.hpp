@@ -29,6 +29,7 @@
 #include <map>
 #include <vector>
 #include <memory>
+#include <utility>
 
 //#include "BedShapeDialog.hpp"
 #include "Event.hpp"
@@ -47,12 +48,14 @@
 class TabCtrl;
 class Label;
 class Button;
+class MultiSwitchBoard;
 
 class HoverBorderIcon;class wxDataViewTreeCtrl;
 
 namespace Slic3r {
 
 class ModelConfig;
+class ModelObject;
 class ObjectBase;
 class Preset;
 
@@ -78,9 +81,7 @@ class Page: public std::enable_shared_from_this<Page>
 public:
 	//BBS: GUI refactor
     Page(wxWindow* parent, const wxString& title, int iconID, wxPanel* tab_owner);
-	~Page() {
-		m_optgroups.clear();
-	}
+	~Page();
 
 	bool				m_is_modified_values{ false };
 	bool				m_is_nonsys_values{ true };
@@ -155,6 +156,9 @@ protected:
 	wxGridSizer* m_top_right_sizer;
 	wxBoxSizer* m_select_sizer;
 	wxBoxSizer* m_tree_sizer;
+	wxBoxSizer* m_process_variant_sizer {nullptr};
+	MultiSwitchBoard* m_process_variant_switch {nullptr};
+	int m_process_variant_selection {0};
 
 	ScalableButton*		m_btn_compare_preset;
 	HoverBorderIcon*		m_btn_save_preset;
@@ -454,6 +458,8 @@ public:
     bool            get_page_is_modified_values(wxString item);
 
 	TabCtrl* get_tabCtrl() { return m_tabctrl; };
+    void update_process_extruder_switch(bool reload = false);
+    void update_filament_nozzle_variant_switch(bool reload = false);
 
 protected:
 	void			create_line_with_widget(ConfigOptionsGroup* optgroup, const std::string& opt_key, const std::string& path, widget_t widget);
@@ -469,6 +475,9 @@ protected:
 	void			update_preset_description_line();
 	void			update_frequently_changed_parameters();
 	void			set_tooltips_text();
+    void            select_process_extruder(int selection, bool reload = true);
+    bool            sync_process_nozzle_variant_rows(const std::string& opt_key, int source_index = -1);
+    void            update_process_extruder_switch_visibility();
 
     ConfigManipulation m_config_manipulation;
     ConfigManipulation get_config_manipulation();
@@ -504,6 +513,7 @@ private:
 	ogStaticText*	m_recommended_thin_wall_thickness_description_line = nullptr;
 	ogStaticText*	m_top_bottom_shell_thickness_explanation = nullptr;
     Button*         m_flush_into_skeleton_btn = nullptr;
+    std::map<std::string, DynamicPrintConfig> m_automatic_extrusion_widths_backups;
 };
 
 class TabPrintModel : public TabPrint
@@ -527,11 +537,14 @@ public:
     boost::any value(std::string const& key);
 
 protected:
+	void            set_model_config_entries(ModelConfigEntries object_configs);
 	virtual void    activate_selected_page(std::function<void()> throw_if_canceled);
 
 	virtual void    on_value_change(const std::string& opt_key, const boost::any& value) override;
 
 	virtual void    notify_changed(ObjectBase * object) = 0;
+	virtual void    notify_config_changed(ObjectBase* object, ModelConfig* config)
+		{ notify_changed(object); }
 
 	virtual void	reload_config();
 
@@ -541,7 +554,7 @@ protected:
 	std::vector<std::string> m_keys;
 	PresetCollection m_prints;
 	Tab * m_parent_tab;
-	std::map<ObjectBase *, ModelConfig *> m_object_configs;
+	ModelConfigEntries m_object_configs;
 	std::vector<std::string> m_all_keys;
 	std::vector<std::string> m_null_keys;
 	bool m_back_to_sys = false;
@@ -556,12 +569,23 @@ public:
 	~TabPrintPlate() {}
 	void build() override;
 	void reset_model_config() override;
-	int show_spiral_mode_settings_dialog(bool is_object_config) { return m_config_manipulation.show_spiral_mode_settings_dialog(is_object_config); }
+	int show_spiral_mode_settings_dialog(bool is_object_config, const wxString& conflict_message = wxEmptyString,
+	                                     bool spiral_already_enabled = false)
+		{ return m_config_manipulation.show_spiral_mode_settings_dialog(
+			is_object_config, conflict_message, ZaaUiChangeScope::Plate, spiral_already_enabled); }
+	// Plate settings edit a detached ModelConfig projection. Synchronize that
+	// projection after another scope changes a real Plate configuration.
+	void sync_detached_configs_from_plates();
 
 protected:
 	virtual void    on_value_change(const std::string& opt_key, const boost::any& value) override;
 	virtual void    notify_changed(ObjectBase* object) override;
 	virtual void	update_custom_dirty() override;
+
+private:
+	bool prepare_spiral_mode_transition(bool as_global, bool spiral_mode,
+	                                    const std::string& snapshot_name,
+	                                    bool& snapshot_taken);
 };
 
 class TabPrintObject : public TabPrintModel
@@ -590,14 +614,17 @@ public:
 	//BBS: GUI refactor
 	TabPrintLayer(ParamsPanel* parent);
 	~TabPrintLayer() {}
+	void set_layer_configs(const std::vector<std::pair<ModelObject*, ModelConfig*>>& layer_configs);
 protected:
 	virtual void    notify_changed(ObjectBase* object) override;
+	virtual void    notify_config_changed(ObjectBase* object, ModelConfig* config) override;
 	virtual void    update_custom_dirty() override;
 };
 
 class TabFilament : public Tab
 {
 private:
+    friend class Tab;
     int             m_active_extruder{0};
 
 	ogStaticText*	m_volumetric_speed_description_line {nullptr};
@@ -605,6 +632,7 @@ private:
 
     void            add_filament_overrides_page();
     void            update_filament_overrides_page();
+    void            update_filament_nozzle_variant_switch_impl(bool reload);
 
     void update_filament_overrides_page(const DynamicPrintConfig* printers_config);
 	void 			update_volumetric_flow_preset_hints();
@@ -617,6 +645,8 @@ public:
 		Tab(parent, _(L("Filament")), Slic3r::Preset::TYPE_FILAMENT) {}
 	~TabFilament() {}
 
+    void on_value_change(const std::string& opt_key, const boost::any& value) override;
+
 	void		build() override;
 	void		reload_config() override;
 	void		update_description_lines() override;
@@ -624,6 +654,8 @@ public:
 	void		update() override;
 	void		clear_pages() override;
 	void		create_preset_tab() override;
+	void		msw_rescale() override;
+	void		sys_color_changed() override;
 	bool 		supports_printer_technology(const PrinterTechnology tech) const override { return tech == ptFFF; }
 	bool		changedSelectFilament(std::string presetName);
 
@@ -673,6 +705,7 @@ public:
     void		build_fff();
     void		build_sla();
 	void		reload_config() override;
+	void		on_value_change(const std::string& opt_key, const boost::any& value) override;
 	void		activate_selected_page(std::function<void()> throw_if_canceled) override;
 	void		clear_pages() override;
 	void		toggle_options() override;
@@ -686,6 +719,8 @@ public:
 	void		on_preset_loaded() override;
 	void		init_options_list() override;
 	void		msw_rescale() override;
+	void        refresh_nozzle_variant_ui(bool reload_fields = true);
+	bool        sync_motion_nozzle_variant_rows(const std::string& opt_key, int requested_source_index);
 	bool 		supports_printer_technology(const PrinterTechnology /* tech */) const override { return true; }
 
 	wxSizer*	create_bed_shape_widget(wxWindow* parent);
@@ -849,10 +884,12 @@ class VTabbarPrinter : public wxPanel
 public:
 	VTabbarPrinter(ParamsPanel* parent, Preset::Type preset_type, PresetBundle* preset_bundle);
 
-	void OnUpdateName(const std::set<std::string>& user_names, const std::set<std::string>& sys_names, const std::string& name, const std::unordered_set<std::string>& presets);
+	void OnUpdateName(const std::set<std::string>& user_names, const std::set<std::string>& sys_names, const std::string& name,
+                      const std::unordered_set<std::string>& presets, const std::map<std::string, std::string>& display_names = {});
 
 private:
-	void _OnUpdateName(wxDataViewItem root, const std::set<std::string>& names, const std::string& selected_name, const std::unordered_set<std::string>& presets);
+	void _OnUpdateName(wxDataViewItem root, const std::set<std::string>& names, const std::string& selected_name,
+                       const std::unordered_set<std::string>& presets, const std::map<std::string, std::string>& display_names);
 
 private:
 	wxMenu* m_menu = nullptr;

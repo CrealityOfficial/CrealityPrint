@@ -27,11 +27,22 @@ const std::string& FanMover::process_gcode(const std::string& gcode, bool flush)
     m_buffer_time_size = 0;
     for (auto& data : m_buffer) m_buffer_time_size += data.time;
 
-    if(!gcode.empty())
-        m_parser.parse_buffer(gcode,
-            [this](GCodeReader& reader, const GCodeReader::GCodeLine& line) { /*m_process_output += line.raw() + "\n";*/ this->_process_gcode_line(reader, line); });
+    if (!gcode.empty()) {
+        m_parser.parse_buffer(gcode, [this](GCodeReader& reader, const GCodeReader::GCodeLine& line) {
+            const ZaaIntervalMarker marker = m_zaa_interval.consume_line(line.raw());
+            if (marker != ZaaIntervalMarker::None) {
+                _flush_at_zaa_boundary();
+                m_process_output += line.raw() + "\n";
+                m_processing_zaa = m_zaa_interval.inside();
+                return;
+            }
+            m_processing_zaa = m_zaa_interval.inside();
+            _process_gcode_line(reader, line);
+        });
+    }
 
     if (flush) {
+        m_zaa_interval.finish_layer();
         while (!m_buffer.empty()) {
             m_process_output += m_buffer.front().raw + "\n";
             remove_from_buffer(m_buffer.begin());
@@ -39,6 +50,29 @@ const std::string& FanMover::process_gcode(const std::string& gcode, bool flush)
     }
 
     return m_process_output;
+}
+
+void FanMover::_flush_at_zaa_boundary()
+{
+    if (m_current_kickstart.time > 0 && !m_current_kickstart.raw.empty()) {
+        auto insertion = m_buffer.end();
+        for (auto it = m_buffer.end(); it != m_buffer.begin();) {
+            --it;
+            const bool motion = it->raw.size() > 1 && (it->raw[0] == 'G' || it->raw[0] == 'g') &&
+                                (it->raw[1] == '0' || it->raw[1] == '1');
+            if (motion) {
+                insertion = std::next(it);
+                break;
+            }
+        }
+        m_buffer.insert(insertion, BufferData(m_current_kickstart.raw, 0, m_current_kickstart.fan_speed, true, m_processing_zaa));
+        m_current_kickstart.time = -1;
+    }
+
+    while (!m_buffer.empty()) {
+        m_process_output += m_buffer.front().raw + "\n";
+        remove_from_buffer(m_buffer.begin());
+    }
 }
 
 bool is_end_of_word(char c) {
@@ -97,6 +131,14 @@ int16_t get_fan_speed(const std::string &line, GCodeFlavor flavor) {
 
 void FanMover::_put_in_middle_G1(std::list<BufferData>::iterator item_to_split, float nb_sec_since_itemtosplit_start, BufferData &&line_to_write) {
     assert(item_to_split != m_buffer.end());
+    if (item_to_split->zaa_protected) {
+        // ZAA motion is atomic: snap to an existing endpoint, with ties going to the prior endpoint.
+        if (nb_sec_since_itemtosplit_start <= item_to_split->time * 0.5)
+            m_buffer.insert(item_to_split, std::move(line_to_write));
+        else
+            m_buffer.insert(std::next(item_to_split), std::move(line_to_write));
+        return;
+    }
     if (nb_sec_since_itemtosplit_start > item_to_split->time * 0.9) {
         // doesn't really need to be split, print it after
         m_buffer.insert(next(item_to_split), line_to_write);
@@ -152,6 +194,17 @@ void FanMover::_put_in_middle_G1(std::list<BufferData>::iterator item_to_split, 
 }
 
 void FanMover::_print_in_middle_G1(BufferData& line_to_split, float nb_sec, const std::string &line_to_write) {
+    if (line_to_split.zaa_protected) {
+        // ZAA motion is atomic: snap to an existing endpoint, with ties going to the prior endpoint.
+        if (nb_sec <= line_to_split.time * 0.5) {
+            m_process_output += line_to_write + (line_to_write.back() == '\n' ? "" : "\n");
+            m_process_output += line_to_split.raw + "\n";
+        } else {
+            m_process_output += line_to_split.raw + "\n";
+            m_process_output += line_to_write + (line_to_write.back() == '\n' ? "" : "\n");
+        }
+        return;
+    }
     if (nb_sec < line_to_split.time * 0.1) {
         // doesn't really need to be split, print it after
         m_process_output += line_to_split.raw + "\n";
@@ -327,7 +380,7 @@ void FanMover::_process_gcode_line(GCodeReader& reader, const GCodeReader::GCode
                                     time_count -= it->time;
                                     if (time_count< 0) {
                                         //found something that is lower than us
-                                        _put_in_middle_G1(it, it->time + time_count, BufferData(std::string(line.raw()), 0, fan_speed, true));
+                                        _put_in_middle_G1(it, it->time + time_count, BufferData(std::string(line.raw()), 0, fan_speed, true, m_processing_zaa));
                                         //found, stop
                                         break;
                                     }
@@ -379,7 +432,7 @@ void FanMover::_process_gcode_line(GCodeReader& reader, const GCodeReader::GCode
                                 //if kickstart, write the M106 S[fan_baseline] first
                                 //set the target speed and set the kickstart flag
                                 put_in_buffer(BufferData(_set_fan(100)//m_writer.set_fan(100, true)); //FIXME extruder id (or use the gcode writer, but then you have to disable the multi-thread thing
-                                    , 0, fan_speed, true));
+                                    , 0, fan_speed, true, m_processing_zaa));
                                 //kickstart!
                                 //m_process_output += m_writer.set_fan(100, true);
                                 //add the normal speed line for the future
@@ -418,7 +471,7 @@ void FanMover::_process_gcode_line(GCodeReader& reader, const GCodeReader::GCode
     }
 
     if (time >= 0) {
-        BufferData& new_data = put_in_buffer(BufferData(line.raw(), time, fan_speed));
+        BufferData& new_data = put_in_buffer(BufferData(line.raw(), time, fan_speed, false, m_processing_zaa));
         if (line.has(Axis::X)) {
             new_data.x = reader.x();
             new_data.dx = line.dist_X(reader);
@@ -443,7 +496,7 @@ void FanMover::_process_gcode_line(GCodeReader& reader, const GCodeReader::GCode
             m_current_kickstart.time -= time;
             if (m_current_kickstart.time < 0) {
                 //prev is possible because we just do a emplace_back.
-                _put_in_middle_G1(prev(m_buffer.end()), time + m_current_kickstart.time, BufferData{ m_current_kickstart.raw, 0, m_current_kickstart.fan_speed, true });
+                _put_in_middle_G1(prev(m_buffer.end()), time + m_current_kickstart.time, BufferData{ m_current_kickstart.raw, 0, m_current_kickstart.fan_speed, true, m_processing_zaa });
             }
         }
     }/* else {

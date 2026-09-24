@@ -13,7 +13,7 @@ public:
     struct PrintSettings
     {
         int   quality_index    = 1;  // 0: Fast, 1: Standard, 2: Fine
-        int   infill_density   = 15; // Percentage: 0¨C100
+        int   infill_density   = 15; // Percentage: 0â€“100
         int   top_layers       = 5;
         int   bottom_layers    = 4;
         int   wall_layers      = 4;
@@ -64,8 +64,8 @@ public:
         const char* label, int* current_index, const char* const items[], int item_count, float width, ImU32 bg_color, ImU32 button_color)
     {
         ImGui::PushStyleColor(ImGuiCol_FrameBg, bg_color);
-        ImGui::PushStyleColor(ImGuiCol_Button, button_color); // ¿ØÖÆ¼ıÍ·°´Å¥ÑÕÉ«
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, bg_color);    // ÏÂÀ­²Ëµ¥±³¾°
+        ImGui::PushStyleColor(ImGuiCol_Button, button_color); // æ§åˆ¶ç®­å¤´æŒ‰é’®é¢œè‰²
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, bg_color);    // ä¸‹æ‹‰èœå•èƒŒæ™¯
         ImGui::PushItemWidth(width);
 
         bool changed = ImGui::Combo(label, current_index, items, item_count);
@@ -79,22 +79,22 @@ public:
 private:
     static constexpr const char* infill_options[] = {"5%", "10%", "15%", "20%", "25%", "30%", "40%", "50%"};
     
-    // °Ù·Ö±È ¡ú Ë÷Òı
+    // ç™¾åˆ†æ¯” â†’ ç´¢å¼•
     int infill_density_to_index(int density)
     {
         for (int i = 0; i < IM_ARRAYSIZE(infill_options); ++i) {
             if (std::stoi(infill_options[i]) == density)
                 return i;
         }
-        return 0; // Ä¬ÈÏ»ØÍËµ½µÚÒ»¸ö
+        return 0; // é»˜è®¤å›é€€åˆ°ç¬¬ä¸€ä¸ª
     }
 
-    // Ë÷Òı ¡ú °Ù·Ö±È
+    // ç´¢å¼• â†’ ç™¾åˆ†æ¯”
     int infill_index_to_density(int index)
     {
         if (index >= 0 && index < IM_ARRAYSIZE(infill_options))
             return std::stoi(infill_options[index]);
-        return 15; // Ä¬ÈÏÖµ
+        return 15; // é»˜è®¤å€¼
     }
 
     template<typename T> void safe_get(const DynamicPrintConfig& cfg, const char* key, T& out)
@@ -111,7 +111,7 @@ private:
 
     void load_from_config(PrintSettings& s, const DynamicPrintConfig& config)
     {
-        // ÖÊÁ¿µµÎ»µ¥¶À´¦Àí
+        // è´¨é‡æ¡£ä½å•ç‹¬å¤„ç†
      /*   if (auto* opt = config.option<ConfigOptionFloat>("sparse_infill_pattern")) {
             float lh = opt->value;
             if (lh == 0.20f)
@@ -150,7 +150,7 @@ private:
 
 
     PrintSettings settings;
-    float         animated_highlight_x = -1.0f; // ³õÊ¼»¯ÎªÎŞĞ§Öµ
+    float         animated_highlight_x = -1.0f; // åˆå§‹åŒ–ä¸ºæ— æ•ˆå€¼
     bool          m_initialized = false;
 };
 

@@ -9,6 +9,7 @@
 #include "TriangleMeshSlicer.hpp"
 #include "TriangleSelector.hpp"
 #include "ObjectID.hpp"
+#include "PaintReproject.hpp"
 
 #include <boost/log/trivial.hpp>
 
@@ -48,7 +49,11 @@ static void apply_tolerance(ModelVolume* vol)
     vol->set_offset(vol->get_offset() + rot_norm * z_offset);
 }
 
-static void add_cut_volume(TriangleMesh& mesh, ModelObject* object, const ModelVolume* src_volume, const Transform3d& cut_matrix, const std::string& suffix = {}, ModelVolumeType type = ModelVolumeType::MODEL_PART)
+static void add_cut_volume(TriangleMesh& mesh, ModelObject* object, const ModelVolume* src_volume,
+                           const Transform3d& cut_matrix, const std::string& suffix = {},
+                           ModelVolumeType type = ModelVolumeType::MODEL_PART,
+                           const std::vector<int>* src_faces = nullptr,
+                           const Transform3d* destination_to_source = nullptr)
 {
     if (mesh.empty())
         return;
@@ -64,10 +69,23 @@ static void add_cut_volume(TriangleMesh& mesh, ModelObject* object, const ModelV
     assert(vol->config.id() != src_volume->config.id());
     vol->set_material(src_volume->material_id(), *src_volume->material());
     vol->cut_info = src_volume->cut_info;
+
+    assert(src_faces == nullptr || destination_to_source != nullptr);
+    if (src_faces && destination_to_source) {
+        // add_volume() recenters the mesh by -mesh_offset. Re-apply that shift
+        // before mapping destination vertices into the source-volume frame.
+        const Transform3d dts_centered =
+            (*destination_to_source) * Eigen::Translation3d(vol->source.mesh_offset);
+        if (!reproject_paint(*src_volume, *vol, *src_faces, dts_centered))
+            BOOST_LOG_TRIVIAL(warning) << "Paint reprojection was canceled unexpectedly";
+    }
 }
 
 static void process_volume_cut( ModelVolume* volume, const Transform3d& instance_matrix, const Transform3d& cut_matrix,
-                                ModelObjectCutAttributes attributes, TriangleMesh& upper_mesh, TriangleMesh& lower_mesh)
+                                ModelObjectCutAttributes attributes, TriangleMesh& upper_mesh, TriangleMesh& lower_mesh,
+                                std::vector<int>* upper_src_faces = nullptr,
+                                std::vector<int>* lower_src_faces = nullptr,
+                                Transform3d* destination_to_source = nullptr)
 {
     const auto volume_matrix = volume->get_matrix();
 
@@ -76,11 +94,15 @@ static void process_volume_cut( ModelVolume* volume, const Transform3d& instance
 
     // Transform the mesh by the combined transformation matrix.
     // Flip the triangles in case the composite transformation is left handed.
+    const Transform3d source_to_cut = invert_cut_matrix * instance_matrix * volume_matrix;
+    if (destination_to_source)
+        *destination_to_source = (cut_matrix * source_to_cut).inverse();
+
     TriangleMesh mesh(volume->mesh());
-    mesh.transform(invert_cut_matrix * instance_matrix * volume_matrix, true);
+    mesh.transform(source_to_cut, true);
 
     indexed_triangle_set upper_its, lower_its;
-    cut_mesh(mesh.its, 0.0f, &upper_its, &lower_its);
+    cut_mesh(mesh.its, 0.0f, &upper_its, &lower_its, true, upper_src_faces, lower_src_faces);
     if (attributes.has(ModelObjectCutAttribute::KeepUpper))
         upper_mesh = TriangleMesh(upper_its);
     if (attributes.has(ModelObjectCutAttribute::KeepLower))
@@ -186,24 +208,32 @@ static void process_solid_part_cut(ModelVolume* volume, const Transform3d& insta
 {
     // Perform cut
     TriangleMesh upper_mesh, lower_mesh;
-    process_volume_cut(volume, instance_matrix, cut_matrix, attributes, upper_mesh, lower_mesh);
+    std::vector<int> upper_src_faces;
+    std::vector<int> lower_src_faces;
+    Transform3d      destination_to_source;
+    process_volume_cut(volume, instance_matrix, cut_matrix, attributes, upper_mesh, lower_mesh,
+                       &upper_src_faces, &lower_src_faces, &destination_to_source);
 
     // Add required cut parts to the objects
 
     if (attributes.has(ModelObjectCutAttribute::KeepAsParts)) {
-        add_cut_volume(upper_mesh, upper, volume, cut_matrix, "_A");
+        add_cut_volume(upper_mesh, upper, volume, cut_matrix, "_A", ModelVolumeType::MODEL_PART,
+                       &upper_src_faces, &destination_to_source);
         if (!lower_mesh.empty()) {
-            add_cut_volume(lower_mesh, upper, volume, cut_matrix, "_B");
+            add_cut_volume(lower_mesh, upper, volume, cut_matrix, "_B", ModelVolumeType::MODEL_PART,
+                           &lower_src_faces, &destination_to_source);
             upper->volumes.back()->cut_info.is_from_upper = false;
         }
         return;
     }
 
     if (attributes.has(ModelObjectCutAttribute::KeepUpper))
-        add_cut_volume(upper_mesh, upper, volume, cut_matrix);
+        add_cut_volume(upper_mesh, upper, volume, cut_matrix, {}, ModelVolumeType::MODEL_PART,
+                       &upper_src_faces, &destination_to_source);
 
     if (attributes.has(ModelObjectCutAttribute::KeepLower) && !lower_mesh.empty())
-        add_cut_volume(lower_mesh, lower, volume, cut_matrix);
+        add_cut_volume(lower_mesh, lower, volume, cut_matrix, {}, ModelVolumeType::MODEL_PART,
+                       &lower_src_faces, &destination_to_source);
 }
 
 static void reset_instance_transformation(ModelObject* object, size_t src_instance_idx, 
@@ -324,8 +354,6 @@ const ModelObjectPtrs& Cut::perform_with_plane()
     const Transform3d       inverse_cut_matrix = cut_transformation.get_rotation_matrix().inverse() * translation_transform(-1. * cut_transformation.get_offset());
 
     for (ModelVolume* volume : mo->volumes) {
-        volume->reset_extra_facets();
-
         if (!volume->is_model_part()) {
             if (volume->cut_info.is_processed)
                 process_modifier_cut(volume, instance_matrix, inverse_cut_matrix, m_attributes, upper, lower);
@@ -406,30 +434,109 @@ static void distribute_modifiers_from_object(ModelObject* from_obj, const int in
         }
 }
 
-static void merge_solid_parts_inside_object(ModelObjectPtrs& objects)
+// Puts the pieces a cut left behind back together, one volume per source part. Pieces are
+// grouped by ModelVolume::CutInfo::source_part_idx when source_volumes is provided (groove
+// and contour). Without source_volumes there is nothing to group by, so every piece goes
+// into a single group, independent of any source_part_idx the incoming pieces happen to carry.
+// source_volumes, when given, is the part list of the object that was cut and provides the
+// config, material and name for the merged volumes. Without it the merged volume keeps an
+// empty config, so its part falls back to the object level filament.
+static void merge_solid_parts_inside_object(ModelObjectPtrs &objects, const ModelVolumePtrs *source_volumes = nullptr)
 {
-    for (ModelObject* mo : objects) {
-        TriangleMesh mesh;
-        // Merge all SolidPart but not Connectors
-        for (const ModelVolume* mv : mo->volumes) {
-            if (mv->is_model_part() && !mv->is_cut_connector()) {
+    // A source object with a single part keeps naming its merged volume after the object, as
+    // it always has. With several parts each merged volume takes the name of the part it came
+    // from, and that must not depend on how many parts survived in this particular half.
+    const size_t source_parts_cnt = source_volumes == nullptr ? 0 :
+        size_t(std::count_if(source_volumes->begin(), source_volumes->end(),
+                             [](const ModelVolume *mv) { return mv->is_model_part() && !mv->is_cut_connector(); }));
+
+    for (ModelObject *mo : objects) {
+        // Group the pieces to merge, in order of first appearance so that the merged volumes
+        // keep the order of the parts they came from.
+        std::vector<int>             group_source_idxs;
+        std::vector<ModelVolumePtrs> groups;
+        for (ModelVolume *mv : mo->volumes) {
+            if (!mv->is_model_part() || mv->is_cut_connector())
+                continue;
+            // Without source_volumes there is nothing to group by, so everything goes into a
+            // single group, whatever source_part_idx the incoming pieces happen to carry.
+            const int  group_key = source_volumes != nullptr ? mv->cut_info.source_part_idx : -1;
+            const auto it        = std::find(group_source_idxs.begin(), group_source_idxs.end(), group_key);
+            if (it == group_source_idxs.end()) {
+                group_source_idxs.emplace_back(group_key);
+                groups.emplace_back(ModelVolumePtrs{mv});
+            } else
+                groups[it - group_source_idxs.begin()].emplace_back(mv);
+        }
+        if (groups.empty())
+            continue;
+
+        const size_t volumes_cnt_before_merge = mo->volumes.size();
+        bool         merged_any               = false;
+
+        for (size_t group_idx = 0; group_idx < groups.size(); ++group_idx) {
+            TriangleMesh             mesh;
+            std::vector<std::string> merged_supported, merged_seam, merged_mmu, merged_fuzzy;
+            // Merge all SolidPart of this group but not Connectors
+            for (const ModelVolume *mv : groups[group_idx]) {
+                const size_t face_count = mv->mesh().its.indices.size();
+                for (size_t face_idx = 0; face_idx < face_count; ++face_idx) {
+                    merged_supported.emplace_back(mv->supported_facets.get_triangle_as_string(int(face_idx)));
+                    merged_seam.emplace_back(mv->seam_facets.get_triangle_as_string(int(face_idx)));
+                    merged_mmu.emplace_back(mv->mmu_segmentation_facets.get_triangle_as_string(int(face_idx)));
+                    merged_fuzzy.emplace_back(mv->fuzzy_skin_facets.get_triangle_as_string(int(face_idx)));
+                }
                 TriangleMesh m = mv->mesh();
                 m.transform(mv->get_matrix());
                 mesh.merge(m);
             }
-        }
-        if (!mesh.empty()) {
-            ModelVolume* new_volume = mo->add_volume(mesh);
-            new_volume->name = mo->name;
-            // Delete all merged SolidPart but not Connectors
-            for (int i = int(mo->volumes.size()) - 2; i >= 0; --i) {
-                const ModelVolume* mv = mo->volumes[i];
-                if (mv->is_model_part() && !mv->is_cut_connector())
-                    mo->delete_volume(i);
+            if (mesh.empty())
+                continue;
+
+            ModelVolume *new_volume = mo->add_volume(mesh);
+
+            // Carry the identity of the source part over, the same way the planar cut does in
+            // add_cut_volume(). The per part config holds the filament and the region
+            // overrides, so dropping it here would recolor the part.
+            const int          source_idx = group_source_idxs[group_idx];
+            const ModelVolume *src_volume = (source_volumes != nullptr && source_idx >= 0 && size_t(source_idx) < source_volumes->size()) ?
+                                                (*source_volumes)[source_idx] :
+                                                nullptr;
+            if (src_volume != nullptr) {
+                // Don't copy the config's ID.
+                new_volume->config.assign_config(src_volume->config);
+                if (const ModelMaterial *material = src_volume->material(); material != nullptr)
+                    new_volume->set_material(src_volume->material_id(), *material);
             }
-            // Ensuring that volumes start with solid parts for proper slicing
-            mo->sort_volumes(true);
+            new_volume->name = (source_parts_cnt <= 1 || src_volume == nullptr) ? mo->name : src_volume->name;
+
+            assert(merged_supported.size() == mesh.its.indices.size());
+            const size_t annotation_face_count = std::min(merged_supported.size(), mesh.its.indices.size());
+            for (size_t face_idx = 0; face_idx < annotation_face_count; ++face_idx) {
+                if (!merged_supported[face_idx].empty())
+                    new_volume->supported_facets.set_triangle_from_string(int(face_idx), merged_supported[face_idx]);
+                if (!merged_seam[face_idx].empty())
+                    new_volume->seam_facets.set_triangle_from_string(int(face_idx), merged_seam[face_idx]);
+                if (!merged_mmu[face_idx].empty())
+                    new_volume->mmu_segmentation_facets.set_triangle_from_string(int(face_idx), merged_mmu[face_idx]);
+                if (!merged_fuzzy[face_idx].empty())
+                    new_volume->fuzzy_skin_facets.set_triangle_from_string(int(face_idx), merged_fuzzy[face_idx]);
+            }
+            merged_any = true;
         }
+
+        if (!merged_any)
+            continue;
+
+        // Delete all merged SolidPart but not Connectors. The merged volumes were appended
+        // past volumes_cnt_before_merge, so walking the leading range backwards leaves them
+        // untouched.
+        for (int i = int(volumes_cnt_before_merge) - 1; i >= 0; --i) {
+            const ModelVolume *mv = mo->volumes[i];
+            if (mv->is_model_part() && !mv->is_cut_connector()) mo->delete_volume(i);
+        }
+        // Ensuring that volumes start with solid parts for proper slicing
+        mo->sort_volumes(true);
     }
 }
 
@@ -451,6 +558,11 @@ const ModelObjectPtrs& Cut::perform_by_contour(std::vector<Part> parts, int dowe
 
     const size_t cut_parts_cnt = parts.size();
     bool has_modifiers = false;
+
+    // Keep every distributed piece tied to the source volume it came from.
+    // add_volume() copies cut_info, including this transient provenance.
+    for (size_t i = 0; i < cut_parts_cnt; ++i)
+        cut_mo->volumes[i]->cut_info.source_part_idx = int(i);
 
     // Distribute SolidParts to the Upper/Lower object
     for (size_t id = 0; id < cut_parts_cnt; ++id) {
@@ -475,7 +587,7 @@ const ModelObjectPtrs& Cut::perform_by_contour(std::vector<Part> parts, int dowe
         post_process(upper, lower, cut_object_ptrs);
 
         // Now merge all model parts together:
-        merge_solid_parts_inside_object(cut_object_ptrs);
+        merge_solid_parts_inside_object(cut_object_ptrs, &cut_mo->volumes);
 
         // replace initial objects in model with cut object 
         finalize(cut_object_ptrs);
@@ -483,10 +595,9 @@ const ModelObjectPtrs& Cut::perform_by_contour(std::vector<Part> parts, int dowe
     else if (volumes.size() > cut_parts_cnt) {
         // Means that object is cut with connectors
 
-        // All volumes are distributed to Upper / Lower object,
-        // So we don’t need them anymore
-        for (size_t id = 0; id < cut_parts_cnt; id++)
-            delete* (volumes.begin() + id);
+        // Keep the source parts alive until the merged volumes have copied their
+        // config, material and name. Connectors stay behind for the plane cut.
+        ModelVolumePtrs source_parts(volumes.begin(), volumes.begin() + cut_parts_cnt);
         volumes.erase(volumes.begin(), volumes.begin() + cut_parts_cnt);
 
         // Perform cut just to get connectors
@@ -506,7 +617,9 @@ const ModelObjectPtrs& Cut::perform_by_contour(std::vector<Part> parts, int dowe
         post_process(upper, lower, cut_object_ptrs);
 
         // Now merge all model parts together:
-        merge_solid_parts_inside_object(cut_object_ptrs);
+        merge_solid_parts_inside_object(cut_object_ptrs, &source_parts);
+        for (ModelVolume* volume : source_parts)
+            delete volume;
 
         // replace initial objects in model with cut object
         finalize(cut_object_ptrs);
@@ -542,6 +655,11 @@ const ModelObjectPtrs& Cut::perform_with_groove(const Groove& groove, const Tran
     Model tmp_model = Model();
     tmp_model.add_object(*cut_mo);
     ModelObject* tmp_object = tmp_model.objects.front();
+
+    // A groove applies several plane cuts. Stamp the copied parts once so every
+    // descendant keeps the identity of its original volume through all stages.
+    for (size_t i = 0; i < tmp_object->volumes.size(); ++i)
+        tmp_object->volumes[i]->cut_info.source_part_idx = int(i);
 
     auto add_volumes_from_cut = [](ModelObject* object, const ModelObjectCutAttribute attribute, const Model& tmp_model_for_cut) {
         const auto& volumes = tmp_model_for_cut.objects.front()->volumes;
@@ -658,7 +776,7 @@ const ModelObjectPtrs& Cut::perform_with_groove(const Groove& groove, const Tran
         post_process(upper, lower, cut_object_ptrs);
 
         // Now merge all model parts together:
-        merge_solid_parts_inside_object(cut_object_ptrs);
+        merge_solid_parts_inside_object(cut_object_ptrs, &cut_mo->volumes);
     }
 
     finalize(cut_object_ptrs);
@@ -667,4 +785,3 @@ const ModelObjectPtrs& Cut::perform_with_groove(const Groove& groove, const Tran
 }
 
 } // namespace Slic3r
-

@@ -67,6 +67,8 @@ protected:
     int  delLocalUserPresetsInUiThread(const SyncToLocalRetInfo& syncToLocalRetInfo);
 
 protected:
+    // Invalidates UI callbacks queued by a previous login session.
+    std::atomic<unsigned long long> m_accountGeneration{0};
     std::thread m_thread;
     std::atomic_bool     m_bRunning = false;
     std::atomic_bool     m_bSync    = false;

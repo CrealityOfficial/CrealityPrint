@@ -1,166 +1,187 @@
 #include "slic3r/GUI/FileDownloader.hpp"
-#include <exception>
-// 实现部分
-CurlConnectionPool::CurlConnectionPool(int max_connections)
-    : multi_handle_(curl_multi_init()),
-      still_running_(0),
-      max_connections_(max_connections) {
-    if (!multi_handle_) {
-        throw std::runtime_error("Failed to initialize curl multi handle");
-    }
+
+#include <boost/nowide/cstdio.hpp>
+#include <chrono>
+#include <iostream>
+#include <limits>
+#include <stdexcept>
+#include <thread>
+
+namespace {
+void checkMulti(CURLMcode result)
+{
+    if (result != CURLM_OK)
+        throw std::runtime_error(std::string("Preset download: ") + curl_multi_strerror(result));
 }
 
-CurlConnectionPool::~CurlConnectionPool() {
-    // 清理所有easy handles
-    for (auto handle : easy_handles_) {
-        curl_multi_remove_handle(multi_handle_, handle);
+void checkEasy(CURLcode result)
+{
+    if (result != CURLE_OK)
+        throw std::runtime_error(std::string("Preset download: ") + curl_easy_strerror(result));
+}
+}
+
+CurlConnectionPool::DownloadItem::DownloadItem(std::string u, std::string f)
+    : url(std::move(u)), filename(std::move(f))
+{}
+
+CurlConnectionPool::DownloadItem::~DownloadItem()
+{
+    if (handle)
         curl_easy_cleanup(handle);
-    }
-    
-    // 清理multi handle
-    if (multi_handle_) {
-        curl_multi_cleanup(multi_handle_);
-    }
+    if (stream.is_open())
+        stream.close();
+    if (opened && !completed)
+        boost::nowide::remove(filename.c_str());
 }
 
-bool CurlConnectionPool::addDownload(const std::string url, const std::string filename) {
+CurlConnectionPool::CurlConnectionPool(int max_connections)
+    : multi_handle_(nullptr), max_connections_(max_connections > 0 ? max_connections : 1)
+{
+    multi_handle_ = curl_multi_init();
+    if (!multi_handle_)
+        throw std::runtime_error("Failed to initialize curl multi handle");
+}
+
+CurlConnectionPool::~CurlConnectionPool()
+{
+    clearActiveDownloads();
+    curl_multi_cleanup(multi_handle_);
+}
+
+void CurlConnectionPool::clearActiveDownloads() noexcept
+{
+    for (const auto& entry : active_)
+        curl_multi_remove_handle(multi_handle_, entry.first);
+    active_.clear();
+}
+
+bool CurlConnectionPool::addDownload(const std::string& url, const std::string& filename)
+{
     try {
-        // 创建下载项
-        std::shared_ptr<DownloadItem> item(new DownloadItem(url, filename));
-        download_items_.emplace_back(item);
-        
-        if (!item->stream.is_open()) {
-            download_items_.pop_back();
-            std::cerr << "Failed to open file: " << filename << std::endl;
-            return false;
-        }
-        
-        // 创建easy handle
-        CURL* handle = curl_easy_init();
-        if (!handle) {
-            download_items_.pop_back();
-            return false;
-        }
-        
-        // 设置easy handle选项
-        curl_easy_setopt(handle, CURLOPT_URL, item->url.c_str());
-        curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, writeDataCallback);
-        curl_easy_setopt(handle, CURLOPT_WRITEDATA, &item->stream);
-        curl_easy_setopt(handle, CURLOPT_PRIVATE, item->filename.c_str());
-        curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
-        curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0L);
-        curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 0L);
-        
-        // 启用连接复用
-        curl_easy_setopt(handle, CURLOPT_FRESH_CONNECT, 0L);
-        curl_easy_setopt(handle, CURLOPT_FORBID_REUSE, 0L);
-        
-        // 添加到multi handle
-        curl_multi_add_handle(multi_handle_, handle);
-        easy_handles_.push_back(handle);
-        
+        std::string escaped_url = url;
+        for (size_t pos = 0; (pos = escaped_url.find(' ', pos)) != std::string::npos; pos += 3)
+            escaped_url.replace(pos, 1, "%20");
+        pending_.emplace_back(std::move(escaped_url), filename);
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "Error adding download: " << e.what() << std::endl;
+        std::cerr << "Error queuing download: " << e.what() << std::endl;
         return false;
     }
 }
 
-void CurlConnectionPool::performDownloads() {
-    // 初始执行
-    curl_multi_perform(multi_handle_, &still_running_);
-    
-    // 主下载循环
-    while (still_running_) {
-        fd_set fdread, fdwrite, fdexcep;
-        int maxfd = -1;
-        long curl_timeo = -1;
-        
-        FD_ZERO(&fdread);
-        FD_ZERO(&fdwrite);
-        FD_ZERO(&fdexcep);
-        
-        struct timeval timeout;
-        timeout.tv_sec = 10;
-        timeout.tv_usec = 0;
-        
-        // 获取超时设置
-        curl_multi_timeout(multi_handle_, &curl_timeo);
-        if (curl_timeo >= 0) {
-            timeout.tv_sec = curl_timeo / 1000;
-            if (timeout.tv_sec > 1) {
-                timeout.tv_sec = 1;
-            } else {
-                timeout.tv_usec = (curl_timeo % 1000) * 1000;
+bool CurlConnectionPool::startNextDownload()
+{
+    auto item = std::make_unique<DownloadItem>(pending_.front().first, pending_.front().second);
+    pending_.pop_front();
+    item->stream.open(item->filename, std::ios::binary | std::ios::trunc);
+    item->opened = item->stream.is_open();
+    if (!item->opened) {
+        std::cerr << "Failed to open download file: " << item->filename << std::endl;
+        return false;
+    }
+
+    item->handle = curl_easy_init();
+    if (!item->handle)
+        throw std::runtime_error("Failed to initialize curl download handle");
+    CURL* handle = item->handle;
+    checkEasy(curl_easy_setopt(handle, CURLOPT_URL, item->url.c_str()));
+    checkEasy(curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, writeDataCallback));
+    checkEasy(curl_easy_setopt(handle, CURLOPT_WRITEDATA, &item->stream));
+    checkEasy(curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L));
+    checkEasy(curl_easy_setopt(handle, CURLOPT_FAILONERROR, 1L));
+    checkEasy(curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0L));
+    checkEasy(curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 0L));
+    checkEasy(curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, 10L));
+    checkEasy(curl_easy_setopt(handle, CURLOPT_LOW_SPEED_LIMIT, 1L));
+    checkEasy(curl_easy_setopt(handle, CURLOPT_LOW_SPEED_TIME, 60L));
+
+    // Own the stream before registering callbacks: allocation failure must not
+    // leave curl pointing at a destroyed download item.
+    active_.emplace(handle, std::move(item));
+    const CURLMcode result = curl_multi_add_handle(multi_handle_, handle);
+    if (result != CURLM_OK) {
+        active_.erase(handle);
+        checkMulti(result);
+    }
+    return true;
+}
+
+bool CurlConnectionPool::performDownloads(const std::function<bool()>& cancelled)
+{
+    bool success = true;
+    try {
+        while (!pending_.empty() || !active_.empty()) {
+            if (cancelled && cancelled()) {
+                clearActiveDownloads();
+                pending_.clear();
+                return false;
+            }
+            while (!pending_.empty() && active_.size() < max_connections_)
+                if (!startNextDownload())
+                    success = false;
+
+            int running = 0;
+            checkMulti(curl_multi_perform(multi_handle_, &running));
+            if (!cleanupCompletedDownloads())
+                success = false;
+
+            // Completed streams are closed before refilling their slots.
+            if (!pending_.empty() && active_.size() < max_connections_)
+                continue;
+            if (!active_.empty()) {
+                int numfds = 0;
+                checkMulti(curl_multi_wait(multi_handle_, nullptr, 0, 100, &numfds));
+                if (numfds == 0)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         }
-        
-        // 获取文件描述符集
-        curl_multi_fdset(multi_handle_, &fdread, &fdwrite, &fdexcep, &maxfd);
-        
-        // 等待活动或超时
-        if (maxfd == -1) {
-            // 没有文件描述符，等待一段时间
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        } else {
-            // 使用select等待I/O活动
-            select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
-        }
-        
-        // 执行传输
-        curl_multi_perform(multi_handle_, &still_running_);
-        
-        // 清理完成的下载
-        cleanupCompletedDownloads();
+    } catch (...) {
+        clearActiveDownloads();
+        pending_.clear();
+        throw;
     }
-    download_items_.clear();
+    return success;
 }
 
-size_t CurlConnectionPool::writeDataCallback(void* ptr, size_t size, size_t nmemb, void* userdata) {
-    auto* stream = static_cast<std::ofstream*>(userdata);
-    size_t written = 0;
-    
-    try{
-        stream->write(static_cast<char*>(ptr), size * nmemb);
-        written = size * nmemb;
-    }catch(std::exception e)
-    {
-        
+size_t CurlConnectionPool::writeDataCallback(void* ptr, size_t size, size_t nmemb, void* userdata) noexcept
+{
+    if (!userdata || (size != 0 && nmemb > (std::numeric_limits<size_t>::max)() / size))
+        return 0;
+    const size_t bytes = size * nmemb;
+    if (bytes > static_cast<size_t>((std::numeric_limits<std::streamsize>::max)()))
+        return 0;
+    try {
+        auto* stream = static_cast<boost::nowide::ofstream*>(userdata);
+        stream->write(static_cast<const char*>(ptr), static_cast<std::streamsize>(bytes));
+        return *stream ? bytes : 0;
+    } catch (...) {
+        // Do not let C++ exceptions escape through libcurl's C callback boundary.
+        return 0;
     }
-
-    return written;
 }
 
-void CurlConnectionPool::cleanupCompletedDownloads() {
-    CURLMsg* msg = nullptr;
+bool CurlConnectionPool::cleanupCompletedDownloads()
+{
+    bool success = true;
     int msgs_left = 0;
-    
-    while ((msg = curl_multi_info_read(multi_handle_, &msgs_left))) {
-        if (msg->msg == CURLMSG_DONE) {
-            CURL* handle = msg->easy_handle;
-            char* filename = nullptr;
-            
-            // 获取文件名
-            curl_easy_getinfo(handle, CURLINFO_PRIVATE, &filename);
-            
-            // 输出下载结果
-            if (msg->data.result == CURLE_OK) {
-                std::cout << "Download completed: " << filename << std::endl;
-            } else {
-                std::cerr << "Download failed: " << filename 
-                          << " - " << curl_easy_strerror(msg->data.result) << std::endl;
-            }
-            
-            // 从multi handle中移除并清理
-            curl_multi_remove_handle(multi_handle_, handle);
-            
-            // 从easy_handles_中移除
-            auto it = std::find(easy_handles_.begin(), easy_handles_.end(), handle);
-            if (it != easy_handles_.end()) {
-                easy_handles_.erase(it);
-            }
-            
-            curl_easy_cleanup(handle);
+    while (CURLMsg* msg = curl_multi_info_read(multi_handle_, &msgs_left)) {
+        if (msg->msg != CURLMSG_DONE)
+            continue;
+        const CURLcode result = msg->data.result;
+        auto it = active_.find(msg->easy_handle);
+        if (it == active_.end())
+            continue;
+        DownloadItem& item = *it->second;
+        item.stream.close();
+        item.completed = result == CURLE_OK && !item.stream.fail();
+        if (!item.completed) {
+            success = false;
+            std::cerr << "Download failed: " << item.filename << " - "
+                      << (result == CURLE_OK ? "file write/close failed" : curl_easy_strerror(result)) << std::endl;
         }
+        curl_multi_remove_handle(multi_handle_, it->first);
+        active_.erase(it);
     }
+    return success;
 }

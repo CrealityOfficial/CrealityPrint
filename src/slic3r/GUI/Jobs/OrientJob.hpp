@@ -56,7 +56,9 @@ public:
         return om;
     }
 #endif
-    static orientation::OrientMesh get_orient_mesh(ModelInstance* instance);
+    static orientation::OrientMesh create_orientation_input(ModelInstance* instance,
+                                                             size_t         object_index,
+                                                             size_t         instance_index);
 };
 
 

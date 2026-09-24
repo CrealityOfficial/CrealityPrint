@@ -42,6 +42,13 @@ else ()
     set(_wx_gettext_args "")
 endif ()
 
+if(APPLE)
+    set(_wx_patch_command ${CMAKE_COMMAND}
+        -Dwx_SOURCE_DIR=<SOURCE_DIR>
+        -Dwx_PATCH_FILE=${CMAKE_CURRENT_LIST_DIR}/0002-enable-ime-for-macos-glcanvas.patch
+        -P ${CMAKE_CURRENT_LIST_DIR}/apply-macos-ime-patch.cmake)
+endif()
+
 orcaslicer_add_cmake_project(
     wxWidgets
     GIT_REPOSITORY "https://github.com/SoftFever/Orca-deps-wxWidgets"

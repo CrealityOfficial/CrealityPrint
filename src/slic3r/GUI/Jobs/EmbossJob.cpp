@@ -384,6 +384,9 @@ void CreateObjectJob::finalize(bool canceled, std::exception_ptr &eptr)
         ModelObject *new_object = model.add_object();
         new_object->name = m_input.base->volume_name;
         new_object->add_instance(); // each object should have at list one instance
+        // Standalone text needs a concrete object filament for volumes and
+        // process roles set to inherit (0), just like other new mesh objects.
+        new_object->config.set_key_value("extruder", new ConfigOptionInt(1));
 
         ModelVolume *new_volume = new_object->add_volume(std::move(m_result));
         // set a default extruder value, since user can't add it manually

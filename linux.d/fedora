@@ -23,6 +23,7 @@ REQUIRED_DEV_PACKAGES=(
     mesa-libOSMesa-devel
     ninja-build
     openssl-devel
+    patchelf
     perl-FindBin
     texinfo
     wayland-protocols-devel

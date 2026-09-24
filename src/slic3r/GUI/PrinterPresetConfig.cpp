@@ -183,7 +183,9 @@ std::vector<std::string> PrinterPresetConfig::getFilament(const std::string& pri
         jFilament = json::parse(filamentContent);
     }
 
-    fs::path printerPath = fs::path(resources_dir()).append("profiles").append("Creality").append("machine").append(printerName+".json");
+    fs::path printerPath = fs::path(resources_dir()).append("profiles").append("Creality").append("machine").append(printerName + "_model.json");
+    if (!fs::exists(printerPath))
+        printerPath = fs::path(resources_dir()).append("profiles").append("Creality").append("machine").append(printerName + ".json");
     std::string printerContent;
     LoadFile(printerPath.string(), printerContent);
     json jPrinter;
@@ -196,14 +198,18 @@ std::vector<std::string> PrinterPresetConfig::getFilament(const std::string& pri
         ssDefaultFilament = jPrinter["default_materials"];
     }
     
-    std::string ssPrinter = printerName + " " + nozzle + " nozzle";
+    const std::string qualifiedPrinter = printerName + " " + nozzle + " nozzle";
     if (jFilament.contains("filament_list") && jFilament["filament_list"].is_array()) {
         for (auto& filament : jFilament["filament_list"]) {
             if (filament.contains("name") && filament["name"].is_string()) {
                 std::string fName = filament["name"];
-                if (fName.find(ssPrinter) == std::string::npos)
+                const size_t printerPos = fName.rfind(" @");
+                if (printerPos == std::string::npos)
                     continue;
-                size_t pos   = fName.find(" @");
+                const std::string profilePrinter = fName.substr(printerPos + 2);
+                if (profilePrinter != printerName && profilePrinter != qualifiedPrinter)
+                    continue;
+                size_t pos = printerPos;
                 if (pos != std::string::npos) {
                     fName = fName.substr(0, pos);
                     if (fName.length() > 0 && fName.c_str()[fName.length() - 1] == ' ') {
@@ -228,16 +234,25 @@ bool PrinterPresetConfig::getPrinterDefaultMaterials(const std::string& vendor, 
         LoadFile(printerPath.string(), printerContent);
         json        jPrinter = json::parse(printerContent);
         std::string ssDefaultFilament;
-        if (printerName.find("nozzle") != std::string::npos) {
-            if (jPrinter.contains("printer_model") && jPrinter["printer_model"].is_string()) {
-                std::string printer_model = jPrinter["printer_model"];
-                if (!printer_model.empty()) {
-                    printerPath =
-                        fs::path(resources_dir()).append("profiles").append(vendor).append("machine").append(printer_model + ".json");
-                    std::string printerContent;
-                    LoadFile(printerPath.string(), printerContent);
-                    jPrinter = json::parse(printerContent);
+        if (jPrinter.contains("printer_model") && jPrinter["printer_model"].is_string()) {
+            const std::string printer_model = jPrinter["printer_model"];
+            if (!printer_model.empty()) {
+                printerPath = fs::path(resources_dir())
+                                  .append("profiles")
+                                  .append(vendor)
+                                  .append("machine")
+                                  .append(printer_model + "_model.json");
+                if (!fs::exists(printerPath)) {
+                    printerPath = fs::path(resources_dir())
+                                      .append("profiles")
+                                      .append(vendor)
+                                      .append("machine")
+                                      .append(printer_model + ".json");
                 }
+                std::string modelContent;
+                LoadFile(printerPath.string(), modelContent);
+                if (!modelContent.empty())
+                    jPrinter = json::parse(modelContent);
             }
         }
         if (jPrinter.contains("default_materials") && jPrinter["default_materials"].is_string()) {
@@ -308,7 +323,7 @@ bool PrinterPresetConfig::getPrinterDefaultMaterials(const std::string& vendor, 
 
 int PrinterPresetConfig::LoadProfile() { 
     try {
-        ProfileFamilyLoader::get_instance()->request_and_wait();
+        ProfileFamilyLoader::get_instance()->wait_until_loaded();
         ProfileFamilyLoader::get_instance()->get_result(m_ProfileJson, m_MachineJson, bbl_bundle_rsrc);
 
         const auto enabled_filaments = wxGetApp().app_config->has_section(AppConfig::SECTION_FILAMENTS) ?

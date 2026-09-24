@@ -25,14 +25,14 @@
 ## 4. 根因分析
 
 - 触发条件: 全局工艺参数中的 `wall_filament` 等耗材角色选项引用了被删除的耗材编号。
-- 代码链路: 删除耗材时进入 `Plater::on_filaments_delete`，原逻辑只同步处理 `support_filament` 和 `support_interface_filament`。
-- 为什么会出现该现象: `wall_filament` 未参与删除耗材后的编号重映射，仍保留已不存在的耗材编号。界面刷新后该值无法匹配有效耗材项，导致显示没有回落到“缺省”。
+- 代码链路: 删除/合并耗材后会生成耗材编号 remap；不同入口可能进入 `Plater::on_filaments_delete`，也可能只进入 `Plater::on_filaments_change` 或直接消费 remap。
+- 为什么会出现该现象: 早期修复只在 `on_filaments_delete` 中手工处理角色耗材，未覆盖所有消费 remap 的入口，也没有保证工艺页配置、edited preset config 和 Plater full config 同步。部分场景下 UI 已显示“缺省”，但切片使用的 full config 仍保留已删除耗材编号。
 
 ## 5. 修复方案
 
-- 修复思路: 删除耗材时统一处理全局耗材角色选择项，命中被删除耗材编号时写为 `0`，即“缺省”。
-- 修改点: 在 `src/slic3r/GUI/Plater.cpp` 的 `Plater::on_filaments_delete` 中，将 `wall_filament`、`sparse_infill_filament`、`solid_infill_filament`、`wipe_tower_filament` 纳入全局重映射，并同步刷新工艺页配置。
-- 为什么这样改: 这些参数与支撑耗材一样都是全局耗材角色选择项，删除其引用的耗材后应保持一致的回落语义，避免残留无效耗材编号。
+- 修复思路: 不再在单个删除函数里按 `deleted_filament_id` 手工前移/清零，而是在耗材编号 remap 被消费时统一重映射全局角色耗材参数。
+- 修改点: 在 `src/slic3r/GUI/Plater.cpp` 中新增公共重映射逻辑，将 `support_filament`、`support_interface_filament`、`wall_filament`、`sparse_infill_filament`、`solid_infill_filament`、`wipe_tower_filament` 纳入同一套 remap；`on_filaments_change`、普通删除路径消费 `correct_remap` 后、混合耗材合并/删除等入口统一调用。
+- 为什么这样改: remap 才是删除、合并和混合耗材变化后的权威编号映射。按单个删除编号手工计算只覆盖部分入口，也无法正确表达混合耗材合并目标或虚拟编号变化。
 
 ## 6. 影响范围与风险
 
@@ -46,9 +46,20 @@
 - 边界场景: 分别验证“稀疏填充”“实心填充”“擦拭塔”“支撑”“支撑界面”引用被删除耗材时均回落到“缺省”。
 - 反向场景: 删除未被这些参数引用的耗材时，编号大于被删除耗材的选项应正确前移，编号小于被删除耗材的选项保持不变。
 
-## 8. 复测分析与最终修复
+## 8. 复测分析与阶段性修复问题
 
 - 复测场景: 将“墙”设置为耗材 7，删除最后一个耗材 7。
 - 复测证据: 删除后只剩 6 个耗材，但导出的 G-code 仍包含 `wall_filament = 7`。界面显示无编号的 `PLA`，切片时非法编号最终回退到耗材 1。
-- 首次修复失效原因: 删除逻辑以 `p->config` 作为旧值来源，但参数控件的真实值保存在工艺 edited config；两者在删除开始时可能尚未同步，因此没有命中值 7。参数控件又在动态耗材列表缩短前刷新，列表更新后继续保留旧选择索引。
-- 最终方案: 以工艺 edited config 为耗材角色参数的唯一旧值来源，计算后同步写回工艺配置和 Plater 完整配置；先缩短动态耗材列表，再重新加载参数控件，确保值 `0` 最终显示为“缺省”。
+- 首次提交 `7ec1736c0` 的问题: 只在 `on_filaments_delete` 中手工处理全局角色耗材，并通过临时 `print_tab->load_config()` 刷新工艺页。该方案覆盖面不足，且没有基于统一 remap。
+- 第二次提交 `45b87f802` 的问题: 改为优先读取工艺页配置并同步 full config，解决了部分 UI 显示问题，但核心仍是 `on_filaments_delete` 内的手工前移/清零逻辑，未覆盖只进入 `on_filaments_change` 或直接消费 remap 的路径。
+- 本次处理: 删除 `on_filaments_delete` 中这段阶段性手工修复，避免它和公共 remap 逻辑重复或语义不一致。
+
+## 9. 再次复测与影响范围复查
+
+- 再次复测现象: 删除 4 号耗材后，界面中的“墙”已经显示为“缺省”，但切片预览和导出的 G-code 仍按耗材 1 打印墙。日志与 G-code 显示删除后只剩 3 个耗材，但切片配置中仍保留 `wall_filament = 4`。
+- 深层根因: 部分删除入口只消费 `PresetBundle` 中的耗材编号 remap，并调用 `Plater::on_filaments_change`；不会进入 `Plater::on_filaments_delete`。此前全局 `wall_filament` 等参数的修正放在 `on_filaments_delete`，导致这些入口只修正了模型/对象/层高局部配置，未修正工艺全局配置，最终 UI 看起来是“缺省”，但切片用到的 full config 仍保留旧编号。
+- 最终修复: 将全局耗材角色参数重映射抽到公共逻辑，在 `on_filaments_change` 消费 remap 后同步修正工艺页当前配置、edited preset config 和 Plater full config；普通删除路径消费 `correct_remap` 后也用同一套逻辑修正全局角色参数，避免混合耗材编号变化时只做简单前移；同时在混合耗材合并、物理耗材合并到混合耗材、混合耗材删除等直接消费 remap 的入口同步调用，避免不同入口行为不一致。
+- 影响的参数范围: `support_filament`、`support_interface_filament`、`wall_filament`、`sparse_infill_filament`、`solid_infill_filament`、`wipe_tower_filament`。只有这些耗材编号型角色参数会参与重映射，其它工艺参数不变。
+- 影响的功能入口: 普通耗材删除、仅触发 `on_filaments_change` 的耗材列表变更、混合耗材合并/删除、物理耗材合并到混合耗材。行为统一为: 被删除耗材映射到 `0`（缺省），仍存在的耗材按 remap 前移或跟随合并目标。
+- 对其它功能的风险判断: 新逻辑仅在存在非空 remap 且参数值大于 0 时生效；新增耗材、未引用被删耗材的参数、普通非耗材参数不会被修改。可能变化是旧版本会残留非法耗材编号，现在会主动重映射或回落缺省，这是本问题的预期行为变化。
+- 回归建议补充: 除删除最后一个被“墙”引用的耗材外，还需验证删除中间耗材时编号前移、删除未被角色参数引用的耗材、混合耗材合并/删除后墙/填充/支撑等参数和 G-code 头部一致。

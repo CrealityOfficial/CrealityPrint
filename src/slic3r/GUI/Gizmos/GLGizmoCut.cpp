@@ -2757,7 +2757,7 @@ void GLGizmoCut3D::render_cut_plane_input_window(CutConnectors &connectors, floa
         const bool  is_cut_plane_init = m_rotation_m.isApprox(Transform3d::Identity()) && m_bb_center.isApprox(m_plane_center);
         std::string act_name          = _u8L("Reset cutting plane");
         RENDER_RESET_BUTTON_BEGIN(is_cut_plane_init)
-        if (render_reset_button("cut_plane", into_u8(act_name))) {
+        if (render_reset_button("cut_plane", act_name)) {
             Plater::TakeSnapshot snapshot(wxGetApp().plater(), act_name, UndoRedo::SnapshotType::GizmoAction);
             reset_cut_plane();
         }
@@ -3424,6 +3424,14 @@ void GLGizmoCut3D::perform_cut(const Selection& selection)
     ModelObject* mo = plater->model().objects[object_idx];
     if (!mo)
         return;
+
+    // Cutting rebuilds the mesh. Warn before repair, snapshot creation or any
+    // other mutation when painted surface attributes need to be transferred.
+    if (mo->is_mm_painted() || mo->is_fuzzy_skin_painted() ||
+        mo->is_fdm_support_painted() || mo->is_seam_painted()) {
+        if (!wxGetApp().confirm_mesh_paint_warning())
+            return;
+    }
 
     //the "m_plane_center" and "m_rotation_m" will be reset to default value if model is repaired
     Vec3d tmp_plane_center = m_plane_center;

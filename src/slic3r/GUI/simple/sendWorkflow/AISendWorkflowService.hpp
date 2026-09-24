@@ -74,6 +74,7 @@ private:
         bool                         terminal = false;
         bool                         last_start_print = false;
         bool                         cloud_workflow_active = false;
+        std::string                  print_target_address;
         bool                         mapping_sync_retry_active = false;
         std::uint64_t                mapping_sync_retry_token = 0;
         std::unordered_map<int, std::string> draft_selection_tokens;

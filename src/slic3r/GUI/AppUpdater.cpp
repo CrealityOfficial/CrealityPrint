@@ -794,20 +794,13 @@ void AppUpdater::install_update()
          
          BOOST_LOG_TRIVIAL(info) << "AppUpdater: Launching " << boost::nowide::narrow(updater_dest.wstring()) << " with params " << boost::nowide::narrow(params);
          
-         // Destroy all WebView instances and wait for msedgewebview2.exe child
-         // processes to fully exit before launching the updater. This releases
-         // any file locks on the WebView2 user data folder and ensures the
-         // updater can rename the install directory without access-denied errors.
-         ::WebView::DestroyAll();
+         // Freeze new WebView work before launching the updater. The updater
+         // retries locked renames and waits for this process to exit, so do not
+         // kill WebView2 while its wx controls are still alive.
+         wxGetApp().prepare_close_for_update();
+         ::WebView::BeginShutdown();
 
          ShellExecuteW(NULL, L"open", wupdater.c_str(), params.c_str(), NULL, SW_SHOWNORMAL);
-
-         // Mark the app as closing and tear down any pending update UI/callbacks BEFORE
-         // closing the main frame. Closing the frame destroys the Plater (and its pimpl),
-         // so any lingering EVT_APP_UPDATE_* handler or imgui notification callback that
-         // reaches GUI_App::notification_manager() -> plater_->get_notification_manager()
-         // would otherwise dereference a destroyed pimpl and crash.
-         wxGetApp().prepare_close_for_update();
 
          // Close main app
          wxGetApp().mainframe->Close(true);

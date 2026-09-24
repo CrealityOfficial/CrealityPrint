@@ -14,6 +14,7 @@
 #include <wx/radiobut.h>
 
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/MaterialListManager.hpp"
 
 #include "GUI.hpp"
 #include "GUI_App.hpp"
@@ -62,7 +63,9 @@ SavePresetDialog::Item::Item(Preset::Type type, const std::string &suffix, wxBox
     m_presets = tab->get_presets();
 
     const Preset &sel_preset  = m_presets->get_selected_preset();
-    std::string   preset_name = sel_preset.is_default ? "Untitled" : sel_preset.is_system ? (boost::format(("%1% - %2%")) % sel_preset.name % suffix).str() : sel_preset.name;
+    const std::string display_preset_name = sel_preset.type == Preset::TYPE_FILAMENT ? MaterialListManager::instance().display_name_with_material_alias(sel_preset) : sel_preset.name;
+    const std::string clean_display_preset_name = Preset::remove_suffix_modified(display_preset_name);
+    std::string   preset_name = sel_preset.is_default ? "Untitled" : sel_preset.is_system ? (boost::format(("%1% - %2%")) % clean_display_preset_name % suffix).str() : sel_preset.name;
     // if name contains extension
     if (boost::iends_with(preset_name, ".ini")) {
         size_t len = preset_name.length() - 4;

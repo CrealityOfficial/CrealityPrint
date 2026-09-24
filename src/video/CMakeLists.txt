@@ -61,10 +61,30 @@ if(FFMPEG_VERSION)
         if(ENABLE_WEBRTC_VIDEO)
             find_library(LIBMETARTC metartc6)
             find_library(LIBMETARTCCORE metartccore6)
+
+            # Some supported Linux distributions do not provide the
+            # libusrsctp1 runtime package. Link the BSD-licensed static
+            # archive so the application does not depend on libusrsctp.so.1.
+            if(UNIX AND NOT APPLE)
+                set(_SAVED_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+                set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+                find_library(LIBUSRSCTP_STATIC NAMES usrsctp)
+                set(CMAKE_FIND_LIBRARY_SUFFIXES ${_SAVED_CMAKE_FIND_LIBRARY_SUFFIXES})
+                unset(_SAVED_CMAKE_FIND_LIBRARY_SUFFIXES)
+
+                if(NOT LIBUSRSCTP_STATIC)
+                    message(FATAL_ERROR "Static usrsctp library not found; install libusrsctp-dev")
+                endif()
+                set(LIBUSRSCTP ${LIBUSRSCTP_STATIC})
+                message(STATUS "Using static usrsctp library: ${LIBUSRSCTP}")
+            else()
+                set(LIBUSRSCTP usrsctp)
+            endif()
+
             list(APPEND VIDEO_LIBS
                 ${LIBMETARTC}
                 ${LIBMETARTCCORE}
-                usrsctp
+                ${LIBUSRSCTP}
                 srtp2
                 asound
                 opus

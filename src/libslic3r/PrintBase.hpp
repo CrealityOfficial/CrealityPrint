@@ -40,6 +40,7 @@ enum StringExceptionType {
     STRING_EXCEPT_SUPPORT_ENFORCER_WITHOUT_SUPPORT = 20,
     STRING_EXCEPT_SEQ_PRINT_TOO_TALL = 21,
     STRING_EXCEPT_SEQ_PRINT_EXCLUSION_AREA_CONFLICT = 22,
+    STRING_EXCEPT_PROCESS_PARAMETER_MUTEX = 23,
     STRING_EXCEPT_COUNT
 };
 
@@ -498,7 +499,10 @@ public:
             RELOAD_SLA_PREVIEW                  = 1 << 3,
             // UPDATE_PRINT_STEP_WARNINGS is mutually exclusive with UPDATE_PRINT_OBJECT_STEP_WARNINGS.
             UPDATE_PRINT_STEP_WARNINGS          = 1 << 4,
-            UPDATE_PRINT_OBJECT_STEP_WARNINGS   = 1 << 5
+            UPDATE_PRINT_OBJECT_STEP_WARNINGS   = 1 << 5,
+            // Identifies full pathological-segment protection progress without
+            // coupling GUI behavior to localized display text.
+            PATHOLOGICAL_PROTECTION_PROGRESS    = 1 << 6
         };
         // Bitmap of FlagBits
         unsigned int    flags;
@@ -513,11 +517,11 @@ public:
     };
     typedef std::function<void(const SlicingStatus&)>  status_callback_type;
     // Default status console print out in the form of percent => message.
-    void                    set_status_default() { m_status_callback = nullptr; }
+    void                    set_status_default() { this->set_status_callback(nullptr); }
     // No status output or callback whatsoever, useful mostly for automatic tests.
-    void                    set_status_silent() { m_status_callback = [](const SlicingStatus&){}; }
+    void                    set_status_silent() { this->set_status_callback([](const SlicingStatus&){}); }
     // Register a custom status callback.
-    void                    set_status_callback(status_callback_type cb) { m_status_callback = cb; }
+    void                    set_status_callback(status_callback_type cb);
     // Calls a registered callback to update the status, or print out the default message.
     void                    set_status(int percent, const std::string &message, unsigned int flags = SlicingStatus::DEFAULT, int warning_step = -1) const;
 
@@ -581,6 +585,8 @@ protected:
 	void                   status_update_warnings(int step, PrintStateBase::WarningLevel warning_level,
 	    const std::string& message, PrintObjectBase &object, PrintStateBase::SlicingNotificationType message_id = PrintStateBase::SlicingDefaultNotification);
 
+    status_callback_type   status_callback_snapshot() const;
+
     // If the background processing stop was requested, throw CanceledException.
     // To be called by the worker thread and its sub-threads (mostly launched on the TBB thread pool) regularly.
     void                   throw_if_canceled() const { if (m_cancel_status.load(std::memory_order_acquire)) throw CanceledException(); }
@@ -608,6 +614,7 @@ protected:
     std::string m_plate_name;
 
     // Callback to be evoked regularly to update state of the UI thread.
+    mutable std::mutex                      m_status_callback_mutex;
     status_callback_type                    m_status_callback;
 
 private:

@@ -1260,7 +1260,8 @@ void cr30_arrange(ArrangePolygons& items, const ArrangePolygons& excludes, const
         fixed_box.merge(box);
     }
 
-    const double gap     = scaled(50.0f);
+    const coord_t bed_center_x = BoundingBox(bed).center().x();
+    const coord_t gap          = scaled(50.0f);
 
     for (auto& item : items) 
     {
@@ -1273,13 +1274,8 @@ void cr30_arrange(ArrangePolygons& items, const ArrangePolygons& excludes, const
             box.min -= {half_inf, half_inf};
             box.max += {half_inf, half_inf};
         }
-        coord_t halfx = scaled((double)box.size().x()) / 2.0f;
-        coord_t halfy = scaled((double)box.size().y()) / 2.0f;
-        double  biasx       = unscaled(halfx) + box.min.x();
-        double  biasy       = unscaled(halfy) + box.min.y();
-        coord_t bed_with_half = scaled((double)bed[2].data()[0]) / 2.0f;
-        item.translation[0]   = unscaled(bed_with_half) - biasx;
-        item.translation[1] = fixed_box.max.y() + unscaled(halfy) + gap - biasy;
+        item.translation.x() = bed_center_x - box.center().x();
+        item.translation.y() = fixed_box.max.y() + gap - box.min.y();
         box.translate(item.translation.cast<double>());
         fixed_box.merge(box);
     }

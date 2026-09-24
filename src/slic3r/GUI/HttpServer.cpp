@@ -1,4 +1,6 @@
 #include "HttpServer.hpp"
+#include "DeviceImageProxy.hpp"
+#include "PrinterCoverRoute.hpp"
 #include <boost/log/trivial.hpp>
 #include "GUI_App.hpp"
 #include "libslic3r/Thread.hpp"
@@ -152,6 +154,11 @@ void session::read_next_line()
                     }
 
                     const std::string url_str = Http::url_decode(headers.get_url());
+                    if (url_str.find("/device_image") == 0) {
+                        this->handle_device_image_request(url_str);
+                        return;
+                    }
+
                     if (url_str.find("/proxy") == 0){
                         // 处理代理请求
                         this->handle_proxy_request(url_str);
@@ -298,6 +305,37 @@ void session::sendFrame(const boost::system::error_code &ec,boost::asio::ip::tcp
         });
 }
 
+HttpServer::IOServer::IOServer(HttpServer& server)
+    : server(server)
+    , acceptor(io_service)
+    , device_image_proxy(std::make_shared<DeviceImageProxy>(io_service))
+{
+    const boost::asio::ip::tcp::endpoint endpoint(
+        boost::asio::ip::address_v4::loopback(), server.port);
+
+    // Do not use the endpoint constructor: it sets SO_REUSEADDR, which on
+    // Windows lets another process silently share this listening port.
+    acceptor.open(endpoint.protocol());
+
+#ifdef _WIN32
+    // Windows: prohibit another process from sharing this local proxy port.
+    BOOL exclusive_address_use = TRUE;
+    if (::setsockopt(acceptor.native_handle(), SOL_SOCKET, SO_EXCLUSIVEADDRUSE,
+                     reinterpret_cast<const char*>(&exclusive_address_use),
+                     sizeof(exclusive_address_use)) == SOCKET_ERROR) {
+        throw boost::system::system_error(
+            boost::system::error_code(::WSAGetLastError(),
+                                      boost::system::system_category()),
+            "Failed to enable exclusive HTTP server port binding");
+    }
+#else
+    // Preserve quick restart behavior on POSIX.
+    acceptor.set_option(boost::asio::socket_base::reuse_address(true));
+#endif
+
+    acceptor.bind(endpoint);
+}
+
 void HttpServer::IOServer::do_accept()
 {
     acceptor.async_accept([this](boost::system::error_code ec, boost::asio::ip::tcp::socket socket) {
@@ -336,55 +374,62 @@ void HttpServer::IOServer::stop_all()
 
 
 HttpServer::HttpServer(boost::asio::ip::port_type port) : port(port) {}
-bool is_port_in_use(unsigned short port) {
-    try {
-        boost::asio::io_context io_context;
-        boost::asio::ip::tcp::acceptor acceptor(io_context);
-        acceptor.open(boost::asio::ip::tcp::v4());
-        acceptor.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4::loopback(), port));
-        acceptor.close(); // 不需要持续监听，关闭 acceptor
-        return false; // 如果没有异常，端口未被占用
-    } catch (std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return true; // 捕获异常，说明端口被占用
-    }
+
+namespace {
+
+bool is_port_unavailable(const boost::system::error_code& ec)
+{
+    if (ec == boost::asio::error::address_in_use)
+        return true;
+
+#ifdef _WIN32
+    // WSAEACCES (10013): reserved, occupied, or access-restricted candidate.
+    return ec == boost::asio::error::access_denied;
+#else
+    return false;
+#endif
 }
+
+} // namespace
+
 void HttpServer::start()
 {
-    boost::asio::io_context io_context;
-    boost::asio::ip::tcp::socket socket(io_context);
-    
-    boost::system::error_code ec;
-    //#ifndef _WIN32
-    // 尝试绑定到指定端口
-    for(int i=1;i<=20;i++)
-    {
-        if(is_port_in_use(port))
-        {
-            port = port+i;
-        }else{
-            break;
-        }
-        if(i==20)
-        {
-            return;
-        }
-    }
-    //#endif
-    
-    BOOST_LOG_TRIVIAL(info) << "start_http_service...:"<<port;
-    start_http_server    = true;
-    m_http_server_thread = create_thread([this] {
-        set_current_thread_name("http_server");
+    if (start_http_server)
+        return;
+
+    const auto initial_port = port;
+    constexpr int max_port_attempts = 20;
+    for (int attempt = 0; attempt < max_port_attempts; ++attempt) {
+        port = static_cast<boost::asio::ip::port_type>(initial_port + attempt);
         try {
             server_ = std::make_unique<IOServer>(*this);
             server_->acceptor.listen();
+            break;
+        } catch (const boost::system::system_error& e) {
+            server_.reset();
+            if (!is_port_unavailable(e.code())) {
+                BOOST_LOG_TRIVIAL(error) << "Failed to start HTTP server on port " << port << ": " << e.what();
+                port = initial_port;
+                return;
+            }
+        }
+    }
 
+    if (!server_) {
+        BOOST_LOG_TRIVIAL(error) << "Failed to find a free HTTP server port starting at " << initial_port;
+        port = initial_port;
+        return;
+    }
+
+    BOOST_LOG_TRIVIAL(info) << "start_http_service...:" << port;
+    start_http_server = true;
+    m_http_server_thread = create_thread([this] {
+        set_current_thread_name("http_server");
+        try {
             server_->do_accept();
-            //this->m_video_timer = new boost::asio::deadline_timer(server_->io_service, boost::posix_time::milliseconds(100));
             server_->io_service.run();
-        }catch(boost::system::system_error& e)
-        {
+        } catch (const std::exception& e) {
+            BOOST_LOG_TRIVIAL(error) << "HTTP server stopped unexpectedly: " << e.what();
             start_http_server = false;
         }
     });
@@ -438,11 +483,26 @@ std::string build_http_response(int status_code, const std::string& content_type
     case 200:
         response << "HTTP/1.1 200 OK\r\n";
         break;
+    case 400:
+        response << "HTTP/1.1 400 Bad Request\r\n";
+        break;
     case 404:
         response << "HTTP/1.1 404 Not Found\r\n";
         break;
+    case 405:
+        response << "HTTP/1.1 405 Method Not Allowed\r\n";
+        break;
     case 500:
         response << "HTTP/1.1 500 Internal Server Error\r\n";
+        break;
+    case 502:
+        response << "HTTP/1.1 502 Bad Gateway\r\n";
+        break;
+    case 503:
+        response << "HTTP/1.1 503 Service Unavailable\r\n";
+        break;
+    case 504:
+        response << "HTTP/1.1 504 Gateway Timeout\r\n";
         break;
         // 可以添加更多的状态码处理逻辑
     }
@@ -575,6 +635,148 @@ void session::do_read(SocketPtr socket_ptr)
     timer_.expires_after(std::chrono::seconds(5));
                    
 }
+namespace {
+
+std::string device_image_query_param(const std::string& url, const std::string& key)
+{
+    const std::size_t query_pos = url.find('?');
+    if (query_pos == std::string::npos)
+        return {};
+
+    std::size_t start = query_pos + 1;
+    while (start < url.size()) {
+        std::size_t end = url.find('&', start);
+        if (end == std::string::npos)
+            end = url.size();
+
+        const std::size_t equal = url.find('=', start);
+        if (equal != std::string::npos && equal < end &&
+            url.compare(start, equal - start, key) == 0) {
+            return url.substr(equal + 1, end - equal - 1);
+        }
+
+        if (end == url.size())
+            break;
+        start = end + 1;
+    }
+
+    return {};
+}
+
+bool is_valid_device_image_address(const std::string& address)
+{
+    boost::system::error_code ec;
+    const auto parsed_address = boost::asio::ip::make_address(address, ec);
+    return !ec && parsed_address.is_v4() &&
+           !parsed_address.is_unspecified() &&
+           !parsed_address.is_loopback() &&
+           !parsed_address.is_multicast();
+}
+
+bool is_valid_device_image_target(const std::string& target_path)
+{
+    if (target_path.find('\r') != std::string::npos ||
+        target_path.find('\n') != std::string::npos) {
+        return false;
+    }
+
+    static const std::string thumbnail_prefix = "/downloads/humbnail/";
+    if (target_path.compare(0, thumbnail_prefix.size(), thumbnail_prefix) == 0)
+        return target_path.size() > thumbnail_prefix.size();
+
+    return target_path == "/downloads/original/current_print_image.png" ||
+           target_path ==
+               "/downloads/cloudSliceHumbnail/cloudSliceHumbnail.png";
+}
+
+int device_image_error_status(unsigned status_code)
+{
+    switch (status_code) {
+    case 400:
+    case 404:
+    case 502:
+    case 503:
+    case 504:
+        return static_cast<int>(status_code);
+    default:
+        return 502;
+    }
+}
+
+} // namespace
+
+void session::handle_device_image_request(const std::string& url)
+{
+    const std::string address     = device_image_query_param(url, "address");
+    const std::string target_path = device_image_query_param(url, "path");
+    const std::string secure      = device_image_query_param(url, "secure");
+    const std::string version     = device_image_query_param(url, "v");
+
+    BOOST_LOG_TRIVIAL(info) << "Device image request: url=" << url
+                            << ", address=" << address
+                            << ", target_path=" << target_path
+                            << ", secure=" << secure;
+
+    if (headers.method != "GET") {
+        write_response(build_http_response(405, "text/plain", "Method not allowed"));
+        return;
+    }
+
+    const bool secure_connection = secure == "1";
+    if ((secure != "0" && secure != "1") || !is_valid_device_image_address(address) ||
+        !is_valid_device_image_target(target_path)) {
+        write_response(build_http_response(400, "text/plain", "Invalid device image request"));
+        return;
+    }
+
+    if (!server.device_image_proxy) {
+        write_response(build_http_response(500, "text/plain", "Device image proxy is unavailable"));
+        return;
+    }
+
+    const auto self = shared_from_this();
+    server.device_image_proxy->async_get(
+        DeviceImageRequest{address, target_path, secure_connection},
+        [self, cacheable = !version.empty()](DeviceImageResult result) mutable {
+            self->write_device_image_response(std::move(result), cacheable);
+        });
+}
+
+void session::write_device_image_response(DeviceImageResult result, bool cacheable)
+{
+    if (result.status_code != 200 || result.body.empty()) {
+        const int status_code = device_image_error_status(result.status_code);
+        BOOST_LOG_TRIVIAL(error) << "Device image request failed: status=" << result.status_code
+                                 << ", error=" << result.error;
+        write_response(build_http_response(status_code, "text/plain",
+                                           result.error.empty() ? "Unable to fetch device image" : result.error));
+        return;
+    }
+
+    using ImageResponse = boost::beast::http::response<
+        boost::beast::http::vector_body<unsigned char>>;
+
+    auto response = std::make_shared<ImageResponse>(boost::beast::http::status::ok, 11);
+    response->set(boost::beast::http::field::content_type,
+                  result.content_type.empty() ? "application/octet-stream" : result.content_type);
+    response->set("Access-Control-Allow-Origin", "*");
+    response->set(boost::beast::http::field::cache_control,
+                  cacheable ? "private, max-age=31536000, immutable" : "no-store");
+    response->keep_alive(false);
+    response->body() = std::move(result.body);
+    response->prepare_payload();
+
+    const auto self = shared_from_this();
+    boost::beast::http::async_write(
+        socket,
+        *response,
+        [this, self, response](const boost::beast::error_code& ec, std::size_t) {
+            if (ec)
+                BOOST_LOG_TRIVIAL(error) << "Device image response write failed: " << ec.message();
+            server.stop(self);
+        });
+}
+
 void session::handle_proxy_request(const std::string& url)
 {
     BOOST_LOG_TRIVIAL(info) << "Proxy request: " << url;
@@ -764,8 +966,13 @@ std::shared_ptr<HttpServer::Response> HttpServer::creality_handle_request(const 
     }
     
 
-    std::string request_path = currentPath.append(path=="/"?"index.html":path).string();
     try{
+        const bool is_printer_cover = path.compare(0, 15, "/printer-cover/") == 0;
+        const std::string request_path = is_printer_cover
+            ? printer_cover_route_path(path, data_dir(), resources_dir())
+            : currentPath.append(path=="/"?"index.html":path).string();
+        if (request_path.empty())
+            return std::make_shared<ResponseNotFound>();
         fs::path file_path(request_path);
 
         if (!fs::exists(file_path) ||!fs::is_regular_file(file_path)) {

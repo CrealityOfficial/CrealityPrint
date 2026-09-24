@@ -27,7 +27,18 @@
 #define WEBKIT_API
 struct WebKitWebView;
 struct WebKitJavascriptResult;
+struct WebKitSettings;
+typedef enum {
+    WEBKIT_HARDWARE_ACCELERATION_POLICY_ON_DEMAND,
+    WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS,
+    WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER
+} WebKitHardwareAccelerationPolicy;
 extern "C" {
+WEBKIT_API WebKitSettings *webkit_web_view_get_settings(WebKitWebView *web_view);
+WEBKIT_API void webkit_settings_set_hardware_acceleration_policy(WebKitSettings *settings, WebKitHardwareAccelerationPolicy policy);
+WEBKIT_API guint webkit_get_major_version(void);
+WEBKIT_API guint webkit_get_minor_version(void);
+WEBKIT_API guint webkit_get_micro_version(void);
 WEBKIT_API void
 webkit_web_view_run_javascript                       (WebKitWebView             *web_view,
                                                       const gchar               *script,
@@ -44,6 +55,7 @@ webkit_javascript_result_unref              (WebKitJavascriptResult *js_result);
 #endif
 
 #include <cstdlib>
+#include <set>
 #ifdef __WIN32__
 // Run Download and Install in another thread so we don't block the UI thread
 DWORD DownloadAndInstallWV2RT() {
@@ -96,8 +108,19 @@ public:
         Bind(wxEVT_WEBVIEW_CREATED, &WebViewEdge::OnWebViewCreated, this);
     }
 
+    ~WebViewEdge() override
+    {
+        pendingUrl.clear();
+        Unbind(wxEVT_WEBVIEW_CREATED, &WebViewEdge::OnWebViewCreated, this);
+    }
+
     void LoadURL(const wxString& url) override
     {
+        if (WebView::IsShuttingDown()) {
+            pendingUrl.clear();
+            return;
+        }
+
         if (m_defer_navigation && GetNativeBackend() == nullptr) {
             // WebView2 initialization is asynchronous. During GUI recreation,
             // the old controls may still be shutting down while new controls
@@ -180,6 +203,15 @@ public:
 private:
     void OnWebViewCreated(wxWebViewEvent& event)
     {
+        if (WebView::IsShuttingDown()) {
+            // The backend may have become available after the first shutdown
+            // scan. Capture its browser PID before this control is destroyed.
+            WebView::BeginShutdown();
+            pendingUrl.clear();
+            event.Skip();
+            return;
+        }
+
         void* backend = GetNativeBackend();
         if (backend == nullptr) {
             BOOST_LOG_TRIVIAL(warning)
@@ -219,10 +251,42 @@ public:
     WebViewWebKit() : wxWebViewWebKit(wxWebView::NewConfiguration(wxWebViewBackendWebKit)) {}
 #endif
 
+    void LoadURL(const wxString& url) override
+    {
+        if (!m_wx_bridge_ready) {
+            // Registration runs via CallAfter. Keep only the latest navigation
+            // until the document-start bridge script has been installed.
+            m_pending_url = url;
+            m_has_pending_url = true;
+            return;
+        }
+        wxWebViewWebKit::LoadURL(url);
+    }
+
+    bool AddScriptMessageHandler(const wxString& name) override
+    {
+        const bool added = wxWebViewWebKit::AddScriptMessageHandler(name);
+        if (added && name == "wx") {
+            m_wx_bridge_ready = true;
+            if (m_has_pending_url) {
+                const wxString url = m_pending_url;
+                m_pending_url.clear();
+                m_has_pending_url = false;
+                wxWebViewWebKit::LoadURL(url);
+            }
+        }
+        return added;
+    }
+
     ~WebViewWebKit() override
     {
         RemoveScriptMessageHandler("wx");
     }
+
+private:
+    bool m_wx_bridge_ready{false};
+    bool m_has_pending_url{false};
+    wxString m_pending_url;
 };
 
 #elif defined __linux__
@@ -240,7 +304,12 @@ public:
 
 class FakeWebView : public wxWebView
 {
-    virtual bool Create(wxWindow* parent, wxWindowID id, const wxString& url, const wxPoint& pos, const wxSize& size, long style, const wxString& name) override { return false; }
+public:
+    bool Create(wxWindow* parent, wxWindowID id, const wxString& url, const wxPoint& pos,
+                const wxSize& size, long style, const wxString& name) override
+    {
+        return wxControl::Create(parent, id, pos, size, style, wxDefaultValidator, name);
+    }
     virtual wxString GetCurrentTitle() const override { return wxString(); }
     virtual wxString GetCurrentURL() const override { return wxString(); }
     virtual bool IsBusy() const override { return false; }
@@ -278,7 +347,9 @@ wxDEFINE_EVENT(EVT_WEBVIEW_RECREATED, wxCommandEvent);
 
 static std::vector<wxWebView*> g_webviews;
 static std::vector<wxWebView*> g_delay_webviews;
+static bool g_webview_shutting_down = false;
 #ifdef __WIN32__
+static std::set<DWORD> g_webview_browser_pids;
 static bool g_webview_atexit_registered = false;
 static wxString g_webview_userdata_dir;
 static wxString g_webview_userdata_marker;
@@ -297,9 +368,10 @@ public:
     ~WebViewRef() {
         BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " wxWebView address: " << (void*) m_webView;
         auto iter = std::find(g_webviews.begin(), g_webviews.end(), m_webView);
-        assert(iter != g_webviews.end());
         if (iter != g_webviews.end())
             g_webviews.erase(iter);
+        g_delay_webviews.erase(std::remove(g_delay_webviews.begin(), g_delay_webviews.end(), m_webView),
+                               g_delay_webviews.end());
     }
     wxWebView *m_webView;
 };
@@ -410,6 +482,14 @@ static void initialize_webview_userdata_dir()
 
 wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
 {
+    if (g_webview_shutting_down) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": using inert view during application shutdown";
+        auto* webView = new FakeWebView;
+        webView->Create(parent, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                        wxDefaultSize, wxBORDER_NONE, wxWebViewNameStr);
+        return webView;
+    }
+
     bool using_edge_fixed = false;
 #if wxUSE_WEBVIEW_EDGE
     // Check if a fixed version of edge is present in
@@ -528,9 +608,12 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
         webView->RegisterHandler(wxSharedPtr<wxWebViewHandler>(new wxWebViewArchiveHandler("wxfs")));
         // And the memory: file system
         webView->RegisterHandler(wxSharedPtr<wxWebViewHandler>(new wxWebViewFSHandler("memory")));
-        webView->Create(parent, wxID_ANY, url2, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+        // Create only the empty document; business pages must wait for "wx".
+        webView->Create(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
         webView->SetUserAgent(wxString::Format("Creality-Slicer/v%s (%s) Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)", SLIC3R_VERSION,
                                                Slic3r::GUI::wxGetApp().dark_mode() ? "dark" : "light"));
+        if (!url2.empty())
+            webView->LoadURL(url2);
 #endif
 #ifdef __WXMAC__
         WKWebView * wkWebView = (WKWebView *) webView->GetNativeBackend();
@@ -578,15 +661,10 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
     if (!g_webview_atexit_registered) {
         g_webview_atexit_registered = true;
         std::atexit([] {
-            // [诊断日志] 记录 atexit 触发时 g_webviews 的大小。
-            // 若为 0，说明 wx 对象树已在 atexit 之前析构完毕，DestroyAll 将无法
-            // 收集到 WebView2 子进程 pid，子进程可能残留在内存中。
-            // 若不为 0，说明 atexit 路径可正常回收子进程。
             BOOST_LOG_TRIVIAL(warning)
-                << "[WebView][atexit] triggered, g_webviews.size()=" << g_webviews.size()
-                << " (0 means wx already destroyed webviews before atexit fired"
-                << " — orphan msedgewebview2.exe processes may remain)";
-            WebView::DestroyAll();
+                << "[WebView][atexit] triggered, g_webviews.size()=" << g_webviews.size();
+            WebView::BeginShutdown();
+            WebView::FinalizeShutdown();
         });
     }
 #endif
@@ -684,8 +762,64 @@ bool WebView::DownloadAndInstallWebViewRuntime()
     return DownloadAndInstallWV2RT() == 0;
 }
 #endif
+
+bool WebView::ConfigureHardwareAccelerationForMjpeg(wxWebView *webView)
+{
+#if defined(__linux__)
+    if (webView == nullptr)
+        return false;
+
+    const guint major = webkit_get_major_version();
+    const guint minor = webkit_get_minor_version();
+    const guint micro = webkit_get_micro_version();
+
+    bool disable = major < 2 || (major == 2 && minor < 42);
+
+    wxString override_value;
+    if (wxGetEnv("CREALITY_WEBVIEW_HARDWARE_ACCELERATION", &override_value)) {
+        override_value.Trim(true).Trim(false).MakeLower();
+        if (override_value == "never")
+            disable = true;
+        else if (override_value == "default")
+            disable = false;
+        else if (!override_value.empty() && override_value != "auto") {
+            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": ignoring invalid CREALITY_WEBVIEW_HARDWARE_ACCELERATION="
+                                       << override_value.ToStdString() << " (expected auto, never, or default)";
+        }
+    }
+
+    if (!disable) {
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": WebKitGTK " << major << "." << minor << "." << micro
+                                << "; keeping default hardware acceleration";
+        return true;
+    }
+
+    auto *native = static_cast<WebKitWebView *>(webView->GetNativeBackend());
+    if (native == nullptr) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": WebKit backend is not ready";
+        return false;
+    }
+
+    WebKitSettings *settings = webkit_web_view_get_settings(native);
+    if (settings == nullptr) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": WebKit settings are unavailable";
+        return false;
+    }
+
+    webkit_settings_set_hardware_acceleration_policy(settings, WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER);
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": WebKitGTK " << major << "." << minor << "." << micro
+                            << "; hardware acceleration policy set to NEVER for MJPEG WebView";
+    return true;
+#else
+    return false;
+#endif
+}
+
 void WebView::LoadUrl(wxWebView * webView, wxString const &url)
 {
+    if (g_webview_shutting_down || webView == nullptr)
+        return;
+
     auto url2  = url;
 #ifdef __WIN32__
     url2.Replace("\\", "/");
@@ -697,6 +831,9 @@ void WebView::LoadUrl(wxWebView * webView, wxString const &url)
 
 bool WebView::RunScript(wxWebView *webView, wxString const &javascript)
 {
+    if (g_webview_shutting_down || webView == nullptr)
+        return false;
+
     if (Slic3r::GUI::wxGetApp().app_config->get("internal_developer_mode") == "true"
             && javascript.find("studio_userlogin") == wxString::npos)
         wxLogMessage("Running JavaScript:\n%s\n", javascript);
@@ -730,86 +867,141 @@ bool WebView::RunScript(wxWebView *webView, wxString const &javascript)
     }
 }
 
-void WebView::DestroyAll()
+bool WebView::IsShuttingDown()
 {
-    // caller 字段用于区分是从 GUI_App::OnExit（主动调用，时机可控）
-    // 还是从 atexit 回调（被动兜底，时机不可控）进入的。
-    // 结合上方 atexit 日志里的 g_webviews.size() 可以判断本次调用是否有效。
-    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " destroying " << g_webviews.size() << " webviews";
+    return g_webview_shutting_down;
+}
+
+void WebView::BeginShutdown()
+{
+    if (!g_webview_shutting_down) {
+        g_webview_shutting_down = true;
+        g_delay_webviews.clear();
+    }
 
 #ifdef __WIN32__
-    // Before destroying wxWebView controls, collect the browser process IDs
-    // that belong to *our* WebView2 instances via ICoreWebView2.
-    // This is the only reliable way to identify our own msedgewebview2.exe
-    // processes without accidentally touching those of other applications
-    // (e.g. VS Code, Teams) that also use WebView2 on the same machine.
-    std::vector<DWORD> our_browser_pids;
-    for (auto *webView : g_webviews) {
-        if (!webView) continue;
-        ICoreWebView2 *wv2 = reinterpret_cast<ICoreWebView2 *>(webView->GetNativeBackend());
-        if (wv2) {
-            // get_BrowserProcessId is a member of ICoreWebView2 directly.
-            UINT32 pid = 0;
-            if (SUCCEEDED(wv2->get_BrowserProcessId(&pid)) && pid != 0) {
-                our_browser_pids.push_back(static_cast<DWORD>(pid));
-                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " found our WebView2 browser pid: " << pid;
-            }
-        }
-        webView->Stop();
-        webView->LoadURL("about:blank");
+    // WebView2 initialization is asynchronous, so scan on every call and add
+    // PIDs that were not available when shutdown first began. Do not Stop(),
+    // navigate, clear g_webviews, wait, or terminate while controls are alive.
+    for (auto* webView : g_webviews) {
+        if (!webView)
+            continue;
+        auto* webView2 = reinterpret_cast<ICoreWebView2*>(webView->GetNativeBackend());
+        if (!webView2)
+            continue;
+
+        UINT32 pid = 0;
+        if (SUCCEEDED(webView2->get_BrowserProcessId(&pid)) && pid != 0)
+            g_webview_browser_pids.insert(static_cast<DWORD>(pid));
     }
 #endif
-    g_webviews.clear();
 
+    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": webviews=" << g_webviews.size()
 #ifdef __WIN32__
-    // Wait for our browser processes to exit, then clean up the user data folder.
-    if (!our_browser_pids.empty()) {
-        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " waiting for " << our_browser_pids.size() << " WebView2 browser process(es) to exit";
+                               << ", browser_pids=" << g_webview_browser_pids.size()
+#endif
+        ;
+}
 
-        std::vector<HANDLE> handles;
-        std::vector<DWORD> opened_pids; // parallel: only PIDs whose OpenProcess succeeded
-        handles.reserve(our_browser_pids.size());
-        opened_pids.reserve(our_browser_pids.size());
-        for (DWORD pid : our_browser_pids) {
-            HANDLE h = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pid);
-            if (h) {
-                handles.push_back(h);
-                opened_pids.push_back(pid);
-            } else {
-                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " failed to open WebView2 browser process " << pid;
-            }
-        }
+static bool wait_for_webview_browser_processes()
+{
+#ifdef __WIN32__
+    if (g_webview_browser_pids.empty())
+        return true;
 
-        if (!handles.empty()) {
-            // Wait up to 5 seconds for graceful exit.
-            DWORD waitResult = WaitForMultipleObjects(
-                static_cast<DWORD>(handles.size()),
-                handles.data(), TRUE, 5000);
-
-            if (waitResult == WAIT_TIMEOUT) {
-                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " WebView2 browser process(es) did not exit, terminating";
-                for (size_t i = 0; i < handles.size(); ++i) {
-                    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " terminating WebView2 browser process " << opened_pids[i];
-                    TerminateProcess(handles[i], 1);
+    const ULONGLONG deadline = GetTickCount64() + 5000;
+    while (!g_webview_browser_pids.empty() && GetTickCount64() < deadline) {
+        for (auto iter = g_webview_browser_pids.begin(); iter != g_webview_browser_pids.end();) {
+            const DWORD pid = *iter;
+            HANDLE handle = OpenProcess(SYNCHRONIZE, FALSE, pid);
+            if (handle) {
+                const DWORD wait_result = WaitForSingleObject(handle, 0);
+                CloseHandle(handle);
+                if (wait_result == WAIT_OBJECT_0) {
+                    iter = g_webview_browser_pids.erase(iter);
+                    continue;
                 }
-                WaitForMultipleObjects(
-                    static_cast<DWORD>(handles.size()),
-                    handles.data(), TRUE, 2000);
+            } else if (GetLastError() == ERROR_INVALID_PARAMETER) {
+                // The process no longer exists.
+                iter = g_webview_browser_pids.erase(iter);
+                continue;
             }
-
-            for (HANDLE h : handles)
-                CloseHandle(h);
-        } else {
-            // All OpenProcess calls failed but child processes may still be alive
-            // (e.g. running under a different privilege level). Give them time to
-            // exit naturally before we try to remove the user data folder.
-            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " could not open any WebView2 process, sleeping 5s as fallback";
-            Sleep(5000);
+            ++iter;
         }
-        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " WebView2 browser process(es) finished";
+        if (!g_webview_browser_pids.empty())
+            Sleep(50);
     }
 
+    for (auto iter = g_webview_browser_pids.begin(); iter != g_webview_browser_pids.end();) {
+        const DWORD pid = *iter;
+        HANDLE handle = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pid);
+        if (!handle) {
+            const DWORD error = GetLastError();
+            if (error == ERROR_INVALID_PARAMETER) {
+                iter = g_webview_browser_pids.erase(iter);
+                continue;
+            }
+            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                                       << ": cannot terminate WebView2 browser process " << pid
+                                       << ", error=" << error;
+            ++iter;
+            continue;
+        }
 
+        if (WaitForSingleObject(handle, 0) == WAIT_TIMEOUT) {
+            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                                       << ": terminating WebView2 browser process " << pid;
+            if (!TerminateProcess(handle, 1))
+                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                                           << ": TerminateProcess failed for " << pid
+                                           << ", error=" << GetLastError();
+        }
+        const bool stopped = WaitForSingleObject(handle, 2000) == WAIT_OBJECT_0;
+        CloseHandle(handle);
+        if (stopped) {
+            iter = g_webview_browser_pids.erase(iter);
+            continue;
+        }
+        ++iter;
+    }
+
+    return g_webview_browser_pids.empty();
+#else
+    return true;
+#endif
+}
+
+void WebView::FinalizeShutdown()
+{
+    // Always rescan before finalization so a backend that completed after the
+    // first shutdown request is still captured.
+    BeginShutdown();
+
+    // Releasing the shared environment or killing WebView2 while a wxWebView
+    // still exists recreates the shutdown race this split is intended to fix.
+    if (!g_webviews.empty()) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": deferred because "
+                                   << g_webviews.size() << " webview(s) are still alive";
+        return;
+    }
+
+#if wxUSE_WEBVIEW_EDGE
+#ifdef __WIN32__
+    // Drop the last shared environment reference before waiting for the
+    // browser processes, but keep the profile marker until they are gone.
+    g_webview_configuration.reset();
+#endif
+#endif
+    const bool browser_processes_stopped = wait_for_webview_browser_processes();
+
+#if wxUSE_WEBVIEW_EDGE
+    if (browser_processes_stopped) {
+        ReleaseConfiguration();
+    } else {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                                   << ": preserving WebView2 profile marker because "
+                                   << g_webview_browser_pids.size() << " process(es) remain";
+    }
 #endif
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " done";
 }
@@ -840,6 +1032,11 @@ void WebView::ReleaseConfiguration()
 
 void WebView::RecreateAll()
 {
+    if (g_webview_shutting_down) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": ignored during application shutdown";
+        return;
+    }
+
     BOOST_LOG_TRIVIAL(warning) <<__FUNCTION__ << " start";
     auto dark = Slic3r::GUI::wxGetApp().dark_mode();
     for (auto webView : g_webviews) {

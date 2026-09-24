@@ -19,6 +19,7 @@
 
 #include "bbs_3mf.hpp"
 
+#include <algorithm>
 #include <limits>
 #include <stdexcept>
 #include <iomanip>
@@ -184,6 +185,7 @@ const std::string BBS_MODEL_CONFIG_RELS_FILE = "Metadata/_rels/model_settings.co
 const std::string SLICE_INFO_CONFIG_FILE = "Metadata/slice_info.config";
 const std::string BBS_LAYER_HEIGHTS_PROFILE_FILE = "Metadata/layer_heights_profile.txt";
 const std::string LAYER_CONFIG_RANGES_FILE = "Metadata/layer_config_ranges.xml";
+const std::string BRIM_EAR_POINTS_FILE = "Metadata/brim_ear_points.txt";
 /*const std::string SLA_SUPPORT_POINTS_FILE = "Metadata/Slic3r_PE_sla_support_points.txt";
 const std::string SLA_DRAIN_HOLES_FILE = "Metadata/Slic3r_PE_sla_drain_holes.txt";*/
 const std::string CUSTOM_GCODE_PER_PRINT_Z_FILE = "Metadata/custom_gcode_per_layer.xml";
@@ -591,6 +593,7 @@ bool bbs_is_valid_object_type(const std::string& type)
 namespace Slic3r {
 
 using ModelImportClock = std::chrono::steady_clock;
+constexpr bool kDetailed3mfImportTimingLogs = false;
 
 static double model_import_elapsed_ms(const ModelImportClock::time_point &start,
                                       const ModelImportClock::time_point &end = ModelImportClock::now())
@@ -757,6 +760,77 @@ static size_t physical_filament_count_from_project_config(const DynamicPrintConf
     return 0;
 }
 
+static size_t nozzle_count_from_project_config(const DynamicPrintConfig &config)
+{
+    const auto *opt = config.option<ConfigOptionFloats>("nozzle_diameter");
+    return opt != nullptr ? opt->values.size() : 0;
+}
+
+static std::string validate_project_filament_mapping(const DynamicPrintConfig &config)
+{
+    if (Preset::printer_technology(config) != ptFFF)
+        return {};
+    if (!config.has("filament_map_mode") || !config.has("filament_map"))
+        return "Project filament nozzle mapping fields are incomplete.";
+
+    const auto *filament_map = config.option<ConfigOptionInts>("filament_map");
+    if (filament_map == nullptr)
+        return "Project filament nozzle mapping has an invalid value type.";
+
+    return validate_complete_filament_map(filament_map->values,
+                                          physical_filament_count_from_project_config(config),
+                                          nozzle_count_from_project_config(config));
+}
+
+static bool prepare_project_filament_mapping_after_load(DynamicPrintConfig &config,
+                                                        bool &migrated,
+                                                        std::string &error)
+{
+    migrated = false;
+    error.clear();
+    if (Preset::printer_technology(config) != ptFFF)
+        return true;
+
+    const bool has_mode = config.has("filament_map_mode");
+    const bool has_map  = config.has("filament_map");
+    const size_t filament_count = physical_filament_count_from_project_config(config);
+    const size_t nozzle_count   = nozzle_count_from_project_config(config);
+
+    // Missing assignments are resolved by the normal pre-slice flow, when
+    // plate usage is known and a manual choice can be requested from the user.
+    if (!has_mode) {
+        config.set_key_value("filament_map_mode", new ConfigOptionEnum<FilamentMapMode>(fmmAutoForSaving));
+        migrated = true;
+    }
+    if (!has_map) {
+        config.set_key_value("filament_map", new ConfigOptionInts());
+        migrated = true;
+    }
+    const auto *saved_map = config.option<ConfigOptionInts>("filament_map");
+    if (saved_map == nullptr) {
+        error = "Project filament nozzle mapping has an invalid value type.";
+        return false;
+    }
+    if (saved_map->values.size() > filament_count ||
+        std::any_of(saved_map->values.begin(), saved_map->values.end(), [nozzle_count](int nozzle) {
+            return nozzle < 0 || size_t(nozzle) > nozzle_count;
+        })) {
+        error = validate_complete_filament_map(saved_map->values, filament_count, nozzle_count);
+        return false;
+    }
+
+    const std::vector<int> filament_map = config.option<ConfigOptionInts>("filament_map")->values;
+    config.set_key_value("filament_map_2", new ConfigOptionInts(build_filament_map_2(filament_map)));
+
+    std::vector<int> volume_map(filament_count, 0);
+    if (const auto *saved_volume_map = config.option<ConfigOptionInts>("filament_volume_map"); saved_volume_map != nullptr) {
+        const size_t copy_count = std::min(saved_volume_map->values.size(), volume_map.size());
+        std::copy_n(saved_volume_map->values.begin(), copy_count, volume_map.begin());
+    }
+    config.set_key_value("filament_volume_map", new ConfigOptionInts(std::move(volume_map)));
+    return true;
+}
+
 struct ProjectFilamentIdInfo
 {
     int                       max_filament_id {std::numeric_limits<int>::max()};
@@ -783,33 +857,32 @@ static ProjectFilamentIdInfo filament_id_info_from_project_config(const DynamicP
         physical_colors.resize(physical_count);
 
     MixedFilamentManager current_mixed;
-    if (physical_count >= 2) {
-        if (const auto *mixed_defs_opt = config.option<ConfigOptionString>("mixed_filament_definitions");
-            mixed_defs_opt != nullptr && !mixed_defs_opt->value.empty())
-            current_mixed.load_custom_entries(mixed_defs_opt->value, physical_colors);
-    }
+    if (const auto *mixed_defs_opt = config.option<ConfigOptionString>("mixed_filament_definitions");
+        mixed_defs_opt != nullptr && !mixed_defs_opt->value.empty())
+        current_mixed.load_custom_entries(mixed_defs_opt->value, physical_colors);
 
     const size_t current_total = current_mixed.total_filaments(physical_count);
     info.max_filament_id = current_total >= size_t(std::numeric_limits<int>::max()) ?
         std::numeric_limits<int>::max() : int(current_total);
 
     // Legacy virtual IDs followed all n*(n-1)/2 automatically generated pairs.
-    // Current virtual IDs contain explicit enabled entries only. Preserve IDs
-    // already valid in the current scheme and map trailing explicit entries.
+    // Current virtual IDs enumerate all allocated entries, including incomplete
+    // rows that retain their slots. Preserve IDs already valid in the current
+    // scheme and map trailing legacy entries by allocated-slot order.
     const size_t legacy_auto_count = physical_count * (physical_count - 1) / 2;
-    const size_t legacy_total      = physical_count + legacy_auto_count + current_mixed.enabled_count();
+    const size_t legacy_total      = physical_count + legacy_auto_count + current_mixed.virtual_count();
     info.legacy_id_remap.assign(legacy_total, 0);
     for (size_t id = 1; id <= current_total; ++id)
         info.legacy_id_remap[id - 1] = unsigned(id);
 
-    size_t explicit_idx = 0;
+    size_t slot_idx = 0;
     for (const MixedFilament &mixed : current_mixed.mixed_filaments()) {
-        if (!mixed.enabled || mixed.deleted)
+        if (!mixed.occupies_virtual_slot())
             continue;
-        const size_t old_id = physical_count + legacy_auto_count + explicit_idx + 1;
-        const size_t new_id = physical_count + explicit_idx + 1;
+        const size_t old_id = physical_count + legacy_auto_count + slot_idx + 1;
+        const size_t new_id = physical_count + slot_idx + 1;
         info.legacy_id_remap[old_id - 1] = unsigned(new_id);
-        ++explicit_idx;
+        ++slot_idx;
     }
 
     return info;
@@ -1095,6 +1168,10 @@ static void normalize_bambu_mixed_filaments_json_file(const std::string &json_pa
     static const std::vector<std::string> parallel_keys = {
         "filament_colour",
         "filament_settings_id",
+        // Mapping entries follow the same physical/mixed slot indices as colours.
+        "filament_map",
+        "filament_map_2",
+        "filament_volume_map",
         "filament_ids",
         "filament_type",
         "filament_is_support",
@@ -1230,16 +1307,50 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
         struct Geometry
         {
+            struct TriangleAttribute
+            {
+                size_t      triangle_id;
+                std::string value;
+            };
+            using TriangleAttributes = std::vector<TriangleAttribute>;
+
             std::vector<Vec3f> vertices;
             std::vector<Vec3i32> triangles;
-            std::vector<std::string> custom_supports;
-            std::vector<std::string> custom_seam;
-            std::vector<std::string> mmu_segmentation;
-            std::vector<std::string> fuzzy_skin;
+            TriangleAttributes custom_supports;
+            TriangleAttributes custom_seam;
+            TriangleAttributes mmu_segmentation;
+            TriangleAttributes fuzzy_skin;
             // BBS
-            std::vector<std::string> face_properties;
+            TriangleAttributes face_properties;
 
             bool empty() { return vertices.empty() || triangles.empty(); }
+
+            void append_triangle_attributes(size_t triangle_id, const char** attributes, unsigned int num_attributes)
+            {
+                if (attributes == nullptr || num_attributes % 2 != 0)
+                    return;
+                for (unsigned int attribute = 0; attribute < num_attributes; attribute += 2) {
+                    const char* key = attributes[attribute];
+                    const char* value = attributes[attribute + 1];
+                    if (key == nullptr || value == nullptr || *value == '\0')
+                        continue;
+
+                    TriangleAttributes* destination = nullptr;
+                    if (::strcmp(key, CUSTOM_SUPPORTS_ATTR) == 0)
+                        destination = &custom_supports;
+                    else if (::strcmp(key, CUSTOM_SEAM_ATTR) == 0)
+                        destination = &custom_seam;
+                    else if (::strcmp(key, MMU_SEGMENTATION_ATTR) == 0)
+                        destination = &mmu_segmentation;
+                    else if (::strcmp(key, CUSTOM_FUZZY_SKIN_ATTR) == 0)
+                        destination = &fuzzy_skin;
+                    else if (::strcmp(key, FACE_PROPERTY_ATTR) == 0)
+                        destination = &face_properties;
+
+                    if (destination != nullptr)
+                        destination->push_back({triangle_id, value});
+                }
+            }
 
             // backup & restore
             void swap(Geometry& o) {
@@ -1247,6 +1358,9 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 std::swap(triangles, o.triangles);
                 std::swap(custom_supports, o.custom_supports);
                 std::swap(custom_seam, o.custom_seam);
+                std::swap(mmu_segmentation, o.mmu_segmentation);
+                std::swap(fuzzy_skin, o.fuzzy_skin);
+                std::swap(face_properties, o.face_properties);
             }
 
             void reset() {
@@ -1256,6 +1370,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 custom_seam.clear();
                 mmu_segmentation.clear();
                 fuzzy_skin.clear();
+                face_properties.clear();
             }
         };
 
@@ -1389,6 +1504,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         //typedef std::map<Id, Geometry> IdToGeometryMap;
         typedef std::map<int, std::vector<coordf_t>> IdToLayerHeightsProfileMap;
         typedef std::map<int, t_layer_config_ranges> IdToLayerConfigRangesMap;
+        typedef std::map<int, BrimPoints>             IdToBrimPointsMap;
         typedef std::map<int, CutObjectInfo>         IdToCutObjectInfoMap;
         /*typedef std::map<int, std::vector<sla::SupportPoint>> IdToSlaSupportPointsMap;
         typedef std::map<int, std::vector<sla::DrainHole>> IdToSlaDrainHolesMap;*/
@@ -1583,6 +1699,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         IdToCutObjectInfoMap m_cut_object_infos;
         IdToLayerHeightsProfileMap m_layer_heights_profiles;
         IdToLayerConfigRangesMap m_layer_config_ranges;
+        IdToBrimPointsMap m_brim_ear_points;
         /*IdToSlaSupportPointsMap m_sla_support_points;
         IdToSlaDrainHolesMap    m_sla_drain_holes;*/
         PathToEmbossShapeFileMap m_path_to_emboss_shape_files;
@@ -1654,12 +1771,13 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         void _extract_layer_config_ranges_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat, ConfigSubstitutionContext& config_substitutions);
         void _extract_sla_support_points_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat);
         void _extract_sla_drain_holes_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat);
+        void _extract_brim_ear_points_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat);
 
         void _extract_custom_gcode_per_print_z_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat);
 
         void _extract_print_config_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat, DynamicPrintConfig& config, ConfigSubstitutionContext& subs_context, const std::string& archive_filename);
         //BBS: add project config file logic
-        void _extract_project_config_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat, DynamicPrintConfig& config, ConfigSubstitutionContext& subs_context, Model& model);
+        bool _extract_project_config_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat, DynamicPrintConfig& config, ConfigSubstitutionContext& subs_context, Model& model);
         //BBS: extract project embedded presets
         void _extract_project_embedded_presets_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat, std::vector<Preset*>&project_presets, Model& model, Preset::Type type, bool use_json = true);
 
@@ -1857,6 +1975,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         m_objects_metadata.clear();
         m_layer_heights_profiles.clear();
         m_layer_config_ranges.clear();
+        m_brim_ear_points.clear();
         //m_sla_support_points.clear();
         m_curr_metadata_name.clear();
         m_curr_characters.clear();
@@ -2023,7 +2142,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 if (boost::algorithm::iequals(name, BBS_PROJECT_CONFIG_FILE)) {
                     // extract slic3r print config file
                     ConfigSubstitutionContext config_substitutions(ForwardCompatibilitySubstitutionRule::Disable);
-                    _extract_project_config_from_archive(archive, stat, config, config_substitutions, model);
+                    if (!_extract_project_config_from_archive(archive, stat, config, config_substitutions, model))
+                        return false;
                 }
                 else if (boost::algorithm::iequals(name, BBS_MODEL_CONFIG_FILE)) {
                     // extract slic3r model config file
@@ -2131,11 +2251,12 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         int plate_id)
     {
         const auto import_total_start = ModelImportClock::now();
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=2 parent=FORMAT_LOAD stage=BBS_3MF_IMPORT_TOTAL START file=\"" << filename << "\"";
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=2 parent=FORMAT_LOAD stage=BBS_3MF_IMPORT_TOTAL START file=\"" << filename << "\"";
 
         const auto archive_preamble_start = ModelImportClock::now();
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=ARCHIVE_PREAMBLE START";
-
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=ARCHIVE_PREAMBLE START";
         bool cb_cancel = false;
         //BBS progress point
         // prepare restore
@@ -2206,16 +2327,19 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                                    << " entries=" << num_entries;
 
         const auto model_xml_parse_start = ModelImportClock::now();
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=MODEL_XML_PARSE START";
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=MODEL_XML_PARSE START";
 
         // BBS: load relationships
-        const auto relationships_parse_start = ModelImportClock::now();
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=RELATIONSHIPS_PARSE START";
+        const auto relationships_parse_start = kDetailed3mfImportTimingLogs ? ModelImportClock::now() : ModelImportClock::time_point{};
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=RELATIONSHIPS_PARSE START";
         const bool relationships_parse_result =
             _extract_xml_from_archive(archive, RELATIONSHIPS_FILE, _handle_start_relationships_element, _handle_end_relationships_element);
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=RELATIONSHIPS_PARSE END elapsed_ms="
-                                   << model_import_elapsed_ms(relationships_parse_start)
-                                   << " result=" << relationships_parse_result;
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=RELATIONSHIPS_PARSE END elapsed_ms="
+                                       << model_import_elapsed_ms(relationships_parse_start)
+                                       << " result=" << relationships_parse_result;
         if (!relationships_parse_result)
             return false;
         if (m_start_part_path.empty())
@@ -2232,13 +2356,15 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             //no submodule files found, use only one 3dmodel.model
         }
         else {
-            const auto sub_relationships_parse_start = ModelImportClock::now();
-            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUB_RELATIONSHIPS_PARSE START";
+            const auto sub_relationships_parse_start = kDetailed3mfImportTimingLogs ? ModelImportClock::now() : ModelImportClock::time_point{};
+            if constexpr (kDetailed3mfImportTimingLogs)
+                BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUB_RELATIONSHIPS_PARSE START";
             const bool sub_relationships_parse_result =
                 _extract_xml_from_archive(archive, sub_rels, _handle_start_relationships_element, _handle_end_relationships_element);
-            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUB_RELATIONSHIPS_PARSE END elapsed_ms="
-                                       << model_import_elapsed_ms(sub_relationships_parse_start)
-                                       << " result=" << sub_relationships_parse_result;
+            if constexpr (kDetailed3mfImportTimingLogs)
+                BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUB_RELATIONSHIPS_PARSE END elapsed_ms="
+                                           << model_import_elapsed_ms(sub_relationships_parse_start)
+                                           << " result=" << sub_relationships_parse_result;
             int index = 0;
 
 #if 0
@@ -2268,9 +2394,10 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
             bool object_load_result = true;
             boost::mutex mutex;
-            const auto submodel_parse_start = ModelImportClock::now();
-            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUBMODEL_PARSE START parallel=true submodels="
-                                       << m_object_importers.size();
+            const auto submodel_parse_start = kDetailed3mfImportTimingLogs ? ModelImportClock::now() : ModelImportClock::time_point{};
+            if constexpr (kDetailed3mfImportTimingLogs)
+                BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUBMODEL_PARSE START parallel=true submodels="
+                                           << m_object_importers.size();
             tbb::parallel_for(tbb::blocked_range<size_t>(0, m_object_importers.size()),
                                 [this, &mutex, &object_load_result](const tbb::blocked_range<size_t>& importer_range) {
                                     CNumericLocalesSetter locales_setter;
@@ -2284,11 +2411,12 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                                     }
                                 });
 
-            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUBMODEL_PARSE END elapsed_ms="
-                                       << model_import_elapsed_ms(submodel_parse_start)
-                                       << " parallel=true"
-                                       << " submodels=" << m_object_importers.size()
-                                       << " result=" << object_load_result;
+            if constexpr (kDetailed3mfImportTimingLogs)
+                BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUBMODEL_PARSE END elapsed_ms="
+                                           << model_import_elapsed_ms(submodel_parse_start)
+                                           << " parallel=true"
+                                           << " submodels=" << m_object_importers.size()
+                                           << " result=" << object_load_result;
 
             if (!object_load_result) {
                 BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ":" << __LINE__ << boost::format(", loading sub-objects error\n");
@@ -2296,21 +2424,20 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             }
 
             //merge these objects into one
-            const auto submodel_merge_start = ModelImportClock::now();
-            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUBMODEL_MERGE START submodels="
-                                       << m_object_importers.size();
+            const auto submodel_merge_start = kDetailed3mfImportTimingLogs ? ModelImportClock::now() : ModelImportClock::time_point{};
+            if constexpr (kDetailed3mfImportTimingLogs)
+                BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUBMODEL_MERGE START submodels="
+                                           << m_object_importers.size();
             for (auto obj_importer : m_object_importers) {
-                for (const IdToCurrentObjectMap::value_type&  obj : obj_importer->object_list)
-                    m_current_objects.insert({ std::move(obj.first), std::move(obj.second)});
-                for (auto group_color : obj_importer->object_group_id_to_color)
-                    m_group_id_to_color.insert(std::move(group_color));
-
+                m_current_objects.merge(obj_importer->object_list);
+                m_group_id_to_color.merge(obj_importer->object_group_id_to_color);
                 delete obj_importer;
             }
             m_object_importers.clear();
-            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUBMODEL_MERGE END elapsed_ms="
-                                       << model_import_elapsed_ms(submodel_merge_start)
-                                       << " objects=" << m_current_objects.size();
+            if constexpr (kDetailed3mfImportTimingLogs)
+                BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=SUBMODEL_MERGE END elapsed_ms="
+                                           << model_import_elapsed_ms(submodel_merge_start)
+                                           << " objects=" << m_current_objects.size();
 #endif
             // BBS: load root model
             if (proFn) {
@@ -2321,16 +2448,18 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         }
 
         //extract model files
-        const auto root_model_parse_start = ModelImportClock::now();
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=ROOT_MODEL_PARSE START path=\""
-                                   << m_start_part_path << "\"";
+        const auto root_model_parse_start = kDetailed3mfImportTimingLogs ? ModelImportClock::now() : ModelImportClock::time_point{};
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=ROOT_MODEL_PARSE START path=\""
+                                       << m_start_part_path << "\"";
         const bool root_model_parse_result =
             _extract_from_archive(archive, m_start_part_path, [this] (mz_zip_archive& archive, const mz_zip_archive_file_stat& stat) {
                 return _extract_model_from_archive(archive, stat);
             });
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=ROOT_MODEL_PARSE END elapsed_ms="
-                                   << model_import_elapsed_ms(root_model_parse_start)
-                                   << " result=" << root_model_parse_result;
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_XML_PARSE stage=ROOT_MODEL_PARSE END elapsed_ms="
+                                       << model_import_elapsed_ms(root_model_parse_start)
+                                       << " result=" << root_model_parse_result;
         if (!root_model_parse_result) {
             add_error("Archive does not contain a valid model");
             return false;
@@ -2379,7 +2508,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                                    << " parsed_objects=" << m_current_objects.size();
 
         const auto archive_metadata_start = ModelImportClock::now();
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=ARCHIVE_METADATA START entries=" << num_entries;
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=ARCHIVE_METADATA START entries=" << num_entries;
 
         // we then loop again the entries to read other files stored in the archive
         for (mz_uint i = 0; i < num_entries; ++i) {
@@ -2411,6 +2541,9 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     // extract slic3r layer config ranges file
                     _extract_layer_config_ranges_from_archive(archive, stat, config_substitutions);
                 }
+                else if (boost::algorithm::iequals(name, BRIM_EAR_POINTS_FILE)) {
+                    _extract_brim_ear_points_from_archive(archive, stat);
+                }
                 //BBS: disable SLA related files currently
                 /*else if (boost::algorithm::iequals(name, SLA_SUPPORT_POINTS_FILE)) {
                     // extract sla support points file
@@ -2427,7 +2560,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 //} else
                 if (!dont_load_config && boost::algorithm::iequals(name, BBS_PROJECT_CONFIG_FILE)) {
                     // extract slic3r print config file
-                    _extract_project_config_from_archive(archive, stat, config, config_substitutions, model);
+                    if (!_extract_project_config_from_archive(archive, stat, config, config_substitutions, model))
+                        return false;
                 }
                 else if (boost::algorithm::iequals(name, CUT_INFORMATION_FILE)) {
                     // extract object cut info
@@ -2502,7 +2636,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                                    << " entries=" << num_entries;
 
         const auto model_assembly_start = ModelImportClock::now();
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=MODEL_ASSEMBLY START objects=" << m_objects.size();
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=MODEL_ASSEMBLY START objects=" << m_objects.size();
 
         if (!m_is_bbl_3mf) {
             // if the 3mf was not produced by CrealityPrint and there is more than one instance,
@@ -2606,6 +2741,10 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             if (obj_layer_config_ranges != m_layer_config_ranges.end())
                 model_object->layer_config_ranges = std::move(obj_layer_config_ranges->second);
 
+            IdToBrimPointsMap::iterator obj_brim_points = m_brim_ear_points.find(object.second + 1);
+            if (obj_brim_points != m_brim_ear_points.end())
+                model_object->brim_points = std::move(obj_brim_points->second);
+
             // m_sla_support_points are indexed by a 1 based model object index.
             /*IdToSlaSupportPointsMap::iterator obj_sla_support_points = m_sla_support_points.find(object.second + 1);
             if (obj_sla_support_points != m_sla_support_points.end() && !obj_sla_support_points->second.empty()) {
@@ -2706,31 +2845,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                                    << " objects=" << model.objects.size();
 
         const auto model_postprocess_start = ModelImportClock::now();
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=MODEL_POSTPROCESS START";
-
-        // Strip support_style per-object/per-volume override for objects that carry painted support data.
-        // Project files persist support_style alongside painted facets, and that object-level override
-        // wins over the preset value, so later GUI changes to support_style silently produce no diff —
-        // posSupportMaterial never invalidates and every style choice yields the same result.
-        for (ModelObject* mo : model.objects) {
-            if (mo == nullptr)
-                continue;
-            bool has_painted_support = false;
-            for (const ModelVolume* mv : mo->volumes) {
-                if (mv != nullptr && mv->is_fdm_support_painted()) {
-                    has_painted_support = true;
-                    break;
-                }
-            }
-            if (!has_painted_support)
-                continue;
-            if (mo->config.has("support_style"))
-                mo->config.erase("support_style");
-            for (ModelVolume* mv : mo->volumes) {
-                if (mv != nullptr && mv->config.has("support_style"))
-                    mv->config.erase("support_style");
-            }
-        }
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=MODEL_POSTPROCESS START";
 
         // If instances contain a single volume, the volume offset should be 0,0,0
         // This equals to say that instance world position and volume world position should match
@@ -2813,7 +2929,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                                    << model_import_elapsed_ms(model_postprocess_start);
 
         const auto plate_data_start = ModelImportClock::now();
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=PLATE_DATA START plates=" << m_plater_data.size();
+        if constexpr (kDetailed3mfImportTimingLogs)
+            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=3 parent=BBS_3MF_IMPORT_TOTAL stage=PLATE_DATA START plates=" << m_plater_data.size();
 
 //        // fixes the min z of the model if negative
 //        model.adjust_min_z();
@@ -3402,7 +3519,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
     }
 
     //BBS: extract project config from json files
-    void _BBS_3MF_Importer::_extract_project_config_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat, DynamicPrintConfig& config, ConfigSubstitutionContext& config_substitutions, Model& model)
+    bool _BBS_3MF_Importer::_extract_project_config_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat, DynamicPrintConfig& config, ConfigSubstitutionContext& config_substitutions, Model& model)
     {
         if (stat.m_uncomp_size > 0) {
             const std::string& temp_path = model.get_backup_path();
@@ -3413,7 +3530,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", extract  %1% from 3mf %2%, ret %3%\n") % dest_file % stat.m_filename % res;
             if (res == 0) {
                 add_error("Error while extract project config file to file");
-                return;
+                return false;
             }
             std::map<std::string, std::string> key_values;
             std::string reason;
@@ -3423,12 +3540,24 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             int ret = config.load_from_json(dest_file, config_substitutions, true, key_values, reason);
             if (ret) {
                 add_error("Error load config from json:"+reason);
-                return;
+                return false;
             }
+
+            bool mapping_migrated = false;
+            std::string mapping_error;
+            if (!prepare_project_filament_mapping_after_load(config, mapping_migrated, mapping_error)) {
+                add_error("Invalid project filament nozzle mapping: " + mapping_error);
+                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": " << mapping_error;
+                return false;
+            }
+            if (mapping_migrated)
+                BOOST_LOG_TRIVIAL(info) << "3mf filament nozzle mapping migration: initialized missing mapping fields";
+
             if (m_migrate_legacy_role_filament_defaults && migrate_legacy_role_filament_defaults(config))
                 BOOST_LOG_TRIVIAL(info) << "3mf role filament migration: migrated project config defaults";
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", load project config file successfully from %1%\n") %dest_file;
         }
+        return true;
     }
 
     //BBS: extract project embedded presets
@@ -3706,6 +3835,85 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             }
         }
     }
+
+    void _BBS_3MF_Importer::_extract_brim_ear_points_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat)
+    {
+        if (stat.m_uncomp_size == 0)
+            return;
+
+        std::string buffer((size_t) stat.m_uncomp_size, 0);
+        mz_bool res = mz_zip_reader_extract_to_mem(&archive, stat.m_file_index, (void*) buffer.data(), (size_t) stat.m_uncomp_size, 0);
+        if (res == 0) {
+            add_error("Error while reading brim ear points data to buffer");
+            return;
+        }
+
+        if (buffer.back() == '\n')
+            buffer.pop_back();
+
+        std::vector<std::string> objects;
+        boost::split(objects, buffer, boost::is_any_of("\n"), boost::token_compress_off);
+
+        int version = 0;
+        const std::string key("brim_points_format_version=");
+        if (!objects.empty() && boost::algorithm::starts_with(objects.front(), key)) {
+            version = std::atoi(objects.front().c_str() + key.size());
+            objects.erase(objects.begin());
+        }
+
+        const size_t values_per_point = version == 0 ? 4 : version == 1 ? 5 : 0;
+        if (values_per_point == 0) {
+            add_error("Unsupported brim ear points format version");
+            return;
+        }
+
+        for (const std::string& object : objects) {
+            std::vector<std::string> object_data;
+            boost::split(object_data, object, boost::is_any_of("|"), boost::token_compress_off);
+            if (object_data.size() != 2) {
+                add_error("Error while reading brim ear object data");
+                continue;
+            }
+
+            std::vector<std::string> object_data_id;
+            boost::split(object_data_id, object_data[0], boost::is_any_of("="), boost::token_compress_off);
+            if (object_data_id.size() != 2) {
+                add_error("Error while reading brim ear object id");
+                continue;
+            }
+
+            const int object_id = std::atoi(object_data_id[1].c_str());
+            if (object_id <= 0) {
+                add_error("Found invalid brim ear object id");
+                continue;
+            }
+
+            if (m_brim_ear_points.find(object_id) != m_brim_ear_points.end()) {
+                add_error("Found duplicated brim ear points");
+                continue;
+            }
+
+            std::vector<std::string> object_data_points;
+            boost::split(object_data_points, object_data[1], boost::is_any_of(" "), boost::token_compress_on);
+            if (object_data_points.size() % values_per_point != 0) {
+                add_error("Invalid brim ear points data");
+                continue;
+            }
+
+            BrimPoints brim_ear_points;
+            brim_ear_points.reserve(object_data_points.size() / values_per_point);
+            for (size_t i = 0; i < object_data_points.size(); i += values_per_point) {
+                brim_ear_points.emplace_back(float(std::atof(object_data_points[i].c_str())),
+                                             float(std::atof(object_data_points[i + 1].c_str())),
+                                             float(std::atof(object_data_points[i + 2].c_str())),
+                                             float(std::atof(object_data_points[i + 3].c_str())));
+            }
+
+            if (!brim_ear_points.empty())
+                m_brim_ear_points.emplace(object_id, std::move(brim_ear_points));
+        }
+    }
+
     /*
     void _BBS_3MF_Importer::_extract_sla_support_points_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat)
     {
@@ -4457,12 +4665,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 bbs_get_attribute_value_int(attributes, num_attributes, V2_ATTR),
                 bbs_get_attribute_value_int(attributes, num_attributes, V3_ATTR));
 
-            m_curr_object->geometry.custom_supports.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_SUPPORTS_ATTR));
-            m_curr_object->geometry.custom_seam.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_SEAM_ATTR));
-            m_curr_object->geometry.mmu_segmentation.push_back(bbs_get_attribute_value_string(attributes, num_attributes, MMU_SEGMENTATION_ATTR));
-            m_curr_object->geometry.fuzzy_skin.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_FUZZY_SKIN_ATTR));
-            // BBS
-            m_curr_object->geometry.face_properties.push_back(bbs_get_attribute_value_string(attributes, num_attributes, FACE_PROPERTY_ATTR));
+            m_curr_object->geometry.append_triangle_attributes(
+                m_curr_object->geometry.triangles.size() - 1, attributes, num_attributes);
         }
         return true;
     }
@@ -5515,13 +5719,6 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
         for (unsigned int index = 0; index < sub_objects.size(); index++)
         {
-            const auto volume_build_start = ModelImportClock::now();
-            double geometry_copy_ms       = 0.0;
-            double mesh_init_stats_ms     = 0.0;
-            double volume_create_ms       = 0.0;
-            double hull_recalculate_ms    = 0.0;
-            double annotations_ms         = 0.0;
-
             //find the volume metadata firstly
             Component sub_comp = sub_objects[index];
             Id object_id = sub_comp.object_id;
@@ -5597,7 +5794,6 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 return false;
             }
             if (!shared_volume){
-                const auto geometry_copy_start = ModelImportClock::now();
                 // splits volume out of imported geometry
                 indexed_triangle_set its;
                 its.indices.assign(sub_object->geometry.triangles.begin(), sub_object->geometry.triangles.end());
@@ -5617,18 +5813,16 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
                 its.vertices.assign(sub_object->geometry.vertices.begin(), sub_object->geometry.vertices.end());
 
-                // BBS
-                for (const std::string prop_str : sub_object->geometry.face_properties) {
-                    FaceProperty face_prop;
-                    face_prop.from_string(prop_str);
-                    its.properties.push_back(face_prop);
+                // BBS: Allocate dense mesh properties only when the file actually contains one.
+                if (!sub_object->geometry.face_properties.empty()) {
+                    its.properties.resize(triangles_count);
+                    for (const Geometry::TriangleAttribute& attribute : sub_object->geometry.face_properties) {
+                        assert(attribute.triangle_id < triangles_count);
+                        its.properties[attribute.triangle_id].from_string(attribute.value);
+                    }
                 }
 
-                geometry_copy_ms = model_import_elapsed_ms(geometry_copy_start);
-
-                const auto mesh_init_stats_start = ModelImportClock::now();
                 TriangleMesh triangle_mesh(std::move(its), volume_data->mesh_stats);
-                mesh_init_stats_ms = model_import_elapsed_ms(mesh_init_stats_start);
 
                 // BBS: no need to multiply the instance matrix into the volume
                 //if (!m_is_bbl_3mf) {
@@ -5644,9 +5838,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 if (triangle_mesh.volume() < 0)
                     triangle_mesh.flip_triangles();
 
-                const auto volume_create_start = ModelImportClock::now();
-                volume = object.add_volume(std::move(triangle_mesh));
-                volume_create_ms = model_import_elapsed_ms(volume_create_start);
+                volume = object.add_volume(std::move(triangle_mesh), ModelVolumeType::MODEL_PART, true, false);
                 
                 // BBS: Pass UUID from 3MF to ModelVolume
                 volume->uuid = sub_object->uuid;
@@ -5666,9 +5858,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             }
             else {
                 //create volume to use shared mesh
-                const auto volume_create_start = ModelImportClock::now();
-                volume = object.add_volume_with_shared_mesh(*shared_volume);
-                volume_create_ms = model_import_elapsed_ms(volume_create_start);
+                volume = object.add_volume_with_shared_mesh(*shared_volume, ModelVolumeType::MODEL_PART, false);
                 // BBS: Pass UUID and from_loaded_id for shared mesh volume too
                 volume->uuid = sub_object->uuid;
                 volume->from_loaded_id = sub_object->id;
@@ -5677,10 +5867,6 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             // stores the volume matrix taken from the metadata, if present
             if (has_transform)
                 volume->source.transform = Slic3r::Geometry::Transformation(volume_matrix_to_object);
-
-            const auto hull_recalculate_start = ModelImportClock::now();
-            volume->calculate_convex_hull();
-            hull_recalculate_ms = model_import_elapsed_ms(hull_recalculate_start);
 
             //set transform from 3mf
             Slic3r::Geometry::Transformation comp_transformatino(sub_comp.transform);
@@ -5692,36 +5878,44 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     volume->translate(shift);
             }
 
-            // recreate custom supports, seam and mmu segmentation from previously loaded attribute
-            const auto annotations_start = ModelImportClock::now();
+            // Reuse annotations together with a shared mesh. They are indexed by the same triangles.
             {
-                volume->supported_facets.reserve(triangles_count);
-                volume->seam_facets.reserve(triangles_count);
-                volume->mmu_segmentation_facets.reserve(triangles_count);
-                volume->fuzzy_skin_facets.reserve(triangles_count);
-                for (size_t i=0; i<triangles_count; ++i) {
-                    assert(i < sub_object->geometry.custom_supports.size());
-                    assert(i < sub_object->geometry.custom_seam.size());
-                    assert(i < sub_object->geometry.mmu_segmentation.size());
-                    assert(i < sub_object->geometry.fuzzy_skin.size());
-                    if (! sub_object->geometry.custom_supports[i].empty())
-                        volume->supported_facets.set_triangle_from_string(i, sub_object->geometry.custom_supports[i]);
-                    if (! sub_object->geometry.custom_seam[i].empty())
-                        volume->seam_facets.set_triangle_from_string(i, sub_object->geometry.custom_seam[i]);
-                    if (! sub_object->geometry.mmu_segmentation[i].empty())
-                        volume->mmu_segmentation_facets.set_triangle_from_string(i, sub_object->geometry.mmu_segmentation[i]);
-                    if (!sub_object->geometry.fuzzy_skin[i].empty())
-                        volume->fuzzy_skin_facets.set_triangle_from_string(i, sub_object->geometry.fuzzy_skin[i]);
+                if (shared_volume != nullptr) {
+                    // A new annotation may initially have the same timestamp as the source.
+                    // Touching it prevents assign() from treating the copy as a no-op.
+                    volume->supported_facets.touch();
+                    volume->seam_facets.touch();
+                    volume->mmu_segmentation_facets.touch();
+                    volume->fuzzy_skin_facets.touch();
+                    volume->supported_facets.assign(shared_volume->supported_facets);
+                    volume->seam_facets.assign(shared_volume->seam_facets);
+                    volume->mmu_segmentation_facets.assign(shared_volume->mmu_segmentation_facets);
+                    volume->fuzzy_skin_facets.assign(shared_volume->fuzzy_skin_facets);
+                } else {
+                    volume->supported_facets.reserve(sub_object->geometry.custom_supports.size());
+                    volume->seam_facets.reserve(sub_object->geometry.custom_seam.size());
+                    volume->mmu_segmentation_facets.reserve(sub_object->geometry.mmu_segmentation.size());
+                    volume->fuzzy_skin_facets.reserve(sub_object->geometry.fuzzy_skin.size());
+                    for (const Geometry::TriangleAttribute& attribute : sub_object->geometry.custom_supports) {
+                        volume->supported_facets.set_triangle_from_string(attribute.triangle_id, attribute.value);
+                    }
+                    for (const Geometry::TriangleAttribute& attribute : sub_object->geometry.custom_seam) {
+                        volume->seam_facets.set_triangle_from_string(attribute.triangle_id, attribute.value);
+                    }
+                    for (const Geometry::TriangleAttribute& attribute : sub_object->geometry.mmu_segmentation) {
+                        volume->mmu_segmentation_facets.set_triangle_from_string(attribute.triangle_id, attribute.value);
+                    }
+                    for (const Geometry::TriangleAttribute& attribute : sub_object->geometry.fuzzy_skin) {
+                        volume->fuzzy_skin_facets.set_triangle_from_string(attribute.triangle_id, attribute.value);
+                    }
+                    volume->supported_facets.shrink_to_fit();
+                    volume->seam_facets.shrink_to_fit();
+                    volume->mmu_segmentation_facets.shrink_to_fit();
+                    volume->mmu_segmentation_facets.touch();
+                    volume->fuzzy_skin_facets.shrink_to_fit();
+                    volume->fuzzy_skin_facets.touch();
                 }
-                volume->supported_facets.shrink_to_fit();
-                volume->seam_facets.shrink_to_fit();
-                volume->mmu_segmentation_facets.shrink_to_fit();
-                volume->mmu_segmentation_facets.touch();
-                volume->fuzzy_skin_facets.shrink_to_fit();
-                volume->fuzzy_skin_facets.touch();
             }
-            annotations_ms = model_import_elapsed_ms(annotations_start);
-
             volume->set_type(volume_data->part_type);
             
             if (auto &es = volume_data->shape_configuration; es.has_value())
@@ -5767,25 +5961,10 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     volume->name += "_" + std::to_string(renamed_volumes_count + 1);
                 ++renamed_volumes_count;
             }
-
-            const double volume_elapsed_ms = model_import_elapsed_ms(volume_build_start);
-            const double measured_ms = geometry_copy_ms + mesh_init_stats_ms + volume_create_ms +
-                                       hull_recalculate_ms + annotations_ms;
-            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=4 parent=MODEL_ASSEMBLY stage=VOLUME_BUILD END parallel=false"
-                                       << " object_id=" << object_id.second
-                                       << " volume_index=" << index
-                                       << " shared_mesh=" << (shared_volume != nullptr)
-                                       << " vertices=" << sub_object->geometry.vertices.size()
-                                       << " triangles=" << triangles_count
-                                       << " geometry_copy_ms=" << geometry_copy_ms
-                                       << " mesh_init_stats_ms=" << mesh_init_stats_ms
-                                       << " volume_create_ms=" << volume_create_ms
-                                       << " hull_recalculate_ms=" << hull_recalculate_ms
-                                       << " annotations_ms=" << annotations_ms
-                                       << " other_ms=" << std::max(0.0, volume_elapsed_ms - measured_ms)
-                                       << " elapsed_ms=" << volume_elapsed_ms;
         }
 
+        // Adding each volume separately would serialize an ever-growing object repeatedly.
+        Slic3r::save_object_mesh(object);
         return true;
     }
     /*
@@ -6192,12 +6371,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 bbs_get_attribute_value_int(attributes, num_attributes, V2_ATTR),
                 bbs_get_attribute_value_int(attributes, num_attributes, V3_ATTR));
 
-            current_object->geometry.custom_supports.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_SUPPORTS_ATTR));
-            current_object->geometry.custom_seam.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_SEAM_ATTR));
-            current_object->geometry.mmu_segmentation.push_back(bbs_get_attribute_value_string(attributes, num_attributes, MMU_SEGMENTATION_ATTR));
-            current_object->geometry.fuzzy_skin.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_FUZZY_SKIN_ATTR));
-            // BBS
-            current_object->geometry.face_properties.push_back(bbs_get_attribute_value_string(attributes, num_attributes, FACE_PROPERTY_ATTR));
+            current_object->geometry.append_triangle_attributes(
+                current_object->geometry.triangles.size() - 1, attributes, num_attributes);
         }
         return true;
     }
@@ -6375,8 +6550,6 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
     bool _BBS_3MF_Importer::ObjectImporter::_extract_object_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat)
     {
-        const auto object_model_parse_start = ModelImportClock::now();
-
         if (stat.m_uncomp_size == 0) {
             top_importer->add_error("Found invalid size for "+object_path);
             return false;
@@ -6398,96 +6571,34 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             _BBS_3MF_Importer::ObjectImporter& importer;
             const mz_zip_archive_file_stat& stat;
 
-            // 生产者-消费者模式相关成员
-            std::queue<std::string> data_queue;           // 数据队列
-            std::mutex queue_mutex;                       // 队列互斥锁
-            std::condition_variable queue_cv;             // 队列条件变量
-            std::atomic<bool> parsing_finished{false};    // 解析完成标志
-            std::atomic<bool> parsing_error{false};       // 解析错误标志
-            std::string error_message;                    // 错误信息
-            std::thread parse_thread;                     // 解析线程
-
-            CallbackData(XML_Parser& parser, _BBS_3MF_Importer::ObjectImporter& importer, const mz_zip_archive_file_stat& stat) : parser(parser), importer(importer), stat(stat)
-            {
-                // 启动消费者线程
-                parse_thread = std::thread([this, parser, stat]() {
-                    while (true) {
-                        std::unique_lock<std::mutex> lock(queue_mutex);
-                        
-                        // 等待数据或解析完成信号
-                        queue_cv.wait(lock, [this]() {
-                            return !data_queue.empty() || parsing_finished;
-                        });
-                        
-                        // 检查是否应该退出
-                        if (parsing_finished && data_queue.empty()) {
-                            break;
-                        }
-                        
-                        // 处理队列中的所有数据
-                        while (!data_queue.empty()) {
-                            std::string data = std::move(data_queue.front());
-                            data_queue.pop();
-                            
-                            // 释放锁以允许生产者继续添加数据
-                            lock.unlock(); 
-                            
-                            // 执行XML解析
-                            if (XML_Parse(parser, data.c_str(), (int)data.size(), 0) == XML_STATUS_ERROR) {
-                                parsing_error = true;
-                                error_message = std::string("XML parsing error: ") + XML_ErrorString(XML_GetErrorCode(parser));
-                                parsing_finished = true;
-                                queue_cv.notify_all();
-                                return;
-                            }
-                            
-                            // 重新获取锁以检查队列
-                            lock.lock();
-                        }
-                    }
-                });
-            }
-
-            ~CallbackData()
-            {
-                // 确保线程安全退出
-                if (parse_thread.joinable()) {
-                    // 如果解析尚未完成，设置标志并通知
-                    if (!parsing_finished) {
-                        parsing_finished = true;
-                        queue_cv.notify_all();
-                    }
-                    parse_thread.join();
-                }
-            }
+            CallbackData(XML_Parser& parser, _BBS_3MF_Importer::ObjectImporter& importer, const mz_zip_archive_file_stat& stat)
+                : parser(parser), importer(importer), stat(stat)
+            {}
         };
 
         CallbackData data(object_xml_parser, *this, stat);
 
         mz_bool res = 0;
-        const auto extract_with_parallel_parse_start = ModelImportClock::now();
-        ModelImportClock::time_point extract_with_parallel_parse_end;
 
         try
         {
             mz_file_write_func callback = [](void* pOpaque, mz_uint64 file_ofs, const void* pBuf, size_t n)->size_t {
                 CallbackData* data = (CallbackData*)pOpaque;
-
-                // 生产者模式：只负责接收和存储字符串数据
-                if (n > 0) {
-                    std::lock_guard<std::mutex> lock(data->queue_mutex);
-                    data->data_queue.emplace(std::string((const char*)pBuf, n));
-                    data->queue_cv.notify_one();
+                const bool parse_ok = XML_Parse(data->parser, (const char*)pBuf, (int)n,
+                    (file_ofs + n == data->stat.m_uncomp_size) ? 1 : 0) != XML_STATUS_ERROR;
+                if (!parse_ok || data->importer.object_parse_error()) {
+                    char error_buf[1024];
+                    ::snprintf(error_buf, 1024, "Error (%s) while parsing '%s' at line %d",
+                        data->importer.object_parse_error_message(), data->stat.m_filename,
+                        (int)XML_GetCurrentLineNumber(data->parser));
+                    throw Slic3r::FileIOError(error_buf);
                 }
                 return n;
             };
-            void* opaque = &data;
-            res = mz_zip_reader_extract_to_callback(&archive, stat.m_file_index, callback, opaque, 0);
-            extract_with_parallel_parse_end = ModelImportClock::now();
+            res = mz_zip_reader_extract_to_callback(&archive, stat.m_file_index, callback, &data, 0);
         }
         catch (const version_error& e)
         {
-            // rethrow the exception
             std::string error_message = std::string(e.what()) + " for " + object_path;
             throw Slic3r::FileIOError(error_message);
         }
@@ -6499,53 +6610,9 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         }
 
         if (res == 0) {
-            top_importer->add_error("Error while extracting model data from zip archive for "+object_path);
+            top_importer->add_error("Error while extracting model data from zip archive for " + object_path);
             return false;
         }
-
-        // 文件提取完成，设置解析完成标志
-        const auto parse_tail_wait_start = ModelImportClock::now();
-        data.parsing_finished = true;
-        data.queue_cv.notify_all();
-
-        // 等待消费者线程完成解析
-        if (data.parse_thread.joinable()) {
-            data.parse_thread.join();
-        }
-        const auto parse_tail_wait_end = ModelImportClock::now();
-
-        // 检查解析过程中是否有错误
-        if (data.parsing_error) {
-            top_importer->add_error(data.error_message + " for " + object_path);
-            return false;
-        }
-
-        size_t object_count = 0;
-        size_t vertex_count = 0;
-        size_t triangle_count = 0;
-        for (const auto &item : object_list) {
-            ++object_count;
-            vertex_count += item.second.geometry.vertices.size();
-            triangle_count += item.second.geometry.triangles.size();
-        }
-
-        const auto object_model_parse_end = ModelImportClock::now();
-        const double extract_with_parallel_parse_ms =
-            model_import_elapsed_ms(extract_with_parallel_parse_start, extract_with_parallel_parse_end);
-        const double parse_tail_wait_ms = model_import_elapsed_ms(parse_tail_wait_start, parse_tail_wait_end);
-        const double object_model_parse_ms = model_import_elapsed_ms(object_model_parse_start, object_model_parse_end);
-        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=5 parent=SUBMODEL_PARSE stage=OBJECT_MODEL_PARSE END parallel=true"
-                                   << " path=\"" << object_path << "\""
-                                   << " compressed_bytes=" << stat.m_comp_size
-                                   << " uncompressed_bytes=" << stat.m_uncomp_size
-                                   << " objects=" << object_count
-                                   << " vertices=" << vertex_count
-                                   << " triangles=" << triangle_count
-                                   << " extract_with_parallel_parse_ms=" << extract_with_parallel_parse_ms
-                                   << " parse_tail_wait_ms=" << parse_tail_wait_ms
-                                   << " setup_and_finalize_ms="
-                                   << std::max(0.0, object_model_parse_ms - extract_with_parallel_parse_ms - parse_tail_wait_ms)
-                                   << " elapsed_ms=" << object_model_parse_ms;
 
         return true;
     }
@@ -6669,6 +6736,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         bool _add_cut_information_file_to_archive(mz_zip_archive& archive, Model& model);
         bool _add_layer_height_profile_file_to_archive(mz_zip_archive& archive, Model& model);
         bool _add_layer_config_ranges_file_to_archive(mz_zip_archive& archive, Model& model);
+        bool _add_brim_ear_points_file_to_archive(mz_zip_archive& archive, Model& model);
         bool _add_sla_support_points_file_to_archive(mz_zip_archive& archive, Model& model);
         bool _add_sla_drain_holes_file_to_archive(mz_zip_archive& archive, Model& model);
         bool _add_print_config_file_to_archive(mz_zip_archive& archive, const DynamicPrintConfig &config);
@@ -6798,6 +6866,12 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 		//add the project_setting file
 		if (parameter.config)
 		{
+            const std::string mapping_error = validate_project_filament_mapping(*parameter.config);
+            if (!mapping_error.empty()) {
+                add_error("Invalid project filament nozzle mapping: " + mapping_error);
+                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": " << mapping_error;
+                return false;
+            }
 			const std::string& temp_path = parameter.work_directory;
 			std::string temp_file = temp_path + std::string("/") + "_temp_xxxx.config";
 			std::string        version{ CREALITYPRINT_VERSION };
@@ -7283,6 +7357,11 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             // All layer height profiles of all ModelObjects are stored here, indexed by 1 based index of the ModelObject in Model.
             // The index differes from the index of an object ID of an object instance of a 3MF file!
             if (!_add_layer_config_ranges_file_to_archive(archive, model)) {
+                close_zip_writer(&archive);
+                return false;
+            }
+
+            if (!_add_brim_ear_points_file_to_archive(archive, model)) {
                 close_zip_writer(&archive);
                 return false;
             }
@@ -8669,6 +8748,41 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         return true;
     }
 
+    bool _BBS_3MF_Exporter::_add_brim_ear_points_file_to_archive(mz_zip_archive& archive, Model& model)
+    {
+        std::string out;
+        char buffer[1024];
+
+        unsigned int object_id = 0;
+        for (const ModelObject* object : model.objects) {
+            ++object_id;
+            const BrimPoints& brim_points = object->brim_points;
+            if (brim_points.empty())
+                continue;
+
+            std::snprintf(buffer, sizeof(buffer), "object_id=%u|", object_id);
+            out += buffer;
+
+            for (size_t i = 0; i < brim_points.size(); ++i) {
+                const BrimPoint& point = brim_points[i];
+                std::snprintf(buffer, sizeof(buffer), i == 0 ? "%f %f %f %f" : " %f %f %f %f",
+                              point.pos(0), point.pos(1), point.pos(2), point.head_front_radius);
+                out += buffer;
+            }
+            out += "\n";
+        }
+
+        if (!out.empty()) {
+            out.insert(0, std::string("brim_points_format_version=") + std::to_string(brim_points_format_version) + "\n");
+            if (!mz_zip_writer_add_mem(&archive, BRIM_EAR_POINTS_FILE.c_str(), (const void*) out.data(), out.length(), MZ_DEFAULT_COMPRESSION)) {
+                add_error("Unable to add brim ear points file to archive");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /*
     bool _BBS_3MF_Exporter::_add_sla_support_points_file_to_archive(mz_zip_archive& archive, Model& model)
     {
@@ -8783,6 +8897,13 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
     //BBS: add project config file logic for new json format
     bool _BBS_3MF_Exporter::_add_project_config_file_to_archive(mz_zip_archive& archive, const DynamicPrintConfig &config, Model& model, En3mfType type_3mf)
     {
+        const std::string mapping_error = validate_project_filament_mapping(config);
+        if (!mapping_error.empty()) {
+            add_error("Invalid project filament nozzle mapping: " + mapping_error);
+            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": " << mapping_error;
+            return false;
+        }
+
         const std::string& temp_path = model.get_backup_path();
         std::string temp_file = temp_path + std::string("/") + "_temp_1.config";
         std::string        version{CREALITYPRINT_VERSION};
@@ -9307,6 +9428,15 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         stream << "    <" << METADATA_TAG << " " << KEY_ATTR << "=\""
                << "FileType"
                << "\" " << VALUE_ATTR << "=\"" << file_type_3mf.c_str() << "\"/>\n";
+        std::string profile_version_3mf;
+        if (config.has("printer_profile_version")) {
+            const Slic3r::ConfigOptionString* profile_version = config.opt<Slic3r::ConfigOptionString>("printer_profile_version");
+            if (profile_version)
+                profile_version_3mf = profile_version->value;
+        }
+        stream << "    <" << METADATA_TAG << " " << KEY_ATTR << "=\""
+               << "ProfileVersion"
+               << "\" " << VALUE_ATTR << "=\"" << profile_version_3mf.c_str() << "\"/>\n";
         std::string date = Slic3r::Utils::utc_timestamp(Slic3r::Utils::get_current_time_utc());
         // keep only the date part of the string
         date = date.substr(0, 10);
@@ -9972,6 +10102,25 @@ bool load_bbs_3mf(const char* path, DynamicPrintConfig* config, ConfigSubstituti
     //BBS: remove legacy project logic currently
     //handle_legacy_project_loaded(importer.version(), *config);
     return res;
+}
+
+bool bbs_is_creality_3mf(const char *path)
+{
+    if (path == nullptr)
+        return false;
+
+    mz_zip_archive archive;
+    mz_zip_zero_struct(&archive);
+    if (!open_zip_reader(&archive, path))
+        return false;
+
+    struct ZipReaderCloser {
+        mz_zip_archive *archive;
+        ~ZipReaderCloser() { close_zip_reader(archive); }
+    } closer { &archive };
+
+    const Creality3MFConfigInfo info = read_creality_3mf_config_from_archive(archive);
+    return info.has_config && info.is_creality;
 }
 
 std::string bbs_3mf_get_thumbnail(const char *path)

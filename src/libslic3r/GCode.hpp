@@ -5,6 +5,7 @@
 #include "ExPolygon.hpp"
 #include "GCodeWriter.hpp"
 #include "Layer.hpp"
+#include "ZAA.hpp"
 #include "Point.hpp"
 #include "PlaceholderParser.hpp"
 #include "PrintConfig.hpp"
@@ -32,6 +33,7 @@
 #include <string>
 #include <cfloat>
 #include <functional>
+#include <tuple>
 
 namespace Slic3r {
 
@@ -55,6 +57,15 @@ public:
 
 private:
     int _get_temp(const GCode& gcodegen) const;
+};
+
+enum class SolidSkeletonLayerTaskMode {
+    Normal,
+    SkeletonOnly,
+    SkipSkeleton,
+    NoWipeBootstrapShellThenFlush,
+    NoWipeTopShellOnlyDeferInfill,
+    NoWipeTopDeferredInfillOnly
 };
 
 class Wipe {
@@ -129,7 +140,7 @@ private:
 
     Polyline generate_path_to_wipe_tower(const Point&       start_pos,
                                          const Point&       end_pos,
-                                         const BoundingBox& avoid_polygon,
+                                         const Polygon&     avoid_polygon,
                                          const BoundingBox& printer_bbx) const;
 
     std::string post_process_wipe_tower_moves_wipe_head(const WipeTower::ToolChangeResult& tcr,
@@ -265,6 +276,7 @@ public:
     void                     set_belt(bool _belt) { m_belt = _belt; }
     const Point&    last_pos() const { return m_last_pos; }
     Vec2d           point_to_gcode(const Point &point) const;
+    Vec2d           point_to_gcode(const Point &point, unsigned int extruder_id) const;
     Point           gcode_to_point(const Vec2d &point) const;
     Vec2d point_to_gcode_quantized(const Point& point) const;
     const FullPrintConfig &config() const { return m_config; }
@@ -284,11 +296,12 @@ public:
     void            set_layer_count(unsigned int value) { m_layer_count = value; }
     void            apply_print_config(const PrintConfig &print_config);
 
-    std::string     travel_to(const Point& point, ExtrusionRole role, std::string comment, double z = DBL_MAX);
+    std::string     travel_to(const Point& point, ExtrusionRole role, std::string comment, double z = DBL_MAX,
+                              bool exact_target_z = false);
     bool            needs_retraction(const Polyline& travel, ExtrusionRole role, LiftType& lift_type);
     std::string     retract(bool toolchange = false, bool is_last_retraction = false, LiftType lift_type = LiftType::NormalLift);
     std::string     unretract(const double limitSpeed = 0.0f) { return m_writer.unlift(limitSpeed) + m_writer.unretract(); }
-    std::string     set_extruder(unsigned int extruder_id, double print_z, bool by_object = false, bool change_tool = true);
+    std::string     set_extruder(unsigned int extruder_id, double print_z, bool by_object = false, bool change_tool = true, bool run_change_filament_gcode = true);
     std::string  set_extruder_new(unsigned int extruder_id,
                                           double       print_z,
                                           float        trc_wipe_volume,
@@ -297,7 +310,9 @@ public:
                                           float        max_wipe_x,
                                           float        max_wipe_y,
                                           bool         by_object   = false,
-                                          bool         change_tool = true);
+                                          bool         change_tool = true,
+                                          const FilamentChangeTopology* filament_change_topology = nullptr,
+                                          float        wipe_tower_tail_flush_length = 0.f);
 #ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
     void            set_toolchange_source_object(const PrintObject *print_object);
     void            set_toolchange_target_object(const PrintObject *print_object);
@@ -323,6 +338,10 @@ public:
 
     // append full config to the given string
     static void append_full_config(const Print& print, std::string& str);
+
+    // Serialize one readable property token per physical nozzle, in physical nozzle order.
+    // Token format: <diameter in millimeters>-<nozzle volume type name>.
+    static std::string serialize_physical_nozzle_properties(const DynamicPrintConfig& config);
 
     // Object and support extrusions of the same PrintObject at the same print_z.
     // public, so that it could be accessed by free helper functions from GCode.cpp
@@ -405,7 +424,13 @@ private:
                                const LayerTools&                layer_tools,
                                const Layer&                     layer,
                                unsigned int                     extruder_id,
-                               const PrintObject*               object_for_brim = nullptr);
+                               std::vector<coordf_t>&            skirt_done);
+    std::string generate_object_skirt_group(const Print&       print,
+                                             const PrintObject& object,
+                                             size_t             instance_id,
+                                             const LayerTools&  layer_tools,
+                                             const Layer&       layer,
+                                             unsigned int       extruder_id);
 
     LayerResult process_layer(
         const Print                     &print,
@@ -419,7 +444,24 @@ private:
         // Otherwise print a single copy of a single object.
         const size_t                     single_object_idx = size_t(-1),
         // BBS
-        const bool                       prime_extruder = false);
+        const bool                       prime_extruder = false,
+        const size_t                     layer_extruder_begin = 0,
+        const size_t                     layer_extruder_end = size_t(-1),
+        const SolidSkeletonLayerTaskMode solid_skeleton_task_mode = SolidSkeletonLayerTaskMode::Normal);
+    // ----- Mixed sub-layer extrusion (phase A: minimal port from Bambu) -----
+    // Emits the per-sublayer extrusions for the MixedSubLayerGroup structures
+    // attached to `layer_tools`.  Called once at layer-level (outside the
+    // main extruder loop) so the GCODE-SL block and the per-sublayer tool
+    // changes are not skipped by any `continue` paths inside that loop.
+    //
+    // Phase A is a data-flow validation no-op: it logs the layer's mixed
+    // group count and exits.  Phase B will actually emit the G-code.
+    void            process_mixed_sublayers(
+        const Print                     &print,
+        const std::vector<LayerToPrint> &layers,
+        const LayerTools                &layer_tools,
+        coordf_t                         print_z,
+        std::string                     &gcode);
     // Process all layers of all objects (non-sequential mode) with a parallel pipeline:
     // Generate G-code, run the filters (vase mode, cooling buffer), run the G-code analyser
     // and export G-code into file.
@@ -443,6 +485,7 @@ private:
 
     //BBS
     void check_placeholder_parser_failed();
+    size_t cur_extruder_index() const;
 
     void            set_last_pos(const Point &pos) { m_last_pos = pos; m_last_pos_defined = true; }
     bool            last_pos_defined() const { return m_last_pos_defined; }
@@ -530,14 +573,47 @@ private:
 
     std::string     extrude_perimeters(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool is_first_layer, bool is_infill_first);
     std::string     extrude_skin(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region);
-    std::string     extrude_infill(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool ironing);
+    std::string     extrude_infill(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool ironing, double speed = -1., bool use_skeleton_wipe_line_width = false, bool use_skeleton_wipe_speed = false);
     std::string extrude_support(const ExtrusionEntityCollection& support_fills, const ExtrusionRole support_extrusion_role);
+
+    // ----- Mixed sub-layer emission (phase B) -----
+    // Emit the per-sublayer G-code for a single mixed-color slot inside
+    // process_layer().  Splits the layer into N sub-layers (one per
+    // component of `grp.components_1based`) and for each sub-layer:
+    //   1) emits the tool change via set_extruder (wipe tower integration
+    //      is handled at the layer boundary, not per sub-layer);
+    //   2) sets m_sub_layer_flow_ratio / m_sub_layer_height / m_nominal_z
+    //      so the regular extrude_perimeters / extrude_infill path
+    //      applies the (sub_h / lh) flow scale and the sub-Z;
+    //   3) calls extrude_perimeters and extrude_infill for the
+    //      components of the mixed slot in `by_extruder[virtual_slot]`.
+    //
+    // Returns the concatenated G-code to be appended to the main layer
+    // G-code.  The caller is responsible for the surrounding state
+    // (m_config, m_layer, m_wipe_tower) and for emitting the layer
+    // boundary before / after.
+    //
+    // Declared *after* ObjectByExtruder so the std::map<..., std::vector<ObjectByExtruder>>
+    // signature compiles cleanly; previous incarnations placed this near
+    // process_mixed_sublayers and triggered C3203 from the other TUs that
+    // include GCode.hpp before ObjectByExtruder is in scope.
+    std::string process_layer_sublayer_emission(
+        const Print                              &print,
+        const std::vector<LayerToPrint>          &layers,
+        const LayerTools                         &layer_tools,
+        const std::map<unsigned int, std::vector<ObjectByExtruder>> &by_extruder,
+        const LayerTools::MixedSubLayerGroup     &grp,
+        unsigned int                              virtual_slot_1based,
+        coordf_t                                  print_z,
+        coordf_t                                  layer_height);
 
     // BBS
     LiftType to_lift_type(ZHopType z_hop_types);
 
-    std::set<ObjectID>              m_objsWithBrim; // indicates the objs with brim
-    std::set<ObjectID>              m_objSupportsWithBrim; // indicates the objs' supports with brim
+    // Orca migration: use instance identity for transitional Brim ownership;
+    // object-keyed maps remain available to legacy callers.
+    std::set<ObjectInstanceID>      m_objsWithBrim; // indicates instances with brim
+    std::set<ObjectInstanceID>      m_objSupportsWithBrim; // indicates instances with support brim
     // Cache for custom seam enforcers/blockers for each layer.
     SeamPlacer                          m_seam_placer;
 
@@ -555,6 +631,8 @@ private:
     // scaled G-code resolution
     double                              m_scaled_resolution;
     GCodeWriter                         m_writer;
+    ZaaTaskContext                      m_zaa_task_context;
+    unsigned int                        m_zaa_expected_extruder_id{0};
 
     struct PlaceholderParserIntegration {
         void reset();
@@ -623,12 +701,15 @@ private:
     // To ignore gapfill role for retract_lift_enforce
     ExtrusionRole                       m_last_notgapfill_extrusion_role{ erNone };
     bool                                m_flush_into_skeleton_tail_wipe_enabled{ false };
+    bool                                m_solid_skeleton_tail_wipe_pending{ false };
     bool                                m_flush_into_skeleton_center_start_enabled{ false };
     // Support for G-Code Processor
     float                               m_last_height{ 0.0f };
     float                               m_last_layer_z{ 0.0f };
     float                               m_max_layer_z{ 0.0f };
     float                               m_last_width{ 0.0f };
+    double                              m_skeleton_flush_line_width{ 0.0 };
+    bool                                m_skeleton_flush_slowdown_speed_active{ false };
    
 #if ENABLE_GCODE_VIEWER_DATA_CHECKING
     double                              m_last_mm3_per_mm;
@@ -652,6 +733,8 @@ private:
 
     // Heights (print_z) at which the skirt has already been extruded.
     std::vector<coordf_t>               m_skirt_done;
+    // Orca migration: temporary per-group state until InstanceVisit/first_visit owns scheduling.
+    std::vector<std::vector<coordf_t>>  m_skirt_group_done;
     // Has the brim been extruded already? Brim is being extruded only for the first object of a multi-object print.
     bool                                m_brim_done;
     // Flag indicating whether the nozzle temperature changes from 1st to 2nd layer were performed.
@@ -682,8 +765,24 @@ private:
     const PrintObject *m_toolchange_target_object = nullptr;
 #endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
     coordf_t m_nominal_z;
+    // Phase B: per-sublayer extrusion state.  When emitting a mixed-color
+    // sublayer we override the extrusion flow and Z for each sub-component
+    // (sub_h / lh) and write them onto these members so extrude_perimeters
+    // / extrude_infill / set_extruder use the right values for the
+    // current sublayer.  Defaults are 1.0 / 0.0 so that the regular
+    // (non-sublayer) path sees the previous behaviour byte-identically.
+    double m_sub_layer_flow_ratio = 1.0;
+    double m_sub_layer_height     = 0.0;
     bool m_need_change_layer_lift_z = false;
     int m_start_gcode_filament = -1;
+    bool m_solid_skeleton_mode_active = false;
+    bool m_flush_into_skeleton_packing_mode_active = false;
+    size_t m_solid_skeleton_start_corner_index = 0;
+    std::map<std::tuple<const PrintObject*, unsigned int, unsigned int, coord_t, coord_t>, size_t> m_solid_skeleton_start_corner_indices;
+    bool m_solid_skeleton_prime_entrance_trim_pending = false;
+    Point m_solid_skeleton_prime_entrance_start = Point::Zero();
+    Point m_solid_skeleton_prime_entrance_toolchange = Point::Zero();
+    double m_solid_skeleton_prime_entrance_trim_distance = 0.;
     bool m_pending_skeleton_flush_toolchange = false;
     unsigned int m_pending_skeleton_flush_old_extruder = (unsigned int)-1;
     unsigned int m_pending_skeleton_flush_new_extruder = (unsigned int)-1;
@@ -729,6 +828,8 @@ private:
     void print_machine_envelope(GCodeOutputStream &file, Print &print);
     void _print_first_layer_bed_temperature(GCodeOutputStream &file, Print &print, const std::string &gcode, unsigned int first_printing_extruder_id, bool wait);
     void _print_first_layer_extruder_temperatures(GCodeOutputStream &file, Print &print, const std::string &gcode, unsigned int first_printing_extruder_id, bool wait);
+    std::string restore_motion_limits_after_toolchange();
+
     // On the first printing layer. This flag triggers first layer speeds.
     //BBS
     bool    on_first_layer() const { return m_layer != nullptr && m_layer->id() == 0 && abs(m_layer->bottom_z()) < EPSILON; }

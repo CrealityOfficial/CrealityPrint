@@ -24,7 +24,7 @@
         "0"
     ],
     "filament_cost": [
-        "34.99"
+        "31.99"
     ],
     "filament_density": [
         "1.25"
@@ -47,6 +47,9 @@
     "hot_plate_temp_initial_layer": [
         "70"
     ],
+    "impact_strength_z": [
+        "10.7"
+    ],
     "nozzle_temperature_range_high": [
         "270"
     ],
@@ -64,9 +67,6 @@
     ],
     "slow_down_layer_time": [
         "6"
-    ],
-    "temperature_vitrification": [
-        "70"
     ],
     "textured_plate_temp": [
         "70"

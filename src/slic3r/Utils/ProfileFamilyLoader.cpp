@@ -1,10 +1,11 @@
+#include "PrinterCover.hpp"
+#include "libslic3r/PrinterCover.hpp"
 #include "ProfileFamilyLoader.hpp"
 
 #include <thread>
-#include <condition_variable>
-
 #include <wx/wx.h>
 #include <boost/filesystem/path.hpp>
+#include <tbb/parallel_for.h>
 #include <tbb/parallel_for_each.h>
 
 #include "nlohmann/json.hpp"
@@ -15,224 +16,21 @@
 #include "libslic3r/AppConfig.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/3DBed.hpp"
+#include "slic3r/GUI/Plater.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
 
 using namespace Slic3r;
 using namespace GUI;
 
 
-class ThreadPool
-{
-public:
-    class Worker
-    {
-    public:
-        Worker(ThreadPool* p, bool runonce = true) 
-            : parent(p)
-            , runonce_after_create(runonce)
-        {
-            m_ret = std::async([this]() { run(); });
-        }
-
-        void stop_and_wait() 
-        { 
-            stop_signal();  
-            wait_finished();
-        }
-        void stop_signal() { m_stop.store(true); }
-        void wait_finished() { m_ret.get(); }
-        bool idle() { return m_idle.load(); }
-
-    private:
-        void run()
-        {
-            {
-                std::unique_lock lk(parent->active_mutex);
-                while (1) {
-                    if (!runonce_after_create)
-                        parent->active_signal.wait(lk);
-                    runonce_after_create = false;
-                    if (m_stop.load())
-                        return;
-                    if (parent->m_target_active_count.load() != parent->m_cur_active_count.load()) {
-                        parent->m_cur_active_count.fetch_add(1);
-                        break;
-                    }
-                }
-            }
-
-            while (!m_stop.load()) 
-            {
-                m_idle.store(true);        
-                auto f = parent->get_task();
-                m_idle.store(false);
-                f();
-            }
-        }
-
-        bool                   runonce_after_create = false;
-        std::future<void>      m_ret;
-        std::atomic_bool m_stop  = false;
-        std::atomic_bool m_idle = true;
-        std::condition_variable actived_signal;
-        std::mutex actived_mutex;
-        ThreadPool*      parent = nullptr;
-    };
-    struct WorkerQueue
-    {
-        void wait_all_idle()
-        {
-            for (auto work : m_works)
-            {
-                while (!work->idle()) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                }
-            }
-        }
-        void terminate_all()
-        {
-            for (auto work : m_works) 
-            {
-                work->stop_signal();
-            }
-        }
-        void wait_all()
-        {
-            for (auto work : m_works) {
-                work->wait_finished();
-            }
-        }
-
-        std::list<Worker*> m_works;
-    };
-
-    struct TaskQueue
-    {
-        using Func_Type = std::function<void()>;
-        Func_Type pop()
-        {
-            std::unique_lock lk(data_mutex);
-            if (m_tasks.empty()) {
-                empty_signal.notify_all();
-
-                non_empty_signal.wait(lk);
-                if (m_tasks.empty()) {
-                    return [](){}; // empty function
-                }
-            }
-
-            auto t = m_tasks.front();
-            m_tasks.pop_front();
-            return t;
-        }
-
-        void push(std::list<Func_Type>& block)
-        {
-            std::unique_lock lk(data_mutex);
-            m_tasks = block;
-            non_empty_signal.notify_all();
-        }
-        
-        void wait_empty()
-        {
-            std::unique_lock lk(data_mutex);
-            empty_signal.wait(lk, [&]() { return m_tasks.empty(); });
-        }
-
-        std::list<Func_Type> m_tasks;
-
-        std::condition_variable empty_signal;
-        std::condition_variable non_empty_signal;
-        std::mutex data_mutex;
-    };
-
-public:
-    ThreadPool()
-    {
-        auto hc = std::thread::hardware_concurrency();
-        m_max_count = hc == 0 ? 4 : hc>4? 4:hc; // maybe 4 thread enough
-        min_fire_power();
-        for (auto i = 0; i < m_max_count; ++i) 
-        {
-            m_work_queue.m_works.push_back(new Worker(this));
-        }
-    }
-    ~ThreadPool()
-    {
-        m_work_queue.terminate_all();
-        active_signal.notify_all();
-        m_task_queue.non_empty_signal.notify_all();
-        m_work_queue.wait_all();
-
-        for (auto work : m_work_queue.m_works)
-        {
-            delete work;
-        }
-    }
-
-    template<typename Vec, typename Func> 
-    void parallel_for(Vec&& vec, Func&& f)
-    { 
-        if (vec.size() == 0)
-            return;
-        add_tasks(std::forward<Vec>(vec), std::forward<Func>(f));
-        wait_cur_tasks_finished();
-    }
-
-    template<typename Func> 
-    void parallel_for(int i1, int i2, Func&& f)
-    {
-        std::vector<int> v;
-        for (auto i = i1; i != i2; ++i)
-            v.push_back(i);
-        parallel_for(v, std::forward<Func>(f));
-    }
-    
-    void max_fire_power()
-    { change_active_worker_count(m_max_count); }
-
-private:
-    void min_fire_power() { change_active_worker_count(1); }
-
-    TaskQueue::Func_Type get_task() { return m_task_queue.pop(); }
-
-    template<typename Vec, typename Func> 
-    void add_tasks(Vec&& vec, Func&& f)
-    {
-        std::list<TaskQueue::Func_Type> block;
-        for (auto it = vec.begin(); it != vec.end(); ++it) {
-            block.push_back(std::bind(f, *it));
-        }
-        m_task_queue.push(block);
-    }
-
-    void wait_cur_tasks_finished()
-    {
-        m_task_queue.wait_empty();
-        m_work_queue.wait_all_idle();
-    }
-    void change_active_worker_count(int c)
-    {
-        c = c > m_max_count ? m_max_count : c;
-        if (m_target_active_count.load() == c)
-            return;
-
-        m_target_active_count.store(c);
-        active_signal.notify_all();
-    }
-
-    int              m_max_count;
-    std::atomic_char m_target_active_count = 0;
-    std::atomic_char m_cur_active_count = 0;
-    std::condition_variable active_signal;
-    std::mutex active_mutex;
-
-    WorkerQueue m_work_queue;
-    friend WorkerQueue;
-    TaskQueue   m_task_queue;
-    friend TaskQueue;
-};
-
-static std::string w2s(wxString sSrc) { return std::string(sSrc.mb_str()); }
+// NOTE: must encode as UTF-8, not via mb_str().
+// mb_str() encodes using the current locale (GBK on Simplified Chinese Windows).
+// Paths and vendor names in this file originate from from_u8()/UTF-8 std::strings and
+// are fed back into boost::filesystem::path, which has a UTF-8 codecvt installed by
+// boost::nowide::nowide_filesystem() at startup. Handing it locale-encoded bytes makes
+// the path constructor throw "codecvt to wstring: error [codecvt:2]" for any non-ASCII
+// path, which silently aborts loading a whole vendor's profile family.
+static std::string w2s(wxString sSrc) { return std::string(sSrc.utf8_str()); }
 
 static void StringReplace(string& strBase, string strSrc, string strDes)
 {
@@ -384,7 +182,6 @@ static bool customComparator(const PrinterInfo& a, const PrinterInfo& b)
 
 ProfileFamilyLoader::ProfileFamilyLoader()
 {
-    tp = new ThreadPool;
     request();
 }
 
@@ -392,7 +189,6 @@ void ProfileFamilyLoader::request(bool force_reload)
 {
     std::lock_guard<std::mutex> lock(m_state_mutex);
     if (m_first_frame_loading) {
-        tp->max_fire_power();
         return;
     }
     if (m_first_frame_loaded && !force_reload)
@@ -434,6 +230,77 @@ void ProfileFamilyLoader::wait_until_loaded()
 bool ProfileFamilyLoader::data_empty() 
 { 
     return m_machine_json.empty() || m_profile_json.empty();
+}
+
+// Vendor folder that owns machineList.json and the machine presets derived from it.
+static std::string profile_vendor_name()
+{
+#ifdef CUSTOMIZED
+    return std::string(SLIC3R_APP_KEY);
+#else
+    return std::string("Creality");
+#endif
+}
+
+boost::filesystem::path ProfileFamilyLoader::machine_list_path()
+{
+    const boost::filesystem::path data_system_dir =
+        (boost::filesystem::path(Slic3r::data_dir()) / PRESET_SYSTEM_DIR).make_preferred();
+    const boost::filesystem::path resources_profiles_dir =
+        (boost::filesystem::path(resources_dir()) / "profiles").make_preferred();
+
+    const std::string vendor_name = profile_vendor_name();
+
+    boost::filesystem::path machinepath = data_system_dir;
+    if (!boost::filesystem::exists((data_system_dir / vendor_name / "machineList").replace_extension(".json"))) {
+        machinepath = resources_profiles_dir;
+    }
+    return (machinepath / vendor_name / "machineList.json").make_preferred();
+}
+
+bool ProfileFamilyLoader::reload_machine_list()
+{
+    {
+        std::lock_guard<std::mutex> lock(m_state_mutex);
+        // A full load is in flight, or has not run yet. It reads machineList.json from
+        // disk on its own, so patching the cached copy here would be pointless and
+        // would race with the loader thread writing m_machine_json.
+        if (m_first_frame_loading || !m_first_frame_loaded)
+            return false;
+    }
+
+    const boost::filesystem::path file_path = machine_list_path();
+
+    json output_machine       = json::object();
+    output_machine["machine"] = json::array();
+    std::map<std::string, std::string> thumbnails;
+
+    if (LoadMachineJson(output_machine, thumbnails, file_path) != 0) {
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": failed to reload " << file_path.string()
+                                 << ", keeping the previously loaded machine list";
+        return false;
+    }
+
+    // An empty result means the file parsed but produced no usable series (for
+    // example a truncated download). Keeping the old list is better than blanking
+    // the add-printer navigation tree.
+    if (output_machine["machine"].empty()) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": " << file_path.string()
+                                   << " produced an empty machine list, keeping the previous one";
+        return false;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_state_mutex);
+        m_machine_json = std::move(output_machine);
+        // Merge instead of replace: covers resolved during the full load may refer to
+        // thumbnails that are no longer listed, and dropping them would break images.
+        for (const auto& item : thumbnails)
+            m_map_machine_thumbnail[item.first] = item.second;
+    }
+
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": machine list reloaded from " << file_path.string();
+    return true;
 }
 
 int ProfileFamilyLoader::LoadProfile(
@@ -490,34 +357,40 @@ int ProfileFamilyLoader::LoadProfile(
         // load machine lists
         output_machine                      = json::parse("{}");
         output_machine["machine"]           = json::array();
-        boost::filesystem::path machinepath = data_system_dir;
-#ifdef CUSTOMIZED
-        std::string vendor_name = std::string(SLIC3R_APP_KEY);
-#else
-        std::string vendor_name = "Creality";
-#endif
-        if (!boost::filesystem::exists((data_system_dir / vendor_name / "machineList").replace_extension(".json"))) {
-            machinepath = resources_profiles_dir;
-        }
         LoadMachineJson(
-            output_machine, 
-            m_map_machine_thumbnail, 
-            (machinepath / vendor_name / "machineList.json").string());
+            output_machine,
+            m_map_machine_thumbnail,
+            machine_list_path());
 
-        auto traversal_get_files = [](std::string dir, std::vector<fs::path>& output) {
+        const std::string vendor_name = profile_vendor_name();
+
+        // Backfill covers for already installed models, even when their parameter version is current.
+        bool covers_changed = false;
+        for (const auto& entry : m_map_machine_thumbnail) {
+            if (!valid_printer_cover_component(entry.first))
+                continue;
+            const auto model_file = data_system_dir / vendor_name / "machine" / (entry.first + "_model.json");
+            boost::system::error_code ec;
+            if (boost::filesystem::is_regular_file(model_file, ec))
+                covers_changed |= sync_printer_cover(vendor_name, entry.first, entry.second);
+        }
+        if (covers_changed) {
+            wxGetApp().CallAfter([] {
+                if (auto* plater = wxGetApp().plater()) {
+                    if (auto* canvas = plater->get_current_canvas3D())
+                        canvas->set_as_dirty();
+                    plater->Refresh();
+                }
+            });
+        }
+
+        auto traversal_get_files = [](const fs::path& dir, std::vector<fs::path>& output) {
             boost::filesystem::directory_iterator endIter;
-            for (boost::filesystem::directory_iterator iter(dir); iter != endIter; iter++) {
-                auto path = iter->path();
-                if (boost::filesystem::is_directory(path))
-                    continue;
-                output.push_back(path);
+            for (boost::filesystem::directory_iterator iter(dir); iter != endIter; ++iter) {
+                const fs::path& path = iter->path();
+                if (!boost::filesystem::is_directory(path))
+                    output.push_back(path);
             }
-        };
-        auto parser_ext_vendor_by_path = [](std::string path, wxString& vendor, wxString& ext) {
-            vendor                = from_u8(path).BeforeLast('.');
-            vendor                = vendor.AfterLast('\\');
-            vendor                = vendor.AfterLast('\/');
-            ext                   = from_u8(path).AfterLast('.').Lower();
         };
 
         // load curstom json
@@ -528,81 +401,75 @@ int ProfileFamilyLoader::LoadProfile(
             bbl_bundle_rsrc = true;
         }
         std::vector<fs::path> paths;
-        traversal_get_files(customdir.string(), paths);
-        for (auto path : paths)
+        traversal_get_files(customdir, paths);
+        for (const fs::path& path : paths)
         {
-            auto f = [this, &output_profile, parser_ext_vendor_by_path, gen_profile_json,
-                      merger_profile_data](const boost::filesystem::path& path) {
-                wxString strVendor;
-                wxString strExtension;
-                parser_ext_vendor_by_path(path.string(), strVendor, strExtension);
-                if (strExtension.CmpNoCase("json") == 0) {
-                    if (w2s(strVendor) == PresetBundle::BBL_BUNDLE) {
-                        json output = gen_profile_json();
-                        LoadProfileFamily(w2s(strVendor), path.string(), output);
-                        merger_profile_data(output_profile, output);
-                    }
-                }
-            };
-            f(path);
+            const std::string vendor = path.stem().string();
+            const std::string extension = path.extension().string();
+            if (boost::iequals(extension, ".json") && vendor == PresetBundle::BBL_BUNDLE) {
+                json output = gen_profile_json();
+                LoadProfileFamily(vendor, path, output);
+                merger_profile_data(output_profile, output);
+            }
         }
         
         // load all profile json
         std::vector<fs::path> resources_profiles_files;
-        traversal_get_files(resources_profiles_dir.string(), resources_profiles_files);
-        for (auto path : resources_profiles_files)
+        traversal_get_files(resources_profiles_dir, resources_profiles_files);
+        BOOST_LOG_TRIVIAL(info) << "ProfileScan: resources profiles dir=" << resources_profiles_dir.string()
+                                << " exists=" << boost::filesystem::exists(resources_profiles_dir)
+                                << " files found=" << resources_profiles_files.size();
+        for (const fs::path& path : resources_profiles_files)
         {
-            auto f = [this, data_system_dir, parser_ext_vendor_by_path, gen_profile_json,
-                      merger_profile_data](const boost::filesystem::path& path) {
-                wxString strVendor;
-                wxString strExtension;
-                parser_ext_vendor_by_path(path.string(), strVendor, strExtension);
+            const std::string vendor = path.stem().string();
+            const std::string extension = path.extension().string();
+            if (!boost::iequals(extension, ".json") || vendor == PresetBundle::BBL_BUNDLE)
+                continue;
 
-                if (strExtension.CmpNoCase("json") == 0) {
-                    if (w2s(strVendor) != PresetBundle::BBL_BUNDLE) {
-                        auto target_path = path;
-                        bool load        = false;
-                        bool is_creality = false;
-                        if (strVendor == "Creality") {
-                            boost::filesystem::path user_vendor_path = (data_system_dir / "Creality.json").make_preferred();
-                            if (boost::filesystem::exists(user_vendor_path)) {
-                                target_path = user_vendor_path;
-                            }
-                            is_creality = true;
-                            load = true;
-                        }
-                        else
-                        {
-                            if (!m_first_frame_loaded)
-                                load = true;
-                        }
-                        if (load) {
-                            json output = gen_profile_json();
-                            LoadProfileFamily(w2s(strVendor), target_path.string(), output);
-                            merger_profile_data(is_creality ? m_creality_profile_json : m_resources_profile_json, output);
-                        }
-                    }
-                }
-            };
-            f(path);
+            auto target_path = path;
+            bool load        = false;
+            bool is_creality = false;
+            if (vendor == "Creality") {
+                boost::filesystem::path user_vendor_path = (data_system_dir / "Creality.json").make_preferred();
+                if (boost::filesystem::exists(user_vendor_path))
+                    target_path = user_vendor_path;
+                is_creality = true;
+                load = true;
+            } else if (!m_first_frame_loaded) {
+                load = true;
+            }
+
+            if (load) {
+                json output = gen_profile_json();
+                BOOST_LOG_TRIVIAL(info) << "ProfileScan: loading vendor '" << vendor
+                                        << "' from " << target_path.string();
+                LoadProfileFamily(vendor, target_path, output);
+                merger_profile_data(is_creality ? m_creality_profile_json : m_resources_profile_json, output);
+                BOOST_LOG_TRIVIAL(info) << "ProfileScan: vendor '" << vendor << "' done";
+            }
         }
         merger_profile_data(output_profile, m_creality_profile_json);
         merger_profile_data(output_profile, m_resources_profile_json);
 
     } catch (std::exception& e) {
+        // This handler used to be completely empty. Any failure while scanning the
+        // vendor profile directories silently dropped whole vendors (notably
+        // Creality), which surfaced much later as "add printer failed" with nothing
+        // in the log to explain it.
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": profile scan aborted by exception: " << e.what();
     }
     return 0;
 }
 
 int ProfileFamilyLoader::LoadMachineJson(
-    json& output_machine, 
-    std::map<std::string, std::string> &mapMachineThumbnail,
-    std::string strFilePath)
+    json& output_machine,
+    std::map<std::string, std::string>& mapMachineThumbnail,
+    const boost::filesystem::path& file_path)
 {
-    boost::filesystem::path file_path(strFilePath);
     try {
         std::string contents;
-        LoadFile(strFilePath, contents);
+        if (!LoadFile(file_path, contents))
+            return -1;
         json jLocal = json::parse(contents);
 
         json pmodels = jLocal["printerList"];
@@ -685,11 +552,11 @@ int ProfileFamilyLoader::LoadMachineJson(
         }
 
     } catch (nlohmann::detail::parse_error& err) {
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << strFilePath
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << file_path.string()
                                  << " got a nlohmann::detail::parse_error, reason = " << err.what();
         return -1;
     } catch (std::exception& e) {
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << strFilePath << " got exception: " << e.what();
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << file_path.string() << " got exception: " << e.what();
         return -1;
     }
 
@@ -697,17 +564,17 @@ int ProfileFamilyLoader::LoadMachineJson(
 }
 
 int ProfileFamilyLoader::LoadProfileFamily(
-    std::string strVendor, 
-    std::string strFilePath,
+    const std::string& vendor,
+    const boost::filesystem::path& file_path,
     json& outputJson)
 {
-    boost::filesystem::path file_path(strFilePath);
-    boost::filesystem::path vendor_dir = boost::filesystem::absolute(file_path.parent_path() / strVendor).make_preferred();
+    boost::filesystem::path vendor_dir = boost::filesystem::absolute(file_path.parent_path() / vendor).make_preferred();
     // judge if user has copy vendor dir to data dir
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(",  vendor path %1%.") % vendor_dir.string();
     try {
         std::string contents;
-        LoadFile(strFilePath, contents);
+        if (!LoadFile(file_path, contents))
+            return -1;
 
         json jLocal = json::parse(contents);
 
@@ -718,7 +585,7 @@ int ProfileFamilyLoader::LoadProfileFamily(
         json                       pmachine = jLocal["machine_list"];
         int                        nsize    = pmachine.size();
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(",  got %1% machines") % nsize;
-        tp->parallel_for(
+        tbb::parallel_for(
                         0, nsize,
                         [this, &pmachine, vendor_dir, &mapInfo, &outputJson, &mapInfoMutex,
                         &outputJsonMutex](int n) {
@@ -727,12 +594,10 @@ int ProfileFamilyLoader::LoadProfileFamily(
                                 std::string s1 = OneMachine["name"];
                                 std::string s2 = OneMachine["sub_path"];
 
-                                boost::filesystem::path sub_path = boost::filesystem::absolute(vendor_dir / s2).make_preferred();
-                                std::string sub_file = sub_path.string();
+                                const boost::filesystem::path sub_path = boost::filesystem::absolute(vendor_dir / s2).make_preferred();
                                 std::string contents;
-                                if (!boost::filesystem::exists(sub_file))
+                                if (!boost::filesystem::exists(sub_path) || !LoadFile(sub_path, contents))
                                     return;
-                                LoadFile(sub_file, contents);
                                 try {
                                     json pm = json::parse(contents);
 
@@ -763,10 +628,10 @@ int ProfileFamilyLoader::LoadProfileFamily(
         nsize   = pmodels.size();
 
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(",  got %1% machine models") % nsize;
-        tp->parallel_for(
+        tbb::parallel_for(
             0, nsize,
             [this, &pmodels, vendor_dir, &outputJsonMutex,
-            strVendor, &mapInfo, &outputJson](int n) {
+            vendor, &mapInfo, &outputJson](int n) {
                 json OneModel = pmodels.at(n);
 
                 OneModel["model"] = OneModel["name"];
@@ -774,34 +639,26 @@ int ProfileFamilyLoader::LoadProfileFamily(
 
                 std::string             s1       = OneModel["model"];
                 std::string             s2       = OneModel["sub_path"];
-                boost::filesystem::path sub_path = boost::filesystem::absolute(vendor_dir / s2).make_preferred();
-                std::string sub_file = sub_path.string();
+                const boost::filesystem::path sub_path = boost::filesystem::absolute(vendor_dir / s2).make_preferred();
                 std::string contents;
-                if (!boost::filesystem::exists(sub_file))
+                if (!boost::filesystem::exists(sub_path) || !LoadFile(sub_path, contents))
                     return;
-                LoadFile(sub_file, contents);
                 json pm;
                 try {
                     pm = json::parse(contents);
                 } catch (nlohmann::detail::parse_error& err) {
-                    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << "Load machine_model_list error::" << sub_file << std::endl;
+                    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << "Load machine_model_list error::" << sub_path.string() << std::endl;
                     return;
                 }
-                OneModel["vendor"]    = strVendor;
+                OneModel["vendor"]    = vendor;
                 std::string NozzleOpt = pm["nozzle_diameter"];
                 StringReplace(NozzleOpt, " ", "");
                 OneModel["nozzle_diameter"] = NozzleOpt;
                 OneModel["materials"]       = pm["default_materials"];
 
-                std::string             cover_file = s1 + "_cover.png";
-                boost::filesystem::path cover_path = boost::filesystem::absolute(boost::filesystem::path(resources_dir()) / "/profiles/" /
-                                                                                    strVendor / cover_file).make_preferred();
-                if (!boost::filesystem::exists(cover_path)) {
-                    m_map_machine_thumbnail.count(s1) > 0 ?
-                        cover_path = m_map_machine_thumbnail[s1] :
-                        cover_path = (boost::filesystem::absolute(boost::filesystem::path(resources_dir()) / "/web/image/printer/") /
-                                        cover_file).make_preferred();
-                }
+                boost::filesystem::path cover_path = find_printer_cover(data_dir(), resources_dir(), vendor, s1);
+                if (cover_path.empty())
+                    cover_path = boost::filesystem::path(resources_dir()) / "images" / "printer_default.png";
                 std::string url = cover_path.string();
                 std::regex  pattern("\\\\");
                 std::string replacement = "/";
@@ -844,14 +701,14 @@ int ProfileFamilyLoader::LoadProfileFamily(
             std::string s2 = OneFF["sub_path"];
 
             tFilaList[s1] = OneFF;
-            BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "Vendor: " << strVendor << ", tFilaList Add: " << s1;
+            BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "Vendor: " << vendor << ", tFilaList Add: " << s1;
         }
 
         int nFalse  = 0;
         int nModel  = 0;
         int nFinish = 0;
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(",  got %1% filaments") % nsize;
-        tp->parallel_for(
+        tbb::parallel_for(
             0, nsize, 
             [this, &pFilament, &outputJson, 
             &outputJsonMutex, vendor_dir,&tFilaList](int n) 
@@ -865,28 +722,26 @@ int ProfileFamilyLoader::LoadProfileFamily(
                 auto elem_exists = outputJson["filament"].contains(s1);
                 outputJsonMutex.unlock();
                 if (!elem_exists) {
-                    boost::filesystem::path sub_path = boost::filesystem::absolute(vendor_dir / s2).make_preferred();
-                    std::string sub_file = sub_path.string();
+                    const boost::filesystem::path sub_path = boost::filesystem::absolute(vendor_dir / s2).make_preferred();
                     std::string contents;
-                    if (!boost::filesystem::exists(sub_file))
+                    if (!boost::filesystem::exists(sub_path) || !LoadFile(sub_path, contents))
                         return;
-                    LoadFile(sub_file, contents);
                     json pm;
                     try {
                         pm = json::parse(contents);
                     } catch (nlohmann::detail::parse_error& err) {
-                        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << "Load Filament error::" << sub_file << ",reason:" << err.what() << std::endl;
+                        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << "Load Filament error::" << sub_path.string() << ",reason:" << err.what() << std::endl;
                         return;
                     }
                     std::string strInstant = pm["instantiation"];
-                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "Load Filament:" << s1 << ",Path:" << sub_file << ",instantiation?"
+                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "Load Filament:" << s1 << ",Path:" << sub_path.string() << ",instantiation?"
                                             << strInstant;
 
                     if (strInstant == "true") {
                         std::string sV;
                         std::string sT;
 
-                        int nRet = GetFilamentInfo(vendor_dir.string(), tFilaList, sub_file, sV, sT);
+                        int nRet = GetFilamentInfo(vendor_dir, tFilaList, sub_path, sV, sT);
                         if (nRet != 0) {
                             BOOST_LOG_TRIVIAL(info)
                                 << __FUNCTION__ << "Load Filament:" << s1 << ",GetFilamentInfo Failed, Vendor:" << sV << ",Type:" << sT;
@@ -927,7 +782,7 @@ int ProfileFamilyLoader::LoadProfileFamily(
         json pProcess = jLocal["process_list"];
         nsize    = pProcess.size();
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(",  got %1% processes") % nsize;
-        tp->parallel_for(
+        tbb::parallel_for(
             0, nsize, 
             [this, &pProcess, vendor_dir, &outputJson, 
             &outputJsonMutex](int n) 
@@ -935,17 +790,15 @@ int ProfileFamilyLoader::LoadProfileFamily(
                 json OneProcess = pProcess.at(n);
 
                 std::string             s2       = OneProcess["sub_path"];
-                boost::filesystem::path sub_path = boost::filesystem::absolute(vendor_dir / s2).make_preferred();
-                std::string sub_file = sub_path.string();
+                const boost::filesystem::path sub_path = boost::filesystem::absolute(vendor_dir / s2).make_preferred();
                 std::string contents;
-                if (!boost::filesystem::exists(sub_file))
+                if (!boost::filesystem::exists(sub_path) || !LoadFile(sub_path, contents))
                     return;
-                LoadFile(sub_file, contents);
                 json pm;
                 try {
                     pm = json::parse(contents);
                 } catch (nlohmann::detail::parse_error& err) {
-                    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << "Load process error::" << sub_file << std::endl;
+                    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << "Load process error::" << sub_path.string() << std::endl;
                     return;
                 }
 
@@ -957,105 +810,119 @@ int ProfileFamilyLoader::LoadProfileFamily(
             
         });
     } catch (nlohmann::detail::parse_error& err) {
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << strFilePath
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << file_path.string()
                                  << " got a nlohmann::detail::parse_error, reason = " << err.what();
         return -1;
     } catch (std::exception& e) {
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << strFilePath << " got exception: " << e.what();
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << file_path.string() << " got exception: " << e.what();
         return -1;
     }
 
     return 0;
 }
 
-bool ProfileFamilyLoader::LoadFile(std::string jPath, std::string& sContent)
+bool ProfileFamilyLoader::LoadFile(const boost::filesystem::path& path, std::string& content)
 {
+    content.clear();
     try {
-        boost::nowide::ifstream t(jPath);
-        std::stringstream       buffer;
-        buffer << t.rdbuf();
-        sContent = buffer.str();
-        BOOST_LOG_TRIVIAL(trace) << __FUNCTION__ << boost::format(", load %1% into buffer") % jPath;
-    } catch (std::exception& e) {
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ",  got exception: " << e.what();
+        // boost::nowide::ifstream expects an UTF-8 narrow path on Windows. Keep the
+        // path native until this I/O boundary so no local-code-page conversion can
+        // consume a path separator (for example UTF-8 "新建文件夹\\" under CP936).
+        const std::string utf8_path = path.string();
+        boost::nowide::ifstream input(utf8_path);
+        if (!input.is_open()) {
+            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": failed to open " << utf8_path;
+            return false;
+        }
+
+        std::stringstream buffer;
+        buffer << input.rdbuf();
+        if (input.bad()) {
+            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": failed while reading " << utf8_path;
+            return false;
+        }
+
+        content = buffer.str();
+        if (content.empty()) {
+            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": file is empty " << utf8_path;
+            return false;
+        }
+
+        BOOST_LOG_TRIVIAL(trace) << __FUNCTION__ << boost::format(", load %1% into buffer") % utf8_path;
+        return true;
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": exception for " << path.string() << ": " << e.what();
         return false;
     }
-
-    return true;
 }
 
 int ProfileFamilyLoader::GetFilamentInfo(
-    std::string VendorDirectory, json& pFilaList, std::string filepath, std::string& sVendor, std::string& sType)
+    const boost::filesystem::path& vendor_directory,
+    json& pFilaList,
+    const boost::filesystem::path& file_path,
+    std::string& sVendor,
+    std::string& sType)
 {
-    // GetStardardFilePath(filepath);
-    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " GetFilamentInfo:VendorDirectory - " << VendorDirectory << ", Filepath - " << filepath;
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " GetFilamentInfo:VendorDirectory - " << vendor_directory.string()
+                            << ", Filepath - " << file_path.string();
 
     try {
         std::string contents;
-        LoadFile(filepath, contents);
+        if (!LoadFile(file_path, contents))
+            return -1;
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": Json Contents: " << contents;
         json jLocal = json::parse(contents);
 
-        if (sVendor == "") {
+        if (sVendor.empty()) {
             if (jLocal.contains("filament_vendor"))
                 sVendor = jLocal["filament_vendor"][0];
-            else {
-                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << filepath << " - Not Contains filament_vendor";
-            }
+            else
+                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << file_path.string() << " - Not Contains filament_vendor";
         }
 
-        if (sType == "") {
+        if (sType.empty()) {
             if (jLocal.contains("filament_type"))
                 sType = jLocal["filament_type"][0];
-            else {
-                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << filepath << " - Not Contains filament_type";
-            }
+            else
+                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << file_path.string() << " - Not Contains filament_type";
         }
 
-        if (sVendor == "" || sType == "") {
+        if (sVendor.empty() || sType.empty()) {
             if (jLocal.contains("inherits")) {
-                std::string FName = jLocal["inherits"];
-
-                if (!pFilaList.contains(FName)) {
-                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "pFilaList - Not Contains inherits filaments: " << FName;
+                const std::string inherited_name = jLocal["inherits"];
+                if (!pFilaList.contains(inherited_name)) {
+                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "pFilaList - Not Contains inherits filaments: " << inherited_name;
                     return -1;
                 }
 
-                std::string FPath = pFilaList[FName]["sub_path"];
-                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " Before Format Inherits Path: VendorDirectory - " << VendorDirectory
-                                        << ", sub_path - " << FPath;
-                wxString                strNewFile = wxString::Format("%s%c%s", wxString(VendorDirectory.c_str(), wxConvUTF8),
-                                                                      boost::filesystem::path::preferred_separator, FPath);
-                boost::filesystem::path inherits_path(w2s(strNewFile));
+                const std::string relative_path = pFilaList[inherited_name]["sub_path"];
+                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " Before Format Inherits Path: VendorDirectory - "
+                                        << vendor_directory.string() << ", sub_path - " << relative_path;
+                const boost::filesystem::path inherits_path =
+                    (vendor_directory / boost::filesystem::path(relative_path)).make_preferred();
 
-                // boost::filesystem::path nf(strNewFile.c_str());
                 if (boost::filesystem::exists(inherits_path))
-                    return GetFilamentInfo(VendorDirectory, pFilaList, inherits_path.string(), sVendor, sType);
-                else {
-                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " inherits File Not Exist: " << inherits_path;
-                    return -1;
-                }
-            } else {
-                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << filepath << " - Not Contains inherits";
-                if (sType == "") {
-                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "sType is Empty";
-                    return -1;
-                } else
-                    sVendor = "Generic";
-                return 0;
+                    return GetFilamentInfo(vendor_directory, pFilaList, inherits_path, sVendor, sType);
+
+                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " inherits File Not Exist: " << inherits_path.string();
+                return -1;
             }
-        } else
-            return 0;
-    } catch (nlohmann::detail::parse_error& err) {
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << filepath
+
+            BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << file_path.string() << " - Not Contains inherits";
+            if (sType.empty()) {
+                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "sType is Empty";
+                return -1;
+            }
+            sVendor = "Generic";
+        }
+
+        return 0;
+    } catch (const nlohmann::detail::parse_error& err) {
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << file_path.string()
                                  << " got a nlohmann::detail::parse_error, reason = " << err.what();
         return -1;
-    } catch (std::exception& e) {
-        // wxLogMessage("GUIDE: load_profile_error  %s ", e.what());
-        // wxMessageBox(e.what(), "", MB_OK);
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << filepath << " got exception: " << e.what();
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << file_path.string() << " got exception: " << e.what();
         return -1;
     }
-
-    return 0;
 }

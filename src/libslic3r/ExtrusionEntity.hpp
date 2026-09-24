@@ -2,6 +2,7 @@
 #define slic3r_ExtrusionEntity_hpp_
 
 #include "Polygon.hpp"
+#include <memory>
 #include <optional>
 #include <assert.h>
 #include <string_view>
@@ -13,6 +14,7 @@ class ExPolygon;
 using ExPolygons = std::vector<ExPolygon>;
 class ExtrusionEntityCollection;
 class Extruder;
+struct ZaaPathPlanResult;
 
 
 struct NodeContour
@@ -192,6 +194,38 @@ protected:
 
 typedef std::vector<ExtrusionEntity*> ExtrusionEntitiesPtr;
 
+enum class ZaaPathPolicy : unsigned char {
+    Conventional,
+    ZaaLinearCandidate
+};
+
+// Optional 3D geometry carried by an extrusion path. Derived classes may add
+// planner-specific metadata while preserving clone, reverse and split semantics.
+class ExtrusionPath3
+{
+public:
+    explicit ExtrusionPath3(Polyline3 polyline);
+    virtual ~ExtrusionPath3() = default;
+
+    virtual std::unique_ptr<ExtrusionPath3> clone() const;
+    virtual void reverse();
+    virtual void clip_end(double distance);
+    virtual bool split_at_xy(const Point &query,
+                             Point &actual_xy,
+                             std::unique_ptr<ExtrusionPath3> &before,
+                             std::unique_ptr<ExtrusionPath3> &after) const;
+
+    // Concatenate continuous 3D geometry. The shared endpoint is retained once.
+    bool append(const ExtrusionPath3 &suffix);
+
+    const Polyline3 &polyline3() const;
+    double length_xy() const;
+    double length_3d() const;
+
+protected:
+    Polyline3 m_polyline;
+};
+
 class ExtrusionPath : public ExtrusionEntity
 {
 public:
@@ -240,6 +274,9 @@ public:
         , m_can_reverse(rhs.m_can_reverse)
         , m_role(rhs.m_role)
         , m_no_extrusion(rhs.m_no_extrusion)
+        , m_zaa_path_policy(rhs.m_zaa_path_policy)
+        , m_path3(rhs.m_path3 ? rhs.m_path3->clone() : nullptr)
+        , m_locked_zag_skeleton(rhs.m_locked_zag_skeleton)
     {}
     ExtrusionPath(ExtrusionPath &&rhs)
         : polyline(std::move(rhs.polyline))
@@ -253,6 +290,9 @@ public:
         , m_can_reverse(rhs.m_can_reverse)
         , m_role(rhs.m_role)
         , m_no_extrusion(rhs.m_no_extrusion)
+        , m_zaa_path_policy(rhs.m_zaa_path_policy)
+        , m_path3(std::move(rhs.m_path3))
+        , m_locked_zag_skeleton(rhs.m_locked_zag_skeleton)
     {}
     ExtrusionPath(const Polyline &polyline, const ExtrusionPath &rhs)
         : polyline(polyline)
@@ -266,6 +306,8 @@ public:
         , m_can_reverse(rhs.m_can_reverse)
         , m_role(rhs.m_role)
         , m_no_extrusion(rhs.m_no_extrusion)
+        , m_zaa_path_policy(rhs.m_zaa_path_policy)
+        , m_locked_zag_skeleton(rhs.m_locked_zag_skeleton)
     {}
     ExtrusionPath(Polyline &&polyline, const ExtrusionPath &rhs)
         : polyline(std::move(polyline))
@@ -279,12 +321,16 @@ public:
         , m_can_reverse(rhs.m_can_reverse)
         , m_role(rhs.m_role)
         , m_no_extrusion(rhs.m_no_extrusion)
+        , m_zaa_path_policy(rhs.m_zaa_path_policy)
+        , m_locked_zag_skeleton(rhs.m_locked_zag_skeleton)
     {}
 
     ExtrusionPath& operator=(const ExtrusionPath& rhs) {
         m_can_reverse = rhs.m_can_reverse;
         m_role = rhs.m_role;
         m_no_extrusion = rhs.m_no_extrusion;
+        m_zaa_path_policy = rhs.m_zaa_path_policy;
+        m_locked_zag_skeleton = rhs.m_locked_zag_skeleton;
         this->mm3_per_mm = rhs.mm3_per_mm;
         this->width = rhs.width;
         this->height = rhs.height;
@@ -293,12 +339,15 @@ public:
         this->overhang_degree = rhs.overhang_degree;
         this->curve_degree = rhs.curve_degree;
         this->polyline = rhs.polyline;
+        this->m_path3 = rhs.m_path3 ? rhs.m_path3->clone() : nullptr;
         return *this;
     }
     ExtrusionPath& operator=(ExtrusionPath&& rhs) {
         m_can_reverse = rhs.m_can_reverse;
         m_role = rhs.m_role;
         m_no_extrusion = rhs.m_no_extrusion;
+        m_zaa_path_policy = rhs.m_zaa_path_policy;
+        m_locked_zag_skeleton = rhs.m_locked_zag_skeleton;
         this->mm3_per_mm = rhs.mm3_per_mm;
         this->width = rhs.width;
         this->height = rhs.height;
@@ -307,13 +356,25 @@ public:
         this->overhang_degree = rhs.overhang_degree;
         this->curve_degree = rhs.curve_degree;
         this->polyline = std::move(rhs.polyline);
+        this->m_path3 = std::move(rhs.m_path3);
         return *this;
     }
 
 	ExtrusionEntity* clone() const override { return new ExtrusionPath(*this); }
     // Create a new object, initialize it with this object using the move semantics.
 	ExtrusionEntity* clone_move() override { return new ExtrusionPath(std::move(*this)); }
-    void reverse() override { this->polyline.reverse(); }
+    void reverse() override;
+
+    bool has_path3() const noexcept { return m_path3 != nullptr; }
+    const ExtrusionPath3 *path3() const noexcept { return m_path3.get(); }
+    void set_path3(std::unique_ptr<ExtrusionPath3> path3);
+    void clear_path3() noexcept { m_path3.reset(); }
+
+    // Split in XY while preserving either legacy 2D geometry or the attached 3D path.
+    bool split_at_xy(const Point &query, Point &actual_xy, ExtrusionPath *before, ExtrusionPath *after) const;
+    // Join a continuous 3D suffix and refresh the 2D mirror.
+    void append_path3(const ExtrusionPath &suffix);
+
     const Point& first_point() const override { return this->polyline.points.front(); }
     const Point& last_point() const override { return this->polyline.points.back(); }
     size_t size() const { return this->polyline.size(); }
@@ -368,6 +429,10 @@ public:
     //BBS:
     bool is_force_no_extrusion() const { return m_no_extrusion; }
     void set_force_no_extrusion(bool no_extrusion) { m_no_extrusion = no_extrusion; }
+    ZaaPathPolicy zaa_path_policy() const { return m_zaa_path_policy; }
+    void set_zaa_path_policy(ZaaPathPolicy policy) { m_zaa_path_policy = policy; }
+    bool is_locked_zag_skeleton() const { return m_locked_zag_skeleton; }
+    void set_locked_zag_skeleton(bool locked_zag_skeleton) { m_locked_zag_skeleton = locked_zag_skeleton; }
     void set_extrusion_role(ExtrusionRole extrusion_role) { m_role = extrusion_role; }
     void set_reverse() override { m_can_reverse = false; }
     bool can_reverse() const override { return m_can_reverse; }
@@ -375,11 +440,16 @@ public:
     bool can_merge(const ExtrusionPath& other);
 
 private:
+    friend struct ZaaPathPlanResult;
+
     void _inflate_collection(const Polylines &polylines, ExtrusionEntityCollection* collection) const;
     bool m_can_reverse = true;
     ExtrusionRole m_role;
     //BBS
     bool m_no_extrusion = false;
+    ZaaPathPolicy m_zaa_path_policy = ZaaPathPolicy::Conventional;
+    std::unique_ptr<ExtrusionPath3> m_path3;
+    bool m_locked_zag_skeleton = false;
 };
 
 class ExtrusionPathSloped : public ExtrusionPath
@@ -574,6 +644,9 @@ public:
 #endif /* NDEBUG */
 
 private:
+    // Split the selected path at seam_xy and rotate this loop to start there.
+    bool split_and_rotate_at_xy(size_t path_idx, const Point &seam_xy);
+
     ExtrusionLoopRole m_loop_role;
 };
 

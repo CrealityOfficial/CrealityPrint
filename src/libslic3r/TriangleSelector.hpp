@@ -293,6 +293,10 @@ public:
     // Create new object on a TriangleMesh. The referenced mesh must
     // stay valid, a ptr to it is saved and used.
     explicit TriangleSelector(const TriangleMesh& mesh, float edge_limit = 0.6f);
+    int get_orig_size_vertices() const { return m_orig_size_vertices; }
+    const std::vector<Triangle>& get_triangles() const { return m_triangles; }
+    const std::vector<Vertex>& get_vertices() const { return m_vertices; }
+    const std::vector<Vec3i32>& get_neighbors() const { return m_neighbors; }
 
     // Returns the facet_idx of the unsplit triangle containing the "hit". Returns -1 if the triangle isn't found.
     [[nodiscard]] int select_unsplit_triangle(const Vec3f &hit, int facet_idx) const;
@@ -336,6 +340,57 @@ public:
 
     // Set facet of the mesh to a given state. Only works for original triangles.
     void set_facet(int facet_idx, EnforcerBlockerType state);
+
+    struct FacetSubdivisionMeasurement {
+        EnforcerBlockerType dominant_state { EnforcerBlockerType::NONE };
+        double surface_area { 0.0 };
+        double error_area { 0.0 };
+    };
+    struct FacetSubdivisionResult {
+        double surface_area { 0.0 };
+        double error_area { 0.0 };
+        size_t nodes_created { 0 };
+        bool node_budget_exhausted { false };
+        bool depth_limit_reached { false };
+        bool canceled { false };
+    };
+    using FacetSubdivisionEvaluator =
+        std::function<FacetSubdivisionMeasurement(int, const std::array<Vec3f, 3>&)>;
+    using FacetSubdivisionCancelCallback = std::function<bool()>;
+
+    FacetSubdivisionResult set_facets_with_subdivision(
+        const std::vector<int> &facet_indices,
+        const FacetSubdivisionEvaluator &evaluator,
+        size_t node_budget,
+        double relative_error_limit,
+        double absolute_error_epsilon,
+        int max_depth,
+        const FacetSubdivisionCancelCallback &cancel = nullptr);
+
+    enum class RegionCoverage {
+        None,
+        Partial,
+        Full
+    };
+    using RegionCoverageEvaluator =
+        std::function<RegionCoverage(const std::array<Vec3f, 3> &)>;
+
+    struct RegionPaintResult {
+        size_t nodes_created { 0 };
+        size_t facets_touched { 0 };
+        bool   node_budget_exhausted { false };
+        bool   canceled { false };
+    };
+
+    RegionPaintResult paint_region(const std::vector<int>         &start_facets,
+                                   const RegionCoverageEvaluator  &coverage,
+                                   EnforcerBlockerType             new_state,
+                                   float                           edge_limit,
+                                   size_t                          node_budget,
+                                   int                             max_depth,
+                                   const FacetSubdivisionCancelCallback &cancel = nullptr,
+                                   const std::vector<char>        *paintable_facets = nullptr,
+                                   const Transform3f              *trafo = nullptr);
 
     // Clear everything and make the tree empty.
     void reset();
@@ -472,8 +527,25 @@ protected:
 private:
     bool select_triangle(int facet_idx, EnforcerBlockerType type, bool triangle_splitting);
     bool select_triangle_recursive(int facet_idx, const Vec3i32 &neighbors, EnforcerBlockerType type, bool triangle_splitting);
+    struct RegionPaintContext
+    {
+        const RegionCoverageEvaluator        &coverage;
+        const FacetSubdivisionCancelCallback &cancel;
+        const Transform3f                    *trafo;
+        EnforcerBlockerType                   new_state;
+        int                                   max_depth;
+        size_t                                node_budget;
+        size_t                                steps_since_cancel_check { 0 };
+        RegionPaintResult                     result;
+    };
+    static bool region_paint_canceled(RegionPaintContext &ctx);
+    bool paint_region_recursive(int                  facet_idx,
+                                const Vec3i32       &neighbors,
+                                int                  depth,
+                                RegionPaintContext  &ctx);
+    std::array<Vec3f, 3> facet_vertices(int facet_idx) const;
     void undivide_triangle(int facet_idx);
-    void split_triangle(int facet_idx, const Vec3i32 &neighbors);
+    void split_triangle(int facet_idx, const Vec3i32 &neighbors, const Transform3f *trafo = nullptr);
     void remove_useless_children(int facet_idx); // No hidden meaning. Triangles are meant.
     bool is_facet_clipped(int facet_idx, const ClippingPlane &clp) const;
     int  push_triangle(int a, int b, int c, int source_triangle, EnforcerBlockerType state = EnforcerBlockerType{0});

@@ -335,30 +335,30 @@ namespace DM{
 #endif
 #include <string>
 #include <cstdlib>
-    int LANConnectCheck::checkLan(const std::string& ip, ThreadController& ctrl)
+    int LANConnectCheck::checkLan(const std::string& ip, bool secure_connection, int wss_port, ThreadController& ctrl)
     {
         std::string deviceIP = ip; // 替换为目标设备IP
-        std::string msg = "";
         int errorcode = 0;
         // 第一阶段：检查设备是否在线（ping测试）
         if (!pingHostWithRetry(deviceIP, ctrl)) {
             if (ctrl.isStopRequested()) return -1;  // 中断代码
             errorcode = 1;
             return errorcode;
-            //return msg;
         }
         // 第二阶段：端口连通性检查
-        const int ports_to_check[] = { 80, 9999 };
-        bool allPortsOpen = true;
-        for (int port : ports_to_check) {
-            if (!isPortOpen(deviceIP, port,ctrl)) {
-                if (ctrl.isStopRequested()) return -1;  // 
-                return 2;  // 端口不通
-            }
+        const int info_port = secure_connection ? 443 : 80;
+        const int message_port = secure_connection
+            ? (wss_port > 0 && wss_port <= 65535 ? wss_port : 443)
+            : 9999;
+
+        if (!isPortOpen(deviceIP, info_port, ctrl)) {
+            if (ctrl.isStopRequested()) return -1;
+            return 2;  // 端口不通
         }
-        if (!allPortsOpen) {
-            errorcode = 2;
-            return errorcode;
+        // WSS 端口可能与 HTTPS 端口相同，避免重复探测。
+        if (message_port != info_port && !isPortOpen(deviceIP, message_port, ctrl)) {
+            if (ctrl.isStopRequested()) return -1;
+            return 2;  // 端口不通
         }
 
         // 第三阶段：网络质量检测（5次ping平均延迟）

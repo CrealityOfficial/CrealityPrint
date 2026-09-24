@@ -3,6 +3,7 @@
 
 #include <cereal/access.hpp>
 #include <cereal/types/base_class.hpp>
+#include <cstddef>
 
 namespace Slic3r {
 
@@ -39,6 +40,22 @@ public:
 private:
 	friend class cereal::access;
 	template<class Archive> void serialize(Archive &ar) { ar(id); }
+};
+
+// Orca migration: instance_id is the stable index in PrintObject::instances(),
+// matching the instance-level owner used by Orca's skirt/brim groups.
+struct ObjectInstanceID
+{
+    ObjectID object_id;
+    size_t   instance_id { size_t(-1) };
+
+    bool operator==(const ObjectInstanceID &rhs) const
+        { return object_id == rhs.object_id && instance_id == rhs.instance_id; }
+    bool operator!=(const ObjectInstanceID &rhs) const { return ! (*this == rhs); }
+    bool operator<(const ObjectInstanceID &rhs) const
+    {
+        return object_id < rhs.object_id || (object_id == rhs.object_id && instance_id < rhs.instance_id);
+    }
 };
 
 // Base for Model, ModelObject, ModelVolume, ModelInstance or ModelMaterial to provide a unique ID

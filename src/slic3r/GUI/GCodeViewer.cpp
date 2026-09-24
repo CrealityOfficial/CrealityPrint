@@ -79,6 +79,14 @@ void GCodeViewer::update_shells_color_by_extruder(const DynamicPrintConfig* conf
     }
 }
 
+void GCodeViewer::sync_shells_extruder_ids()
+{
+    const auto& p_renderer = get_renderer();
+    if (p_renderer) {
+        p_renderer->sync_shells_extruder_ids();
+    }
+}
+
 void GCodeViewer::set_shell_transparency(float alpha)
 {
 	const auto& p_renderer = get_renderer();

@@ -22,9 +22,9 @@
 #include "Widgets/PopupWindow.hpp"
 
 #ifdef __WXMSW__
-void                msw_rescale_menu(wxMenu* menu);
+void                msw_rescale_menu(wxMenu* menu, wxWindow* owner = nullptr);
 #else /* __WXMSW__ */
-inline void         msw_rescale_menu(wxMenu* /* menu */) {}
+inline void         msw_rescale_menu(wxMenu* /* menu */, wxWindow* /* owner */ = nullptr) {}
 #endif /* __WXMSW__ */
 
 wxMenuItem* append_menu_item(wxMenu* menu, int id, const wxString& string, const wxString& description,
@@ -55,7 +55,7 @@ void    msw_buttons_rescale(wxDialog* dlg, const int em_unit, const std::vector<
 int     em_unit(wxWindow* win);
 int     mode_icon_px_size();
 
-wxBitmap create_menu_bitmap(const std::string& bmp_name);
+wxBitmap create_menu_bitmap(const std::string& bmp_name, wxWindow* owner = nullptr);
 
 // BBS: support resize by fill border
 #if 1
@@ -87,8 +87,9 @@ wxBitmap create_scaled_bitmap(const std::string& bmp_name, wxWindow *win = nullp
 wxBitmap* get_default_extruder_color_icon(bool thin_icon = false);
 wxBitmap* get_default_extruder_color_icon(wxWindow* parent, bool thin_icon = false);
 std::vector<wxBitmap *> get_extruder_color_icons(bool thin_icon = false);
+std::vector<wxBitmap *> get_menu_extruder_color_icons(bool thin_icon = false, int icon_size_px = 24);
 std::vector<wxBitmap *> get_extruder_color_icons(wxWindow* parent, bool thin_icon = false);
-wxBitmap * get_extruder_color_icon(std::string color, std::string label, int icon_width, int icon_height);
+wxBitmap * get_extruder_color_icon(std::string color, std::string label, int icon_width, int icon_height, int filament_slot = -1, const std::string& cache_tag = {});
 void clear_extruder_color_icon_cache();
 namespace Slic3r {
 namespace GUI {

@@ -108,6 +108,7 @@ protected:
        wxBoxSizer *create_height_limit(wxWindow *parent);
        void update_nozzle_data_new();
        void update_nozzle_other_data_new();
+       void sync_nozzle_reference_template();
        void update_printer_other_data_new();
        wxBoxSizer* create_previous_page_combox(wxWindow *parent);
 
@@ -143,6 +144,7 @@ protected:
     void        create_printer_page1(wxWindow *parent);
     wxBoxSizer *create_type_item(wxWindow *parent);
     wxBoxSizer *create_printer_item(wxWindow *parent);
+    bool        create_nozzle_variant();
     wxBoxSizer *create_nozzle_diameter_item(wxWindow *parent);
     wxBoxSizer *create_bed_shape_item(wxWindow *parent);
     wxBoxSizer *create_bed_size_item(wxWindow *parent);
@@ -203,6 +205,7 @@ private:
     VendorProfile                                      m_printer_preset_vendor_selected;
     Slic3r::VendorProfile::PrinterModel                m_printer_preset_model_selected;
     bool                                               rewritten                        = false;
+    wxString                                           m_nozzle_import_source;
     Preset *                                           m_printer_preset                 = nullptr;
     wxStaticBitmap *                                   m_step_1                         = nullptr;
     wxStaticBitmap *                                   m_step_2                         = nullptr;
@@ -425,8 +428,8 @@ private:
     STListNode                                       m_stProcessPresetParam;
     std::function<void()>                            m_funcExportBtnClicked = nullptr;
     std::function<void()>                            m_funcCancleBtnClicked = nullptr;
-    wxButton*                                        m_pBtnExport           = nullptr;
-    wxButton*                                        m_pBtnCalcel           = nullptr;
+    Button*                                          m_pBtnExport           = nullptr;
+    Button*                                          m_pBtnCalcel           = nullptr;
     bool                                             m_bCanExport           = false;
     std::function<void(bool)>                            m_funcCheckboxClickedCb  = nullptr;
 };
@@ -499,7 +502,7 @@ private:
 private:
     struct STPresets
     {
-        wxButton* pBtnPresets = nullptr;
+        Button*   pBtnPresets = nullptr;
         bool      bClicked           = false;
     };
     STPresets                  m_stPrinterPresets;

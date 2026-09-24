@@ -154,8 +154,8 @@ namespace Slic3r
             //todo
             //init_limit_speed
             double init_limit_speed = 0.0f;
-            init_limit_speed = std::max(init_limit_speed,setting.option<ConfigOptionFloat>("outer_wall_speed")->getFloat());
-            init_limit_speed = std::max(init_limit_speed, setting.option<ConfigOptionFloat>("inner_wall_speed")->getFloat());
+            init_limit_speed = std::max(init_limit_speed, setting.opt_float("outer_wall_speed", 0));
+            init_limit_speed = std::max(init_limit_speed, setting.opt_float("inner_wall_speed", 0));
             //init_limit_speed = std::max(init_limit_speed, setting.option<ConfigOptionFloat>("sparse_infill_speed")->getFloat());
             //init_limit_speed = std::max(init_limit_speed, setting.option<ConfigOptionFloat>("internal_solid_infill_speed")->getFloat());
             //init_limit_speed = std::max(init_limit_speed, setting.option<ConfigOptionFloat>("top_surface_speed")->getFloat());
@@ -164,10 +164,10 @@ namespace Slic3r
             //init_limit_acc
             double init_limit_acc = 0.0f;
             //init_limit_acc = std::max(init_limit_acc, setting.option<ConfigOptionFloatOrPercent>("bridge_acceleration")->getFloat());
-            init_limit_acc = std::max(init_limit_acc, setting.option<ConfigOptionFloat>("default_acceleration")->getFloat());
-            init_limit_acc = std::max(init_limit_acc, setting.option<ConfigOptionFloat>("inner_wall_acceleration")->getFloat());
+            init_limit_acc = std::max(init_limit_acc, setting.opt_float("default_acceleration", 0));
+            init_limit_acc = std::max(init_limit_acc, setting.opt_float("inner_wall_acceleration", 0));
             //init_limit_acc = std::max(init_limit_acc, setting.option<ConfigOptionFloatOrPercent>("internal_solid_infill_acceleration")->getFloat());
-            init_limit_acc = std::max(init_limit_acc, setting.option<ConfigOptionFloat>("outer_wall_acceleration")->getFloat());
+            init_limit_acc = std::max(init_limit_acc, setting.opt_float("outer_wall_acceleration", 0));
             //init_limit_acc = std::max(init_limit_acc, setting.option<ConfigOptionFloatOrPercent>("sparse_infill_acceleration")->getFloat());
             //init_limit_acc = std::max(init_limit_acc, setting.option<ConfigOptionFloat>("top_surface_acceleration")->getFloat());
             //init_limit_acc = std::max(init_limit_acc, setting.travel_acceleration.value);

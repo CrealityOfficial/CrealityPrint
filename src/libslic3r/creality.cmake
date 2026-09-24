@@ -6,12 +6,16 @@ list(APPEND lisbslic3r_sources
         FDM/Filament.cpp
         FDM/WipeTowerCreality.hpp
         FDM/WipeTowerCreality.cpp
-        FDM/WipeTowerCrealityCFS.hpp
-        FDM/WipeTowerCrealityCFS.cpp
         FDM/Serialization.hpp
         FDM/Serialization.cpp
         FDM/PolysUlities.hpp
         FDM/PolysUlities.cpp
+        FDM/NoWipeTowerMaterialChange.hpp
+        FDM/NoWipeTowerMaterialChange.cpp
+        Fill/Tower/FillLayerFilamentWipePacking.hpp
+        Fill/Tower/FillLayerFilamentWipePacking.cpp
+        Fill/NoWipeTowerFlushIntoSkeleton.hpp
+        Fill/NoWipeTowerFlushIntoSkeleton.cpp
         PrintAppend.cpp
         )   
 

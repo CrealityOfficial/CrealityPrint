@@ -28,6 +28,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <algorithm>
+#include <exception>
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range.h>
 #include <tbb/spin_mutex.h>
@@ -751,13 +752,7 @@ void AICloudService_ResultDialog::updateDataToModel(const std::list<CommWithAICl
             }
         });
 
-    for (auto tab : wxGetApp().model_tabs_list) {
-        if (tab->type() == Preset::TYPE_MODEL) {
-            TabPrintModel* tabPrintModel = dynamic_cast<TabPrintModel*>(tab);
-            if (tabPrintModel != nullptr /*&& tabPrintModel->get_active_page() != nullptr*/)
-                tabPrintModel->update_model_config();
-        }
-    }
+    // Parameter tabs are refreshed by run() on the GUI thread after this task finishes.
     if (funProcessCb) {
         funProcessCb(count, count);
     }
@@ -1176,7 +1171,9 @@ void AICloudService_ProgressDialog::updateProgress(const wxString& info, int ste
                     }
                 }
             }
-            if (step == m_progressBar->m_max) {
+            // Applying results has an explicit completion notification: progress alone
+            // must not end the modal loop while its worker is still running.
+            if (m_bEnable && step == m_progressBar->m_max && IsModal()) {
                 EndModal(wxID_OK);
             }
         }
@@ -1600,28 +1597,41 @@ void AICloudService::run()
     m_progressDlg->setProcessMax(max);
     m_progressDlg->disable();
     
-    // 使用std::thread异步执行数据更新，确保m_progressDlg不会被提前销毁
-    auto progressDlgPtr = m_progressDlg; // 延长shared_ptr的生命周期
-    std::thread([progressDlgPtr, &resultDlg, &lstRespData]() {
-        resultDlg->updateDataToModel(lstRespData, [progressDlgPtr](int step, int count) {
-            // 使用wxCallAfter确保UI更新在主线程执行
-            wxGetApp().CallAfter([progressDlgPtr, step]() {
-                if (progressDlgPtr) {
-                    progressDlgPtr->updateProgress("", step);
-                }
+    // Own the inputs and wait for the worker before releasing dialogs or refreshing UI.
+    auto progressDlgPtr = m_progressDlg;
+    auto applyTask = std::async(std::launch::async, [progressDlgPtr, resultDlg, lstRespData]() {
+        std::exception_ptr error;
+        try {
+            resultDlg->updateDataToModel(lstRespData, [progressDlgPtr](int step, int) {
+                // updateProgress() already dispatches its UI work through CallAfter().
+                progressDlgPtr->updateProgress("", step);
             });
-        });
-        
-        // 数据更新完成后，关闭进度对话框
+        } catch (...) {
+            error = std::current_exception();
+        }
+
+        // Also release the modal loop on failure, then propagate the error on the GUI thread.
         wxGetApp().CallAfter([progressDlgPtr]() {
-            if (progressDlgPtr) {
+            if (progressDlgPtr->IsModal()) {
                 progressDlgPtr->EndModal(wxID_OK);
             }
         });
-    }).detach();
-    
-    m_progressDlg->Center();
-    m_progressDlg->ShowModal();
+        return error;
+    });
+
+    progressDlgPtr->Center();
+    progressDlgPtr->ShowModal();
+    if (std::exception_ptr error = applyTask.get())
+        std::rethrow_exception(error);
+
+    // update_model_config() rebuilds and lays out wxWidgets controls; never call it
+    // from the worker, where it can race with OptionsGroup/OG_CustomCtrl teardown.
+    for (auto tab : wxGetApp().model_tabs_list) {
+        if (tab->type() == Preset::TYPE_MODEL) {
+            if (auto* tabPrintModel = dynamic_cast<TabPrintModel*>(tab))
+                tabPrintModel->update_model_config();
+        }
+    }
 }
 
 void AICloudService::doAIRecommendation(bool bAIRecommendationSupportGeneration, bool bAIRecommendationZseamPainting)

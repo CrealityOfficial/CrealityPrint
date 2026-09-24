@@ -36,9 +36,12 @@
 
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelVolume.hpp"
+#include "libslic3r/ModelObject.hpp"
+#include "libslic3r/ModelInstance.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Format/3mf.hpp"
+#include "libslic3r/Win10ModelRepair.hpp"
 #include "../GUI/GUI.hpp"
 #include "../GUI/I18N.hpp"
 #include "../GUI/MsgDialog.hpp"
@@ -448,6 +451,111 @@ HRESULT hr = (*s_RoInitialize)(RO_INIT_MULTITHREADED);
     (*s_RoUninitialize)();
 }
 
+static bool fix_mesh_by_win10_sdk_impl(const indexed_triangle_set& mesh,
+                                       indexed_triangle_set&       repaired_mesh,
+                                       Win10RepairProgressFn       progress_callback,
+                                       ThrowOnCancelFn             throw_on_cancel,
+                                       std::string*                error_message)
+{
+    // RAII guard ensures the intermediate 3mf files are removed even if
+    // store_3mf / fix_model_by_win10_sdk / load_3mf throws.
+    struct TempFileGuard
+    {
+        boost::filesystem::path path;
+        ~TempFileGuard()
+        {
+            if (!path.empty()) {
+                boost::system::error_code ec;
+                boost::filesystem::remove(path, ec);
+            }
+        }
+    };
+
+    try {
+        boost::filesystem::path path_src = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+        path_src += ".3mf";
+        boost::filesystem::path path_dst = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+        path_dst += ".3mf";
+        TempFileGuard src_guard{path_src};
+        TempFileGuard dst_guard{path_dst};
+
+        Model        model;
+        ModelObject* model_object = model.add_object();
+        model_object->name        = "texture_mesh";
+        ModelVolume* volume       = model_object->add_volume(TriangleMesh(indexed_triangle_set(mesh)), ModelVolumeType::MODEL_PART, false);
+        volume->name              = "texture_mesh";
+        volume->set_transformation(Geometry::Transformation());
+        model_object->add_instance();
+
+        if (!Slic3r::store_3mf(path_src.string().c_str(), &model, nullptr, false, nullptr, false)) {
+            throw Slic3r::RuntimeError(L("Exporting 3mf file failed"));
+        }
+
+        model.clear_objects();
+        model.clear_materials();
+
+        fix_model_by_win10_sdk(path_src.string(), path_dst.string(), std::move(progress_callback), std::move(throw_on_cancel));
+
+        DynamicPrintConfig        config;
+        ConfigSubstitutionContext config_substitutions{ForwardCompatibilitySubstitutionRule::EnableSilent};
+        bool                      loaded = Slic3r::load_3mf(path_dst.string().c_str(), config, config_substitutions, &model, false);
+
+        if (!loaded)
+            throw Slic3r::RuntimeError(L("Import 3mf file failed"));
+        if (model.objects.size() == 0)
+            throw Slic3r::RuntimeError(L("Repaired 3mf file does not contain any object"));
+        if (model.objects.size() > 1)
+            throw Slic3r::RuntimeError(L("Repaired 3mf file contains more than one object"));
+        if (model.objects.front()->volumes.size() == 0)
+            throw Slic3r::RuntimeError(L("Repaired 3mf file does not contain any volume"));
+        if (model.objects.front()->volumes.size() > 1)
+            throw Slic3r::RuntimeError(L("Repaired 3mf file contains more than one volume"));
+
+        ModelObject* repaired_object = model.objects.front();
+        if (repaired_object->instances.size() > 1)
+            throw Slic3r::RuntimeError(L("Repaired 3mf file contains more than one instance"));
+
+        ModelVolume*      repaired_volume = repaired_object->volumes.front();
+        const Transform3d volume_matrix   = repaired_volume->get_matrix();
+        const Transform3d instance_matrix = repaired_object->instances.empty() ? Transform3d::Identity() :
+                                                                                 repaired_object->instances.front()->get_matrix();
+        const Transform3d repaired_matrix = instance_matrix * volume_matrix;
+
+        BOOST_LOG_TRIVIAL(info) << "fix_mesh_by_win10_sdk: baking repaired 3mf transform"
+                                << ", instance_offset=(" << instance_matrix(0, 3) << ", " << instance_matrix(1, 3) << ", "
+                                << instance_matrix(2, 3) << ")"
+                                << ", volume_offset=(" << volume_matrix(0, 3) << ", " << volume_matrix(1, 3) << ", " << volume_matrix(2, 3)
+                                << ")";
+
+        TriangleMesh repaired(repaired_volume->mesh().its);
+        repaired.transform(repaired_matrix, true);
+        repaired_mesh = std::move(repaired.its);
+        return true;
+    } catch (const std::exception& ex) {
+        if (error_message)
+            *error_message = ex.what();
+        return false;
+    }
+}
+
+bool fix_mesh_by_win10_sdk(const indexed_triangle_set& mesh,
+                           indexed_triangle_set&       repaired_mesh,
+                           Win10RepairProgressFn       progress_callback,
+                           Win10RepairCancelFn         cancel_callback,
+                           std::string*                error_message)
+{
+    // The caller is expected to run this on a background thread (so the COM
+    // context can be created as multi-threaded). Cancellation is polled inside
+    // winrt_async_await via throw_on_cancel.
+    return fix_mesh_by_win10_sdk_impl(
+        mesh, repaired_mesh, std::move(progress_callback),
+        [&cancel_callback]() {
+            if (cancel_callback && cancel_callback())
+                throw Slic3r::RuntimeError("Model repair has been canceled.");
+        },
+        error_message);
+}
+
 class RepairCanceledException : public std::exception {
 public:
    const char* what() const throw() { return "Model repair has been canceled"; }
@@ -480,14 +588,20 @@ bool fix_model_by_win10_sdk_gui(ModelObject &model_object, int volume_idx, GUI::
 	// (It seems like wxWidgets initialize the COM contex as single threaded and we need a multi-threaded context).
 	bool   success = false;
 	size_t ivolume = 0;
-	auto on_progress = [&mtx, &condition, &ivolume, &volumes, &progress](const char *msg, unsigned prcnt) {
+    enum class RepairProgressPhase { Backend, Reproject };
+    RepairProgressPhase phase = RepairProgressPhase::Backend;
+	auto on_progress = [&mtx, &condition, &ivolume, &volumes, &progress, &phase](const char *msg, unsigned prcnt) {
 	    std::unique_lock<std::mutex> lock(mtx);
 		progress.message = msg;
-		progress.percent = (int)floor((float(prcnt) + float(ivolume) * 100.f) / float(volumes.size()));
+		const float count = float(volumes.empty() ? 1 : volumes.size());
+		const float within_phase = (float(prcnt) + float(ivolume) * 100.f) / count;
+		const int overall = phase == RepairProgressPhase::Backend ?
+			int(floor(within_phase * 0.7f)) : int(floor(70.f + within_phase * 0.3f));
+		progress.percent = std::max(progress.percent, std::min(overall, 100));
 		progress.updated = true;
 	    condition.notify_all();
 	};
-auto worker_thread = boost::thread([&model_object, &volumes, &ivolume, on_progress, &success, &canceled, &finished, &trace_id]() {
+auto worker_thread = boost::thread([&model_object, &volumes, &ivolume, &phase, on_progress, &success, &canceled, &finished, &trace_id]() {
 		try {
 			std::vector<TriangleMesh> meshes_repaired;
 			meshes_repaired.reserve(volumes.size());
@@ -538,14 +652,23 @@ auto worker_thread = boost::thread([&model_object, &volumes, &ivolume, on_progre
 	 			meshes_repaired.emplace_back(std::move(model.objects.front()->volumes.front()->mesh()));
                 
 			}
+			phase = RepairProgressPhase::Reproject;
 			for (size_t i = 0; i < volumes.size(); ++ i) {
-				volumes[i]->set_mesh(std::move(meshes_repaired[i]));
+				ivolume = i;
+				if (!volumes[i]->set_mesh_keep_paint(
+						std::move(meshes_repaired[i]),
+						[&on_progress](int percent, const char *message) {
+							on_progress(message, unsigned(percent));
+						},
+						[&canceled]() { return canceled.load(); }))
+					throw RepairCanceledException();
 				volumes[i]->calculate_convex_hull();
 				volumes[i]->invalidate_convex_hull_2d();
 				volumes[i]->set_new_unique_id();
 			}
 			model_object.invalidate_bounding_box();
-			-- ivolume;
+			if (ivolume > 0)
+				-- ivolume;
 			on_progress(L("Repair finished"), 100);
 			success  = true;
 			finished = true;

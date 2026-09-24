@@ -37,7 +37,19 @@ class OG_CustomCtrl :public wxPanel
     int     m_max_win_width{0};
     bool    m_is_valid{ true };
 
+    bool is_active() const { return m_is_valid && opt_group != nullptr && opt_group->custom_ctrl == this; }
+
+    void trace_state(const char* event) const noexcept;
     wxCoord calculate_line_height(const Line& line);
+
+    struct FieldLayout {
+        int label_x;
+        int label_width;
+        int buttons_x;
+        int panel_x;
+    };
+    FieldLayout get_field_layout(const Line& line);
+    bool uses_leading_action_layout(const Line& line);
 
     struct CtrlLine {
         wxCoord           width{ wxDefaultCoord };
@@ -66,12 +78,14 @@ class OG_CustomCtrl :public wxPanel
         void render_separator(wxDC& dc, wxCoord v_pos);
 
         void    render(wxDC& dc, wxCoord h_pos, wxCoord v_pos);
-        wxCoord draw_text      (wxDC& dc, wxPoint pos, const wxString& text, const wxColour* color, int width, bool is_url = false, bool is_main = false);
+        wxCoord draw_text      (wxDC& dc, wxPoint pos, const wxString& text, const wxColour* color, int width, bool is_url = false, bool is_main = false, wxRect* text_rect = nullptr);
         wxPoint draw_blinking_bmp(wxDC& dc, wxPoint pos, bool is_blinking);
-        wxPoint draw_act_bmps(wxDC& dc, wxPoint pos, const wxBitmap& bmp_undo_to_sys, const wxBitmap& bmp_undo, bool is_blinking, size_t rect_id = 0);
+        wxPoint draw_act_bmps(wxDC& dc, wxPoint pos, const wxBitmap& bmp_undo_to_sys, const wxBitmap& bmp_undo, bool is_blinking, size_t rect_id = 0, bool skip_vertical_adjust = false);
         wxCoord draw_edit_bmp(wxDC& dc, wxPoint pos, const wxBitmap& bmp_edit);
         bool    launch_browser() const;
         bool    is_separator() const { return og_line.is_separator(); }
+        void    ensure_rects_size(size_t size);
+        void    update_multi_variant_height();
         void on_ctrl_widget_enter(wxMouseEvent& event);
         void on_ctrl_widget_leave(wxMouseEvent& event);
 
@@ -79,7 +93,11 @@ class OG_CustomCtrl :public wxPanel
         std::vector<wxRect> rects_undo_to_sys_icon;
         std::vector<wxRect> rects_edit_icon;
         wxRect              rect_label;
+        std::vector<wxRect> rects_option_label;
+        int focused_option = -1;
     };
+
+    wxCoord include_multi_variant_width(const CtrlLine& line, wxCoord width);
 
     std::vector<CtrlLine> ctrl_lines;
 
@@ -90,7 +108,7 @@ public:
                     const wxSize& size = wxDefaultSize,
                     const wxValidator& val = wxDefaultValidator,
                     const wxString& name = wxEmptyString);
-    ~OG_CustomCtrl() {}
+    ~OG_CustomCtrl();
 
     void    OnPaint(wxPaintEvent&);
     void    OnMotion(wxMouseEvent& event);
@@ -115,6 +133,9 @@ public:
 
     wxPoint get_pos(const Line& line, Field* field = nullptr);
     int     get_height(const Line& line);
+
+    void    update_line_height_for_field(const t_config_option_key& opt_id, bool refresh = true);
+    void    recalculate_and_refresh();
 
     wxPoint get_client_rect_point(const wxPoint& pos);
     void set_ctrl_widget_tooltip_binding(CtrlLine& line);

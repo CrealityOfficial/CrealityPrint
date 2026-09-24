@@ -12,7 +12,10 @@
 #include "../filamentMapping/ResidentFilamentMappingAdapter.hpp"
 #include "../filamentMapping/ThumbnailDataRecolor.hpp"
 #include "../bridge/SlicerBridge.hpp"
+#include "../../OfficialFilamentColorDialog.hpp"
 #include "libslic3r/Utils.hpp"
+#include "libslic3r/Config.hpp"
+#include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/MixedFilament.hpp"
 #include "../../print_manage/data/DataCenter.hpp"
 
@@ -164,6 +167,70 @@ std::string color_to_hex(const ImVec4& color)
         << std::setw(2) << to_channel(color.y)
         << std::setw(2) << to_channel(color.z);
     return oss.str();
+}
+
+// Full color appearance of every scene filament slot, matching what the
+// right-hand filament sidebar paints. Dual/multi-color spools ("双拼粉紫" and
+// friends) carry several colors plus a gradient-vs-segmented flag, so a single
+// hex can never reproduce them.
+//
+// Deliberately NOT derived from the source snapshot: the snapshot keeps the
+// *original* colors so auto-matching can still compute color distances after a
+// mapping rewrote "filament_colour" with device slot colors. This is a
+// display-only addition, the mapping algorithm stays untouched.
+struct SceneFilamentAppearance {
+    std::vector<std::string> colors;
+    bool                     gradient = false;
+};
+
+std::string wx_colour_to_rgba_hex(const wxColour& color)
+{
+    if (!color.IsOk())
+        return {};
+
+    std::ostringstream oss;
+    oss << '#'
+        << std::uppercase << std::hex << std::setfill('0')
+        << std::setw(2) << static_cast<int>(color.Red())
+        << std::setw(2) << static_cast<int>(color.Green())
+        << std::setw(2) << static_cast<int>(color.Blue())
+        << std::setw(2) << static_cast<int>(color.Alpha());
+    return oss.str();
+}
+
+std::vector<SceneFilamentAppearance> collect_live_scene_filament_appearances()
+{
+    std::vector<SceneFilamentAppearance> appearances;
+    auto* preset_bundle = wxGetApp().preset_bundle;
+    if (preset_bundle == nullptr)
+        return appearances;
+
+    const auto* colors_opt = preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+    if (colors_opt == nullptr)
+        return appearances;
+
+    appearances.reserve(colors_opt->values.size());
+    for (size_t slot = 0; slot < colors_opt->values.size(); ++slot) {
+        SceneFilamentAppearance appearance;
+        const wxColour base = FilamentColorAppearance::parse(colors_opt->values[slot]);
+
+        // resolve() reuses the exact rule the sidebar swatches use, including the
+        // "stored multi-colors must start with the base color" guard that keeps a
+        // stale filament_multi_colour entry from leaking onto a re-colored slot.
+        const FilamentColorAppearance::Appearance resolved = FilamentColorAppearance::resolve(slot, base);
+        for (const wxColour& color : resolved.colors) {
+            const std::string rgba = wx_colour_to_rgba_hex(color);
+            if (!rgba.empty())
+                appearance.colors.push_back(rgba);
+        }
+        if (appearance.colors.empty())
+            appearance.colors.push_back(colors_opt->values[slot]);
+        appearance.gradient = resolved.gradient;
+
+        appearances.push_back(std::move(appearance));
+    }
+
+    return appearances;
 }
 
 std::string thumbnail_to_data_url(const ThumbnailData& thumbnail)
@@ -397,15 +464,47 @@ std::vector<int> normalize_component_weights_to_percents(
 std::vector<unsigned int> decode_gradient_component_ids_for_display(const std::string& value)
 {
     std::vector<unsigned int> component_ids;
-    bool seen[10] = {false};
-    for (const char token : value) {
-        if (token < '1' || token > '9')
-            continue;
-        const unsigned int component_id = static_cast<unsigned int>(token - '0');
-        if (seen[component_id])
-            continue;
-        seen[component_id] = true;
-        component_ids.push_back(component_id);
+    // Support both formats:
+    // 1. New '|'-separated format: "1|2|11|12" (supports multi-digit IDs)
+    // 2. Old compact format: "123" (single-char IDs 1-9, no separator)
+    if (value.find('|') != std::string::npos) {
+        std::vector<unsigned int> seen;
+        std::string tok;
+        for (char c : value) {
+            if (c >= '0' && c <= '9') {
+                tok.push_back(c);
+            } else if (c == '|') {
+                if (!tok.empty()) {
+                    try {
+                        unsigned int id = std::stoi(tok);
+                        if (id >= 1 && std::find(seen.begin(), seen.end(), id) == seen.end()) {
+                            seen.push_back(id);
+                            component_ids.push_back(id);
+                        }
+                    } catch (...) {}
+                    tok.clear();
+                }
+            }
+        }
+        if (!tok.empty()) {
+            try {
+                unsigned int id = std::stoi(tok);
+                if (id >= 1 && std::find(seen.begin(), seen.end(), id) == seen.end()) {
+                    component_ids.push_back(id);
+                }
+            } catch (...) {}
+        }
+    } else {
+        bool seen[10] = {false};
+        for (const char token : value) {
+            if (token < '1' || token > '9')
+                continue;
+            const unsigned int component_id = static_cast<unsigned int>(token - '0');
+            if (seen[component_id])
+                continue;
+            seen[component_id] = true;
+            component_ids.push_back(component_id);
+        }
     }
     return component_ids;
 }
@@ -2128,6 +2227,7 @@ bool AISendWorkflowService::start_send_internal(const std::string& card_id, bool
                     std::string target_device_reason;
                     const DM::Device target_device = resolve_ai_send_target_device(&forced_cloud_device, &target_device_reason);
                     session.cloud_workflow_active = start_print && is_cloud_device_type(target_device.deviceType);
+                    session.print_target_address = target_device.address;
                     sender = session.sender;
 
                     print_data = build_print_data(session, resolved.second);
@@ -2675,6 +2775,27 @@ json AISendWorkflowService::merge_original_source_into_effective_mapping_items(
         if (source_item.contains("presetDisplay"))
             item["presetDisplay"] = source_item.value("presetDisplay", std::string());
         item["source_snapshot"] = true;
+    }
+
+    // Display-only companion of "sourceColor": the full color appearance the
+    // filament sidebar is currently showing for this slot, so both views agree on
+    // dual-color spools too. "sourceColor" stays the original snapshot value that
+    // auto-matching and the exact/close diagnostics depend on.
+    const std::vector<SceneFilamentAppearance> appearances = collect_live_scene_filament_appearances();
+    for (auto& item : merged) {
+        if (!item.is_object())
+            continue;
+        const int item_index = item.value("item_index", -1);
+        if (item_index < 0 || static_cast<size_t>(item_index) >= appearances.size())
+            continue;
+
+        const SceneFilamentAppearance& appearance = appearances[static_cast<size_t>(item_index)];
+        if (appearance.colors.empty())
+            continue;
+
+        item["sceneColor"] = appearance.colors.front();
+        item["sceneColors"] = appearance.colors;
+        item["sceneColorGradient"] = appearance.gradient;
     }
 
     return merged;
@@ -3299,6 +3420,7 @@ void AISendWorkflowService::on_cloud_print_success(const std::string& card_id, c
 {
     json envelope;
     std::string request_id;
+    std::string print_target_address;
     bool cloud_workflow_active = false;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -3323,6 +3445,7 @@ void AISendWorkflowService::on_cloud_print_success(const std::string& card_id, c
             return;
         }
         cloud_workflow_active = session.cloud_workflow_active;
+        print_target_address = session.print_target_address;
 
         session.sender.reset();
         session.cloud_workflow_active = false;
@@ -3375,15 +3498,18 @@ void AISendWorkflowService::on_cloud_print_success(const std::string& card_id, c
     // cloud device address when only the cloud binding is online, so
     // jumpToDeviceDetail works for cloud devices too; the LAN side performs the
     // equivalent jump inside EasyPrintSender::startPrintLan.
-    wxGetApp().CallAfter([]() {
+    wxGetApp().CallAfter([card_id, print_target_address]() {
         EasyPrintSender sender;
-        const std::string ip = sender.getDeviceIp();
-        if (ip.empty()) {
+        if (print_target_address.empty()) {
             BOOST_LOG_TRIVIAL(warning)
                 << "[AISendWorkflowService.on_cloud_print_success] skip device-detail jump: empty device address";
             return;
         }
-        sender.jumpToDeviceDetail(ip, std::string());
+        sender.jumpToDeviceDetail(
+            print_target_address,
+            std::string(),
+            EasyPrintSender::DeviceDetailOpenReason::SuccessfulPrint,
+            card_id);
     });
 }
 
@@ -3487,5 +3613,3 @@ bool AISendWorkflowService::is_upload_successful(const std::string& body)
 
 } // namespace GUI
 } // namespace Slic3r
-
-

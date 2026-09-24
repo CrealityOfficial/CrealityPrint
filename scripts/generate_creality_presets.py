@@ -17,11 +17,182 @@ DEPRECATED_PROCESS_KEYS = {
     "sparse_infill_filament",
 }
 
+FILAMENT_VARIANT_KEYS = {
+    "filament_flow_ratio", "filament_max_volumetric_speed", "filament_ramming_volumetric_speed",
+    "filament_pre_cooling_temperature", "filament_ramming_travel_time", "filament_ramming_volumetric_speed_nc",
+    "filament_pre_cooling_temperature_nc", "filament_ramming_travel_time_nc", "filament_retraction_length",
+    "filament_retract_length_nc", "filament_z_hop", "filament_z_hop_types", "filament_retract_restart_extra",
+    "filament_retract_lift_above", "filament_retract_lift_below", "filament_retract_lift_enforce",
+    "filament_retraction_speed", "filament_deretraction_speed", "filament_retraction_minimum_travel",
+    "filament_retract_when_changing_layer", "filament_wipe", "filament_wipe_distance",
+    "filament_retract_before_wipe", "filament_long_retractions_when_cut",
+    "filament_retraction_distances_when_cut", "filament_retract_length_toolchange",
+    "filament_retract_restart_extra_toolchange", "nozzle_temperature_initial_layer", "nozzle_temperature",
+    "filament_flush_volumetric_speed", "filament_flush_temp", "filament_flush_temp_fast",
+    "filament_enable_overhang_speed", "filament_bridge_speed", "filament_overhang_1_4_speed",
+    "filament_overhang_2_4_speed", "filament_overhang_3_4_speed", "filament_overhang_4_4_speed",
+    "filament_overhang_totally_speed", "override_process_overhang_speed", "volumetric_speed_coefficients",
+    "filament_adaptive_volumetric_speed", "filament_preheat_temperature_delta", "slow_down_min_speed",
+}
+
+LEGACY_FILAMENT_EXTRUDER_VARIANTS = ["Direct Drive Standard"] * 4
+LEGACY_FILAMENT_NOZZLE_VARIANTS = ["0", "1", "2", "3"]
+MULTI_EXTRUDER_NAME_EXCEPTIONS = {"Sermoon D3 Pro"}
+
+def machine_definition_path(printer, package_path):
+    filename = printer["printerIntName"]
+    for nozzle_diameter in printer["nozzleDiameter"]:
+        filename += "-" + nozzle_diameter
+    return os.path.join(package_path, filename + ".def.json")
+
+def uses_multi_extruder_variant_schema(printer, machine_definition):
+    nozzle_diameters = printer.get("nozzleDiameter")
+    variant_list = machine_definition.get("printer", {}).get("extruder_variant_list")
+    return (isinstance(nozzle_diameters, (list, tuple)) and
+            len(nozzle_diameters) > 1 and
+            isinstance(variant_list, list) and
+            bool(variant_list))
+
+def machine_profile_name(printer):
+    machine_name = printer["name"].strip()
+    if uses_bare_multi_extruder_profile_name(printer):
+        return machine_name
+    return nozzle_qualified_machine_profile_name(printer)
+
+def uses_bare_multi_extruder_profile_name(printer):
+    nozzle_diameters = printer.get("nozzleDiameter")
+    return (isinstance(nozzle_diameters, (list, tuple)) and
+            len(nozzle_diameters) > 1 and
+            printer.get("printerIntName") not in MULTI_EXTRUDER_NAME_EXCEPTIONS)
+
+def nozzle_qualified_machine_profile_name(printer):
+    return (printer["name"].strip() + " " +
+            printer["nozzleDiameter"][0] + " nozzle")
+
+def parameter_package_path(printer, package_root):
+    package_name = printer["printerIntName"]
+    for nozzle_diameter in printer["nozzleDiameter"]:
+        package_name += "-" + nozzle_diameter
+    return os.path.join(package_root, package_name)
+
+def select_printers_to_generate(printer_list, package_root):
+    """Select one source package for each nozzle-less multi-extruder profile.
+
+    The backend may publish one package per installed nozzle diameter.  Those
+    packages intentionally share one slicer profile name, so generating every
+    package would overwrite the same machine, process and filament files.  A
+    package carrying the complete variant schema is canonical; older data
+    falls back to the standard 0.4 mm package.
+    """
+    grouped_candidates = {}
+    for printer in printer_list:
+        if uses_bare_multi_extruder_profile_name(printer):
+            grouped_candidates.setdefault(machine_profile_name(printer), []).append(printer)
+
+    selected_ids = set()
+    for profile_name, candidates in grouped_candidates.items():
+        available = [
+            printer for printer in candidates
+            if os.path.isdir(parameter_package_path(printer, package_root))
+        ]
+        ranked_candidates = available or candidates
+
+        def candidate_rank(printer):
+            has_variant_schema = False
+            package_path = parameter_package_path(printer, package_root)
+            definition_path = machine_definition_path(printer, package_path)
+            if os.path.isfile(definition_path):
+                try:
+                    with open(definition_path, 'r', encoding='utf-8') as file:
+                        has_variant_schema = uses_multi_extruder_variant_schema(
+                            printer, json.load(file)
+                        )
+                except (OSError, ValueError, TypeError, KeyError) as error:
+                    print(f"warning: failed to inspect {definition_path}: {error}")
+
+            nozzle_diameters = printer.get("nozzleDiameter") or []
+            is_standard_nozzle = bool(nozzle_diameters) and nozzle_diameters[0] == "0.4"
+            return has_variant_schema, is_standard_nozzle
+
+        selected = max(ranked_candidates, key=candidate_rank)
+        selected_ids.add(id(selected))
+        if len(candidates) > 1:
+            print(
+                f"multi-extruder profile {profile_name}: selected "
+                f"{os.path.basename(parameter_package_path(selected, package_root))} "
+                f"from {len(candidates)} packages"
+            )
+
+    return [
+        printer for printer in printer_list
+        if (not uses_bare_multi_extruder_profile_name(printer) or
+            id(printer) in selected_ids)
+    ]
+
+def normalize_multi_extruder_filament_variants(filament_data):
+    """Normalize material values to the selector rows supplied by the ZIP.
+
+    The cloud backend stores material defaults in physical-extruder-major
+    order, even though material presets are selected only by extruder/nozzle
+    variant.  Fold those duplicated physical-extruder rows to the first row
+    before writing the slicer preset.
+    """
+    extruder_variants = filament_data.get("filament_extruder_variant")
+    nozzle_variants = filament_data.get("filament_nozzle_variant")
+
+    if extruder_variants is None and nozzle_variants is None:
+        # Keep older multi-extruder packages working until their material
+        # selectors are provided by the backend.
+        extruder_variants = LEGACY_FILAMENT_EXTRUDER_VARIANTS.copy()
+        nozzle_variants = LEGACY_FILAMENT_NOZZLE_VARIANTS.copy()
+    elif (not isinstance(extruder_variants, list) or
+          not isinstance(nozzle_variants, list) or
+          not extruder_variants or
+          len(extruder_variants) != len(nozzle_variants)):
+        raise ValueError(
+            "Multi-extruder material selectors filament_extruder_variant and "
+            "filament_nozzle_variant must be non-empty arrays of equal length"
+        )
+
+    variant_count = len(nozzle_variants)
+    for key in FILAMENT_VARIANT_KEYS:
+        if key not in filament_data:
+            continue
+        value = filament_data[key]
+        if not isinstance(value, list):
+            filament_data[key] = [value] * variant_count
+        elif len(value) == 1:
+            filament_data[key] = value * variant_count
+        elif len(value) != variant_count:
+            if len(value) > variant_count and len(value) % variant_count == 0:
+                canonical_row = value[:variant_count]
+                physical_rows = [
+                    value[offset:offset + variant_count]
+                    for offset in range(0, len(value), variant_count)
+                ]
+                if any(row != canonical_row for row in physical_rows[1:]):
+                    print(
+                        f"warning: multi-extruder material option {key} has conflicting "
+                        "physical-extruder rows; using the first row"
+                    )
+                filament_data[key] = canonical_row
+            elif value and all(item == value[0] for item in value):
+                filament_data[key] = [value[0]] * variant_count
+            else:
+                raise ValueError(
+                    f"Multi-extruder material option {key} has {len(value)} values, "
+                    f"expected 1 or {variant_count}"
+                )
+
+    filament_data["filament_extruder_variant"] = extruder_variants
+    filament_data["filament_nozzle_variant"] = nozzle_variants
+    return filament_data
+
 def delete_json_folder(directory_path):
     print(directory_path)
     for file_name in os.listdir(directory_path):
         file_path = os.path.join(directory_path, file_name)
-        if file_name.endswith('.json') and os.path.isfile(file_path) and not file_name.startswith("fdm_"):
+        if file_name.endswith('.json') and os.path.isfile(file_path) and not file_name.startswith("fdm_") and file_name != "filaments_color.json":
             os.remove(file_path)
 def delete_png_folder(directory_path):
     for file_name in os.listdir(directory_path):
@@ -204,10 +375,13 @@ def make_parameter_package(server_id, engine_version):
                 else:
                     printer_name = "Creality "+printer_name
             printer["name"] = printer_name
+
+        package_root = os.path.join(working_path, f"server_{server_id}", "orca", "default", "parampack")
+        printers_to_generate = select_printers_to_generate(printerList, package_root)
+        for printer in printers_to_generate:
+            printer_name = printer["name"]
             #print(f"---------------------process printer {printer_name}")
-            param_pack_dir = os.path.join(os.path.join(working_path,f"server_{server_id}","orca","default"),"parampack",printer["printerIntName"])
-            for nozzleDiameter in printer["nozzleDiameter"]:
-                param_pack_dir = param_pack_dir + "-"+nozzleDiameter
+            param_pack_dir = parameter_package_path(printer, package_root)
             if printer["printerIntName"] == "Bambu Lab A1":
                 continue
             # if printer["printerIntName"] != "Sermoon D3 Pro":
@@ -294,12 +468,13 @@ def process_machine_model_json(printerList, default_materials_map, out_path):
                 machine_model_data["default_bed_type"] = printer["bed_type"]
         machine_model_data["nozzle_diameter"] = ";".join(nozzle_diameter)
         print("--------------------",machine_model_data["default_bed_type"])
-        out_machine_model_json_file = os.path.join(out_path,"machine",printerIntName+".json")
+        machine_model_file_name = printerIntName + "_model"
+        out_machine_model_json_file = os.path.join(out_path,"machine",machine_model_file_name+".json")
         with open(out_machine_model_json_file, 'w', encoding='utf-8') as f:
             json.dump(machine_model_data, f, ensure_ascii=False, indent=4)
         sub_paths.append({
             "name": printerIntName,
-            "sub_path": os.path.join("machine",printerIntName+".json").replace("\\","/")
+            "sub_path": os.path.join("machine",machine_model_file_name+".json").replace("\\","/")
         })
        
     return sub_paths
@@ -321,11 +496,9 @@ def process_process_json(printer,package_path, out_path):
                 data = json.load(file)
                 process_data.update(data["engine_data"])
                 basename = os.path.splitext(filename)[0]
-                printer_name = printer["name"].strip() +" "+printer["nozzleDiameter"][0]+" nozzle"
-                if basename.find("@") == -1:
-                    basename = basename.strip()+" @"+printer_name
-                else:
-                    basename = basename[0:basename.find("@")].strip()+" @"+printer_name
+                printer_name = machine_profile_name(printer)
+                process_name = basename[0:basename.find("@")].strip() if "@" in basename else basename.strip()
+                basename = process_name+" @"+printer_name
                 process_data["name"] = basename
                 process_data["compatible_printers"] = [printer_name]
                 process_data["inherits"] = "fdm_process_creality_common"
@@ -370,10 +543,13 @@ def process_process_json(printer,package_path, out_path):
 
 def get_filament_type(name):
     return ""
-def process_filament_json(printer,package_path, out_path):    
+def process_filament_json(printer,package_path, out_path):
     array_keys = ["filament_type", "filament_vendor", "filament_start_gcode", "filament_end_gcode"]
     sub_paths = []
     filament_map = {}
+    with open(machine_definition_path(printer, package_path), 'r', encoding='utf-8') as file:
+        machine_definition = json.load(file)
+    normalize_variant_values = uses_multi_extruder_variant_schema(printer, machine_definition)
     for root, dirs, files in os.walk(os.path.join(package_path,"Materials")):
         for filename in files:
             filament_data = {
@@ -392,15 +568,15 @@ def process_filament_json(printer,package_path, out_path):
                 for key in DEPRECATED_FILAMENT_KEYS:
                     filament_data.pop(key, None)
                 filament_data["filament_id"] = data["metadata"]["id"]
-                machine_profile_name = printer["name"].strip()+" "+printer["nozzleDiameter"][0]+" nozzle"
+                printer_profile_name = machine_profile_name(printer)
                 basename = os.path.splitext(filename)[0]
                 basename = basename[0:basename.rfind("-")]
-                basename = basename.strip()+" @"+machine_profile_name
+                basename = basename.strip()+" @"+printer_profile_name
                 filament_data["name"] = basename
                 filament_map[filament_data["filament_id"]] = basename
 
                 #处理特殊的key
-                filament_data["compatible_printers"] = [machine_profile_name]
+                filament_data["compatible_printers"] = [printer_profile_name]
                 filament_type = filament_data["filament_type"]
                 print("filament_type:"+filament_type)
                 if filament_type == "PLA" or filament_type == "PLA-CF":
@@ -456,6 +632,8 @@ def process_filament_json(printer,package_path, out_path):
                         del filament_data[key]
                     elif key in array_keys:
                         filament_data[key] = [filament_data[key]]
+                if normalize_variant_values:
+                    normalize_multi_extruder_filament_variants(filament_data)
                 out_filament_json_file = os.path.join(out_path,"filament",basename+".json")
                 with open(out_filament_json_file, 'w', encoding='utf-8') as f:
                     json.dump(filament_data, f, ensure_ascii=False, indent=4)
@@ -477,11 +655,9 @@ def process_param_pack(printer,package_path, out_path):
     return machine_path,process_path,filament_path,default_materials,bed_type
     
 def process_machine_json(printer,package_path, out_path):
-    machine_json_file = os.path.join(package_path,printer["printerIntName"])
-    for nozzleDiameter in printer["nozzleDiameter"]:
-                machine_json_file = machine_json_file + "-"+nozzleDiameter
-    machine_json_file = machine_json_file + ".def.json"
+    machine_json_file = machine_definition_path(printer, package_path)
     machine_name = printer["name"].strip()
+    printer_profile_name = machine_profile_name(printer)
     bed_type = "High Temp Plate"
     top_material = []
     out_data = {
@@ -507,15 +683,15 @@ def process_machine_json(printer,package_path, out_path):
     process_index = preferred_process.rfind("@")
     if process_index != -1:
         preferred_process =data["metadata"]["preferred_process"][0:process_index].strip() 
-    out_data["default_print_profile"] = preferred_process + " @"+machine_name+" "+printer["nozzleDiameter"][0]+" nozzle"
+    out_data["default_print_profile"] = preferred_process + " @" + printer_profile_name
     if "01001" in top_material:
-        out_data["default_filament_profile"] = ["Hyper PLA @"+machine_name+" "+printer["nozzleDiameter"][0]+" nozzle"]
+        out_data["default_filament_profile"] = ["Hyper PLA @" + printer_profile_name]
     elif "00001" in top_material:
-        out_data["default_filament_profile"] = ["Generic PLA @"+machine_name+" "+printer["nozzleDiameter"][0]+" nozzle"]
+        out_data["default_filament_profile"] = ["Generic PLA @" + printer_profile_name]
     elif "04001" in top_material:
-        out_data["default_filament_profile"] = ["CR-PLA @"+machine_name+" "+printer["nozzleDiameter"][0]+" nozzle"]
+        out_data["default_filament_profile"] = ["CR-PLA @" + printer_profile_name]
     elif "08001" in top_material:
-        out_data["default_filament_profile"] = ["Ender-PLA @"+machine_name+" "+printer["nozzleDiameter"][0]+" nozzle"]
+        out_data["default_filament_profile"] = ["Ender-PLA @" + printer_profile_name]
 
     #if "nozzle_diameter" in out_data:
     #    out_data["nozzle_diameter"] = [out_data["nozzle_diameter"]]
@@ -531,22 +707,23 @@ def process_machine_json(printer,package_path, out_path):
         bed_type = out_data["curr_bed_type"]
         del out_data["curr_bed_type"]
     #写入机型文件
-    machine_profile_name = machine_name+" "+printer["nozzleDiameter"][0]+" nozzle"
-    out_data["name"] = machine_profile_name
+    machine_file_name = printer_profile_name
+    machine_setting_name = nozzle_qualified_machine_profile_name(printer)
+    out_data["name"] = printer_profile_name
     out_data["inherits"] = "fdm_creality_common"
-    out_data["setting_id"] = str(hash(machine_profile_name))[1:6]
+    out_data["setting_id"] = str(hash(machine_setting_name))[1:6]
     out_data["support_multi_bed_types"] = "1"
     out_data["printer_model"] = machine_name
     #删除空的key
     for key in list(out_data.keys()):
         if out_data[key] == "":
             del out_data[key]
-    out_machine_json_file = os.path.join(out_path,"machine",machine_profile_name+".json")
+    out_machine_json_file = os.path.join(out_path,"machine",machine_file_name+".json")
     with open(out_machine_json_file, 'w', encoding='utf-8') as f:
         json.dump(out_data, f, ensure_ascii=False, indent=4)
     machine_sub_data = {
-        "name": machine_profile_name,
-        "sub_path": os.path.join("machine",machine_profile_name+".json").replace("\\","/")
+        "name": printer_profile_name,
+        "sub_path": os.path.join("machine",machine_file_name+".json").replace("\\","/")
     }
     return [machine_sub_data],top_material,bed_type
 
@@ -584,4 +761,5 @@ def main():
     make_parameter_package(0, engine_version)
     #make_parameter_package(1)
 
-main()
+if __name__ == "__main__":
+    main()

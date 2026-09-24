@@ -291,15 +291,15 @@
         },
         {
             "key": "wall_filament",
-            "type": "2"
+            "type": "0"
         },
         {
             "key": "sparse_infill_filament",
-            "type": "2"
+            "type": "0"
         },
         {
             "key": "solid_infill_filament",
-            "type": "2"
+            "type": "0"
         }
     ]
 }

@@ -1,10 +1,12 @@
-﻿#ifndef FILAMENTPANEL_H
+#ifndef FILAMENTPANEL_H
 #define FILAMENTPANEL_H
 
 #include <string>
 #include <wx/panel.h>
+#include <wx/scrolwin.h>
 #include <wx/sizer.h>
 #include <wx/window.h>
+#include <wx/menu.h>
 #include "wx/string.h"
 #include "wx/wrapsizer.h"
 #include "Widgets/PopupWindow.hpp" 
@@ -13,10 +15,13 @@
 #include "Widgets/Label.hpp"
 #include "print_manage/data/DataType.hpp"
 #include <functional>
+#include <map>
+#include <memory>
 
 #define FILAMENT_BTN_WIDTH  110
-#define FILAMENT_BTN_HEIGHT 41
+#define FILAMENT_BTN_HEIGHT 46
 
+class Button;
 
 namespace Slic3r { 
 
@@ -78,11 +83,16 @@ public:
     void SetIcon(wxString dark_icon, wxString light_icon);
     void SetLabel(wxString lb);
     wxString getLabel();
+	// Keeps the label in the upper row's left slot instead of centring it across
+	// the whole colour block.
+	void SetLabelTopLeft(bool top_left);
 
 	void update_sync_box_state(bool sync, const wxString& box_filament_name = "");
 	void update_child_button_color(const wxColour& color);
     void resetCFS(bool bCFS);
 	void update_child_button_size();
+	// Turns the right-most quarter of the block into a "three dots" overflow menu.
+	void enable_menu_button(bool enable);
 
 protected:
 
@@ -95,23 +105,49 @@ protected:
 
 	void OnChildButtonClick(wxMouseEvent& event);
     void OnChildButtonPaint(wxPaintEvent& event);
+	void OnMouseMove(wxMouseEvent& event);
+	void OnMouseLeave(wxMouseEvent& event);
+
+	void OnSize(wxSizeEvent& event);
+	void layout_child_windows();
+	void set_top_hover_region(int region);
+	// Left slot occupied by the filament number.
+	wxRect label_area_rect() const;
+	// Right-most quarter of the block, owned by the overflow menu (hit area).
+	wxRect menu_area_rect() const;
+	// Square chip drawn inside menu_area_rect().
+	wxRect menu_plate_rect() const;
+	// Shared height of the inner plates (CFS / "...").
+	int inner_plate_height() const;
+	void draw_menu_area(wxDC& dc);
+	void draw_top_hover_area(wxDC& dc);
+	void show_menu();
+	// Checkerboard fill used to visualize a fully transparent filament colour.
+	wxBrush make_transparency_brush(int tile_dip) const;
+	// Background colour currently painted behind the owner-drawn children.
+	const wxColour& child_background_colour() const;
     
 protected:
 	double m_radius;
 	int m_border_width = 1;
 	FilamentButtonStateHandler m_state_handler;
 	wxColour m_back_color;
-    bool                       m_bReseted = true;
-    wxColour                   m_resetedColour = wxColour("#FFFFFF");
 	wxString m_label;
+	bool m_label_top_left = false;
     ScalableBitmap m_dark_img;
     ScalableBitmap m_light_img;
 	wxString m_sync_filament_label = "cfs";
 	bool m_sync_box_filament = false;
+	// Hover target in the upper row: 0 none, 1 index, 2 CFS, 3 more.
+	int m_top_hover_region = 0;
 
 	// Linux/GTK 下在 wxButton 上做自绘不可靠，改为 wxPanel 做 owner-draw
 	wxPanel* m_child_button {nullptr};
 	wxBitmap m_bitmap;
+
+	// "..." overflow menu, drawn directly on this window (no child window, so the
+	// block's rounded border stays intact). Only enabled for the color block.
+	bool m_menu_area_enabled {false};
 
 	DECLARE_EVENT_TABLE()
 };
@@ -126,34 +162,21 @@ public:
 	FilamentPopPanel(wxWindow* parent, int index);
 	~FilamentPopPanel();
 
-	void Popup(wxPoint position = wxDefaultPosition);
 	void Dismiss();
-    void msw_rescale();
+    void msw_rescale(wxWindow* dpi_reference = nullptr);
     void sys_color_changed();
     void setFilamentItem(FilamentItem* pFilamentItem) { m_pFilamentItem = pFilamentItem; }
-	void on_left_down(wxMouseEvent &evt);
-    void OnPaint(wxPaintEvent& event);
-
-protected:
-    bool ShouldDismissOnTopWindowDeactivate() override;
-    void BindInteractiveChildHover(wxWindow* window);
-    bool IsInteractiveChildHoverActive() const;
+	// Opens the preset list of the hosted combobox directly, without ever
+	// showing this panel.
+	void PopupPresetList();
 
 public:
 
 	Slic3r::GUI::PlaterPresetComboBox* m_filamentCombox;
-    ScalableButton* m_img_extruderTemp;
-    ScalableButton* m_img_bedTemp;
-    Label*                             m_lb_extruderTemp = nullptr;
-    Label*                             m_lb_bedTemp      = nullptr;
-
-    ScalableButton* m_edit_btn;
 	wxColour m_bg_color;
 	wxBoxSizer* m_sizer_main{ nullptr };
     int	m_index=-1;
     FilamentItem*   m_pFilamentItem = nullptr;
-    bool            m_mouse_over_interactive_child = false;
-    long long       m_interactive_child_hover_until = 0;
 };
 
 const wxColour MENU_COLORS[8] = {
@@ -188,17 +211,22 @@ public:
     bool is_checked();
 
     bool to_small(bool bSmall = true);
-	void update();
+	void update(bool persist_changes = true);
     void sys_color_changed();
     void msw_rescale();
 	void paintEvent(wxPaintEvent& evt);
 	int index();
 	void update_bk_color(const std::string& bk_color);
-	void set_filament_selection(const wxString& filament_name);
+	std::string set_filament_selection(const wxString& filament_name, bool notify = true);
 	void update_box_sync_state(bool sync, const wxString& box_filament_name = "");
 	void update_box_sync_color(const std::string& sync_color);
     void resetCFS(bool bCFS);
 	void update_button_size();
+	// Opens the filament settings page for this slot (same as the pencil button
+	// inside the expanded parameter popup).
+	void edit_preset();
+	void set_nozzle_no(int nozzle_no) { m_nozzle_no = nozzle_no < 1 ? 1 : nozzle_no; }
+	int nozzle_no() const { return m_nozzle_no; }
 	
     wxString    name();
     wxString    boxname();
@@ -226,6 +254,7 @@ private:
 	Slic3r::PresetBundle* m_preset_bundle{nullptr};
     Slic3r::PresetCollection* m_collection{nullptr};
     wxString m_preset_name;
+    int m_nozzle_no { 1 };
 
     DECLARE_EVENT_TABLE()
 };
@@ -238,11 +267,15 @@ private:
 class FilamentPanel : public wxPanel
 {
 public:
+	using AutoMappingCompletion = std::function<void(bool, const std::string&)>;
+	using AutoMappingValidator  = std::function<bool()>;
+
 	FilamentPanel(wxWindow* parent,
 		wxWindowID      id = wxID_ANY,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize,
 		long style = 0);
+	~FilamentPanel() override;
 
 	bool add_filament();
     bool can_add();
@@ -251,12 +284,16 @@ public:
 	void del_filament(int index = -1);
 	void to_small(bool bSmall = true);
     void update(int index=-1);
+    bool prepare_filament_nozzle_mapping_for_slice(bool will_post_slice_event = false, bool slice_all = false, int plate_index = -1);
+    void open_filament_grouping_dialog();
     void reflow_for_width();
     void sys_color_changed();
     void msw_rescale();
     size_t size();
 	void on_re_sync_all_filaments(const std::string& selected_device_ip);
-	void on_auto_mapping_filament(const DM::Device& deviceData);
+	void on_auto_mapping_filament(const DM::Device& deviceData,
+	                              AutoMappingCompletion completion = {},
+	                              AutoMappingValidator validator = {});
 	void update_box_filament_sync_state(bool sync);
 	void reset_filament_sync_state();
     void reset_device_filament_mapping_to_cfs();
@@ -271,9 +308,21 @@ public:
     std::vector<FilamentItem*> get_filament_items();
 
 private:
-    json m_FilamentProfileJson;
-    int LoadFilamentProfile(bool isCxVedor=true);
-    void SetFilamentProfile(std::vector<std::pair<int, DM::Material>>& validMaterials);
+    void on_filament_wheel(wxMouseEvent& event);
+    void update_scroll_height();
+    bool supports_filament_nozzle_mapping() const;
+    size_t nozzle_count_for_mapping() const;
+    void refresh_filament_grouping_visibility();
+    std::vector<size_t> used_filament_ids_for_grouping(bool slice_all, int plate_index = -1) const;
+    Slic3r::FilamentMapAutoInput make_filament_map_auto_input(bool slice_all, int plate_index = -1) const;
+    bool apply_current_filament_nozzle_mapping(bool slice_all, int plate_index = -1);
+    bool show_filament_grouping_dialog(bool slice_all, bool* mapping_changed = nullptr, int plate_index = -1);
+
+    bool SetFilamentProfile(const std::map<std::string, std::string>& section_new);
+    void apply_auto_mapping_filament(std::vector<std::pair<int, DM::Material>> validMaterials,
+                                     bool is_cfs_mini,
+                                     std::map<std::string, std::string> section_new,
+                                     bool profile_available);
 
 protected:
 	void paintEvent(wxPaintEvent& evt);
@@ -281,9 +330,17 @@ protected:
 private:
 	wxWrapSizer* m_sizer;
 	wxBoxSizer*m_box_sizer;
+    wxScrolledWindow* m_filament_scrolled { nullptr };
+    wxPanel* m_filament_content { nullptr };
+    int m_filament_wheel_rotation { 0 };
+	Button* m_grouping_btn { nullptr };
+	// Lets the event posted after pre-slice confirmation continue without reopening the dialog.
+	bool m_skip_next_filament_nozzle_mapping_dialog { false };
+    bool m_filament_nozzle_mapping_in_progress { false };
 	int m_max_count = { 64 };
     int m_small_count = { 64 };
 	std::vector<FilamentItem*> m_vt_filament;
+	std::shared_ptr<int> m_lifetime_token = std::make_shared<int>(0);
 
 	// when current device changed(from multiColor box to singleColor box), restore filament color
     std::vector<std::string> m_backup_extruder_colors;
@@ -374,7 +431,7 @@ public:
 
     void RegisterPopup(PopupWindow* popup)
     {
-        if (!popup) return;
+        if (!popup || std::find(m_popups.begin(), m_popups.end(), popup) != m_popups.end()) return;
 
         m_popups.push_back(popup);
 
@@ -384,39 +441,25 @@ public:
 
     void CloseLast()
     {
-        // 创建副本避免迭代器失效
-        std::vector<PopupWindow*> popupsCopy = m_popups;
-        //m_popups.clear();  // 立即清空原列表，防止重复处理
-        m_popups.erase(m_popups.end() - 1);
-        PopupWindow* popup = popupsCopy.back();
-        //for (PopupWindow* popup : popupsCopy) {
-            if (popup) {
-                // 确保先解除事件绑定
-                popup->Unbind(wxEVT_DESTROY, &PopupWindowManager::OnPopupDestroyed, this);
-
-                // 关闭并销毁弹窗
-                popup->Dismiss();
-                popup->Destroy();
-            }
-        //}
+        if (m_popups.empty())
+            return;
+        PopupWindow* popup = m_popups.back();
+        m_popups.pop_back();
+        popup->Unbind(wxEVT_DESTROY, &PopupWindowManager::OnPopupDestroyed, this);
+        // Explicit close must not re-enter the activation-based Dismiss override.
+        popup->PopupWindow::Dismiss();
+        popup->Destroy();
     }
+
     void CloseAll()
     {
-        // 创建副本避免迭代器失效
-        std::vector<PopupWindow*> popupsCopy = m_popups;
-        m_popups.clear();  // 立即清空原列表，防止重复处理
-
-        for (PopupWindow* popup : popupsCopy) {
-            if (popup) {
-                // 确保先解除事件绑定
-                popup->Unbind(wxEVT_DESTROY, &PopupWindowManager::OnPopupDestroyed, this);
-
-                // 关闭并销毁弹窗
-                popup->Dismiss();
-                popup->Destroy();
-            }
-        }
+        // Destroy children before their owning popup.
+        while (!m_popups.empty())
+            CloseLast();
     }
+#ifdef __WXMSW__
+    bool IsMenuActive() const;
+#endif
 private:
     std::vector<PopupWindow*> m_popups;
     // 弹窗销毁事件处理
@@ -434,13 +477,16 @@ private:
 class ManagedPopupWindow : public PopupWindow
 {
 public:
-    ManagedPopupWindow(wxWindow* parent) : PopupWindow(parent, wxBORDER_NONE) { 
+    ManagedPopupWindow(wxWindow* parent, int style = wxBORDER_NONE | wxPU_CONTAINS_CONTROLS) : PopupWindow(parent, style) {
         SetBackgroundStyle(wxBG_STYLE_PAINT); // 启用自定义绘制
         SetDoubleBuffered(true); // 启用双缓冲防止闪烁
         Bind(wxEVT_PAINT, &ManagedPopupWindow::OnPaint, this);
         init();
     }
     void init();
+#ifdef __WXMSW__
+    void Dismiss() override;
+#endif
     void Popup(wxWindow* focus = NULL) override
     {
         // 先关闭所有已有弹窗
@@ -468,116 +514,23 @@ public:
     }
 
 protected:
-    //void Dismiss() override
-    //{
-    //    PopupWindowManager::Get().CloseAll();
-    //    PopupWindow::Dismiss();
-    //}
     void OnPaint(wxPaintEvent& event);
 };
 
 
-class MaterialSubMenuItem : public wxWindow
+// Native menu; actions run after GetPopupMenuSelectionFromUser() closes the menu.
+class MaterialContextMenu : public wxMenu
 {
 public:
-    MaterialSubMenuItem(wxWindow* parent, const wxString& label, const wxColour& color, const int num);
-    ~MaterialSubMenuItem() = default;
-	void setParentIndex(int index) { m_parentindex = index; }
-    void set_mixed_target(std::function<void()> callback) { m_is_mixed = true; m_on_click_callback = std::move(callback); }
-private:
-	int      m_parentindex = -1; // 父菜单索引
-    int      m_num = 0;
-    wxString m_label;
-    wxColour m_color;
-    bool     m_hovered = false;
-    bool     m_clicked = false;
-    std::function<void()> m_on_click_callback;
-    bool     m_is_mixed = false;  // true if this item represents a mixed filament target
-
-    void OnPaint(wxPaintEvent&);
-
-    void OnMouseRelease(wxMouseEvent&);
-
-    void OnMousePressed(wxMouseEvent&);
-    void OnMouseEnter(wxMouseEvent&);
-
-    void OnMouseLeave(wxMouseEvent&);
-};
-
-// 自定义按钮类实现状态管理
-class HoverButton : public wxButton
-{
-public:
-    HoverButton(wxWindow* parent,
-        wxWindowID      id,
-        const wxString& label,
-        const wxPoint& pos = wxDefaultPosition,
-        const wxSize& size = wxDefaultSize,
-        const int& type = 0);
-
-    void SetBaseColors(const wxColour& normal, const wxColour& pressed);
-
-    void SetBitMap_Cus(wxBitmap bit1, wxBitmap bit2);
-    void SetExpendStates(bool expend);
-private:
-    wxColour m_baseColor;
-    wxColour m_pressedColor;
-    wxBitmap bitmap = wxNullBitmap;
-    wxBitmap bitmap_hover = wxNullBitmap;
-    wxSize m_size = wxDefaultSize;
-    bool isHover = false;
-    bool    m_isExpend = false;
-
-    void BindEvents();
-    void OnLeftDown(wxMouseEvent& e);
-
-    void OnLeftUp(wxMouseEvent& e);
-    void OnEnter(wxMouseEvent& e);
-    
-    void OnLeave(wxMouseEvent& e);
-    
-   
-    void OnPaint(wxPaintEvent&);
-    int m_type = 0;    //0:del,1:merge
-};
-
-// 子菜单窗口
-class MaterialSubMenu : public ManagedPopupWindow
-{
-public:
-    MaterialSubMenu(wxWindow* parent,int index = -1);
-
-    void init();
+    MaterialContextMenu(wxWindow* parent, int index);
+    void ExecuteSelection(int id);
 
 private:
     int m_index = 0;
-    ManagedPopupWindow* m_menuPop = nullptr;
-    void Dismiss() override {
-        wxPoint mousePos = ::wxGetMousePosition();
-        // 判断点击位置是否在弹窗外
-        if (m_menuPop && !m_menuPop->GetScreenRect().Contains(mousePos)) {
-            PopupWindowManager::Get().CloseAll();
-        }
-    }
-};
-// 自定义右键菜单窗口
-class MaterialContextMenu : public ManagedPopupWindow
-{
-public:
-    MaterialContextMenu(wxWindow* parent,int index);
-    ~MaterialContextMenu();
-
-private:
-    void onCheckTimer(wxTimerEvent& event);
-    bool isMouseInWindow();
-    wxTimer* m_checkTimer = nullptr;
-    HoverButton* m_mergeBtn;
-    int       m_index = 0;
-	bool        m_is_clicked = false;
-    void            OnShowSubmenu(wxCommandEvent&);
-    void            OnDelete(wxCommandEvent&);
-    bool    m_isExpended = false;
-    MaterialSubMenu* m_submenu = nullptr;
+    std::map<int, std::function<void()>> m_actions;
+    void OnEdit();
+    void OnDelete();
+    void OnDecomposeColor();
 };
 
 #endif //

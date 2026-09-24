@@ -169,3 +169,177 @@ SCENARIO("Flow: Flow math for bridges", "[Flow]") {
         }
     }
 }
+
+
+namespace {
+DynamicPrintConfig nozzle_width_test_config()
+{
+    DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+    config.set_num_filaments(2);
+    config.set_deserialize_strict({
+        {"nozzle_diameter", "0.6,0.4,0.2,0.2"},
+        {"filament_map", "1,2"},
+        {"filament_map_2", "0,1"},
+        {"filament_map_mode", "Manual"},
+        {"support_filament_nozzle_mapping", "1"},
+        {"layer_height", "0.2"},
+        {"initial_layer_print_height", "0.2"},
+        {"enable_prime_tower", "0"},
+        {"enable_support", "0"},
+        {"brim_type", "no_brim"},
+        {"skirt_loops", "0"},
+        {"before_layer_change_gcode", "G92 E0"},
+        {"layer_change_gcode", "G92 E0"},
+        {"initial_layer_line_width", "0.65,0.5,0.25,0.25"},
+        {"line_width", "0.66,0.42,0.22,0.22"},
+        {"outer_wall_line_width", "0.6,0.42,0.22,0.22"},
+        {"inner_wall_line_width", "0.61,0.45,0.25,0.25"},
+        {"sparse_infill_line_width", "0.64,0.45,0.25,0.25"},
+        {"internal_solid_infill_line_width", "0.63,0.42,0.22,0.22"},
+        {"top_surface_line_width", "0.68,0.42,0.22,0.22"},
+        {"support_line_width", "0.62,0.4,0.2,0.2"}
+    });
+    return config;
+}
+}
+
+TEST_CASE("Unused nozzle support widths do not block a 0.6 mm cube", "[Flow][NozzleVariant][17866]")
+{
+    auto config = nozzle_width_test_config();
+    config.set_deserialize_strict({{"enable_support", "1"}});
+    Print print;
+    Model model;
+    init_print({TestMesh::cube_20x20x20}, print, model, config);
+    REQUIRE(print.validate().string.empty());
+    REQUIRE(support_material_flow(print.objects().front()).width() == Approx(0.62));
+
+    SECTION("An invalid width on the actual support nozzle is still rejected") {
+        config.set_deserialize_strict({{"support_line_width", "0.2,0.4,0.2,0.2"}});
+        print.apply(model, config);
+        REQUIRE(print.validate().opt_key == "support_line_width");
+    }
+    SECTION("A default-width fallback reports the actual source parameter") {
+        config.set_deserialize_strict({{"support_line_width", "0"}, {"line_width", "0.19,0.42,0.22,0.22"}});
+        print.apply(model, config);
+        REQUIRE(print.validate().opt_key == "line_width");
+    }
+}
+
+TEST_CASE("Wall and infill validation use their own mapped nozzle rows", "[Flow][NozzleVariant][17866]")
+{
+    auto config = nozzle_width_test_config();
+    config.set_deserialize_strict({
+        {"wall_filament", "1"}, {"sparse_infill_filament", "2"}, {"solid_infill_filament", "2"},
+        {"outer_wall_line_width", "0.6,0.1,0.1,0.1"},
+        {"inner_wall_line_width", "0.61,0.1,0.1,0.1"},
+        {"sparse_infill_line_width", "0.1,0.45,0.1,0.1"},
+        {"internal_solid_infill_line_width", "0.1,0.42,0.1,0.1"},
+        {"top_surface_line_width", "0.1,0.42,0.1,0.1"}
+    });
+    Print print;
+    Model model;
+    init_print({TestMesh::cube_20x20x20}, print, model, config);
+    REQUIRE(print.validate().string.empty());
+    const PrintObject &object = *print.objects().front();
+    const PrintRegion &region = object.all_regions().front().get();
+    REQUIRE(region.flow(object, frExternalPerimeter, 0.2).width() == Approx(0.6));
+    REQUIRE(region.flow(object, frInfill, 0.2).width() == Approx(0.45));
+
+    config.set_deserialize_strict({{"sparse_infill_line_width", "0.64,0.19,0.1,0.1"}});
+    print.apply(model, config);
+    REQUIRE(print.validate().opt_key == "sparse_infill_line_width");
+}
+
+TEST_CASE("Automatic support geometry follows a participating nozzle instead of nozzle zero", "[Flow][NozzleVariant][17866]")
+{
+    auto config = nozzle_width_test_config();
+    config.set_deserialize_strict({{"enable_support", "1"}, {"filament_map", "2,2"}, {"filament_map_2", "1,1"},
+                                   {"support_line_width", "0.1,0.4,0.2,0.2"}});
+    Print print;
+    Model model;
+    init_print({TestMesh::cube_20x20x20}, print, model, config);
+    REQUIRE(print.validate().string.empty());
+    REQUIRE(support_material_flow(print.objects().front()).width() == Approx(0.4));
+    REQUIRE(support_material_flow(print.objects().front()).nozzle_diameter() == Approx(0.4));
+    REQUIRE(support_material_interface_flow(print.objects().front()).width() == Approx(0.4));
+}
+
+TEST_CASE("Resolved flow preserves percentages, first-layer overrides and automatic values", "[Flow][NozzleVariant][17866]")
+{
+    auto config = nozzle_width_test_config();
+    config.set_deserialize_strict({{"outer_wall_line_width", "110%"}, {"initial_layer_line_width", "0.7"}});
+    Print print;
+    Model model;
+    init_print({TestMesh::cube_20x20x20}, print, model, config);
+    const PrintObject &object = *print.objects().front();
+    const PrintRegion &region = object.all_regions().front().get();
+    REQUIRE(region.flow(object, frExternalPerimeter, 0.2).width() == Approx(0.66));
+    REQUIRE(region.flow(object, frExternalPerimeter, 0.2, true).width() == Approx(0.7));
+
+    config.set_deserialize_strict({{"outer_wall_line_width", "0"}, {"line_width", "0"}});
+    print.apply(model, config);
+    const PrintObject &updated_object = *print.objects().front();
+    const PrintRegion &updated_region = updated_object.all_regions().front().get();
+    REQUIRE(print.validate().string.empty());
+    REQUIRE(updated_region.flow(updated_object, frExternalPerimeter, 0.2).width() == Approx(0.675));
+}
+
+TEST_CASE("Preset width checks defer nozzle-dependent limits to effective print roles", "[Flow][Config][17866]")
+{
+    auto config = nozzle_width_test_config();
+    // 1.6 is above the former import-only 2.5x limit, but below the retained 5x print limit.
+    config.set_deserialize_strict({{"outer_wall_line_width", "1.6,10,10,10"}});
+    REQUIRE(config.validate().count("outer_wall_line_width") == 0);
+    Print print;
+    Model model;
+    init_print({TestMesh::cube_20x20x20}, print, model, config);
+    REQUIRE(print.validate().string.empty());
+
+    config.set_deserialize_strict({{"outer_wall_line_width", "3.1,10,10,10"}});
+    print.apply(model, config);
+    REQUIRE(print.validate().opt_key == "outer_wall_line_width");
+    config.set_deserialize_strict({{"outer_wall_line_width", "-1"}});
+    REQUIRE(config.validate().count("outer_wall_line_width") == 1);
+}
+
+
+TEST_CASE("Disabled print roles do not validate their stored widths", "[Flow][NozzleVariant][17866]")
+{
+    auto config = nozzle_width_test_config();
+    config.set_deserialize_strict({
+        {"sparse_infill_density", "0%"}, {"top_shell_layers", "0"}, {"bottom_shell_layers", "0"},
+        {"sparse_infill_line_width", "0.1"}, {"internal_solid_infill_line_width", "0.1"},
+        {"top_surface_line_width", "0.1"}, {"support_line_width", "0.1"}
+    });
+    Print print;
+    Model model;
+    init_print({TestMesh::cube_20x20x20}, print, model, config);
+    REQUIRE(print.validate().string.empty());
+
+    config.set_deserialize_strict({{"sparse_infill_density", "15%"}});
+    print.apply(model, config);
+    REQUIRE(print.validate().opt_key == "sparse_infill_line_width");
+}
+
+TEST_CASE("Mixed flow resolves its geometry representative before the runtime map is installed", "[Flow][NozzleVariant][17866]")
+{
+    auto config = nozzle_width_test_config();
+    config.set_num_filaments(4);
+    config.set_deserialize_strict({
+        {"nozzle_diameter", "0.6,0.6,0.2,0.2"}, {"filament_map", "2,1,2,2"}, {"filament_map_2", "1,0,1,1"},
+        {"mixed_filament_definitions", "4,2,1,1,50,0,g,w,m2,d0,o0,u1"}
+    });
+    Print print;
+    Model model;
+    init_print({TestMesh::cube_20x20x20}, print, model, config);
+    REQUIRE(print.config().filament_map.size() == 4);
+    // Members are sorted by physical filament ID, matching resolve_filament_mapping():
+    // filament 2 -> nozzle 1 supplies the geometry, not the first recipe entry (4).
+    REQUIRE(resolve_flow_nozzle_index(print, 5) == 0);
+    PrintRegionConfig region_config = print.get_print_region(0).config();
+    region_config.wall_filament.value = 5;
+    PrintRegion region(region_config);
+    const PrintObject &object = *print.objects().front();
+    REQUIRE(region.flow(object, frExternalPerimeter, 0.2).width() == Approx(0.6));
+    REQUIRE_THROWS_AS(resolve_flow_nozzle_index(print, 99), SlicingError);
+}

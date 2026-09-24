@@ -1652,6 +1652,8 @@ json SlicerBridge::DoMoveObject(const json& params)
     json resp = {
         {"success", true},
         {"message", msg},
+        {"moved_count", moved_count},
+        {"object_indices", target_obj_indices},
         {"applied_delta", {total_applied_delta.x(), total_applied_delta.y(), total_applied_delta.z()}},
     };
     if (has_target_plate) {
@@ -1810,7 +1812,13 @@ json SlicerBridge::DoRotateObject(const json& params)
     }
 
     BOOST_LOG_TRIVIAL(info) << "[SlicerBridge] " << msg;
-    return {{"success", true}, {"message", msg}};
+    return {
+        {"success", true},
+        {"message", msg},
+        {"rotated_count", rotated_count},
+        {"object_indices", target_obj_indices},
+        {"applied_rotation_deg", {rx_deg, ry_deg, rz_deg}}
+    };
 }
 
 json SlicerBridge::DoScaleObject(const json& params)
@@ -2636,8 +2644,25 @@ json SlicerBridge::DoDeleteModel(const json& params)
         }
 
         if (indices_to_delete.empty())
-            return {{"success", true}, {"message", "No models on the specified plate"}};
+            return {
+                {"success", true},
+                {"message", "No models on the specified plate"},
+                {"deleted_count", 0},
+                {"object_indices", json::array()},
+                {"deleted_objects", json::array()},
+                {"target_plate_index", target_plate_idx},
+                {"target_plate_number", target_plate_idx + 1}
+            };
 
+        json deleted_objects = json::array();
+        for (int idx : indices_to_delete) {
+            const ModelObject* object = model.objects[idx];
+            deleted_objects.push_back({
+                {"object_index", idx},
+                {"object_name", object ? object->name : std::to_string(idx)}
+            });
+        }
+        const std::vector<int> deleted_indices = indices_to_delete;
         plater->take_snapshot("Delete models on plate");
         // Delete in descending order so indices remain valid
         std::sort(indices_to_delete.rbegin(), indices_to_delete.rend());
@@ -2645,7 +2670,15 @@ json SlicerBridge::DoDeleteModel(const json& params)
             plater->remove((size_t)idx);
         plater->update();
 
-        return {{"success", true}, {"message", "Deleted " + std::to_string(indices_to_delete.size()) + " model(s) on plate " + std::to_string(target_plate_idx + 1)}};
+        return {
+            {"success", true},
+            {"message", "Deleted " + std::to_string(deleted_indices.size()) + " model(s) on plate " + std::to_string(target_plate_idx + 1)},
+            {"deleted_count", (int)deleted_indices.size()},
+            {"object_indices", deleted_indices},
+            {"deleted_objects", deleted_objects},
+            {"target_plate_index", target_plate_idx},
+            {"target_plate_number", target_plate_idx + 1}
+        };
     }
 
     int obj_idx = -1;
@@ -2674,7 +2707,16 @@ json SlicerBridge::DoDeleteModel(const json& params)
     plater->remove((size_t)obj_idx);
     plater->update();
 
-    return {{"success", true}, {"message", "Deleted model: " + name}};
+    return {
+        {"success", true},
+        {"message", "Deleted model: " + name},
+        {"deleted_count", 1},
+        {"object_indices", json::array({obj_idx})},
+        {"deleted_objects", json::array({{
+            {"object_index", obj_idx},
+            {"object_name", name}
+        }})}
+    };
 }
 
 json SlicerBridge::DoCloneModel(const json& params)

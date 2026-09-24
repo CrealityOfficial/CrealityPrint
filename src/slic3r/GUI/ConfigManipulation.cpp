@@ -5,16 +5,37 @@
 #include "format.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/Model.hpp"
+#include "libslic3r/ModelObject.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/Utils.hpp"
 #include "MsgDialog.hpp"
+#include "Plater.hpp"
+#include "PartPlate.hpp"
+#include "Tab.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
 #include "libslic3r/FDM/MachineVender.hpp"
 
+#include <algorithm>
 #include <wx/msgdlg.h>
 
 namespace Slic3r {
 namespace GUI {
+
+
+static bool has_effective_sparse_infill(const DynamicPrintConfig* config)
+{
+    const auto* sparse_density = config->option<ConfigOptionPercent>("sparse_infill_density");
+    if (sparse_density != nullptr && sparse_density->value > 0.)
+        return true;
+
+    const auto* sparse_pattern = config->option<ConfigOptionEnum<InfillPattern>>("sparse_infill_pattern");
+    if (sparse_pattern == nullptr || sparse_pattern->value != ipField)
+        return false;
+
+    const auto* field_density = config->option<ConfigOptionPercent>("interior_coefficient");
+    return field_density != nullptr && field_density->value > 0.;
+}
 
 void ConfigManipulation::apply(DynamicPrintConfig* config, DynamicPrintConfig* new_config)
 {
@@ -80,7 +101,7 @@ void ConfigManipulation::check_nozzle_recommended_temperature_range(DynamicPrint
     }
 }
 
-void ConfigManipulation::check_nozzle_temperature_range(DynamicPrintConfig *config)
+void ConfigManipulation::check_nozzle_temperature_range(DynamicPrintConfig *config, int index)
 {
     if (is_msg_dlg_already_exist)
         return;
@@ -89,7 +110,7 @@ void ConfigManipulation::check_nozzle_temperature_range(DynamicPrintConfig *conf
     if (!get_temperature_range(config, temperature_range_low, temperature_range_high)) return;
 
     if (config->has("nozzle_temperature")) {
-        if (config->opt_int("nozzle_temperature", 0) < temperature_range_low || config->opt_int("nozzle_temperature", 0) > temperature_range_high) {
+        if (config->opt_int("nozzle_temperature", index) < temperature_range_low || config->opt_int("nozzle_temperature", index) > temperature_range_high) {
             wxString msg_text = _(L("Nozzle may be blocked when the temperature is out of recommended range.\n"
                 "Please make sure whether to use the temperature to print.\n\n"));
             msg_text += wxString::Format(_L("Recommended nozzle temperature of this filament type is [%d, %d] degree centigrade"), temperature_range_low, temperature_range_high);
@@ -101,7 +122,7 @@ void ConfigManipulation::check_nozzle_temperature_range(DynamicPrintConfig *conf
     }
 }
 
-void ConfigManipulation::check_nozzle_temperature_initial_layer_range(DynamicPrintConfig* config)
+void ConfigManipulation::check_nozzle_temperature_initial_layer_range(DynamicPrintConfig* config, int index)
 {
     if (is_msg_dlg_already_exist)
         return;
@@ -110,8 +131,8 @@ void ConfigManipulation::check_nozzle_temperature_initial_layer_range(DynamicPri
     if (!get_temperature_range(config, temperature_range_low, temperature_range_high)) return;
 
     if (config->has("nozzle_temperature_initial_layer")) {
-        if (config->opt_int("nozzle_temperature_initial_layer", 0) < temperature_range_low ||
-            config->opt_int("nozzle_temperature_initial_layer", 0) > temperature_range_high)
+        if (config->opt_int("nozzle_temperature_initial_layer", index) < temperature_range_low ||
+            config->opt_int("nozzle_temperature_initial_layer", index) > temperature_range_high)
         {
             wxString msg_text = _(L("Nozzle may be blocked when the temperature is out of recommended range.\n"
                 "Please make sure whether to use the temperature to print.\n\n"));
@@ -127,22 +148,24 @@ void ConfigManipulation::check_nozzle_temperature_initial_layer_range(DynamicPri
 
 void ConfigManipulation::check_filament_max_volumetric_speed(DynamicPrintConfig *config)
 {
-    //if (is_msg_dlg_already_exist) return;
-    //float max_volumetric_speed = config->opt_float("filament_max_volumetric_speed");
+    if (is_msg_dlg_already_exist)
+        return;
+    const auto* speeds = config->option<ConfigOptionFloats>("filament_max_volumetric_speed");
+    if (speeds == nullptr || std::none_of(speeds->values.begin(), speeds->values.end(),
+                                        [](double speed) { return speed < 0.5; }))
+        return;
 
-    float max_volumetric_speed = config->has("filament_max_volumetric_speed") ? config->opt_float("filament_max_volumetric_speed", (float) 0.5) : 0.5;
-    // BBS: limite the min max_volumetric_speed
-    if (max_volumetric_speed < 0.5) {
-        const wxString     msg_text = _(L("Too small max volumetric speed.\nReset to 0.5"));
-        MessageDialog      dialog(nullptr, msg_text, "", wxICON_WARNING | wxOK);
-        DynamicPrintConfig new_conf = *config;
-        is_msg_dlg_already_exist    = true;
-        dialog.ShowModal();
-        new_conf.set_key_value("filament_max_volumetric_speed", new ConfigOptionFloats({0.5}));
-        apply(config, &new_conf);
-        is_msg_dlg_already_exist = false;
-    }
-
+    DynamicPrintConfig new_conf = *config;
+    auto* corrected = new_conf.option<ConfigOptionFloats>("filament_max_volumetric_speed");
+    for (double& speed : corrected->values)
+        if (speed < 0.5)
+            speed = 0.5;
+    const wxString msg_text = _(L("Too small max volumetric speed.\nReset to 0.5"));
+    MessageDialog dialog(nullptr, msg_text, "", wxICON_WARNING | wxOK);
+    is_msg_dlg_already_exist = true;
+    dialog.ShowModal();
+    apply(config, &new_conf);
+    is_msg_dlg_already_exist = false;
 }
 
 void ConfigManipulation::check_chamber_temperature(DynamicPrintConfig* config)
@@ -172,73 +195,37 @@ void ConfigManipulation::check_chamber_temperature(DynamicPrintConfig* config)
     }
 }
 
-std::optional<DynamicPrintConfig> handle_automatic_extrusion_widths(const DynamicPrintConfig& config,
-                                                                    const bool                is_global_config,
-                                                                    wxWindow*                 msg_dlg_parent)
+// Shared warning dialog for the "variable layer height + mixed color sublayer"
+// interaction. Used at the three trigger points that mirror BambuStudio's
+// implementation: toolbar variable-layer toggle, object-list add layer range,
+// and the print config validator that runs after the user flips the
+// enable_mixed_color_sublayer checkbox on. The dialog has a "Don't show again"
+// checkbox; the opt-out is persisted under app_config key
+// "no_warn_mixed_sublayer_variable_layer". A static gate additionally makes
+// sure we only nag the user at most once per session, even if they click past
+// the same warning at multiple sites.
+void ConfigManipulation::warn_mixed_sublayer_variable_layer(wxWindow* parent)
 {
-    // const std::vector<std::string> extrusion_width_parameters = {"extrusion_width", "external_perimeter_extrusion_width",
-    // "first_layer_extrusion_width", "infill_extrusion_width", "perimeter_extrusion_width", "solid_infill_extrusion_width",
-    // "support_material_extrusion_width", "top_infill_extrusion_width"};
-    const std::vector<std::string> extrusion_width_parameters = {"line_width",
-                                                                 "initial_layer_line_width",
-                                                                 "outer_wall_line_width",
-                                                                 "inner_wall_line_width",
-                                                                 "top_surface_line_width",
-                                                                 "sparse_infill_line_width",
-                                                                 "internal_solid_infill_line_width",
-                                                                 "support_line_width"};
-    auto is_zero_width = [](const ConfigOptionFloatOrPercent& opt) -> bool { return opt.value == 0. && !opt.percent; };
+    // Honour the user's prior opt-out before doing any work.
+    if (wxGetApp().app_config->get("no_warn_mixed_sublayer_variable_layer") == "1")
+        return;
 
-    auto is_parameters_adjustment_needed = [&is_zero_width, &config, &extrusion_width_parameters]() -> bool {
-        if (!config.opt_bool("automatic_extrusion_widths")) {
-            return false;
-        }
+    const auto& print_config = wxGetApp().preset_bundle->prints.get_edited_preset().config;
+    if (!print_config.opt_bool("enable_mixed_color_sublayer"))
+        return;
 
-        for (const std::string& extrusion_width_parameter : extrusion_width_parameters) {
-            /*if (!is_zero_width(*config.option<ConfigOptionFloatOrPercent>(extrusion_width_parameter))) {
-                return true;
-            }*/
-            const auto* opt = config.option<ConfigOptionFloatOrPercent>(extrusion_width_parameter);
-            if (opt != nullptr && !is_zero_width(*opt)) {
-                return true;
-            }
-        }
+    static bool s_mixed_sublayer_warned = false;
+    if (s_mixed_sublayer_warned)
+        return;
 
-        return false;
-    };
-
-    if (is_parameters_adjustment_needed()) {
-        wxString msg_text = _(L("The automatic extrusion widths calculation requires:\n"
-                                "- Default line width: 0\n"
-                                "- First layer extrusion width: 0\n"
-                                "- Outer wall extrusion width: 0\n"
-                                "- Inner wall line width: 0\n"
-                                "- Top surface line width: 0\n"
-                                "- Sparse infill line width: 0\n"
-                                "- Internal solid infill line width: 0\n"
-                                "- Support line width: 0"));
-
-        if (is_global_config) {
-            msg_text += "\n\n" + _(L("Shall I adjust those settings in order to enable automatic extrusion widths calculation?"));
-        }
-
-        MessageDialog dialog(msg_dlg_parent, msg_text, _(L("Automatic extrusion widths calculation")),
-                             wxICON_WARNING | (is_global_config ? wxYES | wxNO : wxOK));
-
-        const int          answer   = dialog.ShowModal();
-        DynamicPrintConfig new_conf = config;
-        if (!is_global_config || answer == wxID_YES) {
-            for (const std::string& extrusion_width_parameter : extrusion_width_parameters) {
-                new_conf.set_key_value(extrusion_width_parameter, new ConfigOptionFloatOrPercent(0., false));
-            }
-        } else {
-            new_conf.set_key_value("automatic_extrusion_widths", new ConfigOptionBool(false));
-        }
-
-        return new_conf;
-    }
-
-    return std::nullopt;
+    MessageDialog dlg(parent,
+        _L("Using variable layer height together with mixed color sublayer may result in poor color mixing quality."),
+        _L("Warning"), wxICON_WARNING | wxOK);
+    dlg.show_dsa_button();
+    dlg.ShowModal();
+    if (dlg.get_checkbox_state())
+        wxGetApp().app_config->set("no_warn_mixed_sublayer_variable_layer", "1");
+    s_mixed_sublayer_warned = true;
 }
 
 void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, const bool is_global_config, const bool is_plate_config)
@@ -248,14 +235,62 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
     // KillFocus() for the wxSpinCtrl use CallAfter function. So,
     // to except the duplicate call of the update() after dialog->ShowModal(),
     // let check if this process is already started.
-    if (is_msg_dlg_already_exist)
+    if (is_msg_dlg_already_exist ||
+        (wxGetApp().plater() != nullptr && wxGetApp().plater()->is_zaa_ui_normalization_in_progress()))
         return;
+
+    if (auto *tower_filament = config->option<ConfigOptionInt>("wipe_tower_filament"); tower_filament != nullptr) {
+        const size_t physical_count = wxGetApp().preset_bundle->filament_presets.size();
+        if (tower_filament->value < 0 || size_t(tower_filament->value) > physical_count) {
+            DynamicPrintConfig new_config = *config;
+            new_config.set_key_value("wipe_tower_filament", new ConfigOptionInt(0));
+            apply(config, &new_config);
+        }
+    }
 
     bool is_object_config = (!is_global_config && !is_plate_config);
 
+    // Warn when the user has just enabled mixed color sublayer while at least
+    // one object already has a variable layer height profile. Sublayer
+    // splitting assumes a (near-)constant layer height so it can predict how
+    // many sub-layers to emit; a pre-existing adaptive profile will produce
+    // a visibly choppy gradient. Mirrors the third call site in BambuStudio.
+    {
+        static bool s_mixed_sublayer_warned = false;
+        const bool sublayer_on = config->opt_bool("enable_mixed_color_sublayer");
+        if (sublayer_on && !s_mixed_sublayer_warned &&
+            wxGetApp().app_config->get("no_warn_mixed_sublayer_variable_layer") != "1") {
+            bool has_variable_layer = false;
+            for (const auto* obj : wxGetApp().model().objects) {
+                // BambuStudio uses 4 as the "non-trivial profile" threshold; the
+                // value is the size of the (z, height) sample list, so anything
+                // above 4 means a real adaptive profile rather than a placeholder.
+                if (obj->layer_height_profile.get().size() > 4) {
+                    has_variable_layer = true;
+                    break;
+                }
+            }
+            if (has_variable_layer) {
+                MessageDialog dlg(m_msg_dlg_parent,
+                    _L("Using variable layer height together with mixed color sublayer may result in poor color mixing quality."),
+                    _L("Warning"), wxICON_WARNING | wxOK);
+                dlg.show_dsa_button();
+                is_msg_dlg_already_exist = true;
+                dlg.ShowModal();
+                is_msg_dlg_already_exist = false;
+                if (dlg.get_checkbox_state())
+                    wxGetApp().app_config->set("no_warn_mixed_sublayer_variable_layer", "1");
+                s_mixed_sublayer_warned = true;
+            }
+        }
+        // Reset the gate when the user turns sublayer off so a future re-enable
+        // can warn again.
+        if (!sublayer_on)
+            s_mixed_sublayer_warned = false;
+    }
+
     // layer_height shouldn't be equal to zero
     auto layer_height = config->opt_float("layer_height");
-    auto gpreset = GUI::wxGetApp().preset_bundle->printers.get_edited_preset();
 
     if (layer_height < EPSILON)
     {
@@ -269,8 +304,12 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
         is_msg_dlg_already_exist = false;
     }
 
-    //BBS: limite the max layer_herght
-    auto max_lh = gpreset.config.opt_float("max_layer_height",0);
+    // Use the selected nozzle variants, matching the process editor's layer-height limit.
+    const DynamicPrintConfig full_config = wxGetApp().preset_bundle->full_config();
+    const auto *max_layer_heights = full_config.option<ConfigOptionFloats>("max_layer_height");
+    const double max_lh = max_layer_heights != nullptr && !max_layer_heights->empty()
+        ? *std::max_element(max_layer_heights->values.begin(), max_layer_heights->values.end())
+        : 0.0;
     if (max_lh > 0.2 && layer_height > max_lh+ EPSILON)
     {
         const wxString msg_text = wxString::Format(_L("Too large layer height.\nReset to %0.3f"), max_lh);
@@ -356,44 +395,123 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
     double sparse_infill_density = config->option<ConfigOptionPercent>("sparse_infill_density")->value;
     auto timelapse_type = config->opt_enum<TimelapseType>("timelapse_type");
 
+    DynamicPrintConfig *global_config = &wxGetApp().preset_bundle->prints.get_edited_preset().config;
+    bool plate_spiral_mode = false;
+    if (is_global_config && wxGetApp().plater() != nullptr) {
+        for (auto *plate : wxGetApp().plater()->get_partplate_list().get_plate_list()) {
+            if (plate->config()->has("spiral_mode") && plate->config()->opt_bool("spiral_mode"))
+                plate_spiral_mode = true;
+        }
+    }
+    wxString spiral_conflict_message;
+    bool spiral_conflict_unresolvable = false;
+    const ZaaUiNormalizationRequest spiral_request {"spiral_mode", ZaaUiChangeScope::Global, true};
+    const bool check_global_spiral_mutex = !is_plate_config && is_global_config &&
+                                           config->opt_bool("spiral_mode") &&
+                                           wxGetApp().plater() != nullptr;
+    if (check_global_spiral_mutex)
+        spiral_conflict_message = wxGetApp().plater()->get_zaa_ui_conflict_message(
+            spiral_request, {}, config, &spiral_conflict_unresolvable);
+
+    // A lower-scope Scarf setting cannot be disabled safely from the global tab.
+    // Reject the newly enabled Spiral vase before evaluating the independent
+    // timelapse conflict that may still be caused by an explicit Plate override.
+    if (check_global_spiral_mutex && spiral_conflict_unresolvable) {
+        // Cover both the rejection dialog and the synchronous load_config()
+        // callback. KillFocus/CallAfter may otherwise re-enter this validator
+        // while the modal dialog is still open.
+        is_msg_dlg_already_exist = true;
+        ScopeGuard reset_dialog_guard([this] { is_msg_dlg_already_exist = false; });
+
+        DynamicPrintConfig rejected_conf = *config;
+        bool rejected = false;
+        wxGetApp().plater()->apply_zaa_ui_normalization(
+            spiral_request, {}, &rejected_conf, false, &rejected, true);
+        if (rejected) {
+            apply(config, &rejected_conf);
+            // Continue once with the already captured explicit-Plate state so
+            // upstream timelapse handling still runs exactly once.
+            spiral_conflict_message.clear();
+        }
+    }
+
+    const bool timelapse_conflict =
+        (config->opt_bool("spiral_mode") || plate_spiral_mode) &&
+        (config->opt_enum<TimelapseType>("timelapse_type") == TimelapseType::tlSmooth ||
+         global_config->opt_enum<TimelapseType>("timelapse_type") == TimelapseType::tlSmooth);
+    const bool adjust_vase_parameters = !is_plate_config && config->opt_bool("spiral_mode") &&
+        !(config->opt_int("wall_loops") == 1 &&
+          config->opt_int("top_shell_layers") == 0 &&
+          sparse_infill_density == 0 &&
+          !config->opt_bool("enable_support") &&
+          config->opt_int("enforce_support_layers") == 0 &&
+          !config->opt_bool("detect_thin_wall") &&
+          !config->opt_bool("overhang_reverse") &&
+          config->opt_enum<WallDirection>("wall_direction") == WallDirection::Auto &&
+          config->opt_enum<TimelapseType>("timelapse_type") == TimelapseType::tlTraditional &&
+          !config->opt_bool("z_direction_outwall_speed_continuous"));
     if (!is_plate_config &&
-        config->opt_bool("spiral_mode") &&
-        ! (config->opt_int("wall_loops") == 1 &&
-           config->opt_int("top_shell_layers") == 0 &&
-           sparse_infill_density == 0 &&
-           ! config->opt_bool("enable_support") &&
-           config->opt_int("enforce_support_layers") == 0 &&
-           ! config->opt_bool("detect_thin_wall") &&
-           ! config->opt_bool("overhang_reverse") &&
-            config->opt_enum<WallDirection>("wall_direction") == WallDirection::Auto &&
-            config->opt_enum<TimelapseType>("timelapse_type") == TimelapseType::tlTraditional &&
-            !config->opt_bool("z_direction_outwall_speed_continuous")))
+        (timelapse_conflict || adjust_vase_parameters || !spiral_conflict_message.empty()))
     {
         DynamicPrintConfig new_conf = *config;
-        auto answer = show_spiral_mode_settings_dialog(is_object_config);
+        const auto answer = show_spiral_mode_settings_dialog(
+            is_object_config, spiral_conflict_message,
+            is_object_config ? ZaaUiChangeScope::Object : ZaaUiChangeScope::Global);
         bool support = true;
         if (answer == wxID_YES) {
-            new_conf.set_key_value("wall_loops", new ConfigOptionInt(1));
-            new_conf.set_key_value("top_shell_layers", new ConfigOptionInt(0));
-            new_conf.set_key_value("sparse_infill_density", new ConfigOptionPercent(0));
-            new_conf.set_key_value("enable_support", new ConfigOptionBool(false));
-            new_conf.set_key_value("enforce_support_layers", new ConfigOptionInt(0));
-            new_conf.set_key_value("detect_thin_wall", new ConfigOptionBool(false));
-            new_conf.set_key_value("overhang_reverse", new ConfigOptionBool(false));
-            new_conf.set_key_value("wall_direction", new ConfigOptionEnum<WallDirection>(WallDirection::Auto));
+            if (!spiral_conflict_message.empty()) {
+                bool rejected = false;
+                wxGetApp().plater()->apply_zaa_ui_normalization(
+                    spiral_request, {}, &new_conf, false, &rejected, true);
+                if (rejected)
+                    new_conf.set_key_value("spiral_mode", new ConfigOptionBool(false));
+            }
+            if (!is_global_config)
+                global_config->set_key_value("timelapse_type", new ConfigOptionEnum<TimelapseType>(tlTraditional));
+            if (new_conf.opt_bool("spiral_mode")) {
+                new_conf.set_key_value("wall_loops", new ConfigOptionInt(1));
+                new_conf.set_key_value("top_shell_layers", new ConfigOptionInt(0));
+                new_conf.set_key_value("sparse_infill_density", new ConfigOptionPercent(0));
+                new_conf.set_key_value("enable_support", new ConfigOptionBool(false));
+                new_conf.set_key_value("enforce_support_layers", new ConfigOptionInt(0));
+                new_conf.set_key_value("detect_thin_wall", new ConfigOptionBool(false));
+                new_conf.set_key_value("overhang_reverse", new ConfigOptionBool(false));
+                new_conf.set_key_value("wall_direction", new ConfigOptionEnum<WallDirection>(WallDirection::Auto));
+                new_conf.set_key_value("z_direction_outwall_speed_continuous", new ConfigOptionBool(false));
+                sparse_infill_density = 0;
+                support = false;
+            }
             new_conf.set_key_value("timelapse_type", new ConfigOptionEnum<TimelapseType>(tlTraditional));
-            new_conf.set_key_value("z_direction_outwall_speed_continuous", new ConfigOptionBool(false));
-            sparse_infill_density = 0;
             timelapse_type = TimelapseType::tlTraditional;
-            support = false;
         }
         else {
             new_conf.set_key_value("spiral_mode", new ConfigOptionBool(false));
+            // Preserve the upstream "give up Spiral vase" behavior whenever
+            // its timelapse/parameter warning caused this dialog. A dialog
+            // caused solely by local ZAA/Scarf must not modify unrelated Plates.
+            if ((timelapse_conflict || adjust_vase_parameters) && plate_spiral_mode) {
+                for (auto *plate : wxGetApp().plater()->get_partplate_list().get_plate_list()) {
+                    if (plate->config()->has("spiral_mode") && plate->config()->opt_bool("spiral_mode"))
+                        plate->config()->set_key_value("spiral_mode", new ConfigOptionBool(false));
+                }
+            }
         }
         apply(config, &new_conf);
+        if (!is_global_config && answer == wxID_YES) {
+            if (auto *print_tab = wxGetApp().get_tab(Preset::TYPE_PRINT)) {
+                print_tab->update_dirty();
+                print_tab->reload_config();
+            }
+        }
+        if (cb_value_change) {
+            cb_value_change("timelapse_type", int(timelapse_type));
+            if (!support) {
+                cb_value_change("sparse_infill_density", sparse_infill_density);
+                cb_value_change("enable_support", false);
+            }
+        }
         is_msg_dlg_already_exist = false;
     }
-
     if (config->opt_bool("alternate_extra_wall") &&
         (config->opt_enum<EnsureVerticalShellThickness>("ensure_vertical_shell_thickness") == evstAll)) {
         wxString msg_text = _(L("Alternate extra wall does't work well when ensure vertical shell thickness is set to All. "));
@@ -557,13 +675,6 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
         is_msg_dlg_already_exist = false;
     }
 
-    if (config->opt_bool("automatic_extrusion_widths")) {
-        std::optional<DynamicPrintConfig> new_config = handle_automatic_extrusion_widths(*config, is_global_config, m_msg_dlg_parent);
-        if (new_config.has_value()) {
-            apply(config, &(*new_config));
-        }
-    }
-
     // Fuzzy skin [Extrusion]/[Combined] modes require the Arachne wall generator.
     // Note: in a DynamicPrintConfig the coEnum options are stored as ConfigOptionEnumGeneric
     // (derived from ConfigOptionInt), NOT as ConfigOptionEnum<T>. A dynamic_cast to
@@ -590,7 +701,7 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
     }
 }
 
-void ConfigManipulation::apply_null_fff_config(DynamicPrintConfig *config, std::vector<std::string> const &keys, std::map<ObjectBase *, ModelConfig *> const &configs)
+void ConfigManipulation::apply_null_fff_config(DynamicPrintConfig *config, std::vector<std::string> const &keys, ModelConfigEntries const &configs)
 {
     for (auto &k : keys) {
         if (/*k == "adaptive_layer_height" || */ k == "independent_support_layer_height" || k == "enable_support" ||
@@ -647,7 +758,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
         "inner_wall_speed", "outer_wall_speed", "small_perimeter_speed", "small_perimeter_threshold" })
         toggle_field(el, have_perimeters);
     
-    bool have_infill = config->option<ConfigOptionPercent>("sparse_infill_density")->value > 0;
+    bool have_infill = has_effective_sparse_infill(config);
     // sparse_infill_filament uses the same logic as in Print::extruders()
     for (auto el : { "sparse_infill_pattern", "infill_combination", "minimum_sparse_infill_area", "sparse_infill_filament", "infill_anchor_max",
           "infill_shift_step", "infill_rotate_step", "symmetric_infill_y_axis"})//"sparse_infill_rotate_template",
@@ -703,6 +814,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
                     "skeleton_infill_line_width", "locked_skin_infill_pattern", "locked_skeleton_infill_pattern"})
         toggle_line(el, is_locked_zig);
     toggle_field("skin_infill_depth", is_locked_zig && !flush_into_skeleton_enabled);
+    toggle_line("skeleton_wipe_line_width", false);
 
     toggle_line("infill_rotate_step", is_zig_zag);
     toggle_line("symmetric_infill_y_axis", is_zig_zag || is_cross_zag || is_locked_zig);
@@ -738,6 +850,9 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
 	
     
     bool has_spiral_vase         = config->opt_bool("spiral_mode");
+    toggle_line("zaa_wall_lowering_min_slope", config->opt_bool("zaa_enabled"));
+    toggle_line("zaa_slice_plane_offset", config->opt_bool("zaa_enabled"));
+    toggle_line("zaa_lock_top_surface_fill_direction", config->opt_bool("zaa_enabled"));
     toggle_line("spiral_mode_smooth", has_spiral_vase);
     toggle_line("spiral_mode_max_xy_smoothing", has_spiral_vase && config->opt_bool("spiral_mode_smooth"));
     toggle_field("z_direction_outwall_speed_continuous", !has_spiral_vase);
@@ -761,7 +876,8 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     for (auto el : { "top_surface_line_width", "top_surface_speed" })
         toggle_field(el, has_top_solid_infill || (has_spiral_vase && has_bottom_solid_infill));
     
-    bool have_default_acceleration = config->opt_float("default_acceleration") > 0;
+    // todo multi_extruders: the exact filament id
+    bool have_default_acceleration = config->opt_float("default_acceleration", 0) > 0;
     
     for (auto el : {"outer_wall_acceleration", "inner_wall_acceleration", "initial_layer_acceleration",
         "top_surface_acceleration", "travel_acceleration", "bridge_acceleration", "sparse_infill_acceleration", "internal_solid_infill_acceleration"})
@@ -895,6 +1011,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     toggle_line("ooze_prevention", !bSEMM);
     bool have_ooze_prevention = config->opt_bool("ooze_prevention");
     toggle_line("standby_temperature_delta", have_ooze_prevention);
+    toggle_line("preheat_temperature_delta", have_ooze_prevention);
     toggle_line("preheat_time", have_ooze_prevention);
     int preheat_steps = config->opt_int("preheat_steps");
     toggle_line("preheat_steps", have_ooze_prevention && (preheat_steps > 0));
@@ -905,20 +1022,35 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     toggle_line("flush_into_skeleton", bSEMM);
 
     bool have_prime_tower = config->opt_bool("enable_prime_tower");
+    const bool use_creality_tower = !is_BBL_Printer &&
+        creality::is_firmwaresoft_mm_printer_from_string(printer_preset.config.opt_string("printer_model"));
+    toggle_line("wipe_tower_filament", use_creality_tower);
+    toggle_field("wipe_tower_filament", use_creality_tower && have_prime_tower);
+    toggle_line("flush_into_solid_skeleton", !have_prime_tower);
+    toggle_line("bottom_fill_flush_layers", false);
+    toggle_line("top_fill_flush_layers", false);
+    toggle_line("skeleton_flush_slowdown_speed", false);
     const bool flush_into_objects_enabled  = config->has("flush_into_objects") && config->opt_bool("flush_into_objects");
     for (auto el : {"prime_tower_width", "prime_tower_brim_width", "prime_tower_skip_points", "prime_tower_rib_wall", "prime_tower_enable_framework"})
         toggle_line(el, have_prime_tower);
 
-    bool have_rib_wall = config->opt_bool("prime_tower_rib_wall") && have_prime_tower;
+    const auto enhance_type   = config->opt_enum<PrimeTowerEnhanceType>("prime_tower_enhance_type");
+    const bool use_corner_rib = enhance_type == PrimeTowerEnhanceType::pteCornerRib;
+    bool have_rib_wall = (config->opt_bool("prime_tower_rib_wall") || use_corner_rib) && have_prime_tower;
     toggle_field("prime_tower_width", !have_rib_wall);
+    toggle_field("prime_tower_rib_wall", have_prime_tower && !use_corner_rib);
 
-    for (auto el : {"wipe_tower_rotation_angle", "wipe_tower_cone_angle", "wipe_tower_extra_spacing", "wipe_tower_max_purge_speed",
+    for (auto el : {"wipe_tower_rotation_angle", "wipe_tower_cone_angle", "wipe_tower_max_purge_speed",
                     "wipe_tower_bridging", "wipe_tower_extra_flow", "wipe_tower_no_sparse_layers"})
         toggle_line(el, have_prime_tower && !is_BBL_Printer);
+    toggle_line("wipe_tower_extra_spacing", have_prime_tower && !is_BBL_Printer);
+    toggle_line("prime_tower_start_ironing", have_prime_tower && !is_BBL_Printer);
+    toggle_line("prime_tower_start_offset", have_prime_tower && !is_BBL_Printer);
 
     toggle_line("single_extruder_multi_material_priming", false);
     
     //creality defined prime tower settings
+    toggle_line("prime_tower_corner_rib_length", false);
     for (auto el : {"prime_tower_enhance_type"})
         toggle_line(el, false);
 
@@ -929,11 +1061,12 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
          "prime_tower_brim_width", "wipe_tower_rotation_angle", "prime_tower_enhance_type"})
             toggle_line(el, true);
 
-        bool is_cone = config->opt_enum<PrimeTowerEnhanceType>("prime_tower_enhance_type") == PrimeTowerEnhanceType::pteCone;
+        const auto selected_enhance_type = config->opt_enum<PrimeTowerEnhanceType>("prime_tower_enhance_type");
+        bool is_cone = selected_enhance_type == PrimeTowerEnhanceType::pteCone;
+        toggle_line("prime_tower_corner_rib_length", use_corner_rib);
         if(!is_cone)
             toggle_line("wipe_tower_cone_angle", false);
-        for (auto el : {"wipe_tower_extra_spacing", "wipe_tower_max_purge_speed", "wipe_tower_bridging"})
-            toggle_line(el, false);
+        toggle_line("wipe_tower_bridging", false);
     }
     
     toggle_field("flush_into_infill", have_prime_tower && !flush_into_skeleton_enabled);
@@ -948,7 +1081,8 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     bool have_avoid_crossing_perimeters = config->opt_bool("reduce_crossing_wall");
     toggle_line("max_travel_detour_distance", have_avoid_crossing_perimeters);
     
-    bool has_overhang_speed = config->opt_bool("enable_overhang_speed");
+    // todo multi_extruders:
+    bool has_overhang_speed = config->opt_bool("enable_overhang_speed", 0);
     for (auto el :
          {"overhang_speed_classic", "overhang_1_4_speed", "overhang_2_4_speed", "overhang_3_4_speed", "overhang_4_4_speed"})
         toggle_line(el, has_overhang_speed);
@@ -1062,18 +1196,8 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     toggle_line("interlocking_depth", use_beam_interlocking);
     toggle_line("interlocking_boundary_avoidance", use_beam_interlocking);
 
-    //开启机型参数中的冲刷进擦拭塔选项后，使用的是旧擦拭塔，所以需要并置灰
-    bool purge_in_primetower = preset_bundle->printers.get_edited_preset().config.opt_bool("purge_in_prime_tower");
-    if (purge_in_primetower || config->opt_enum<TimelapseType>("timelapse_type") == TimelapseType::tlSmooth)
-    {
-        toggle_field("prime_tower_rib_wall", false);
-        toggle_field("prime_tower_skip_points", false);
-    }
-    else
-    {
-        toggle_field("prime_tower_rib_wall", true);
-        toggle_field("prime_tower_skip_points", true);
-    }
+    toggle_field("prime_tower_rib_wall", have_prime_tower && !use_corner_rib);
+    toggle_field("prime_tower_skip_points", true);
 }
 
 void ConfigManipulation::update_print_sla_config(DynamicPrintConfig* config, const bool is_global_config/* = false*/)
@@ -1152,23 +1276,46 @@ void ConfigManipulation::toggle_print_sla_options(DynamicPrintConfig* config)
     toggle_field("pad_object_connector_penetration", zero_elev);
 }
 
-int ConfigManipulation::show_spiral_mode_settings_dialog(bool is_object_config)
+int ConfigManipulation::show_spiral_mode_settings_dialog(bool is_object_config, const wxString& conflict_message,
+                                                          ZaaUiChangeScope normalization_scope,
+                                                          bool spiral_already_enabled)
 {
     wxString msg_text = _(L("Spiral mode only works when wall loops is 1, support is disabled, top shell layers is 0, sparse infill density is 0, timelapse type is traditional and smoothing wall speed along Z is false."));
     auto printer_structure_opt = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionEnum<PrinterStructure>>("printer_structure");
     if (printer_structure_opt && printer_structure_opt->value == PrinterStructure::psI3) {
         msg_text += _(L(" But machines with I3 structure will not generate timelapse videos."));
     }
-    if (!is_object_config)
-        msg_text += "\n\n" + _(L("Change these settings automatically? \n"
-            "Yes - Change these settings and enable spiral mode automatically\n"
-            "No  - Give up using spiral mode this time"));
+    if (!conflict_message.empty())
+        msg_text += "\n\n" + conflict_message;
+    if (!is_object_config) {
+        if (spiral_already_enabled)
+            msg_text += "\n\n" + _(L("Apply these changes to keep the object compatible with Spiral vase?\n"
+                "Yes - Apply these changes\n"
+                "No  - Keep the current object settings"));
+        else if (conflict_message.empty())
+            msg_text += "\n\n" + _(L("Change these settings automatically? \n"
+                "Yes - Change these settings and enable spiral mode automatically\n"
+                "No  - Give up using spiral mode this time"));
+        else
+            msg_text += "\n\n" + _(L("Change these settings automatically? \n"
+                "Yes - Apply these changes and enable Spiral vase\n"
+                "No  - Give up using Spiral vase this time"));
+    }
+
+    Plater* plater = wxGetApp().plater();
+    if (plater != nullptr &&
+        !plater->try_begin_zaa_ui_normalization("spiral_mode", normalization_scope, nullptr))
+        return wxID_NO;
+    ScopeGuard reset_normalization_guard([plater] {
+        if (plater != nullptr)
+            plater->end_zaa_ui_normalization();
+    });
 
     MessageDialog dialog(m_msg_dlg_parent, msg_text, "",
         wxICON_WARNING | (!is_object_config ? wxYES | wxNO : wxOK));
     is_msg_dlg_already_exist = true;
+    ScopeGuard reset_dialog_guard([this] { is_msg_dlg_already_exist = false; });
     auto answer = dialog.ShowModal();
-    is_msg_dlg_already_exist = false;
     if (is_object_config)
         answer = wxID_YES;
     return answer;

@@ -91,11 +91,12 @@ public:
     ~ButtonsCtrl() {}
 
     void SetSelection(int sel);
+    void SuppressHoverUntilReenter(int index);
     int GetSelection();
     int GetButtonsRight() const;
     bool InsertPage(size_t n, const wxString& text, bool bSelect = false, const std::string& bmp_name = "", const std::string& inactive_bmp_name = "");
     void RefreshColor();
-    void reLayout();
+    void reLayout(bool compact = false);
     void SetDevMode(bool dev_mode);
     bool IsDevMode() const { return m_dev_mode; }
 private:
@@ -108,6 +109,7 @@ private:
     int                  m_btn_margin;
     int                  m_line_margin;
     bool                 m_dev_mode{false};
+    std::set<int>        m_suppressed_hover;
     // ModeSizer*                      m_mode_sizer {nullptr};
 };
 
@@ -264,7 +266,12 @@ void ButtonsCtrl::ApplyButtonStyle(int index, bool selected)
     if (!button)
         return;
 
-    button->SetTextColor(DefaultTextColor(selected));
+    if (index == MainFrame::tpAICreation) {
+        button->SetIcon(selected ? "tab_ai_creation_active" : "tab_ai_creation");
+        button->SetTextColor(selected ? StateColor(wxColour("#07110b")) : DefaultTextColor(false));
+    } else {
+        button->SetTextColor(DefaultTextColor(selected));
+    }
 }
 
 void ButtonsCtrl::SetDevMode(bool dev_mode)
@@ -334,6 +341,26 @@ void ButtonsCtrl::SetSelection(int sel)
 
     Refresh();
 }
+void ButtonsCtrl::SuppressHoverUntilReenter(int index)
+{
+    auto it = m_mapPageButtons.find(index);
+    if (it == m_mapPageButtons.end())
+        return;
+
+    Button* button = it->second;
+    if (button->HasCapture())
+        button->ReleaseMouse();
+
+    m_suppressed_hover.insert(index);
+    const wxColour normal_bg = Slic3r::GUI::wxGetApp().dark_mode()
+        ? wxColour(1, 1, 1)
+        : wxColour(214, 214, 220);
+    button->SetBackgroundColor(StateColor(std::pair{normal_bg, (int) StateColor::Hovered},
+                                          std::pair{normal_bg, (int) StateColor::Normal}));
+    button->Refresh();
+    button->Update();
+}
+
 void ButtonsCtrl::RefreshColor()
 {
 	//for (auto& it : m_mapPageButtons)
@@ -367,10 +394,10 @@ void ButtonsCtrl::RefreshColor()
     }
     Refresh();
 }
-void ButtonsCtrl::reLayout()
+void ButtonsCtrl::reLayout(bool compact)
 {
     // Recompute DIP-aware metrics so buttons adapt to new DPI.
-    m_btn_margin  = FromDIP(5);
+    m_btn_margin  = FromDIP(compact ? 3 : 5);
     m_line_margin = FromDIP(1);
 
     // Update sizer item borders to the new margin.
@@ -388,12 +415,12 @@ void ButtonsCtrl::reLayout()
         // Reset DIP-based visuals.
         btn->SetCornerRadius(FromDIP(3));
 
-        // Update min size based on whether the button has text.
-        const wxString label = btn->GetLabel();
-        const bool has_text = !label.IsEmpty();
-        const wxSize min_size(has_text ? FromDIP(100) : FromDIP(40), FromDIP(30));
-        btn->SetMinSize(min_size);
-
+        // Measure the bold font actually used for painting, including translated labels.
+        // Button adds its icon and padding to this minimum during SetMinSize().
+        btn->SetFont(Label::Body_14.Bold());
+        btn->SetPaddingSize(wxSize(FromDIP(14), FromDIP(5)));
+        const bool has_text = !btn->GetLabel().IsEmpty();
+        btn->SetMinSize(wxSize(has_text ? (compact ? 0 : FromDIP(100)) : FromDIP(40), FromDIP(30)));
         btn->Rescale();
     }
 
@@ -408,7 +435,13 @@ void ButtonsCtrl::reLayout()
 bool ButtonsCtrl::InsertPage(
     size_t index, const wxString& text, bool bSelect /* = false*/, const std::string& bmp_name /* = ""*/, const std::string& inactive_bmp_name)
 {
-    Button* btn = new Button(this, text.empty() ? text : " " + text, bmp_name, wxNO_BORDER, 0, index);
+    const bool is_ai_creation = index == MainFrame::tpAICreation;
+    Button* btn = new Button(this, text.empty() || is_ai_creation ? text : " " + text, bmp_name, wxNO_BORDER,
+                             is_ai_creation ? 14 : 0, index);
+    if (is_ai_creation) {
+        btn->SetInactiveIcon("tab_ai_creation");
+        btn->SetIconAtTextTopRight(true);
+    }
     btn->SetCornerRadius(FromDIP(3));
     btn->SetFontBold(true);
 
@@ -456,15 +489,39 @@ bool ButtonsCtrl::InsertPage(
         evt.SetId(id);
         wxPostEvent(this->GetParent(), evt);
     };
-    // These four page buttons intentionally activate on press, not on release.
-    btn->Bind(wxEVT_LEFT_DOWN, [activate_page](wxMouseEvent& event) {
-        activate_page();
+    if (index == MainFrame::tpPreview || index == MainFrame::tp3DEditor) {
+        // Both pages can open modal dialogs. Button releases mouse capture
+        // before wxEVT_BUTTON; opening on mouse-down can retain capture and
+        // route dialog clicks back to the tab button on macOS.
+        btn->Bind(wxEVT_BUTTON, [activate_page](wxCommandEvent&) { activate_page(); });
+    } else {
+        // Other pages keep activating on press.
+        btn->Bind(wxEVT_LEFT_DOWN, [activate_page](wxMouseEvent& event) {
+            activate_page();
+            event.Skip();
+        });
+        // Consume the release event to avoid a second switch.
+        btn->Bind(wxEVT_BUTTON, [](wxCommandEvent&) {});
+    }
+    btn->Bind(wxEVT_ENTER_WINDOW, [this, index, btn](wxMouseEvent& event) {
+        if (m_suppressed_hover.erase(static_cast<int>(index)) > 0) {
+            const bool is_dark = Slic3r::GUI::wxGetApp().dark_mode();
+            const bool selected = m_selection == static_cast<int>(index);
+            const wxColour normal_bg = selected
+                ? (is_dark ? wxColour(31, 202, 99) : wxColour(21, 192, 89))
+                : (is_dark ? wxColour(1, 1, 1) : wxColour(214, 214, 220));
+            const wxColour hover_bg = selected
+                ? wxColour(68, 205, 122)
+                : (is_dark ? wxColour(76, 213, 130) : wxColour(68, 205, 122));
+            btn->SetBackgroundColor(StateColor(std::pair{hover_bg, (int) StateColor::Hovered},
+                                                std::pair{normal_bg, (int) StateColor::Normal}));
+            btn->Refresh();
+        }
         event.Skip();
     });
-    // Button still emits wxEVT_BUTTON on release; consume it to avoid a second switch.
-    btn->Bind(wxEVT_BUTTON, [](wxCommandEvent&) {});
     Slic3r::GUI::wxGetApp().UpdateDarkUI(btn);
     m_mapPageButtons[index] = btn;
+    ApplyButtonStyle(index, false);
 
     m_sizer->Add(btn, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT , m_btn_margin);
 
@@ -585,9 +642,15 @@ private:
 
     void OnLeftUp(wxMouseEvent& event)
     {
-        if (!GetClientRect().Contains(event.GetPosition()) || !wxGetApp().app_config)
-            return;
+        if (GetClientRect().Contains(event.GetPosition()))
+            ToggleMode();
+    }
 
+public:
+    void ToggleMode()
+    {
+        if (!IsEnabled() || !wxGetApp().app_config)
+            return;
         const bool next_easy_mode = !wxGetApp().easy_mode();
         wxGetApp().app_config->set("easy_print_mode", next_easy_mode ? "1" : "0");
         wxGetApp().app_config->save();
@@ -619,6 +682,7 @@ enum CUSTOM_ID
     ID_DOWNMANAGER,
     ID_LOGIN,
     ID_FEEDBACK_BTN,
+    ID_TOP_MORE,
     ID_TOOL_BAR = 3200,
     ID_AMS_NOTEBOOK,
     ID_UPLOAD3MF,
@@ -865,7 +929,7 @@ void BBLTopbarArt::DrawSeparator(wxDC& dc, wxWindow* wnd, const wxRect& _rect)
 }
 
 BBLTopbar::BBLTopbar(wxFrame* parent) 
-    : wxAuiToolBar(parent, ID_TOOL_BAR, wxDefaultPosition, wxSize(-1, 40), wxAUI_TB_TEXT | wxAUI_TB_HORZ_TEXT)
+    : wxAuiToolBar(parent, ID_TOOL_BAR, wxDefaultPosition, wxSize(-1, 40), wxAUI_TB_TEXT | wxAUI_TB_HORZ_TEXT | wxAUI_TB_NO_AUTORESIZE)
 { 
     Init(parent);
 }
@@ -878,7 +942,7 @@ wxBEGIN_EVENT_TABLE(BBLTopbar, wxAuiToolBar)
 wxEND_EVENT_TABLE()
 
 BBLTopbar::BBLTopbar(wxWindow* pwin, wxFrame* parent)
-    : wxAuiToolBar(pwin, ID_TOOL_BAR, wxDefaultPosition, wxSize(-1, 40), wxAUI_TB_TEXT | wxAUI_TB_HORZ_TEXT)
+    : wxAuiToolBar(pwin, ID_TOOL_BAR, wxDefaultPosition, wxSize(-1, 40), wxAUI_TB_TEXT | wxAUI_TB_HORZ_TEXT | wxAUI_TB_NO_AUTORESIZE)
 {
     Init(parent);
     topbarParent = parent;
@@ -985,10 +1049,12 @@ void BBLTopbar::Init(wxFrame* parent)
     m_calib_item                   = this->AddTool(ID_CALIB, _L("Calibration"), calib_bitmap);
     m_calib_item->SetDisabledBitmap(calib_bitmap_inactive);*/
 
+    // Share spare width equally on both sides of the tabs in every layout.
     addDipSpacer(10);
-    this->AddStretchSpacer(1);
+    m_tabs_leading_spacer_item = AddStretchSpacer(1);
     //CX
     ButtonsCtrl* pCtr = new ButtonsCtrl(this);
+    pCtr->InsertPage(MainFrame::tpAICreation, _L("AI Creation"), false, "tab_ai_creation");
     pCtr->InsertPage(MainFrame::tpOnlineModel, _L("Online Models"), 0);
     pCtr->InsertPage(MainFrame::tp3DEditor, _L("Prepare"), 0);
     pCtr->InsertPage(MainFrame::tpPreview, _L("Preview"), 0);
@@ -1007,6 +1073,21 @@ void BBLTopbar::Init(wxFrame* parent)
         //         wxGetApp().mainframe->select_tab(evt.GetId());
         logo_item->SetUserData(HOME_BTN_CODE_UNCHECKED);
         logo_item->SetState(wxAUI_BUTTON_STATE_NORMAL);
+
+        if (evt.GetId() == MainFrame::tpPreview &&
+            wxGetApp().tab_panel()->GetSelection() != MainFrame::tpPreview) {
+            Plater* plater = wxGetApp().plater();
+            PartPlate* current_plate = plater == nullptr ? nullptr : plater->get_partplate_list().get_curr_plate();
+            if (current_plate != nullptr && !current_plate->is_slice_result_valid() &&
+                !plater->sidebar().prepare_filament_nozzle_mapping_for_slice(false, false)) {
+                if (auto* tabs = dynamic_cast<ButtonsCtrl*>(m_tabCtrol)) {
+                    tabs->SetSelection(wxGetApp().tab_panel()->GetSelection());
+                    tabs->SuppressHoverUntilReenter(MainFrame::tpPreview);
+                }
+                return;
+            }
+        }
+
         if (nullptr != m_tabCtrol) 
         {
             ButtonsCtrl* pCtr = dynamic_cast<ButtonsCtrl*>(m_tabCtrol);
@@ -1030,7 +1111,7 @@ void BBLTopbar::Init(wxFrame* parent)
     BindWindowDragEvents(m_easy_mode_switch_ctrl);
     m_easy_mode_switch_item = this->AddControl(m_easy_mode_switch_ctrl);
     m_easy_mode_switch_item->SetMinSize(m_easy_mode_switch_ctrl->GetMinSize());
-    addDipSpacer(10);
+    m_action_spacer_items.push_back(addDipSpacer(10));
 
     {
         wxSize   feedbackSize(FromDIP(24), FromDIP(24));
@@ -1040,8 +1121,11 @@ void BBLTopbar::Init(wxFrame* parent)
         m_feedback_item = this->AddTool(ID_FEEDBACK_BTN, "", feedback_bitmap, _L("User Feedback"));
         m_feedback_item->SetDisabledBitmap(feedback_disable_bitmap);
         m_feedback_item->SetHoverBitmap(feedback_hover_bitmap);
-        addDipSpacer(10);
+        m_action_spacer_items.push_back(addDipSpacer(10));
     }
+    m_more_item = AddTool(ID_TOP_MORE, "", create_scaled_bitmap("toolbar_more", this, 20), _L("More"));
+    m_more_item->SetKind(m_title_spacer_item->GetKind());
+    m_more_item->SetSpacerPixels(0);
 
 #if CUSTOM_CXCLOUD  
     //wxSize   targetSize(FromDIP(40), FromDIP(24));
@@ -1090,15 +1174,10 @@ void BBLTopbar::Init(wxFrame* parent)
     }
 #endif
 
-    Realize();
-    InvalidateBestSize();
     m_toolbar_h = parent->FromDIP(40);
-
-    wxSize min_size = GetBestSize();
-    min_size.SetHeight(m_toolbar_h);
-    SetMinSize(min_size);
-    int client_w = parent->GetClientSize().GetWidth();
-    this->SetSize(client_w, m_toolbar_h);
+    const int client_w = parent->GetClientSize().GetWidth();
+    UpdateResponsiveLayout(client_w, true);
+    SetSize(client_w, m_toolbar_h);
     
     this->Bind(wxEVT_MOUSE_CAPTURE_LOST, &BBLTopbar::OnMouseCaptureLost, this);
     this->Bind(wxEVT_MENU_CLOSE, &BBLTopbar::OnMenuClose, this);
@@ -1110,6 +1189,7 @@ void BBLTopbar::Init(wxFrame* parent)
     this->Bind(wxEVT_AUITOOLBAR_TOOL_DROPDOWN, &BBLTopbar::OnFullScreen, this, wxID_MAXIMIZE_FRAME);
     this->Bind(wxEVT_AUITOOLBAR_TOOL_DROPDOWN, &BBLTopbar::OnCloseFrame, this, wxID_CLOSE_FRAME);
     this->Bind(wxEVT_AUITOOLBAR_TOOL_DROPDOWN, &BBLTopbar::OnFeedback, this, ID_FEEDBACK_BTN);
+    Bind(wxEVT_AUITOOLBAR_TOOL_DROPDOWN, &BBLTopbar::OnMore, this, ID_TOP_MORE);
     this->Bind(wxEVT_LEFT_DCLICK, &BBLTopbar::OnMouseLeftDClock, this);
     #if defined(WIN32) || defined(__WXGTK__)
     this->Bind(wxEVT_LEFT_DOWN, &BBLTopbar::OnMouseLeftDown, this);
@@ -1583,8 +1663,93 @@ if (maximize_btn && window_bitmap.IsOk())
 #endif
 }
 
+int BBLTopbar::GetMinimumToolbarWidth(int screen_client_width) const
+{
+    return m_layout_widths.minimum_for_screen(screen_client_width);
+}
+
+void BBLTopbar::SetActionsCollapsed(bool collapsed)
+{
+    // Keeping the toolbar items preserves their IDs, enabled state and existing handlers.
+    // A zero-width spacer is ignored by wxAuiToolBar's painting and hit testing.
+    // wxWidgets keeps the spacer/control kind constants private; obtain them
+    // from the existing spacer and tab control items.
+    const int spacer_kind = m_title_spacer_item->GetKind();
+    const int control_kind = item_ctrl->GetKind();
+    m_easy_mode_switch_item->SetKind(collapsed ? spacer_kind : control_kind);
+    m_easy_mode_switch_item->SetSpacerPixels(0);
+    m_easy_mode_switch_ctrl->Show(!collapsed);
+    m_feedback_item->SetKind(collapsed ? spacer_kind : wxITEM_NORMAL);
+    m_feedback_item->SetSpacerPixels(0);
+    m_more_item->SetKind(collapsed ? wxITEM_NORMAL : spacer_kind);
+    for (auto* spacer : m_action_spacer_items)
+        spacer->SetSpacerPixels(collapsed ? 0 : FromDIP(10));
+}
+
+void BBLTopbar::UpdateResponsiveLayout(int width, bool rebuild_metrics)
+{
+    if (m_responsive_layout_busy || !m_tabCtrol || !m_more_item)
+        return;
+
+    m_responsive_layout_busy = true;
+    auto* buttons = static_cast<ButtonsCtrl*>(m_tabCtrol);
+    if (rebuild_metrics || m_layout_widths.normal == 0) {
+        // With NO_AUTORESIZE, GetMinSize() can retain the window's old size hint.
+        // Measure the actual item sizer, including spacers and window buttons.
+        SetActionsCollapsed(false);
+        buttons->reLayout(false);
+        item_ctrl->SetMinSize(buttons->GetMinSize());
+        Realize();
+        m_layout_widths.normal = m_sizer->GetMinSize().GetWidth();
+
+        buttons->reLayout(true);
+        item_ctrl->SetMinSize(buttons->GetMinSize());
+        Realize();
+        m_layout_widths.compact = m_sizer->GetMinSize().GetWidth();
+
+        SetActionsCollapsed(true);
+        Realize();
+        m_layout_widths.overflow = m_sizer->GetMinSize().GetWidth();
+        rebuild_metrics = true;
+    }
+
+    const TopbarLayout layout = m_layout_widths.layout_for(width);
+    if (rebuild_metrics || layout != m_toolbar_layout) {
+        buttons->reLayout(layout != TopbarLayout::Normal);
+        item_ctrl->SetMinSize(buttons->GetMinSize());
+        SetActionsCollapsed(layout == TopbarLayout::Overflow);
+        Realize();
+        m_toolbar_layout = layout;
+        InvalidateBestSize();
+        // The parent enforces the screen-dependent minimum. Do not let a normal
+        // layout's minimum prevent the toolbar from reaching its compact layout.
+        SetMinSize(wxSize(m_layout_widths.overflow, m_toolbar_h));
+        Refresh();
+    }
+    m_responsive_layout_busy = false;
+}
+
+void BBLTopbar::OnMore(wxAuiToolBarEvent& event)
+{
+    wxMenu menu;
+    const int mode_id = menu.Append(wxID_ANY, _L("Switch AI/Pro mode"))->GetId();
+    menu.Enable(mode_id, m_easy_mode_switch_ctrl->IsEnabled());
+    const int feedback_id = menu.Append(wxID_ANY, _L("User Feedback"))->GetId();
+    menu.Enable(feedback_id, GetToolEnabled(ID_FEEDBACK_BTN));
+    menu.Bind(wxEVT_MENU, [this](wxCommandEvent&) {
+        static_cast<EasyModeSwitchCtrl*>(m_easy_mode_switch_ctrl)->ToggleMode();
+    }, mode_id);
+    menu.Bind(wxEVT_MENU, [this](wxCommandEvent&) {
+        wxAuiToolBarEvent feedback_event(wxEVT_AUITOOLBAR_TOOL_DROPDOWN, ID_FEEDBACK_BTN);
+        OnFeedback(feedback_event);
+    }, feedback_id);
+    const wxRect rect = GetToolRect(ID_TOP_MORE);
+    PopupMenu(&menu, wxPoint(rect.x, rect.GetBottom()));
+}
+
 void BBLTopbar::UpdateToolbarWidth(int width)
 {
+    UpdateResponsiveLayout(width);
     this->SetSize(width, m_toolbar_h);
     UpdateFileNameDisplay();
     ScheduleFileNameDisplayUpdate();
@@ -1597,6 +1762,11 @@ void BBLTopbar::Rescale(bool isResize) {
     bool is_dark = Slic3r::GUI::wxGetApp().dark_mode();
     const wxColour topbar_bg = is_dark ? wxColour("#010101") : wxColour(214, 214, 220);
     SetBackgroundColour(topbar_bg);
+    // wxWidgets 3.3 caches the toolbar background bitmap. The Preferences
+    // dark-mode toggle does not send a system colour event to this toolbar,
+    // so Refresh()/Realize() alone would keep painting the previous theme.
+    wxSysColourChangedEvent colour_event;
+    wxAuiToolBar::OnSysColourChanged(colour_event);
     if (isResize)
         m_toolbar_h = m_frame->FromDIP(40);
 #ifndef __APPLE__
@@ -1687,12 +1857,7 @@ void BBLTopbar::Rescale(bool isResize) {
     //refresh layout
     if (isResize)
     {
-        ButtonsCtrl* pCtr = dynamic_cast<ButtonsCtrl*>(m_tabCtrol);
-        pCtr->Centre();
-        pCtr->reLayout();
-        if (item_ctrl && pCtr) {
-            item_ctrl->SetMinSize(pCtr->GetBestSize());
-        }
+
         if (auto* switch_ctrl = dynamic_cast<EasyModeSwitchCtrl*>(m_easy_mode_switch_ctrl)) {
             switch_ctrl->Rescale();
             if (m_easy_mode_switch_item)
@@ -1706,23 +1871,14 @@ void BBLTopbar::Rescale(bool isResize) {
         }
     }
 
-    // Applying new bitmaps to wxAuiToolBar items requires Realize(). Preserve
-    // the current size during a theme-only refresh because Realize() otherwise
-    // shrinks the toolbar to its minimum width and collapses the title spacer.
+    // Rebuild metrics after font, bitmap or DPI changes, preserving the available width.
     if (m_easy_mode_switch_ctrl)
         m_easy_mode_switch_ctrl->Refresh();
-    const wxSize current_size = GetSize();
-    Realize();
-    InvalidateBestSize();
-    if (isResize) {
-        wxSize min_size = GetBestSize();
-        min_size.SetHeight(m_toolbar_h);
-        SetMinSize(min_size);
-        SetSize(current_size.GetWidth(), m_toolbar_h);
-    }
-    else if (GetSize() != current_size) {
-        SetSize(current_size);
-    }
+    if (m_more_item)
+        m_more_item->SetBitmap(create_scaled_bitmap("toolbar_more", this, 20));
+    const int width = GetClientSize().GetWidth();
+    UpdateResponsiveLayout(width, true);
+    SetSize(width, m_toolbar_h);
     Layout();
     Refresh();
     UpdateFileNameDisplay();
@@ -1732,7 +1888,11 @@ void BBLTopbar::Rescale(bool isResize) {
 void BBLTopbar::OnIconize(wxAuiToolBarEvent& event)
 {
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " start";  
+#ifdef __WXMSW__
+    ::SendMessage((HWND) m_frame->GetHandle(), WM_SYSCOMMAND, SC_MINIMIZE, 0);
+#else
     m_frame->Iconize();
+#endif
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " end";
 
     boost::log::core::get()->flush();
@@ -1849,7 +2009,7 @@ void BBLTopbar::OnCalibToolItem(wxAuiToolBarEvent &evt)
 
 void BBLTopbar::BindWindowDragEvents(wxWindow* window)
 {
-    // Page buttons activate on mouse-down and must not participate in frame dragging.
+    // Page buttons handle their own mouse capture and must not participate in frame dragging.
     if (!window || dynamic_cast<Button*>(window) != nullptr)
         return;
 
@@ -2115,6 +2275,11 @@ wxRect BBLTopbar::GetTitleDisplayRect() const
     if (!m_tabCtrol || !m_feedback_separator_item || !m_feedback_separator_item->GetSizerItem())
         return wxRect();
 
+    // Hide the placeholder as soon as the toolbar needs a compact layout,
+    // even when the remaining stretch space could still fit its text.
+    if (m_displayName == _L("Untitled") && m_toolbar_layout != TopbarLayout::Normal)
+        return wxRect();
+
     int tabs_right = m_tabCtrol->GetRect().GetRight();
     if (const auto* buttons = dynamic_cast<const ButtonsCtrl*>(m_tabCtrol))
         tabs_right = m_tabCtrol->GetPosition().x + buttons->GetButtonsRight();
@@ -2125,6 +2290,14 @@ wxRect BBLTopbar::GetTitleDisplayRect() const
     const int width = right - left;
     if (width < FromDIP(TOPBAR_TITLE_MIN_VISIBLE_WIDTH))
         return wxRect();
+
+    // The placeholder is optional: hide it instead of drawing a truncated "Untitled".
+    if (m_displayName == _L("Untitled")) {
+        wxClientDC dc(const_cast<BBLTopbar*>(this));
+        dc.SetFont(Label::Head_12);
+        if (dc.GetTextExtent(m_displayName).x > width)
+            return wxRect();
+    }
 
     const int toolbar_height = GetClientSize().GetHeight();
     const int height = FromDIP(18);
@@ -2201,16 +2374,19 @@ void BBLTopbar::UpdateFileNameDisplay(const wxString& fileName)
 #ifdef __APPLE__
     return;
 #else
+    const wxRect title_rect = GetTitleDisplayRect();
+    const wxString visible_title = title_rect.IsEmpty() ? wxString() : m_displayName;
     if (m_title_spacer_item) {
-        m_title_spacer_item->SetShortHelp(m_displayName);
+        m_title_spacer_item->SetShortHelp(visible_title);
         if (m_title_tooltip_active || m_tipItem == m_title_spacer_item) {
-            if (m_displayName.IsEmpty())
+            if (visible_title.IsEmpty()) {
                 UnsetToolTip();
-            else
-                SetToolTip(m_displayName);
+                m_title_tooltip_active = false;
+            } else {
+                SetToolTip(visible_title);
+            }
         }
     }
-    const wxRect title_rect = GetTitleDisplayRect();
     if (title_rect.IsEmpty())
         Refresh(true);
     else
@@ -2221,5 +2397,6 @@ void BBLTopbar::UpdateFileNameDisplay(const wxString& fileName)
 void BBLTopbar::OnWindowResize(wxSizeEvent& event)
 {
     event.Skip();
+    UpdateResponsiveLayout(event.GetSize().GetWidth());
     ScheduleFileNameDisplayUpdate();
 }

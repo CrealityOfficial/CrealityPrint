@@ -4,7 +4,34 @@
 
 #include "FillCross.hpp"
 
+#include <cmath>
+
 namespace Slic3r {
+
+namespace {
+
+// The imported Cross implementation works in integer micrometres, while the
+// rest of libslic3r uses coord_t units. Keep the physical mm <-> um conversion
+// separate from the configurable coord_t <-> mm scale.
+constexpr double  MICRONS_PER_MM               = 1000.0;
+constexpr coord_t CROSS_3D_POCKET_SIZE_MICRONS = 200;
+
+double internal_to_microns_factor()
+{
+    return SCALING_FACTOR * MICRONS_PER_MM;
+}
+
+double microns_to_internal_factor()
+{
+    return 1.0 / internal_to_microns_factor();
+}
+
+coord_t millimeters_to_microns(double millimeters)
+{
+    return static_cast<coord_t>(std::llround(millimeters * MICRONS_PER_MM));
+}
+
+} // namespace
 
 void FillCross::_fill_surface_single(
     const FillParams                &params, 
@@ -14,8 +41,12 @@ void FillCross::_fill_surface_single(
     Polylines                       &polylines_out)
 {
     
-   Polygon cross_pattern_polygon = m_cross_fill_provider->generate(m_pattern, z*1000, params.flow.width()*1000, 200);
-   cross_pattern_polygon.scale(1000);
+   Polygon cross_pattern_polygon = m_cross_fill_provider->generate(
+       m_pattern,
+       millimeters_to_microns(z),
+       millimeters_to_microns(params.flow.width()),
+       CROSS_3D_POCKET_SIZE_MICRONS);
+   cross_pattern_polygon.scale(microns_to_internal_factor());
 
    for (Point& apoint: cross_pattern_polygon.points)
    {
@@ -33,7 +64,7 @@ void FillCross::set_cross_fill_provider(BoundingBox& abox,const Point& offset, I
     BoundingBox _abox = abox;
     _abox.max += offset;
     _abox.min += offset;
-    _abox.scale(0.001);
+    _abox.scale(internal_to_microns_factor());
     m_cross_fill_provider.reset(new Cross::SierpinskiFillProvider(_abox, infill_line_distance, sparse_infill_line_width));
 }
 } // namespace Slic3r

@@ -11,7 +11,7 @@
 
 #include "LocalesUtils.hpp"
 
-#if 0
+#if 1
 // Saves around 32% RAM after slicing step, 6.7% after G-code export (tested on PrusaSlicer 2.2.0 final).
 using coord_t = int32_t;
 #else

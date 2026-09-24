@@ -58,9 +58,9 @@ class LANConnectCheck {
 public: 
     static bool pingHostWithRetry(const std::string& ip, ThreadController& ctrl,  // Inject controller
         int retries = 1, int timeout_ms = 1000, int delay_ms = 200); // Check whether device is reachable in LAN (ping)
-    static bool isPortOpen(const std::string& ip, int port, ThreadController& ctrl);    // Check whether ports 80 and 9999 are open
+    static bool isPortOpen(const std::string& ip, int port, ThreadController& ctrl);    // Check whether a required service port is open
 
-    static int checkLan(const std::string& ip, ThreadController& ctrl);
+    static int checkLan(const std::string& ip, bool secure_connection, int wss_port, ThreadController& ctrl);
 };
 
 bool is_uos_system();

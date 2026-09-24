@@ -8,6 +8,7 @@
 #include <float.h>
 #include <limits>
 #include <numeric>
+#include <optional>
 #include <system_error>
 #include <unordered_map>
 #include <unordered_set>
@@ -92,6 +93,7 @@ static std::unordered_set<const CoolingLine*> collect_disabled_overhang_fan_mark
             events.push_back({line->line_start, OverhangFanEvent::Type::End, line, 0., width});
         } else if (is_in_marker_span(line->line_start) &&
                    (line->type & (CoolingLine::TYPE_SET_TOOL | CoolingLine::TYPE_FORCE_RESUME_FAN |
+                                  CoolingLine::TYPE_FORCE_FAN_ON_TOOL_CHANGE |
                                   CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START | CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_END))) {
             events.push_back({line->line_start, OverhangFanEvent::Type::Boundary, nullptr, 0., 0.});
         }
@@ -195,106 +197,135 @@ static std::unordered_set<const CoolingLine*> collect_disabled_overhang_fan_mark
 }
 } // namespace
 
+struct MotionZToken
+{
+    size_t offset;
+    size_t length;
+    double value;
+};
+
+// Read only a complete Z parameter of a motion command. Layer metadata, inline
+// comments and firmware macros must not be sanitized or update the motion Z.
+static std::optional<MotionZToken> motion_z_token(std::string_view line)
+{
+    const std::string_view code = line.substr(0, line.find_first_of(";\r\n"));
+    size_t start = code.find_first_not_of(" \t");
+    if (start == std::string_view::npos)
+        return std::nullopt;
+    size_t end = code.find_first_of(" \t", start);
+    if (end == std::string_view::npos)
+        return std::nullopt;
+    const std::string_view command = code.substr(start, end - start);
+    if (command != "G0" && command != "G1" && command != "G2" && command != "G3")
+        return std::nullopt;
+
+    while ((start = code.find_first_not_of(" \t", end)) != std::string_view::npos) {
+        end = code.find_first_of(" \t", start);
+        if (end == std::string_view::npos)
+            end = code.size();
+        if (code[start] == 'Z') {
+            const char* first = code.data() + start + 1;
+            const char* last = code.data() + end;
+            if (first != last && *first == '+') {
+                ++first;
+                if (first != last && *first == '-')
+                    return std::nullopt;
+            }
+            double value = 0.0;
+            const auto parsed = fast_float::from_chars(first, last, value);
+            if (parsed.ec == std::errc() && parsed.ptr == last && std::isfinite(value))
+                return MotionZToken{ start, end - start, value };
+            return std::nullopt;
+        }
+    }
+    return std::nullopt;
+}
+
 // Strip explicit Z0 tokens to avoid resetting Z when previous Z is valid.
 static std::string sanitize_z0_tokens(const std::string& line)
 {
-    if (line.find('Z') == std::string::npos)
+    const auto z = motion_z_token(line);
+    if (!z || std::abs(z->value) >= GCodeFormatter::XYZ_EPSILON ||
+        s_last_nonzero_z <= GCodeFormatter::XYZ_EPSILON)
         return line;
-    std::string out;
-    out.reserve(line.size());
-    const char* p = line.c_str();
-    const char* end = p + line.size();
-    while (p < end) {
-        if (*p == 'Z') {
-            const char* z_start = p;
-            ++p;
-            const char* num_start = p;
-            // optional sign
-            if (p < end && (*p == '+' || *p == '-'))
-                ++p;
-            while (p < end && (std::isdigit(*p) || *p == '.'))
-                ++p;
-            std::string num(num_start, p - num_start);
-            double z_val = 0.0;
-            fast_float::from_chars(num.data(), num.data() + num.size(), z_val);
-            if (std::abs(z_val) < GCodeFormatter::XYZ_EPSILON && s_last_nonzero_z > GCodeFormatter::XYZ_EPSILON) {
-                // skip this Z token
-                continue;
-            } else {
-                out.push_back('Z');
-                out.append(num);
-                continue;
-            }
-        }
-        out.push_back(*p);
-        ++p;
-    }
-    return out;
+    std::string result = line;
+    result.erase(z->offset, z->length);
+    return result;
 }
 
 static std::string sanitize_buffer_z(const std::string& gcode_buffer)
 {
     std::string buffer = gcode_buffer;
-    if (s_force_z_on_next_xy_move) {
-        if (s_forced_z_value > GCodeFormatter::XYZ_EPSILON) {
-            GCodeG1Formatter z_formatter;
-            z_formatter.emit_axis('Z', s_forced_z_value, GCodeFormatter::XYZF_EXPORT_DIGITS);
-            std::string z_line = z_formatter.string();
-            size_t insert_pos = 0;
-            while (insert_pos < buffer.size()) {
-                size_t line_end = buffer.find('\n', insert_pos);
-                if (line_end == std::string::npos)
-                    line_end = buffer.size();
-                size_t p = insert_pos;
-                while (p < line_end && (buffer[p] == ' ' || buffer[p] == '\t' || buffer[p] == '\r'))
-                    ++p;
-                if (p == line_end || buffer[p] == ';') {
-                    insert_pos = (line_end < buffer.size()) ? line_end + 1 : line_end;
-                    continue;
-                }
-                break;
-            }
+    if (s_force_z_on_next_xy_move && s_forced_z_value > GCodeFormatter::XYZ_EPSILON) {
+        GCodeG1Formatter z_formatter;
+        z_formatter.emit_axis('Z', s_forced_z_value, GCodeFormatter::XYZF_EXPORT_DIGITS);
+        const std::string z_line = z_formatter.string();
+
+        ZaaIntervalTracker interval;
+        size_t insert_pos = 0;
+        bool inserted_or_found = false;
+        while (insert_pos < buffer.size()) {
             size_t line_end = buffer.find('\n', insert_pos);
             if (line_end == std::string::npos)
                 line_end = buffer.size();
+
+            const std::string_view raw_line(buffer.data() + insert_pos, line_end - insert_pos);
+            const ZaaIntervalMarker marker = interval.consume_line(raw_line);
+            const bool zaa_preserved = marker != ZaaIntervalMarker::None || interval.inside();
+
+            size_t p = insert_pos;
+            while (p < line_end && (buffer[p] == ' ' || buffer[p] == '\t' || buffer[p] == '\r'))
+                ++p;
+            if (zaa_preserved || p == line_end || buffer[p] == ';') {
+                insert_pos = (line_end < buffer.size()) ? line_end + 1 : line_end;
+                continue;
+            }
+
             size_t semicolon = buffer.find(';', insert_pos);
             if (semicolon != std::string::npos && semicolon > line_end)
                 semicolon = std::string::npos;
-            size_t zpos = buffer.find('Z', insert_pos);
-            const bool first_line_has_z = (zpos != std::string::npos && zpos < line_end && (semicolon == std::string::npos || zpos < semicolon));
+            const size_t zpos = buffer.find('Z', insert_pos);
+            const bool first_line_has_z = zpos != std::string::npos && zpos < line_end &&
+                                          (semicolon == std::string::npos || zpos < semicolon);
             if (!first_line_has_z)
                 buffer.insert(insert_pos, z_line);
+            inserted_or_found = true;
+            break;
         }
-        s_force_z_on_next_xy_move = false;
-        s_forced_z_value = 0.f;
+
+        if (inserted_or_found) {
+            s_force_z_on_next_xy_move = false;
+            s_forced_z_value = 0.f;
+        }
     }
-    // Fast path: nothing to clean if there is no Z token at all.
-    const bool has_any_z = (buffer.find('Z') != std::string::npos);
-    if (!has_any_z)
-        return buffer;
+
+    // ZAA lines are copied byte-for-byte. Ordinary lines retain the existing Z0 cleanup.
     std::string result;
     result.reserve(buffer.size());
     size_t start = 0;
     double last_z = (s_last_nonzero_z > GCodeFormatter::XYZ_EPSILON) ? s_last_nonzero_z : 0.0;
+    ZaaIntervalTracker interval;
     while (start < buffer.size()) {
         size_t end = buffer.find('\n', start);
         if (end == std::string::npos)
             end = buffer.size();
-        std::string line = sanitize_z0_tokens(buffer.substr(start, end - start));
-        // track last non-zero Z from the sanitized line
-        auto posZ = line.find('Z');
-        if (posZ != std::string::npos) {
-            const char* zstr = line.c_str() + posZ + 1;
-            double zval = 0.0;
-            fast_float::from_chars(zstr, line.c_str() + line.size(), zval);
-            if (zval > GCodeFormatter::XYZ_EPSILON)
-                last_z = zval;
-        }
+
+        const std::string_view raw_line(buffer.data() + start, end - start);
+        const ZaaIntervalMarker marker = interval.consume_line(raw_line);
+        const bool zaa_preserved = marker != ZaaIntervalMarker::None || interval.inside();
+        std::string line = zaa_preserved ? std::string(raw_line) : sanitize_z0_tokens(std::string(raw_line));
+
+        // Track the commanded Z even when the protected source line is not sanitized.
+        const auto z = motion_z_token(line);
+        if (z && z->value > GCodeFormatter::XYZ_EPSILON)
+            last_z = z->value;
+
         result.append(line);
         if (end < buffer.size())
             result.push_back('\n');
         start = end + 1;
     }
+    interval.finish_layer();
     if (last_z > GCodeFormatter::XYZ_EPSILON)
         s_last_nonzero_z = float(last_z);
     return result;
@@ -333,11 +364,12 @@ void GCodeEditor::reset(const Vec3d &position)
     m_current_pos[AxisIdx::Z] = float(init_z);
     s_last_nonzero_z = float(init_z);
     m_current_pos[AxisIdx::E] = 0.f;
-    m_current_pos[AxisIdx::F] = float(m_config.travel_speed.value);
+    m_current_pos[AxisIdx::F] = float(m_config.travel_speed.get_at(0));
     m_fan_speed = -1;
     m_additional_fan_speed = -1;
     m_current_fan_speed = -1;
     m_additional_fan_count = 0;
+    m_zaa_interval.reset();
 }
 
 static void record_wall_lines(bool& flag, int& line_idx, PerExtruderAdjustments* adjustment, const std::pair<int, int>& node_pos)
@@ -554,6 +586,10 @@ std::string GCodeEditor::process_layer(std::string&&                        gcod
                                        const bool                           flush,
                                        const bool                           spiral_vase)
 {
+    m_zaa_interval.consume_gcode(gcode);
+    if (flush)
+        m_zaa_interval.finish_layer();
+
     if (layer_id == 0 && m_config.print_sequence == PrintSequence::ByObject && !s_forced_first_layer_z) {
         double target_z = m_config.initial_layer_print_height.value + m_config.z_offset.value;
         if (std::abs(target_z) < GCodeFormatter::XYZ_EPSILON)
@@ -611,6 +647,7 @@ std::vector<PerExtruderAdjustments> GCodeEditor::parse_layer_gcode(
 
     unsigned int      current_extruder  = m_parse_gcode_extruder;
     PerExtruderAdjustments *adjustment  = &per_extruder_adjustments[map_extruder_to_per_extruder_adjustment[current_extruder]];
+    ZaaIntervalTracker zaa_interval;
     const char       *line_start = gcode.c_str();
     const char       *line_end   = line_start;
     // Index of an existing CoolingLine of the current adjustment, which holds the feedrate setting command
@@ -632,10 +669,13 @@ std::vector<PerExtruderAdjustments> GCodeEditor::parse_layer_gcode(
             ++ line_end;
         // sline will not contain the trailing '\n'.
         std::string sline(line_start, line_end);
+        const ZaaIntervalMarker zaa_marker = zaa_interval.consume_line(sline);
+        const bool zaa_protected = zaa_interval.inside() && zaa_marker == ZaaIntervalMarker::None;
         // CoolingLine will contain the trailing '\n'.
         if (*line_end == '\n')
             ++ line_end;
         CoolingLine line(0, line_start - gcode.c_str(), line_end - gcode.c_str());
+        line.zaa_protected = zaa_protected;
         if (boost::starts_with(sline, "G0 "))
             line.type = CoolingLine::TYPE_G0;
         else if (boost::starts_with(sline, "G1 "))
@@ -696,11 +736,17 @@ std::vector<PerExtruderAdjustments> GCodeEditor::parse_layer_gcode(
                 // Skip this word.
                 for (; *c != ' ' && *c != '\t' && *c != 0; ++ c);
             }
-            // Recover Z if missing / zero.
-            if (std::abs(new_pos[AxisIdx::Z]) < GCodeFormatter::XYZ_EPSILON && s_last_nonzero_z > GCodeFormatter::XYZ_EPSILON)
+            // Preserve the parsed target inside an active ZAA interval. In particular, an exact
+            // or near-zero Z is a real coordinate here, not the legacy "missing Z" sentinel.
+            if (line.zaa_protected) {
+                if (new_pos[AxisIdx::Z] > GCodeFormatter::XYZ_EPSILON)
+                    s_last_nonzero_z = new_pos[AxisIdx::Z];
+            } else if (std::abs(new_pos[AxisIdx::Z]) < GCodeFormatter::XYZ_EPSILON &&
+                       s_last_nonzero_z > GCodeFormatter::XYZ_EPSILON) {
                 new_pos[AxisIdx::Z] = s_last_nonzero_z;
-            else if (new_pos[AxisIdx::Z] > GCodeFormatter::XYZ_EPSILON)
+            } else if (new_pos[AxisIdx::Z] > GCodeFormatter::XYZ_EPSILON) {
                 s_last_nonzero_z = new_pos[AxisIdx::Z];
+            }
 
             //// If G2 or G3, then either center of the arc or radius has to be defined.
             //assert(!(line.type & CoolingLine::TYPE_G2G3) || (line.type & (CoolingLine::TYPE_G2G3_IJ | CoolingLine::TYPE_G2G3_R)));
@@ -944,10 +990,13 @@ std::vector<PerExtruderAdjustments> GCodeEditor::parse_layer_gcode(
             line.adjustable_time_max = 0.f;
         } else if (boost::starts_with(sline, ";_FORCE_RESUME_FAN_SPEED")) {
             line.type = CoolingLine::TYPE_FORCE_RESUME_FAN;
+        } else if (boost::starts_with(sline, ";_FORCE_FAN_SPEED_ON_TOOL_CHANGE")) {
+            line.type = CoolingLine::TYPE_FORCE_FAN_ON_TOOL_CHANGE;
         }
         if (line.type != 0)
             adjustment->lines.emplace_back(std::move(line));
     }
+    zaa_interval.finish_layer();
     m_parse_gcode_extruder = current_extruder;
 
     for (PerExtruderAdjustments& adj : per_extruder_adjustments) {
@@ -1214,7 +1263,7 @@ std::string GCodeEditor::write_layer_gcode(
     {
         limit_height_fan = m_current_pos[2] >= EXTRUDER_CONFIG(cool_cds_fan_start_at_height);
     }
-    auto change_extruder_set_fan = [ this, layer_id, layer_time, &new_gcode, &overhang_fan_control, &overhang_fan_speed, &supp_interface_fan_control, &supp_interface_fan_speed,&limit_height_fan](bool immediately_apply) {
+    auto change_extruder_set_fan = [ this, layer_id, layer_time, &new_gcode, &overhang_fan_control, &overhang_fan_speed, &supp_interface_fan_control, &supp_interface_fan_speed,&limit_height_fan](bool immediately_apply, bool force_apply) {
 
         float fan_min_speed = EXTRUDER_CONFIG(fan_min_speed);
         float fan_speed_new = EXTRUDER_CONFIG(reduce_fan_stop_start_freq) ? fan_min_speed : 0;
@@ -1273,6 +1322,9 @@ std::string GCodeEditor::write_layer_gcode(
             m_current_fan_speed = fan_speed_new;
             if (immediately_apply)
                 new_gcode  += GCodeWriter::set_fan(m_config.gcode_flavor, m_fan_speed);
+        } else if (force_apply && immediately_apply) {
+            m_current_fan_speed = m_fan_speed;
+            new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor, m_fan_speed);
         }
         if (m_fan_speed != m_current_fan_speed)
         {
@@ -1287,13 +1339,19 @@ std::string GCodeEditor::write_layer_gcode(
                 m_additional_fan_speed = additional_fan_speed_new;
                 if (immediately_apply && m_config.auxiliary_fan.value)
                     new_gcode += GCodeWriter::set_additional_fan(m_additional_fan_speed);
+            } else if (force_apply && immediately_apply && m_config.auxiliary_fan.value) {
+                new_gcode += GCodeWriter::set_additional_fan(m_additional_fan_speed);
             }
+        } else if (force_apply && immediately_apply && m_additional_fan_speed != -1 && m_config.auxiliary_fan.value && limit_height_fan) {
+            // Special-area auxiliary fan control owns the target value. Re-apply its current state without replacing it
+            // with the new filament's normal auxiliary fan setting.
+            new_gcode += GCodeWriter::set_additional_fan(m_additional_fan_speed);
         }
     };
 
     const char         *pos               = gcode.c_str();
     int                 current_feedrate  = 0;
-    change_extruder_set_fan(true);
+    change_extruder_set_fan(true, false);
 
     // Orca: Reduce set fan commands by deferring the GCodeWriter::set_fan calls. Inspired by SuperSlicer
     // define fan_speed_change_requests and initialize it with all possible types fan speed change requests
@@ -1302,6 +1360,7 @@ std::string GCodeEditor::write_layer_gcode(
                                                                {CoolingLine::TYPE_FORCE_RESUME_FAN, false},
                                                                {CoolingLine::TYPE_OVERHANG_FAN_END,false }};
     bool need_set_fan = false;
+    bool force_fan_on_next_toolchange = false;
     bool have_type_overhang = false;
     const CoolingLine* line_waiting_for_split = nullptr;
     for (const CoolingLine *line : lines) {
@@ -1372,12 +1431,16 @@ std::string GCodeEditor::write_layer_gcode(
         if (!disabled_overhang_fan_markers.empty() && disabled_overhang_fan_markers.find(line) != disabled_overhang_fan_markers.end()) {
             // Remove marker: this candidate overhang-fan region was merged away or filtered as isolated.
         } else if (line->type & CoolingLine::TYPE_SET_TOOL) {
+            const bool force_apply_fan = force_fan_on_next_toolchange;
+            force_fan_on_next_toolchange = false;
             unsigned int new_extruder = 0;
             auto ret = std::from_chars(line_start + m_toolchange_prefix.size(), line_end, new_extruder);
             if (std::errc::invalid_argument != ret.ec) {
                 if (new_extruder != m_current_extruder) {
                     m_current_extruder = new_extruder;
-                    change_extruder_set_fan(true);
+                    change_extruder_set_fan(true, force_apply_fan);
+                } else if (force_apply_fan) {
+                    change_extruder_set_fan(true, true);
                 }
             }
             new_gcode.append(line_start, line_end - line_start);
@@ -1412,6 +1475,10 @@ std::string GCodeEditor::write_layer_gcode(
             }
             if (m_additional_fan_speed != -1 && m_config.auxiliary_fan.value && limit_height_fan)
                 new_gcode += GCodeWriter::set_additional_fan(m_additional_fan_speed);
+        } else if (line->type & CoolingLine::TYPE_FORCE_FAN_ON_TOOL_CHANGE) {
+            // M106 controls a global fan. Do not restore the previous filament immediately before Tn;
+            // force the target filament's state when the tool change marker is consumed instead.
+            force_fan_on_next_toolchange = true;
         }
         else if (line->type & CoolingLine::TYPE_EXTRUDE_END) {
             // Just remove this comment.
@@ -1505,6 +1572,7 @@ std::string GCodeEditor::write_layer_gcode(
             }
 
             if (line->slowdown && !line->move_segments.empty() && line->non_adjustable_length > 0.f) {
+                assert(!line->zaa_protected);
                 assert(line_waiting_for_split == nullptr);
                 line_waiting_for_split = line;
             }

@@ -1,50 +1,11 @@
-From 95ee59a031e26d8b7b1944bafaf054ec5201ec90 Mon Sep 17 00:00:00 2001
-From: lisugui <lisugui@creatily.com>
-Date: Mon, 17 Mar 2025 19:45:20 +0800
-Subject: [PATCH] loongarch64 build
-
----
- configfsf.sub |  1 +
- longlong.h    | 13 ++++++++++++-
- 2 files changed, 13 insertions(+), 1 deletion(-)
-
-diff --git a/configfsf.sub b/configfsf.sub
-index 8167d08..ff7e00b 100644
---- a/configfsf.sub
-+++ b/configfsf.sub
-@@ -1185,6 +1185,7 @@ case $cpu-$vendor in
- 			| k1om \
- 			| le32 | le64 \
- 			| lm32 \
-+			| loongarch32 | loongarch64 \
- 			| m32c | m32r | m32rle \
- 			| m5200 | m68000 | m680[012346]0 | m68360 | m683?2 | m68k \
- 			| m6811 | m68hc11 | m6812 | m68hc12 | m68hcs12x \
 diff --git a/longlong.h b/longlong.h
-index edbaf56..6c5ed3b 100644
 --- a/longlong.h
 +++ b/longlong.h
-@@ -1161,7 +1161,18 @@ extern UWtype __MPN(udiv_qrnnd) (UWtype *, UWtype, UWtype, UWtype);
-   }
- #endif /* i960mx */
- #endif /* i960 */
--
-+/* The Loongson 2E/2F/3A/3B have 32x32->64 bit multiplication, but no
-+   64/32->32q-32r.  The Loongson 3C has 64/32->32q-32r.  */
-+#if defined (__loongarch64) && W_TYPE_SIZE == 64
-+#define umul_ppmm(w1, w0, u, v) \
-+  do {									\
-+    UDItype __u = (u), __v = (v);					\
-+    (w0) = __u * __v;							\
-+    (w1) = (unsigned __int128) __u * __v >> 64;			\
-+  } while (0)
-+#endif
-+/* The 68000 family has no 32x32->64 bit multiplication, but the '020, '030,
-+   '040 and CPU32 have 32x32->64 and 64/32->32q-32r.  */
- #if (defined (__mc68000__) || defined (__mc68020__) || defined(mc68020) \
-      || defined (__m68k__) || defined (__mc5200__) || defined (__mc5206e__) \
-      || defined (__mc5307__)) && W_TYPE_SIZE == 32
--- 
-2.27.0.windows.1
-
-
+@@ -1162,6 +1162,6 @@ extern UWtype __MPN(udiv_qrnnd) (UWtype *, UWtype, UWtype, UWtype);
+   do {                                                                    \
+     UDItype __u = (u), __v = (v);                                         \
+     (w0) = __u * __v;                                                     \
+-    (w1) = (unsigned __int128__) __u * __v >> 64;                         \
++    (w1) = (unsigned __int128) __u * __v >> 64;                           \
+   } while (0)
+ #endif

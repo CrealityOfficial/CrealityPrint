@@ -535,12 +535,12 @@ void ImGuiWrapper::new_frame()
     }
 
     if (m_font_texture == 0) {
-        // 修复: 上次字体构建失败后做退避，避免在低内存场景每帧反复申请 ~100MB 造成 retry storm�?
-        // 退避窗口结束后允许再次尝试，使内存恢复后界面能自愈�?
+        // 修复: 上次字体构建失败后做退避，避免在低内存场景每帧反复申请 ~100MB 造成 retry storm。
+        // 退避窗口结束后允许再次尝试，使内存恢复后界面能自愈。
         if (m_font_init_failed) {
             const auto now = std::chrono::steady_clock::now();
             if (now - m_font_init_last_fail_time < m_font_init_retry_delay) {
-                // 退避期内：跳过本次重建。ImGui 仍可运行（文字可能缺失），但不会反复触发大块分配�?
+                // 退避期内：跳过本次重建。ImGui 仍可运行（文字可能缺失），但不会反复触发大块分配。
                 ImGui::NewFrame();
                 m_new_frame_open = true;
                 return;
@@ -551,7 +551,7 @@ void ImGuiWrapper::new_frame()
         //init_font_all(true);
 
         if (m_font_texture == 0) {
-            // 本次构建失败（init_font 内部�?destroy_font 并记录日志）。进入退避状态�?
+            // 本次构建失败（init_font 内部已调用 destroy_font 并记录日志）。进入退避状态。
             if (!m_font_init_failed) {
                 BOOST_LOG_TRIVIAL(error) << "ImGuiWrapper::new_frame: font texture build failed, entering backoff to avoid retry storm.";
                 boost::log::core::get()->flush();
@@ -559,7 +559,7 @@ void ImGuiWrapper::new_frame()
             m_font_init_failed = true;
             m_font_init_last_fail_time = std::chrono::steady_clock::now();
         } else if (m_font_init_failed) {
-            // 构建恢复成功，清除失败状态�?
+            // 构建恢复成功，清除失败状态。
             BOOST_LOG_TRIVIAL(warning) << "ImGuiWrapper::new_frame: font texture build recovered.";
             boost::log::core::get()->flush();
             m_font_init_failed = false;

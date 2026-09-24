@@ -441,6 +441,22 @@ std::vector<TriangleMesh> TriangleMesh::split() const
     return out;
 }
 
+std::vector<TriangleMesh> TriangleMesh::split_and_save_relationship(
+    std::vector<std::unordered_map<int, int>> &relationships) const
+{
+    auto split = its_split_and_save_relationship<>(this->its);
+    std::vector<TriangleMesh> out;
+    out.reserve(split.itses.size());
+    relationships.reserve(relationships.size() + split.relationships.size());
+    for (size_t i = 0; i < split.itses.size(); ++i) {
+        out.emplace_back(std::move(split.itses[i]));
+        if (out.back().volume() < 0)
+            out.back().flip_triangles();
+        relationships.emplace_back(std::move(split.relationships[i]));
+    }
+    return out;
+}
+
 void TriangleMesh::merge(const TriangleMesh &mesh)
 {
     its_merge(this->its, mesh.its);

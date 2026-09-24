@@ -5,6 +5,7 @@
 #include "GCodeWriter.hpp"
 #include "Format/3mf.hpp"
 #include "Format/STEP.hpp"
+#include "Format/AssimpImport.hpp"
 #include <boost/log/trivial.hpp>
 
 #include <chrono>
@@ -27,6 +28,7 @@
 namespace Slic3r {
 
 using ArchiveImportClock = std::chrono::steady_clock;
+constexpr bool kDetailedModelImportTimingLogs = false;
 
 static double archive_import_elapsed_ms(const ArchiveImportClock::time_point &start,
                                         const ArchiveImportClock::time_point &end = ArchiveImportClock::now())
@@ -97,6 +99,8 @@ Model& Model::assign_copy(const Model &rhs)
     this->md_name = rhs.md_name;
     this->md_value = rhs.md_value;
 
+    this->texture_mesh = rhs.texture_mesh;
+
     return *this;
 }
 
@@ -131,6 +135,7 @@ Model& Model::assign_copy(Model &&rhs)
     this->mk_version = rhs.mk_version;
     this->md_name = rhs.md_name;
     this->md_value = rhs.md_value;
+    this->texture_mesh = std::move(rhs.texture_mesh);
     this->backup_path = std::move(rhs.backup_path);
     this->object_backup_id_map = std::move(rhs.object_backup_id_map);
     this->next_object_backup_id = rhs.next_object_backup_id;
@@ -229,6 +234,25 @@ _finished:
     return model;
 }
 
+static void add_textured_mesh_to_model(Model& model, const TexturedMesh& tex_mesh, const std::string& input_file)
+{
+    std::string object_name = boost::filesystem::path(input_file).filename().string();
+
+    indexed_triangle_set its;
+    its.vertices.resize(tex_mesh.vertices.size());
+    for (size_t i = 0; i < tex_mesh.vertices.size(); ++i)
+        its.vertices[i] = Vec3f(tex_mesh.vertices[i][0], tex_mesh.vertices[i][1], tex_mesh.vertices[i][2]);
+    its.indices.resize(tex_mesh.indices.size());
+    for (size_t i = 0; i < tex_mesh.indices.size(); ++i)
+        its.indices[i] = Vec3i32(tex_mesh.indices[i][0], tex_mesh.indices[i][1], tex_mesh.indices[i][2]);
+
+    its_merge_vertices(its);
+    its_remove_degenerate_faces(its);
+    its_compactify_vertices(its);
+
+    model.add_object(object_name.c_str(), input_file.c_str(), std::move(TriangleMesh(std::move(its))));
+}
+
 // BBS: add part plate related logic
 // BBS: backup & restore
 // Loading model from a file, it may be a simple geometry file as STL or OBJ, however it may be a project file as well.
@@ -273,32 +297,55 @@ Model Model::read_from_file(const std::string& input_file, DynamicPrintConfig* c
         result = load_stl(input_file.c_str(), &model, nullptr, stlFn,256);
     else if (boost::algorithm::iends_with(input_file, ".obj")) {
         ObjInfo                 obj_info;
-        result = load_obj(input_file.c_str(), &model, obj_info, message);
+        ObjParser::MtlData      mtl_data;
+        result = load_obj(input_file.c_str(), &model, obj_info, message, nullptr, &mtl_data);
         if (result){
-            unsigned char first_extruder_id;
-            if (obj_info.vertex_colors.size() > 0) {
-                std::vector<unsigned char> vertex_filament_ids;
-                if (objFn) { // 1.result is ok and pop up a dialog
-                    objFn(obj_info.vertex_colors, false, vertex_filament_ids, first_extruder_id);
-                    if (vertex_filament_ids.size() > 0) {
-                        result = obj_import_vertex_color_deal(vertex_filament_ids, first_extruder_id, & model);
-                    }
+            if (obj_info.has_uv_png && !obj_info.uvs.empty() && !model.objects.empty()) {
+                auto        tex_mesh = std::make_shared<TexturedMesh>();
+                std::string obj_dir  = boost::filesystem::path(input_file).parent_path().string();
+                if (obj_to_textured_mesh(obj_info, model.objects.back()->volumes[0]->mesh().its, mtl_data, obj_dir, *tex_mesh)) {
+                    model.texture_mesh = tex_mesh;
                 }
-            } else if (obj_info.face_colors.size() > 0 && obj_info.has_uv_png == false) { // mtl file
-                std::vector<unsigned char> face_filament_ids;
-                if (objFn) { // 1.result is ok and pop up a dialog
-                    objFn(obj_info.face_colors, obj_info.is_single_mtl, face_filament_ids, first_extruder_id);
-                    if (face_filament_ids.size() > 0) {
-                        result = obj_import_face_color_deal(face_filament_ids, first_extruder_id, &model);
+            } else {
+                unsigned char first_extruder_id;
+                if (obj_info.vertex_colors.size() > 0) {
+                    std::vector<unsigned char> vertex_filament_ids;
+                    if (objFn) { // 1.result is ok and pop up a dialog
+                        objFn(obj_info.vertex_colors, false, vertex_filament_ids, first_extruder_id);
+                        if (vertex_filament_ids.size() > 0) {
+                            result = obj_import_vertex_color_deal(vertex_filament_ids, first_extruder_id, &model);
+                        }
                     }
-                }
-            } /*else if (obj_info.has_uv_png && obj_info.uvs.size() > 0) {
-                boost::filesystem::path full_path(input_file);
-                std::string             obj_directory = full_path.parent_path().string();
-                obj_info.obj_dircetory = obj_directory;
-                result = false;
-                message = _L("Importing obj with png function is developing.");
-            }*/
+                } else if (obj_info.face_colors.size() > 0 && obj_info.has_uv_png == false) { // mtl file
+                    std::vector<unsigned char> face_filament_ids;
+                    if (objFn) { // 1.result is ok and pop up a dialog
+                        objFn(obj_info.face_colors, obj_info.is_single_mtl, face_filament_ids, first_extruder_id);
+                        if (face_filament_ids.size() > 0) {
+                            result = obj_import_face_color_deal(face_filament_ids, first_extruder_id, &model);
+                        }
+                    }
+                } /*else if (obj_info.has_uv_png && obj_info.uvs.size() > 0) {
+                    boost::filesystem::path full_path(input_file);
+                    std::string             obj_directory = full_path.parent_path().string();
+                    obj_info.obj_dircetory = obj_directory;
+                    result = false;
+                    message = _L("Importing obj with png function is developing.");
+                }*/
+            }
+        }
+    }
+    else if (boost::algorithm::iends_with(input_file, ".glb") ||
+             boost::algorithm::iends_with(input_file, ".gltf") ||
+             boost::algorithm::iends_with(input_file, ".fbx")) {
+        auto tex_mesh = std::make_shared<TexturedMesh>();
+        result = load_assimp_textured_model(input_file, *tex_mesh, &message);
+        if (result) {
+            model.texture_mesh = tex_mesh;
+            add_textured_mesh_to_model(model, *tex_mesh, input_file);
+        } else if (!message.empty()) {
+            BOOST_LOG_TRIVIAL(error) << "Assimp: failed to load model: " << message
+                                     << ", path=" << input_file;
+            message = _L("The file format is incompatible and cannot be parsed.");
         }
     }
     else if (boost::algorithm::iends_with(input_file, ".svg"))
@@ -375,7 +422,8 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
     assert(config_substitutions != nullptr);
 
     const auto archive_import_total_start = ArchiveImportClock::now();
-    BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=0 stage=ARCHIVE_IMPORT_TOTAL START file=\"" << input_file << "\"";
+    if constexpr (kDetailedModelImportTimingLogs)
+        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=0 stage=ARCHIVE_IMPORT_TOTAL START file=\"" << input_file << "\"";
 
     Model model;
 
@@ -394,15 +442,17 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
         if (boost::algorithm::iends_with(input_file, ".3mf") || boost::algorithm::iends_with(input_file, ".cxprj")) {
             PrusaFileParser prusa_file_parser;
             const auto archive_type_detect_start = ArchiveImportClock::now();
-            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=ARCHIVE_TYPE_DETECT START";
+            if constexpr (kDetailedModelImportTimingLogs)
+                BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=ARCHIVE_TYPE_DETECT START";
             const bool is_prusa_3mf = prusa_file_parser.check_3mf_from_prusa(input_file);
             BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=ARCHIVE_TYPE_DETECT END elapsed_ms="
                                        << archive_import_elapsed_ms(archive_type_detect_start)
                                        << " format=" << (is_prusa_3mf ? "prusa_3mf" : "bbs_3mf");
 
             const auto format_load_start = ArchiveImportClock::now();
-            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=FORMAT_LOAD START format="
-                                       << (is_prusa_3mf ? "prusa_3mf" : "bbs_3mf");
+            if constexpr (kDetailedModelImportTimingLogs)
+                BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=FORMAT_LOAD START format="
+                                           << (is_prusa_3mf ? "prusa_3mf" : "bbs_3mf");
             if (is_prusa_3mf) {
                 // for Prusa 3mf
                 load_result.result = load_3mf(input_file.c_str(), *config, *config_substitutions, &model, true);
@@ -419,7 +469,8 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
         }
         else if (boost::algorithm::iends_with(input_file, ".zip.amf")) {
             const auto format_load_start = ArchiveImportClock::now();
-            BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=FORMAT_LOAD START format=zip_amf";
+            if constexpr (kDetailedModelImportTimingLogs)
+                BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=FORMAT_LOAD START format=zip_amf";
             load_result.result = load_amf(input_file.c_str(), config, config_substitutions, &model, &load_result.is_bbl_3mf);
             BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=FORMAT_LOAD END elapsed_ms="
                                        << archive_import_elapsed_ms(format_load_start)
@@ -439,7 +490,8 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
 
     ArchiveLoadResult load_result = fut.get();
     const auto archive_finalize_start = ArchiveImportClock::now();
-    BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=ARCHIVE_FINALIZE START";
+    if constexpr (kDetailedModelImportTimingLogs)
+        BOOST_LOG_TRIVIAL(warning) << "[MODEL_IMPORT_TIMING] level=1 parent=ARCHIVE_IMPORT_TOTAL stage=ARCHIVE_FINALIZE START";
     result = load_result.result;
     out_file_type = load_result.file_type == En3mfType::From_Prusa ?
         En3mfType::From_Prusa :
@@ -931,14 +983,23 @@ void Model::convert_from_creality5(Vec2d bed_size,Vec2d new_bed_size,int plate_s
 void Model::convert_from_imperial_units(bool only_small_volumes)
 {
     static constexpr const float in_to_mm = 25.4f;
+    bool converted = false;
     for (ModelObject* obj : this->objects)
         if (! only_small_volumes || obj->get_object_stl_stats().volume < volume_threshold_inches) {
             obj->scale_mesh_after_creation(in_to_mm);
+            converted = true;
             for (ModelVolume* v : obj->volumes) {
                 assert(! v->source.is_converted_from_meters);
                 v->source.is_converted_from_inches = true;
             }
         }
+
+    // Keep the auxiliary textured geometry in the same unit system as the
+    // converted ModelVolumes. It is used to build the mesh written back on OK.
+    if (converted && texture_mesh)
+        for (auto& vertex : texture_mesh->vertices)
+            for (float& coordinate : vertex)
+                coordinate *= in_to_mm;
 }
 
 static constexpr const double volume_threshold_meters = 0.008; // 0.008 = 0.2*0.2*0.2
@@ -958,14 +1019,23 @@ bool Model::looks_like_saved_in_meters() const
 void Model::convert_from_meters(bool only_small_volumes)
 {
     static constexpr const double m_to_mm = 1000;
+    bool converted = false;
     for (ModelObject* obj : this->objects)
         if (! only_small_volumes || obj->get_object_stl_stats().volume < volume_threshold_meters) {
             obj->scale_mesh_after_creation(m_to_mm);
+            converted = true;
             for (ModelVolume* v : obj->volumes) {
                 assert(! v->source.is_converted_from_inches);
                 v->source.is_converted_from_meters = true;
             }
         }
+
+    // Keep the auxiliary textured geometry in sync with the converted model
+    // geometry. It is later used to produce the mesh written back on OK.
+    if (converted && texture_mesh)
+        for (auto& vertex : texture_mesh->vertices)
+            for (float& coordinate : vertex)
+                coordinate *= static_cast<float>(m_to_mm);
 }
 
 static constexpr const double zero_volume = 0.0000000001;
@@ -1196,32 +1266,34 @@ static void add_cut_volume(TriangleMesh& mesh, ModelObject* object, const ModelV
 void Model::setPrintSpeedTable(const DynamicPrintConfig& config, const PrintConfig& print_config) {
     //Slic3r::DynamicPrintConfig config = wxGetApp().preset_bundle->full_config();
     printSpeedMap.maxSpeed = 0;
+
+    // todo multi_extruders: the following parameters need get exact filament id
     if (config.has("inner_wall_speed")) {
-        printSpeedMap.perimeterSpeed = config.opt_float("inner_wall_speed");
+        printSpeedMap.perimeterSpeed = config.opt_float_nullable("inner_wall_speed", 0);
         if (printSpeedMap.perimeterSpeed > printSpeedMap.maxSpeed)
             printSpeedMap.maxSpeed = printSpeedMap.perimeterSpeed;
     }
     if (config.has("outer_wall_speed")) {
-        printSpeedMap.externalPerimeterSpeed = config.opt_float("outer_wall_speed");
+        printSpeedMap.externalPerimeterSpeed = config.opt_float_nullable("outer_wall_speed", 0);
         printSpeedMap.maxSpeed = std::max(printSpeedMap.maxSpeed, printSpeedMap.externalPerimeterSpeed);
     }
     if (config.has("sparse_infill_speed")) {
-        printSpeedMap.infillSpeed = config.opt_float("sparse_infill_speed");
+        printSpeedMap.infillSpeed = config.opt_float_nullable("sparse_infill_speed", 0);
         if (printSpeedMap.infillSpeed > printSpeedMap.maxSpeed)
             printSpeedMap.maxSpeed = printSpeedMap.infillSpeed;
     }
     if (config.has("internal_solid_infill_speed")) {
-        printSpeedMap.solidInfillSpeed = config.opt_float("internal_solid_infill_speed");
+        printSpeedMap.solidInfillSpeed = config.opt_float_nullable("internal_solid_infill_speed", 0);
         if (printSpeedMap.solidInfillSpeed > printSpeedMap.maxSpeed)
             printSpeedMap.maxSpeed = printSpeedMap.solidInfillSpeed;
     }
     if (config.has("top_surface_speed")) {
-        printSpeedMap.topSolidInfillSpeed = config.opt_float("top_surface_speed");
+        printSpeedMap.topSolidInfillSpeed = config.opt_float_nullable("top_surface_speed", 0);
         if (printSpeedMap.topSolidInfillSpeed > printSpeedMap.maxSpeed)
             printSpeedMap.maxSpeed = printSpeedMap.topSolidInfillSpeed;
     }
     if (config.has("support_speed")) {
-        printSpeedMap.supportSpeed = config.opt_float("support_speed");
+        printSpeedMap.supportSpeed = config.opt_float_nullable("support_speed", 0);
 
         if (printSpeedMap.supportSpeed > printSpeedMap.maxSpeed)
             printSpeedMap.maxSpeed = printSpeedMap.supportSpeed;
@@ -1451,20 +1523,21 @@ double Model::findMaxSpeed(const ModelObject* object) {
     double supportSpeedObj = Model::printSpeedMap.supportSpeed;
     double smallPerimeterSpeedObj = Model::printSpeedMap.smallPerimeterSpeed;
     for (std::string objectKey : objectKeys) {
+        // todo multi_extruders:
         if (objectKey == "inner_wall_speed"){
-            perimeterSpeedObj = object->config.opt_float(objectKey);
+            perimeterSpeedObj = object->config.get().opt_float_nullable(objectKey, 0);
             externalPerimeterSpeedObj = Model::printSpeedMap.externalPerimeterSpeed / Model::printSpeedMap.perimeterSpeed * perimeterSpeedObj;
         }
         if (objectKey == "sparse_infill_speed")
-            infillSpeedObj = object->config.opt_float(objectKey);
+            infillSpeedObj = object->config.get().opt_float_nullable(objectKey, 0);
         if (objectKey == "internal_solid_infill_speed")
-            solidInfillSpeedObj = object->config.opt_float(objectKey);
+            solidInfillSpeedObj = object->config.get().opt_float_nullable(objectKey, 0);
         if (objectKey == "top_surface_speed")
-            topSolidInfillSpeedObj = object->config.opt_float(objectKey);
+            topSolidInfillSpeedObj = object->config.get().opt_float_nullable(objectKey, 0);
         if (objectKey == "support_speed")
-            supportSpeedObj = object->config.opt_float(objectKey);
+            supportSpeedObj = object->config.get().opt_float_nullable(objectKey, 0);
         if (objectKey == "outer_wall_speed")
-            externalPerimeterSpeedObj = object->config.opt_float(objectKey);
+            externalPerimeterSpeedObj = object->config.get().opt_float_nullable(objectKey, 0);
         if (objectKey == "small_perimeter_speed")
             smallPerimeterSpeedObj = object->config.opt_float(objectKey);
     }

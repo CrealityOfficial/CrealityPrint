@@ -1,7 +1,9 @@
 #include "MainFrame.hpp"
+#include "ParameterSwitchTrace.hpp"
 
 #include <wx/colour.h>
 #include <wx/panel.h>
+#include <wx/window.h>
 #include <wx/notebook.h>
 #include <wx/listbook.h>
 #include <wx/simplebook.h>
@@ -27,6 +29,7 @@
 #include "libslic3r/SLAPrint.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Time.hpp"
+#include "libslic3r/Utils.hpp"
 
  #include "Project.hpp"
  #include "CalibrationPanel.hpp"
@@ -101,12 +104,8 @@
 namespace Slic3r {
 namespace GUI {
 
-static void ensure_online_model_view_ready(MainFrame* frame)
+static void ensure_web_model_view_ready(WebModelLibraryView* model_view)
 {
-    if (!frame)
-        return;
-
-    auto* model_view = frame->get_modellibrary_view();
     if (!model_view)
         return;
 
@@ -421,7 +420,6 @@ MainFrame::MainFrame()
             first_frame = true;
             if (wxGetApp().is_enable_test()) {
                 this->Maximize();
-                Test::Visitor().call_cmd("app_ready", "{}");
             }
             ADD_TEST_RESPONE("APP", "READY", 0, "");
         }
@@ -468,7 +466,7 @@ MainFrame::MainFrame()
     Fit();
 
     //const wxSize min_size = wxGetApp().get_min_size(); //wxSize(76*wxGetApp().em_unit(), 49*wxGetApp().em_unit());
-    const wxSize min_size = wxGetApp().get_min_size_ex(this);
+    const wxSize min_size = GetMinimumWindowSize();
 
     //SetMinSize(min_size/*wxSize(760, 490)*/);
     //SetSize(wxSize(FromDIP(1293), FromDIP(727)));
@@ -491,6 +489,7 @@ MainFrame::MainFrame()
 
     // declare events
     Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
+        ParameterSwitchTrace trace("MainFrame.close", this);
         BOOST_LOG_TRIVIAL(warning) << __FUNCTION__<< ": mainframe received close_widow event";
         if (event.CanVeto() && m_plater->get_view3D_canvas3D()->get_gizmos_manager().is_in_editing_mode(true)) {
             // prevents to open the save dirty project dialog
@@ -538,6 +537,11 @@ MainFrame::MainFrame()
         //}
     #endif
 
+#if defined(__WIN32__) && wxUSE_WEBVIEW_EDGE
+        // The close is now committed. Freeze new WebView work and capture PIDs
+        // before any shutdown step can destroy a WebView control.
+        WebView::BeginShutdown();
+#endif
         MarkdownTip::ExitTip();
 
         m_plater->reset();
@@ -546,8 +550,8 @@ MainFrame::MainFrame()
 
         wxGetApp().remove_mall_system_dialog();
 #if defined(__WIN32__) && wxUSE_WEBVIEW_EDGE
-        // WebView2 process IDs are only available before the wx window tree is destroyed.
-        WebView::DestroyAll();
+        // Rescan survivors because WebView2 backends are initialized asynchronously.
+        WebView::BeginShutdown();
 #endif
         event.Skip();
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__<< ": mainframe finished process close_widow event";
@@ -565,13 +569,21 @@ MainFrame::MainFrame()
 // When we move application between Retina and non-Retina displays, The legend on a canvas doesn't redraw
 // So, redraw explicitly canvas, when application is moved
 //FIXME maybe this is useful for __WXGTK3__ as well?
-#if __APPLE__
-    Bind(wxEVT_MOVE, [](wxMoveEvent& event) {
+    Bind(wxEVT_MOVE, [this](wxMoveEvent& event) {
+        // A monitor move can change the available work area without changing DPI.
+        if (!m_minimum_size_update_pending) {
+            m_minimum_size_update_pending = true;
+            CallAfter([this] {
+                m_minimum_size_update_pending = false;
+                UpdateMinimumWindowSize();
+            });
+        }
+#ifdef __APPLE__
         wxGetApp().plater()->get_current_canvas3D()->set_as_dirty();
         wxGetApp().plater()->get_current_canvas3D()->request_extra_frame();
+#endif
         event.Skip();
     });
-#endif   
 
     update_ui_from_settings();    // FIXME (?)
 
@@ -589,17 +601,22 @@ MainFrame::MainFrame()
             Slic3r::set_backup_interval(0);
         }
         Slic3r::set_backup_callback([this](int action) {
+            ParameterSwitchTrace trace("Backup.callback", this);
+            trace.note("ACTION", " action=", action);
             if (action == 0) {
                 wxPostEvent(this, wxCommandEvent(EVT_BACKUP_POST));
             }
             else if (action == 1) {
                 if (!m_plater->up_to_date(false, true)) {
+                    trace.note("EXPORT_BEGIN");
                     m_plater->export_3mf(m_plater->model().get_backup_path() + "/.3mf", SaveStrategy::Backup);
+                    trace.note("EXPORT_END");
                     m_plater->up_to_date(true, true);
                 }
             }
          });
         Bind(EVT_BACKUP_POST, [](wxCommandEvent& e) {
+            ParameterSwitchTrace trace("Backup.ui_tasks", nullptr);
             Slic3r::run_backup_ui_tasks();
             });
 ;    }
@@ -622,7 +639,11 @@ MainFrame::MainFrame()
             }
             return;}
 #endif
-        if (evt.CmdDown() && evt.GetKeyCode() == 'R') { if (m_slice_enable) { wxGetApp().plater()->update(true, true); wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_SLICE_PLATE)); this->m_tabpanel->SetSelection(tpPreview); } return; }
+        if (evt.CmdDown() && evt.GetKeyCode() == 'R') {
+            if (m_slice_enable)
+                slice_plate(eSlicePlate);
+            return;
+        }
         if (evt.CmdDown() && evt.ShiftDown() && evt.GetKeyCode() == 'G') {
             m_plater->apply_background_progress();
             m_print_enable = get_enable_print_status();
@@ -749,14 +770,177 @@ void MainFrame::bind_diff_dialog()
 
 #ifdef __WXMSW__
 
+static bool contains_live_wx_window(const wxWindow* root, const wxWindow* candidate, size_t& windows_checked)
+{
+    if (!root)
+        return false;
+
+    ++windows_checked;
+    // The candidate may be a dangling value returned by wxWidgets' HWND map.
+    // Only access it through the matching node reached from the live tree.
+    if (root == candidate)
+        return !root->IsBeingDeleted();
+
+    for (wxWindow* child : root->GetChildren()) {
+        if (contains_live_wx_window(child, candidate, windows_checked))
+            return true;
+    }
+
+    return false;
+}
+
+static bool is_live_wx_window(const wxWindow* candidate, size_t& windows_checked)
+{
+    if (!candidate)
+        return false;
+
+    // Search every top-level tree so valid dialogs and auxiliary frames keep
+    // their existing focus behaviour; only addresses absent from all live trees fail.
+    for (wxWindow* top_level : wxTopLevelWindows) {
+        if (contains_live_wx_window(top_level, candidate, windows_checked))
+            return true;
+    }
+
+    return false;
+}
+
+static const char* get_last_focus_save_trigger(WXUINT message, WXWPARAM w_param)
+{
+    if (message == WM_ACTIVATE && LOWORD(w_param) == WA_INACTIVE)
+        return "deactivate";
+
+    if (message == WM_SYSCOMMAND && (w_param & 0xfff0) == SC_MINIMIZE)
+        return "minimize";
+
+    return nullptr;
+}
+
+static bool is_current_wx_focus_safe(wxWindow*& raw_focus_window, wxWindow*& focus_window, size_t& windows_checked)
+{
+    // Do not call FindFocus() here: it immediately dereferences the raw result
+    // returned by DoFindFocus() to resolve composite controls. Validate the raw
+    // address first, then resolve and validate the composite control separately.
+    raw_focus_window = wxWindow::DoFindFocus();
+    focus_window     = nullptr;
+    if (!is_live_wx_window(raw_focus_window, windows_checked))
+        return false;
+
+    focus_window = raw_focus_window->GetMainWindowOfCompositeControl();
+    if (!focus_window)
+        return true; // IsDescendant(nullptr) is safe and preserves the existing behaviour.
+
+    return focus_window == raw_focus_window || is_live_wx_window(focus_window, windows_checked);
+}
+
+static void redirect_invalid_focus_to_main_frame(HWND main_frame_hwnd, const char* trigger)
+{
+    const HWND focus_hwnd = ::GetFocus();
+    if (!focus_hwnd || focus_hwnd == main_frame_hwnd)
+        return;
+
+    wxWindow* raw_focus_window = nullptr;
+    wxWindow* focus_window     = nullptr;
+    size_t    windows_checked  = 0;
+    if (is_current_wx_focus_safe(raw_focus_window, focus_window, windows_checked))
+        return;
+
+    wchar_t class_name[256] = {0};
+    ::GetClassNameW(focus_hwnd, class_name, 255);
+    const HWND parent_hwnd            = ::GetParent(focus_hwnd);
+    wchar_t    parent_class_name[256] = {0};
+    if (parent_hwnd)
+        ::GetClassNameW(parent_hwnd, parent_class_name, 255);
+
+    BOOST_LOG_TRIVIAL(warning) << "[DoSaveLastFocus-Guard] REDIRECTING focus to MainFrame."
+                               << " trigger=" << trigger << " focus_hwnd=" << static_cast<void*>(focus_hwnd)
+                               << " raw_focus_window=" << static_cast<void*>(raw_focus_window)
+                               << " focus_window=" << static_cast<void*>(focus_window) << " class=" << wxString(class_name).ToStdString()
+                               << " parent_hwnd=" << static_cast<void*>(parent_hwnd)
+                               << " parent_class=" << wxString(parent_class_name).ToStdString() << " windows_checked=" << windows_checked;
+
+    ::SetFocus(main_frame_hwnd);
+
+    const HWND redirected_focus_hwnd = ::GetFocus();
+    if (!redirected_focus_hwnd || redirected_focus_hwnd == main_frame_hwnd)
+        return;
+
+    wxWindow* redirected_raw_focus_window = nullptr;
+    wxWindow* redirected_focus_window     = nullptr;
+    size_t    redirected_windows_checked  = 0;
+    if (is_current_wx_focus_safe(redirected_raw_focus_window, redirected_focus_window, redirected_windows_checked))
+        return;
+
+    BOOST_LOG_TRIVIAL(error) << "[DoSaveLastFocus-Guard] MainFrame focus redirect failed; clearing unsafe focus."
+                             << " trigger=" << trigger << " focus_hwnd=" << static_cast<void*>(redirected_focus_hwnd)
+                             << " raw_focus_window=" << static_cast<void*>(redirected_raw_focus_window)
+                             << " focus_window=" << static_cast<void*>(redirected_focus_window)
+                             << " windows_checked=" << redirected_windows_checked;
+    ::SetFocus(nullptr);
+}
+
 WXLRESULT MainFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam)
 {
+    static bool restore_maximized_after_iconize = false;
+    static RECT maximized_work_area_before_iconize{};
+
+    if (const char* trigger = get_last_focus_save_trigger(nMsg, wParam))
+        redirect_invalid_focus_to_main_frame(GetHWND(), trigger);
+
     /* When we have a custom titlebar in the window, we don't need the non-client area of a normal window
      * to be painted. In order to achieve this, we handle the "WM_NCCALCSIZE" which is responsible for the
      * size of non-client area of a window and set the return value to 0. Also we have to tell the
      * application to not paint this area on activate and deactivation events so we also handle
      * "WM_NCACTIVATE" message. */
     switch (nMsg) {
+    case WM_SYSCOMMAND: {
+        if ((wParam & 0xfff0) == SC_MINIMIZE) {
+            restore_maximized_after_iconize = false;
+
+            HWND hWnd = GetHandle();
+            if (::IsZoomed(hWnd)) {
+                HMONITOR monitor = ::MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+                MONITORINFO monitor_info{sizeof(monitor_info)};
+                if (monitor && ::GetMonitorInfo(monitor, &monitor_info)) {
+                    const RECT& work_area = monitor_info.rcWork;
+                    maximized_work_area_before_iconize = work_area;
+                    restore_maximized_after_iconize = true;
+                }
+            }
+        }
+        break;
+    }
+    case WM_SIZE: {
+        const WXLRESULT result = wxFrame::MSWWindowProc(nMsg, wParam, lParam);
+
+        // On mixed-resolution displays Windows may restore a maximized custom
+        // frame with the smaller monitor's dimensions while IsZoomed() remains
+        // true. Reapply the work area captured immediately before minimization.
+        if (wParam != SIZE_MINIMIZED && restore_maximized_after_iconize && ::IsZoomed(GetHandle())) {
+            restore_maximized_after_iconize = false;
+
+            RECT saved_area = maximized_work_area_before_iconize;
+            HMONITOR monitor = ::MonitorFromRect(&saved_area, MONITOR_DEFAULTTONEAREST);
+            MONITORINFO monitor_info{sizeof(monitor_info)};
+            if (monitor && ::GetMonitorInfo(monitor, &monitor_info)) {
+                const RECT& target = monitor_info.rcWork;
+                RECT current{};
+                if (::GetWindowRect(GetHandle(), &current) &&
+                    (current.left != target.left || current.top != target.top ||
+                     current.right != target.right || current.bottom != target.bottom)) {
+                    ::SetWindowPos(GetHandle(), nullptr,
+                        target.left, target.top,
+                        target.right - target.left,
+                        target.bottom - target.top,
+                        SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+                    BOOST_LOG_TRIVIAL(info)
+                        << "MainFrame: corrected maximized restore rectangle to "
+                        << target.left << ',' << target.top << ','
+                        << target.right << ',' << target.bottom;
+                }
+            }
+        }
+        return result;
+    }
     case WM_GETMINMAXINFO: {
         // Let wxWidgets apply SetMinSize()/SetSizeHints() to ptMinTrackSize first.
         const WXLRESULT result = wxFrame::MSWWindowProc(nMsg, wParam, lParam);
@@ -769,12 +953,26 @@ WXLRESULT MainFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam
             const RECT& work_area = monitor_info.rcWork;
             const RECT& monitor_area = monitor_info.rcMonitor;
 
-            // The maximized outer rectangle is exactly the monitor work area. WM_NCCALCSIZE
-            // must therefore not inset the client rectangle again while maximized.
+            const LONG work_width = work_area.right - work_area.left;
+            const LONG work_height = work_area.bottom - work_area.top;
+
+            // The maximized outer rectangle is exactly the current monitor's work area.
+            // Keep the maximum tracking size in sync as wxWidgets may have initialized it
+            // from the primary monitor, which clips the client layout on a larger secondary
+            // monitor when using the custom captionless frame.
             min_max_info->ptMaxPosition.x = work_area.left - monitor_area.left;
             min_max_info->ptMaxPosition.y = work_area.top - monitor_area.top;
-            min_max_info->ptMaxSize.x = work_area.right - work_area.left;
-            min_max_info->ptMaxSize.y = work_area.bottom - work_area.top;
+            min_max_info->ptMaxSize.x = work_width;
+            min_max_info->ptMaxSize.y = work_height;
+            min_max_info->ptMaxTrackSize.x = work_width;
+            min_max_info->ptMaxTrackSize.y = work_height;
+
+            // Enforce the current toolbar width during native edge dragging too:
+            // deferred move/DPI handlers may not have refreshed wx size hints yet.
+            if (m_topbar) {
+                const wxSize minimum = GetMinimumWindowSize();
+                min_max_info->ptMinTrackSize.x = std::max<LONG>(min_max_info->ptMinTrackSize.x, minimum.x);
+            }
         }
         return result;
     }
@@ -784,48 +982,6 @@ WXLRESULT MainFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam
         optional update region for the nonclient area of the window. If this parameter is set to -1,
         DefWindowProc does not repaint the nonclient area to reflect the state change. */
         lParam = -1;
-        break;
-    }
-    case WM_ACTIVATE: {
-        if (LOWORD(wParam) == WA_INACTIVE) {
-            // Guard against DoSaveLastFocus() crash (see bug #17250):
-            // When MainFrame is deactivated, wxWidgets calls DoSaveLastFocus() which
-            // queries ::GetFocus() and looks up the HWND in its internal map. If the
-            // map contains a dangling wxWindow*, accessing it causes a crash.
-            //
-            // Strategy: walk the focus HWND's parent chain. If no wxWindow is found,
-            // redirect focus to MainFrame to prevent the crash. Also log enough info
-            // to help identify the culprit window if the crash still occurs via other paths.
-            HWND hFocus = ::GetFocus();
-            if (hFocus && hFocus != GetHWND()) {
-                HWND hWalk = hFocus;
-                wxWindow* foundWin = nullptr;
-                int depth = 0;
-                while (hWalk) {
-                    foundWin = wxFindWinFromHandle(hWalk);
-                    if (foundWin) break;
-                    hWalk = ::GetParent(hWalk);
-                    depth++;
-                }
-                if (!foundWin) {
-                    // Dangerous: focus is on a HWND that wxWidgets does not manage at all.
-                    // Collect window class name for diagnostics.
-                    wchar_t className[256] = {0};
-                    ::GetClassNameW(hFocus, className, 255);
-                    HWND hParent = ::GetParent(hFocus);
-                    wchar_t parentClassName[256] = {0};
-                    if (hParent) ::GetClassNameW(hParent, parentClassName, 255);
-
-                    BOOST_LOG_TRIVIAL(warning) << "[DoSaveLastFocus-Guard] REDIRECTING focus to MainFrame."
-                        << " focus_hwnd=" << (void*)hFocus
-                        << " class=" << wxString(className).ToStdString()
-                        << " parent_hwnd=" << (void*)hParent
-                        << " parent_class=" << wxString(parentClassName).ToStdString()
-                        << " depth_searched=" << depth;
-                    ::SetFocus(GetHWND());
-                }
-            }
-        }
         break;
     }
     /* To remove the standard window frame, you must handle the WM_NCCALCSIZE message, specifically when
@@ -996,10 +1152,10 @@ void MainFrame::update_layout()
                 AnalyticsEventPayload payload;
                 payload.type = AnalyticsDataEventType::ANALYTICS_PREPARE;
                 AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
-                m_plater->update(true);
-
                 if (!preview_only_hint())
                     return;
+
+                m_plater->update(true);
             }
             else if (evt.GetId() == tpPreview) {
                 AnalyticsEventPayload payload;
@@ -1023,8 +1179,15 @@ void MainFrame::update_layout()
                     // 切换到在线模型时不刷新 UA；仅在登录状态变更时由 GUI_App 触发更新
 
                     // 首次进入在线模型时加载默认页面；以视图实例状态为准，避免语言切换重建 GUI 后不加载的问题
-                    ensure_online_model_view_ready(this);
+                    ensure_web_model_view_ready(m_webmodellibrary_view);
                 }
+            } else if (evt.GetId() == tpAICreation) {
+                AnalyticsEventPayload payload;
+                payload.type = AnalyticsDataEventType::ANALYTICS_TAB_MAKENOW;
+                AnalyticsDataUploadManager::getInstance().triggerUploadTasksWithPayload(payload);
+                // Resolve the window ID before passing the page index to Notebook.
+                select_tab(tpAICreation);
+                return;
             }
             evt.Skip();
         });
@@ -1170,8 +1333,17 @@ void MainFrame::destroy_webviews_for_recreate()
 
     destroy_view(m_webview);
     destroy_view(m_webmodellibrary_view);
+    destroy_view(m_ai_creation_view);
     destroy_view(m_printer_view);
     destroy_view(m_printer_mgr_view);
+}
+
+void MainFrame::update_model_webviews_user_agent()
+{
+    if (m_webmodellibrary_view)
+        m_webmodellibrary_view->UpdateUserAgent();
+    if (m_ai_creation_view)
+        m_ai_creation_view->UpdateUserAgent();
 }
 
 void MainFrame::update_filament_tab_ui()
@@ -1269,12 +1441,12 @@ void MainFrame::init_tabpanel() {
             else if (panel == m_webmodellibrary_view)
             {
                 topbar_sel = static_cast<size_t>(tpOnlineModel);
-                if (!m_webmodellibrary_view->IsInitialized()) {
-                        // 在首次加载模型库前，主动刷新 UA 与 Cookies，避免未授权请求导致首屏 401/403
-                        // m_webmodellibrary_view->UpdateUserAgent();
-                        wxString url = get_cloud_webaddress() + "model-category/3d-print-all";
-                        m_webmodellibrary_view->load_url(url);
-                    }
+                ensure_web_model_view_ready(m_webmodellibrary_view);
+            }
+            else if (panel == m_ai_creation_view)
+            {
+                topbar_sel = static_cast<size_t>(tpAICreation);
+                ensure_web_model_view_ready(m_ai_creation_view);
             }
             else if (panel == m_webview)
                 topbar_sel = static_cast<size_t>(tpHome);
@@ -1282,8 +1454,15 @@ void MainFrame::init_tabpanel() {
         }
         if (panel == m_plater) {
             if (sel == tp3DEditor) {
-                if (m_tab_event_enabled)
-                    wxPostEvent(m_plater, SimpleEvent(EVT_GLVIEWTOOLBAR_3D));
+                if (m_tab_event_enabled) {
+                    m_plater->CallAfter([this] {
+                        // A project load may have selected Preview since this
+                        // page change. Do not apply an obsolete Prepare event.
+                        if (m_tabpanel->GetSelection() == tp3DEditor &&
+                            m_tabpanel->GetCurrentPage() == m_plater)
+                            m_plater->select_view_3D("3D");
+                    });
+                }
                 m_param_panel->OnActivate();
                 m_plater->close_checked_3rd_filament_vendor_tip();
 
@@ -1295,8 +1474,13 @@ void MainFrame::init_tabpanel() {
                     wxGetApp().check_user_lite_mode_dlg();
 				}
 
-                if (m_tab_event_enabled)
-                    wxPostEvent(m_plater, SimpleEvent(EVT_GLVIEWTOOLBAR_PREVIEW));
+                if (m_tab_event_enabled) {
+                    m_plater->CallAfter([this] {
+                        if (m_tabpanel->GetSelection() == tpPreview &&
+                            m_tabpanel->GetCurrentPage() == m_plater)
+                            m_plater->select_view_3D("Preview", false);
+                    });
+                }
                 m_param_panel->OnActivate();
 #if CUSTOM_CXCLOUD
                 UpdateParams::getInstance().closeParamsUpdateTip();
@@ -1384,6 +1568,13 @@ void MainFrame::init_tabpanel() {
     m_printer_mgr_view->SetId(MainFrame::tpDeviceMgr);
     m_tabpanel->AddPage(m_printer_mgr_view, _L("Device"), std::string("tab_monitor_active"), std::string("tab_monitor_active"), false);
     m_printer_mgr_view->Hide();
+
+    // Append the page so existing notebook indices stay stable. The topbar uses its window ID.
+    m_ai_creation_view = new WebModelLibraryView(m_tabpanel);
+    m_ai_creation_view->SetId(tpAICreation);
+    m_ai_creation_view->SetStartPage(wxString::FromUTF8(get_ai_creation_webaddress()));
+    m_tabpanel->AddPage(m_ai_creation_view, _L("AI Creation"), "tab_ai_creation_active", "tab_ai_creation", false);
+    m_ai_creation_view->Hide();
     if(m_plater) {
         m_plater->create_send_to_printer_dlg();  // BBS : pre create the send dialog on program startup
     }
@@ -1516,27 +1707,32 @@ void MainFrame::set_content_visible(bool visible)
 
 bool MainFrame::preview_only_hint()
 {
+    // ShowModal and new_project can dispatch further tab events.
+    if (m_preview_only_transition_in_progress) {
+        BOOST_LOG_TRIVIAL(warning) << "Ignoring Prepare request while preview-only confirmation is active";
+        return false;
+    }
+
     if (m_plater && (m_plater->only_gcode_mode() || (m_plater->using_exported_file()))) {
+        m_preview_only_transition_in_progress = true;
+        Slic3r::ScopeGuard reset_transition([this] { m_preview_only_transition_in_progress = false; });
         BOOST_LOG_TRIVIAL(info) << boost::format("skipped tab switch from %1% to %2% in preview mode")%m_tabpanel->GetSelection() %tp3DEditor;
 
+        bool confirmed = false;
         ConfirmBeforeSendDialog confirm_dlg(this, wxID_ANY, _L("Warning"));
-        confirm_dlg.Bind(EVT_SECONDARY_CHECK_CONFIRM, [this](wxCommandEvent& e) {
-            preview_only_to_editor = true;
+        confirm_dlg.Bind(EVT_SECONDARY_CHECK_CONFIRM, [&confirmed](wxCommandEvent&) {
+            confirmed = true;
         });
         confirm_dlg.update_btn_label(_L("Yes"), _L("No"));
         auto filename = m_plater->get_preview_only_filename();
 
-        confirm_dlg.update_text(filename + " " + _L("will be closed before creating a new model. Do you want to continue?"));
+        confirm_dlg.update_text(from_u8(filename) + " " + _L("will be closed before creating a new model. Do you want to continue?"));
         confirm_dlg.on_show();
-        if (preview_only_to_editor) {
-            m_plater->new_project();
-            preview_only_to_editor = false;
-
+        if (confirmed && m_plater->new_project() != wxID_CANCEL)
             return true;
-        }
-        else{//Event cannot be directly passed to TopBar object
-            this->m_topbar->SetSelection(tpPreview);
-        }
+
+        // Keep Preview selected if either confirmation was cancelled.
+        this->m_topbar->SetSelection(tpPreview);
 
         return false;
     }
@@ -1872,13 +2068,22 @@ bool MainFrame::can_reslice() const
     return (m_plater != nullptr) && !m_plater->model().objects.empty();
 }
 
-void  MainFrame::slice_plate(SliceSelectType type){
-    if (type != SliceSelectType::eSliceAll) {
-        if(!get_enable_slice_status())
+void MainFrame::slice_plate(SliceSelectType type)
+{
+    if (type != SliceSelectType::eSliceAll && !get_enable_slice_status())
+        return;
+    if (type == SliceSelectType::eSliceAll && m_plater->only_gcode_mode()) {
+        Test::EVENT_SPREAD("slice_all_completed", "failed:only_gcode_mode");
         return;
     }
-    else if (m_plater->only_gcode_mode())
+
+    // A manual grouping must complete before update() can start slicing.
+    if (!m_plater->sidebar().prepare_filament_nozzle_mapping_for_slice(
+            true, type == SliceSelectType::eSliceAll)) {
+        Test::EVENT_SPREAD("slice_all_completed", "failed:filament_nozzle_mapping");
         return;
+    }
+
     // this->m_plater->select_view_3D("Preview");
     m_plater->exit_gizmo();
     m_plater->update(true, true);
@@ -1982,16 +2187,8 @@ wxBoxSizer* MainFrame::create_side_tools()
 
     sizer->Layout();
 
-    m_slice_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
-        // this->m_plater->select_view_3D("Preview");
-        m_plater->exit_gizmo();
-        m_plater->update(true, true);
-        if (m_slice_select == eSliceAll)
-            wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_SLICE_ALL));
-        else
-            wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_SLICE_PLATE));
-
-        this->m_tabpanel->SetSelection(tpPreview);
+    m_slice_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        slice_plate(static_cast<SliceSelectType>(m_slice_select));
     });
 
     m_print_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event)
@@ -2512,6 +2709,47 @@ void MainFrame::update_slice_print_status(SlicePrintEventType event, bool can_sl
 }
 
 
+wxSize MainFrame::GetMinimumWindowSize() const
+{
+    // While minimized, wxMSW GetSize() returns the restore rectangle but
+    // GetClientSize() returns the minimized client area. ClientToWindowSize()
+    // would treat their difference as a border and inflate the minimum on
+    // every restore, including queries from WM_GETMINMAXINFO.
+    if (IsIconized())
+        return GetMinSize();
+
+    wxSize minimum = wxGetApp().get_min_size_ex(const_cast<MainFrame*>(this));
+    if (!m_topbar)
+        return minimum;
+
+    const int border_width = ClientToWindowSize(wxSize(0, 0)).GetWidth();
+    const int display_index = wxDisplay::GetFromWindow(this);
+    const int work_width = display_index == wxNOT_FOUND
+        ? minimum.x : wxDisplay(display_index).GetClientArea().GetWidth();
+    const int toolbar_width = m_topbar->GetMinimumToolbarWidth(std::max(0, work_width - border_width));
+    minimum.x = std::max(std::min(minimum.x, work_width), toolbar_width + border_width);
+    return minimum;
+}
+
+void MainFrame::UpdateMinimumWindowSize()
+{
+    // Preserve the last valid size hints until the window is restored.
+    if (IsIconized())
+        return;
+
+    const wxSize minimum = GetMinimumWindowSize();
+#ifndef __APPLE__
+    if (GetMinSize() != minimum)
+        SetMinSize(minimum);
+#endif
+    if (!IsMaximized() && !IsIconized()) {
+        const wxSize current = GetSize();
+        const wxSize adjusted(std::max(current.x, minimum.x), std::max(current.y, minimum.y));
+        if (adjusted != current)
+            SetSize(adjusted);
+    }
+}
+
 void MainFrame::on_dpi_changed(const wxRect& suggested_rect)
 {
     wxGetApp().update_fonts(this);
@@ -2560,16 +2798,7 @@ void MainFrame::on_dpi_changed(const wxRect& suggested_rect)
 
     // Refresh the native minimum tracking size for the new monitor DPI without
     // discarding the user's restored window size.
-    const wxSize min_size = wxGetApp().get_min_size_ex(this);
-    SetMinSize(min_size);
-
-    if (!IsMaximized()) {
-        const wxSize current_size = GetSize();
-        const wxSize clamped_size(std::max(current_size.x, min_size.x),
-                                  std::max(current_size.y, min_size.y));
-        if (clamped_size != current_size)
-            SetSize(clamped_size);
-    }
+    UpdateMinimumWindowSize();
 
     Layout();
     Refresh();
@@ -2632,6 +2861,7 @@ void MainFrame::on_sys_color_changed()
 
  
     m_topbar->Rescale(false);
+    UpdateMinimumWindowSize();
     DM::AppMgr::Ins().SystemThemeChanged();
     wxGetApp().UpdateDarkUI(m_topbar);
     this->Refresh();
@@ -3520,13 +3750,13 @@ void MainFrame::init_menubar_as_editor()
         }, "", nullptr,
         [this]() {return m_plater->is_view3D_shown()&& m_tabpanel->GetSelection() == TabPosition::tp3DEditor;; }, this);
 
-    //append_menu_item(calibMenu, wxID_ANY, _L("XY Offset"), _L("XY Offset Calibration"),
-    //    [this](wxCommandEvent&) {
-    //        if (!m_xy_offset_calib_dlg)
-    //            m_xy_offset_calib_dlg = new XY_Offset_Calibration_Dlg((wxWindow*)this, wxID_ANY, m_plater);
-    //        m_xy_offset_calib_dlg->ShowModal();
-    //   }, "", nullptr,
-    //    [this]() {return m_plater->is_view3D_shown()&& m_tabpanel->GetSelection() == TabPosition::tp3DEditor;; }, this);
+    append_menu_item(calibMenu, wxID_ANY, _L("XY Offset"), _L("XY Offset Calibration"),
+        [this](wxCommandEvent&) {
+            if (!m_xy_offset_calib_dlg)
+                m_xy_offset_calib_dlg = new XY_Offset_Calibration_Dlg((wxWindow*)this, wxID_ANY, m_plater);
+            m_xy_offset_calib_dlg->ShowModal();
+       }, "", nullptr,
+        [this]() {return m_plater->is_view3D_shown()&& m_tabpanel->GetSelection() == TabPosition::tp3DEditor;; }, this);
 
     // creality add
     auto retraction_test = new wxMenu();
@@ -4589,12 +4819,20 @@ void MainFrame::select_tab(size_t tab/* = size_t(-1)*/)
         //BBS GUI refactor: remove unused layout new/dlg
         //size_t new_selection = tab == (size_t)(-1) ? m_last_selected_tab : (m_layout == ESettingsLayout::Dlg && tab != 0) ? tab - 1 : tab;
         size_t new_selection = tab == (size_t)(-1) ? m_last_selected_tab : tab;
+        if (tab == tpAICreation) {
+            if (!m_ai_creation_view)
+                return;
+            const int page_idx = m_tabpanel->FindPage(m_ai_creation_view);
+            if (page_idx == wxNOT_FOUND)
+                return;
+            new_selection = static_cast<size_t>(page_idx);
+        }
 
         if (m_tabpanel->GetSelection() != (int)new_selection)
         {
             m_tabpanel->SetSelection(new_selection);
             if(this->topbar())
-                this->topbar()->SetSelection(new_selection);
+                this->topbar()->SetSelection(m_tabpanel->GetCurrentPage() == m_ai_creation_view ? tpAICreation : new_selection);
         }
 #ifdef _MSW_DARK_MODE
         /*if (wxGetApp().tabs_as_menu()) {
@@ -4616,7 +4854,9 @@ void MainFrame::select_tab(size_t tab/* = size_t(-1)*/)
     select(false);
 
     if ((tab == MainFrame::tpOnlineModel || (tab == size_t(-1) && m_tabpanel->GetSelection() == (int) MainFrame::tpOnlineModel)))
-        ensure_online_model_view_ready(this);
+        ensure_web_model_view_ready(m_webmodellibrary_view);
+    if (m_ai_creation_view && m_tabpanel->GetCurrentPage() == m_ai_creation_view)
+        ensure_web_model_view_ready(m_ai_creation_view);
 }
 
 void MainFrame::request_select_tab(TabPosition pos)

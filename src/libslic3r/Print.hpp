@@ -3,7 +3,9 @@
 
 #include "Fill/FillAdaptive.hpp"
 #include "Fill/FillLightning.hpp"
+#include "Fill/Tower/FillLayerFilamentWipePacking.hpp"
 #include "PrintBase.hpp"
+#include "ZAA.hpp"
 
 #include "Geometry.hpp"
 #include "BoundingBox.hpp"
@@ -23,10 +25,15 @@
 
 #include <Eigen/Geometry>
 
+#include <cstdint>
+#include <atomic>
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
+#include <utility>
+#include <vector>
 
 #include "calib.hpp"
 #include "ModelObject.hpp"
@@ -41,6 +48,7 @@ namespace Slic3r {
 class GCode;
 class Layer;
 class LayerRegion;
+class Surface;
 class ModelObject;
 class Print;
 class PrintObject;
@@ -57,6 +65,14 @@ class Debugger;
 
 bool slice_bl_function(const Slic3r::Model& model, const Slic3r::DynamicPrintConfig& config, const Slic3r::Calib_Params& _calibParams,
     const Slic3r::ThumbnailsList& thumbnailDatas, const TempParamater& tp, const int blType, const std::string& blName, const std::string& blDir, const std::string& resultDir);
+// A Print-owned ZAA planning session supplies this worker-safe callback to the
+// per-object planner. It deliberately carries no GUI state or object identity.
+struct ZaaPathPlanningProgress {
+    std::function<void(size_t sample_count)> advance_samples;
+
+    explicit operator bool() const noexcept { return bool(advance_samples); }
+};
+
 struct VolumeSlices
 {
     ObjectID                volume_id;
@@ -135,7 +151,7 @@ enum PrintStep {
 
 enum PrintObjectStep {
     posSlice, posPerimeters,posEstimateCurledExtrusions, posPrepareInfill,
-    posInfill, posIroning, posSupportMaterial, posSimplifyPath, posSimplifySupportPath,
+    posInfill, posIroning, posSupportMaterial, posSimplifyPath, posSimplifySupportPath, posZaaPathPlan,
     // BBS
     posDetectOverhangsForLift,
     posSimplifyWall, posSimplifyInfill,
@@ -495,6 +511,19 @@ public:
     // returns 0-based indices of extruders used to print the object (without brim, support and other helper extrusions)
     std::vector<unsigned int>   object_extruders() const;
 
+    // Prepared slicing geometry is immutable for the current posSlice lifecycle.
+    const PreparedLayerSchedule& prepare_layer_schedule();
+    const PreparedLayerSchedule* prepared_layer_schedule() const { return m_prepared_layer_schedule ? &*m_prepared_layer_schedule : nullptr; }
+    const ZaaObjectSliceDecision& ensure_zaa_slice_decision();
+    const ZaaObjectSliceDecision& zaa_slice_decision() const;
+    // Resolves by physical layer bounds, not Layer::id(), because empty bottom
+    // layers may be removed and their remaining IDs renumbered after slicing.
+    const ZaaLayerGeometry* zaa_layer_geometry(const Layer& layer) const;
+    bool zaa_layer_uses_offset_plane(const Layer& layer) const;
+    size_t zaa_active_layer_count() const;
+    void publish_zaa_incompatibility_warning();
+    void reset_zaa_slice_state();
+
     // Called by make_perimeters()
     void slice();
 
@@ -539,6 +568,8 @@ public:
     PrintBase::ApplyStatus  set_instances(PrintInstances &&instances);
     // Invalidates the step, and its depending steps in PrintObject and Print.
     bool                    invalidate_step(PrintObjectStep step);
+    // Invalidates a stale posSlice cache without regenerating the already frozen ZAA state.
+    void                    invalidate_slice_cache_preserving_zaa_state();
     // Invalidates all PrintObject and Print steps.
     bool                    invalidate_all_steps();
     // Invalidate steps based on a set of parameters changed.
@@ -548,7 +579,9 @@ public:
     // If ! m_slicing_params.valid, recalculate.
     void                    update_slicing_parameters();
 
-    static PrintObjectConfig object_config_from_model_object(const PrintObjectConfig &default_object_config, const ModelObject &object, size_t num_extruders);
+    static PrintObjectConfig object_config_from_model_object(
+        const PrintObjectConfig &default_object_config, const ModelObject &object,
+        size_t num_extruders, const std::vector<int> &process_variant_source_indices = {});
 
 private:
     void make_perimeters();
@@ -559,8 +592,11 @@ private:
     void generate_support_material();
     void estimate_curled_extrusions();
     void simplify_extrusion_path();
+    size_t zaa_path_plan_sample_count() const;
+    void build_zaa_path_plans_flattened(const ZaaPathPlanningProgress *progress);
 
     void slice_volumes();
+    LayerPtrs create_layers_from_prepared_schedule();
     //BBS
     ExPolygons _shrink_contour_holes(double contour_delta, double hole_delta, const ExPolygons& polys) const;
     // BBS
@@ -602,6 +638,12 @@ private:
     PrintObjectRegions                     *m_shared_regions { nullptr };
 
     SlicingParameters                       m_slicing_params;
+    std::optional<PreparedLayerSchedule>    m_prepared_layer_schedule;
+    std::optional<ZaaObjectSliceDecision>   m_zaa_slice_decision;
+    // Maps final Layer objects to immutable prepared-plan indices. This stays
+    // valid if empty bottom layers are removed and Layer::id() is renumbered.
+    mutable std::map<const Layer*, size_t>   m_zaa_layer_geometry_index_by_layer;
+    bool                                    m_zaa_incompatibility_warning_published{false};
     LayerPtrs                               m_layers;
     SupportLayerPtrs                        m_support_layers;
     // BBS
@@ -617,6 +659,12 @@ private:
 
     std::pair<FillAdaptive::OctreePtr, FillAdaptive::OctreePtr> m_adaptive_fill_octrees;
     FillLightning::GeneratorPtr m_lightning_generator;
+
+    // OpenVDB SDF grid for FillField (field-driven infill)
+    std::shared_ptr<void> m_field_sdf_grid;
+public:
+    void* field_sdf_grid_ptr() const { return m_field_sdf_grid.get(); }
+private:
 
     std::vector < VolumeSlices >            firstLayerObjSliceByVolume;
     std::vector<groupedVolumeSlices>        firstLayerObjSliceByGroups;
@@ -731,7 +779,7 @@ struct WipeTowerData
         brim_width = 0.f;
     }
 
-    void construct_mesh(float width, float depth, float height, float brim_width, bool is_stable_cone_wipe_tower, const Polygon& brim);
+    void construct_mesh(float width, float depth, float height, float brim_width, bool is_stable_cone_wipe_tower, const Polygon& brim, const std::map<float, Polylines>* outer_wall = nullptr);
 
 private:
 	// Only allow the WipeTowerData to be instantiated internally by Print, 
@@ -839,6 +887,8 @@ public:
     ApplyStatus         apply(const Model &model, DynamicPrintConfig config) override;
 
     void                process(long long *time_cost_with_cache = nullptr, bool use_cache = false) override;
+    // Free previous-slice layer/support data that will be rebuilt. Slicing thread only.
+    void                release_previous_slice_memory();
 
     bool PreSliceForDetermineSupport(long long* time_cost_with_cache, bool use_cache);
 
@@ -866,6 +916,10 @@ public:
 
     // Returns an empty string if valid, otherwise returns an error message.
     StringObjectException validate(StringObjectException *warning = nullptr, Polygons* collison_polygons = nullptr, std::vector<std::pair<Polygon, float>>* height_polygons = nullptr) const override;
+    // Preflight only: callers must perform full validation before starting any slicing task.
+    StringObjectException validate(StringObjectException *warning, Polygons* collison_polygons,
+                                   std::vector<std::pair<Polygon, float>>* height_polygons,
+                                   bool before_filament_mapping) const;
     double              skirt_first_layer_height() const;
     Flow                brim_flow() const;
     Flow                skirt_flow() const;
@@ -875,7 +929,10 @@ public:
     std::vector<unsigned int> support_material_extruders() const;
     std::vector<unsigned int> extruders(bool conside_custom_gcode = false) const;
     std::vector<unsigned int> multi_filament_check_extruders() const;
+    std::set<unsigned int> used_physical_extruders() const;
     size_t              used_physical_extruders_count() const;
+    bool                prime_volume_uses_solid_skeleton(unsigned int new_extruder) const;
+    bool                has_prime_volume_solid_skeleton() const;
     double              max_allowed_layer_height() const;
     bool                has_support_material() const;
     // Make sure the background processing has no access to this model_object during this call!
@@ -908,7 +965,17 @@ public:
     PrintObjectPtrs&            objects_mutable() { return m_objects; }
     PrintRegionPtrs&            print_regions_mutable() { return m_print_regions; }
     std::vector<size_t>         layers_sorted_for_object(float start, float end, std::vector<LayerPtrs> &layers_of_objects, std::vector<BoundingBox> &boundingBox_for_objects, std::vector<Points>& objects_instances_shift);
+
+    struct SkirtBrimGroup {
+        ExtrusionEntityCollection     skirt;
+        std::vector<ObjectInstanceID> instances;
+    };
+
     const ExtrusionEntityCollection& skirt() const { return m_skirt; }
+    const std::vector<SkirtBrimGroup>& skirt_brim_groups() const { return m_skirt_brim_groups; }
+    const std::map<ObjectInstanceID, ExtrusionEntityCollection>& brim_map_by_instance() const { return m_brimMapByInstance; }
+    const std::map<ObjectInstanceID, ExtrusionEntityCollection>& support_brim_map_by_instance() const { return m_supportBrimMapByInstance; }
+    bool has_shared_per_object_skirt() const { return m_has_shared_per_object_skirt; }
     // Convex hull of the 1st layer extrusions, for bed leveling and placing the initial purge line.
     // It encompasses the object extrusions, support extrusions, skirt, brim, wipe tower.
     // It does NOT encompass user extrusions generated by custom G-code,
@@ -921,6 +988,8 @@ public:
 
     // Wipe tower support.
     bool                        has_wipe_tower() const;
+    // 1-based physical filament for the Creality tower; 0 keeps automatic selection.
+    int                         creality_wipe_tower_filament() const;
     const WipeTowerData&        wipe_tower_data(size_t filaments_cnt = 0) const;
     const ToolOrdering& 		tool_ordering() const { return m_tool_ordering; }
 
@@ -935,6 +1004,11 @@ public:
     const PrintRegion&          get_print_region(size_t idx) const  { return *m_print_regions[idx]; }
     const ToolOrdering&         get_tool_ordering() const { return m_wipe_tower_data.tool_ordering; }
     const float*                lockedzag_skin_infill_depth(const LayerRegion& layer_region) const;
+    const float*                lockedzag_skin_infill_depth(const LayerRegion& layer_region, const Surface& surface) const;
+    const float*                layer_filament_wipe_packing_sparse_infill_density(const LayerRegion& layer_region, const Surface& surface) const;
+    bool                        layer_filament_wipe_packing_force_plain_infill(const LayerRegion& layer_region, const Surface& surface) const;
+    bool                        layer_filament_wipe_packing_uses_infill(coordf_t print_z, unsigned int old_extruder, unsigned int new_extruder) const;
+    const FillTower::LayerFilamentWipePackingTransitionRegionVolumes* layer_filament_wipe_packing_transition_region_volumes(coordf_t print_z, unsigned int old_extruder, unsigned int new_extruder) const;
 
     //BBS: plate's origin related functions
     void set_plate_origin(Vec3d origin) { m_origin = origin; }
@@ -942,6 +1016,21 @@ public:
     //BBS: export gcode from previous gcode file from 3mf
     void set_gcode_file_ready();
     void set_gcode_file_invalidated();
+    // One-shot runtime request. The machine configuration only enables the
+    // feature; accepting Fix arms exactly the next G-code export for the full
+    // protection pass without persisting that decision in project/plate data.
+    void request_pathological_protection()
+    {
+        m_pathological_protection_requested.store(true, std::memory_order_release);
+    }
+    bool consume_pathological_protection_request()
+    {
+        return m_pathological_protection_requested.exchange(false, std::memory_order_acq_rel);
+    }
+    void clear_pathological_protection_request()
+    {
+        m_pathological_protection_requested.store(false, std::memory_order_release);
+    }
     void export_gcode_from_previous_file(const std::string& file, GCodeProcessorResult* result, ThumbnailsGeneratorCallback thumbnail_cb = nullptr);
     //BBS: add modify_count logic
     int get_modified_count() const {return m_modified_count;}
@@ -1020,11 +1109,26 @@ private:
     static StringObjectException check_multi_filament_valid(const Print &print);
 
     bool                invalidate_state_by_config_options(const ConfigOptionResolver &new_config, const std::vector<t_config_option_key> &opt_keys);
+    struct FilamentMappingState {
+        std::vector<int> print_map;
+        std::vector<int> print_map_2;
+        std::vector<int> print_volume_map;
+        std::vector<int> full_map;
+        std::vector<int> full_map_2;
+        std::vector<int> full_volume_map;
+        FilamentMapMode  full_map_mode;
+        DynamicPrintConfig retraction_config;
+    };
+    FilamentMappingState resolve_filament_mapping();
+    void                 restore_filament_mapping(FilamentMappingState state);
+    DynamicPrintConfig  materialize_filament_retraction_config(
+        const DynamicPrintConfig &full_config, const std::vector<int> &effective_filament_map,
+        size_t logical_filament_count) const;
 
     void                _make_skirt();
     void                _make_wipe_tower();
     void                clear_lockedzag_skin_infill_depths();
-    bool                update_lockedzag_skin_infill_depths_from_actual(const ToolOrdering& tool_ordering);
+    bool                update_lockedzag_skin_infill_depths_from_actual(const ToolOrdering& tool_ordering, bool perform_density_search = true);
     void                rebuild_lockedzag_infill_after_skin_replan();
     void                finalize_first_layer_convex_hull();
 
@@ -1034,20 +1138,31 @@ private:
     PrintConfig                             m_config;
     PrintObjectConfig                       m_default_object_config;
     PrintRegionConfig                       m_default_region_config;
+    // Physical-extruder index -> Process preset source-row index. Object-level
+    // variant vectors are stored against the latter and materialized on apply.
+    std::vector<int>                        m_process_variant_source_indices;
     MixedFilamentManager                    m_mixed_filament_mgr;
     PrintObjectPtrs                         m_objects;
     PrintRegionPtrs                         m_print_regions;
     
-    bool m_isMultiColor;
-    bool m_isCrealityOS;
-    bool m_isCrealityCFS;
-    bool m_isCXPrinter;
+    bool m_isMultiColor {false};
+    bool m_isCrealityOS {false};
+    bool m_isCrealityCFS {false};
+    bool m_isCXPrinter {false};
 
     // Ordered collections of extrusion paths to build skirt loops and brim.
     ExtrusionEntityCollection               m_skirt;
+    std::vector<SkirtBrimGroup>              m_skirt_brim_groups;
+    bool                                     m_has_shared_per_object_skirt { false };
     // BBS: collecting extrusion paths to build brim by objs
     std::map<ObjectID, ExtrusionEntityCollection>         m_brimMap;
     std::map<ObjectID, ExtrusionEntityCollection>         m_supportBrimMap;
+    // Orca migration: legacy object maps remain compatibility outputs while
+    // instance views own transitional G-code scheduling and skirt grouping.
+    std::map<ObjectInstanceID, ExtrusionEntityCollection> m_brimMapByInstance;
+    // Temporary role-preserving view until Support Brim joins Orca's group owner.
+    std::map<ObjectInstanceID, ExtrusionEntityCollection> m_supportBrimMapByInstance;
+    std::map<ObjectInstanceID, ExPolygons>                 m_objectBrimAreasByInstance;
     // Convex hull of the 1st layer extrusions.
     // It encompasses the object extrusions, support extrusions, skirt, brim, wipe tower.
     // It does NOT encompass user extrusions generated by custom G-code,
@@ -1060,13 +1175,19 @@ private:
     ToolOrdering 							m_tool_ordering;
     WipeTowerData                           m_wipe_tower_data {m_tool_ordering};
     std::map<const LayerRegion*, float>     m_lockedzag_skin_infill_depths;
+    std::map<const Surface*, float>         m_lockedzag_surface_skin_infill_depths;
+    std::map<const Surface*, float>         m_layer_filament_wipe_packing_sparse_infill_densities;
+    std::set<const Surface*>                m_layer_filament_wipe_packing_plain_infill_surfaces;
+    std::set<FillTower::LayerFilamentWipePackingTransition> m_layer_filament_wipe_packing_blocked_transitions;
+    std::set<FillTower::LayerFilamentWipePackingTransition> m_layer_filament_wipe_packing_infill_transitions;
+    std::map<FillTower::LayerFilamentWipePackingTransition, FillTower::LayerFilamentWipePackingTransitionRegionVolumes> m_layer_filament_wipe_packing_transition_region_volumes;
 
     // Estimated print time, filament consumed.
     PrintStatistics                         m_print_statistics;
     bool                                    m_support_used {false};
 
     //BBS: plate's origin
-    Vec3d   m_origin;
+    Vec3d   m_origin {0, 0, 0};
     //BBS: modified_count
     int     m_modified_count {0};
     //BBS
@@ -1082,6 +1203,9 @@ private:
     std::string m_print_uuid;
 
     std::string m_creality_task_id;
+
+    // Runtime-only; never serialized into a preset, project, or plate config.
+    std::atomic_bool m_pathological_protection_requested {false};
 
     // To allow GCode to set the Print's GCodeExport step status.
     friend class GCode;
@@ -1099,7 +1223,6 @@ public:
     Debugger* debugger = nullptr;
 #endif
 };
-
 
 } /* slic3r_Print_hpp_ */
 

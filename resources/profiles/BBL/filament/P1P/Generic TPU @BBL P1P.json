@@ -1,19 +1,50 @@
 {
     "type": "filament",
     "name": "Generic TPU @BBL P1P",
-    "inherits": "fdm_filament_tpu",
+    "inherits": "Generic TPU @base",
     "from": "system",
-    "filament_id": "GFU99",
     "setting_id": "GFSR99_10",
     "instantiation": "true",
     "filament_max_volumetric_speed": [
+        "3.2",
         "3.2"
+    ],
+    "filament_retraction_length": [
+        "0.4",
+        "0.4"
+    ],
+    "filament_flow_ratio": [
+        "1",
+        "1"
+    ],
+    "filament_ramming_travel_time": [
+        "0",
+        "0"
     ],
     "hot_plate_temp": [
         "45"
     ],
     "hot_plate_temp_initial_layer": [
         "45"
+    ],
+    "include": [
+        "fdm_filament_template_direct_dual"
+    ],
+    "long_retractions_when_ec": [
+        "0",
+        "0"
+    ],
+    "nozzle_temperature": [
+        "240",
+        "240"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "240",
+        "240"
+    ],
+    "retraction_distances_when_ec": [
+        "0",
+        "0"
     ],
     "textured_plate_temp": [
         "45"

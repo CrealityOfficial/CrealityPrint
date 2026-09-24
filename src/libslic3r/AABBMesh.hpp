@@ -116,8 +116,11 @@ public:
 
     // Casting a ray on the mesh, returns the distance where the hit occures.
     hit_result query_ray_hit(const Vec3d &s, const Vec3d &dir) const;
+    // Returns the nearest hit inside the closed ray-parameter interval.
+    hit_result query_ray_hit(
+        const Vec3d &s, const Vec3d &dir, double min_t, double max_t) const;
     
-    // Casts a ray on the mesh and returns all hits
+    // Casts a ray on the mesh and returns all hits.
     std::vector<hit_result> query_ray_hits(const Vec3d& s, const Vec3d& dir) const;
     std::vector<hit_result> query_ray_hits(const Vec3d& s, const Vec3d& dir, std::vector<int> idxOverhangs) const;
 

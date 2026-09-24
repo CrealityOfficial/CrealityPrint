@@ -28,13 +28,16 @@
 #include <wx/timer.h>
 #include "nlohmann/json_fwd.hpp"
 #include <slic3r/GUI/print_manage/AppUtils.hpp>
-#include "mqtt_client.h"
+#include "WebSocketProxy.hpp"
+#include "CloudDeviceMqttSession.hpp"
+#include <wx/timer.h>
 
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <unordered_map>
@@ -42,6 +45,11 @@
 
 namespace Slic3r {
     namespace GUI {
+
+        namespace TimeLapseShare {
+            class TimeLapseShareManager;
+            struct ShareEvent;
+        }
 
         class PrinterMgrView : public wxPanel {
         public:
@@ -76,6 +84,8 @@ namespace Slic3r {
             int getFileListFromLanDevice(const std::string strIp);
             int deleteFileListFromLanDevice(const std::string strIp, const std::string strName);
             int uploadeFileLanDevice(const std::string strIp);
+            void uploadFileSecure(const std::string& strIp);
+            void uploadDeviceFile(const std::string& address, const std::string& requestId);
             wxString openCAFile();
 
             bool LoadFile(std::string jPath, std::string & sContent);
@@ -115,13 +125,33 @@ namespace Slic3r {
             void handle_set_user_custom_color_list(const nlohmann::json& json_data);
             void handle_set_device_relate_to_account(const nlohmann::json& json_data);
             void handle_request_update_device_relate_to_account(const nlohmann::json& json_data);
+            void handle_start_time_lapse_share(const nlohmann::json& json_data);
+            void handle_cancel_time_lapse_share(const nlohmann::json& json_data);
+            void send_time_lapse_share_event(const TimeLapseShare::ShareEvent& event);
+            void startDeviceFileUpload(const std::string& address,
+                                       bool secureConnection,
+                                       const std::string& requestId,
+                                       bool legacyEvents);
         private:
+            struct DownloadItem {
+                std::string name;
+                std::string path;
+            };
             void down_file(std::string url, std::string name, std::string path_type);
-            void down_files(std::vector<std::string> download_infos, std::string savePath, std::string path_type );
-            void scan_device();
+            void down_files(const std::string& address, bool secureConnection, const std::vector<DownloadItem>& download_items, std::string savePath, std::string path_type);
+            void scan_device(const std::string& request_id = {});
             void correct_device();
 
             wxWebView* m_browser;
+            // Captured on the UI thread when m_browser is created. Background
+            // workers only copy this POD snapshot; the UI thread still resolves
+            // and validates the wxWindow before using it.
+            std::atomic<wxWindowID> m_browser_handle_id {wxID_NONE};
+            std::atomic<std::uintptr_t> m_browser_handle_address {0};
+            std::unique_ptr<WebSocketProxy::Manager> m_ws_proxy;
+            struct TimeLapseShareEventBridge;
+            std::shared_ptr<TimeLapseShareEventBridge> m_time_lapse_share_event_bridge;
+            std::unique_ptr<TimeLapseShare::TimeLapseShareManager> m_time_lapse_share_manager;
             long m_zoomFactor;
             wxString m_apikey;
             bool m_apikey_sent;
@@ -130,8 +160,10 @@ namespace Slic3r {
 
             std::unordered_map<std::string, std::function<void(const nlohmann::json&)>> m_commandHandlers;
             std::unordered_map<std::string,std::string> m_devicePool;
+            mutable std::mutex m_devicePoolMutex;
             boost::thread m_scanPoolThread;
-            bool m_scanExit = false;
+            boost::thread m_deviceScanThread;
+            std::atomic<bool> m_scanExit {false};
             std::string m_curDeviceDN="";
             #ifdef __WXGTK__
             // When using GTK, there may be a problem of synthetic dirty area failure, so perform a low-frequency refresh
@@ -140,7 +172,9 @@ namespace Slic3r {
             DM::ThreadController _ctrl;
             std::chrono::steady_clock::time_point lastSendTime;
             std::mutex sendMutex;
-            MQTTClient *client=nullptr;
+            std::unique_ptr<CloudDeviceMqttSession> m_cloud_mqtt;
+            wxTimer m_cloud_mqtt_timer;
+            std::string m_cloud_mqtt_user;
             void sendAllProgressWithRateLimit();
             // Upload progress cache: ip -> {progress, speed}
             struct ProgressInfo { float progress = 0.f; double speed = 0.0; };

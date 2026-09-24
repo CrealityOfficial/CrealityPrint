@@ -588,7 +588,7 @@ public:
 	void take_snapshot(const std::string& snapshot_name, const Slic3r::Model& model, const Slic3r::GUI::Selection& selection, const Slic3r::GUI::GLGizmosManager& gizmos, const Slic3r::GUI::PartPlateList& plate_list, const SnapshotData& snapshot_data);
     void take_snapshot(const std::string& snapshot_name, const Slic3r::Model& model, const Slic3r::GUI::Selection& selection, const Slic3r::GUI::GLGizmosManager& gizmos, const SnapshotData &snapshot_data);
     void reduce_noisy_snapshots(const std::string& new_name);
-    void load_snapshot(size_t timestamp, Slic3r::Model& model, Slic3r::GUI::GLGizmosManager& gizmos, Slic3r::GUI::PartPlateList& plate_list);
+    bool load_snapshot(size_t timestamp, Slic3r::Model& model, Slic3r::GUI::GLGizmosManager& gizmos, Slic3r::GUI::PartPlateList& plate_list);
 
 	bool has_undo_snapshot() const;
 	bool has_undo_snapshot(size_t time_to_load) const;
@@ -1090,12 +1090,19 @@ void StackImpl::reduce_noisy_snapshots(const std::string& new_name)
 	}
 }
 
-void StackImpl::load_snapshot(size_t timestamp, Slic3r::Model& model, Slic3r::GUI::GLGizmosManager& gizmos, Slic3r::GUI::PartPlateList& plate_list)
+bool StackImpl::load_snapshot(size_t timestamp, Slic3r::Model& model, Slic3r::GUI::GLGizmosManager& gizmos, Slic3r::GUI::PartPlateList& plate_list)
 {
 	// Find the snapshot by time. It must exist.
 	const auto it_snapshot = std::lower_bound(m_snapshots.begin(), m_snapshots.end(), Snapshot(timestamp));
 	if (it_snapshot == m_snapshots.end() || it_snapshot->timestamp != timestamp)
 		throw Slic3r::RuntimeError((boost::format("Snapshot with timestamp %1% does not exist") % timestamp).str());
+	// An uncaptured topmost snapshot is only a marker for the current state. It
+	// has no serialized Model and therefore must never be passed to the loader.
+	if (it_snapshot->model_id == 0) {
+		BOOST_LOG_TRIVIAL(error) << __FUNCTION__
+			<< boost::format(": refusing to load uncaptured snapshot at timestamp %1%") % timestamp;
+		return false;
+	}
 
 	m_active_snapshot_time = timestamp;
 	// BBS: reuse objects for backup, objects should clear children before load them
@@ -1134,6 +1141,7 @@ void StackImpl::load_snapshot(size_t timestamp, Slic3r::Model& model, Slic3r::GU
 
 	BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format("snapshot name %1%") % it_snapshot->name;
 	plate_list.print();
+	return true;
 }
 
 bool StackImpl::has_undo_snapshot() const
@@ -1199,7 +1207,8 @@ bool StackImpl::undo(Slic3r::Model &model, const Slic3r::GUI::Selection &selecti
 		assert(m_snapshots.back().is_topmost_captured());
 		new_snapshot_taken = true;
 	}
-    this->load_snapshot(time_to_load, model, gizmos, plate_list);
+    if (! this->load_snapshot(time_to_load, model, gizmos, plate_list))
+        return false;
 	if (new_snapshot_taken) {
 		// Release old snapshots if the memory allocated due to capturing the top most state is excessive.
 		// Don't release the snapshots here, release them first after the scene and background processing gets updated, as this will release some references
@@ -1225,7 +1234,8 @@ bool StackImpl::redo(Slic3r::Model& model, Slic3r::GUI::GLGizmosManager& gizmos,
 	}
 	assert(time_to_load > m_active_snapshot_time);
 	assert(std::binary_search(m_snapshots.begin(), m_snapshots.end(), Snapshot(time_to_load)));
-    this->load_snapshot(time_to_load, model, gizmos, plate_list);
+    if (! this->load_snapshot(time_to_load, model, gizmos, plate_list))
+        return false;
 #ifdef SLIC3R_UNDOREDO_DEBUG
 	std::cout << "After redo" << std::endl;
  	this->print();

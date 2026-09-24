@@ -6,11 +6,6 @@ add_executable(${_TEST_NAME}_tests
 	test_import_stl.cpp
 	)
 
-if (TARGET OpenVDB::openvdb)
-    target_sources(${_TEST_NAME}_tests PRIVATE test_hollowing.cpp)
-endif()
-
-
 find_library(LIB_ASSIMP assimp-vc143-mtd)
 
 target_link_libraries(${_TEST_NAME}_tests test_common libslic3r OpenSSL::SSL OpenSSL::Crypto Bcrypt ${LIB_ASSIMP})

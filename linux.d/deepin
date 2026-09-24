@@ -23,6 +23,7 @@ REQUIRED_DEV_PACKAGES=(
     libudev-dev
     libwebkit2gtk-4.0-dev
     ninja-build
+    patchelf
     texinfo
     wget
     libx264-dev 

@@ -13,6 +13,29 @@
 namespace Slic3r {
 namespace GUI {
 
+static std::string update_profile_model_name(const json& printer)
+{
+    std::string model = printer.value("name", std::string());
+    if (model.find("Creality") == std::string::npos && model.find("SPARKX") == std::string::npos)
+        model = "Creality " + model;
+    return model;
+}
+
+static bool update_profile_uses_bare_multi_extruder_name(const json& printer)
+{
+    if (!printer.contains("nozzleDiameter") || !printer["nozzleDiameter"].is_array())
+        return false;
+    return printer["nozzleDiameter"].size() > 1 &&
+        printer.value("printerIntName", std::string()) != "Sermoon D3 Pro" &&
+        update_profile_model_name(printer) != "Creality Sermoon D3 Pro";
+}
+
+static std::string update_profile_name(const json& printer, const std::string& nozzle)
+{
+    const std::string model = update_profile_model_name(printer);
+    return update_profile_uses_bare_multi_extruder_name(printer) ? model : model + " " + nozzle + " nozzle";
+}
+
 int nsUpdateParams::CXCloud::getNeedUpdatePrintes(std::vector<std::string>& vtNeedUpdatePrinter)
 {
     vtNeedUpdatePrinter.clear();
@@ -66,22 +89,30 @@ int nsUpdateParams::CXCloud::getNeedUpdatePrintes(std::vector<std::string>& vtNe
                     return;
                 }
                 if (j.contains("result") && j["result"].contains("printerList") && j["result"]["printerList"].is_array()) {
+                    std::map<std::string, bool> selected_standard_packages;
                     for (auto& printer : j["result"]["printerList"]) {
-                        std::string printerName = "";
                         if (printer.contains("nozzleDiameter") && printer["nozzleDiameter"].is_array()) {
                             for (auto& nozzle : printer["nozzleDiameter"]) {
-                                printerName = "Creality " + printer["name"].get<std::string>() + " " + nozzle.get<std::string>() + " nozzle";
-                                std::string version = printer["showVersion"].get<std::string>();
-                                m_mapRemotePrinterVersion[printerName] = version;
-                                auto iter = m_mapLocalPrinterVersion.find(printerName);
-                                if (iter != m_mapLocalPrinterVersion.end()) {
-                                    if (version > iter->second) {
-                                        vtNeedUpdatePrinter.push_back(printerName);
-                                    }
-                                }
+                                const std::string nozzle_name = nozzle.get<std::string>();
+                                const std::string printerName = update_profile_name(printer, nozzle_name);
+                                const std::string version = printer["showVersion"].get<std::string>();
+                                const bool standard_package = nozzle_name == "0.4";
+                                const auto selected = selected_standard_packages.find(printerName);
+                                if (selected != selected_standard_packages.end() &&
+                                    (selected->second || !standard_package))
+                                    continue;
 
+                                m_mapRemotePrinterVersion[printerName] = version;
+                                selected_standard_packages[printerName] = standard_package;
+                                if (update_profile_uses_bare_multi_extruder_name(printer))
+                                    break;
                             }
                         }
+                    }
+                    for (const auto& [printer_name, version] : m_mapRemotePrinterVersion) {
+                        const auto local = m_mapLocalPrinterVersion.find(printer_name);
+                        if (local != m_mapLocalPrinterVersion.end() && version > local->second)
+                            vtNeedUpdatePrinter.push_back(printer_name);
                     }
                 }
             } catch (std::exception& e) {
@@ -124,9 +155,18 @@ int nsUpdateParams::CXCloud::loadLocalPrinter() {
         ifs >> cache_json;
     }
     if (cache_json.contains("Creality") && cache_json["Creality"].is_array()) {
+        std::map<std::string, bool> selected_standard_packages;
         for (auto& item : cache_json["Creality"]) {
-            m_mapLocalPrinterVersion[item["name"].get<std::string>() + " " + item["nozzleDiameter"][0].get<std::string>() + " nozzle"] 
-                = item["showVersion"].get<std::string>();
+            if (!item.contains("nozzleDiameter") || !item["nozzleDiameter"].is_array() || item["nozzleDiameter"].empty())
+                continue;
+            const std::string nozzle = item["nozzleDiameter"][0].get<std::string>();
+            const std::string printer_name = update_profile_name(item, nozzle);
+            const bool standard_package = nozzle == "0.4";
+            const auto selected = selected_standard_packages.find(printer_name);
+            if (selected != selected_standard_packages.end() && (selected->second || !standard_package))
+                continue;
+            m_mapLocalPrinterVersion[printer_name] = item["showVersion"].get<std::string>();
+            selected_standard_packages[printer_name] = standard_package;
         }
     }
     }catch(std::exception& e) {

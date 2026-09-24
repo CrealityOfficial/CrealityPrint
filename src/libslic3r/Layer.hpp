@@ -75,6 +75,9 @@ public:
     // ordered collection of extrusion paths to fill surfaces
     // (this collection contains only ExtrusionEntityCollection objects)
     ExtrusionEntityCollection   fills;
+    // True after the flush-density simulator has replaced this region's
+    // Locked-Zag skeleton during the current fill generation.
+    bool                        skeleton_flush_density_replaced = false;
 
     Flow    flow(FlowRole role) const;
     Flow    flow(FlowRole role, double layer_height) const;
@@ -82,6 +85,7 @@ public:
 
     void    slices_to_fill_surfaces_clipped();
     void    prepare_fill_surfaces();
+    void    classify_internal_fill_surfaces(const ExPolygons &sparse_internal_components);
     //BBS
     void    make_perimeters(const SurfaceCollection& slices,
                             const LayerRegionPtrs&   compatible_regions,

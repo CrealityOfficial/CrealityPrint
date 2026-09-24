@@ -1,9 +1,11 @@
 #include "OptionsGroup.hpp"
+#include "DeferredWindowDestroy.hpp"
 #include "ConfigExceptions.hpp"
 #include "Plater.hpp"
 #include "GUI_App.hpp"
 #include "MainFrame.hpp"
 #include "OG_CustomCtrl.hpp"
+#include "ParameterSwitchTrace.hpp"
 #include "MsgDialog.hpp"
 #include "format.hpp"
 #include "Widgets/StaticLine.hpp"
@@ -21,6 +23,14 @@
 #include "../Config/OptionConfig.h"
 
 namespace Slic3r { namespace GUI {
+
+static bool is_process_variant_input(const std::string& opt_key)
+{
+    return print_options_with_variant.count(opt_key) != 0 &&
+           opt_key != "print_extruder_id" &&
+           opt_key != "print_extruder_variant" &&
+           opt_key != "print_nozzle_variant";
+}
 
 	// BBS: new layout
 	constexpr int titleWidth = 20;
@@ -56,9 +66,13 @@ const t_field& OptionsGroup::build_field(const t_config_option_key& id, const Co
     case ConfigOptionDef::GUIType::one_string:
         m_fields.emplace(id, TextCtrl::Create<TextCtrl>(this->ctrl_parent(), opt, id));
         break;
+    case ConfigOptionDef::GUIType::multi_variant:
+        m_fields.emplace(id, MultiVariantField::Create<MultiVariantField>(this->ctrl_parent(), opt, id));
+        break;
     default:
         switch (opt.type) {
             case coFloatOrPercent:
+            case coFloatsOrPercents:
             case coFloat:
             case coFloats:
 			case coPercent:
@@ -238,7 +252,7 @@ Line* OptionsGroup::get_line(const std::string& opt_key)
 {
     for (auto& l : m_lines)
     {
-        if(l.is_separator())
+        if(l.is_separator() || !l.has_options())
             continue;
         if (l.get_first_option_key() == opt_key)
             return &l;
@@ -474,6 +488,8 @@ void OptionsGroup::activate_line(Line& line)
 // create all controls for the option group from the m_lines
 bool OptionsGroup::activate(std::function<void()> throw_if_canceled/* = [](){}*/, int horiz_alignment/* = wxALIGN_LEFT*/)
 {
+    ParameterSwitchTrace trace("Group.activate", this);
+    trace.note("STATE", " ctrl=", custom_ctrl, " sizer=", sizer, " lines=", m_lines.size(), " fields=", m_fields.size());
 	if (sizer)//(!sizer->IsEmpty())
 		return false;
 
@@ -525,7 +541,9 @@ bool OptionsGroup::activate(std::function<void()> throw_if_canceled/* = [](){}*/
 		// activate lines
 		for (Line& line: m_lines) {
 			throw_if_canceled();
+            trace.note("BUILD_LINE_BEGIN", " line=", &line);
 			activate_line(line);
+            trace.note("BUILD_LINE_END", " line=", &line, " ctrl=", custom_ctrl, " fields=", m_fields.size());
 		}
 
         ctrl_horiz_alignment = horiz_alignment;
@@ -550,6 +568,12 @@ void free_window(wxWindow *win);
 // delete all controls from the option group
 void OptionsGroup::clear(bool destroy_custom_ctrl)
 {
+    ParameterSwitchTrace trace("Group.clear", this);
+    trace.note("STATE", " ctrl=", custom_ctrl, " sizer=", sizer, " lines=", m_lines.size(), " fields=", m_fields.size());
+    // Retire callbacks while their fields and Line references are still valid.
+    if (custom_ctrl)
+        custom_ctrl->on_destroyed();
+
 	if (!sizer)
 		return;
 
@@ -572,21 +596,24 @@ void OptionsGroup::clear(bool destroy_custom_ctrl)
         }
 	}
 
-    if (custom_ctrl) {
-        custom_ctrl->on_destroyed();
-        for (auto const &item : m_fields) {
+    for (auto const &item : m_fields) {
+        if (auto* multi_variant = dynamic_cast<MultiVariantField*>(item.second.get())) {
+            multi_variant->release_windows();
+        } else if (custom_ctrl) {
             wxWindow* win = item.second.get()->getWindow();
             if (win) {
                 free_window(win);
                 win = nullptr;
             }
         }
-		//BBS: custom_ctrl already destroyed from sizer->clear(), no need to destroy here anymore
-		if (destroy_custom_ctrl)
-            //custom_ctrl->Destroy();
-			custom_ctrl = nullptr;
-        else
-            custom_ctrl = nullptr;
+    }
+
+    if (custom_ctrl) {
+        // A reset or mode-change callback may still be dispatching on this panel.
+        // on_destroyed() above has already invalidated its model/line callbacks.
+        // Keep the native event receiver alive until the current event returns.
+        detach_and_defer_destroy(custom_ctrl);
+        custom_ctrl = nullptr;
     }
 
 	m_extra_column_item_ptrs.clear();
@@ -648,7 +675,12 @@ Option ConfigOptionsGroup::get_option(const std::string& opt_key, int opt_index 
 	if (m_use_custom_ctrl) // fill group and category values just for options from Settings Tab
 	    wxGetApp().sidebar().get_searcher().add_key(opt_id, static_cast<Preset::Type>(this->config_type()), title, this->config_category());
 
-	return Option(*m_config->def()->get(opt_key), opt_id);
+	Option option(*m_config->def()->get(opt_key), opt_id);
+	if (is_process_variant_input(opt_key) ||
+		(this->config_type() == Preset::TYPE_FILAMENT && opt_index == -1 &&
+		 filament_options_with_variant.count(opt_key) != 0 && !is_filament_variant_selector(opt_key)))
+		option.opt.gui_type = ConfigOptionDef::GUIType::multi_variant;
+	return option;
 }
 
 void ConfigOptionsGroup::on_change_OG(const t_config_option_key& opt_id, const boost::any& value)
@@ -656,10 +688,24 @@ void ConfigOptionsGroup::on_change_OG(const t_config_option_key& opt_id, const b
 	if (!m_opt_map.empty())
 	{
 		auto it = m_opt_map.find(opt_id);
+		int indexed_variant = -1;
 		if (it == m_opt_map.end())
 		{
-			OptionsGroup::on_change_OG(opt_id, value);
-			return;
+			const size_t separator = opt_id.rfind('#');
+			if (separator != std::string::npos && separator + 1 < opt_id.size()) {
+				try {
+					const std::string base_key = opt_id.substr(0, separator);
+					it = m_opt_map.find(base_key);
+					if (it != m_opt_map.end() && dynamic_cast<MultiVariantField*>(get_field(base_key)) != nullptr)
+						indexed_variant = std::stoi(opt_id.substr(separator + 1));
+				} catch (const std::exception&) {
+					indexed_variant = -1;
+				}
+			}
+			if (it == m_opt_map.end() || indexed_variant < 0) {
+				OptionsGroup::on_change_OG(opt_id, value);
+				return;
+			}
 		}
 
 #if 0
@@ -674,7 +720,7 @@ void ConfigOptionsGroup::on_change_OG(const t_config_option_key& opt_id, const b
 
 		auto 				itOption  = it->second;
 		const std::string  &opt_key   = itOption.first;
-		int 			    opt_index = itOption.second;
+		int 			    opt_index = indexed_variant >= 0 ? indexed_variant : itOption.second;
 
 		this->change_opt_value(opt_key, value, opt_index == -1 ? 0 : opt_index);
 	}
@@ -700,7 +746,100 @@ void ConfigOptionsGroup::back_to_sys_value(const std::string& opt_key)
 
 void ConfigOptionsGroup::back_to_config_value(const DynamicPrintConfig& config, const std::string& opt_key)
 {
+    ParameterSwitchTrace reset_trace("PAReset.restore", this, trace_pa_reset(opt_key) ? 4 : 6);
+    if (trace_pa_reset(opt_key)) {
+        reset_trace.note("TARGET", " key=", opt_key, " edited=", m_config, " reference=", &config);
+        trace_pa_config(reset_trace, "REFERENCE", config, opt_key);
+        if (m_config) trace_pa_config(reset_trace, "BEFORE", *m_config, opt_key);
+    }
 	boost::any value;
+	auto reference_index_for = [this, &config, &reset_trace](const std::string& base_key, int edited_index) {
+		if (m_config == nullptr)
+			return edited_index;
+        if (filament_options_with_variant.count(base_key) != 0) {
+            const auto* reference = dynamic_cast<const ConfigOptionVectorBase*>(config.option(base_key));
+            if (reference == nullptr || reference->size() <= 1) {
+                if (trace_pa_reset(base_key)) reset_trace.note("MATCH_RULE", " rule=missing_or_broadcast", " index=0");
+                return 0;
+            }
+            const auto* edited_variants = m_config->option<ConfigOptionStrings>("filament_extruder_variant");
+            const auto* edited_nozzles = m_config->option<ConfigOptionInts>("filament_nozzle_variant");
+            const auto* reference_variants = config.option<ConfigOptionStrings>("filament_extruder_variant");
+            const auto* reference_nozzles = config.option<ConfigOptionInts>("filament_nozzle_variant");
+            if (edited_index >= 0 && edited_variants != nullptr && edited_nozzles != nullptr &&
+                size_t(edited_index) < edited_variants->size() && size_t(edited_index) < edited_nozzles->size() &&
+                reference_variants != nullptr) {
+                int fallback = -1;
+                for (size_t i = 0; i < std::min(reference->size(), reference_variants->size()); ++i) {
+                    if (reference_variants->values[i] != edited_variants->values[edited_index])
+                        continue;
+                    if (fallback < 0)
+                        fallback = int(i);
+                    if (reference_nozzles != nullptr && i < reference_nozzles->size() &&
+                        reference_nozzles->values[i] == edited_nozzles->values[edited_index]) {
+                        if (trace_pa_reset(base_key)) reset_trace.note("MATCH_RULE", " rule=exact_identity", " index=", i);
+                        return int(i);
+                    }
+                }
+                if (fallback >= 0) {
+                    if (trace_pa_reset(base_key)) reset_trace.note("MATCH_RULE", " rule=extruder_variant_fallback", " index=", fallback);
+                    return fallback;
+                }
+            }
+            if (trace_pa_reset(base_key)) reset_trace.note("MATCH_RULE", " rule=first_value_fallback", " index=0");
+            return 0;
+        }
+		std::vector<PresetVariantOptionDiff> differences;
+		if (compare_process_variant_option_by_identity(config, *m_config, base_key, differences)) {
+			for (const PresetVariantOptionDiff& difference : differences)
+				if (difference.edited_index == size_t(edited_index))
+					return int(difference.reference_index);
+		}
+		return edited_index;
+	};
+	const size_t separator = opt_key.rfind('#');
+	if (separator != std::string::npos && separator + 1 < opt_key.size()) {
+		try {
+			const std::string base_key = opt_key.substr(0, separator);
+			const int opt_index = std::stoi(opt_key.substr(separator + 1));
+			if (auto* multi_variant = dynamic_cast<MultiVariantField*>(get_field(base_key))) {
+				const int reference_index = reference_index_for(base_key, opt_index);
+                if (trace_pa_reset(base_key))
+                    reset_trace.note("MATCH", " key=", base_key, " edited_index=", opt_index,
+                                     " reference_index=", reference_index);
+                value = get_config_value(config, base_key, reference_index);
+                if (trace_pa_reset(base_key)) reset_trace.note("SET_FIELD_BEGIN");
+				multi_variant->set_index_value(opt_index, value);
+				if (Field* child = multi_variant->get_field(opt_index))
+					on_change_OG(opt_key, child->get_value());
+                if (trace_pa_reset(base_key) && m_config)
+                    trace_pa_config(reset_trace, "AFTER_WRITE", *m_config, base_key);
+				return;
+			}
+            if (is_process_variant_input(base_key)) {
+                if (Field* field = get_field(opt_key)) {
+                    value = get_config_value(config, base_key, reference_index_for(base_key, opt_index));
+                    field->set_value(value, false);
+                    on_change_OG(opt_key, field->get_value());
+                    return;
+                }
+            }
+		} catch (const std::exception&) {
+			// Not an indexed process-variant option. Use the legacy restore path.
+		}
+	}
+
+	if (auto* multi_variant = dynamic_cast<MultiVariantField*>(get_field(opt_key))) {
+		for (const MultiVariantField::VariantControl& control : multi_variant->controls()) {
+			const boost::any variant_value = get_config_value(
+				config, opt_key, reference_index_for(opt_key, control.opt_index));
+			multi_variant->set_index_value(control.opt_index, variant_value);
+			if (Field* child = multi_variant->get_field(control.opt_index))
+				on_change_OG(opt_key + "#" + std::to_string(control.opt_index),
+				             child->get_value());
+		}
+		return;
+	}
 	if (opt_key == "extruders_count") {
 		auto   *nozzle_diameter = dynamic_cast<const ConfigOptionFloats*>(config.option("nozzle_diameter"));
 		value = int(nozzle_diameter->values.size());
@@ -768,8 +907,171 @@ void ConfigOptionsGroup::on_kill_focus(const std::string& opt_key)
 	    reload_config();
 }
 
+bool ConfigOptionsGroup::activate(std::function<void()> throw_if_canceled, int horiz_alignment)
+{
+    refresh_overhang_layout();
+    update_overhang_visibility();
+    return OptionsGroup::activate(throw_if_canceled, horiz_alignment);
+}
+
+void ConfigOptionsGroup::refresh_overhang_layout()
+{
+    // Only transpose the complete overhang group, leaving partial object overrides alone.
+    if (m_overhang_template.empty()) {
+        if (!m_use_custom_ctrl || get_line("enable_overhang_speed") == nullptr ||
+            get_line("overhang_1_4_speed") == nullptr || get_line("overhang_4_4_speed") == nullptr)
+            return;
+        m_overhang_template = m_lines;
+    }
+    auto layout = get_multi_variant_input_layout("enable_overhang_speed");
+    const bool classic = m_config->opt_bool("overhang_speed_classic");
+    // Mode switches only change visibility; native fields keep their identity.
+    if (m_overhang_layout_initialized && layout == m_overhang_layout)
+        return;
+
+    ParameterSwitchTrace trace("Overhang.rebuild", this);
+    trace.note("STATE", " ctrl=", custom_ctrl, " old_variants=", m_overhang_layout.size(), " new_variants=", layout.size(),
+               " classic=", classic, " fields=", m_fields.size());
+    wxSizer* old_sizer = sizer;
+    wxSizer* parent_sizer = old_sizer != nullptr ? m_parent->GetSizer() : nullptr;
+    if (old_sizer != nullptr) {
+        // Window destruction may be deferred. Hide the complete retired group before
+        // rebuilding so neither its title nor its content remains visible.
+        trace.note("HIDE_BEGIN");
+        old_sizer->ShowItems(false);
+        trace.note("HIDE_END");
+        clear();
+        trace.note("CLEAR_END");
+    }
+    m_overhang_layout = layout;
+    m_overhang_layout_initialized = true;
+    if (layout.empty())
+        layout.emplace_back(-1, wxString());
+    trace.note("REPLACE_LINES", " old_lines=", m_lines.size());
+    m_lines.clear();
+    m_options.clear();
+    m_options_mode.clear();
+    m_opt_map.clear();
+    const auto is_speed = [](const std::string& key) {
+        return key == "overhang_1_4_speed" || key == "overhang_2_4_speed" ||
+               key == "overhang_3_4_speed" || key == "overhang_4_4_speed" ||
+               key == "overhang_totally_speed";
+    };
+    for (const Line& original : m_overhang_template) {
+        const auto& options = original.get_options();
+        if (options.size() == 1 && is_speed(options.front().opt_id)) {
+            if (options.front().opt_id != "overhang_1_4_speed")
+                continue;
+            for (const auto& nozzle : layout) {
+                // Build one native multi-option line per nozzle, using the existing vertical layout.
+                Line line(L("Overhang speed"), L("This is the speed for various overhang degrees. Overhang degrees are expressed as a percentage of line width. 0 speed means no slowing down for the overhang degree range and wall speed is used"));
+                line.label_path = original.label_path;
+                if (MultiVariantField::show_variant_labels(layout.size()) && !nozzle.second.empty())
+                    line.label = nozzle.second + "\n" + line.label;
+                for (const Line& speed : m_overhang_template) {
+                    if (speed.get_options().size() != 1 || !is_speed(speed.get_options().front().opt_id))
+                        continue;
+                    const auto& key = speed.get_options().front().opt_id;
+                    Option option = get_option(key, nozzle.first);
+                    option.toggle_visible = key != "overhang_totally_speed" || classic;
+                    option.opt.gui_type = ConfigOptionDef::GUIType::undefined;
+                    line.append_option(option);
+                }
+                append_line(line);
+            }
+        } else if (options.size() == 1 && options.front().opt_id == "bridge_speed") {
+            const auto internal = std::find_if(m_overhang_template.begin(), m_overhang_template.end(),
+                [](const Line& line) {
+                    return line.get_options().size() == 1 &&
+                        line.get_options().front().opt_id == "internal_bridge_speed";
+                });
+            for (const auto& nozzle : layout) {
+                Line line(L("Bridge"), L("Set speed for external and internal bridges"));
+                line.label_path = original.label_path;
+                if (MultiVariantField::show_variant_labels(layout.size()) && !nozzle.second.empty())
+                    line.label = nozzle.second + "\n" + line.label;
+                Option external = get_option("bridge_speed", nozzle.first);
+                external.opt.gui_type = ConfigOptionDef::GUIType::undefined;
+                line.append_option(external);
+                if (internal != m_overhang_template.end()) {
+                    Option internal_speed = get_option("internal_bridge_speed", nozzle.first);
+                    internal_speed.opt.gui_type = ConfigOptionDef::GUIType::undefined;
+                    line.append_option(internal_speed);
+                }
+                append_line(line);
+            }
+        } else if (options.size() == 1 && options.front().opt_id == "internal_bridge_speed") {
+            // Already included in each nozzle's bridge list.
+            continue;
+        } else {
+            for (const Option& option : options)
+                get_option(option.opt_id);
+            append_line(original);
+        }
+    }
+    trace.note("LINES_READY", " lines=", m_lines.size());
+    if (old_sizer != nullptr) {
+        OptionsGroup::activate();
+        trace.note("CONTROLS_READY", " ctrl=", custom_ctrl, " fields=", m_fields.size());
+        trace.note("OLD_SIZER_DESTROY_BEGIN", " sizer=", old_sizer);
+        // Clear remaining windows before Replace(), which deletes the old sizer on success.
+        old_sizer->Clear(true);
+        trace.note("OLD_SIZER_CLEAR_END");
+        const bool replaced = parent_sizer != nullptr && parent_sizer->Replace(old_sizer, sizer, true);
+        trace.note("SIZER_REPLACE_END", " replaced=", replaced);
+        // If no parent item owned the old sizer, it still needs to be deleted here.
+        if (!replaced)
+            delete old_sizer;
+        trace.note("OLD_SIZER_DESTROY_END");
+        // Rebuilt native fields must display the current values after a nozzle layout change.
+        reload_config();
+    }
+}
+
+void ConfigOptionsGroup::update_overhang_visibility()
+{
+    if (m_overhang_template.empty() || m_config == nullptr)
+        return;
+    refresh_overhang_layout();
+    const auto* enabled = m_config->option<ConfigOptionBoolsNullable>("enable_overhang_speed");
+    if (enabled == nullptr || enabled->empty())
+        return;
+    bool any_enabled = false;
+    auto layout = m_overhang_layout;
+    if (layout.empty())
+        layout.emplace_back(0, wxString());
+    const bool classic = m_config->opt_bool("overhang_speed_classic");
+    for (const auto& nozzle : layout) {
+        const bool show = enabled->get_at(nozzle.first) == 1;
+        any_enabled |= show;
+        const std::string id = m_overhang_layout.empty() ? "overhang_1_4_speed" :
+            "overhang_1_4_speed#" + std::to_string(nozzle.first);
+        if (Line* line = get_line(id)) {
+            line->toggle_visible = show;
+            const std::string total_id = m_overhang_layout.empty() ? "overhang_totally_speed" :
+                "overhang_totally_speed#" + std::to_string(nozzle.first);
+            line->set_option_visible(total_id, classic);
+        }
+    }
+    for (const char* key : {"overhang_speed_classic", "slowdown_for_curled_perimeters",
+                            "smooth_speed_discontinuity_area", "smooth_coefficient"}) {
+        if (Line* line = get_line(key)) {
+            bool show = any_enabled;
+            if (std::string(key) == "slowdown_for_curled_perimeters")
+                show &= !classic;
+            else if (std::string(key) != "overhang_speed_classic")
+                show &= classic;
+            if (std::string(key) == "smooth_coefficient")
+                show &= m_config->opt_bool("smooth_speed_discontinuity_area");
+            line->toggle_visible = show;
+        }
+    }
+}
+
 void ConfigOptionsGroup::reload_config()
 {
+    refresh_overhang_layout();
+    update_overhang_visibility();
 #if 0
     // BBS
     auto bed_type_field = this->get_field("bed_type");
@@ -791,6 +1093,7 @@ void ConfigOptionsGroup::reload_config()
     }
 #endif
 
+    bool has_multi_variant_fields = false;
 	for (auto &kvp : m_opt_map) {
 		// Name of the option field (name of the configuration key, possibly suffixed with '#' and the index of a scalar inside a vector.
 		const std::string &opt_id    = kvp.first;
@@ -804,8 +1107,31 @@ void ConfigOptionsGroup::reload_config()
         if ((opt_id == "bed_temperature" || opt_id == "bed_temperature_initial_layer") && bed_type_field != nullptr)
             opt_index = default_bed_type;
 #endif
-		this->set_value(opt_id, config_value(opt_key, opt_index, option.gui_flags == "serialized"));
+		if (auto* multi_variant = dynamic_cast<MultiVariantField*>(get_field(opt_id))) {
+			multi_variant->refresh_layout();
+			for (const MultiVariantField::VariantControl& control : multi_variant->controls())
+				multi_variant->set_index_value(
+					control.opt_index,
+					config_value(opt_key, control.opt_index, option.gui_flags == "serialized"));
+			if (custom_ctrl) {
+				custom_ctrl->update_line_height_for_field(opt_id, false);
+				has_multi_variant_fields = true;
+			}
+		} else {
+			this->set_value(opt_id, config_value(opt_key, opt_index, option.gui_flags == "serialized"));
+		}
 	}
+    if (has_multi_variant_fields)
+        custom_ctrl->recalculate_and_refresh();
+}
+
+bool ConfigOptionsGroup::set_config_option_index(const t_config_option_key& opt_id, int opt_index)
+{
+    auto it = m_opt_map.find(opt_id);
+    if (it == m_opt_map.end())
+        return false;
+    it->second.second = opt_index;
+    return true;
 }
 
 void ConfigOptionsGroup::Hide()
@@ -1017,29 +1343,66 @@ boost::any ConfigOptionsGroup::get_config_value(const DynamicPrintConfig& config
     if (opt == nullptr)
         return ret;
 
+    const bool keep_legacy_missing_enum_fallback =
+        opt_key == "first_layer_sequence_choice" ||
+        opt_key == "other_layers_sequence_choice" ||
+        opt_key == "curr_bed_type";
+    DynamicPrintConfig defaulted_config;
+    const DynamicPrintConfig* cfg_ptr = &config;
+    if (!config.has(opt_key) && !keep_legacy_missing_enum_fallback) {
+        if (!opt->default_value)
+            return ret;
+        defaulted_config = config;
+        defaulted_config.set_key_value(opt_key, opt->default_value->clone());
+        cfg_ptr = &defaulted_config;
+    }
+    const DynamicPrintConfig& cfg = *cfg_ptr;
+
     if (opt->nullable)
     {
         switch (opt->type)
         {
         case coPercents:
         case coFloats: {
-            if (config.option(opt_key)->is_nil())
+            const auto* values = dynamic_cast<const ConfigOptionVectorBase*>(cfg.option(opt_key));
+            const size_t value_idx = values != nullptr && idx < values->size() ? idx : 0;
+            if (values == nullptr || values->empty() || values->is_nil(value_idx))
                 ret = _(L("N/A"));
             else {
                 double val = opt->type == coFloats ?
-                            config.option<ConfigOptionFloatsNullable>(opt_key)->get_at(idx) :
-                            config.option<ConfigOptionPercentsNullable>(opt_key)->get_at(idx);
+                            cfg.option<ConfigOptionFloatsNullable>(opt_key)->get_at(value_idx) :
+                            cfg.option<ConfigOptionPercentsNullable>(opt_key)->get_at(value_idx);
                 ret = double_to_string(val); }
             }
             break;
+
+
+        case coFloatsOrPercents: {
+            const auto* values = cfg.option<ConfigOptionFloatsOrPercentsNullable>(opt_key);
+            const size_t value_idx = values != nullptr && idx < values->size() ? idx : 0;
+            if (values == nullptr || values->empty() || values->is_nil(value_idx))
+                ret = _(L("N/A"));
+            else {
+                const auto& value = values->get_at(value_idx);
+                text_value = double_to_string(value.value);
+                if (value.percent)
+                    text_value += "%";
+                ret = text_value;
+            }
+            break;
+        }
         case coBools:
-            ret = config.option<ConfigOptionBoolsNullable>(opt_key)->values[idx];
+            {
+                const auto* values = cfg.option<ConfigOptionBoolsNullable>(opt_key);
+                ret = values->empty() ? ConfigOptionBoolsNullable::nil_value() :
+                    values->values[idx < values->size() ? idx : 0];
+            }
             break;
         case coInts:
-            ret = config.option<ConfigOptionIntsNullable>(opt_key)->get_at(idx);
+            ret = cfg.option<ConfigOptionIntsNullable>(opt_key)->get_at(idx);
             break;
         case coEnums:
-            ret = config.option<ConfigOptionEnumsGenericNullable>(opt_key)->get_at(idx);
+            ret = cfg.option<ConfigOptionEnumsGenericNullable>(opt_key)->get_at(idx);
             break;
         default:
             break;
@@ -1049,7 +1412,7 @@ boost::any ConfigOptionsGroup::get_config_value(const DynamicPrintConfig& config
 
 	switch (opt->type) {
 	case coFloatOrPercent:{
-		const auto &value = *config.option<ConfigOptionFloatOrPercent>(opt_key);
+		const auto &value = *cfg.option<ConfigOptionFloatOrPercent>(opt_key);
 
         text_value = double_to_string(value.value);
 		if (value.percent)
@@ -1058,8 +1421,16 @@ boost::any ConfigOptionsGroup::get_config_value(const DynamicPrintConfig& config
 		ret = text_value;
 		break;
 	}
+    case coFloatsOrPercents: {
+        const auto& value = cfg.option<ConfigOptionFloatsOrPercents>(opt_key)->get_at(idx);
+        text_value = double_to_string(value.value);
+        if (value.percent)
+            text_value += "%";
+        ret = text_value;
+        break;
+    }
 	case coPercent:{
-		double val = config.option<ConfigOptionPercent>(opt_key)->value;
+		double val = cfg.option<ConfigOptionPercent>(opt_key)->value;
 		ret = double_to_string(val);// += "%";
 	}
 		break;
@@ -1067,77 +1438,77 @@ boost::any ConfigOptionsGroup::get_config_value(const DynamicPrintConfig& config
 	case coFloats:
 	case coFloat:{
 		double val = opt->type == coFloats ?
-					config.opt_float(opt_key, idx) :
-						opt->type == coFloat ? config.opt_float(opt_key) :
-						config.option<ConfigOptionPercents>(opt_key)->get_at(idx);
+					cfg.opt_float(opt_key, idx) :
+						opt->type == coFloat ? cfg.opt_float(opt_key) :
+						cfg.option<ConfigOptionPercents>(opt_key)->get_at(idx);
 		ret = double_to_string(val);
 		}
 		break;
 	case coString:
-		ret = from_u8(config.opt_string(opt_key));
+		ret = from_u8(cfg.opt_string(opt_key));
 		break;
 	case coStrings:
 		if (opt_key == "compatible_printers" || opt_key == "compatible_prints") {
-			ret = config.option<ConfigOptionStrings>(opt_key)->values;
+			ret = cfg.option<ConfigOptionStrings>(opt_key)->values;
 			break;
 		}
-		if (config.option<ConfigOptionStrings>(opt_key)->values.empty())
+		if (cfg.option<ConfigOptionStrings>(opt_key)->values.empty())
 			ret = text_value;
 		else if (opt->gui_flags == "serialized") {
-			std::vector<std::string> values = config.option<ConfigOptionStrings>(opt_key)->values;
+			std::vector<std::string> values = cfg.option<ConfigOptionStrings>(opt_key)->values;
 			if (!values.empty() && !values[0].empty())
 				for (auto el : values)
 					text_value += el + ";";
 			ret = text_value;
 		}
 		else
-			ret = from_u8(config.opt_string(opt_key, static_cast<unsigned int>(idx)));
+			ret = from_u8(cfg.opt_string(opt_key, static_cast<unsigned int>(idx)));
 		break;
 	case coBool:
-		ret = config.opt_bool(opt_key);
+		ret = cfg.opt_bool(opt_key);
 		break;
 	case coBools:
-		ret = config.opt_bool(opt_key, idx);
+		ret = cfg.opt_bool(opt_key, idx);
 		break;
 	case coInt:
-		ret = config.opt_int(opt_key);
+		ret = cfg.opt_int(opt_key);
 		break;
 	case coInts:
-		ret = config.opt_int(opt_key, idx);
+		ret = cfg.opt_int(opt_key, idx);
 		break;
 	case coEnum:
-        if (!config.has("first_layer_sequence_choice") && opt_key == "first_layer_sequence_choice") {
+        if (!cfg.has("first_layer_sequence_choice") && opt_key == "first_layer_sequence_choice") {
             // reset to Auto value
             ret = 0;
             break;
         }
-        if (!config.has("other_layers_sequence_choice") && opt_key == "other_layers_sequence_choice") {
+        if (!cfg.has("other_layers_sequence_choice") && opt_key == "other_layers_sequence_choice") {
             // reset to Auto value
             ret = 0;
             break;
         }
-        if (!config.has("curr_bed_type") && opt_key == "curr_bed_type") {
+        if (!cfg.has("curr_bed_type") && opt_key == "curr_bed_type") {
             // reset to global value
             DynamicConfig& global_cfg = wxGetApp().preset_bundle->project_config;
             ret = global_cfg.option("curr_bed_type")->getInt();
             break;
         }
-        ret = config.option(opt_key)->getInt();
+        ret = cfg.option(opt_key)->getInt();
         break;
     // BBS
     case coEnums:
-        ret = config.opt_int(opt_key, idx);
+        ret = cfg.opt_int(opt_key, idx);
         break;
     case coPoint:
-        ret = config.option<ConfigOptionPoint>(opt_key)->value;
+        ret = cfg.option<ConfigOptionPoint>(opt_key)->value;
         break;
 	case coPoints:
 		if (opt_key == "printable_area")
-            ret = get_thumbnails_string(config.option<ConfigOptionPoints>(opt_key)->values);
+            ret = get_thumbnails_string(cfg.option<ConfigOptionPoints>(opt_key)->values);
         else if (opt_key == "bed_exclude_area")
-            ret = get_thumbnails_string(config.option<ConfigOptionPoints>(opt_key)->values);
+            ret = get_thumbnails_string(cfg.option<ConfigOptionPoints>(opt_key)->values);
 		else
-			ret = config.option<ConfigOptionPoints>(opt_key)->get_at(idx);
+			ret = cfg.option<ConfigOptionPoints>(opt_key)->get_at(idx);
 		break;
 	case coNone:
 	default:
@@ -1153,6 +1524,19 @@ boost::any ConfigOptionsGroup::get_config_value2(const DynamicPrintConfig& confi
 
     boost::any ret;
     const ConfigOptionDef* opt = config.def()->get(opt_key);
+    if (opt == nullptr)
+        return ret;
+
+    DynamicPrintConfig defaulted_config;
+    const DynamicPrintConfig* cfg_ptr = &config;
+    if (!config.has(opt_key)) {
+        if (!opt->default_value)
+            return ret;
+        defaulted_config = config;
+        defaulted_config.set_key_value(opt_key, opt->default_value->clone());
+        cfg_ptr = &defaulted_config;
+    }
+    const DynamicPrintConfig& cfg = *cfg_ptr;
 
     if (opt->nullable)
     {
@@ -1160,20 +1544,40 @@ boost::any ConfigOptionsGroup::get_config_value2(const DynamicPrintConfig& confi
         {
         case coPercents:
         case coFloats: {
-            if (config.option(opt_key)->is_nil())
+            if (cfg.option(opt_key)->is_nil())
                 ret = ConfigOptionFloatsNullable::nil_value();
             else {
                 double val = opt->type == coFloats ?
-                    config.option<ConfigOptionFloatsNullable>(opt_key)->get_at(idx) :
-                    config.option<ConfigOptionPercentsNullable>(opt_key)->get_at(idx);
+                    cfg.option<ConfigOptionFloatsNullable>(opt_key)->get_at(idx) :
+                    cfg.option<ConfigOptionPercentsNullable>(opt_key)->get_at(idx);
                 ret = val; }
         }
                      break;
+
+
+        case coFloatsOrPercents: {
+            const auto* values = cfg.option<ConfigOptionFloatsOrPercentsNullable>(opt_key);
+            const size_t value_idx = values != nullptr && idx < values->size() ? idx : 0;
+            if (values == nullptr || values->empty() || values->is_nil(value_idx))
+                ret = ConfigOptionFloatsOrPercentsNullable::nil_value();
+            else {
+                const auto& value = values->get_at(value_idx);
+                wxString text_value = double_to_string(value.value);
+                if (value.percent)
+                    text_value += "%";
+                ret = into_u8(text_value);
+            }
+            break;
+        }
         case coBools:
-            ret = config.option<ConfigOptionBoolsNullable>(opt_key)->values[idx];
+            {
+                const auto* values = cfg.option<ConfigOptionBoolsNullable>(opt_key);
+                ret = values->empty() ? ConfigOptionBoolsNullable::nil_value() :
+                    values->values[idx < values->size() ? idx : 0];
+            }
             break;
         case coInts:
-            ret = config.option<ConfigOptionIntsNullable>(opt_key)->get_at(idx);
+            ret = cfg.option<ConfigOptionIntsNullable>(opt_key)->get_at(idx);
             break;
         default:
             break;
@@ -1183,7 +1587,7 @@ boost::any ConfigOptionsGroup::get_config_value2(const DynamicPrintConfig& confi
 
     switch (opt->type) {
     case coFloatOrPercent:{
-        const auto &value = *config.option<ConfigOptionFloatOrPercent>(opt_key);
+        const auto &value = *cfg.option<ConfigOptionFloatOrPercent>(opt_key);
 
         wxString text_value = double_to_string(value.value);
         if (value.percent)
@@ -1192,8 +1596,16 @@ boost::any ConfigOptionsGroup::get_config_value2(const DynamicPrintConfig& confi
         ret = into_u8(text_value);
         break;
     }
+    case coFloatsOrPercents: {
+        const auto& value = cfg.option<ConfigOptionFloatsOrPercents>(opt_key)->get_at(idx);
+        wxString text_value = double_to_string(value.value);
+        if (value.percent)
+            text_value += "%";
+        ret = into_u8(text_value);
+        break;
+    }
     case coPercent:{
-        double val = config.option<ConfigOptionPercent>(opt_key)->value;
+        double val = cfg.option<ConfigOptionPercent>(opt_key)->value;
         ret = val;
     }
                   break;
@@ -1201,56 +1613,56 @@ boost::any ConfigOptionsGroup::get_config_value2(const DynamicPrintConfig& confi
     case coFloats:
     case coFloat:{
         double val = opt->type == coFloats ?
-            config.opt_float(opt_key, idx) :
-            opt->type == coFloat ? config.opt_float(opt_key) :
-            config.option<ConfigOptionPercents>(opt_key)->get_at(idx);
+            cfg.opt_float(opt_key, idx) :
+            opt->type == coFloat ? cfg.opt_float(opt_key) :
+            cfg.option<ConfigOptionPercents>(opt_key)->get_at(idx);
         ret = val;
     }
                 break;
     case coString:
-        ret = config.opt_string(opt_key);
+        ret = cfg.opt_string(opt_key);
         break;
     case coStrings:
         if (opt_key == "compatible_printers" || opt_key == "compatible_prints") {
-            ret = config.option<ConfigOptionStrings>(opt_key)->values;
+            ret = cfg.option<ConfigOptionStrings>(opt_key)->values;
             break;
         }
-        if (config.option<ConfigOptionStrings>(opt_key)->values.empty())
+        if (cfg.option<ConfigOptionStrings>(opt_key)->values.empty())
             ret = std::string();
         else if (opt->gui_flags == "serialized") {
-            ret = config.option<ConfigOptionStrings>(opt_key)->values;
+            ret = cfg.option<ConfigOptionStrings>(opt_key)->values;
         }
         else
-            ret = config.opt_string(opt_key, static_cast<unsigned int>(idx));
+            ret = cfg.opt_string(opt_key, static_cast<unsigned int>(idx));
         break;
     case coBool:
-        ret = config.opt_bool(opt_key);
+        ret = cfg.opt_bool(opt_key);
         break;
     case coBools:
-        ret = static_cast<unsigned char>(config.opt_bool(opt_key, idx));
+        ret = static_cast<unsigned char>(cfg.opt_bool(opt_key, idx));
         break;
     case coInt:
-        ret = config.opt_int(opt_key);
+        ret = cfg.opt_int(opt_key);
         break;
     case coInts:
-        ret = config.opt_int(opt_key, idx);
+        ret = cfg.opt_int(opt_key, idx);
         break;
     case coEnum:
-        ret = config.option(opt_key)->getInt();
+        ret = cfg.option(opt_key)->getInt();
         break;
     case coEnums:
-        ret = config.opt_int(opt_key, idx);
+        ret = cfg.opt_int(opt_key, idx);
         break;
     case coPoint:
-        ret = config.option<ConfigOptionPoint>(opt_key)->value;
+        ret = cfg.option<ConfigOptionPoint>(opt_key)->value;
         break;
     case coPoints:
         if (opt_key == "printable_area")
-            ret = get_thumbnails_string(config.option<ConfigOptionPoints>(opt_key)->values);
+            ret = get_thumbnails_string(cfg.option<ConfigOptionPoints>(opt_key)->values);
         else if (opt_key == "bed_exclude_area")
-            ret = get_thumbnails_string(config.option<ConfigOptionPoints>(opt_key)->values);
+            ret = get_thumbnails_string(cfg.option<ConfigOptionPoints>(opt_key)->values);
         else
-            ret = config.option<ConfigOptionPoints>(opt_key)->get_at(idx);
+            ret = cfg.option<ConfigOptionPoints>(opt_key)->get_at(idx);
         break;
     case coNone:
     default:
@@ -1261,7 +1673,33 @@ boost::any ConfigOptionsGroup::get_config_value2(const DynamicPrintConfig& confi
 
 Field* ConfigOptionsGroup::get_fieldc(const t_config_option_key& opt_key, int opt_index)
 {
+	// Dirty-option ids contain the source vector index (for example
+	// retraction_length#6), while a remapped UI field may retain a stable id
+	// such as retraction_length#1. Resolve the source mapping before accepting
+	// an exact id match so a field is not decorated with another variant row's
+	// dirty state.
+    if (opt_index == -1) {
+        const size_t separator = opt_key.rfind('#');
+        if (separator != std::string::npos && separator + 1 < opt_key.size()) {
+            try {
+                const std::string source_key = opt_key.substr(0, separator);
+                const int source_index = std::stoi(opt_key.substr(separator + 1));
+                if (auto* multi_variant = dynamic_cast<MultiVariantField*>(get_field(source_key)))
+                    if (Field* child = multi_variant->get_field(source_index))
+                        return child;
+                for (const auto& item : m_opt_map) {
+                    if (item.second.first == source_key && item.second.second == source_index)
+                        return get_field(item.first);
+                }
+            } catch (const std::exception&) {
+                // Not an indexed option id. Fall through to the legacy lookup.
+            }
+        }
+    }
+
 	Field* field = get_field(opt_key);
+	if (auto* multi_variant = dynamic_cast<MultiVariantField*>(field); multi_variant != nullptr && opt_index >= 0)
+		return multi_variant->get_field(opt_index);
 	if (field != nullptr)
 		return field;
 	std::string opt_id = "";

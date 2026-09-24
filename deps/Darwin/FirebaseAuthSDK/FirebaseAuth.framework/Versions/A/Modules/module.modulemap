@@ -1,0 +1,14 @@
+framework module FirebaseAuth {
+umbrella header "FirebaseAuth-umbrella.h"
+export *
+module * { export * }
+  link framework "AppKit"
+  link framework "Foundation"
+  link framework "Security"
+  link framework "SystemConfiguration"
+  link "z"
+}
+module FirebaseAuth.Swift {
+  header "FirebaseAuth-Swift.h"
+  requires objc
+}

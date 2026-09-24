@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 project(libslic3r)
 
 include(PrecompiledHeader)
+configure_file(DataDirectoryVersion.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/DataDirectoryVersion.hpp @ONLY)
 
 string(TIMESTAMP COMPILE_TIME %Y%m%d-%H%M%S)
 set(SLIC3R_BUILD_TIME ${COMPILE_TIME})
@@ -41,6 +42,9 @@ if (TARGET openvdb_libs)
 endif()
 
 set(lisbslic3r_sources
+    DataDirectoryMigration.cpp
+    DataDirectoryMigration.hpp
+    PresetMigrationValidation.cpp
     ArcFitter.cpp
     ArcFitter.hpp
     pchheader.cpp
@@ -49,6 +53,8 @@ set(lisbslic3r_sources
     AABBTreeLines.hpp
     AABBMesh.hpp
     AABBMesh.cpp
+    ZAA.cpp
+    ZAA.hpp
     Algorithm/PathSorting.hpp
     Algorithm/RegionExpansion.hpp
     Algorithm/RegionExpansion.cpp
@@ -74,6 +80,7 @@ set(lisbslic3r_sources
     ClipperUtils.hpp
     Clipper2Utils.cpp
     Clipper2Utils.hpp
+    Clipper2ZUtils.hpp
     ClipperZUtils.hpp
     Color.cpp
     Color.hpp
@@ -102,6 +109,8 @@ set(lisbslic3r_sources
     ExtrusionEntityCollection.hpp
     ExtrusionSimulator.cpp
     ExtrusionSimulator.hpp
+    SkeletonFlushDensitySimulator.cpp
+    SkeletonFlushDensitySimulator.hpp
     FileParserError.hpp
     Fill/Fill.cpp
     Fill/Fill.hpp
@@ -157,6 +166,8 @@ set(lisbslic3r_sources
     Fill/FillTpmsD.hpp
 	Fill/FillTpmsGradual.cpp
     Fill/FillTpmsGradual.hpp
+    Fill/FillField.cpp
+    Fill/FillField.hpp
 	Fill/FillTpmsFK.cpp
 	Fill/FillTpmsFK.hpp
     Flow.cpp
@@ -183,16 +194,29 @@ set(lisbslic3r_sources
     Format/SL1.cpp
 	Format/svg.hpp
     Format/svg.cpp
+    Format/AssimpImport.hpp
+    Format/AssimpImport.cpp
     Format/ZipperArchiveImport.hpp
     Format/ZipperArchiveImport.cpp
 	Format/AssimpModel.cpp
     Format/AssimpModel.hpp
+    TexturePainting.hpp
+    TexturePainting.cpp
+    Win10ModelRepair.hpp
+    TextureToColor/TextureToColor.hpp
+    TextureToColor/TextureToColor.cpp
+    TextureToColor/ColorUtils.hpp
+    TextureToColor/ColorUtils.cpp
+    TextureToColor/KdTree.hpp
+    TextureToColor/KdTree.cpp
     GCode/ThumbnailData.cpp
     GCode/ThumbnailData.hpp
     GCode/CoolingBuffer.cpp
     GCode/CoolingBuffer.hpp
 	GCode/FanMover.cpp
     GCode/FanMover.hpp
+    GCode/FilamentChangeTopology.cpp
+    GCode/FilamentChangeTopology.hpp
     GCode/PostProcessor.cpp
     GCode/PostProcessor.hpp
     GCode/PressureEqualizer.cpp
@@ -200,6 +224,44 @@ set(lisbslic3r_sources
     GCode/InterestRegion.hpp
     GCode/AppearanceUnderExtrusionAccelRecoveryFilter.cpp
     GCode/AppearanceUnderExtrusionAccelRecoveryFilter.hpp
+    GCode/ZaaIntervalProtocol.cpp
+    GCode/ZaaIntervalProtocol.hpp
+    GCode/PathologicalSegmentAccelFilter.cpp
+    GCode/PathologicalSegmentAccelFilter.hpp
+    GCode/PathologicalSegmentProbe.cpp
+    GCode/PathologicalSegmentProbe.hpp
+    GCode/KlipperSim/KlipperTrapQ.cpp
+    GCode/KlipperSim/KlipperTrapQ.hpp
+    GCode/KlipperSim/KlipperItersolve.cpp
+    GCode/KlipperSim/KlipperItersolve.hpp
+    GCode/KlipperSim/KlipperStepCompress.cpp
+    GCode/KlipperSim/KlipperStepCompress.hpp
+    GCode/KlipperSim/KlipperToolhead.cpp
+    GCode/KlipperSim/KlipperToolhead.hpp
+    GCode/KlipperSim/KlipperSimulationSession.cpp
+    GCode/KlipperSim/KlipperSimulationSession.hpp
+    GCode/KlipperSim/KlipperGCodeStream.cpp
+    GCode/KlipperSim/KlipperGCodeStream.hpp
+      GCode/KlipperSim/KlipperOnlineStepGeneration.cpp
+      GCode/KlipperSim/KlipperOnlineStepGeneration.hpp
+      GCode/KlipperSim/KlipperStreamingEarlyProbe.cpp
+      GCode/KlipperSim/KlipperStreamingEarlyProbe.hpp
+    GCode/KlipperSim/KlipperExtruderPA.cpp
+    GCode/KlipperSim/KlipperExtruderPA.hpp
+    GCode/KlipperSim/KlipperSteppersync.cpp
+    GCode/KlipperSim/KlipperSteppersync.hpp
+    GCode/KlipperSim/KlipperClockSync.cpp
+    GCode/KlipperSim/KlipperClockSync.hpp
+    GCode/KlipperSim/KlipperMCU.cpp
+    GCode/KlipperSim/KlipperMCU.hpp
+    GCode/KlipperSim/KlipperStepper.cpp
+    GCode/KlipperSim/KlipperStepper.hpp
+    GCode/KlipperSim/KlipperHostDispatch.cpp
+    GCode/KlipperSim/KlipperHostDispatch.hpp
+    GCode/KlipperSim/KlipperDispatchAnalysis.cpp
+    GCode/KlipperSim/KlipperDispatchAnalysis.hpp
+    GCode/KlipperSim/KlipperSimMain.cpp
+    GCode/KlipperSim/KlipperSimMain.hpp
     GCode/PrintExtents.cpp
     GCode/PrintExtents.hpp
     GCode/RetractWhenCrossingPerimeters.cpp
@@ -235,6 +297,7 @@ set(lisbslic3r_sources
     # GCodeSender.hpp
     GCodeWriter.cpp
     GCodeWriter.hpp
+    RetractConfigTrace.hpp
     Geometry.cpp
     Geometry.hpp
 	Geometry/ArcWelder.cpp
@@ -271,6 +334,8 @@ set(lisbslic3r_sources
     LocalesUtils.hpp
     CutUtils.cpp
     CutUtils.hpp
+    PaintReproject.cpp
+    PaintReproject.hpp
     ModelCommon.cpp
     ModelCommon.hpp
     Model.cpp
@@ -304,6 +369,8 @@ set(lisbslic3r_sources
     MutablePriorityQueue.hpp
     NSVGUtils.cpp
     NSVGUtils.hpp
+    MaterialListManager.cpp
+    MaterialListManager.hpp
     ObjectID.cpp
     ObjectID.hpp
     OverhangDetector.hpp
@@ -340,6 +407,8 @@ set(lisbslic3r_sources
     PrincipalComponents2D.cpp
     AppConfig.cpp
     AppConfig.hpp
+    DeviceAddUtils.hpp
+    PrinterCover.hpp
     Print.cpp
     Print.hpp
     PrintApply.cpp
@@ -359,6 +428,18 @@ set(lisbslic3r_sources
     ShortEdgeCollapse.hpp
     ShortestPath.cpp
     ShortestPath.hpp
+    Diagnostics/Session.cpp
+    Diagnostics/Session.hpp
+    Diagnostics/Fingerprint.cpp
+    Diagnostics/Fingerprint.hpp
+    Diagnostics/Hasher.cpp
+    Diagnostics/Hasher.hpp
+    Diagnostics/Performance.cpp
+    Diagnostics/Performance.hpp
+    Diagnostics/Plot.cpp
+    Diagnostics/Plot.hpp
+    Diagnostics/Report.cpp
+    Diagnostics/Report.hpp
     SLAPrint.cpp
     SLAPrintSteps.cpp
     SLAPrintSteps.hpp
@@ -408,10 +489,14 @@ set(lisbslic3r_sources
 	
 	
 	filament_mixer.cpp
-	filament_mixer.h 
+	filament_mixer.h
 	filament_mixer_model.h
 	MixedFilament.cpp
-	MixedFilament.hpp 
+	MixedFilament.hpp
+	ColorDecomposeRecipe.cpp
+	ColorDecomposeRecipe.hpp
+	ColorDecomposeKM.cpp
+	ColorDecomposeKM.hpp
     PrincipalComponents2D.cpp
     PrincipalComponents2D.hpp
     #SupportSpotsGenerator.cpp
@@ -586,6 +671,8 @@ add_library(libslic3r STATIC ${lisbslic3r_sources}
     "${CMAKE_CURRENT_BINARY_DIR}/buildinfo.h"
     ${OpenVDBUtils_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${lisbslic3r_sources})
+
+target_link_libraries(libslic3r slic3r_diagnostics_relwithdebinfo)
 
 if (SLIC3R_STATIC)
     set(CGAL_Boost_USE_STATIC_LIBS ON CACHE BOOL "" FORCE)
@@ -786,3 +873,7 @@ endif()
 if (SLIC3R_PCH AND NOT SLIC3R_SYNTAXONLY)
     add_precompiled_header(libslic3r pchheader.hpp FORCEINCLUDE)
 endif ()
+
+# Administrative tool uses the exact migration engine and native parser shipped in the GUI.
+add_executable(data_directory_migrate EXCLUDE_FROM_ALL ../../tools/data_migration/main.cpp)
+target_link_libraries(data_directory_migrate PRIVATE libslic3r)

@@ -1,0 +1,372 @@
+// CrealityPrint_MacAppStorePipeline
+//
+// Dedicated Mac App Store build. It intentionally does not share packaging,
+// publication, certificates, cloud APIs, or delta artifacts with hot update.
+
+pipeline {
+    agent { label 'mac_appstore_arm' }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        skipDefaultCheckout(true)
+        buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
+    }
+
+    parameters {
+        string(name: 'BRANCH', defaultValue: 'release-260930', description: 'C3DSlicer ref to build. It must include Mac App Store support.')
+        string(name: 'APP_VERSION', defaultValue: '7.2.2', description: 'CFBundleShortVersionString, e.g. 7.2.2')
+        string(name: 'APP_STORE_BUILD_NUMBER', defaultValue: '', description: 'Required monotonically increasing CFBundleVersion, e.g. 1170')
+        booleanParam(name: 'SYNC_WEB', defaultValue: false, description: 'Build and sync web resources from WEB_BRANCH before compiling')
+        booleanParam(name: 'SYNC_PRESET', defaultValue: false, description: 'Generate Creality presets before compiling')
+        string(name: 'WEB_BRANCH', defaultValue: 'release-260930', description: 'CrealityCommunity ref when SYNC_WEB is enabled')
+        string(name: 'SLICER_HEADER', defaultValue: '1', description: 'libslicer3r cache flag')
+        booleanParam(name: 'CLEAN_WORKSPACE', defaultValue: false, description: 'Delete the Jenkins workspace before checkout')
+        booleanParam(name: 'REBUILD_DEPS', defaultValue: false, description: 'Reject the current dependency trees so they can be repaired explicitly')
+        booleanParam(name: 'UPLOAD_TESTFLIGHT', defaultValue: true, description: 'Upload the verified pkg to App Store Connect and wait for VALID')
+        booleanParam(name: 'NOTIFY_FEISHU', defaultValue: true, description: 'Send build status to Feishu')
+    }
+
+    environment {
+        CORE_REPO = 'ssh://jenkins@172.20.180.12:29418/yanfa4/core/C3DSlicer'
+        COMMUNITY_REPO = 'ssh://jenkins@172.20.180.12:29418/yanfa4/CrealityCommunity'
+        APP_NAME = 'CrealityPrint'
+        APP_STORE_TEAM = 'DMR5SZUGP9'
+        APP_STORE_ROOT = '/Users/a/work/C3DSlicer-appstore-local-ba2a28dbc2'
+        APP_STORE_KEYCHAIN = '/Users/a/work/C3DSlicer-appstore-local-ba2a28dbc2/.signing-input/appstore-ci.keychain-db'
+        APP_STORE_PROFILE = '/Users/a/work/C3DSlicer-appstore-local-ba2a28dbc2/release-7.2.1-1145-full-debug/CrealityPrintMacAppStore1142.provisionprofile'
+        APP_STORE_ENTITLEMENTS = '/Users/a/work/C3DSlicer-appstore-local-ba2a28dbc2/.signing-input/appstore-1146.entitlements'
+        APP_STORE_FIREBASE_CONFIG = '/Users/a/work/C3DSlicer-appstore-local-ba2a28dbc2/source/GoogleService-Info.plist'
+        ARM_DEPS = '/Users/a/work/C3DSlicer/deps/build_arm64/dep_arm64/usr/local'
+        X86_DEPS = '/Users/a/work/C3DSlicer/deps/build_x86_64/destdir/usr/local'
+        PRODUCTBUILD_QUEUE = '/Users/a/work/productbuild-queue'
+        ASC_HELPER = '/Users/a/work/C3DSlicer-appstore-local-ba2a28dbc2/asc_api.py'
+        FEISHU_WEBHOOK_CRED = 'creality-release-feishu-webhook'
+    }
+
+    stages {
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    if (!(params.APP_VERSION ==~ /^[0-9]+(\.[0-9]+){0,2}$/)) {
+                        error('APP_VERSION must contain one to three numeric components.')
+                    }
+                    if (!(params.APP_STORE_BUILD_NUMBER ==~ /^[0-9]+$/)) {
+                        error('APP_STORE_BUILD_NUMBER is required and must be numeric.')
+                    }
+                    if (params.REBUILD_DEPS) {
+                        error('REBUILD_DEPS is intentionally unsupported: App Store dependency trees require the documented one-time km/png/zstd repairs.')
+                    }
+                }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                script {
+                    if (params.CLEAN_WORKSPACE) {
+                        deleteDir()
+                    }
+                    def requestedRef = params.BRANCH.trim()
+                    def branchName = requestedRef.replaceFirst('^refs/heads/', '')
+                    def refspec = requestedRef.startsWith('refs/changes/')
+                        ? "+${requestedRef}:${requestedRef}"
+                        : "+refs/heads/${branchName}:refs/remotes/origin/${branchName}"
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: requestedRef]],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [],
+                        userRemoteConfigs: [[credentialsId: 'jenkins', url: env.CORE_REPO, refspec: refspec]]
+                    ])
+                    if (params.SYNC_WEB) {
+                        checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: params.WEB_BRANCH]],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'Community']],
+                            userRemoteConfigs: [[credentialsId: 'jenkins', url: env.COMMUNITY_REPO]]
+                        ])
+                    }
+                    // Firebase configuration is injected only into the final signed bundle.
+                    sh 'rm -f ./GoogleService-Info.plist'
+                    // Keep the requested release source independent from the Pipeline
+                    // source while this review has not yet merged to release-260930.
+                    dir('.ci/appstore-pipeline') {
+                        checkout scm
+                    }
+                }
+            }
+        }
+
+        stage('Preflight') {
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    export PATH=/opt/homebrew/bin:/usr/local/bin:/Applications/CMake.app/Contents/bin:/usr/bin:/bin
+                    command -v cmake
+                    command -v ninja
+                    command -v ccache
+                    xcodebuild -version
+                    test -f "$ARM_DEPS/include/cr_km_recipe.h"
+                    test -f "$ARM_DEPS/lib/libcr_km_recipe.a"
+                    test -f "$X86_DEPS/include/cr_km_recipe.h"
+                    test -f "$X86_DEPS/lib/libcr_km_recipe.a"
+                    test -f "$X86_DEPS/lib/libpng_opencv.a"
+                    test -f "$X86_DEPS/lib/libzstd.a"
+                    test -f "$APP_STORE_KEYCHAIN"
+                    test -f "$APP_STORE_PROFILE"
+                    test -f "$APP_STORE_ENTITLEMENTS"
+                    test -f "$APP_STORE_FIREBASE_CONFIG"
+                    test -f "$ASC_HELPER"
+                    test -d "$PRODUCTBUILD_QUEUE/pending"
+                    test -d "$PRODUCTBUILD_QUEUE/done"
+                    test -x /Users/a/work/productbuild-worker.sh
+                    security find-identity -v -p codesigning "$APP_STORE_KEYCHAIN" | grep -F "$APP_STORE_TEAM"
+                    grep -Fq 'libpng_opencv.a' "$X86_DEPS/lib/cmake/opencv4/OpenCVModules.cmake"
+                    grep -Fq 'libzstd.a' "$X86_DEPS/lib/cmake/zstd/zstdTargets-release.cmake"
+                '''
+            }
+        }
+
+        stage('Sync Closed-source Deps') {
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    # Vendored closed-source libraries (deps/CR_CLOSED) are installed into the
+                    # prebuilt dependency trees exactly like deps/cr_FillTensor.cmake does, so a
+                    # newly merged library needs no manual M4 preparation. Never rebuild the
+                    # trees themselves: their one-time png/zstd/km repairs are not reproducible
+                    # by the generic deps recipe.
+                    sync_closed_deps() {
+                        local arch="$1" dest="$2"
+                        local src_root="$WORKSPACE/deps/CR_CLOSED"
+                        if [[ ! -d "$src_root" ]]; then
+                            echo "No CR_CLOSED dependencies on this branch; nothing to sync."
+                            return 0
+                        fi
+                        local synced=0 inc libdir
+                        while IFS= read -r inc; do
+                            libdir="$(dirname "$inc")/lib/mac/$arch"
+                            if [[ ! -d "$libdir" ]]; then
+                                echo "Skip $(dirname "$inc"): no lib/mac/$arch libraries."
+                                continue
+                            fi
+                            mkdir -p "$dest/include" "$dest/lib"
+                            cp -R "$inc/." "$dest/include/"
+                            cp -R "$libdir/." "$dest/lib/"
+                            echo "Synced $(dirname "$inc") into $dest"
+                            synced=1
+                        done < <(find "$src_root" -mindepth 2 -maxdepth 3 -type d -name include)
+                        [[ $synced -eq 1 ]] || echo "No mac/$arch closed-source libraries found."
+                    }
+                    sync_closed_deps arm64 "$ARM_DEPS"
+                    sync_closed_deps x86_64 "$X86_DEPS"
+                    find "$ARM_DEPS/lib" "$X86_DEPS/lib" -name 'libcr_FillTensor_library.a' -exec lipo -info {} \\;
+                '''
+            }
+        }
+
+        stage('Sync Inputs') {
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    if [[ "$SYNC_WEB" == 'true' ]]; then
+                        bash ./scripts/sync_web.sh "$WEB_BRANCH" "$WORKSPACE/Community"
+                    fi
+                    if [[ "$SYNC_PRESET" == 'true' ]]; then
+                        /usr/bin/python3 ./scripts/generate_creality_presets.py -b Release -n '3.0.0' -v "$APP_VERSION"
+                    fi
+                '''
+            }
+        }
+
+        stage('Build arm64') {
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    export PATH=/opt/homebrew/bin:/usr/local/bin:/Applications/CMake.app/Contents/bin:$PATH
+                    cmake -S . -B build_main_arm64 -G Ninja \
+                        -DCMAKE_BUILD_TYPE=Release \
+                        -DCMAKE_MACOSX_BUNDLE=ON \
+                        -DCMAKE_OSX_ARCHITECTURES=arm64 \
+                        -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+                        -DCMAKE_PREFIX_PATH="$ARM_DEPS" \
+                        -DCREALITYPRINT_APP_STORE=ON \
+                        -DCREALITYPRINT_VERSION="$APP_VERSION" \
+                        -DCREALITYPRINT_BUILD_NUMBER="$APP_STORE_BUILD_NUMBER" \
+                        -DPROCESS_NAME="$APP_NAME" \
+                        -DPROJECT_VERSION_EXTRA=Release \
+                        -DGENERATE_ORCA_HEADER="$SLICER_HEADER"
+                    cmake --build build_main_arm64 --target "$APP_NAME" -j4
+                '''
+            }
+        }
+
+        stage('Build x86_64') {
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    export PATH=/opt/homebrew/bin:/usr/local/bin:/Applications/CMake.app/Contents/bin:$PATH
+                    cmake -S . -B build_main_x86_64 -G Ninja \
+                        -DCMAKE_BUILD_TYPE=Release \
+                        -DCMAKE_MACOSX_BUNDLE=ON \
+                        -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+                        -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+                        -DCMAKE_PREFIX_PATH="$X86_DEPS" \
+                        -DCREALITYPRINT_APP_STORE=ON \
+                        -DCREALITYPRINT_VERSION="$APP_VERSION" \
+                        -DCREALITYPRINT_BUILD_NUMBER="$APP_STORE_BUILD_NUMBER" \
+                        -DPROCESS_NAME="$APP_NAME" \
+                        -DPROJECT_VERSION_EXTRA=Release \
+                        -DGENERATE_ORCA_HEADER="$SLICER_HEADER"
+                    cmake --build build_main_x86_64 --target "$APP_NAME" -j4
+                '''
+            }
+        }
+
+        stage('Assemble and Sign Universal App') {
+            steps {
+                withCredentials([string(credentialsId: 'mac_appstore_arm_keychain_password', variable: 'APP_STORE_KEYCHAIN_PASSWORD')]) {
+                    sh '''#!/bin/bash
+                        set -euo pipefail
+                        security unlock-keychain -p "$APP_STORE_KEYCHAIN_PASSWORD" "$APP_STORE_KEYCHAIN"
+                        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$APP_STORE_KEYCHAIN_PASSWORD" "$APP_STORE_KEYCHAIN" >/dev/null
+                        export APP_STORE_VERSION="$APP_VERSION"
+                        export APP_STORE_FIREBASE_CONFIG="$APP_STORE_FIREBASE_CONFIG"
+                        export MAC_APP_SIGNING_KEYCHAIN="$APP_STORE_KEYCHAIN"
+                        export MAC_APP_PROVISIONING_PROFILE="$APP_STORE_PROFILE"
+                        export APP_STORE_ENTITLEMENTS="$APP_STORE_ENTITLEMENTS"
+                        export MAC_APP_SIGNING_IDENTITY="3rd Party Mac Developer Application: CREALITY 3D (HK) TECHNOLOGY LIMITED ($APP_STORE_TEAM)"
+                        export MAC_INSTALLER_SIGNING_IDENTITY="3rd Party Mac Developer Installer: CREALITY 3D (HK) TECHNOLOGY LIMITED ($APP_STORE_TEAM)"
+                        bash .ci/appstore-pipeline/scripts/assemble_macos_app_store.sh \
+                            "build_main_arm64/src/$APP_NAME.app" \
+                            "build_main_x86_64/src/$APP_NAME.app" \
+                            "artifacts/mac-app-store/$APP_VERSION-$APP_STORE_BUILD_NUMBER"
+                    '''
+                }
+            }
+        }
+
+        stage('Build Installer Package') {
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    OUT_DIR="$WORKSPACE/artifacts/mac-app-store/$APP_VERSION-$APP_STORE_BUILD_NUMBER"
+                    APP_PATH="$OUT_DIR/$APP_NAME.app"
+                    PKG_PATH="$OUT_DIR/$APP_NAME-$APP_VERSION-$APP_STORE_BUILD_NUMBER.pkg"
+                    JOB_KEY="${JOB_NAME//[^A-Za-z0-9._-]/_}-$BUILD_NUMBER"
+                    JOB_FILE="$PRODUCTBUILD_QUEUE/pending/$JOB_KEY.job"
+                    DONE_FILE="$PRODUCTBUILD_QUEUE/done/$JOB_KEY.done"
+                    LOG_FILE="$PRODUCTBUILD_QUEUE/logs/$JOB_KEY.log"
+                    rm -f "$JOB_FILE" "$DONE_FILE" "$LOG_FILE" "$PKG_PATH"
+                    printf '%s\\n%s\\n' "$APP_PATH" "$PKG_PATH" > "$JOB_FILE"
+                    for _ in $(seq 1 120); do
+                        if [[ -f "$DONE_FILE" ]]; then
+                            cat "$LOG_FILE"
+                            grep -Fq 'EXIT:0' "$LOG_FILE"
+                            test -f "$PKG_PATH"
+                            pkgutil --check-signature "$PKG_PATH"
+                            exit 0
+                        fi
+                        sleep 5
+                    done
+                    echo "Timed out waiting for GUI productbuild worker."
+                    test -f "$LOG_FILE" && cat "$LOG_FILE"
+                    exit 1
+                '''
+            }
+        }
+
+        stage('Validate Artifact') {
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    OUT_DIR="$WORKSPACE/artifacts/mac-app-store/$APP_VERSION-$APP_STORE_BUILD_NUMBER"
+                    APP_PATH="$OUT_DIR/$APP_NAME.app"
+                    BIN_PATH="$APP_PATH/Contents/MacOS/$APP_NAME"
+                    INFO_PLIST="$APP_PATH/Contents/Info.plist"
+                    lipo -archs "$BIN_PATH" | grep -Eq '(^| )arm64( |$).*x86_64|(^| )x86_64( |$).*arm64'
+                    ! otool -L "$BIN_PATH" | grep -E '/opt/homebrew|libzstd\\.1'
+                    [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST")" == 'com.creality.crealityprint' ]]
+                    [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")" == "$APP_STORE_BUILD_NUMBER" ]]
+                    codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+                    codesign --display --entitlements :- "$APP_PATH" 2>&1 | grep -Fq 'com.apple.security.app-sandbox'
+                    security cms -D -i "$APP_PATH/Contents/embedded.provisionprofile" > "$OUT_DIR/profile.plist"
+                    /usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.developer.team-identifier' "$OUT_DIR/profile.plist" | grep -qx "$APP_STORE_TEAM"
+                    shasum -a 256 "$OUT_DIR"/*.pkg > "$OUT_DIR/SHA256SUMS"
+                '''
+            }
+        }
+
+        stage('Upload TestFlight') {
+            when { expression { params.UPLOAD_TESTFLIGHT } }
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    OUT_DIR="$WORKSPACE/artifacts/mac-app-store/$APP_VERSION-$APP_STORE_BUILD_NUMBER"
+                    PKG_PATH="$OUT_DIR/$APP_NAME-$APP_VERSION-$APP_STORE_BUILD_NUMBER.pkg"
+                    xcrun altool --upload-app -f "$PKG_PATH" -t macos \
+                        --apiKey H3PYABQUSX \
+                        --apiIssuer 4c291a87-b1d4-4151-892c-ee5e8e4ce193
+                    for _ in $(seq 1 20); do
+                        RESPONSE="$(python3 "$ASC_HELPER" GET /v1/builds "filter[app]=6800253206&filter[version]=$APP_STORE_BUILD_NUMBER&fields[builds]=version,processingState,usesNonExemptEncryption")"
+                        if echo "$RESPONSE" | python3 -c '
+import json, sys
+items = json.load(sys.stdin).get("data", [])
+if not items:
+    raise SystemExit(2)
+a = items[0]["attributes"]
+if a.get("processingState") == "VALID" and a.get("usesNonExemptEncryption") is False:
+    raise SystemExit(0)
+if a.get("processingState") in ("INVALID", "FAILED"):
+    raise SystemExit(1)
+raise SystemExit(2)
+'; then
+                            exit 0
+                        else
+                            status=$?
+                        fi
+                        [[ $status -eq 1 ]] && { echo "$RESPONSE"; exit 1; }
+                        sleep 90
+                    done
+                    echo 'Timed out waiting for App Store Connect VALID state.'
+                    exit 1
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: "artifacts/mac-app-store/${params.APP_VERSION}-${params.APP_STORE_BUILD_NUMBER}/*.pkg,artifacts/mac-app-store/${params.APP_VERSION}-${params.APP_STORE_BUILD_NUMBER}/SHA256SUMS", fingerprint: true, allowEmptyArchive: true
+            script { notifyMacAppStore(currentBuild.currentResult) }
+        }
+    }
+}
+
+def notifyMacAppStore(String result) {
+    if (!params.NOTIFY_FEISHU) { return }
+    try {
+        withCredentials([string(credentialsId: env.FEISHU_WEBHOOK_CRED, variable: 'FEISHU_WEBHOOK')]) {
+            def color = result == 'SUCCESS' ? 'green' : (result == 'FAILURE' ? 'red' : 'orange')
+            def payload = [
+                msg_type: 'interactive',
+                card: [
+                    config: [wide_screen_mode: true],
+                    header: [template: color, title: [tag: 'plain_text', content: "Mac App Store build: ${result}"]],
+                    elements: [[tag: 'div', text: [tag: 'lark_md', content: """**Job**: ${env.JOB_NAME}
+**Build**: #${env.BUILD_NUMBER}
+**Branch**: ${params.BRANCH}
+**Version**: ${params.APP_VERSION} (${params.APP_STORE_BUILD_NUMBER})
+**TestFlight upload**: ${params.UPLOAD_TESTFLIGHT}"""]],
+                               [tag: 'action', actions: [[tag: 'button', text: [tag: 'plain_text', content: 'Build'], type: 'primary', url: env.BUILD_URL]]]]
+                ]
+            ]
+            httpRequest(httpMode: 'POST', contentType: 'APPLICATION_JSON', ignoreSslErrors: true,
+                requestBody: groovy.json.JsonOutput.toJson(payload), url: FEISHU_WEBHOOK, validResponseCodes: '100:399')
+        }
+    } catch (err) {
+        echo "Skip Feishu notification: ${err.message}"
+    }
+}

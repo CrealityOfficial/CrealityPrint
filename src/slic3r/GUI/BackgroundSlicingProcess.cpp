@@ -42,6 +42,11 @@
 #include "libslic3r/baseline.hpp"
 #include "libslic3r/baselineorcinput.hpp"
 #include "AnalyticsDataUploadManager.hpp"
+
+// Temporary source-local switch for exposing standard exception details while tracing ZAA failures.
+// Remove this define and the guarded catch block once the root cause is known.
+#define SLIC3R_ZAA_DEBUG_EXCEPTION_WHAT 1
+
 namespace Slic3r {
 
 bool SlicingProcessCompletedEvent::critical_error() const
@@ -243,6 +248,34 @@ void BackgroundSlicingProcess::process_fff()
 		//FIX the gcode rename failed issue
 		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(" %1%: will start slicing, reset gcode_result %2% firstly") % __LINE__ % m_gcode_result;
 		m_gcode_result->reset();
+		if (kPathologicalProbeEnabled && m_event_gcode_ready_id != 0) {
+			static std::atomic<uint64_t> next_probe_session_id{1};
+			const uint64_t session_id = next_probe_session_id.fetch_add(1, std::memory_order_relaxed);
+			const int probe_plate_index = m_current_plate ? m_current_plate->get_index() : -1;
+			GCodeProcessorResult* published_result = m_gcode_result;
+			published_result->pathological_probe_session_id = session_id;
+			published_result->pathological_probe_started_callback =
+				[published_result](uint64_t published_session_id,
+				                   const std::shared_ptr<PathologicalLineProbe>& probe,
+				                   const std::string& input_path) {
+					std::lock_guard<std::mutex> lock(published_result->result_mutex);
+					if (published_result->pathological_probe_session_id != published_session_id)
+						return;
+					published_result->pathological_line_probe = probe;
+					published_result->pathological_probe_input_path = input_path;
+					published_result->pathological_probe_lifecycle = PathologicalProbeLifecycle::Running;
+				};
+			const int ready_event_id = m_event_gcode_ready_id;
+			published_result->pathological_probe_result_ready_callback =
+				[ready_event_id, probe_plate_index](uint64_t completed_session_id) {
+					if (GUI::wxGetApp().mainframe == nullptr || GUI::wxGetApp().mainframe->m_plater == nullptr)
+						return;
+					auto* event = new wxCommandEvent(ready_event_id);
+					event->SetString(wxString::Format("probe_result:%d:%llu",
+						probe_plate_index, static_cast<unsigned long long>(completed_session_id)));
+					wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, event);
+				};
+		}
 
 		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(" %1%: gcode_result reseted, will start print::process") % __LINE__;
 		BOOST_LOG_TRIVIAL(error) << "[PERF_TIMING] SLICING START";
@@ -282,11 +315,27 @@ void BackgroundSlicingProcess::process_fff()
 
 		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": export gcode finished");
 	}
+
 	{
-		auto _ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - _perf_fff_start).count();
-		BOOST_LOG_TRIVIAL(error) << "[PERF_TIMING] PROCESS_FFF END elapsed=" << _ms << "ms";
-	}
-	if (this->set_step_started(bspsGCodeFinalize)) {
+		const double process_ms = std::chrono::duration<double, std::milli>(
+			std::chrono::steady_clock::now() - _perf_fff_start).count();
+		BOOST_LOG_TRIVIAL(error) << "[PERF_TIMING] PROCESS_FFF END elapsed=" << process_ms << "ms";
+
+		// The final temporary G-code is now immutable. Notify the UI only after
+		// publishing the complete timing/result state. Finalization and preview
+		// rendering may then proceed in parallel with the dedicated probe worker.
+		if (kPathologicalProbeEnabled && m_event_gcode_ready_id != 0
+			&& m_gcode_result != nullptr
+			&& m_gcode_result->pathological_probe_lifecycle
+				== PathologicalProbeLifecycle::Running
+			&& m_gcode_result->pathological_line_probe
+			&& !m_gcode_result->filename.empty()) {
+			auto* probe_event = new wxCommandEvent(m_event_gcode_ready_id);
+			const int probe_plate_index = m_current_plate ? m_current_plate->get_index() : -1;
+			probe_event->SetString(wxString::Format("probe_ready:%d:%s", probe_plate_index, wxString::FromUTF8(m_gcode_result->filename)));
+			wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, probe_event);
+		}
+	}	if (this->set_step_started(bspsGCodeFinalize)) {
 		if (!m_export_path.empty()) {
 			wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, new wxCommandEvent(m_event_export_began_id));
 			if (!m_fff_print->is_BBL_printer())
@@ -532,6 +581,11 @@ void BackgroundSlicingProcess::call_process(std::exception_ptr &ex) throw()
 		assert(m_print->canceled());
 		ex = std::current_exception();
 		BOOST_LOG_TRIVIAL(error) <<__FUNCTION__ << ":got cancelled exception" << std::endl;
+#ifdef SLIC3R_ZAA_DEBUG_EXCEPTION_WHAT
+	} catch (const std::exception &exception) {
+		ex = std::current_exception();
+		BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ":got std::exception: " << exception.what() << std::endl;
+#endif
 	} catch (...) {
 		ex = std::current_exception();
 		BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ":got other exception" << std::endl;
@@ -759,13 +813,15 @@ bool BackgroundSlicingProcess::empty() const
 	return m_print->empty();
 }
 
-StringObjectException BackgroundSlicingProcess::validate(StringObjectException *warning, Polygons* collison_polygons, std::vector<std::pair<Polygon, float>>* height_polygons)
+StringObjectException BackgroundSlicingProcess::validate(StringObjectException *warning, Polygons* collison_polygons, std::vector<std::pair<Polygon, float>>* height_polygons, bool before_filament_mapping)
 {
 	assert(m_print != nullptr);
     assert(m_print == m_fff_print);
 
     m_fff_print->set_is_BBL_printer(wxGetApp().preset_bundle->is_bbl_vendor());
 	m_fff_print->set_is_CX_printer(wxGetApp().preset_bundle->is_cx_vendor());
+    if (before_filament_mapping && m_print == m_fff_print)
+        return m_fff_print->validate(warning, collison_polygons, height_polygons, true);
     return m_print->validate(warning, collison_polygons, height_polygons);
 }
 
@@ -923,9 +979,30 @@ Print::ApplyStatus BackgroundSlicingProcess::apply(const Model &model, const Dyn
 {
 	assert(m_print != nullptr);
 	assert(config.opt_enum<PrinterTechnology>("printer_technology") == m_print->technology());
+	// The master enable and simulator parameters belong to the machine profile.
+	// Remove stale plate copies written by older Fix implementations before
+	// applying plate-specific print settings.
+	if (m_current_plate->config()->has("pathological_segment_protection_enable")) {
+		m_current_plate->config()->erase("pathological_segment_protection_enable");
+		BOOST_LOG_TRIVIAL(warning)
+			<< "[PathologicalProbe] removed_stale_plate_feature_override";
+	}
+
 	// TODO: add partplate config
 	DynamicPrintConfig new_config = config;
 	new_config.apply(*m_current_plate->config());
+
+	// The printer parameter package version is not part of any preset, resolve it once per slicing
+	// request. Handing it over through the config keeps the value published under the lock that
+	// Print::apply already takes, and keeps the G-code export free of any file access.
+	// A G-code-only 3MF has no model and reuses an already exported G-code file. Its Print was
+	// initialized without this transient option, so adding it while switching plates would
+	// invalidate and clear the unparsed GCodeProcessorResult before the worker can load it.
+	const bool reusing_existing_gcode = model.objects.empty() && m_print->finished();
+	if (wxGetApp().preset_bundle != nullptr && !reusing_existing_gcode)
+		new_config.set_key_value("printer_profile_version",
+			new ConfigOptionString(wxGetApp().preset_bundle->get_selected_printer_profile_version()));
+
 	Print::ApplyStatus invalidated = m_print->apply(model, new_config);
 
 	if ((invalidated & PrintBase::APPLY_STATUS_INVALIDATED) != 0 && m_print->technology() == ptFFF &&
@@ -1082,6 +1159,7 @@ void BackgroundSlicingProcess::finalize_gcode()
     strcpy(path, export_path.c_str());
 
     wxCommandEvent event(Slic3r::GUI::EVT_EXPORT_GCODE_FINISHED);
+    event.SetString(GUI::from_u8(export_path));
     event.SetClientData(path);
     wxPostEvent(Slic3r::GUI::wxGetApp().plater(), event);
 }

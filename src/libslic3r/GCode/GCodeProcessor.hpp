@@ -6,6 +6,7 @@
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/CustomGCode.hpp"
+#include "PathologicalSegmentProbe.hpp"
 
 #include <cstdint>
 #include <array>
@@ -23,6 +24,17 @@ namespace Slic3r {
 
 class Print;
 
+// Master switch for the pathological G-code probe pipeline.
+// Keep the complete streaming probe and UI notification path enabled for
+// normal slicing; the manual segment-protection option remains independent.
+inline constexpr bool kPathologicalProbeEnabled = true;
+
+enum class PathologicalProbeLifecycle {
+    NotStarted,
+    Running,
+    Completed,
+    Cancelled
+};
 // slice warnings enum strings
 #define NOZZLE_HRC_CHECKER                                          "the_actual_nozzle_hrc_smaller_than_the_required_nozzle_hrc"
 #define BED_TEMP_TOO_HIGH_THAN_FILAMENT                             "bed_temperature_too_high_than_filament"
@@ -126,6 +138,9 @@ class Print;
         std::map<size_t, double>                            total_volumes_per_extruder;
         //BBS: the flush amount of every filament
         std::map<size_t, double>                            flush_per_filament;
+        // True when flush_per_filament is the matrix demand already materialized
+        // by wipe_tower_volumes_per_extruder, for example purge-in-prime-tower.
+        bool                                                flush_per_filament_in_wipe_tower;
         std::map<ExtrusionRole, std::pair<double, double>>  used_filaments_per_role;
 
         std::array<Mode, static_cast<size_t>(ETimeMode::Count)> modes;
@@ -144,8 +159,11 @@ class Print;
             support_volumes_per_extruder.clear();
             total_volumes_per_extruder.clear();
             flush_per_filament.clear();
+            flush_per_filament_in_wipe_tower = false;
             used_filaments_per_role.clear();
 
+            total_filament_cost = 0.0;
+            total_estimated_time = 0.0;
             total_filamentchanges = 0;
         }
     };
@@ -188,6 +206,12 @@ class Print;
 
     struct GCodeProcessorResult
     {
+        enum class ELayerGroupingMode : unsigned char
+        {
+            PhysicalZ,
+            LogicalLayerId
+        };
+
         ConflictResultOpt conflict_result;
         ToolpathOutsideResultOpt toolpath_outside_result;
         BedMatchResult  bed_match_result;
@@ -226,6 +250,7 @@ class Print;
             float temperature{ 0.0f }; // Celsius degrees
             float time{ 0.0f }; // s
             float layer_duration{ 0.0f }; // s (layer id before finalize)
+            unsigned int layer_id{ 0 }; // zero-based logical layer; position.z() remains the physical Z
             float acceleration{ 0.0f };  //mm/s2
 
             //BBS: arc move related data
@@ -243,6 +268,9 @@ class Print;
             }
         };
 
+        bool moves_belong_to_same_layer(
+            const MoveVertex& layer_reference, const MoveVertex& candidate, double z_epsilon) const;
+
         struct SliceWarning {
             int         level;                  // 0: normal tips, 1: warning; 2: error
             std::string msg;                    // enum string
@@ -253,6 +281,8 @@ class Print;
         std::string filename;
         unsigned int id;
         std::vector<MoveVertex> moves;
+        // Logical IDs are authoritative only after the parser observes a trusted layer-boundary protocol.
+        ELayerGroupingMode layer_grouping_mode{ ELayerGroupingMode::PhysicalZ };
         // Cached "interest region" classification per MoveVertex (indexed by move_id).
         // Filled during slicing (3mf workflow) and consumed by GUI preview; empty when loading a standalone .gcode.
         std::vector<unsigned char> custom_interest_by_move_id;
@@ -286,6 +316,7 @@ class Print;
         PrintEstimatedStatistics print_statistics;
         std::vector<CustomGCode::Item> custom_gcode_per_print_z;
         std::vector<std::pair<float, std::pair<size_t, size_t>>> spiral_vase_layers;
+        std::vector<std::pair<float, std::pair<size_t, size_t>>> zaa_layers;
 
         // creality
         std::vector<std::string>        creality_extruder_colors;
@@ -300,15 +331,66 @@ class Print;
         float                           defaultAcc;
         std::string                     printer_model;
         std::string                     printer_settings_id;
+        std::vector<int>                generated_filament_map;
+        std::string                     generated_filament_map_mode;
+        bool                            generated_filament_map_present{false};
         std::string                     gcode_uuid;
         float                           nozzle_diameter;
+        // Creality multi-nozzle: per physical nozzle diameters parsed from "; nozzle_diameter = 0.4,0.6".
+        // nozzle_diameter above keeps the first value for backward compatibility.
+        std::vector<float>              nozzle_diameters;
+        // Per-filament(extruder) nozzle diameter, derived from generated_filament_map + nozzle_diameters.
+        std::vector<float>              filament_nozzle_diameters;
         bool                            all_surface_with_shell{false};   //false as default value, preview old version gcode file cannot enable auto lite mode
         std::vector<int>                wipe_tower_tool_changes_layers;
 		bool							should_enable_preview_lod;
 		int                             max_printer_bed_temp{0};
         int                             max_printer_nozzle_temp{0};
         bool                            multicolor_method{0};
+        bool                            flush_into_solid_skeleton{false};
         std::vector<std::pair<std::array<int, 2>, std::vector<unsigned char>>> image_data;
+        // P4 read-only bypass result for the final raw exported G-code.
+        // Empty means that no probe was run for this result object.
+        std::optional<PathologicalProbeResult> pathological_probe_result;
+        // Binds the probe decision to the exact raw G-code and simulator inputs.
+        std::optional<PathologicalProbeTicket> pathological_probe_ticket;
+        // Incremental raw-line source populated by process_gcode_line(). The
+        // worker starts with G-code generation and survives result handoff.
+        std::shared_ptr<PathologicalLineProbe> pathological_line_probe;
+        PathologicalProbeLifecycle pathological_probe_lifecycle =
+            PathologicalProbeLifecycle::NotStarted;
+        uint64_t pathological_probe_session_id = 0;
+        std::string pathological_probe_input_path;
+        // Bridges the internal GCodeProcessor result to the UI-owned result
+        // without exposing wxWidgets in libslic3r.
+        std::function<void(uint64_t, const std::shared_ptr<PathologicalLineProbe>&,
+                           const std::string&)>
+            pathological_probe_started_callback;
+        std::function<void(uint64_t)> pathological_probe_result_ready_callback;
+
+        // Compatibility shell for the legacy optimized post-process code below.
+        // Entries are intentionally no longer recorded: TimeProcessor has already
+        // rewritten placeholders/M73 before the final metadata/preheat pass runs.
+        struct PostProcessOffsetTable {
+            struct G1Entry {
+                size_t file_offset;
+                size_t g1_line_counter;
+            };
+            struct TagEntry {
+                size_t file_offset;
+                size_t line_length;
+            };
+
+            std::vector<G1Entry> g1_offsets;
+            std::vector<TagEntry> placeholder_offsets;
+
+            void clear()
+            {
+                g1_offsets.clear();
+                placeholder_offsets.clear();
+            }
+        };
+        PostProcessOffsetTable post_process_offset_table;
 
         //BBS
         std::vector<SliceWarning> warnings;
@@ -327,6 +409,7 @@ class Print;
             filename = other.filename;
             id = other.id;
             moves = other.moves;
+            layer_grouping_mode = other.layer_grouping_mode;
             custom_interest_by_move_id = other.custom_interest_by_move_id;
             object_id_by_move_id = other.object_id_by_move_id;
             lines_ends = other.lines_ends;
@@ -336,6 +419,7 @@ class Print;
             label_object_enabled = other.label_object_enabled;
             long_retraction_when_cut = other.long_retraction_when_cut;
             timelapse_warning_code = other.timelapse_warning_code;
+            support_traditional_timelapse = other.support_traditional_timelapse;
             printable_height = other.printable_height;
             settings_ids = other.settings_ids;
             extruders_count = other.extruders_count;
@@ -347,6 +431,7 @@ class Print;
             print_statistics = other.print_statistics;
             custom_gcode_per_print_z = other.custom_gcode_per_print_z;
             spiral_vase_layers = other.spiral_vase_layers;
+            zaa_layers = other.zaa_layers;
             warnings = other.warnings;
             bed_type = other.bed_type;
             bed_match_result = other.bed_match_result;
@@ -363,14 +448,26 @@ class Print;
             defaultAcc = other.defaultAcc;
             printer_model = other.printer_model;
             printer_settings_id = other.printer_settings_id;
+            generated_filament_map = other.generated_filament_map;
+            generated_filament_map_mode = other.generated_filament_map_mode;
+            generated_filament_map_present = other.generated_filament_map_present;
             gcode_uuid = other.gcode_uuid;
             nozzle_diameter = other.nozzle_diameter;
+            nozzle_diameters = other.nozzle_diameters;
+            filament_nozzle_diameters = other.filament_nozzle_diameters;
             all_surface_with_shell = other.all_surface_with_shell;
             wipe_tower_tool_changes_layers = other.wipe_tower_tool_changes_layers;
             should_enable_preview_lod = other.should_enable_preview_lod;
             max_printer_bed_temp = other.max_printer_bed_temp;
             max_printer_nozzle_temp = other.max_printer_nozzle_temp;
+            flush_into_solid_skeleton = other.flush_into_solid_skeleton;
             image_data = other.image_data;
+            pathological_probe_result = other.pathological_probe_result;
+            pathological_probe_ticket = other.pathological_probe_ticket;
+            pathological_line_probe = other.pathological_line_probe;
+            pathological_probe_lifecycle = other.pathological_probe_lifecycle;
+            pathological_probe_session_id = other.pathological_probe_session_id;
+            pathological_probe_input_path = other.pathological_probe_input_path;
             x_offset =other.x_offset;
             y_offset = other.y_offset;
 #if ENABLE_GCODE_VIEWER_STATISTICS
@@ -381,10 +478,17 @@ class Print;
 
 
         void  take(const GCodeProcessorResult& other) {
+            const bool preserve_completed_probe =
+                pathological_probe_lifecycle == PathologicalProbeLifecycle::Completed
+                && pathological_probe_session_id != 0
+                && pathological_probe_session_id == other.pathological_probe_session_id;
+            const auto completed_probe_result = pathological_probe_result;
+            const auto completed_probe_ticket = pathological_probe_ticket;
             filename                 = other.filename;
             id                       = other.id;
 
             moves                    = std::move( other.moves );
+            layer_grouping_mode      = other.layer_grouping_mode;
             custom_interest_by_move_id = other.custom_interest_by_move_id;
             object_id_by_move_id = other.object_id_by_move_id;
             lines_ends               = std::move( other.lines_ends );
@@ -395,6 +499,7 @@ class Print;
             label_object_enabled     = other.label_object_enabled;
             long_retraction_when_cut = other.long_retraction_when_cut;
             timelapse_warning_code   = other.timelapse_warning_code;
+            support_traditional_timelapse = other.support_traditional_timelapse;
             printable_height         = other.printable_height;
             settings_ids             = other.settings_ids;
             extruders_count          = other.extruders_count;
@@ -406,6 +511,7 @@ class Print;
             print_statistics         = other.print_statistics;
             custom_gcode_per_print_z = other.custom_gcode_per_print_z;
             spiral_vase_layers       = other.spiral_vase_layers;
+            zaa_layers               = other.zaa_layers;
             warnings                 = other.warnings;
             bed_type                 = other.bed_type;
             bed_match_result         = other.bed_match_result;
@@ -422,14 +528,31 @@ class Print;
             defaultAcc                        = other.defaultAcc;
             printer_model                     = other.printer_model;
             printer_settings_id                = other.printer_settings_id;
+            generated_filament_map             = other.generated_filament_map;
+            generated_filament_map_mode        = other.generated_filament_map_mode;
+            generated_filament_map_present     = other.generated_filament_map_present;
             gcode_uuid                        = other.gcode_uuid;
             nozzle_diameter                   = other.nozzle_diameter;
+            nozzle_diameters                  = other.nozzle_diameters;
+            filament_nozzle_diameters         = other.filament_nozzle_diameters;
             all_surface_with_shell            = other.all_surface_with_shell;
             wipe_tower_tool_changes_layers    = other.wipe_tower_tool_changes_layers;
             should_enable_preview_lod         = other.should_enable_preview_lod;
             max_printer_bed_temp              = other.max_printer_bed_temp;
             max_printer_nozzle_temp           = other.max_printer_nozzle_temp;
+            flush_into_solid_skeleton         = other.flush_into_solid_skeleton;
             image_data                        = other.image_data;
+            pathological_probe_result         = other.pathological_probe_result;
+            pathological_probe_ticket         = other.pathological_probe_ticket;
+            pathological_line_probe           = other.pathological_line_probe;
+            pathological_probe_lifecycle       = other.pathological_probe_lifecycle;
+            pathological_probe_session_id      = other.pathological_probe_session_id;
+            pathological_probe_input_path      = other.pathological_probe_input_path;
+            if (preserve_completed_probe) {
+                pathological_probe_result = completed_probe_result;
+                pathological_probe_ticket = completed_probe_ticket;
+                pathological_probe_lifecycle = PathologicalProbeLifecycle::Completed;
+            }
             x_offset                          = other.x_offset;
             y_offset                          = other.y_offset;
             multicolor_method                 = other.multicolor_method;
@@ -1050,8 +1173,15 @@ class Print;
         EPositioningType m_e_local_positioning_type;
         std::vector<Vec3f> m_extruder_offsets;
         GCodeFlavor m_flavor;
+        std::shared_ptr<PathologicalLineAnalysis> m_pathological_protection_analysis;
+        KlipperSim::SimConfig m_pathological_probe_config;
+        // Machine-profile master switch for the complete probe/protection feature.
+        bool m_pathological_protection_enabled{false};
+        // Runtime-only mode for this export, armed by a consumed Fix request.
+        bool m_pathological_protection_active{false};
 
-        float       m_nozzle_volume;
+        std::vector<float>      m_nozzle_volumes;
+        std::vector<NozzleType> m_nozzle_types;
         AxisCoords m_start_position; // mm
         AxisCoords m_end_position; // mm
         AxisCoords m_origin; // mm
@@ -1098,6 +1228,8 @@ class Print;
         int m_object_id{ -1 }; // Current label object id from "; OBJECT_ID:" comment markers.
         unsigned char m_extruder_id;
         unsigned char m_last_extruder_id;
+        size_t m_machine_limit_variant_stride{2};
+        bool m_machine_limits_per_nozzle{false};
         int m_skeleton_flush_preview_extruder_id;
         ExtruderColors m_extruder_colors;
         ExtruderTemps m_extruder_temps;
@@ -1110,7 +1242,33 @@ class Print;
         float m_zero_layer_height; // mm
         bool m_processing_start_custom_gcode;
         unsigned int m_g1_line_id;
+        // Number of TimeMachine g1 ids consumed by each source motion command.
+        // M73/placeholder post-processing preserves motion command order, allowing
+        // run_post_process() to reuse these values without reparsing coordinates or arcs.
+        std::vector<unsigned int> m_g1_line_id_deltas;
+
+        struct ToolChangeTimeCacheItem
+        {
+            unsigned int line_id{ 0 };
+            unsigned int g1_line_id{ 0 };
+            std::array<float, static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count)> elapsed_times{ 0.0f, 0.0f };
+        };
+        std::vector<ToolChangeTimeCacheItem> m_toolchange_times_cache;
+
+        size_t m_written_motion_delta_id = 0;
         unsigned int m_layer_id;
+        bool m_has_trusted_layer_boundary{ false };
+        struct ZaaLayerCandidate
+        {
+            std::optional<float> nominal_z;
+            size_t               first{ 0 };
+            size_t               last{ 0 };
+            bool                 has_extrusion{ false };
+            size_t               boundary_line_id{ 0 };
+        };
+        std::vector<ZaaLayerCandidate> m_zaa_layer_candidates;
+        bool                           m_is_own_generated_gcode{ false };
+        bool                           m_zaa_continuous_z_extrusion_detected{ false };
         CpColor m_cp_color;
         SeamsDetector m_seams_detector;
         OptionsZCorrector m_options_z_corrector;
@@ -1119,6 +1277,7 @@ class Print;
         int m_seams_count;
         bool m_single_extruder_multi_material;
         float m_preheat_time;
+        int m_preheat_temperature_delta;
         int m_preheat_steps;
         float             m_flush_time = 2.0;
 #if ENABLE_GCODE_VIEWER_STATISTICS
@@ -1167,6 +1326,18 @@ class Print;
         }
         void enable_machine_envelope_processing(bool enabled) { m_time_processor.machine_envelope_processing_enabled = enabled; }
         void reset();
+        void start_pathological_protection_analysis(bool protection_requested);
+        bool pathological_probe_capability_valid(std::string* reason = nullptr) const;
+        bool pathological_protection_active() const {
+            return m_pathological_protection_active;
+        }
+        const KlipperSim::SimConfig& pathological_probe_config() const {
+            return m_pathological_probe_config;
+        }
+        std::shared_ptr<PathologicalLineAnalysis> pathological_protection_analysis() const
+        {
+            return m_pathological_protection_analysis;
+        }
 
         const GCodeProcessorResult& get_result() const { return m_result; }
         GCodeProcessorResult& result() { return m_result; }
@@ -1174,7 +1345,11 @@ class Print;
 
         // Load a G-code into a stand-alone G-code viewer.
         // throws CanceledException through print->throw_if_canceled() (sent by the caller as callback).
-        void process_file(const std::string& filename, std::function<void()> cancel_callback = nullptr);
+        // allow_pathological_probe is false only when reparsing a file that was
+        // already handled by the full protection pass in the same export.
+        void process_file(const std::string& filename,
+                          std::function<void()> cancel_callback = nullptr,
+                          bool allow_pathological_probe = true);
 
 #ifdef SLIC3R_ENABLE_GCODE_IMPORT_PROFILE_OVERLAY_FOR_TEST
         struct GCodeImportProfileOverlay {
@@ -1200,6 +1375,8 @@ class Print;
         // Streaming interface, for processing G-codes just generated by PrusaSlicer in a pipelined fashion.
         void initialize(const std::string& filename);
         void process_buffer(const std::string& buffer);
+        // Validate that motion commands written to disk match the parsed command sequence.
+        void record_written_line(std::string_view line);
         void  finalize(bool post_process, float filament_used = 0.0f, float flush_time = 0.0f, bool is_multicolor_method = false);
         float layer_time();
         float layer_flow();
@@ -1240,10 +1417,13 @@ class Print;
         void apply_config_simplify3d(const std::string& filename);
         void apply_config_superslicer(const std::string& filename);
         void apply_config_cura(const std::string& filename);
-        void process_gcode_line(const GCodeReader::GCodeLine& line, bool producers_enabled);
+        void process_gcode_line(const GCodeReader::GCodeLine& line, bool producers_enabled,
+                                bool allow_pathological_probe);
 
         // Process tags embedded into comments
         void process_tags(const std::string_view comment, bool producers_enabled);
+        void begin_logical_layer();
+        void finalize_zaa_layers();
         bool process_producers_tags(const std::string_view comment);
 
         //Creality
@@ -1402,6 +1582,9 @@ class Print;
         // 1) add remaining time lines M73 and update moves' gcode ids accordingly
         // 2) update used filament data
         void run_post_process();
+        // Final metadata/preheat pass using one sequential scan and a streaming rewrite.
+        // TimeProcessor has already handled placeholders and M73 before this is called.
+        void run_post_process_full_optimized();
 
         //BBS: different path_type is only used for arc move
         void store_move_vertex(EMoveType type, EMovePathType path_type = EMovePathType::Noop_move);
@@ -1410,6 +1593,10 @@ class Print;
 
         float minimum_feedrate(PrintEstimatedStatistics::ETimeMode mode, float feedrate) const;
         float minimum_travel_feedrate(PrintEstimatedStatistics::ETimeMode mode, float feedrate) const;
+        size_t physical_nozzle_index(size_t filament_id) const;
+        float nozzle_volume_for_extruder(size_t extruder_id) const;
+        NozzleType nozzle_type_for_extruder(size_t extruder_id) const;
+        size_t machine_limit_option_index(PrintEstimatedStatistics::ETimeMode mode) const;
         float get_axis_max_feedrate(PrintEstimatedStatistics::ETimeMode mode, Axis axis) const;
         float get_axis_max_acceleration(PrintEstimatedStatistics::ETimeMode mode, Axis axis) const;
         float get_axis_max_jerk(PrintEstimatedStatistics::ETimeMode mode, Axis axis) const;

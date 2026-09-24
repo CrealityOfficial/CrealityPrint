@@ -1,4 +1,5 @@
 #include "calib.hpp"
+#include "RetractConfigTrace.hpp"
 #include "BoundingBox.hpp"
 #include "Config.hpp"
 #include "Model.hpp"
@@ -16,7 +17,7 @@ float CalibPressureAdvance::find_optimal_PA_speed(const DynamicPrintConfig &conf
     const double general_suggested_min_speed   = 100.0;
     double       filament_max_volumetric_speed = config.option<ConfigOptionFloats>("filament_max_volumetric_speed")->get_at(0);
     Flow         pattern_line = Flow(line_width, layer_height, config.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0));
-    auto         pa_speed     = std::min(std::max(general_suggested_min_speed, config.option<ConfigOptionFloat>("outer_wall_speed")->value),
+    auto         pa_speed                      = std::min(std::max(general_suggested_min_speed, config.option<ConfigOptionFloatsNullable>("outer_wall_speed")->get_at(get_physical_nozzle_index(config, filament_idx))),
                                          filament_max_volumetric_speed / pattern_line.mm3_per_mm());
 
     return std::floor(pa_speed);
@@ -429,7 +430,7 @@ std::string CalibPressureAdvance::draw_box(GCodeWriter &writer, double min_x, do
     return gcode.str();
 }
 CalibPressureAdvanceLine::CalibPressureAdvanceLine(GCode* gcodegen)
-    : CalibPressureAdvance(gcodegen->config()), mp_gcodegen(gcodegen), m_nozzle_diameter(gcodegen->config().nozzle_diameter.get_at(0))
+    : CalibPressureAdvance(gcodegen->config()), mp_gcodegen(gcodegen), m_nozzle_diameter(get_physical_nozzle_diameter(gcodegen->config(), 0))
 {
     m_line_width        = m_nozzle_diameter < 0.51 ? m_nozzle_diameter * 1.5 : m_nozzle_diameter * 1.05;
     m_height_layer      = gcodegen->config().initial_layer_print_height;
@@ -542,6 +543,8 @@ void CalibPressureAdvancePattern::generate_custom_gcodes(const DynamicPrintConfi
                                                          Model                    &model,
                                                          const Vec3d              &origin)
 {
+    RetractConfigTrace trace("PA.generate_custom_gcodes", this);
+    trace.note("STATE", " writer=", &m_writer, " objects=", model.objects.size());
     const bool old_full_gcode_comment = GCodeWriter::full_gcode_comment;
     GCodeWriter::full_gcode_comment = config.option<ConfigOptionBool>("gcode_comments")->value;
     ScopeGuard restore_full_gcode_comment([old_full_gcode_comment]() {
@@ -732,8 +735,11 @@ void CalibPressureAdvancePattern::_refresh_starting_point(const Model &model)
 
 void CalibPressureAdvancePattern::_refresh_writer(bool is_bbl_machine, const Model &model, const Vec3d &origin)
 {
+    RetractConfigTrace trace("PA.refresh_writer", this);
+    trace.note("STATE", " writer=", &m_writer, " writer_config=", &m_writer.config);
     PrintConfig print_config;
     print_config.apply(m_config, true);
+    trace.config("MATERIALIZED", print_config);
 
     m_writer.apply_print_config(print_config);
     m_writer.set_xy_offset(origin(0), origin(1));

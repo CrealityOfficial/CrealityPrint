@@ -1,0 +1,13 @@
+{
+    "bed_model": "creality_k1_buildplate_model.stl",
+    "bed_texture": "",
+    "default_bed_type": "Textured PEI Plate",
+    "default_materials": "HP-TPU;CR-ABS;CR-PETG;Hyper PLA;",
+    "family": "Creality",
+    "hotend_model": "",
+    "machine_tech": "FFF",
+    "model_id": "Creality_K3",
+    "name": "Creality K3",
+    "nozzle_diameter": "0.4",
+    "type": "machine_model"
+}

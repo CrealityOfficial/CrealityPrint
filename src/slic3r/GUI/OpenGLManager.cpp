@@ -373,6 +373,7 @@ std::string OpenGLManager::GLInfo::to_string(bool for_github) const
 OpenGLManager::GLInfo OpenGLManager::s_gl_info;
 bool OpenGLManager::s_compressed_textures_supported = false;
 bool OpenGLManager::s_force_power_of_two_textures = false;
+bool OpenGLManager::s_software_renderer = false;
 OpenGLManager::EMultisampleState OpenGLManager::s_multisample = OpenGLManager::EMultisampleState::Unknown;
 OpenGLManager::EFramebufferType OpenGLManager::s_framebuffers_type = OpenGLManager::EFramebufferType::Unknown;
 
@@ -453,6 +454,8 @@ bool OpenGLManager::init_gl(bool popup_error)
         m_valid_version = s_gl_info.is_version_greater_or_equal_to(2, 0);
 #ifdef _WIN32
         const int renderer_mode = software_renderer_mode();
+        // Preserve the one-shot startup decision for optional GPU features.
+        s_software_renderer = s_software_renderer || renderer_mode != 0;
         if (popup_error && renderer_mode != 0) {
             const wxString message = renderer_mode == 1
                 ? _L("The current display driver does not provide the required OpenGL support. The application has switched to software rendering, which may cause the interface and 3D operations to run slowly. Please update the display driver when possible.")

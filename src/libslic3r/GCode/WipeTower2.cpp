@@ -566,9 +566,9 @@ WipeTower2::WipeTower2(const PrintConfig& config, const PrintRegionConfig& defau
     m_bridging(float(config.wipe_tower_bridging)),
     m_no_sparse_layers(config.wipe_tower_no_sparse_layers),
     m_gcode_flavor(config.gcode_flavor),
-    m_travel_speed(config.travel_speed),
-    m_infill_speed(default_region_config.sparse_infill_speed),
-    m_perimeter_speed(default_region_config.inner_wall_speed),
+    m_travel_speed(float(config.travel_speed.get_at(get_physical_nozzle_index(config, initial_tool)))),
+    m_infill_speed(float(default_region_config.sparse_infill_speed.get_at(get_physical_nozzle_index(config, initial_tool)))),
+    m_perimeter_speed(float(default_region_config.inner_wall_speed.get_at(get_physical_nozzle_index(config, initial_tool)))),
     m_current_tool(initial_tool),
     wipe_volumes(wiping_matrix),
     m_wipe_tower_max_purge_speed(float(config.wipe_tower_max_purge_speed))
@@ -577,7 +577,8 @@ WipeTower2::WipeTower2(const PrintConfig& config, const PrintRegionConfig& defau
     // it is taken over following default. Speeds from config are not
     // easily accessible here.
     const float default_speed = 60.f;
-    m_first_layer_speed = config.initial_layer_speed;
+    const size_t nozzle_idx = get_physical_nozzle_index(config, initial_tool);
+    m_first_layer_speed = float(config.initial_layer_speed.get_at(nozzle_idx));
     if (m_first_layer_speed == 0.f) // just to make sure autospeed doesn't break it.
         m_first_layer_speed = default_speed / 2.f;
 
@@ -1547,8 +1548,14 @@ std::pair<double, double> WipeTower2::get_wipe_tower_cone_base(double width, dou
 std::vector<std::vector<float>> WipeTower2::extract_wipe_volumes(const PrintConfig& config)
 {
     // Get wiping matrix to get number of extruders and convert vector<double> to vector<float>:
-    std::vector<float> wiping_matrix(cast<float>(config.flush_volumes_matrix.values));
+    const unsigned int number_of_extruders = (unsigned int)config.filament_diameter.size();
+    const size_t nozzle_count = std::max<size_t>(1, config.nozzle_diameter.size());
+    std::vector<float> wiping_matrix(cast<float>(get_flush_volumes_matrix(
+        config.flush_volumes_matrix.values, 0, nozzle_count, number_of_extruders)));
     auto scale = config.flush_multiplier;
+
+    if (number_of_extruders == 0 || wiping_matrix.size() != size_t(number_of_extruders) * number_of_extruders)
+        return {};
 
     // The values shall only be used when SEMM is enabled. The purging for other printers
     // is determined by filament_minimal_purge_on_wipe_tower.
@@ -1557,7 +1564,6 @@ std::vector<std::vector<float>> WipeTower2::extract_wipe_volumes(const PrintConf
 
     // Extract purging volumes for each extruder pair:
     std::vector<std::vector<float>> wipe_volumes;
-    const unsigned int number_of_extruders = (unsigned int)(sqrt(wiping_matrix.size())+EPSILON);
     for (size_t i = 0; i < number_of_extruders; ++i)
         wipe_volumes.push_back(std::vector<float>(wiping_matrix.begin()+i*number_of_extruders, wiping_matrix.begin()+(i+1)*number_of_extruders));
 

@@ -11,6 +11,8 @@ class CmdChannel;
 
 extern bool enable_test;
 
+void mark_app_ready();
+
 enum class Button : wxWindowID {
     Slice       = 9000,
     ExportGCode = 9001

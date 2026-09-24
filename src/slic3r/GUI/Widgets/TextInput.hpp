@@ -63,6 +63,10 @@ public:
     void setLeftMargin(int margin) { m_LeftMargin = margin; }
 
 protected:
+    // Replace an already-rendered icon without calling the virtual Rescale().
+    // Used by derived controls while they are inside their own Rescale() path.
+    void SetIconBitmapWithoutRescale(const wxBitmap& bitmap);
+
     virtual void OnEdit() {}
 
 	virtual void DoSetSize(

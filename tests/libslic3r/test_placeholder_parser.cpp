@@ -114,3 +114,31 @@ SCENARIO("Placeholder parser scripting", "[PlaceholderParser]") {
     SECTION("complex expression2") { REQUIRE(boolean_expression("printer_notes=~/.*PRINTER_VEwerfNDOR_PRUSA3D.*/ or printer_notes=~/.*PRINTertER_MODEL_MK2.*/ or (nozzle_diameter[0]==0.6 and num_extruders>1)")); }
     SECTION("complex expression3") { REQUIRE(! boolean_expression("printer_notes=~/.*PRINTER_VEwerfNDOR_PRUSA3D.*/ or printer_notes=~/.*PRINTertER_MODEL_MK2.*/ or (nozzle_diameter[0]==0.3 and num_extruders>1)")); }
 }
+
+
+TEST_CASE("Process percentage placeholders use the mapped physical nozzle", "[PlaceholderParser][17885]")
+{
+    auto config = DynamicPrintConfig::full_print_config();
+    config.option<ConfigOptionInts>("filament_map")->values = {1, 2, 1, 2};
+    config.option<ConfigOptionFloats>("default_acceleration")->values = {5004., 7003.};
+    config.option<ConfigOptionFloats>("outer_wall_acceleration")->values = {3687., 7458.};
+    config.option<ConfigOptionFloats>("bridge_speed")->values = {30., 60.};
+    config.option<ConfigOptionFloats>("travel_speed")->values = {400., 500.};
+    config.set_key_value("internal_solid_infill_acceleration", new ConfigOptionFloatOrPercent(100., true));
+    config.set_key_value("bridge_acceleration", new ConfigOptionFloatOrPercent(50., true));
+    config.set_key_value("internal_bridge_speed", new ConfigOptionFloatsOrPercentsNullable{
+        FloatOrPercent(150., true), FloatOrPercent(120., true)});
+    config.set_key_value("wipe_speed", new ConfigOptionFloatOrPercent(80., true));
+    config.option<ConfigOptionFloatsOrPercents>("sparse_infill_acceleration")->values = {
+        FloatOrPercent(50., true), FloatOrPercent(80., true)
+    };
+    PlaceholderParser parser;
+    parser.apply_config(config);
+    REQUIRE(std::stod(parser.process("{internal_solid_infill_acceleration}", 0)) == Approx(5004.));
+    REQUIRE(std::stod(parser.process("{internal_solid_infill_acceleration}", 3)) == Approx(7003.));
+    REQUIRE(std::stod(parser.process("{bridge_acceleration}", 3)) == Approx(3729.));
+    REQUIRE(std::stod(parser.process("{internal_bridge_speed}", 0)) == Approx(45.));
+    REQUIRE(std::stod(parser.process("{internal_bridge_speed}", 3)) == Approx(72.));
+    REQUIRE(std::stod(parser.process("{wipe_speed}", 3)) == Approx(400.));
+    REQUIRE(std::stod(parser.process("{sparse_infill_acceleration}", 3)) == Approx(5602.4));
+}

@@ -1,6 +1,8 @@
 #ifndef WipeTower_
 #define WipeTower_
 
+#include "FilamentChangeTopology.hpp"
+
 #include <cmath>
 #include <string>
 #include <sstream>
@@ -83,6 +85,11 @@ public:
         // an extra retraction-unretraction pair.
         std::vector<Vec2f> wipe_path;
         std::vector<std::vector<Vec2f>> wipe_paths;
+        // Creality tower planner decisions, parallel to wipe_paths. A final
+        // path is left unretracted until the next model/tower destination is known.
+        std::vector<bool> wipe_retractions;
+        float wipe_retraction_minimum_travel = 0.f;
+        bool wipe_retraction_pending = false;
 		// BBS
         float purge_volume = 0.f;
 
@@ -91,6 +98,10 @@ public:
 
         // New tool
         int new_tool;
+
+        // Planning-time topology for this logical filament change. G-code output
+        // consumes this value instead of deriving physical-nozzle residency again.
+        std::optional<FilamentChangeTopology> filament_change_topology;
 
         // BBS: in bbl filament_change_gcode, toolhead will be moved to the wipe tower automatically.
         // But if finish_layer_tcr is before tool_change_tcr, we have to travel to the wipe tower before

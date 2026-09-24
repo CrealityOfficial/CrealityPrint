@@ -1,4 +1,5 @@
 #include "DeviceListSimple.hpp"
+#include "slic3r/Utils/PrinterCover.hpp"
 
 #include "MCPChatPanel.hpp"
 
@@ -577,11 +578,17 @@ std::string SimpleDeviceMgr::get_preset_name_by_current_device(bool& already_loa
 
     // Two passes: prefer exact model match, then fall back to substring match.
     for (bool exact : {true, false}) {
-        // Prefer an already loaded (visible) preset.
+        // Bound devices use the 0.4 nozzle preset by default. If that model has
+        // no 0.4 preset, fall back to its first loaded preset.
+        std::string loaded_fallback;
         for (const auto& item : items) {
             if (matches(item, exact)) {
-                already_loaded = true;
-                return item;
+                if (has_04_nozzle(item)) {
+                    already_loaded = true;
+                    return item;
+                }
+                if (loaded_fallback.empty())
+                    loaded_fallback = item;
             }
         }
 
@@ -597,9 +604,20 @@ std::string SimpleDeviceMgr::get_preset_name_by_current_device(bool& already_loa
                 found = &preset;
             }
         }
-        if (const Preset* chosen = found_04 ? found_04 : found) {
-            already_loaded = chosen->is_visible;
-            return chosen->name;
+        if (found_04) {
+            already_loaded = found_04->is_visible;
+            return found_04->name;
+        }
+
+        // Only fall back after confirming that no 0.4 preset exists for this
+        // model, including presets that are not currently visible.
+        if (!loaded_fallback.empty()) {
+            already_loaded = true;
+            return loaded_fallback;
+        }
+        if (found) {
+            already_loaded = found->is_visible;
+            return found->name;
         }
     }
 
@@ -1001,15 +1019,19 @@ bool SimpleDeviceMgr::get_cur_device_info(std::string& out_title,
 
 void SimpleDeviceMgr::update_printer_device_list_data_simple(std::string vendor, bool bForce)
 {
-    if (!bForce && !m_device_list_dirty_mark)
+    const auto revision = printer_cover_revision();
+    if (!bForce && !m_device_list_dirty_mark && m_cover_revision_all == revision)
         return;
+    m_cover_revision_all = revision;
     rebuild_device_list(m_simple_device_list_data, vendor, [](const DM::Device&) { return true; });
 }
 
 void SimpleDeviceMgr::update_same_model_printer_device_list_data(std::string vendor, bool bForce)
 {
-    if (!bForce && !m_device_list_dirty_mark)
+    const auto revision = printer_cover_revision();
+    if (!bForce && !m_device_list_dirty_mark && m_cover_revision_same_model == revision)
         return;
+    m_cover_revision_same_model = revision;
     PresetBundle& preset_bundle       = *wxGetApp().preset_bundle;
     auto          preset              = preset_bundle.printers.get_edited_preset();
     auto          current_printer_model = preset.config.opt_string("printer_model");
@@ -1041,25 +1063,8 @@ const Simple_Device_List_Data& SimpleDeviceMgr::get_device_list_data_simple(bool
 
 bool SimpleDeviceMgr::set_cur_device_by_cur_preset_simple()
 {
-    std::string selected_mac;
-    auto        cur_preset        = wxGetApp().preset_bundle->printers.get_selected_preset();
-    auto        cur_preset_config = cur_preset.config;
-    if (wxGetApp().preset_bundle->printers.get_selected_preset().is_system) {
-        auto cache         = EasyCache::get_instance().data();
-        auto printer_model = cur_preset_config.opt_string("printer_model");
-        if (cache.contains("system_preset_bundle_deivce") && cache["system_preset_bundle_deivce"].contains(printer_model)) {
-            std::string json_key   = "unique";
-            auto        nozzle_dia = cur_preset_config.opt_serialize("nozzle_diameter");
-            if (!nozzle_dia.empty())
-                json_key = nozzle_dia;
-
-            if (cache["system_preset_bundle_deivce"][printer_model].contains(json_key))
-                selected_mac = cache["system_preset_bundle_deivce"][printer_model][json_key];
-        }
-    } else {
-        if (cur_preset_config.has("printer_select_mac"))
-            selected_mac = cur_preset_config.opt_string("printer_select_mac");
-    }
+    const auto& cur_preset = wxGetApp().preset_bundle->printers.get_selected_preset();
+    std::string selected_mac = get_preset_bound_device_mac(cur_preset);
 
     if (selected_mac.empty()) {
         update_same_model_printer_device_list_data("Creality", true);
@@ -1096,8 +1101,6 @@ void SimpleDeviceMgr::rebuild_device_list(Simple_Device_List_Data& out, const st
     m_device_list_dirty_mark = false;
     auto devicesData = DM::DataCenter::Ins().GetData();
     auto printerData = devicesData["data"];
-    //const auto& model2CoverMap = wxGetApp().app_config->get_model2cover_path();
-    const auto& printer_cover_map = wxGetApp().app_config->get_model2cover_path();
     PresetBundle& preset_bundle       = *wxGetApp().preset_bundle;
     auto          preset              = preset_bundle.printers.get_edited_preset();
     auto          current_printer_model = preset.config.opt_string("printer_model");
@@ -1116,16 +1119,10 @@ void SimpleDeviceMgr::rebuild_device_list(Simple_Device_List_Data& out, const st
             // model img
             auto printer_model = vendor + " " + device.modelName;
 
-            auto coverPath = Slic3r::resources_dir() + "/images/printer_default.png";
-            {
-                auto iter = printer_cover_map.find(printer_model);
-                if (iter == printer_cover_map.end()) {
-                    iter = printer_cover_map.find(device.modelName);
-                }
-                if (iter != printer_cover_map.end()) {
-                    coverPath = iter->second;
-                }
-            }
+            auto coverPath = wxGetApp().app_config->get_printer_cover(device.modelName);
+            const auto qualified_cover = wxGetApp().app_config->get_printer_cover(printer_model, vendor);
+            if (qualified_cover != wxGetApp().app_config->get_printer_cover(""))
+                coverPath = qualified_cover;
 
             bool              is_current     = false;
             const DM::Device& current_device = DM::DataCenter::Ins().get_current_device_data();
@@ -1287,7 +1284,14 @@ void SimpleDeviceMgr::check_diff_settings_to_system(const Slic3r::DynamicConfig&
 
     DynamicPrintConfig& current_printer_config = preset_bundle.printers.get_edited_preset().config;
     const std::set<std::string> printer_diff_keys = parse_diff_keys(different_values, loaded_filament_count + 1);
-    apply_imported_diff_keys(current_printer_config, import_config, printer_diff_keys);
+    const DynamicPrintConfig current_printer_source(current_printer_config);
+    const std::set<std::string> handled_printer_variant_keys = restore_project_variant_overrides(
+        Preset::TYPE_PRINTER, current_printer_config, import_config, current_printer_source,
+        printer_diff_keys);
+    std::set<std::string> direct_printer_diff_keys = printer_diff_keys;
+    for (const std::string &key : handled_printer_variant_keys)
+        direct_printer_diff_keys.erase(key);
+    apply_imported_diff_keys(current_printer_config, import_config, direct_printer_diff_keys);
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__
                             << ": migrated simple-mode 3mf settings to current printer="
@@ -1447,6 +1451,16 @@ void render_device_list_popup(GLCanvas3D& canvas, float /*x*/, float /*y*/, floa
     for (const auto& k : data.offline_device_list) keys.push_back(k);
 
     static std::unordered_map<std::string, ImTextureID> s_tex;
+    static uint64_t texture_revision = 0;
+    const auto revision = printer_cover_revision();
+    if (texture_revision != revision) {
+        for (const auto& entry : s_tex) {
+            const auto id = static_cast<GLuint>(reinterpret_cast<intptr_t>(entry.second));
+            glsafe(::glDeleteTextures(1, &id));
+        }
+        s_tex.clear();
+        texture_revision = revision;
+    }
 
     // Increase spacing between cards via table cell padding
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(cell_gap_x, cell_gap_y));
@@ -1499,7 +1513,11 @@ void render_device_list_popup(GLCanvas3D& canvas, float /*x*/, float /*y*/, floa
                 // loads. A failed load (missing file, transient GL hiccup,
                 // path encoding issue) will simply re-attempt next frame
                 // instead of leaving a permanent white card.
-                if (IMTexture::load_from_png_file(item.cover_path, (unsigned)img_w, (unsigned)img_h, id) && id != nullptr) {
+                bool loaded = IMTexture::load_from_png_file(item.cover_path, (unsigned)img_w, (unsigned)img_h, id);
+                if (!loaded || id == nullptr)
+                    loaded = IMTexture::load_from_png_file(Slic3r::resources_dir() + "/images/printer_default.png",
+                                                           (unsigned)img_w, (unsigned)img_h, id);
+                if (loaded && id != nullptr) {
                     s_tex[item.cover_path] = id;
                     tex = id;
                 }

@@ -35,21 +35,11 @@
 #define CLI_INVALID_PRINTER_TECH    -7
 #define CLI_UNSUPPORTED_OPERATION   -8
 
-#define CLI_COPY_OBJECTS_ERROR      -9
-#define CLI_SCALE_TO_FIT_ERROR      -10
-#define CLI_EXPORT_STL_ERROR        -11
-#define CLI_EXPORT_OBJ_ERROR        -12
-#define CLI_EXPORT_3MF_ERROR        -13
 #define CLI_OUT_OF_MEMORY           -14
-#define CLI_3MF_NOT_SUPPORT_MACHINE_CHANGE      -15
-#define CLI_3MF_NEW_MACHINE_NOT_SUPPORTED       -16
 #define CLI_PROCESS_NOT_COMPATIBLE     -17
 #define CLI_INVALID_VALUES_IN_3MF      -18
 #define CLI_POSTPROCESS_NOT_SUPPORTED  -19
-#define CLI_PRINTABLE_SIZE_REDUCED     -20
 #define CLI_OBJECT_ARRANGE_FAILED      -21
-#define CLI_OBJECT_ORIENT_FAILED       -22
-#define CLI_MODIFIED_PARAMS_TO_PRINTER -23
 #define CLI_FILE_VERSION_NOT_SUPPORTED -24
 
 
@@ -181,6 +171,7 @@ void set_custom_gcodes_dir(const std::string &path);
 const std::string& custom_gcodes_dir();
 
 // Set a path with preset files.
+std::string data_directory_name();
 void set_data_dir(const std::string &path, bool use_directly = false);
 // Return a full path to the GUI resource files.
 const std::string& data_dir();

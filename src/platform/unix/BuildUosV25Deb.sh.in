@@ -1,0 +1,186 @@
+#!/bin/bash
+
+# Package a UOS V25 build. The target uses the WebKitGTK 4.1 ABI.
+set -euo pipefail
+
+ROOT="${ROOT:-$(pwd)}"
+DEFAULT_VERSION="@CREALITYPRINT_VERSION@"
+PACKAGE_VERSION="$DEFAULT_VERSION"
+PACKAGE_SUFFIX="uosv25-@PROJECT_VERSION_EXTRA@"
+
+usage() {
+    cat <<EOF
+Usage: ./BuildUosV25Deb.sh [--version VERSION]
+
+Packages @SLIC3R_APP_NAME@ for UOS V25.
+
+Options:
+  -v, --version VERSION  Custom product version (default: $DEFAULT_VERSION)
+  -h, --help             Show this help message
+
+Set MSPACK_LIB to override automatic libmspack discovery when packaging
+from a cross-compilation host.
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -v|--version)
+            [ "$#" -ge 2 ] || { echo "Missing value for $1" >&2; exit 2; }
+            PACKAGE_VERSION="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+# Debian versions may contain these characters; rejecting whitespace prevents
+# malformed control files and output names.
+case "$PACKAGE_VERSION" in
+    ""|*[!A-Za-z0-9.+:~_-]*)
+        echo "Invalid Debian package version: $PACKAGE_VERSION" >&2
+        exit 2
+        ;;
+esac
+
+DEB_VERSION="${PACKAGE_VERSION}-${PACKAGE_SUFFIX}"
+
+APP_NAME="@SLIC3R_APP_NAME@"
+APP_CMD="@SLIC3R_APP_CMD@"
+PKG_NAME_LOWER=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]')
+
+# UOS V25 is deployed on both architectures. Keep this auto-detection for
+# native builds, while allowing cross builds to pass TARGET_ARCH explicitly.
+ARCH="${TARGET_ARCH:-}"
+if [ -z "$ARCH" ]; then
+    case "$(dpkg --print-architecture 2>/dev/null || uname -m)" in
+        amd64|x86_64) ARCH=amd64 ;;
+        arm64|aarch64) ARCH=arm64 ;;
+        *) echo "Unsupported target architecture" >&2; exit 1 ;;
+    esac
+fi
+
+DEB_ROOT="uos_v25_deb_root"
+DEBUG_ROOT="uos_v25_deb_debug_root"
+APP_DIR="opt/$APP_NAME"
+BIN_DIR="$APP_DIR/bin"
+LIB_DIR="$APP_DIR/lib"
+RES_DIR="$APP_DIR/resources"
+DEBUG_BIN_DIR="usr/lib/debug/$BIN_DIR"
+
+rm -rf "$DEB_ROOT" "$DEBUG_ROOT"
+mkdir -p "$DEB_ROOT/DEBIAN" "$DEB_ROOT/$BIN_DIR" "$DEB_ROOT/$LIB_DIR" \
+         "$DEB_ROOT/$RES_DIR" "$DEB_ROOT/usr/bin" \
+         "$DEB_ROOT/usr/share/applications" \
+         "$DEB_ROOT/usr/share/icons/hicolor/32x32/apps" \
+         "$DEB_ROOT/usr/share/icons/hicolor/128x128/apps" \
+         "$DEB_ROOT/usr/share/icons/hicolor/192x192/apps" \
+         "$DEBUG_ROOT/DEBIAN" "$DEBUG_ROOT/$DEBUG_BIN_DIR"
+
+cp -a ../resources/. "$DEB_ROOT/$RES_DIR/"
+chmod -R a+rX "$DEB_ROOT/$RES_DIR"
+cp -f "src/$APP_CMD" "$DEB_ROOT/$BIN_DIR/$APP_CMD"
+
+SOURCE_BINARY="src/$APP_CMD"
+STAGED_BINARY="$DEB_ROOT/$BIN_DIR/$APP_CMD"
+if [ -z "${MSPACK_LIB:-}" ]; then
+    if [ "$ARCH" = arm64 ] && [ -f /usr/lib/aarch64-linux-gnu/libmspack.so.0 ]; then
+        MSPACK_LIB=/usr/lib/aarch64-linux-gnu/libmspack.so.0
+    elif [ "$ARCH" = amd64 ] && [ -f /usr/lib/x86_64-linux-gnu/libmspack.so.0 ]; then
+        MSPACK_LIB=/usr/lib/x86_64-linux-gnu/libmspack.so.0
+    else
+        MSPACK_LIB=$(ldd "$SOURCE_BINARY" | awk '$1 == "libmspack.so.0" { print $3; exit }')
+    fi
+fi
+
+if [ ! -f "$MSPACK_LIB" ]; then
+    echo "Unable to resolve libmspack.so.0; set MSPACK_LIB explicitly." >&2
+    exit 1
+fi
+command -v patchelf >/dev/null || { echo "patchelf is required" >&2; exit 1; }
+cp -L "$MSPACK_LIB" "$DEB_ROOT/$LIB_DIR/libmspack.so.0"
+chmod 644 "$DEB_ROOT/$LIB_DIR/libmspack.so.0"
+patchelf --set-rpath '$ORIGIN/../lib' "$STAGED_BINARY"
+
+if [ "$ARCH" = arm64 ] && command -v aarch64-linux-gnu-objcopy >/dev/null; then
+    OBJCOPY_TOOL=aarch64-linux-gnu-objcopy
+    STRIP_TOOL=aarch64-linux-gnu-strip
+else
+    OBJCOPY_TOOL=$(command -v llvm-objcopy || command -v objcopy || true)
+    STRIP_TOOL=$(command -v llvm-strip || command -v strip || true)
+fi
+[ -n "${OBJCOPY_TOOL:-}" ] && [ -n "${STRIP_TOOL:-}" ] || { echo "objcopy and strip are required" >&2; exit 1; }
+
+DEBUG_BINARY="$DEBUG_ROOT/$DEBUG_BIN_DIR/$APP_CMD.debug"
+"$OBJCOPY_TOOL" --only-keep-debug "$STAGED_BINARY" "$DEBUG_BINARY"
+"$STRIP_TOOL" --strip-unneeded "$STAGED_BINARY"
+"$OBJCOPY_TOOL" --add-gnu-debuglink="$DEBUG_BINARY" "$STAGED_BINARY"
+chmod 644 "$DEBUG_BINARY"
+
+cat > "$DEB_ROOT/usr/bin/$APP_CMD" <<EOF
+#!/bin/sh
+export LC_ALL=C
+exec "/$BIN_DIR/$APP_CMD" "\$@"
+EOF
+chmod 755 "$DEB_ROOT/usr/bin/$APP_CMD"
+
+if [ -f "../src/platform/unix/$APP_NAME.desktop" ]; then
+    cp "../src/platform/unix/$APP_NAME.desktop" "$DEB_ROOT/usr/share/applications/$APP_NAME.desktop"
+    sed -i "s#Exec=.*#Exec=/usr/bin/$APP_CMD#; s#Icon=.*#Icon=$APP_NAME#" "$DEB_ROOT/usr/share/applications/$APP_NAME.desktop"
+fi
+for size in 32 128 192; do
+    icon="../resources/images/${APP_NAME}_${size}px.png"
+    [ -f "$icon" ] && cp "$icon" "$DEB_ROOT/usr/share/icons/hicolor/${size}x${size}/apps/$APP_NAME.png"
+done
+
+# Derived from the ARM64 UOS V25 sysroot with dpkg-shlibdeps. Keep the
+# WebKitGTK 4.1 ABI explicit: UOS V25 devices commonly omit the 4.0 ABI.
+UOS_V25_DEPENDS="libasound2, libbz2-1.0, libc6, libcairo-gobject2, libcairo2, libdbus-1-3, libegl1, libexpat1, libfontconfig1, libgcc-s1, libgdk-pixbuf-2.0-0, libglib2.0-0, libglx0, libgtk-3-0, libjavascriptcoregtk-4.1-0, liblzma5, libopengl0, libopus0, libpango-1.0-0, libpangocairo-1.0-0, libpangoft2-1.0-0, libspeexdsp1, libsrtp2-1, libstdc++6, libwayland-client0, libwayland-egl1, libwebkit2gtk-4.1-0, libx11-6, libx264-160, libxkbcommon0, zlib1g"
+
+cat > "$DEB_ROOT/DEBIAN/control" <<EOF
+Package: $PKG_NAME_LOWER
+Version: $DEB_VERSION
+Section: utils
+Priority: optional
+Architecture: $ARCH
+Maintainer: Creality <support@creality.com>
+Depends: $UOS_V25_DEPENDS
+Description: $APP_NAME 3D slicing application for UOS V25
+ $APP_NAME packaged for UOS V25 with WebKitGTK 4.1.
+EOF
+
+cat > "$DEBUG_ROOT/DEBIAN/control" <<EOF
+Package: ${PKG_NAME_LOWER}-dbgsym
+Version: $DEB_VERSION
+Section: debug
+Priority: optional
+Architecture: $ARCH
+Maintainer: Creality <support@creality.com>
+Depends: $PKG_NAME_LOWER (= $DEB_VERSION)
+Description: Debug symbols for $APP_NAME
+ Detached DWARF debug symbols for $APP_NAME.
+EOF
+
+cat > "$DEB_ROOT/DEBIAN/postinst" <<'EOF'
+#!/bin/sh
+set -e
+command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q || true
+command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q /usr/share/icons/hicolor || true
+exit 0
+EOF
+chmod 755 "$DEB_ROOT/DEBIAN/postinst"
+
+DEB_NAME="${APP_NAME}-V${DEB_VERSION}-${ARCH}.deb"
+DEBUG_DEB_NAME="${APP_NAME}-V${DEB_VERSION}-${ARCH}-dbgsym.deb"
+dpkg-deb --root-owner-group --build "$DEB_ROOT" "$DEB_NAME"
+dpkg-deb --root-owner-group --build "$DEBUG_ROOT" "$DEBUG_DEB_NAME"
+echo "Generated: $DEB_NAME"
+echo "Generated: $DEBUG_DEB_NAME"

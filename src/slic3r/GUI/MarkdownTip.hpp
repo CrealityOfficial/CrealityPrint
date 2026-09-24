@@ -49,7 +49,7 @@ namespace Slic3r { namespace GUI {
         void themeChanged();
         void OnPaint(wxPaintEvent& evt);
         wxRect m_lineRect;
-        wxString m_LastTip;
+        ContentS m_LastContent;
         ContentS m_Content;
         wxTimer* m_Timer = nullptr;
         bool m_Hide = false;

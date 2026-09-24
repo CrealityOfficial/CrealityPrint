@@ -444,6 +444,12 @@ public:
 			
             processed_points.push_back({ scaled(curr.position), extrusion_speed, overlap });
         }
+        // Keep path boundaries exact: the floating-point round trip may truncate
+        // a coordinate and break continuity with the adjacent extrusion path.
+        if (!processed_points.empty()) {
+            processed_points.front().p = path.first_point();
+            processed_points.back().p = path.last_point();
+        }
         return processed_points;
     }
 };

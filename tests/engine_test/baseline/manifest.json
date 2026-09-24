@@ -1,0 +1,83 @@
+{
+  "cases": [
+	{
+      "name": "multi-color",
+      "input": "multi-color.3mf",
+      "plate": 0
+    },
+	{
+      "name": "multi-object",
+      "input": "multi-object.3mf",
+      "plate": 0
+    },
+    {
+      "name": "multi-plate",
+      "input": "multi-plate.3mf",
+      "plate": 1
+    },
+	{
+      "name": "simple-box",
+      "input": "simple-box.3mf",
+      "plate": 0
+    },
+	{
+      "name": "support-hybrid",
+      "input": "support-hybrid.3mf",
+      "plate": 0,
+      "modules": ["support"],
+      "performance": {
+        "metrics": {
+          "path.support.total": {
+            "relative": 0.05,
+            "absolute_ms": 50.0
+          }
+        }
+      }
+    },
+	{
+      "name": "support-hybrid-ePolygon",
+      "input": "support-hybrid-ePolygon.3mf",
+      "plate": 0,
+      "modules": ["support"],
+      "performance": {
+        "metrics": {
+          "path.support.total": {
+            "relative": 0.05,
+            "absolute_ms": 50.0
+          }
+        }
+      }
+    },
+    {
+      "name": "support-normal",
+      "input": "support-normal.3mf",
+      "plate": 0,
+	  "modules": ["support"],
+	  "args": ["--no-check"]
+    },
+	{
+      "name": "support-organic",
+      "input": "support-organic.3mf",
+      "plate": 0,
+      "modules": ["support"],
+      "performance": {
+        "metrics": {
+          "path.support.total": {
+            "relative": 0.05,
+            "absolute_ms": 50.0
+          }
+        }
+      }
+    },
+	{
+      "name": "t-command",
+      "input": "t-command.3mf",
+      "plate": 0
+    },
+	{
+      "name": "wipe-tower",
+      "input": "wipe-tower.3mf",
+      "plate": 0
+    }
+  ]
+}

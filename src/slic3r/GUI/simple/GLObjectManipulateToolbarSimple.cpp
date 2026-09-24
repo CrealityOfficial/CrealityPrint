@@ -44,6 +44,7 @@
 
 #include "slic3r/GUI/Gizmos/GLGizmoMeshBoolean.hpp"
 #include "simple/gpu/GpuOrient.hpp"
+#include "slic3r/GUI/Jobs/OrientJob.hpp"
 #include "libslic3r/Orient.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoPainterBase.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoEmboss.hpp"
@@ -1192,25 +1193,13 @@ bool GLCanvas3D::_render_orient_menu_simple()
                         for (auto* mi : obj->instances)
                             if (mi && mi->printable) ++pcnt;
                     items.reserve(pcnt);
-                    for (auto* obj : model.objects) {
+                    for (size_t object_index = 0; object_index < model.objects.size(); ++object_index) {
+                        ModelObject* obj = model.objects[object_index];
                         if (!obj) continue;
-                        for (auto* mi : obj->instances) {
+                        for (size_t instance_index = 0; instance_index < obj->instances.size(); ++instance_index) {
+                            ModelInstance* mi = obj->instances[instance_index];
                             if (!mi || !mi->printable) continue;
-                            orientation::OrientMesh om;
-                            om.name = obj->name;
-                            om.mesh = obj->mesh();
-                            if (obj->config.has("support_threshold_angle"))
-                                om.overhang_angle = obj->config.opt_int("support_threshold_angle");
-                            else {
-                                const DynamicPrintConfig& fc = wxGetApp().preset_bundle->full_config();
-                                om.overhang_angle = fc.opt_int("support_threshold_angle");
-                            }
-                            om.setter = [mi](const orientation::OrientMesh& p) {
-                                mi->rotate(p.rotation_matrix);
-                                mi->get_object()->invalidate_bounding_box();
-                                mi->get_object()->ensure_on_bed();
-                            };
-                            items.emplace_back(std::move(om));
+                            items.emplace_back(OrientJob::create_orientation_input(mi, object_index, instance_index));
                         }
                     }
                     if (!items.empty()) {

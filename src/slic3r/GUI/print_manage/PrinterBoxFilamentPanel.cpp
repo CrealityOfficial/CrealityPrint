@@ -473,6 +473,10 @@ void PrinterBoxFilamentPanel::update_box_filament_items()
     {
         wxWindowUpdateLocker freeze_guard(this);
         for (const auto& materialBox : m_device_data.materialBoxes) {
+            // K3 and CFS Nano do not display the external rack entry.
+            if (materialBox.box_type == 1 && ((m_device_data.valid && m_device_data.model == "F039") || m_device_data.cfsName == "MF049"))
+                continue;
+
             OneBoxFilamentColorItem* one_box_item = new OneBoxFilamentColorItem(this, wxDefaultSize);
             assert(one_box_item);
             one_box_item->update_ui_item_info_by_material_box_info(materialBox,m_device_data.cfsName);

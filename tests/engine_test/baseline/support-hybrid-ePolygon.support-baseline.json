@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "case": "support-hybrid-ePolygon",
+  "input": "support-hybrid-ePolygon.3mf",
+  "input_sha256": "59e83e99d1a5630eddccefed30e753c98ffb71a77349bf9f602baf6409b2526f",
+  "plate": 0,
+  "args": [],
+  "module": "support",
+  "input_fingerprints": {
+    "schema_version": 1,
+    "plates": [
+      {
+        "plate_id": 1,
+        "fingerprints": [
+          {
+            "path": "module.support.input",
+            "fingerprint": "e6458e0b904d4d715b422f5390191745",
+            "sample_count": 1
+          }
+        ]
+      }
+    ]
+  },
+  "output_fingerprints": {
+    "schema_version": 1,
+    "plates": [
+      {
+        "plate_id": 1,
+        "fingerprints": [
+          {
+            "path": "module.support.output",
+            "fingerprint": "3857c168e6509b8dfa4acf316b01e0e3",
+            "sample_count": 1
+          }
+        ]
+      }
+    ]
+  }
+}

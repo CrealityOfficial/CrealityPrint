@@ -16,8 +16,10 @@
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
+#include <wx/dcbuffer.h>
 
 wxDEFINE_EVENT(wxCUSTOMEVT_SWITCH_POS, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_MULTISWITCH_SELECTION, wxCommandEvent);
 
 SwitchButton::SwitchButton(wxWindow* parent, wxWindowID id)
 	: wxBitmapToggleButton(parent, id, wxNullBitmap, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxBU_EXACTFIT)
@@ -350,4 +352,171 @@ void SwitchBoard::Disable()
 
     is_enable = false;
     Refresh();
+}
+
+MultiSwitchBoard::MultiSwitchBoard(wxWindow* parent, Style style, wxWindowID id)
+    : wxWindow(parent, id, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
+    , m_style(style)
+{
+    SetBackgroundColour(StaticBox::GetParentBackgroundColor(parent));
+    SetBackgroundStyle(wxBG_STYLE_PAINT);
+    SetFont(Label::Body_13);
+
+    Bind(wxEVT_PAINT, &MultiSwitchBoard::paintEvent, this);
+    Bind(wxEVT_LEFT_DOWN, &MultiSwitchBoard::on_left_down, this);
+    Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent&) { SetCursor(wxCURSOR_HAND); });
+    Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent&) { SetCursor(wxCURSOR_ARROW); });
+
+    update_min_size();
+}
+
+void MultiSwitchBoard::SetOptions(const std::vector<wxString>& options)
+{
+    m_options = options;
+    if (m_options.empty())
+        m_selection = -1;
+    else if (m_selection < 0 || m_selection >= static_cast<int>(m_options.size()))
+        m_selection = 0;
+
+    update_min_size();
+    Refresh();
+}
+
+void MultiSwitchBoard::SetSelection(int selection)
+{
+    if (selection < 0 || selection >= static_cast<int>(m_options.size()) || selection == m_selection)
+        return;
+
+    m_selection = selection;
+    Refresh();
+}
+
+void MultiSwitchBoard::Rescale()
+{
+    SetFont(Label::Body_13);
+    update_min_size();
+    Refresh();
+}
+
+void MultiSwitchBoard::sys_color_changed()
+{
+    SetBackgroundColour(StaticBox::GetParentBackgroundColor(GetParent()));
+    Refresh(false);
+}
+
+bool MultiSwitchBoard::Enable(bool enable)
+{
+    const bool changed = wxWindow::Enable(enable);
+    Refresh();
+    return changed;
+}
+
+void MultiSwitchBoard::update_min_size()
+{
+    const int height = FromDIP(m_style == Style::Underline ? 28 : 26);
+    int width = FromDIP(m_style == Style::Underline ? 320 : 310);
+    if (!m_options.empty()) {
+        int content_width = 0;
+        const int horizontal_padding = FromDIP(m_style == Style::Underline ? 32 : 24);
+        for (const wxString& option : m_options)
+            content_width += GetTextExtent(option).x + horizontal_padding;
+        width = std::max(width, std::min(content_width, FromDIP(520)));
+    }
+    SetMinSize(wxSize(width, height));
+}
+
+void MultiSwitchBoard::paintEvent(wxPaintEvent&)
+{
+    wxAutoBufferedPaintDC dc(this);
+    dc.SetBackground(wxBrush(GetBackgroundColour()));
+    dc.Clear();
+
+    if (m_options.empty())
+        return;
+
+    wxGCDC gdc(dc);
+    const wxSize size = GetClientSize();
+    const int count = static_cast<int>(m_options.size());
+
+    if (m_style == Style::Underline) {
+        const wxColour background = GetBackgroundColour();
+        const int brightness = (background.Red() * 299 + background.Green() * 587 + background.Blue() * 114) / 1000;
+        const wxColour selected = IsEnabled() ? wxColour(0x1F, 0xCA, 0x63) : wxColour(0xA8, 0xD8, 0xB9);
+        const wxColour normal = IsEnabled()
+            ? (brightness < 128 ? wxColour(0xD7, 0xD9, 0xDC) : wxColour(0x4E, 0x59, 0x69))
+            : wxColour(0x9A, 0xA0, 0xA8);
+        const int underline_y = size.y - FromDIP(2);
+
+        gdc.SetFont(GetFont());
+        for (int i = 0; i < count; ++i) {
+            const int left = size.x * i / count;
+            const int right = size.x * (i + 1) / count;
+            const int available = std::max(1, right - left - FromDIP(10));
+            wxString label = m_options[i];
+            while (label.length() > 1 && gdc.GetTextExtent(label).x > available)
+                label = label.Left(label.length() - 2) + wxString::FromUTF8("\xE2\x80\xA6");
+
+            const bool is_selected = i == m_selection;
+            gdc.SetTextForeground(is_selected ? selected : normal);
+            const wxSize text_size = gdc.GetTextExtent(label);
+            const int text_x = left + (right - left - text_size.x) / 2;
+            const int text_y = std::max(0, (underline_y - text_size.y) / 2);
+            gdc.DrawText(label, text_x, text_y);
+            if (is_selected) {
+                gdc.SetPen(wxPen(selected, FromDIP(2)));
+                gdc.DrawLine(text_x, underline_y, text_x + text_size.x, underline_y);
+            }
+        }
+        return;
+    }
+
+    const int radius = FromDIP(8);
+    const wxColour track = IsEnabled() ? wxColour(0x5B, 0x5B, 0x60) : wxColour(0xCE, 0xCE, 0xCE);
+    const wxColour selected = IsEnabled() ? wxColour(0x00, 0xAE, 0x42) : wxColour(0xA8, 0xD8, 0xB9);
+
+    gdc.SetPen(*wxTRANSPARENT_PEN);
+    gdc.SetBrush(wxBrush(track));
+    gdc.DrawRoundedRectangle(0, 0, size.x, size.y, radius);
+
+    if (m_selection >= 0 && m_selection < count) {
+        const int left = size.x * m_selection / count;
+        const int right = size.x * (m_selection + 1) / count;
+        gdc.SetBrush(wxBrush(selected));
+        gdc.DrawRoundedRectangle(left, 0, right - left, size.y, radius);
+    }
+
+    gdc.SetFont(GetFont());
+    for (int i = 0; i < count; ++i) {
+        const int left = size.x * i / count;
+        const int right = size.x * (i + 1) / count;
+        const int available = std::max(1, right - left - FromDIP(10));
+        wxString label = m_options[i];
+        while (label.length() > 1 && gdc.GetTextExtent(label).x > available)
+            label = label.Left(label.length() - 2) + wxString::FromUTF8("\xE2\x80\xA6");
+
+        gdc.SetTextForeground(i == m_selection ? *wxWHITE : wxColour(0xB8, 0xB8, 0xBC));
+        const wxSize text_size = gdc.GetTextExtent(label);
+        gdc.DrawText(label, left + (right - left - text_size.x) / 2, (size.y - text_size.y) / 2);
+    }
+}
+
+void MultiSwitchBoard::on_left_down(wxMouseEvent& event)
+{
+    if (!IsEnabled() || m_options.empty())
+        return;
+
+    const int width = std::max(1, GetClientSize().x);
+    const int selection = std::min(static_cast<int>(m_options.size()) - 1,
+                                   event.GetPosition().x * static_cast<int>(m_options.size()) / width);
+    if (selection == m_selection)
+        return;
+
+    m_selection = selection;
+    Refresh();
+
+    wxCommandEvent evt(wxCUSTOMEVT_MULTISWITCH_SELECTION, GetId());
+    evt.SetEventObject(this);
+    evt.SetInt(selection);
+    evt.SetString(m_options[selection]);
+    GetEventHandler()->ProcessEvent(evt);
 }

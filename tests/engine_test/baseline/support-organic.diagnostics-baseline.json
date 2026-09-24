@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "plates": [
+    {
+      "plate_id": 1,
+      "fingerprints": [
+        {
+          "path": "path.support.organic.areas",
+          "fingerprint": "7c2ad27630803c4a9afb85aef980a5d6",
+          "sample_count": 1
+        },
+        {
+          "path": "path.support.organic.influence_areas",
+          "fingerprint": "acc5864404d0c45b71956f6afb0fd343",
+          "sample_count": 1
+        },
+        {
+          "path": "path.support.organic.nodes",
+          "fingerprint": "75ab5cd36132251faf1f9d5669e91e33",
+          "sample_count": 1
+        },
+        {
+          "path": "path.support.organic.overhangs",
+          "fingerprint": "fdaec4f77c40c5fe1f2d49a1ca2398d3",
+          "sample_count": 1
+        },
+        {
+          "path": "path.support.organic.toolpaths",
+          "fingerprint": "37fd6c43595f16b4ece4af18b4743b3f",
+          "sample_count": 1
+        }
+      ]
+    }
+  ]
+}

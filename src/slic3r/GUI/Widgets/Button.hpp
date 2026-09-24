@@ -19,6 +19,7 @@ class Button : public StaticBox
     bool canFocus  = true;
     bool isCenter = true;
     bool isFtBold = false;
+    bool iconAtTextTopRight = false;
 
     static const int buttonWidth = 200;
     static const int buttonHeight = 50;
@@ -37,6 +38,8 @@ public:
     void SetIcon(const wxString& icon);
 
     void SetInactiveIcon(const wxString& icon);
+
+    void SetIconAtTextTopRight(bool enabled);
 
     void SetMinSize(const wxSize& size) override;
     

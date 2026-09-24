@@ -26,6 +26,8 @@
 namespace Slic3r { namespace GUI {
 
 class session;
+class DeviceImageProxy;
+struct DeviceImageResult;
 
 class http_headers
 {
@@ -109,8 +111,9 @@ private:
         boost::asio::io_service            io_service;
         boost::asio::ip::tcp::acceptor     acceptor;
         std::set<std::shared_ptr<session>> sessions;
+        std::shared_ptr<DeviceImageProxy>  device_image_proxy;
 
-        IOServer(HttpServer& server) : server(server), acceptor(io_service, {boost::asio::ip::address_v4::loopback(), server.port}) {}
+        IOServer(HttpServer& server);
 
         void do_accept();
 
@@ -155,6 +158,8 @@ public:
     }
     void start();
     void stop();
+    void handle_device_image_request(const std::string& url);
+    void write_device_image_response(DeviceImageResult result, bool cacheable);
     void handle_proxy_request(const std::string& url);
     void do_write_proxy(SocketPtr socket_ptr, const std::string& target_host,const std::string& target_path);
     void write_response(const std::string& response);

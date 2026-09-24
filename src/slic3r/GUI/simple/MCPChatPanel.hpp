@@ -6,6 +6,7 @@
 #include <wx/webview.h>
 #include <wx/sizer.h>
 #include <wx/timer.h>
+#include <wx/weakref.h>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -71,6 +72,7 @@ private:
     void LoadChatPage();
 
     void OnScriptMessage(wxWebViewEvent& evt);
+    void OnNavigationRequest(wxWebViewEvent& evt);
     void OnNavigationComplete(wxWebViewEvent& evt);
     void OnError(wxWebViewEvent& evt);
     void OnSceneUpdateTimer(wxTimerEvent& evt);
@@ -187,6 +189,8 @@ private:
     bool          m_js_ready     = false;
     std::atomic<bool> m_shutting_down { false };
     std::shared_ptr<int> m_async_lifetime = std::make_shared<int>(0);
+    // The exporting Plater can be destroyed before this panel during GUI recreation.
+    wxWeakRef<wxEvtHandler> m_export_event_source;
     bool          m_cxagent_was_connected = false;
     std::unordered_map<std::string, CommandHandler> m_commandHandlers;
     int           m_pending_refresh_count = 0;

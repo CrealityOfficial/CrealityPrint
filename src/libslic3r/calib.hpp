@@ -276,10 +276,20 @@ public:
     Vec3d get_start_offset();
 
 protected:
-    double speed_first_layer() const { return m_config.option<ConfigOptionFloat>("initial_layer_speed")->value; };
-    double speed_perimeter() const { return m_config.option<ConfigOptionFloat>("outer_wall_speed")->value; };
-    double line_width_first_layer() const { return m_config.get_abs_value("initial_layer_line_width"); };
-    double line_width() const { return m_config.get_abs_value("line_width"); };
+    double speed_first_layer() const { return m_config.option<ConfigOptionFloatsNullable>("initial_layer_speed")->get_at(get_physical_nozzle_index(m_config, m_writer.extruder()->id())); };
+    double speed_perimeter() const { return m_config.option<ConfigOptionFloatsNullable>("outer_wall_speed")->get_at(get_physical_nozzle_index(m_config, m_writer.extruder()->id())); };
+    double line_width_for_nozzle(const char* option_key) const
+    {
+        const size_t nozzle_index = get_physical_nozzle_index(m_config, m_writer.extruder()->id());
+        const double nozzle_diameter = m_config.option<ConfigOptionFloats>("nozzle_diameter")->get_at(nozzle_index);
+        return nozzle_variant_abs_value(
+            *m_config.option<ConfigOptionFloatsOrPercentsNullable>(option_key), nozzle_index, nozzle_diameter);
+    }
+    double line_width_first_layer() const
+    {
+        return line_width_for_nozzle("initial_layer_line_width");
+    };
+    double line_width() const { return line_width_for_nozzle("line_width"); };
     int    wall_count() const { return m_config.option<ConfigOptionInt>("wall_loops")->value; };
 
 private:

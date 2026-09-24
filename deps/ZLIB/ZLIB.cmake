@@ -1,4 +1,12 @@
-set(patch_command git init && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-Respect-BUILD_SHARED_LIBS.patch)
+set(patch_command
+  git init
+  && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-Respect-BUILD_SHARED_LIBS.patch
+)
+if (NOT WIN32)
+  list(APPEND patch_command
+    && ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0002-Namespace-internal-error-table.patch
+  )
+endif()
 
 orcaslicer_add_cmake_project(ZLIB
   # GIT_REPOSITORY https://github.com/madler/zlib.git
@@ -12,4 +20,3 @@ orcaslicer_add_cmake_project(ZLIB
     -DSKIP_INSTALL_FILES=ON         # Prevent installation of man pages et al.
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 )
-

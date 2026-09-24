@@ -126,6 +126,9 @@ public:
         CutConnectorType    connector_type{ CutConnectorType::Plug };
         float               radius_tolerance{ 0.f };// [0.f : 1.f]
         float               height_tolerance{ 0.f };// [0.f : 1.f]
+        // Transient provenance used while groove/contour cuts merge pieces back
+        // into the source volume they came from. Intentionally not serialized.
+        int                 source_part_idx{ -1 };
 
         CutInfo() = default;
         CutInfo(CutConnectorType type, float rad_tolerance, float h_tolerance, bool processed = false) :
@@ -213,6 +216,12 @@ public:
     t_model_material_id material_id() const { return m_material_id; }
     void                set_material_id(t_model_material_id material_id);
     void                reset_extra_facets();
+    // Rebuild the mesh while geometrically re-projecting support, seam, MMU
+    // color and fuzzy-skin annotations from the old surface. The commit is
+    // atomic for this volume: cancellation leaves both mesh and paint intact.
+    bool                set_mesh_keep_paint(TriangleMesh &&mesh,
+                                            const std::function<void(int, const char *)> &progress = nullptr,
+                                            const std::function<bool()> &cancel = nullptr);
     ModelMaterial*      material() const;
     void                set_material(t_model_material_id material_id, const ModelMaterial &material);
     // Extract the current extruder ID based on this ModelVolume's config and the parent ModelObject's config.

@@ -10,6 +10,7 @@
 
 #include <regex>
 #include <string>
+#include <set>
 #include <wx/sizer.h>
 #include <wx/string.h>
 #include <wx/toolbar.h>
@@ -66,6 +67,16 @@ struct SendToPrinterUiGate {
 
 namespace {
 
+void append_generated_filament_mapping(nlohmann::json& plate_json, const GCodeProcessorResult* result)
+{
+    const bool mapping_present = result != nullptr && result->generated_filament_map_present;
+
+    plate_json["filament_map"] = mapping_present ? nlohmann::json(result->generated_filament_map) :
+                                                   nlohmann::json::array();
+    plate_json["filament_map_mode"] = result != nullptr ? result->generated_filament_map_mode : std::string();
+    plate_json["filament_map_present"] = mapping_present;
+}
+
 template <typename Action>
 void post_to_send_dialog(const std::weak_ptr<SendToPrinterUiGate>& weak_gate,
                          Action&& action,
@@ -83,6 +94,23 @@ void post_to_send_dialog(const std::weak_ptr<SendToPrinterUiGate>& weak_gate,
 
         action(*gate->dialog);
     });
+}
+
+nlohmann::json gcode_file_size_bytes(const std::string& file_path)
+{
+    if (file_path.empty())
+        return nullptr;
+
+    boost::system::error_code ec;
+    const boost::filesystem::path path(file_path);
+    if (!boost::filesystem::is_regular_file(path, ec) || ec)
+        return nullptr;
+
+    const auto file_size = boost::filesystem::file_size(path, ec);
+    if (ec)
+        return nullptr;
+
+    return static_cast<std::uint64_t>(file_size);
 }
 
 } // namespace
@@ -164,6 +192,9 @@ CxSentToPrinterDialog::CxSentToPrinterDialog(Plater *plater,
         wxLogError("Could not init m_browser");
         return;
     }
+#if defined(__linux__)
+    WebView::ConfigureHardwareAccelerationForMjpeg(m_browser);
+#endif
 
     bind_events();
 
@@ -236,6 +267,7 @@ CxSentToPrinterDialog::~CxSentToPrinterDialog()
     UnregisterHandler("forward_device_detail");
     UnregisterHandler("get_lang");
     UnregisterHandler("get_devices");
+    UnregisterHandler("refresh_all_device");
     UnregisterHandler("get_user");
     UnregisterHandler("is_dark_theme");
     UnregisterHandler("get_threeMF");
@@ -383,6 +415,9 @@ void CxSentToPrinterDialog::bind_events()
     RegisterHandler("stop_heartbeat_cmd", [this](const nlohmann::json& json_data) {
         this->handle_stop_heartbeat_cmd(json_data);
     });
+    RegisterHandler("set_video_elapse_cmd", [this](const nlohmann::json& json_data) {
+        this->handle_set_video_elapse_cmd(json_data);
+    });
 
     RegisterHandler("set_error_cmd", [this](const nlohmann::json& json_data) { this->handle_set_error_cmd(json_data); });
 
@@ -406,6 +441,12 @@ void CxSentToPrinterDialog::bind_events()
 
         wxString strJS = wxString::Format("window.handleStudioCmd('%s');", RemotePrint::Utils::url_encode(commandJson.dump()));
         run_script(strJS.ToStdString());
+    });
+
+    RegisterHandler("refresh_all_device", [](const nlohmann::json&) {
+        if (wxGetApp().mainframe) {
+            wxGetApp().mainframe->refresh_device_page();
+        }
     });
 
     RegisterHandler("get_devices", [this](const nlohmann::json& json_data) {
@@ -750,41 +791,37 @@ void CxSentToPrinterDialog::handle_get_webrtc_local_param(const nlohmann::json& 
     std::string responseError;
     unsigned responseStatus = 0;
 
-    if (videoEncryption) {
-        try {
-            Http::post(url)
-                .timeout_connect(5)
-                .timeout_max(15)
-                .header("Content-Type", "plain/text")
-                .set_post_body(e)
-                .ca_file(Slic3r::resources_dir() + "/cert/ca.crt")
+    try {
+        Http http = Http::post(url);
+        http.timeout_connect(5)
+            .timeout_max(15)
+            .header("Content-Type", "plain/text")
+            .set_post_body(e);
+        if (videoEncryption) {
+            http.ca_file(Slic3r::resources_dir() + "/cert/ca.crt")
                 .ssl_verify_peer(true)
-                .ssl_verify_host(false)
-                .on_complete([&](std::string body, unsigned http_status) {
-                    responseBody = body;
-                    responseStatus = http_status;
-                })
-                .on_error([&](std::string body, std::string error, unsigned http_status) {
-                    responseBody = body;
-                    responseError = error;
-                    responseStatus = http_status;
-                })
-                .perform_sync();
-        } catch (const std::exception& ex) {
-            responseError = ex.what();
+                .ssl_verify_host(false).ssl_ignore_certificate_time(true);
         }
+        http.on_complete([&](std::string body, unsigned http_status) {
+                responseBody = body;
+                responseStatus = http_status;
+            })
+            .on_error([&](std::string body, std::string error, unsigned http_status) {
+                responseBody = body;
+                responseError = error;
+                responseStatus = http_status;
+            })
+            .perform_sync();
+    } catch (const std::exception& ex) {
+        responseError = ex.what();
     }
 
     nlohmann::json out_data;
-    if (videoEncryption) {
-        if (!responseBody.empty()) {
-            out_data["sdp"] = responseBody;
-        } else {
-            out_data["status"] = responseStatus;
-            out_data["error"] = responseError;
-        }
+    if (!responseBody.empty()) {
+        out_data["sdp"] = responseBody;
     } else {
-        out_data["sdp"] = e;
+        out_data["status"] = responseStatus;
+        out_data["error"] = responseError;
     }
     out_data["url"] = url;
     out_data["videoEncryption"] = videoEncryption;
@@ -945,6 +982,9 @@ void CxSentToPrinterDialog::handle_send_3mf(const nlohmann::json& json_data)
     int      plateIndex = json_data["printPlateIndex"];  // which plate to print
     wxString ipAddress  = json_data["ipAddress"];
     std::string upload3mfName = json_data["upload3mfName"];
+    bool secureConnection = json_data.value("secureConnection", false);
+
+    RemotePrint::RemotePrinterManager::getInstance().setSecureConnectionMap(ipAddress.ToStdString(), secureConnection);
 
     std::string tmp_3mf_path = "";
     if (m_plater->only_gcode_mode())
@@ -1127,6 +1167,15 @@ void CxSentToPrinterDialog::handle_stop_heartbeat_cmd(const nlohmann::json& json
     wxGetApp().mainframe->get_printer_mgr_view()->ExecuteScriptCommand(RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
 }
 
+void CxSentToPrinterDialog::handle_set_video_elapse_cmd(const nlohmann::json& json_data) {
+    // create command to send to the webview
+    nlohmann::json commandJson;
+    commandJson["command"] = "set_video_elapse_cmd";
+    commandJson["data"]    = json_data["data"].dump(-1, ' ', true);
+
+    wxGetApp().mainframe->get_printer_mgr_view()->ExecuteScriptCommand(RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
+}
+
 void CxSentToPrinterDialog::handle_register_complete(const nlohmann::json& json_data)
 {
     if (m_plater) {
@@ -1150,12 +1199,17 @@ void CxSentToPrinterDialog::handle_send_gcode(const nlohmann::json& json_data)
     std::string uploadName = json_data["uploadName"];  // convert from wxString to std::string would cause exception
     bool oldPrinter = json_data["oldPrinter"];
     int  moonrakerPort = json_data["moonrakerPort"];
+    bool secureConnection = json_data.value("secureConnection", false);
+    RemotePrint::RemotePrinterManager::getInstance().setSecureConnectionMap(ipAddress.ToStdString(), secureConnection);
     std::string uploadTaskId;
     if (json_data.contains("uploadTaskId") && json_data["uploadTaskId"].is_string())
         uploadTaskId = json_data["uploadTaskId"].get<std::string>();
-    const bool is_wan_upload = !oldPrinter && ipAddress.ToStdString().find('.') == std::string::npos;
+    const int device_type = json_data.value("deviceType", -1);
+    const bool is_wan_old_printer = oldPrinter && device_type == 1;
+    const bool is_wan_upload = is_wan_old_printer ||
+                               (!oldPrinter && ipAddress.ToStdString().find('.') == std::string::npos);
 
-    if (oldPrinter)
+    if (oldPrinter && !is_wan_old_printer)
     {
         std::string strIpAddr = ipAddress.ToStdString();
         RemotePrint::RemotePrinterManager::getInstance().setOldPrinterMap(strIpAddr);
@@ -1528,6 +1582,7 @@ std::string CxSentToPrinterDialog::get_onlygcode_plate_data_on_show()
 
             boost::filesystem::path gcode_path(current_result->filename);
             json_data["upload_gcode__name"] = gcode_path.filename().string();
+            json_data["gcode_size"] = gcode_file_size_bytes(current_result->filename);
 
             nlohmann::json extruders_json = nlohmann::json::array();
             int            extruder_index = 1;
@@ -1552,11 +1607,16 @@ std::string CxSentToPrinterDialog::get_onlygcode_plate_data_on_show()
 
             get_gcode_temperature_info(plate,json_data);
 
+            get_nozzle_info(extruders_vec, plate, json_data);
+
+            append_generated_filament_mapping(json_data, current_result);
+
             json_array.push_back(json_data);
 
         }else if (!current_result->filename.empty()){
             boost::filesystem::path gcode_path(current_result->filename);
             json_data["upload_gcode__name"] = gcode_path.filename().string();
+            json_data["gcode_size"] = gcode_file_size_bytes(current_result->filename);
 
             if (plate && plate->thumbnail_data.is_valid()) {
                 wxImage image(plate->thumbnail_data.width, plate->thumbnail_data.height);
@@ -1591,6 +1651,7 @@ std::string CxSentToPrinterDialog::get_onlygcode_plate_data_on_show()
             json_data["plate_extruders"] = nlohmann::json::array();
             json_data["total_weight"] = "";
             json_data["print_time"]   = "";
+            append_generated_filament_mapping(json_data, current_result);
             json_array.push_back(json_data);
         }
     }
@@ -1762,23 +1823,31 @@ std::string CxSentToPrinterDialog::get_plate_data_on_show()
 {
     m_backup_extruder_colors.clear();
 
+    // Mixed-filament changes may invalidate the cached plate thumbnail after
+    // slicing. Rebuild missing thumbnails before filtering plates below;
+    // otherwise a printable plate is omitted and the frontend receives
+    // "plates": [].
+    if (!m_plater->only_gcode_mode())
+        m_plater->update_all_plate_thumbnails(false);
+
     nlohmann::json json_array = nlohmann::json::array();
 
-    m_backup_extruder_colors = Slic3r::GUI::wxGetApp().plater()->get_extruder_colors_from_plater_config();
-    nlohmann::json           colors_json     = nlohmann::json::array();
-    for (const auto& color : m_backup_extruder_colors) {
-        colors_json.push_back(color);
-    }
-
     std::vector<std::string> filament_presets = wxGetApp().preset_bundle->filament_presets;
+    const size_t physical_filament_count = filament_presets.size();
+
+    m_backup_extruder_colors = Slic3r::GUI::wxGetApp().plater()->get_extruder_colors_from_plater_config();
+    nlohmann::json colors_json = nlohmann::json::array();
+    for (size_t i = 0; i < m_backup_extruder_colors.size() && i < physical_filament_count; ++i) {
+        colors_json.push_back(m_backup_extruder_colors[i]);
+    }
 
     std::vector<std::string> filament_types;
     nlohmann::json filament_types_json = nlohmann::json::array();
     nlohmann::json filament_maps_json = nlohmann::json::array();
     std::vector<std::string> filament_maps;
     boost::split(filament_maps, m_mapString, boost::is_any_of(";"));
-    for (const auto& substr : filament_maps) {
-        filament_maps_json.emplace_back(substr);
+    for (size_t i = 0; i < filament_maps.size() && i < physical_filament_count; ++i) {
+        filament_maps_json.emplace_back(filament_maps[i]);
     }
 
     for (const auto& preset_name : filament_presets) {
@@ -1864,7 +1933,11 @@ std::string CxSentToPrinterDialog::get_plate_data_on_show()
                 }
                 
                 if (plate_extruders.size() > 0) {
-                    default_gcode_name = obj0_name + "_" + filament_types[plate_extruders[0] - 1] + "_" +
+                    const int extruder_index = plate_extruders[0] - 1;
+                    const std::string filament_type =
+                        extruder_index >= 0 && extruder_index < static_cast<int>(filament_types.size()) ?
+                            filament_types[extruder_index] : "PLA";
+                    default_gcode_name = obj0_name + "_" + filament_type + "_" +
                                          get_bbl_time_dhms(plate_time_mode.model_time_s());
                 } else {
                     default_gcode_name = "plate" + std::to_string(i + 1);
@@ -1875,6 +1948,7 @@ std::string CxSentToPrinterDialog::get_plate_data_on_show()
             json_data["image"]              = "data:image/png;base64," + std::move(img_base64_data);
             json_data["plate_index"]        = plate->get_index();
             json_data["upload_gcode__name"] = default_gcode_name;
+            json_data["gcode_size"]         = gcode_file_size_bytes(plate->get_tmp_gcode_path());
 
             nlohmann::json extruders_json = nlohmann::json::array();
             for (const auto& extruder : plate_extruders) {
@@ -1894,6 +1968,10 @@ std::string CxSentToPrinterDialog::get_plate_data_on_show()
             json_data["filament_length"] = filamentJsonArray;
 
 			get_temperature_info(plate_extruders,plate,json_data);     
+
+            get_nozzle_info(plate_extruders, plate, json_data);
+
+            append_generated_filament_mapping(json_data, plate->get_slice_result());
 
             json_array.push_back(json_data);
         }
@@ -2164,6 +2242,75 @@ void CxSentToPrinterDialog::get_filament_length_info(std::vector<int> plate_extr
     }
 
     return ;
+}
+
+void CxSentToPrinterDialog::get_nozzle_info(std::vector<int> plate_extruders, Slic3r::GUI::PartPlate* plate, nlohmann::json& json_data)
+{
+    if (!plate)
+        return;
+
+    GCodeProcessorResult* gcode_process_result = plate->get_slice_result();
+    if (!gcode_process_result)
+        return;
+
+    const std::vector<float>& nozzle_diameters          = gcode_process_result->nozzle_diameters;
+    const std::vector<float>& filament_nozzle_diameters  = gcode_process_result->filament_nozzle_diameters;
+    const std::vector<int>&   filament_map                = gcode_process_result->generated_filament_map;
+
+    // Backward compatibility: only emit the multi-nozzle fields when the machine actually
+    // has more than one physical nozzle. Single-nozzle payload stays byte-for-byte identical.
+    if (nozzle_diameters.size() <= 1)
+        return;
+
+    // Whole-machine nozzle capability list: [{ id: 1-based, diameter }, ...]
+    nlohmann::json nozzles_json = nlohmann::json::array();
+    for (size_t n = 0; n < nozzle_diameters.size(); ++n) {
+        nlohmann::json item;
+        item["id"]       = static_cast<int>(n) + 1; // 1-based physical nozzle id
+        item["diameter"] = nozzle_diameters[n];
+        nozzles_json.push_back(item);
+    }
+    json_data["nozzles"] = std::move(nozzles_json);
+
+    // Per-filament(extruder) nozzle id and diameter, only for extruders used by this plate.
+    nlohmann::json filament_nozzles_json = nlohmann::json::array();
+    // Set of physical nozzle ids actually used by this plate.
+    std::set<int> plate_nozzle_id_set;
+    for (int extruder_id : plate_extruders) {
+        const int idx = extruder_id - 1; // filament/extruder index, 0-based
+        if (idx < 0)
+            continue;
+
+        int nozzle_id = 0; // 1-based physical nozzle
+        if (idx < static_cast<int>(filament_map.size()) && filament_map[idx] > 0)
+            nozzle_id = filament_map[idx];
+        else
+            nozzle_id = 1; // legacy fallback: Tn -> nozzle n, default first nozzle
+
+        float diameter = 0.0f;
+        if (idx < static_cast<int>(filament_nozzle_diameters.size()))
+            diameter = filament_nozzle_diameters[idx];
+        else {
+            const int nidx = (nozzle_id > 0 && nozzle_id - 1 < static_cast<int>(nozzle_diameters.size())) ? nozzle_id - 1 : 0;
+            diameter = nozzle_diameters[nidx];
+        }
+
+        nlohmann::json item;
+        item["extruderIndex"] = extruder_id;   // 1-based, aligns with plate_extruders / filament_length
+        item["nozzleId"]      = nozzle_id;      // 1-based physical nozzle
+        item["nozzleDiameter"] = diameter;
+        filament_nozzles_json.push_back(item);
+
+        if (nozzle_id > 0)
+            plate_nozzle_id_set.insert(nozzle_id);
+    }
+    json_data["filament_nozzles"] = std::move(filament_nozzles_json);
+
+    // Physical nozzle ids used by this plate.
+    nlohmann::json plate_nozzle_ids_json = nlohmann::json::array();
+    for (int id : plate_nozzle_id_set)
+        plate_nozzle_ids_json.push_back(id);
+    json_data["plate_nozzle_ids"] = std::move(plate_nozzle_ids_json);
 }
 
 void CxSentToPrinterDialog::get_gcode_temperature_info(Slic3r::GUI::PartPlate* plate,  nlohmann::json& json_data)

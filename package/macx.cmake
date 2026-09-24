@@ -17,8 +17,16 @@ message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}    BUNDLE_NAME=${BU
 include(InstallRequiredSystemLibraries)
 set(CPACK_CODESIGN_PATH ${CMAKE_CURRENT_BINARY_DIR}/../_CPack_Packages/MacOS/DragNDrop/${CPACK_PACKAGE_FILE_NAME})
 
-install(CODE "execute_process(COMMAND codesign --timestamp --force --options=runtime -s \"${OSX_CODESIGN_IDENTITY}\" --deep \"${CPACK_CODESIGN_PATH}/${BUNDLE_NAME}.app\")")
-install(CODE "execute_process(COMMAND bash  ${CMAKE_CURRENT_SOURCE_DIR}/macx/Notarized-script.sh \"${CPACK_CODESIGN_PATH}\" \"${BUNDLE_NAME}\" \"tezj-lkmk-bbce-luax\"})")
+install(CODE "execute_process(COMMAND codesign --timestamp --force --options=runtime -s \"${OSX_CODESIGN_IDENTITY}\" --deep \"${CPACK_CODESIGN_PATH}/${BUNDLE_NAME}.app\"
+    RESULT_VARIABLE codesign_result)
+if(NOT \"\${codesign_result}\" STREQUAL \"0\")
+    message(FATAL_ERROR \"macOS code signing failed: \${codesign_result}\")
+endif()")
+install(CODE "execute_process(COMMAND bash \"${CMAKE_CURRENT_SOURCE_DIR}/macx/Notarized-script.sh\" \"${CPACK_CODESIGN_PATH}\" \"${BUNDLE_NAME}\" \"tezj-lkmk-bbce-luax\"
+    RESULT_VARIABLE notarization_result)
+if(NOT \"\${notarization_result}\" STREQUAL \"0\")
+    message(FATAL_ERROR \"macOS notarization failed: \${notarization_result}\")
+endif()")
 
 set(CPACK_DMG_VOLUME_NAME ${App_Volumn_Name})
 set(CPACK_DMG_BACKGROUND_IMAGE "${CMAKE_CURRENT_SOURCE_DIR}/macx/CMakeDMGBackground.tif")

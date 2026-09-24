@@ -9,6 +9,8 @@
 #include <memory>
 #include <cstdint>
 #include <functional>
+#include <utility>
+#include <vector>
 #include <boost/any.hpp>
 #include "I18N.hpp"
 
@@ -226,7 +228,7 @@ public:
     /// Postcondition: Method does not fire the on_change event.
     virtual void		set_value(const boost::any& value, bool change_event) = 0;
     virtual void        set_last_meaningful_value() {}
-    virtual void        set_na_value() {}
+    virtual void        set_na_value(bool change_event = true) {}
     virtual void        update_na_value(const boost::any& value) {}
 
     /// Gets a boost::any representing this control.
@@ -326,7 +328,7 @@ public:
     }
 	void	set_value(const boost::any& value, bool change_event = false) override;
     void    set_last_meaningful_value() override;
-    void	set_na_value() override;
+    void	set_na_value(bool change_event = true) override;
     void        update_na_value(const boost::any& value) override;
 
 	boost::any&		get_value() override;
@@ -353,7 +355,7 @@ public:
 	void			set_value(const bool value, bool change_event = false);
 	void			set_value(const boost::any& value, bool change_event = false) override;
     void            set_last_meaningful_value() override;
-	void            set_na_value() override;
+	void            set_na_value(bool change_event = true) override;
 	boost::any&		get_value() override;
 
     void            msw_rescale() override;
@@ -452,7 +454,8 @@ public:
 	boost::any&		get_value() override;
 
     void set_last_meaningful_value() override;
-    void set_na_value() override;
+    void set_na_value(bool change_event = true) override;
+    void update_na_value(const boost::any& value) override;
 
     void            msw_rescale() override;
 
@@ -593,6 +596,63 @@ public:
 	}
 	wxSizer*		getSizer() override { return m_sizer; }
 	wxWindow*		getWindow() override { return dynamic_cast<wxWindow*>(m_slider); }
+};
+
+std::vector<std::pair<int, wxString>> get_multi_variant_input_layout(const std::string& opt_key);
+
+class MultiVariantField : public Field {
+    using Field::Field;
+
+public:
+    struct VariantControl {
+        t_field       field;
+        wxPanel*      row {nullptr};
+        wxStaticText* label {nullptr};
+        wxCheckBox*   override_checkbox {nullptr};
+        bool          override_allowed {true};
+        int           opt_index {-1};
+        wxString      label_text;
+
+        VariantControl() = default;
+        VariantControl(t_field&& field_, wxPanel* row_, wxStaticText* label_, int opt_index_, wxString label_text_)
+            : field(std::move(field_)), row(row_), label(label_), opt_index(opt_index_), label_text(std::move(label_text_)) {}
+        VariantControl(VariantControl&&) = default;
+        VariantControl& operator=(VariantControl&&) = default;
+        VariantControl(const VariantControl&) = delete;
+        VariantControl& operator=(const VariantControl&) = delete;
+    };
+
+    MultiVariantField(const ConfigOptionDef& opt, const t_config_option_key& id) : Field(opt, id) {}
+    MultiVariantField(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id) : Field(parent, opt, id) {}
+    ~MultiVariantField() override = default;
+
+    void BUILD() override;
+    static bool show_variant_labels(size_t count) { return count > 1; }
+    void refresh_layout();
+    void release_windows();
+    Field* get_field(int opt_index) const;
+    void set_index_value(int opt_index, const boost::any& value);
+    void set_override_state(int opt_index, bool overridden, bool allowed);
+    const std::vector<VariantControl>& controls() const { return m_controls; }
+
+    void set_value(const boost::any& value, bool change_event = false) override;
+    boost::any& get_value() override { return m_value; }
+    void set_na_value(bool change_event = true) override;
+    void enable() override;
+    void disable() override;
+    void msw_rescale() override;
+    void sys_color_changed() override;
+    wxWindow* getWindow() override { return m_panel; }
+
+private:
+    t_field create_field(int opt_index, wxWindow* parent);
+    VariantControl create_control(int opt_index, const wxString& label_text);
+    void clear_controls();
+    void update_panel_size();
+
+    wxPanel* m_panel {nullptr};
+    wxBoxSizer* m_variant_sizer {nullptr};
+    std::vector<VariantControl> m_controls;
 };
 
 } // GUI

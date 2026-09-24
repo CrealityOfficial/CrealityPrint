@@ -826,9 +826,7 @@ void Bed3D::render_model(const Transform3d& view_matrix, const Transform3d& proj
     //shader = wxGetApp().get_shader("flat");
     if (shader != nullptr) {
         shader->start_using();
-        // Theme-aware emission to balance contrast
-        float emission = m_is_dark ? 0.0f : 0.2f;
-        shader->set_uniform("emission_factor", emission);
+        shader->set_uniform("emission_factor", 0.0f);
         const Transform3d model_matrix = Geometry::assemble_transform(m_model_offset, Vec3d::Zero(), m_bed_model_scale);
         shader->set_uniform("view_model_matrix", view_matrix * model_matrix);
         shader->set_uniform("projection_matrix", projection_matrix);

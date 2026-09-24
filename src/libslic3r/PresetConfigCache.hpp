@@ -47,6 +47,11 @@ public:
     void save();
     void save_async();
 
+    // Async cache writers must finish before the application begins unloading
+    // the DLL. Waiting from a static std::future destructor during DLL detach
+    // may deadlock because Windows has already stopped the worker threads.
+    static void wait_for_pending_writes() noexcept;
+
     size_t hits() const;
     size_t misses() const;
 

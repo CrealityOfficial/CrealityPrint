@@ -7,6 +7,8 @@
 #include "slic3r/GUI/IMSlider.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
 #include "slic3r/GUI/Camera.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/Plater.hpp"
 #include "slic3r/Utils/TestHelper.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
@@ -928,8 +930,7 @@ namespace Slic3r
                         bool needs_new_layer = p_layer_manager->empty();
                         if (!needs_new_layer) {
                             const auto& last_layer = p_layer_manager->get_layer(p_layer_manager->size() - 1);
-                            const auto last_z = last_layer.get_z();
-                            needs_new_layer = std::abs(z - last_z) > EPSILON;
+                            needs_new_layer = std::abs(z - last_layer.get_z()) > EPSILON;
                         }
                         if (needs_new_layer) {
                             Layer t_layer;
@@ -1075,10 +1076,19 @@ namespace Slic3r
                 }
                 m_plater_extruder = plater_extruder;
 
-                // replace layers for spiral vase mode
+                // Existing spiral-vase/scarf preview layers take priority over ZAA layers.
                 if (!gcode_result.spiral_vase_layers.empty()) {
                     p_layer_manager->clear();
                     for (const auto& layer : gcode_result.spiral_vase_layers) {
+                        Layer t_layer;
+                        t_layer.set_start(layer.second.first)
+                            .set_end(layer.second.second)
+                            .set_z(layer.first);
+                        p_layer_manager->add_layer(std::move(t_layer));
+                    }
+                } else if (!gcode_result.zaa_layers.empty()) {
+                    p_layer_manager->clear();
+                    for (const auto& layer : gcode_result.zaa_layers) {
                         Layer t_layer;
                         t_layer.set_start(layer.second.first)
                             .set_end(layer.second.second)
@@ -1198,9 +1208,11 @@ namespace Slic3r
 
                 const Camera& camera = wxGetApp().plater()->get_camera();
                 const Transform3d& view_matrix = camera.get_view_matrix();
-                p_shader->set_uniform("view_model_matrix", view_matrix);
+                const Transform3d transform = wxGetApp().plater()->get_current_canvas3D()->get_preview_extra_transform();
+                const Transform3d view_model_matrix = view_matrix * transform;
+                p_shader->set_uniform("view_model_matrix", view_model_matrix);
                 p_shader->set_uniform("projection_matrix", camera.get_projection_matrix());
-                p_shader->set_uniform("normal_matrix", (Matrix3d)view_matrix.matrix().block(0, 0, 3, 3).inverse().transpose());
+                p_shader->set_uniform("normal_matrix", (Matrix3d)view_model_matrix.matrix().block(0, 0, 3, 3).inverse().transpose());
 
                 auto data_range = get_range_according_to_view_type(m_view_type);
                 Extrusions::Range::EType range_type = Extrusions::Range::EType::Linear;
@@ -1336,9 +1348,11 @@ namespace Slic3r
 
                 const Camera& camera = wxGetApp().plater()->get_camera();
                 const Transform3d& view_matrix = camera.get_view_matrix();
-                p_shader->set_uniform("view_model_matrix", view_matrix);
+                const Transform3d transform = wxGetApp().plater()->get_current_canvas3D()->get_preview_extra_transform();
+                const Transform3d view_model_matrix = view_matrix * transform;
+                p_shader->set_uniform("view_model_matrix", view_model_matrix);
                 p_shader->set_uniform("projection_matrix", camera.get_projection_matrix());
-                p_shader->set_uniform("normal_matrix", (Matrix3d)view_matrix.matrix().block(0, 0, 3, 3).inverse().transpose());
+                p_shader->set_uniform("normal_matrix", (Matrix3d)view_model_matrix.matrix().block(0, 0, 3, 3).inverse().transpose());
                 bool b_unlit = false;
                 p_shader->set_uniform("u_isUnlit_optionTextureSize_topLayerOnly_emissionFactor", Vec4f(float(b_unlit), float(Options_Colors.size()), float(top_layer_only), 0.25f));
 
@@ -1416,7 +1430,9 @@ namespace Slic3r
 
                 const Camera& camera = wxGetApp().plater()->get_camera();
                 const Transform3d& view_matrix = camera.get_view_matrix();
-                const auto normal_matrix = (Matrix3d)view_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
+                const Transform3d transform = wxGetApp().plater()->get_current_canvas3D()->get_preview_extra_transform();
+                const Transform3d view_model_matrix = view_matrix * transform;
+                const auto normal_matrix = (Matrix3d)view_model_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
                 const auto proj_matrix = camera.get_projection_matrix();
 
                 const auto& t_top_layer_index = p_layer_manager->get_current_layer_end();
@@ -1444,7 +1460,7 @@ namespace Slic3r
 
                         t_effect->update_uniform(p_shader);
 
-                        p_shader->set_uniform("view_model_matrix", view_matrix);
+                        p_shader->set_uniform("view_model_matrix", view_model_matrix);
                         p_shader->set_uniform("projection_matrix", proj_matrix);
                         p_shader->set_uniform("normal_matrix", normal_matrix);
 

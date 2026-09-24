@@ -1,0 +1,17 @@
+Pango font substitution may return a family absent from the font map.
+Return no face instead of passing NULL to the font-family API.
+Equivalent guard to upstream c7dcffdc86a2ac4fe8e176aac3a6b71cb79adbe4,
+backported to the GTK-compatible 1.52 series.
+
+diff --git a/pango/pangofc-fontmap.c b/pango/pangofc-fontmap.c
+--- a/pango/pangofc-fontmap.c
++++ b/pango/pangofc-fontmap.c
+@@ -2242,6 +2242,8 @@ pango_fc_font_map_get_face (PangoFontMap *fontmap,
+   g_assert (res == FcResultMatch);
+ 
+   family = pango_font_map_get_family (fontmap, s);
++  if (family == NULL)
++    return NULL;
+ 
+   res = FcPatternGetString (fcfont->font_pattern, FC_STYLE, 0, (FcChar8 **)(void*)&s);
+   g_assert (res == FcResultMatch);

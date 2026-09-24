@@ -171,16 +171,7 @@ GLTexture* DispConfig::getTexture(TextureType tt, bool hover, bool sel, int half
         if (needHover)
             path += hover ? "hover_" : "none_";
 
-        std::string file_name = base_name;
-        if (!s_isDark && is_bed_texture) {
-            const std::string suffix = ".png";
-            if (file_name.size() >= suffix.size() &&
-                file_name.compare(file_name.size() - suffix.size(), suffix.size(), suffix) == 0) {
-                file_name.insert(file_name.size() - suffix.size(), "_light");
-            }
-        }
-
-        path += file_name;
+        path += base_name;
 
     if (tex == nullptr || tex->get_source() != path) {
         if (tex != nullptr) {
@@ -506,10 +497,10 @@ ImU32 DispConfig::getColorImU32(ColorType ct) {
         ret = IM_COL32(23, 204, 95, 255);
         break;
     case Slic3r::GUI::DispConfig::e_ct_line:
-        ret = s_isDark ? IM_COL32(67, 67, 70, 255) : IM_COL32(159, 159, 158, 255);
+        ret = IM_COL32(67, 67, 70, 255);
         break;
     case Slic3r::GUI::DispConfig::e_ct_lineSel:
-        ret = s_isDark ? IM_COL32(126, 126, 132, 255) : IM_COL32(205, 205, 211, 255);
+        ret = IM_COL32(126, 126, 132, 255);
         break;
     case Slic3r::GUI::DispConfig::e_ct_btnBg:
         ret = s_isDark ? IM_COL32(89, 89, 93,255) : IM_COL32(255, 255, 255,255);
@@ -518,7 +509,7 @@ ImU32 DispConfig::getColorImU32(ColorType ct) {
         ret = s_isDark ? IM_COL32(62, 62, 64, 255) : IM_COL32(234,234,238, 255);
         break;
     case Slic3r::GUI::DispConfig::e_ct_interSel:
-        ret = s_isDark ? IM_COL32(99, 99, 103, 255) : IM_COL32(247, 248, 250, 255);
+        ret = IM_COL32(99, 99, 103, 255);
         break;
     case Slic3r::GUI::DispConfig::e_ct_btnBgSelWhite:
         ret = s_isDark ? IM_COL32(110, 110, 115, 255) : IM_COL32(242, 242, 245,255);
@@ -545,10 +536,10 @@ ImU32 DispConfig::getColorImU32(ColorType ct) {
         ret = IM_COL32(23, 204, 95, 255);
         break;
     case Slic3r::GUI::DispConfig::e_ct_selectBox:
-        ret = s_isDark ? IM_COL32(255, 255, 255, 255) : IM_COL32(78, 89, 105, 255);
+        ret = IM_COL32(255, 255, 255, 255);
         break;
     case Slic3r::GUI::DispConfig::e_ct_modelOutline:
-        ret = s_isDark ? IM_COL32(255, 255, 255, 255) : IM_COL32(78, 89, 105, 255);
+        ret = IM_COL32(255, 255, 255, 255);
         break;
     default: break;
     }

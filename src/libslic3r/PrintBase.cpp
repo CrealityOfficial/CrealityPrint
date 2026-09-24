@@ -104,11 +104,24 @@ std::string PrintBase::output_filepath(const std::string &path, const std::strin
     return path;
 }
 
-//BBS: move set_status from hpp to cpp
-void  PrintBase::set_status(int percent, const std::string &message, unsigned int flags, int warning_step) const
+void PrintBase::set_status_callback(status_callback_type cb)
 {
-	if (m_status_callback)
-        m_status_callback(SlicingStatus(percent, message, flags, warning_step));
+    std::lock_guard<std::mutex> lock(m_status_callback_mutex);
+    m_status_callback.swap(cb);
+}
+
+PrintBase::status_callback_type PrintBase::status_callback_snapshot() const
+{
+    std::lock_guard<std::mutex> lock(m_status_callback_mutex);
+    return m_status_callback;
+}
+
+//BBS: move set_status from hpp to cpp
+void PrintBase::set_status(int percent, const std::string &message, unsigned int flags, int warning_step) const
+{
+    const status_callback_type callback = this->status_callback_snapshot();
+    if (callback)
+        callback(SlicingStatus(percent, message, flags, warning_step));
     else
         BOOST_LOG_TRIVIAL(debug) <<boost::format("Percent %1%: %2%\n")%percent %message.c_str();
 }
@@ -116,9 +129,10 @@ void  PrintBase::set_status(int percent, const std::string &message, unsigned in
 void PrintBase::status_update_warnings(int step, PrintStateBase::WarningLevel  warning_level,
     const std::string &message, const PrintObjectBase* print_object, PrintStateBase::SlicingNotificationType message_id)
 {
-    if (this->m_status_callback) {
+    const status_callback_type callback = this->status_callback_snapshot();
+    if (callback) {
         auto status = print_object ? SlicingStatus(*print_object, step, message, message_id, warning_level) : SlicingStatus(*this, step, message, message_id, warning_level);
-        m_status_callback(status);
+        callback(status);
     }
     else if (! message.empty())
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", Print warning: %1%\n")% message.c_str();
@@ -129,8 +143,9 @@ void PrintBase::status_update_warnings(int step, PrintStateBase::WarningLevel wa
     const std::string& message, PrintObjectBase &object, PrintStateBase::SlicingNotificationType message_id)
 {
     //BBS: add object it into slicing status
-    if (this->m_status_callback) {
-        m_status_callback(SlicingStatus(object, step, message, message_id, warning_level));
+    const status_callback_type callback = this->status_callback_snapshot();
+    if (callback) {
+        callback(SlicingStatus(object, step, message, message_id, warning_level));
     }
     else if (!message.empty())
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", PrintObject warning: %1%\n")% message.c_str();

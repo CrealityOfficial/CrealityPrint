@@ -83,7 +83,7 @@ namespace GUI {
         static CXCloudDataCenter& getInstance();
 
         std::map<std::string, std::map<std::string, std::string>> getUserCloudPresets();
-        void setUserCloudPresets(const std::string& presetName, const std::string& settingID, const std::map<std::string, std::string>& mapPresetValue);
+        bool setUserCloudPresets(const std::string& presetName, const std::string& settingID, const std::map<std::string, std::string>& mapPresetValue);
         void cleanUserCloudPresets();
         void updateUserCloudPresets(const std::string& presetName, const std::string& settingID, const std::map<std::string, std::string>& mapPresetValue);
         int  deleteUserPresetBySettingID(const std::string& settingID);

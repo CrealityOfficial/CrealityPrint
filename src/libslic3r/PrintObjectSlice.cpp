@@ -1,6 +1,8 @@
 #include "ElephantFootCompensation.hpp"
+#include "Exception.hpp"
 #include "I18N.hpp"
 #include "Layer.hpp"
+#include "ModelInstance.hpp"
 #include "MultiMaterialSegmentation.hpp"
 #include "Print.hpp"
 #include "ClipperUtils.hpp"
@@ -13,7 +15,13 @@
 
 #include <boost/log/trivial.hpp>
 
+#include <Eigen/SVD>
+
 #include <tbb/parallel_for.h>
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
 
 //! macro used to mark string used at localization, return same string
 #define L(s) Slic3r::I18N::translate(s)
@@ -33,6 +41,355 @@ namespace Slic3r {
 
 bool PrintObject::clip_multipart_objects = true;
 bool PrintObject::infill_only_where_needed = false;
+
+static void zaa_accumulate_transform_facts(const Transform3d& transform, ZaaCapabilityFacts& facts)
+{
+    if (!transform.matrix().allFinite()) {
+        facts.transforms_finite          = false;
+        facts.transforms_invertible      = false;
+        facts.transforms_well_conditioned = false;
+        return;
+    }
+
+    const Eigen::JacobiSVD<Matrix3d> svd(transform.linear());
+    const Vec3d singular_values = svd.singularValues();
+    if (!singular_values.allFinite()) {
+        facts.transforms_finite          = false;
+        facts.transforms_invertible      = false;
+        facts.transforms_well_conditioned = false;
+        return;
+    }
+
+    const double sigma_min = singular_values.minCoeff();
+    const double sigma_max = singular_values.maxCoeff();
+    if (!(sigma_min > 0.0)) {
+        facts.transforms_invertible      = false;
+        facts.transforms_well_conditioned = false;
+        return;
+    }
+
+    const double condition = sigma_max / sigma_min;
+    if (!std::isfinite(condition) || condition > ZAA_TRANSFORM_KAPPA_MAX)
+        facts.transforms_well_conditioned = false;
+}
+
+static bool zaa_mesh_indices_valid(const indexed_triangle_set& mesh)
+{
+    for (const stl_triangle_vertex_indices& face : mesh.indices)
+        for (int corner = 0; corner < 3; ++corner) {
+            const int vertex_index = face[corner];
+            if (vertex_index < 0 || size_t(vertex_index) >= mesh.vertices.size())
+                return false;
+        }
+    return true;
+}
+
+static bool zaa_mesh_vertices_finite(const indexed_triangle_set& mesh)
+{
+    return std::all_of(mesh.vertices.begin(), mesh.vertices.end(),
+                       [](const Vec3f& vertex) { return vertex.allFinite(); });
+}
+
+static bool zaa_query_facets_trusted(
+    const indexed_triangle_set& mesh,
+    const Transform3d&          volume_transform,
+    const Transform3d&          object_transform)
+{
+    if (!zaa_mesh_indices_valid(mesh) || !zaa_mesh_vertices_finite(mesh))
+        return false;
+
+    // ModelObject::raw_mesh() applies these transforms separately and stores float vertices
+    // after each stage. Reproduce that path so the preflight validates exactly what AABBMesh sees.
+    std::vector<Vec3f> query_vertices;
+    query_vertices.reserve(mesh.vertices.size());
+    for (const Vec3f& vertex : mesh.vertices) {
+        const Vec3d volume_position = volume_transform * vertex.cast<double>();
+        if (!volume_position.allFinite())
+            return false;
+        const Vec3f volume_vertex = volume_position.cast<float>();
+        if (!volume_vertex.allFinite())
+            return false;
+
+        const Vec3d object_position = object_transform * volume_vertex.cast<double>();
+        if (!object_position.allFinite())
+            return false;
+        const Vec3f query_vertex = object_position.cast<float>();
+        if (!query_vertex.allFinite())
+            return false;
+        query_vertices.push_back(query_vertex);
+    }
+
+    for (const stl_triangle_vertex_indices& face : mesh.indices) {
+        const Vec3f normal = (query_vertices[size_t(face[1])] - query_vertices[size_t(face[0])])
+                                 .cross(query_vertices[size_t(face[2])] - query_vertices[size_t(face[0])]);
+        if (!normal.allFinite())
+            return false;
+        const double squared_norm = normal.cast<double>().squaredNorm();
+        if (!std::isfinite(squared_norm) || !(squared_norm > 0.0))
+            return false;
+    }
+    return true;
+}
+
+static ZaaCapabilityFacts zaa_capability_facts(const PrintObject& print_object)
+{
+    ZaaCapabilityFacts facts;
+    facts.enabled = print_object.config().zaa_enabled.value;
+    facts.requested_slice_plane_offset_mm = print_object.config().zaa_slice_plane_offset.value;
+    if (!facts.enabled)
+        return facts;
+    facts.has_model_part = false;
+
+    facts.has_raft   = print_object.has_raft();
+    facts.spiral_mode = print_object.print()->config().spiral_mode.value;
+    for (const PrintRegion& region : print_object.all_regions()) {
+        const PrintRegionConfig& config = region.config();
+        facts.has_scarf |= config.seam_slope_type.value != SeamScarfType::None;
+        facts.ironing_enabled |= config.ironing_type.value != IroningType::NoIroning;
+    }
+
+    bool has_query_facet = false;
+    const Transform3d object_transform = print_object.trafo_centered();
+    for (const ModelVolume* volume : print_object.model_object()->volumes) {
+        if (volume == nullptr) {
+            facts.has_unknown_volume_type = true;
+            continue;
+        }
+
+        switch (volume->type()) {
+        case ModelVolumeType::MODEL_PART: {
+            facts.has_model_part = true;
+            const indexed_triangle_set& mesh = volume->mesh().its;
+            has_query_facet |= !mesh.indices.empty();
+            const bool indices_valid  = zaa_mesh_indices_valid(mesh);
+            const bool vertices_finite = zaa_mesh_vertices_finite(mesh);
+            if (!indices_valid || !vertices_finite)
+                facts.query_mesh_finite = false;
+
+            const Transform3d volume_transform = volume->get_matrix();
+            const Transform3d query_transform  = object_transform * volume_transform;
+            const bool query_transform_finite = query_transform.matrix().allFinite();
+            zaa_accumulate_transform_facts(query_transform, facts);
+            if (query_transform_finite && indices_valid && vertices_finite &&
+                !zaa_query_facets_trusted(mesh, volume_transform, object_transform))
+                facts.query_mesh_finite = false;
+            break;
+        }
+        case ModelVolumeType::NEGATIVE_VOLUME:
+            facts.has_negative_volume = true;
+            break;
+        case ModelVolumeType::PARAMETER_MODIFIER:
+        case ModelVolumeType::SUPPORT_BLOCKER:
+        case ModelVolumeType::SUPPORT_ENFORCER:
+            break;
+        default:
+            facts.has_unknown_volume_type = true;
+            break;
+        }
+    }
+    facts.query_mesh_empty = !has_query_facet;
+
+    for (const PrintInstance& instance : print_object.instances()) {
+        if (instance.model_instance == nullptr) {
+            facts.transforms_finite          = false;
+            facts.transforms_invertible      = false;
+            facts.transforms_well_conditioned = false;
+        } else {
+            zaa_accumulate_transform_facts(instance.model_instance->get_matrix(), facts);
+        }
+    }
+
+    return facts;
+}
+
+const PreparedLayerSchedule& PrintObject::prepare_layer_schedule()
+{
+    if (m_prepared_layer_schedule)
+        return *m_prepared_layer_schedule;
+
+    this->update_slicing_parameters();
+    if (m_shared_regions == nullptr || m_shared_regions->layer_ranges.empty() ||
+        m_shared_regions->layer_ranges.front().volume_regions.empty() ||
+        m_shared_regions->layer_ranges.front().volume_regions.front().region == nullptr)
+        throw LogicError("Prepared layer schedule requires an initialized object region");
+
+    std::vector<coordf_t> layer_height_profile;
+    std::vector<coordf_t> layer_width_profile;
+    const PrintRegionConfig& region_config =
+        m_shared_regions->layer_ranges.front().volume_regions.front().region->config();
+    const PrintConfig& print_config = this->print()->config();
+    const size_t nozzle_index = get_physical_nozzle_index(print_config, region_config.wall_filament - 1);
+    const double nozzle_diameter = print_config.nozzle_diameter.get_at(nozzle_index);
+    const double outer_wall_width = nozzle_variant_abs_value(
+        region_config.outer_wall_line_width, nozzle_index, nozzle_diameter);
+
+    const Transform3d transform = this->trafo_centered();
+    this->update_layer_height_profile(*this->model_object(), m_slicing_params, layer_height_profile);
+    if (m_config.overhang_optimization.value)
+        layer_height_profile = layer_height_overhang(m_slicing_params, *this->model_object(), m_slicing_params.layer_height,
+                                                     layer_height_profile, transform);
+    this->update_layer_height_profile(*this->model_object(), m_slicing_params, layer_height_profile);
+
+    const std::vector<coordf_t> object_layers =
+        generate_object_layers(m_slicing_params, layer_height_profile, m_config.precise_z_height.value);
+    if (object_layers.empty())
+        throw Slic3r::SlicingError(L("No layers were detected. You might want to repair your STL file(s) or check their size or thickness and retry.\n"));
+    if (m_config.overhang_optimization.value)
+        layer_width_profile = layer_width_profile_adaptive(m_slicing_params, *this->model_object(), object_layers,
+                                                           outer_wall_width, transform);
+    PreparedLayerSchedule schedule = make_prepared_layer_schedule(object_layers, layer_width_profile);
+    m_prepared_layer_schedule = std::move(schedule);
+    return *m_prepared_layer_schedule;
+}
+
+const ZaaObjectSliceDecision& PrintObject::ensure_zaa_slice_decision()
+{
+    if (m_zaa_slice_decision)
+        return *m_zaa_slice_decision;
+
+    const PreparedLayerSchedule& schedule = this->prepare_layer_schedule();
+    std::vector<ZaaPreparedLayerInterval> zaa_schedule;
+    zaa_schedule.reserve(schedule.size());
+    for (const PreparedLayerInterval& interval : schedule)
+        zaa_schedule.push_back({interval.layer_index, interval.object_z_lower_mm, interval.object_z_upper_mm,
+                                interval.outer_wall_width_mm});
+
+    m_zaa_slice_decision = make_zaa_object_slice_decision(zaa_capability_facts(*this), zaa_schedule);
+    return *m_zaa_slice_decision;
+}
+
+const ZaaObjectSliceDecision& PrintObject::zaa_slice_decision() const
+{
+    if (!m_zaa_slice_decision)
+        throw LogicError(_u8L("ZAA slice decision has not been prepared"));
+    return *m_zaa_slice_decision;
+}
+
+const ZaaLayerGeometry* PrintObject::zaa_layer_geometry(const Layer& layer) const
+{
+    // Shared followers alias Layer storage owned by their representative.
+    const PrintObject *owner = layer.object();
+    if (owner != this && (m_shared_object == nullptr || owner != m_shared_object))
+        return nullptr;
+
+    const ZaaObjectGeometryPlan* plan = this->zaa_slice_decision().geometry_plan();
+    if (plan == nullptr)
+        return nullptr;
+
+    // Layer::id() may be renumbered after empty bottom layers are removed.
+    // The physical envelope survives that repair and is the stable plan key.
+    const double object_z_upper_mm = layer.print_z - this->slicing_parameters().object_print_z_min;
+    const double object_z_lower_mm = object_z_upper_mm - layer.height;
+    // The prepared plan has strictly increasing physical bounds. Search it
+    // without a lazy cache: layer workers call this concurrently, including
+    // during their first visit. The tolerance must match the envelope check.
+    const auto first = std::lower_bound(plan->layers.begin(), plan->layers.end(), object_z_lower_mm,
+        [](const ZaaLayerGeometry& geometry, double lower_mm) {
+            return geometry.object_z_lower_mm < lower_mm &&
+                   lower_mm - geometry.object_z_lower_mm > EPSILON;
+        });
+    const auto it = std::find_if(first, plan->layers.end(),
+        [object_z_lower_mm, object_z_upper_mm](const ZaaLayerGeometry& geometry) {
+            return std::abs(geometry.object_z_lower_mm - object_z_lower_mm) <= EPSILON &&
+                   std::abs(geometry.object_z_upper_mm - object_z_upper_mm) <= EPSILON;
+        });
+    if (it == plan->layers.end())
+        return nullptr;
+
+    return &*it;
+}
+
+bool PrintObject::zaa_layer_uses_offset_plane(const Layer& layer) const
+{
+    const ZaaLayerGeometry* geometry = this->zaa_layer_geometry(layer);
+    return geometry != nullptr && geometry->uses_zaa_offset_plane();
+}
+
+size_t PrintObject::zaa_active_layer_count() const
+{
+    size_t count = 0;
+    for (const Layer* layer : m_layers)
+        count += this->zaa_layer_uses_offset_plane(*layer) ? 1 : 0;
+    return count;
+}
+
+void PrintObject::publish_zaa_incompatibility_warning()
+{
+    if (m_zaa_incompatibility_warning_published)
+        return;
+
+    const ZaaObjectSliceDecision& decision = this->zaa_slice_decision();
+    if (!decision.is_incompatible())
+        return;
+
+    const std::optional<ZaaIncompatibilityReason> reason = decision.incompatibility_reason();
+    if (!reason)
+        throw LogicError(_u8L("ZAA incompatible decision is missing a reason"));
+    if (!this->is_step_started_unguarded(posSlice))
+        throw LogicError(_u8L("ZAA incompatibility warning requires an active posSlice step"));
+
+    const std::string object_id = std::to_string(this->model_object()->id().id);
+    std::string       object_identity = this->model_object()->name;
+    object_identity = object_identity.empty() ? "#" + object_id : object_identity + " (#" + object_id + ")";
+    this->active_step_add_warning(
+        PrintStateBase::WarningLevel::NON_CRITICAL,
+        Slic3r::format(
+            L("Object %s cannot use Z contouring because of %s. Conventional planar slicing will be used."),
+            object_identity,
+            to_string(*reason)),
+        PrintStateBase::SlicingDefaultNotification,
+        "zaa_enabled");
+    m_zaa_incompatibility_warning_published = true;
+}
+
+void PrintObject::reset_zaa_slice_state()
+{
+    m_zaa_slice_decision.reset();
+    m_prepared_layer_schedule.reset();
+    m_zaa_layer_geometry_index_by_layer.clear();
+    m_zaa_incompatibility_warning_published = false;
+}
+
+LayerPtrs PrintObject::create_layers_from_prepared_schedule()
+{
+    const PreparedLayerSchedule& schedule = this->prepare_layer_schedule();
+    const ZaaObjectSliceDecision& decision = this->ensure_zaa_slice_decision();
+    if (decision.is_slice_plane_offset_limit_exceeded())
+        throw LogicError(_u8L("ZAA slice-plane offset limit must be handled before layer generation"));
+    const ZaaObjectGeometryPlan* plan = decision.geometry_plan();
+    m_zaa_layer_geometry_index_by_layer.clear();
+    if (decision.is_supported() && (plan == nullptr || plan->layers.size() != schedule.size()))
+        throw LogicError(_u8L("ZAA geometry plan does not match the prepared layer schedule"));
+
+    LayerPtrs layers;
+    layers.reserve(schedule.size());
+    auto id = int(this->slicing_parameters().raft_layers());
+    const coordf_t zmin = this->slicing_parameters().object_print_z_min;
+    Layer* previous = nullptr;
+    for (const PreparedLayerInterval& interval : schedule) {
+        coordf_t slice_z = 0.5 * (interval.object_z_lower_mm + interval.object_z_upper_mm);
+        if (plan != nullptr) {
+            const ZaaLayerGeometry* geometry = plan->layer(interval.layer_index);
+            if (geometry == nullptr || geometry->layer_index != interval.layer_index ||
+                geometry->object_z_lower_mm != interval.object_z_lower_mm ||
+                geometry->object_z_upper_mm != interval.object_z_upper_mm ||
+                geometry->outer_wall_width_mm != interval.outer_wall_width_mm)
+                throw LogicError(_u8L("ZAA layer geometry does not match the prepared layer interval"));
+            slice_z = geometry->slice_z_mm;
+        }
+
+        Layer* layer = new Layer(id++, this, interval.object_z_upper_mm - interval.object_z_lower_mm,
+                                 interval.object_z_upper_mm + zmin, slice_z,
+                                 float(interval.outer_wall_width_mm));
+        layers.emplace_back(layer);
+        if (previous != nullptr) {
+            previous->upper_layer = layer;
+            layer->lower_layer = previous;
+        }
+        previous = layer;
+    }
+    return layers;
+}
 
 LayerPtrs new_layers(
     PrintObject                 *print_object,
@@ -829,47 +1186,21 @@ void groupingVolumesForBrim(PrintObject* object, LayerPtrs& layers, int firstLay
 // Resulting expolygons of layer regions are marked as Internal.
 void PrintObject::slice()
 {
+    // The direct slicing entry point uses the same immutable prepared state as Print::process().
+    this->prepare_layer_schedule();
+    this->ensure_zaa_slice_decision();
+
     //DEFINE_PERFORMANCE_TEST("Slicing mesh 5%");
     if (! this->set_started(posSlice))
         return;
+    this->publish_zaa_incompatibility_warning();
     //BBS: add flag to reload scene for shell rendering
     m_print->set_status(5, L("Slicing mesh"), PrintBase::SlicingStatus::RELOAD_SCENE);
-    std::vector<coordf_t> layer_temp_height;
-    std::vector<coordf_t> layer_height_profile;
-    std::vector<coordf_t> layer_width_profile;
-     //const Print *print  = this->print();
-     /*bool is_overhang_optimization = */;
-
-    PrintRegionConfig                           temp_region_config;
-    const PrintObjectRegions::LayerRangeRegions layer_range = m_shared_regions->layer_ranges.front();
-    auto                                        it          = layer_range.volume_regions.begin();
-   // temp_region_config                                      = it->region->config();
-   
-     Transform3d trafo   = this->trafo_centered();
-    this->update_layer_height_profile(*this->model_object(), m_slicing_params, layer_temp_height);
-     double out_wall_width = it->region->config().outer_wall_line_width;
-    if (it->region->config().outer_wall_line_width.percent)
-        out_wall_width = 0.42 * out_wall_width / 100.f;
-    if (m_config.overhang_optimization.value)
-     {
-         this->update_layer_height_profile(*this->model_object(), m_slicing_params, layer_height_profile);
-        layer_height_profile = layer_height_overhang(m_slicing_params, *this->model_object(), m_slicing_params.layer_height,
-                                                     layer_height_profile, trafo);
-     }
-    this->update_layer_height_profile(*this->model_object(), m_slicing_params, layer_height_profile);
-
-    if (m_config.overhang_optimization.value)
-    {
-        layer_width_profile = layer_width_profile_adaptive(m_slicing_params, *this->model_object(), layer_height_profile,
-                                                           out_wall_width, trafo);      
-    }
-   
 
     m_print->throw_if_canceled();
     m_typed_slices = false;
     this->clear_layers();
-    m_layers = new_layers(this, generate_object_layers(m_slicing_params, layer_height_profile, m_config.precise_z_height.value),
-                          layer_width_profile);
+    m_layers = this->create_layers_from_prepared_schedule();
     this->slice_volumes();
     m_print->throw_if_canceled();
     int firstLayerReplacedBy = 0;
@@ -947,7 +1278,8 @@ static void apply_mixed_surface_indentation(
     for (size_t layer_id = 0; layer_id < segmentation.size(); ++layer_id) {
         for (size_t channel = 0; channel < segmentation[layer_id].size(); ++channel) {
             const unsigned int filament_id = unsigned(channel + 1);
-            if (!mixed_mgr.is_mixed(filament_id, num_physical))
+            const MixedFilament *mixed = mixed_mgr.mixed_filament_from_id(filament_id, num_physical);
+            if (mixed == nullptr || !mixed->is_available(num_physical))
                 continue;
             
             ExPolygons &masks = segmentation[layer_id][channel];

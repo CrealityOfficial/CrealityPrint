@@ -1,0 +1,3 @@
+variant,run,load_files_ms,load_model_objects_ms,available_memory_drop_bytes,tree_ms,scene_ms,unique_gl_volume_builds,painted_mesh_builds,responding_false_samples,log_file
+gui_baseline,1,113216,103831,9917558784,,,,,,debug_Sun_Aug_02_09_42_46_97692.log.0
+gui_optimized,1,15027,5853,1089904640,158,5399,5,2,0,debug_Sun_Aug_02_11_24_32_42656.log.0

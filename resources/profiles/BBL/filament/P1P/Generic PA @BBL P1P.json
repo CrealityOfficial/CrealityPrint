@@ -1,22 +1,43 @@
 {
     "type": "filament",
     "name": "Generic PA @BBL P1P",
-    "inherits": "fdm_filament_pa",
+    "inherits": "Generic PA @base",
     "from": "system",
-    "filament_id": "GFN99",
     "setting_id": "GFSN98_10",
     "instantiation": "true",
+    "fan_cooling_layer_time": [
+        "60"
+    ],
     "filament_max_volumetric_speed": [
-        "16"
+        "12",
+        "12"
+    ],
+    "filament_flow_ratio": [
+        "1",
+        "1"
+    ],
+    "filament_ramming_travel_time": [
+        "0",
+        "0"
+    ],
+    "include": [
+        "fdm_filament_template_direct_dual"
+    ],
+    "long_retractions_when_ec": [
+        "0",
+        "0"
     ],
     "nozzle_temperature": [
-        "280"
+        "260",
+        "260"
     ],
     "nozzle_temperature_initial_layer": [
-        "280"
+        "260",
+        "260"
     ],
-    "required_nozzle_HRC": [
-        "3"
+    "retraction_distances_when_ec": [
+        "0",
+        "0"
     ],
     "compatible_printers": [
         "Bambu Lab P1P 0.4 nozzle",

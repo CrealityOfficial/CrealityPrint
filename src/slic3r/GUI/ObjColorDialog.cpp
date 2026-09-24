@@ -43,6 +43,23 @@ static void update_ui(wxWindow* window)
     Slic3r::GUI::wxGetApp().UpdateDarkUI(window);
 }
 
+// The raster is already sized in physical pixels. Native buttons consume a
+// wxBitmapBundle and need its logical size to avoid applying DPI scaling twice.
+static void set_obj_color_bitmap(wxButton *button, const wxColour &color, int id)
+{
+    wxWindow *window = wxGetTopLevelParent(button);
+    if (!window)
+        window = button;
+    const wxSize size = window->FromDIP(wxSize(20, 20));
+    wxBitmap bitmap = *get_extruder_color_icon(color.GetAsString(wxC2S_HTML_SYNTAX).ToStdString(),
+                                             std::to_string(id + 1), size.x, size.y);
+#ifdef __WXMSW__
+    bitmap.SetScaleFactor(window->GetDPIScaleFactor());
+#endif
+    button->SetBitmap(bitmap);
+    button->SetBitmapMargins(0, 0);
+}
+
 static const char g_min_cluster_color = 1;
 // g_max_color: UI dialog limit for number of filament colors in the OBJ color matching dialog.
 // Tied to CONST_FILAMENTS.size() - 1, so extending the table (e.g. 17 -> 64) automatically
@@ -144,6 +161,7 @@ void ObjColorDialog::on_dpi_changed(const wxRect &suggested_rect)
         }
     }
     m_panel_ObjColor->msw_rescale();
+    Layout();
     this->Refresh();
 };
 
@@ -252,7 +270,7 @@ ObjColorPanel::ObjColorPanel(wxWindow *                       parent,
         m_colours.push_back(wxColor(color));
     }
     // 截断 m_colours 到 g_max_color：颜色匹配 combo 仅显示前 g_max_color 个槽位。
-    // extruder_colours 顺序为 [物理 1..N, 混合 enabled 顺序 1..M]，物理优先填充。
+    // extruder_colours 顺序为 [物理 1..N, 已分配混合槽位 1..M]，物理优先填充。
     if ((int)m_colours.size() > g_max_color) {
         m_colours.resize(g_max_color);
     }
@@ -581,14 +599,48 @@ ObjColorPanel::ObjColorPanel(wxWindow *                       parent,
 
 void ObjColorPanel::msw_rescale()
 {
-    for (unsigned int i = 0; i < m_extruder_icon_list.size(); ++i) {
-        auto bitmap = *get_extruder_color_icon(m_colours[i].GetAsString(wxC2S_HTML_SYNTAX).ToStdString(), std::to_string(i + 1), FromDIP(16), FromDIP(16));
-        m_extruder_icon_list[i]->SetBitmap(bitmap);
+    for (size_t i = 0; i < m_extruder_icon_list.size(); ++i) {
+        auto *icon = m_extruder_icon_list[i];
+        set_obj_color_bitmap(icon, m_colours[i], int(i));
+        icon->SetMinSize(ICON_SIZE);
+        icon->SetSize(ICON_SIZE);
     }
-   /* for (unsigned int i = 0; i < m_color_cluster_icon_list.size(); ++i) {
-        auto bitmap = *get_extruder_color_icon(m_cluster_colours[i].GetAsString(wxC2S_HTML_SYNTAX).ToStdString(), std::to_string(i + 1), FromDIP(16), FromDIP(16));
-        m_color_cluster_icon_list[i]->SetBitmap(bitmap);
-    }*/
+    for (size_t i = 0; i < m_cluster_colours.size() && i < m_color_cluster_icon_list.size(); ++i) {
+        update_color_icon_and_rgba_sizer(i, m_cluster_colours[i]);
+        m_color_cluster_icon_list[i]->SetMinSize(ICON_SIZE);
+        m_color_cluster_icon_list[i]->SetSize(ICON_SIZE);
+    }
+    m_combox_icon_width = FromDIP(44);
+    m_combox_icon_height = FromDIP(20);
+    for (auto *item : m_result_icon_list) {
+        auto *combo = item->bitmap_combox;
+        if (!combo)
+            continue;
+        for (unsigned int i = 0; i < combo->GetCount(); ++i) {
+            wxColour color(0, 255, 0);
+            std::string label = "-1";
+            int filament_slot = -1;
+            if (i > 0 && i <= m_colours.size()) {
+                color = m_colours[i - 1];
+                label = std::to_string(i);
+                filament_slot = int(i) - 1;
+            } else if (i > m_colours.size()) {
+                const size_t index = i - m_colours.size() - 1;
+                if (index >= m_new_add_colors.size())
+                    continue;
+                color = m_new_add_colors[index];
+                label = "new " + std::to_string(index + 1);
+            }
+            combo->SetItemBitmap(i, *get_extruder_color_icon(color.GetAsString(wxC2S_HTML_SYNTAX).ToStdString(),
+                                                           label, m_combox_icon_width, m_combox_icon_height, filament_slot));
+        }
+        combo->SetMinSize(wxSize(FromDIP(m_combox_width), -1));
+        combo->SetMaxSize(wxSize(FromDIP(m_combox_width), -1));
+        combo->Rescale();
+    }
+    Layout();
+    if (m_scrolledWindow)
+        m_scrolledWindow->FitInside();
 }
 
 bool ObjColorPanel::is_ok() {
@@ -607,25 +659,26 @@ bool ObjColorPanel::is_ok() {
 // 辅助函数：稳定映射 <-> combo 位置 <-> paint_color
 // ============================================================
 
-// 在当前 enabled 混合耗材列表中查找 (comp_a, comp_b) 的索引（0-based）
-// 未找到返回 -1。组件对比较忽略顺序。
+// 在当前已分配混合耗材槽位中查找可用 (comp_a, comp_b) 的序号（0-based）。
+// 缺失行不可选择，但仍占用序号，以保持后续虚拟 ID 稳定。
 int ObjColorPanel::find_mixed_combo_index(unsigned char comp_a, unsigned char comp_b)
 {
     if (comp_a < 1 || comp_b < 1 || comp_a == comp_b) { return -1; }
     const auto &mixed_list = wxGetApp().preset_bundle->mixed_filaments.mixed_filaments();
-    int enabled_idx = 0;
+    int slot_idx = 0;
     for (const auto &mf : mixed_list) {
-        if (!mf.enabled || mf.deleted) continue;
-        bool match = (mf.component_a == comp_a && mf.component_b == comp_b) ||
-                     (mf.component_a == comp_b && mf.component_b == comp_a);
-        if (match) return enabled_idx;
-        enabled_idx++;
+        if (!mf.occupies_virtual_slot()) continue;
+        const bool match = mf.enabled &&
+            ((mf.component_a == comp_a && mf.component_b == comp_b) ||
+             (mf.component_a == comp_b && mf.component_b == comp_a));
+        if (match) return slot_idx;
+        slot_idx++;
     }
     return -1;
 }
 
 // OK 后基于 (comp_a, comp_b) 计算虚拟 ID（paint_color）。
-// 虚拟 ID = num_physical + enabled_index + 1（1-based）。
+// 虚拟 ID = num_physical + allocated_slot_index + 1（1-based）。
 // 若超出 g_max_color 或未找到返回 0。
 unsigned int ObjColorPanel::find_virtual_id_for_mixed(unsigned char comp_a, unsigned char comp_b, size_t num_physical)
 {
@@ -684,21 +737,24 @@ ClusterMapping ObjColorPanel::combo_position_to_mapping(int combo_pos)
         return m;
     }
     if (combo_pos <= (int)m_colours.size()) {
-        // 混合槽位（基于 OK 前 enabled 顺序）
+        // 混合槽位（基于已分配虚拟槽位顺序）
         int mixed_idx = combo_pos - num_phys_in_m_colours - 1;
         const auto &mixed_list = wxGetApp().preset_bundle->mixed_filaments.mixed_filaments();
-        int enabled_idx = 0;
+        int slot_idx = 0;
         for (const auto &mf : mixed_list) {
-            if (!mf.enabled || mf.deleted) continue;
-            if (enabled_idx == mixed_idx) {
-                m.type = ClusterMappingType::MIXED_PAIR;
-                m.id1 = (unsigned char)mf.component_a;
-                m.id2 = (unsigned char)mf.component_b;
-                return m;
+            if (!mf.occupies_virtual_slot()) continue;
+            if (slot_idx == mixed_idx) {
+                if (mf.enabled) {
+                    m.type = ClusterMappingType::MIXED_PAIR;
+                    m.id1 = (unsigned char)mf.component_a;
+                    m.id2 = (unsigned char)mf.component_b;
+                    return m;
+                }
+                break;
             }
-            enabled_idx++;
+            slot_idx++;
         }
-        // 异常 fallback
+        // 缺失或异常槽位不可作为新映射目标。
         m.type = ClusterMappingType::PHYSICAL;
         m.id1 = 1;
         return m;
@@ -943,7 +999,7 @@ wxBoxSizer *ObjColorPanel::create_extruder_icon_and_rgba_sizer(wxWindow *parent,
 {
     auto icon_sizer = new wxBoxSizer(wxHORIZONTAL);
     wxButton *icon       = new wxButton(parent, wxID_ANY, {}, wxDefaultPosition, ICON_SIZE, wxBORDER_NONE | wxBU_AUTODRAW);
-    icon->SetBitmap(*get_extruder_color_icon(color.GetAsString(wxC2S_HTML_SYNTAX).ToStdString(), std::to_string(id + 1), FromDIP(20), FromDIP(20)));
+    set_obj_color_bitmap(icon, color, id);
     icon->SetCanFocus(false);
     m_extruder_icon_list.emplace_back(icon);
     icon_sizer->Add(icon, 0, wxALIGN_CENTER | wxALIGN_CENTER_VERTICAL, FromDIP(0)); // wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM
@@ -962,24 +1018,18 @@ std::string ObjColorPanel::get_color_str(const wxColour &color) {
 
 ComboBox *ObjColorPanel::CreateEditorCtrl(wxWindow *parent, int id) // wxRect labelRect,, const wxVariant &value
 {
-    std::vector<wxBitmap *> icons = get_extruder_color_icons();
-    const double            em          = Slic3r::GUI::wxGetApp().em_unit();
-    bool                    thin_icon   = false;
-    const int               icon_width  = lround((thin_icon ? 2 : 4.4) * em);
-    const int               icon_height = lround(2 * em);
+    const int icon_width = FromDIP(44);
+    const int icon_height = FromDIP(20);
+    std::vector<wxBitmap *> icons;
+    icons.reserve(m_colours.size() + 1);
+    for (size_t i = 0; i < m_colours.size(); ++i) {
+        icons.push_back(get_extruder_color_icon(m_colours[i].GetAsString(wxC2S_HTML_SYNTAX).ToStdString(),
+                                               std::to_string(i + 1), icon_width, icon_height, int(i)));
+    }
     m_combox_icon_width                 = icon_width;
     m_combox_icon_height                = icon_height;
     wxColour undefined_color(0,255,0,255);
     icons.insert(icons.begin(), get_extruder_color_icon(undefined_color.GetAsString(wxC2S_HTML_SYNTAX).ToStdString(), std::to_string(-1), icon_width, icon_height));
-    if (icons.empty())
-        return nullptr;
-
-    // 与 m_colours 一致：combo 最多显示 g_max_color 个槽位 + 1 个 undefined。
-    // get_extruder_color_icons() 返回 plater 全部 extruder 颜色（可能 > g_max_color），
-    // 多余部分截断掉，避免下面循环越界访问 m_colours[i-1]。
-    if (icons.size() > m_colours.size() + 1) {
-        icons.resize(m_colours.size() + 1);
-    }
 
     ::ComboBox *c_editor = new ::ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(FromDIP(m_combox_width), -1), 0, nullptr,
                                           wxCB_READONLY | CB_NO_DROP_ICON | CB_NO_TEXT);
@@ -1145,7 +1195,6 @@ void ObjColorPanel::draw_table()
     wxString evenbgColor = wxGetApp().dark_mode() ? "#222222" : "#EFF0F6";
     wxString oddbgColor = wxGetApp().dark_mode() ? "#2B2B2B" : "#F7F8FA";
     m_color_cluster_icon_list.clear();
-    m_extruder_icon_list.clear();
     float row_height ;
     for (size_t ii = 0; ii < row; ii++) {
         wxPanel *row_panel = new wxPanel(m_scrolledWindow);
@@ -1481,7 +1530,7 @@ wxBoxSizer *ObjColorPanel::create_color_icon_and_rgba_sizer(wxWindow *parent, in
     auto      icon_sizer = new wxBoxSizer(wxHORIZONTAL);
     //icon_sizer->AddSpacer(FromDIP(40));
     wxButton *icon       = new wxButton(parent, wxID_ANY, {}, wxDefaultPosition, ICON_SIZE, wxBORDER_NONE | wxBU_AUTODRAW);
-    icon->SetBitmap(*get_extruder_color_icon(color.GetAsString(wxC2S_HTML_SYNTAX).ToStdString(), std::to_string(id + 1), FromDIP(20), FromDIP(20)));
+    set_obj_color_bitmap(icon, color, id);
     icon->SetCanFocus(false);
     m_color_cluster_icon_list.emplace_back(icon);
     icon_sizer->Add(icon, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0); // wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM
@@ -1501,7 +1550,7 @@ void ObjColorPanel::update_color_icon_and_rgba_sizer(int id, const wxColour &col
 {
     if (id < m_color_cluster_text_list.size()) {
         auto icon = m_color_cluster_icon_list[id];
-        icon->SetBitmap(*get_extruder_color_icon(color.GetAsString(wxC2S_HTML_SYNTAX).ToStdString(), std::to_string(id + 1), FromDIP(16), FromDIP(16)));
+        set_obj_color_bitmap(icon, color, id);
         std::string message = get_color_str(color);
         m_color_cluster_text_list[id]->SetLabelText(message.c_str());
     }

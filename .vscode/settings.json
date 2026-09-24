@@ -1,6 +1,10 @@
 {
     "cmake.ctest.allowParallelJobs": true,
     "cmake.generator": "Ninja",
+    "cmake.parallelJobs": 16,
+    "cmake.buildEnvironment": {
+        "CCACHE_DISABLE": "1"
+    },
     "cmakeFormat.cwd": "",
     "cmake.options.statusBarVisibility": "visible",
     "C_Cpp.intelliSenseEngine": "disabled",

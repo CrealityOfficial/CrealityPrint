@@ -31,9 +31,9 @@
 - 不管检测结果如何，都显示 `确认开始打印` 按钮。
 - 用户点击 `确认开始打印` 后才触发 `send_print`，切片完成本身不会自动发送打印。
 - `send_print` 保留 `direct_start_print: true`，并关闭 `autoStartSend`，用于避免跳到耗材映射确认卡后才发送。
-- 本阶段已撤回以下非最小改动：
+- AI 切片完成结果和当前切片状态统一过滤 `bed_temperature_too_high_than_filament / 1000C001`，切片内核告警数据保持不变。
+- 本阶段仍不处理以下行为：
   - 不隐藏 `No renderable content returned. Please try again.`
-  - 不过滤 `bed_temperature_too_high_than_filament / 1000C001`
   - 不移除红色风险字样式
 
 ## 3. 相关文件与职责边界
@@ -219,13 +219,13 @@ sequenceDiagram
 
 ### 7.3 风险项展示
 
-本阶段为了保持最小改动，不再额外处理以下行为：
+AI 切片结果对风险项执行以下展示规则：
 
+- 过滤 `bed_temperature_too_high_than_filament / 1000C001`
 - 不隐藏 `No renderable content returned. Please try again.`
-- 不过滤 `bed_temperature_too_high_than_filament / 1000C001`
-- 不取消红色风险字样式
+- 不取消其他风险项的红色样式
 
-如果后续仍要隐藏或过滤，应作为单独需求处理，避免混在切片后检测流程里。
+过滤同时应用于切片完成结果和当前切片状态，避免状态刷新后重新显示；切片内核中的原始告警仍保留。
 
 ## 8. 关键代码改动摘要
 
@@ -290,7 +290,7 @@ sequenceDiagram
 
 - 支持 `slice-complete`
 - `title` 默认不再强制显示 `打印风险评估`
-- 风险过滤逻辑已撤回，保持最小改动
+- 前端渲染器不单独过滤风险项，由宿主 AI 警告出口统一过滤目标告警
 
 ## 9. 当前实现中的重点注意事项
 
@@ -313,7 +313,7 @@ sequenceDiagram
 - [ ] 二次切片时不会先显示上一次检测结果。
 - [ ] 普通风险项仍可显示红色风险字。
 - [ ] `No renderable content returned. Please try again.` 未被本流程额外隐藏。
-- [ ] `bed_temperature_too_high_than_filament / 1000C001` 未被本流程额外过滤。
+- [ ] AI 切片完成结果和当前切片状态均不包含 `bed_temperature_too_high_than_filament / 1000C001`。
 
 ## 11. 风险与回退
 

@@ -60,22 +60,22 @@ void AutoConvert3mfMgr::convert_to_printer()
             //(3) export 3mf
             if (wxGetApp().plater()->export_3mf(into_path(m_output_3mf_name), save_strategy, -1, nullptr, En3mfType::From_Creality)) {}
         }
-        // ´´½¨¶¨Ê±Æ÷£¬ÑÓ³Ù 1 ÃëºóÍË³ö³ÌĞò
+        // åˆ›å»ºå®šæ—¶å™¨ï¼Œå»¶è¿Ÿ 1 ç§’åé€€å‡ºç¨‹åº
         wxTimer* timer = new wxTimer();
         timer->Bind(wxEVT_TIMER, [this, timer](wxTimerEvent& event) {
-            // ¶¨Ê±Æ÷´¥·¢ºóÍË³ö³ÌĞò
+            // å®šæ—¶å™¨è§¦å‘åé€€å‡ºç¨‹åº
             if (wxGetApp().mainframe) {
                 wxCloseEvent close_evt(wxEVT_CLOSE_WINDOW);
                 close_evt.SetCanVeto(false);
                 wxQueueEvent(wxGetApp().mainframe, close_evt.Clone());
             }
 
-            // Í£Ö¹²¢É¾³ı¶¨Ê±Æ÷
+            // åœæ­¢å¹¶åˆ é™¤å®šæ—¶å™¨
             timer->Stop();
             delete timer;
         });
 
-        // Æô¶¯¶¨Ê±Æ÷£¬1000 ºÁÃë = 1 Ãë
+        // å¯åŠ¨å®šæ—¶å™¨ï¼Œ1000 æ¯«ç§’ = 1 ç§’
         timer->Start(1000, wxTIMER_ONE_SHOT);
     });
     if (m_conversion_mode == ConversionMode::STL_TO_3MF) {
@@ -98,7 +98,7 @@ void AutoConvert3mfMgr::arrange_next_plate()
 {
     if (m_current_plate_index >= m_plate_object.size()) {
         on_all_plate_arrangement_finished();
-        return; // ËùÓĞÅÌ´¦ÀíÍê³É
+        return; // æ‰€æœ‰ç›˜å¤„ç†å®Œæˆ
     }
 
     Plater* plater = wxGetApp().plater();
@@ -136,7 +136,7 @@ void AutoConvert3mfMgr::on_arrange_job_finished()
     if (!plater)
         return;
 
-    arrange_next_plate(); // ´¦ÀíÏÂÒ»¸öÅÌ
+    arrange_next_plate(); // å¤„ç†ä¸‹ä¸€ä¸ªç›˜
 }
 
 void AutoConvert3mfMgr::do_necessary_arrange(int plate_index)
@@ -154,7 +154,7 @@ void AutoConvert3mfMgr::do_necessary_arrange(int plate_index)
     PartPlate* cur_plate = plater->get_partplate_list().get_plate(plate_index);
     if (!cur_plate)
         return;
-    // ´¦Àí¿ÕÅÌ
+    // å¤„ç†ç©ºç›˜
     ModelObjectPtrs objs = cur_plate->get_objects_on_this_plate();
     if (objs.size() == 0) {
         wxGetApp().ExitMainLoop();
@@ -280,7 +280,7 @@ void AutoConvert3mfMgr::auto_change_printer_preset(const std::string& printer_na
             start_sequential_arrange();
             // view3D->deselect_all();
         } else {
-            // ´¦Àí¿ÕÅÌ
+            // å¤„ç†ç©ºç›˜
             for (int i = 0; i < m_plate_object.size(); ++i) {
                 ModelObjectPtrs objs = cur_plate_list.get_plate_list()[i]->get_objects_on_this_plate();
                 if (objs.size() == 0) {

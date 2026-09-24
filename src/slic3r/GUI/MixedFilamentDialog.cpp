@@ -1,7 +1,9 @@
 #include "MixedFilamentDialog.hpp"
+#include "GradientCurveEditor.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include <functional>
 #include <map>
 #include <set>
@@ -12,8 +14,10 @@
 #include <wx/dcgraph.h>
 #include <wx/graphics.h>
 #include <wx/scrolwin.h>
+#include <wx/textctrl.h>
 #include <wx/wrapsizer.h>
 #include <wx/tokenzr.h>
+#include <wx/display.h>
 
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/filament_mixer.h"
@@ -21,6 +25,9 @@
 #include "I18N.hpp"
 #include "GUI.hpp"
 #include "GUI_App.hpp"
+#include "ConfigManipulation.hpp"
+#include "MsgDialog.hpp"
+#include "Plater.hpp"
 #include "Tab.hpp"
 #include "libslic3r/Preset.hpp"
 #include "Widgets/Button.hpp"
@@ -33,6 +40,88 @@ namespace Slic3r {
 namespace GUI {
 
 static constexpr int MAX_COMPONENTS = 3;
+static constexpr int MIN_COMPONENT_RATIO = 10;
+
+// Lightweight self-painting label used for both dual-color and triple-color
+// ratio percentage display.  Hover shows a rounded-rect background; click
+// fires wxEVT_LEFT_DOWN which the owning dialog binds to start_ratio_editor.
+class RatioLabelPanel : public wxPanel
+{
+public:
+    RatioLabelPanel(wxWindow* parent)
+        : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
+    {
+        SetBackgroundStyle(wxBG_STYLE_PAINT);
+        SetBackgroundColour(parent->GetBackgroundColour());
+        SetCursor(wxCursor(wxCURSOR_HAND));
+        SetToolTip(_L("Click to edit ratio"));
+        SetFont(::Label::Body_10);
+
+        Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent& e) { m_hovered = true;  Refresh(); e.Skip(); });
+        Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent& e) { m_hovered = false; Refresh(); e.Skip(); });
+        Bind(wxEVT_PAINT, &RatioLabelPanel::on_paint, this);
+    }
+
+    void SetLabel(const wxString& text) override
+    {
+        if (m_text == text) return;
+        m_text = text;
+        update_best_size();
+        Refresh();
+    }
+    wxString GetLabel() const override { return m_text; }
+
+private:
+    void update_best_size()
+    {
+        wxClientDC dc(this);
+        dc.SetFont(GetFont());
+        wxSize ts = dc.GetTextExtent(m_text);
+        int pad_x = FromDIP(4), pad_y = FromDIP(3);
+        SetMinSize(wxSize(ts.GetWidth() + pad_x * 2, ts.GetHeight() + pad_y * 2));
+        InvalidateBestSize();
+    }
+
+    void on_paint(wxPaintEvent&)
+    {
+        wxBufferedPaintDC dc(this);
+        wxSize sz = GetClientSize();
+
+        wxColour parent_bg = GetParent() ? GetParent()->GetBackgroundColour()
+                                         : StateColor::darkModeColorFor(*wxWHITE);
+        dc.SetBrush(wxBrush(parent_bg));
+        dc.SetPen(*wxTRANSPARENT_PEN);
+        dc.DrawRectangle(0, 0, sz.GetWidth(), sz.GetHeight());
+
+        if (m_hovered) {
+            dc.SetBrush(wxBrush(StateColor::darkModeColorFor(wxColour("#F8F8F8"))));
+            dc.SetPen(wxPen(StateColor::darkModeColorFor(wxColour("#CECECE")), 1));
+            dc.DrawRoundedRectangle(0, 0, sz.GetWidth(), sz.GetHeight(), FromDIP(3));
+        }
+
+        dc.SetFont(GetFont());
+        dc.SetTextForeground(m_hovered ? wxColour("#00AE42")
+                                       : StateColor::darkModeColorFor(wxColour("#262E30")));
+        wxSize ts = dc.GetTextExtent(m_text);
+        int x = (sz.GetWidth()  - ts.GetWidth())  / 2;
+        int y = (sz.GetHeight() - ts.GetHeight()) / 2;
+        dc.DrawText(m_text, x, y);
+    }
+
+    wxString m_text;
+    bool     m_hovered{false};
+};
+
+static size_t mixed_filament_max_visible_items(wxWindow* window)
+{
+    int display_index = window ? wxDisplay::GetFromWindow(window) : wxNOT_FOUND;
+    if (display_index == wxNOT_FOUND)
+        display_index = 0;
+
+    const wxSize work_size = wxDisplay(static_cast<unsigned int>(display_index)).GetClientArea().GetSize();
+    const int work_height_dip = window ? window->ToDIP(work_size.GetHeight()) : work_size.GetHeight();
+    return static_cast<size_t>(std::clamp(work_height_dip / 75, 6, 15));
+}
 
 static wxColour blend_colors(const wxColour& a, const wxColour& b, double ratio_a)
 {
@@ -75,12 +164,6 @@ MixedFilamentDialog::MixedFilamentDialog(wxWindow* parent,
     m_result.ratios     = {50, 50};
     build_ui();
     wxGetApp().UpdateDlgDarkUI(this);
-
-    wxImage img;
-    if (img.LoadFile(from_u8(Slic3r::var("mixed_filament_preview_twocolor.png")), wxBITMAP_TYPE_PNG))
-        m_preview_bmp_two = wxBitmap(img);
-    if (img.LoadFile(from_u8(Slic3r::var("mixed_filament_preview_threecolor.png")), wxBITMAP_TYPE_PNG))
-        m_preview_bmp_three = wxBitmap(img);
 }
 
 MixedFilamentDialog::MixedFilamentDialog(wxWindow* parent,
@@ -111,18 +194,81 @@ MixedFilamentDialog::MixedFilamentDialog(wxWindow* parent,
     }
     build_ui();
     wxGetApp().UpdateDlgDarkUI(this);
-
-    wxImage img;
-    if (img.LoadFile(from_u8(Slic3r::var("mixed_filament_preview_twocolor.png")), wxBITMAP_TYPE_PNG))
-        m_preview_bmp_two = wxBitmap(img);
-    if (img.LoadFile(from_u8(Slic3r::var("mixed_filament_preview_threecolor.png")), wxBITMAP_TYPE_PNG))
-        m_preview_bmp_three = wxBitmap(img);
 }
 
 void MixedFilamentDialog::on_dpi_changed(const wxRect&)
 {
-    int h = (num_components() >= 3) ? FromDIP(680) : FromDIP(580);
-    SetSize(FromDIP(439), h);
+    commit_ratio_editor(true);
+    ComboBox::DismissActiveDropDown();
+
+    // Recreate every item bitmap from colour data before ComboBox::Rescale()
+    // consumes the selected icon. This matches the working support-filament
+    // dropdown path and prevents an old high-DPI bitmap surviving on 100%.
+    rebuild_all_combos();
+    update_gradient_direction_items();
+
+    const wxSize combo_size(FromDIP(166), FromDIP(24));
+    const size_t max_visible_items = mixed_filament_max_visible_items(this);
+    for (ComboBox* combo : m_combo_filaments) {
+        if (!combo)
+            continue;
+        combo->SetMinSize(combo_size);
+        combo->SetSize(combo_size);
+        combo->GetDropDown().SetMaxVisibleItems(max_visible_items);
+        combo->Rescale();
+    }
+
+    if (m_combo_gradient_dir) {
+        const wxSize gradient_combo_size(FromDIP(152), FromDIP(24));
+        m_combo_gradient_dir->SetMinSize(gradient_combo_size);
+        m_combo_gradient_dir->SetSize(gradient_combo_size);
+        m_combo_gradient_dir->Rescale();
+    }
+
+    if (m_preview_canvas) {
+        const wxSize preview_size(FromDIP(100), FromDIP(100));
+        m_preview_canvas->SetMinSize(preview_size);
+        m_preview_canvas->SetMaxSize(preview_size);
+        m_preview_canvas->SetSize(preview_size);
+    }
+    if (m_summary_panel)
+        m_summary_panel->SetMinSize(wxSize(FromDIP(234), FromDIP(40)));
+    if (m_ratio_bar)
+        m_ratio_bar->SetMinSize(wxSize(-1, FromDIP(27)));
+    if (m_triangle_panel)
+        m_triangle_panel->SetMinSize(wxSize(FromDIP(160), FromDIP(160)));
+    if (m_warning_panel)
+        m_warning_panel->SetMinSize(wxSize(-1, FromDIP(48)));
+    if (m_recommendation_scroll) {
+        m_recommendation_scroll->SetMinSize(wxSize(-1, FromDIP(116)));
+        m_recommendation_scroll->SetScrollRate(0, FromDIP(5));
+    }
+    if (m_curve_editor)
+        m_curve_editor->SetMinSize(FromDIP(wxSize(260, 200)));
+    if (m_chk_gradient)
+        m_chk_gradient->Rescale();
+    if (m_chk_per_part_gradient)
+        m_chk_per_part_gradient->Rescale();
+
+    if (m_btn_add_material)
+        m_btn_add_material->Rescale();
+    if (m_btn_remove_material)
+        m_btn_remove_material->Rescale();
+    if (m_btn_cancel) {
+        m_btn_cancel->SetMinSize(wxSize(FromDIP(72), FromDIP(28)));
+        m_btn_cancel->Rescale();
+    }
+    if (m_btn_ok) {
+        m_btn_ok->SetMinSize(wxSize(FromDIP(72), FromDIP(28)));
+        m_btn_ok->Rescale();
+    }
+
+    rebuild_recommendation_items();
+    m_tri_cache_bmp = wxNullBitmap;
+
+    SetMinSize(wxDefaultSize);
+    SetSize(compute_dialog_size());
+    Layout();
     Refresh();
 }
 
@@ -160,14 +306,27 @@ static wxBitmap make_alpha_bitmap(int w, int h,
         draw_fn(dc);
     }
     memdc.SelectObject(wxNullBitmap);
+#ifdef __WXMSW__
+    // This bitmap already uses physical pixel dimensions calculated by the
+    // caller. Do not retain the DPI metadata of the monitor on which the
+    // off-screen DC happened to be created.
+    bmp.SetScaleFactor(1.0);
+#endif
     return bmp;
 }
 
 wxBitmap MixedFilamentDialog::make_swatch_bitmap(size_t idx)
 {
-    int swatch_sz = FromDIP(16);
-    int pad_left  = FromDIP(2);
-    int pad_right = FromDIP(6);
+    // DPIAware updates scale_factor() before on_dpi_changed(). Use it directly
+    // instead of FromDIP(), whose child HWND context can still be the source
+    // monitor while Windows is completing a cross-monitor transition.
+    const double target_scale = std::max(1.0, static_cast<double>(scale_factor()));
+    const auto px = [target_scale](int dip) {
+        return std::max(1, static_cast<int>(std::lround(dip * target_scale)));
+    };
+    int swatch_sz = px(16);
+    int pad_left  = px(2);
+    int pad_right = px(6);
     int bmp_w = pad_left + swatch_sz + pad_right;
     int bmp_h = swatch_sz;
 
@@ -178,26 +337,322 @@ wxBitmap MixedFilamentDialog::make_swatch_bitmap(size_t idx)
     return make_alpha_bitmap(bmp_w, bmp_h, [&](wxDC& dc) {
         dc.SetBrush(wxBrush(col));
         dc.SetPen(*wxTRANSPARENT_PEN);
-        dc.DrawRoundedRectangle(pad_left, 0, swatch_sz, swatch_sz, FromDIP(2));
+        dc.DrawRoundedRectangle(pad_left, 0, swatch_sz, swatch_sz, px(2));
 
         if (!wxGetApp().dark_mode() && col.Red() > 224 && col.Green() > 224 && col.Blue() > 224) {
             dc.SetPen(wxPen(wxColour(130, 130, 128), 1));
             dc.SetBrush(*wxTRANSPARENT_BRUSH);
-            dc.DrawRoundedRectangle(pad_left, 0, swatch_sz, swatch_sz, FromDIP(2));
+            dc.DrawRoundedRectangle(pad_left, 0, swatch_sz, swatch_sz, px(2));
         }
         if (wxGetApp().dark_mode() && col.Red() < 45 && col.Green() < 45 && col.Blue() < 45) {
             dc.SetPen(wxPen(wxColour(207, 207, 207), 1));
             dc.SetBrush(*wxTRANSPARENT_BRUSH);
-            dc.DrawRoundedRectangle(pad_left, 0, swatch_sz, swatch_sz, FromDIP(2));
+            dc.DrawRoundedRectangle(pad_left, 0, swatch_sz, swatch_sz, px(2));
         }
 
         wxString num = wxString::Format(wxT("%zu"), idx + 1);
-        dc.SetFont(::Label::Body_13);
+        // This is an off-screen bitmap. A point-size font may keep the source
+        // monitor DPI in wxMemoryDC, so bind the number to the swatch's actual
+        // raster height instead of the dialog's previous display.
+        wxFont number_font = ::Label::Body_12;
+        number_font.SetPixelSize(wxSize(0, std::max(1, swatch_sz * 9 / 10)));
+        number_font.MakeBold();
+        dc.SetFont(number_font);
         wxSize txt_sz = dc.GetTextExtent(num);
         dc.SetTextForeground(col.GetLuminance() > 0.5 ? wxColour(50, 58, 61) : *wxWHITE);
         dc.DrawText(num, pad_left + (swatch_sz - txt_sz.GetWidth()) / 2,
                          (swatch_sz - txt_sz.GetHeight()) / 2);
     });
+}
+
+void MixedFilamentDialog::refresh_ratio_labels()
+{
+    if (m_label_ratio_a)
+        m_label_ratio_a->SetLabel(wxString::Format(wxT("%d%%"), ratio(0)));
+    if (m_label_ratio_b)
+        m_label_ratio_b->SetLabel(wxString::Format(wxT("%d%%"), ratio(1)));
+    if (m_ratio_sizer)
+        m_ratio_sizer->Layout();
+    if (m_triangle_panel)
+        m_triangle_panel->Refresh();
+}
+
+void MixedFilamentDialog::sync_triangle_weights_from_ratios()
+{
+    if (m_result.ratios.size() < 3)
+        return;
+
+    int sum = 0;
+    for (int r : m_result.ratios)
+        sum += r;
+    if (sum <= 0)
+        return;
+
+    m_tri_wx = (double)m_result.ratios[0] / sum;
+    m_tri_wy = (double)m_result.ratios[1] / sum;
+    m_tri_wz = (double)m_result.ratios[2] / sum;
+}
+
+void MixedFilamentDialog::apply_manual_ratio(size_t idx, int value)
+{
+    const size_t n = num_components();
+    if (idx >= n)
+        return;
+    if (m_result.ratios.size() != n)
+        m_result.ratios.assign(n, n > 0 ? 100 / (int)n : 0);
+    // Reserve at least 10% for each component: dual-color 10..90, ternary 10..80.
+    const int min_ratio = MIN_COMPONENT_RATIO;
+    int max_value = (int)(100 - (n - 1) * min_ratio);
+    value = std::clamp(value, min_ratio, std::max(min_ratio, max_value));
+
+    if (n == 2) {
+        if (idx == 0) {
+            m_result.ratios[0] = value;
+            m_result.ratios[1] = 100 - value;
+        } else {
+            m_result.ratios[1] = value;
+            m_result.ratios[0] = 100 - value;
+        }
+        m_result.ratios[0] = std::clamp(m_result.ratios[0], min_ratio, 100 - min_ratio);
+        m_result.ratios[1] = 100 - m_result.ratios[0];
+    } else if (n >= 3) {
+        m_result.ratios[idx] = value;
+        int remaining = 100 - value;
+
+        std::vector<size_t> others;
+        int others_sum = 0;
+        for (size_t i = 0; i < n; ++i) {
+            if (i == idx) continue;
+            others.push_back(i);
+            others_sum += m_result.ratios[i];
+        }
+
+        if (!others.empty()) {
+            if (others_sum > 0) {
+                int assigned = 0;
+                for (size_t k = 0; k < others.size(); ++k) {
+                    int nv = (int)((double)remaining * m_result.ratios[others[k]] / others_sum + 0.5);
+                    nv = std::max(nv, min_ratio);
+                    m_result.ratios[others[k]] = nv;
+                    assigned += nv;
+                }
+                while (assigned != remaining) {
+                    if (assigned > remaining) {
+                        int pick = -1;
+                        for (size_t k = 0; k < others.size(); ++k)
+                            if (m_result.ratios[others[k]] > min_ratio
+                                && (pick < 0 || m_result.ratios[others[k]] > m_result.ratios[others[pick]]))
+                                pick = (int)k;
+                        if (pick < 0) break;
+                        --m_result.ratios[others[pick]]; --assigned;
+                    } else {
+                        int pick = 0;
+                        for (size_t k = 1; k < others.size(); ++k)
+                            if (m_result.ratios[others[k]] > m_result.ratios[others[pick]])
+                                pick = (int)k;
+                        ++m_result.ratios[others[pick]]; ++assigned;
+                    }
+                }
+            } else {
+                int base = remaining / (int)others.size();
+                for (size_t k = 0; k < others.size(); ++k)
+                    m_result.ratios[others[k]] = base;
+                m_result.ratios[others.back()] += remaining - base * (int)others.size();
+            }
+        }
+    }
+
+    refresh_ratio_labels();
+    sync_triangle_weights_from_ratios();
+    update_preview();
+}
+
+void MixedFilamentDialog::apply_dragged_triangle_ratio(int r0, int r1, int r2)
+{
+    if (m_result.ratios.size() < 3)
+        return;
+
+    int ratios[3] = {
+        std::clamp(r0, MIN_COMPONENT_RATIO, 100),
+        std::clamp(r1, MIN_COMPONENT_RATIO, 100),
+        std::clamp(r2, MIN_COMPONENT_RATIO, 100)
+    };
+
+    int sum = ratios[0] + ratios[1] + ratios[2];
+    while (sum > 100) {
+        int idx = 0;
+        for (int i = 1; i < 3; ++i) {
+            if (ratios[i] > ratios[idx])
+                idx = i;
+        }
+        if (ratios[idx] <= MIN_COMPONENT_RATIO)
+            break;
+        --ratios[idx];
+        --sum;
+    }
+    while (sum < 100) {
+        int idx = 0;
+        for (int i = 1; i < 3; ++i) {
+            if (ratios[i] < ratios[idx])
+                idx = i;
+        }
+        ++ratios[idx];
+        ++sum;
+    }
+
+    m_result.ratios[0] = ratios[0];
+    m_result.ratios[1] = ratios[1];
+    m_result.ratios[2] = ratios[2];
+    sync_triangle_weights_from_ratios();
+    update_preview();
+}
+
+void MixedFilamentDialog::start_ratio_editor(size_t idx, wxWindow* anchor, const wxRect& anchor_rect)
+{
+    if (!anchor || idx >= m_result.ratios.size())
+        return;
+    if (m_ratio_editor_panel && m_ratio_editor_panel->IsShown())
+        commit_ratio_editor(true);
+
+    if (!m_ratio_editor_panel) {
+        wxColour bg = StateColor::darkModeColorFor(wxColour("#F8F8F8"));
+        wxColour fg = StateColor::darkModeColorFor(wxColour("#262E30"));
+
+        m_ratio_editor_panel = new wxPanel(this, wxID_ANY, wxDefaultPosition,
+                                           wxDefaultSize, wxBORDER_SIMPLE);
+        m_ratio_editor_panel->SetBackgroundColour(bg);
+
+        auto* hsizer = new wxBoxSizer(wxHORIZONTAL);
+
+        m_ratio_editor = new wxTextCtrl(m_ratio_editor_panel, wxID_ANY, wxEmptyString,
+                                        wxDefaultPosition, wxDefaultSize,
+                                        wxTE_PROCESS_ENTER | wxTE_RIGHT | wxBORDER_NONE);
+        m_ratio_editor->SetFont(::Label::Body_10);
+        m_ratio_editor->SetMaxLength(3);
+        m_ratio_editor->SetBackgroundColour(bg);
+        m_ratio_editor->SetForegroundColour(fg);
+        // Default wxTextCtrl best width (~140px) is too wide for the sizer to
+        // shrink, which would push the "%" suffix out of the panel.  Size the
+        // editor for the *widest* three digits rather than the largest accepted
+        // value: SetMaxLength above lets anything up to "888" be typed, and the
+        // macOS system font renders digits at different advances, so "100" is
+        // narrower than what the user can actually enter.  GetSizeFromTextSize()
+        // then adds the platform's own text field margins; on macOS those margins
+        // are what clipped the digits.
+        {
+            wxClientDC mdc(m_ratio_editor);
+            mdc.SetFont(::Label::Body_10);
+            int digits_w = mdc.GetTextExtent(wxT("888")).GetWidth();
+            m_ratio_editor->SetMinSize(m_ratio_editor->GetSizeFromTextSize(digits_w));
+        }
+
+        auto* pct_label = new wxStaticText(m_ratio_editor_panel, wxID_ANY, wxT("%"));
+        pct_label->SetFont(::Label::Body_10);
+        pct_label->SetForegroundColour(fg);
+        pct_label->SetBackgroundColour(bg);
+        pct_label->SetMinSize(pct_label->GetBestSize());
+
+        hsizer->Add(m_ratio_editor, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(2));
+        hsizer->Add(pct_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(2));
+        m_ratio_editor_panel->SetSizer(hsizer);
+        m_ratio_editor_panel->Hide();
+
+        m_ratio_editor->Bind(wxEVT_TEXT_ENTER, [this](wxCommandEvent&) { commit_ratio_editor(true); });
+        m_ratio_editor->Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent& e) {
+            commit_ratio_editor(true);
+            e.Skip();
+        });
+        m_ratio_editor->Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent& e) {
+            if (e.GetKeyCode() == WXK_ESCAPE)
+                commit_ratio_editor(false);
+            else
+                e.Skip();
+        });
+    }
+
+    m_ratio_editor_idx = idx;
+
+    // Keep the editor in the same window hierarchy as the clicked label so the
+    // z-order is reliable and the editor fully covers the anchor (dual-color
+    // labels live on the dialog, triple-color labels live on the triangle
+    // panel).
+    wxWindow* target_parent = anchor->GetParent();
+    if (target_parent && m_ratio_editor_panel->GetParent() != target_parent)
+        m_ratio_editor_panel->Reparent(target_parent);
+
+    // Hide the label being edited to avoid its (hover-state) text leaking out
+    // next to the editor; restored on commit.
+    m_ratio_editor_anchor = anchor;
+    anchor->Hide();
+
+    wxPoint pos = anchor->GetPosition() + anchor_rect.GetTopLeft();
+    // Match the editor to the label (hover box) size so the inline editor and
+    // the hover state look identical, but never go below what the digits and
+    // the "%" suffix need: the sizer takes any missing width out of the
+    // stretchable editor, which would clip the value.
+    wxSize needed = m_ratio_editor_panel->ClientToWindowSize(
+        m_ratio_editor_panel->GetSizer()->CalcMin());
+    wxSize size = anchor->GetSize();
+    size.SetWidth(std::max(size.GetWidth(), needed.GetWidth()));
+    size.SetHeight(std::max(size.GetHeight(), needed.GetHeight()));
+    // An editor wider than the label must still stay inside its parent, or the
+    // corner labels of the triangle picker would have it clipped at the edge.
+    if (wxWindow* editor_parent = m_ratio_editor_panel->GetParent()) {
+        wxSize avail = editor_parent->GetClientSize();
+        pos.x = std::clamp(pos.x, 0, std::max(0, avail.GetWidth()  - size.GetWidth()));
+        pos.y = std::clamp(pos.y, 0, std::max(0, avail.GetHeight() - size.GetHeight()));
+    }
+    m_ratio_editor_panel->SetSize(wxRect(pos, size));
+    m_ratio_editor_panel->Layout();
+    m_ratio_editor->SetValue(wxString::Format(wxT("%d"), ratio(idx)));
+    m_ratio_editor_panel->Show();
+    m_ratio_editor_panel->Raise();
+    m_ratio_editor->SetFocus();
+    m_ratio_editor->SelectAll();
+    m_ratio_editor_panel->Refresh();
+    Update();
+}
+
+void MixedFilamentDialog::commit_ratio_editor(bool apply)
+{
+    if (!m_ratio_editor_panel || !m_ratio_editor_panel->IsShown() || m_ratio_editor_committing)
+        return;
+
+    m_ratio_editor_committing = true;
+
+    // Restore the hidden anchor before applying the ratio, so any sizer layout
+    // triggered by refresh_ratio_labels() accounts for the visible label.
+    m_ratio_editor_panel->Hide();
+    if (m_ratio_editor_anchor) {
+        m_ratio_editor_anchor->Show();
+        m_ratio_editor_anchor = nullptr;
+    }
+
+    if (apply) {
+        wxString value = m_ratio_editor->GetValue();
+        value.Trim(true);
+        value.Trim(false);
+        if (value.EndsWith(wxT("%")))
+            value.RemoveLast();
+
+        long parsed = 0;
+        if (value.ToLong(&parsed))
+            apply_manual_ratio(m_ratio_editor_idx, (int)parsed);
+        else
+            refresh_ratio_labels();
+    }
+
+    m_ratio_editor_committing = false;
+}
+
+void MixedFilamentDialog::commit_ratio_editor_from_background(wxMouseEvent& e)
+{
+    if (m_ratio_editor_panel && m_ratio_editor_panel->IsShown()) {
+        wxPoint mouse_in_panel = m_ratio_editor_panel->ScreenToClient(wxGetMousePosition());
+        if (!m_ratio_editor_panel->GetClientRect().Contains(mouse_in_panel))
+            commit_ratio_editor(true);
+    }
+    e.Skip();
 }
 
 // ---- UI Construction ----
@@ -230,6 +685,8 @@ void MixedFilamentDialog::build_ui()
     });
     upper_panel->SetBackgroundColour(panel_bg);
     m_upper_panel = upper_panel;
+    Bind(wxEVT_LEFT_DOWN, &MixedFilamentDialog::commit_ratio_editor_from_background, this);
+    upper_panel->Bind(wxEVT_LEFT_DOWN, &MixedFilamentDialog::commit_ratio_editor_from_background, this);
     auto* upper_sizer = new wxBoxSizer(wxVERTICAL);
 
     auto* top_content_sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -256,11 +713,11 @@ void MixedFilamentDialog::build_ui()
     ratio_wrapper->AddStretchSpacer(1);
     upper_sizer->Add(ratio_wrapper, 0, wxEXPAND | wxLEFT | wxTOP, FromDIP(15));
 
-    upper_sizer->AddSpacer(FromDIP(15));
+    upper_sizer->AddSpacer(FromDIP(10));
 
     upper_panel->SetSizer(upper_sizer);
 
-    main_sizer->Add(upper_panel, 8, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(12));
+    main_sizer->Add(upper_panel, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(12));
 
     // ---- Lower panel (lighter background, rounded corners via paint) ----
     auto* lower_panel = new wxPanel(this, wxID_ANY);
@@ -337,56 +794,71 @@ wxBoxSizer* MixedFilamentDialog::create_preview_panel(wxWindow* parent)
 
         if (n == 0) return;
 
-        const wxBitmap& src = (n >= 3) ? m_preview_bmp_three : m_preview_bmp_two;
-        if (src.IsOk()) {
-            // Create rounded corner mask and apply to scaled image
-            wxImage scaled = src.ConvertToImage().Scale(sz.GetWidth(), sz.GetHeight(), wxIMAGE_QUALITY_BILINEAR);
-            int w = sz.GetWidth(), h = sz.GetHeight();
-            int r = FromDIP(6);
+        // BambuStudio-aligned preview: a single rounded swatch whose content
+        // depends on the gradient toggle.
+        //   - Default (gradient off, or 3+ colors): the blended mixed colour
+        //     at the current ratio. The ratio slider already shows the
+        //     per-component colours, so duplicating them as a horizontal ramp
+        //     here is redundant.
+        //   - 2-color + gradient on: vertical bands driven by
+        //     sample_gradient_curve (the same evaluator the slicer uses), so
+        //     the swatch actually previews the A->B ramp the user has
+        //     configured (curve, direction, per-part toggle all feed in).
+        const int swatch_sz = FromDIP(80);
+        const int x0 = (sz.GetWidth()  - swatch_sz) / 2;
+        const int y0 = (sz.GetHeight() - swatch_sz) / 2;
+        const double radius = FromDIP(6);
 
-            // Create alpha mask with rounded corners (anti-aliased)
-            if (!scaled.HasAlpha())
-                scaled.InitAlpha();
-            unsigned char* alpha = scaled.GetAlpha();
-            for (int y = 0; y < h; ++y) {
-                for (int x = 0; x < w; ++x) {
-                    // Sub-pixel sampling for anti-aliasing (4x4 grid)
-                    int count = 0;
-                    for (int sy = 0; sy < 4; ++sy) {
-                        for (int sx = 0; sx < 4; ++sx) {
-                            double px = x + (sx + 0.5) / 4.0;
-                            double py = y + (sy + 0.5) / 4.0;
-                            bool inside = true;
-                            if (px < r && py < r) {
-                                inside = ((px - r) * (px - r) + (py - r) * (py - r)) <= (double)r * r;
-                            } else if (px >= w - r && py < r) {
-                                inside = ((px - (w - r)) * (px - (w - r)) + (py - r) * (py - r)) <= (double)r * r;
-                            } else if (px < r && py >= h - r) {
-                                inside = ((px - r) * (px - r) + (py - (h - r)) * (py - (h - r))) <= (double)r * r;
-                            } else if (px >= w - r && py >= h - r) {
-                                inside = ((px - (w - r)) * (px - (w - r)) + (py - (h - r)) * (py - (h - r))) <= (double)r * r;
-                            }
-                            if (inside) ++count;
-                        }
-                    }
-                    alpha[y * w + x] = (unsigned char)(count * 255 / 16);
-                }
+        if (m_result.gradient_enabled && n == 2) {
+            Slic3r::GradientCurve curve;
+            if (!m_result.gradient_curve.empty()) {
+                // In this codebase MixedFilamentResult::gradient_curve is a
+                // GradientCurve (wrapper struct) rather than the raw vector
+                // BambuStudio uses, so we copy via the struct's operator=.
+                curve = m_result.gradient_curve;
+            } else {
+                double yStart = (m_result.gradient_direction == 0) ? kGradientMaxRatio : kGradientMinRatio;
+                double yEnd   = (m_result.gradient_direction == 0) ? kGradientMinRatio : kGradientMaxRatio;
+                curve.points = {{0.0, yStart, NAN, NAN}, {1.0, yEnd, NAN, NAN}};
             }
-            dc.DrawBitmap(wxBitmap(scaled), 0, 0, true);
-        }
 
-        std::vector<wxColour> cols;
-        std::vector<double>   weights;
-        for (size_t i = 0; i < n; ++i) {
-            cols.push_back(comp_colour(i));
-            weights.push_back(ratio(i) / 100.0);
-        }
+            wxColour colA = comp_colour(0);
+            wxColour colB = comp_colour(1);
+            const int bands = std::max(80, swatch_sz);
+            const double band_h = static_cast<double>(swatch_sz) / bands;
+            dc.SetPen(*wxTRANSPARENT_PEN);
+            for (int b = 0; b < bands; ++b) {
+                double t = 1.0 - (b + 0.5) / bands;
+                double r1 = Slic3r::sample_gradient_curve(curve, t);
+                double r2 = 1.0 - r1;
+                wxColour band_col = blend_n_colors({colA, colB}, {r1, r2});
+                dc.SetBrush(wxBrush(band_col));
+                int by = y0 + static_cast<int>(b * band_h);
+                int bh = static_cast<int>((b + 1) * band_h) - static_cast<int>(b * band_h) + 1;
+                dc.DrawRectangle(x0, by, swatch_sz, bh);
+            }
 
-        wxColour mixed = blend_n_colors(cols, weights);
-        int swatch_sz = FromDIP(16);
-        dc.SetBrush(wxBrush(mixed));
-        dc.SetPen(*wxTRANSPARENT_PEN);
-        dc.DrawRoundedRectangle(FromDIP(4), FromDIP(4), swatch_sz, swatch_sz, FromDIP(2));
+            // Round the rectangle's corners by overdrawing a thick
+            // background-coloured rounded-rectangle frame; the inner edge
+            // becomes the desired border radius. Works on this wxWidgets
+            // build which lacks wxGraphicsContext::Clip(path).
+            int r = static_cast<int>(radius);
+            wxColour bg = m_preview_canvas->GetParent()->GetBackgroundColour();
+            dc.SetBrush(*wxTRANSPARENT_BRUSH);
+            dc.SetPen(wxPen(bg, r * 2));
+            dc.DrawRoundedRectangle(x0 - r, y0 - r, swatch_sz + r * 2, swatch_sz + r * 2, radius * 2);
+        } else {
+            std::vector<wxColour> cols;
+            std::vector<double>   weights;
+            for (size_t i = 0; i < n; ++i) {
+                cols.push_back(comp_colour(i));
+                weights.push_back(ratio(i) / 100.0);
+            }
+            wxColour mixed = blend_n_colors(cols, weights);
+            dc.SetBrush(wxBrush(mixed));
+            dc.SetPen(*wxTRANSPARENT_PEN);
+            dc.DrawRoundedRectangle(x0, y0, swatch_sz, swatch_sz, radius);
+        }
     });
 
     sizer->Add(m_preview_canvas, 0, wxALIGN_CENTER_HORIZONTAL);
@@ -434,17 +906,21 @@ wxBoxSizer* MixedFilamentDialog::create_material_selection(wxWindow* parent)
             dc.SetPen(*wxTRANSPARENT_PEN);
             dc.DrawRoundedRectangle(x, y_center, swatch_sz, swatch_sz, FromDIP(2));
 
-            wxString num = wxString::Format(wxT("%u"), comp(i));
+            wxString num = comp(i) == 0 ? wxString::FromUTF8("—") : wxString::Format(wxT("%u"), comp(i));
             wxSize num_sz = dc.GetTextExtent(num);
             dc.SetTextForeground(col.GetLuminance() > 0.5 ? wxColour(50, 58, 61) : *wxWHITE);
             dc.DrawText(num, x + (swatch_sz - num_sz.GetWidth()) / 2,
                              y_center + (swatch_sz - num_sz.GetHeight()) / 2);
             x += swatch_sz + FromDIP(4);
 
-            dc.SetTextForeground(sum_text);
-            wxString pct = wxString::Format(wxT("%d%%"), ratio(i));
-            dc.DrawText(pct, x, y_center);
-            x += dc.GetTextExtent(pct).GetWidth() + FromDIP(4);
+            // Gradient proportions vary along the model height, so a single
+            // percentage in the component summary is not meaningful.
+            if (!m_result.gradient_enabled) {
+                dc.SetTextForeground(sum_text);
+                wxString pct = wxString::Format(wxT("%d%%"), ratio(i));
+                dc.DrawText(pct, x, y_center);
+                x += dc.GetTextExtent(pct).GetWidth() + FromDIP(4);
+            }
         }
     });
     sizer->Add(m_summary_panel, 0, wxEXPAND);
@@ -467,6 +943,8 @@ wxBoxSizer* MixedFilamentDialog::create_material_selection(wxWindow* parent)
 
         auto* combo = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition,
                                    wxSize(FromDIP(166), FromDIP(24)), 0, nullptr, wxCB_READONLY);
+        combo->EnableAutoPopupDirection(false);
+        combo->GetDropDown().SetMaxVisibleItems(mixed_filament_max_visible_items(this));
         combo->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent&) { on_filament_changed(); });
         row->Add(combo, 1, wxALIGN_CENTER_VERTICAL);
 
@@ -539,6 +1017,7 @@ wxBoxSizer* MixedFilamentDialog::create_ratio_slider(wxWindow* parent)
     });
 
     m_ratio_bar->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& e) {
+        commit_ratio_editor(true);
         m_dragging = true;
         m_ratio_bar->CaptureMouse();
         int new_ratio = 100 - (int)(e.GetX() * 100.0 / m_ratio_bar->GetClientSize().GetWidth() + 0.5);
@@ -562,10 +1041,18 @@ wxBoxSizer* MixedFilamentDialog::create_ratio_slider(wxWindow* parent)
     sizer->Add(m_ratio_bar, 0, wxEXPAND);
 
     auto* pct_sizer = new wxBoxSizer(wxHORIZONTAL);
-    m_label_ratio_a = new wxStaticText(parent, wxID_ANY, wxString::Format(wxT("%d%%"), ratio(0)));
-    m_label_ratio_a->SetFont(::Label::Body_10);
-    m_label_ratio_b = new wxStaticText(parent, wxID_ANY, wxString::Format(wxT("%d%%"), ratio(1)));
-    m_label_ratio_b->SetFont(::Label::Body_10);
+    m_label_ratio_a = new RatioLabelPanel(parent);
+    m_label_ratio_a->SetLabel(wxString::Format(wxT("%d%%"), ratio(0)));
+    m_label_ratio_b = new RatioLabelPanel(parent);
+    m_label_ratio_b->SetLabel(wxString::Format(wxT("%d%%"), ratio(1)));
+    auto bind_ratio_click = [this](RatioLabelPanel* label, size_t idx) {
+        label->Bind(wxEVT_LEFT_DOWN, [this, label, idx](wxMouseEvent&) {
+            wxRect rect(wxPoint(0, 0), label->GetClientSize());
+            start_ratio_editor(idx, label, rect);
+        });
+    };
+    bind_ratio_click(m_label_ratio_a, 0);
+    bind_ratio_click(m_label_ratio_b, 1);
     pct_sizer->Add(m_label_ratio_a, 0);
     pct_sizer->AddStretchSpacer(1);
     pct_sizer->Add(m_label_ratio_b, 0);
@@ -636,6 +1123,8 @@ wxBoxSizer* MixedFilamentDialog::create_triangle_picker(wxWindow* parent)
     int panel_h = FromDIP(160);
     m_triangle_panel = new wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(panel_w, panel_h));
     m_triangle_panel->SetMinSize(wxSize(panel_w, panel_h));
+    // Child percentage labels must match the background painted behind the triangle.
+    m_triangle_panel->SetBackgroundColour(parent->GetBackgroundColour());
     m_triangle_panel->SetBackgroundStyle(wxBG_STYLE_PAINT);
 
     auto get_vertices = [this]() -> std::tuple<TriPoint, TriPoint, TriPoint> {
@@ -727,22 +1216,30 @@ wxBoxSizer* MixedFilamentDialog::create_triangle_picker(wxWindow* parent)
         dc.SetPen(wxPen(wxColour("#262E30"), FromDIP(2)));
         dc.DrawCircle((int)hx, (int)hy, handle_r);
 
-        dc.SetFont(::Label::Body_10);
-        dc.SetTextForeground(StateColor::darkModeColorFor(wxColour("#262E30")));
         if (m_result.ratios.size() >= 3) {
-            wxString s0 = wxString::Format(wxT("%d%%"), m_result.ratios[0]);
-            wxString s1 = wxString::Format(wxT("%d%%"), m_result.ratios[1]);
-            wxString s2 = wxString::Format(wxT("%d%%"), m_result.ratios[2]);
-            wxSize ts0 = dc.GetTextExtent(s0);
-            int top_label_y = std::max(0, (int)(v0.y - ts0.GetHeight() - FromDIP(4)));
-            dc.DrawText(s0, (int)(v0.x - ts0.GetWidth() / 2), top_label_y);
-
             dc.SetFont(::Label::Body_10);
-            dc.SetTextForeground(StateColor::darkModeColorFor(wxColour("#262E30")));
-            wxSize ts1 = dc.GetTextExtent(s1);
-            dc.DrawText(s1, (int)(v1.x - ts1.GetWidth() / 2), (int)(v1.y + FromDIP(3)));
-            wxSize ts2 = dc.GetTextExtent(s2);
-            dc.DrawText(s2, (int)(v2.x - ts2.GetWidth() / 2), (int)(v2.y + FromDIP(3)));
+            wxSize ts0 = dc.GetTextExtent(wxString::Format(wxT("%d%%"), m_result.ratios[0]));
+            int top_label_y = std::max(0, (int)(v0.y - ts0.GetHeight() - FromDIP(10)));
+
+            // Position the real RatioLabelPanel children
+            for (int i = 0; i < 3 && i < (int)m_triangle_ratio_labels.size(); ++i) {
+                if (!m_triangle_ratio_labels[i]) continue;
+                m_triangle_ratio_labels[i]->SetLabel(
+                    wxString::Format(wxT("%d%%"), m_result.ratios[i]));
+                wxSize lsz = m_triangle_ratio_labels[i]->GetMinSize();
+                int lx = 0, ly = 0;
+                if (i == 0) {
+                    lx = (int)(v0.x - lsz.GetWidth() / 2);
+                    ly = top_label_y;
+                } else if (i == 1) {
+                    lx = (int)(v1.x - lsz.GetWidth() / 2);
+                    ly = (int)(v1.y + FromDIP(3));
+                } else {
+                    lx = (int)(v2.x - lsz.GetWidth() / 2);
+                    ly = (int)(v2.y + FromDIP(3));
+                }
+                m_triangle_ratio_labels[i]->SetSize(lx, ly, lsz.GetWidth(), lsz.GetHeight());
+            }
         }
     });
 
@@ -751,6 +1248,8 @@ wxBoxSizer* MixedFilamentDialog::create_triangle_picker(wxWindow* parent)
         TriPoint p = {(double)e.GetX(), (double)e.GetY()};
 
         if (is_down) {
+            if (!tri_contains(p, v0, v1, v2))
+                return;
             m_dragging = true;
             m_triangle_panel->CaptureMouse();
         }
@@ -767,16 +1266,26 @@ wxBoxSizer* MixedFilamentDialog::create_triangle_picker(wxWindow* parent)
         r1 = std::clamp(r1, 0, 100);
         r2 = std::clamp(r2, 0, 100);
 
-        if (m_result.ratios.size() >= 3) {
-            m_result.ratios[0] = r0;
-            m_result.ratios[1] = r1;
-            m_result.ratios[2] = r2;
-        }
-
-        update_preview();
+        apply_dragged_triangle_ratio(r0, r1, r2);
     };
 
-    m_triangle_panel->Bind(wxEVT_LEFT_DOWN, [handle_mouse](wxMouseEvent& e) {
+    // Create 3 RatioLabelPanel children on the triangle panel
+    m_triangle_ratio_labels.fill(nullptr);
+    for (int i = 0; i < 3; ++i) {
+        auto* lbl = new RatioLabelPanel(m_triangle_panel);
+        lbl->SetLabel(wxString::Format(wxT("%d%%"),
+                      (i < (int)m_result.ratios.size()) ? m_result.ratios[i] : 33));
+        size_t idx = (size_t)i;
+        lbl->Bind(wxEVT_LEFT_DOWN, [this, lbl, idx](wxMouseEvent&) {
+            wxRect rect(wxPoint(0, 0), lbl->GetClientSize());
+            start_ratio_editor(idx, lbl, rect);
+        });
+        m_triangle_ratio_labels[i] = lbl;
+    }
+
+    m_triangle_panel->Bind(wxEVT_LEFT_DOWN, [this, handle_mouse](wxMouseEvent& e) {
+        if (m_ratio_editor_panel && m_ratio_editor_panel->IsShown())
+            commit_ratio_editor(true);
         handle_mouse(e, true);
     });
     m_triangle_panel->Bind(wxEVT_MOTION, [handle_mouse](wxMouseEvent& e) {
@@ -800,33 +1309,112 @@ wxBoxSizer* MixedFilamentDialog::create_gradient_section(wxWindow* parent)
     m_gradient_sizer = new wxBoxSizer(wxHORIZONTAL);
 
     m_chk_gradient = new ::CheckBox(parent);
-    // Gradient Effect is not yet supported by the slicing engine; force off and disable interaction.
-    m_result.gradient_enabled = false;
-    m_chk_gradient->SetValue(false);
-    m_chk_gradient->Disable();
-    m_chk_gradient->SetToolTip(_L("Gradient Effect is not yet supported."));
+    m_chk_gradient->SetValue(m_result.gradient_enabled);
     m_chk_gradient->SetBackgroundColour(parent->GetBackgroundColour());
+    m_chk_gradient->Bind(wxEVT_TOGGLEBUTTON, [this](wxCommandEvent& e) { e.Skip(); on_gradient_toggled(); });
     m_gradient_sizer->Add(m_chk_gradient, 0, wxALIGN_CENTER_VERTICAL);
 
     m_label_gradient = new wxStaticText(parent, wxID_ANY, _L("Gradient Effect"));
     m_label_gradient->SetFont(::Label::Head_13);
-    m_label_gradient->SetForegroundColour(wxColour("#808080"));
     m_gradient_sizer->Add(m_label_gradient, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(6));
 
     m_combo_gradient_dir = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition,
                                         wxSize(FromDIP(152), FromDIP(24)), 0, nullptr, wxCB_READONLY);
-    // m_combo_gradient_dir->SetKeepDropArrow(true);
+    m_combo_gradient_dir->EnableAutoPopupDirection(false);
     update_gradient_direction_items();
     m_combo_gradient_dir->SetSelection(m_result.gradient_direction);
     m_combo_gradient_dir->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent&) { on_gradient_direction_changed(); });
     m_combo_gradient_dir->Show(m_result.gradient_enabled);
-
     m_gradient_sizer->Add(m_combo_gradient_dir, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(8));
 
-    // Gradient Effect is not yet supported; hide the whole section.
-    m_gradient_sizer->ShowItems(false);
+    // Curve editor + per-part gradient toggle live in a separate vertical
+    // sizer that is shown only when the gradient is enabled. The curve
+    // itself replaces the linear A->B blend with a Photoshop-style control
+    // point list; the per-part toggle makes the ramp per-part instead of
+    // per-run (used by the slicer to drive per-object / per-volume runs).
+    auto* outer = new wxBoxSizer(wxVERTICAL);
+    outer->Add(m_gradient_sizer, 0, wxEXPAND);
 
-    return m_gradient_sizer;
+    m_curve_sizer = new wxBoxSizer(wxHORIZONTAL);
+    m_curve_editor = new GradientCurveEditor(parent, comp_colour(0), comp_colour(1));
+    if (!m_result.gradient_curve.empty())
+        m_curve_editor->set_points(m_result.gradient_curve);
+    else
+        m_curve_editor->reset_to_linear((m_result.gradient_direction == 0) ? 0.9 : 0.1,
+                                        (m_result.gradient_direction == 0) ? 0.1 : 0.9);
+    m_curve_editor->Bind(wxEVT_GRADIENT_CURVE_CHANGED,
+                         [this](wxCommandEvent&) { on_gradient_curve_changed(); });
+    m_curve_sizer->Add(m_curve_editor, 0, wxEXPAND | wxTOP, FromDIP(4));
+    m_curve_sizer->ShowItems(m_result.gradient_enabled);
+    outer->Add(m_curve_sizer, 0, wxEXPAND);
+
+    // Per-part gradient toggle sits BELOW the curve editor.
+    m_per_part_gradient_sizer = new wxBoxSizer(wxHORIZONTAL);
+    m_chk_per_part_gradient = new ::CheckBox(parent);
+    m_chk_per_part_gradient->SetValue(m_result.per_part_gradient);
+    m_chk_per_part_gradient->SetBackgroundColour(parent->GetBackgroundColour());
+    m_chk_per_part_gradient->Bind(wxEVT_TOGGLEBUTTON,
+        [this](wxCommandEvent& e) { e.Skip(); on_per_part_gradient_toggled(); });
+    m_per_part_gradient_sizer->Add(m_chk_per_part_gradient, 0,
+        wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, FromDIP(4));
+    m_label_per_part_gradient = new wxStaticText(parent, wxID_ANY, _L("Enable per-part gradient effect"));
+    m_label_per_part_gradient->SetFont(::Label::Body_13);
+    m_per_part_gradient_sizer->Add(m_label_per_part_gradient, 0,
+        wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(8));
+    m_per_part_gradient_sizer->ShowItems(m_result.gradient_enabled);
+    outer->Add(m_per_part_gradient_sizer, 0, wxEXPAND);
+
+    return outer;
+}
+
+void MixedFilamentDialog::on_gradient_curve_changed()
+{
+    if (!m_curve_editor)
+        return;
+    // The curve is the persistent gradient source: copy it back into the
+    // result so get_result() / OK button picks it up.
+    m_result.gradient_curve = m_curve_editor->get_points();
+    update_preview();
+}
+
+void MixedFilamentDialog::on_per_part_gradient_toggled()
+{
+    if (!m_chk_per_part_gradient)
+        return;
+    m_result.per_part_gradient = m_chk_per_part_gradient->GetValue();
+    update_preview();
+}
+
+void MixedFilamentDialog::refresh_curve_editor_colors()
+{
+    if (!m_curve_editor)
+        return;
+    m_curve_editor->set_colors(comp_colour(0), comp_colour(1));
+}
+
+wxSize MixedFilamentDialog::compute_dialog_size() const
+{
+    // Base height: the dialog without the curve editor visible.
+    int h = (num_components() >= 3) ? FromDIP(680) : FromDIP(580);
+    if (m_result.gradient_enabled) {
+        // Make room for the curve editor + per-part toggle. The curve editor
+        // itself requests FromDIP(260, 200) minimum, so add 220 (curve) + 36
+        // (per-part row) + 8 (padding) for a comfortable fit.
+        h += FromDIP(264);
+    }
+    // The curve editor's X-axis label pushes the dialog width out by about
+    // 30 DIP. Keep the base width plus that extra to avoid label clipping.
+    int w = FromDIP(439) + (m_result.gradient_enabled ? FromDIP(30) : 0);
+
+    int display_index = wxDisplay::GetFromWindow(const_cast<MixedFilamentDialog*>(this));
+    if (display_index == wxNOT_FOUND)
+        display_index = 0;
+    const wxSize work_size = wxDisplay(static_cast<unsigned int>(display_index)).GetClientArea().GetSize();
+    const int margin = FromDIP(16);
+    w = std::min(w, std::max(FromDIP(320), work_size.GetWidth() - 2 * margin));
+    h = std::min(h, std::max(FromDIP(420), work_size.GetHeight() - 2 * margin));
+
+    return wxSize(w, h);
 }
 
 wxBoxSizer* MixedFilamentDialog::create_recommendation_grid(wxWindow* parent)
@@ -908,9 +1496,9 @@ void MixedFilamentDialog::rebuild_recommendation_items()
                                 on_recommendation_clicked_triple(ca_1, cb_1, cc_1);
                             });
                             item->SetToolTip(wxString::Format(wxT("%s + %s + %s"),
-                                wxString::FromUTF8(m_physical_names[i0]),
-                                wxString::FromUTF8(m_physical_names[i1]),
-                                wxString::FromUTF8(m_physical_names[i2])));
+                                from_u8(m_physical_names[i0]),
+                                from_u8(m_physical_names[i1]),
+                                from_u8(m_physical_names[i2])));
 
                             m_recommendation_grid->Add(item, 0, wxRIGHT | wxBOTTOM, FromDIP(6));
                             ++count;
@@ -944,8 +1532,8 @@ void MixedFilamentDialog::rebuild_recommendation_items()
                         on_recommendation_clicked(comp_a, comp_b);
                     });
                     item->SetToolTip(wxString::Format(wxT("%s + %s"),
-                        wxString::FromUTF8(m_physical_names[i]),
-                        wxString::FromUTF8(m_physical_names[j])));
+                        from_u8(m_physical_names[i]),
+                        from_u8(m_physical_names[j])));
 
                     m_recommendation_grid->Add(item, 0, wxRIGHT | wxBOTTOM, FromDIP(6));
                     ++count;
@@ -971,15 +1559,15 @@ wxBoxSizer* MixedFilamentDialog::create_button_panel(wxWindow* parent)
     m_btn_cancel->SetCornerRadius(FromDIP(4));
     m_btn_cancel->SetTextColor(StateColor::darkModeColorFor(wxColour("#262E30")));
     m_btn_cancel->SetMinSize(wxSize(FromDIP(72), FromDIP(28)));
-    m_btn_cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_CANCEL); });
+    m_btn_cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { commit_ratio_editor(false); EndModal(wxID_CANCEL); });
 
     m_btn_ok = new Button(parent, _L("OK"));
     m_btn_ok->SetBackgroundColor(wxColour("#00AE42"));
     m_btn_ok->SetBorderColor(wxColour("#00AE42"));
     m_btn_ok->SetCornerRadius(FromDIP(4));
-    m_btn_ok->SetTextColor(*wxWHITE);
+    m_btn_ok->SetTextColor(wxColour("#FFFFFE"));
     m_btn_ok->SetMinSize(wxSize(FromDIP(72), FromDIP(28)));
-    m_btn_ok->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_OK); });
+    m_btn_ok->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { commit_ratio_editor(true); EndModal(wxID_OK); });
 
     sizer->Add(m_btn_cancel, 0, wxRIGHT, FromDIP(12));
     sizer->Add(m_btn_ok, 0);
@@ -1010,7 +1598,8 @@ void MixedFilamentDialog::rebuild_all_combos()
         unsigned int cur_phys = (i < m_result.components.size()) ? m_result.components[i] : 0;
 
         if (cur_phys == 0) {
-            combo->Append(_L("-- Select --"));
+            const int idx = combo->Append(_L("-- Select --"));
+            combo->SetItemTooltip(idx, _L("-- Select --"));
             m_combo_to_physical[i].push_back(0);
             restore_sel = 0;
         }
@@ -1028,7 +1617,9 @@ void MixedFilamentDialog::rebuild_all_combos()
                 //     style = DD_ITEM_STYLE_DIMMED;
             }
 
-            int idx = combo->Append(wxString::FromUTF8(m_physical_names[j]), make_swatch_bitmap(j)/*, style*/);
+            wxString display_name = from_u8(m_physical_names[j]);
+            int idx = combo->Append(display_name, make_swatch_bitmap(j)/*, style*/);
+            combo->SetItemTooltip(idx, display_name);
             m_combo_to_physical[i].push_back(phys_1based);
 
             if (phys_1based == cur_phys)
@@ -1039,6 +1630,15 @@ void MixedFilamentDialog::rebuild_all_combos()
             combo->SetSelection(restore_sel);
         else if (combo->GetCount() > 0)
             combo->SetSelection(0);
+
+        const int selected = combo->GetSelection();
+        if (selected >= 0) {
+            wxString tooltip = combo->GetItemTooltip(selected);
+            if (tooltip.IsEmpty())
+                tooltip = combo->GetString(selected);
+            combo->SetToolTip(tooltip);
+            combo->GetDropDown().SetToolTip(tooltip);
+        }
     }
 }
 
@@ -1054,6 +1654,9 @@ void MixedFilamentDialog::on_filament_changed()
 
     rebuild_all_combos();
     update_gradient_direction_items();
+    // Curve editor's two colors are tied to component_a / component_b, so a
+    // filament change must repaint them.
+    refresh_curve_editor_colors();
     update_preview();
     update_ok_button_state();
 }
@@ -1074,18 +1677,44 @@ void MixedFilamentDialog::on_ratio_changed(int new_ratio_a)
 
 void MixedFilamentDialog::on_gradient_toggled()
 {
+    commit_ratio_editor(true);
     bool checked = m_chk_gradient->GetValue();
 
     if (checked) {
         auto& print_config = wxGetApp().preset_bundle->prints.get_edited_preset().config;
         if (!print_config.opt_bool("enable_mixed_color_sublayer")) {
-            wxMessageDialog dlg(this,
+            MessageDialog dlg(this,
                 _L("Gradient effect requires 'Mixed color sublayer' to be enabled. Enable it now?"),
                 _L("Mixed Color Sublayer"),
                 wxYES_NO | wxICON_QUESTION);
-            if (dlg.ShowModal() == wxID_YES) {
+            Plater* plater = wxGetApp().plater();
+            if (plater != nullptr &&
+                !plater->try_begin_zaa_ui_normalization(
+                    "enable_mixed_color_sublayer", ZaaUiChangeScope::Global, nullptr)) {
+                m_chk_gradient->SetValue(false);
+                return;
+            }
+            int answer = wxID_NO;
+            {
+                ScopeGuard reset_normalization_guard([plater] {
+                    if (plater != nullptr)
+                        plater->end_zaa_ui_normalization();
+                });
+                answer = dlg.ShowModal();
+            }
+            if (answer == wxID_YES) {
                 DynamicPrintConfig new_conf;
                 new_conf.set_key_value("enable_mixed_color_sublayer", new ConfigOptionBool(true));
+                if (plater != nullptr) {
+                    const ZaaUiNormalizationRequest request {
+                        "enable_mixed_color_sublayer", ZaaUiChangeScope::Global, true
+                    };
+                    plater->apply_zaa_ui_normalization(request, {}, &new_conf, false);
+                }
+                if (!new_conf.opt_bool("enable_mixed_color_sublayer")) {
+                    m_chk_gradient->SetValue(false);
+                    return;
+                }
                 wxGetApp().get_tab(Preset::TYPE_PRINT)->load_config(new_conf);
             } else {
                 m_chk_gradient->SetValue(false);
@@ -1100,19 +1729,75 @@ void MixedFilamentDialog::on_gradient_toggled()
         m_ratio_sizer->ShowItems(!m_result.gradient_enabled);
     if (m_combo_gradient_dir)
         m_combo_gradient_dir->Show(m_result.gradient_enabled);
+    if (m_curve_sizer)
+        m_curve_sizer->ShowItems(m_result.gradient_enabled);
+    if (m_per_part_gradient_sizer)
+        m_per_part_gradient_sizer->ShowItems(m_result.gradient_enabled);
+
+    // The curve editor is the persistent store; sync it back when toggling
+    // on so the result always reflects the editor's last edit. When the user
+    // has not customised a curve yet, mirror the current gradient_direction
+    // into the editor so the very first time the gradient becomes visible the
+    // linear fallback matches the direction shown in the combo (previously the
+    // editor stayed at its constructor default of (0.10, 0.90) and could read
+    // as B→A while the combo defaulted to A→B, i.e. reversed).
+    if (m_result.gradient_enabled && m_curve_editor) {
+        if (m_result.gradient_curve.empty()) {
+            m_curve_editor->reset_to_linear(
+                (m_result.gradient_direction == 0) ? 0.9 : 0.1,
+                (m_result.gradient_direction == 0) ? 0.1 : 0.9);
+        } else {
+            m_curve_editor->set_points(m_result.gradient_curve);
+        }
+        refresh_curve_editor_colors();
+    }
+
+    // Resize dialog while keeping center position fixed (expands from center)
+    const wxSize new_size = compute_dialog_size();
+    if (GetSize() != new_size) {
+        const wxRect old_rect = GetRect();
+        const wxPoint center(old_rect.x + old_rect.width / 2,
+                             old_rect.y + old_rect.height / 2);
+        SetSize(new_size);
+        SetPosition(wxPoint(center.x - new_size.x / 2,
+                            center.y - new_size.y / 2));
+    }
 
     Layout();
     Refresh();
+    update_preview();
 }
 
 void MixedFilamentDialog::on_gradient_direction_changed()
 {
     if (m_combo_gradient_dir)
         m_result.gradient_direction = m_combo_gradient_dir->GetSelection();
+
+    // Mirror the existing curve around y=0.5 (via the editor's reverse()) so any
+    // user-customized shape (added anchors, bent segments) survives a direction
+    // toggle. The X axis is the spatial Z-progress, so it must stay fixed; only
+    // the y (component_a ratio) flips because switching "which component is A"
+    // inverts the meaning of the y axis. For the default two-point linear curve
+    // (0.9->0.1 <-> 0.1->0.9) reverse() yields the same result as a fresh reset.
+    // When the editor is empty (no curve at all), fall back to reset_to_linear
+    // so the visual matches what the slicer will do.
+    if (m_curve_editor) {
+        if (m_result.gradient_curve.empty()) {
+            m_curve_editor->reset_to_linear(
+                (m_result.gradient_direction == 0) ? 0.9 : 0.1,
+                (m_result.gradient_direction == 0) ? 0.1 : 0.9);
+            m_result.gradient_curve = m_curve_editor->get_points();
+        } else {
+            m_curve_editor->reverse();
+            m_result.gradient_curve = m_curve_editor->get_points();
+        }
+    }
+    update_preview();
 }
 
 void MixedFilamentDialog::on_add_material()
 {
+    commit_ratio_editor(true);
     size_t n = num_components();
     if (n >= (size_t)MAX_COMPONENTS) return;
 
@@ -1154,6 +1839,7 @@ void MixedFilamentDialog::on_add_material()
 
     auto* combo = new ComboBox(m_upper_panel, wxID_ANY, wxEmptyString, wxDefaultPosition,
                                wxSize(FromDIP(166), FromDIP(24)), 0, nullptr, wxCB_READONLY);
+    combo->GetDropDown().SetMaxVisibleItems(mixed_filament_max_visible_items(this));
     combo->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent&) { on_filament_changed(); });
     row->Add(combo, 1, wxALIGN_CENTER_VERTICAL);
 
@@ -1173,6 +1859,7 @@ void MixedFilamentDialog::on_add_material()
 
 void MixedFilamentDialog::on_remove_material()
 {
+    commit_ratio_editor(true);
     if (num_components() <= 2)
         return;
 
@@ -1208,6 +1895,7 @@ void MixedFilamentDialog::on_remove_material()
 
 void MixedFilamentDialog::on_recommendation_clicked(unsigned int comp_a, unsigned int comp_b)
 {
+    commit_ratio_editor(true);
     while (m_material_rows_sizer->GetItemCount() > 2) {
         auto* sizer_item = m_material_rows_sizer->GetItem(m_material_rows_sizer->GetItemCount() - 1);
         if (sizer_item && sizer_item->GetSizer())
@@ -1227,6 +1915,9 @@ void MixedFilamentDialog::on_recommendation_clicked(unsigned int comp_a, unsigne
     if (m_label_ratio_b) m_label_ratio_b->SetLabel(wxT("50%"));
 
     rebuild_all_combos();
+    update_gradient_direction_items();
+    refresh_curve_editor_colors();
+    rebuild_recommendation_items();
     update_component_count_ui();
     update_preview();
     update_ok_button_state();
@@ -1236,6 +1927,7 @@ void MixedFilamentDialog::on_recommendation_clicked(unsigned int comp_a, unsigne
 
 void MixedFilamentDialog::on_recommendation_clicked_triple(unsigned int a, unsigned int b, unsigned int c)
 {
+    commit_ratio_editor(true);
     // Ensure we have exactly 3 combo rows
     if (num_components() < 3) {
         // Need to add a 3rd combo row
@@ -1249,6 +1941,7 @@ void MixedFilamentDialog::on_recommendation_clicked_triple(unsigned int a, unsig
 
             auto* combo = new ComboBox(m_upper_panel, wxID_ANY, wxEmptyString, wxDefaultPosition,
                                        wxSize(FromDIP(166), FromDIP(24)), 0, nullptr, wxCB_READONLY);
+            combo->GetDropDown().SetMaxVisibleItems(mixed_filament_max_visible_items(this));
             combo->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent&) { on_filament_changed(); });
             row->Add(combo, 1, wxALIGN_CENTER_VERTICAL);
 
@@ -1276,6 +1969,7 @@ void MixedFilamentDialog::on_recommendation_clicked_triple(unsigned int a, unsig
     m_tri_wz = 0.50;
 
     rebuild_all_combos();
+    rebuild_recommendation_items();
     update_component_count_ui();
     update_preview();
     update_ok_button_state();
@@ -1317,11 +2011,11 @@ void MixedFilamentDialog::paint_warning_panel(wxPaintEvent&)
     dc.DrawText(wxT("!"), x + icon_r - ex.GetWidth() / 2, cy - ex.GetHeight() / 2);
     x += icon_r * 2 + FromDIP(6);
 
-    if (m_type_mismatch_msg.empty()) return;
+    if (m_warning_msg.empty()) return;
 
     dc.SetFont(::Label::Body_12);
     dc.SetTextForeground(wxColour("#E84C4C"));
-    wxString msg = m_type_mismatch_msg;
+    wxString msg = m_warning_msg;
     int avail_w = sz.GetWidth() - x - FromDIP(10);
     wxSize ts = dc.GetTextExtent(msg);
     if (ts.GetWidth() <= avail_w) {
@@ -1377,7 +2071,7 @@ void MixedFilamentDialog::update_ok_button_state()
                 }
                 parts += wxString::Format(_L("Slot %s (%s)"), slots, wxString::FromUTF8(it->first));
             }
-            m_type_mismatch_msg = parts + " " + _L("cannot be mixed. Please select the same filament type.");
+            m_warning_msg = parts + " " + _L("cannot be mixed. Please select the same filament type.");
         }
     }
 
@@ -1385,6 +2079,11 @@ void MixedFilamentDialog::update_ok_button_state()
     for (unsigned int c : m_result.components) {
         if (c == 0) { has_unselected = true; break; }
     }
+
+    if (has_unselected)
+        m_warning_msg = _L("A referenced physical filament was removed. Please select a filament for every component.");
+    else if (!has_type_mismatch)
+        m_warning_msg.clear();
 
     bool can_confirm = !has_type_mismatch && !has_unselected;
     m_btn_ok->Enable(can_confirm);
@@ -1403,7 +2102,8 @@ void MixedFilamentDialog::update_ok_button_state()
     }
 
     if (m_warning_panel) {
-        m_warning_panel->Show(has_type_mismatch);
+        m_warning_panel->Show(has_unselected || has_type_mismatch);
+        m_warning_panel->Refresh();
         Layout();
     }
 }
@@ -1427,7 +2127,9 @@ void MixedFilamentDialog::update_gradient_direction_items()
         wxColour dir_text = StateColor::darkModeColorFor(wxColour("#262E30"));
 
         return make_alpha_bitmap(bmp_w, bmp_h, [&](wxDC& dc) {
-            dc.SetFont(::Label::Body_13);
+            wxFont number_font = ::Label::Body_13;
+            number_font.SetPixelSize(wxSize(0, std::max(1, swatch_sz * 9 / 10)));
+            dc.SetFont(number_font);
 
             auto draw_swatch = [&](int x, size_t idx) {
                 wxColour col("#D9D9D9");
@@ -1483,8 +2185,8 @@ void MixedFilamentDialog::update_component_count_ui()
 
     // 3-color: hide gradient entirely, force off
     if (m_gradient_sizer) {
-        // Gradient Effect UI is hidden entirely (not yet supported by the slicing engine).
-        bool show_gradient = false;
+        // Gradient Effect UI is shown for 2-color mixes only.
+        bool show_gradient = is_two;
         m_chk_gradient->Show(show_gradient);
         if (m_label_gradient) m_label_gradient->Show(show_gradient);
         m_combo_gradient_dir->Show(show_gradient && m_result.gradient_enabled);
@@ -1492,6 +2194,12 @@ void MixedFilamentDialog::update_component_count_ui()
     if (is_three) {
         m_result.gradient_enabled = false;
         if (m_chk_gradient) m_chk_gradient->SetValue(false);
+        // Hide curve editor and per-part gradient toggle for 3+ color mixes.
+        // These are 2-color gradient mode controls and irrelevant for 3+ colors.
+        if (m_curve_sizer)
+            m_curve_sizer->ShowItems(false);
+        if (m_per_part_gradient_sizer)
+            m_per_part_gradient_sizer->ShowItems(false);
     }
 
     if (m_btn_add_material) {
@@ -1514,12 +2222,12 @@ void MixedFilamentDialog::update_component_count_ui()
         m_btn_remove_material->SetToolTip(is_three ? _L("Remove the third material") : wxString());
     }
 
-    int new_h = is_three ? FromDIP(680) : FromDIP(580);
+    // Use compute_dialog_size for dynamic height calculation
+    const wxSize new_size = compute_dialog_size();
     wxRect old_rect = GetRect();
     wxPoint center(old_rect.x + old_rect.width / 2, old_rect.y + old_rect.height / 2);
-    int new_w = FromDIP(439);
-    SetSize(new_w, new_h);
-    SetPosition(wxPoint(center.x - new_w / 2, center.y - new_h / 2));
+    SetSize(new_size);
+    SetPosition(wxPoint(center.x - new_size.x / 2, center.y - new_size.y / 2));
     Layout();
 }
 

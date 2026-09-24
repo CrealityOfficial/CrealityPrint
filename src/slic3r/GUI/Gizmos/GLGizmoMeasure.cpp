@@ -598,6 +598,11 @@ void GLGizmoMeasure::on_render()
 
     update_if_needed();
 
+    // A synchronous resize render may run while undo/redo is still restoring the
+    // selection. Skip the transient frame until the measurement data is ready.
+    if (m_parent.get_selection().is_empty() || m_measuring == nullptr || m_raycaster == nullptr)
+        return;
+
     const Camera& camera = wxGetApp().plater()->get_camera();
     const float inv_zoom = (float)camera.get_inv_zoom();
 
@@ -1125,7 +1130,7 @@ void GLGizmoMeasure::update_if_needed()
     if (m_state != On || volumes_cache.empty())
         return;
 
-    if (m_measuring == nullptr || m_volumes_cache != volumes_cache)
+    if (m_measuring == nullptr || m_raycaster == nullptr || m_volumes_cache != volumes_cache)
         do_update(volumes_cache, selection);
 }
 

@@ -34,7 +34,7 @@ public:
     void intersect_ray(const indexed_triangle_set &its,
                        const Vec3d &               s,
                        const Vec3d &               dir,
-                       igl::Hit &                  hit)
+                       igl::Hit &                  hit) const
     {
         AABBTreeIndirect::intersect_ray_first_hit(its.vertices, its.indices,
                                                   m_tree, s, dir, hit, m_triangle_ray_epsilon);
@@ -43,7 +43,19 @@ public:
     void intersect_ray(const indexed_triangle_set &its,
                        const Vec3d &               s,
                        const Vec3d &               dir,
-                       std::vector<igl::Hit> &     hits)
+                       double                      min_t,
+                       double                      max_t,
+                       igl::Hit &                  hit) const
+    {
+        AABBTreeIndirect::intersect_ray_first_hit(
+            its.vertices, its.indices, m_tree, s, dir, hit,
+            min_t, max_t, m_triangle_ray_epsilon);
+    }
+
+    void intersect_ray(const indexed_triangle_set &its,
+                       const Vec3d &               s,
+                       const Vec3d &               dir,
+                       std::vector<igl::Hit> &     hits) const
     {
         AABBTreeIndirect::intersect_ray_all_hits(its.vertices, its.indices,
                                                  m_tree, s, dir, hits, m_triangle_ray_epsilon);
@@ -52,7 +64,7 @@ public:
     double squared_distance(const indexed_triangle_set & its,
                             const Vec3d &                point,
                             int &                        i,
-                            Eigen::Matrix<double, 1, 3> &closest)
+                            Eigen::Matrix<double, 1, 3> &closest) const
     {
         size_t idx_unsigned = 0;
         Vec3d  closest_vec3d(closest);
@@ -174,6 +186,26 @@ AABBMesh::query_ray_hit(const Vec3d &s, const Vec3d &dir) const
         ret.m_face_id = hit.id;
     }
 
+    return ret;
+}
+
+AABBMesh::hit_result
+AABBMesh::query_ray_hit(
+    const Vec3d &s, const Vec3d &dir, double min_t, double max_t) const
+{
+    assert(is_approx(dir.norm(), 1.));
+
+    igl::Hit hit{-1, -1, 0.f, 0.f, std::numeric_limits<float>::infinity()};
+    m_aabb->intersect_ray(*m_tm, s, dir, min_t, max_t, hit);
+
+    hit_result ret(*this);
+    ret.m_t = double(hit.t);
+    ret.m_dir = dir;
+    ret.m_source = s;
+    if (!std::isinf(hit.t) && !std::isnan(hit.t)) {
+        ret.m_normal = this->normal_by_face_id(hit.id);
+        ret.m_face_id = hit.id;
+    }
     return ret;
 }
 

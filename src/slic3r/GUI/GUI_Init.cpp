@@ -1,6 +1,8 @@
+#include "libslic3r/DataDirectoryMigration.hpp"
 #include "GUI_Init.hpp"
 
 #include "libslic3r/AppConfig.hpp"
+#include "libslic3r/libslic3r.h"
 
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
@@ -9,6 +11,10 @@
 #include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
 #include "slic3r/GUI/Plater.hpp"
+#include "slic3r/GUI/Widgets/Label.hpp"
+#include "libslic3r/Utils.hpp" // data_dir() for the macOS crash dump location
+#include <algorithm>
+#include <boost/algorithm/string.hpp> // icontains, for the alpha version folder
 #include <boost/log/trivial.hpp>
 #include <memory>
 
@@ -30,8 +36,98 @@
 namespace Slic3r {
 namespace GUI {
 
+static constexpr const char *TEST_MODE_ARGUMENT = "test#157369";
+
+#ifdef TARGET_OS_MAC
+// Resolve the "<data_dir>/log" directory that the Windows and Linux builds already
+// use for crash dumps, so a macOS crash dump lands next to the log files that users
+// are asked to collect.
+//
+// This must be evaluated *inside* the Breakpad callback, not when the handler is
+// registered: Breakpad is registered during GUI_Run(), while set_data_dir() only
+// runs later from GUI_App::init_app_config(). Before that point data_dir() is empty
+// and the path has to be reconstructed the same way.
+static boost::filesystem::path macos_crash_log_dir()
+{
+    // Preferred: the already configured data directory.
+    if (! Slic3r::data_dir().empty())
+        return boost::filesystem::path(Slic3r::data_dir()) / "log";
+
+    // Fallback, mirroring GUI_App::init_app_config() + set_data_dir(): the alpha build
+    // keeps its data in a separate "<major>.0 Alpha" folder.
+    std::string version_dir = CREALITYPRINT_VERSION_MAJOR + std::string(".0");
+    const std::string version = std::string(PROJECT_VERSION_EXTRA);
+    if (boost::algorithm::icontains(version, "alpha"))
+        version_dir += " Alpha";
+
+    const wxString user_data_dir = wxStandardPaths::Get().GetUserDataDir();
+    if (user_data_dir.empty())
+        return boost::filesystem::path();
+    return boost::filesystem::path(user_data_dir.ToStdString()) / SLIC3R_APP_USE_FORDER / version_dir / "log";
+}
+#endif // TARGET_OS_MAC
+
+int GUI_Run(int argc, char **argv)
+{
+    DynamicPrintAndCommandLineConfig config;
+    DynamicPrintConfig extra_config;
+    std::vector<std::string> input_files;
+    t_config_option_keys option_order;
+
+    if (!config.read_cli(argc, argv, &input_files, &option_order)) {
+        boost::nowide::cerr << "GUI parameter parsing failed" << std::endl;
+        return 1;
+    }
+
+    const bool enable_test = argc >= 2 && argv != nullptr && argv[1] != nullptr &&
+                             std::string(argv[1]) == TEST_MODE_ARGUMENT;
+    if (enable_test) {
+        input_files.erase(
+            std::remove(input_files.begin(), input_files.end(), TEST_MODE_ARGUMENT),
+            input_files.end());
+    }
+
+    const std::map<std::string, std::string> validity = config.validate(true);
+    for (const t_optiondef_map *options : {
+             &cli_actions_config_def.options,
+             &cli_misc_config_def.options}) {
+        for (const t_optiondef_map::value_type &definition : *options)
+            config.option(definition.first, true);
+    }
+
+    set_data_dir(config.opt_string("datadir"));
+    if (!validity.empty()) {
+        boost::nowide::cerr << "GUI command-line parameter error:" << std::endl;
+        for (const auto &item : validity)
+            boost::nowide::cerr << item.first << ": " << item.second << std::endl;
+        return 1;
+    }
+
+    extra_config.apply(config, true);
+    extra_config.normalize_fdm();
+
+    GUI_InitParams params;
+    params.argc = argc;
+    params.argv = argv;
+    params.load_configs =
+        config.option<ConfigOptionStrings>("load_settings", true)->values;
+    params.extra_config = std::move(extra_config);
+    params.input_files = std::move(input_files);
+    return GUI_Run(params);
+}
 int GUI_Run(GUI_InitParams &params)
 {
+    ::Label::initSysFont();
+
+    params.input_gcode = !params.input_files.empty() &&
+        std::all_of(
+            params.input_files.begin(),
+            params.input_files.end(),
+            [](const std::string &filename) { return is_gcode_file(filename); });
+    BOOST_LOG_TRIVIAL(info)
+        << "GUI input mode=" << (params.input_gcode ? "G-code viewer" : "editor")
+        << ", input_files=" << params.input_files.size();
+
 #if __APPLE__
     // On OSX, we use boost::process::spawn() to launch new instances of PrusaSlicer from another PrusaSlicer.
     // boost::process::spawn() sets SIGCHLD to SIGIGN for the child process, thus if a child PrusaSlicer spawns another
@@ -46,9 +142,8 @@ int GUI_Run(GUI_InitParams &params)
     //BBS: remove the try-catch and let exception goto above
     try {
         //GUI::GUI_App* gui = new GUI::GUI_App(params.start_as_gcodeviewer ? GUI::GUI_App::EAppMode::GCodeViewer : GUI::GUI_App::EAppMode::Editor);
-        bool enable_test = false;
-        if (params.argc >= 2 && params.argv != nullptr && std::string(params.argv[1]) == std::string("test#157369"))
-            enable_test = true;
+        const bool enable_test = params.argc >= 2 && params.argv != nullptr && params.argv[1] != nullptr &&
+                                 std::string(params.argv[1]) == TEST_MODE_ARGUMENT;
         GUI::GUI_App* gui = new GUI::GUI_App(enable_test);
         //if (gui->get_app_mode() != GUI::GUI_App::EAppMode::GCodeViewer) {
             // G-code viewer is currently not performing instance check, a new G-code viewer is started every time.
@@ -94,10 +189,10 @@ int GUI_Run(GUI_InitParams &params)
                     BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: oldPath=" << oldPath.string();
 
                     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-                    // 创建一个 time_facet 对象，用于自定义时间格式
+                    // time_facet lets us control the timestamp format
                     boost::posix_time::time_facet* timeFacet = new boost::posix_time::time_facet();
                     std::stringstream              ss;
-                    // 设置时间格式为 yyyyMMDD_hhmmss
+                    // format the timestamp as yyyyMMDD_hhmmss
                     timeFacet->format("%Y%m%d_%H%M%S");
                     ss.imbue(std::locale(std::locale::classic(), timeFacet));
                     ss << now;
@@ -105,22 +200,69 @@ int GUI_Run(GUI_InitParams &params)
                     std::string timeStr        = ss.str();
                     std::string processNameStr = timeStr + std::string("_") + SLIC3R_PROCESS_NAME + std::string("_") + CREALITYPRINT_VERSION +
                                                 std::string("_") + PROJECT_VERSION_EXTRA;
-                    boost::filesystem::path newPath(dump_dir);
-                    newPath.append(processNameStr).replace_extension(".dmp");
+
+                    // Land the dump in "<data_dir>/log" like the Windows and Linux builds, so it
+                    // is included when users zip the log folder for a bug report. While data_dir()
+                    // is still unset (crash during early startup) the dump stays in the temporary
+                    // directory instead of being lost or misfiled.
+                    boost::filesystem::path target_dir(dump_dir);
+                    {
+                        boost::system::error_code ec;
+                        const boost::filesystem::path log_dir = macos_crash_log_dir();
+                        if (! log_dir.empty()) {
+                            boost::filesystem::create_directories(log_dir, ec);
+                            if (! ec) {
+                                target_dir = log_dir;
+                            } else {
+                                BOOST_LOG_TRIVIAL(error) << "macOS Breakpad: cannot create log dir '"
+                                                         << log_dir.string() << "': " << ec.message()
+                                                         << " - keeping dump in the temporary directory";
+                            }
+                        } else {
+                            BOOST_LOG_TRIVIAL(error) << "macOS Breakpad: log dir unresolved (data_dir empty)"
+                                                     << " - keeping dump in the temporary directory";
+                        }
+                    }
+
+                    boost::filesystem::path newPath = target_dir / boost::filesystem::path(processNameStr + ".dmp");
                     BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: newPath=" << newPath.string();
+                    // Path actually handed to the relaunched instance. It is only updated when the
+                    // dump really ended up there, otherwise the report dialog would look for a
+                    // missing file and the crash report would be lost without any trace.
+                    boost::filesystem::path effective_dump_path = oldPath;
                     if (boost::filesystem::exists(oldPath)) {
-                        // MessageBox(NULL, newPath.wstring().c_str(), minidump_id, MB_OK | MB_ICONINFORMATION);
+                        // Move the dump into the log folder. TMPDIR and the data directory may
+                        // live on different volumes, in which case rename() fails with EXDEV, so
+                        // fall back to copy + remove (the Linux callback does the same).
                         try {
                             boost::filesystem::rename(oldPath, newPath);
-                            BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: renamed dump to " << newPath.string();
+                            effective_dump_path = newPath;
+                            BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: moved dump to " << newPath.string();
                         } catch (const std::exception& e) {
-                            BOOST_LOG_TRIVIAL(error) << "macOS Breakpad: rename failed: " << e.what();
+                            BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: rename failed (" << e.what()
+                                                       << "), falling back to copy+remove";
+                            boost::system::error_code copy_error;
+                            boost::filesystem::copy_file(oldPath, newPath,
+                                                         boost::filesystem::copy_option::overwrite_if_exists,
+                                                         copy_error);
+                            if (! copy_error) {
+                                boost::system::error_code remove_error;
+                                boost::filesystem::remove(oldPath, remove_error);
+                                effective_dump_path = newPath;
+                                BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: copied dump to " << newPath.string();
+                            } else {
+                                // Keep the old location: the relaunched instance must be given a
+                                // path that exists, otherwise no report dialog is shown at all.
+                                BOOST_LOG_TRIVIAL(error) << "macOS Breakpad: could not relocate dump to '"
+                                                         << newPath.string() << "': " << copy_error.message()
+                                                         << " - keeping '" << oldPath.string() << "'";
+                            }
                         }
                         #ifdef TARGET_OS_MAC
-                        // 获取当前可执行文件路径
+                        // path of the currently running executable
                         wxString exePath = wxStandardPaths::Get().GetExecutablePath();
                         BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: exePath=" << exePath.ToStdString();
-                        // 提取 .app 包路径
+                        // derive the .app bundle path
                         wxString appBundlePath;
                         size_t   pos = exePath.rfind(wxT("/Contents/MacOS/"));
                         if (pos != wxString::npos) {
@@ -130,7 +272,7 @@ int GUI_Run(GUI_InitParams &params)
                             BOOST_LOG_TRIVIAL(error) << "macOS Breakpad: failed to derive app bundle path from exePath";
                         }
                         // Ack file path: create next to the minidump file to confirm the new instance reaches OnInit
-                        wxString ackPath = wxString::FromUTF8((newPath.string() + ".ack").c_str());
+                        wxString ackPath = wxString::FromUTF8((effective_dump_path.string() + ".ack").c_str());
                         // Whether the .app bundle directory exists
                         bool bundle_exists = false;
                         if (!appBundlePath.empty()) {
@@ -141,16 +283,21 @@ int GUI_Run(GUI_InitParams &params)
                             }
                         }
                         BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: bundle_exists=" << (bundle_exists ? "true" : "false");
-                        // 记录当前进程 PID（用于对比是否真正拉起了新实例）
+                        // log the current PID, to compare whether a new instance really started
                         BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: current pid=" << getpid() << ", parent pid=" << getppid();
-                        // 为后续构造命令准备参数字符串（保持简单），路径统一使用单引号包裹
+                        // Build the argument string for the relaunch command. Keep it simple and
+                        // always wrap paths in single quotes.
+                        // Use effective_dump_path: the relaunched instance reads this file, so it
+                        // has to point at wherever the dump actually ended up.
                         wxString minidumpArgStr = wxString::Format(
                             "minidump://file=%s",
-                            wxString::FromUTF8(newPath.string().c_str())
+                            wxString::FromUTF8(effective_dump_path.string().c_str())
                         );
                         BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: minidumpArg=" << minidumpArgStr.ToStdString();
                         
-                        // 优先尝试使用 Launch Services：open -n（强制新实例）/ -a（可能激活旧实例），最后兜底直接执行二进制
+                        // Prefer Launch Services: 'open -n' forces a new instance, 'open -a' may
+                        // just activate an existing one; executing the binary directly is the
+                        // last resort.
                         if (!bundle_exists) {
                             BOOST_LOG_TRIVIAL(error) << "macOS Breakpad: app bundle path missing, skip 'open -na'/'open -a' and try direct exec binary (single-quoted)";
                             wxString command_exec;
@@ -163,20 +310,20 @@ int GUI_Run(GUI_InitParams &params)
                                 BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: direct exec started, pid=" << pid_exec;
                             }
                         } else {
-                            // 首选：open -na 'AppBundle' --args 'minidump://file=...'
+                            // preferred: open -na 'AppBundle' --args 'minidump://file=...'
                             wxString command_force_new = wxString::Format("open -na '%s' --args '%s'", appBundlePath, minidumpArgStr);
                             BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: restart command (prefer -na)=" << command_force_new.ToStdString();
                             boost::log::core::get()->flush();
                             long pid_force = wxExecute(command_force_new, wxEXEC_ASYNC);
                             if (pid_force <= 0) {
                                 BOOST_LOG_TRIVIAL(error) << "macOS Breakpad: preferred 'open -na' failed to start process. Trying fallback 'open -a' (may activate existing instance)";
-                                // 回退1：允许激活旧实例
+                                // fallback 1: allow activating an existing instance
                                 wxString command_allow_activate = wxString::Format("open -a '%s' --args '%s'", appBundlePath, minidumpArgStr);
                                 BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: fallback1 command (open -a)=" << command_allow_activate.ToStdString();
                                 long pid_a = wxExecute(command_allow_activate, wxEXEC_ASYNC);
                                 if (pid_a <= 0) {
                                     BOOST_LOG_TRIVIAL(error) << "macOS Breakpad: fallback1 'open -a' failed. Trying fallback 'exec binary'";
-                                    // 回退2：直接执行 Contents/MacOS 下的二进制
+                                    // fallback 2: execute the binary inside Contents/MacOS directly
                                     wxString command_exec;
                                     command_exec.Printf("'%s' '%s'", exePath, minidumpArgStr);
                                     BOOST_LOG_TRIVIAL(warning) << "macOS Breakpad: fallback2 command (exec binary)=" << command_exec.ToStdString();
@@ -249,6 +396,10 @@ int GUI_Run(GUI_InitParams &params)
             BOOST_LOG_TRIVIAL(warning) << "GUI_Run: argc <= 1, passing through original argv to wxEntry()";
             return wxEntry(params.argc, params.argv);
         }
+    } catch (const Slic3r::DataMigration::Error &ex) {
+        // Migration is automatic and non-interactive. Details are in the parent migration log.
+        BOOST_LOG_TRIVIAL(error) << ex.what();
+        return 1;
     } catch (const Slic3r::Exception &ex) {
         BOOST_LOG_TRIVIAL(error) << ex.what() << std::endl;
         wxMessageBox(boost::nowide::widen(ex.what()), _L("Creality Print GUI initialization failed"), wxICON_STOP);

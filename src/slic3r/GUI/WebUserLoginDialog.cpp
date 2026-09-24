@@ -38,6 +38,50 @@ BEGIN_EVENT_TABLE(ZUserLogin, wxDialog)
 EVT_TIMER(NETWORK_OFFLINE_TIMER_ID, ZUserLogin::OnTimer)
 END_EVENT_TABLE()
 
+namespace {
+
+// In-app OAuth window for third-party sign-in (Apple, Google, ...).
+// App Store review requires authentication to complete without leaving the
+// app; the OAuth callback still lands on the app local callback server.
+class ThirdPartyLoginWindow : public wxDialog
+{
+public:
+    ThirdPartyLoginWindow(wxWindow* parent, const wxString& url)
+        : wxDialog(parent, wxID_ANY, _L("Sign in"), wxDefaultPosition, wxSize(900, 700),
+                   wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+    {
+        m_browser = WebView::CreateWebView(this, url);
+        if (m_browser == nullptr) {
+            Destroy();
+            return;
+        }
+        m_browser->Bind(wxEVT_WEBVIEW_NAVIGATED, [this](wxWebViewEvent& evt) {
+            // The OAuth flow finishes by redirecting to the app local
+            // callback server; the window job is done at that point.
+            if (evt.GetURL().StartsWith(LOCALHOST_URL)) {
+                Close();
+            }
+        });
+        m_browser->Bind(wxEVT_WEBVIEW_NEWWINDOW, [this](wxWebViewEvent& evt) {
+            m_browser->LoadURL(evt.GetURL());
+        });
+        Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& evt) {
+            evt.Skip();
+            Destroy();
+        });
+        auto* sizer = new wxBoxSizer(wxVERTICAL);
+        sizer->Add(m_browser, 1, wxEXPAND);
+        SetSizer(sizer);
+        CentreOnParent();
+        Show();
+    }
+
+private:
+    wxWebView* m_browser{nullptr};
+};
+
+} // namespace
+
 int ZUserLogin::web_sequence_id = 20000;
 
 ZUserLogin::ZUserLogin() : wxDialog((wxWindow *) (wxGetApp().mainframe), wxID_ANY, "CrealityPrint")
@@ -290,8 +334,9 @@ void ZUserLogin::OnScriptMessage(wxWebViewEvent &evt)
             CallAfter([this, sequence_id] {
                 json ack_j;
                 ack_j["command"] = "get_localhost_url";
-                ack_j["response"]["base_url"] = std::string(LOCALHOST_URL) + std::to_string(LOCALHOST_PORT);
-                ack_j["response"]["result"] = "success";
+                const bool server_started = wxGetApp().get_server()->is_started();
+                ack_j["response"]["base_url"] = std::string(LOCALHOST_URL) + std::to_string(wxGetApp().get_server_port());
+                ack_j["response"]["result"] = server_started ? "success" : "failed";
                 ack_j["sequence_id"] = sequence_id;
                 wxString str_js = wxString::Format("window.handleStudioCmd(%s)", ack_j.dump());
                 this->RunScript(str_js);
@@ -303,7 +348,15 @@ void ZUserLogin::OnScriptMessage(wxWebViewEvent &evt)
                 std::string jump_url = j["data"]["url"].get<std::string>();
                 CallAfter([this, jump_url] {
                     wxString url = wxString::FromUTF8(jump_url);
+#if defined(__APPLE__) && defined(CREALITYPRINT_APP_STORE)
+                    // Keep third-party sign-in inside the app (App Store
+                    // review, Guideline 4): present the provider page in an
+                    // in-app window; the OAuth callback is still handled by
+                    // the app local server.
+                    new ThirdPartyLoginWindow(this, url);
+#else
                     wxLaunchDefaultBrowser(url);
+#endif
                     });
             }
         }

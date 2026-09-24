@@ -1440,7 +1440,7 @@ namespace SupportMaterialInternal {
             // Surface supporting this layer, expanded by 0.5 * nozzle_diameter, as we consider this kind of overhang to be sufficiently supported.
             Polygons lower_grown_slices = expand(lower_layer_polygons,
                 //FIXME to mimic the decision in the perimeter generator, we should use half the external perimeter width.
-                0.5f * float(scale_(print_config.nozzle_diameter.get_at(layerm.region().config().wall_filament-1))),
+                0.5f * float(scale_(get_physical_nozzle_diameter(print_config, layerm.region().config().wall_filament - 1))),
                 SUPPORT_SURFACES_OFFSET_PARAMETERS);
             // Collect perimeters of this layer.
             //FIXME split_at_first_point() could split a bridge mid-way
@@ -2311,7 +2311,12 @@ PrintObjectSupportMaterial::MyLayersPtr PrintObjectSupportMaterial::top_contact_
 
     // check if the sharp tails should be extended higher
     bool detect_first_sharp_tail_only = false;
-    const coordf_t extrusion_width = m_object_config->line_width.get_abs_value(object.print()->config().nozzle_diameter.get_at(object.config().support_interface_filament-1));
+    const PrintConfig &print_config = object.print()->config();
+    const size_t nozzle_index = get_physical_nozzle_index(print_config, object.config().support_interface_filament - 1);
+    const double nozzle_diameter = print_config.nozzle_diameter.get_at(nozzle_index);
+    const double configured_width = nozzle_variant_abs_value(m_object_config->line_width, nozzle_index, nozzle_diameter);
+    const coordf_t extrusion_width = configured_width > 0 ? configured_width :
+        Flow::auto_extrusion_width(FlowRole::frPerimeter, float(nozzle_diameter));
     const coordf_t extrusion_width_scaled = scale_(extrusion_width);
     if (is_auto(m_object_config->support_type.value) && g_config_support_sharp_tails && !detect_first_sharp_tail_only) {
         for (size_t layer_nr = layer_id_start; layer_nr < num_layers; layer_nr++) {

@@ -96,7 +96,9 @@ std::future<void> KlipperCXInterface::sendFileToDevice(const std::string& server
             if (nRet != 0)
             {
                 if (uploadStatusCallback)
-                    uploadStatusCallback(nRet == 601 ? 601 : 1);
+                    // Preserve authentication failures so the UI can ask the user to log in
+                    // again. Other preparation failures keep the existing stage code.
+                    uploadStatusCallback(nRet == 601 ? 601 : (nRet == 4 ? 4 : 1));
                 return;
             }
                 

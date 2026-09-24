@@ -21,6 +21,16 @@ class ModelConfig;
 class ModelObject;
 class DynamicPrintConfig;
 
+struct PreparedLayerInterval
+{
+    size_t layer_index{0};
+    coordf_t object_z_lower_mm{0.0};
+    coordf_t object_z_upper_mm{0.0};
+    coordf_t outer_wall_width_mm{0.0};
+};
+
+using PreparedLayerSchedule = std::vector<PreparedLayerInterval>;
+
 // Parameters to guide object slicing and support generation.
 // The slicing parameters account for a raft and whether the 1st object layer is printed with a normal or a bridging flow
 // (using a normal flow over a soluble support, using a bridging flow over a non-soluble support).
@@ -112,7 +122,7 @@ struct SlicingParameters
 static_assert(IsTriviallyCopyable<SlicingParameters>::value, "SlicingParameters class is not POD (and it should be - see constructor).");
 
 // The two slicing parameters lead to the same layering as long as the variable layer thickness is not in action.
-inline bool equal_layering(const SlicingParameters &sp1, const SlicingParameters &sp2)
+inline bool equal_layering(const SlicingParameters &sp1, const SlicingParameters &sp2, bool compare_layer_height_limits = true)
 {
     assert(sp1.valid);
     assert(sp2.valid);
@@ -122,8 +132,9 @@ inline bool equal_layering(const SlicingParameters &sp1, const SlicingParameters
             sp1.interface_raft_layer_height         == sp2.interface_raft_layer_height          &&
             sp1.contact_raft_layer_height           == sp2.contact_raft_layer_height            &&
             sp1.layer_height                        == sp2.layer_height                         &&
-            sp1.min_layer_height                    == sp2.min_layer_height                     &&
-            sp1.max_layer_height                    == sp2.max_layer_height                     &&
+            // Nozzle capability ranges need not match when actual tower layering does.
+            (!compare_layer_height_limits ||
+             (sp1.min_layer_height == sp2.min_layer_height && sp1.max_layer_height == sp2.max_layer_height)) &&
 //            sp1.max_suport_layer_height             == sp2.max_suport_layer_height              &&
             sp1.first_print_layer_height            == sp2.first_print_layer_height             &&
             sp1.first_object_layer_height           == sp2.first_object_layer_height            &&
@@ -172,11 +183,11 @@ std::vector<double> smooth_height_profile(
     const std::vector<double>& profile, const SlicingParameters& slicing_params,
     const HeightProfileSmoothingParams& smoothing_params);
 
-std::vector<double> layer_width_profile_adaptive(const SlicingParameters& slicing_params,
-                                                 const ModelObject&       object,
-                                                 std::vector<coordf_t>    layer_height_profile,
-                                                 const double ow_width,
-                                                 Transform3d              trafo = {});
+std::vector<double> layer_width_profile_adaptive(const SlicingParameters&         slicing_params,
+                                                 const ModelObject&               object,
+                                                 const std::vector<coordf_t>&     object_layers,
+                                                 const double                     ow_width,
+                                                 Transform3d                      trafo = {});
 enum LayerHeightEditActionType : unsigned int {
     LAYER_HEIGHT_EDIT_ACTION_INCREASE = 0,
     LAYER_HEIGHT_EDIT_ACTION_DECREASE = 1,
@@ -198,6 +209,10 @@ std::vector<coordf_t> generate_object_layers(
     const SlicingParameters     &slicing_params,
     const std::vector<coordf_t> &layer_height_profile,
     bool is_precise_z_height);
+
+PreparedLayerSchedule make_prepared_layer_schedule(
+    const std::vector<coordf_t> &flat_boundaries,
+    const std::vector<coordf_t> &widths);
 
 // Check whether the layer height profile describes a fixed layer height profile.
 bool check_object_layers_fixed(

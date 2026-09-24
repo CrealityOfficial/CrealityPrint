@@ -12,6 +12,9 @@ void slices_to_mesh(indexed_triangle_set &         mesh,
                     double                         lh,
                     double                         ilh);
 
+indexed_triangle_set slices_to_mesh(
+    const std::vector<ExPolygons> &slices, double zmin, const std::vector<float> &grid);
+
 inline indexed_triangle_set slices_to_mesh(
     const std::vector<ExPolygons> &slices, double zmin, double lh, double ilh)
 {

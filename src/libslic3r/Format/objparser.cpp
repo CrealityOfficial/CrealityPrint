@@ -51,19 +51,19 @@ static bool obj_parseline(const char *line, ObjData &data)
 				line = endptr;
 				EATWS();
 			}
-			/*double w = 0;
+			// OBJ allows vt u v w; only u/v are used by the current texture pipeline,
+			// but the optional w must still be consumed so well-formed lines do not fail.
 			if (*line != 0) {
-				w = strtod(line, &endptr);
+				(void)strtod(line, &endptr);
 				if (endptr == 0 || (*endptr != ' ' && *endptr != '\t' && *endptr != 0))
 					return false;
 				line = endptr;
 				EATWS();
-			}*/
+			}
 			if (*line != 0)
 				return false;
 			data.textureCoordinates.push_back((float)u);
 			data.textureCoordinates.push_back((float)v);
-			//data.textureCoordinates.push_back((float)w);
 			break;
 		}
 		case 'n':
@@ -228,12 +228,14 @@ static bool obj_parseline(const char *line, ObjData &data)
 					line = endptr;
 				}
 				if (*line == '/') {
-					// Parse normal index.
 					++ line;
-					vertex.normalIdx = strtol(line, &endptr, 10);
-					if (endptr == 0 || (*endptr != ' ' && *endptr != '\t' && *endptr != 0))
-						return false;
-					line = endptr;
+                    // Normal index is optional after "//" (e.g. "1//" or "1// 2//"); skip strtol when omitted.
+                    if (*line != 0 && *line != ' ' && *line != '\t') {
+                        vertex.normalIdx = strtol(line, &endptr, 10);
+                        if (endptr == line || (*endptr != ' ' && *endptr != '\t' && *endptr != 0))
+                            return false;
+                        line = endptr;
+                    }
 				}
 			}
 			if (vertex.coordIdx < 0)
@@ -262,12 +264,9 @@ static bool obj_parseline(const char *line, ObjData &data)
 				}
                 face_index_count++;
             }
-            if (face_index_count == 3) {//tri
-                data.usemtls.back().face_end++;
-			} else if (face_index_count == 4) {//quad
-                data.usemtls.back().face_end++;
-                data.usemtls.back().face_end++;
-			}
+            if (face_index_count >= 3) {
+                data.usemtls.back().face_end += face_index_count - 2;
+            }
         }
 		vertex.coordIdx			= -1;
 		vertex.normalIdx		= -1;
@@ -374,6 +373,108 @@ static bool obj_parseline(const char *line, ObjData &data)
 	return true;
 }
 static std::string cur_mtl_name = "";
+
+static bool mtl_is_space(char c)
+{
+    return c == ' ' || c == '\t' || c == '\r';
+}
+
+static const char* mtl_skip_ws(const char *line)
+{
+    while (mtl_is_space(*line))
+        ++line;
+    return line;
+}
+
+static const char* mtl_skip_token(const char *line)
+{
+    while (*line != 0 && !mtl_is_space(*line))
+        ++line;
+    return line;
+}
+
+static bool mtl_token_equals(const char *begin, const char *end, const char *token)
+{
+    const size_t len = static_cast<size_t>(end - begin);
+    return strlen(token) == len && strncmp(begin, token, len) == 0;
+}
+
+static std::string mtl_trim_value(const char *line)
+{
+    const char *begin = mtl_skip_ws(line);
+    const char *end   = begin + strlen(begin);
+    while (end > begin && mtl_is_space(*(end - 1)))
+        --end;
+    return std::string(begin, end);
+}
+
+static bool mtl_skip_numeric_token(const char *&line)
+{
+    const char *begin = mtl_skip_ws(line);
+    if (*begin == 0)
+        return false;
+    char *endptr = 0;
+    strtod(begin, &endptr);
+    if (endptr == begin || (!mtl_is_space(*endptr) && *endptr != 0))
+        return false;
+    line = mtl_skip_ws(endptr);
+    return true;
+}
+
+static bool mtl_skip_required_tokens(const char *&line, int count)
+{
+    for (int i = 0; i < count; ++i) {
+        line = mtl_skip_ws(line);
+        if (*line == 0)
+            return false;
+        line = mtl_skip_token(line);
+    }
+    line = mtl_skip_ws(line);
+    return true;
+}
+
+static std::string mtl_parse_texture_name(const char *line)
+{
+    const char *original = mtl_skip_ws(line);
+    const char *current  = original;
+
+    while (*current == '-') {
+        const char *option_begin = current;
+        const char *option_end   = mtl_skip_token(current);
+        current = option_end;
+
+        if (mtl_token_equals(option_begin, option_end, "-o") ||
+            mtl_token_equals(option_begin, option_end, "-s") ||
+            mtl_token_equals(option_begin, option_end, "-t")) {
+            int skipped = 0;
+            while (skipped < 3 && mtl_skip_numeric_token(current))
+                ++skipped;
+            if (skipped == 0)
+                return mtl_trim_value(original);
+            continue;
+        }
+
+        int option_args = -1;
+        if (mtl_token_equals(option_begin, option_end, "-mm"))
+            option_args = 2;
+        else if (mtl_token_equals(option_begin, option_end, "-bm") ||
+                 mtl_token_equals(option_begin, option_end, "-boost") ||
+                 mtl_token_equals(option_begin, option_end, "-texres") ||
+                 mtl_token_equals(option_begin, option_end, "-clamp") ||
+                 mtl_token_equals(option_begin, option_end, "-blendu") ||
+                 mtl_token_equals(option_begin, option_end, "-blendv") ||
+                 mtl_token_equals(option_begin, option_end, "-cc") ||
+                 mtl_token_equals(option_begin, option_end, "-imfchan") ||
+                 mtl_token_equals(option_begin, option_end, "-type"))
+            option_args = 1;
+
+        if (option_args < 0 || !mtl_skip_required_tokens(current, option_args))
+            return mtl_trim_value(original);
+    }
+
+    return mtl_trim_value(current);
+}
+
 static bool        mtl_parseline(const char *line, MtlData &data)
 {
     if (*line == 0) return true;
@@ -385,6 +486,16 @@ static bool        mtl_parseline(const char *line, MtlData &data)
     char c1 = *line++;
     switch (c1) {
         case '#': {// Comment, ignore the rest of the line.
+            if (*(line++) == 'F' && *(line++) == 'i' && *(line++) == 'r' && *(line++) == 's' && *(line++) == 't') {         // First
+                if (*(line++) == 'T' && *(line++) == 'i' && *(line++) == 'm' && *(line++) == 'e' ) { // Time
+                    if (*(line++) == 'U' && *(line++) == 's' && *(line++) == 'i' && *(line++) == 'n' && *(line++) == 'g') { // Using
+                        if (*(line++) == 'M' && *(line++) == 'a' && *(line++) == 'k' && *(line++) == 'e' && *(line++) == 'r' && *(line++) == 'L' && *(line++) == 'a' &&
+                            *(line++) == 'b') { // MakerLab
+                            data.first_time_using_makerlab = true;
+                        }
+                    }
+                }
+			}
             break;
         }
 		case 'n': {
@@ -394,13 +505,14 @@ static bool        mtl_parseline(const char *line, MtlData &data)
 			ObjNewMtl new_mtl;
             cur_mtl_name = line;
             data.new_mtl_unmap[cur_mtl_name] = std::make_shared<ObjNewMtl>();
+            data.mtl_orders.emplace_back(cur_mtl_name);
 			break;
 		}
         case 'm': {
             if (*(line++) != 'a' || *(line++) != 'p' || *(line++) != '_' || *(line++) != 'K' || *(line++) != 'd') return false;
             EATWS();
             if (data.new_mtl_unmap.find(cur_mtl_name) != data.new_mtl_unmap.end()) {
-				data.new_mtl_unmap[cur_mtl_name]->map_Kd = line;
+				data.new_mtl_unmap[cur_mtl_name]->map_Kd = mtl_parse_texture_name(line);
 			}
             break;
         }
@@ -535,7 +647,7 @@ static bool        mtl_parseline(const char *line, MtlData &data)
                 char * endptr = 0;
                 double tr     = strtod(line, &endptr);
                 if (data.new_mtl_unmap.find(cur_mtl_name) != data.new_mtl_unmap.end()) {
-                    data.new_mtl_unmap[cur_mtl_name]->Tr = (float) tr;
+                    data.new_mtl_unmap[cur_mtl_name]->Tr = ( tr > 0.f && tr<= 1.0f) ? (float) tr : 1.0;
                 }
                 break;
             } else if (cur_char == 'f') {
@@ -567,16 +679,25 @@ static bool        mtl_parseline(const char *line, MtlData &data)
 
 bool objparse(const char *path, ObjData &data)
 {
+    if (path == nullptr || path[0] == '\0') {
+        BOOST_LOG_TRIVIAL(error) << "ObjParser: path is null or empty";
+        return false;
+    }
+
     Slic3r::CNumericLocalesSetter locales_setter;
 
 	FILE *pFile = boost::nowide::fopen(path, "rt");
-	if (pFile == 0)
+	if (pFile == 0) {
+		BOOST_LOG_TRIVIAL(error) << "ObjParser: failed to open file: " << path << ", errno=" << errno;
 		return false;
+	}
 
 	try {
 		char buf[65536 * 2];
 		size_t len = 0;
 		size_t lenPrev = 0;
+		size_t lineCount = 0;
+
 		while ((len = ::fread(buf + lenPrev, 1, 65536, pFile)) != 0) {
 			len += lenPrev;
 			size_t lastLine = 0;
@@ -589,6 +710,13 @@ bool objparse(const char *path, ObjData &data)
 					//FIXME check the return value and exit on error?
 					// Will it break parsing of some obj files?
 					obj_parseline(c, data);
+
+					/*for ml*/
+					if (lineCount == 0) { data.ml_region = parsemlinfo(c, "region:");}
+                    if (lineCount == 1) { data.ml_name = parsemlinfo(c, "ml_name:"); }
+					if (lineCount == 2) { data.ml_id = parsemlinfo(c, "ml_file_id:");}
+
+					++lineCount;
 					lastLine = i + 1;
 				}
 			lenPrev = len - lastLine;
@@ -599,14 +727,14 @@ bool objparse(const char *path, ObjData &data)
 			}
 			memmove(buf, buf + lastLine, lenPrev);
 		}
-		// Process remaining content without trailing newline (EOF without \n)
+		// The last OBJ record is valid even when the file does not end in a newline.
 		if (lenPrev > 0) {
 			buf[lenPrev] = 0;
 			char *c = buf;
-			while (*c == ' ' || *c == '\t') ++c;
-			if (*c != 0) {
+			while (*c == ' ' || *c == '\t')
+				++c;
+			if (*c != 0)
 				obj_parseline(c, data);
-			}
 		}
     }
     catch (std::bad_alloc&) {
@@ -616,12 +744,35 @@ bool objparse(const char *path, ObjData &data)
 	return true;
 }
 
+std::string parsemlinfo(const char* input, const char* condition) {
+    const char* regionPtr = std::strstr(input, condition);
+
+	std::string regionContent = "";
+
+    if (regionPtr != nullptr) {
+        regionPtr += std::strlen(condition);
+
+        while (*regionPtr == ' ' || *regionPtr == '\t') {
+            ++regionPtr;
+        }
+
+        const char* endPtr = std::strchr(regionPtr, '\n');
+        size_t length = (endPtr != nullptr) ? (endPtr - regionPtr) : std::strlen(regionPtr);
+
+		regionContent = std::string(regionPtr, length);
+    }
+
+	return regionContent;
+}
+
+
 bool mtlparse(const char *path, MtlData &data)
 {
     if (path == nullptr || path[0] == '\0') {
         BOOST_LOG_TRIVIAL(error) << "MtlParser: path is null or empty";
         return false;
     }
+
     Slic3r::CNumericLocalesSetter locales_setter;
 
     FILE *pFile = boost::nowide::fopen(path, "rt");
@@ -629,7 +780,6 @@ bool mtlparse(const char *path, MtlData &data)
         BOOST_LOG_TRIVIAL(error) << "MtlParser: failed to open file: " << path << ", errno=" << errno;
         return false;
     }
-    BOOST_LOG_TRIVIAL(debug) << "MtlParser: successfully opened file: " << path;
     cur_mtl_name = "";
     try {
         char   buf[65536 * 2];
@@ -656,14 +806,14 @@ bool mtlparse(const char *path, MtlData &data)
             }
             memmove(buf, buf + lastLine, lenPrev);
         }
-        // Process remaining content without trailing newline (EOF without \n)
+        // The last MTL record is valid even when the file does not end in a newline.
         if (lenPrev > 0) {
             buf[lenPrev] = 0;
             char *c = buf;
-            while (*c == ' ' || *c == '\t') ++c;
-            if (*c != 0) {
+            while (*c == ' ' || *c == '\t')
+                ++c;
+            if (*c != 0)
                 mtl_parseline(c, data);
-            }
         }
     } catch (std::bad_alloc &) {
         BOOST_LOG_TRIVIAL(error) << "MtlParser: Out of memory";
@@ -690,19 +840,27 @@ bool objparse(std::istream &stream, ObjData &data)
                     while (*c == ' ' || *c == '\t')
                         ++ c;
                     obj_parseline(c, data);
+
+                    /*for ml*/
+                    if (lastLine < 3) {
+                        data.ml_region = parsemlinfo(c, "region");
+                        data.ml_name = parsemlinfo(c, "ml_name");
+                        data.ml_id = parsemlinfo(c, "ml_file_id");
+                    }
+
                     lastLine = i + 1;
                 }
             lenPrev = len - lastLine;
             memmove(buf, buf + lastLine, lenPrev);
         }
-        // Process remaining content without trailing newline (EOF without \n)
+        // Preserve the final OBJ record when parsing a stream without a trailing newline.
         if (lenPrev > 0) {
             buf[lenPrev] = 0;
             char *c = buf;
-            while (*c == ' ' || *c == '\t') ++c;
-            if (*c != 0) {
+            while (*c == ' ' || *c == '\t')
+                ++c;
+            if (*c != 0)
                 obj_parseline(c, data);
-            }
         }
     }
     catch (std::bad_alloc&) {
@@ -833,16 +991,26 @@ bool objbinsave(const char *path, const ObjData &data)
 
 bool objbinload(const char *path, ObjData &data)
 {
-	FILE *pFile = boost::nowide::fopen(path, "rb");
-	if (pFile == 0)
+	if (path == nullptr || path[0] == '\0') {
+		BOOST_LOG_TRIVIAL(error) << "ObjParser: binary path is null or empty";
 		return false;
+	}
+
+	FILE *pFile = boost::nowide::fopen(path, "rb");
+    if (pFile == 0) {
+        BOOST_LOG_TRIVIAL(error) << "ObjParser: failed to open binary file: " << path << ", errno=" << errno;
+        return false;
+    }
 
 	data.version = 0;
-	if (::fread(&data.version, sizeof(data.version), 1, pFile) != 1)
-		return false;
-	if (data.version != 1)
-		return false;
-
+    if (::fread(&data.version, sizeof(data.version), 1, pFile) != 1) {
+        ::fclose(pFile);
+        return false;
+    }
+    if (data.version != 1) {
+        ::fclose(pFile);
+        return false;
+    }
 	bool result =
 		loadvector(pFile, data.coordinates)			&&
 		loadvector(pFile, data.textureCoordinates)	&&

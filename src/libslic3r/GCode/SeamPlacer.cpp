@@ -41,6 +41,12 @@ template<typename T> int sgn(T val) {
   return int(T(0) < val) - int(val < T(0));
 }
 
+bool loop_roles_are_compatible(const std::optional<ExtrusionLoopRole> &first,
+                               const std::optional<ExtrusionLoopRole> &second) {
+  return !first.has_value() || !second.has_value() ||
+         (((*first & elrHole) != 0) == ((*second & elrHole) != 0));
+}
+
 // base function: ((e^(((1)/(x^(2)+1)))-1)/(e-1))
 // checkout e.g. here: https://www.geogebra.org/calculator
 float gauss(float value, float mean_x_coord, float mean_value, float falloff_speed) {
@@ -405,7 +411,9 @@ struct GlobalModelInfo {
 ;
 
 //Extract perimeter polygons of the given layer
-Polygons extract_perimeter_polygons(const Layer *layer, std::vector<const LayerRegion*> &corresponding_regions_out) {
+Polygons extract_perimeter_polygons(const Layer *layer,
+                                    std::vector<const LayerRegion*> &corresponding_regions_out,
+                                    std::vector<std::optional<ExtrusionLoopRole>> &corresponding_loop_roles_out) {
   Polygons polygons;
   for (const LayerRegion *layer_region : layer->regions()) {
     for (const ExtrusionEntity *ex_entity : layer_region->perimeters.entities) {
@@ -421,10 +429,15 @@ Polygons extract_perimeter_polygons(const Layer *layer, std::vector<const LayerR
           }
 
           if (role == ExtrusionRole::erExternalPerimeter) {
+            std::optional<ExtrusionLoopRole> loop_role;
+            if (perimeter->is_loop()) {
+              loop_role = static_cast<const ExtrusionLoop *>(perimeter)->loop_role();
+            }
             Points p;
             perimeter->collect_points(p);
             polygons.emplace_back(std::move(p));
             corresponding_regions_out.push_back(layer_region);
+            corresponding_loop_roles_out.push_back(loop_role);
           }
         }
         if (polygons.empty()) {
@@ -432,12 +445,18 @@ Polygons extract_perimeter_polygons(const Layer *layer, std::vector<const LayerR
           ex_entity->collect_points(p);
           polygons.emplace_back(std::move(p));
           corresponding_regions_out.push_back(layer_region);
+          corresponding_loop_roles_out.push_back(std::nullopt);
         }
       } else {
+        std::optional<ExtrusionLoopRole> loop_role;
+        if (ex_entity->is_loop()) {
+          loop_role = static_cast<const ExtrusionLoop *>(ex_entity)->loop_role();
+        }
         Points p;
         ex_entity->collect_points(p);
         polygons.emplace_back(std::move(p));
         corresponding_regions_out.push_back(layer_region);
+        corresponding_loop_roles_out.push_back(loop_role);
       }
     }
   }
@@ -446,6 +465,7 @@ Polygons extract_perimeter_polygons(const Layer *layer, std::vector<const LayerR
     // it is easier than checking everywhere if the layer is not emtpy, no seam will be placed to this layer anyway
     polygons.emplace_back(Points{ { 0, 0 } });
     corresponding_regions_out.push_back(nullptr);
+    corresponding_loop_roles_out.push_back(std::nullopt);
   }
 
   return polygons;
@@ -456,7 +476,9 @@ Polygons extract_perimeter_polygons(const Layer *layer, std::vector<const LayerR
 //each SeamCandidate also contains pointer to shared Perimeter structure representing the polygon
 // if Custom Seam modifiers are present, oversamples the polygon if necessary to better fit user intentions
 void process_perimeter_polygon(const Polygon &orig_polygon, float z_coord, const LayerRegion *region,
-                               const GlobalModelInfo &global_model_info, PrintObjectSeamData::LayerSeams &result) {
+                               std::optional<ExtrusionLoopRole> loop_role,
+                               const GlobalModelInfo &global_model_info,
+                               PrintObjectSeamData::LayerSeams &result) {
   if (orig_polygon.size() == 0) {
     return;
   }
@@ -485,6 +507,7 @@ void process_perimeter_polygon(const Polygon &orig_polygon, float z_coord, const
   size_t orig_angle_index = 0;
   perimeter.start_index = result.points.size();
   perimeter.flow_width = region != nullptr ? region->flow(FlowRole::frExternalPerimeter).width() : 0.0f;
+  perimeter.loop_role = loop_role;
   bool some_point_enforced = false;
   while (!orig_polygon_points.empty() || !oversampled_points.empty()) {
     EnforcedBlockedSeamPoint type = EnforcedBlockedSeamPoint::Neutral;
@@ -1037,11 +1060,13 @@ void SeamPlacer::gather_seam_candidates(const PrintObject *po, const SeamPlacerI
                         const Layer *layer = po->get_layer(layer_idx);
                         auto unscaled_z = layer->slice_z;
                         std::vector<const LayerRegion*> regions;
+                        std::vector<std::optional<ExtrusionLoopRole>> loop_roles;
                         //NOTE corresponding region ptr may be null, if the layer has zero perimeters
-                        Polygons polygons = extract_perimeter_polygons(layer, regions);
+                        Polygons polygons = extract_perimeter_polygons(layer, regions, loop_roles);
                         for (size_t poly_index = 0; poly_index < polygons.size(); ++poly_index) {
                           process_perimeter_polygon(polygons[poly_index], unscaled_z,
-                                                    regions[poly_index], global_model_info, layer_seams);
+                                                    regions[poly_index], loop_roles[poly_index],
+                                                    global_model_info, layer_seams);
                         }
                         auto functor = SeamCandidateCoordinateFunctor { layer_seams.points };
                         seam_data.layers[layer_idx].points_tree =
@@ -1128,6 +1153,7 @@ std::optional<std::pair<size_t, size_t>> SeamPlacer::find_next_seam_in_layer(
     const std::vector<PrintObjectSeamData::LayerSeams> &layers,
     const Vec3f &projected_position,
     const size_t layer_idx, const float max_distance,
+    const std::optional<ExtrusionLoopRole> &expected_loop_role,
     const SeamPlacerImpl::SeamComparator &comparator) const {
   using namespace SeamPlacerImpl;
   std::vector<size_t> nearby_points_indices = find_nearby_points(*layers[layer_idx].points_tree, projected_position,
@@ -1137,25 +1163,30 @@ std::optional<std::pair<size_t, size_t>> SeamPlacer::find_next_seam_in_layer(
     return {};
   }
 
-  size_t best_nearby_point_index = nearby_points_indices[0];
-  size_t nearest_point_index = nearby_points_indices[0];
+  size_t best_nearby_point_index = std::numeric_limits<size_t>::max();
+  size_t nearest_point_index = std::numeric_limits<size_t>::max();
 
-  // Now find best nearby point, nearest point, and corresponding indices
+  // Select only unfinished candidates from the same topological contour class.
   for (const size_t &nearby_point_index : nearby_points_indices) {
     const SeamCandidate &point = layers[layer_idx].points[nearby_point_index];
-    if (point.perimeter.finalized) {
-      continue; // skip over finalized perimeters, try to find some that is not finalized
+    if (point.perimeter.finalized ||
+        !loop_roles_are_compatible(expected_loop_role, point.perimeter.loop_role)) {
+      continue;
     }
-    if (comparator.is_first_better(point, layers[layer_idx].points[best_nearby_point_index],
-                                   projected_position.head<2>())
-        || layers[layer_idx].points[best_nearby_point_index].perimeter.finalized) {
+    if (best_nearby_point_index == std::numeric_limits<size_t>::max() ||
+        comparator.is_first_better(point, layers[layer_idx].points[best_nearby_point_index],
+                                   projected_position.head<2>())) {
       best_nearby_point_index = nearby_point_index;
     }
-    if ((point.position - projected_position).squaredNorm()
-            < (layers[layer_idx].points[nearest_point_index].position - projected_position).squaredNorm()
-        || layers[layer_idx].points[nearest_point_index].perimeter.finalized) {
+    if (nearest_point_index == std::numeric_limits<size_t>::max() ||
+        (point.position - projected_position).squaredNorm()
+            < (layers[layer_idx].points[nearest_point_index].position - projected_position).squaredNorm()) {
       nearest_point_index = nearby_point_index;
     }
+  }
+
+  if (nearest_point_index == std::numeric_limits<size_t>::max()) {
+    return {};
   }
 
   const SeamCandidate &best_nearby_point = layers[layer_idx].points[best_nearby_point_index];
@@ -1198,6 +1229,9 @@ std::vector<std::pair<size_t, size_t>> SeamPlacer::find_seam_string(const PrintO
   int step = 1;
   std::pair<size_t, size_t> prev_point_index = start_seam;
   std::vector<std::pair<size_t, size_t>> seam_string { start_seam };
+  // An unknown seed is a wildcard only until the string reaches a loop with known topology.
+  std::optional<ExtrusionLoopRole> expected_loop_role =
+      layers[start_seam.first].points[start_seam.second].perimeter.loop_role;
 
   auto reverse_lookup_direction = [&]() {
     step = -1;
@@ -1218,14 +1252,16 @@ std::vector<std::pair<size_t, size_t>> SeamPlacer::find_seam_string(const PrintO
     Vec3f projected_position = prev_position;
     projected_position.z() = float(po->get_layer(next_layer)->slice_z);
 
-    std::optional<std::pair<size_t, size_t>> maybe_next_seam = find_next_seam_in_layer(layers, projected_position,
-                                                                                       next_layer,
-                                                                                       max_distance, comparator);
+    std::optional<std::pair<size_t, size_t>> maybe_next_seam = find_next_seam_in_layer(
+        layers, projected_position, next_layer, max_distance, expected_loop_role, comparator);
 
     if (maybe_next_seam.has_value()) {
       // For old macOS (pre 10.14), std::optional does not have .value() method, so the code is using operator*() instead.
       seam_string.push_back(maybe_next_seam.operator*());
       prev_point_index = seam_string.back();
+      if (!expected_loop_role.has_value()) {
+        expected_loop_role = layers[prev_point_index.first].points[prev_point_index.second].perimeter.loop_role;
+      }
       //String added, prev_point_index updated
     } else {
       if (step == 1) {
@@ -1233,6 +1269,8 @@ std::vector<std::pair<size_t, size_t>> SeamPlacer::find_seam_string(const PrintO
         if (next_layer < 0) {
           break;
         }
+        // Cancel the loop-tail step so reverse lookup starts at the adjacent lower layer.
+        next_layer -= step;
       } else {
         break;
       }
@@ -1594,8 +1632,18 @@ void SeamPlacer::place_seam(const Layer *layer, ExtrusionLoop &loop, bool extern
     });
     for (size_t i = 0; i < points_count; ++i) {
       Vec2f unscaled_p = unscaled<float>(closest_point.foot_pt);
-      closest_perimeter_point_index = find_closest_point(*layer_perimeters.points_tree.get(),
-                                                         to_3d(unscaled_p, float(unscaled_z)));
+      const std::optional<ExtrusionLoopRole> loop_role = loop.loop_role();
+      // Preserve the alignment topology constraint when mapping the real loop back to its perimeter.
+      closest_perimeter_point_index = find_closest_point(
+          *layer_perimeters.points_tree, to_3d(unscaled_p, float(unscaled_z)),
+          [&layer_perimeters, &loop_role](size_t point_index) {
+            return loop_roles_are_compatible(
+                loop_role, layer_perimeters.points[point_index].perimeter.loop_role);
+          });
+      if (closest_perimeter_point_index == PrintObjectSeamData::SeamCandidatesTree::npos) {
+        closest_perimeter_point_index = find_closest_point(
+            *layer_perimeters.points_tree, to_3d(unscaled_p, float(unscaled_z)));
+      }
       if (closest_perimeter != &layer_perimeters.points[closest_perimeter_point_index].perimeter) {
         closest_perimeter = &layer_perimeters.points[closest_perimeter_point_index].perimeter;
         closest_point = get_next_loop_point(closest_point);

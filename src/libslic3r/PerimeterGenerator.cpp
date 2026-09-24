@@ -236,7 +236,7 @@ static void lowpass_filter_by_paths_overhang_degree(ExtrusionPaths& paths) {
 std::pair<double, double> PerimeterGenerator::dist_boundary(double width)
 {
     std::pair<double, double> out;
-    float nozzle_diameter = print_config->nozzle_diameter.get_at(config->wall_filament - 1);
+    float nozzle_diameter = get_physical_nozzle_diameter(*print_config, config->wall_filament - 1);
     float start_offset = -0.5 * width;
     float end_offset = 0.5 * nozzle_diameter;
     double degree_0 = scale_(start_offset + 0.5 * (end_offset - start_offset) / (overhang_sampling_number - 1));
@@ -423,7 +423,7 @@ static ExtrusionEntityCollection traverse_loops_classic(const PerimeterGenerator
 
             remain_polines = diff_pl({polygon}, lower_polygons_series_clipped);
 
-            bool detect_overhang_speed = perimeter_generator.config->enable_overhang_speed &&
+            bool detect_overhang_speed = perimeter_generator.config->enable_overhang_speed.get_at(get_physical_nozzle_index(*perimeter_generator.print_config, perimeter_generator.config->wall_filament - 1)) &&
                                          perimeter_generator.config->overhang_speed_classic &&
                                          perimeter_generator.config->fuzzy_skin == FuzzySkinType::None;
 
@@ -726,7 +726,9 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
             node.node_id      = perimeter_generator.loop_nodes->size();
             node.loop_id      = extrusion_coll.entities.size();
             node.bbox         = get_extents(node.node_contour.pts);
-            node.bbox.offset(perimeter_generator.config->outer_wall_line_width / 2);
+            const size_t nozzle_index = get_physical_nozzle_index(*perimeter_generator.print_config,
+                perimeter_generator.config->wall_filament - 1);
+            node.bbox.offset(nozzle_variant_value(perimeter_generator.config->outer_wall_line_width, nozzle_index).value / 2);
             perimeter_generator.loop_nodes->push_back(std::move(node));
         }
 
@@ -738,7 +740,7 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
         if (perimeter_generator.config->detect_overhang_wall && perimeter_generator.layer_id > perimeter_generator.object_config->raft_layers) {
             ClipperLib_Z::Path extrusion_path;
             extrusion_path.reserve(extrusion->size());
-            double nozzle_diameter = perimeter_generator.print_config->nozzle_diameter.get_at(perimeter_generator.config->wall_filament - 1);
+            double nozzle_diameter = get_physical_nozzle_diameter(*perimeter_generator.print_config, perimeter_generator.config->wall_filament - 1);
             Polygons    lower_layer_polys   = perimeter_generator.lower_slices_polygons();
             coord_t     max_extrusion_width = 0;
             BoundingBox extrusion_path_bbox;
@@ -827,7 +829,7 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
                 }
             }
 
-            if (perimeter_generator.config->overhang_speed_classic && perimeter_generator.config->enable_overhang_speed && perimeter_generator.config->fuzzy_skin == FuzzySkinType::None) {
+            if (perimeter_generator.config->overhang_speed_classic && perimeter_generator.config->enable_overhang_speed.get_at(get_physical_nozzle_index(*perimeter_generator.print_config, perimeter_generator.config->wall_filament - 1)) && perimeter_generator.config->fuzzy_skin == FuzzySkinType::None) {
 
                 Flow flow = is_external ? perimeter_generator.ext_perimeter_flow : perimeter_generator.perimeter_flow;
                 paths     = detect_overhang_degree(flow, role, lower_layer_polys, clip_paths, subject_path, nozzle_diameter,
@@ -891,7 +893,8 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
 
                 chain_and_reorder_extrusion_paths(paths, &start_point);
 
-                if (perimeter_generator.config->enable_overhang_speed && perimeter_generator.config->fuzzy_skin == FuzzySkinType::None) {
+                if (perimeter_generator.config->enable_overhang_speed.get_at(get_physical_nozzle_index(*perimeter_generator.print_config, perimeter_generator.config->wall_filament - 1))
+                    && perimeter_generator.config->fuzzy_skin == FuzzySkinType::None) {
                     // BBS: filter the speed
                     smooth_overhang_level(paths);
                 }
@@ -957,7 +960,7 @@ void PerimeterGenerator::split_top_surfaces(const ExPolygons &orig_polygons, ExP
     coord_t ext_perimeter_width = this->ext_perimeter_flow.scaled_width();
     coord_t ext_perimeter_spacing = this->ext_perimeter_flow.scaled_spacing();
 
-    bool has_gap_fill = this->config->gap_infill_speed.value > 0;
+    bool has_gap_fill = this->config->gap_infill_speed.get_at(get_physical_nozzle_index(*this->print_config, this->config->wall_filament - 1)) > 0;
     int  peri_count   = config->wall_loops.value;
 
     // split the polygons with top/not_top
@@ -990,7 +993,7 @@ void PerimeterGenerator::split_top_surfaces(const ExPolygons &orig_polygons, ExP
     // get the real top surface
     ExPolygons grown_lower_slices;
     ExPolygons bridge_checker;
-    auto nozzle_diameter = this->print_config->nozzle_diameter.get_at(this->config->wall_filament - 1);
+    auto nozzle_diameter = get_physical_nozzle_diameter(*this->print_config, this->config->wall_filament - 1);
     // Check whether surface be bridge or not
     if (this->lower_slices != NULL) {
         // BBS: get the Polygons below the polygon this layer
@@ -1019,8 +1022,11 @@ void PerimeterGenerator::split_top_surfaces(const ExPolygons &orig_polygons, ExP
     // increase by half peri the inner space to fill the frontier between last and stored.
     top_fills = union_ex(top_fills, top_polygons);
     //set the clip to the external wall but go back inside by infill_extrusion_width/2 to be sure the extrusion won't go outside even with a 100% overlap.
-    double infill_spacing_unscaled = this->config->sparse_infill_line_width.get_abs_value(nozzle_diameter);
-    if (infill_spacing_unscaled == 0) infill_spacing_unscaled = Flow::auto_extrusion_width(frInfill, nozzle_diameter);
+    const size_t infill_nozzle_index = get_physical_nozzle_index(*this->print_config,
+        this->config->sparse_infill_filament - 1);
+    const double infill_nozzle_diameter = this->print_config->nozzle_diameter.get_at(infill_nozzle_index);
+    double infill_spacing_unscaled = nozzle_variant_abs_value(this->config->sparse_infill_line_width, infill_nozzle_index, infill_nozzle_diameter);
+    if (infill_spacing_unscaled == 0) infill_spacing_unscaled = Flow::auto_extrusion_width(frInfill, infill_nozzle_diameter);
     fill_clip = offset_ex(orig_polygons, double(ext_perimeter_spacing / 2.) - scale_(infill_spacing_unscaled / 2.));
     // ExPolygons oldLast = last;
 
@@ -1544,7 +1550,7 @@ void PerimeterGenerator::process_classic()
         // We consider overhang any part where the entire nozzle diameter is not supported by the
         // lower layer, so we take lower slices and offset them by half the nozzle diameter used
         // in the current layer
-        double nozzle_diameter = this->print_config->nozzle_diameter.get_at(this->config->wall_filament - 1);
+        double nozzle_diameter = get_physical_nozzle_diameter(*this->print_config, this->config->wall_filament - 1);
         m_lower_slices_polygons = offset(*this->lower_slices, float(scale_(+nozzle_diameter / 2)));
     }
     
@@ -1560,7 +1566,7 @@ void PerimeterGenerator::process_classic()
     // internal flow which is unrelated.
     coord_t min_spacing         = coord_t(perimeter_spacing      * (1 - INSET_OVERLAP_TOLERANCE));
     coord_t ext_min_spacing     = coord_t(ext_perimeter_spacing  * (1 - INSET_OVERLAP_TOLERANCE));
-    bool    has_gap_fill 		= this->config->gap_infill_speed.value > 0;
+    bool    has_gap_fill        = this->config->gap_infill_speed.get_at(get_physical_nozzle_index(*this->print_config, this->config->wall_filament - 1)) > 0;
 
     // BBS: this flow is for smaller external perimeter for small area
     coord_t ext_min_spacing_smaller = coord_t(ext_perimeter_spacing * (1 - SMALLER_EXT_INSET_OVERLAP_TOLERANCE));
@@ -1675,15 +1681,18 @@ void PerimeterGenerator::process_classic()
                             // BBS: judge whether it's narrow but not too long island which is hard to place two line
                             ExPolygons expolys;
                             expolys.push_back(expolygon);
-                            ExPolygons offset_result = offset2_ex(expolys,
-                                -float(ext_perimeter_width / 2. + ext_min_spacing_smaller / 2.),
-                                +float(ext_min_spacing_smaller / 2.));
-                            if (offset_result.empty() &&
-                                expolygon.area() < (double)(ext_perimeter_width + ext_min_spacing_smaller) * scale_(narrow_loop_length_threshold)) {
-                                // BBS: for narrow external loop, use smaller line width
+                            ExPolygons offset_result = offset2_ex(expolys, -float(ext_perimeter_width / 2. + ext_min_spacing_smaller / 2.),
+                                                                  +float(ext_min_spacing_smaller / 2.));
+
+                            if (offset_result.empty()) {
                                 ExPolygons temp_result = offset_ex(expolygon, -float(ext_perimeter_smaller_width / 2.));
-                                offsets_with_smaller_width.insert(offsets_with_smaller_width.end(), temp_result.begin(), temp_result.end());
-                            }
+                                if (!temp_result.empty()) {
+                                    offsets_with_smaller_width.insert(offsets_with_smaller_width.end(), temp_result.begin(),
+                                                                      temp_result.end());
+                                }
+                                // With thin-wall detection disabled, keep only closed
+                                // contours; a medial-axis fallback would ignore the option.
+                            } 
                             else {
                                 //BBS: for not narrow loop, use normal external perimeter line width
                                 ExPolygons temp_result = offset_ex(expolygon, -float(ext_perimeter_width / 2.));
@@ -2668,7 +2677,7 @@ void PerimeterGenerator::process_arachne()
         // We consider overhang any part where the entire nozzle diameter is not supported by the
         // lower layer, so we take lower slices and offset them by half the nozzle diameter used
         // in the current layer
-        double nozzle_diameter = this->print_config->nozzle_diameter.get_at(this->config->wall_filament - 1);
+        double nozzle_diameter = get_physical_nozzle_diameter(*this->print_config, this->config->wall_filament - 1);
         m_lower_slices_polygons = offset(*this->lower_slices, float(scale_(+nozzle_diameter / 2)));
     }
 
@@ -3162,7 +3171,7 @@ bool PerimeterGeneratorLoop::is_internal_contour() const
 
 std::vector<Polygons> PerimeterGenerator::generate_lower_polygons_series(float width)
 {
-    float nozzle_diameter = print_config->nozzle_diameter.get_at(config->wall_filament - 1);
+    float nozzle_diameter = get_physical_nozzle_diameter(*print_config, config->wall_filament - 1);
     float start_offset = -0.5 * width;
     float end_offset = 0.5 * nozzle_diameter;
 

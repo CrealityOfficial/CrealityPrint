@@ -1,4 +1,5 @@
 #include "Clipper2Utils.hpp"
+
 #include "libslic3r.h"
 #include "clipper2/clipper.h"
 
@@ -145,6 +146,17 @@ Slic3r::Polylines intersection_pl_2(const Slic3r::Polylines& subject, const Slic
 Slic3r::Polylines  diff_pl_2(const Slic3r::Polylines& subject, const Slic3r::Polygons& clip)
     { return _clipper2_pl_open(Clipper2Lib::ClipType::Difference, subject, clip); }
 
+ExPolygons diff_ex_2(const ExPolygons &subject, const ExPolygons &clip)
+{
+    Clipper2Lib::Clipper64 clipper;
+    clipper.AddSubject(Slic3rExPolygons_to_Paths64(subject));
+    clipper.AddClip(Slic3rExPolygons_to_Paths64(clip));
+
+    Clipper2Lib::PolyTree64 solution;
+    clipper.Execute(Clipper2Lib::ClipType::Difference, Clipper2Lib::FillRule::NonZero, solution);
+    return PolyTreeToExPolygons(std::move(solution));
+}
+
 ExPolygons union_ex_2(const Polygons& polygons)
 {
     Clipper2Lib::Clipper64 c;
@@ -177,7 +189,7 @@ ExPolygons union_ex_2(const ExPolygons &expolygons)
 
 // Offset ExPolygons
 ExPolygons offset_ex_2(const ExPolygons &expolygons, double delta)
-{    
+{
     Clipper2Lib::Paths64 subject = Slic3rExPolygons_to_Paths64(expolygons);
     Clipper2Lib::ClipperOffset offsetter;
     offsetter.AddPaths(subject, Clipper2Lib::JoinType::Round, Clipper2Lib::EndType::Polygon);
@@ -213,4 +225,53 @@ ExPolygons offset2_ex_2(const ExPolygons& expolygons, double delta1, double delt
     return results;
 }
 
+ExPolygons offset2_ex_2_preserve_holes(const ExPolygons &expolygons, double delta1, double delta2,
+                                       double miter_limit)
+{
+    if (expolygons.empty())
+        return {};
+
+    const auto offset_paths_individually = [miter_limit](const Clipper2Lib::Paths64 &paths, double delta) {
+        Clipper2Lib::Paths64 result;
+        result.reserve(paths.size());
+
+        Clipper2Lib::ClipperOffset offsetter;
+        offsetter.MiterLimit(miter_limit);
+        for (const Clipper2Lib::Path64 &path : paths) {
+            if (path.empty())
+                continue;
+
+            const bool positive = Clipper2Lib::IsPositive(path);
+            Clipper2Lib::Paths64 offset_paths;
+            offsetter.Clear();
+            offsetter.AddPath(path, Clipper2Lib::JoinType::Miter, Clipper2Lib::EndType::Polygon);
+            offsetter.Execute(positive ? delta : -delta, offset_paths);
+
+            for (Clipper2Lib::Path64 &offset_path : offset_paths)
+                result.emplace_back(std::move(offset_path));
+        }
+        return result;
+    };
+
+    const auto union_paths = [](Clipper2Lib::Paths64 &&paths) {
+        if (paths.empty())
+            return ExPolygons{};
+
+        Clipper2Lib::Clipper64 clipper;
+        clipper.AddSubject(paths);
+        Clipper2Lib::PolyTree64 result;
+        clipper.Execute(Clipper2Lib::ClipType::Union, Clipper2Lib::FillRule::NonZero, result);
+        return PolyTreeToExPolygons(std::move(result));
+    };
+
+    Clipper2Lib::Paths64 first_offset =
+        offset_paths_individually(Slic3rExPolygons_to_Paths64(expolygons), delta1);
+    ExPolygons first_merged = union_paths(std::move(first_offset));
+    if (first_merged.empty())
+        return {};
+
+    Clipper2Lib::Paths64 second_offset =
+        offset_paths_individually(Slic3rExPolygons_to_Paths64(first_merged), delta2);
+    return union_paths(std::move(second_offset));
+}
 } // namespace Slic3r

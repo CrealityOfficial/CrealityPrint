@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "case": "support-hybrid",
+  "input": "support-hybrid.3mf",
+  "input_sha256": "6d763c4f59e66d55cba11dadd6e214dd695b3699f07805bd8414e3266779cdeb",
+  "plate": 0,
+  "args": [],
+  "module": "support",
+  "input_fingerprints": {
+    "schema_version": 1,
+    "plates": [
+      {
+        "plate_id": 1,
+        "fingerprints": [
+          {
+            "path": "module.support.input",
+            "fingerprint": "1c5a6d9b05364fe349f2da6e4a26d7a8",
+            "sample_count": 1
+          }
+        ]
+      }
+    ]
+  },
+  "output_fingerprints": {
+    "schema_version": 1,
+    "plates": [
+      {
+        "plate_id": 1,
+        "fingerprints": [
+          {
+            "path": "module.support.output",
+            "fingerprint": "056066f8e36db2a84894234e9e7c4103",
+            "sample_count": 1
+          }
+        ]
+      }
+    ]
+  }
+}

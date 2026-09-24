@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "case": "support-normal",
+  "input": "support-normal.3mf",
+  "input_sha256": "e572d245676733e5669be018cf45eadd9240420ad77b294c64e3a1fe159d1a62",
+  "plate": 0,
+  "args": [
+    "--no-check"
+  ],
+  "module": "support",
+  "input_fingerprints": {
+    "schema_version": 1,
+    "plates": [
+      {
+        "plate_id": 1,
+        "fingerprints": [
+          {
+            "path": "module.support.input",
+            "fingerprint": "38af9a5a26c3ea1e63f336f78b44631d",
+            "sample_count": 1
+          }
+        ]
+      }
+    ]
+  },
+  "output_fingerprints": {
+    "schema_version": 1,
+    "plates": [
+      {
+        "plate_id": 1,
+        "fingerprints": [
+          {
+            "path": "module.support.output",
+            "fingerprint": "cadf8c3ce8124c823be5d5cdd223fe2f",
+            "sample_count": 1
+          }
+        ]
+      }
+    ]
+  }
+}

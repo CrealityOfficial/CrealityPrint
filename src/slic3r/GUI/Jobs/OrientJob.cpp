@@ -9,6 +9,7 @@
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/PartPlate.hpp"
 #include "slic3r/GUI/simple/MCPChatPanel.hpp"
+#include "slic3r/GUI/simple/gpu/GpuOrient.hpp"
 #include "libslic3r/PresetBundle.hpp"
 
 namespace Slic3r { namespace GUI {
@@ -47,7 +48,7 @@ void OrientJob::prepare_selection(std::vector<bool> obj_sel, bool only_one_plate
         for (size_t inst_idx = 0; inst_idx < mo->instances.size(); ++inst_idx)
         {
             ModelInstance* mi = mo->instances[inst_idx];
-            OrientMesh&& om = get_orient_mesh(mi);
+            OrientMesh&& om = create_orientation_input(mi, oidx, inst_idx);
 
             bool locked = false;
             if (!only_one_plate) {
@@ -184,7 +185,26 @@ void OrientJob::process(Ctl &ctl)
         if (st > 0) ctl.update_status(int(st / float(count) * 100), _u8L("Orienting") + " " + orientstr);
     };
 
-    orientation::orient(m_selected, m_unselected, params);
+    // Prefer the platform GPU compute implementation. GpuOrient preserves the
+    // existing CPU behavior when the GPU path is unavailable or fails.
+    static orientation::GpuOrient gpu_orienter;
+    const bool gpu_available = gpu_orienter.available();
+    std::string orient_error;
+    const bool orient_ok = gpu_orienter.orient(
+        m_selected,
+        m_unselected,
+        params,
+        /*fallback_to_cpu=*/true,
+        &orient_error);
+
+    if (!orient_ok && !ctl.was_canceled()) {
+        BOOST_LOG_TRIVIAL(error) << "OrientJob: auto orient failed: " << orient_error;
+    } else if (orient_ok) {
+        BOOST_LOG_TRIVIAL(info)
+            << "OrientJob: auto orient completed via "
+            << (gpu_available && orient_error.empty() ? "GPU" : "CPU fallback")
+            << (orient_error.empty() ? "" : ", GPU error: " + orient_error);
+    }
 
     auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start);
 
@@ -245,13 +265,81 @@ void OrientJob::finalize(bool canceled, std::exception_ptr &eptr)
     //wxGetApp().obj_manipul()->set_dirty();
 }
 
-orientation::OrientMesh OrientJob::get_orient_mesh(ModelInstance* instance)
+namespace {
+
+// Canonical tilt with no Z rotation. At a vertical X axis, fix roll to zero
+// rather than deriving it from roundoff, so the remaining heading is stable.
+Vec3d orientation_tilt(const Matrix3d& rotation)
+{
+    const double cos_pitch = std::hypot(rotation(2, 1), rotation(2, 2));
+    return Vec3d(cos_pitch < 1e-10 ? 0.0 : std::atan2(rotation(2, 1), rotation(2, 2)),
+                 std::atan2(-rotation(2, 0), cos_pitch), 0.0);
+}
+
+void apply_orientation_transform(ModelInstance*                  instance,
+                                 size_t                          object_index,
+                                 size_t                          instance_index,
+                                 const orientation::OrientMesh& orientation_input)
+{
+    ModelObject* object = instance->get_object();
+    // Apply an absolute tilt in the unrotated instance frame. Composing
+    // successive shortest-arc rotations can accumulate Z twist across modes.
+    // In-plane heading does not affect the orientation objective.
+    const Matrix3d current = instance->get_transformation().get_rotation_matrix().linear();
+    const Matrix3d tilt = Geometry::rotation_transform(orientation_tilt(current)).linear();
+    const Matrix3d heading = current * tilt.transpose();
+    Vec3d rotation = orientation_tilt(orientation_input.rotation_matrix);
+    rotation.z() = std::atan2(heading(1, 0), heading(0, 0));
+    instance->set_rotation(rotation);
+    object->invalidate_bounding_box();
+    object->ensure_on_bed();
+
+    Plater* plater = wxGetApp().plater();
+    if (plater == nullptr)
+        return;
+
+    PartPlateList& plate_list  = plater->get_partplate_list();
+    const int      plate_index = plate_list.find_instance(static_cast<int>(object_index),
+                                                          static_cast<int>(instance_index));
+    if (plate_index < 0)
+        return;
+
+    PartPlate*     plate       = plate_list.get_plate(plate_index);
+    if (plate == nullptr || !plate->check_outside(static_cast<int>(object_index),
+                                                  static_cast<int>(instance_index)))
+        return;
+
+    const BoundingBoxf3 instance_bounds = object->instance_convex_hull_bounding_box(instance_index);
+    const Vec3d         plate_center     = plate->get_center_origin();
+    const Vec3d         instance_center  = instance_bounds.center();
+    const Vec3d         planar_translation(plate_center.x() - instance_center.x(),
+                                           plate_center.y() - instance_center.y(),
+                                           0.0);
+
+    object->translate_instance(instance_index, planar_translation);
+
+    if (plate->check_outside(static_cast<int>(object_index), static_cast<int>(instance_index))) {
+        BOOST_LOG_TRIVIAL(warning)
+            << "Auto orientation placement remains outside printable area: object_index=" << object_index
+            << ", instance_index=" << instance_index << ", plate_index=" << plate_index;
+    }
+}
+
+} // namespace
+
+orientation::OrientMesh OrientJob::create_orientation_input(ModelInstance* instance,
+                                                             size_t         object_index,
+                                                             size_t         instance_index)
 {
     using OrientMesh = orientation::OrientMesh;
     OrientMesh om;
     auto obj = instance->get_object();
     om.name = obj->name;
-    om.mesh = obj->mesh(); // don't know the difference to obj->raw_mesh(). Both seem OK
+    // Keep volume transforms and this instance's scale/mirror, but exclude
+    // previous rotations and other instances so mode switches are independent.
+    om.mesh = obj->raw_mesh();
+    om.mesh.transform(instance->get_transformation().get_matrix(
+        /*dont_translate=*/true, /*dont_rotate=*/true));
     if (obj->config.has("support_threshold_angle"))
         om.overhang_angle = obj->config.opt_int("support_threshold_angle");
     else {
@@ -259,10 +347,8 @@ orientation::OrientMesh OrientJob::get_orient_mesh(ModelInstance* instance)
         om.overhang_angle = config.opt_int("support_threshold_angle");
     }
 
-    om.setter = [instance](const OrientMesh& p) {
-        instance->rotate(p.rotation_matrix);
-        instance->get_object()->invalidate_bounding_box();
-        instance->get_object()->ensure_on_bed();
+    om.setter = [instance, object_index, instance_index](const OrientMesh& orientation_input) {
+        apply_orientation_transform(instance, object_index, instance_index, orientation_input);
     };
     return om;
 }

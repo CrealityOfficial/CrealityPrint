@@ -80,7 +80,7 @@ struct TreeSupportMeshGroupSettings
         double support_tree_angle_slow     = config.tree_support_angle_slow.value;
         this->support_tree_branch_distance = scaled<coord_t>(config.tree_support_branch_distance.value);
         this->support_tree_angle           = std::clamp<double>(config.tree_support_branch_angle * M_PI / 180., 0., 0.5 * M_PI - EPSILON);
-        this->support_tree_angle_slow = std::clamp<double>(support_tree_angle_slow * M_PI / 180., 0., this->support_tree_angle - EPSILON);
+        this->support_tree_angle_slow = std::clamp<double>(support_tree_angle_slow * M_PI / 180., 0., std::max(0., this->support_tree_angle - EPSILON));
         this->support_tree_branch_diameter       = scaled<coord_t>(config.tree_support_branch_diameter.value);
         this->support_tree_branch_diameter_angle = std::clamp<double>(config.tree_support_branch_diameter_angle * M_PI / 180., 0.,
                                                                       0.5 * M_PI - EPSILON);

@@ -12,8 +12,7 @@
 #include "../Flow.hpp"
 #include "../PrintConfig.hpp"
 #include "../Fill/Lightning/Generator.hpp"
-#include "TreeModelVolumes.hpp"
-#include "TreeSupport3D.hpp"
+#include "SupportParameters.hpp"
 
 #ifndef SQ
 #define SQ(x) ((x) * (x))
@@ -131,7 +130,7 @@ struct SupportNode
     bool           fading          = false;
     double         overhang_degree = 0.0; // overhang degree for cooling just like perimeter
     ExPolygon      overhang;              // when type==ePolygon, set this value to get original overhang area
-    coordf_t       origin_area;
+    coordf_t       origin_area      = 0.0;
 
     /*!
      * \brief The direction of the skin lines above the tip of the branch.
@@ -380,10 +379,6 @@ public:
      */
     TreeSupport(PrintObject& object, const SlicingParameters& slicing_params);
 
-    void move_bounds_to_contact_nodes(std::vector<TreeSupport3D::SupportElements>& move_bounds,
-                                      PrintObject&                                 print_object,
-                                      const TreeSupport3D::TreeSupportSettings&    config);
-
     /*!
      * \brief Create the areas that need support.
      *
@@ -445,15 +440,8 @@ public:
     std::vector<ExPolygons>                  long_internal_solid_roofs_by_layer;
 
 private:
-    /*!
-     * \brief Generator for model collision, avoidance and internal guide volumes
-     *
-     * Lazily computes volumes as needed.
-     *  \warning This class is NOT currently thread-safe and should not be accessed in OpenMP blocks
-     */
     std::vector<std::vector<SupportNode*>>           contact_nodes;
     std::shared_ptr<TreeSupportData>                 m_ts_data;
-    std::unique_ptr<TreeSupport3D::TreeModelVolumes> m_model_volumes;
     PrintObject*                                     m_object;
     const PrintObjectConfig*                         m_object_config;
     SlicingParameters                                m_slicing_params;
@@ -506,8 +494,6 @@ private:
 
     void smooth_nodes();
 
-    void smooth_nodes(const TreeSupport3D::TreeSupportSettings& config);
-
     /*! BBS: MusangKing: maximum layer height
      * \brief Optimize the generation of tree support by pre-planning the layer_heights
      *
@@ -540,7 +526,7 @@ private:
     // get unscaled radius of node
     coordf_t calc_branch_radius(coordf_t base_radius, size_t layers_to_top, size_t tip_layers, double diameter_angle_scale_factor);
     // get unscaled radius(mm) of node based on the distance mm to top
-    coordf_t calc_branch_radius(coordf_t base_radius, coordf_t mm_to_top, double diameter_angle_scale_factor, bool use_min_distance = true);
+    coordf_t calc_branch_radius(coordf_t base_radius, coordf_t mm_to_top, double diameter_angle_scale_factor);
     coordf_t calc_radius(coordf_t mm_to_top);
     coordf_t get_radius(const SupportNode* node);
     ExPolygons get_avoidance(coordf_t radius, size_t obj_layer_nr);

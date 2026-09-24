@@ -47,6 +47,9 @@ nlohmann::json BuildBlockingErrorsPayload(const nlohmann::json& state);
 nlohmann::json BuildExplicitFactsFromState(const nlohmann::json& state);
 void AttachExplicitFactsFromState(nlohmann::json& payload, const nlohmann::json& state);
 
+bool ShouldSuppressSliceWarningForAI(const std::string& message,
+                                     const std::string& error_code);
+
 nlohmann::json BuildGeometryAnalysisFromState(const nlohmann::json& state);
 nlohmann::json BuildVisualRecommendationGeometryFromState(const nlohmann::json& state);
 

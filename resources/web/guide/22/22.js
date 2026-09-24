@@ -546,7 +546,8 @@ function ResponseFilamentResult()
 		
 	    for( let key in m_ProfileItem['filament'] )
 	    {
-			let FName=GetFilamentShortname(key);
+			let oneFila = m_ProfileItem['filament'][key];
+			let FName=GetFilamentShortname(oneFila['name']);
 			
 			if(FName==sName)
 				FilaArray.push(key);
@@ -600,7 +601,6 @@ function FinishGuide()
 	}
 	//window.location.href="../6/index.html";
 }
-
 
 
 

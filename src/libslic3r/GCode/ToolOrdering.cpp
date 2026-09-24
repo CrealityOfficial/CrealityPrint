@@ -4,6 +4,7 @@
 #include "ClipperUtils.hpp"
 #include "ParameterUtils.hpp"
 #include "ExtrusionEntity.hpp"
+#include "ExtrusionEntityCollection.hpp"
 #include "ShortestPath.hpp"
 #include "libslic3r/FDM/MachineVender.hpp"
 
@@ -17,9 +18,16 @@
 #endif
 
 #include <cassert>
+#include <cstdlib>
+#include <cmath>
 #include <limits>
 #include <algorithm>
+#include <numeric>
 #include <unordered_set>
+#include <fstream>
+#include <iomanip>
+#include <mutex>
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include <libslic3r.h>
 #include <tbb/parallel_for.h>
@@ -28,13 +36,199 @@ namespace Slic3r {
 
 const static bool g_wipe_into_objects = false;
 
-// Maximum number of extruders for exact TSP bitmask DP (2^n states).
-// Beyond this threshold, fall back to O(n^2) greedy nearest-neighbor to avoid std::bad_alloc.
-// n=16: 2^16 * 16 * 4B = 4MB, acceptable; n=17 would be 8MB+.
-static constexpr int k_tsp_exact_max_extruders = 20;
+unsigned int ToolOrdering::first_non_support_extruder(const PrintConfig& config, unsigned int initial_extruder) const
+{
+    if (initial_extruder == static_cast<unsigned int>(-1) ||
+        !config.filament_is_support.get_at(initial_extruder))
+        return initial_extruder;
 
+    for (const LayerTools& layer_tools : m_layer_tools) {
+        if (!layer_tools.has_object)
+            continue;
+
+        for (unsigned int extruder : layer_tools.extruders)
+            if (!config.filament_is_support.get_at(extruder))
+                return extruder;
+    }
+
+    return initial_extruder;
+}
+
+// Maximum number of extruders for exact TSP bitmask DP (2^n states).
+// Beyond this threshold, use LKH-style local search to avoid std::bad_alloc.
+// n=20: 2^20 * 20 * 4B = 80MB per DP array, already near the practical limit.
+static constexpr int k_tsp_exact_max_extruders = 20;
+// Number of alternative large-layer endpoints exposed to the cross-layer DP.
+static constexpr int k_lkh_endpoint_candidates = 16;
+
+struct MixedSlotComponents
+{
+    std::vector<unsigned int> components_0based;
+    std::vector<double>       ratios;
+};
+
+// Decode the complete component/ratio definition of a mixed row. Two-color
+// rows use component_a/component_b; 3+ color rows use the explicit gradient
+// component list written by MixedFilamentDialog.
+static MixedSlotComponents mixed_slot_components(const MixedFilament &mixed, size_t num_physical)
+{
+    MixedSlotComponents out;
+
+    std::vector<unsigned int> component_ids;
+    if (mixed.distribution_mode != int(MixedFilament::Simple) && !mixed.gradient_component_ids.empty()) {
+        // Support both formats:
+        // 1. New '|'-separated format: "1|2|11|12" (supports multi-digit IDs)
+        // 2. Old compact format: "123" (single-char IDs 1-9, no separator)
+        if (mixed.gradient_component_ids.find('|') != std::string::npos) {
+            // New '|'-separated format
+            std::string tok;
+            for (char c : mixed.gradient_component_ids) {
+                if (c >= '0' && c <= '9') {
+                    tok.push_back(c);
+                } else if (c == '|') {
+                    if (!tok.empty()) {
+                        try {
+                            unsigned int id = std::stoi(tok);
+                            if (id >= 1 && id <= num_physical &&
+                                std::find(component_ids.begin(), component_ids.end(), id) == component_ids.end()) {
+                                component_ids.push_back(id);
+                            }
+                        } catch (...) {}
+                        tok.clear();
+                    }
+                }
+            }
+            if (!tok.empty()) {
+                try {
+                    unsigned int id = std::stoi(tok);
+                    if (id >= 1 && id <= num_physical &&
+                        std::find(component_ids.begin(), component_ids.end(), id) == component_ids.end()) {
+                        component_ids.push_back(id);
+                    }
+                } catch (...) {}
+            }
+        } else {
+            // Old compact format: single-char IDs '1'-'9'
+            for (const char token : mixed.gradient_component_ids) {
+                if (token < '1' || token > '9')
+                    continue;
+                const unsigned int id = unsigned(token - '0');
+                if (id > num_physical || std::find(component_ids.begin(), component_ids.end(), id) != component_ids.end())
+                    continue;
+                component_ids.push_back(id);
+            }
+        }
+    }
+
+    if (component_ids.size() >= 3) {
+        std::vector<int> weights;
+        std::string      token;
+        for (const char c : mixed.gradient_component_weights) {
+            if (c >= '0' && c <= '9') {
+                token.push_back(c);
+            } else if (!token.empty()) {
+                weights.push_back(std::atoi(token.c_str()));
+                token.clear();
+            }
+        }
+        if (!token.empty())
+            weights.push_back(std::atoi(token.c_str()));
+        if (weights.size() != component_ids.size())
+            weights.assign(component_ids.size(), 1);
+
+        double weight_sum = 0.;
+        for (size_t i = 0; i < component_ids.size(); ++i) {
+            if (weights[i] <= 0)
+                continue;
+            out.components_0based.push_back(component_ids[i] - 1u);
+            out.ratios.push_back(double(weights[i]));
+            weight_sum += double(weights[i]);
+        }
+        if (out.components_0based.size() >= 2 && weight_sum > 0.) {
+            for (double &ratio : out.ratios)
+                ratio /= weight_sum;
+            return out;
+        }
+        out = {};
+    }
+
+    if (mixed.component_a >= 1 && mixed.component_a <= num_physical &&
+        mixed.component_b >= 1 && mixed.component_b <= num_physical &&
+        mixed.component_a != mixed.component_b) {
+        const double ratio_b = std::clamp(double(mixed.mix_b_percent) / 100.0, 0.05, 0.95);
+        out.components_0based = {mixed.component_a - 1u, mixed.component_b - 1u};
+        out.ratios             = {1.0 - ratio_b, ratio_b};
+    }
+    return out;
+}
+
+float flush_volume_from_matrix(const PrintConfig& config, unsigned int old_extruder, unsigned int new_extruder)
+{
+    const size_t number_of_extruders = config.filament_diameter.size();
+    if (old_extruder >= number_of_extruders || new_extruder >= number_of_extruders)
+        return 0.f;
+    const size_t nozzle_count = std::max<size_t>(1, config.nozzle_diameter.size());
+    const size_t target_nozzle = std::min<size_t>(get_physical_nozzle_index(config, new_extruder), nozzle_count - 1);
+    const std::vector<double> flush_matrix = get_flush_volumes_matrix(
+        config.flush_volumes_matrix.values, target_nozzle, nozzle_count, number_of_extruders);
+    if (flush_matrix.size() != number_of_extruders * number_of_extruders)
+        return 0.f;
+    return float(flush_matrix[old_extruder * number_of_extruders + new_extruder] * config.flush_multiplier.value);
+}
+
+static double skeleton_wipe_path_width_multiplier(const ExtrusionPath& path, float wipe_line_width)
+{
+    if (wipe_line_width <= 0.f || path.role() != erInternalInfill || path.width <= 0.f || path.mm3_per_mm <= 0. ||
+        dynamic_cast<const ExtrusionPathSloped*>(&path) != nullptr)
+        return 1.;
+
+    return std::max(1., double(wipe_line_width) / double(path.width));
+}
+
+float skeleton_wipe_line_width(const Print& print, const PrintRegion& region, unsigned int extruder)
+{
+    const double nozzle_diameter = get_physical_nozzle_diameter(print.config(), extruder);
+    return float(std::max(0., region.config().skeleton_wipe_line_width.get_abs_value(nozzle_diameter)));
+}
+
+double skeleton_wipe_volume(const ExtrusionEntity& entity, float wipe_line_width)
+{
+    if (const auto* path = dynamic_cast<const ExtrusionPath*>(&entity); path != nullptr)
+        return path->total_volume() * skeleton_wipe_path_width_multiplier(*path, wipe_line_width);
+
+    if (const auto* multipath = dynamic_cast<const ExtrusionMultiPath*>(&entity); multipath != nullptr) {
+        double volume = 0.;
+        for (const ExtrusionPath& path : multipath->paths)
+            volume += path.total_volume() * skeleton_wipe_path_width_multiplier(path, wipe_line_width);
+        return volume;
+    }
+
+    if (const auto* loop = dynamic_cast<const ExtrusionLoop*>(&entity); loop != nullptr) {
+        double volume = 0.;
+        for (const ExtrusionPath& path : loop->paths)
+            volume += path.total_volume() * skeleton_wipe_path_width_multiplier(path, wipe_line_width);
+        return volume;
+    }
+
+    if (const auto* collection = dynamic_cast<const ExtrusionEntityCollection*>(&entity); collection != nullptr) {
+        double volume = 0.;
+        for (const ExtrusionEntity* child : collection->entities)
+            volume += skeleton_wipe_volume(*child, wipe_line_width);
+        return volume;
+    }
+
+    return entity.total_volume();
+}
+
+float skeleton_wipe_volume(const Print& print, const PrintRegion& region, unsigned int extruder, const ExtrusionEntity& entity)
+{
+    return float(skeleton_wipe_volume(entity, skeleton_wipe_line_width(print, region, extruder)));
+}
 // Helper to resolve a mixed filament ID to a physical extruder, considering
 // optional layer-height cadence overrides from the print settings.
+// When enable_sublayer is false, all gradient / height-weighted logic is
+// bypassed and the function simply alternates component_a / component_b
+// per layer index.
 static unsigned int resolve_mixed_with_layer_heights(const MixedFilamentManager *mixed_mgr,
                                               size_t                      num_physical,
                                               unsigned int                filament_id_1based,
@@ -43,7 +237,10 @@ static unsigned int resolve_mixed_with_layer_heights(const MixedFilamentManager 
                                               float                       layer_height,
                                               float                       layer_height_a,
                                               float                       layer_height_b,
-                                              float                       base_layer_height)
+                                              float                       base_layer_height,
+                                              bool                        enable_sublayer = true,
+                                              size_t                      total_layer_count = 0,
+                                              unsigned int                slot_offset = 0)
 {
     if (mixed_mgr == nullptr || filament_id_1based <= num_physical)
         return filament_id_1based;
@@ -51,19 +248,96 @@ static unsigned int resolve_mixed_with_layer_heights(const MixedFilamentManager 
         return filament_id_1based;
 
     const MixedFilament *mixed_row = mixed_mgr->mixed_filament_from_id(filament_id_1based, num_physical);
-    const bool is_custom_mixed = mixed_row != nullptr && mixed_row->custom;
 
-    if (!is_custom_mixed && (layer_height_a > 0.f || layer_height_b > 0.f)) {
+    // Sublayer disabled: simple per-layer alternation for ALL mixed schemes
+    // (both 2-color and N-color).  No gradient, no mix-ratio, no height-weighted
+    // logic - just cycle through the components one per layer.
+    if (!enable_sublayer) {
+        if (mixed_row != nullptr) {
+            const MixedSlotComponents slot = mixed_slot_components(*mixed_row, num_physical);
+            if (slot.components_0based.size() >= 2) {
+                // Map 1-based physical IDs from 0-based component indices.
+                // components_0based stores 0-based physical extruder indices.
+                const size_t n = slot.components_0based.size();
+                const size_t pick = (size_t(layer_index) + size_t(slot_offset)) % n;
+                return slot.components_0based[pick] + 1u; // convert 0-based ? 1-based
+            }
+            if (mixed_row->component_a > 0 && mixed_row->component_b > 0)
+                return ((layer_index + slot_offset) % 2 == 0) ? mixed_row->component_a : mixed_row->component_b;
+        }
+        return filament_id_1based;
+    }
+
+    // The layer-height/gradient overrides below are two-color algorithms.
+    // Preserve the generic N-color resolver for rows containing 3+ members
+    // when sublayers ARE enabled (sublayer groups handle the geometry split).
+    if (mixed_row != nullptr && mixed_slot_components(*mixed_row, num_physical).components_0based.size() >= 3)
+        return mixed_mgr->resolve(filament_id_1based, num_physical, layer_index, layer_print_z, layer_height);
+
+    // Sublayer enabled + gradient active: use run-based linear interpolation
+    // (aligned with Bambu's approach).  Bypasses MixedFilamentManager::resolve()
+    // which uses height_weighted cadence that degenerates when cycle_h ? layer_height.
+    // total_layer_count is passed by the caller (m_layer_tools.size() or LayerTools field).
+    if (mixed_row != nullptr && mixed_row->gradient_enabled &&
+        mixed_row->component_a > 0 && mixed_row->component_b > 0 &&
+        total_layer_count > 1) {
+        // Run spans layers 1..N-1 (layer 0 excluded, matching resolve_mixed_sublayers).
+        const size_t N = total_layer_count - 1;
+        const int grad_idx = layer_index - 1;  // layer 0 excluded
+        if (grad_idx >= 0 && static_cast<size_t>(grad_idx) < N) {
+            const size_t idx = static_cast<size_t>(grad_idx);
+            const double t = (N > 0) ? (2.0 * idx + 1.0) / (2.0 * N) : 0.5;
+            double ratio_b;
+            if (!mixed_row->gradient_curve.empty()) {
+                ratio_b = sample_gradient_curve(mixed_row->gradient_curve, t);
+            } else {
+                // Linear interpolation: gradient_start ? gradient_end (Bambu-aligned)
+                // Start with mostly A, end with mostly B for symmetric visual effect.
+                const double gradient_start = 0.10;
+                const double gradient_end   = 0.90;
+                ratio_b = gradient_start + (gradient_end - gradient_start) * t;
+            }
+            ratio_b = std::clamp(ratio_b, 0.0, 1.0);
+            const double ratio_a = 1.0 - ratio_b;
+            // Quantize to integer cadence
+            const int ra = std::max(1, int(std::lround(ratio_a * 100.0)));
+            const int rb = std::max(1, int(std::lround(ratio_b * 100.0)));
+            const int cycle = ra + rb;
+            if (cycle > 0) {
+                const int pos = ((layer_index % cycle) + cycle) % cycle;
+                const unsigned int selected = (pos < ra) ? mixed_row->component_a : mixed_row->component_b;
+                return selected;
+            }
+        }
+        // Cannot compute run-based gradient ? fall through to mixed_mgr->resolve().
+    }
+
+    // Sublayer enabled + gradient NOT active: use mix_b_percent for fixed-ratio
+    // layer alternation.  Prevents fall-through to height_weighted cadence in
+    // MixedFilamentManager::resolve() which may produce non-50:50 ratios.
+    if (mixed_row != nullptr && !mixed_row->gradient_enabled &&
+        mixed_row->component_a > 0 && mixed_row->component_b > 0) {
+        const int rb = std::max(1, int(std::lround(double(mixed_row->mix_b_percent) / 100.0 * 100.0)));
+        const int ra = std::max(1, 100 - rb);
+        const int cycle = ra + rb;
+        if (cycle > 0) {
+            const int pos = ((layer_index % cycle) + cycle) % cycle;
+            return (pos < ra) ? mixed_row->component_a : mixed_row->component_b;
+        }
+    }
+
+    const bool can_apply_auto_height_override = mixed_row != nullptr &&
+        !mixed_row->custom && mixed_row->is_available(num_physical);
+
+    if (can_apply_auto_height_override && (layer_height_a > 0.f || layer_height_b > 0.f)) {
         const float safe_base = std::max<float>(0.01f, base_layer_height);
         const int ratio_a = std::max(1, int(std::lround((layer_height_a > 0.f ? layer_height_a : safe_base) / safe_base)));
         const int ratio_b = std::max(1, int(std::lround((layer_height_b > 0.f ? layer_height_b : safe_base) / safe_base)));
         const int cycle   = ratio_a + ratio_b;
 
         if (cycle > 0) {
-            if (mixed_row != nullptr) {
-                const int pos = ((layer_index % cycle) + cycle) % cycle;
-                return pos < ratio_a ? mixed_row->component_a : mixed_row->component_b;
-            }
+            const int pos = ((layer_index % cycle) + cycle) % cycle;
+            return pos < ratio_a ? mixed_row->component_a : mixed_row->component_b;
         }
     }
 
@@ -74,6 +348,23 @@ static bool can_flush_into_skeleton(const ExtrusionEntityCollection& eec, const 
     return creality::is_k2_series_printer_from_string(print_config.printer_model.value)
         && object.config().flush_into_skeleton.value
         && eec.role() == erInternalInfill;
+}
+static bool is_layer_filament_wipe_packing_skeleton(const ExtrusionEntity* entity)
+{
+    if (entity == nullptr || entity->role() != erInternalInfill)
+        return false;
+    if (const auto* path = dynamic_cast<const ExtrusionPath*>(entity); path != nullptr)
+        return path->is_locked_zag_skeleton();
+    if (const auto* multipath = dynamic_cast<const ExtrusionMultiPath*>(entity); multipath != nullptr)
+        return !multipath->paths.empty() && std::all_of(multipath->paths.begin(), multipath->paths.end(),
+            [](const ExtrusionPath& path) { return path.is_locked_zag_skeleton(); });
+    if (const auto* loop = dynamic_cast<const ExtrusionLoop*>(entity); loop != nullptr)
+        return !loop->paths.empty() && std::all_of(loop->paths.begin(), loop->paths.end(),
+            [](const ExtrusionPath& path) { return path.is_locked_zag_skeleton(); });
+    if (const auto* collection = dynamic_cast<const ExtrusionEntityCollection*>(entity); collection != nullptr)
+        return !collection->entities.empty() && std::all_of(collection->entities.begin(), collection->entities.end(),
+            [](const ExtrusionEntity* child) { return is_layer_filament_wipe_packing_skeleton(child); });
+    return false;
 }
 static ExtrusionEntityCollection* new_collection_like(const ExtrusionEntityCollection& source)
 {
@@ -94,7 +385,7 @@ static ExtrusionPath* clone_path_with_polyline(const ExtrusionPath& source, Poly
 }
 
 static bool split_skeleton_collection_for_wipe(ExtrusionEntityCollection& fills, size_t fill_idx, float volume_limit,
-                                           ExtrusionEntityCollection*& wipe_collection, float& wipe_volume)
+                                           ExtrusionEntityCollection*& wipe_collection, float& wipe_volume, float wipe_line_width)
 {
     wipe_collection = nullptr;
     wipe_volume = 0.f;
@@ -106,7 +397,7 @@ static bool split_skeleton_collection_for_wipe(ExtrusionEntityCollection& fills,
     if (source == nullptr)
         return false;
 
-    const double source_volume = source->total_volume();
+    const double source_volume = skeleton_wipe_volume(*source, wipe_line_width);
     if (source_volume <= double(volume_limit) + EPSILON) {
         wipe_collection = source;
         wipe_volume = float(source_volume);
@@ -123,7 +414,7 @@ static bool split_skeleton_collection_for_wipe(ExtrusionEntityCollection& fills,
             continue;
         }
 
-        const double entity_volume = entity->total_volume();
+        const double entity_volume = skeleton_wipe_volume(*entity, wipe_line_width);
         if (double(wipe_volume) + entity_volume <= double(volume_limit) + EPSILON) {
             wipe_part->entities.emplace_back(entity);
             wipe_volume += float(entity_volume);
@@ -135,12 +426,12 @@ static bool split_skeleton_collection_for_wipe(ExtrusionEntityCollection& fills,
             if (auto* path = dynamic_cast<ExtrusionPath*>(entity); path != nullptr && path->mm3_per_mm > 0.) {
                 Polyline wipe_polyline;
                 Polyline rest_polyline;
-                const double split_length = scale_(remaining_volume / path->mm3_per_mm);
+                const double split_length = scale_(remaining_volume / (path->mm3_per_mm * skeleton_wipe_path_width_multiplier(*path, wipe_line_width)));
                 if (path->polyline.split_at_length(split_length, &wipe_polyline, &rest_polyline)) {
                     if (wipe_polyline.is_valid()) {
                         if (ExtrusionPath* wipe_path = clone_path_with_polyline(*path, std::move(wipe_polyline)); wipe_path != nullptr) {
                             wipe_part->entities.emplace_back(wipe_path);
-                            wipe_volume += float(wipe_path->total_volume());
+                            wipe_volume += float(skeleton_wipe_volume(*wipe_path, wipe_line_width));
                         }
                     }
                     if (rest_polyline.is_valid()) {
@@ -192,7 +483,10 @@ static unsigned int resolve_matrix_extruder_1based(const MixedFilamentManager *m
                                                    float                       layer_height_a,
                                                    float                       layer_height_b,
                                                    float                       base_layer_height,
-                                                   unsigned int                matrix_extruder_count)
+                                                   unsigned int                matrix_extruder_count,
+                                                   bool                        enable_sublayer = true,
+                                                   size_t                      total_layer_count = 0,
+                                                   unsigned int                slot_offset = 0)
 {
     if (matrix_extruder_count == 0)
         return 0;
@@ -205,8 +499,133 @@ static unsigned int resolve_matrix_extruder_1based(const MixedFilamentManager *m
                                                                    layer_height,
                                                                    layer_height_a,
                                                                    layer_height_b,
-                                                                   base_layer_height);
+                                                                   base_layer_height,
+                                                                   enable_sublayer,
+                                                                   total_layer_count,
+                                                                   slot_offset);
     return (resolved >= 1 && resolved <= matrix_extruder_count) ? resolved : 1;
+}
+
+// LKH-inspired local search for large layers. The first entry is fixed to keep
+// the same start-node contract as the exact bitmask DP below.
+static std::vector<unsigned int> solve_extruder_order_with_lkh_local_search(const std::vector<std::vector<float>>& wipe_volumes,
+                                                                            const std::vector<unsigned int>&      all_extruders,
+                                                                            float*                               min_cost = nullptr)
+{
+    if (all_extruders.empty()) {
+        if (min_cost)
+            *min_cost = 0.f;
+        return all_extruders;
+    }
+
+    constexpr int max_passes = 200;
+    constexpr int max_block  = 4;
+
+    auto sequence_cost = [&](const std::vector<unsigned int>& seq) {
+        float total = 0.f;
+        for (size_t i = 1; i < seq.size(); ++i)
+            total += wipe_volumes[seq[i - 1]][seq[i]];
+        return total;
+    };
+
+    auto greedy_seed = [&]() {
+        std::vector<unsigned int> seq;
+        seq.reserve(all_extruders.size());
+        std::vector<char> used(all_extruders.size(), 0);
+
+        int cur = 0;
+        used[cur] = 1;
+        seq.emplace_back(all_extruders[cur]);
+
+        while (seq.size() < all_extruders.size()) {
+            int   best_idx  = -1;
+            float best_cost = std::numeric_limits<float>::max();
+            for (int i = 0; i < static_cast<int>(all_extruders.size()); ++i) {
+                if (used[i])
+                    continue;
+                float c = wipe_volumes[all_extruders[cur]][all_extruders[i]];
+                if (c < best_cost || (c == best_cost && (best_idx == -1 || all_extruders[i] < all_extruders[best_idx]))) {
+                    best_idx  = i;
+                    best_cost = c;
+                }
+            }
+            assert(best_idx >= 0);
+            used[best_idx] = 1;
+            seq.emplace_back(all_extruders[best_idx]);
+            cur = best_idx;
+        }
+        return seq;
+    };
+
+    auto consider = [&](const std::vector<unsigned int>& candidate,
+                        float&                           best_cost,
+                        std::vector<unsigned int>&       best_seq) {
+        float c = sequence_cost(candidate);
+        if (c < best_cost) {
+            best_cost = c;
+            best_seq  = candidate;
+        }
+    };
+
+    auto improve_once = [&](std::vector<unsigned int>& seq, float& cost) {
+        const int n = static_cast<int>(seq.size());
+        std::vector<unsigned int> best_seq  = seq;
+        float                     best_cost = cost;
+
+        for (int i = 1; i < n; ++i) {
+            for (int j = i + 1; j < n; ++j) {
+                auto candidate = seq;
+                std::swap(candidate[i], candidate[j]);
+                consider(candidate, best_cost, best_seq);
+            }
+        }
+
+        for (int i = 1; i + 1 < n; ++i) {
+            for (int j = i + 1; j < n; ++j) {
+                auto candidate = seq;
+                std::reverse(candidate.begin() + i, candidate.begin() + j + 1);
+                consider(candidate, best_cost, best_seq);
+            }
+        }
+
+        const int block_limit = std::min(max_block, n - 1);
+        for (int len = 1; len <= block_limit; ++len) {
+            for (int i = 1; i + len <= n; ++i) {
+                int j = i + len;
+                std::vector<unsigned int> rest;
+                rest.reserve(n - len);
+                for (int p = 0; p < n; ++p) {
+                    if (p < i || p >= j)
+                        rest.emplace_back(seq[p]);
+                }
+                std::vector<unsigned int> block(seq.begin() + i, seq.begin() + j);
+                for (int pos = 1; pos <= static_cast<int>(rest.size()); ++pos) {
+                    auto candidate = rest;
+                    candidate.insert(candidate.begin() + pos, block.begin(), block.end());
+                    if (candidate != seq)
+                        consider(candidate, best_cost, best_seq);
+                }
+            }
+        }
+
+        if (best_cost < cost) {
+            seq  = std::move(best_seq);
+            cost = best_cost;
+            return true;
+        }
+        return false;
+    };
+
+    std::vector<unsigned int> seq       = greedy_seed();
+    float                     best_cost = sequence_cost(seq);
+    for (int pass = 0; pass < max_passes; ++pass) {
+        if (!improve_once(seq, best_cost))
+            break;
+    }
+
+    if (min_cost)
+        *min_cost = best_cost;
+    return seq;
 }
 
 
@@ -230,29 +649,9 @@ static std::vector<unsigned int> solve_extruder_order(const std::vector<std::vec
     const int n          = (int) all_extruders.size();
     const float INF_COST = std::numeric_limits<float>::max();
 
-    // Greedy nearest-neighbor fallback for large n to avoid 2^n memory explosion.
+    // LKH-style fallback for large n to avoid 2^n memory explosion.
     if (n > k_tsp_exact_max_extruders) {
-        std::vector<bool>        visited(n, false);
-        std::vector<unsigned int> path;
-        path.reserve(n);
-        // Start from index 0 (already placed as first element above).
-        int cur = 0;
-        visited[cur] = true;
-        path.push_back(all_extruders[cur]);
-        for (int step = 1; step < n; ++step) {
-            int   best_next = -1;
-            float best_w    = INF_COST;
-            for (int j = 0; j < n; ++j) {
-                if (!visited[j]) {
-                    float w = wipe_volumes[all_extruders[cur]][all_extruders[j]];
-                    if (w < best_w) { best_w = w; best_next = j; }
-                }
-            }
-            if (best_next == -1) break;
-            visited[best_next] = true;
-            path.push_back(all_extruders[best_next]);
-            cur = best_next;
-        }
+        std::vector<unsigned int> path = solve_extruder_order_with_lkh_local_search(wipe_volumes, all_extruders);
         if (add_start_extruder_flag && !path.empty())
             path.erase(path.begin()); // remove the virtual start node
         return path;
@@ -354,6 +753,150 @@ if (all_extruders.size() > 1) {
 #endif // OPTIMIZE
 }
 
+static float extruder_sequence_cost(const std::vector<std::vector<float>>& wipe_volumes,
+                                    const std::vector<unsigned int>&       extruders)
+{
+    float cost = 0.f;
+    for (size_t i = 1; i < extruders.size(); ++i)
+        cost += wipe_volumes[extruders[i - 1]][extruders[i]];
+    return cost;
+}
+
+
+static bool contains_extruder(const std::vector<unsigned int>& extruders, unsigned int extruder)
+{
+    return std::find(extruders.begin(), extruders.end(), extruder) != extruders.end();
+}
+
+static std::vector<unsigned int> solve_extruder_order_with_fixed_endpoints(
+    const std::vector<std::vector<float>>& wipe_volumes,
+    const std::vector<unsigned int>&       extruders,
+    unsigned int                          start_extruder,
+    unsigned int                          end_extruder)
+{
+    if (extruders.size() <= 1 || start_extruder == end_extruder ||
+        !contains_extruder(extruders, start_extruder) || !contains_extruder(extruders, end_extruder))
+        return extruders;
+
+    std::vector<unsigned int> middle;
+    middle.reserve(extruders.size());
+    for (unsigned int ex : extruders)
+        if (ex != start_extruder && ex != end_extruder)
+            middle.emplace_back(ex);
+
+    auto order_from_middle = [&](const std::vector<unsigned int>& mid) {
+        std::vector<unsigned int> out;
+        out.reserve(extruders.size());
+        out.emplace_back(start_extruder);
+        out.insert(out.end(), mid.begin(), mid.end());
+        out.emplace_back(end_extruder);
+        return out;
+    };
+
+    std::vector<unsigned int> best_middle;
+    best_middle.reserve(middle.size());
+    for (unsigned int ex : extruders)
+        if (ex != start_extruder && ex != end_extruder)
+            best_middle.emplace_back(ex);
+    std::vector<unsigned int> best_seq  = order_from_middle(best_middle);
+    float                     best_cost = extruder_sequence_cost(wipe_volumes, best_seq);
+
+    {
+        std::vector<unsigned int> greedy_middle;
+        std::vector<char>         used(middle.size(), 0);
+        greedy_middle.reserve(middle.size());
+        unsigned int current = start_extruder;
+        while (greedy_middle.size() < middle.size()) {
+            int   best_idx  = -1;
+            float best_step = std::numeric_limits<float>::max();
+            for (int i = 0; i < static_cast<int>(middle.size()); ++i) {
+                if (used[i])
+                    continue;
+                float step = wipe_volumes[current][middle[i]];
+                if (step < best_step || (step == best_step && (best_idx == -1 || middle[i] < middle[best_idx]))) {
+                    best_idx  = i;
+                    best_step = step;
+                }
+            }
+            if (best_idx == -1)
+                break;
+            used[best_idx] = 1;
+            current        = middle[best_idx];
+            greedy_middle.emplace_back(current);
+        }
+        std::vector<unsigned int> greedy_seq  = order_from_middle(greedy_middle);
+        float                     greedy_cost = extruder_sequence_cost(wipe_volumes, greedy_seq);
+        if (greedy_cost < best_cost) {
+            best_seq  = std::move(greedy_seq);
+            best_cost = greedy_cost;
+        }
+    }
+
+    constexpr int max_passes = 120;
+    constexpr int max_block  = 4;
+    for (int pass = 0; pass < max_passes; ++pass) {
+        bool improved = false;
+        const int n = static_cast<int>(best_seq.size());
+
+        for (int i = 1; i + 1 < n; ++i) {
+            for (int j = i + 1; j + 1 < n; ++j) {
+                std::vector<unsigned int> candidate = best_seq;
+                std::swap(candidate[i], candidate[j]);
+                float candidate_cost = extruder_sequence_cost(wipe_volumes, candidate);
+                if (candidate_cost < best_cost) {
+                    best_cost = candidate_cost;
+                    best_seq  = std::move(candidate);
+                    improved  = true;
+                }
+            }
+        }
+
+        for (int i = 1; i + 2 < n; ++i) {
+            for (int j = i + 1; j + 1 < n; ++j) {
+                std::vector<unsigned int> candidate = best_seq;
+                std::reverse(candidate.begin() + i, candidate.begin() + j + 1);
+                float candidate_cost = extruder_sequence_cost(wipe_volumes, candidate);
+                if (candidate_cost < best_cost) {
+                    best_cost = candidate_cost;
+                    best_seq  = std::move(candidate);
+                    improved  = true;
+                }
+            }
+        }
+
+        const int block_limit = std::min(max_block, std::max(0, n - 2));
+        for (int len = 1; len <= block_limit; ++len) {
+            for (int i = 1; i + len < n; ++i) {
+                int j = i + len;
+                std::vector<unsigned int> rest;
+                rest.reserve(n - len);
+                for (int p = 0; p < n; ++p)
+                    if (p < i || p >= j)
+                        rest.emplace_back(best_seq[p]);
+
+                std::vector<unsigned int> block(best_seq.begin() + i, best_seq.begin() + j);
+                for (int pos = 1; pos + 1 <= static_cast<int>(rest.size()); ++pos) {
+                    std::vector<unsigned int> candidate = rest;
+                    candidate.insert(candidate.begin() + pos, block.begin(), block.end());
+                    if (candidate == best_seq)
+                        continue;
+                    float candidate_cost = extruder_sequence_cost(wipe_volumes, candidate);
+                    if (candidate_cost < best_cost) {
+                        best_cost = candidate_cost;
+                        best_seq  = std::move(candidate);
+                        improved  = true;
+                    }
+                }
+            }
+        }
+
+        if (!improved)
+            break;
+    }
+
+    return best_seq;
+}
+
 // Returns true in case that extruder a comes before b (b does not have to be present). False otherwise.
 bool LayerTools::is_extruder_order(unsigned int a, unsigned int b) const
 {
@@ -389,8 +932,16 @@ unsigned int LayerTools::extruder(const ExtrusionEntityCollection& extrusions, c
     } else
         extruder = this->extruder_override;
 
-    // BBS: Resolve mixed filament ID to actual extruder.
-    return (extruder == 0) ? 0 : resolve_mixed_1based(extruder) - 1;
+    // BBS: Resolve mixed filament ID to actual extruder. Return value must be
+    // ZERO-based to match lt.extruders / by_extruder key convention.
+    // `extruder` is 1-based from region config.  is_mixed_slot() expects 0-based.
+    // Non-sublayer and first-layer slots have a per-layer physical mapping;
+    // later sublayer groups keep the virtual ID so their geometry can be replayed.
+    if (extruder > 0 && is_mixed_slot(extruder - 1u)) {
+        return resolve_mixed_slot(extruder - 1u);
+    }
+    const unsigned int resolved = (extruder == 0) ? 0u : resolve_mixed_1based(extruder) - 1u;
+    return resolved;
 }
 
 static double calc_max_layer_height(const PrintConfig &config, double max_object_layer_height)
@@ -417,7 +968,12 @@ ToolOrdering::ToolOrdering(const PrintObject &object, unsigned int first_extrude
     // Mixed filament support.
     m_mixed_mgr   = &object.print()->mixed_filament_manager();
     m_num_physical = object.print()->config().filament_diameter.size();
-    m_has_mixed_filaments = m_mixed_mgr != nullptr && m_mixed_mgr->enabled_count() > 0;
+    m_enable_mixed_color_sublayer = read_enable_mixed_color_sublayer();
+    BOOST_LOG_TRIVIAL(info) << "[MixedSublayer] ToolOrdering(PrintObject): m_enable_mixed_color_sublayer = "
+                            << m_enable_mixed_color_sublayer
+                            << ", mixed_mgr virtual_count = " << (m_mixed_mgr ? m_mixed_mgr->virtual_count() : 0);
+    // Include all allocated virtual slots, including incomplete rows retained by release logic.
+    m_has_mixed_filaments = m_mixed_mgr != nullptr && m_mixed_mgr->virtual_count() > 0;
     update_mixed_layer_height_settings();
     if (object.layers().empty())
         return;
@@ -435,7 +991,10 @@ ToolOrdering::ToolOrdering(const PrintObject &object, unsigned int first_extrude
     }
     double max_layer_height = calc_max_layer_height(object.print()->config(), object.config().layer_height);
 
-    // Collect extruders reuqired to print the layers.
+    // Phase A: build the mixed-sub-layer groups (no-op when
+    // enable_mixed_color_sublayer is false / unset).
+    //
+    // Collect extruders required to print the layers.
     this->collect_extruders(object, std::vector<std::pair<double, unsigned int>>());
 
     // BBS
@@ -451,7 +1010,17 @@ ToolOrdering::ToolOrdering(const PrintObject &object, unsigned int first_extrude
         this->reorder_extruders(first_extruder);
     }
 
+    // Phase A: resolve mixed sub-layers AFTER reorder_extruders so that
+    // lt.extruders is 0-based.  Scans for virtual slots, builds groups,
+    // and appends physical component IDs to lt.extruders.
+    // Always call resolve_mixed_sublayers() to handle both sublayer-enabled
+    // and DRR (sublayer-disabled) paths.
+    this->resolve_mixed_sublayers(object.print()->config());
+    this->enforce_mixed_component_order();
+
     this->fill_wipe_tower_partitions(object.print()->config(), object.layers().front()->print_z - object.layers().front()->height, max_layer_height);
+    if (this->insert_wipe_tower_filament(*object.print()))
+        this->count_wipe_tower_partitions();
 
     this->collect_extruder_statistics(prime_multi_material);
 
@@ -468,7 +1037,12 @@ ToolOrdering::ToolOrdering(const Print &print, unsigned int first_extruder, bool
     // Mixed filament support.
     m_mixed_mgr   = &print.mixed_filament_manager();
     m_num_physical = print.config().filament_diameter.size();
-    m_has_mixed_filaments = m_mixed_mgr != nullptr && m_mixed_mgr->enabled_count() > 0;
+    m_enable_mixed_color_sublayer = read_enable_mixed_color_sublayer();
+    BOOST_LOG_TRIVIAL(info) << "[MixedSublayer] ToolOrdering(Print): m_enable_mixed_color_sublayer = "
+                            << m_enable_mixed_color_sublayer
+                            << ", mixed_mgr virtual count = " << (m_mixed_mgr ? m_mixed_mgr->virtual_count() : 0);
+    // Include all allocated virtual slots, including incomplete rows retained by release logic.
+    m_has_mixed_filaments = m_mixed_mgr != nullptr && m_mixed_mgr->virtual_count() > 0;
     update_mixed_layer_height_settings();
 
     // Initialize the print layers for all objects and all layers.
@@ -502,7 +1076,7 @@ ToolOrdering::ToolOrdering(const Print &print, unsigned int first_extruder, bool
 	std::vector<std::pair<double, unsigned int>> per_layer_extruder_switches;
 
     // BBS
-	if (auto num_filaments = unsigned(m_num_physical + (m_mixed_mgr != nullptr ? m_mixed_mgr->enabled_count() : 0));
+	if (auto num_filaments = unsigned(m_num_physical + (m_mixed_mgr != nullptr ? m_mixed_mgr->virtual_count() : 0));
 		num_filaments > 1 && print.object_extruders().size() == 1 
         // the current Print's configuration is CustomGCode::MultiAsSingle
         //BBS: replace model custom gcode with current plate custom gcode
@@ -513,7 +1087,7 @@ ToolOrdering::ToolOrdering(const Print &print, unsigned int first_extruder, bool
         per_layer_extruder_switches = custom_tool_changes(print.model().get_curr_plate_custom_gcodes(), num_filaments);
 	}
 
-    // Collect extruders reuqired to print the layers.
+    // Collect extruders required to print the layers.
     for (auto object : print.objects())
         this->collect_extruders(*object, per_layer_extruder_switches);
 
@@ -530,7 +1104,17 @@ ToolOrdering::ToolOrdering(const Print &print, unsigned int first_extruder, bool
         this->reorder_extruders(first_extruder);
     }
 
+    // Phase A: resolve mixed sub-layers AFTER reorder_extruders so that
+    // lt.extruders is 0-based.  Scans for virtual slots, builds groups,
+    // and appends physical component IDs to lt.extruders.
+    // Always call resolve_mixed_sublayers() to handle both sublayer-enabled
+    // and DRR (sublayer-disabled) paths.
+    this->resolve_mixed_sublayers(print.config());
+    this->enforce_mixed_component_order();
+
     this->fill_wipe_tower_partitions(print.config(), object_bottom_z, max_layer_height);
+    if (this->insert_wipe_tower_filament(print))
+        this->count_wipe_tower_partitions();
 
     this->collect_extruder_statistics(prime_multi_material);
 
@@ -550,8 +1134,9 @@ std::vector<unsigned int> ToolOrdering::generate_first_layer_tool_order(const Pr
             int extruder_id = layerm->region().config().option("wall_filament")->getInt();
             
             for (auto expoly : layerm->raw_slices) {
-                const double nozzle_diameter = print.config().nozzle_diameter.get_at(0);
-                const coordf_t initial_layer_line_width = print.config().get_abs_value("initial_layer_line_width", nozzle_diameter);
+                const size_t nozzle_index = get_physical_nozzle_index(print.config(), extruder_id - 1);
+                const double nozzle_diameter = print.config().nozzle_diameter.get_at(nozzle_index);
+                const coordf_t initial_layer_line_width = nozzle_variant_abs_value(print.config().initial_layer_line_width, nozzle_index, nozzle_diameter);
 
                 if (offset_ex(expoly, -0.2 * scale_(initial_layer_line_width)).empty())
                     continue;
@@ -609,8 +1194,9 @@ std::vector<unsigned int> ToolOrdering::generate_first_layer_tool_order(const Pr
     for (auto layerm : first_layer->regions()) {
         int extruder_id = layerm->region().config().option("wall_filament")->getInt();
         for (auto expoly : layerm->raw_slices) {
-            const double nozzle_diameter = object.print()->config().nozzle_diameter.get_at(0);
-            const coordf_t line_width = object.config().get_abs_value("line_width", nozzle_diameter);
+            const size_t nozzle_index = get_physical_nozzle_index(object.print()->config(), extruder_id - 1);
+            const double nozzle_diameter = object.print()->config().nozzle_diameter.get_at(nozzle_index);
+            const coordf_t line_width = nozzle_variant_abs_value(object.config().line_width, nozzle_index, nozzle_diameter);
 
             if (offset_ex(expoly, -0.2 * scale_(line_width)).empty())
                 continue;
@@ -675,6 +1261,7 @@ void ToolOrdering::initialize_layers(std::vector<coordf_t> &zs)
 
 void ToolOrdering::initialize_mixed_context()
 {
+    const size_t total_layers = m_layer_tools.size();
     for (LayerTools &layer_tools : m_layer_tools) {
         layer_tools.mixed_mgr                = m_mixed_mgr;
         layer_tools.num_physical             = m_num_physical;
@@ -682,6 +1269,8 @@ void ToolOrdering::initialize_mixed_context()
         layer_tools.mixed_layer_height_a     = m_mixed_layer_height_a;
         layer_tools.mixed_layer_height_b     = m_mixed_layer_height_b;
         layer_tools.mixed_base_layer_height  = m_mixed_base_layer_height;
+        layer_tools.enable_mixed_color_sublayer = m_enable_mixed_color_sublayer;
+        layer_tools.total_layer_count        = total_layers;
     }
 }
 
@@ -727,10 +1316,14 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
             {
                 auto all_extruders = object.print()->extruders();
                 const PrintConfig& print_config = object.print()->config();
+                const size_t filament_count = print_config.filament_diameter.size();
                 const std::vector<double> flush_matrix =
-                    get_flush_volumes_matrix(print_config.flush_volumes_matrix.values, 0, print_config.nozzle_diameter.values.size());
+                    get_flush_volumes_matrix(print_config.flush_volumes_matrix.values, 0,
+                                             print_config.nozzle_diameter.values.size(), filament_count);
 
-                const unsigned int number_of_extruders = (unsigned int)(sqrt(flush_matrix.size()) + EPSILON);
+                const unsigned int number_of_extruders = (unsigned int)filament_count;
+                if (flush_matrix.size() != filament_count * filament_count)
+                    continue;
 
                 const unsigned int interface_extruder = resolve_matrix_extruder_1based(m_mixed_mgr,
                                                                                        m_num_physical,
@@ -741,7 +1334,9 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
                                                                                        m_mixed_layer_height_a,
                                                                                        m_mixed_layer_height_b,
                                                                                        m_mixed_base_layer_height,
-                                                                                       number_of_extruders);
+                                                                                       number_of_extruders,
+                                                                                       m_enable_mixed_color_sublayer,
+                                                                                       m_layer_tools.size());
                 auto get_next_extruder = [&](int current_extruder, const std::vector<unsigned int>& extruders) 
                 {
                     if (interface_extruder == 0)
@@ -760,7 +1355,9 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
                                                                                                       m_mixed_layer_height_a,
                                                                                                       m_mixed_layer_height_b,
                                                                                                       m_mixed_base_layer_height,
-                                                                                                      number_of_extruders);
+                                                                                                      number_of_extruders,
+                                                                                                      m_enable_mixed_color_sublayer,
+                                                                                                      m_layer_tools.size());
                         if (candidate_extruder_1based == 0)
                             continue;
 
@@ -848,11 +1445,21 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
                 }
 
                 if (something_nonoverriddable){
+                    // Always push the raw (possibly virtual) 1-based filament ID into
+                    // lt.extruders.  After reorder_extruders() converts to 0-based, virtual
+                    // slots will be >= num_physical and resolve_mixed_sublayers() will pick
+                    // them up, build MixedSubLayerGroups, and append physical components.
                     const unsigned int configured_wall = (extruder_override == 0) ? region.config().wall_filament.value : extruder_override;
-                    unsigned int       wall_ext        = resolve_mixed(configured_wall, layerCount, float(layer->print_z), float(layer->height));
-               		layer_tools.extruders.emplace_back(wall_ext);
+                    layer_tools.extruders.emplace_back(configured_wall);
+                    // Track raw mixed slot IDs for resolve_mixed_sublayers().
+                    if (m_mixed_mgr && configured_wall > m_num_physical &&
+                        m_mixed_mgr->is_mixed(configured_wall, m_num_physical)) {
+                        layer_tools.raw_mixed_filament_ids_0based.push_back(configured_wall - 1);
+                    }
                     if (layerCount == 0) {
-                        firstLayerExtruders.emplace_back(wall_ext);
+                        // firstLayerExtruders must always carry a physical ID so the brim
+                        // generator and wipe-tower priming pick a real extruder for layer 0.
+                        firstLayerExtruders.emplace_back(resolve_mixed(configured_wall, layerCount, float(layer->print_z), float(layer->height)));
                     }
                 }
 
@@ -884,16 +1491,42 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
 
             if (something_nonoverriddable) {
             	if (extruder_override == 0) {
-		                if (has_solid_infill)
-		                    layer_tools.extruders.emplace_back(resolve_mixed(region.config().solid_infill_filament, layerCount, float(layer->print_z), float(layer->height)));
-		                if (has_infill)
-	                    layer_tools.extruders.emplace_back(resolve_mixed(region.config().sparse_infill_filament, layerCount, float(layer->print_z), float(layer->height)));
+		                if (has_solid_infill) {
+		                    unsigned int cfg = region.config().solid_infill_filament.value;
+		                    layer_tools.extruders.emplace_back(cfg);
+		                    if (m_mixed_mgr && cfg > m_num_physical && m_mixed_mgr->is_mixed(cfg, m_num_physical))
+		                        layer_tools.raw_mixed_filament_ids_0based.push_back(cfg - 1);
+		                }
+		                if (has_infill) {
+		                    unsigned int cfg = region.config().sparse_infill_filament.value;
+		                    layer_tools.extruders.emplace_back(cfg);
+		                    if (m_mixed_mgr && cfg > m_num_physical && m_mixed_mgr->is_mixed(cfg, m_num_physical))
+		                        layer_tools.raw_mixed_filament_ids_0based.push_back(cfg - 1);
+		                }
             	} else if (has_solid_infill || has_infill)
-            		layer_tools.extruders.emplace_back(resolve_mixed(extruder_override, layerCount, float(layer->print_z), float(layer->height)));
+            		layer_tools.extruders.emplace_back(extruder_override);
             }
             if (has_solid_infill || has_infill)
                 layer_tools.has_object = true;
         }
+
+        // Per-object gradient tracking (Bambu-aligned port):
+        // Record which mixed slots this object uses at this layer, plus this
+        // object's full layer-index list (used by run detection to tell real
+        // gaps from spurious ones).  m_object_all_layer_indices covers ALL
+        // slots, not just gradient, so m_mixed_object_layers can be a strict
+        // subset used by resolve_mixed_sublayers().
+        {
+            size_t layer_idx = static_cast<size_t>(&layer_tools - m_layer_tools.data());
+            m_object_all_layer_indices[&object].push_back(layer_idx);
+            std::set<unsigned int> seen_slots;
+            for (unsigned int ext_1based : layer_tools.raw_mixed_filament_ids_0based) {
+                unsigned int slot_0based = ext_1based;
+                if (seen_slots.insert(slot_0based).second)
+                    m_mixed_object_layers[slot_0based][&object].push_back(layer_idx);
+            }
+        }
+
         layerCount++;
     }
 
@@ -907,6 +1540,21 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
         // make sure that there are some tools for each object layer (e.g. tall wiping object will result in empty extruders vector)
         if (layer.extruders.empty() && layer.has_object)
             layer.extruders.emplace_back(0); // 0="dontcare" extruder - it will be taken care of in reorder_extruders
+    }
+    // Dump lt.extruders and mixed_sub_layer_groups for the first N layers
+    // so we can see whether the virtual slot id is present in both the
+    // extruder list AND the sub-layer group map (or only one of them).
+    {
+        const size_t N = std::min<size_t>(m_layer_tools.size(), 60);
+        for (size_t i = 0; i < N; ++i) {
+            std::string ext_str, grp_str;
+            for (unsigned int e : m_layer_tools[i].extruders) {
+                ext_str += " " + std::to_string(e);
+            }
+            for (const auto &g : m_layer_tools[i].mixed_sub_layer_groups) {
+                grp_str += " slot=" + std::to_string(g.mixed_slot_0based);
+            }
+        }
     }
 }
 
@@ -1048,11 +1696,30 @@ void ToolOrdering::reorder_extruders(std::vector<unsigned int> tool_order_layer0
     reorder_extruders_for_minimum_flush_volume();
 }
 
-void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_t object_bottom_z, coordf_t max_layer_height)
+bool ToolOrdering::insert_wipe_tower_filament(const Print &print)
 {
-    if (m_layer_tools.empty())
-        return;
+    const int filament = print.creality_wipe_tower_filament();
+    if (filament == 0)
+        return false;
 
+    const unsigned int extruder = static_cast<unsigned int>(filament - 1);
+    bool changed = false;
+    for (LayerTools &layer : m_layer_tools) {
+        if (!layer.has_wipe_tower || layer.extruders.empty() ||
+            (!print.enable_timelapse_print() && layer.wipe_tower_partitions == 0) ||
+            std::find(layer.extruders.begin(), layer.extruders.end(), extruder) != layer.extruders.end())
+            continue;
+
+        // Keep model/mixed component order and the final tool unchanged. Recount
+        // partitions afterwards, retaining the existing tower layers and heights.
+        layer.extruders.insert(layer.extruders.end() - 1, extruder);
+        changed = true;
+    }
+    return changed;
+}
+
+void ToolOrdering::count_wipe_tower_partitions()
+{
     // Count the minimum number of tool changes per layer.
     size_t last_extruder = size_t(-1);
     for (LayerTools &lt : m_layer_tools) {
@@ -1068,6 +1735,15 @@ void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_
     // Propagate the wipe tower partitions down to support the upper partitions by the lower partitions.
     for (int i = int(m_layer_tools.size()) - 2; i >= 0; -- i)
         m_layer_tools[i].wipe_tower_partitions = std::max(m_layer_tools[i + 1].wipe_tower_partitions, m_layer_tools[i].wipe_tower_partitions);
+
+}
+
+void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_t object_bottom_z, coordf_t max_layer_height)
+{
+    if (m_layer_tools.empty())
+        return;
+
+    this->count_wipe_tower_partitions();
 
     //FIXME this is a hack to get the ball rolling.
     for (LayerTools &lt : m_layer_tools)
@@ -1213,15 +1889,26 @@ void ToolOrdering::reorder_extruders_for_minimum_flush_volume()
     }
 
     // Get wiping matrix to get number of extruders.
-    const auto& flush_matrix = print_config->flush_volumes_matrix.values;
-    const unsigned int number_of_extruders = (unsigned int) (sqrt(flush_matrix.size()) + EPSILON);
-    if (number_of_extruders == 0)
+    const unsigned int number_of_extruders = (unsigned int)print_config->filament_diameter.size();
+    const size_t nozzle_count = std::max<size_t>(1, print_config->nozzle_diameter.size());
+    const std::vector<double> flush_matrix = get_flush_volumes_matrix(
+        print_config->flush_volumes_matrix.values, 0, nozzle_count, number_of_extruders);
+    if (number_of_extruders == 0 || flush_matrix.size() != size_t(number_of_extruders) * number_of_extruders)
         return;
 
     bool has_multi_tool_layer = false;
     for (LayerTools &lt : m_layer_tools) {
         if (m_has_mixed_filaments) {
             for (unsigned int &extruder_id : lt.extruders) {
+                // For virtual mixed slots, use the virtual slot INDEX (0, 1, 2...)
+                // as offset so different mixed filaments have stable opposite
+                // alternation phases.  Using the raw slot ID (e.g. 2, 3) would
+                // give unstable parity because the ID magnitude varies.
+                // slot_index = filament_id_1based - num_physical - 1
+                //            = (extruder_id + 1) - num_physical - 1
+                //            = extruder_id - num_physical
+                unsigned int slot_off = (extruder_id >= m_num_physical)
+                    ? (extruder_id - m_num_physical) : 0u;
                 const unsigned int resolved = resolve_matrix_extruder_1based(m_mixed_mgr,
                                                                              m_num_physical,
                                                                              extruder_id + 1,
@@ -1231,9 +1918,19 @@ void ToolOrdering::reorder_extruders_for_minimum_flush_volume()
                                                                              m_mixed_layer_height_a,
                                                                              m_mixed_layer_height_b,
                                                                              m_mixed_base_layer_height,
-                                                                             number_of_extruders);
+                                                                             number_of_extruders,
+                                                                             m_enable_mixed_color_sublayer,
+                                                                             m_layer_tools.size(),
+                                                                             slot_off);
                 extruder_id = resolved > 0 ? resolved - 1 : 0;
             }
+        } else {
+            // An unresolved zero placeholder may underflow to UINT_MAX during
+            // conversion to zero-based IDs, while stale IDs may exceed the current
+            // filament count. Keep every matrix index inside the valid range.
+            for (unsigned int &extruder_id : lt.extruders)
+                if (extruder_id >= number_of_extruders)
+                    extruder_id = 0;
         }
         // Remove duplicates while preserving the existing order. We must NOT sort here,
         // because the first layer's extruders have already been arranged according to
@@ -1313,49 +2010,83 @@ void ToolOrdering::reorder_extruders_for_minimum_flush_volume()
             }
         };
 
-        const unsigned int num_ex = (unsigned int) (sqrt(flush_matrix.size()) + EPSILON);
+        const unsigned int num_ex = number_of_extruders;
         const float        INF    = std::numeric_limits<float>::max();
 
-        // Opt-4: threshold n>16 (instead of n>20) to limit TSP DP memory to at most 2^16*16*4=4MB.
+        // Exact DP is capped by k_tsp_exact_max_extruders; larger layers use LKH local search to keep memory bounded.
         auto compute_layer_tsp = [&](const std::vector<unsigned int>& extruders, unsigned int start_ex) -> std::vector<CompactPath> {
             int n = (int) extruders.size();
-            // Fall back to O(n^2) greedy nearest-neighbor when n is too large to avoid std::bad_alloc.
+            // Fall back to LKH-style local search when n is too large to avoid std::bad_alloc.
             if (n > k_tsp_exact_max_extruders) {
                 std::vector<CompactPath> results(num_ex);
-                std::vector<bool>        visited(n, false);
-                int                      cur = -1;
-                for (int i = 0; i < n; ++i) {
-                    if (extruders[i] == start_ex) { cur = i; break; }
-                }
-                if (cur == -1) cur = 0;
-                std::vector<uint8_t> path;
-                path.reserve(n);
-                float total_cost = 0.0f;
-                visited[cur]     = true;
-                path.push_back((uint8_t) extruders[cur]);
-                for (int step = 1; step < n; ++step) {
-                    int   best_next = -1;
-                    float best_w    = INF;
-                    for (int j = 0; j < n; ++j) {
-                        if (!visited[j]) {
-                            float w = wipe_volumes[extruders[cur]][extruders[j]];
-                            if (w < best_w) { best_w = w; best_next = j; }
-                        }
-                    }
-                    if (best_next == -1) break;
-                    total_cost += best_w;
-                    visited[best_next] = true;
-                    path.push_back((uint8_t) extruders[best_next]);
-                    cur = best_next;
-                }
-                if (!path.empty()) {
-                    unsigned int end_ex = (unsigned int) path.back();
-                    if (end_ex < (unsigned int) results.size())
+                std::vector<unsigned int> ordered_extruders = extruders;
+                auto start_it = std::find(ordered_extruders.begin(), ordered_extruders.end(), start_ex);
+                if (start_it != ordered_extruders.end())
+                    std::swap(ordered_extruders.front(), *start_it);
+
+                auto record_path = [&](const std::vector<unsigned int>& path_u32, float total_cost) {
+                    if (path_u32.empty() || path_u32.front() != start_ex)
+                        return;
+                    const unsigned int end_ex = path_u32.back();
+                    if (end_ex >= (unsigned int) results.size())
+                        return;
+                    std::vector<uint8_t> path;
+                    path.reserve(path_u32.size());
+                    for (unsigned int ex : path_u32)
+                        path.push_back((uint8_t) ex);
+                    if (results[end_ex].is_better_than(total_cost, path.data(), path.size()))
                         results[end_ex].set(total_cost, path.data(), path.size());
+                };
+
+                float                     total_cost = 0.0f;
+                std::vector<unsigned int> path_u32   = solve_extruder_order_with_lkh_local_search(wipe_volumes, ordered_extruders, &total_cost);
+                record_path(path_u32, total_cost);
+
+                struct EndpointCandidate
+                {
+                    unsigned int end_ex;
+                    float        score;
+                };
+                std::vector<EndpointCandidate> endpoint_candidates;
+                endpoint_candidates.reserve(extruders.size());
+                for (unsigned int end_ex : extruders) {
+                    if (end_ex == start_ex)
+                        continue;
+                    float best_out = INF;
+                    float best_in  = INF;
+                    float avg_out  = 0.f;
+                    int   count    = 0;
+                    for (unsigned int other : extruders) {
+                        if (other == end_ex)
+                            continue;
+                        best_out = std::min(best_out, wipe_volumes[end_ex][other]);
+                        best_in  = std::min(best_in, wipe_volumes[other][end_ex]);
+                        avg_out += wipe_volumes[end_ex][other];
+                        ++count;
+                    }
+                    avg_out = count > 0 ? avg_out / float(count) : 0.f;
+                    endpoint_candidates.push_back({ end_ex, best_out + 0.25f * best_in + 0.001f * avg_out });
+                }
+                std::sort(endpoint_candidates.begin(), endpoint_candidates.end(), [](const EndpointCandidate& lhs, const EndpointCandidate& rhs) {
+                    if (lhs.score != rhs.score)
+                        return lhs.score < rhs.score;
+                    return lhs.end_ex < rhs.end_ex;
+                });
+
+                int emitted = 0;
+                for (const EndpointCandidate& candidate : endpoint_candidates) {
+                    if (results[candidate.end_ex].cost < INF)
+                        continue;
+                    std::vector<unsigned int> fixed_end_path = solve_extruder_order_with_fixed_endpoints(
+                        wipe_volumes, ordered_extruders, start_ex, candidate.end_ex);
+                    if (fixed_end_path.empty() || fixed_end_path.front() != start_ex || fixed_end_path.back() != candidate.end_ex)
+                        continue;
+                    record_path(fixed_end_path, extruder_sequence_cost(wipe_volumes, fixed_end_path));
+                    if (++emitted >= k_lkh_endpoint_candidates)
+                        break;
                 }
                 return results;
             }
-
             // Opt-3: flat 1-D arrays (single allocation, cache-friendly) instead of vector-of-vector.
             const int states = 1 << n;
             std::vector<float>  dp_cost(states * n, INF);
@@ -1409,9 +2140,17 @@ void ToolOrdering::reorder_extruders_for_minimum_flush_volume()
             return results;
         };
 
+        using uint128_t = boost::multiprecision::uint128_t;
+        auto extruders_to_mask = [](const std::vector<unsigned int>& extruders) -> uint128_t {
+            uint128_t mask_val = 0;
+            for (auto ex : extruders)
+                mask_val |= (uint128_t(1) << ex);
+            return mask_val;
+        };
+
         struct TspQuery
         {
-            uint32_t                  mask_val;
+            uint128_t                  mask_val;
             unsigned int              start_ex;
             std::vector<unsigned int> extruders;
 
@@ -1427,9 +2166,7 @@ void ToolOrdering::reorder_extruders_for_minimum_flush_volume()
 
         for (size_t v = 0; v < valid_layers.size(); ++v) {
             LayerTools& lt           = m_layer_tools[valid_layers[v]];
-            uint32_t    current_mask = 0;
-            for (auto ex : lt.extruders)
-                current_mask |= (1 << ex);
+            uint128_t   current_mask = extruders_to_mask(lt.extruders);
 
             if (v == 0) {
                 unique_queries.insert({current_mask, lt.extruders.front(), lt.extruders});
@@ -1446,17 +2183,14 @@ void ToolOrdering::reorder_extruders_for_minimum_flush_volume()
         tbb::parallel_for(size_t(0), query_vec.size(),
                           [&](size_t idx) { query_results[idx] = compute_layer_tsp(query_vec[idx].extruders, query_vec[idx].start_ex); });
 
-        std::map<std::pair<uint32_t, unsigned int>, std::vector<CompactPath>> tsp_cache;
+        std::map<std::pair<uint128_t, unsigned int>, std::vector<CompactPath>> tsp_cache;
         for (size_t i = 0; i < query_vec.size(); ++i) {
             tsp_cache[{query_vec[i].mask_val, query_vec[i].start_ex}] = std::move(query_results[i]);
         }
         query_results.clear(); // release temporary memory early
 
         auto get_layer_tsp = [&](const std::vector<unsigned int>& extruders, unsigned int start_ex) -> const std::vector<CompactPath>& {
-            uint32_t mask_val = 0;
-            for (auto ex : extruders)
-                mask_val |= (1 << ex);
-            return tsp_cache.at({mask_val, start_ex});
+            return tsp_cache.at({extruders_to_mask(extruders), start_ex});
         };
 
         // Opt-1+2: replace dp_global (L x num_ex CompactPath, each storing a full path vector)
@@ -1481,9 +2215,7 @@ void ToolOrdering::reorder_extruders_for_minimum_flush_volume()
 
         for (size_t v = 1; v < L; ++v) {
             LayerTools& lt           = m_layer_tools[valid_layers[v]];
-            uint32_t    current_mask = 0;
-            for (auto ex : lt.extruders)
-                current_mask |= (1 << ex);
+            uint128_t   current_mask = extruders_to_mask(lt.extruders);
 
             std::fill(dp_curr.begin(), dp_curr.end(), INF);
 
@@ -1491,7 +2223,7 @@ void ToolOrdering::reorder_extruders_for_minimum_flush_volume()
                 if (dp_prev[prev_e] == INF)
                     continue;
 
-                bool                      can_link = (current_mask & (1 << prev_e)) != 0;
+                bool                      can_link = (current_mask & (uint128_t(1) << prev_e)) != 0;
                 std::vector<unsigned int> starts   = can_link ? std::vector<unsigned int>{prev_e} : lt.extruders;
 
                 for (unsigned int start : starts) {
@@ -1761,6 +2493,14 @@ bool WipingExtrusions::is_skeleton_flush_target(const PrintObject* object, unsig
     return skeleton_flush_targets.find(std::make_tuple(object, copy, old_extruder, new_extruder)) != skeleton_flush_targets.end();
 }
 
+bool WipingExtrusions::is_skeleton_flush_entity_target(const ExtrusionEntity* entity, const PrintObject* object,
+                                                       unsigned int copy, unsigned int old_extruder,
+                                                       unsigned int new_extruder) const
+{
+    return skeleton_flush_entity_targets.find(std::make_tuple(entity, object, copy, old_extruder, new_extruder)) !=
+           skeleton_flush_entity_targets.end();
+}
+
 void WipingExtrusions::set_support_extruder_override(const PrintObject* object, size_t copy_id, int extruder, size_t num_of_copies)
 {
     something_overridden = true;
@@ -1798,7 +2538,21 @@ int WipingExtrusions::last_nonsoluble_extruder_on_layer(const PrintConfig& print
 // Decides whether this entity could be overridden
 bool WipingExtrusions::is_overriddable(const ExtrusionEntityCollection& eec, const PrintConfig& print_config, const PrintObject& object, const PrintRegion& region) const
 {
-    if (print_config.filament_soluble.get_at(m_layer_tools->extruder(eec, region)))
+    // Virtual mixed-slot extruders (e.g. 3 with 2 physical filaments) cannot
+    // be wiped into objects / infill / skeleton because the material they
+    // represent is resolved at sub-layer emission time.  Reporting them as
+    // overridable here causes collect_extruders() to skip pushing the virtual
+    // slot into lt.extruders, which then propagates: the GCode main loop
+    // never visits the virtual slot, never enters process_layer_sublayer_emission,
+    // and every entity of the mixed layer is force-rewritten to a physical
+    // extruder via the `has_extruder` fallback -- which is exactly the
+    // "physically-painted regions are corrupted by the mixed slot" symptom.
+    const unsigned int eec_extruder = m_layer_tools->extruder(eec, region);
+    // eec_extruder is 0-based.  is_mixed_slot() also expects 0-based.
+    if (m_layer_tools->is_mixed_slot(eec_extruder))
+        return false;
+
+    if (print_config.filament_soluble.get_at(eec_extruder))
         return false;
 
     if (object.config().flush_into_objects)
@@ -1814,6 +2568,9 @@ bool WipingExtrusions::is_overriddable(const ExtrusionEntityCollection& eec, con
 }
 bool WipingExtrusions::is_obj_overriddable(const ExtrusionEntityCollection &eec, const PrintObject &object) const
 {
+    // See is_overriddable() for the rationale; the ByObject path doesn't get
+    // the extruder via the layer tool helpers so the slot-id check happens
+    // on the entity's own filament assignment, if any.
     if (object.config().flush_into_objects)
         return true;
 
@@ -1847,19 +2604,45 @@ bool WipingExtrusions::is_support_overriddable(const ExtrusionRole role, const P
 
 // Following function iterates through all extrusions on the layer, remembers those that could be used for wiping after toolchange
 // and returns volume that is left to be wiped on the wipe tower.
-float WipingExtrusions::mark_wiping_extrusions(const Print& print, unsigned int old_extruder, unsigned int new_extruder, float volume_to_wipe, float skeleton_volume_to_wipe, bool skeleton_only)
+float WipingExtrusions::mark_wiping_extrusions(const Print& print, unsigned int old_extruder, unsigned int new_extruder, float volume_to_wipe,
+                                               float skeleton_volume_to_wipe, bool skeleton_only, bool solid_skeleton_target_old,
+                                               bool solid_skeleton_entry_prime, bool require_full_skeleton_wipe,
+                                               bool allow_global_skeleton_wipe)
 {
     const LayerTools& lt = *m_layer_tools;
-    const float min_infill_volume = 0.f; // ignore infill with smaller volume than this
     float skeleton_volume_left = skeleton_volume_to_wipe < 0.f ? volume_to_wipe : std::min(volume_to_wipe, std::max(0.f, skeleton_volume_to_wipe));
+    const float initial_skeleton_volume = skeleton_volume_left;
+    const bool force_solid_skeleton = skeleton_only && print.prime_volume_uses_solid_skeleton(new_extruder);
+    const bool global_skeleton_wipe = skeleton_only && allow_global_skeleton_wipe && !force_solid_skeleton;
+    // Split trajectories and float region budgets may differ by a few thousandths
+    // of a cubic millimeter. Treat that numerical residue as fully covered.
+    const float min_infill_volume = global_skeleton_wipe ? 0.01f : 0.f;
+    const bool use_skeleton_wipe_line_width = !print.has_wipe_tower() && skeleton_only && !global_skeleton_wipe;
+    const unsigned int skeleton_wipe_extruder = solid_skeleton_entry_prime ? new_extruder : old_extruder;
+    FillTower::LayerFilamentWipePackingTransitionRegionVolumes global_skeleton_wipe_region_left;
+    if (global_skeleton_wipe) {
+        const auto* planned_region_volumes = print.layer_filament_wipe_packing_transition_region_volumes(
+            lt.print_z, old_extruder, new_extruder);
+        if (planned_region_volumes == nullptr || planned_region_volumes->empty())
+            return std::max(0.f, volume_to_wipe);
+        global_skeleton_wipe_region_left = *planned_region_volumes;
+    }
+    auto planned_region_volume_left = [](const std::map<unsigned int, float>& plate_volumes) {
+        float volume = 0.f;
+        for (const auto& plate_volume : plate_volumes)
+            volume += std::max(0.f, plate_volume.second);
+        return volume;
+    };
+    auto skeleton_wipe_line_width_for_region = [&](const PrintRegion& region) {
+        return use_skeleton_wipe_line_width ? skeleton_wipe_line_width(print, region, skeleton_wipe_extruder) : 0.f;
+    };
 
-    if (! this->something_overridable || volume_to_wipe <= 0. || print.config().filament_soluble.get_at(old_extruder) || print.config().filament_soluble.get_at(new_extruder))
+    if ((!this->something_overridable && !force_solid_skeleton && !global_skeleton_wipe) || volume_to_wipe <= 0. || print.config().filament_soluble.get_at(old_extruder) || print.config().filament_soluble.get_at(new_extruder))
         return std::max(0.f, volume_to_wipe); // Soluble filament cannot be wiped in a random infill, neither the filament after it
 
     // BBS
     if (print.config().filament_is_support.get_at(old_extruder) || print.config().filament_is_support.get_at(new_extruder))
         return std::max(0.f, volume_to_wipe); // Support filament cannot be used to print support, infill, wipe_tower, etc.
-
     // we will sort objects so that dedicated for wiping are at the beginning:
     ConstPrintObjectPtrs object_list = print.objects().vector();
     // BBS: fix the exception caused by not fixed order between different objects
@@ -1894,36 +2677,170 @@ float WipingExtrusions::mark_wiping_extrusions(const Print& print, unsigned int 
 
     const std::vector<const PrintInstance*> skeleton_instance_order = skeleton_instances_in_print_order();
 
+    auto markable_skeleton_flush_volume = [&]() {
+        float candidate_volume = 0.f;
+        float simulated_volume_left = skeleton_volume_left;
+        FillTower::LayerFilamentWipePackingTransitionRegionVolumes simulated_region_left = global_skeleton_wipe_region_left;
+        if (simulated_volume_left <= min_infill_volume)
+            return candidate_volume;
+
+        for (const PrintInstance* instance : skeleton_instance_order) {
+            const PrintObject* object = instance->print_object;
+            if (!object->config().flush_into_skeleton.value && !force_solid_skeleton && !global_skeleton_wipe)
+                continue;
+
+            const Layer* this_layer = object->get_layer_at_printz(lt.print_z, EPSILON);
+            if (this_layer == nullptr)
+                continue;
+
+            const size_t num_of_copies = object->instances().size();
+            const unsigned int copy = static_cast<unsigned int>(instance - object->instances().data());
+            if (copy >= num_of_copies)
+                continue;
+
+            for (const LayerRegion* layerm : this_layer->regions()) {
+                std::map<unsigned int, float>* plate_left_by_extruder = nullptr;
+                if (global_skeleton_wipe) {
+                    auto region_left_it = simulated_region_left.find(layerm);
+                    if (region_left_it == simulated_region_left.end() ||
+                        planned_region_volume_left(region_left_it->second) <= min_infill_volume)
+                        continue;
+                    plate_left_by_extruder = &region_left_it->second;
+                }
+                const auto& region = layerm->region();
+                const ExtrusionEntityCollection& fills = layerm->fills;
+                for (const ExtrusionEntity* entity : fills.entities) {
+                    const auto* fill = dynamic_cast<const ExtrusionEntityCollection*>(entity);
+                    const bool can_use_global_skeleton = global_skeleton_wipe && is_layer_filament_wipe_packing_skeleton(fill);
+                    if (fill == nullptr ||
+                        (!can_use_global_skeleton && !can_flush_into_skeleton(*fill, print.config(), *object) &&
+                         !(force_solid_skeleton && fill->role() == erInternalInfill)))
+                        continue;
+
+                    const unsigned int target_extruder = force_solid_skeleton ?
+                                                             (solid_skeleton_target_old ? old_extruder : new_extruder) :
+                                                             old_extruder;
+                    const unsigned int fill_extruder = lt.extruder(*fill, region);
+                    if ((!global_skeleton_wipe && fill_extruder != target_extruder) || is_entity_overridden(fill, object, copy))
+                        continue;
+                    float plate_volume_left = simulated_volume_left;
+                    if (global_skeleton_wipe) {
+                        auto plate_left_it = plate_left_by_extruder->find(fill_extruder);
+                        if (plate_left_it == plate_left_by_extruder->end() || plate_left_it->second <= min_infill_volume)
+                            continue;
+                        plate_volume_left = plate_left_it->second;
+                    }
+
+                    const float wipe_line_width = skeleton_wipe_line_width_for_region(region);
+                    const float consumed_volume = float(skeleton_wipe_volume(*fill, wipe_line_width));
+                    const bool already_overridden_in_some_copy = entity_map.find(std::make_tuple(fill, object)) != entity_map.end();
+                    const float candidate_limit = std::min(simulated_volume_left, plate_volume_left);
+                    if (candidate_limit <= min_infill_volume)
+                        continue;
+
+                    float usable_volume = 0.f;
+                    if (!force_solid_skeleton && !already_overridden_in_some_copy) {
+                        usable_volume = std::min(consumed_volume, candidate_limit);
+                    } else {
+                        if (already_overridden_in_some_copy && consumed_volume > candidate_limit + EPSILON)
+                            continue;
+                        usable_volume = consumed_volume;
+                    }
+
+                    candidate_volume += usable_volume;
+                    simulated_volume_left -= usable_volume;
+                    if (global_skeleton_wipe)
+                        (*plate_left_by_extruder)[fill_extruder] = std::max(0.f, (*plate_left_by_extruder)[fill_extruder] - usable_volume);
+                    if (simulated_volume_left <= min_infill_volume)
+                        return candidate_volume;
+                }
+            }
+        }
+
+        return candidate_volume;
+    };
+
+    if (require_full_skeleton_wipe && skeleton_only &&
+        markable_skeleton_flush_volume() + min_infill_volume < skeleton_volume_left)
+        return std::max(0.f, volume_to_wipe);
     auto try_mark_skeleton_flush = [&](ExtrusionEntityCollection& fills, size_t fill_idx, const PrintObject* object,
-                                        unsigned int copy, const PrintRegion& region, size_t num_of_copies) -> bool {
+                                        unsigned int copy, const LayerRegion& layer_region, size_t num_of_copies) -> bool {
         if (fill_idx >= fills.entities.size())
             return false;
 
         auto* fill = dynamic_cast<const ExtrusionEntityCollection*>(fills.entities[fill_idx]);
-        if (fill == nullptr || !can_flush_into_skeleton(*fill, print.config(), *object))
+        const bool can_use_global_skeleton = global_skeleton_wipe && is_layer_filament_wipe_packing_skeleton(fill);
+        if (fill == nullptr ||
+            (!can_use_global_skeleton && !can_flush_into_skeleton(*fill, print.config(), *object) &&
+             !(force_solid_skeleton && fill->role() == erInternalInfill)))
+            return false;
+        if (is_entity_overridden(fill, object, copy))
             return false;
 
         if (skeleton_volume_left <= min_infill_volume)
             return false;
-        if (lt.extruder(*fill, region) != old_extruder)
+        const PrintRegion& region = layer_region.region();
+        const unsigned int fill_extruder = lt.extruder(*fill, region);
+        float region_volume_left = skeleton_volume_left;
+        if (global_skeleton_wipe) {
+            auto region_left_it = global_skeleton_wipe_region_left.find(&layer_region);
+            if (region_left_it == global_skeleton_wipe_region_left.end())
+                return false;
+            auto plate_left_it = region_left_it->second.find(fill_extruder);
+            if (plate_left_it == region_left_it->second.end() || plate_left_it->second <= min_infill_volume)
+                return false;
+            region_volume_left = plate_left_it->second;
+        }
+        const float volume_limit = std::min(skeleton_volume_left, region_volume_left);
+        if (volume_limit <= min_infill_volume)
             return false;
-        float consumed_volume = float(fill->total_volume());
+        // Legacy "flush into skeleton" consumes the current/old color's own infill.
+        // The independent solid-skeleton prime normally uses the incoming color's
+        // skeleton. First-layer protection is the one exception: the incoming first
+        // layer must remain unscarred, so the current color's second-layer skeleton
+        // is used as the physical wipe path, but it is still printed after the
+        // explicit old->new toolchange.
+        const unsigned int target_extruder = force_solid_skeleton ?
+                                                 (solid_skeleton_target_old ? old_extruder : new_extruder) :
+                                                 old_extruder;
+        if (!global_skeleton_wipe && fill_extruder != target_extruder)
+            return false;
+        const float wipe_line_width = skeleton_wipe_line_width_for_region(region);
+        float consumed_volume = float(skeleton_wipe_volume(*fill, wipe_line_width));
         const bool already_overridden_in_some_copy = entity_map.find(std::make_tuple(fill, object)) != entity_map.end();
-        if (already_overridden_in_some_copy && consumed_volume > skeleton_volume_left + EPSILON)
+        if (already_overridden_in_some_copy && consumed_volume > volume_limit + EPSILON)
             return false;
 
         ExtrusionEntityCollection* wipe_fill = nullptr;
-        if (!already_overridden_in_some_copy &&
-            !split_skeleton_collection_for_wipe(fills, fill_idx, skeleton_volume_left, wipe_fill, consumed_volume))
+        // The independent solid skeleton was already sized geometrically from prime volume.
+        // Keep its generated path collection indivisible so discretization cannot leave
+        // a few model-color lines outside the post-toolchange skeleton.
+        if (!force_solid_skeleton && !already_overridden_in_some_copy &&
+            !split_skeleton_collection_for_wipe(fills, fill_idx, volume_limit, wipe_fill, consumed_volume,
+                                                wipe_line_width))
             return false;
         if (wipe_fill != nullptr) {
-            consumed_volume = float(wipe_fill->total_volume());
+            consumed_volume = float(skeleton_wipe_volume(*wipe_fill, wipe_line_width));
             fill = wipe_fill;
         }
 
         skeleton_volume_left -= consumed_volume;
-        set_extruder_override(fill, object, copy, old_extruder, num_of_copies);
+        if (global_skeleton_wipe)
+            global_skeleton_wipe_region_left[&layer_region][fill_extruder] =
+                std::max(0.f, global_skeleton_wipe_region_left[&layer_region][fill_extruder] - consumed_volume);
+        // A no-tower shared skeleton is emitted after the old-to-new toolchange,
+        // so it must belong to the incoming extruder's G-code batch.
+        const unsigned int override_extruder = solid_skeleton_entry_prime || global_skeleton_wipe ?
+                                                   new_extruder : old_extruder;
+        set_extruder_override(fill, object, copy, int(override_extruder), num_of_copies);
         skeleton_flush_targets.emplace(object, copy, old_extruder, new_extruder);
+        auto register_skeleton_target = [&](auto&& self, const ExtrusionEntity* entity) -> void {
+            skeleton_flush_entity_targets.emplace(entity, object, copy, old_extruder, new_extruder);
+            if (const auto* collection = dynamic_cast<const ExtrusionEntityCollection*>(entity); collection != nullptr)
+                for (const ExtrusionEntity* child : collection->entities)
+                    self(self, child);
+        };
+        register_skeleton_target(register_skeleton_target, fill);
         skeleton_flush_volume_map[std::make_pair(old_extruder, new_extruder)] += consumed_volume;
         return true;
     };
@@ -1937,7 +2854,7 @@ float WipingExtrusions::mark_wiping_extrusions(const Print& print, unsigned int 
 
         for (const PrintInstance* instance : skeleton_instance_order) {
             const PrintObject* object = instance->print_object;
-            if (!object->config().flush_into_skeleton.value)
+            if (!object->config().flush_into_skeleton.value && !force_solid_skeleton && !global_skeleton_wipe)
                 continue;
 
             const Layer* this_layer = object->get_layer_at_printz(lt.print_z, EPSILON);
@@ -1953,7 +2870,7 @@ float WipingExtrusions::mark_wiping_extrusions(const Print& print, unsigned int 
                 const auto& region = layerm->region();
                 ExtrusionEntityCollection& fills = const_cast<ExtrusionEntityCollection&>(layerm->fills);
                 for (size_t fill_idx = 0; fill_idx < fills.entities.size(); ++fill_idx) {
-                    try_mark_skeleton_flush(fills, fill_idx, object, copy, region, num_of_copies);
+                    try_mark_skeleton_flush(fills, fill_idx, object, copy, *layerm, num_of_copies);
                     if (skeleton_volume_left <= min_infill_volume)
                         break;
                 }
@@ -1964,6 +2881,8 @@ float WipingExtrusions::mark_wiping_extrusions(const Print& print, unsigned int 
     };
 
     mark_color_batch_skeleton_flush();
+    if (skeleton_only && skeleton_volume_left <= min_infill_volume)
+        return std::max(0.f, volume_to_wipe - (initial_skeleton_volume - std::max(0.f, skeleton_volume_left)));
     // We will now iterate through
     //  - first the dedicated objects to mark perimeters or infills (depending on infill_first)
     //  - second through the dedicated ones again to mark infills or perimeters (depending on infill_first)
@@ -2004,7 +2923,8 @@ float WipingExtrusions::mark_wiping_extrusions(const Print& print, unsigned int 
                         if (fill == nullptr)
                             continue;
 
-                        if (!is_overriddable(*fill, print.config(), *object, region))
+                        const bool packing_skeleton = global_skeleton_wipe && is_layer_filament_wipe_packing_skeleton(fill);
+                        if (!packing_skeleton && !is_overriddable(*fill, print.config(), *object, region))
                             continue;
 
                         if (wipe_into_infill_only && ! is_infill_first)
@@ -2016,11 +2936,11 @@ float WipingExtrusions::mark_wiping_extrusions(const Print& print, unsigned int 
                         if ((!is_entity_overridden(fill, object, copy) && fill->total_volume() > min_infill_volume))
                         {     // this infill will be used to wipe this extruder
                             const bool flush_into_skeleton = can_flush_into_skeleton(*fill, print.config(), *object);
-                            if (skeleton_only && !flush_into_skeleton)
+                            if (skeleton_only && !flush_into_skeleton && !packing_skeleton)
                                 continue;
 
-                            if (flush_into_skeleton) {
-                                if (!try_mark_skeleton_flush(fills, fill_idx, object, copy, region, num_of_copies))
+                            if (flush_into_skeleton || packing_skeleton) {
+                                if (!try_mark_skeleton_flush(fills, fill_idx, object, copy, *layerm, num_of_copies))
                                     continue;
                             } else {
                                 float consumed_volume = float(fill->total_volume());
@@ -2089,6 +3009,8 @@ float WipingExtrusions::mark_wiping_extrusions(const Print& print, unsigned int 
             }
         }
     }
+    if (skeleton_only)
+        return std::max(0.f, volume_to_wipe - (initial_skeleton_volume - std::max(0.f, skeleton_volume_left)));
 	// Some purge remains to be done on the Wipe Tower.
     assert(volume_to_wipe > 0.);
     return volume_to_wipe;
@@ -2168,7 +3090,7 @@ void WipingExtrusions::ensure_perimeters_infills_order(const Print& print)
 // Otherwise it modifies the vector in place and changes all -1 to correct_extruder_id (at the time the overrides were created, correct extruders were not known,
 // so -1 was used as "print as usual").
 // The resulting vector therefore keeps track of which extrusions are the ones that were overridden and which were not. If the extruder used is overridden,
-// its number is saved as is (zero-based index). Regular extrusions are saved as -number-1 (unfortunately there is no negative zero).
+// its number is saved as is (zero-based extruder ID, matching lt.extruders and by_extruder). Regular extrusions are saved as -number-1 (unfortunately there is no negative zero).
 const WipingExtrusions::ExtruderPerCopy* WipingExtrusions::get_extruder_overrides(const ExtrusionEntity* entity, const PrintObject* object, int correct_extruder_id, size_t num_of_copies)
 {
 	ExtruderPerCopy *overrides = nullptr;
@@ -2242,7 +3164,41 @@ unsigned int LayerTools::resolve_mixed_1based(unsigned int filament_id) const
                                             float(this->layer_height),
                                             mixed_layer_height_a,
                                             mixed_layer_height_b,
-                                            mixed_base_layer_height);
+                                            mixed_base_layer_height,
+                                            enable_mixed_color_sublayer,
+                                            this->total_layer_count);
+}
+
+unsigned int LayerTools::support_filament(unsigned int filament_id_1based) const
+{
+    // Match ToolOrdering::collect_extruders: support uses a resolved physical tool,
+    // not the virtual mixed slot used by object sublayer groups.
+    return filament_id_1based == 0 ? 0u : resolve_mixed_1based(filament_id_1based) - 1u;
+}
+
+// True when the given 0-based extruder ID is a virtual mixed slot.
+// Checks mixed_mgr directly so it works even before mixed_sub_layer_groups
+// is populated (e.g. during collect_extruders).
+bool LayerTools::is_mixed_slot(unsigned int slot_id_0based) const
+{
+    if (mixed_mgr == nullptr || num_physical == 0)
+        return false;
+    if (slot_id_0based < num_physical)
+        return false;
+    // slot_id_0based >= num_physical => potential virtual slot.
+    // Convert to 1-based filament ID and check the manager.
+    const unsigned int filament_id_1based = slot_id_0based + 1u;
+    const MixedFilament *mf = mixed_mgr->mixed_filament_from_id(filament_id_1based, num_physical);
+    return mf != nullptr && mf->enabled;
+}
+
+const LayerTools::MixedSubLayerGroup*
+LayerTools::mixed_group_by_slot(unsigned int slot_id_0based) const
+{
+    for (const MixedSubLayerGroup &grp : mixed_sub_layer_groups)
+        if (grp.mixed_slot_0based == slot_id_0based)
+            return &grp;
+    return nullptr;
 }
 
 // Return a zero based extruder from the region, or extruder_override if overriden.
@@ -2250,21 +3206,36 @@ unsigned int LayerTools::wall_filament(const PrintRegion &region) const
 {
     assert(region.config().wall_filament.value > 0);
     unsigned int id = (this->extruder_override == 0) ? region.config().wall_filament.value : this->extruder_override;
-    return resolve_mixed_1based(id) - 1;
+    // sublayer mode: keep the 0-based virtual slot id (extruder - 1) so the
+    // Resolve to the per-layer physical filament when no sublayer group is
+    // active; otherwise keep the 0-based virtual slot for sublayer replay.
+    if (id > 0 && is_mixed_slot(id - 1u)) {
+        return resolve_mixed_slot(id - 1u);
+    }
+    const unsigned int r = resolve_mixed_1based(id) - 1u;
+    return r;
 }
 
 unsigned int LayerTools::sparse_infill_filament(const PrintRegion &region) const
 {
     assert(region.config().sparse_infill_filament.value > 0);
     unsigned int id = (this->extruder_override == 0) ? region.config().sparse_infill_filament.value : this->extruder_override;
-    return resolve_mixed_1based(id) - 1;
+    if (id > 0 && is_mixed_slot(id - 1u)) {
+        return resolve_mixed_slot(id - 1u);
+    }
+    const unsigned int r = resolve_mixed_1based(id) - 1u;
+    return r;
 }
 
 unsigned int LayerTools::solid_infill_filament(const PrintRegion &region) const
 {
     assert(region.config().solid_infill_filament.value > 0);
     unsigned int id = (this->extruder_override == 0) ? region.config().solid_infill_filament.value : this->extruder_override;
-    return resolve_mixed_1based(id) - 1;
+    if (id > 0 && is_mixed_slot(id - 1u)) {
+        return resolve_mixed_slot(id - 1u);
+    }
+    const unsigned int r = resolve_mixed_1based(id) - 1u;
+    return r;
 }
 
 // Resolve a 1-based filament ID through the mixed-filament manager.
@@ -2283,7 +3254,9 @@ unsigned int ToolOrdering::resolve_mixed(unsigned int filament_id_1based,
                                             layer_height,
                                             m_mixed_layer_height_a,
                                             m_mixed_layer_height_b,
-                                            m_mixed_base_layer_height);
+                                            m_mixed_base_layer_height,
+                                            m_enable_mixed_color_sublayer,
+                                            m_layer_tools.size());
 }
 
 void ToolOrdering::update_mixed_layer_height_settings()
@@ -2308,6 +3281,435 @@ void ToolOrdering::update_mixed_layer_height_settings()
     if (m_print_object_ptr != nullptr)
         base_height = float(m_print_object_ptr->config().layer_height.value);
     m_mixed_base_layer_height = base_height;
+}
+
+// ---------------------------------------------------------------------------
+// Phase A: Mixed sub-layer groups
+// ---------------------------------------------------------------------------
+//
+// `enable_mixed_color_sublayer` is registered in PrintConfigDef with default
+// `false` (Quality > Layer height > Mixed color sublayer).  The slicer reads
+// it via the standard `opt_bool()` API on `DynamicPrintConfig`; the explicit
+// `has()` guard is kept as belt-and-braces for older preset bundles that may
+// still be missing the key.
+bool ToolOrdering::read_enable_mixed_color_sublayer() const
+{
+    // Primary: read from the full print config (DynamicPrintConfig).
+    if (m_print_full_config != nullptr &&
+        m_print_full_config->has("enable_mixed_color_sublayer")) {
+        bool v = m_print_full_config->opt_bool("enable_mixed_color_sublayer");
+        BOOST_LOG_TRIVIAL(info) << "[MixedSublayer] read_enable_mixed_color_sublayer: "
+                                << "from m_print_full_config = " << v;
+        return v;
+    }
+    // Fallback: read from the typed PrintConfig (m_print_config_ptr).
+    // This covers cases where the dynamic config may not have been synced.
+    const PrintConfig *cfg = m_print_config_ptr;
+    if (cfg == nullptr && m_print_object_ptr != nullptr)
+        cfg = &m_print_object_ptr->print()->config();
+    if (cfg != nullptr && cfg->has("enable_mixed_color_sublayer")) {
+        if (auto *opt = dynamic_cast<const ConfigOptionBool*>(cfg->option("enable_mixed_color_sublayer"))) {
+            BOOST_LOG_TRIVIAL(info) << "[MixedSublayer] read_enable_mixed_color_sublayer: "
+                                    << "from PrintConfig fallback = " << opt->value;
+            return opt->value;
+        }
+    }
+    BOOST_LOG_TRIVIAL(info) << "[MixedSublayer] read_enable_mixed_color_sublayer: "
+                            << "key not found, defaulting to false";
+    return false;
+}
+
+void ToolOrdering::resolve_mixed_sublayers(const PrintConfig &config)
+{
+    // Clear previous state on every layer.
+    for (LayerTools &layer_tools : m_layer_tools) {
+        layer_tools.mixed_sub_layer_groups.clear();
+        layer_tools.mixed_filament_resolution.clear();
+    }
+
+    if (m_mixed_mgr == nullptr)
+        return;
+    if (m_mixed_mgr->enabled_count() == 0)
+        return;
+
+    // Collect all enabled mixed filament IDs (1-based) from the manager.
+    std::vector<unsigned int> enabled_mixed_1based;
+    std::map<unsigned int, MixedSlotComponents> slots;
+    for (unsigned int id_1based = static_cast<unsigned int>(m_num_physical) + 1;
+         enabled_mixed_1based.size() < m_mixed_mgr->enabled_count(); ++id_1based) {
+        const MixedFilament *mf = m_mixed_mgr->mixed_filament_from_id(id_1based, m_num_physical);
+        if (mf == nullptr)
+            break;
+        MixedSlotComponents slot = mixed_slot_components(*mf, m_num_physical);
+        if (mf->enabled && slot.components_0based.size() >= 2) {
+            enabled_mixed_1based.push_back(id_1based);
+            slots.emplace(id_1based - 1u, std::move(slot));
+        }
+    }
+    if (enabled_mixed_1based.empty())
+        return;
+
+    // The minimum-flush reorder phase has already replaced virtual IDs in
+    // lt.extruders with physical IDs. Keep an explicit per-layer map for the
+    // geometry collector, using exactly the same resolver and phase offset.
+    auto resolve_single_layer_slots = [this, &slots](LayerTools &lt) {
+        for (const unsigned int mixed_slot : lt.raw_mixed_filament_ids_0based) {
+            if (slots.find(mixed_slot) == slots.end())
+                continue;
+            const unsigned int slot_offset = mixed_slot >= m_num_physical
+                ? mixed_slot - static_cast<unsigned int>(m_num_physical) : 0u;
+            const unsigned int resolved_1based = resolve_mixed_with_layer_heights(
+                m_mixed_mgr,
+                m_num_physical,
+                mixed_slot + 1u,
+                lt.layer_index,
+                float(lt.print_z),
+                float(lt.layer_height),
+                m_mixed_layer_height_a,
+                m_mixed_layer_height_b,
+                m_mixed_base_layer_height,
+                m_enable_mixed_color_sublayer,
+                m_layer_tools.size(),
+                slot_offset);
+            if (resolved_1based >= 1 && resolved_1based <= m_num_physical)
+                lt.mixed_filament_resolution[mixed_slot] = resolved_1based - 1u;
+        }
+    };
+
+    // Without sublayers, each virtual mixed slot resolves to one physical
+    // component per layer. The generic resolver preserves all configured
+    // components and weights for 3+ color rows.
+    if (!m_enable_mixed_color_sublayer) {
+        for (LayerTools &lt : m_layer_tools)
+            resolve_single_layer_slots(lt);
+        return;
+    }
+    // =====================================================================
+    // Sublayer-enabled path: build MixedSubLayerGroups (existing logic)
+    // =====================================================================
+
+    // Track gradient run state for each mixed filament
+    struct GradientRunState {
+        int current_run = -1;
+        size_t current_idx = 0;
+        std::vector<size_t> run_lengths;
+        bool prev_appeared = false;
+    };
+    std::map<unsigned int, GradientRunState> gradient_states;
+    for (unsigned int id_1based : enabled_mixed_1based) {
+        const MixedFilament *mf = m_mixed_mgr->mixed_filament_from_id(id_1based, m_num_physical);
+        if (mf && mf->enabled && mf->gradient_enabled) {
+            gradient_states[id_1based] = {};
+        }
+    }
+
+    // First pass: detect gradient runs (consecutive layers where mixed filament actually appears)
+    if (!gradient_states.empty()) {
+        for (size_t layer_idx = 1; layer_idx < m_layer_tools.size(); ++layer_idx) {
+            const LayerTools &lt_const = m_layer_tools[layer_idx];
+            for (auto &[id_1based, state] : gradient_states) {
+                unsigned int slot_0based = id_1based - 1;
+                bool appears = std::find(lt_const.raw_mixed_filament_ids_0based.begin(),
+                                         lt_const.raw_mixed_filament_ids_0based.end(),
+                                         slot_0based) != lt_const.raw_mixed_filament_ids_0based.end();
+                if (appears) {
+                    if (!state.prev_appeared) {
+                        // Start new run
+                        state.run_lengths.push_back(0);
+                    }
+                    state.run_lengths.back()++;
+                    state.prev_appeared = true;
+                } else {
+                    state.prev_appeared = false;
+                }
+            }
+        }
+
+        // Reset state for second pass
+        for (auto &[id_1based, state] : gradient_states) {
+            state.current_run = -1;
+            state.current_idx = 0;
+            state.prev_appeared = false;
+        }
+    }
+
+    // ----- Per-object run segmentation (Bambu-aligned port) -----
+    // For each (slot, object) pair, segment the object's layer indices into
+    // runs separated by real gaps (object has its own layer that does not use
+    // the gradient slot).  Run state is keyed by slot then by object.
+    struct PerObjRunState {
+        std::vector<size_t> run_start_offsets; // index into layer_indices where each run starts
+        std::vector<size_t> run_lengths;
+        int                 current_run = -1;
+        size_t              current_idx  = 0;
+    };
+    std::map<unsigned int, std::map<const PrintObject*, PerObjRunState>> per_obj_runs;
+
+    auto has_real_gap = [](size_t prev_idx, size_t cur_idx,
+                           const std::set<size_t>& obj_set,
+                           const std::set<size_t>& slot_set) -> bool {
+        for (auto it = obj_set.lower_bound(prev_idx + 1);
+             it != obj_set.end() && *it < cur_idx; ++it) {
+            if (!slot_set.count(*it))
+                return true;
+        }
+        return false;
+    };
+
+    auto segment_runs = [&](const std::vector<size_t>& layer_indices,
+                            const std::set<size_t>& obj_set,
+                            const std::set<size_t>& slot_set) -> PerObjRunState {
+        PerObjRunState st;
+        for (size_t i = 0; i < layer_indices.size(); ++i) {
+            bool new_run = (i == 0) ||
+                           has_real_gap(layer_indices[i - 1], layer_indices[i], obj_set, slot_set);
+            if (new_run) {
+                st.run_start_offsets.push_back(i);
+                st.run_lengths.push_back(0);
+            }
+            st.run_lengths.back()++;
+        }
+        return st;
+    };
+
+    for (unsigned int id_1based : enabled_mixed_1based) {
+        const MixedFilament *mf = m_mixed_mgr->mixed_filament_from_id(id_1based, m_num_physical);
+        if (!mf || !mf->enabled || !mf->gradient_enabled)
+            continue;
+        if (!mf->per_part_gradient)
+            continue; // Per-object segmentation is only needed for per-part mode.
+        unsigned int slot_0based = id_1based - 1;
+        auto slot_it = m_mixed_object_layers.find(slot_0based);
+        if (slot_it == m_mixed_object_layers.end())
+            continue;
+        for (auto &[obj, layer_indices] : slot_it->second) {
+            std::vector<size_t> sorted_layers = layer_indices;
+            sort_remove_duplicates(sorted_layers);
+            // Erase layer 0 - mirrors Bambu's mutation relied upon by the binary_search below.
+            if (!sorted_layers.empty() && sorted_layers.front() == 0)
+                sorted_layers.erase(sorted_layers.begin());
+
+            auto all_obj_it = m_object_all_layer_indices.find(obj);
+            if (all_obj_it == m_object_all_layer_indices.end())
+                continue;
+            std::set<size_t> all_obj_set(all_obj_it->second.begin(), all_obj_it->second.end());
+            std::set<size_t> grad_set(sorted_layers.begin(), sorted_layers.end());
+
+            per_obj_runs[slot_0based][obj] = segment_runs(sorted_layers, all_obj_set, grad_set);
+        }
+    }
+
+    coordf_t prev_print_z = 0.;
+    for (size_t layer_idx = 0; layer_idx < m_layer_tools.size(); ++layer_idx) {
+        LayerTools &lt = m_layer_tools[layer_idx];
+
+        if (layer_idx == 0) {
+            // Preserve a regular first layer for bed adhesion: select one of
+            // the N components instead of creating a sublayer stack.
+            resolve_single_layer_slots(lt);
+            prev_print_z = lt.print_z;
+            continue;
+        }
+
+        // Update gradient run state: only advance for layers where the slot actually appears
+        for (auto &[id_1based, state] : gradient_states) {
+            unsigned int slot_0based = id_1based - 1;
+            bool appears = std::find(lt.raw_mixed_filament_ids_0based.begin(),
+                                     lt.raw_mixed_filament_ids_0based.end(),
+                                     slot_0based) != lt.raw_mixed_filament_ids_0based.end();
+            if (appears) {
+                if (!state.prev_appeared) {
+                    if (state.current_run < 0 || !state.run_lengths.empty()) {
+                        state.current_run++;
+                        state.current_idx = 0;
+                    }
+                }
+                state.prev_appeared = true;
+            } else {
+                state.prev_appeared = false;
+            }
+        }
+
+        for (unsigned int id_1based : enabled_mixed_1based) {
+            const MixedFilament *mf = m_mixed_mgr->mixed_filament_from_id(id_1based, m_num_physical);
+            if (!mf || !mf->enabled)
+                continue;
+
+            // Only create sublayer groups for layers that actually use this mixed slot
+            unsigned int slot_0based = id_1based - 1;
+            bool slot_in_layer = std::find(lt.raw_mixed_filament_ids_0based.begin(),
+                                           lt.raw_mixed_filament_ids_0based.end(),
+                                           slot_0based) != lt.raw_mixed_filament_ids_0based.end();
+            if (!slot_in_layer)
+                continue;
+
+            unsigned int ext_0based = id_1based - 1; // 0-based virtual slot ID
+            const MixedSlotComponents &slot = slots.at(ext_0based);
+
+            double lh = lt.print_z - prev_print_z;
+            if (lh <= 0.) lh = 0.2;
+
+            std::vector<double> ratios = slot.ratios;
+            double ratio_a = ratios[0], ratio_b = ratios[1];
+            // Check if gradient is enabled for this filament
+            auto grad_it = gradient_states.find(id_1based);
+            if (mf->gradient_enabled && slot.components_0based.size() == 2 && grad_it != gradient_states.end() &&
+                grad_it->second.current_run >= 0 && 
+                static_cast<size_t>(grad_it->second.current_run) < grad_it->second.run_lengths.size()) {
+                // Gradient mode: calculate ratio based on position in run
+                auto &state = grad_it->second;
+                size_t N = state.run_lengths[state.current_run];
+                size_t idx = state.current_idx++;
+                // t goes from 0 to 1 over the run
+                double t = (N > 0) ? (2.0 * idx + 1.0) / (2.0 * N) : 0.5;
+                // Use custom curve if present, otherwise linear interpolation
+                // Custom curve wins over linear range when present
+                if (!mf->gradient_curve.empty()) {
+                    // Sample the custom gradient curve
+                    ratio_b = sample_gradient_curve(mf->gradient_curve, t);
+                } else {
+                    // Linear interpolation: gradient_start ? gradient_end (Bambu-aligned)
+                    const double gradient_start = 0.10;
+                    const double gradient_end   = 0.90;
+                    ratio_b = gradient_start + (gradient_end - gradient_start) * t;
+                }
+                ratio_b = std::clamp(ratio_b, 0.0, 1.0);
+                ratio_a = 1.0 - ratio_b;
+                ratios[0] = ratio_a;
+                ratios[1] = ratio_b;
+            }
+
+            LayerTools::MixedSubLayerGroup grp;
+            grp.mixed_slot_0based = ext_0based;
+            grp.is_gradient       = mf->gradient_enabled && slot.components_0based.size() == 2;
+
+            std::vector<size_t> component_order(slot.components_0based.size());
+            std::iota(component_order.begin(), component_order.end(), 0);
+            std::sort(component_order.begin(), component_order.end(), [&slot](size_t lhs, size_t rhs) {
+                return slot.components_0based[lhs] < slot.components_0based[rhs];
+            });
+            for (size_t idx : component_order) {
+                grp.components_0based.push_back(slot.components_0based[idx]);
+                grp.sub_heights.push_back(ratios[idx] * lh);
+            }
+            if (grp.is_gradient) {
+                const auto first_it = std::find(grp.components_0based.begin(), grp.components_0based.end(), slot.components_0based[0]);
+                grp.gradient_first_sorted_idx = int(first_it - grp.components_0based.begin());
+            }
+
+            // Per-object gradient (Bambu-aligned): when per_part_gradient is
+            // enabled, populate per_object_gradient with the per-object
+            // run-aware state so GCode.cpp can compute per-object ratios.
+            if (grp.is_gradient && mf->per_part_gradient) {
+                auto slot_runs_it = per_obj_runs.find(ext_0based);
+                if (slot_runs_it != per_obj_runs.end()) {
+                    const auto &slot_lyrs = m_mixed_object_layers[ext_0based];
+                    for (auto &[obj, run_state] : slot_runs_it->second) {
+                        auto lyr_it = slot_lyrs.find(obj);
+                        if (lyr_it == slot_lyrs.end())
+                            continue;
+                        if (!std::binary_search(lyr_it->second.begin(), lyr_it->second.end(), layer_idx))
+                            continue;
+                        if (run_state.current_run < 0 ||
+                            run_state.current_idx >= run_state.run_lengths[run_state.current_run]) {
+                            run_state.current_run++;
+                            run_state.current_idx = 0;
+                        }
+                        size_t run_N   = run_state.run_lengths[run_state.current_run];
+                        size_t run_idx = run_state.current_idx++;
+                        LayerTools::MixedSubLayerGroup::ObjectGradient og;
+                        og.total_layers   = run_N;
+                        og.current_idx    = run_idx;
+                        og.gradient_start = 0.10;
+                        og.gradient_end   = 0.90;
+                        og.curve          = mf->gradient_curve;
+                        grp.per_object_gradient[obj] = og;
+                    }
+                }
+            }
+
+            lt.mixed_sub_layer_groups.push_back(std::move(grp));
+
+            // Append physical component IDs to lt.extruders so that the GCode
+            // main loop visits them and triggers sub-layer extrusion.
+            for (unsigned int comp : slot.components_0based) {
+                if (std::find(lt.extruders.begin(), lt.extruders.end(), comp) == lt.extruders.end())
+                    lt.extruders.push_back(comp);
+                if (std::find(m_all_printing_extruders.begin(), m_all_printing_extruders.end(), comp) == m_all_printing_extruders.end())
+                    m_all_printing_extruders.push_back(comp);
+            }
+        }
+
+        prev_print_z = lt.print_z;
+    }
+
+    // Summary
+    {
+        size_t total_groups = 0;
+        for (const LayerTools &lt : m_layer_tools) total_groups += lt.mixed_sub_layer_groups.size();
+    }
+}
+
+void ToolOrdering::enforce_mixed_component_order()
+{
+    for (LayerTools &lt : m_layer_tools) {
+        if (lt.mixed_sub_layer_groups.empty())
+            continue;
+
+        std::set<unsigned int> ext_set(lt.extruders.begin(), lt.extruders.end());
+
+        // Build DAG.
+        std::map<unsigned int, std::vector<unsigned int>> adj;
+        std::map<unsigned int, int>                       in_degree;
+        std::set<std::pair<unsigned int, unsigned int>>   edge_set;
+
+        for (unsigned int e : lt.extruders)
+            in_degree[e] = 0;
+
+        for (const auto &grp : lt.mixed_sub_layer_groups) {
+            for (size_t i = 0; i + 1 < grp.components_0based.size(); ++i) {
+                unsigned int a = grp.components_0based[i];
+                unsigned int b = grp.components_0based[i + 1];
+                if (!ext_set.count(a) || !ext_set.count(b))
+                    continue;
+                if (edge_set.insert({a, b}).second) {
+                    adj[a].push_back(b);
+                    in_degree[b] += 1;
+                }
+            }
+        }
+
+        // Record original positions as priority.
+        std::map<unsigned int, size_t> orig_pos;
+        for (size_t i = 0; i < lt.extruders.size(); ++i)
+            orig_pos[lt.extruders[i]] = i;
+
+        // Kahn's topological sort, prefer smaller orig_pos.
+        auto cmp = [&orig_pos](unsigned int lhs, unsigned int rhs) {
+            return orig_pos[lhs] > orig_pos[rhs]; // min-heap
+        };
+        std::priority_queue<unsigned int, std::vector<unsigned int>, decltype(cmp)> pq(cmp);
+
+        for (unsigned int e : lt.extruders)
+            if (in_degree[e] == 0)
+                pq.push(e);
+
+        std::vector<unsigned int> ordered;
+        ordered.reserve(lt.extruders.size());
+        while (!pq.empty()) {
+            unsigned int e = pq.top();
+            pq.pop();
+            ordered.push_back(e);
+            if (auto it = adj.find(e); it != adj.end())
+                for (unsigned int next : it->second)
+                    if (--in_degree[next] == 0)
+                        pq.push(next);
+        }
+
+        // Safety: if cycle detected keep original order.
+        if (ordered.size() == lt.extruders.size())
+            lt.extruders = ordered;
+    }
 }
 
 } // namespace Slic3r

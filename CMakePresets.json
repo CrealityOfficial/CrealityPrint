@@ -19,7 +19,7 @@
             },
             "condition": {
                 "type": "equals",
-                "lhs": "${hostSystemName}",
+               "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             }
         },
@@ -52,8 +52,8 @@
                 "CX_DEBUG": "1",
                 "CMAKE_EXPORT_COMPILE_COMMANDS":"1",
                 "BOOST_HAS_THREADS": "1",
-                "CMAKE_C_COMPILER_LAUNCHER":"ccache",
-                "CMAKE_CXX_COMPILER_LAUNCHER":"ccache"
+                "CMAKE_C_COMPILER_LAUNCHER":"ccache;sloppiness=pch_defines,time_macros",
+                "CMAKE_CXX_COMPILER_LAUNCHER":"ccache;sloppiness=pch_defines,time_macros"
             }
         },
         {
@@ -66,8 +66,8 @@
                 "CMAKE_PREFIX_PATH": "${sourceDir}/deps/build/OrcaSlicer_dep/usr/local/",
                 "CMAKE_EXPORT_COMPILE_COMMANDS":"1",
                 "BOOST_HAS_THREADS": "1",
-                "CMAKE_C_COMPILER_LAUNCHER":"ccache",
-                "CMAKE_CXX_COMPILER_LAUNCHER":"ccache"
+                "CMAKE_C_COMPILER_LAUNCHER": "",
+                "CMAKE_CXX_COMPILER_LAUNCHER": ""
             }
         },
         {
@@ -164,18 +164,15 @@
             "generator": "Ninja",
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "/usr/bin/clang",
-                "LLVM_ENABLE_PROJECTS":"clang",
-                "LLVM_TARGETS_TO_BUILD":"arm64",
                 "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
-                "CMAKE_C_COMPILER_LAUNCHER":"ccache",
-                "CMAKE_CXX_COMPILER_LAUNCHER":"ccache",
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_CONFIGURE_TYPE": "${presetName}",
                 "BBL_RELEASE_TO_PUBLIC": "1",
                 "CMAKE_INSTALL_PREFIX": "./CrealityPrint",
-                "CMAKE_PREFIX_PATH": "/Users/qprj/work/DEPS_LIB_DIR/usr/local/",
+                "CMAKE_PREFIX_PATH": "${sourceDir}/deps/build_arm64/dep_arm64/usr/local/",
                 "GENERATE_ORCA_HEADER": "OFF",
                 "CMAKE_MACOSX_RPATH": "ON",
+                "CMAKE_OSX_ARCHITECTURES": "arm64",
                 "CMAKE_OSX_DEPLOYMENT_TARGET": "11.3",
                 "CMAKE_MACOSX_BUNDLE": "ON"
             }
@@ -213,6 +210,20 @@
             "configurePreset": "x64-release",
             "inherits": "x64-debug",
             "description": "Windows Release Build"
+        },
+        {
+            "name": "weiyusuo-relwithdeb",
+            "displayName": "weiyusuo RelWithDebInfo",
+            "configurePreset": "weiyusuo-relwithdeb",
+            "description": "Windows RelWithDebInfo Build with limited parallelism",
+            "jobs": 12
+        },
+        {
+            "name": "weiyusuo-release",
+            "displayName": "weiyusuo Release",
+            "configurePreset": "weiyusuo-release",
+            "description": "Windows Release Build with limited parallelism",
+            "jobs": 20
         }
     ],
     "testPresets": [

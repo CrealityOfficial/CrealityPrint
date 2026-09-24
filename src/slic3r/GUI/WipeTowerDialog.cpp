@@ -9,6 +9,7 @@
 #include "MsgDialog.hpp"
 #include "libslic3r/Color.hpp"
 #include "Widgets/Button.hpp"
+#include "Widgets/ComboBox.hpp"
 #include "slic3r/Utils/ColorSpaceConvert.hpp"
 #include "MainFrame.hpp"
 #include "libslic3r/Config.hpp"
@@ -347,15 +348,42 @@ void WipingDialog::on_dpi_changed(const wxRect &suggested_rect)
     this->Refresh();
 };
 
+bool WipingDialog::commit_current_nozzle()
+{
+    if (m_panel_wiping == nullptr || m_current_nozzle_id >= m_nozzle_data.size())
+        return false;
+
+    std::vector<float> matrix = m_panel_wiping->read_matrix_values();
+    if (matrix.size() != m_nozzle_data[m_current_nozzle_id].matrix.size())
+        return false;
+
+    m_nozzle_data[m_current_nozzle_id].matrix = std::move(matrix);
+    return true;
+}
+
+bool WipingDialog::switch_nozzle(size_t nozzle_id)
+{
+    if (nozzle_id >= m_nozzle_data.size() || !commit_current_nozzle())
+        return false;
+
+    const WipingNozzleData& data = m_nozzle_data[nozzle_id];
+    if (!m_panel_wiping->load_matrix(data.matrix, data.min_flush_volumes, data.nozzle_volume))
+        return false;
+
+    m_current_nozzle_id = nozzle_id;
+    return true;
+}
+
 // Parent dialog for purging volume adjustments - it fathers WipingPanel widget (that contains all controls) and a button to toggle simple/advanced mode:
-WipingDialog::WipingDialog(wxWindow* parent, const std::vector<float>& matrix, const std::vector<float>& extruders, const std::vector<std::string>& extruder_colours,
-    const std::vector<int>&extra_flush_volume, float flush_multiplier)
+WipingDialog::WipingDialog(wxWindow* parent, const std::vector<WipingNozzleData>& nozzle_data,
+    const std::vector<float>& extruders, const std::vector<std::string>& extruder_colours, float flush_multiplier)
     : DPIDialog(parent ? parent : static_cast<wxWindow *>(wxGetApp().mainframe),
                 wxID_ANY,
                 _(L("Flushing volumes for filament change")),
                 wxDefaultPosition,
                 wxDefaultSize,
-                wxDEFAULT_DIALOG_STYLE /* | wxRESIZE_BORDER*/)
+                wxDEFAULT_DIALOG_STYLE /* | wxRESIZE_BORDER*/),
+      m_nozzle_data(nozzle_data)
 {
     std::string icon_path = (boost::format("%1%/images/Creative3DTitle.ico") % Slic3r::resources_dir()).str();
     SetIcon(wxIcon(Slic3r::encode_path(icon_path.c_str()), wxBITMAP_TYPE_ICO));
@@ -365,15 +393,43 @@ WipingDialog::WipingDialog(wxWindow* parent, const std::vector<float>& matrix, c
 
     this->SetBackgroundColour(*wxWHITE);
     this->SetMinSize(wxSize(MIN_WIPING_DIALOG_WIDTH, -1));
-    
-
-    m_panel_wiping = new WipingPanel(this, matrix, extruders, extruder_colours, nullptr, extra_flush_volume, flush_multiplier);
 
     auto main_sizer = new wxBoxSizer(wxVERTICAL);
     main_sizer->Add(m_line_top, 0, wxEXPAND, 0);
+
+    if (m_nozzle_data.empty()) {
+        BOOST_LOG_TRIVIAL(error) << "[WipingDialog] No nozzle matrix data.";
+        return;
+    }
+
+    if (m_nozzle_data.size() > 1) {
+        auto nozzle_sizer = new wxBoxSizer(wxHORIZONTAL);
+        auto nozzle_label = new wxStaticText(this, wxID_ANY, _L("Nozzle"));
+        m_nozzle_choice = new ComboBox(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                                       wxSize(FromDIP(180), -1), 0, nullptr, wxCB_READONLY);
+        for (const WipingNozzleData& data : m_nozzle_data)
+            m_nozzle_choice->Append(data.label);
+        m_nozzle_choice->SetSelection(0);
+        update_ui(nozzle_label);
+        update_ui(m_nozzle_choice);
+        nozzle_sizer->Add(nozzle_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(8));
+        nozzle_sizer->Add(m_nozzle_choice, 0, wxALIGN_CENTER_VERTICAL);
+        main_sizer->Add(nozzle_sizer, 0, wxLEFT | wxRIGHT | wxTOP, TEXT_BEG_PADDING);
+
+        m_nozzle_choice->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent&) {
+            const int selection = m_nozzle_choice->GetSelection();
+            if (selection == wxNOT_FOUND || !switch_nozzle(size_t(selection)))
+                m_nozzle_choice->SetSelection(int(m_current_nozzle_id));
+        });
+    }
+
+    const WipingNozzleData& first_nozzle = m_nozzle_data.front();
+    const unsigned int filament_count = unsigned(extruder_colours.size());
+    m_panel_wiping = new WipingPanel(this, first_nozzle.matrix, extruders, extruder_colours, filament_count, nullptr,
+                                     first_nozzle.min_flush_volumes, first_nozzle.nozzle_volume, flush_multiplier);
     
     // set min sizer width according to extruders count
-    auto sizer_width = (int)((sqrt(matrix.size()) + 2.8)*ITEM_WIDTH());
+    auto sizer_width = int((filament_count + 2.8) * ITEM_WIDTH());
     sizer_width = sizer_width > MIN_WIPING_DIALOG_WIDTH ? sizer_width : MIN_WIPING_DIALOG_WIDTH;
     main_sizer->SetMinSize(wxSize(sizer_width, -1));
     main_sizer->Add(m_panel_wiping, 1, wxEXPAND | wxALL, 0);
@@ -385,7 +441,11 @@ WipingDialog::WipingDialog(wxWindow* parent, const std::vector<float>& matrix, c
 
     if (this->FindWindowById(wxID_OK, this)) {
         this->FindWindowById(wxID_OK, this)->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {                 // if OK button is clicked..
-            m_output_matrix = m_panel_wiping->read_matrix_values();    // ..query wiping panel and save returned values
+            if (!commit_current_nozzle())
+                return;
+            m_output_matrix.clear();
+            for (const WipingNozzleData& data : m_nozzle_data)
+                m_output_matrix.insert(m_output_matrix.end(), data.matrix.begin(), data.matrix.end());
             m_output_extruders = m_panel_wiping->read_extruders_values(); // so they can be recovered later by calling get_...()
             EndModal(wxID_OK);
             }, wxID_OK);
@@ -483,19 +543,20 @@ void WipingPanel::create_panels(wxWindow* parent, const int num) {
 }
 
 // This panel contains all control widgets for both simple and advanced mode (these reside in separate sizers)
-WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, const std::vector<float>& extruders, const std::vector<std::string>& extruder_colours, Button* calc_button,
-    const std::vector<int>& extra_flush_volume, float flush_multiplier)
+WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, const std::vector<float>& extruders,
+    const std::vector<std::string>& extruder_colours, unsigned int filament_count, Button* calc_button,
+    const std::vector<int>& extra_flush_volume, int nozzle_volume, float flush_multiplier)
 : wxPanel(parent,wxID_ANY, wxDefaultPosition, wxDefaultSize/*,wxBORDER_RAISED*/)
 ,m_matrix(matrix), m_min_flush_volume(extra_flush_volume), m_max_flush_volume(Slic3r::g_max_flush_volume)
 {
-    m_number_of_extruders = (int)(sqrt(matrix.size())+0.001);
+    m_number_of_extruders = filament_count;
 
     for (const std::string& color : extruder_colours) {
         Slic3r::ColorRGB rgb;
         Slic3r::decode_color(color, rgb);
         m_colours.push_back(wxColor(rgb.r_uchar(), rgb.g_uchar(), rgb.b_uchar()));
     }
-    auto sizer_width = (int)((sqrt(matrix.size())) * ITEM_WIDTH() + (sqrt(matrix.size()) + 1) * HEADER_BEG_PADDING);
+    auto sizer_width = int(m_number_of_extruders * ITEM_WIDTH() + (m_number_of_extruders + 1) * HEADER_BEG_PADDING);
     sizer_width = sizer_width > MIN_WIPING_DIALOG_WIDTH ? sizer_width : MIN_WIPING_DIALOG_WIDTH;
     // Create two switched panels with their own sizers
     m_sizer_simple          = new wxBoxSizer(wxVERTICAL);
@@ -667,7 +728,7 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
         m_min_flush_label_font.SetPointSize(10);
         m_min_flush_label->SetFont(m_min_flush_label_font);
         auto& printer_config    =  wxGetApp().preset_bundle->printers.get_edited_preset().config;
-        m_type_flush_volume    = printer_config.option<ConfigOptionFloat>("nozzle_volume")->value*3;
+        m_type_flush_volume    = nozzle_volume * 3;
         wxString type_flush_str = wxString::Format(_L("Suggestion: Flushing between different types of filament> %d"), m_type_flush_volume);
         m_type_flush_label      = new wxStaticText(m_page_advanced, wxID_ANY, type_flush_str, wxDefaultPosition, wxDefaultSize, 0);
         m_type_flush_label->SetForegroundColour(g_text_color);
@@ -729,6 +790,7 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
                 m_flush_multiplier_ebox->SetValue(str);
             }
             m_flush_multiplier_ebox->SetInsertionPointEnd();
+            update_reset_button();
         });
        
     }
@@ -835,20 +897,43 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
     basic_font.SetPointSize(10);
     header_line_panel->SetFont(basic_font);
 }
+
+bool WipingPanel::load_matrix(const std::vector<float>& matrix, const std::vector<int>& extra_flush_volume, int nozzle_volume)
+{
+    const size_t matrix_size = size_t(m_number_of_extruders) * m_number_of_extruders;
+    if (matrix.size() != matrix_size || extra_flush_volume.size() < m_number_of_extruders)
+        return false;
+
+    Freeze();
+    m_matrix           = matrix;
+    m_min_flush_volume = extra_flush_volume;
+    m_type_flush_volume = nozzle_volume * 3;
+
+    const float multiplier = get_flush_multiplier();
+    for (unsigned int i = 0; i < m_number_of_extruders; ++i) {
+        for (unsigned int j = 0; j < m_number_of_extruders; ++j) {
+            if (i == j)
+                edit_boxes[i][j]->SetValue("0");
+            else
+                edit_boxes[i][j]->SetValue(wxString("") << int(m_matrix[m_number_of_extruders * j + i] * multiplier));
+        }
+    }
+
+    const int min_flush_volume = *std::min_element(m_min_flush_volume.begin(),
+                                                    m_min_flush_volume.begin() + m_number_of_extruders);
+    m_min_flush_label->SetLabel(wxString::Format(_L("Suggestion: Flushing Volume in range [%d, %d]"),
+                                                  min_flush_volume, m_max_flush_volume));
+    m_type_flush_label->SetLabel(wxString::Format(_L("Suggestion: Flushing between different types of filament> %d"),
+                                                   m_type_flush_volume));
+    update_warning_texts();
+    Layout();
+    Thaw();
+    return true;
+}
+
 void WipingPanel::on_set_sys_value()
-{   PresetBundle& preset_bundle = *wxGetApp().preset_bundle;
-    DynamicPrintConfig& preset = preset_bundle.printers.get_selected_preset().config;
-    float default_flush = preset.option<ConfigOptionFloat>("default_flush_multiplier")->value;
-    bool is_creality_vendor = preset_bundle.is_cx_vendor();
-    if(is_creality_vendor)
-    {
-        //m_flush_multiplier_ebox->SetValue(wxString::Format(("%.2f"), CREALITY_FLUSH_MULTIPLIER));
-        m_flush_multiplier_ebox->SetValue(wxString::Format(("%.2f"), default_flush));
-    }
-    else
-    {
-        m_flush_multiplier_ebox->SetValue(wxString::Format(("%.2f"), NORMAL_FLUSH_MULTIPLIER));
-    }
+{
+    m_flush_multiplier_ebox->SetValue(wxString::Format("%.2f", wxGetApp().preset_bundle->default_flush_multiplier()));
     update_warning_texts();
 }
 int WipingPanel::calc_flushing_volume(const wxColour& from_, const wxColour& to_ ,int min_flush_volume)
@@ -859,10 +944,17 @@ int WipingPanel::calc_flushing_volume(const wxColour& from_, const wxColour& to_
 }
 bool isDifferentFilament(int i, int j)
 {
-    auto preset1    = wxGetApp().preset_bundle->filaments.find_preset(wxGetApp().preset_bundle->filament_presets[i])->config;
-    auto type1      = preset1.opt_string("filament_type", 0u);
-    auto preset2    = wxGetApp().preset_bundle->filaments.find_preset(wxGetApp().preset_bundle->filament_presets[j])->config;
-    auto type2      = preset2.opt_string("filament_type", 0u);
+    PresetBundle& preset_bundle = *wxGetApp().preset_bundle;
+    if (i < 0 || j < 0 || size_t(i) >= preset_bundle.filament_presets.size() || size_t(j) >= preset_bundle.filament_presets.size())
+        return false;
+
+    const Preset* preset1 = preset_bundle.filaments.find_preset(preset_bundle.filament_presets[size_t(i)]);
+    const Preset* preset2 = preset_bundle.filaments.find_preset(preset_bundle.filament_presets[size_t(j)]);
+    if (preset1 == nullptr || preset2 == nullptr)
+        return false;
+
+    auto type1      = preset1->config.opt_string("filament_type", 0u);
+    auto type2      = preset2->config.opt_string("filament_type", 0u);
     bool isDiffType = i != j && type1 != type2;
     if(is_support_filament(i) || is_support_filament(j))
     {
@@ -870,6 +962,20 @@ bool isDifferentFilament(int i, int j)
     }
     return isDiffType;
 }
+void WipingPanel::update_reset_button()
+{
+    double multiplier = 0.0;
+    const bool valid = m_flush_multiplier_ebox->GetValue().ToDouble(&multiplier);
+    // Compare against the same value and precision that the reset action writes to the field.
+    double default_multiplier = 0.0;
+    wxString::Format("%.2f", wxGetApp().preset_bundle->default_flush_multiplier()).ToDouble(&default_multiplier);
+    const bool show_reset = !valid || std::fabs(multiplier - default_multiplier) > 1e-6;
+    if (m_btn_reset->Show(show_reset)) {
+        m_page_advanced->Layout();
+        Layout();
+    }
+}
+
 void WipingPanel::update_warning_texts()
 {
     static const wxColour g_warning_color = *wxRED;
@@ -926,20 +1032,8 @@ void WipingPanel::update_warning_texts()
          m_type_flush_label->SetForegroundColour(g_text_color);
          m_type_flush_label->Refresh();
     }
-    wxString str = m_flush_multiplier_ebox->GetValue();
-    float      user_multiplier = wxAtof(str);
-    PresetBundle& preset_bundle = *wxGetApp().preset_bundle;
-    bool is_cx_vendor = preset_bundle.is_cx_vendor();
-    DynamicPrintConfig& preset = preset_bundle.printers.get_selected_preset().config;
-    float default_flush = preset.option<ConfigOptionFloat>("default_flush_multiplier")->value;
-    //float b = is_cx_vendor ? CREALITY_FLUSH_MULTIPLIER : NORMAL_FLUSH_MULTIPLIER;
-    float b = is_cx_vendor ? default_flush : NORMAL_FLUSH_MULTIPLIER;
-    if(std::fabs(user_multiplier -  b)<1e-6)
-    {
-        m_btn_reset->Hide();
-    }else{
-        m_btn_reset->Show();
-    }
+    update_reset_button();
+
 }
 
 

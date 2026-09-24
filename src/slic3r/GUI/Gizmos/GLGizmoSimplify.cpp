@@ -535,15 +535,23 @@ void GLGizmoSimplify::apply_simplify() {
     const Selection& selection = m_parent.get_selection();
     int object_idx = selection.get_object_idx();
 
-    auto plater = wxGetApp().plater();
-    plater->take_snapshot(GUI::format("Simplify %1%", m_volume->name));
-    plater->clear_before_change_mesh(object_idx,true);
-
     ModelVolume* mv = get_model_volume(selection, wxGetApp().model());
     assert(mv == m_volume);
+    assert(m_state.result);
 
-    mv->set_mesh(std::move(*m_state.result));
-    m_state.result.reset();
+    const std::string volume_name     = mv->name;
+    auto              simplified_mesh = std::move(m_state.result);
+    auto              plater          = wxGetApp().plater();
+
+    // Do not serialize the Simplify gizmo as active. During undo, the model is
+    // restored before the GL selection is rebuilt. Reopening the gizmo in that
+    // intermediate state makes its render path show the "single part" error;
+    // the modal dialog's nested event loop can make the error appear twice.
+    close();
+    plater->take_snapshot(GUI::format("Simplify %1%", volume_name));
+    plater->clear_before_change_mesh(object_idx, true);
+
+    mv->set_mesh(std::move(*simplified_mesh));
     mv->calculate_convex_hull();
     mv->invalidate_convex_hull_2d();
     mv->set_new_unique_id();
@@ -554,7 +562,6 @@ void GLGizmoSimplify::apply_simplify() {
     plater->changed_mesh(object_idx);
     // Fix warning icon in object list
     wxGetApp().obj_list()->update_item_error_icon(object_idx, -1);
-    close();
     
     // 【新增】标记几何体修改（操作完成即标记）
     AnalyticsDataUploadManager::ProjectModificationTracker::getInstance()

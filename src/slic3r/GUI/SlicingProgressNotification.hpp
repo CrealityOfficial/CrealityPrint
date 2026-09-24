@@ -29,6 +29,8 @@ public:
     }
     void                set_percentage(float percent) { m_percentage = percent; }
     float               get_percentage() const { return m_percentage; }
+    void show_completion_before_overview();
+    bool is_completing_before_overview() const { return m_overview_completion_pending; }
     DailyTipsPanel*     get_dailytips_panel() { return m_dailytips_panel; }
     SlicingProgressState get_progress_state() { return m_sp_state; }
     bool                get_export_possible() const { return m_export_possible; }
@@ -70,6 +72,8 @@ protected:
     ImVec2                  m_window_pos;
     float                   m_percentage{ 0.0f };
     int64_t                 m_before_complete_start;
+    bool                    m_overview_completion_pending{false};
+    int64_t                 m_overview_completion_rendered_at{-1};
     // if returns false, process was already canceled
     std::function<bool()>	m_cancel_callback;
     SlicingProgressState	m_sp_state{ SlicingProgressState::SP_PROGRESS };

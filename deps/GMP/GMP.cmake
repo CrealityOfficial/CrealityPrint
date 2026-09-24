@@ -1,8 +1,15 @@
 
 set(_srcdir ${CMAKE_CURRENT_LIST_DIR}/gmp)
 set(patch_command "")
-if (IN_GIT_REPO)
-    set(GMP_DIRECTORY_FLAG --directory ${BINARY_DIR_REL}/dep_GMP-prefix/src/dep_GMP)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "loongarch")
+    # GMP 6.3.0 spells the builtin type as __int128__ in its LoongArch
+    # umul_ppmm implementation. Clang accepts __int128, without the trailing
+    # underscores. Initialize a nested repository so git apply does not treat
+    # the extracted source as part of the parent C3DSlicer worktree.
+    set(patch_command
+        ${GIT_EXECUTABLE} init &&
+        ${PATCH_CMD} ${CMAKE_CURRENT_LIST_DIR}/0001-loongarch64-build.patch
+    )
 endif ()
 
 if (MSVC)

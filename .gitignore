@@ -67,3 +67,10 @@ flatbuild
 /.edge-zentao-profile
 /resources/web/chat/node_modules/
 /tools/updater/*.syso
+
+# Local satisfaction-survey service credentials.
+/用户满意度调查需求/.env
+
+# Local AI-agent project guide symlinks.
+/AGENTS.md
+/CLAUDE.md

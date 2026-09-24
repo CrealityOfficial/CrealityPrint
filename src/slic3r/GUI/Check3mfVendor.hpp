@@ -22,7 +22,7 @@ public:
     // Return true for Creality 3MF file, false for other vendors
     bool check(const std::string& fileName, const std::string& printerSettingId, BusyCursor* busy);
     bool get3mfConfig(const DynamicPrintConfig& config_loaded, DynamicPrintConfig& new_config_loaded);
-    void doSelectPrinterPreset();
+    bool doSelectPrinterPreset();
     bool isCreality3mf();
     void setCreality3mf(bool isCreality3mf);
     void updatePlateObject(const PlateDataPtrs& plate_data, const Slic3r::Model& model,
@@ -60,9 +60,8 @@ protected:
 
 private:
     ::ComboBox* m_combo = nullptr;
-    std::vector<std::string> m_vtComboText;
+    std::vector<std::string> m_comboPresetNames;
     int m_comboLastSelected = -1;
-    int m_projectPresetCount = 0;
 };
 
 }

@@ -50,6 +50,12 @@ void NotificationManager::SlicingProgressNotification::init()
 
 }
 
+void NotificationManager::SlicingProgressNotification::show_completion_before_overview()
+{
+    m_overview_completion_pending = true;
+    m_overview_completion_rendered_at = -1;
+}
+
 bool NotificationManager::SlicingProgressNotification::set_progress_state(float percent)
 {
 	if (percent < 0.f)
@@ -64,6 +70,11 @@ bool NotificationManager::SlicingProgressNotification::set_progress_state(float 
 
 bool NotificationManager::SlicingProgressNotification::set_progress_state(NotificationManager::SlicingProgressNotification::SlicingProgressState state, float percent/* = 0.f*/)
 {
+    if (state == SlicingProgressState::SP_NO_SLICING || state == SlicingProgressState::SP_BEGAN ||
+        state == SlicingProgressState::SP_CANCELLED) {
+        m_overview_completion_pending = false;
+        m_overview_completion_rendered_at = -1;
+    }
 	switch (state)
 	{
 	case Slic3r::GUI::NotificationManager::SlicingProgressNotification::SlicingProgressState::SP_NO_SLICING:
@@ -180,6 +191,9 @@ int NotificationManager::SlicingProgressNotification::get_duration()
 
 bool  NotificationManager::SlicingProgressNotification::update_state(bool paused, const int64_t delta)
 {
+    // Do not expire the completion before it has actually been drawn.
+    if (m_overview_completion_pending)
+        return true;
 	bool ret = PopNotification::update_state(paused, delta);
 	if (m_sp_state == SlicingProgressState::SP_COMPLETED)
 		ret = true;
@@ -193,6 +207,14 @@ bool  NotificationManager::SlicingProgressNotification::update_state(bool paused
 void NotificationManager::SlicingProgressNotification::render(
 	GLCanvas3D& canvas, float& initial_y, bool move_from_overlay, float overlay_width)
 {
+    constexpr int completion_display_ms = 200;
+    if (m_overview_completion_pending && m_overview_completion_rendered_at >= 0 &&
+        GLCanvas3D::timestamp_now() - m_overview_completion_rendered_at >= completion_display_ms) {
+        set_progress_state(SlicingProgressState::SP_NO_SLICING);
+        // Statistics were suppressed earlier in this frame. Show them next frame.
+        canvas.request_extra_frame();
+        return;
+    }
 	if (m_state == EState::Unknown || m_state == PopNotification::EState::Hovered)
 		init();
 
@@ -291,7 +313,7 @@ void NotificationManager::SlicingProgressNotification::render(
 	ImGui::PopStyleVar(2);
 	ImGui::PopStyleColor(1);
 
-	if (m_sp_state == SlicingProgressState::SP_PROGRESS) {
+	if (m_sp_state == SlicingProgressState::SP_PROGRESS || m_overview_completion_pending) {
 		//float progress_panel_width = 444.0f, progress_panel_height = 58.0f * scale;
         //float  margin_x   = 30.0f * scale;
         ImGuiViewport* vp              = ImGui::GetMainViewport();
@@ -334,8 +356,18 @@ void NotificationManager::SlicingProgressNotification::render(
 		ImVec2 text_pos = ImVec2(progress_bar_pos.x + 2.0f, progress_bar_pos.y - m_line_height * 1.1f);
 
 		render_bar(progress_bar_pos, progress_bar_size);
-        render_cancel_button(button_pos, button_size);
-		render_text(text_pos);
+        if (!m_overview_completion_pending)
+            render_cancel_button(button_pos, button_size);
+        if (m_overview_completion_pending) {
+            ImGui::SetCursorScreenPos(text_pos);
+            imgui.text(m_text1.c_str());
+        } else {
+            render_text(text_pos);
+        }
+        if (m_overview_completion_pending && m_overview_completion_rendered_at < 0) {
+            m_overview_completion_rendered_at = GLCanvas3D::timestamp_now();
+            canvas.schedule_extra_frame(completion_display_ms);
+        }
 
         ImGui::End();
 		

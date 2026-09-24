@@ -1159,9 +1159,11 @@ void GLGizmoBrimEars::reset_all_pick() { std::map<GLVolume *, std::shared_ptr<Pi
 
 float GLGizmoBrimEars::get_brim_default_radius() const
 {
-    const double              nozzle_diameter = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
+    constexpr size_t          nozzle_index = 0;
+    const double              nozzle_diameter = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloats>("nozzle_diameter")->get_at(nozzle_index);
     const DynamicPrintConfig &pring_cfg = wxGetApp().preset_bundle->prints.get_edited_preset().config;
-    return pring_cfg.get_abs_value("initial_layer_line_width", nozzle_diameter) * 16.0f;
+    return nozzle_variant_abs_value(
+        *pring_cfg.option<ConfigOptionFloatsOrPercentsNullable>("initial_layer_line_width"), nozzle_index, nozzle_diameter) * 16.0f;
 }
 
 ExPolygon GLGizmoBrimEars::make_polygon(BrimPoint point, const Geometry::Transformation &trsf)

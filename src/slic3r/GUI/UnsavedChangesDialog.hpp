@@ -1,6 +1,7 @@
 #ifndef slic3r_UnsavedChangesDialog_hpp_
 #define slic3r_UnsavedChangesDialog_hpp_
 
+#include <algorithm>
 #include <wx/dataview.h>
 #include <map>
 #include <vector>
@@ -292,6 +293,7 @@ protected:
     int                     m_continue_btn_id   { wxID_ANY };
 
     std::string             m_app_config_key;
+    bool                    m_warn_process_transfer_to_single_extruder {false};
 
     static constexpr char ActTransfer[] = "transfer";
     static constexpr char ActDiscard[]  = "discard";
@@ -361,9 +363,10 @@ public:
     std::vector<std::string> get_unselected_options(Preset::Type type) { /* return m_tree->options(type, false);*/return std::vector<std::string>();}
     std::vector<std::string> get_selected_options  (Preset::Type type)  {
         //return m_tree->options(type, true);
-         std::vector<std::string> tmp;
+        std::vector<std::string> tmp;
         for (int i = 0; i < m_presetitems.size(); i++) {
-            if (m_presetitems[i].type == type) {
+            if (m_presetitems[i].type == type &&
+                std::find(tmp.begin(), tmp.end(), m_presetitems[i].opt_key) == tmp.end()) {
                 tmp.push_back(m_presetitems[i].opt_key);
             }
         }
@@ -376,7 +379,8 @@ public:
         std::vector<std::string> tmp;
         for (int i = 0; i < m_presetitems.size(); i++)
         {
-           tmp.push_back(m_presetitems[i].opt_key);
+            if (std::find(tmp.begin(), tmp.end(), m_presetitems[i].opt_key) == tmp.end())
+                tmp.push_back(m_presetitems[i].opt_key);
         }
 
         return tmp;

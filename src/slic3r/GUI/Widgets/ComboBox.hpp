@@ -14,6 +14,9 @@ class ComboBox : public wxWindowWithItems<TextInput, wxItemContainer>
     std::vector<wxBitmap>         icons;
     std::vector<void *>           datas;
     std::vector<wxClientDataType> types;
+    std::vector<bool>           group_headers;
+    std::vector<int>              indents;
+    std::vector<char>             bolds;
 
     DropDown               drop;
     bool     drop_down = false;
@@ -41,6 +44,8 @@ public:
 
 public:
     int Append(const wxString &item, const wxBitmap &bitmap = wxNullBitmap);
+
+    int AppendGroupHeader(const wxString &text);
 
     int Append(const wxString &item, const wxBitmap &bitmap, void *clientData);
 
@@ -75,6 +80,20 @@ public:
     bool     is_drop_down(){return drop_down;}
     void     DeleteOneItem(unsigned int pos) { DoDeleteOneItem(pos); }
     void     ForceDropdownOpen();
+
+    bool     IsGroupHeader(unsigned int n) const;
+    // Hierarchical rendering: indents item `n` by `level` steps in the drop-down
+    // list. Enabling it for any item switches the whole list to indented layout.
+    void     SetItemIndent(unsigned int n, int level);
+    void     EnableItemIndents(bool enable, int step_dip = 16);
+
+    // Renders item `n` in bold in the drop-down list, for group headers.
+    void     SetItemBold(unsigned int n, bool bold);
+
+    // Opens the drop-down under `rect` (screen coords) with the given width,
+    // instead of deriving both from this combobox. `dpi_reference` supplies
+    // the monitor DPI when this combobox is hosted by a hidden window.
+    void     SetDropDownAnchor(const wxRect &rect, int width = 0, wxWindow* dpi_reference = nullptr);
 protected:
     virtual int  DoInsertItems(const wxArrayStringsAdapter &items,
                                unsigned int                 pos,
@@ -103,6 +122,7 @@ private:
     void keyDown(wxKeyEvent &event);
     void dismissDropDown();
     void onMove(wxMoveEvent &event);
+    int nextSelectableItem(int direction) const;
 
     DECLARE_EVENT_TABLE()
 };

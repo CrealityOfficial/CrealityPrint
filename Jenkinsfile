@@ -14,15 +14,18 @@ pipeline {
         booleanParam(name: 'BUILD_MAC_ARM', defaultValue: false, description: 'Build macOS arm64 package')
         booleanParam(name: 'CLEAN_WORKSPACE', defaultValue: false, description: 'Delete Jenkins workspace before checkout')
         booleanParam(name: 'REBUILD_DEPS', defaultValue: false, description: 'Rebuild dependency libraries instead of reusing the current deps directory')
-        text(name: 'BRANCH', defaultValue: 'release-260731', description: 'C3DSlicer branch to build')
-        text(name: 'TAG_NAME', defaultValue: '7.2.1', description: 'Base version tag')
+        text(name: 'BRANCH', defaultValue: 'release-260930', description: 'C3DSlicer branch to build')
+        text(name: 'TAG_NAME', defaultValue: '7.3.0', description: 'Base version tag')
         choice(name: 'RTYPE', choices: ['Beta', 'Alpha', 'Beta1', 'Beta2', 'Dev', 'Release'], description: 'Release type')
         string(name: 'APP_NAME', defaultValue: 'CrealityPrint', description: 'App name')
         booleanParam(name: 'WEB_SYNC', defaultValue: true, description: 'Sync Community resources by WEB_BRANCH')
+        booleanParam(name: 'INCLUDE_UNRELEASED_MODELS', defaultValue: false, description: '包含指定的未发布机型；勾选后 CXY_TOKEN 和 UNRELEASED_MODELS 才会生效')
+        string(name: 'UNRELEASED_MODELS', defaultValue: 'F039', description: '未发布机型的 printerIntName，多个型号用英文分号分隔，例如 F039;F040')
+        password(name: 'CXY_TOKEN', defaultValue: '', description: '创想云令牌，仅在勾选“包含未发布机型”时使用')
         text(name: 'NOTIFY', defaultValue: '1', description: '1 to enable Feishu notification')
         text(name: 'SLICER_HEADER', defaultValue: '1', description: 'libslicer3r cache flag used by mac packaging')
         text(name: 'SYNCPRESET', defaultValue: '1', description: '1 to generate presets')
-        string(name: 'WEB_BRANCH', defaultValue: 'release-260731', description: 'CrealityCommunity branch')
+        string(name: 'WEB_BRANCH', defaultValue: 'release-260930', description: 'CrealityCommunity branch')
         text(name: 'PACKAGE_TYPE', defaultValue: '0', description: 'Windows only. 0: nsis, 1: zip')
     }
 
@@ -33,8 +36,10 @@ pipeline {
         BUILD_SHARE_PORT = '9122'
         BUILD_SHARE_ROOT = '/vagrant_data/www/shared/build'
         FEISHU_WEBHOOK_CRED = 'creality-release-feishu-webhook'
-        ALPHA_PRESET_TOKEN_CRED = 'creality-cloud-preset-token'
         OPENCLAW_WEBHOOK_CRED = 'openclaw-webhook'
+        WINDOWS_SIGN_SERVICE_URL = 'http://172.20.180.14:3001'
+        WINDOWS_DLL_SIGN_CACHE = 'D:\\Jenkins\\cache\\CrealityPrint\\dll-signatures'
+        WINDOWS_NINJA_JOBS = '20'
     }
 
     stages {
@@ -79,9 +84,8 @@ pipeline {
 if /I not "%WEB_SYNC%"=="true" exit /b 0
 echo python
 set defult_para_type=Beta
-IF "%RTYPE%"=="Alpha" (
-    set defult_para_type=Alpha
-)
+IF /I "%RTYPE%"=="Dev" set defult_para_type=Alpha
+IF /I "%RTYPE%"=="Alpha" set defult_para_type=Alpha
 
 rmdir /s /q "%cd%\\resources"
 git reset --hard
@@ -99,18 +103,32 @@ if exist %web_file% (
                         script {
                             def buildScript = '''
 @echo off
-setlocal EnableDelayedExpansion
+setlocal DisableDelayedExpansion
 set defult_para_type=Beta
-IF "%RTYPE%"=="Alpha" (
-    set defult_para_type=Alpha
-    if not "%CXY_TOKEN%"=="" (
-        set cxy_token=%CXY_TOKEN%
-    )
-)
+IF /I "%RTYPE%"=="Dev" set defult_para_type=Alpha
+IF /I "%RTYPE%"=="Alpha" set defult_para_type=Alpha
 
 IF "%SYNCPRESET%"=="1" (
+    set "include_unreleased_models=false"
+    set "cxy_token="
+    set "unreleased_models="
+    IF /I "%INCLUDE_UNRELEASED_MODELS%"=="true" (
+        if "%CXY_TOKEN%"=="" (
+            echo ERROR: CXY_TOKEN is required when INCLUDE_UNRELEASED_MODELS is enabled
+            exit /b 2
+        )
+        if "%UNRELEASED_MODELS%"=="" (
+            echo ERROR: UNRELEASED_MODELS is required when INCLUDE_UNRELEASED_MODELS is enabled
+            exit /b 2
+        )
+        set "include_unreleased_models=true"
+        set "cxy_token=%CXY_TOKEN%"
+        set "unreleased_models=%UNRELEASED_MODELS%"
+    )
     for /f %%i in ('git rev-list HEAD --count') do set PRESET_TAGNUMB=%%i
+    setlocal EnableDelayedExpansion
     python .\\scripts\\generate_creality_presets.py -b %defult_para_type% -n "3.0.0" -v "%TAG_NAME%.!PRESET_TAGNUMB!" || exit /b -1
+    endlocal
 )
 
 echo %PATH%
@@ -133,13 +151,7 @@ echo start package.bat
 echo build_steps_end
 '''
 
-                            if (params.RTYPE == 'Alpha') {
-                                withCredentials([string(credentialsId: env.ALPHA_PRESET_TOKEN_CRED, variable: 'CXY_TOKEN')]) {
-                                    bat buildScript
-                                }
-                            } else {
-                                bat buildScript
-                            }
+                            bat buildScript
 
                             if (fileExists('var.prop')) {
                                 readFile('var.prop').split(/\r?\n/).findAll { it?.trim() }.each { line ->
@@ -301,12 +313,31 @@ fi
                         sh '''
 cd "$WORKSPACE"
 defult_para_type="Beta"
-if [ "$RTYPE" = "Alpha" ]; then
+if [ "$RTYPE" = "Alpha" ] || [ "$RTYPE" = "Dev" ]; then
     defult_para_type="Alpha"
 fi
 TAGNUMB=$(git rev-list HEAD --count) || exit 2
 VERSION="${TAG_NAME}.${TAGNUMB}"
 if [ "$SYNCPRESET" = "1" ]; then
+    case "$-" in *x*) preset_restore_xtrace=true ;; *) preset_restore_xtrace=false ;; esac
+    set +x
+    export include_unreleased_models=false
+    unset cxy_token
+    unset unreleased_models
+    if [ "$INCLUDE_UNRELEASED_MODELS" = "true" ]; then
+        if [ -z "${CXY_TOKEN:-}" ]; then
+            echo "ERROR: CXY_TOKEN is required when INCLUDE_UNRELEASED_MODELS is enabled"
+            exit 2
+        fi
+        if [ -z "${UNRELEASED_MODELS:-}" ]; then
+            echo "ERROR: UNRELEASED_MODELS is required when INCLUDE_UNRELEASED_MODELS is enabled"
+            exit 2
+        fi
+        export include_unreleased_models=true
+        export cxy_token="$CXY_TOKEN"
+        export unreleased_models="$UNRELEASED_MODELS"
+    fi
+    if [ "$preset_restore_xtrace" = "true" ]; then set -x; fi
     PRESET_PYTHONPATH="$WORKSPACE/.jenkins-python"
     if ! PYTHONPATH="$PRESET_PYTHONPATH" python3 -c 'import appdirs, requests; from PIL import Image'; then
         python3 -m pip install --disable-pip-version-check --upgrade \
@@ -457,7 +488,7 @@ export PATH="${NODE_PATH}:${CMAKE_BIN}:/usr/local/bin/:$PATH"
 source "${PYTHON_ACTIVATE}"
 cd "$WORKSPACE"
 defult_para_type="Beta"
-if [ "$RTYPE" = "Alpha" ]; then
+if [ "$RTYPE" = "Alpha" ] || [ "$RTYPE" = "Dev" ]; then
     defult_para_type="Alpha"
 fi
 chmod +x "$(pwd)/resources"
@@ -469,6 +500,25 @@ if [ -f "$web_file" ] && [ "$WEB_SYNC" = "true" ]; then
     "$web_file" "$WEB_BRANCH" || exit -2
 fi
 if [ "$SYNCPRESET" = "1" ]; then
+    case "$-" in *x*) preset_restore_xtrace=true ;; *) preset_restore_xtrace=false ;; esac
+    set +x
+    export include_unreleased_models=false
+    unset cxy_token
+    unset unreleased_models
+    if [ "$INCLUDE_UNRELEASED_MODELS" = "true" ]; then
+        if [ -z "${CXY_TOKEN:-}" ]; then
+            echo "ERROR: CXY_TOKEN is required when INCLUDE_UNRELEASED_MODELS is enabled"
+            exit 2
+        fi
+        if [ -z "${UNRELEASED_MODELS:-}" ]; then
+            echo "ERROR: UNRELEASED_MODELS is required when INCLUDE_UNRELEASED_MODELS is enabled"
+            exit 2
+        fi
+        export include_unreleased_models=true
+        export cxy_token="$CXY_TOKEN"
+        export unreleased_models="$UNRELEASED_MODELS"
+    fi
+    if [ "$preset_restore_xtrace" = "true" ]; then set -x; fi
     python3 ./scripts/generate_creality_presets.py -b "$defult_para_type" -n "3.0.0" -v "${TAG_NAME}.${TAGNUMB}" || exit -2
 fi
 export SLICER_BUILD_TARGET=all
@@ -622,7 +672,7 @@ export PATH="${MAC_EXTRA_PATH}:$PATH"
 export DEPS_ENV_DIR="${MAC_DEPS_ENV_DIR}"
 cd "$WORKSPACE"
 defult_para_type="Beta"
-if [ "$RTYPE" = "Alpha" ]; then
+if [ "$RTYPE" = "Alpha" ] || [ "$RTYPE" = "Dev" ]; then
     defult_para_type="Alpha"
 fi
 chmod +x "$(pwd)/resources"
@@ -633,6 +683,25 @@ if [ -f "$web_file" ] && [ "$WEB_SYNC" = "true" ]; then
     /bin/sh "$web_file" "$WEB_BRANCH" || exit -2
 fi
 if [ "$SYNCPRESET" = "1" ]; then
+    case "$-" in *x*) preset_restore_xtrace=true ;; *) preset_restore_xtrace=false ;; esac
+    set +x
+    export include_unreleased_models=false
+    unset cxy_token
+    unset unreleased_models
+    if [ "$INCLUDE_UNRELEASED_MODELS" = "true" ]; then
+        if [ -z "${CXY_TOKEN:-}" ]; then
+            echo "ERROR: CXY_TOKEN is required when INCLUDE_UNRELEASED_MODELS is enabled"
+            exit 2
+        fi
+        if [ -z "${UNRELEASED_MODELS:-}" ]; then
+            echo "ERROR: UNRELEASED_MODELS is required when INCLUDE_UNRELEASED_MODELS is enabled"
+            exit 2
+        fi
+        export include_unreleased_models=true
+        export cxy_token="$CXY_TOKEN"
+        export unreleased_models="$UNRELEASED_MODELS"
+    fi
+    if [ "$preset_restore_xtrace" = "true" ]; then set -x; fi
     /usr/bin/python3 ./scripts/generate_creality_presets.py -b "$defult_para_type" -n "3.0.0" -v "${TAG_NAME}.${TAGNUMB}" || exit -2
 fi
 export SLICER_BUILD_TARGET=all

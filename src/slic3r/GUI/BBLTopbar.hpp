@@ -4,6 +4,7 @@
 #include "wx/aui/auibar.h"
 
 #include "SelectMachine.hpp"
+#include "TopbarLayout.hpp"
 #include "DeviceManager.hpp"
 
 
@@ -19,6 +20,7 @@ public:
     void Init(wxFrame *parent);
     ~BBLTopbar();
     void UpdateToolbarWidth(int width);
+    int GetMinimumToolbarWidth(int screen_client_width) const;
     void Rescale(bool isResize);
     void OnIconize(wxAuiToolBarEvent& event);
     void OnUpload3mf(wxAuiToolBarEvent& event);
@@ -98,6 +100,9 @@ private:
     wxString TruncateTextToWidth(const wxString& text, int maxWidth, wxDC& dc) const;
 
     void OnWindowResize(wxSizeEvent& event);
+    void UpdateResponsiveLayout(int width, bool rebuild_metrics = false);
+    void SetActionsCollapsed(bool collapsed);
+    void OnMore(wxAuiToolBarEvent& event);
     void BindWindowDragEvents(wxWindow* window);
     void OnChildDragLeftDown(wxMouseEvent& event);
     void OnChildDragLeftUp(wxMouseEvent& event);
@@ -135,10 +140,16 @@ private:
     wxAuiToolBarItem* m_upload_btn;
     wxAuiToolBarItem* m_feedback_separator_item{nullptr};
     wxAuiToolBarItem* m_feedback_item;
+    wxAuiToolBarItem* m_tabs_leading_spacer_item{nullptr};
     wxAuiToolBarItem* m_title_spacer_item{nullptr};
     wxControl* m_easy_mode_switch_ctrl{ nullptr };
     wxAuiToolBarItem* m_easy_mode_switch_item{ nullptr };
     wxControl* m_tabCtrol;
+    wxAuiToolBarItem* m_more_item{nullptr};
+    std::vector<wxAuiToolBarItem*> m_action_spacer_items;
+    Slic3r::GUI::TopbarWidths m_layout_widths;
+    Slic3r::GUI::TopbarLayout m_toolbar_layout{Slic3r::GUI::TopbarLayout::Normal};
+    bool m_responsive_layout_busy{false};
 
     wxBitmap m_publish_bitmap;
     wxBitmap m_publish_disable_bitmap;

@@ -11,7 +11,12 @@ namespace Slic3r {
 	public:
 		~FillQuarter() override = default;
         bool is_self_crossing() override { return false; }
-		void setOrigin(const InfillPattern& _pattern, const Point& _infill_origin, const Point& _offset, const coord_t& _z, const coord_t& line_distance, const coord_t& infill_line_width);
+		void setOrigin(const InfillPattern& _pattern,
+			const Point& _infill_origin_internal,
+			const Point& _offset_internal,
+			const coord_t& _z_microns,
+			const coord_t& _line_distance_microns,
+			const coord_t& _infill_line_width_microns);
 	protected:
 		Fill* clone() const override { return new FillQuarter(*this); };
 		void _fill_surface_single(
@@ -47,14 +52,16 @@ namespace Slic3r {
 
 		Point current_position{ Point(0,0) };
 
-		Point infill_origin; //!< origin of the infill pattern
-		Point offset;
+		// The imported Cura algorithm operates in integer micrometres. These
+		// values, along with inner_contour, stay in that domain while generating.
+		Point infill_origin; //!< origin of the infill pattern, in micrometres
+		Point offset;        //!< local-to-model offset, in micrometres
 
-		coord_t line_distance{ 5600 };
-		coord_t infill_line_width{420};
+		coord_t line_distance{ 5600 };  //!< micrometres
+		coord_t infill_line_width{420}; //!< micrometres
 		float fill_angle{45.0f};
 
-		coord_t z;
+		coord_t z; //!< micrometres
 	};
 
 } // namespace Slic3r

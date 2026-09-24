@@ -73,10 +73,10 @@ namespace DM{
         bool oldPrinter = false;  //true = printer connected via WiFi
         std::string cfsName;    //MF003(CFS)   MF040(CFSLite)   MF046(CFSMini)   MF049(CFSNano)
 
-        std::string apiKey = "";           //fluidd机型
-        std::string deviceUI = "";           //fluidd机型
+        std::string apiKey = "";           //fluidd鏈哄瀷
+        std::string deviceUI = "";           //fluidd鏈哄瀷
         std::string caFile = "";
-        int hostType = 1;           //fluidd机型
+        int hostType = 1;           //fluidd鏈哄瀷
         bool ignoreCertRevocation = false; 
 
         std::vector<DeviceBoxColorInfo> boxColorInfos;

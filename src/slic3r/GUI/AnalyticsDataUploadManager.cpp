@@ -286,6 +286,9 @@ void AnalyticsDataUploadManager::triggerUploadTasksWithPayload(const AnalyticsEv
             case AnalyticsDataEventType::ANALYTICS_PREPARE:
                 track_model_action("tab_prepare", js);
                 break;
+            case AnalyticsDataEventType::ANALYTICS_TAB_MAKENOW:
+                track_model_action("tab_makenow", js);
+                break;
             case AnalyticsDataEventType::ANALYTICS_PREVIEW:
                 track_model_action("tab_preview", js);
                 break;
@@ -2034,18 +2037,23 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
         case ParamType::Float: {
             BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing Float: " << config_key << " -> " << output_key;
             boost::log::core::get()->flush();
-            auto* opt = config.option<ConfigOptionFloat>(config_key);
-            if (opt) {
+            const ConfigOption* raw_opt = config.option(config_key);
+            if (const auto* opt = dynamic_cast<const ConfigOptionFloat*>(raw_opt)) {
                 output[output_key] = std::to_string(opt->value);
+            } else if (const auto* opt = dynamic_cast<const ConfigOptionVector<double>*>(raw_opt);
+                       opt && !opt->values.empty() && std::isfinite(opt->values.front())) {
+                // Multi-nozzle process options are vectors. Keep accepting the old
+                // scalar registration so analytics stays safe during migration.
+                output[output_key] = std::to_string(opt->values.front());
             }
             break;
         }
         case ParamType::FloatFirst: {
             BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing FloatFirst: " << config_key << " -> " << output_key;
             boost::log::core::get()->flush();
-            auto* opt = config.option<ConfigOptionFloats>(config_key);
-            if (opt && !opt->values.empty()) {
-                output[output_key] = std::to_string(opt->values[0]);
+            const auto* opt = dynamic_cast<const ConfigOptionVector<double>*>(config.option(config_key));
+            if (opt && !opt->values.empty() && std::isfinite(opt->values.front())) {
+                output[output_key] = std::to_string(opt->values.front());
             }
             break;
         }
@@ -2077,13 +2085,12 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
         case ParamType::Bool: {
             BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing Bool: " << config_key << " -> " << output_key;
             boost::log::core::get()->flush();
-            auto* opt = config.option<ConfigOptionBool>(config_key);
-            if (opt) {
+            const ConfigOption* raw_opt = config.option(config_key);
+            if (const auto* opt = dynamic_cast<const ConfigOptionBool*>(raw_opt)) {
                 output[output_key] = opt->value ? "true" : "false";
-            } else if (config.has(config_key)) {
-                // 尝试使用其他方式获取
-                int value = config.opt_int(config_key);
-                output[output_key] = value ? "true" : "false";
+            } else if (const auto* opt = dynamic_cast<const ConfigOptionVector<unsigned char>*>(raw_opt);
+                       opt && !opt->values.empty() && opt->values.front() <= 1) {
+                output[output_key] = opt->values.front() ? "true" : "false";
             } else {
                 // 字段不存在（如默认值被3MF跳过），输出默认值 false
                 output[output_key] = "false";
@@ -2093,9 +2100,9 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
         case ParamType::BoolFirst: {
             BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing BoolFirst: " << config_key << " -> " << output_key;
             boost::log::core::get()->flush();
-            auto* opt = config.option<ConfigOptionBools>(config_key);
-            if (opt && !opt->values.empty()) {
-                output[output_key] = opt->values[0] ? "true" : "false";
+            const auto* opt = dynamic_cast<const ConfigOptionVector<unsigned char>*>(config.option(config_key));
+            if (opt && !opt->values.empty() && opt->values.front() <= 1) {
+                output[output_key] = opt->values.front() ? "true" : "false";
             }
             break;
         }
@@ -2152,19 +2159,22 @@ void AnalyticsDataUploadManager::ProjectModificationTracker::add_param(const Dyn
         case ParamType::FloatOrPercent: {
             BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing FloatOrPercent: " << config_key << " -> " << output_key;
             boost::log::core::get()->flush();
-            auto* opt = config.option<ConfigOptionFloatOrPercent>(config_key);
-            if (opt) {
+            const ConfigOption* raw_opt = config.option(config_key);
+            if (const auto* opt = dynamic_cast<const ConfigOptionFloatOrPercent*>(raw_opt)) {
                 output[output_key] = std::to_string(opt->get_abs_value(0));
+            } else if (const auto* opt = dynamic_cast<const ConfigOptionVector<FloatOrPercent>*>(raw_opt);
+                       opt && !opt->values.empty() && std::isfinite(opt->values.front().value)) {
+                output[output_key] = std::to_string(opt->values.front().value);
             }
             break;
         }
         case ParamType::FloatOrPercentFirst: {
             BOOST_LOG_TRIVIAL(warning) << "[ParamDebug] Processing FloatOrPercentFirst: " << config_key << " -> " << output_key;
             boost::log::core::get()->flush();
-            auto* opt = config.option<ConfigOptionFloatsOrPercents>(config_key);
-            if (opt && !opt->values.empty()) {
+            const auto* opt = dynamic_cast<const ConfigOptionVector<FloatOrPercent>*>(config.option(config_key));
+            if (opt && !opt->values.empty() && std::isfinite(opt->values.front().value)) {
                 // 直接取 value（percent=true 时 value 本身也应该是可用的绝对值）
-                output[output_key] = std::to_string(opt->values[0].value);
+                output[output_key] = std::to_string(opt->values.front().value);
             }
             break;
         }
@@ -2332,42 +2342,42 @@ const AnalyticsDataUploadManager::ProjectModificationTracker::ParamDef
     {"top_bottom_infill_wall_overlap", "top_bottom_infill_wall_overlap", ParamType::Percent},
     {"ai_infill", "ai_infill", ParamType::Bool},
     // 速度参数
-    {"initial_layer_speed", "initial_layer_speed", ParamType::Float},
-    {"outer_wall_speed", "outer_wall_speed", ParamType::Float},
-    {"inner_wall_speed", "inner_wall_speed", ParamType::Float},
-    {"sparse_infill_speed", "sparse_infill_speed", ParamType::Float},
-    {"top_surface_speed", "top_surface_speed", ParamType::Float},
-    {"support_speed", "support_speed", ParamType::Float},
-    {"travel_speed", "travel_speed", ParamType::Float},
-    {"bridge_speed", "bridge_speed", ParamType::Float},
-    {"initial_layer_infill_speed", "initial_layer_infill_speed", ParamType::Float},
+    {"initial_layer_speed", "initial_layer_speed", ParamType::FloatFirst},
+    {"outer_wall_speed", "outer_wall_speed", ParamType::FloatFirst},
+    {"inner_wall_speed", "inner_wall_speed", ParamType::FloatFirst},
+    {"sparse_infill_speed", "sparse_infill_speed", ParamType::FloatFirst},
+    {"top_surface_speed", "top_surface_speed", ParamType::FloatFirst},
+    {"support_speed", "support_speed", ParamType::FloatFirst},
+    {"travel_speed", "travel_speed", ParamType::FloatFirst},
+    {"bridge_speed", "bridge_speed", ParamType::FloatFirst},
+    {"initial_layer_infill_speed", "initial_layer_infill_speed", ParamType::FloatFirst},
     {"initial_layer_travel_speed", "initial_layer_travel_speed", ParamType::FloatOrPercent},
     {"slow_down_layers", "slow_down_layers", ParamType::Int},
-    {"small_perimeter_speed", "small_perimeter_speed", ParamType::FloatOrPercent},
-    {"small_perimeter_threshold", "small_perimeter_threshold", ParamType::Float},
-    {"internal_solid_infill_speed", "internal_solid_infill_speed", ParamType::Float},
-    {"gap_infill_speed", "gap_infill_speed", ParamType::Float},
-    {"support_interface_speed", "support_interface_speed", ParamType::Float},
-    {"enable_overhang_speed", "enable_overhang_speed", ParamType::Bool},
+    {"small_perimeter_speed", "small_perimeter_speed", ParamType::FloatOrPercentFirst},
+    {"small_perimeter_threshold", "small_perimeter_threshold", ParamType::FloatFirst},
+    {"internal_solid_infill_speed", "internal_solid_infill_speed", ParamType::FloatFirst},
+    {"gap_infill_speed", "gap_infill_speed", ParamType::FloatFirst},
+    {"support_interface_speed", "support_interface_speed", ParamType::FloatFirst},
+    {"enable_overhang_speed", "enable_overhang_speed", ParamType::BoolFirst},
     {"overhang_speed_classic", "overhang_speed_classic", ParamType::Bool},
-    {"overhang_1_4_speed", "overhang_1_4_speed", ParamType::FloatOrPercent},
-    {"overhang_2_4_speed", "overhang_2_4_speed", ParamType::FloatOrPercent},
-    {"overhang_3_4_speed", "overhang_3_4_speed", ParamType::FloatOrPercent},
-    {"overhang_4_4_speed", "overhang_4_4_speed", ParamType::FloatOrPercent},
-    {"overhang_totally_speed", "overhang_totally_speed", ParamType::FloatOrPercent},
-    {"internal_bridge_speed", "internal_bridge_speed", ParamType::FloatOrPercent},
+    {"overhang_1_4_speed", "overhang_1_4_speed", ParamType::FloatOrPercentFirst},
+    {"overhang_2_4_speed", "overhang_2_4_speed", ParamType::FloatOrPercentFirst},
+    {"overhang_3_4_speed", "overhang_3_4_speed", ParamType::FloatOrPercentFirst},
+    {"overhang_4_4_speed", "overhang_4_4_speed", ParamType::FloatOrPercentFirst},
+    {"overhang_totally_speed", "overhang_totally_speed", ParamType::FloatOrPercentFirst},
+    {"internal_bridge_speed", "internal_bridge_speed", ParamType::FloatOrPercentFirst},
     {"smooth_speed_discontinuity_area", "smooth_speed_discontinuity_area", ParamType::Bool},
     {"smooth_coefficient", "smooth_coefficient", ParamType::Float},
     // 加速度和抖动
-    {"default_acceleration", "default_acceleration", ParamType::Float},
-    {"outer_wall_acceleration", "outer_wall_acceleration", ParamType::Float},
-    {"inner_wall_acceleration", "inner_wall_acceleration", ParamType::Float},
+    {"default_acceleration", "default_acceleration", ParamType::FloatFirst},
+    {"outer_wall_acceleration", "outer_wall_acceleration", ParamType::FloatFirst},
+    {"inner_wall_acceleration", "inner_wall_acceleration", ParamType::FloatFirst},
     {"bridge_acceleration", "bridge_acceleration", ParamType::FloatOrPercent},
-    {"sparse_infill_acceleration", "sparse_infill_acceleration", ParamType::FloatOrPercent},
+    {"sparse_infill_acceleration", "sparse_infill_acceleration", ParamType::FloatOrPercentFirst},
     {"internal_solid_infill_acceleration", "internal_solid_infill_acceleration", ParamType::FloatOrPercent},
-    {"initial_layer_acceleration", "initial_layer_acceleration", ParamType::Float},
-    {"top_surface_acceleration", "top_surface_acceleration", ParamType::Float},
-    {"travel_acceleration", "travel_acceleration", ParamType::Float},
+    {"initial_layer_acceleration", "initial_layer_acceleration", ParamType::FloatFirst},
+    {"top_surface_acceleration", "top_surface_acceleration", ParamType::FloatFirst},
+    {"travel_acceleration", "travel_acceleration", ParamType::FloatFirst},
     {"default_jerk", "default_jerk", ParamType::Float},
     {"outer_wall_jerk", "outer_wall_jerk", ParamType::Float},
     {"inner_wall_jerk", "inner_wall_jerk", ParamType::Float},
@@ -2405,7 +2415,7 @@ const AnalyticsDataUploadManager::ProjectModificationTracker::ParamDef
     {"wall_sequence", "wall_sequence", ParamType::Enum},
     {"is_infill_first", "is_infill_first", ParamType::Bool},
     {"wall_direction", "wall_direction", ParamType::Enum},
-    {"top_solid_infill_flow_ratio", "top_solid_infill_flow_ratio", ParamType::Float},
+    {"top_solid_infill_flow_ratio", "top_solid_infill_flow_ratio", ParamType::FloatFirst},
     {"bottom_solid_infill_flow_ratio", "bottom_solid_infill_flow_ratio", ParamType::Float},
     {"only_one_wall_top", "only_one_wall_top", ParamType::Bool},
     {"min_width_top_surface", "min_width_top_surface", ParamType::FloatOrPercent},
@@ -2442,7 +2452,7 @@ const AnalyticsDataUploadManager::ProjectModificationTracker::ParamDef
     // 2026.5.15 added - Speed: Acceleration
     {"initial_layer_travel_acceleration", "initial_layer_travel_acceleration", ParamType::FloatFirst},
     {"accel_to_decel_factor", "accel_to_decel_factor", ParamType::Percent},
-    {"travel_short_distance_acceleration", "travel_short_distance_acceleration", ParamType::Float},
+    {"travel_short_distance_acceleration", "travel_short_distance_acceleration", ParamType::FloatFirst},
     {"travel_short_distance_threshold", "travel_short_distance_threshold", ParamType::Float},
     // 2026.5.15 added - Support: Raft
     {"raft_contact_distance", "raft_contact_distance", ParamType::Float},

@@ -87,6 +87,8 @@ enum class NotificationType
 	PlaterError,
 	// Object fully outside the print volume, or extrusion outside the print volume. Slicing is not disabled.
 	PlaterWarning,
+	// Read-only asynchronous G-code probe detected pathological motion.
+	PathologicalSegmentRisk,
 	// Progress bar instead of text.
 	ProgressBar,
 	// Progress bar with info from Print Host Upload Queue dialog.
@@ -279,6 +281,9 @@ public:
 	void set_slicing_progress_canceled(const std::string& text);
 	// hides slicing progress notification imidietly
 	void set_slicing_progress_hidden();
+    // Present 100% before allowing the all-plates statistics to appear.
+    void finish_slicing_progress_before_overview();
+    bool is_slicing_progress_completing() const;
 	// Add a print time estimate to an existing SlicingProgress notification. Set said notification to SP_COMPLETED state.
 	void set_slicing_complete_print_time(const std::string& info, bool sidebar_colapsed);
 		void set_slicing_progress_export_possible();
@@ -308,6 +313,8 @@ public:
     void render_notifications(GLCanvas3D &canvas, float overlay_width);
 	// finds and closes all notifications of given type
 	void close_notification_of_type(const NotificationType type);
+    // Immediately removes notifications of a type. Call only outside notification rendering.
+    void remove_notification_of_type(const NotificationType type);
 	// Hides warnings in G-code preview. Should be called from plater only when 3d view/ preview is changed
     void set_in_preview(bool preview);
 	// Calls set_in_preview to apply appearing or disappearing of some notificatons;

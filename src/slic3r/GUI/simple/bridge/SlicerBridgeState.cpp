@@ -1,5 +1,6 @@
 #include "SlicerBridge.hpp"
 #include "SlicerBridgeDiagnostics.hpp"
+#include "slic3r/GUI/simple/toolcalls/MCPToolCallsCommon.hpp"
 
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
@@ -156,6 +157,8 @@ json BuildCurrentPlateSliceResultState(PartPlateList& plate_list, PartPlate* cur
     slice_result_state["toolpath_outside"] = current_result->toolpath_outside;
     slice_result_state["warnings"] = json::array();
     for (const auto& warning : current_result->warnings) {
+        if (ToolCalls::ShouldSuppressSliceWarningForAI(warning.msg, warning.error_code))
+            continue;
         slice_result_state["warnings"].push_back({
             {"level", warning.level},
             {"message", warning.msg},
@@ -521,13 +524,51 @@ json SlicerBridge::DoCaptureModelViews(const json& params)
         captured_views.push_back(std::move(item));
     }
 
-    return {
+    const bool include_summary = params.value("include_summary", true);
+    json summary;
+    if (include_summary) {
+        const ModelObject* object = model.objects[object_idx];
+        const BoundingBoxf3 bbox = object->instance_bounding_box(0);
+        double volume_mm3 = 0.0;
+        int face_count = 0;
+        int vertex_count = 0;
+        bool is_watertight = false;
+        try {
+            const TriangleMesh& mesh = object->raw_mesh();
+            volume_mm3 = std::round(const_cast<TriangleMesh&>(mesh).volume() * 100.0) / 100.0;
+            face_count = static_cast<int>(mesh.its.indices.size());
+            vertex_count = static_cast<int>(mesh.its.vertices.size());
+            is_watertight = mesh.stats().manifold();
+        } catch (...) {
+        }
+        summary = {
+            {"view_count", captured_views.size()},
+            {"views", views},
+            {"geometry", {
+                {"dimensions", {
+                    std::round(bbox.size().x() * 100.0) / 100.0,
+                    std::round(bbox.size().y() * 100.0) / 100.0,
+                    std::round(bbox.size().z() * 100.0) / 100.0
+                }},
+                {"volume", volume_mm3},
+                {"volume_mm3", volume_mm3},
+                {"face_count", face_count},
+                {"vertex_count", vertex_count},
+                {"is_watertight", is_watertight}
+            }}
+        };
+    }
+
+    json result = {
         {"success", true},
         {"message", "Captured model views"},
         {"object_index", object_idx},
         {"object_name", model.objects[object_idx]->name},
         {"views", std::move(captured_views)}
     };
+    if (include_summary)
+        result["summary"] = std::move(summary);
+    return result;
 }
 
 // ===========================================================================
@@ -992,6 +1033,7 @@ json SlicerBridge::DoGetSlicerState(const json& /*params*/)
 
         json obj_info;
         obj_info["object_index"] = (int)oi;
+        obj_info["object_uid"] = std::to_string(mo->id().id);
         obj_info["name"] = mo->name;
 
         const int pidx = (oi < object_plate_index.size()) ? object_plate_index[oi] : -1;
@@ -1013,6 +1055,21 @@ json SlicerBridge::DoGetSlicerState(const json& /*params*/)
             std::round(bb.center().x() * 100.0) / 100.0,
             std::round(bb.center().y() * 100.0) / 100.0,
             std::round(bb.min.z() * 100.0) / 100.0
+        };
+
+        constexpr double kRadToDeg = 180.0 / 3.14159265358979323846;
+        const ModelInstance* first_instance = mo->instances.front();
+        const Vec3d rotation = first_instance->get_rotation() * kRadToDeg;
+        const Vec3d scaling = first_instance->get_scaling_factor();
+        obj_info["rotation_deg"] = {
+            std::round(rotation.x() * 100.0) / 100.0,
+            std::round(rotation.y() * 100.0) / 100.0,
+            std::round(rotation.z() * 100.0) / 100.0
+        };
+        obj_info["scale_factors"] = {
+            std::round(scaling.x() * 10000.0) / 10000.0,
+            std::round(scaling.y() * 10000.0) / 10000.0,
+            std::round(scaling.z() * 10000.0) / 10000.0
         };
 
         // Mesh stats

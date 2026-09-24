@@ -1705,17 +1705,17 @@ void GLToolbar::render_horizontal(const GLCanvas3D& parent, GLToolbarItem::EType
             if (item->is_action_with_text()) {
                 //float scaled_text_size = item->get_extra_size_ratio() * icons_size_x;
 
-                // µÈ¸ßÓÚÍ¼±ê£¨¿ÉÉÔÎ¢Ëõ 90% ±ÜÃâ²Ã±ß£©
+                // ç­‰é«˜äºŽå›¾æ ‡ï¼ˆå¯ç¨å¾®ç¼© 90% é¿å…è£è¾¹ï¼‰
                 constexpr float kTextHeightScale = 0.7f;
                 const float text_h = kTextHeightScale * icons_size_y;
-                // extra_size_ratio = original_w / original_h£¬Ö®Ç°ÔÚ generate_button_text_textures ÀïÒÑ»ØÌî
+                // extra_size_ratio = original_w / original_hï¼Œä¹‹å‰åœ¨ generate_button_text_textures é‡Œå·²å›žå¡«
                 const float text_w = item->get_extra_size_ratio() * 0.03;
 
                 const float text_left   = left + icons_size_x;
                 const float text_right  = text_left + text_w;
                 const float text_bottom = top - text_h;
 
-                float scaled_text_size = item->get_extra_size_ratio() * icons_size_y; // ÓÃ¸ß¶È»»Ëã
+                float scaled_text_size = item->get_extra_size_ratio() * icons_size_y; // ç”¨é«˜åº¦æ¢ç®—
                 //item->render_text(left + icons_size_x, left + icons_size_x + scaled_text_size, top - icons_size_y, top);
 
                 item->render_text(text_left, text_right, text_bottom, top);
@@ -1940,13 +1940,13 @@ int GLToolbar::generate_button_text_textures(wxFont& font)
         {
             ret |= item->generate_texture(font);
 
-            // »ØÌî¿í¸ß±È£¨ºÜ¹Ø¼ü£¡·ñÔò scaled_text_size = 0£©
+            // å›žå¡«å®½é«˜æ¯”ï¼ˆå¾ˆå…³é”®ï¼å¦åˆ™ scaled_text_size = 0ï¼‰
             const int w = item->m_data.text_texture.m_original_width;
             const int h = item->m_data.text_texture.m_original_height;
             if (w > 0 && h > 0) {
                 item->m_data.extra_size_ratio = float(w) / float(h);
             } else {
-                // ¶µµ×£¬¸ø¸ö¿É¼ûµÄÈ±Ê¡Öµ£¨±ÈÈç 3:1£©
+                // å…œåº•ï¼Œç»™ä¸ªå¯è§çš„ç¼ºçœå€¼ï¼ˆæ¯”å¦‚ 3:1ï¼‰
                 item->m_data.extra_size_ratio = 3.0f;
             }
         }

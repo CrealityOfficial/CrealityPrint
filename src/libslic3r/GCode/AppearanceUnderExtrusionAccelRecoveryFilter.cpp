@@ -358,12 +358,14 @@ static bool is_pure_feedrate_motion_cmd(std::string_view raw_line)
     return has_f && !has_other;
 }
 
-static size_t extend_safe_begin_line(const std::vector<std::string>& lines, size_t defect_line)
+static size_t extend_safe_begin_line(const std::vector<std::string>& lines, const std::vector<bool>& zaa_lines, size_t defect_line)
 {
     // Include any immediately preceding "pure feedrate" commands (often emitted by cooling) and any blank/comment-only
     // lines between them and the first L_safe motion line.
     size_t begin = defect_line;
     while (begin > 0) {
+        if (zaa_lines[begin - 1])
+            break;
         const std::string& prev = lines[begin - 1];
         if (is_blank_or_comment_only_line(prev) || is_pure_feedrate_motion_cmd(prev))
             --begin;
@@ -420,6 +422,8 @@ struct Motion
     double       feedrate_mm_min{ 0.0 };
     double       accel_mm_s2{ 0.0 };
     int          object_id{ -1 };
+    bool         zaa_protected{ false };
+    size_t       zaa_epoch{ 0 };
 
     // For extrusion split
     double e_start_abs{ 0.0 };
@@ -671,6 +675,7 @@ struct AppearanceUnderExtrusionAccelRecoveryFilter::State
     ExtrusionRole role{ erNone };
     bool          use_relative_e{ true };
     int           object_id{ -1 };
+    ZaaIntervalTracker zaa_interval;
 };
 
 AppearanceUnderExtrusionAccelRecoveryFilter::AppearanceUnderExtrusionAccelRecoveryFilter(const GCodeConfig& config,
@@ -700,6 +705,21 @@ void AppearanceUnderExtrusionAccelRecoveryFilter::reset()
 
 LayerResult AppearanceUnderExtrusionAccelRecoveryFilter::process_layer(LayerResult&& input)
 {
+    return process_layer(std::move(input), true);
+}
+
+LayerResult AppearanceUnderExtrusionAccelRecoveryFilter::process_layer(LayerResult&& input, bool layer_end)
+{
+    if (!m_state)
+        m_state = std::make_unique<State>();
+
+    // Preserve the entry state for the actual line parser, then advance the persistent
+    // tracker exactly once so protocol validation also covers all early-return paths.
+    const ZaaIntervalTracker zaa_interval_at_chunk_start = m_state->zaa_interval;
+    m_state->zaa_interval.consume_gcode(input.gcode);
+    if (layer_end)
+        m_state->zaa_interval.finish_layer();
+
     if (input.nop_layer_result)
         return std::move(input);
     if (m_flavor != gcfKlipper)
@@ -715,9 +735,8 @@ LayerResult AppearanceUnderExtrusionAccelRecoveryFilter::process_layer(LayerResu
         if (!any_enabled)
             return std::move(input);
     }
-    if (!m_state)
-        m_state = std::make_unique<State>();
-    input.gcode = apply_to_gcode_layer(std::move(input.gcode), m_params, m_config, m_flavor, m_object_params_by_id, *m_state);
+    input.gcode = apply_to_gcode_layer(std::move(input.gcode), m_params, m_config, m_flavor, m_object_params_by_id, *m_state,
+                                       zaa_interval_at_chunk_start);
     return std::move(input);
 }
 
@@ -789,7 +808,8 @@ std::string AppearanceUnderExtrusionAccelRecoveryFilter::apply_to_gcode_layer(st
                                                                               const GCodeConfig& config,
                                                                               GCodeFlavor flavor,
                                                                               const std::unordered_map<int, ObjectParams>& object_params_by_id,
-                                                                              State& state)
+                                                                              State& state,
+                                                                              ZaaIntervalTracker zaa_interval)
 {
     if (flavor != gcfKlipper)
         return std::move(gcode);
@@ -824,14 +844,21 @@ std::string AppearanceUnderExtrusionAccelRecoveryFilter::apply_to_gcode_layer(st
     // Parse lines and build motion list.
     std::vector<std::string> lines = split_lines_keep_newline(gcode);
     std::vector<int>         line_to_motion(lines.size(), -1);
+    std::vector<bool>        zaa_lines(lines.size(), false);
     std::vector<Motion>      motions;
     motions.reserve(lines.size() / 2);
 
+    size_t zaa_epoch = 0;
     GCodeReader parser;
     parser.apply_config(config);
 
     for (size_t li = 0; li < lines.size(); ++li) {
         const std::string& raw = lines[li];
+        const ZaaIntervalMarker zaa_marker = zaa_interval.consume_line(raw);
+        if (zaa_marker != ZaaIntervalMarker::None)
+            ++zaa_epoch;
+        const bool zaa_protected = zaa_marker != ZaaIntervalMarker::None || zaa_interval.inside();
+        zaa_lines[li] = zaa_protected;
 
         // Update role markers from comment-only lines.
         int object_id_marker = -1;
@@ -931,10 +958,14 @@ std::string AppearanceUnderExtrusionAccelRecoveryFilter::apply_to_gcode_layer(st
             m.feedrate_mm_s     = feedrate_mm_s;
             m.accel_mm_s2       = state.accel_mm_s2;
             m.object_id         = state.object_id;
+            m.zaa_protected     = zaa_protected;
+            m.zaa_epoch         = zaa_epoch;
             m.e_start_abs       = e_start;
             m.e_end_abs         = e_end;
             m.delta_e           = delta_e;
-            m.extruding         = (delta_e > 0.0);
+            m.extruding         = delta_e > 0.0 && !zaa_protected;
+            if (zaa_protected)
+                m.role = erNone;
 
             if (is_g2 || is_g3) {
                 m.is_arc  = true;
@@ -1047,6 +1078,17 @@ std::string AppearanceUnderExtrusionAccelRecoveryFilter::apply_to_gcode_layer(st
             if (*defect_begin > *defect_end)
                 continue;
 
+            const size_t span_epoch = motions[*trigger_begin].zaa_epoch;
+            bool intersects_zaa = false;
+            for (size_t mi = *trigger_begin; mi <= *defect_end; ++mi) {
+                if (motions[mi].zaa_protected || motions[mi].zaa_epoch != span_epoch) {
+                    intersects_zaa = true;
+                    break;
+                }
+            }
+            if (intersects_zaa)
+                continue;
+
             int span_object_id = motions[*defect_begin].object_id;
             if (span_object_id < 0)
                 span_object_id = motions[*trigger_begin].object_id;
@@ -1155,10 +1197,12 @@ std::string AppearanceUnderExtrusionAccelRecoveryFilter::apply_to_gcode_layer(st
         // Note: cooling may emit standalone "G1 F..." right before the first safe-segment motion line, so extend
         // the begin line backwards to include those pure-feedrate commands as well.
         if (defect_line < lines.size()) {
-            const size_t begin = extend_safe_begin_line(lines, defect_line);
+            const size_t begin = extend_safe_begin_line(lines, zaa_lines, defect_line);
             const size_t last  = std::min(boundary_line, lines.size() - 1);
-            for (size_t l = begin; l <= last; ++l)
-                safe_plan_of_line[l] = static_cast<int>(pi);
+            for (size_t l = begin; l <= last; ++l) {
+                if (!zaa_lines[l])
+                    safe_plan_of_line[l] = static_cast<int>(pi);
+            }
         }
 
         constexpr double end_eps = 1e-6;

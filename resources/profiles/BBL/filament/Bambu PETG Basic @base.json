@@ -5,6 +5,7 @@
     "from": "system",
     "filament_id": "GFG00",
     "instantiation": "false",
+    "description": "To get better transparent or translucent results with the corresponding filament, please refer to this wiki: Printing tips for transparent PETG.",
     "cool_plate_temp": [
         "0"
     ],
@@ -26,8 +27,11 @@
     "fan_min_speed": [
         "10"
     ],
+    "filament_change_length_nc": [
+        "10"
+    ],
     "filament_cost": [
-        "24.99"
+        "19.99"
     ],
     "filament_density": [
         "1.25"
@@ -41,11 +45,17 @@
     "filament_vendor": [
         "Bambu Lab"
     ],
+    "first_x_layer_fan_speed": [
+        "0"
+    ],
     "hot_plate_temp": [
         "70"
     ],
     "hot_plate_temp_initial_layer": [
         "70"
+    ],
+    "impact_strength_z": [
+        "13.6"
     ],
     "nozzle_temperature_range_high": [
         "270"
@@ -61,6 +71,9 @@
     ],
     "slow_down_layer_time": [
         "12"
+    ],
+    "temperature_vitrification": [
+        "60"
     ],
     "textured_plate_temp": [
         "70"

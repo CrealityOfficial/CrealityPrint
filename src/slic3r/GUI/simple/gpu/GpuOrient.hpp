@@ -10,14 +10,14 @@ namespace Slic3r {
 namespace orientation {
 
 // GPU-accelerated orienter supporting MinArea, MinVolume and MinTime modes.
-// Uses OpenGL 4.3 compute shaders (Windows: WGL context, Linux: EGL headless).
+// Uses OpenGL 4.3 compute shaders on Windows/Linux and Metal compute on macOS.
 // Falls back to CPU automatically when GPU is unavailable or init fails.
 class GpuOrient {
 public:
     GpuOrient();
     ~GpuOrient();
 
-    // Whether the GPU path is ready (GL context + compute shader compiled).
+    // Whether the platform GPU backend and its compute pipelines are ready.
     bool available() const noexcept;
 
     // Try to orient meshes on GPU. If fallback_to_cpu is true and GPU is

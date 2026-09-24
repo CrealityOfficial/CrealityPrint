@@ -203,6 +203,7 @@ bool ObjectSettings::update_settings_list()
 
     std::map<ObjectBase *, ModelConfig*> plate_configs;
     std::map<ObjectBase *, ModelConfig*> object_configs;
+    std::vector<std::pair<ModelObject*, ModelConfig*>> layer_configs;
     bool is_plate_settings = false;
     bool is_object_settings = false;
     bool is_volume_settings = false;
@@ -255,7 +256,8 @@ bool ObjectSettings::update_settings_list()
             parent_object = object;
 
             t_layer_height_range height_range = objects_model->GetLayerRangeByItem(item);
-            object_configs.emplace( (ObjectBase*)(&object->layer_config_ranges.at(height_range)), &object->layer_config_ranges.at(height_range) );
+            ModelConfig& range_config = object->layer_config_ranges.at(height_range);
+            layer_configs.emplace_back(object, &range_config);
         }
         else if (type == itLayerRoot) {
             is_layer_root = true;
@@ -265,41 +267,41 @@ bool ObjectSettings::update_settings_list()
     auto tab_plate = dynamic_cast<TabPrintPlate*>(wxGetApp().get_plate_tab());
     auto tab_object = dynamic_cast<TabPrintModel*>(wxGetApp().get_model_tab());
     auto tab_volume = dynamic_cast<TabPrintModel*>(wxGetApp().get_model_tab(true));
-    auto tab_layer = dynamic_cast<TabPrintModel*>(wxGetApp().get_layer_tab());
+    auto tab_layer = dynamic_cast<TabPrintLayer*>(wxGetApp().get_layer_tab());
 
     if (is_plate_settings) {
         tab_plate->set_model_config(plate_configs);
         tab_object->set_model_config({});
         tab_volume->set_model_config({});
-        tab_layer->set_model_config({});
+        tab_layer->set_layer_configs({});
         ;// m_tab_active = tab_plate;
     }
     else if (is_object_settings) {
         tab_plate->set_model_config(plate_configs);
         tab_object->set_model_config(object_configs);
         tab_volume->set_model_config({});
-        tab_layer->set_model_config({});
+        tab_layer->set_layer_configs({});
         //m_tab_active = tab_object;
     }   
     else if (is_volume_settings) {
         tab_plate->set_model_config(plate_configs);
         tab_object->set_model_config({ {parent_object, &parent_object->config} });
         tab_volume->set_model_config(object_configs);
-        tab_layer->set_model_config({});
+        tab_layer->set_layer_configs({});
         //m_tab_active = tab_volume;
     }
     else if (is_layer_range_settings) {
         tab_plate->set_model_config(plate_configs);
         tab_object->set_model_config({ {parent_object, &parent_object->config} });
         tab_volume->set_model_config({});
-        tab_layer->set_model_config(object_configs);
+        tab_layer->set_layer_configs(layer_configs);
         //m_tab_active = tab_layer;
     }    
     else {
         tab_plate->set_model_config({});
         tab_object->set_model_config({});
         tab_volume->set_model_config({});
-        tab_layer->set_model_config({});
+        tab_layer->set_layer_configs({});
         //m_tab_active = nullptr;
     }
     ((ParamsPanel*) tab_object->GetParent())->set_active_tab(nullptr);

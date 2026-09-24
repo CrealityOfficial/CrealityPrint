@@ -4,6 +4,7 @@
 #include "ModelInstance.hpp"
 #include "Model.hpp"
 #include "Print.hpp"
+#include "PaintReproject.hpp"
 
 #include <algorithm>
 #include <map>
@@ -36,6 +37,36 @@ void ModelVolume::reset_extra_facets()
     this->seam_facets.reset();
     this->mmu_segmentation_facets.reset();
     this->fuzzy_skin_facets.reset();
+}
+
+bool ModelVolume::set_mesh_keep_paint(TriangleMesh &&mesh_in,
+                                      const std::function<void(int, const char *)> &progress,
+                                      const std::function<bool()> &cancel)
+{
+    FacetsAnnotation supported;
+    FacetsAnnotation seam;
+    FacetsAnnotation mmu;
+    FacetsAnnotation fuzzy;
+
+    const ModelInstance *instance = (this->object != nullptr && !this->object->instances.empty()) ?
+                                        this->object->instances.front() : nullptr;
+    const Transform3d dst_world_matrix =
+        (instance != nullptr ? instance->get_transformation().get_matrix_no_offset() : Transform3d::Identity()) *
+        this->get_matrix();
+
+    if (!reproject_paint_geometric(
+            this->mesh(), this->supported_facets, this->seam_facets,
+            this->mmu_segmentation_facets, this->fuzzy_skin_facets,
+            mesh_in, Transform3d::Identity(), supported, seam, mmu, fuzzy,
+            progress, cancel, &dst_world_matrix))
+        return false;
+
+    this->set_mesh(std::move(mesh_in));
+    this->supported_facets.assign(std::move(supported));
+    this->seam_facets.assign(std::move(seam));
+    this->mmu_segmentation_facets.assign(std::move(mmu));
+    this->fuzzy_skin_facets.assign(std::move(fuzzy));
+    return true;
 }
 
 static void invalidate_translations(ModelObject* object, const ModelInstance* src_instance)
@@ -327,8 +358,11 @@ std::string ModelVolume::type_to_string(const ModelVolumeType t)
 // This is useful to assign different materials to different volumes of an object.
 size_t ModelVolume::split(unsigned int max_extruders)
 {
-    std::vector<TriangleMesh> meshes = this->mesh().split();
+    std::vector<std::unordered_map<int, int>> face_relationships;
+    std::vector<TriangleMesh> meshes = this->mesh().split_and_save_relationship(face_relationships);
     if (meshes.size() <= 1)
+        return 1;
+    if (meshes.size() != face_relationships.size())
         return 1;
 
     // splited volume should not be text object
@@ -341,6 +375,39 @@ size_t ModelVolume::split(unsigned int max_extruders)
 
     unsigned int extruder_counter = 0;
     const Vec3d offset = this->get_offset();
+
+    const size_t source_face_count = this->mesh().its.indices.size();
+    std::vector<std::string> source_supported, source_seam, source_mmu, source_fuzzy;
+    source_supported.reserve(source_face_count);
+    source_seam.reserve(source_face_count);
+    source_mmu.reserve(source_face_count);
+    source_fuzzy.reserve(source_face_count);
+    for (size_t face_idx = 0; face_idx < source_face_count; ++face_idx) {
+        source_supported.emplace_back(this->supported_facets.get_triangle_as_string(int(face_idx)));
+        source_seam.emplace_back(this->seam_facets.get_triangle_as_string(int(face_idx)));
+        source_mmu.emplace_back(this->mmu_segmentation_facets.get_triangle_as_string(int(face_idx)));
+        source_fuzzy.emplace_back(this->fuzzy_skin_facets.get_triangle_as_string(int(face_idx)));
+    }
+
+    auto restore_annotations = [&](ModelVolume &volume, size_t part_idx) {
+        const size_t face_count = volume.mesh().its.indices.size();
+        for (size_t face_idx = 0; face_idx < face_count; ++face_idx) {
+            const auto it = face_relationships[part_idx].find(int(face_idx));
+            if (it == face_relationships[part_idx].end())
+                continue;
+            const int source_face = it->second;
+            if (source_face < 0 || size_t(source_face) >= source_face_count)
+                continue;
+            if (!source_supported[size_t(source_face)].empty())
+                volume.supported_facets.set_triangle_from_string(int(face_idx), source_supported[size_t(source_face)]);
+            if (!source_seam[size_t(source_face)].empty())
+                volume.seam_facets.set_triangle_from_string(int(face_idx), source_seam[size_t(source_face)]);
+            if (!source_mmu[size_t(source_face)].empty())
+                volume.mmu_segmentation_facets.set_triangle_from_string(int(face_idx), source_mmu[size_t(source_face)]);
+            if (!source_fuzzy[size_t(source_face)].empty())
+                volume.fuzzy_skin_facets.set_triangle_from_string(int(face_idx), source_fuzzy[size_t(source_face)]);
+        }
+    };
 
     for (TriangleMesh &mesh : meshes) {
         if (mesh.empty())
@@ -362,9 +429,13 @@ size_t ModelVolume::split(unsigned int max_extruders)
             this->supported_facets.reset();
             this->seam_facets.reset();
             this->fuzzy_skin_facets.reset();
+            restore_annotations(*this, idx);
         }
-        else
-            this->object->volumes.insert(this->object->volumes.begin() + (++ivolume), new ModelVolume(object, *this, std::move(mesh)));
+        else {
+            ModelVolume *new_volume = new ModelVolume(object, *this, std::move(mesh));
+            this->object->volumes.insert(this->object->volumes.begin() + (++ivolume), new_volume);
+            restore_annotations(*new_volume, idx);
+        }
 
         this->object->volumes[ivolume]->set_offset(Vec3d::Zero());
         this->object->volumes[ivolume]->center_geometry_after_creation();
@@ -667,4 +738,3 @@ bool FacetsAnnotation::equals(const FacetsAnnotation &other) const
 }
 
 };
-

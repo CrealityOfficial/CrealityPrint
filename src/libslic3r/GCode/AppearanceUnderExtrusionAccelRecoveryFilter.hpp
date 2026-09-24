@@ -4,6 +4,7 @@
 #include "../libslic3r.h"
 #include "../ExtrusionEntity.hpp"
 #include "../PrintConfig.hpp"
+#include "ZaaIntervalProtocol.hpp"
 
 #include <memory>
 #include <string>
@@ -69,10 +70,17 @@ public:
 
     void reset();
     LayerResult process_layer(LayerResult&& input);
+    LayerResult process_layer(LayerResult&& input, bool layer_end);
 
 private:
     struct State;
-    static std::string apply_to_gcode_layer(std::string&& gcode, const AppearanceUnderExtrusionAccelRecoveryConfig& params, const GCodeConfig& config, GCodeFlavor flavor, const std::unordered_map<int, ObjectParams>& object_params_by_id, State& state);
+    static std::string apply_to_gcode_layer(std::string&& gcode,
+                                            const AppearanceUnderExtrusionAccelRecoveryConfig& params,
+                                            const GCodeConfig& config,
+                                            GCodeFlavor flavor,
+                                            const std::unordered_map<int, ObjectParams>& object_params_by_id,
+                                            State& state,
+                                            ZaaIntervalTracker zaa_interval);
 
     AppearanceUnderExtrusionAccelRecoveryConfig m_params;
     std::unordered_map<int, ObjectParams> m_object_params_by_id;

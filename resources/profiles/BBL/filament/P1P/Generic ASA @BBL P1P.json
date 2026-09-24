@@ -5,17 +5,36 @@
     "from": "system",
     "setting_id": "GFSB98_10",
     "instantiation": "true",
-    "hot_plate_temp": [
-        "100"
+    "filament_max_volumetric_speed": [
+        "12",
+        "12"
     ],
-    "hot_plate_temp_initial_layer": [
-        "100"
+    "filament_ramming_travel_time": [
+        "0",
+        "0"
     ],
-    "textured_plate_temp": [
-        "100"
+    "include": [
+        "fdm_filament_template_direct_dual"
     ],
-    "textured_plate_temp_initial_layer": [
-        "100"
+    "long_retractions_when_ec": [
+        "0",
+        "0"
+    ],
+    "nozzle_temperature": [
+        "260",
+        "260"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "260",
+        "260"
+    ],
+    "retraction_distances_when_ec": [
+        "0",
+        "0"
+    ],
+    "slow_down_min_speed": [
+        "20",
+        "20"
     ],
     "compatible_printers": [
         "Bambu Lab P1P 0.4 nozzle",

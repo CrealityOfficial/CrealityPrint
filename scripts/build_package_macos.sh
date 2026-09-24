@@ -18,6 +18,8 @@
 #   CREALITYPRINT_VERSION - Version for DMG package (default: VERSION)
 #   CMAKE_OSX_ARCHITECTURES - Architecture for DMG package (default: ARCH)
 #   PROJECT_VERSION_EXTRA - Extra version for DMG package (default: Alpha)
+#   APP_STORE_BUILD     - Set to 1 to build the Mac App Store variant
+#   APP_STORE_BUILD_NUMBER - Required unique App Store build number (default: VERSION)
 #
 # Examples:
 #   ./build_package_macos.sh                           # Normal incremental build
@@ -79,7 +81,11 @@ export CCACHE_BASEDIR="${CCACHE_BASEDIR:-$(pwd)}"
 export CCACHE_NOHASHDIR="${CCACHE_NOHASHDIR:-true}"
 
 if [ -z "$OSX_DEPLOYMENT_TARGET" ]; then
-  export OSX_DEPLOYMENT_TARGET="11.3"
+  if [ "${APP_STORE_BUILD:-0}" = "1" ]; then
+    export OSX_DEPLOYMENT_TARGET="12.0"
+  else
+    export OSX_DEPLOYMENT_TARGET="11.3"
+  fi
 fi
 
 VERSION_TAG_NAME=$1
@@ -92,6 +98,10 @@ if  [ -z "$SLICER_HEADER" ]; then
 fi
 if [ -z "$VERSION_TAG_NAME" ]; then
     export VERSION_TAG_NAME="6.0.0"
+fi
+if [ "${APP_STORE_BUILD:-0}" = "1" ] && [ -z "${APP_STORE_BUILD_NUMBER:-}" ]; then
+    echo "Error: APP_STORE_BUILD_NUMBER is required for App Store builds." >&2
+    exit 1
 fi
 
 if [ -z "$APPNAME" ]; then
@@ -538,6 +548,8 @@ function build_slicer() {
                 -DCMAKE_MACOSX_RPATH=ON \
                 -DCMAKE_INSTALL_RPATH="${DEPS}/usr/local" \
                 -DCMAKE_MACOSX_BUNDLE=ON \
+                -DCREALITYPRINT_APP_STORE="${APP_STORE_BUILD:-0}" \
+                -DCREALITYPRINT_BUILD_NUMBER="${APP_STORE_BUILD_NUMBER:-$VERSION_TAG_NAME}" \
                 -DCMAKE_OSX_ARCHITECTURES="${ARCH}" \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET="${OSX_DEPLOYMENT_TARGET}" \
                 -DPROCESS_NAME=$APPNAME \
@@ -560,13 +572,19 @@ function build_slicer() {
     # )
 }
 
+function pack_app_store() {
+    local app_path="$PROJECT_BUILD_DIR/src$BUILD_DIR_CONFIG_SUBDIR/$APPNAME.app"
+    local output_path="$PROJECT_BUILD_DIR/${APPNAME}-${VERSION_TAG_NAME}-mac-app-store.pkg"
+    bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/package_macos_app_store.sh" "$app_path" "$output_path"
+}
+
 case "${BUILD_TARGET}" in
     all)
         build_deps
         build_slicer
         process_debug_symbols
         compress_and_rename_symbols
-        pack_slicer
+        if [[ "${APP_STORE_BUILD:-0}" == "1" ]]; then pack_app_store; else pack_slicer; fi
         ;;
     deps)
         build_deps
@@ -575,7 +593,7 @@ case "${BUILD_TARGET}" in
         build_slicer
         process_debug_symbols
         compress_and_rename_symbols
-        pack_slicer
+        if [[ "${APP_STORE_BUILD:-0}" == "1" ]]; then pack_app_store; else pack_slicer; fi
         ;;
     *)
         echo "Unknown target: $BUILD_TARGET. Available targets: deps, slicer, all."

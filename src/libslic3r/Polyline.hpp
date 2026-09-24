@@ -283,10 +283,23 @@ inline ThickPolylines to_thick_polylines(Polylines&& polylines, const coordf_t w
     return out;
 }
 
+// Fixed-point three-dimensional polyline. XY remains in slicer coordinates and
+// Z is carried in the same scaled-coordinate unit.
 class Polyline3 : public MultiPoint3
 {
 public:
-    virtual Lines3 lines() const;
+    Polyline to_polyline() const;
+    double length_xy() const;
+    double length_3d() const;
+    void reverse();
+    // Removes XY arc length from the end while retaining a matching interpolated Z.
+    void clip_end(double distance);
+
+    // Split with Polyline::split_at-compatible XY semantics: preserve \p query
+    // exactly, while interpolating Z at the closest segment projection.
+    bool split_at_xy(const Point &query, Point &actual_xy, Polyline3 *before, Polyline3 *after) const;
+
+    Lines3 lines() const override;
 };
 
 typedef std::vector<Polyline3> Polylines3;

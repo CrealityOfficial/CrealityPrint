@@ -1,6 +1,8 @@
 #include "UnsavedChangesDialog.hpp"
 
 #include <cstddef>
+#include <exception>
+#include <set>
 #include <string>
 #include <vector>
 #include <boost/algorithm/string.hpp>
@@ -784,6 +786,12 @@ static std::string none{"none"};
 #define GREY300 wxColour(238,238,238)
 #define GREY200 wxColour(248,248,248)
 
+static size_t printer_extruder_count(const Preset& preset)
+{
+    const auto* nozzle_diameters = dynamic_cast<const ConfigOptionFloats*>(preset.config.option("nozzle_diameter"));
+    return nozzle_diameters == nullptr || nozzle_diameters->empty() ? 1 : nozzle_diameters->size();
+}
+
 
 UnsavedChangesDialog::UnsavedChangesDialog(const wxString &caption, const wxString &header, const std::string &app_config_key, int act_buttons)
     : DPIDialog(static_cast<wxWindow *>(wxGetApp().mainframe),
@@ -851,6 +859,14 @@ inline int UnsavedChangesDialog::ShowModal()
 
 void UnsavedChangesDialog::build(Preset::Type type, PresetCollection *dependent_presets, const std::string &new_selected_preset, const wxString &header)
 {
+    if (type == Preset::TYPE_PRINTER && dependent_presets != nullptr &&
+        dependent_presets->type() == Preset::TYPE_PRINT && wxGetApp().preset_bundle != nullptr) {
+        const Preset& current_printer = wxGetApp().preset_bundle->printers.get_edited_preset();
+        const Preset* target_printer = wxGetApp().preset_bundle->printers.find_preset(new_selected_preset);
+        m_warn_process_transfer_to_single_extruder = target_printer != nullptr &&
+            printer_extruder_count(current_printer) > 1 && printer_extruder_count(*target_printer) == 1;
+    }
+
     SetBackgroundColour(*wxWHITE);
     // icon
     std::string icon_path = (boost::format("%1%/images/%2%.ico") % resources_dir() % Slic3r::CxBuildInfo::getIconName()).str();
@@ -1111,6 +1127,14 @@ void UnsavedChangesDialog::show_info_line(Action action, std::string preset_name
 void UnsavedChangesDialog::close(Action action)
 {
     if (action == Action::Transfer) {
+        if (m_warn_process_transfer_to_single_extruder) {
+            MessageDialog warning(
+                this,
+                _L("When switching to a printer with a different extruder type or count, changes to extruder or multi-nozzle related settings will be discarded or reset."),
+                _L("Use modified values of process preset"),
+                wxOK | wxICON_WARNING);
+            warning.ShowModal();
+        }
         check_option_valid();
     }
     m_exit_action = action;
@@ -1269,115 +1293,92 @@ static wxString get_full_label(std::string opt_key, const DynamicPrintConfig& co
 
 static wxString get_string_value(std::string opt_key, const DynamicPrintConfig& config)
 {
-    int orig_opt_idx = -1;
-    int opt_idx = -1;
-    int pos = opt_key.find("#");
-    std::string temp_str = opt_key;
-    if (pos > 0) {
-        boost::erase_head(temp_str, pos + 1);
-        orig_opt_idx = static_cast<size_t>(atoi(temp_str.c_str()));
+    const size_t pos = opt_key.find("#");
+    const bool indexed = pos != std::string::npos;
+    size_t opt_idx = 0;
+    if (indexed) {
+        const std::string index = opt_key.substr(pos + 1);
+        if (index.empty() || index.find_first_not_of("0123456789") != std::string::npos)
+            return _L("Undef");
+        try {
+            opt_idx = std::stoul(index);
+        } catch (const std::exception&) {
+            return _L("Undef");
+        }
     }
-    opt_idx = orig_opt_idx >= 0 ? orig_opt_idx : 0;
     opt_key = get_pure_opt_key(opt_key);
-
-    if (config.option(opt_key)->is_nil())
-        return _L("N/A");
-
-    wxString out;
-
+    const ConfigOption* value = config.option(opt_key);
     const ConfigOptionDef* opt = config.def()->get(opt_key);
-    bool is_nullable = opt->nullable;
+    if (value == nullptr || opt == nullptr)
+        return _L("Undef");
+
+    if (const auto* values = dynamic_cast<const ConfigOptionVectorBase*>(value)) {
+        // These options describe a complete list or geometry, not nozzle rows.
+        if (opt_key == "compatible_printers" || opt_key == "compatible_prints") {
+            if (values->empty())
+                return _L("All");
+            wxString out;
+            for (const std::string& item : values->vserialize()) {
+                if (!out.IsEmpty())
+                    out += "\n";
+                out += from_u8(item);
+            }
+            return out;
+        }
+        if (opt->type == coPoints && (opt_key == "printable_area" || opt_key == "thumbnails" ||
+            opt_key == "bed_exclude_area" || opt_key == "head_wrap_detect_zone"))
+            return get_thumbnails_string(config.option<ConfigOptionPoints>(opt_key)->values);
+
+        if (values->empty() || (indexed && opt_idx >= values->size()))
+            return _L("Undef");
+        const std::vector<std::string> serialized = opt->type == coEnums ?
+            std::vector<std::string>() : values->vserialize();
+        auto format_item = [&](size_t index) -> wxString {
+            if (values->is_nil(index))
+                return _L("N/A");
+            if (opt->type == coEnums)
+                return get_string_from_enum(opt_key, config,
+                    opt_key == "top_surface_pattern" || opt_key == "bottom_surface_pattern" ||
+                    opt_key == "internal_solid_infill_pattern" || opt_key == "sparse_infill_pattern",
+                    static_cast<int>(index));
+            if (index >= serialized.size())
+                return _L("Undef");
+            if (opt->type == coBools)
+                return serialized[index] == "0" ? "false" : "true";
+            if (opt->type == coPoints) {
+                const Vec2d point = config.option<ConfigOptionPoints>(opt_key)->get_at(index);
+                return from_u8((boost::format("[%1%]") % ConfigOptionPoint(point).serialize()).str());
+            }
+            // Use the option's serializer for all numeric/string vector types,
+            // including nullable floats-or-percents, preserving each item's unit.
+            return from_u8(serialized[index]);
+        };
+        if (indexed || values->size() == 1)
+            return format_item(indexed ? opt_idx : 0);
+        wxString out = "[";
+        for (size_t index = 0; index < values->size(); ++index) {
+            if (index > 0)
+                out += ", ";
+            out += format_item(index);
+        }
+        return out + "]";
+    }
+
+    if (value->is_nil())
+        return _L("N/A");
+    wxString out;
 
     switch (opt->type) {
     case coInt:
         return from_u8((boost::format("%1%") % config.opt_int(opt_key)).str());
-    case coInts: {
-        if (is_nullable) {
-            auto values = config.opt<ConfigOptionIntsNullable>(opt_key);
-            if (opt_idx < values->size())
-                return from_u8((boost::format("%1%") % values->get_at(opt_idx)).str());
-        }
-        else {
-            auto values = config.opt<ConfigOptionInts>(opt_key);
-            if (orig_opt_idx >= 0 && orig_opt_idx < values->size()) {
-                return from_u8((boost::format("%1%") % values->get_at(opt_idx)).str());
-            }
-            else {
-                std::string value_str;
-                for (int i = 0; i < values->size(); i++) {
-                    value_str += std::to_string(values->get_at(i));
-                    if (i != values->size() - 1) {
-                        value_str += ",";
-                    }
-                }
-                return from_u8(value_str);
-            }
-        }
-        return _L("Undef");
-    }
     case coBool:
         return config.opt_bool(opt_key) ? "true" : "false";
-    case coBools: {
-        if (is_nullable) {
-            auto values = config.opt<ConfigOptionBoolsNullable>(opt_key);
-            if (opt_idx < values->size())
-                return values->get_at(opt_idx) ? "true" : "false";
-        }
-        else {
-            auto values = config.opt<ConfigOptionBools>(opt_key);
-            if (opt_idx < values->size())
-                return values->get_at(opt_idx) ? "true" : "false";
-        }
-        return _L("Undef");
-    }
     case coPercent:
         return from_u8((boost::format("%1%%%") % int(config.optptr(opt_key)->getFloat())).str());
-    case coPercents: {
-        if (is_nullable) {
-            auto values = config.opt<ConfigOptionPercentsNullable>(opt_key);
-            if (opt_idx < values->size())
-                return from_u8((boost::format("%1%%%") % values->get_at(opt_idx)).str());
-        }
-        else {
-            auto values = config.opt<ConfigOptionPercents>(opt_key);
-            if (opt_idx < values->size())
-                return from_u8((boost::format("%1%%%") % values->get_at(opt_idx)).str());
-        }
-        return _L("Undef");
-    }
     case coFloat:
         return double_to_string(config.opt_float(opt_key));
-    case coFloats: {
-        if (is_nullable) {
-            auto values = config.opt<ConfigOptionFloatsNullable>(opt_key);
-            if (opt_idx < values->size())
-                return double_to_string(values->get_at(opt_idx));
-        }
-        else {
-            auto values = config.opt<ConfigOptionFloats>(opt_key);
-            if (opt_idx < values->size())
-                return double_to_string(values->get_at(opt_idx));
-        }
-        return _L("Undef");
-    }
     case coString:
         return from_u8(config.opt_string(opt_key));
-    case coStrings: {
-        const ConfigOptionStrings* strings = config.opt<ConfigOptionStrings>(opt_key);
-        if (strings) {
-            if (opt_key == "compatible_printers" || opt_key == "compatible_prints") {
-                if (strings->empty())
-                    return _L("All");
-                for (size_t id = 0; id < strings->size(); id++)
-                    out += from_u8(strings->get_at(id)) + "\n";
-                out.RemoveLast(1);
-                return out;
-            }
-            if (!strings->empty() && opt_idx < strings->values.size())
-                return from_u8(strings->get_at(opt_idx));
-        }
-        break;
-        }
     case coFloatOrPercent: {
         const ConfigOptionFloatOrPercent* opt = config.opt<ConfigOptionFloatOrPercent>(opt_key);
         if (opt)
@@ -1391,32 +1392,8 @@ static wxString get_string_value(std::string opt_key, const DynamicPrintConfig& 
             opt_key == "internal_solid_infill_pattern" ||
             opt_key == "sparse_infill_pattern");
     }
-    case coEnums: {
-        return get_string_from_enum(opt_key, config,
-            opt_key == "top_surface_pattern" ||
-            opt_key == "bottom_surface_pattern" ||
-            opt_key == "internal_solid_infill_pattern" ||
-            opt_key == "sparse_infill_pattern",
-            opt_idx);
-    }
     case coPoint: {
         Vec2d val = config.opt<ConfigOptionPoint>(opt_key)->value;
-        return from_u8((boost::format("[%1%]") % ConfigOptionPoint(val).serialize()).str());
-    }
-    case coPoints: {
-        //BBS: add bed_exclude_area
-        if (opt_key == "printable_area" || opt_key == "thumbnails") {
-            ConfigOptionPoints points = *config.option<ConfigOptionPoints>(opt_key);
-            //BuildVolume build_volume = {points.values, 0.};
-            return get_thumbnails_string(points.values);
-        }
-        else if (opt_key == "bed_exclude_area") {
-            return get_thumbnails_string(config.option<ConfigOptionPoints>(opt_key)->values);
-        }
-        else if (opt_key == "head_wrap_detect_zone") {
-            return get_thumbnails_string(config.option<ConfigOptionPoints>(opt_key)->values);
-        }
-        Vec2d val = config.opt<ConfigOptionPoints>(opt_key)->get_at(opt_idx);
         return from_u8((boost::format("[%1%]") % ConfigOptionPoint(val).serialize()).str());
     }
     default:
@@ -1617,6 +1594,7 @@ void UnsavedChangesDialog::update_list()
 
                 data.old_value = subreplace(data.old_value.ToStdString(), "\n", " ");
                 auto text_oldv = new wxStaticText(panel_oldv, wxID_ANY, data.old_value, wxDefaultPosition, wxDefaultSize, wxST_ELLIPSIZE_END);
+                text_oldv->SetToolTip(data.old_value);
                 text_oldv->SetFont(::Label::Body_13);
                 text_oldv->Wrap(-1);
                 text_oldv->SetForegroundColour(GREY700);
@@ -1631,6 +1609,7 @@ void UnsavedChangesDialog::update_list()
 
                 data.new_value = subreplace(data.new_value.ToStdString(), "\n", " ");
                 auto text_newv = new wxStaticText(panel_newv, wxID_ANY, data.new_value, wxDefaultPosition, wxDefaultSize, wxST_ELLIPSIZE_END);
+                text_newv->SetToolTip(data.new_value);
                 text_newv->SetFont(::Label::Body_13);
                 text_newv->Wrap(-1);
                 text_newv->SetForegroundColour(GREY700);
@@ -1678,6 +1657,81 @@ std::string UnsavedChangesDialog::subreplace(std::string resource_str, std::stri
         dst_str.replace(pos, sub_str.length(), new_str);
     }
     return dst_str;
+}
+
+static wxString unsaved_changes_nozzle_volume_label(NozzleVolumeType type)
+{
+    switch (type) {
+    case nvtHighFlow:    return _L("High Flow");
+    case nvtHybrid:      return _L("Hybrid");
+    case nvtTPUHighFlow: return _L("TPU High Flow");
+    case nvtStandard:
+    default:             return _L("Standard");
+    }
+}
+
+struct PresetVariantRowDisplay
+{
+    std::string key;
+    wxString    label;
+};
+
+static PresetVariantRowDisplay preset_variant_row_display(
+    const DynamicPrintConfig& config, Preset::Type type, size_t row)
+{
+    PresetVariantRowDisplay result{
+        "row:" + std::to_string(row),
+        _L("Variant") + wxString::Format(" %d", int(row + 1))
+    };
+
+    const bool is_filament = type == Preset::TYPE_FILAMENT;
+    const auto* extruder_ids = is_filament ? nullptr :
+        config.option<ConfigOptionInts>("print_extruder_id");
+    const auto* nozzle_variants = config.option<ConfigOptionInts>(
+        is_filament ? "filament_nozzle_variant" : "print_nozzle_variant");
+    const auto* extruder_variants = config.option<ConfigOptionStrings>(
+        is_filament ? "filament_extruder_variant" : "print_extruder_variant");
+    if (nozzle_variants == nullptr || row >= nozzle_variants->size())
+        return result;
+
+    const int variant_index = nozzle_variants->get_at(row);
+    const std::string extruder_variant = extruder_variants != nullptr && row < extruder_variants->size()
+        ? extruder_variants->get_at(row) : std::string();
+    result.key = "variant:" + std::to_string(variant_index) + ":" + extruder_variant;
+    if (wxGetApp().preset_bundle == nullptr)
+        return result;
+
+    const int extruder_count = wxGetApp().preset_bundle->get_printer_extruder_count();
+    const int physical_extruder = extruder_ids != nullptr && row < extruder_ids->size()
+        ? extruder_ids->get_at(row) - 1 : -1;
+    NozzleVariantInfo matched_variant;
+    bool found = false;
+    auto find_variant = [variant_index, &matched_variant, &found](const std::vector<NozzleVariantInfo>& variants) {
+        const auto variant = std::find_if(variants.begin(), variants.end(), [variant_index](const NozzleVariantInfo& item) {
+            return item.variant_index == variant_index;
+        });
+        if (variant != variants.end()) {
+            matched_variant = *variant;
+            found = true;
+        }
+    };
+
+    if (physical_extruder >= 0 && physical_extruder < extruder_count)
+        find_variant(wxGetApp().preset_bundle->get_nozzle_variants(size_t(physical_extruder)));
+    for (int extruder = 0; !found && extruder < extruder_count; ++extruder)
+        find_variant(wxGetApp().preset_bundle->get_nozzle_variants(size_t(extruder)));
+    if (!found)
+        return result;
+
+    wxString diameter = wxString::Format("%.2f", matched_variant.nozzle_diameter);
+    while (diameter.EndsWith("0"))
+        diameter.RemoveLast();
+    if (diameter.EndsWith("."))
+        diameter.RemoveLast();
+
+    result.label = wxString::Format("%s-%s", diameter,
+                                    unsaved_changes_nozzle_volume_label(matched_variant.nozzle_volume_type));
+    return result;
 }
 
 void UnsavedChangesDialog::update_tree(Preset::Type type, PresetCollection* presets_)
@@ -1736,6 +1790,56 @@ void UnsavedChangesDialog::update_tree(Preset::Type type, PresetCollection* pres
                 // It can be for dirty_options: "default_print_profile", "printer_model", "printer_settings_id",
                 // because of they don't exist in searcher
                 continue;
+            }
+
+            // Process and filament nozzle variants share one vector option. Expand the
+            // changed rows here so edits made to multiple variants are not
+            // collapsed into a single entry that always displays row zero.
+            const bool show_preset_variants =
+                (type == Preset::TYPE_PRINT || type == Preset::TYPE_FILAMENT) &&
+                wxGetApp().preset_bundle != nullptr &&
+                wxGetApp().preset_bundle->get_printer_extruder_count() > 1;
+            const bool is_variant_option = type == Preset::TYPE_PRINT ?
+                print_options_with_variant.count(opt_key) != 0 :
+                type == Preset::TYPE_FILAMENT && filament_options_with_variant.count(opt_key) != 0;
+            if (show_preset_variants && is_variant_option) {
+                std::vector<PresetVariantOptionDiff> differences;
+                const bool compared = type == Preset::TYPE_PRINT ?
+                    compare_process_variant_option_by_identity(
+                        old_config, new_config, opt_key, differences) :
+                    compare_filament_variant_option_by_identity(
+                        old_config, new_config, opt_key, differences);
+                if (compared) {
+                    const auto* old_option = dynamic_cast<const ConfigOptionVectorBase*>(old_config.option(opt_key));
+                    const auto* new_option = dynamic_cast<const ConfigOptionVectorBase*>(new_config.option(opt_key));
+                    std::set<std::string> displayed_variants;
+                    bool expanded = false;
+                    for (const PresetVariantOptionDiff& difference : differences) {
+                        if (difference.nozzle_variant < 0 || old_option == nullptr || new_option == nullptr)
+                            continue;
+
+                        const bool display_edited_row = new_option->size() > 1;
+                        const DynamicPrintConfig& display_config = display_edited_row ? new_config : old_config;
+                        const size_t display_row = display_edited_row ?
+                            difference.edited_index : difference.reference_index;
+                        const PresetVariantRowDisplay variant =
+                            preset_variant_row_display(display_config, type, display_row);
+                        if (!displayed_variants.emplace(variant.key).second)
+                            continue;
+
+                        const std::string old_opt_key = opt_key + "#" +
+                            std::to_string(difference.reference_index);
+                        const std::string new_opt_key = opt_key + "#" +
+                            std::to_string(difference.edited_index);
+                        const wxString option_name = wxString(option.label_local) + "(" + variant.label + ")";
+                        m_presetitems.push_back({type, opt_key, option.category_local, option.group_local,
+                            option_name, get_string_value(old_opt_key, old_config),
+                            get_string_value(new_opt_key, new_config)});
+                        expanded = true;
+                    }
+                    if (expanded || differences.empty())
+                        continue;
+                }
             }
 
             /*m_tree->Append(opt_key, type, option.category_local, option.group_local, option.label_local,

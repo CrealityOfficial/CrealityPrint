@@ -358,7 +358,12 @@ wxBoxSizer *PreferencesDialog::create_item_region_combobox(wxString title, wxWin
         }
 
         wxGetApp().update_publish_status();
-        
+
+        // The printer catalogue is region specific: refetch machineList.json for the new
+        // region and refresh the cached machine list, otherwise the add-printer tree keeps
+        // the previous region's series until the next restart.
+        wxGetApp().refresh_machine_list_for_region();
+
         #ifdef __APPLE__
             this->notify_preferences_changed();
         #else

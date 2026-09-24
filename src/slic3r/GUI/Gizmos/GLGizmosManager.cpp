@@ -599,7 +599,7 @@ void GLGizmosManager::render_painter_gizmo()
     // This function shall only be called when current gizmo is
     // derived from GLGizmoPainterBase.
 
-    if (!m_enabled || m_current == Undefined)
+    if (!m_enabled || m_serializing || m_current == Undefined)
         return;
 
     auto *gizmo = dynamic_cast<GLGizmoPainterBase*>(get_current());
@@ -1123,6 +1123,7 @@ void GLGizmosManager::update_after_undo_redo(const UndoRedo::Snapshot& snapshot)
 {
     update_data();
     m_serializing = false;
+    m_parent.set_as_dirty();
     // if (m_current == SlaSupports
     //  && snapshot.snapshot_data.flags & UndoRedo::SnapshotData::RECALCULATE_SLA_SUPPORTS)
     //     dynamic_cast<GLGizmoSlaSupports*>(m_gizmos[SlaSupports].get())->reslice_SLA_supports(true);

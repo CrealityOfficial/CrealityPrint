@@ -32,7 +32,26 @@ int SyncUserPresets::startup()
     if (m_thread.joinable()) {
         m_thread.join();
     }
-    m_thread = std::thread(&SyncUserPresets::onRun, this);
+    m_thread = std::thread([this] {
+        try {
+            onRun();
+        } catch (const std::exception& e) {
+            BOOST_LOG_TRIVIAL(error) << "SyncUserPresets worker exception: " << e.what();
+            CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOAD_FAILED);
+            flush_logs();
+        } catch (...) {
+            BOOST_LOG_TRIVIAL(error) << "SyncUserPresets worker unknown exception";
+            CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOAD_FAILED);
+            flush_logs();
+        }
+        // Publish completion under the same mutex used by shutdown's waiter.
+        {
+            std::lock_guard<std::mutex> lock(m_mutexQuit);
+            m_bRunning.store(false);
+            m_bStoped.store(true);
+        }
+        m_cvQuit.notify_one();
+    });
     return 0;
 }
 
@@ -87,17 +106,14 @@ void SyncUserPresets::syncUserPresetsToCXCloud()
 void SyncUserPresets::syncUserPresetsToFrontPage()
 {
     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets syncUserPresetsToFrontPage" ;
-    m_mutexLstSyncCmd.lock();
-    if (m_syncThreadState != ENSyncThreadState::ENTS_SYNC_TO_FRONT_PAGE) {
-        if (std::find(m_lstSyncCmd.begin(), m_lstSyncCmd.end(), ENSyncCmd::ENSC_SYNC_TO_FRONT_PAGE) == m_lstSyncCmd.end()) {
-            m_lstSyncCmd.push_back(ENSyncCmd::ENSC_SYNC_TO_FRONT_PAGE);
-        } else {
-            BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets has found syncUserPresetsToFrontPage";
-        }
+    std::lock_guard<std::mutex> lock(m_mutexLstSyncCmd);
+    // A refreshed page needs a new response even if the previous request is
+    // still being processed. Only coalesce requests that are still queued.
+    if (std::find(m_lstSyncCmd.begin(), m_lstSyncCmd.end(), ENSyncCmd::ENSC_SYNC_TO_FRONT_PAGE) == m_lstSyncCmd.end()) {
+        m_lstSyncCmd.push_back(ENSyncCmd::ENSC_SYNC_TO_FRONT_PAGE);
     } else {
-        BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets threadState=" << (int)m_syncThreadState;
+        BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets has found syncUserPresetsToFrontPage";
     }
-    m_mutexLstSyncCmd.unlock();
 }
 
 void SyncUserPresets::syncConfigToCXCloud()
@@ -113,11 +129,34 @@ void SyncUserPresets::setAppHasStartuped() {
     m_bAppHasStartuped.store(true);
 }
 void SyncUserPresets::logout() {
-    m_bHasSyncToLocal = false;
+    // Called on the UI thread before changing the account or its preset bundle.
+    // Join first: an in-flight download must not repopulate the cleared cache.
+    ++m_accountGeneration;
+    stopSync();
+    shutdown();
+    {
+        std::lock_guard<std::mutex> lock(m_mutexLstSyncCmd);
+        m_lstSyncCmd.clear();
+        m_bHasSyncToLocal = false;
+        m_syncThreadState = ENSyncThreadState::ENTS_IDEL_CHECK;
+    }
+    m_bTokenInvalidHasTip = false;
+    auto& cloud = CXCloudDataCenter::getInstance();
+    cloud.cleanUserCloudPresets();
+    cloud.updateCXCloutLoginInfo("", "");
+    cloud.setTokenInvalid();
+    cloud.setDownloadPresetState(ENDownloadPresetState::ENDPS_NOT_DOWNLOAD);
+    cloud.setDownloadConfigToLocalState(ENDownloadConfigState::ENDCS_NOT_DOWNLOAD);
+    cloud.setConfigFileRetInfo(PreUpdateProfileRetInfo{});
+    cloud.setSyncData(json());
+    cloud.setNetworkError(false);
+    // Keep the worker available; only startSync() enables the new account.
+    startup();
 }
 
 void SyncUserPresets::onRun()
 {
+    const auto accountGeneration = m_accountGeneration.load();
     std::list<ENSyncCmd> lstSyncCmd;
     while (m_bRunning.load()) {
         if (!m_bSync.load()) 
@@ -130,6 +169,8 @@ void SyncUserPresets::onRun()
         {
             if (m_bAppHasStartuped.load() && !m_bTokenInvalidHasTip) {
                 wxGetApp().CallAfter([=] {
+                    if (accountGeneration != m_accountGeneration.load())
+                        return;
                     wxGetApp().mainframe->m_param_dialog->Close();
                     wxGetApp().mainframe->select_tab(MainFrame::tpHome);
                     wxGetApp().swith_community_sub_page("token_expired");
@@ -161,7 +202,17 @@ void SyncUserPresets::onRun()
                 m_syncThreadState = ENSyncThreadState::ENTS_SYNC_TO_LOCAL;
                 CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOADING);
                 SyncToLocalRetInfo syncToLocalRetInfo;
-                if (doSyncToLocal(syncToLocalRetInfo) != 0) {
+                int sync_result = -1;
+                try {
+                    sync_result = doSyncToLocal(syncToLocalRetInfo);
+                } catch (const std::exception& e) {
+                    BOOST_LOG_TRIVIAL(error) << "SyncUserPresets sync to local exception: " << e.what();
+                    flush_logs();
+                } catch (...) {
+                    BOOST_LOG_TRIVIAL(error) << "SyncUserPresets sync to local unknown exception";
+                    flush_logs();
+                }
+                if (sync_result != 0) {
                     CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOAD_FAILED);
                     continue;
                 }
@@ -173,6 +224,8 @@ void SyncUserPresets::onRun()
                     break;
                 }
                 wxGetApp().CallAfter([=] { 
+                    if (accountGeneration != m_accountGeneration.load())
+                        return;
                     //delLocalUserPresetsInUiThread(syncToLocalRetInfo);
                     reloadPresetsInUiThread();
                     CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOAD_SUCCESS);
@@ -186,6 +239,8 @@ void SyncUserPresets::onRun()
 
                 auto response_js = wxString::Format("window.handleStudioCmd('%s')", jsonData);
                 wxGetApp().CallAfter([=]() { 
+                    if (accountGeneration != m_accountGeneration.load())
+                        return;
                     wxGetApp().run_script(response_js); 
                 });
             } else if (cmd == ENSyncCmd::ENSC_SYNC_CONFIG_TO_CXCLOUD) {
@@ -201,7 +256,7 @@ void SyncUserPresets::onRun()
         }
 
         //  检测是否有数据需要同步到创想云
-        if (CXCloudDataCenter::getInstance().isTokenValid()) {
+        if (m_bRunning.load() && m_bSync.load() && CXCloudDataCenter::getInstance().isTokenValid()) {
             doCheckNeedSyncToCXCloud();
         }
 
@@ -212,9 +267,6 @@ void SyncUserPresets::onRun()
         //  检测是否配置文件需要同步到创想云
         doCheckNeedSyncConfigToCXCloud();
     }
-    m_bRunning.store(false);
-    m_bStoped.store(true);
-    m_cvQuit.notify_one();
     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets thread quited";
 }
 
@@ -249,6 +301,7 @@ int SyncUserPresets::doSyncToLocal(SyncToLocalRetInfo& syncToLocalRetInfo)
     std::vector<UserProfileListItem> vtUserProfileListItem;
     nRet = m_commWithCXCloud.getUserProfileList(vtUserProfileListItem);
     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets getUserProfileList count=" << vtUserProfileListItem.size() << " ret=" << nRet;
+    flush_logs();
     if (nRet != 0) {
         BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doSyncToLocal end";
         return nRet;
@@ -272,9 +325,16 @@ int SyncUserPresets::doSyncToLocal(SyncToLocalRetInfo& syncToLocalRetInfo)
     for (auto iter = vtUserProfileListItem.begin(); iter != vtUserProfileListItem.end() && m_bRunning.load(); iter++) {
         int         start_pos = iter->zipUrl.find_last_of("/");
         fs::path tmp_path = fs::path(tmpPath).append(iter->zipUrl.substr(start_pos + 1));
-        pool.addDownload(iter->zipUrl, tmp_path.string());
+        if (!pool.addDownload(iter->zipUrl, tmp_path.string()))
+            return -1;
     }
-    pool.performDownloads();
+    BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets batch download start count=" << vtUserProfileListItem.size();
+    flush_logs();
+    const bool downloaded = pool.performDownloads([this] { return !m_bRunning.load() || !m_bSync.load(); });
+    BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets batch download end success=" << downloaded;
+    flush_logs();
+    if (!m_bRunning.load() || !m_bSync.load())
+        return -1;
     for (auto iter = vtUserProfileListItem.begin(); iter != vtUserProfileListItem.end() && m_bRunning.load(); iter++) {
         int         start_pos = iter->zipUrl.find_last_of("/");
         fs::path tmp_path = fs::path(tmpPath).append(iter->zipUrl.substr(start_pos + 1));
@@ -295,7 +355,10 @@ int SyncUserPresets::doSyncToLocal(SyncToLocalRetInfo& syncToLocalRetInfo)
     for (auto iter = vtUserProfileListItem.begin(); iter != vtUserProfileListItem.end() && m_bRunning.load(); iter++) {
         const UserProfileListItem& item = *iter;
         BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets downloadUserPreset " << i++;
-        do {
+        constexpr int max_attempts = 3;
+        for (int attempt = 0; attempt < max_attempts; ++attempt) {
+            if (!m_bRunning.load() || !m_bSync.load())
+                return -1;
             std::string saveJsonFile = "";
             nRet = m_commWithCXCloud.downloadUserPreset(item, saveJsonFile);
             if (item.type == "sync_data") { //  配置文件
@@ -320,11 +383,16 @@ int SyncUserPresets::doSyncToLocal(SyncToLocalRetInfo& syncToLocalRetInfo)
                     iter->needDel = false;
                 }
             }
-            if (nRet != 0) {
-                BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets downloadUserPreset error=" << nRet << ". Retry.";
+            if (nRet == 0)
+                break;
+            BOOST_LOG_TRIVIAL(error) << "SyncUserPresets downloadUserPreset failed id=" << item.id
+                                     << " attempt=" << attempt + 1 << " ret=" << nRet;
+            flush_logs();
+            if (attempt + 1 < max_attempts)
                 std::this_thread::sleep_for(std::chrono::milliseconds(300));
-            }
-        } while (nRet != 0 && m_bRunning.load());
+        }
+        if (nRet != 0)
+            return nRet;
     }
 
     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doSyncToLocal end";
@@ -333,24 +401,32 @@ int SyncUserPresets::doSyncToLocal(SyncToLocalRetInfo& syncToLocalRetInfo)
 
 int SyncUserPresets::doCheckNeedSyncToCXCloud() { 
     int nRet = 0;
+    if (!m_bRunning.load() || !m_bSync.load())
+        return -1;
     if (doCheckNeedSyncPrinterToCXCloud() != 0) {
         nRet = 1;
         if (CXCloudDataCenter::getInstance().isNetworkError()) {
             return nRet;
         }
     }
+    if (!m_bRunning.load() || !m_bSync.load())
+        return -1;
     if (doCheckNeedSyncFilamentToCXCloud() != 0) {
         nRet = 1;
         if (CXCloudDataCenter::getInstance().isNetworkError()) {
             return nRet;
         }
     }
+    if (!m_bRunning.load() || !m_bSync.load())
+        return -1;
     if (doCheckNeedSyncProcessToCXCloud() != 0) {
         nRet = 1;
         if (CXCloudDataCenter::getInstance().isNetworkError()) {
             return nRet;
         }
     }
+    if (!m_bRunning.load() || !m_bSync.load())
+        return -1;
     if (doCheckNeedDeleteFromCXCloud() != 0) {
         nRet = 1;
         if (CXCloudDataCenter::getInstance().isNetworkError()) {
@@ -374,6 +450,8 @@ int SyncUserPresets::doCheckNeedSyncPrinterToCXCloud() {
     if (sync_count > 0) {
         BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncPrinterToCXCloud start...";
         for (Preset& preset : presets_to_sync) {
+            if (!m_bRunning.load() || !m_bSync.load())
+                return -1;
             auto setting_id = preset.setting_id;
 
             if ((preset.setting_id.empty() && preset.sync_info.empty()) || 
@@ -472,6 +550,8 @@ int SyncUserPresets::doCheckNeedSyncFilamentToCXCloud()
     if (sync_count > 0) {
         BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncFilamentToCXCloud start...";
         for (Preset& preset : presets_to_sync) {
+            if (!m_bRunning.load() || !m_bSync.load())
+                return -1;
             auto setting_id = preset.setting_id;
 
             if ((preset.setting_id.empty() && preset.sync_info.empty()) || 
@@ -582,6 +662,8 @@ int SyncUserPresets::doCheckNeedSyncProcessToCXCloud()
     if (sync_count > 0) {
         BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncProcessToCXCloud start...";
         for (Preset& preset : presets_to_sync) {
+            if (!m_bRunning.load() || !m_bSync.load())
+                return -1;
             auto setting_id = preset.setting_id;
 
             if ((preset.setting_id.empty() && preset.sync_info.empty()) || 
@@ -730,6 +812,8 @@ int SyncUserPresets::doCheckNeedDeleteFromCXCloud()
     //  获取需要删除的preset
     std::vector<string> delete_cache_presets = GUI::wxGetApp().get_delete_cache_presets_lock();
     for (auto it = delete_cache_presets.begin(); it != delete_cache_presets.end(); it++) {
+        if (!m_bRunning.load() || !m_bSync.load())
+            return -1;
         if ((*it).empty())
             continue;
         if (m_commWithCXCloud.deleteProfile(*it) == 0) {

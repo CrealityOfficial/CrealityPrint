@@ -255,7 +255,7 @@ void MCPChatPanel::RegisterAllHandlers()
             if (video_encryption) {
                 http.ca_file(Slic3r::resources_dir() + "/cert/ca.crt")
                     .ssl_verify_peer(true)
-                    .ssl_verify_host(false);
+                    .ssl_verify_host(false).ssl_ignore_certificate_time(true);
             }
             http.on_complete([&](std::string body, unsigned http_status) {
                     response_body = body;

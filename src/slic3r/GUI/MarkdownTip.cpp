@@ -1,4 +1,5 @@
 ﻿#include "MarkdownTip.hpp"
+#include "ParameterSwitchTrace.hpp"
 #include "GUI_App.hpp"
 #include "GUI.hpp"
 #include "MainFrame.hpp"
@@ -246,6 +247,8 @@ bool ProcessTip::ShowTip(wxString const& tip,
                           wxString const& tooltip_url,
                           wxPoint            pos)
 { 
+        ParameterSwitchTrace trace("Tip.request", nullptr);
+        if (ParameterSwitchTrace::enabled()) trace.note("CONTENT", " key=", into_u8(tooltip_key), " image=", into_u8(tooltip_img));
         processTip()->m_Content.CS_Title    = tooltip_title;
         processTip()->m_Content.CS_Content  = ChineseWrap(tooltip_content,processTip()->FromDIP(298),processTip());
         processTip()->m_Content.CS_URL      = HyperLinkWrap(tooltip_url,processTip()->FromDIP(298),processTip());
@@ -269,17 +272,18 @@ bool ProcessTip::ShowTip(wxPoint pos)
         }
     }
 
-    bool tipChanged = m_LastTip != m_Content.CS_Title;
-    if (tipChanged) 
-    {
-        if (m_Content.CS_Content.empty()) {
-            m_Hide = true;
-            //this->Hide();
-            return false;
-        }
-
-        m_LastTip = m_Content.CS_Title;
+    if (m_Content.CS_Title.empty() || m_Content.CS_Content.empty()) {
+        m_Hide = true;
+        this->Dismiss();
+        return false;
     }
+    const bool tipChanged = m_LastContent.CS_Title != m_Content.CS_Title ||
+        m_LastContent.CS_Key != m_Content.CS_Key ||
+        m_LastContent.CS_Content != m_Content.CS_Content ||
+        m_LastContent.CS_Image != m_Content.CS_Image ||
+        m_LastContent.CS_URL != m_Content.CS_URL ||
+        m_LastContent.CS_UrlText != m_Content.CS_UrlText;
+    m_LastContent = m_Content;
     m_pos = pos;
     
 
@@ -298,6 +302,8 @@ bool is_point_in_rect(const wxPoint& pt, const wxRect& rect)
 }
 void ProcessTip::OnTimer(wxTimerEvent& event)
 {
+    ParameterSwitchTrace trace("Tip.timer", this, 5);
+    trace.note("STATE", " hide=", m_Hide, " timer=", m_Timer);
     wxPoint pos = ScreenToClient(wxGetMousePosition());
     if (m_Hide) 
     {
@@ -371,6 +377,7 @@ void ProcessTip::OnMouseEvent(wxMouseEvent& event)
 ProcessTip::ProcessTip()
 : wxPopupTransientWindow(wxGetApp().mainframe, wxBORDER_NONE)
 {
+    ParameterSwitchTrace trace("Tip.construct", this);
     m_bitmap_cache = new Slic3r::GUI::BitmapCache;
     this->SetBackgroundStyle(wxBG_STYLE_PAINT);
     this->SetDoubleBuffered(true);
@@ -474,18 +481,23 @@ ProcessTip::ProcessTip()
 
 ProcessTip::~ProcessTip()
 {
+    ParameterSwitchTrace trace("Tip.destruct", this);
     delete m_bitmap_cache;
 }
 
 void ProcessTip::updateUI()
 {
+    ParameterSwitchTrace trace("Tip.updateUI", this);
+    if (ParameterSwitchTrace::enabled()) trace.note("CONTENT", " key=", into_u8(m_Content.CS_Key), " image=", into_u8(m_Content.CS_Image));
     m_Title_text->SetLabelText(m_Content.CS_Title);
     m_Title_text->Wrap(FromDIP(contentWidth));
     m_Content_text->SetLabelText(m_Content.CS_Content);
     m_Url_text->SetLabelText(m_Content.CS_URL);
-    wxString keyTest = wxString::Format(_L("Parameter name: %s"), m_Content.CS_Key+"\n");
+    wxString keyTest = m_Content.CS_Key.empty() ? wxString() :
+        wxString::Format(_L("Parameter name: %s"), m_Content.CS_Key+"\n");
     //m_KeyText->SetLabelText(HyperLinkWrap(keyTest,FromDIP(275),this));
     m_KeyText->SetLabelText(keyTest);
+    m_KeyText->Show(!m_Content.CS_Key.empty());
     //m_Url_text->SetURL(m_Content.CS_URL);
 
     if(m_Content.CS_Image.empty())
@@ -547,7 +559,9 @@ void ProcessTip::updateUI()
         wxBitmap* bmp = m_bitmap_cache->find(m_Content.CS_Image.ToStdString());
         if(bmp == nullptr)
         {
+            trace.note("IMAGE_LOAD_BEGIN");
             wxBitmap bitMap = createBitMap(m_Content.CS_Image, this, 1, imgSize);
+            trace.note("IMAGE_LOAD_END", " ok=", bitMap.IsOk());
             bmp = m_bitmap_cache->insert(m_Content.CS_Image.ToStdString(),bitMap);
         }
         
@@ -572,7 +586,9 @@ void ProcessTip::updateUI()
     Layout();
     Update();
     Refresh();
+    trace.note("DISPLAY_BOUNDS_BEGIN");
     wxSize wsize = wxDisplay(this).GetClientArea().GetSize();
+    trace.note("DISPLAY_BOUNDS_END");
     if (m_pos.y + this->GetSize().y > wsize.y-FromDIP(30))
     {
         wxPoint pos = m_pos;
@@ -966,6 +982,7 @@ MarkdownTip* MarkdownTip::instance()
 
 void ProcessTip::OnPaint(wxPaintEvent& event)
 {
+    ParameterSwitchTrace trace("Tip.paint", this, 5);
     wxAutoBufferedPaintDC dc(this);
 
     const bool     is_dark = wxGetApp().dark_mode();

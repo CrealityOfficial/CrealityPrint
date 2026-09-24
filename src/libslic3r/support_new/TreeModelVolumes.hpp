@@ -196,6 +196,8 @@ private:
     class LayerPolygonCache {
     public:
         void allocate(LayerIndex aidx_begin, LayerIndex aidx_end) {
+            if (aidx_end < aidx_begin)
+                aidx_end = aidx_begin;
             m_idx_begin = aidx_begin;
             m_idx_end = aidx_end;
             m_polygons.assign(aidx_end - aidx_begin, {});
@@ -206,13 +208,13 @@ private:
         size_t     size()  const { return m_polygons.size(); }
 
         bool      has(LayerIndex idx) const { return idx >= m_idx_begin && idx < m_idx_end; }
-        Polygons& operator[](LayerIndex idx) { assert(idx >= m_idx_begin && idx < m_idx_end); return m_polygons[idx - m_idx_begin]; }
+        Polygons& operator[](LayerIndex idx);
         std::vector<Polygons>& polygons_mutable() { return m_polygons; }
 
     private:
         std::vector<Polygons> m_polygons;
-        LayerIndex            m_idx_begin;
-        LayerIndex            m_idx_end;
+        LayerIndex            m_idx_begin { 0 };
+        LayerIndex            m_idx_end { 0 };
     };
 
     /*!

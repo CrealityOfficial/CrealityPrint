@@ -171,14 +171,23 @@ ModelVolume* ModelObject::add_volume(const TriangleMesh &mesh)
     return v;
 }
 
-ModelVolume* ModelObject::add_volume(TriangleMesh &&mesh, ModelVolumeType type /*= ModelVolumeType::MODEL_PART*/)
+ModelVolume* ModelObject::add_volume(TriangleMesh &&mesh, ModelVolumeType type /*= ModelVolumeType::MODEL_PART*/,
+                                     bool modify_to_center_geometry /*= true*/, bool backup /*= true*/)
 {
-    ModelVolume* v = new ModelVolume(this, std::move(mesh), type);
+    // The former call bound the rvalue to ModelVolume's const-reference constructor,
+    // which copied the complete mesh and calculated a convex hull before centering.
+    ModelVolume* v = new ModelVolume(this, std::shared_ptr<const TriangleMesh>(), type);
+    v->m_mesh = std::make_shared<TriangleMesh>(std::move(mesh));
+    if (v->m_mesh->facets_count() > 1)
+        v->calculate_convex_hull();
     this->volumes.push_back(v);
-    v->center_geometry_after_creation();
-    this->invalidate_bounding_box();
+    if (modify_to_center_geometry) {
+        v->center_geometry_after_creation();
+        this->invalidate_bounding_box();
+    }
     // BBS: backup
-    Slic3r::save_object_mesh(*this);
+    if (backup)
+        Slic3r::save_object_mesh(*this);
     return v;
 }
 
@@ -210,9 +219,12 @@ ModelVolume* ModelObject::add_volume(const ModelVolume &other, TriangleMesh &&me
     return v;
 }
 
-ModelVolume* ModelObject::add_volume_with_shared_mesh(const ModelVolume &other, ModelVolumeType type /*= ModelVolumeType::INVALID*/)
+ModelVolume* ModelObject::add_volume_with_shared_mesh(const ModelVolume &other, ModelVolumeType type /*= ModelVolumeType::INVALID*/, bool backup /*= true*/)
 {
-    ModelVolume* v = new ModelVolume(this, other.m_mesh);
+    // Construct with an empty mesh to avoid recalculating the convex hull before sharing it.
+    ModelVolume* v = new ModelVolume(this, std::shared_ptr<const TriangleMesh>());
+    v->m_mesh = other.m_mesh;
+    v->m_convex_hull = other.m_convex_hull;
     if (type != ModelVolumeType::INVALID && v->type() != type)
         v->set_type(type);
     this->volumes.push_back(v);
@@ -220,7 +232,8 @@ ModelVolume* ModelObject::add_volume_with_shared_mesh(const ModelVolume &other, 
 //	v->center_geometry_after_creation();
 //    this->invalidate_bounding_box();
     // BBS: backup
-    Slic3r::save_object_mesh(*this);
+    if (backup)
+        Slic3r::save_object_mesh(*this);
     return v;
 }
 

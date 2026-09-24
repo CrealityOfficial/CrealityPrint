@@ -45,6 +45,8 @@ struct Perimeter {
   size_t seam_index{};
   std:: vector<size_t> candidate_seam_indexs;
   float flow_width{};
+  // Preserve loop topology so alignment cannot switch between a hole and a solid contour.
+  std::optional<ExtrusionLoopRole> loop_role;
 
   // During alignment, a final position may be stored here. In that case, finalized is set to true.
   // Note that final seam position is not limited to points of the perimeter loop. In theory it can be any position
@@ -158,6 +160,7 @@ private:
       const std::vector<PrintObjectSeamData::LayerSeams> &layers,
       const Vec3f& projected_position,
       const size_t layer_idx, const float max_distance,
+      const std::optional<ExtrusionLoopRole> &expected_loop_role,
       const SeamPlacerImpl::SeamComparator &comparator) const;
 };
 

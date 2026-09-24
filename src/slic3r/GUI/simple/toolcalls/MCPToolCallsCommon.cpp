@@ -125,11 +125,15 @@ const std::vector<BridgeToolRouteSpec>& BridgeToolRouteSpecsStorage()
         {ActionID::GET_PRESETS, ActionID::GET_PRESETS, true, true, "collecting", "Collecting presets", "Presets collected", "GET_PRESETS_FAILED", "Failed to collect presets.", false, false},
         {"list_presets", ActionID::GET_PRESETS, false, true, "collecting", "Collecting presets", "Presets collected", "LIST_PRESETS_FAILED", "Failed to collect presets.", false, false},
         {ActionID::GET_EDITED_CONFIG, ActionID::GET_EDITED_CONFIG, true, true, "collecting", "Collecting current config", "Current config collected", "GET_EDITED_CONFIG_FAILED", "Failed to collect current config.", false, false},
+        {ActionID::CAPTURE_MODEL_VIEWS, ActionID::CAPTURE_MODEL_VIEWS, true, true, "capturing", "Capturing model views", "Model views captured", "CAPTURE_MODEL_VIEWS_FAILED", "Failed to capture model views.", false, false},
         {"get_current_slice_params", ActionID::GET_EDITED_CONFIG, false, true, "collecting", "Collecting current slice parameters", "Current slice parameters collected", "CURRENT_SLICE_PARAMS_FAILED", "Failed to collect current slice parameters.", false, false},
         {ActionID::GET_CONFIG_OPTIONS, ActionID::GET_CONFIG_OPTIONS, true, true, "collecting", "Collecting config options", "Config options collected", "GET_CONFIG_OPTIONS_FAILED", "Failed to collect config options.", false, false},
         {"get_config_schema", ActionID::GET_CONFIG_OPTIONS, false, true, "collecting", "Collecting config schema", "Config schema collected", "GET_CONFIG_SCHEMA_FAILED", "Failed to collect config schema.", false, false},
+        {ActionID::SELECT_PRESET, ActionID::SELECT_PRESET, true, true, "applying", "Applying preset", "Preset applied", "SELECT_PRESET_FAILED", "Failed to select preset.", false, true},
+        {"apply_preset", ActionID::SELECT_PRESET, false, true, "applying", "Applying preset", "Preset applied", "APPLY_PRESET_FAILED", "Failed to apply preset.", false, true},
         {ActionID::APPLY_CONFIG, ActionID::APPLY_CONFIG, true, true, "applying", "Applying config", "Config applied", "APPLY_CONFIG_FAILED", "Failed to apply config.", true, true},
         {"apply_param_patch", ActionID::APPLY_CONFIG, false, true, "applying", "Applying parameter patch", "Parameter patch applied", "APPLY_PARAM_PATCH_FAILED", "Failed to apply parameter patch.", true, true},
+        {ActionID::SET_OBJECT_COLOR, ActionID::SET_OBJECT_COLOR, false, true, "coloring", "Setting object color", "Object color set", "SET_OBJECT_COLOR_FAILED", "Failed to set object color.", false, true},
         {ActionID::START_SLICE, ActionID::START_SLICE, true, true, "slicing", "Starting slice", "Slice completed", "START_SLICE_FAILED", "Failed to start slicing.", false, true, NativeExecutionMode::DeferredSliceResult},
         {"run_slice", ActionID::START_SLICE, false, true, "slicing", "Starting slice", "Slice completed", "START_SLICE_FAILED", "Failed to start slicing.", false, true, NativeExecutionMode::DeferredSliceResult},
         {ActionID::AUTO_ORIENT, ActionID::AUTO_ORIENT, true, true, "orienting", "Starting auto orient", "Auto orient completed", "AUTO_ORIENT_FAILED", "Failed to auto orient models.", false, true},
@@ -169,6 +173,7 @@ const std::vector<BridgeToolRouteSpec>& BridgeToolRouteSpecsStorage()
         {ActionID::UNDO, ActionID::UNDO, true, true, "undoing", "Undoing last action", "Undo completed", "UNDO_FAILED", "Failed to undo last action.", false, true},
         {ActionID::REDO, ActionID::REDO, true, true, "redoing", "Redoing last undone action", "Redo completed", "REDO_FAILED", "Failed to redo last action.", false, true},
         // --- MQTT-native workflow tools (dispatched by CxAgent MCP gateway) ---
+        {ActionID::EXPORT_GCODE, ActionID::EXPORT_GCODE, false, true, "exporting", "Opening G-code export", "G-code export completed", "EXPORT_GCODE_FAILED", "Failed to export G-code.", false, false},
         {ActionID::OPEN_FILAMENT_MAPPING, ActionID::OPEN_FILAMENT_MAPPING, false, true, "opening", "Opening filament mapping", "Filament mapping opened", "OPEN_FILAMENT_MAPPING_FAILED", "Failed to open filament mapping.", false, false, NativeExecutionMode::CustomDeferred},
         {ActionID::SEND_PRINT, ActionID::SEND_PRINT, false, true, "sending", "Sending to printer", "Print sent", "SEND_PRINT_FAILED", "Failed to send print.", false, false, NativeExecutionMode::CustomDeferred},
         {"send_to_printer", ActionID::SEND_PRINT, false, true, "sending", "Sending to printer", "Print sent", "SEND_PRINT_FAILED", "Failed to send print.", false, false, NativeExecutionMode::CustomDeferred},
@@ -177,6 +182,7 @@ const std::vector<BridgeToolRouteSpec>& BridgeToolRouteSpecsStorage()
         {ActionID::CAPTURE_DEVICE_CAMERA_FRAME, ActionID::CAPTURE_DEVICE_CAMERA_FRAME, false, true, "capturing", "Capturing device camera frame", "Camera frame captured", "CAPTURE_CAMERA_FAILED", "Failed to capture device camera frame.", false, false, NativeExecutionMode::CustomDeferred},
         {ActionID::LIST_PRINTERS, ActionID::LIST_PRINTERS, false, true, "listing", "Listing printers", "Printers listed", "LIST_PRINTERS_FAILED", "Failed to list printers.", false, false},
         {ActionID::SELECT_PRINTER, ActionID::SELECT_PRINTER, false, true, "selecting", "Selecting printer", "Printer selected", "SELECT_PRINTER_FAILED", "Failed to select printer.", false, true},
+        {ActionID::IMPORT_MODEL, ActionID::IMPORT_MODEL, false, true, "importing", "Importing model", "Model imported", "IMPORT_MODEL_FAILED", "Failed to import model.", false, false, NativeExecutionMode::CustomDeferred},
         {ActionID::RECOMMEND_MODEL, ActionID::RECOMMEND_MODEL, false, true, "searching", "Searching for models", "Model search complete", "RECOMMEND_MODEL_FAILED", "Failed to search for models.", false, false, NativeExecutionMode::CustomDeferred},
         {ActionID::SMART_MODEL_SEARCH, ActionID::SMART_MODEL_SEARCH, false, true, "searching", "Searching for models", "Model search complete", "SMART_MODEL_SEARCH_FAILED", "Failed to search for models.", false, false, NativeExecutionMode::CustomDeferred},
         {ActionID::IMPORT_MODEL_FROM_SEARCH, ActionID::IMPORT_MODEL_FROM_SEARCH, false, true, "importing", "Importing model from search", "Model imported", "IMPORT_MODEL_FROM_SEARCH_FAILED", "Failed to import model from search.", false, false, NativeExecutionMode::CustomDeferred}
@@ -207,6 +213,13 @@ bool IsDeferredNativeExecution(NativeExecutionMode mode)
     return mode == NativeExecutionMode::DeferredSliceResult ||
            mode == NativeExecutionMode::DeferredSceneSettle ||
            mode == NativeExecutionMode::CustomDeferred;
+}
+
+bool ShouldSuppressSliceWarningForAI(const std::string& message,
+                                     const std::string& error_code)
+{
+    return message == "bed_temperature_too_high_than_filament" ||
+           error_code == "1000C001";
 }
 
 const std::vector<BridgeToolRouteSpec>& GetBridgeToolRouteSpecs()

@@ -78,6 +78,12 @@ set(SLIC3R_GUI_SOURCES
     GUI/Widgets/ErrorMsgStaticText.hpp
     GUI/MixedFilamentDialog.cpp
     GUI/MixedFilamentDialog.hpp
+    GUI/ColorDecomposeDialog.cpp
+    GUI/ColorDecomposeDialog.hpp
+    GUI/ColorDecomposeSupport.cpp
+    GUI/ColorDecomposeSupport.hpp
+    GUI/GradientCurveEditor.cpp
+    GUI/GradientCurveEditor.hpp
     GUI/Widgets/TextDisplay.hpp
     GUI/Widgets/TextDisplay.cpp
     GUI/Widgets/HoverBorderIcon.hpp
@@ -224,6 +230,20 @@ set(SLIC3R_GUI_SOURCES
     GUI/GUI_Preview.hpp
     GUI/GUI_App_Parse.cpp
     GUI/GUI_App.cpp
+    GUI/BaseColorSpectraCache.cpp
+    GUI/BaseColorSpectraCache.hpp
+    GUI/CxAgentEndpointPolicy.cpp
+    GUI/CxAgentEndpointPolicy.hpp
+    GUI/SatisfactionSurveyManager.cpp
+    GUI/SatisfactionSurveyManager.hpp
+    GUI/SatisfactionSurveyDialog.cpp
+    GUI/SatisfactionSurveyDialog.hpp
+    GUI/SatisfactionSurveyIntegration.cpp
+    GUI/SatisfactionSurveyIntegration.hpp
+    GUI/MaterialListDownloader.cpp
+    GUI/MaterialListDownloader.hpp
+    GUI/MachineListDownloader.cpp
+    GUI/MachineListDownloader.hpp
     GUI/SupportMeshCreator.hpp
     GUI/SupportMeshCreator.cpp
     GUI/AppUpdater.cpp
@@ -255,6 +275,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/UserNotification.hpp
     GUI/PresetComboBoxes.hpp
     GUI/PresetComboBoxes.cpp
+    GUI/OfficialFilamentColorDialog.hpp
+    GUI/OfficialFilamentColorDialog.cpp
     GUI/BitmapComboBox.hpp
     GUI/BitmapComboBox.cpp
     GUI/EditGCodeDialog.hpp
@@ -325,16 +347,36 @@ set(SLIC3R_GUI_SOURCES
     GUI/WebViewDialog.hpp
     GUI/LoginDialog.cpp
     GUI/LoginDialog.hpp
+    GUI/AppleSignIn.hpp
+        GUI/FirebaseSignIn.cpp
+        GUI/FirebaseSignIn.hpp
+    GUI/AppleSignIn.cpp
     GUI/PrinterWebView.cpp
     GUI/PrinterWebView.hpp
     GUI/print_manage/PrinterMgr.cpp
     GUI/print_manage/PrinterMgr.hpp
     GUI/print_manage/App/PrinterMgrView.cpp
     GUI/print_manage/App/PrinterMgrView.hpp
+    GUI/print_manage/App/TimeLapseShareTypes.cpp
+    GUI/print_manage/App/TimeLapseShareTypes.hpp
+    GUI/print_manage/App/DeviceVideoDownloader.cpp
+    GUI/print_manage/App/DeviceVideoDownloader.hpp
+    GUI/print_manage/App/TimeLapseShareManager.cpp
+    GUI/print_manage/App/TimeLapseShareManager.hpp
+    GUI/print_manage/App/DeviceMessageFilter.cpp
+    GUI/print_manage/App/DeviceMessageFilter.h
+    GUI/print_manage/App/WebSocketProxy.cpp
+    GUI/print_manage/App/WebSocketProxySession.cpp
+    GUI/print_manage/App/WebSocketProxy.hpp
+    GUI/print_manage/App/CloudDeviceMqttSession.hpp
+    GUI/print_manage/App/CloudDeviceMqttSession.cpp
+    GUI/print_manage/App/CloudDeviceMqttTransport.cpp
     GUI/print_manage/App/mqtt_client.h
     GUI/print_manage/App/mqtt_client.cpp
     GUI/print_manage/Device/LanPrinterInterface.hpp
     GUI/print_manage/Device/LanPrinterInterface.cpp
+    GUI/print_manage/Device/LanDeviceProbe.hpp
+    GUI/print_manage/Device/LanDeviceProbe.cpp
     GUI/print_manage/Device/Klipper4408Interface.hpp
     GUI/print_manage/Device/Klipper4408Interface.cpp
     GUI/print_manage/Device/KlipperCXInterface.hpp
@@ -420,6 +462,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/wxExtensions.hpp
     GUI/ObjColorDialog.cpp
     GUI/ObjColorDialog.hpp
+    GUI/TextureImportDialog.hpp
+    GUI/TextureImportDialog.cpp
     GUI/WipeTowerDialog.cpp
     GUI/RammingChart.cpp
     GUI/RammingChart.hpp
@@ -441,6 +485,9 @@ set(SLIC3R_GUI_SOURCES
     GUI/DeviceManager.cpp
     GUI/UserManager.hpp
     GUI/UserManager.cpp
+    GUI/DeviceImageProxy.hpp
+    GUI/PrinterCoverRoute.hpp
+    GUI/DeviceImageProxy.cpp
     GUI/HttpServer.hpp
     GUI/HttpServer.cpp
     Config/Snapshot.cpp
@@ -490,6 +537,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/Jobs/EmbossJob.hpp
     GUI/Jobs/OrientJob.hpp
     GUI/Jobs/OrientJob.cpp
+    GUI/simple/gpu/GpuOrient.hpp
+    GUI/simple/gpu/GpuOrient.cpp
+    GUI/simple/gpu/GpuOrientMetal.hpp
+    GUI/simple/gpu/GpuOrientMetalKernels.hpp
     GUI/Jobs/RotoptimizeJob.hpp
     GUI/Jobs/RotoptimizeJob.cpp
     GUI/Jobs/FillBedJob.hpp
@@ -630,6 +681,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/GCodeRenderer/LegacyRenderer.cpp
     Utils/Http.cpp
     Utils/Http.hpp
+    Utils/DeviceTlsPolicy.cpp
+    Utils/DeviceTlsPolicy.hpp
     Utils/FixModelByWin10.cpp
     Utils/FixModelByImatiSTL.cpp
     Utils/FixModelByWin10.hpp
@@ -717,6 +770,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/GLToolbarProcess.cpp
 	GUI/UploadFile.hpp
 	GUI/UploadFile.cpp
+	GUI/VideoOssUploader.hpp
+	GUI/VideoOssUploader.cpp
 	GUI/LoadOldPresets.hpp
 	GUI/LoadOldPresets.cpp
 	GUI/LoadOldPresetsFromFolder.hpp
@@ -743,6 +798,8 @@ set(SLIC3R_GUI_SOURCES
 	GUI/AICloudServiceDialog.cpp
     Utils/ProfileFamilyLoader.hpp
     Utils/ProfileFamilyLoader.cpp
+    Utils/PrinterCover.hpp
+    Utils/PrinterCover.cpp
     Utils/TestHelper.cpp
     Utils/TestHelper.hpp
     GUI/StepMeshDialog.hpp
@@ -842,8 +899,6 @@ if(GUI_SIMPLE)
         GUI/simple/bridge/SlicerBridgeActionsProcess.cpp
         GUI/simple/bridge/SlicerBridgeActionFilament.cpp
         GUI/simple/bridge/SlicerBridgeActionsPrinter.cpp
-        GUI/simple/gpu/GpuOrient.hpp
-        GUI/simple/gpu/GpuOrient.cpp
         )
 endif()
 
@@ -877,10 +932,22 @@ if (APPLE)
             GUI/Mouse3DHandlerMac.mm
             GUI/InstanceCheckMac.mm
             GUI/InstanceCheckMac.h
+            GUI/simple/gpu/GpuOrientMetal.mm
             GUI/wxMediaCtrl2.mm
             GUI/wxMediaCtrl2.h
         )
+    if (CREALITYPRINT_APP_STORE)
+        list(APPEND SLIC3R_GUI_SOURCES
+            GUI/AppleSignIn.mm
+            GUI/FirebaseSignIn.mm
+        )
+    endif()
     FIND_LIBRARY(DISKARBITRATION_LIBRARY DiskArbitration)
+    FIND_LIBRARY(METAL_LIBRARY Metal REQUIRED)
+    set_source_files_properties(
+        GUI/simple/gpu/GpuOrientMetal.mm
+        PROPERTIES COMPILE_FLAGS "-fobjc-arc"
+    )
 else ()
     list(APPEND SLIC3R_GUI_SOURCES
             GUI/wxMediaCtrl2.cpp
@@ -895,7 +962,22 @@ if (UNIX AND NOT APPLE)
 endif ()
 
 add_library(libslic3r_gui STATIC ${SLIC3R_GUI_SOURCES})
+# Headers of the vendored static Firebase Auth SDK (unified Apple login).
+set(FIREBASE_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../deps/Darwin/FirebaseAuthSDK")
+if(CREALITYPRINT_APP_STORE AND EXISTS "${FIREBASE_SDK_DIR}/FirebaseAuth.framework")
+    target_compile_options(libslic3r_gui PRIVATE "-F${FIREBASE_SDK_DIR}")
+endif()
 target_include_directories(libslic3r_gui PRIVATE Utils)
+
+# Embedding MSVC debug information with /Z7 makes this large static library
+# exceed the COFF archive size limit. Keep program-database debug information
+# for this target and bypass ccache, which does not support /Zi.
+if (MSVC AND (CMAKE_C_COMPILER_LAUNCHER MATCHES "ccache" OR
+              CMAKE_CXX_COMPILER_LAUNCHER MATCHES "ccache"))
+    target_compile_options(libslic3r_gui PRIVATE /Zi)
+    set_property(TARGET libslic3r_gui PROPERTY C_COMPILER_LAUNCHER "${SLIC3R_MSVC_UTF8_LAUNCHER}")
+    set_property(TARGET libslic3r_gui PROPERTY CXX_COMPILER_LAUNCHER "${SLIC3R_MSVC_UTF8_LAUNCHER}")
+endif ()
 
 # AUE custom preview in GCodeViewer is development-oriented.
 # The switch is declared at top-level CMake as SLIC3R_DEV_AUE_CUSTOM_PREVIEW.
@@ -964,7 +1046,7 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         ${CURL_LIBRARIES}
     )
 elseif (APPLE)
-    target_link_libraries(libslic3r_gui ${DISKARBITRATION_LIBRARY})
+    target_link_libraries(libslic3r_gui ${DISKARBITRATION_LIBRARY} ${METAL_LIBRARY})
 endif()
 
 if (SLIC3R_STATIC)

@@ -258,8 +258,28 @@ json SlicerBridge::GetActionListJSON() const
 json SlicerBridge::GetAvailableToolsJSON() const
 {
     json tools = json::array();
-    for (const auto& action : m_actions)
+    bool has_new_project = false;
+    for (const auto& action : m_actions) {
         tools.push_back(BuildToolItem(action));
+        has_new_project = has_new_project || action.id == ActionID::NEW_PROJECT;
+    }
+
+    // new_project is executed by the MQTT-native CustomDeferred path rather
+    // than m_actions, but it is still a direct user capability and must be
+    // advertised to AIChatPage/CxAgent. Do not register a fake bridge executor.
+    if (!has_new_project) {
+        tools.push_back({
+            {"name", ActionID::NEW_PROJECT},
+            {"title", "Create New Project"},
+            {"description", "Create a new slicer project. This is distinct from adding a build plate."},
+            {"requires_confirm", true},
+            {"inputSchema", {
+                {"type", "object"},
+                {"properties", json::object()},
+                {"additionalProperties", false}
+            }}
+        });
+    }
     return tools;
 }
 

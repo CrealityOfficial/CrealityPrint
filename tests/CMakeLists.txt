@@ -35,3 +35,28 @@ add_subdirectory(sla_print)
 add_subdirectory(cpp17 EXCLUDE_FROM_ALL)    # does not have to be built all the time
 add_subdirectory(example)
 
+
+add_subdirectory(cloud_device_mqtt)
+
+# Toolbar layout policy has no GUI or slicing dependencies.
+add_executable(topbar_layout_tests gui/topbar_layout_tests.cpp)
+target_compile_features(topbar_layout_tests PRIVATE cxx_std_17)
+add_test(NAME topbar_layout_tests COMMAND topbar_layout_tests)
+
+# Hidden real-control regression for window buttons disappearing during resize.
+if (WIN32 AND SLIC3R_GUI)
+    find_package(wxWidgets 3.3 CONFIG REQUIRED COMPONENTS core base aui)
+    add_executable(topbar_wx_resize_tests gui/topbar_wx_resize_tests.cpp)
+    target_compile_features(topbar_wx_resize_tests PRIVATE cxx_std_17)
+    target_include_directories(topbar_wx_resize_tests PRIVATE ${wxWidgets_INCLUDE_DIRS})
+    target_compile_definitions(topbar_wx_resize_tests PRIVATE ${wxWidgets_DEFINITIONS})
+    target_link_libraries(topbar_wx_resize_tests PRIVATE ${wxWidgets_LIBRARIES})
+    add_test(NAME topbar_wx_resize_tests COMMAND topbar_wx_resize_tests)
+
+    add_executable(parameter_window_lifetime_tests gui/parameter_window_lifetime_tests.cpp)
+    target_compile_features(parameter_window_lifetime_tests PRIVATE cxx_std_17)
+    target_include_directories(parameter_window_lifetime_tests PRIVATE ${wxWidgets_INCLUDE_DIRS})
+    target_compile_definitions(parameter_window_lifetime_tests PRIVATE ${wxWidgets_DEFINITIONS})
+    target_link_libraries(parameter_window_lifetime_tests PRIVATE ${wxWidgets_LIBRARIES})
+    add_test(NAME parameter_window_lifetime_tests COMMAND parameter_window_lifetime_tests)
+endif()

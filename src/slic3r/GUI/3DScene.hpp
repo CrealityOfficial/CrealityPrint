@@ -66,8 +66,12 @@ enum LOD_LEVEL {
     SMALL,
 };
 
-class GLVolume {
+// GUI-thread-only diagnostics for scene LOD rendering.
+void begin_lod_render_diagnostics(int canvas_type);
+void report_lod_render_diagnostics(int canvas_type);
 
+class GLVolume
+{
     static float          LOD_HIGH_ZOOM;
     static float          LOD_MIDDLE_ZOOM;
     static float          LOD_SMALL_ZOOM;
@@ -109,8 +113,7 @@ public:
     virtual ~GLVolume() = default;
 
     // BBS
-    bool simplify_mesh(const TriangleMesh& mesh, std::shared_ptr<GUI::GLModel> model, LOD_LEVEL lod) const;
-    bool simplify_mesh(const indexed_triangle_set& _its, std::shared_ptr<GUI::GLModel> model, LOD_LEVEL lod) const;
+    static bool simplify_mesh(std::shared_ptr<const TriangleMesh> mesh, std::shared_ptr<GUI::GLModel> model, LOD_LEVEL lod);
     
 protected:
     Geometry::Transformation m_instance_transformation;
@@ -241,6 +244,8 @@ public:
 	    bool                force_transparent : 1;
 	    // Whether or not always use the volume's own color (not using SELECTED/HOVER/DISABLED/OUTSIDE)
 	    bool                force_native_color : 1;
+        // Whether or not to keep MMU-painted RGB colors while applying the volume's render alpha
+        bool                preserve_mmuseg_colors : 1;
         // Whether or not render this volume in neutral
         bool                force_neutral_color : 1;
         // Whether or not to force rendering of sinking contours

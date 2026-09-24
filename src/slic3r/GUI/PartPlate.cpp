@@ -39,9 +39,11 @@
 #include "3DBed.hpp"
 #include "Plater.hpp"
 #include "PartPlate.hpp"
+#include "ConfigManipulation.hpp"
 #include "Camera.hpp"
 #include "GUI_Colors.hpp"
 #include "GUI_ObjectList.hpp"
+#include "MsgDialog.hpp"
 #include "Tab.hpp"
 #include "format.hpp"
 #include "slic3r/GUI/GUI.hpp"
@@ -241,6 +243,7 @@ void PartPlate::init()
 
 	m_print_index = -1;
 	m_print = nullptr;
+	m_gcode_result = nullptr;
 }
 
 BedType PartPlate::get_bed_type(bool load_from_project) const
@@ -376,25 +379,63 @@ bool PartPlate::get_spiral_vase_mode() const
 	return false;
 }
 
-void PartPlate::set_spiral_vase_mode(bool spiral_mode, bool as_global)
+bool PartPlate::set_spiral_vase_mode(bool spiral_mode, bool as_global, bool conflict_already_handled)
 {
-	std::string key = "spiral_mode";
+	const std::string key = "spiral_mode";
+	DynamicPrintConfig* global_config = &wxGetApp().preset_bundle->prints.get_edited_preset().config;
+	const bool has_before_override = m_config.has(key);
+	const bool before_override = has_before_override && m_config.opt_bool(key);
+	const bool global_value = global_config->has(key) && global_config->opt_bool(key);
+	const PlateSpiralModeTransition transition = plan_plate_spiral_mode_transition(
+		has_before_override, before_override, !as_global, spiral_mode, global_value);
+
+	if (transition.enables_spiral() && !conflict_already_handled) {
+		Plater* plater = wxGetApp().plater();
+		auto* plate_tab = dynamic_cast<TabPrintPlate*>(wxGetApp().plate_tab);
+		if (plater == nullptr || plate_tab == nullptr)
+			return false;
+
+		const ModelObjectPtrs scoped_objects = get_objects_on_this_plate();
+		const ZaaUiNormalizationRequest request {key, ZaaUiChangeScope::Plate, true};
+		DynamicPrintConfig requested_config = m_config;
+		if (as_global)
+			requested_config.erase(key);
+		else
+			requested_config.set_key_value(key, new ConfigOptionBool(spiral_mode));
+
+		bool conflict_unresolvable = false;
+		const wxString conflict_message = plater->get_zaa_ui_conflict_message(
+			request, scoped_objects, &requested_config, &conflict_unresolvable);
+		if (conflict_unresolvable) {
+			bool rejected = false;
+			plater->apply_zaa_ui_normalization(
+				request, scoped_objects, &requested_config, false, &rejected, true);
+			return false;
+		}
+
+		// Keep the existing Spiral vase recommendation dialog as the only
+		// confirmation path, with the mutual-exclusion changes appended.
+		if (plate_tab->show_spiral_mode_settings_dialog(false, conflict_message) != wxID_YES)
+			return false;
+
+		// The Plate settings dialog does not provide its own snapshot. Take it
+		// only after confirmation so cancelling the nested dialog is a no-op.
+		plater->take_snapshot("Change Option spiral_mode");
+		bool rejected = false;
+		plater->apply_zaa_ui_normalization(
+			request, scoped_objects, &requested_config, true, &rejected, true);
+		if (rejected)
+			return false;
+	}
+
 	if (as_global)
 		m_config.erase(key);
-	else {
-		if (spiral_mode) {
-			if (get_spiral_vase_mode())
-				return;
-			// Secondary confirmation
-			auto answer = static_cast<TabPrintPlate*>(wxGetApp().plate_tab)->show_spiral_mode_settings_dialog(false);
-			if (answer == wxID_YES) {
-				m_config.set_key_value(key, new ConfigOptionBool(true));
-				set_vase_mode_related_object_config();
-			}
-		}
-		else
-			m_config.set_key_value(key, new ConfigOptionBool(false));
-	}
+	else
+		m_config.set_key_value(key, new ConfigOptionBool(spiral_mode));
+
+	if (transition.enables_spiral())
+		set_vase_mode_related_object_config();
+	return true;
 }
 
 bool PartPlate::valid_instance(int obj_id, int instance_id)
@@ -1848,7 +1889,10 @@ Vec3d PartPlate::estimate_wipe_tower_size(const DynamicPrintConfig & config, con
 	// empty plate
 	if (plate_extruder_size == 0)
     {
-        std::vector<int> plate_extruders = get_extruders(true);
+        DynamicPrintConfig cli_config;
+        if (m_plater == nullptr)
+            cli_config.apply(config);
+        std::vector<int> plate_extruders = m_plater != nullptr ? get_extruders(true) : get_extruders_under_cli(true, cli_config);
         plate_extruder_size = plate_extruders.size();
     }
 	if (plate_extruder_size == 0)
@@ -1873,7 +1917,10 @@ Vec3d PartPlate::estimate_wipe_tower_size(const DynamicPrintConfig & config, con
     auto timelapse_type    = config.option<ConfigOptionEnum<TimelapseType>>("timelapse_type");
     bool timelapse_enabled = timelapse_type ? (timelapse_type->value == TimelapseType::tlSmooth) : false;
     const ConfigOptionBool* use_rib_wall_opt  = config.option<ConfigOptionBool>("prime_tower_rib_wall");
-    bool                    use_rib_wall      = use_rib_wall_opt ? use_rib_wall_opt->value : true;
+    const bool use_corner_rib = config.has("prime_tower_enhance_type") &&
+                              config.opt_enum<PrimeTowerEnhanceType>("prime_tower_enhance_type") == PrimeTowerEnhanceType::pteCornerRib;
+    bool use_rib_wall = (use_rib_wall_opt == nullptr || use_rib_wall_opt->value) ||
+                        use_corner_rib;
 
     double depth = plate_extruder_size == 1 ? 0 : d;
     int    nozzle_nums = (wxTheApp && wxGetApp().preset_bundle) ? wxGetApp().preset_bundle->get_printer_extruder_count() : 1;
@@ -2604,23 +2651,30 @@ void PartPlate::set_vase_mode_related_object_config(int obj_id) {
 	new_conf.set_key_value("enable_support", new ConfigOptionBool(false));
 	new_conf.set_key_value("enforce_support_layers", new ConfigOptionInt(0));
 	new_conf.set_key_value("detect_thin_wall", new ConfigOptionBool(false));
-	new_conf.set_key_value("timelapse_type", new ConfigOptionEnum<TimelapseType>(tlTraditional));
+    // Timelapse is a global print setting, not an object override.
+    global_config->set_key_value("timelapse_type", new ConfigOptionEnum<TimelapseType>(tlTraditional));
 	new_conf.set_key_value("overhang_reverse", new ConfigOptionBool(false));
 	new_conf.set_key_value("wall_direction", new ConfigOptionEnum<WallDirection>(WallDirection::Auto));
-	auto applying_keys = global_config->diff(new_conf);
+	new_conf.set_key_value("z_direction_outwall_speed_continuous", new ConfigOptionBool(false));
 
 	for (ModelObject* object : obj_ptrs) {
+		if (object == nullptr)
+			continue;
 		ModelConfigObject& config = object->config;
 
-		for (auto opt_key : applying_keys) {
+		// Match the real slicing precedence: global, then Plate, then object.
+		// Reusing one object's diff for later objects made multi-object Plates
+		// miss required overrides.
+		DynamicPrintConfig effective = *global_config;
+		effective.apply(m_config, true);
+		effective.apply(config.get(), true);
+		for (const std::string& opt_key : effective.diff(new_conf))
 			config.set_key_value(opt_key, new_conf.option(opt_key)->clone());
-		}
-
-		applying_keys = config.get().diff(new_conf);
-		for (auto opt_key : applying_keys) {
-			config.set_key_value(opt_key, new_conf.option(opt_key)->clone());
-		}
 	}
+    if (auto *print_tab = wxGetApp().get_tab(Preset::TYPE_PRINT)) {
+        print_tab->update_dirty();
+        print_tab->reload_config();
+    }
 	//wxGetApp().obj_list()->update_selections();
 }
 
@@ -4406,6 +4460,82 @@ int PartPlateList::find_instance_belongs(int obj_id, int instance_id)
 	return ret;
 }
 
+// Reconcile settings whenever an object first enters a Plate whose effective
+// configuration already enables Spiral vase. Keeping this at PartPlateList
+// level covers both canvas movement and direct "move to Plate" entry points
+// without affecting low-level add_instance() calls used during model rebuilds.
+void PartPlateList::reconcile_spiral_vase_after_instance_added(PartPlate& plate, int obj_id, bool is_new)
+{
+    if (m_model == nullptr || obj_id < 0 || obj_id >= static_cast<int>(m_model->objects.size()))
+        return;
+
+    ModelObject* object = m_model->objects[obj_id];
+    if (object == nullptr || !plate.get_spiral_vase_mode())
+        return;
+
+    // Mirror the effective configuration used by slicing rather than requiring
+    // every compatible value to exist as a raw object override.
+    DynamicPrintConfig effective_config =
+        wxGetApp().preset_bundle->prints.get_edited_preset().config;
+    effective_config.apply(*plate.config(), true);
+    effective_config.apply(object->config.get(), true);
+
+    Plater* plater = wxGetApp().plater();
+    TabPrintPlate* plate_tab = dynamic_cast<TabPrintPlate*>(wxGetApp().plate_tab);
+    const ModelObjectPtrs scoped_objects {object};
+    const ZaaUiNormalizationRequest request {"spiral_mode", ZaaUiChangeScope::Plate, true};
+    // Rejection must never write spiral_mode=false to the live Plate. The Plate
+    // already owns the winning feature; this temporary config only absorbs a
+    // defensive rejection from the shared executor.
+    DynamicPrintConfig requested_config = *plate.config();
+    bool conflict_unresolvable = false;
+    const wxString conflict_message = plater == nullptr ? wxString() :
+        plater->get_zaa_ui_conflict_message(
+            request, scoped_objects, &requested_config, &conflict_unresolvable, true);
+
+    if (conflict_unresolvable) {
+        MessageDialog dialog(plater, conflict_message, _L("Resolve process parameter conflicts"), wxICON_WARNING | wxOK);
+        dialog.ShowModal();
+        return;
+    }
+
+    const bool needs_vase_adjustment =
+        !(effective_config.opt_int("wall_loops") == 1 &&
+          effective_config.opt_int("top_shell_layers") == 0 &&
+          effective_config.option<ConfigOptionPercent>("sparse_infill_density")->value == 0 &&
+          !effective_config.opt_bool("enable_support") &&
+          effective_config.opt_int("enforce_support_layers") == 0 &&
+          !effective_config.opt_bool("detect_thin_wall") &&
+          !effective_config.opt_bool("overhang_reverse") &&
+          effective_config.opt_enum<WallDirection>("wall_direction") == WallDirection::Auto &&
+          effective_config.opt_enum<TimelapseType>("timelapse_type") == TimelapseType::tlTraditional &&
+          !effective_config.opt_bool("z_direction_outwall_speed_continuous"));
+
+    if (!conflict_message.empty()) {
+        // Entering an existing Spiral Plate is a new user intent, but it is not
+        // the same event as enabling Spiral. Confirm the complete plan before
+        // changing object overrides or a project-wide Mixed setting.
+        if (plate_tab == nullptr ||
+            plate_tab->show_spiral_mode_settings_dialog(false, conflict_message, true) != wxID_YES)
+            return;
+    } else if (!is_new && needs_vase_adjustment && plate_tab != nullptr) {
+        // Preserve the pre-existing informational path for non-mutex Vase
+        // recommendations when an existing object is moved between Plates.
+        plate_tab->show_spiral_mode_settings_dialog(true);
+    }
+
+    if (!conflict_message.empty() && plater != nullptr) {
+        bool rejected = false;
+        plater->apply_zaa_ui_normalization(
+            request, scoped_objects, &requested_config, true, &rejected, true);
+        if (rejected)
+            return;
+    }
+
+    if (needs_vase_adjustment)
+        plate.set_vase_mode_related_object_config(obj_id);
+}
+
 //notify instance's update, need to refresh the instance in plates
 //newly added or modified
 int PartPlateList::notify_instance_update(int obj_id, int instance_id, bool is_new)
@@ -4482,21 +4612,6 @@ int PartPlateList::notify_instance_update(int obj_id, int instance_id, bool is_n
 		}
 	}
 
-	auto is_object_config_compatible_with_spiral_vase = [](ModelObject* object) {
-		const DynamicPrintConfig& config = object->config.get();
-		if (config.has("wall_loops") && config.opt_int("wall_loops") == 1 &&
-			config.has("top_shell_layers") && config.opt_int("top_shell_layers") == 0 &&
-			config.has("sparse_infill_density") && config.option<ConfigOptionPercent>("sparse_infill_density")->value == 0 &&
-			config.has("enable_support") && !config.opt_bool("enable_support") &&
-			config.has("enforce_support_layers") && config.opt_int("enforce_support_layers") == 0 &&
-			config.has("ensure_vertical_shell_thickness") && config.opt_bool("ensure_vertical_shell_thickness") &&
-			config.has("detect_thin_wall") && !config.opt_bool("detect_thin_wall") &&
-			config.has("timelapse_type") && config.opt_enum<TimelapseType>("timelapse_type") == TimelapseType::tlTraditional)
-			return true;
-		else
-			return false;
-	};
-
 	//try to find a new plate
 	for (unsigned int i = 0; i < (unsigned int)m_plate_list.size(); ++i)
 	{
@@ -4508,18 +4623,7 @@ int PartPlateList::notify_instance_update(int obj_id, int instance_id, bool is_n
 			//found a new plate, add it to plate
 			plate->add_instance(obj_id, instance_id, false, &boundingbox);
 
-			// spiral mode, update object setting
-			if (plate->config()->has("spiral_mode") && plate->config()->opt_bool("spiral_mode") && !is_object_config_compatible_with_spiral_vase(object)) {
-				if (!is_new) {
-					auto answer = static_cast<TabPrintPlate*>(wxGetApp().plate_tab)->show_spiral_mode_settings_dialog(true);
-					if (answer == wxID_YES) {
-						plate->set_vase_mode_related_object_config(obj_id);
-					}
-				}
-				else {
-					plate->set_vase_mode_related_object_config(obj_id);
-				}
-			}
+			reconcile_spiral_vase_after_instance_added(*plate, obj_id, is_new);
 
 			plate->update_slice_result_valid_state();
 			plate->thumbnail_data.reset();
@@ -4624,6 +4728,8 @@ int PartPlateList::add_to_plate(int obj_id, int instance_id, int plate_id)
 		return -1;
 	}
 	ret = plate->add_instance(obj_id, instance_id, true);
+	if (ret == 0)
+		reconcile_spiral_vase_after_instance_added(*plate, obj_id, false);
 
 	return ret;
 }

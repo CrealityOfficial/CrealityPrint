@@ -20,8 +20,13 @@
 namespace Slic3r {
     struct FloatOrPercent
     {
-        double  value;
-        bool    percent;
+        double  value = 0;
+        bool    percent = false;
+
+        FloatOrPercent() {}
+        FloatOrPercent(double value_, bool percent_) : value(value_), percent(percent_) { }
+
+        double get_abs_value(double ratio_over) const { return this->percent ? (ratio_over * this->value / 100) : this->value; }
 
     private:
         friend class cereal::access;
@@ -1608,10 +1613,18 @@ public:
             throw ConfigurationError("ConfigOptionEnumGeneric: Assigning an incompatible type");
         // rhs could be of the following type: ConfigOptionEnumGeneric or ConfigOptionEnum<T>
         this->value = rhs->getInt();
+        // Orca: StaticPrintConfig enum members start without a keys map. Adopt
+        // the dynamic source map so later serialization can emit enum names.
+        if (this->keys_map == nullptr)
+            if (const auto *rhs_generic = dynamic_cast<const ConfigOptionEnumGeneric *>(rhs))
+                this->keys_map = rhs_generic->keys_map;
     }
 
     std::string serialize() const override
     {
+        assert(this->keys_map != nullptr);
+        if (this->keys_map == nullptr)
+            throw ConfigurationError("ConfigOptionEnumGeneric: Cannot serialize without an enum keys map");
         for (const auto &kvp : *this->keys_map)
             if (kvp.second == this->value)
                 return kvp.first;
@@ -1640,7 +1653,7 @@ class ConfigOptionEnumsGenericTempl : public ConfigOptionInts
 public:
     ConfigOptionEnumsGenericTempl(const t_config_enum_values *keys_map = nullptr) : keys_map(keys_map) {}
     explicit ConfigOptionEnumsGenericTempl(const t_config_enum_values *keys_map, size_t size, int value) : ConfigOptionInts(size, value), keys_map(keys_map) {}
-    explicit ConfigOptionEnumsGenericTempl(std::initializer_list<int> il) : ConfigOptionInts(std::move(il)), keys_map(keys_map) {}
+    explicit ConfigOptionEnumsGenericTempl(std::initializer_list<int> il) : ConfigOptionInts(std::move(il)) {}
     explicit ConfigOptionEnumsGenericTempl(const std::vector<int> &vec) : ConfigOptionInts(vec) {}
     explicit ConfigOptionEnumsGenericTempl(std::vector<int> &&vec) : ConfigOptionInts(std::move(vec)) {}
 
@@ -1664,7 +1677,12 @@ public:
         if (rhs->type() != this->type())
             throw ConfigurationError("ConfigOptionEnumGeneric: Assigning an incompatible type");
         // rhs could be of the following type: ConfigOptionEnumsGeneric
-        this->values = dynamic_cast<const ConfigOptionEnumsGenericTempl *>(rhs)->values;
+        const auto *rhs_enums = dynamic_cast<const ConfigOptionEnumsGenericTempl *>(rhs);
+        this->values = rhs_enums->values;
+        // Orca: Preserve enum metadata when a default value is copied into a
+        // statically embedded option whose keys map has not been initialized.
+        if (this->keys_map == nullptr)
+            this->keys_map = rhs_enums->keys_map;
     }
 
     std::string serialize() const override
@@ -1724,6 +1742,9 @@ private:
                 throw ConfigurationError("Serializing NaN");
         }
         else {
+            assert(this->keys_map != nullptr);
+            if (this->keys_map == nullptr)
+                throw ConfigurationError("ConfigOptionEnumsGeneric: Cannot serialize without an enum keys map");
             for (const auto& kvp : *this->keys_map)
                 if (kvp.second == v)
                     ss << kvp.first;
@@ -1757,6 +1778,8 @@ public:
         legend,
         // Vector value, but edited as a single string.
         one_string,
+        // Process option rendered as one native input per active nozzle variant.
+        multi_variant,
     };
 
 	// Identifier of this option. It is stored here so that it is accessible through the by_serialization_key_ordinal map.
@@ -1783,6 +1806,7 @@ public:
 		    case coFloats:          { auto opt = new ConfigOptionFloatsNullable();	archive(*opt); return opt; }
 		    case coInts:            { auto opt = new ConfigOptionIntsNullable();	archive(*opt); return opt; }
 		    case coPercents:        { auto opt = new ConfigOptionPercentsNullable();archive(*opt); return opt; }
+		    case coFloatsOrPercents:{ auto opt = new ConfigOptionFloatsOrPercentsNullable(); archive(*opt); return opt; }
 		    case coBools:           { auto opt = new ConfigOptionBoolsNullable();	archive(*opt); return opt; }
 		    default:                throw ConfigurationError(std::string("ConfigOptionDef::load_option_from_archive(): Unknown nullable option type for option ") + this->opt_key);
 		    }
@@ -1816,6 +1840,7 @@ public:
 		    case coFloats:          archive(*static_cast<const ConfigOptionFloatsNullable*>(opt));  break;
 		    case coInts:            archive(*static_cast<const ConfigOptionIntsNullable*>(opt));    break;
 		    case coPercents:        archive(*static_cast<const ConfigOptionPercentsNullable*>(opt));break;
+		    case coFloatsOrPercents:archive(*static_cast<const ConfigOptionFloatsOrPercentsNullable*>(opt)); break;
 		    case coBools:           archive(*static_cast<const ConfigOptionBoolsNullable*>(opt)); 	break;
 		    default:                throw ConfigurationError(std::string("ConfigOptionDef::save_option_to_archive(): Unknown nullable option type for option ") + this->opt_key);
 		    }
@@ -1957,6 +1982,9 @@ public:
         t_optiondef_map::iterator it = const_cast<ConfigDef*>(this)->options.find(opt_key);
         return (it == this->options.end()) ? nullptr : &it->second;
     }
+    // Serialize JSON array elements according to the option type (including aliases).
+    std::string serialize_array(const t_config_option_key& key, const std::vector<std::string>& values) const;
+
     std::vector<std::string> keys() const {
         std::vector<std::string> out;
         out.reserve(options.size());
@@ -2138,6 +2166,7 @@ public:
     void set_deserialize_strict(std::initializer_list<SetDeserializeItem> items)
         { ConfigSubstitutionContext ctxt{ ForwardCompatibilitySubstitutionRule::Disable }; this->set_deserialize(items, ctxt); }
 
+    double get_abs_value_at(const t_config_option_key &opt_key, size_t index) const;
     double get_abs_value(const t_config_option_key &opt_key) const;
     double get_abs_value(const t_config_option_key &opt_key, double ratio_over) const;
     void setenv_() const;
@@ -2315,10 +2344,12 @@ public:
     std::string&        opt_string(const t_config_option_key &opt_key, unsigned int idx)        { return this->option<ConfigOptionStrings>(opt_key)->get_at(idx); }
     const std::string&  opt_string(const t_config_option_key &opt_key, unsigned int idx) const  { return const_cast<DynamicConfig*>(this)->opt_string(opt_key, idx); }
 
-    double&             opt_float(const t_config_option_key &opt_key)                           { return this->option<ConfigOptionFloat>(opt_key)->value; }
-    const double&       opt_float(const t_config_option_key &opt_key) const                     { return dynamic_cast<const ConfigOptionFloat*>(this->option(opt_key))->value; }
-    double&             opt_float(const t_config_option_key &opt_key, unsigned int idx)         { return this->option<ConfigOptionFloats>(opt_key)->get_at(idx); }
-    const double&       opt_float(const t_config_option_key &opt_key, unsigned int idx) const   { return dynamic_cast<const ConfigOptionFloats*>(this->option(opt_key))->get_at(idx); }
+    double&             opt_float(const t_config_option_key &opt_key);
+    const double&       opt_float(const t_config_option_key &opt_key) const;
+    double &            opt_float(const t_config_option_key &opt_key, unsigned int idx);
+    const double &      opt_float(const t_config_option_key &opt_key, unsigned int idx) const;
+    double &            opt_float_nullable(const t_config_option_key &opt_key, unsigned int idx) { return this->option<ConfigOptionFloatsNullable>(opt_key)->get_at(idx); }
+    const double &      opt_float_nullable(const t_config_option_key &opt_key, unsigned int idx) const { return dynamic_cast<const ConfigOptionFloatsNullable *>(this->option(opt_key))->get_at(idx); }
 
     int&                opt_int(const t_config_option_key &opt_key)                             { return this->option<ConfigOptionInt>(opt_key)->value; }
     int                 opt_int(const t_config_option_key &opt_key) const                       { return dynamic_cast<const ConfigOptionInt*>(this->option(opt_key))->value; }
@@ -2332,8 +2363,8 @@ public:
     // BBS
     int                 opt_enum(const t_config_option_key &opt_key, unsigned int idx) const    { return dynamic_cast<const ConfigOptionEnumsGeneric*>(this->option(opt_key))->get_at(idx); }
 
-    bool                opt_bool(const t_config_option_key &opt_key) const                      { return this->option<ConfigOptionBool>(opt_key)->value != 0; }
-    bool                opt_bool(const t_config_option_key &opt_key, unsigned int idx) const    { return this->option<ConfigOptionBools>(opt_key)->get_at(idx) != 0; }
+    bool                opt_bool(const t_config_option_key &opt_key) const;
+    bool                opt_bool(const t_config_option_key &opt_key, unsigned int idx) const;
 
     // Command line processing
     bool                read_cli(int argc, const char* const argv[], t_config_option_keys* extra, t_config_option_keys* keys = nullptr);

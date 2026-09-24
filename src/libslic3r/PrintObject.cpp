@@ -1,4 +1,5 @@
 // [FORMATTED BY CLANG-FORMAT 2026-05-11 19:07:20]
+#include "AABBMesh.hpp"
 #include "Exception.hpp"
 #include "Print.hpp"
 #include "BoundingBox.hpp"
@@ -18,6 +19,8 @@
 #include "Utils.hpp"
 #include "Fill/FillAdaptive.hpp"
 #include "Fill/FillLightning.hpp"
+#include "cr_FillTensor_library.h"
+#include "OpenVDBUtils.hpp"
 #include "Format/STL.hpp"
 #include "TreeSupport.hpp"
 #include "format.hpp"
@@ -25,13 +28,23 @@
 #include "libslic3r/ModelVolume.hpp"
 #include "libslic3r/AABBTreeLines.hpp"
 #include "MixedFilament.hpp"
+#include "Diagnostics/Fingerprint.hpp"
+#include "Diagnostics/Performance.hpp"
 
 #include <float.h>
 #include <atomic>
 #include <chrono>
+#include <type_traits>
+#include <limits>
+#include <unordered_set>
 #include <oneapi/tbb/blocked_range.h>
 #include <oneapi/tbb/concurrent_vector.h>
 #include <oneapi/tbb/parallel_for.h>
+#include <openvdb/openvdb.h>
+#include <openvdb/tools/Interpolation.h>
+#include <openvdb/tools/MeshToVolume.h>
+#include <algorithm>
+#include <cmath>
 #include <string_view>
 #include <utility>
 
@@ -85,6 +98,53 @@ using namespace std::literals;
 #define BOTTOM_SHELL_THICKNESS 0.6
 
 namespace Slic3r {
+namespace {
+
+void collect_zaa_candidate_paths(ExtrusionEntity &entity, std::vector<ExtrusionPath *> &paths)
+{
+    if (auto *collection = dynamic_cast<ExtrusionEntityCollection *>(&entity)) {
+        for (ExtrusionEntity *child : collection->entities)
+            collect_zaa_candidate_paths(*child, paths);
+    } else if (auto *multipath = dynamic_cast<ExtrusionMultiPath *>(&entity)) {
+        for (ExtrusionPath &path : multipath->paths)
+            collect_zaa_candidate_paths(path, paths);
+    } else if (auto *loop = dynamic_cast<ExtrusionLoop *>(&entity)) {
+        for (ExtrusionPath &path : loop->paths)
+            collect_zaa_candidate_paths(path, paths);
+    } else if (auto *path = dynamic_cast<ExtrusionPath *>(&entity)) {
+        if (path->zaa_path_policy() == ZaaPathPolicy::ZaaLinearCandidate)
+            paths.emplace_back(path);
+    } else {
+        throw LogicError(_u8L("ZAA planning encountered an unsupported extrusion entity"));
+    }
+}
+
+void collect_zaa_candidate_paths(const ExtrusionEntity &entity, std::vector<const ExtrusionPath *> &paths)
+{
+    if (const auto *collection = dynamic_cast<const ExtrusionEntityCollection *>(&entity)) {
+        for (const ExtrusionEntity *child : collection->entities)
+            collect_zaa_candidate_paths(*child, paths);
+    } else if (const auto *multipath = dynamic_cast<const ExtrusionMultiPath *>(&entity)) {
+        for (const ExtrusionPath &path : multipath->paths)
+            collect_zaa_candidate_paths(path, paths);
+    } else if (const auto *loop = dynamic_cast<const ExtrusionLoop *>(&entity)) {
+        for (const ExtrusionPath &path : loop->paths)
+            collect_zaa_candidate_paths(path, paths);
+    } else if (const auto *path = dynamic_cast<const ExtrusionPath *>(&entity)) {
+        if (path->zaa_path_policy() == ZaaPathPolicy::ZaaLinearCandidate)
+            paths.emplace_back(path);
+    } else {
+        throw LogicError(_u8L("ZAA planning encountered an unsupported extrusion entity"));
+    }
+}
+
+struct ZaaPathPlanWorkItem {
+    ExtrusionPath *target{nullptr};
+    ZaaPathPlanRequest request;
+};
+
+} // namespace
+
 // debug
 void debug_perimeters(Print* print, PrintObject* object);
 void debug_estimate_curled_extrusions(Print* print, PrintObject* object);
@@ -307,7 +367,7 @@ void PrintObject::_transform_hole_to_polyholes()
     // create a polyhole per id and replace holes points by it.
     for (auto entry : id2layerz2hole) {
         Polygons polyholes = create_polyholes(std::get<0>(entry.first), std::get<1>(entry.first),
-                                              scale_(print()->config().nozzle_diameter.get_at(std::get<2>(entry.first) - 1)),
+                                              scale_(get_physical_nozzle_diameter(print()->config(), std::get<2>(entry.first) - 1)),
                                               std::get<4>(entry.first));
         for (auto& poly_to_replace : entry.second) {
             Polygon polyhole = polyholes[poly_to_replace.second % polyholes.size()];
@@ -607,11 +667,30 @@ void PrintObject::prepare_infill()
     // Also tiny stInternal surfaces are turned to stInternalSolid.
     report_prepare_infill_stage(2);
     BOOST_LOG_TRIVIAL(info) << "Preparing fill surfaces..." << log_memory_info();
-    for (auto* layer : m_layers)
+    for (auto* layer : m_layers) {
         for (auto* region : layer->m_regions) {
             region->prepare_fill_surfaces();
             m_print->throw_if_canceled();
         }
+
+        // Build connected components across sparse-infill-capable LayerRegions for the area test.
+        // The actual region geometries and their process parameters stay unchanged.
+        ExPolygons sparse_internal_components;
+        if (layer->regions().size() > 1) {
+            Polygons layer_internal;
+            for (const LayerRegion *region : layer->regions()) {
+                const double density = region->region().config().sparse_infill_density.value;
+                if (density > 0. && fabs(density - 100.) >= EPSILON)
+                    polygons_append(layer_internal, to_polygons(region->fill_surfaces.filter_by_type(stInternal)));
+            }
+            sparse_internal_components = closing_ex(layer_internal, float(SCALED_EPSILON));
+        }
+
+        for (LayerRegion *region : layer->m_regions) {
+            region->classify_internal_fill_surfaces(sparse_internal_components);
+            m_print->throw_if_canceled();
+        }
+    }
 
     debug_surfaces_type(m_print, this);
 
@@ -754,6 +833,134 @@ void PrintObject::infill()
         const auto& support_fill_octree  = this->m_adaptive_fill_octrees.second;
 
         BOOST_LOG_TRIVIAL(error) << "Filling layers in parallel - start";
+        // Precompute the OpenVDB SDF and tensor field for FillField before parallel infill generation.
+        this->m_field_sdf_grid.reset();
+        {
+            bool needs_field = false;
+            for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
+                if (this->printing_region(region_id).config().sparse_infill_pattern == ipField) {
+                    needs_field = true;
+                    break;
+                }
+            }
+            if (needs_field) {
+                BOOST_LOG_TRIVIAL(info) << "FillField: Computing OpenVDB SDF...";
+                indexed_triangle_set its = this->model_object()->raw_indexed_triangle_set();
+                its_transform(its, this->trafo_centered(), true);
+
+                std::vector<openvdb::Vec3s> vdb_points;
+                std::vector<openvdb::Vec3I> vdb_triangles;
+                vdb_points.reserve(its.vertices.size());
+                for (const auto& v : its.vertices)
+                    vdb_points.emplace_back(v.x(), v.y(), v.z());
+                vdb_triangles.reserve(its.indices.size());
+                for (const auto& f : its.indices)
+                    vdb_triangles.emplace_back(f[0], f[1], f[2]);
+                std::vector<openvdb::Vec4I> vdb_quads;
+
+                openvdb::initialize();
+
+                if (!vdb_points.empty()) {
+                    BoundingBox3Base<Vec3f> mesh_bb(its.vertices);
+
+                    float size_x       = mesh_bb.max.x() - mesh_bb.min.x();
+                    float size_y       = mesh_bb.max.y() - mesh_bb.min.y();
+                    float size_z       = mesh_bb.max.z() - mesh_bb.min.z();
+                    float max_size     = std::max({size_x, size_y, size_z});
+                    float min_box_edge = std::min({size_x, size_y, size_z});
+                    float gap          = (max_size > 60.0f) ? (max_size / 60.0f) : 1.0f;
+
+                    const int MAX_TOTAL_POINTS = 40000;
+                    int       est_nx           = 2 * (int) std::ceil(size_x * 0.5f / gap) + 1;
+                    int       est_ny           = 2 * (int) std::ceil(size_y * 0.5f / gap) + 1;
+                    int       est_nz           = 2 * (int) std::ceil(size_z * 0.5f / gap) + 1;
+                    while (est_nx * est_ny * est_nz > MAX_TOTAL_POINTS) {
+                        gap *= 1.2f;
+                        est_nx = 2 * (int) std::ceil(size_x * 0.5f / gap) + 1;
+                        est_ny = 2 * (int) std::ceil(size_y * 0.5f / gap) + 1;
+                        est_nz = 2 * (int) std::ceil(size_z * 0.5f / gap) + 1;
+                    }
+
+                    float voxel_size = gap;
+                    float half_diag  = std::sqrt(size_x * size_x + size_y * size_y + size_z * size_z) * 0.5f;
+                    float band_width = std::ceil(half_diag / voxel_size) + 2.0f;
+
+                    openvdb::math::Transform::Ptr xform =
+                        openvdb::math::Transform::createLinearTransform(voxel_size);
+                    auto grid = openvdb::tools::meshToSignedDistanceField<openvdb::FloatGrid>(
+                        *xform, vdb_points, vdb_triangles, vdb_quads, band_width, band_width);
+
+                    if (grid) {
+                        openvdb::tools::GridSampler<openvdb::FloatGrid, openvdb::tools::BoxSampler> sampler(*grid);
+
+                        float center_x = (mesh_bb.min.x() + mesh_bb.max.x()) * 0.5f;
+                        float center_y = (mesh_bb.min.y() + mesh_bb.max.y()) * 0.5f;
+                        float center_z = (mesh_bb.min.z() + mesh_bb.max.z()) * 0.5f;
+                        int   half_nx  = (int) std::ceil(size_x * 0.5f / gap);
+                        int   half_ny  = (int) std::ceil(size_y * 0.5f / gap);
+                        int   half_nz  = (int) std::ceil(size_z * 0.5f / gap);
+                        int   nx       = 2 * half_nx + 1;
+                        int   ny       = 2 * half_ny + 1;
+                        int   nz       = 2 * half_nz + 1;
+                        float min_x    = center_x - half_nx * gap;
+                        float min_y    = center_y - half_ny * gap;
+                        float min_z    = center_z - half_nz * gap;
+
+                        std::vector<float> sdf_grid(nx * ny * nz, 1.0f);
+                        for (int i = 0; i < nx; ++i)
+                            for (int j = 0; j < ny; ++j)
+                                for (int k = 0; k < nz; ++k) {
+                                    float x = min_x + i * gap;
+                                    float y = min_y + j * gap;
+                                    float z = min_z + k * gap;
+                                    sdf_grid[i * ny * nz + j * nz + k] =
+                                        sampler.wsSample(openvdb::Vec3R(x, y, z));
+                                }
+
+                        BOOST_LOG_TRIVIAL(info) << "FillField: SDF sampled (" << nx << "x" << ny << "x" << nz
+                                                << "), computing tensor field...";
+
+                        float surface_density  = 30.0f;
+                        float interior_density = 5.0f;
+                        float sw_factor        = 3.0f;
+                        int   cell_type        = 0;
+                        for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
+                            const PrintRegionConfig& cfg = this->printing_region(region_id).config();
+                            if (cfg.sparse_infill_pattern == ipField) {
+                                interior_density = cfg.interior_coefficient.value;
+                                surface_density  = cfg.surface_coefficient.value;
+                                cell_type        = cfg.cell_type.value;
+                                break;
+                            }
+                        }
+
+                        const float density_scale_ref_mm = 60.0f;
+                        float       box_density_scale    = std::sqrt(std::max(0.0f, min_box_edge) / density_scale_ref_mm);
+                        box_density_scale                = std::max(0.35f, std::min(1.0f, box_density_scale));
+                        interior_density                 = std::max(1.0f, std::min(99.0f, interior_density * box_density_scale));
+                        surface_density                  = std::max(1.0f, std::min(99.0f, surface_density * box_density_scale));
+
+                        FillTensorHandle field_tensor_handle = FillTensor_Create(cell_type);
+                        if (field_tensor_handle) {
+                            FillTensor_SetParams(field_tensor_handle, surface_density, interior_density, sw_factor);
+
+                            int ret = FillTensor_SetFieldAndCompute(field_tensor_handle, sdf_grid.data(), nx, ny, nz, gap,
+                                                                    min_x, min_y, min_z);
+                            if (ret != 0) {
+                                FillTensor_Destroy(field_tensor_handle);
+                                BOOST_LOG_TRIVIAL(error) << "FillField: Tensor field computation failed.";
+                            } else {
+                                this->m_field_sdf_grid = std::shared_ptr<void>(
+                                    field_tensor_handle, [](void* p) {
+                                        if (p)
+                                            FillTensor_Destroy(p);
+                                    });
+                            }
+                        }
+                    }
+                }
+            }
+        }
         tbb::parallel_for(tbb::blocked_range<size_t>(0, m_layers.size()),
                           [this, &adaptive_fill_octree = adaptive_fill_octree,
                            &support_fill_octree = support_fill_octree](const tbb::blocked_range<size_t>& range) {
@@ -840,8 +1047,10 @@ static const float g_min_overhang_percent_for_lift = 0.3f;
 void PrintObject::detect_overhangs_for_lift(bool report_status)
 {
     if (this->set_started(posDetectOverhangsForLift)) {
-        const double   nozzle_diameter = m_print->config().nozzle_diameter.get_at(0);
-        const coordf_t line_width      = this->config().get_abs_value("line_width", nozzle_diameter);
+        const size_t   nozzle_index    = get_physical_nozzle_index(m_print->config(), 0);
+        const double   nozzle_diameter = m_print->config().nozzle_diameter.get_at(nozzle_index);
+        const coordf_t line_width      = nozzle_variant_abs_value(
+            this->config().line_width, nozzle_index, nozzle_diameter);
 
         const float min_overlap     = line_width * g_min_overhang_percent_for_lift;
         size_t      num_layers      = this->layer_count();
@@ -929,7 +1138,10 @@ void PrintObject::estimate_curled_extrusions()
 {
     if (this->set_started(posEstimateCurledExtrusions)) {
         if (std::any_of(this->print()->m_print_regions.begin(), this->print()->m_print_regions.end(),
-                        [](const PrintRegion* region) { return region->config().enable_overhang_speed.getBool(); })) {
+                        [](const PrintRegion* region) {
+                            const auto &values = region->config().enable_overhang_speed.values;
+                            return std::any_of(values.begin(), values.end(), [](unsigned char value) { return value != 0; });
+                        })) {
             // Estimate curling of support material and add it to the malformaition lines of each layer
             float support_flow_width = support_material_flow(this, this->config().layer_height).width();
             // SupportSpotsGenerator::Params params{this->print()->m_config.filament_type.values,
@@ -993,6 +1205,142 @@ void PrintObject::simplify_extrusion_path()
         m_print->throw_if_canceled();
         BOOST_LOG_TRIVIAL(debug) << "Simplify extrusion path of support in parallel - end";
         this->set_done(posSimplifySupportPath);
+    }
+}
+
+size_t PrintObject::zaa_path_plan_sample_count() const
+{
+    // Shared followers alias their representative's Layer and ExtrusionPath
+    // storage, so those samples must be counted and resolved exactly once.
+    if (!this->zaa_slice_decision().is_supported() || m_shared_object != nullptr)
+        return 0;
+
+    size_t total_samples = 0;
+    for (const Layer *layer : m_layers) {
+        this->m_print->throw_if_canceled();
+        const ZaaLayerGeometry *layer_geometry = this->zaa_layer_geometry(*layer);
+        if (layer_geometry == nullptr)
+            throw LogicError(_u8L("Supported ZAA object is missing layer geometry during path planning"));
+        if (!layer_geometry->uses_zaa_offset_plane())
+            continue;
+
+        std::vector<const ExtrusionPath *> candidates;
+        for (const LayerRegion *region : layer->regions()) {
+            collect_zaa_candidate_paths(region->perimeters, candidates);
+            collect_zaa_candidate_paths(region->fills, candidates);
+        }
+        for (const ExtrusionPath *path : candidates) {
+            this->m_print->throw_if_canceled();
+            const size_t path_samples = zaa_path_sample_count(*path, ZAA_MAX_SAMPLE_SPACING_MM);
+            if (path_samples > std::numeric_limits<size_t>::max() - total_samples)
+                throw InvalidArgument(_u8L("ZAA flattened sample count overflow"));
+            total_samples += path_samples;
+        }
+    }
+    return total_samples;
+}
+
+void PrintObject::build_zaa_path_plans_flattened(const ZaaPathPlanningProgress *progress)
+{
+    if (!this->set_started(posZaaPathPlan))
+        return;
+
+    if (!this->zaa_slice_decision().is_supported()) {
+        this->set_done(posZaaPathPlan);
+        return;
+    }
+    // The representative precedes its followers in Print's shared-object
+    // selection order and owns their aliased path storage.
+    if (m_shared_object != nullptr) {
+        this->m_print->throw_if_canceled();
+        if (!m_shared_object->is_step_done(posZaaPathPlan))
+            throw LogicError(_u8L("ZAA shared path planning representative is not complete"));
+        this->set_done(posZaaPathPlan);
+        return;
+    }
+
+    std::vector<ZaaPathPlanWorkItem> work_items;
+    for (Layer *layer : m_layers) {
+        const ZaaLayerGeometry *layer_geometry = this->zaa_layer_geometry(*layer);
+        if (layer_geometry == nullptr)
+            throw LogicError(_u8L("Supported ZAA object is missing layer geometry during path planning"));
+        if (!layer_geometry->uses_zaa_offset_plane())
+            continue;
+
+        std::vector<ExtrusionPath *> candidates;
+        for (LayerRegion *region : layer->regions()) {
+            collect_zaa_candidate_paths(region->perimeters, candidates);
+            collect_zaa_candidate_paths(region->fills, candidates);
+        }
+        for (ExtrusionPath *path : candidates) {
+            work_items.emplace_back();
+            ZaaPathPlanWorkItem &work_item = work_items.back();
+            work_item.target = path;
+            work_item.request.source_path = path;
+            work_item.request.layer_geometry = layer_geometry;
+            work_item.request.layer_print_z_mm = layer->print_z;
+            work_item.request.minimize_perimeter_height_angle_degrees = m_config.zaa_wall_lowering_min_slope.value;
+        }
+    }
+
+    if (work_items.empty()) {
+        this->m_print->throw_if_canceled();
+        this->set_done(posZaaPathPlan);
+        return;
+    }
+
+    std::unordered_set<ExtrusionPath *> unique_targets;
+    unique_targets.reserve(work_items.size());
+    for (const ZaaPathPlanWorkItem &work_item : work_items) {
+        if (work_item.target == nullptr || !unique_targets.emplace(work_item.target).second)
+            throw LogicError(_u8L("ZAA flattened planning requires unique non-null target paths"));
+    }
+
+    TriangleMesh query_mesh = this->model_object()->raw_mesh();
+    query_mesh.transform(this->trafo_centered(), true);
+    const AABBMesh query_aabb(query_mesh);
+    std::vector<ZaaPathPlanRequest> requests;
+    requests.reserve(work_items.size());
+    for (ZaaPathPlanWorkItem &work_item : work_items) {
+        work_item.request.query_mesh = &query_aabb;
+        requests.emplace_back(work_item.request);
+    }
+
+    ZaaPathPlanBatchCallbacks callbacks;
+    callbacks.throw_if_canceled = [this]() { this->m_print->throw_if_canceled(); };
+    if (progress != nullptr && *progress)
+        callbacks.samples_resolved = [progress](size_t count) { progress->advance_samples(count); };
+
+    std::vector<ZaaPathPlanResult> results = build_zaa_path_plans(requests, &callbacks);
+    if (results.size() != work_items.size())
+        throw LogicError(_u8L("ZAA flattened planning returned an unexpected result count"));
+    for (const ZaaPathPlanResult &result : results) {
+        if (result.is_spatial() != (result.path3 != nullptr))
+            throw LogicError(_u8L("ZAA flattened planning returned an incomplete spatial result"));
+    }
+
+    this->m_print->throw_if_canceled();
+    size_t exchanged_count = 0;
+    for (; exchanged_count < work_items.size(); ++exchanged_count)
+        results[exchanged_count].exchange_with(*work_items[exchanged_count].target);
+
+    const auto rollback = [&]() noexcept {
+        while (exchanged_count > 0) {
+            --exchanged_count;
+            results[exchanged_count].exchange_with(*work_items[exchanged_count].target);
+        }
+    };
+    try {
+        this->set_done(posZaaPathPlan);
+    } catch (...) {
+        if (!this->is_step_done(posZaaPathPlan))
+            rollback();
+        throw;
+    }
+    if (!this->is_step_done(posZaaPathPlan)) {
+        rollback();
+        this->m_print->throw_if_canceled();
+        throw LogicError(_u8L("ZAA path planning state was invalidated during publication"));
     }
 }
 
@@ -1146,7 +1494,10 @@ bool PrintObject::invalidate_state_by_config_options(const ConfigOptionResolver&
         const bool role_filament_changed = opt_key == "wall_filament" ||
                                            opt_key == "sparse_infill_filament" ||
                                            opt_key == "solid_infill_filament";
-        if (role_filament_changed && interlocking_beam_enabled) {
+        if (opt_key == "zaa_enabled" || opt_key == "zaa_slice_plane_offset" ||
+            (opt_key == "seam_slope_type" && m_config.zaa_enabled.value)) {
+            steps.emplace_back(posSlice);
+        } else if (role_filament_changed && interlocking_beam_enabled) {
             steps.emplace_back(posSlice);
         } else if (opt_key == "brim_width" || opt_key == "brim_object_gap" || opt_key == "brim_type" || opt_key == "brim_ears_max_angle" ||
             opt_key == "brim_ears_detection_length"
@@ -1270,9 +1621,15 @@ bool PrintObject::invalidate_state_by_config_options(const ConfigOptionResolver&
                    // BBS
                    || opt_key == "bridge_density") {
             steps.emplace_back(posPrepareInfill);
-        } else if (opt_key == "top_surface_pattern" || opt_key == "bottom_surface_pattern" || opt_key == "internal_solid_infill_pattern" ||
+        } else if (opt_key == "zaa_wall_lowering_min_slope") {
+            steps.emplace_back(posPerimeters);
+        } else if (opt_key == "zaa_lock_top_surface_fill_direction" || opt_key == "top_surface_pattern" || opt_key == "bottom_surface_pattern" || opt_key == "internal_solid_infill_pattern" ||
                    opt_key == "external_fill_link_max_length" || opt_key == "infill_anchor" || opt_key == "infill_anchor_max" ||
-                   opt_key == "top_surface_line_width" || opt_key == "initial_layer_line_width") {
+                   opt_key == "top_surface_line_width" || opt_key == "initial_layer_line_width" ||
+                   opt_key == "infill_lock_depth" || opt_key == "skin_infill_depth" ||
+                   opt_key == "skin_infill_density" || opt_key == "skeleton_infill_density" ||
+                   opt_key == "skin_infill_line_width" || opt_key == "skeleton_infill_line_width" ||
+                   opt_key == "locked_skin_infill_pattern" || opt_key == "locked_skeleton_infill_pattern") {
             steps.emplace_back(posInfill);
         } else if (opt_key == "sparse_infill_pattern") {
             steps.emplace_back(posPrepareInfill);
@@ -1303,6 +1660,11 @@ bool PrintObject::invalidate_state_by_config_options(const ConfigOptionResolver&
                    opt_key == "overhang_speed_classic") {
             steps.emplace_back(posPerimeters);
             steps.emplace_back(posSupportMaterial);
+            // Adaptive layer widths are frozen in the prepared slice plan.
+            // Wall filament selects the nozzle used to resolve that width.
+            if (m_config.overhang_optimization.value &&
+                (opt_key == "outer_wall_line_width" || opt_key == "wall_filament"))
+                steps.emplace_back(posSlice);
         } else if (opt_key == "bridge_flow" || opt_key == "internal_bridge_flow") {
             if (m_config.support_top_z_distance > 0.) {
                 // Only invalidate due to bridging if bridging is enabled.
@@ -1328,6 +1690,9 @@ bool PrintObject::invalidate_state_by_config_options(const ConfigOptionResolver&
                    opt_key == "bed_mesh_min" || opt_key == "bed_mesh_max" || opt_key == "adaptive_bed_mesh_margin" ||
                    opt_key == "bed_mesh_probe_distance") {
             invalidated |= m_print->invalidate_step(psGCodeExport);
+        } else if (opt_key == "skeleton_wipe_line_width") {
+            invalidated |= m_print->invalidate_step(psWipeTower);
+            invalidated |= m_print->invalidate_step(psGCodeExport);
         } else if (
                opt_key == "flush_into_infill"
             || opt_key == "flush_into_objects"
@@ -1350,26 +1715,46 @@ bool PrintObject::invalidate_state_by_config_options(const ConfigOptionResolver&
     return invalidated;
 }
 
+void PrintObject::invalidate_slice_cache_preserving_zaa_state()
+{
+    if (!m_prepared_layer_schedule || !m_zaa_slice_decision || !m_zaa_slice_decision->is_supported())
+        throw LogicError(_u8L("Preserving the ZAA slice state requires a frozen Supported decision"));
+
+    PreparedLayerSchedule  schedule = std::move(*m_prepared_layer_schedule);
+    ZaaObjectSliceDecision decision = std::move(*m_zaa_slice_decision);
+    m_zaa_layer_geometry_index_by_layer.clear();
+
+    this->invalidate_step(posSlice);
+    this->clear_support_layers();
+    this->clear_layers();
+    this->update_slicing_parameters();
+
+    m_prepared_layer_schedule = std::move(schedule);
+    m_zaa_slice_decision      = std::move(decision);
+}
+
 bool PrintObject::invalidate_step(PrintObjectStep step)
 {
     bool invalidated = Inherited::invalidate_step(step);
 
     // propagate to dependent steps
     if (step == posPerimeters) {
-        invalidated |= this->invalidate_steps({posPrepareInfill, posInfill, posIroning, posSimplifyPath, posSimplifyInfill});
+        invalidated |= this->invalidate_steps({posPrepareInfill, posInfill, posIroning, posSimplifyPath, posSimplifyInfill, posZaaPathPlan});
         invalidated |= m_print->invalidate_steps({psSkirtBrim});
     } else if (step == posPrepareInfill) {
-        invalidated |= this->invalidate_steps({posInfill, posIroning, posSimplifyPath, posSimplifyInfill});
+        invalidated |= this->invalidate_steps({posInfill, posIroning, posSimplifyPath, posSimplifyInfill, posZaaPathPlan});
     } else if (step == posInfill) {
-        invalidated |= this->invalidate_steps({posIroning, posSimplifyInfill});
+        invalidated |= this->invalidate_steps({posIroning, posSimplifyInfill, posZaaPathPlan});
         invalidated |= m_print->invalidate_steps({psSkirtBrim});
     } else if (step == posSlice) {
+        this->reset_zaa_slice_state();
         invalidated |= this->invalidate_steps(
-            {posPerimeters, posPrepareInfill, posInfill, posIroning, posSupportMaterial, posSimplifyPath, posSimplifyInfill});
+            {posPerimeters, posPrepareInfill, posInfill, posIroning, posSupportMaterial, posSimplifyPath, posSimplifyInfill,
+             posSimplifySupportPath, posZaaPathPlan});
         invalidated |= m_print->invalidate_steps({psSkirtBrim});
         m_slicing_params.valid = false;
     } else if (step == posSupportMaterial) {
-        invalidated |= this->invalidate_steps({posSimplifySupportPath});
+        invalidated |= this->invalidate_steps({posSimplifySupportPath, posZaaPathPlan});
         invalidated |= m_print->invalidate_steps({psSkirtBrim});
         m_slicing_params.valid = false;
     }
@@ -1389,6 +1774,7 @@ bool PrintObject::invalidate_all_steps()
     bool result = Inherited::invalidate_all_steps() | m_print->invalidate_all_steps();
     // Then reset some of the depending values.
     m_slicing_params.valid = false;
+    this->reset_zaa_slice_state();
     return result;
 }
 
@@ -1779,10 +2165,10 @@ void PrintObject::discover_vertical_shells()
                     return;
             }
 
-            const std::string message = (boost::format("%1% (3/8): %2% / %3%")
+            const size_t progress_percent = total == 0 ? 100 : completed * 100 / total;
+            const std::string message = (boost::format("%1% (3/8): %2%%%")
                                          % L("Generating infill regions")
-                                         % completed
-                                         % total).str();
+                                         % progress_percent).str();
             m_print->set_status(25, message);
             BOOST_LOG_TRIVIAL(info) << "[VERTICAL_SHELL_PROGRESS] " << message;
         };
@@ -2976,7 +3362,7 @@ void PrintObject::bridge_over_infill()
 
                     Polylines boundary_plines = to_polylines(expand(total_fill_area, 1.3 * flow.scaled_spacing()));
                     {
-                        Polylines limiting_plines = to_polylines(expand(limiting_area, 0.3 * flow.spacing()));
+                        Polylines limiting_plines = to_polylines(expand(limiting_area, 0.3f * float(flow.scaled_spacing())));
                         boundary_plines.insert(boundary_plines.end(), limiting_plines.begin(), limiting_plines.end());
                     }
 
@@ -3133,15 +3519,58 @@ static void clamp_exturder_to_default(ConfigOptionInt& opt, size_t num_extruders
         opt.value = 1;
 }
 
+static void apply_process_variant_option(ConfigOption* target,
+                                         const ConfigOption* source,
+                                         const std::string& key,
+                                         const std::vector<int>& process_variant_source_indices)
+{
+    if (target == nullptr || source == nullptr)
+        return;
+    if (source->is_scalar() || process_variant_source_indices.empty() ||
+        print_options_with_variant.count(key) == 0) {
+        target->set(source);
+        return;
+    }
+
+    auto* target_values = dynamic_cast<ConfigOptionVectorBase*>(target);
+    const auto* source_values = dynamic_cast<const ConfigOptionVectorBase*>(source);
+    if (target_values == nullptr || source_values == nullptr || target_values->type() != source_values->type())
+        return;
+
+    if (target_values->size() != process_variant_source_indices.size()) {
+        std::unique_ptr<ConfigOption> default_value(target_values->clone());
+        target_values->resize(process_variant_source_indices.size(), default_value.get());
+    }
+    for (size_t physical_index = 0; physical_index < process_variant_source_indices.size(); ++physical_index) {
+        const int mapped_source_index = process_variant_source_indices[physical_index];
+        // Programmatic calibration paths historically store a single common
+        // object value. Keep that well-defined legacy form working, while a
+        // multi-row sparse vector must match an exact Process source row.
+        const size_t source_index = source_values->size() == 1
+            ? 0 : size_t(std::max(0, mapped_source_index));
+        if (mapped_source_index >= 0 && source_index < source_values->size()) {
+            if (!source_values->is_nil(source_index))
+                target_values->set_at(source_values, physical_index, source_index);
+        } else {
+            BOOST_LOG_TRIVIAL(warning) << "Process variant object override has no source row: key="
+                                       << key << ", source_index=" << mapped_source_index
+                                       << ", source_size=" << source_values->size();
+        }
+    }
+}
+
 PrintObjectConfig PrintObject::object_config_from_model_object(const PrintObjectConfig& default_object_config,
                                                                const ModelObject&       object,
-                                                               size_t                   num_extruders)
+                                                               size_t                   num_extruders,
+                                                               const std::vector<int>&   process_variant_source_indices)
 {
     PrintObjectConfig config = default_object_config;
     {
         DynamicPrintConfig src_normalized(object.config.get());
         src_normalized.normalize_fdm();
-        config.apply(src_normalized, true);
+        for (const std::string& key : src_normalized.keys())
+            apply_process_variant_option(config.option(key, false), src_normalized.option(key), key,
+                                         process_variant_source_indices);
     }
     // Clamp invalid extruders to the default extruder (with index 1).
     clamp_exturder_to_default(config.support_filament, num_extruders);
@@ -3187,6 +3616,7 @@ static RoleFilamentOverrideState role_filament_override_state(const PrintRegionC
 static void apply_to_print_region_config(PrintRegionConfig&         out,
                                          const DynamicPrintConfig&  in,
                                          RoleFilamentOverrideState& role_state,
+                                         const std::vector<int>&    process_variant_source_indices,
                                          ExtruderRoleApplyMode      extruder_mode = ExtruderRoleApplyMode::FillDefaultOnly)
 {
 
@@ -3221,8 +3651,10 @@ static void apply_to_print_region_config(PrintRegionConfig&         out,
                         else if (it->first == "wall_filament")
                             role_state.wall = true;
                     }
-                } else
-                    my_opt->set(it->second.get());
+                } else {
+                    apply_process_variant_option(my_opt, it->second.get(), it->first,
+                                                 process_variant_source_indices);
+                }
             }
 }
 
@@ -3231,16 +3663,19 @@ PrintRegionConfig region_config_from_model_volume(const PrintRegionConfig&  defa
                                                   const ModelVolume&        volume,
                                                   size_t                    num_extruders,
                                                   size_t                    extruders_count,
+                                                  const std::vector<int>&   process_variant_source_indices,
                                                   bool                      single_extruder_multi_material);
 
 PrintRegionConfig region_config_from_model_volume(const PrintRegionConfig&  default_or_parent_region_config,
                                                   const DynamicPrintConfig* layer_range_config,
                                                   const ModelVolume&        volume,
                                                   size_t                    num_extruders,
-                                                  size_t                    extruders_count)
+                                                  size_t                    extruders_count,
+                                                  const std::vector<int>&   process_variant_source_indices)
 {
     const bool single_extruder_multi_material = extruders_count <= 1 && num_extruders > 1;
-    return region_config_from_model_volume(default_or_parent_region_config, layer_range_config, volume, num_extruders, extruders_count, single_extruder_multi_material);
+    return region_config_from_model_volume(default_or_parent_region_config, layer_range_config, volume, num_extruders, extruders_count,
+                                           process_variant_source_indices, single_extruder_multi_material);
 }
 
 static void apply_explicit_role_extruder(PrintRegionConfig& out, const DynamicPrintConfig& in, RoleFilamentOverrideState& role_state)
@@ -3267,6 +3702,7 @@ PrintRegionConfig region_config_from_model_volume(const PrintRegionConfig&  defa
                                                   const ModelVolume&        volume,
                                                   size_t                    num_extruders,
                                                   size_t                    extruders_count,
+                                                  const std::vector<int>&   process_variant_source_indices,
                                                   bool                      single_extruder_multi_material)
 {
     (void) extruders_count;
@@ -3281,21 +3717,23 @@ PrintRegionConfig region_config_from_model_volume(const PrintRegionConfig&  defa
     if (volume.is_model_part()) {
         // default_or_parent_region_config contains the Print's PrintRegionConfig.
         // Override with ModelObject's PrintRegionConfig values.
-        apply_to_print_region_config(config, volume.get_object()->config.get(), role_state);
+        apply_to_print_region_config(config, volume.get_object()->config.get(), role_state,
+                                     process_variant_source_indices);
     } else {
         // default_or_parent_region_config contains parent PrintRegion config, which already contains ModelVolume's config.
     }
     apply_to_print_region_config(config,
                                  volume.config.get(),
                                  role_state,
+                                 process_variant_source_indices,
                                  volume.is_model_part() ? ExtruderRoleApplyMode::OverrideInherited : ExtruderRoleApplyMode::FillDefaultOnly);
     if (!volume.material_id().empty())
-        apply_to_print_region_config(config, volume.material()->config.get(), role_state);
+        apply_to_print_region_config(config, volume.material()->config.get(), role_state, process_variant_source_indices);
     if (layer_range_config != nullptr) {
         // Not applicable to modifiers.
         assert(volume.is_model_part());
         apply_explicit_role_extruder(config, *layer_range_config, role_state);
-        apply_to_print_region_config(config, *layer_range_config, role_state);
+        apply_to_print_region_config(config, *layer_range_config, role_state, process_variant_source_indices);
     }
     // Clamp invalid extruders to the default extruder (with index 1).
     clamp_exturder_to_default(config.sparse_infill_filament, num_extruders);
@@ -3349,26 +3787,30 @@ SlicingParameters PrintObject::slicing_parameters(const DynamicPrintConfig& full
     PrintConfig       print_config;
     PrintObjectConfig object_config;
     PrintRegionConfig default_region_config;
+    std::vector<int> process_variant_source_indices;
+    if (const auto* indices = full_config.option<ConfigOptionInts>("process_variant_source_indices"))
+        process_variant_source_indices = indices->values;
     print_config.apply(full_config, true);
     object_config.apply(full_config, true);
     default_region_config.apply(full_config, true);
     // BBS
     size_t filament_extruders = print_config.filament_diameter.size();
     size_t extruders_count    = print_config.nozzle_diameter.size();
-    object_config             = object_config_from_model_object(object_config, model_object, filament_extruders);
+    object_config = object_config_from_model_object(object_config, model_object, filament_extruders,
+                                                     process_variant_source_indices);
 
     std::vector<unsigned int> object_extruders;
     for (const ModelVolume* model_volume : model_object.volumes)
         if (model_volume->is_model_part()) {
             PrintRegion::collect_object_printing_extruders(print_config,
-                                                           region_config_from_model_volume(default_region_config, nullptr, *model_volume, filament_extruders, extruders_count, print_config.single_extruder_multi_material.value),
+                                                           region_config_from_model_volume(default_region_config, nullptr, *model_volume, filament_extruders, extruders_count, process_variant_source_indices, print_config.single_extruder_multi_material.value),
                                                            object_config.brim_type != btNoBrim && object_config.brim_width > 0.,
                                                            object_extruders);
             for (const std::pair<const t_layer_height_range, ModelConfig>& range_and_config : model_object.layer_config_ranges)
                 if (range_and_config.second.has("wall_filament") || range_and_config.second.has("sparse_infill_filament") ||
                     range_and_config.second.has("solid_infill_filament"))
                     PrintRegion::collect_object_printing_extruders(print_config,
-                                                                   region_config_from_model_volume(default_region_config, &range_and_config.second.get(), *model_volume, filament_extruders, extruders_count, print_config.single_extruder_multi_material.value),
+                                                                   region_config_from_model_volume(default_region_config, &range_and_config.second.get(), *model_volume, filament_extruders, extruders_count, process_variant_source_indices, print_config.single_extruder_multi_material.value),
                                                                    object_config.brim_type != btNoBrim && object_config.brim_width > 0.,
                                                                    object_extruders);
         }
@@ -3791,8 +4233,8 @@ void PrintObject::combine_infill()
 
         // Limit the number of combined layers to the maximum height allowed by this regions' nozzle.
         // FIXME limit the layer height to max_layer_height
-        double nozzle_diameter = std::min(this->print()->config().nozzle_diameter.get_at(region.config().sparse_infill_filament.value - 1),
-                                          this->print()->config().nozzle_diameter.get_at(region.config().solid_infill_filament.value - 1));
+        double nozzle_diameter = std::min(get_physical_nozzle_diameter(this->print()->config(), region.config().sparse_infill_filament.value - 1),
+                                          get_physical_nozzle_diameter(this->print()->config(), region.config().solid_infill_filament.value - 1));
         // define the combinations
         std::vector<size_t> combine(m_layers.size(), 0);
         {
@@ -3886,6 +4328,12 @@ void PrintObject::combine_infill()
 
 void PrintObject::_generate_support_material()
 {
+    auto performance_scope = Diagnostics::performance("path.support.total", *this);
+
+    // Support module input fingerprint.
+    Diagnostics::fingerprint("module.support.input", *this,
+                             Diagnostics::SupportModuleInput{*this});
+
     if (m_config.enable_support.value && is_tree(m_config.support_type.value)) {
         TreeSupport tree_support(*this, m_slicing_params);
         tree_support.throw_on_cancel = [this]() { this->throw_if_canceled(); };
@@ -3894,6 +4342,10 @@ void PrintObject::_generate_support_material()
         PrintObjectSupportMaterial support_material(this, m_slicing_params);
         support_material.generate(*this);
     }
+
+    // Support module output fingerprint.
+    Diagnostics::fingerprint("module.support.output", *this,
+                             static_cast<const PrintObject &>(*this).support_layers());
 }
 
 // BBS
@@ -4021,6 +4473,52 @@ void PrintObject::remove_bridges_from_contacts(const Layer* lower_layer,
                        offset(layerm->unsupported_bridge_edges, scale_(SUPPORT_MATERIAL_MARGIN), SUPPORT_SURFACES_OFFSET_PARAMETERS));
         append(all_bridges, bridges);
     }
+
+    // Thin two-ended walls (the usual max_bridge_length test) often survive the perimeter inflation
+    // because unsupported_bridge_edges expanded by SUPPORT_MATERIAL_MARGIN swallow the bridge strip.
+    // Drop any overhang island that is shorter than max_bridge_length along a span whose both ends
+    // still touch the grown lower layer. See #11937.
+    if (max_bridge_length > 0.f && overhang_regions != nullptr) {
+        const ExPolygons lower_grown = offset_ex(lower_layer->lslices, 0.5f * fw);
+        const coord_t    band        = std::max(coord_t(fw), coord_t(scale_(0.2)));
+        auto             two_ended_short_bridge = [&](const ExPolygon& expoly) {
+            const BoundingBox bb = get_extents(expoly);
+            const Point       sz = bb.size();
+            auto              end_anchored = [&](coord_t x0, coord_t y0, coord_t x1, coord_t y1) {
+                if (x1 <= x0 || y1 <= y0)
+                    return false;
+                Polygon strip;
+                strip.points = {Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1)};
+                const ExPolygons sliver = intersection_ex(ExPolygons{expoly}, ExPolygons{ExPolygon{strip}});
+                return !sliver.empty() && overlaps(sliver, lower_grown);
+            };
+            const coord_t x_band  = std::min(band, sz.x() / 2);
+            const coord_t y_band  = std::min(band, sz.y() / 2);
+            const bool    x_bridge = x_band > 0 && sz.x() < max_bridge_length &&
+                                  end_anchored(bb.min.x(), bb.min.y(), bb.min.x() + x_band, bb.max.y()) &&
+                                  end_anchored(bb.max.x() - x_band, bb.min.y(), bb.max.x(), bb.max.y());
+            const bool y_bridge = y_band > 0 && sz.y() < max_bridge_length &&
+                                  end_anchored(bb.min.x(), bb.min.y(), bb.max.x(), bb.min.y() + y_band) &&
+                                  end_anchored(bb.min.x(), bb.max.y() - y_band, bb.max.x(), bb.max.y());
+            return x_bridge || y_bridge;
+        };
+
+        for (const auto& region : *overhang_regions) {
+            if constexpr (std::is_same_v<PolysType, ExPolygons>) {
+                if (two_ended_short_bridge(region))
+                    polygons_append(all_bridges, to_polygons(region));
+            } else {
+                if (region.size() < 3)
+                    continue;
+                ExPolygon ex;
+                ex.contour = region;
+                if (two_ended_short_bridge(ex))
+                    all_bridges.emplace_back(region);
+            }
+        }
+        all_bridges = union_(all_bridges);
+    }
+
     if (typeid(overhang_regions) == typeid(ExPolygons*)) {
         *(ExPolygons*) overhang_regions = diff_ex(*overhang_regions, all_bridges, ApplySafetyOffset::Yes);
     } else if (typeid(overhang_regions) == typeid(Polygons*)) {

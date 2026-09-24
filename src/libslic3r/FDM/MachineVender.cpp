@@ -71,4 +71,9 @@ namespace creality
         const std::string str = normalized_printer_model(printer_model);
         return boost::starts_with(str, "creality k2");
     }
+
+    bool is_creality_k3_printer_from_string(const std::string& printer_model)
+    {
+        return normalized_printer_model(printer_model) == "creality k3";
+    }
 }

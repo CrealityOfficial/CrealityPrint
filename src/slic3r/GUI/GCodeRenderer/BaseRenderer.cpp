@@ -262,6 +262,9 @@ static bool should_merge_flush_into_model(const PrintEstimatedStatistics& stats)
     const bool has_flush = has_non_zero_volume(stats.flush_per_filament);
     if (!has_flush)
         return false;
+    if (stats.flush_per_filament_in_wipe_tower)
+        return false;
+
 
     std::unordered_set<size_t> active_extruders;
     collect_active_extruders(stats.total_volumes_per_extruder, active_extruders);
@@ -276,6 +279,11 @@ static bool should_merge_flush_into_model(const PrintEstimatedStatistics& stats)
     const bool has_support    = has_non_zero_volume(stats.support_volumes_per_extruder);
     const bool has_wipe_tower = has_non_zero_volume(stats.wipe_tower_volumes_per_extruder);
     return active_extruders.size() == 1 && !has_support && !has_wipe_tower;
+}
+
+static bool should_count_flush_as_separate_material(const PrintEstimatedStatistics& stats)
+{
+    return !stats.flush_per_filament_in_wipe_tower;
 }
 
 ColorRGBA BaseRenderer::Extrusions::Range::get_color_at(float value) const
@@ -955,6 +963,8 @@ public:
             return ret;
         };
 
+        const bool count_flush_as_separate_material = should_count_flush_as_separate_material(m_print_statistics);
+
         for (size_t extruder_id : m_extruder_ids) {
             if (m_print_statistics.model_volumes_per_extruder.find(extruder_id) == m_print_statistics.model_volumes_per_extruder.end()) {
                 model_used_filaments_m.push_back(0.0);
@@ -988,7 +998,7 @@ public:
         }
 
         for (size_t extruder_id : m_extruder_ids) {
-            if (m_print_statistics.flush_per_filament.find(extruder_id) == m_print_statistics.flush_per_filament.end()) {
+            if (!count_flush_as_separate_material || m_print_statistics.flush_per_filament.find(extruder_id) == m_print_statistics.flush_per_filament.end()) {
                 flushed_filaments_m.push_back(0.0);
                 flushed_filaments_g.push_back(0.0);
             }
@@ -1325,11 +1335,11 @@ public:
             travel_percent = buffer;
 
             // Collect flush data for display
-            has_flush_data = (total_flushed_filament_m > 0.0 || total_flushed_filament_g > 0.0) && !single_color_flush;
+            const float flush_time_val = std::max(0.0f, time_mode.flush_time);
+            has_flush_data = ((total_flushed_filament_m > 0.0 || total_flushed_filament_g > 0.0) || flush_time_val > 0.0f) && !single_color_flush;
             if (has_flush_data) {
                 flush_label = _u8L("Flushed");
                 {
-                    float flush_time_val = std::max(0.0f, time_mode.flush_time);
                     flush_time_str = flush_time_val > 0.0f ? short_time(get_time_dhms(flush_time_val)) : "";
                     if (flush_time_val > 0.0f && time_mode.time > 0.0f) {
                         float flush_time_pct = flush_time_val / time_mode.time * 100.0f;
@@ -1635,16 +1645,8 @@ public:
                         flush_columns.push_back({ flush_time_percent_str.empty() ? flush_percent_str : flush_time_percent_str, offsets[2] });
                         flush_columns.push_back({ flush_length_str, offsets[3] });
                         flush_columns.push_back({ flush_weight_str, offsets[4] });
-                        //const bool flush_visible = is_visible(erWipeTower);
-                        const bool flush_visible = m_renderer.is_extrusion_role_visible(erWipeTower);
                         append_item(EItemType::Rect, BaseRenderer::Flush_Color, flush_columns
-                            , !is_lite_mode, flush_visible, [&]() {
-                                /*m_extrusions.role_visibility_flags = flush_visible ?
-                                    m_extrusions.role_visibility_flags & ~(1 << erWipeTower) :
-                                    m_extrusions.role_visibility_flags | (1 << erWipeTower);*/
-								m_renderer.set_extrusion_role_visible(erWipeTower, !flush_visible);
-                                featureFn();
-                            });
+                            , false);
                     }
 
                     //const bool visible = m_buffers[buffer_id(EMoveType::Travel)].visible;
@@ -1737,6 +1739,7 @@ public:
             //BBS: replace model custom gcode with current plate custom gcode
             const std::vector<CustomGCode::Item>& custom_gcode_per_print_z = m_custom_gcode_per_print_z;
             const bool merge_flush_into_model = should_merge_flush_into_model(m_print_statistics);
+            const bool count_flush_as_separate_material = should_count_flush_as_separate_material(m_print_statistics);
             const int color_print_displayed_columns = merge_flush_into_model ? (displayed_columns & ~ColumnData::Flushed) : displayed_columns;
             size_t i = 0;
             for (auto extruder_idx : m_extruder_ids) {
@@ -1771,8 +1774,10 @@ public:
                     if (color_print_displayed_columns & ColumnData::Flushed) {
                         ::sprintf(buf, imperial_units ? "%.2f in\n%.2f oz" : "%.2f m\n%.2f g", flushed_filaments_m[i], flushed_filaments_g[i] / unit_conver);
                         columns_offsets.push_back({ buf, color_print_offsets[_u8L("Flushed")] });
-                        column_sum_m += flushed_filaments_m[i];
-                        column_sum_g += flushed_filaments_g[i];
+                        if (count_flush_as_separate_material)
+                            column_sum_m += flushed_filaments_m[i];
+                        if (count_flush_as_separate_material)
+                            column_sum_g += flushed_filaments_g[i];
                     }
                     if (color_print_displayed_columns & ColumnData::WipeTower) {
                         ::sprintf(buf, imperial_units ? "%.2f in\n%.2f oz" : "%.2f m\n%.2f g", wipe_tower_used_filaments_m[i], wipe_tower_used_filaments_g[i] / unit_conver);
@@ -1826,8 +1831,8 @@ public:
                 }
                 if ((color_print_displayed_columns & ~ColumnData::Model) > 0) {
                     ::sprintf(buf, imperial_units ? "%.2f in\n%.2f oz" : "%.2f m\n%.2f g",
-                        total_model_used_filament_m + total_support_used_filament_m + (merge_flush_into_model ? 0.0 : total_flushed_filament_m) + total_wipe_tower_used_filament_m,
-                        (total_model_used_filament_g + total_support_used_filament_g + (merge_flush_into_model ? 0.0 : total_flushed_filament_g) + total_wipe_tower_used_filament_g) / unit_conver);
+                        total_model_used_filament_m + total_support_used_filament_m + (merge_flush_into_model || !count_flush_as_separate_material ? 0.0 : total_flushed_filament_m) + total_wipe_tower_used_filament_m,
+                        (total_model_used_filament_g + total_support_used_filament_g + (merge_flush_into_model || !count_flush_as_separate_material ? 0.0 : total_flushed_filament_g) + total_wipe_tower_used_filament_g) / unit_conver);
                     columns_offsets.push_back({ buf, color_print_offsets[_u8L("Total")] });
                 }
                 append_item(EItemType::None, m_tools.m_tool_colors[0], columns_offsets);
@@ -2723,6 +2728,52 @@ void BaseRenderer::refresh(const GCodeProcessorResult& gcode_result, const std::
 //    refresh_render_paths(false, false);
 //}
 
+void BaseRenderer::sync_shells_extruder_ids()
+{
+    // Sync shell volumes' extruder_ids from the model after filament add/delete.
+    const ModelObjectPtrs& model_objs = wxGetApp().model().objects;
+    if (model_objs.empty())
+        return;
+
+    for (GLVolume* vol : m_shells.volumes.volumes) {
+        if (vol == nullptr || vol->volume_idx() < 0)
+            continue;
+        int o_idx = vol->object_idx();
+        int v_idx = vol->volume_idx();
+        if (o_idx >= 0 && o_idx < (int)model_objs.size()) {
+            ModelObject* obj = model_objs[o_idx];
+            if (v_idx < (int)obj->volumes.size()) {
+                int eid = obj->volumes[v_idx]->extruder_id();
+                if (eid > 0)
+                    vol->extruder_id = eid;
+            }
+        }
+    }
+
+    // Also update shell colors using the safe plater config path.
+    // Do NOT call update_colors_by_extruder(config) here because project_config
+    // may be in a transitional state during filament add/delete, causing crashes.
+    // get_extruder_colors_from_plater_config() safely reads colors via the plater.
+    if (GUI::wxGetApp().plater() != nullptr) {
+        std::vector<std::string> filament_colors =
+            GUI::wxGetApp().plater()->get_extruder_colors_from_plater_config();
+        for (GLVolume* vol : m_shells.volumes.volumes) {
+            if (vol == nullptr || vol->volume_idx() < 0)
+                continue;
+            int extruder_id = vol->extruder_id - 1;
+            if (extruder_id < 0 || extruder_id >= (int)filament_colors.size()) {
+                extruder_id = 0;
+            }
+            ColorRGBA rgba;
+            if (decode_color(filament_colors[extruder_id], rgba)) {
+                float old_a = vol->color.a();
+                rgba.a(old_a);
+                vol->color = rgba;
+            }
+        }
+    }
+}
+
 void BaseRenderer::update_shells_color_by_extruder(const DynamicPrintConfig *config)
 {
     if (config != nullptr)
@@ -2768,6 +2819,8 @@ void BaseRenderer::reset()
     
     m_layers_z_range = { 0, 0 };
     m_roles = std::vector<ExtrusionRole>();
+    m_moves_slider_keep_min       = false;
+    m_moves_slider_position_valid = false;
     m_print_statistics.reset();
     m_custom_gcode_per_print_z = std::vector<CustomGCode::Item>();
     gcode_window.reset();
@@ -2869,6 +2922,10 @@ void BaseRenderer::update_moves_slider(bool set_to_max)
     // this should not be needed, but it is here to try to prevent rambling crashes on Mac Asan
     if (view.endpoints.last < view.endpoints.first) return;
 
+    if (set_to_max && m_moves_slider_position_valid && m_moves_slider->GetMaxValue() > m_moves_slider->GetMinValue()) {
+        m_moves_slider_keep_min = m_moves_slider->GetActiveValue() == m_moves_slider->GetMinValue();
+    }
+
     std::vector<double> values(view.endpoints.last - view.endpoints.first + 1);
     std::vector<double> alternate_values(view.endpoints.last - view.endpoints.first + 1);
     unsigned int        count = 0;
@@ -2878,14 +2935,14 @@ void BaseRenderer::update_moves_slider(bool set_to_max)
         ++count;
     }
 
-    bool keep_min = m_moves_slider->GetActiveValue() == m_moves_slider->GetMinValue();
-
     m_moves_slider->SetSliderValues(values);
     m_moves_slider->SetSliderAlternateValues(alternate_values);
     m_moves_slider->SetMaxValue(view.endpoints.last - view.endpoints.first);
     m_moves_slider->SetSelectionSpan(view.current.first - view.endpoints.first, view.current.last - view.endpoints.first);
-    if (set_to_max)
-        m_moves_slider->SetHigherValue(keep_min ? m_moves_slider->GetMinValue() : m_moves_slider->GetMaxValue());
+    if (set_to_max) {
+        m_moves_slider->SetHigherValue(m_moves_slider_keep_min ? m_moves_slider->GetMinValue() : m_moves_slider->GetMaxValue());
+    }
+    m_moves_slider_position_valid = true;
 }
 
 void BaseRenderer::update_layers_slider_mode()
@@ -2983,18 +3040,24 @@ void BaseRenderer::load_shells(const Print& print, bool initialized, bool force_
         if (object_idx == -1)
             continue;
 
-        std::vector<int> instance_ids(model_obj->instances.size());
+        // CRITICAL: Use the ModelObject from wxGetApp().model() instead of print.m_model.
+        // print.m_model is a snapshot taken at Print::apply() time, which may be BEFORE
+        // on_filaments_change applied the remap. wxGetApp().model() has the up-to-date
+        // extruder_id after remap, so load_object will create GLVolumes with correct extruder_id.
+        const ModelObject* up_to_date_model_obj = model_objs[object_idx];
+
+        std::vector<int> instance_ids(up_to_date_model_obj->instances.size());
         //BBS: only add the printable instance
         int instance_index = 0;
-        for (int i = 0; i < (int)model_obj->instances.size(); ++i) {
+        for (int i = 0; i < (int)up_to_date_model_obj->instances.size(); ++i) {
             //BBS: only add the printable instance
-            if (model_obj->instances[i]->is_printable())
+            if (up_to_date_model_obj->instances[i]->is_printable())
                 instance_ids[instance_index++] = i;
         }
         instance_ids.resize(instance_index);
 
         size_t current_volumes_count = m_shells.volumes.volumes.size();
-        m_shells.volumes.load_object(model_obj, object_idx, instance_ids, "object", initialized, enable_lod);
+        m_shells.volumes.load_object(up_to_date_model_obj, object_idx, instance_ids, "object", initialized, enable_lod);
 
         // adjust shells' z if raft is present
         bool machine_is_belt = false;
@@ -3051,6 +3114,7 @@ void BaseRenderer::load_shells(const Print& print, bool initialized, bool force_
         volume->zoom_to_volumes = false;
         volume->color.a(0.5f);
         volume->force_native_color = true;
+        volume->preserve_mmuseg_colors = true;
         volume->set_render_color();
         //BBS: add shell bounding box logic
         m_shell_bounding_box.merge(volume->transformed_bounding_box());
@@ -3999,8 +4063,26 @@ void BaseRenderer::render_all_plates_stats(const std::vector<const GCodeProcesso
                     if (mf) {
                         plate_extruders.push_back(mf->component_a);
                         plate_extruders.push_back(mf->component_b);
-                        for (char c : mf->gradient_component_ids)
-                            if (c >= '1' && c <= '9') plate_extruders.push_back(static_cast<unsigned int>(c - '0'));
+                        // Support both formats for gradient_component_ids
+                        if (mf->gradient_component_ids.find('|') != std::string::npos) {
+                            std::string tok;
+                            for (char c : mf->gradient_component_ids) {
+                                if (c >= '0' && c <= '9') {
+                                    tok.push_back(c);
+                                } else if (c == '|') {
+                                    if (!tok.empty()) {
+                                        try { plate_extruders.push_back(static_cast<unsigned int>(std::stoi(tok))); } catch (...) {}
+                                        tok.clear();
+                                    }
+                                }
+                            }
+                            if (!tok.empty()) {
+                                try { plate_extruders.push_back(static_cast<unsigned int>(std::stoi(tok))); } catch (...) {}
+                            }
+                        } else {
+                            for (char c : mf->gradient_component_ids)
+                                if (c >= '1' && c <= '9') plate_extruders.push_back(static_cast<unsigned int>(c - '0'));
+                        }
                     }
                 } else {
                     plate_extruders.push_back(eid);
@@ -4010,6 +4092,7 @@ void BaseRenderer::render_all_plates_stats(const std::vector<const GCodeProcesso
             plate_extruders.erase(std::unique(plate_extruders.begin(), plate_extruders.end()), plate_extruders.end());
 
             const bool merge_plate_flush_into_model = should_merge_flush_into_model(plate_print_statistics);
+            const bool count_plate_flush_as_separate_material = should_count_flush_as_separate_material(plate_print_statistics);
             for (size_t extruder_id : plate_extruders) {
                 extruder_id -= 1;
                 double model_volume = 0.0;
@@ -4021,7 +4104,7 @@ void BaseRenderer::render_all_plates_stats(const std::vector<const GCodeProcesso
                     flushed_volume = plate_print_statistics.flush_per_filament.at(extruder_id);
 
                 model_volume_of_extruders_all_plates[extruder_id] += model_volume + (merge_plate_flush_into_model ? flushed_volume : 0.0);
-                flushed_volume_of_extruders_all_plates[extruder_id] += merge_plate_flush_into_model ? 0.0 : flushed_volume;
+                flushed_volume_of_extruders_all_plates[extruder_id] += (merge_plate_flush_into_model || !count_plate_flush_as_separate_material) ? 0.0 : flushed_volume;
                 if (plate_print_statistics.wipe_tower_volumes_per_extruder.find(extruder_id) == plate_print_statistics.wipe_tower_volumes_per_extruder.end())
                     wipe_tower_volume_of_extruders_all_plates[extruder_id] += 0;
                 else {
@@ -4100,6 +4183,13 @@ void BaseRenderer::render_all_plates_stats(const std::vector<const GCodeProcesso
             title_columns.push_back({ _u8L("Total"), {buff} });
         }
         auto offsets_ = calculate_offsets(title_columns, icon_size);
+        if ((displayed_columns & ColumnData::Model) &&
+            (displayed_columns & ColumnData::Support)) {
+            constexpr size_t support_column_index = 2; // Filament, Model, Support.
+            const float model_support_gap = 8.0f * m_scale;
+            for (size_t i = support_column_index; i < offsets_.size(); ++i)
+                offsets_[i] += model_support_gap;
+        }
         std::vector<std::pair<std::string, float>> title_offsets;
         for (int i = 0; i < offsets_.size(); i++) {
             title_offsets.push_back({ title_columns[i].first, offsets_[i] });

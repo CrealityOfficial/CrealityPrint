@@ -1411,7 +1411,7 @@ void PresetUpdater::sync(std::string http_url, std::string language, std::string
     VendorMap vendors = preset_bundle ? preset_bundle->vendors : VendorMap{};
 
 	p->thread = std::thread([this, vendors, http_url, language, plugin_version]() {
-		this->p->prune_tmps();
+        this->p->prune_tmps();
 		if (p->cancel)
 			return;
         std::string res = GUI::wxGetApp().app_config->get("is_first_install");

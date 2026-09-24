@@ -5,6 +5,7 @@ add_executable(${_TEST_NAME}_tests
 	test_data.hpp
 	test_extrusion_entity.cpp
 	test_fill.cpp
+	test_ai_infill.cpp
 	test_flow.cpp
 	test_gcode.cpp
 	test_gcodewriter.cpp
@@ -14,6 +15,7 @@ add_executable(${_TEST_NAME}_tests
 	test_printobject.cpp
 	test_skirt_brim.cpp
 	test_support_material.cpp
+	test_support_filament.cpp
 	test_trianglemesh.cpp
 	)
 target_link_libraries(${_TEST_NAME}_tests test_common libslic3r OpenSSL::SSL OpenSSL::Crypto Bcrypt)

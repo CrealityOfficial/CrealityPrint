@@ -27,11 +27,20 @@ HoverBorderIcon::HoverBorderIcon(wxWindow* parent, const wxString& text, const w
     Create(parent, text, icon, pos, size, style);
 }
 
+HoverBorderIcon::~HoverBorderIcon()
+{
+    m_busy_timer.Stop();
+}
+
 void HoverBorderIcon::Create(wxWindow* parent, const wxString& text, const wxString& icon, const wxPoint& pos, const wxSize& size, long style)
 {
     bool is_dark = Slic3r::GUI::wxGetApp().dark_mode();
     
     StaticBox::Create(parent, wxID_ANY, pos, size, style);
+    // Bind to the timer itself. This avoids depending on timer-owner event
+    // routing, which is unreliable for this wxNavigationEnabled control on
+    // some wxMSW builds.
+    m_busy_timer.Bind(wxEVT_TIMER, &HoverBorderIcon::OnBusyTimer, this);
     SetCornerRadius(FromDIP(m_corner_radius_dip));
     SetLabel(text);
 
@@ -95,8 +104,53 @@ void HoverBorderIcon::SetIconScaleFactor(double factor)
 
     if (!m_icon.name().empty()) {
         this->m_icon = ScalableBitmap(this, m_icon.name(), m_icon_size_or_scale);
+        if (m_busy)
+            rebuild_busy_frames();
         Refresh();
     }
+}
+
+void HoverBorderIcon::rebuild_busy_frames()
+{
+    m_busy_frames.clear();
+    m_busy_frames.reserve(8);
+    for (int i = 0; i < 8; ++i)
+        m_busy_frames.emplace_back(this, "ams_rfid_" + std::to_string(i), m_icon_size_or_scale);
+    m_busy_frame = 0;
+}
+
+void HoverBorderIcon::StartBusyAnimation(const wxString& tooltip)
+{
+    if (m_busy)
+        return;
+
+    m_busy = true;
+    rebuild_busy_frames();
+    if (!tooltip.empty())
+        SetToolTip(tooltip);
+    m_busy_timer.Start(80);
+    Refresh();
+}
+
+void HoverBorderIcon::StopBusyAnimation()
+{
+    if (!m_busy)
+        return;
+
+    m_busy_timer.Stop();
+    m_busy = false;
+    m_busy_frame = 0;
+    SetToolTip(m_hover_tip);
+    Refresh();
+}
+
+void HoverBorderIcon::OnBusyTimer(wxTimerEvent&)
+{
+    if (m_busy_frames.empty())
+        return;
+    m_busy_frame = (m_busy_frame + 1) % m_busy_frames.size();
+    Refresh(false);
+    Update();
 }
 
 void HoverBorderIcon::on_sys_color_changed(bool is_dark_mode)
@@ -141,6 +195,8 @@ void HoverBorderIcon::msw_rescale()
 
     if (!m_icon.name().empty())
         m_icon = ScalableBitmap(this, m_icon.name(), (int)m_icon_size_or_scale);
+    if (m_busy)
+        rebuild_busy_frames();
 
     if (!m_bmpDiableIcon.name().empty()) {
         const int px_cnt = (m_disable_icon_px_cnt_dip > 0) ? m_disable_icon_px_cnt_dip : m_bmpDiableIcon.px_cnt();
@@ -170,7 +226,7 @@ void HoverBorderIcon::setDisableIcon(const wxString& disableIconName, int px_cnt
 
 void HoverBorderIcon::OnMouseMove(wxMouseEvent& event)
 {
-    SetCursor(wxCURSOR_HAND);
+    SetCursor(m_busy || !m_bSetEnable ? wxCURSOR_ARROW : wxCURSOR_HAND);
     Refresh();
     event.Skip();
 }
@@ -207,6 +263,16 @@ void HoverBorderIcon::paintEvent(wxPaintEvent& evt)
 void HoverBorderIcon::render(wxDC& dc)
 {
     wxSize size        = GetSize();
+
+    if (m_busy) {
+        StaticBox::render(dc);
+        if (!m_busy_frames.empty() && m_busy_frames[m_busy_frame].bmp().IsOk()) {
+            const wxBitmap& bitmap = m_busy_frames[m_busy_frame].bmp();
+            const wxSize    szIcon = bitmap.GetSize();
+            dc.DrawBitmap(bitmap, {(size.x - szIcon.x) / 2, (size.y - szIcon.y) / 2}, true);
+        }
+        return;
+    }
 
     if (m_bSetEnable) {
         StaticBox::render(dc);

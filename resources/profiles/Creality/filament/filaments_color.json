@@ -1,0 +1,3050 @@
+{
+  "data": [
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#EFEFE8FF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "日暮蓝",
+      "colorEn": "Sunset Blue",
+      "colors": [
+        "#6270B3FF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "薰衣草",
+      "colorEn": "Lavender",
+      "colors": [
+        "#D5C3D6FF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "洋柑橘",
+      "colorEn": "Chamomile",
+      "colors": [
+        "#DD8D5BFF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "砖红",
+      "colorEn": "Brick Red",
+      "colors": [
+        "#B76E6DFF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "银杏黄",
+      "colorEn": "Ginkgo Yellow",
+      "colors": [
+        "#F1C501FF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "山竹紫",
+      "colorEn": "Mangosteen Purple",
+      "colors": [
+        "#804B68FF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "蕨绿",
+      "colorEn": "Fern Green",
+      "colors": [
+        "#C0CD7FFF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "奶茶棕",
+      "colorEn": "Milk Tea Brown",
+      "colors": [
+        "#D7C5B6FF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "冰川灰",
+      "colorEn": "Glacier Grey",
+      "colors": [
+        "#9FA7B5FF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "雪山蓝",
+      "colorEn": "Snow Mountain Blue",
+      "colors": [
+        "#95AACAFF"
+      ],
+      "id": "06005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Basic PETG"
+    },
+    {
+      "colorCn": "夜光蓝",
+      "colorEn": "Blue",
+      "colors": [
+        "#84BBDEFF"
+      ],
+      "id": "01003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Luminous"
+    },
+    {
+      "colorCn": "夜光绿",
+      "colorEn": "Green",
+      "colors": [
+        "#ACD1A0FF"
+      ],
+      "id": "01003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Luminous"
+    },
+    {
+      "colorCn": "夜光黄",
+      "colorEn": "Yellow",
+      "colors": [
+        "#EFEC8AFF"
+      ],
+      "id": "01003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Luminous"
+    },
+    {
+      "colorCn": "夜光粉",
+      "colorEn": "Pink",
+      "colors": [
+        "#E38090FF"
+      ],
+      "id": "01003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Luminous"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#3D3935FF"
+      ],
+      "id": "12005",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PA6-CF"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#3D3935FF"
+      ],
+      "id": "12004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PA612-CF"
+    },
+    {
+      "colorCn": "红色",
+      "colorEn": "Red",
+      "colors": [
+        "#D14124FF"
+      ],
+      "id": "29001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Marble"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#4F758BFF"
+      ],
+      "id": "29001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Marble"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#32645CFF"
+      ],
+      "id": "29001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Marble"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#DBE2E9FF"
+      ],
+      "id": "29001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Marble"
+    },
+    {
+      "colorCn": "松露棕",
+      "colorEn": "Truffle Brown",
+      "colors": [
+        "#8B5B29FF"
+      ],
+      "id": "06004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-GF"
+    },
+    {
+      "colorCn": "茄子紫",
+      "colorEn": "Eggplant Purple",
+      "colors": [
+        "#732E4AFF"
+      ],
+      "id": "06004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-GF"
+    },
+    {
+      "colorCn": "泥粉",
+      "colorEn": "Muddy Pink",
+      "colors": [
+        "#EAB19EFF"
+      ],
+      "id": "06004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-GF"
+    },
+    {
+      "colorCn": "朦胧蓝",
+      "colorEn": "Dusty Blue",
+      "colors": [
+        "#A3C7D2FF"
+      ],
+      "id": "06004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-GF"
+    },
+    {
+      "colorCn": "黄绿",
+      "colorEn": "Chartreuse",
+      "colors": [
+        "#E1E000FF"
+      ],
+      "id": "06004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-GF"
+    },
+    {
+      "colorCn": "尘红",
+      "colorEn": "Dusty Red",
+      "colors": [
+        "#A84544FF"
+      ],
+      "id": "06004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-GF"
+    },
+    {
+      "colorCn": "咖色",
+      "colorEn": "Coffee",
+      "colors": [
+        "#A1877FFF"
+      ],
+      "id": "01004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Stardust"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#2F6F7AFF"
+      ],
+      "id": "01004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Stardust"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#A0A2B0FF"
+      ],
+      "id": "01004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Stardust"
+    },
+    {
+      "colorCn": "粉色",
+      "colorEn": "Pink",
+      "colors": [
+        "#DA8879FF"
+      ],
+      "id": "01004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Stardust"
+    },
+    {
+      "colorCn": "棕色",
+      "colorEn": "Brown",
+      "colors": [
+        "#A9533FFF"
+      ],
+      "id": "01004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Stardust"
+    },
+    {
+      "colorCn": "橘色",
+      "colorEn": "Orange",
+      "colors": [
+        "#EA733DFF"
+      ],
+      "id": "01004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Stardust"
+    },
+    {
+      "colorCn": "黄色",
+      "colorEn": "Yellow",
+      "colors": [
+        "#F5E1A4FF"
+      ],
+      "id": "01004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Stardust"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#283883FF"
+      ],
+      "id": "01004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Stardust"
+    },
+    {
+      "colorCn": "紫色",
+      "colorEn": "Purple",
+      "colors": [
+        "#613E5FFF"
+      ],
+      "id": "01004",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper Stardust"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#3D3935FF"
+      ],
+      "id": "06003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-CF"
+    },
+    {
+      "colorCn": "夜幕灰",
+      "colorEn": "Night Grey",
+      "colors": [
+        "#63666AFF"
+      ],
+      "id": "06003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-CF"
+    },
+    {
+      "colorCn": "暮海蓝",
+      "colorEn": "Dusk Blue",
+      "colors": [
+        "#475D76FF"
+      ],
+      "id": "06003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-CF"
+    },
+    {
+      "colorCn": "焦糖棕咖",
+      "colorEn": "Caramel Brown Coffee",
+      "colors": [
+        "#774212FF"
+      ],
+      "id": "06003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-CF"
+    },
+    {
+      "colorCn": "魅影紫",
+      "colorEn": "Phantom Purple",
+      "colors": [
+        "#403845FF"
+      ],
+      "id": "06003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-CF"
+    },
+    {
+      "colorCn": "奶茶棕",
+      "colorEn": "Milk Tea Brown",
+      "colors": [
+        "#6F5D58FF"
+      ],
+      "id": "06003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-CF"
+    },
+    {
+      "colorCn": "丹霞红",
+      "colorEn": "Danxia Red",
+      "colors": [
+        "#653024FF"
+      ],
+      "id": "06003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-CF"
+    },
+    {
+      "colorCn": "古木绿",
+      "colorEn": "Ancient Wood Green",
+      "colors": [
+        "#32464DFF"
+      ],
+      "id": "06003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG-CF"
+    },
+    {
+      "colorCn": "杏仁饼紫",
+      "colorEn": "Almond Purple",
+      "colors": [
+        "#D9B8F1FF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "玫瑰果",
+      "colorEn": "Rosehip",
+      "colors": [
+        "#FD7D36FF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "草莓奶霜",
+      "colorEn": "Strawberry Milk",
+      "colors": [
+        "#F16D7AFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "浅绿",
+      "colorEn": "Light Green",
+      "colors": [
+        "#B8F1CCFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "草木绿",
+      "colorEn": "Greenery",
+      "colors": [
+        "#B2BA81FF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "凤梨黄",
+      "colorEn": "Pineapple Yellow",
+      "colors": [
+        "#FFE543FF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#9EA2A2FF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "海洋蓝",
+      "colorEn": "Ocean Blue",
+      "colors": [
+        "#B8F1EDFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#212322FF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#EFEFE8FF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "西柚粉",
+      "colorEn": "Grapefruit Pink",
+      "colors": [
+        "#FFB3ABFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "嫩鹅黄",
+      "colorEn": "Butter Yellow",
+      "colors": [
+        "#F8E59AFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "远山灰",
+      "colorEn": "Mist Grey",
+      "colors": [
+        "#CFCDC9FF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "活力橙",
+      "colorEn": "Pale Orange",
+      "colors": [
+        "#FCC89BFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "牛仔蓝",
+      "colorEn": "Jeans Blue",
+      "colors": [
+        "#5E93DBFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "日落红",
+      "colorEn": "Sunset Red",
+      "colors": [
+        "#E2665CFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "樱花粉",
+      "colorEn": "Sakura Pink",
+      "colors": [
+        "#F5DADFFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "白葡萄",
+      "colorEn": "White Grape",
+      "colors": [
+        "#A9C23FFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "干枯玫瑰",
+      "colorEn": "Dusty Rose",
+      "colors": [
+        "#B46B7AFF"
+      ],
+      "id": "01601",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Soleyin Ultra PLA"
+    },
+    {
+      "colorCn": "透明",
+      "colorEn": "Transparent",
+      "colors": [
+        "#00000000"
+      ],
+      "id": "07002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PC"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "12002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PPA-CF"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "12003",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PAHT-CF"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#32B801FF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "橙色",
+      "colorEn": "Orange",
+      "colors": [
+        "#FF6923FF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "浅蓝",
+      "colorEn": "Light Blue",
+      "colors": [
+        "#4AA0DFFF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "消防红",
+      "colorEn": "Fire Red",
+      "colors": [
+        "#AC2629FF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#0352B4FF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "银色",
+      "colorEn": "Silvery",
+      "colors": [
+        "#B3B2B1FF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "粉色",
+      "colorEn": "Pink",
+      "colors": [
+        "#FB6580FF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "浅灰",
+      "colorEn": "Light Grey",
+      "colors": [
+        "#6A8298FF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#2B597FFF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "紫色",
+      "colorEn": "Purple",
+      "colors": [
+        "#A30369FF"
+      ],
+      "id": "09002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "ENDER FAST PLA"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "透明",
+      "colorEn": "Translucent",
+      "colors": [
+        "#00000000"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "Transparent",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#9EA2A2FF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#008E3DFF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#003083FF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "黄色",
+      "colorEn": "Yellow",
+      "colors": [
+        "#F9D500FF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "红色",
+      "colorEn": "Red",
+      "colors": [
+        "#D50032FF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "透明黄",
+      "colorEn": "Transparent Yellow",
+      "colors": [
+        "#FEE665FF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "半透明绿",
+      "colorEn": "Translucent Green",
+      "colors": [
+        "#B8D4B780"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "Semi-transparent",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "透明红",
+      "colorEn": "Transparent Red",
+      "colors": [
+        "#E8474EFF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "半透明橙",
+      "colorEn": "Translucent Orange",
+      "colors": [
+        "#FFB24680"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "Semi-transparent",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "半透明蓝",
+      "colorEn": "Translucent Blue",
+      "colors": [
+        "#9DCCE180"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "Semi-transparent",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "半透明黄",
+      "colorEn": "Translucent Yellow",
+      "colors": [
+        "#FFD16880"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "Semi-transparent",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "透明紫",
+      "colorEn": "Transparent Purple",
+      "colors": [
+        "#916AA7FF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "半透明粉",
+      "colorEn": "Translucent Pink",
+      "colors": [
+        "#F8B1B180"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "Semi-transparent",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "透明橙",
+      "colorEn": "Transparent Orange",
+      "colors": [
+        "#FF9451FF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "透明绿",
+      "colorEn": "Transparent Green",
+      "colors": [
+        "#9FBF52FF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "透明蓝",
+      "colorEn": "Transparent Blue",
+      "colors": [
+        "#589FDCFF"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "半透明棕",
+      "colorEn": "Translucent Brown",
+      "colors": [
+        "#DEB8A580"
+      ],
+      "id": "06002",
+      "mixData": "",
+      "mixSpecialAttr": "Semi-transparent",
+      "name": "Hyper PETG"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "01002",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper L-W PLA"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "19001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "HP-ASA"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "18001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "HP Ultra PLA"
+    },
+    {
+      "colorCn": "白松木",
+      "colorEn": "White Pine",
+      "colors": [
+        "#BB9575FF"
+      ],
+      "id": "17001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-Wood"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "16001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-TPU"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#32B801FF"
+      ],
+      "id": "16001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-TPU"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "16001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-TPU"
+    },
+    {
+      "colorCn": "红色",
+      "colorEn": "Red",
+      "colors": [
+        "#E10903FF"
+      ],
+      "id": "16001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-TPU"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#036CC7FF"
+      ],
+      "id": "16001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-TPU"
+    },
+    {
+      "colorCn": "荧光红",
+      "colorEn": "Fluo Red",
+      "colors": [
+        "#FF7478FF"
+      ],
+      "id": "15001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Fluo"
+    },
+    {
+      "colorCn": "荧光黄",
+      "colorEn": "Fluo Yellow",
+      "colors": [
+        "#E9EC6DFF"
+      ],
+      "id": "15001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Fluo"
+    },
+    {
+      "colorCn": "荧光橙",
+      "colorEn": "Fluo Orange",
+      "colors": [
+        "#FF6C17FF"
+      ],
+      "id": "15001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Fluo"
+    },
+    {
+      "colorCn": "荧光绿",
+      "colorEn": "Fluo Green",
+      "colors": [
+        "#2EC94FFF"
+      ],
+      "id": "15001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Fluo"
+    },
+    {
+      "colorCn": "石膏白",
+      "colorEn": "Gypsum White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "14001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Matte"
+    },
+    {
+      "colorCn": "亚光黑",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "14001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Matte"
+    },
+    {
+      "colorCn": "海军蓝",
+      "colorEn": "Navy Blue",
+      "colors": [
+        "#3A4B69FF"
+      ],
+      "id": "14001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Matte"
+    },
+    {
+      "colorCn": "残烟灰",
+      "colorEn": "Ashes Grey",
+      "colors": [
+        "#95A0ABFF"
+      ],
+      "id": "14001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Matte"
+    },
+    {
+      "colorCn": "草莓红",
+      "colorEn": "Strawberry Red",
+      "colors": [
+        "#F65477FF"
+      ],
+      "id": "14001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Matte"
+    },
+    {
+      "colorCn": "牛油果绿",
+      "colorEn": "Avocado Green",
+      "colors": [
+        "#87D396FF"
+      ],
+      "id": "14001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Matte"
+    },
+    {
+      "colorCn": "彩虹渐变",
+      "colorEn": "Rainbow",
+      "colors": [
+        "#D9EA99FF",
+        "#A5DBE8FF",
+        "#F5DADDFF"
+      ],
+      "id": "14001",
+      "mixData": "",
+      "mixSpecialAttr": "Gradient",
+      "name": "CR-PLA Matte"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "13001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA Carbon"
+    },
+    {
+      "colorCn": "本色",
+      "colorEn": "Natural",
+      "colors": [
+        "#E9CEA4FF"
+      ],
+      "id": "11001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-Nylon"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "10001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "HP-TPU"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "橙色",
+      "colorEn": "Orange",
+      "colors": [
+        "#FF6923FF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#7E888FFF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "红色",
+      "colorEn": "Red",
+      "colors": [
+        "#C20319FF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#4CCAE1FF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "绿玉",
+      "colorEn": "Jade Green",
+      "colors": [
+        "#7EE0D4FF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "米色",
+      "colorEn": "Beige",
+      "colors": [
+        "#E4D5D4FF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "苹果绿",
+      "colorEn": "Apple Green",
+      "colors": [
+        "#7CCD03FF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "多色渐变",
+      "colorEn": "Rainbow",
+      "colors": [
+        "#4280CAFF",
+        "#F28381FF",
+        "#03C760FF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "Gradient",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#7ECD6CFF"
+      ],
+      "id": "09001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "EN-PLA+"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "08001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Ender-PLA"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "08001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Ender-PLA"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#808D9BFF"
+      ],
+      "id": "08001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Ender-PLA"
+    },
+    {
+      "colorCn": "红色",
+      "colorEn": "Red",
+      "colors": [
+        "#C7372AFF"
+      ],
+      "id": "08001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Ender-PLA"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#0379D0FF"
+      ],
+      "id": "08001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Ender-PLA"
+    },
+    {
+      "colorCn": "黄色",
+      "colorEn": "Yellow",
+      "colors": [
+        "#F6EB61FF"
+      ],
+      "id": "08001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Ender-PLA"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "红色",
+      "colorEn": "Red",
+      "colors": [
+        "#E10903FF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "黄色",
+      "colorEn": "Yellow",
+      "colors": [
+        "#FCE303FF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#4F6B96FF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#0349BCFF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "浅鹅黄",
+      "colorEn": "Soft Butter",
+      "colors": [
+        "#F1EB9CFF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "浅雾蓝",
+      "colorEn": "Mist Blue",
+      "colors": [
+        "#A4DBE8FF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "竹青色",
+      "colorEn": "Bamboo Jade",
+      "colors": [
+        "#A2E4B8FF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "蜜橘色",
+      "colorEn": "Honey Tangerine",
+      "colors": [
+        "#F58132FF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "油菜绿",
+      "colorEn": "Canola Green",
+      "colors": [
+        "#74BB7DFF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "浅棕色",
+      "colorEn": "Light Brown",
+      "colors": [
+        "#CDB5A7FF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "烟萝紫",
+      "colorEn": "Smoky Lavender",
+      "colors": [
+        "#B4B5DFFF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "淡蔷薇",
+      "colorEn": "Blush Lilac",
+      "colors": [
+        "#E0A2D4FF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "玫红色",
+      "colorEn": "Fuchsia",
+      "colors": [
+        "#DB3EB1FF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "柔咖色",
+      "colorEn": "Soft Mocha",
+      "colors": [
+        "#BC8C3DFF"
+      ],
+      "id": "07001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-ABS"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "透明",
+      "colorEn": "Transparent",
+      "colors": [
+        "#FFFFFF00"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "Transparent",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#B3B5B3FF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#2EC94FFF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "棕色",
+      "colorEn": "Brown",
+      "colors": [
+        "#7C594AFF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "米黄",
+      "colorEn": "Beige",
+      "colors": [
+        "#E8DBB7FF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#0B59C2FF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "黄色",
+      "colorEn": "Yellow",
+      "colors": [
+        "#FFC703FF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "透明蓝",
+      "colorEn": "Transparent Blue",
+      "colors": [
+        "#2125AB80"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "Semi-transparent",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "红色",
+      "colorEn": "Red",
+      "colors": [
+        "#E10903FF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "紫色",
+      "colorEn": "Purple",
+      "colors": [
+        "#796EB0FF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "橙色",
+      "colorEn": "Orange",
+      "colors": [
+        "#FF7702FF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "粉色",
+      "colorEn": "Pink",
+      "colors": [
+        "#E89DAFFF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "科技蓝",
+      "colorEn": "Technology Blue",
+      "colors": [
+        "#2125ABFF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "品红",
+      "colorEn": "Magenta",
+      "colors": [
+        "#E93CACFF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "透明酒红",
+      "colorEn": "Transparent Wine Red",
+      "colors": [
+        "#D05A5780"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "Semi-transparent",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "军绿",
+      "colorEn": "Olive Drab",
+      "colors": [
+        "#68728DFF"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "透明绿",
+      "colorEn": "Transparent Green",
+      "colors": [
+        "#00B14080"
+      ],
+      "id": "06001",
+      "mixData": "",
+      "mixSpecialAttr": "Semi-transparent",
+      "name": "CR-PETG"
+    },
+    {
+      "colorCn": "金色",
+      "colorEn": "Gold",
+      "colors": [
+        "#FFC947FF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "红铜",
+      "colorEn": "Red Copper",
+      "colors": [
+        "#BB5A29FF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "彩虹",
+      "colorEn": "Rainbow",
+      "colors": [
+        "#FF8143FF",
+        "#AFD101FF",
+        "#497C7DFF",
+        "#817585FF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "Multicolor",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF",
+        "#BB5A29FF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "紫色",
+      "colorEn": "Purple",
+      "colors": [
+        "#520B7AFF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#0A64C9FF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "银色",
+      "colorEn": "Silver",
+      "colors": [
+        "#B3B5B3FF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "双拼金红",
+      "colorEn": "Golden-Red",
+      "colors": [
+        "#FFC947FF",
+        "#D6031DFF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "Multicolor",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "双拼蓝绿",
+      "colorEn": "Blue-Green",
+      "colors": [
+        "#0A64C9FF",
+        "#039780FF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "Multicolor",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "双拼金银",
+      "colorEn": "Gold-Silver",
+      "colors": [
+        "#FFC947FF",
+        "#B3B5B3FF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "Multicolor",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "双拼粉紫",
+      "colorEn": "Pink-Purple",
+      "colors": [
+        "#F67798FF",
+        "#520B7AFF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "Multicolor",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "双拼黄蓝",
+      "colorEn": "Yellow-Blue",
+      "colors": [
+        "#F9E267FF",
+        "#0A64C9FF"
+      ],
+      "id": "05001",
+      "mixData": "",
+      "mixSpecialAttr": "Multicolor",
+      "name": "CR-Silk"
+    },
+    {
+      "colorCn": "多色渐变",
+      "colorEn": "Rainbow",
+      "colors": [
+        "#555685FF",
+        "#2AB192FF",
+        "#C6E86CFF",
+        "#FFC945FF",
+        "#FF9EA3FF",
+        "#AE5588FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "Gradient",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "红色",
+      "colorEn": "Red",
+      "colors": [
+        "#E10901FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "黄色",
+      "colorEn": "Yellow",
+      "colors": [
+        "#FCE303FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#0392D8FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#9EA2A2FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#03C760FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "银色",
+      "colorEn": "Silver",
+      "colors": [
+        "#8A8E8CFF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "蜜桃粉",
+      "colorEn": "Peach Pink",
+      "colors": [
+        "#F580B5FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "浅灰色",
+      "colorEn": "Light Grey",
+      "colors": [
+        "#C7C9C7FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "浅粉色",
+      "colorEn": "Light Pink",
+      "colors": [
+        "#F4CDD4FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "阳光橙",
+      "colorEn": "Sunburst Orange",
+      "colors": [
+        "#FF6900FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "奶糖",
+      "colorEn": "Caramel Cream",
+      "colors": [
+        "#F1E6B2FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "柠檬黄",
+      "colorEn": "Lemon Yellow",
+      "colors": [
+        "#F3EA5DFF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "嫩芽绿",
+      "colorEn": "Tender Sprout Green",
+      "colors": [
+        "#C0DF16FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "薄荷绿",
+      "colorEn": "Mint Green",
+      "colors": [
+        "#00C389FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "湖水蓝",
+      "colorEn": "Lake Blue",
+      "colors": [
+        "#00B5E2FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "破晓蓝",
+      "colorEn": "Dawn Blue",
+      "colors": [
+        "#171C8FFF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "牵牛花紫",
+      "colorEn": "Morning Glory Purple",
+      "colors": [
+        "#611CCCFF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "薰衣草",
+      "colorEn": "Lavender",
+      "colors": [
+        "#BF9BDEFF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "胭霞粉",
+      "colorEn": "Blush Glow",
+      "colors": [
+        "#FF9DA2FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "晨光青",
+      "colorEn": "Morning Cyan",
+      "colors": [
+        "#B8DDE1FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "蓝雀",
+      "colorEn": "Blue Finch",
+      "colors": [
+        "#B2CAE8FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "抹茶奶昔",
+      "colorEn": "Matcha Creamshake",
+      "colors": [
+        "#D4EC8EFF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "苍苔",
+      "colorEn": "Olive Moss",
+      "colors": [
+        "#91852CFF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "葡萄汽水",
+      "colorEn": "Grape Soda",
+      "colors": [
+        "#952C55FF"
+      ],
+      "id": "04001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "CR-PLA"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#9EA2A2FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "黄色",
+      "colorEn": "Yellow",
+      "colors": [
+        "#FBDB67FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "红色",
+      "colorEn": "Red",
+      "colors": [
+        "#DA2C1FFF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "橙色",
+      "colorEn": "Orange",
+      "colors": [
+        "#FF6B01FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "粉色",
+      "colorEn": "Pink",
+      "colors": [
+        "#F4A7D5FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#588C44FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "紫色",
+      "colorEn": "Purple",
+      "colors": [
+        "#942A7EFF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "半透明黄",
+      "colorEn": "Translucent Yellow",
+      "colors": [
+        "#EED54080"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "Semi-transparent",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "蓝云",
+      "colorEn": "Cloud Blue",
+      "colors": [
+        "#7CCFE7FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "深紫",
+      "colorEn": "Deep Violet",
+      "colors": [
+        "#783ED2FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "冰蓝",
+      "colorEn": "Ice Blue",
+      "colors": [
+        "#1584C1FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "春花黄",
+      "colorEn": "Bloom Yellow",
+      "colors": [
+        "#FFE101FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "冰青",
+      "colorEn": "Ice Cyan",
+      "colors": [
+        "#54BFAFFF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "落叶橙",
+      "colorEn": "Leaf Orange",
+      "colors": [
+        "#F3871EFF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "青色",
+      "colorEn": "Cyan",
+      "colors": [
+        "#19909AFF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "浅紫",
+      "colorEn": "Pale Lavender",
+      "colors": [
+        "#A892DBFF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "草莓红",
+      "colorEn": "Strawberry Red",
+      "colors": [
+        "#F25B85FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "青提绿",
+      "colorEn": "Grape Green",
+      "colors": [
+        "#93AF66FF"
+      ],
+      "id": "03001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper ABS"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "墨绿",
+      "colorEn": "Dark Green",
+      "colors": [
+        "#212721FF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "苍黄",
+      "colorEn": "Greyish Yellow",
+      "colors": [
+        "#74654FFF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "紫色",
+      "colorEn": "Purple",
+      "colors": [
+        "#343646FF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "赭色",
+      "colorEn": "Ochre",
+      "colors": [
+        "#503E2DFF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "枣红色",
+      "colorEn": "Maroon",
+      "colors": [
+        "#711712FF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#314B4FFF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "棕色",
+      "colorEn": "Brown",
+      "colors": [
+        "#80523DFF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#253B5CFF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "酒红色",
+      "colorEn": "Burgundy",
+      "colors": [
+        "#A03552FF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "黄色",
+      "colorEn": "Yellow",
+      "colors": [
+        "#B5984CFF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "橙色",
+      "colorEn": "Orange",
+      "colors": [
+        "#9E5B32FF"
+      ],
+      "id": "02001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA-CF"
+    },
+    {
+      "colorCn": "红色",
+      "colorEn": "Red",
+      "colorJa": "の",
+      "colorZh": "繁体中文",
+      "colors": [
+        "#C12E1FFF"
+      ],
+      "id": "01001",
+      "mixData": "01001,Red,1.0,41.89,50.12,24.9,0,0,0,0,7.91,7.58,7.02,6.44,5.74,5.09,4.62,4.32,4.09,4.02,4.12,4.19,4.05,3.8,3.72,3.91,4.44,6.07,10.9,20.02,30.94,40.83,48.62,53.87,56.89,58.29,58.45,57.79,56.71,55.8,55.12,0,0,0,0,0,0,0,0",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "蓝色",
+      "colorEn": "Blue",
+      "colors": [
+        "#0A2989FF"
+      ],
+      "id": "01001",
+      "mixData": "01001,Blue,1.0,50.61,-18.32,-42,0,0,0,0,24.81,31.19,35.42,40.03,47.16,53.16,55.05,54.55,51.83,47.68,42.03,35.79,29.24,22.95,17.59,12.98,9.18,6.9,6.34,6.43,5.86,5.02,4.77,4.74,4.94,5.41,5.93,5.93,5.38,4.88,4.63,0,0,0,0,0,0,0,0",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "白色",
+      "colorEn": "White",
+      "colors": [
+        "#FFFFFFFF"
+      ],
+      "id": "01001",
+      "mixData": "01001,White,1.0,86.95,-1.53,1.63,0,0,0,0,56.19,61.57,64.08,65.67,67.41,68.81,69.43,69.72,69.71,69.62,69.66,69.97,70.42,70.73,70.88,70.68,70.02,69.49,69.51,69.88,69.93,69.43,68.79,68.37,68.28,68.38,68.48,68.31,67.84,67.51,67.25,0,0,0,0,0,0,0,0",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "黑色",
+      "colorEn": "Black",
+      "colors": [
+        "#000000FF"
+      ],
+      "id": "01001",
+      "mixData": "01001,Black,1.0,22.16,0.04,-0.75,0,0,0,0,4.01,3.8,3.73,3.72,3.72,3.7,3.66,3.62,3.6,3.57,3.58,3.62,3.63,3.62,3.59,3.52,3.48,3.48,3.49,3.53,3.58,3.56,3.56,3.57,3.55,3.46,3.37,3.34,3.37,3.46,3.53,0,0,0,0,0,0,0,0",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "金色",
+      "colorEn": "Gold",
+      "colors": [
+        "#B68601FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "紫色",
+      "colorEn": "Purple",
+      "colors": [
+        "#9E007EFF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "草莓红",
+      "colorEn": "Viva Magenta",
+      "colors": [
+        "#BB2649FF"
+      ],
+      "id": "01001",
+      "mixData": "01001,Viva Magenta,1.0,40.45,35.33,-2.87,0,0,0,0,17.5,19.1,18.52,16.91,14.5,12.21,10.61,9.43,8.45,7.89,7.58,7.24,6.86,6.77,7.07,7.29,7.2,7.29,8.5,11.95,18.07,25.65,32.73,37.88,41.2,43.22,44.09,43.97,43.14,42.19,41.35,0,0,0,0,0,0,0,0",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "桃子粉",
+      "colorEn": "Peach Fuzz",
+      "colors": [
+        "#FFC197FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "佩里蓝",
+      "colorEn": "Very Peri",
+      "colors": [
+        "#6667ABFF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "杏色",
+      "colorEn": "Apricot",
+      "colors": [
+        "#E7CEB5FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "棕色",
+      "colorEn": "Brown",
+      "colors": [
+        "#9D432CFF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "灰色",
+      "colorEn": "Grey",
+      "colors": [
+        "#9EA2A2FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "橙色",
+      "colorEn": "Orange",
+      "colors": [
+        "#FF6A14FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "绿色",
+      "colorEn": "Green",
+      "colors": [
+        "#4C8D2BFF"
+      ],
+      "id": "01001",
+      "mixData": "01001,Green,1.0,57.03,-46.42,32.1,0,0,0,0,7.43,5.99,5.61,5.37,4.84,5.57,9.04,14.36,21.77,29.18,35.9,39.71,39.63,36.77,32.94,29.46,26.64,23.94,20.22,15.07,10.28,8.06,8.28,8.49,7.86,7.14,7.07,8.02,9.63,11.06,12.28,0,0,0,0,0,0,0,0",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "黄色",
+      "colorEn": "Yellow",
+      "colors": [
+        "#FCE300FF"
+      ],
+      "id": "01001",
+      "mixData": "01001,Yellow,1.0,82.51,-2.39,91.67,0,0,0,0,5.25,2.93,2.09,2.49,3.19,3.81,4.71,6.25,9.49,15.09,25.3,39.16,54.55,67.56,75.16,77.13,75.51,72.91,71.73,72.94,74.52,74.8,74.38,74.01,73.54,72.85,72.25,71.91,71.81,72.36,72.86,0,0,0,0,0,0,0,0",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "兰花粉",
+      "colorEn": "Orchid Powder",
+      "colors": [
+        "#F3BBCAFF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "金鱼草黄",
+      "colorEn": "Goldfish Yellow",
+      "colors": [
+        "#FED877FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "紫郁金香",
+      "colorEn": "Violet Tulip",
+      "colors": [
+        "#9E91C3FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "群山绿",
+      "colorEn": "Mountain Green",
+      "colors": [
+        "#006B54FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "浅蓝绿",
+      "colorEn": "Light Blue Green",
+      "colors": [
+        "#7CE0D3FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "云岫蓝",
+      "colorEn": "Cloud Valley",
+      "colors": [
+        "#82D8CEFF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "碧落蓝",
+      "colorEn": "Azure",
+      "colors": [
+        "#0032A0FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "檀木棕",
+      "colorEn": "Sandalwood",
+      "colors": [
+        "#713F2AFF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "森野绿",
+      "colorEn": "Forest Green",
+      "colors": [
+        "#465C3EFF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "赤霞红",
+      "colorEn": "Burgundy Red",
+      "colors": [
+        "#892B2BFF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "炽焰红",
+      "colorEn": "Flame Red",
+      "colors": [
+        "#DA291CFF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "落日橙",
+      "colorEn": "Sunset Orange",
+      "colors": [
+        "#E35205FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "绯棠红",
+      "colorEn": "Begonia Crimson",
+      "colors": [
+        "#FA4616FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "亮柠黄",
+      "colorEn": "Lemon Yellow",
+      "colors": [
+        "#FEDB00FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    },
+    {
+      "colorCn": "星沉蓝",
+      "colorEn": "Starlit Indigo",
+      "colors": [
+        "#0E4174FF"
+      ],
+      "id": "01001",
+      "mixData": "",
+      "mixSpecialAttr": "None",
+      "name": "Hyper PLA"
+    }
+  ],
+  "source": "bundled"
+}

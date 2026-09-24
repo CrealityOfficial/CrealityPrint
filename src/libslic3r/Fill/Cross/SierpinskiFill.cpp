@@ -21,18 +21,22 @@
 
 namespace Slic3r::Cross
 {
+// This imported algorithm always uses integer micrometres, independently of
+// the coord_t scale used by the rest of libslic3r.
 #define INT2MM(n) (static_cast<double>(n) / 1000.0)
 #define INT2MM2(n) (static_cast<double>(n) / 1000000.0)
 static constexpr float sqrt2 = 1.41421356237f;
 
-    static inline coord_t vSize2(const Point& p0)
+	static inline int64_t vSize2(const Point& p0)
 	{
-		return p0.x() * p0.x() + p0.y() * p0.y();
+		const int64_t x = p0.x();
+		const int64_t y = p0.y();
+		return x * x + y * y;
 	}
 
 	static inline coord_t vSize(const Point& p0)
 	{
-		return sqrt(vSize2(p0));
+		return static_cast<coord_t>(std::sqrt(static_cast<double>(vSize2(p0))));
 	}
 	static inline double vSizeMM(const Point& p0)
 	{
@@ -45,11 +49,13 @@ static constexpr float sqrt2 = 1.41421356237f;
 		coord_t _len = vSize(p0);
 		if (_len < 1)
 			return Point(len, 0);
-		return p0 * len / _len;
+		return Point(
+			static_cast<coord_t>(static_cast<int64_t>(p0.x()) * len / _len),
+			static_cast<coord_t>(static_cast<int64_t>(p0.y()) * len / _len));
 	}
-	static inline coord_t dot(const Point& p0, const Point& p1)
+	static inline int64_t dot(const Point& p0, const Point& p1)
 	{
-		return p0.x() * p1.x() + p0.y() * p1.y();
+		return static_cast<int64_t>(p0.x()) * p1.x() + static_cast<int64_t>(p0.y()) * p1.y();
 	}
 
     static constexpr bool diagonal = true;
@@ -787,7 +793,7 @@ static constexpr float sqrt2 = 1.41421356237f;
             {
                 from_l = period * 2 - from_l;
             }
-            from_l = from_l * vSize(e.l - e.r) / period;
+            from_l = static_cast<coord_t>(static_cast<int64_t>(from_l) * vSize(e.l - e.r) / period);
             from_l = std::max(min_dist_to_side, from_l);
             from_l = std::min(vSize(e.l - e.r) - min_dist_to_side, from_l);
             return e.l + normal(e.r - e.l, from_l);
@@ -835,8 +841,10 @@ static constexpr float sqrt2 = 1.41421356237f;
                 Point v0 = p0 - p1;
                 Point v1 = p2 - p1;
 
-                coord_t prod = std::abs(dot(v0, v1));
-                bool is_straight_corner = prod < sqrt(vSize(v0)* vSize(v1))* min_dist_to_side; // allow for rounding errors of up to min_dist_to_side
+                const int64_t prod = std::abs(dot(v0, v1));
+                bool is_straight_corner = static_cast<double>(prod) <
+                                          std::sqrt(static_cast<double>(vSize(v0)) * static_cast<double>(vSize(v1))) *
+                                              static_cast<double>(min_dist_to_side); // allow for rounding errors of up to min_dist_to_side
                 if (is_straight_corner)
                 {
                     coord_t pocket_rounding = std::min(std::min(pocket_size_side, vSize(v0) / 3), vSize(v1) / 3); // a third so that if a line segment is shortened on both sides the middle remains

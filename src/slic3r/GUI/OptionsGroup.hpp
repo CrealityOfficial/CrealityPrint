@@ -4,6 +4,7 @@
 #include <wx/stattext.h>
 #include <wx/settings.h>
 
+#include <algorithm>
 #include <map>
 #include <functional>
 
@@ -37,6 +38,7 @@ struct Option {
 	t_config_option_key		opt_id;//! {""};
     widget_t				side_widget {nullptr};
     bool					readonly {false};
+    bool                    toggle_visible {true}; // Visibility within a custom multi-option line.
 
 	bool operator==(const Option& rhs) const {
 		return  (rhs.opt_id == this->opt_id);
@@ -72,6 +74,16 @@ public:
     //BBS: add api to get the first option's key
     std::string& get_first_option_key() {
         return m_options[0].opt_id;
+    }
+    bool has_options() const { return !m_options.empty(); }
+    size_t visible_options_count() const {
+        return std::count_if(m_options.begin(), m_options.end(),
+                             [](const Option& option) { return option.toggle_visible; });
+    }
+    void set_option_visible(const std::string& opt_id, bool visible) {
+        for (Option& option : m_options)
+            if (option.opt_id == opt_id)
+                option.toggle_visible = visible;
     }
 
     void append_option(const Option& option) {
@@ -271,6 +283,8 @@ public:
     void        set_config(DynamicPrintConfig* config) { 
 		m_config = config; m_modelconfig = nullptr; }
     Option get_option(const std::string& opt_key, int opt_index = -1);
+    bool activate(std::function<void()> throw_if_canceled = [](){}, int horiz_alignment = wxALIGN_LEFT);
+    void update_overhang_visibility();
     Line   create_single_option_line(const std::string& title, const std::string& path = std::string(), int idx = -1) /*const*/
     {
         Option option = get_option(title, idx);
@@ -296,6 +310,10 @@ public:
 	void		back_to_config_value(const DynamicPrintConfig& config, const std::string& opt_key);
     void		on_kill_focus(const std::string& opt_key) override;
 	void		reload_config();
+    // Keep the UI field id stable while reading/writing another element of a
+    // vector option. Printer nozzle variants use this to present one field per
+    // physical extruder and bind it to the currently selected variant row.
+    bool        set_config_option_index(const t_config_option_key& opt_id, int opt_index);
     // return value shows visibility : false => all options are hidden
     void        Hide();
     void        Show(const bool show);
@@ -322,6 +340,10 @@ protected:
     // If the config is modelconfig, then ModelConfig::touch() has to be called after value change.
     ModelConfig*				m_modelconfig { nullptr };
 	t_opt_map					m_opt_map;
+    void refresh_overhang_layout();
+    bool m_overhang_layout_initialized {false};
+    std::vector<Line> m_overhang_template;
+    std::vector<std::pair<int, wxString>> m_overhang_layout;
     wxString                    m_config_category;
     int                         m_config_type;
 

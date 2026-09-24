@@ -40,6 +40,24 @@ static constexpr int   FADING_OUT_TIMEOUT = 100;
 namespace Slic3r {
 namespace GUI {
 
+namespace {
+
+void schedule_notification_frames()
+{
+    Plater* plater = wxGetApp().plater();
+    if (plater == nullptr)
+        return;
+
+    GLCanvas3D* view_canvas = plater->get_view3D_canvas3D();
+    GLCanvas3D* preview_canvas = plater->get_preview_canvas3D();
+    if (view_canvas != nullptr)
+        view_canvas->schedule_extra_frame(0);
+    if (preview_canvas != nullptr && preview_canvas != view_canvas)
+        preview_canvas->schedule_extra_frame(0);
+}
+
+} // namespace
+
 wxDEFINE_EVENT(EVT_EJECT_DRIVE_NOTIFICAION_CLICKED, EjectDriveNotificationClickedEvent);
 wxDEFINE_EVENT(EVT_EXPORT_GCODE_NOTIFICAION_CLICKED, ExportGcodeNotificationClickedEvent);
 wxDEFINE_EVENT(EVT_PRESET_UPDATE_AVAILABLE_CLICKED, PresetUpdateAvailableClickedEvent);
@@ -164,6 +182,7 @@ json NotificationManager::get_all_notification()
         case NotificationType::SlicingWarning:        return "slicing_warning";
         case NotificationType::PlaterError:           return "plater_error";
         case NotificationType::PlaterWarning:         return "plater_warning";
+        case NotificationType::PathologicalSegmentRisk: return "pathological_segment_risk";
         case NotificationType::ExportFinished:        return "export_finished";
         case NotificationType::BBLObjectInfo:         return "object_info_warning";
         case NotificationType::CustomNotification:    return "custom";
@@ -2134,11 +2153,28 @@ void  NotificationManager::push_simplify_suggestion_notification(const std::stri
 }
 void NotificationManager::close_notification_of_type(const NotificationType type)
 {
-	for (std::unique_ptr<PopNotification> &notification : m_pop_notifications) {
-		if (notification->get_type() == type) {
-			notification->close();
-		}
-	}
+    bool closed = false;
+    for (std::unique_ptr<PopNotification> &notification : m_pop_notifications) {
+        if (notification->get_type() == type) {
+            notification->close();
+            closed = true;
+        }
+    }
+    if (closed)
+        schedule_notification_frames();
+}
+
+void NotificationManager::remove_notification_of_type(const NotificationType type)
+{
+    const auto old_size = m_pop_notifications.size();
+    m_pop_notifications.erase(
+        std::remove_if(m_pop_notifications.begin(), m_pop_notifications.end(),
+            [type](const std::unique_ptr<PopNotification>& notification) {
+                return notification->get_type() == type;
+            }),
+        m_pop_notifications.end());
+    if (m_pop_notifications.size() != old_size)
+        schedule_notification_frames();
 }
 void NotificationManager::remove_slicing_warnings_of_released_objects(const std::vector<ObjectID>& living_oids)
 {
@@ -2492,30 +2528,44 @@ void NotificationManager::update_slicing_notif_dailytips(bool need_change)
 }
 void NotificationManager::set_slicing_progress_began()
 {
-	for (std::unique_ptr<PopNotification> & notification : m_pop_notifications) {
-		if (notification->get_type() == NotificationType::SlicingProgress) {
-			SlicingProgressNotification* spn = dynamic_cast<SlicingProgressNotification*>(notification.get());
-			spn->set_progress_state(SlicingProgressNotification::SlicingProgressState::SP_BEGAN);
-			return;
-		}
-	}
-	// Slicing progress notification was not found - init it thru plater so correct cancel callback function is appended
-	wxGetApp().plater()->init_notification_manager();
+    auto set_began = [this]() -> bool {
+        for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
+            if (notification->get_type() == NotificationType::SlicingProgress) {
+                auto* spn = dynamic_cast<SlicingProgressNotification*>(notification.get());
+                spn->set_progress_state(SlicingProgressNotification::SlicingProgressState::SP_BEGAN);
+                schedule_notification_frames();
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (set_began())
+        return;
+
+    // Recreate a missing progress notification and apply the state transition
+    // in the same call. Otherwise the first percentage update is rejected
+    // because the new object remains in SP_NO_SLICING.
+    wxGetApp().plater()->init_notification_manager();
+    set_began();
 }
 void NotificationManager::set_slicing_progress_percentage(const std::string& text, float percentage)
 {
-	for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
-		if (notification->get_type() == NotificationType::SlicingProgress) {
-			SlicingProgressNotification* spn = dynamic_cast<SlicingProgressNotification*>(notification.get());
-			if(spn->set_progress_state(percentage)) {
-				spn->set_status_text(text);
-				wxGetApp().plater()->get_current_canvas3D()->schedule_extra_frame(0);
-			}
-			return;
-		}
-	}
-	// Slicing progress notification was not found - init it thru plater so correct cancel callback function is appended
-	wxGetApp().plater()->init_notification_manager();
+    for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
+        if (notification->get_type() == NotificationType::SlicingProgress) {
+            SlicingProgressNotification* spn = dynamic_cast<SlicingProgressNotification*>(notification.get());
+            if(spn->set_progress_state(percentage)) {
+                spn->set_status_text(text);
+                schedule_notification_frames();
+            }
+            return;
+        }
+    }
+    // Slicing progress notification was not found - initialize it, arm the
+    // current slicing run, then retry this first percentage update.
+    wxGetApp().plater()->init_notification_manager();
+    set_slicing_progress_began();
+    set_slicing_progress_percentage(text, percentage);
 }
 void NotificationManager::set_slicing_progress_canceled(const std::string& text)
 {
@@ -2531,6 +2581,28 @@ void NotificationManager::set_slicing_progress_canceled(const std::string& text)
 	// Slicing progress notification was not found - init it thru plater so correct cancel callback function is appended
 	wxGetApp().plater()->init_notification_manager();
 }
+void NotificationManager::finish_slicing_progress_before_overview()
+{
+    set_slicing_progress_began();
+    set_slicing_progress_percentage(_u8L("Slicing complete"), 1.0f);
+    for (const auto& notification : m_pop_notifications) {
+        if (notification->get_type() == NotificationType::SlicingProgress) {
+            static_cast<SlicingProgressNotification*>(notification.get())->show_completion_before_overview();
+            break;
+        }
+    }
+    wxGetApp().plater()->get_current_canvas3D()->request_extra_frame();
+}
+
+bool NotificationManager::is_slicing_progress_completing() const
+{
+    for (const auto& notification : m_pop_notifications) {
+        if (notification->get_type() == NotificationType::SlicingProgress)
+            return static_cast<const SlicingProgressNotification*>(notification.get())->is_completing_before_overview();
+    }
+    return false;
+}
+
 void NotificationManager::set_slicing_progress_hidden()
 {
 	for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
@@ -2760,7 +2832,8 @@ bool NotificationManager::push_notification_data(std::unique_ptr<NotificationMan
 	}
 
 	bool retval = false;
-	if (this->activate_existing(notification.get())) {
+    const bool reused = this->activate_existing(notification.get());
+	if (reused) {
 		if (m_initialized) { // ignore update action - it cant be initialized if canvas and imgui context is not ready
 			if (notification->get_type() == NotificationType::SlicingWarning) {
 				m_pop_notifications.back()->append(notification->get_data().ori_text);
@@ -2768,7 +2841,7 @@ bool NotificationManager::push_notification_data(std::unique_ptr<NotificationMan
                 m_pop_notifications.back()->update(notification->get_data());
             }
 		}
-	} 
+	}
 	else {
 		m_pop_notifications.emplace_back(std::move(notification));
 		retval = true;

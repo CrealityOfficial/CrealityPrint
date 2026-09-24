@@ -5,6 +5,33 @@
     "from": "system",
     "setting_id": "GFSG97_00",
     "instantiation": "true",
+    "filament_max_volumetric_speed": [
+        "6",
+        "6"
+    ],
+    "filament_ramming_travel_time": [
+        "0",
+        "0"
+    ],
+    "include": [
+        "fdm_filament_template_direct_dual"
+    ],
+    "long_retractions_when_ec": [
+        "0",
+        "0"
+    ],
+    "nozzle_temperature": [
+        "255",
+        "255"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "255",
+        "255"
+    ],
+    "retraction_distances_when_ec": [
+        "0",
+        "0"
+    ],
     "compatible_printers": [
         "Bambu Lab P1P 0.4 nozzle",
         "Bambu Lab P1P 0.6 nozzle",

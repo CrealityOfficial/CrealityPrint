@@ -1,4 +1,6 @@
 #include "CommunicateWithCXCloud.hpp"
+#include "libslic3r/PresetSyncUtils.hpp"
+#include <mutex>
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -63,54 +65,54 @@ static std::string getPresetValue(const std::map<std::string, std::string>& mapP
     return value;
 }
 
-void CXCloudDataCenter::setUserCloudPresets(const std::string&                        presetName,
-                                            const std::string&                        settingID,
+bool CXCloudDataCenter::setUserCloudPresets(const std::string& presetName,
+                                            const std::string& settingID,
                                             const std::map<std::string, std::string>& mapPresetValue)
 {
-    m_mutexUserCloudPresets.lock();
-    auto iter = m_mapUserCloudPresets.find(presetName);
-    if (iter == m_mapUserCloudPresets.end()){
-        m_mapUserCloudPresets[presetName] = mapPresetValue;
-        m_mapSettingID2PresetName[settingID] = presetName;
-    } else {
-        BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets CXCloudDataCenter setUserCloudPresets has same preset data.oldData="
-                                   << getPresetValue(iter->second) << ",newData=" << getPresetValue(mapPresetValue);
-        m_mapUserCloudPresets[presetName]    = mapPresetValue;
-        m_mapSettingID2PresetName[settingID] = presetName;
-    }
-    m_mutexUserCloudPresets.unlock();
-}
-
-void CXCloudDataCenter::cleanUserCloudPresets() { 
-    m_mutexUserCloudPresets.lock();
-    m_mapUserCloudPresets.clear();
-    m_mapSettingID2PresetName.clear();
-    m_mutexUserCloudPresets.unlock();
-}
-
-void CXCloudDataCenter::updateUserCloudPresets(const std::string& presetName, const std::string& settingID, const std::map<std::string, std::string>& mapPresetValue) {
-    m_mutexUserCloudPresets.lock();
+    std::lock_guard<std::mutex> lock(m_mutexUserCloudPresets);
+    auto incoming = mapPresetValue;
+    incoming["setting_id"] = settingID;
     auto iter = m_mapUserCloudPresets.find(presetName);
     if (iter != m_mapUserCloudPresets.end()) {
-        iter->second = mapPresetValue;
-    } else {
-        // BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets CXCloudDataCenter setUserCloudPresets has same preset data.oldData="
-        //                           << getPresetValue(iter->second) << ",newData=" << getPresetValue(mapPresetValue);
-        m_mapUserCloudPresets[presetName]    = mapPresetValue;
-        m_mapSettingID2PresetName[settingID] = presetName;
+        const bool replace = PresetSyncUtils::prefer_incoming(iter->second, incoming);
+        BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets duplicate preset replace=" << replace
+                                   << " old=" << getPresetValue(iter->second)
+                                   << " incoming=" << getPresetValue(incoming);
+        if (!replace)
+            return false;
+        // Only the selected record may resolve back to this preset. Deleting an
+        // obsolete duplicate must not delete the current record from the cache.
+        m_mapSettingID2PresetName.erase(PresetSyncUtils::value(iter->second, "setting_id"));
     }
-    m_mutexUserCloudPresets.unlock();
+    m_mapUserCloudPresets[presetName] = std::move(incoming);
+    m_mapSettingID2PresetName[settingID] = presetName;
+    return true;
 }
 
-int CXCloudDataCenter::deleteUserPresetBySettingID(const std::string& settingID) { 
+void CXCloudDataCenter::cleanUserCloudPresets()
+{
+    std::lock_guard<std::mutex> lock(m_mutexUserCloudPresets);
+    m_mapUserCloudPresets.clear();
+    m_mapSettingID2PresetName.clear();
+}
+
+void CXCloudDataCenter::updateUserCloudPresets(const std::string& presetName, const std::string& settingID,
+                                             const std::map<std::string, std::string>& mapPresetValue)
+{
+    setUserCloudPresets(presetName, settingID, mapPresetValue);
+}
+
+int CXCloudDataCenter::deleteUserPresetBySettingID(const std::string& settingID)
+{
+    std::lock_guard<std::mutex> lock(m_mutexUserCloudPresets);
     auto iter = m_mapSettingID2PresetName.find(settingID);
     if (iter != m_mapSettingID2PresetName.end()) {
-        if (m_mapUserCloudPresets.find(iter->second) != m_mapUserCloudPresets.end()) {
-            m_mapUserCloudPresets.erase(iter->second);
-        }
-        m_mapSettingID2PresetName.erase(iter->first);
+        auto preset = m_mapUserCloudPresets.find(iter->second);
+        if (preset != m_mapUserCloudPresets.end() && PresetSyncUtils::value(preset->second, "setting_id") == settingID)
+            m_mapUserCloudPresets.erase(preset);
+        m_mapSettingID2PresetName.erase(iter);
     }
-    return 0; 
+    return 0;
 }
 
 void CXCloudDataCenter::setDownloadConfigToLocalState(ENDownloadConfigState state) { m_enDownloadConfigToLocalState = state; }
@@ -385,50 +387,36 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
                     j = json::parse(body);
                 } catch (nlohmann::detail::parse_error& err) {
                     BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud downloadUserPreset parse body fail";
-                    nRet = 0;
+                    nRet = -1;
                     return;
                 }
-                json                               jsonOut = json();
+                json                               jsonOut = j;
                 std::map<std::string, std::string> inner_map;
                 for (auto& element : j.items()) {
                     auto key   = element.key();
                     auto value = element.value();
                     if (value.is_array()) {
-                        std::string ssValue = "";
-                        for (int i = 0; i < value.size(); ++i) {
-                            if (i != 0) {
-                                if ("compatible_printers" == key || "small_area_infill_flow_compensation_model" == key) {
-                                    ssValue += ";";
-                                    inner_map[key] += ";";
-                                } else {
-                                    ssValue += ",";
-                                    inner_map[key] += ",";
-                                }
-                            }
-                            inner_map[key] += value[i];
-                            ssValue += value[i];
-                        }
-                        if (value.size() != 0) {
-                            jsonOut[element.key()] = ssValue;
-                        } else {
-                            if (inner_map.find(key) != inner_map.end())
-                                inner_map[key].pop_back();
-                        }
+                        // G-code and other coStrings arrays use quoted C-style strings
+                        // separated by semicolons; numeric arrays use commas.
+                        inner_map[key] = print_config_def.serialize_array(key, value.get<std::vector<std::string>>());
                     } else if (!value.is_null()) {
                         inner_map[key] = value;
                         jsonOut[element.key()] = element.value();
                     }
                 }
                 inner_map.emplace("type", file_type);
-                inner_map.emplace("user_id", user);
+                inner_map["user_id"] = user;
                 inner_map.emplace("version", version);
-                inner_map.emplace("updated_time", std::to_string(update_time));
-                inner_map.emplace("setting_id", setting_id);
+                inner_map["updated_time"] = std::to_string(update_time);
+                inner_map["setting_id"] = setting_id;
                 if (inner_map.find("base_id") == inner_map.cend()) {
                     inner_map.emplace("base_id", "");
                 }
 
-                CXCloudDataCenter::getInstance().setUserCloudPresets(j["name"], setting_id, inner_map);
+                if (!CXCloudDataCenter::getInstance().setUserCloudPresets(j["name"], setting_id, inner_map)) {
+                    nRet = 0;
+                    return; // Do not apply an older duplicate to the selected preset either.
+                }
 
                 std::string outputName = "";
                 if (jsonOut.contains("name"))
@@ -456,7 +444,7 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
                             Preset* pInherits = collection->find_preset(j["inherits"].get<std::string>());
                             if (p != nullptr && pInherits != nullptr) {
                                 
-                                collection->lock();
+                                std::lock_guard<PresetCollection> lock(*collection);
                                 DynamicPrintConfig dcRemote = pInherits->config;
                                 ForwardCompatibilitySubstitutionRule rule = ForwardCompatibilitySubstitutionRule::Enable;
                                 dcRemote.load_string_map(inner_map, rule);
@@ -471,7 +459,6 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
                                 if (dirty_options.size() > 0) {
                                     collection->get_selected_preset().set_dirty();
                                 }
-                                collection->unlock();
                             }
                         }
                     } else if (file_type == "materia") {
@@ -491,7 +478,7 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
                             Preset* p         = collection->find_preset(j["name"].get<std::string>());
                             Preset* pInherits = collection->find_preset(j["inherits"].get<std::string>());
                             if (p != nullptr && pInherits != nullptr) {
-                                collection->lock();
+                                std::lock_guard<PresetCollection> lock(*collection);
                                 DynamicPrintConfig dcRemote = pInherits->config;
                                 ForwardCompatibilitySubstitutionRule rule = ForwardCompatibilitySubstitutionRule::Enable;
                                 dcRemote.load_string_map(inner_map, rule);
@@ -507,7 +494,6 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
                                     collection->get_selected_preset().set_dirty();
                                     CXCloudDataCenter::getInstance().setFilamentPresetDirty(true);
                                 }
-                                collection->unlock();
                             }
                         }
                     } else if (file_type == "process") {
@@ -519,7 +505,7 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
                             Preset* p         = collection->find_preset(j["name"].get<std::string>());
                             Preset* pInherits = collection->find_preset(j["inherits"].get<std::string>());
                             if (p != nullptr && pInherits != nullptr) {
-                                collection->lock();
+                                std::lock_guard<PresetCollection> lock(*collection);
                                 DynamicPrintConfig dcRemote = pInherits->config;
                                 ForwardCompatibilitySubstitutionRule rule = ForwardCompatibilitySubstitutionRule::Enable;
                                 dcRemote.load_string_map(inner_map, rule);
@@ -535,7 +521,6 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
                                     collection->get_selected_preset().set_dirty();
                                     CXCloudDataCenter::getInstance().setProcessPresetDirty(true);
                                 }
-                                collection->unlock();
                             }
                         }
                     }
@@ -574,7 +559,12 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
 
                 nRet = 0;
             } catch (const std::exception& e) {
-                auto err = e.what();
+                BOOST_LOG_TRIVIAL(error) << "SyncUserPresets downloadUserPreset exception id=" << setting_id
+                                         << " type=" << file_type << " error=" << e.what();
+                nRet = -1;
+            } catch (...) {
+                BOOST_LOG_TRIVIAL(error) << "SyncUserPresets downloadUserPreset unknown exception id=" << setting_id;
+                nRet = -1;
             }
         })
         .perform_sync();

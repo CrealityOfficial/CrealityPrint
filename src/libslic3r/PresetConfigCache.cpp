@@ -86,6 +86,27 @@ std::string file_stamp(const boost::filesystem::path& path)
     }
 }
 
+// Include all files under the vendor root in the cache identity. Editing an
+// individual machine preset must invalidate the parsed preset cache.
+std::string directory_stamp(const boost::filesystem::path& root)
+{
+    try {
+        if (!boost::filesystem::is_directory(root))
+            return "missing";
+        std::vector<std::string> files;
+        for (boost::filesystem::recursive_directory_iterator it(root), end; it != end; ++it) {
+            if (boost::filesystem::is_regular_file(it->path()))
+                files.emplace_back(normalized_absolute_path(it->path()));
+        }
+        std::sort(files.begin(), files.end());
+        std::ostringstream stamp;
+        for (const std::string& file : files)
+            stamp << file << ':' << file_stamp(boost::filesystem::path(file)) << '|';
+        return stamp.str();
+    } catch (...) {
+        return "unavailable";
+    }
+}
 std::mutex                     s_cache_writers_mutex;
 std::vector<std::future<void>> s_cache_writers;
 
@@ -156,7 +177,8 @@ struct PresetConfigCache::Impl
         identity << source_root << '\0' << vendor_name << '\0' << substitution_rule;
         const boost::filesystem::path normalized_source_root(source_root);
         source_stamp = file_stamp(normalized_source_root.parent_path() / (vendor_name + ".json")) + '|' +
-                       file_stamp(normalized_source_root / "profile_version.json");
+                       file_stamp(normalized_source_root / "profile_version.json") + '|' +
+                       directory_stamp(normalized_source_root);
         std::ostringstream hash;
         hash << std::hex << std::setfill('0') << std::setw(16) << fnv1a_64(identity.str());
         cache_file = root / (safe_filename(vendor_name) + "-" + hash.str() + ".cereal");
@@ -361,6 +383,24 @@ void PresetConfigCache::save_async()
         Impl::write_document(cache_file, source_root, vendor_name, source_stamp,
                              substitution_rule, std::move(entries));
     });
+}
+
+void PresetConfigCache::wait_for_pending_writes() noexcept
+{
+    for (;;) {
+        std::vector<std::future<void>> writers;
+        {
+            std::lock_guard<std::mutex> lock(s_cache_writers_mutex);
+            if (s_cache_writers.empty())
+                return;
+            writers.swap(s_cache_writers);
+        }
+
+        for (std::future<void>& writer : writers) {
+            if (writer.valid())
+                writer.wait();
+        }
+    }
 }
 
 size_t PresetConfigCache::hits() const { return m_impl->hit_count; }

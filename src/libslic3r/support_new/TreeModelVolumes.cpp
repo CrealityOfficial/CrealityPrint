@@ -34,6 +34,16 @@ namespace Slic3r::TreeSupport3D {
 
 using namespace std::literals;
 
+Polygons& TreeModelVolumes::LayerPolygonCache::operator[](LayerIndex idx)
+{
+    if (!has(idx)) {
+        BOOST_LOG_TRIVIAL(error) << "TreeModelVolumes::LayerPolygonCache index " << idx
+                                 << " out of range [" << m_idx_begin << "," << m_idx_end << ")";
+        throw Slic3r::RuntimeError("TreeModelVolumes LayerPolygonCache index out of range");
+    }
+    return m_polygons[idx - m_idx_begin];
+}
+
 // or warning
 // had to use a define beacuse the macro processing inside macro BOOST_LOG_TRIVIAL()
 #define error_level_not_in_cache error
@@ -522,8 +532,15 @@ void TreeModelVolumes::calculateCollision(const coord_t radius, const LayerIndex
     std::sort(layer_outline_indices.begin(), layer_outline_indices.end(),
               [this](size_t i, size_t j) { return m_layer_outlines[i].second.size() < m_layer_outlines[j].second.size(); });
 
+    // Do not clamp to outline size: support/raft can request a layer above the model.
+    // Clamping left the cache empty, then getCollision retried forever.
+    const LayerIndex collision_end   = std::max(LayerIndex(0), max_layer_idx) + 1;
+    const LayerIndex collision_begin = std::min(m_collision_cache.getMaxCalculatedLayer(radius) + 1, collision_end);
+    if (collision_begin >= collision_end)
+        return;
+
     LayerPolygonCache data;
-    data.allocate(m_collision_cache.getMaxCalculatedLayer(radius) + 1, max_layer_idx + 1);
+    data.allocate(collision_begin, collision_end);
 
     const bool        calculate_placable = m_support_rests_on_model && radius == 0;
     LayerPolygonCache data_placeable;
@@ -556,6 +573,9 @@ void TreeModelVolumes::calculateCollision(const coord_t radius, const LayerIndex
                               [&outlines, &machine_border = std::as_const(m_machine_border), offset_value = radius + xy_distance,
                                &collision_areas_offsetted, &throw_on_cancel](const tbb::blocked_range<LayerIndex>& range) {
                                   for (LayerIndex layer_idx = range.begin(); layer_idx != range.end(); ++layer_idx) {
+                                      if (layer_idx < 0 || size_t(layer_idx) >= outlines.size() ||
+                                          !collision_areas_offsetted.has(layer_idx))
+                                          continue;
                                       Polygons collision_areas = machine_border;
                                       append(collision_areas, outlines[layer_idx]);
                                       // jtRound is not needed here, as the overshoot can not cause errors in the algorithm, because no
@@ -650,7 +670,11 @@ void TreeModelVolumes::calculateCollision(const coord_t radius, const LayerIndex
                                    &throw_on_cancel](const tbb::blocked_range<LayerIndex>& range) {
                                       for (LayerIndex layer_idx = range.begin(); layer_idx != range.end(); ++layer_idx) {
                                           LayerIndex layer_idx_below = layer_idx - z_distance_bottom_layers - 1;
-                                          assert(layer_idx_below >= 0);
+                                          if (layer_idx_below < 0 || size_t(layer_idx_below) >= outlines.size() ||
+                                              !collision_areas_offsetted.has(layer_idx) || !data_placeable.has(layer_idx)) {
+                                                continue;
+                                          }
+                                  
                                           const Polygons& current  = collision_areas_offsetted[layer_idx];
                                           const Polygons& below    = outlines[layer_idx_below];
                                           Polygons        placable = diff(
@@ -804,7 +828,7 @@ void TreeModelVolumes::calculateAvoidance(const std::vector<RadiusLayerPair>& ke
             float move_step = 1.9 * std::max(task.radius, m_current_min_xy_dist);
             if (move_step <= 0.0f) // for min radius
                 move_step = 1.9f * this->ceilRadius(1, 0);
-            int move_steps = round_up_divide<int>(max_move, move_step);
+            int move_steps = std::max(1, round_up_divide<int>(max_move, move_step));
             assert(move_steps > 0);
             float last_move_step = max_move - (move_steps - 1) * move_step;
             if (last_move_step < scaled<float>(0.05)) {

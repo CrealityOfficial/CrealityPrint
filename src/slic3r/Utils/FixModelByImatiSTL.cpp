@@ -304,15 +304,21 @@ bool fix_model_by_imati_stl_gui(ModelObject& model_object, int volume_idx,
     bool              success  = false;
     size_t            ivolume  = 0;
 
-    auto on_progress = [&mtx, &condition, &ivolume, &volumes, &progress](const char* msg, unsigned prcnt) {
+    enum class RepairProgressPhase { Backend, Reproject };
+    RepairProgressPhase phase = RepairProgressPhase::Backend;
+    auto on_progress = [&mtx, &condition, &ivolume, &volumes, &progress, &phase](const char* msg, unsigned prcnt) {
         std::unique_lock<std::mutex> lock(mtx);
         progress.message = msg != nullptr ? msg : "";
-        progress.percent = int((double(prcnt) + double(ivolume) * 100.0) / double(volumes.size()));
+        const double count = double(volumes.empty() ? 1 : volumes.size());
+        const double within_phase = (double(prcnt) + double(ivolume) * 100.0) / count;
+        const int overall = phase == RepairProgressPhase::Backend ?
+                                int(within_phase * 0.7) : int(70.0 + within_phase * 0.3);
+        progress.percent = std::max(progress.percent, std::min(overall, 100));
         progress.updated = true;
         condition.notify_all();
     };
 
-    auto worker_thread = std::thread([&model_object, &volumes, &ivolume, &on_progress, &success, &canceled, &finished, &condition, &mtx, &progress, &trace_id]() {
+    auto worker_thread = std::thread([&model_object, &volumes, &ivolume, &phase, &on_progress, &success, &canceled, &finished, &condition, &mtx, &progress, &trace_id]() {
 #ifdef HAS_IMATISTL
         RepairMessageBridge bridge;
 #endif
@@ -338,8 +344,16 @@ bool fix_model_by_imati_stl_gui(ModelObject& model_object, int volume_idx,
                 meshes_repaired.emplace_back(std::move(mesh));
             }
 
+            phase = RepairProgressPhase::Reproject;
             for (size_t i = 0; i < volumes.size(); ++i) {
-                volumes[i]->set_mesh(std::move(meshes_repaired[i]));
+                ivolume = i;
+                if (!volumes[i]->set_mesh_keep_paint(
+                        std::move(meshes_repaired[i]),
+                        [&on_progress](int percent, const char* message) {
+                            on_progress(message, unsigned(percent));
+                        },
+                        [&canceled]() { return canceled.load(); }))
+                    throw RepairCanceledException();
                 volumes[i]->calculate_convex_hull();
                 volumes[i]->invalidate_convex_hull_2d();
                 volumes[i]->set_new_unique_id();

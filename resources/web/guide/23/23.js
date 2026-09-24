@@ -599,8 +599,8 @@ function ResponseFilamentResult()
 
 	    for( let key in m_ProfileItem['filament'] )
 	    {
-			let FName=GetFilamentShortname(key);
 			let oneFila = m_ProfileItem['filament'][key];
+			let FName=GetFilamentShortname(oneFila['name']);
 			let fVendor=oneFila['vendor'].trim();
 			
 			if((FName==sName)&&(fVendor==sVendor))
@@ -749,5 +749,4 @@ function CFEdit( fid )
 		
 	SendWXMessage( JSON.stringify(tSend) );	
 }
-
 

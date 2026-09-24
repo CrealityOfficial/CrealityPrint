@@ -695,9 +695,10 @@ TreeSupport::TreeSupport(PrintObject& object, const SlicingParameters &slicing_p
         ipConcentric :
         (m_support_params.interface_density > 0.95 ? ipRectilinear : ipSupportBase);
 
-    const auto nozzle_diameter = object.print()->config().nozzle_diameter.get_at(object.config().support_interface_filament-1);
-    const coordf_t extrusion_width = m_object_config->line_width.get_abs_value(nozzle_diameter);
-    const coordf_t support_extrusion_width = m_object_config->support_line_width.get_abs_value(nozzle_diameter);
+    const auto nozzle_diameter = get_physical_nozzle_diameter(object.print()->config(), object.config().support_interface_filament - 1);
+    const size_t nozzle_index = get_physical_nozzle_index(object.print()->config(), object.config().support_interface_filament - 1);
+    const coordf_t extrusion_width = nozzle_variant_abs_value(m_object_config->line_width, nozzle_index, nozzle_diameter);
+    const coordf_t support_extrusion_width = nozzle_variant_abs_value(m_object_config->support_line_width, nozzle_index, nozzle_diameter);
 
     m_support_params.support_extrusion_width = support_extrusion_width > 0 ? support_extrusion_width : extrusion_width;
     is_slim                                  = is_tree_slim(support_type, support_style);
@@ -733,8 +734,10 @@ void TreeSupport::detect_overhangs(bool detect_first_sharp_tail_only)
     const PrintObjectConfig& config = m_object->config();
     SupportType stype = support_type;
     const coordf_t radius_sample_resolution = g_config_tree_support_collision_resolution;
-    const double nozzle_diameter = m_object->print()->config().nozzle_diameter.get_at(0);
-    const coordf_t extrusion_width = config.get_abs_value("line_width", nozzle_diameter);
+    const size_t nozzle_index = get_physical_nozzle_index(m_object->print()->config(), 0);
+    const double nozzle_diameter = m_object->print()->config().nozzle_diameter.get_at(nozzle_index);
+    const coordf_t extrusion_width = nozzle_variant_abs_value(
+        config.line_width, nozzle_index, nozzle_diameter);
     const coordf_t extrusion_width_scaled = scale_(extrusion_width);
     const coordf_t max_bridge_length = scale_(config.max_bridge_length.value);
     const bool bridge_no_support = max_bridge_length > 0;
@@ -1465,7 +1468,7 @@ void TreeSupport::generate_toolpaths()
     const PrintConfig &print_config = m_object->print()->config();
     const PrintObjectConfig &object_config = m_object->config();
     coordf_t support_extrusion_width = m_support_params.support_extrusion_width;
-    coordf_t nozzle_diameter = print_config.nozzle_diameter.get_at(object_config.support_filament - 1);
+    coordf_t nozzle_diameter = get_physical_nozzle_diameter(print_config, object_config.support_filament - 1);
     coordf_t layer_height = object_config.layer_height.value;
     const size_t wall_count = object_config.tree_support_wall_count.value;
 
@@ -2226,8 +2229,11 @@ void TreeSupport::draw_circles(const std::vector<std::vector<Node*>>& contact_no
     const size_t   top_interface_layers = config.support_interface_top_layers.value;
     const size_t   bottom_interface_layers = config.support_interface_bottom_layers.value;
     const double diameter_angle_scale_factor = tan(tree_support_branch_diameter_angle * M_PI / 180.);// * layer_height / branch_radius; //Scale factor per layer to produce the desired angle.
-    const double nozzle_diameter = m_object->print()->config().nozzle_diameter.get_at(0);
-    const coordf_t line_width = config.get_abs_value("support_line_width", nozzle_diameter);
+    const unsigned int support_filament_id = config.support_filament.value > 0 ? config.support_filament.value - 1 : 0;
+    const size_t nozzle_index = get_physical_nozzle_index(m_object->print()->config(), support_filament_id);
+    const double nozzle_diameter = m_object->print()->config().nozzle_diameter.get_at(nozzle_index);
+    const coordf_t line_width = nozzle_variant_abs_value(
+        config.support_line_width, nozzle_index, nozzle_diameter);
     const coordf_t line_width_scaled           = scale_(line_width);
 
     const bool with_lightning_infill = m_support_params.base_fill_pattern == ipLightning;
@@ -2719,8 +2725,7 @@ void TreeSupport::drop_nodes(std::vector<std::vector<Node*>>& contact_nodes)
     const size_t bottom_interface_layers = config.support_interface_bottom_layers.value;
     const size_t top_interface_layers = config.support_interface_top_layers.value;
     float        DO_NOT_MOVER_UNDER_MM       = is_slim ? 0 : 5;                     // do not move contact points under 5mm
-    const auto nozzle_diameter = m_object->print()->config().nozzle_diameter.get_at(m_object->config().support_interface_filament-1);
-    const auto support_line_width = config.support_line_width.get_abs_value(nozzle_diameter);
+    const auto support_line_width = m_support_params.support_extrusion_width;
 
     auto get_branch_angle = [this,&config](coordf_t radius) {
         if (config.tree_support_branch_angle.value < 30.0) return config.tree_support_branch_angle.value;

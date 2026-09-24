@@ -5,20 +5,57 @@
 #include "Arachne/WallToolPaths.hpp"
 
 #include "FillQuarter.hpp"
+#include <cmath>
 #include <cstddef>
 #include <libslic3r/ShortestPath.hpp>
 #include "Fill/Quarter/NoZigZagConnectorProcessor.h"
 
 namespace Slic3r {
-   
 
-    void FillQuarter::setOrigin(const InfillPattern& _pattern, const Point& _infill_origin, const Point& _offset, const coord_t& _z, const coord_t& _line_distance, const coord_t& _infill_line_width)
+namespace {
+
+// The imported Cura infill implementation works in integer micrometres,
+// independently of the coord_t scale used by the rest of libslic3r.
+constexpr double MICRONS_PER_MM = 1000.0;
+
+double internal_to_microns_factor()
+{
+    return SCALING_FACTOR * MICRONS_PER_MM;
+}
+
+double microns_to_internal_factor()
+{
+    return 1.0 / internal_to_microns_factor();
+}
+
+Point internal_to_microns(const Point& point)
+{
+    const double factor = internal_to_microns_factor();
+    return Point(static_cast<coord_t>(std::llround(static_cast<double>(point.x()) * factor)),
+                 static_cast<coord_t>(std::llround(static_cast<double>(point.y()) * factor)));
+}
+
+Point microns_to_internal(const Point& point)
+{
+    const double factor = microns_to_internal_factor();
+    return Point(static_cast<coord_t>(std::llround(static_cast<double>(point.x()) * factor)),
+                 static_cast<coord_t>(std::llround(static_cast<double>(point.y()) * factor)));
+}
+
+} // namespace
+
+    void FillQuarter::setOrigin(const InfillPattern& _pattern,
+                                const Point& _infill_origin_internal,
+                                const Point& _offset_internal,
+                                const coord_t& _z_microns,
+                                const coord_t& _line_distance_microns,
+                                const coord_t& _infill_line_width_microns)
     {
-        infill_origin = _infill_origin + _offset;
-        offset = _offset;
-        line_distance = _line_distance;
-        infill_line_width = _infill_line_width;
-        z = _z;
+        offset = internal_to_microns(_offset_internal);
+        infill_origin = internal_to_microns(_infill_origin_internal) + offset;
+        line_distance = _line_distance_microns;
+        infill_line_width = _infill_line_width_microns;
+        z = _z_microns;
         m_pattern = _pattern;
     }
 
@@ -73,7 +110,9 @@ namespace Slic3r {
         //assert(!connect_lines && "connectLines() should add the infill lines, not addLineInfill");
 
         unsigned int scanline_idx = 0;
-        for (coord_t x = scanline_min_idx * line_distance + shift; x < boundary.max.x(); x += line_distance)
+        for (coord_t x = static_cast<coord_t>(static_cast<int64_t>(scanline_min_idx) * line_distance + shift);
+             x < boundary.max.x();
+             x += line_distance)
         {
             if (scanline_idx >= cut_list.size())
             {
@@ -204,8 +243,11 @@ namespace Slic3r {
 
                 for (int scanline_idx = scanline_idx0; scanline_idx != scanline_idx1 + direction; scanline_idx += direction)
                 {
-                    int x = scanline_idx * line_distance + shift;
-                    int y = p1.y() + (p0.y() - p1.y()) * (x - p1.x()) / (p0.x() - p1.x());
+                    const coord_t x = static_cast<coord_t>(static_cast<int64_t>(scanline_idx) * line_distance + shift);
+                    const int64_t numerator = (static_cast<int64_t>(p0.y()) - p1.y()) *
+                                              (static_cast<int64_t>(x) - p1.x());
+                    const int64_t denominator = static_cast<int64_t>(p0.x()) - p1.x();
+                    const coord_t y = static_cast<coord_t>(static_cast<int64_t>(p1.y()) + numerator / denominator);
                     assert(scanline_idx - scanline_min_idx >= 0 && scanline_idx - scanline_min_idx < int(cut_list.size()) && "reading infill cutlist index out of bounds!");
                     cut_list[scanline_idx - scanline_min_idx].push_back(y);
                     Point scanline_linesegment_intersection(x, y);
@@ -305,7 +347,9 @@ void FillQuarter::_fill_surface_single(
     Polygon poly;
     for (auto& p : expolygon.contour)
     {
-        poly.points.push_back(Point(p.x()/1000.0f, p.y() / 1000.0f));
+        // Generate in the original model coordinate system. Move the locally
+        // centred contour there after converting it to micrometres.
+        poly.points.push_back(internal_to_microns(p) + offset);
     }
     inner_contour.push_back(poly);
 
@@ -338,8 +382,8 @@ void FillQuarter::_fill_surface_single(
             Polyline& pl = result_pl[i];
             for(const Point& p : poly.points)
             {
-                Point pp = p - offset;
-                pl.points.push_back(Point(pp.x() * 1000, pp.y() * 1000));
+                // Return to the locally centred libslic3r coordinate system.
+                pl.points.push_back(microns_to_internal(p - offset));
             }
         }
     }

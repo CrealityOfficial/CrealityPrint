@@ -104,16 +104,36 @@ json SlicerBridge::DoGetEditedConfig(const json& params)
         }
     }
 
-    // get_opt: 优先从对象 per-object config 取，fallback 到全局 preset
+    // get_opt: 优先从对象 per-object config 取，fallback 到全局 preset。
+    // 推荐卡展示的是单个当前值；多喷头 vector 参数取第一个非 nil 项，
+    // 避免返回整串 "200,200,..."，也避免首项为 nil 时被误判为缺失。
+    auto serialize_current_value = [](const ConfigOption* opt) -> std::string {
+        if (!opt)
+            return "";
+        if (const auto* vector_opt = dynamic_cast<const ConfigOptionVectorBase*>(opt)) {
+            const auto values = vector_opt->vserialize();
+            for (size_t index = 0; index < values.size(); ++index) {
+                if (!vector_opt->is_nil(index) && !values[index].empty())
+                    return values[index];
+            }
+            return "";
+        }
+        return opt->serialize();
+    };
+
     auto get_opt = [&](const std::string& key) -> std::string {
         if (object_cfg) {
             const ConfigOption* opt = object_cfg->option(key);
-            if (opt) return opt->serialize();
+            if (opt) {
+                const std::string value = serialize_current_value(opt);
+                if (!value.empty())
+                    return value;
+            }
         }
         const ConfigOption* opt = print_cfg.option(key);
         if (!opt) opt = filament_cfg.option(key);
         if (!opt) opt = printer_cfg.option(key);
-        return opt ? opt->serialize() : "";
+        return serialize_current_value(opt);
     };
 
     auto get_filament_opt = [&](const DynamicPrintConfig& cfg, const std::string& key) -> std::string {
@@ -133,11 +153,11 @@ json SlicerBridge::DoGetEditedConfig(const json& params)
         return result;
     }
 
-    // Default: return all keys that have a value in the current print preset.
-    // This eliminates the need for a hardcoded whitelist and covers every parameter
-    // visible in the process panel, including those added in future versions.
+    // Return all visible FFF options, including per-nozzle vector options such
+    // as wall, infill, and support speeds. Filtering to scalar definitions here
+    // made get_edited_config silently omit those current values, so recommendation
+    // cards could not populate change.from or filter unchanged recommendations.
     for (const auto& [key, def] : print_config_def.options) {
-        if (!def.is_scalar()) continue;
         if (def.label.empty()) continue;
         {
             auto is_blank = [](const std::string& s) {
@@ -560,7 +580,7 @@ json SlicerBridge::DoApplyConfig(const json& params)
 
                 const float old_fval = opt->getFloat();
                 opt->set(new ConfigOptionFloat(new_fval));
-                wxGetApp().app_config->set("flush_multiplier", std::to_string(new_fval));
+                bundle->save_flush_multiplier(*wxGetApp().app_config);
                 wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
                 plater->update_project_dirty_from_presets();
 
@@ -753,8 +773,10 @@ json SlicerBridge::BuildConfigSchemaArray()
             case coStrings:         return "string";
             case coPercent:
             case coPercents:        return "percent";
-            case coFloatOrPercent:  return "float_or_percent";
-            case coEnum:            return "enum";
+            case coFloatOrPercent:
+            case coFloatsOrPercents:return "float_or_percent";
+            case coEnum:
+            case coEnums:           return "enum";
             case coPoint:
             case coPoints:          return "point";
             default:                return "other";
@@ -892,11 +914,18 @@ json SlicerBridge::BuildConfigSchemaArray()
         if (def.max != INT_MAX)
             item["max"] = def.max;
 
-        // For enums, include allowed values
+        // For enums, include protocol values plus English and active-locale labels.
+        // Consumers map labels back to values by array index, keeping the schema
+        // as the single source of truth for localized enum input.
         if (!def.enum_values.empty()) {
             item["enum_values"] = def.enum_values;
-            if (!def.enum_labels.empty())
+            if (!def.enum_labels.empty()) {
                 item["enum_labels"] = def.enum_labels;
+                json localized_labels = json::array();
+                for (const std::string& label : def.enum_labels)
+                    localized_labels.push_back(_u8L(label.c_str()));
+                item["enum_labels_localized"] = std::move(localized_labels);
+            }
         }
 
         // Include default value if available.

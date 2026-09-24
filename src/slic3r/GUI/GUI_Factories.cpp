@@ -1,6 +1,7 @@
 #include "libslic3r/Config.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/libslic3r.h"
+#include "libslic3r/MaterialListManager.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelVolume.hpp"
@@ -69,7 +70,8 @@ static wxString filament_menu_item_name(const int filament_id_1based)
     const size_t num_physical = wxGetApp().preset_bundle->filament_presets.size();
     if (size_t(filament_id_1based) <= num_physical) {
         auto preset = wxGetApp().preset_bundle->filaments.find_preset(wxGetApp().preset_bundle->filament_presets[filament_id_1based - 1]);
-        return preset ? from_u8(preset->label(false)) : wxString::Format(_L("Filament %d"), filament_id_1based);
+        return preset ? from_u8(MaterialListManager::instance().display_name_with_material_alias(*preset, false)) :
+                        wxString::Format(_L("Filament %d"), filament_id_1based);
     }
 
     const auto *mixed = wxGetApp().preset_bundle->mixed_filaments.mixed_filament_from_id(unsigned(filament_id_1based), num_physical);
@@ -83,15 +85,49 @@ static wxString filament_menu_item_name(const int filament_id_1based)
     // compatibility. List every component so the name is not truncated to two.
     if (!mixed->gradient_component_ids.empty()) {
         std::vector<unsigned int> ids;
-        bool seen[10] = { false };
-        for (const char c : mixed->gradient_component_ids) {
-            if (c < '1' || c > '9')
-                continue;
-            const unsigned int id = unsigned(c - '0');
-            if (id > num_physical || seen[id])
-                continue;
-            seen[id] = true;
-            ids.push_back(id);
+        // Support both formats:
+        // 1. New '|'-separated format: "1|2|11|12" (supports multi-digit IDs)
+        // 2. Old compact format: "123" (single-char IDs 1-9, no separator)
+        if (mixed->gradient_component_ids.find('|') != std::string::npos) {
+            std::vector<unsigned int> seen;
+            std::string tok;
+            for (char c : mixed->gradient_component_ids) {
+                if (c >= '0' && c <= '9') {
+                    tok.push_back(c);
+                } else if (c == '|') {
+                    if (!tok.empty()) {
+                        try {
+                            unsigned int id = std::stoi(tok);
+                            if (id >= 1 && id <= num_physical &&
+                                std::find(seen.begin(), seen.end(), id) == seen.end()) {
+                                seen.push_back(id);
+                                ids.push_back(id);
+                            }
+                        } catch (...) {}
+                        tok.clear();
+                    }
+                }
+            }
+            if (!tok.empty()) {
+                try {
+                    unsigned int id = std::stoi(tok);
+                    if (id >= 1 && id <= num_physical &&
+                        std::find(seen.begin(), seen.end(), id) == seen.end()) {
+                        ids.push_back(id);
+                    }
+                } catch (...) {}
+            }
+        } else {
+            bool seen[10] = { false };
+            for (const char c : mixed->gradient_component_ids) {
+                if (c < '1' || c > '9')
+                    continue;
+                const unsigned int id = unsigned(c - '0');
+                if (id > num_physical || seen[id])
+                    continue;
+                seen[id] = true;
+                ids.push_back(id);
+            }
         }
         if (ids.size() >= 3) {
             wxString components;
@@ -167,6 +203,7 @@ std::map<std::string, std::vector<SimpleSettingData>>  SettingsFactory::OBJECT_C
                     }}
 };
 
+// todo multi_extruders: Does the following need to be modified?
 std::map<std::string, std::vector<SimpleSettingData>>  SettingsFactory::PART_CATEGORY_SETTINGS=
 {
     { L("Quality"), {{"ironing_type", "",8},{"ironing_flow", "",9},{"ironing_spacing", "",10},{"bridge_flow", "",11},{"make_overhang_printable", "",11},{"bridge_density", "", 1}
@@ -1203,7 +1240,7 @@ void MenuFactory::append_menu_item_change_extruder(wxMenu* menu)
     if (sels.IsEmpty())
         return;
 
-    std::vector<wxBitmap*> icons = get_extruder_color_icons(true);
+    std::vector<wxBitmap*> icons = get_menu_extruder_color_icons(true);
     wxMenu* extruder_selection_menu = new wxMenu();
     const wxString& name = sels.Count() == 1 ? names[0] : names[1];
 
@@ -1964,7 +2001,7 @@ void MenuFactory::create_filament_action_menu(bool init, int active_filament_men
         menu->Destroy(item_id);
 
     wxMenu*                sub_menu      = new wxMenu();
-    std::vector<wxBitmap*> icons         = get_extruder_color_icons(true);
+    std::vector<wxBitmap*> icons         = get_menu_extruder_color_icons(true);
     const int              physical_cnt  = int(wxGetApp().preset_bundle->filament_presets.size());
     int                    filaments_cnt = std::min(int(icons.size()), physical_cnt);
     for (int i = 0; i < filaments_cnt; i++) {
@@ -2474,7 +2511,8 @@ void MenuFactory::append_menu_item_change_filament(wxMenu* menu)
             return;
     }
 
-    std::vector<wxBitmap*> icons = get_extruder_color_icons(true);
+    constexpr int filament_menu_icon_px = 22;
+    std::vector<wxBitmap*> icons = get_menu_extruder_color_icons(true, filament_menu_icon_px);
     if (icons.size() < filaments_cnt) {
         BOOST_LOG_TRIVIAL(warning) << boost::format("Warning: icons size %1%, filaments_cnt=%2%")%icons.size()%filaments_cnt;
         if (icons.size() <= 1)
@@ -2517,9 +2555,21 @@ void MenuFactory::append_menu_item_change_filament(wxMenu* menu)
             item_name << " (" + _L("current") + ")";
         }
 
-        append_menu_item(extruder_selection_menu, wxID_ANY, item_name, "",
-            [i](wxCommandEvent&) { obj_list()->set_extruder_for_selected_items(i); }, i == 0 ? wxNullBitmap : *icons[i - 1], menu,
-            [is_active_extruder]() { return !is_active_extruder; }, m_parent);
+        const int item_id = wxNewId();
+        auto* filament_item = new wxMenuItem(extruder_selection_menu, item_id, item_name);
+        if (i > 0 && icons[i - 1] && icons[i - 1]->IsOk())
+            filament_item->SetBitmap(*icons[i - 1]);
+        extruder_selection_menu->Append(filament_item);
+
+#ifdef __WXMSW__
+        menu->Bind(wxEVT_MENU, [i](wxCommandEvent&) {
+            obj_list()->set_extruder_for_selected_items(i);
+        }, item_id);
+#else
+        extruder_selection_menu->Bind(wxEVT_MENU, [i](wxCommandEvent&) {
+            obj_list()->set_extruder_for_selected_items(i);
+        }, item_id);
+#endif
     }
     
     menu->Append(2008, name, extruder_selection_menu, _L("Change Filament"));
@@ -2646,8 +2696,11 @@ void MenuFactory::update_default_menu()
 
 void MenuFactory::msw_rescale()
 {
-    for (MenuWithSeparators* menu : { &m_object_menu, &m_sla_object_menu, &m_part_menu, &m_default_menu })
+    for (MenuWithSeparators* menu : { &m_object_menu, &m_sla_object_menu, &m_part_menu, &m_text_part_menu,
+                                      &m_svg_part_menu, &m_default_menu, &m_instance_menu, &m_plate_menu,
+                                      &m_assemble_object_menu, &m_assemble_part_menu })
         msw_rescale_menu(dynamic_cast<wxMenu*>(menu));
+    msw_rescale_menu(&m_filament_action_menu);
 }
 
 #ifdef _WIN32

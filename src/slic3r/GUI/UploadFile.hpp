@@ -3,6 +3,8 @@
 #include <string>
 #include <functional>
 #include <exception>
+#include <map>
+#include <mutex>
 #include <utility>
 #include "nlohmann/json.hpp"
 #include "print_manage/UploadCancellation.hpp"
@@ -11,6 +13,58 @@
 using namespace nlohmann;
 namespace Slic3r {
 namespace GUI {
+class OssSdkGuard {
+public:
+    OssSdkGuard() {
+        std::lock_guard<std::mutex> lock(mutex());
+        if (users()++ == 0) {
+            owns_sdk() = !AlibabaCloud::OSS::IsSdkInitialized();
+            if (owns_sdk())
+                AlibabaCloud::OSS::InitializeSdk();
+        }
+    }
+
+    ~OssSdkGuard() {
+        std::lock_guard<std::mutex> lock(mutex());
+        if (users() > 0 && --users() == 0 && owns_sdk()) {
+            AlibabaCloud::OSS::ShutdownSdk();
+            owns_sdk() = false;
+        }
+    }
+
+    OssSdkGuard(const OssSdkGuard&) = delete;
+    OssSdkGuard& operator=(const OssSdkGuard&) = delete;
+
+private:
+    static std::mutex& mutex() {
+        static std::mutex value;
+        return value;
+    }
+    static unsigned int& users() {
+        static unsigned int value = 0;
+        return value;
+    }
+    static bool& owns_sdk() {
+        static bool value = false;
+        return value;
+    }
+};
+
+struct CloudOssConfig {
+    std::string token;
+    std::string access_key_id;
+    std::string secret_access_key;
+    std::string endpoint;
+    std::string file_bucket;
+    std::string video_bucket;
+    std::string cdn_host;
+
+    bool valid_for_video() const {
+        return !token.empty() && !access_key_id.empty() && !secret_access_key.empty() &&
+               !endpoint.empty() && !video_bucket.empty();
+    }
+};
+
 class ErrorCodeException : public std::exception {
     private:
         int errorCode;
@@ -38,10 +92,32 @@ class ErrorCodeException : public std::exception {
             std::string requestId;
         };
         UploadFile();
+        explicit UploadFile(std::map<std::string, std::string> request_headers);
         ~UploadFile();
+        UploadFile(const UploadFile&) = delete;
+        UploadFile& operator=(const UploadFile&) = delete;
 
         int getAliyunInfo();
         int getOssInfo();
+        int getCloudUploadInfo(CloudOssConfig& info) {
+            const json value = getCloudUploadInfo();
+            auto read_string = [&value](const char* key, std::string& out) {
+                const auto it = value.find(key);
+                if (it == value.end() || !it->is_string())
+                    return false;
+                out = it->get<std::string>();
+                return !out.empty();
+            };
+            info = CloudOssConfig{};
+            const bool token_ok = read_string("token", info.token);
+            const bool access_ok = read_string("accessKeyId", info.access_key_id);
+            const bool secret_ok = read_string("secretAccessKey", info.secret_access_key);
+            const bool endpoint_ok = read_string("endPoint", info.endpoint);
+            read_string("bucket", info.file_bucket);
+            const bool video_bucket_ok = read_string("video_bucket", info.video_bucket);
+            read_string("cdnHost", info.cdn_host);
+            return token_ok && access_ok && secret_ok && endpoint_ok && video_bucket_ok ? 0 : -1;
+        }
         json getCloudUploadInfo();
         int uploadGcodeToCXCloud(const std::string& name, const std::string&fileName, std::function<void(std::string)> onCompleteCallback=nullptr);
         void setProcessCallback(std::function<void(int,double)> funcProcessCb);
@@ -63,10 +139,12 @@ class ErrorCodeException : public std::exception {
                        ProgressCallback callback = nullptr);
     private:
         void ProgressCallback(size_t increment, int64_t transfered, int64_t total, void* userData);
+        std::map<std::string, std::string> requestHeaders() const;
         bool isCancelled() const {
             return RemotePrint::is_upload_cancelled(m_cancel_token);
         }
     private:
+        OssSdkGuard m_oss_sdk_guard;
         std::string m_token = "";
         std::string m_accessKeyId = "";
         std::string m_secretAccessKey = "";
@@ -77,6 +155,8 @@ class ErrorCodeException : public std::exception {
         std::function<void(int,double)> m_funcProcessCb = nullptr;
         LastError m_lastError;
         RemotePrint::UploadCancelToken m_cancel_token = RemotePrint::make_upload_cancel_token();
+        std::map<std::string, std::string> m_request_headers;
+        bool m_has_request_headers {false};
     };
 
 }

@@ -2,6 +2,7 @@
 #define slic3r_CoolingBuffer_hpp_
 
 #include "../libslic3r.h"
+#include "ZaaIntervalProtocol.hpp"
 #include <map>
 #include <string>
 #include <libslic3r/Slicing.hpp>
@@ -67,6 +68,7 @@ struct CoolingLine
 
         // CP: add large range
         TYPE_LARGE_RANGE        = 1 << 22,
+        TYPE_FORCE_FAN_ON_TOOL_CHANGE = 1 << 23,
     };
 
     CoolingLine(unsigned int type, size_t line_start, size_t line_end)
@@ -136,6 +138,7 @@ struct CoolingLine
     // Current duration of this segment.
     // float origin_time;
     bool outwall_smooth_mark = false;
+    bool zaa_protected       = false;
     int  object_id           = -1;
     int  cooling_node_id     = -1;
 
@@ -373,6 +376,9 @@ struct PerExtruderAdjustments
         float accumulated_length = 0.f;
         for (auto it = this->lines.rbegin(); it != this->lines.rend() && accumulated_length < non_adjustable_length; ++it) {
             CoolingLine& line = *it;
+            // ZAA profiles are atomic cooling blocks and must never enter the split path.
+            if (line.zaa_protected)
+                continue;
             // assert(line.feedrate == line.feedrate_original);
 
             // Only consider adjustable lines that are not external or first internal perimeters
@@ -462,6 +468,7 @@ private:
     const PrintConfig          &m_config;
     unsigned int                m_current_extruder;
     unsigned int                m_parse_gcode_extruder;
+    ZaaIntervalTracker          m_zaa_interval;
 
     //BBS: current fan speed
     int                         m_current_fan_speed;

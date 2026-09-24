@@ -73,6 +73,7 @@ std::string escape_string_cstyle(const std::string &str)
 
 std::string escape_strings_cstyle(const std::vector<std::string> &strs)
 {
+    if (strs.empty()) return {};
     // 1) Estimate the output buffer size to avoid buffer reallocation.
     size_t outbuflen = 0;
     for (size_t i = 0; i < strs.size(); ++ i)
@@ -91,7 +92,7 @@ std::string escape_strings_cstyle(const std::vector<std::string> &strs)
         bool should_quote = strs.size() == 1 && str.empty();
         for (size_t i = 0; i < str.size(); ++ i) {
             char c = str[i];
-            if (c == ' ' || c == '\t' || c == '\\' || c == '"' || c == '\r' || c == '\n') {
+            if (c == ';' || c == ' ' || c == '\t' || c == '\\' || c == '"' || c == '\r' || c == '\n') {
                 should_quote = true;
                 break;
             }
@@ -216,6 +217,30 @@ bool unescape_strings_cstyle(const std::string &str, std::vector<std::string> &o
     }
 }
 
+// Match the array representation accepted by set_deserialize/load_string_map.
+std::string ConfigDef::serialize_array(const t_config_option_key& key, const std::vector<std::string>& values) const
+{
+    const ConfigOptionDef* optdef = get(key);
+    if (optdef == nullptr) {
+        for (const auto& entry : options) {
+            const auto& aliases = entry.second.aliases;
+            if (std::find(aliases.begin(), aliases.end(), key) != aliases.end()) {
+                optdef = &entry.second;
+                break;
+            }
+        }
+    }
+    if (optdef != nullptr && optdef->type == coStrings)
+        return escape_strings_cstyle(values);
+
+    std::string serialized;
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i != 0) serialized += ',';
+        serialized += values[i];
+    }
+    return serialized;
+}
+
 std::string escape_ampersand(const std::string& str)
 {
     // Allocate a buffer 2 times the input string length,
@@ -302,17 +327,14 @@ ConfigOption* ConfigOptionDef::create_default_option() const
             return new ConfigOptionEnumGeneric(this->enum_keys_map, this->default_value->getInt());
 
         if (type == coEnums) {
-            auto dft = this->default_value->clone();
-            if (dft->nullable()) {
-                ConfigOptionEnumsGenericNullable *opt = dynamic_cast<ConfigOptionEnumsGenericNullable *>(this->default_value->clone());
-                opt->keys_map = this->enum_keys_map;
-                return opt;
-            } else {
-                ConfigOptionEnumsGeneric *opt = dynamic_cast<ConfigOptionEnumsGeneric *>(this->default_value->clone());
+            if (this->default_value->nullable()) {
+                auto *opt = dynamic_cast<ConfigOptionEnumsGenericNullable *>(this->default_value->clone());
                 opt->keys_map = this->enum_keys_map;
                 return opt;
             }
-            delete dft;
+            auto *opt = dynamic_cast<ConfigOptionEnumsGeneric *>(this->default_value->clone());
+            opt->keys_map = this->enum_keys_map;
+            return opt;
         }
 
         return this->default_value->clone();
@@ -652,6 +674,40 @@ bool ConfigBase::set_deserialize_raw(const t_config_option_key &opt_key_src, con
     return success;
 }
 
+double ConfigBase::get_abs_value_at(const t_config_option_key &opt_key, size_t index) const
+{
+    const ConfigOption *raw_opt = this->option(opt_key);
+    assert(raw_opt != nullptr);
+    if (raw_opt->type() == coFloats) {
+        return dynamic_cast<const ConfigOptionVector<double>*>(raw_opt)->get_at(index);
+    }
+    if (raw_opt->type() == coFloat || raw_opt->type() == coInt || raw_opt->type() == coBool)
+        return this->get_abs_value(opt_key);
+    if (raw_opt->type() == coFloatsOrPercents || raw_opt->type() == coFloatOrPercent) {
+        const bool is_vector = raw_opt->type() == coFloatsOrPercents;
+        const FloatOrPercent value = is_vector ?
+            dynamic_cast<const ConfigOptionVector<FloatOrPercent> *>(raw_opt)->get_at(index) :
+            FloatOrPercent(static_cast<const ConfigOptionFloatOrPercent *>(raw_opt)->value,
+                           static_cast<const ConfigOptionFloatOrPercent *>(raw_opt)->percent);
+        if (!is_vector && value.value == 0 && boost::ends_with(opt_key, "_line_width"))
+            return this->get_abs_value_at("line_width", index);
+        if (!value.percent)
+            return value.value;
+
+        const ConfigDef *def = this->def();
+        if (def == nullptr) throw NoDefinitionException(opt_key);
+        const ConfigOptionDef *opt_def = def->get(opt_key);
+        assert(opt_def != nullptr);
+
+        // A shared percentage still depends on the selected nozzle's base value.
+        if (opt_def->ratio_over.empty())
+            return is_vector ? 0. : value.get_abs_value(1.);
+        return value.get_abs_value(this->get_abs_value_at(opt_def->ratio_over, index));
+    }
+
+    throw ConfigurationError("ConfigBase::get_abs_value_at(): Not a valid option type for get_abs_value_at()");
+}
+
 // Return an absolute value of a possibly relative config variable.
 // For example, return absolute infill extrusion width, either from an absolute value, or relative to the layer height.
 double ConfigBase::get_abs_value(const t_config_option_key &opt_key) const
@@ -671,6 +727,21 @@ double ConfigBase::get_abs_value(const t_config_option_key &opt_key) const
       return static_cast<const ConfigOptionInt *>(raw_opt)->value;
     if (raw_opt->type() == coBool)
       return static_cast<const ConfigOptionBool *>(raw_opt)->value ? 1 : 0;
+
+    if (raw_opt->type() == coFloats)
+        return dynamic_cast<const ConfigOptionVector<double>*>(raw_opt)->get_at(0);
+    if (raw_opt->type() == coFloatsOrPercents) {
+        const FloatOrPercent value = dynamic_cast<const ConfigOptionVector<FloatOrPercent>*>(raw_opt)->get_at(0);
+        if (!value.percent)
+            return value.value;
+        const ConfigDef *config_def = this->def();
+        if (config_def == nullptr)
+            throw NoDefinitionException(opt_key);
+        const ConfigOptionDef *opt_def = config_def->get(opt_key);
+        assert(opt_def != nullptr);
+        return opt_def->ratio_over.empty() ? 0. :
+            value.get_abs_value(this->get_abs_value(opt_def->ratio_over));
+    }
 
     const ConfigOptionPercent *cast_opt = nullptr;
     if (raw_opt->type() == coFloatOrPercent) {
@@ -961,6 +1032,11 @@ int ConfigBase::load_from_json(const std::string &file, ConfigSubstitutionContex
                             is_infill_first = "true";
                         }
                     }
+                }
+                else if (opt_key == "nozzle_diameter" && it.value().is_number()) {
+                    // MakeNow projects may store a single nozzle diameter as a JSON number.
+                    // Retain the ConfigOptionFloats representation through normal deserialization.
+                    this->set_deserialize(opt_key, it.value().dump(), substitution_context);
                 }
                 else if (it.value().is_array()) {
                     if(opt_key == "extruder")
@@ -1962,6 +2038,70 @@ t_config_option_keys DynamicConfig::equal(const DynamicConfig &other) const
             return false;
         });
     return equal;
+}
+
+double& DynamicConfig::opt_float(const t_config_option_key &opt_key)
+{
+    if (ConfigOptionFloat *opt = dynamic_cast<ConfigOptionFloat *>(this->option(opt_key)))
+        return opt->value;
+    if (ConfigOptionFloats *opt = dynamic_cast<ConfigOptionFloats *>(this->option(opt_key)))
+        return opt->get_at(0);
+    if (ConfigOptionFloatsNullable *opt = dynamic_cast<ConfigOptionFloatsNullable *>(this->option(opt_key)))
+        return opt->get_at(0);
+    throw ConfigurationError("DynamicConfig::opt_float(): option is not a float or float vector: " + opt_key);
+}
+
+const double& DynamicConfig::opt_float(const t_config_option_key &opt_key) const
+{
+    if (const ConfigOptionFloat *opt = dynamic_cast<const ConfigOptionFloat *>(this->option(opt_key)))
+        return opt->value;
+    if (const ConfigOptionFloats *opt = dynamic_cast<const ConfigOptionFloats *>(this->option(opt_key)))
+        return opt->get_at(0);
+    if (const ConfigOptionFloatsNullable *opt = dynamic_cast<const ConfigOptionFloatsNullable *>(this->option(opt_key)))
+        return opt->get_at(0);
+    throw ConfigurationError("DynamicConfig::opt_float(): option is not a float or float vector: " + opt_key);
+}
+
+double& DynamicConfig::opt_float(const t_config_option_key &opt_key, unsigned int idx)
+{
+    if (ConfigOptionFloats *opt_floats = dynamic_cast<ConfigOptionFloats *>(this->option(opt_key))) {
+        return opt_floats->get_at(idx);
+    } else {
+        ConfigOptionFloatsNullable *opt_floats_nullable = dynamic_cast<ConfigOptionFloatsNullable *>(this->option(opt_key));
+        assert(opt_floats_nullable != nullptr);
+        return opt_floats_nullable->get_at(idx);
+    }
+}
+const double& DynamicConfig::opt_float(const t_config_option_key &opt_key, unsigned int idx) const
+{
+    if (const ConfigOptionFloats *opt_floats = dynamic_cast<const ConfigOptionFloats *>(this->option(opt_key))) {
+        return opt_floats->get_at(idx);
+    } else if (const ConfigOptionFloatsNullable *opt_floats_nullable = dynamic_cast<const ConfigOptionFloatsNullable *>(this->option(opt_key))) {
+        return opt_floats_nullable->get_at(idx);
+    } else {
+        throw ConfigurationError("DynamicConfig::opt_float(): option is not a float vector: " + opt_key);
+    }
+}
+
+bool DynamicConfig::opt_bool(const t_config_option_key &opt_key) const {
+    if (const ConfigOptionBool *opt = dynamic_cast<const ConfigOptionBool *>(this->option(opt_key)))
+        return opt->value != 0;
+    if (const ConfigOptionBools *opt = dynamic_cast<const ConfigOptionBools *>(this->option(opt_key)))
+        return opt->get_at(0) != 0;
+    if (const ConfigOptionBoolsNullable *opt = dynamic_cast<const ConfigOptionBoolsNullable *>(this->option(opt_key)))
+        return opt->get_at(0) != 0;
+    throw ConfigurationError("DynamicConfig::opt_bool(): option is not a bool or bool vector: " + opt_key);
+}
+
+bool DynamicConfig::opt_bool(const t_config_option_key &opt_key, unsigned int idx) const {
+    if (const ConfigOptionBools *opts = dynamic_cast<const ConfigOptionBools *>(this->option(opt_key))) {
+        return opts->get_at(idx) != 0;
+    }
+    else {
+        const ConfigOptionBoolsNullable *opt_s = dynamic_cast<const ConfigOptionBoolsNullable *>(this->option(opt_key));
+        assert(opt_s != nullptr);
+        return opt_s->get_at(idx) != 0;
+    }
 }
 
 }

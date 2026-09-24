@@ -4,6 +4,8 @@ set ROOT_C3D=%CD%
 echo ROOT=%ROOT_C3D%
 set build_type=Release
 set SIGNTOOL_CMD=
+set VS_INSTALL_PATH=
+set NINJA_EXE=
 if [%1] == [] (
 	echo "build Usage:"
 	echo "Only build: build.bat 0.1.0.1"
@@ -13,18 +15,40 @@ if [%1] == [] (
 )
 
 IF EXIST "%ROOT_C3D%\tools\vswhere.exe" (
-    for /f "usebackq tokens=*" %%i in (`%ROOT_C3D%\tools\vswhere.exe -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property catalog_productLineVersion`) do (
-    set LastVerion=%%i
+    for /f "usebackq tokens=*" %%i in (`%ROOT_C3D%\tools\vswhere.exe -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
+    set VS_INSTALL_PATH=%%i
     )
 )
-if "%LastVerion%"=="2019" (
-    set VS_Version=Visual Studio 16 2019
-) else (
-    set VS_Version=Visual Studio 17 2022
-    set LastVerion=2022
+
+if not defined VS_INSTALL_PATH if exist "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" set VS_INSTALL_PATH=%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise
+if not defined VS_INSTALL_PATH if exist "%ProgramFiles%\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" set VS_INSTALL_PATH=%ProgramFiles%\Microsoft Visual Studio\2022\BuildTools
+if not defined VS_INSTALL_PATH if exist "%ProgramFiles%\Microsoft Visual Studio\2022\Professional\Common7\Tools\VsDevCmd.bat" set VS_INSTALL_PATH=%ProgramFiles%\Microsoft Visual Studio\2022\Professional
+if not defined VS_INSTALL_PATH if exist "%ProgramFiles%\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat" set VS_INSTALL_PATH=%ProgramFiles%\Microsoft Visual Studio\2022\Community
+if not defined VS_INSTALL_PATH if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\Common7\Tools\VsDevCmd.bat" set VS_INSTALL_PATH=%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise
+if not defined VS_INSTALL_PATH if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\BuildTools\Common7\Tools\VsDevCmd.bat" set VS_INSTALL_PATH=%ProgramFiles(x86)%\Microsoft Visual Studio\2019\BuildTools
+
+if not defined VS_INSTALL_PATH (
+    echo ERROR: Visual Studio with the x64 C++ toolchain was not found
+    exit /b 1
 )
-echo LastVerion= %LastVerion%
-echo Pre_TAG_NAME=%TAG_NAME%
+set VSINSTALLDIR=
+set VCINSTALLDIR=
+set VCToolsInstallDir=
+set VSCMD_VER=
+call "%VS_INSTALL_PATH%\Common7\Tools\VsDevCmd.bat" -no_logo -arch=x64 -host_arch=x64
+where cl.exe >nul 2>nul
+if errorlevel 1 (
+    echo ERROR: cl.exe was not found after initializing the Visual Studio x64 environment
+    exit /b 1
+)
+
+for /f "delims=" %%i in ('where ninja.exe 2^>nul') do if not defined NINJA_EXE set NINJA_EXE=%%i
+if not defined NINJA_EXE if exist "%VS_INSTALL_PATH%\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe" set NINJA_EXE=%VS_INSTALL_PATH%\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe
+if not defined NINJA_EXE (
+    echo ERROR: ninja.exe was not found in PATH or the Visual Studio CMake tools directory
+    exit /b 1
+)
+echo Ninja executable: %NINJA_EXE%
 
 set TAG_NAME=%1
 
@@ -165,21 +189,36 @@ echo "%ROOT_C3D%"
 cd %ROOT_C3D%
 mkdir %C3D_BUILD_DIR%
 cd %C3D_BUILD_DIR%
-echo cmake .. -G "%VS_Version%" -A x64 -DBBL_RELEASE_TO_PUBLIC=1 -DCMAKE_PREFIX_PATH="%BUILD_DEPLIB%\usr\local" -DCMAKE_INSTALL_PREFIX=".\CrealityPrint"  -DCMAKE_BUILD_TYPE=Release -DPROCESS_NAME=%APPNAME% -DCREALITYPRINT_VERSION=%TAG_NAME% -DCUSTOM_TYPE=%CUSTOM_TYPE%
+echo cmake .. -G "Ninja Multi-Config" -DBBL_RELEASE_TO_PUBLIC=1 -DCMAKE_PREFIX_PATH="%BUILD_DEPLIB%\usr\local" -DCMAKE_INSTALL_PREFIX=".\CrealityPrint" -DPROCESS_NAME=%APPNAME% -DCREALITYPRINT_VERSION=%TAG_NAME% -DCUSTOM_TYPE=%CUSTOM_TYPE%
 
-@REM cmake .. -G "%VS_Version%" -A x64 -DBBL_RELEASE_TO_PUBLIC=1 -DCMAKE_PREFIX_PATH="%BUILD_DEPLIB%\usr\local" -DCMAKE_INSTALL_PREFIX=".\CrealityPrint" -DCMAKE_BUILD_TYPE=%build_type%
-cmake .. -G "%VS_Version%" -A x64 -DBBL_RELEASE_TO_PUBLIC=1 -DUPDATE_ONLINE_MACHINES=1 ^
+cmake .. -G "Ninja Multi-Config" "-DCMAKE_MAKE_PROGRAM:FILEPATH=%NINJA_EXE%" -DBBL_RELEASE_TO_PUBLIC=1 -DUPDATE_ONLINE_MACHINES=1 ^
 -DCMAKE_PREFIX_PATH="%BUILD_DEPLIB%\usr\local" ^
 -DCMAKE_INSTALL_PREFIX=".\%APPNAME%"  ^
--DCMAKE_BUILD_TYPE=Release ^
+-DSLIC3R_MSVC_COMPILE_PARALLEL=OFF ^
 -DPROCESS_NAME=%APPNAME% ^
 -DCREALITYPRINT_VERSION=%TAG_NAME% ^
 -DPROJECT_VERSION_EXTRA=%VERSION_EXTRA% ^
 -DCUSTOM_TYPE=%CUSTOM_TYPE%
+if errorlevel 1 exit /b 1
 
 cd ..
 cd %C3D_BUILD_DIR%
-cmake --build . --config %build_type% --target ALL_BUILD -- -m
+if not defined WINDOWS_NINJA_JOBS set WINDOWS_NINJA_JOBS=12
+echo Windows build parallelism: Ninja jobs=%WINDOWS_NINJA_JOBS%
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%ROOT_C3D%\scripts\build_windows_with_retry.ps1" ^
+    -BuildDirectory "%C3D_BUILD_DIR%" ^
+    -Configuration "%build_type%" ^
+    -Parallel %WINDOWS_NINJA_JOBS%
+if errorlevel 1 exit /b 1
+
+if not defined WINDOWS_SIGN_SERVICE_URL set WINDOWS_SIGN_SERVICE_URL=http://172.20.180.14:3001
+echo Checking and signing DLLs before packaging...
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%ROOT_C3D%\scripts\sign_windows_dlls.ps1" ^
+    -SearchRoot "%C3D_BUILD_DIR%\src\%build_type%" ^
+    -SignServiceUrl "%WINDOWS_SIGN_SERVICE_URL%" ^
+    -SignToolPath "%SIGNTOOL_CMD%" ^
+    -CacheRoot "%WINDOWS_DLL_SIGN_CACHE%"
+if errorlevel 1 exit /b 1
 
 for /f "tokens=1-3 delims=/ " %%1 in ("%date%") do set currentdate=%%1%%2%%3
 echo currentdate=%currentdate%
@@ -194,23 +233,24 @@ if [%INSTALL_TYPE%]==[nsis] (
     @REM Sign CrealityPrint.exe before packaging NSIS installer
     if exist "%CrealityPrint_EXE%" (
         echo Signing CrealityPrint.exe: %CrealityPrint_EXE%
-        "C:\curl.exe" -X POST -F file=@%CrealityPrint_EXE% http://172.20.180.14:3001/sign
-        "C:\curl.exe" -L http://172.20.180.14:3001/exe/%APPNAME%.exe -o %ROOT_C3D%\CrealityPrint_signed.exe
+        "C:\curl.exe" -X POST -F file=@%CrealityPrint_EXE% %WINDOWS_SIGN_SERVICE_URL%/sign
+        "C:\curl.exe" -L %WINDOWS_SIGN_SERVICE_URL%/exe/%APPNAME%.exe -o %ROOT_C3D%\CrealityPrint_signed.exe
         copy /Y %ROOT_C3D%\CrealityPrint_signed.exe %CrealityPrint_EXE%
         del /Q %ROOT_C3D%\CrealityPrint_signed.exe
         echo CrealityPrint.exe signed successfully.
     ) else (
         echo WARN: CrealityPrint.exe not found at %CrealityPrint_EXE%
     )
-    cmake --build . --target package --config %build_type%
+    cmake --build . --target package --config %build_type% --parallel %WINDOWS_NINJA_JOBS%
+    if errorlevel 1 exit /b 1
     if [%LOCAL_BUILD%]==[OFF] (
         echo EXE_NAME=%EXE_NAME%
-        "C:\curl.exe" -X POST -F file=@%EXE_NAME% http://172.20.180.14:3001/sign
-        "C:\curl.exe" -L http://172.20.180.14:3001/exe/%EXE_NAME% -O
-        if [%SIGNTOOL_CMD%] == [] (
+        "C:\curl.exe" -X POST -F file=@%EXE_NAME% %WINDOWS_SIGN_SERVICE_URL%/sign
+        "C:\curl.exe" -L %WINDOWS_SIGN_SERVICE_URL%/exe/%EXE_NAME% -O
+        if not defined SIGNTOOL_CMD (
             echo signtool.exe not found, skip signature verification
         ) else (
-            call "%SIGNTOOL_CMD%" verify /pa /q %EXE_NAME% || exit /b 1
+            call "%SIGNTOOL_CMD%" verify /pa /q "%EXE_NAME%" || exit /b 1
         )
         echo SIGN_PACKAGE_PATH=%APPNAME%> %ROOT_C3D%\var.prop
         echo SIGN_PACKAGE_NAME=%EXE_NAME%>> %ROOT_C3D%\var.prop
@@ -218,7 +258,8 @@ if [%INSTALL_TYPE%]==[nsis] (
         scp -P 9122 -r %JOB_NAME% cxsw@172.20.180.14:/vagrant_data/www/shared/build
         scp -P 9122 %EXE_NAME% cxsw@172.20.180.14:/vagrant_data/www/shared/build/%JOB_NAME%/%EXE_NAME%
     )
-    cmake --build . --target install --config %build_type%
+    cmake --build . --target install --config %build_type% --parallel %WINDOWS_NINJA_JOBS%
+    if errorlevel 1 exit /b 1
     echo zipname=%zipName%
     %ROOT_C3D%\tools\7z.exe a -tzip %zipName% %C3D_BUILD_DIR%\%APPNAME% -xr!MicrosoftEdgeWebView2RuntimeInstallerX64.exe
     echo zipfinished : %zipName%
@@ -226,7 +267,8 @@ if [%INSTALL_TYPE%]==[nsis] (
         scp -P 9122 %zipName% cxsw@172.20.180.14:/vagrant_data/www/shared/build/%JOB_NAME%/%zipName%
     )
 ) else if [%INSTALL_TYPE%]==[zip] (
-    cmake --build . --target install --config %build_type%   
+    cmake --build . --target install --config %build_type% --parallel %WINDOWS_NINJA_JOBS%
+    if errorlevel 1 exit /b 1
     echo zipname=%zipName%
     %ROOT_C3D%\tools\7z.exe a -tzip %zipName% %C3D_BUILD_DIR%\%APPNAME%
     echo zipfinished : %zipName%

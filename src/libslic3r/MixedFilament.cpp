@@ -7,6 +7,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <limits>
 #include <sstream>
 #include <iomanip>
 #include <numeric>
@@ -22,6 +24,252 @@ static uint64_t canonical_pair_key(unsigned int a, unsigned int b)
     const unsigned int lo = std::min(a, b);
     const unsigned int hi = std::max(a, b);
     return (uint64_t(lo) << 32) | uint64_t(hi);
+}
+
+// ---------------------------------------------------------------------------
+// Gradient curve helpers
+// ---------------------------------------------------------------------------
+//
+// Internal CSV tokenization for the gradient curve string uses ',' as the
+// field separator and ';' as the anchor separator. The mixed-row CSV in
+// MixedFilamentManager also uses ',' as the field separator, so curve strings
+// embedded into a mixed row have to be encoded first to avoid corrupting the
+// outer tokenization. The encoding replaces the two conflict characters
+// with rare ASCII punctuation that is otherwise unused in this file:
+//
+//   ',' in the curve payload -> '<'   (so the outer getline(',') stops here)
+//   ';' in the curve payload -> '~'   (no need to re-parse anchors, but
+//                                       callers must decode before
+//                                       parse_gradient_curve).
+//
+// This is internal to MixedFilament; the curve string is decoded back to its
+// canonical form (',', ';') before being handed to parse_gradient_curve.
+
+static std::string encode_gradient_curve_for_row(const std::string &curve_canonical)
+{
+    std::string out;
+    out.reserve(curve_canonical.size());
+    for (const char c : curve_canonical) {
+        if (c == ',')      out.push_back('<');
+        else if (c == ';') out.push_back('~');
+        else               out.push_back(c);
+    }
+    return out;
+}
+
+static std::string decode_gradient_curve_for_row(const std::string &curve_encoded)
+{
+    std::string out;
+    out.reserve(curve_encoded.size());
+    for (const char c : curve_encoded) {
+        if (c == '<')      out.push_back(',');
+        else if (c == '~') out.push_back(';');
+        else               out.push_back(c);
+    }
+    return out;
+}
+
+// Default Fritsch-Carlson PCHIP tangents for a sorted-by-x anchor list. m
+// has size n matching the anchor count; for n == 1 the tangent is 0; for
+// n == 2 both endpoint tangents equal the single secant (degenerates to
+// linear).
+std::vector<double> compute_pchip_default_tangents(const std::vector<GradientAnchor> &pts)
+{
+    const size_t n = pts.size();
+    std::vector<double> m(n, 0.0);
+    if (n < 2) return m;
+
+    std::vector<double> d(n - 1);
+    for (size_t i = 0; i + 1 < n; ++i) {
+        const double h = std::max(1e-12, pts[i + 1].x - pts[i].x);
+        d[i] = (pts[i + 1].y - pts[i].y) / h;
+    }
+
+    m[0]     = d[0];
+    m[n - 1] = d[n - 2];
+    for (size_t i = 1; i + 1 < n; ++i)
+        m[i] = 0.5 * (d[i - 1] + d[i]);
+
+    // Fritsch-Carlson monotonic guard: kill flats then rescale steep tangents
+    // so the resulting cubic never overshoots [min, max] of the surrounding
+    // anchors.
+    for (size_t i = 0; i + 1 < n; ++i) {
+        if (d[i] == 0.0) {
+            m[i]     = 0.0;
+            m[i + 1] = 0.0;
+            continue;
+        }
+        const double a = m[i]     / d[i];
+        const double b = m[i + 1] / d[i];
+        const double s = a * a + b * b;
+        if (s > 9.0) {
+            const double tau = 3.0 / std::sqrt(s);
+            m[i]     = tau * a * d[i];
+            m[i + 1] = tau * b * d[i];
+        }
+    }
+    return m;
+}
+
+GradientCurve parse_gradient_curve(const std::string &s)
+{
+    GradientCurve curve;
+    if (s.empty())
+        return curve;
+
+    auto split_commas = [](const std::string &seg) {
+        std::vector<std::string> out;
+        size_t start = 0;
+        while (true) {
+            const size_t comma = seg.find(',', start);
+            if (comma == std::string::npos) {
+                out.emplace_back(seg.substr(start));
+                return out;
+            }
+            out.emplace_back(seg.substr(start, comma - start));
+            start = comma + 1;
+        }
+    };
+
+    auto parse_tangent_token = [](const std::string &t) -> double {
+        const std::string trimmed = t; // already whitespace-trimmed by split path
+        if (trimmed.empty())
+            return std::numeric_limits<double>::quiet_NaN();
+        try {
+            const double v = std::stod(trimmed);
+            return v;
+        } catch (...) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+    };
+
+    std::istringstream ss(s);
+    std::string segment;
+    while (std::getline(ss, segment, ';')) {
+        if (segment.empty())
+            continue;
+        const auto fields = split_commas(segment);
+        // 2-field legacy form -> (x, y), tangents stay NaN.
+        // 4-field form -> (x, y, m_in, m_out), empty / unparseable token -> NaN.
+        if (fields.size() != 2 && fields.size() != 4) {
+            BOOST_LOG_TRIVIAL(warning) << "parse_gradient_curve: ignoring malformed segment \""
+                                       << segment << "\" (expected 2 or 4 comma-separated fields, got "
+                                       << fields.size() << ")";
+            continue;
+        }
+        try {
+            double x = std::stod(fields[0]);
+            double y = std::stod(fields[1]);
+            x = std::max(0.0, std::min(1.0, x));
+            y = std::max(kGradientMinRatio, std::min(kGradientMaxRatio, y));
+            GradientAnchor a;
+            a.x = x;
+            a.y = y;
+            if (fields.size() == 4) {
+                a.m_in  = parse_tangent_token(fields[2]);
+                a.m_out = parse_tangent_token(fields[3]);
+            }
+            curve.points.push_back(a);
+        } catch (const std::exception &e) {
+            BOOST_LOG_TRIVIAL(warning) << "parse_gradient_curve: ignoring unparseable segment \""
+                                       << segment << "\": " << e.what();
+        }
+    }
+
+    if (curve.points.size() < 2) {
+        if (!curve.points.empty())
+            BOOST_LOG_TRIVIAL(warning) << "parse_gradient_curve: only "
+                << curve.points.size() << " valid point(s), need at least 2; discarding";
+        curve.points.clear();
+        return curve;
+    }
+
+    std::sort(curve.points.begin(), curve.points.end(),
+              [](const GradientAnchor &a, const GradientAnchor &b) {
+                  return a.x < b.x;
+              });
+    return curve;
+}
+
+std::string serialize_gradient_curve(const GradientCurve &c)
+{
+    if (c.points.empty())
+        return std::string{};
+
+    std::string out;
+    char buf[128];
+    for (size_t i = 0; i < c.points.size(); ++i) {
+        if (i > 0) out += ';';
+        const auto &a = c.points[i];
+        const bool has_in  = std::isfinite(a.m_in);
+        const bool has_out = std::isfinite(a.m_out);
+        if (has_in || has_out) {
+            // Emit empty tokens for NaN slots so a future 4-field parser
+            // would still split four fields; the new parser interprets empty
+            // tokens as "use PCHIP default".
+            char in_buf[32]  = {0};
+            char out_buf[32] = {0};
+            if (has_in)  std::snprintf(in_buf,  sizeof(in_buf),  "%.4f", a.m_in);
+            if (has_out) std::snprintf(out_buf, sizeof(out_buf), "%.4f", a.m_out);
+            std::snprintf(buf, sizeof(buf), "%.4f,%.4f,%s,%s",
+                          a.x, a.y, in_buf, out_buf);
+        } else {
+            // 4-field form is only emitted when at least one tangent is
+            // finite; the 2-field form is emitted otherwise so the JSON
+            // payload stays minimal and remains readable by older clients
+            // that only know (x, y) pairs.
+            std::snprintf(buf, sizeof(buf), "%.4f,%.4f", a.x, a.y);
+        }
+        out += buf;
+    }
+    return out;
+}
+
+double sample_gradient_curve(const GradientCurve &c, double t)
+{
+    const auto &pts = c.points;
+    if (pts.size() < 2)
+        return 0.5;
+    if (t <= pts.front().x)
+        return pts.front().y;
+    if (t >= pts.back().x)
+        return pts.back().y;
+
+    // PCHIP defaults are computed for every call; control point counts are
+    // typically tiny (< 16) so the allocation cost is negligible compared to
+    // any actual rendering or G-code work that drives the sampler.
+    const std::vector<double> m_def = compute_pchip_default_tangents(pts);
+    const size_t n = pts.size();
+
+    // Linear scan to locate the interval [pts[i].x, pts[i+1].x] containing
+    // t. Cheap and avoids the upper_bound boilerplate; n is small.
+    for (size_t i = 1; i < n; ++i) {
+        const double x0 = pts[i - 1].x;
+        const double x1 = pts[i].x;
+        if (t > x1) continue;
+
+        const double y0 = pts[i - 1].y;
+        const double y1 = pts[i].y;
+        const double h  = std::max(1e-12, x1 - x0);
+        const double m_left  = std::isfinite(pts[i - 1].m_out) ? pts[i - 1].m_out : m_def[i - 1];
+        const double m_right = std::isfinite(pts[i].m_in)      ? pts[i].m_in      : m_def[i];
+
+        const double u   = (t - x0) / h;
+        const double u2  = u * u;
+        const double u3  = u2 * u;
+        const double h00 =  2.0 * u3 - 3.0 * u2 + 1.0;
+        const double h10 =        u3 - 2.0 * u2 + u;
+        const double h01 = -2.0 * u3 + 3.0 * u2;
+        const double h11 =        u3 -       u2;
+        double y = h00 * y0 + h10 * h * m_left
+                 + h01 * y1 + h11 * h * m_right;
+        // Defensive clamp in case tangent overrides on legacy curves push
+        // the single-segment Hermite slightly outside the anchor band.
+        if (y < kGradientMinRatio) y = kGradientMinRatio;
+        if (y > kGradientMaxRatio) y = kGradientMaxRatio;
+        return y;
+    }
+    return pts.back().y;
 }
 
 // ---------------------------------------------------------------------------
@@ -335,7 +583,11 @@ static bool parse_row_definition(const std::string &row,
                                  std::string       &gradient_component_weights,
                                  std::string       &manual_pattern,
                                  int               &distribution_mode,
-                                 bool              &deleted)
+                                 bool              &deleted,
+                                 std::string       &gradient_curve_str,
+                                 bool              &per_part_gradient,
+                                 bool              &gradient_enabled,
+                                 int               &gradient_direction)
 {
     auto trim_copy = [](const std::string &s) {
         size_t lo = 0;
@@ -403,7 +655,7 @@ static bool parse_row_definition(const std::string &row,
                 return false;
     }
 
-    if (values[0] <= 0 || values[1] <= 0)
+    if (values[0] < 0 || values[1] < 0)
         return false;
 
     a = unsigned(values[0]);
@@ -419,6 +671,10 @@ static bool parse_row_definition(const std::string &row,
     manual_pattern.clear();
     distribution_mode = int(MixedFilament::Simple);
     deleted = false;
+    gradient_curve_str.clear();
+    per_part_gradient = false;
+    gradient_enabled = false;
+    gradient_direction = 0;
 
     size_t token_idx = 5;
     if (tokens.size() >= 6) {
@@ -476,6 +732,35 @@ static bool parse_row_definition(const std::string &row,
             uint64_t parsed_stable_id = stable_id;
             if (parse_uint64_token(tok.substr(1), parsed_stable_id))
                 stable_id = parsed_stable_id;
+            continue;
+        }
+        if (tok[0] == 'c' || tok[0] == 'C') {
+            // The gradient curve string contains commas (between fields) and
+            // semicolons (between anchors). Both are token separators above,
+            // so the curve has to be re-joined from trailing tokens starting
+            // at the first 'c'/'C' tag. We just store the raw payload here
+            // and let the caller re-serialize via serialize_gradient_curve
+            // when needed. The convention is: empty payload -> no custom
+            // curve (caller falls back to linear gradient range).
+            gradient_curve_str = tok.substr(1);
+            continue;
+        }
+        if (tok[0] == 'p' || tok[0] == 'P') {
+            int parsed_ppg = per_part_gradient ? 1 : 0;
+            if (parse_int_token(tok.substr(1), parsed_ppg))
+                per_part_gradient = parsed_ppg != 0;
+            continue;
+        }
+        if (tok[0] == 'e' || tok[0] == 'E') {
+            int parsed_ge = gradient_enabled ? 1 : 0;
+            if (parse_int_token(tok.substr(1), parsed_ge))
+                gradient_enabled = parsed_ge != 0;
+            continue;
+        }
+        if (tok[0] == 'i' || tok[0] == 'I') {
+            int parsed_dir = 0;
+            if (parse_int_token(tok.substr(1), parsed_dir))
+                gradient_direction = clamp_int(parsed_dir, 0, 1);
             continue;
         }
         pattern_tokens.push_back(tok);
@@ -587,10 +872,54 @@ static int mix_percent_from_normalized_pattern(const std::string &pattern)
 
 static std::string normalize_gradient_component_ids(const std::string &components)
 {
+    // Support both formats:
+    // 1. New '|'-separated format: "1|2|11|12" (supports multi-digit IDs)
+    // 2. Old compact format: "123" (single-char IDs 1-9, no separator)
+    if (components.find('|') != std::string::npos) {
+        // Deduplicate valid IDs, but preserve every zero placeholder and its weight slot.
+        std::string normalized;
+        std::vector<unsigned int> seen;
+        std::string tok;
+        for (char c : components) {
+            if (c >= '0' && c <= '9') {
+                tok.push_back(c);
+            } else if (c == '|') {
+                if (!tok.empty()) {
+                    try {
+                        unsigned int id = std::stoi(tok);
+                        if (id == 0 || std::find(seen.begin(), seen.end(), id) == seen.end()) {
+                            seen.push_back(id);
+                            if (!normalized.empty()) normalized.push_back('|');
+                            normalized += std::to_string(id);
+                        }
+                    } catch (...) {}
+                    tok.clear();
+                }
+            }
+        }
+        if (!tok.empty()) {
+            try {
+                unsigned int id = std::stoi(tok);
+                if (id == 0 || std::find(seen.begin(), seen.end(), id) == seen.end()) {
+                    if (!normalized.empty()) normalized.push_back('|');
+                    normalized += std::to_string(id);
+                }
+            } catch (...) {}
+        }
+        return normalized;
+    }
+
+    // Old compact format: single-char IDs '1'-'9'
     std::string normalized;
     normalized.reserve(components.size());
     bool seen[10] = { false };
     for (const char c : components) {
+        // Zero is a positional placeholder for a removed component. Preserve
+        // every zero so gradient weights stay aligned with their component.
+        if (c == '0') {
+            normalized.push_back(c);
+            continue;
+        }
         if (c < '1' || c > '9')
             continue;
         const int idx = c - '0';
@@ -602,19 +931,99 @@ static std::string normalize_gradient_component_ids(const std::string &component
     return normalized;
 }
 
+// Returns true if the gradient_component_ids string contains a zero placeholder
+// (indicating a missing component). Handles both formats:
+// - Old compact: '0' character (e.g., "102" has a missing component at position 2)
+// - New '|'-separated: "0" token (e.g., "1|0|11" has a missing component)
+static bool gradient_component_ids_has_missing(const std::string &components)
+{
+    if (components.empty()) return false;
+    if (components.find('|') != std::string::npos) {
+        // New format: check for "0" token
+        std::string tok;
+        for (char c : components) {
+            if (c >= '0' && c <= '9') {
+                tok.push_back(c);
+            } else if (c == '|') {
+                if (tok == "0") return true;
+                tok.clear();
+            }
+        }
+        return tok == "0";
+    }
+    // Old format: check for '0' character
+    return components.find('0') != std::string::npos;
+}
+
+// Count the number of component IDs in a normalized gradient_component_ids string.
+// Handles both formats:
+// - Old compact: "123" -> 3 IDs
+// - New '|'-separated: "11|12|13" -> 3 IDs
+static size_t count_gradient_component_ids(const std::string &components)
+{
+    if (components.empty()) return 0;
+    if (components.find('|') != std::string::npos) {
+        // New format: count separators + 1
+        size_t count = 1;
+        for (char c : components) {
+            if (c == '|') ++count;
+        }
+        return count;
+    }
+    // Old format: each character is one ID
+    return components.size();
+}
+
 static std::vector<unsigned int> decode_gradient_component_ids(const std::string &components, size_t num_physical)
 {
     std::vector<unsigned int> ids;
     if (components.empty() || num_physical == 0)
         return ids;
 
+    // Support both formats:
+    // 1. New '|'-separated format: "1|2|11|12" (supports multi-digit IDs)
+    // 2. Old compact format: "123" (single-char IDs 1-9, no separator)
+    if (components.find('|') != std::string::npos) {
+        // New '|'-separated format
+        std::vector<unsigned int> seen;
+        std::string tok;
+        for (char c : components) {
+            if (c >= '0' && c <= '9') {
+                tok.push_back(c);
+            } else if (c == '|') {
+                if (!tok.empty()) {
+                    try {
+                        unsigned int id = std::stoi(tok);
+                        if (id >= 1 && id <= num_physical &&
+                            std::find(seen.begin(), seen.end(), id) == seen.end()) {
+                            seen.push_back(id);
+                            ids.emplace_back(id);
+                        }
+                    } catch (...) {}
+                    tok.clear();
+                }
+            }
+        }
+        if (!tok.empty()) {
+            try {
+                unsigned int id = std::stoi(tok);
+                if (id >= 1 && id <= num_physical &&
+                    std::find(seen.begin(), seen.end(), id) == seen.end()) {
+                    ids.emplace_back(id);
+                }
+            } catch (...) {}
+        }
+        return ids;
+    }
+
+    // Old compact format: single-char IDs '1'-'9'
     bool seen[10] = { false };
     ids.reserve(components.size());
     for (const char c : components) {
         if (c < '1' || c > '9')
             continue;
         const unsigned int id = unsigned(c - '0');
-        if (id == 0 || id > num_physical || seen[id])
+        if (id > num_physical || seen[id])
             continue;
         seen[id] = true;
         ids.emplace_back(id);
@@ -804,76 +1213,120 @@ uint64_t MixedFilamentManager::normalize_stable_id(uint64_t stable_id)
     return stable_id;
 }
 
+std::vector<unsigned int> MixedFilament::referenced_component_ids(size_t num_physical) const
+{
+    std::vector<unsigned int> ids;
+    if (!gradient_component_ids.empty()) {
+        ids = decode_gradient_component_ids(gradient_component_ids, num_physical);
+        // decode_gradient_component_ids already drops 0 / out-of-range IDs.
+    }
+    if (ids.size() < 2) {
+        ids.clear();
+        if (component_a >= 1 && component_a <= num_physical)
+            ids.push_back(component_a);
+        if (component_b >= 1 && component_b <= num_physical &&
+            std::find(ids.begin(), ids.end(), component_b) == ids.end())
+            ids.push_back(component_b);
+    }
+    return ids;
+}
+
+bool MixedFilament::has_type_mismatch(const std::vector<std::string> &physical_types) const
+{
+    if (physical_types.empty())
+        return false;
+
+    const std::vector<unsigned int> ids = referenced_component_ids(physical_types.size());
+    std::string ref_type;
+    for (unsigned int c : ids) {
+        if (c < 1 || c > physical_types.size())
+            continue;
+        const std::string &ft = physical_types[c - 1];
+        if (ft.empty())
+            continue;
+        if (ref_type.empty())
+            ref_type = ft;
+        else if (ft != ref_type)
+            return true;
+    }
+    return false;
+}
+
 void MixedFilamentManager::auto_generate(const std::vector<std::string> &filament_colours)
 {
     // Keep a copy of the old list so we can preserve user-modified ratios and
-    // enabled flags and custom rows.
+    // enabled flags, custom rows and incomplete rows awaiting repair.
     std::vector<MixedFilament> old = std::move(m_mixed);
     m_mixed.clear();
 
     const size_t n = filament_colours.size();
-    if (n < 2)
-        return;
 
     std::vector<MixedFilament> custom_rows;
+    std::vector<MixedFilament> incomplete_rows;
     custom_rows.reserve(old.size());
+    incomplete_rows.reserve(old.size());
     std::unordered_map<uint64_t, const MixedFilament *> old_auto_rows;
     old_auto_rows.reserve(old.size());
     for (const MixedFilament &prev : old) {
+        const bool incomplete = prev.component_a == 0 || prev.component_b == 0 ||
+                                prev.component_a > n || prev.component_b > n ||
+                                prev.component_a == prev.component_b ||
+                                gradient_component_ids_has_missing(prev.gradient_component_ids);
+        if (incomplete) {
+            MixedFilament retained = prev;
+            retained.stable_id = normalize_stable_id(retained.stable_id);
+            retained.enabled = false;
+            incomplete_rows.push_back(std::move(retained));
+            continue;
+        }
         if (!prev.custom) {
             old_auto_rows.emplace(canonical_pair_key(prev.component_a, prev.component_b), &prev);
             continue;
         }
-        if (prev.component_a == 0 || prev.component_b == 0 || prev.component_a > n || prev.component_b > n || prev.component_a == prev.component_b)
-            continue;
         MixedFilament custom = prev;
         custom.stable_id = normalize_stable_id(custom.stable_id);
         custom_rows.push_back(std::move(custom));
     }
 
-    // CRITICAL: Handle both addition and deletion of physical filaments correctly.
-    // - When adding filaments: generate NEW combinations that didn't exist before
-    // - When deleting filaments: only REMOVE invalid combinations, preserve user deletions
-    // 
-    // Strategy: 
-    // 1. For combinations that existed before: preserve user's enabled/deleted state
-    // 2. For NEW combinations (involving newly added filaments): create them as enabled
-    // 3. For combinations that don't exist anymore (deleted filaments): skip them
-    for (size_t i = 0; i < n; ++i) {
-        for (size_t j = i + 1; j < n; ++j) {
-            const auto key = canonical_pair_key(static_cast<unsigned int>(i + 1), static_cast<unsigned int>(j + 1));
-            const auto it_prev = old_auto_rows.find(key);
-            
-            MixedFilament mf;
-            mf.component_a = static_cast<unsigned int>(i + 1); // 1-based
-            mf.component_b = static_cast<unsigned int>(j + 1);
-            mf.ratio_a     = 1;
-            mf.ratio_b     = 1;
-            mf.mix_b_percent = 50;
-            mf.custom      = false;
-            mf.origin_auto = true;
+    if (n >= 2) {
+        // CRITICAL: Handle both addition and deletion of physical filaments correctly.
+        // Existing pairs preserve state; only genuinely new pairs are enabled.
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = i + 1; j < n; ++j) {
+                const auto key = canonical_pair_key(static_cast<unsigned int>(i + 1), static_cast<unsigned int>(j + 1));
+                const auto it_prev = old_auto_rows.find(key);
 
-            if (it_prev != old_auto_rows.end()) {
-                // This combination existed before - preserve user's state
-                const MixedFilament &prev = *it_prev->second;
-                mf.enabled = prev.enabled;
-                mf.deleted = prev.deleted;
-                mf.stable_id = prev.stable_id;
-                if (mf.deleted)
-                    mf.enabled = false;
-            } else {
-                // NEW combination (involving newly added filament) - create as enabled
-                mf.enabled = true;
-                mf.deleted = false;
-                mf.stable_id = 0;  // Will be allocated below
+                MixedFilament mf;
+                mf.component_a = static_cast<unsigned int>(i + 1);
+                mf.component_b = static_cast<unsigned int>(j + 1);
+                mf.ratio_a = 1;
+                mf.ratio_b = 1;
+                mf.mix_b_percent = 50;
+                mf.custom = false;
+                mf.origin_auto = true;
+
+                if (it_prev != old_auto_rows.end()) {
+                    const MixedFilament &prev = *it_prev->second;
+                    mf.enabled = prev.enabled;
+                    mf.deleted = prev.deleted;
+                    mf.stable_id = prev.stable_id;
+                    if (mf.deleted)
+                        mf.enabled = false;
+                } else {
+                    mf.enabled = true;
+                    mf.deleted = false;
+                    mf.stable_id = 0;
+                }
+
+                mf.stable_id = normalize_stable_id(mf.stable_id);
+                m_mixed.push_back(mf);
             }
-            
-            mf.stable_id = normalize_stable_id(mf.stable_id);
-            m_mixed.push_back(mf);
         }
     }
 
     for (MixedFilament &mf : custom_rows)
+        m_mixed.push_back(std::move(mf));
+    for (MixedFilament &mf : incomplete_rows)
         m_mixed.push_back(std::move(mf));
 
     refresh_display_colors(filament_colours);
@@ -881,110 +1334,92 @@ void MixedFilamentManager::auto_generate(const std::vector<std::string> &filamen
 
 void MixedFilamentManager::remove_physical_filament(unsigned int deleted_filament_id, unsigned int num_physicals)
 {
-    if (deleted_filament_id == 0 || m_mixed.empty())
+    if (deleted_filament_id == 0 || deleted_filament_id > num_physicals || m_mixed.empty())
         return;
 
-    std::vector<MixedFilament> filtered;
-    filtered.reserve(m_mixed.size());
-    for (MixedFilament mf : m_mixed) {
+    for (MixedFilament &mf : m_mixed) {
+        bool missing_component = false;
 
-        // --- Handle gradient_component_ids (3+ component mixed filaments) ---
+        // Preserve every gradient slot so its weight remains aligned. The
+        // removed physical filament becomes a zero placeholder; later IDs are
+        // shifted down to follow the physical-filament renumbering.
         if (!mf.gradient_component_ids.empty()) {
-            std::vector<unsigned int> grad_ids;
-            for (char c : mf.gradient_component_ids) {
-                if (c >= '1' && c <= '9')
-                    grad_ids.push_back(unsigned(c - '0'));
-            }
-            const size_t original_count = grad_ids.size();
-
-            auto it_del = std::find(grad_ids.begin(), grad_ids.end(), deleted_filament_id);
-            if (it_del != grad_ids.end()) {
-                // For 3+ component gradients: check if enough physicals remain
-                if (original_count >= 3 && (num_physicals - 1) < original_count) {
-                    continue; // Delete entry: not enough physicals for this gradient
-                }
-
-                // Find replacement NOT already in gradient
-                unsigned int grad_candidate = 0;
-                for (unsigned int pred = deleted_filament_id - 1; pred >= 1 && grad_candidate == 0; --pred) {
-                    if (std::find(grad_ids.begin(), grad_ids.end(), pred) == grad_ids.end())
-                        grad_candidate = pred;
-                }
-                for (unsigned int succ = deleted_filament_id + 1; succ <= num_physicals && grad_candidate == 0; ++succ) {
-                    if (std::find(grad_ids.begin(), grad_ids.end(), succ) == grad_ids.end())
-                        grad_candidate = succ;
-                }
-
-                if (grad_candidate == 0) {
-                    if (original_count >= 3) {
-                        continue; // Delete entry: can't find valid replacement for 3+ gradient
+            if (mf.gradient_component_ids.find('|') != std::string::npos) {
+                // New '|'-separated format: parse tokens, adjust IDs, re-encode
+                std::string adjusted;
+                std::string tok;
+                bool first = true;
+                for (char c : mf.gradient_component_ids) {
+                    if (c >= '0' && c <= '9') {
+                        tok.push_back(c);
+                    } else if (c == '|') {
+                        if (!tok.empty()) {
+                            try {
+                                unsigned int id = std::stoi(tok);
+                                if (id == deleted_filament_id)
+                                    id = 0;
+                                else if (id > deleted_filament_id)
+                                    --id;
+                                if (id == 0)
+                                    missing_component = true;
+                                if (!first) adjusted.push_back('|');
+                                adjusted += std::to_string(id);
+                                first = false;
+                            } catch (...) {}
+                            tok.clear();
+                        }
                     }
-                    // For < 3 gradient: just remove the element
-                    grad_ids.erase(it_del);
-                    // Clear weights since count changed
-                    mf.gradient_component_weights.clear();
-                } else {
-                    *it_del = grad_candidate;
                 }
+                if (!tok.empty()) {
+                    try {
+                        unsigned int id = std::stoi(tok);
+                        if (id == deleted_filament_id)
+                            id = 0;
+                        else if (id > deleted_filament_id)
+                            --id;
+                        if (id == 0)
+                            missing_component = true;
+                        if (!first) adjusted.push_back('|');
+                        adjusted += std::to_string(id);
+                    } catch (...) {}
+                }
+                mf.gradient_component_ids = normalize_gradient_component_ids(adjusted);
+            } else {
+                // Old compact format: single-char IDs '0'-'9'
+                std::string adjusted;
+                adjusted.reserve(mf.gradient_component_ids.size());
+                for (const char c : mf.gradient_component_ids) {
+                    if (c < '0' || c > '9')
+                        continue;
+                    unsigned int id = unsigned(c - '0');
+                    if (id == deleted_filament_id)
+                        id = 0;
+                    else if (id > deleted_filament_id)
+                        --id;
+                    if (id == 0)
+                        missing_component = true;
+                    adjusted.push_back(char('0' + id));
+                }
+                mf.gradient_component_ids = normalize_gradient_component_ids(adjusted);
             }
-
-            // Shift gradient IDs > deleted_filament_id down
-            for (auto &id : grad_ids) {
-                if (id > deleted_filament_id)
-                    --id;
-            }
-
-            // Re-encode gradient string (preserving order)
-            std::string new_gradient;
-            new_gradient.reserve(grad_ids.size());
-            for (unsigned int id : grad_ids) {
-                if (id >= 1 && id <= 9)
-                    new_gradient.push_back(char('0' + id));
-            }
-            mf.gradient_component_ids = new_gradient;
         }
 
-        // --- Handle component_a and component_b (2-component logic) ---
-        if (mf.component_a == deleted_filament_id || mf.component_b == deleted_filament_id) {
-            const unsigned int other = (mf.component_a == deleted_filament_id)
-                                           ? mf.component_b
-                                           : mf.component_a;
-            unsigned int candidate = 0;
+        auto adjust_component = [deleted_filament_id, &missing_component](unsigned int &component) {
+            if (component == deleted_filament_id)
+                component = 0;
+            else if (component > deleted_filament_id)
+                --component;
+            if (component == 0)
+                missing_component = true;
+        };
+        adjust_component(mf.component_a);
+        adjust_component(mf.component_b);
 
-            // Try predecessors first (from closest to farthest: deleted_id-1, ..., 1)
-            for (unsigned int pred = deleted_filament_id - 1; pred >= 1 && candidate == 0; --pred) {
-                if (pred != other)
-                    candidate = pred;
-            }
-            // If no predecessor works, try successors (deleted_id+1, ..., num_physicals)
-            for (unsigned int succ = deleted_filament_id + 1; succ <= num_physicals && candidate == 0; ++succ) {
-                if (succ != other)
-                    candidate = succ;
-            }
-            // No valid replacement found -> delete this mixed filament entry
-            if (candidate == 0) {
-                continue;
-            }
-            // Apply replacement
-            if (mf.component_a == deleted_filament_id)
-                mf.component_a = candidate;
-            else
-                mf.component_b = candidate;
-        }
-
-        // Shift remaining component IDs down (fill the gap left by deletion)
-        if (mf.component_a > deleted_filament_id)
-            --mf.component_a;
-        if (mf.component_b > deleted_filament_id)
-            --mf.component_b;
-
-        // Final safety: if a == b after replacement + shift, delete entry
-        if (mf.component_a == mf.component_b)
-            continue;
-
-        filtered.emplace_back(std::move(mf));
+        // Keep the row and its virtual filament slot, but mark it unavailable
+        // until every missing component has been selected again.
+        if (missing_component || mf.component_a == mf.component_b)
+            mf.enabled = false;
     }
-    m_mixed = std::move(filtered);
 }
 
 void MixedFilamentManager::add_custom_filament(unsigned int component_a,
@@ -1024,7 +1459,12 @@ void MixedFilamentManager::add_custom_filament(unsigned int component_a,
 
 void MixedFilamentManager::clear_custom_entries()
 {
-    m_mixed.erase(std::remove_if(m_mixed.begin(), m_mixed.end(), [](const MixedFilament &mf) { return mf.custom; }), m_mixed.end());
+    // Incomplete auto rows are also reloaded from the serialized definition;
+    // remove them here to avoid duplicating the same stable row on reload.
+    m_mixed.erase(std::remove_if(m_mixed.begin(), m_mixed.end(), [](const MixedFilament &mf) {
+        return mf.custom || mf.component_a == 0 || mf.component_b == 0 ||
+               gradient_component_ids_has_missing(mf.gradient_component_ids);
+    }), m_mixed.end());
 }
 
 std::string MixedFilamentManager::normalize_manual_pattern(const std::string &pattern)
@@ -1091,7 +1531,8 @@ std::string MixedFilamentManager::serialize_custom_entries()
         first = false;
         mf.stable_id = normalize_stable_id(mf.stable_id);
         const std::string normalized_ids = normalize_gradient_component_ids(mf.gradient_component_ids);
-        const std::string normalized_weights = normalize_gradient_component_weights(mf.gradient_component_weights, normalized_ids.size());
+        const size_t num_ids = count_gradient_component_ids(normalized_ids);
+        const std::string normalized_weights = normalize_gradient_component_weights(mf.gradient_component_weights, num_ids);
         ss << mf.component_a << ','
            << mf.component_b << ','
            << (mf.enabled ? 1 : 0) << ','
@@ -1103,7 +1544,11 @@ std::string MixedFilamentManager::serialize_custom_entries()
            << 'm' << clamp_int(mf.distribution_mode, int(MixedFilament::LayerCycle), int(MixedFilament::Simple)) << ','
            << 'd' << (mf.deleted ? 1 : 0) << ','
            << 'o' << (mf.origin_auto ? 1 : 0) << ','
-           << 'u' << mf.stable_id;
+           << 'u' << mf.stable_id << ','
+           << 'c' << encode_gradient_curve_for_row(serialize_gradient_curve(mf.gradient_curve)) << ','
+           << 'p' << (mf.per_part_gradient ? 1 : 0) << ','
+           << 'e' << (mf.gradient_enabled ? 1 : 0) << ','
+           << 'i' << clamp_int(mf.gradient_direction, 0, 1);
         const std::string normalized_pattern = normalize_manual_pattern(mf.manual_pattern);
         if (!normalized_pattern.empty())
             ss << ',' << normalized_pattern;
@@ -1114,9 +1559,9 @@ std::string MixedFilamentManager::serialize_custom_entries()
 void MixedFilamentManager::load_custom_entries(const std::string &serialized, const std::vector<std::string> &filament_colours)
 {
     const size_t n = filament_colours.size();
-    if (serialized.empty() || n < 2) {
+    if (serialized.empty()) {
         BOOST_LOG_TRIVIAL(debug) << "MixedFilamentManager::load_custom_entries skipped"
-                                 << ", serialized_empty=" << (serialized.empty() ? 1 : 0)
+                                 << ", serialized_empty=1"
                                  << ", physical_count=" << n;
         return;
     }
@@ -1132,7 +1577,11 @@ void MixedFilamentManager::load_custom_entries(const std::string &serialized, co
     std::unordered_map<uint64_t, const MixedFilament *> auto_rows_by_pair;
     auto_rows_by_pair.reserve(m_mixed.size());
     for (const MixedFilament &mf : m_mixed) {
-        if (!mf.custom) {
+        const bool complete_pair = mf.component_a != 0 && mf.component_b != 0 &&
+                                   mf.component_a <= n && mf.component_b <= n &&
+                                   mf.component_a != mf.component_b &&
+                                   !gradient_component_ids_has_missing(mf.gradient_component_ids);
+        if (!mf.custom && complete_pair) {
             auto_rows_in_order.push_back(&mf);
             auto_rows_by_pair.emplace(canonical_pair_key(mf.component_a, mf.component_b), &mf);
         }
@@ -1174,14 +1623,46 @@ void MixedFilamentManager::load_custom_entries(const std::string &serialized, co
         std::string manual_pattern;
         int distribution_mode = int(MixedFilament::Simple);
         bool deleted = false;
+        std::string gradient_curve_str;
+        bool per_part_gradient = false;
+        bool gradient_enabled = false;
+        int  gradient_direction = 0;
         if (!parse_row_definition(row, a, b, stable_id, enabled, custom, origin_auto, mix, pointillism_all_filaments,
-                                  gradient_component_ids, gradient_component_weights, manual_pattern, distribution_mode, deleted)) {
+                                  gradient_component_ids, gradient_component_weights, manual_pattern, distribution_mode, deleted,
+                                  gradient_curve_str, per_part_gradient, gradient_enabled, gradient_direction)) {
             ++skipped_rows;
             BOOST_LOG_TRIVIAL(warning) << "MixedFilamentManager::load_custom_entries invalid row format: " << row;
             continue;
         }
-        if (a == 0 || b == 0 || a > n || b > n || a == b) {
+        const std::string normalized_gradient_ids = normalize_gradient_component_ids(gradient_component_ids);
+        const bool missing_component = a == 0 || b == 0 || gradient_component_ids_has_missing(normalized_gradient_ids);
+        if ((a != 0 && a > n) || (b != 0 && b > n) || (a != 0 && b != 0 && a == b)) {
             ++skipped_rows;
+            continue;
+        }
+
+        // Incomplete rows cannot be matched to a canonical auto pair, but they
+        // must survive reload so the user can repair the missing component.
+        if (missing_component) {
+            MixedFilament mf;
+            mf.component_a = a;
+            mf.component_b = b;
+            mf.stable_id = dedupe_stable_id(stable_id);
+            mf.mix_b_percent = mix;
+            mf.ratio_a = 1;
+            mf.ratio_b = 1;
+            mf.pointillism_all_filaments = pointillism_all_filaments;
+            mf.gradient_component_ids = normalized_gradient_ids;
+            mf.gradient_component_weights =
+                normalize_gradient_component_weights(gradient_component_weights, count_gradient_component_ids(normalized_gradient_ids));
+            mf.manual_pattern = normalize_manual_pattern(manual_pattern);
+            mf.distribution_mode = clamp_int(distribution_mode, int(MixedFilament::LayerCycle), int(MixedFilament::Simple));
+            mf.enabled = false;
+            mf.deleted = deleted;
+            mf.custom = custom;
+            mf.origin_auto = origin_auto;
+            rebuilt.push_back(std::move(mf));
+            ++loaded_rows;
             continue;
         }
 
@@ -1206,7 +1687,7 @@ void MixedFilamentManager::load_custom_entries(const std::string &serialized, co
             mf.pointillism_all_filaments = pointillism_all_filaments;
             mf.gradient_component_ids = normalize_gradient_component_ids(gradient_component_ids);
             mf.gradient_component_weights =
-                normalize_gradient_component_weights(gradient_component_weights, mf.gradient_component_ids.size());
+                normalize_gradient_component_weights(gradient_component_weights, count_gradient_component_ids(mf.gradient_component_ids));
             mf.manual_pattern = normalize_manual_pattern(manual_pattern);
             mf.distribution_mode = clamp_int(distribution_mode, int(MixedFilament::LayerCycle), int(MixedFilament::Simple));
             mf.mix_b_percent = mf.manual_pattern.empty() ? mix : mix_percent_from_normalized_pattern(mf.manual_pattern);
@@ -1215,6 +1696,9 @@ void MixedFilamentManager::load_custom_entries(const std::string &serialized, co
                 mf.enabled = false;
             mf.custom = false;
             mf.origin_auto = true;
+            mf.gradient_curve = parse_gradient_curve(decode_gradient_curve_for_row(gradient_curve_str));
+            mf.per_part_gradient = per_part_gradient;
+            mf.gradient_enabled = gradient_enabled;
 
             rebuilt.push_back(std::move(mf));
             consumed_auto_pairs.insert(key);
@@ -1232,7 +1716,7 @@ void MixedFilamentManager::load_custom_entries(const std::string &serialized, co
         mf.pointillism_all_filaments = pointillism_all_filaments;
         mf.gradient_component_ids = normalize_gradient_component_ids(gradient_component_ids);
         mf.gradient_component_weights =
-            normalize_gradient_component_weights(gradient_component_weights, mf.gradient_component_ids.size());
+            normalize_gradient_component_weights(gradient_component_weights, count_gradient_component_ids(mf.gradient_component_ids));
         mf.manual_pattern = normalize_manual_pattern(manual_pattern);
         mf.distribution_mode = clamp_int(distribution_mode, int(MixedFilament::LayerCycle), int(MixedFilament::Simple));
         if (!mf.manual_pattern.empty())
@@ -1243,6 +1727,9 @@ void MixedFilamentManager::load_custom_entries(const std::string &serialized, co
             mf.enabled = false;
         mf.custom = custom;
         mf.origin_auto = origin_auto;
+        mf.gradient_curve = parse_gradient_curve(decode_gradient_curve_for_row(gradient_curve_str));
+        mf.per_part_gradient = per_part_gradient;
+        mf.gradient_enabled = gradient_enabled;
         rebuilt.push_back(std::move(mf));
         ++loaded_rows;
     }
@@ -1306,9 +1793,14 @@ bool MixedFilamentManager::is_definitions_change_append_only(const std::string &
             std::string  gradient_component_ids, gradient_component_weights, manual_pattern;
             int          distribution_mode = int(MixedFilament::Simple);
             bool         deleted = false;
+            std::string  gradient_curve_str;
+            bool         per_part_gradient = false;
+            bool         gradient_enabled = false;
+            int          gradient_direction = 0;
             if (!parse_row_definition(row, a, b, stable_id, enabled, custom, origin_auto, mix,
                                       pointillism_all_filaments, gradient_component_ids,
-                                      gradient_component_weights, manual_pattern, distribution_mode, deleted)) {
+                                      gradient_component_weights, manual_pattern, distribution_mode, deleted,
+                                      gradient_curve_str, per_part_gradient, gradient_enabled, gradient_direction)) {
                 parse_ok = false;
                 return signatures;
             }
@@ -1318,15 +1810,23 @@ bool MixedFilamentManager::is_definitions_change_append_only(const std::string &
                 continue;
             // Build a signature from exactly the fields that influence resolved
             // geometry (component IDs, blend ratio, pattern, gradient layout and
-            // distribution mode). stable_id, custom/origin_auto flags and colors
-            // are intentionally excluded.
+            // distribution mode, the per-part gradient flag, and the gradient-
+            // enabled toggle). The custom curve string is also part of the
+            // signature because changing the curve shape changes the per-layer
+            // color blend, and toggling gradient_enabled flips the slicer
+            // between fixed-ratio and gradient mode. stable_id, custom/origin_auto
+            // flags and colors are intentionally excluded.
             const std::string normalized_ids = normalize_gradient_component_ids(gradient_component_ids);
+            const std::string normalized_curve = serialize_gradient_curve(parse_gradient_curve(decode_gradient_curve_for_row(gradient_curve_str)));
             std::ostringstream sig;
             sig << a << '/' << b << '/' << clamp_int(mix, 0, 100) << '/'
                 << clamp_int(distribution_mode, int(MixedFilament::LayerCycle), int(MixedFilament::Simple)) << '/'
                 << 'g' << normalized_ids << '/'
-                << 'w' << normalize_gradient_component_weights(gradient_component_weights, normalized_ids.size()) << '/'
-                << 'm' << normalize_manual_pattern(manual_pattern);
+                << 'w' << normalize_gradient_component_weights(gradient_component_weights, count_gradient_component_ids(normalized_ids)) << '/'
+                << 'm' << normalize_manual_pattern(manual_pattern) << '/'
+                << 'c' << normalized_curve << '/'
+                << 'p' << (per_part_gradient ? '1' : '0') << '/'
+                << 'e' << (gradient_enabled ? '1' : '0');
             signatures.emplace_back(sig.str());
         }
         return signatures;
@@ -1362,6 +1862,8 @@ unsigned int MixedFilamentManager::resolve(unsigned int filament_id,
         return filament_id;
 
     const MixedFilament &mf = m_mixed[size_t(mixed_idx)];
+    if (!mf.is_available(num_physical))
+        throw SlicingError(L("The mixed filament references a filament that no longer exists. Please reselect the original filament. Slicing will be available once the configuration is complete."));
 
     // Manual pattern takes precedence when provided. Pattern uses repeating
     // steps: '1' => component_a, '2' => component_b, '3'..'9' => direct
@@ -1394,20 +1896,65 @@ unsigned int MixedFilamentManager::resolve(unsigned int filament_id,
     // regular gradient height mode keeps historical behavior (custom rows).
     // Simple distribution mode always uses the integer layer-index cadence,
     // regardless of the global gradient mode setting.
+    //
+    // Per-row gradient_enabled (persisted from the MixedFilamentDialog
+    // "Gradient Effect" toggle) also activates height-weighted mode for
+    // that specific row, independent of the global m_gradient_mode setting.
+    // This is what lets a user enable gradient on a single mixed row without
+    // flipping the global "Height-weighted cadence" print setting.
     const bool use_height_weighted = !use_simple_mode &&
-        (force_height_weighted || (m_gradient_mode == 1 && mf.custom));
+        (force_height_weighted || mf.gradient_enabled || (m_gradient_mode == 1 && mf.custom));
+
     if (use_height_weighted) {
         float h_a = 0.f;
         float h_b = 0.f;
         compute_gradient_heights(mf, m_height_lower_bound, m_height_upper_bound, h_a, h_b);
         const float cycle_h = std::max(0.01f, h_a + h_b);
 
+        // Custom gradient curve (Photoshop-style) overrides the linear
+        // [lower_bound, upper_bound] ramp. Sample the curve at the current
+        // run-progress t in [0,1] -> ratio of component_a; the ratio of
+        // component_b is (1 - r1). Empty curve -> fall through to the
+        // existing linear blend derived from mix_b_percent.
+        if (!mf.gradient_curve.empty()) {
+            const float z_anchor = (layer_height > 1e-6f)
+                ? std::max(0.f, layer_print_z - 0.5f * layer_height)
+                : std::max(0.f, layer_print_z);
+            float phase = std::fmod(z_anchor, cycle_h);
+            if (phase < 0.f)
+                phase += cycle_h;
+            const double t_curve = double(phase) / double(cycle_h);
+            const double r1 = std::clamp(sample_gradient_curve(mf.gradient_curve, t_curve),
+                                         kGradientMinRatio, kGradientMaxRatio);
+            const double r2 = 1.0 - r1;
+            // Distribute cycle_h between A and B proportionally to the
+            // sampled ratios, then quantize each side so the layer count
+            // stays >= 1. This mirrors the integer-cadence path below.
+            const double total = r1 + r2;
+            const double h_a_eff = (total > 0.0) ? double(cycle_h) * r1 / total : 0.5 * double(cycle_h);
+            const double h_b_eff = double(cycle_h) - h_a_eff;
+            const double min_h = std::max(0.01, std::min(h_a_eff, h_b_eff));
+            const int ratio_a_h = std::max(1, int(std::lround(h_a_eff / min_h)));
+            const int ratio_b_h = std::max(1, int(std::lround(h_b_eff / min_h)));
+            const int cycle_i = ratio_a_h + ratio_b_h;
+            if (cycle_i > 0) {
+                const int pos = ((layer_index % cycle_i) + cycle_i) % cycle_i;
+                return (pos < ratio_a_h) ? mf.component_a : mf.component_b;
+            }
+            // cycle_i collapsed -> fall back to the Z-phase model with the
+            // adjusted h_a_eff boundary.
+            return (phase < float(h_a_eff)) ? mf.component_a : mf.component_b;
+        }
+
         // When the layer height is comparable to or exceeds the cadence cycle,
         // the Z-phase approach degenerates (all layers land at the same phase).
-        // Fall back to the integer layer-index cadence which is always correct.
+        // Fall back to an integer layer cadence so the requested ratio remains
+        // stable (for example, 50:50 alternates A/B instead of producing long
+        // runs from an unrelated fixed-height wave).
         if (layer_height >= cycle_h - 1e-4f) {
-            const int ratio_a_h = std::max(1, int(std::lround(h_a / std::max(0.01f, std::min(h_a, h_b)))));
-            const int ratio_b_h = std::max(1, int(std::lround(h_b / std::max(0.01f, std::min(h_a, h_b)))));
+            const float min_height = std::max(0.01f, std::min(h_a, h_b));
+            const int ratio_a_h = std::max(1, int(std::lround(h_a / min_height)));
+            const int ratio_b_h = std::max(1, int(std::lround(h_b / min_height)));
             const int cycle_i = ratio_a_h + ratio_b_h;
             if (cycle_i > 0) {
                 const int pos = ((layer_index % cycle_i) + cycle_i) % cycle_i;
@@ -1448,6 +1995,9 @@ unsigned int MixedFilamentManager::resolve_perimeter(unsigned int filament_id,
         return filament_id;
 
     const MixedFilament &mf = m_mixed[size_t(mixed_idx)];
+    if (!mf.is_available(num_physical))
+        throw SlicingError(L("The mixed filament references a filament that no longer exists. Please reselect the original filament. Slicing will be available once the configuration is complete."));
+
     if (!mf.manual_pattern.empty()) {
         const std::vector<std::string> pattern_groups = split_manual_pattern_groups(mf.manual_pattern);
         if (!pattern_groups.empty()) {
@@ -1481,6 +2031,9 @@ std::vector<unsigned int> MixedFilamentManager::ordered_perimeter_extruders(unsi
     }
 
     const MixedFilament &mf = m_mixed[size_t(mixed_idx)];
+    if (!mf.is_available(num_physical))
+        return ordered;
+
     if (!mf.manual_pattern.empty()) {
         const std::vector<std::string> pattern_groups = split_manual_pattern_groups(mf.manual_pattern);
         if (!pattern_groups.empty()) {
@@ -1512,14 +2065,14 @@ int MixedFilamentManager::mixed_index_from_filament_id(unsigned int filament_id,
     if (filament_id <= num_physical)
         return -1;
 
-    const size_t enabled_virtual_idx = size_t(filament_id - num_physical - 1);
-    size_t enabled_seen = 0;
+    const size_t virtual_idx = size_t(filament_id - num_physical - 1);
+    size_t visible_seen = 0;
     for (size_t i = 0; i < m_mixed.size(); ++i) {
-        if (!m_mixed[i].enabled || m_mixed[i].deleted)
+        if (!m_mixed[i].occupies_virtual_slot())
             continue;
-        if (enabled_seen == enabled_virtual_idx)
+        if (visible_seen == virtual_idx)
             return int(i);
-        ++enabled_seen;
+        ++visible_seen;
     }
     return -1;
 }
@@ -1528,6 +2081,87 @@ const MixedFilament *MixedFilamentManager::mixed_filament_from_id(unsigned int f
 {
     const int idx = mixed_index_from_filament_id(filament_id, num_physical);
     return idx >= 0 ? &m_mixed[size_t(idx)] : nullptr;
+}
+
+ExpandedFilamentUsage MixedFilamentManager::expand_filament_usage(
+    const std::vector<unsigned int> &filament_ids,
+    size_t                           num_physical) const
+{
+    ExpandedFilamentUsage usage;
+    std::unordered_set<unsigned int> physical_ids;
+    std::unordered_set<unsigned int> invalid_ids;
+
+    for (const unsigned int filament_id : filament_ids) {
+        if (filament_id >= 1 && filament_id <= num_physical) {
+            physical_ids.insert(filament_id);
+            continue;
+        }
+
+        const MixedFilament *mixed = mixed_filament_from_id(filament_id, num_physical);
+        if (mixed == nullptr) {
+            invalid_ids.insert(filament_id);
+            continue;
+        }
+        usage.has_mixed_filament = true;
+
+        bool valid_row = true;
+        bool added_component = false;
+        std::unordered_set<unsigned int> row_physical_ids;
+        const auto append_mixed_component = [&](unsigned int component_id) {
+            if (component_id < 1 || component_id > num_physical) {
+                valid_row = false;
+                return;
+            }
+            row_physical_ids.insert(component_id);
+            added_component = true;
+        };
+
+        if (!mixed->manual_pattern.empty()) {
+            const std::string pattern = flatten_manual_pattern_groups(mixed->manual_pattern);
+            if (pattern.empty()) {
+                valid_row = false;
+            } else {
+                for (const char token : pattern)
+                    append_mixed_component(physical_filament_from_pattern_step(token, *mixed, num_physical));
+            }
+        } else {
+            // Keep the main branch's multi-digit component format when expanding
+            // mixed filaments for nozzle mapping and compatibility checks.
+            const std::vector<unsigned int> gradient_ids = decode_gradient_component_ids(
+                mixed->gradient_component_ids, size_t(-1));
+            if (gradient_component_ids_has_missing(mixed->gradient_component_ids))
+                valid_row = false;
+
+            const bool uses_multi_component_gradient =
+                mixed->distribution_mode != int(MixedFilament::Simple) && gradient_ids.size() >= 3;
+            if (uses_multi_component_gradient) {
+                const std::vector<int> weights =
+                    decode_gradient_component_weights(mixed->gradient_component_weights, gradient_ids.size());
+                for (size_t component_idx = 0; component_idx < gradient_ids.size(); ++component_idx) {
+                    if (!weights.empty() && weights[component_idx] <= 0)
+                        continue;
+                    append_mixed_component(gradient_ids[component_idx]);
+                }
+            } else {
+                if (mixed->ratio_a > 0)
+                    append_mixed_component(mixed->component_a);
+                if (mixed->ratio_b > 0)
+                    append_mixed_component(mixed->component_b);
+            }
+        }
+
+        if (!valid_row || !added_component) {
+            invalid_ids.insert(filament_id);
+        } else {
+            physical_ids.insert(row_physical_ids.begin(), row_physical_ids.end());
+        }
+    }
+
+    usage.physical_filament_ids.assign(physical_ids.begin(), physical_ids.end());
+    usage.invalid_filament_ids.assign(invalid_ids.begin(), invalid_ids.end());
+    std::sort(usage.physical_filament_ids.begin(), usage.physical_filament_ids.end());
+    std::sort(usage.invalid_filament_ids.begin(), usage.invalid_filament_ids.end());
+    return usage;
 }
 
 // Blend N colours using weighted pairwise FilamentMixer blending.
@@ -1681,16 +2315,25 @@ size_t MixedFilamentManager::enabled_count() const
 {
     size_t count = 0;
     for (const auto &mf : m_mixed)
-        if (mf.enabled && !mf.deleted)
+        if (mf.enabled && !mf.deleted && mf.component_a != 0 && mf.component_b != 0 &&
+            mf.component_a != mf.component_b && !gradient_component_ids_has_missing(mf.gradient_component_ids))
             ++count;
     return count;
+}
+
+size_t MixedFilamentManager::virtual_count() const
+{
+    return size_t(std::count_if(m_mixed.begin(), m_mixed.end(), [](const MixedFilament &mf) {
+        return mf.occupies_virtual_slot();
+    }));
 }
 
 std::vector<std::string> MixedFilamentManager::display_colors() const
 {
     std::vector<std::string> colors;
+    colors.reserve(virtual_count());
     for (const auto &mf : m_mixed)
-        if (mf.enabled && !mf.deleted)
+        if (mf.occupies_virtual_slot())
             colors.push_back(mf.display_color);
     return colors;
 }

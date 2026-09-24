@@ -6,6 +6,7 @@
 #include <charconv>
 #include <algorithm>
 #include <cstring>
+#include <optional>
 #include "Extruder.hpp"
 #include "Point.hpp"
 #include "PrintConfig.hpp"
@@ -15,6 +16,22 @@ namespace Slic3r {
 
 class GCodeWriter {
 public:
+    struct ReadySnapshot {
+        unsigned int expected_extruder_id{0};
+        bool writer_extruder_present{false};
+        std::optional<unsigned int> actual_extruder_id;
+        bool writer_position_known{false};
+        Vec3d writer_stored_xyz{Vec3d::Zero()};
+        Vec3d expected_start_xyz{Vec3d::Zero()};
+        Vec3d writer_emitted_xyz{Vec3d::Zero()};
+        Vec3d expected_emitted_xyz{Vec3d::Zero()};
+        double writer_nominal_z_mm{0.0};
+        double active_lift_mm{0.0};
+        double pending_lift_mm{0.0};
+        std::optional<double> retracted_mm;
+        std::optional<double> restart_extra_mm;
+    };
+
     GCodeConfig config;
     bool multiple_extruders;
     
@@ -56,6 +73,8 @@ public:
 
     std::string set_temperature(unsigned int temperature, bool wait = false, int tool = -1) const;
     std::string set_temperatured(float temperature, bool wait = false, int tool = -1) const;
+    // Synchronize a bed temperature applied by custom start G-code without emitting another command.
+    void        sync_bed_temperature(int temperature, bool reached = false);
     std::string set_bed_temperature(int temperature, bool wait = false);
     std::string set_chamber_temperature(int temperature, bool wait = false);
     std::string set_print_acceleration(unsigned int acceleration);
@@ -69,15 +88,15 @@ public:
     bool auto_travel_acceleration_suppressed() const { return m_suppress_auto_travel_acceleration; }
     std::string set_jerk_xy(double jerk);
     // Orca: set acceleration and jerk in one command for Klipper
-    std::string set_accel_and_jerk(unsigned int acceleration, double jerk);
+    std::string set_accel_and_jerk(unsigned int acceleration, double jerk, bool force = false);
+    std::string set_print_acceleration_and_jerk(unsigned int acceleration, double jerk);
     std::string set_pressure_advance(double pa) const;
     std::string reset_e(bool force = false);
     std::string update_progress(unsigned int num, unsigned int tot, bool allow_100 = false) const;
     // return false if this extruder was already selected
     bool        need_toolchange(unsigned int extruder_id) const 
         { return m_extruder == nullptr || m_extruder->id() != extruder_id; }
-    std::string set_extruder(unsigned int extruder_id)
-        { return this->need_toolchange(extruder_id) ? this->toolchange(extruder_id) : ""; }
+    std::string set_extruder(unsigned int extruder_id);
     void        init_extruder(unsigned int extruder_id);
     // Prefix of the toolchange G-code line, to be used by the CoolingBuffer to separate sections of the G-code
     // printed with the same extruder.
@@ -88,12 +107,18 @@ public:
     double      get_current_speed() const { return m_current_speed;}
     std::string travel_to_xy(const Vec2d &point, const std::string &comment = std::string(),const double limitSpeed = 0.0);
     std::string travel_to_xyz(const Vec3d &point, const std::string &comment = std::string(),const double limitSpeed = 0.0);
+    std::string travel_to_xyz_exact(const Vec3d &point, const std::string &comment = std::string(),const double limitSpeed = 0.0);
     std::string travel_to_z(double z, const std::string &comment = std::string(),const double limitSpeed = 0.0);
+    // Synchronize a ZAA start target using the formatter's emitted precision.
+    std::string travel_to_z_exact(double z, const std::string &comment = std::string(),const double limitSpeed = 0.0);
     bool        will_move_z(double z) const;
     std::string extrude_to_xy(const Vec2d &point, double dE, const std::string &comment = std::string(), bool force_no_extrusion = false);
     //BBS: generate G2 or G3 extrude which moves by arc
     std::string extrude_arc_to_xy(const Vec2d &point, const Vec2d &center_offset, double dE, const bool is_ccw, const std::string &comment = std::string(), bool force_no_extrusion = false);
     std::string extrude_to_xyz(const Vec3d &point, double dE, const std::string &comment = std::string(), bool force_no_extrusion = false);
+    std::string extrude_to_xyz_exact(const Vec3d &point, double dE, const std::string &comment = std::string(), bool force_no_extrusion = false);
+    Vec3d preview_extrude_to_xyz_exact(const Vec3d &point) const;
+    ReadySnapshot ready_snapshot(unsigned int expected_extruder_id, const Vec3d &expected_start_xyz, double layer_print_z_mm) const;
     std::string retract(bool before_wipe = false, double retract_length = 0);
     std::string retract_for_toolchange(bool before_wipe = false, double retract_length = 0);
     std::string unretract();
@@ -140,6 +165,7 @@ public:
     // Returns whether this flavor supports separate print and travel acceleration.
     static bool supports_separate_travel_acceleration(GCodeFlavor flavor);
   private:
+    void trace_retraction_state() const; // Temporary debug/trace diagnostics.
 	// Extruders are sorted by their ID, so that binary search is possible.
     std::vector<Extruder> m_extruders;
     bool            m_single_extruder_multi_material;
@@ -198,8 +224,11 @@ public:
         Print
     };
 
-    std::string _travel_to_z(double z, const std::string &comment,const double limitSpeed = 0.0f);
+    std::string _travel_to_xyz(const Vec3d &point, const std::string &comment, double limitSpeed, bool apply_legacy_zero_z_guard);
+    std::string _travel_to_z(double z, const std::string &comment,const double limitSpeed = 0.0f, bool force_emit_z = false);
     std::string _spiral_travel_to_z(double z, const Vec2d &ij_offset, const std::string &comment, const double limitSpeed = 0.0f);
+    std::string _extrude_to_xyz(const Vec3d &point, double dE, const std::string &comment, bool force_no_extrusion, bool apply_legacy_zero_z_guard);
+    Vec3d _output_xyz_exact(const Vec3d &point) const;
     std::string _retract(double length, double restart_extra, const std::string &comment);
     std::string set_acceleration_internal(Acceleration type, unsigned int acceleration);
 

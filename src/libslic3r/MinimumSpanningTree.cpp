@@ -7,6 +7,16 @@
 namespace Slic3r
 {
 
+namespace {
+
+bool point_less(const Point& lhs, const Point& rhs)
+{
+    return lhs.x() < rhs.x() ||
+           (lhs.x() == rhs.x() && lhs.y() < rhs.y());
+}
+
+} // namespace
+
 #define unscale_(val) ((val) * SCALING_FACTOR)
 
 inline double dot_with_unscale(const Point a, const Point b)
@@ -43,6 +53,11 @@ auto MinimumSpanningTree::prim(std::vector<Point> vertices) const -> AdjacencyGr
     result.reserve(vertices.size());
     std::vector<Point> vertices_list(vertices.begin(), vertices.end());
 
+    // The input often comes from an unordered container. Pick a stable root so the same
+    // point set cannot produce a different tree merely because its iteration order changed.
+    const auto root = std::min_element(vertices_list.begin(), vertices_list.end(), point_less);
+    std::iter_swap(vertices_list.begin(), root);
+
     std::unordered_map<const Point*, coordf_t> smallest_distance;    //The shortest distance to the current tree.
     std::unordered_map<const Point*, const Point*> smallest_distance_to; //Which point the shortest distance goes towards.
     smallest_distance.reserve(vertices_list.size());
@@ -63,7 +78,9 @@ auto MinimumSpanningTree::prim(std::vector<Point> vertices) const -> AdjacencyGr
         using MapValue = std::pair<const Point*, coordf_t>;
         const auto closest = std::min_element(smallest_distance.begin(), smallest_distance.end(),
                                               [](const MapValue& a, const MapValue& b) {
-                                                  return a.second < b.second;
+                                                  if (a.second != b.second)
+                                                      return a.second < b.second;
+                                                  return point_less(*a.first, *b.first);
                                               });
 
         //Add this point to the graph and remove it from the candidates.
@@ -87,7 +104,9 @@ auto MinimumSpanningTree::prim(std::vector<Point> vertices) const -> AdjacencyGr
         {
             const coordf_t new_distance = vsize2_with_unscale(*closest_point - *point_and_distance.first);
             const coordf_t old_distance = point_and_distance.second;
-            if (new_distance < old_distance) //New point is closer.
+            const Point* old_parent = smallest_distance_to[point_and_distance.first];
+            if (new_distance < old_distance ||
+                (new_distance == old_distance && point_less(*closest_point, *old_parent)))
             {
                 smallest_distance[point_and_distance.first] = new_distance;
                 smallest_distance_to[point_and_distance.first] = closest_point;

@@ -24,7 +24,7 @@ int progress_callback(void* ptr, curl_off_t totalToDownload, curl_off_t nowDownl
 
 RemotePrinterManager::RemotePrinterManager():stop_flag(false) 
 {
-//     m_pLanPrinterInterface = new LanPrinterInterface();
+    m_pLanPrinterInterface = new LanPrinterInterface;
 //     m_pOctoPrinterInterface = new OctoPrintInterface();
     m_pKlipperInterface = new KlipperInterface();
     m_pKlipper4408Interface = new Klipper4408Interface();
@@ -86,7 +86,7 @@ RemotePrinterManager::~RemotePrinterManager()
         }
     }
 
-//     delete m_pLanPrinterInterface;
+    delete m_pLanPrinterInterface;
 //     delete m_pOctoPrinterInterface;
     delete m_pKlipperInterface;
     delete m_pKlipper4408Interface;
@@ -123,6 +123,7 @@ std::shared_ptr<RemotePrinterManager::ManagedUploadTask> RemotePrinterManager::c
     task->ipAddress = ipAddress;
     task->fileName = fileName;
     task->filePath = filePath;
+    task->secureConnection = getSecureConnection(ipAddress);
     task->progressCallback = std::move(progressCallback);
     task->statusCallback = std::move(statusCallback);
     task->completeCallback = std::move(completeCallback);
@@ -130,10 +131,22 @@ std::shared_ptr<RemotePrinterManager::ManagedUploadTask> RemotePrinterManager::c
     std::lock_guard<std::mutex> lock(m_mtxUpload);
     m_tasksById[task->taskId] = task;
     m_latestTaskByAddress[ipAddress] = task->taskId;
-    m_lastUploadMap[ipAddress] = {
-        fileName, filePath, task->progressCallback, task->statusCallback, task->completeCallback
-    };
+    UploadTask lastTask;
+    lastTask.fileName = fileName;
+    lastTask.filePath = filePath;
+    lastTask.secureConnection = task->secureConnection;
+    lastTask.progressCallback = task->progressCallback;
+    lastTask.uploadStatusCallback = task->statusCallback;
+    lastTask.onCompleteCallback = task->completeCallback;
+    m_lastUploadMap[ipAddress] = std::move(lastTask);
     return task;
+}
+
+void RemotePrinterManager::pushUploadTasksWithProfile(const std::string& ipAddress, const std::string& fileName, const std::string& filePath, bool secureConnection, std::function<void(std::string, float,double)> progressCallback, std::function<void(std::string, int)> uploadStatusCallback, std::function<void(std::string, std::string)> onCompleteCallback)
+{
+    setSecureConnectionMap(ipAddress, secureConnection);
+    pushUploadTasks(ipAddress, fileName, filePath, std::move(progressCallback),
+                    std::move(uploadStatusCallback), std::move(onCompleteCallback));
 }
 
 std::string RemotePrinterManager::pushUploadTasks(const std::string& ipAddress, const std::string& fileName, const std::string& filePath, std::function<void(std::string, float,double)> progressCallback, std::function<void(std::string, int)> uploadStatusCallback, std::function<void(std::string, std::string)> onCompleteCallback)
@@ -288,6 +301,19 @@ void RemotePrinterManager::cancelUpload(const std::string& ipAddress)
         cancelUploadTask(taskId);
 }
 
+void RemotePrinterManager::setSecureConnectionMap(const std::string& ipAddress, bool secureConnection)
+{
+    std::lock_guard<std::mutex> lock(m_mtxPrinterMeta);
+    mapSecureConnection[ipAddress] = secureConnection;
+}
+
+bool RemotePrinterManager::getSecureConnection(const std::string& ipAddress) const
+{
+    std::lock_guard<std::mutex> lock(m_mtxPrinterMeta);
+    auto it = mapSecureConnection.find(ipAddress);
+    return it != mapSecureConnection.end() ? it->second : false;
+}
+
 void RemotePrinterManager::setOldPrinterMap(std::string& ipAddress)
 {
     std::lock_guard<std::mutex> lock(m_mtxPrinterMeta);
@@ -414,7 +440,8 @@ void RemotePrinterManager::pushFile(const std::shared_ptr<ManagedUploadTask>& ta
     case RemotePrinerType::REMOTE_PRINTER_TYPE_KLIPPER4408:
         future = m_pKlipper4408Interface->sendFileToDevice(
             task->ipAddress, 80, task->fileName, task->filePath,
-            progressCallback, statusCallback, completeCallback, task->cancelToken);
+            task->secureConnection, progressCallback, statusCallback,
+            completeCallback, task->cancelToken);
         break;
     case RemotePrinerType::REMOTE_PRINTER_TYPE_CX:
         future = m_pKlipperCXInterface->sendFileToDevice(

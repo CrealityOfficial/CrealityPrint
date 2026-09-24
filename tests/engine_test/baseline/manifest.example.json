@@ -1,0 +1,19 @@
+{
+  "cases": [
+    {
+      "name": "single_plate_basic",
+      "input": "single_plate_basic.3mf",
+      "plate": 0,
+      "modules": ["support"],
+      "args": ["--no-check"],
+      "performance": {
+        "metrics": {
+          "path.support.total": {
+            "relative": 0.05,
+            "absolute_ms": 50.0
+          }
+        }
+      }
+    }
+  ]
+}

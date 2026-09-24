@@ -284,7 +284,7 @@ wxString WebViewPanel::GetURL()
         type = std::string("Dev");
     }
     else {
-        type = std::string("Beta3");
+        //type = std::string("Alpha");
     }
     #endif
     wxString url = wxString::Format(

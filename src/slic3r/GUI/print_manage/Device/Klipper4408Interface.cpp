@@ -1,5 +1,6 @@
 #include "Klipper4408Interface.hpp"
 #include "slic3r/Utils/Http.hpp"
+#include "libslic3r/Utils.hpp"
 #include <boost/log/trivial.hpp>
 #include <curl/curl.h>
 #include <string>
@@ -24,7 +25,7 @@ bool isGCodeFile(const boost::filesystem::path& filePath) {
     }
     return extStr == ".gcode";
 }
-std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serverIp, int port, const std::string& uploadFileName, const std::string& localFilePath, std::function<void(float,double)> progressCallback, std::function<void(int)> uploadStatusCallback, std::function<void(std::string)> onCompleteCallback, UploadCancelToken cancelToken) {
+std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serverIp, int port, const std::string& uploadFileName, const std::string& localFilePath, bool secureConnection, std::function<void(float,double)> progressCallback, std::function<void(int)> uploadStatusCallback, std::function<void(std::string)> onCompleteCallback, UploadCancelToken cancelToken) {
     return std::async(std::launch::async, [=]() {
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " start";
     bool res = false;
@@ -34,7 +35,9 @@ std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serv
         return;
     }
 
-    std::string urlUpload = "http://" + serverIp + ":" + std::to_string(80) + "/upload/" + Slic3r::Http::url_encode(uploadFileName);
+    const std::string scheme = secureConnection ? "https" : "http";
+    const int uploadPort = secureConnection ? 443 : port;
+    std::string urlUpload = scheme + "://" + serverIp + ":" + std::to_string(uploadPort) + "/upload/" + Slic3r::Http::url_encode(uploadFileName);
 
     BOOST_LOG_TRIVIAL(info) << boost::format("%1%: Uploading file %2% to %3%") % uploadFileName % localFilePath % urlUpload;
 
@@ -45,6 +48,11 @@ std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serv
         return;
     }
     auto http = Slic3r::Http::post(urlUpload);
+    if (secureConnection) {
+        http.ca_file(Slic3r::resources_dir() + "/cert/ca.crt")
+            .ssl_verify_peer(true)
+            .ssl_verify_host(false).ssl_ignore_certificate_time(true);
+    }
     http.enable_active_cancel();
     UploadRequestCancelWatcher cancel_watcher(cancelToken, [&http] { http.cancel(); });
     std::string temp_upload_name = uploadFileName;
@@ -57,12 +65,11 @@ std::future<void> Klipper4408Interface::sendFileToDevice(const std::string& serv
     //         http.header("MD5", md5);
     //     }
     progressCallback(1.0f,0.0f);
-    std::string filePath =  wxString::FromUTF8(localFilePath.c_str()).ToStdString();
+    const boost::filesystem::path localPath(localFilePath);
     //static time_t last_time = 0;
     time_t last_time = time(NULL);
     int percent = 0;
-    http.header("Content-Type", "multipart/form-data")
-        .mime_form_add_file(temp_upload_name, filePath.c_str()).timeout_connect(5)
+    http.form_add_file("file", localPath, temp_upload_name).timeout_connect(5)
         .on_complete([&](std::string body, unsigned status) {
             BOOST_LOG_TRIVIAL(debug) << boost::format("%1%: File uploaded: HTTP %2%: %3%") % uploadFileName % status % body;
             res = boost::icontains(body, "OK");

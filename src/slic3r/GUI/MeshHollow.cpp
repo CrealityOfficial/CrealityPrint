@@ -10,6 +10,10 @@ namespace Slic3r {
 	void MeshHollow(ModelVolumePtrs& input_mesh, float depth)
 	{ 
 		for (auto& m : input_mesh) {
+            // Modifiers and other auxiliary volumes must retain their solid coverage.
+            if (!m->is_model_part())
+                continue;
+
             TriangleMesh mesh = m->mesh();
 			//hollow
             Slic3r::sla::HollowingConfig hc;

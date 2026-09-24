@@ -11,6 +11,7 @@
 #include "ModelVolume.hpp"
 #include "ModelInstance.hpp"
 #include <algorithm>
+#include <limits>
 #include <numeric>
 #include <unordered_set>
 #include <tbb/parallel_for.h>
@@ -1668,12 +1669,66 @@ ExtrusionEntityCollection makeBrimInfill(const ExPolygons& singleBrimArea, const
     return brim;
 }
 
+static void index_actual_brim_paths_by_instance(
+    const Print                                                &print,
+    const std::map<ObjectID, ExtrusionEntityCollection>        &source,
+    std::map<ObjectInstanceID, ExtrusionEntityCollection>      &brim_by_instance)
+{
+    for (const auto &[object_id, brim] : source) {
+        const PrintObject *object = print.get_object(object_id);
+        if (object == nullptr || object->instances().empty() || brim.empty())
+            continue;
+
+        Points local_points;
+        if (! object->layers().empty())
+            for (const ExPolygon &slice : object->layers().front()->lslices)
+                append(local_points, slice.contour.points);
+
+        Point local_anchor;
+        if (! local_points.empty()) {
+            coord_t min_x = local_points.front().x();
+            coord_t max_x = min_x;
+            coord_t min_y = local_points.front().y();
+            coord_t max_y = min_y;
+            for (const Point &point : local_points) {
+                min_x = std::min(min_x, point.x());
+                max_x = std::max(max_x, point.x());
+                min_y = std::min(min_y, point.y());
+                max_y = std::max(max_y, point.y());
+            }
+            local_anchor = Point(min_x + (max_x - min_x) / 2, min_y + (max_y - min_y) / 2);
+        }
+
+        std::vector<Point> anchors;
+        anchors.reserve(object->instances().size());
+        for (const PrintInstance &instance : object->instances())
+            anchors.push_back(local_anchor + instance.shift);
+
+        for (const ExtrusionEntity *entity : brim.entities) {
+            size_t best_instance = 0;
+            double best_distance = std::numeric_limits<double>::max();
+            const Point &path_anchor = entity->first_point();
+            for (size_t instance_idx = 0; instance_idx < anchors.size(); ++instance_idx) {
+                const double distance = (path_anchor - anchors[instance_idx]).cast<double>().squaredNorm();
+                if (distance < best_distance) {
+                    best_distance = distance;
+                    best_instance = instance_idx;
+                }
+            }
+            brim_by_instance[{ object_id, best_instance }].append(*entity);
+        }
+    }
+}
+
 //BBS: an overload of the orignal brim generator that generates the brim by obj and by extruders
 void make_brim(const Print& print, PrintTryCancel try_cancel, Polygons& islands_area,
     std::map<ObjectID, ExtrusionEntityCollection>& brimMap,
     std::map<ObjectID, ExtrusionEntityCollection>& supportBrimMap,
+    std::map<ObjectInstanceID, ExtrusionEntityCollection>& brimMapByInstance,
+    std::map<ObjectInstanceID, ExtrusionEntityCollection>& supportBrimMapByInstance,
     std::vector<std::pair<ObjectID, unsigned int>> &objPrintVec,
-    std::vector<unsigned int>& printExtruders)
+    std::vector<unsigned int>& printExtruders,
+    std::map<ObjectInstanceID, ExPolygons>* objectBrimAreasByInstanceOut)
 {
 
     double brim_width_max = 0;
@@ -1730,6 +1785,29 @@ void make_brim(const Print& print, PrintTryCancel try_cancel, Polygons& islands_
         if (!iter->second.empty()) {
             supportBrimMap.insert(std::make_pair(iter->first, makeBrimInfill(iter->second, print, islands_area)));
         };
+    }
+
+    // Orca migration: build instance views by cloning the final legacy paths,
+    // so grouping and the transitional G-code owner consume identical geometry.
+    brimMapByInstance.clear();
+    supportBrimMapByInstance.clear();
+    index_actual_brim_paths_by_instance(print, brimMap, brimMapByInstance);
+    index_actual_brim_paths_by_instance(print, supportBrimMap, supportBrimMapByInstance);
+    if (objectBrimAreasByInstanceOut != nullptr) {
+        objectBrimAreasByInstanceOut->clear();
+        auto append_brim_coverage = [objectBrimAreasByInstanceOut](
+            const std::map<ObjectInstanceID, ExtrusionEntityCollection> &brims) {
+            for (const auto &[instance_id, brim] : brims) {
+                Polygons coverage = brim.polygons_covered_by_width(0.f);
+                if (coverage.empty())
+                    continue;
+                ExPolygons &dst = (*objectBrimAreasByInstanceOut)[instance_id];
+                expolygons_append(dst, union_ex(coverage));
+                dst = union_ex(dst);
+            }
+        };
+        append_brim_coverage(brimMapByInstance);
+        append_brim_coverage(supportBrimMapByInstance);
     }
 
     size_t          num_loops = size_t(floor(brim_width_max / flow.spacing()));

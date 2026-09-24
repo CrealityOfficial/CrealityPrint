@@ -2208,6 +2208,9 @@ bool ImGuiFilamentPanel::apply_mapping_colors_to_scene()
     cfg_new.set_key_value("filament_colour", colors);
 
     cfg->apply(cfg_new);
+    // Mapping result, not a scene edit: keep the captured original colors and
+    // only re-baseline the snapshot fingerprint.
+    GUI::wxGetApp().plater()->rebaseline_scene_filament_source_snapshot();
     GUI::wxGetApp().plater()->update_project_dirty_from_presets();
     GUI::wxGetApp().preset_bundle->export_selections(*GUI::wxGetApp().app_config);
     GUI::wxGetApp().plater()->on_config_change(cfg_new);

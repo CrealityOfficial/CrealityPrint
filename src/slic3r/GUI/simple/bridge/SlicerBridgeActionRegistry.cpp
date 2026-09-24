@@ -444,7 +444,8 @@ void SlicerBridge::RegisterAllActions()
           "Delete a model object from the scene by object_name or object_index.",
           false,
           { {"object_name", "string", "Name of the object to delete", false, ""},
-            {"object_index", "number", "Index of the object to delete", false, ""} } },
+            {"object_index", "number", "Index of the object to delete", false, ""},
+            {"plate_number", "number", "1-based plate number whose models should be deleted", false, ""} } },
         [this](const json& p) { return DoDeleteModel(p); });
 
     RegisterAction(
@@ -461,16 +462,18 @@ void SlicerBridge::RegisterAllActions()
         { ActionID::ARRANGE_SINGLE_PLATE,
           "Arrange Current Plate",
           "Arrange Single Plate",
-          "Arrange models on the current plate only.",
+          "Arrange models on the current or explicitly specified plate only.",
           true,
-          {} },
+          { {"plate_number", "number", "Optional 1-based target plate number", false, ""},
+            {"plate_index", "number", "Optional 0-based target plate index", false, ""},
+            {"activate_only", "boolean", "Switch to the target plate without starting arrangement", false, ""} } },
         [this](const json& p) { return DoArrangeSinglePlate(p); });
 
         RegisterAction(
         { ActionID::ARRANGE_ALL_PLATES,
           "Arrange All Plates",
           "Arrange All Plates",
-          "Arrange models globally across all plates.",
+          "Reserved action. Safe all-plate arrangement must be orchestrated as independent per-plate jobs.",
           true,
           {} },
         [this](const json& p) { return DoArrangeAllPlates(p); });

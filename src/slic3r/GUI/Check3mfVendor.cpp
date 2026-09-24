@@ -12,6 +12,7 @@
 #include "libslic3r/common_header/common_header.h"
 #include <expat.h>
 #include "PrinterPresetConfig.hpp"
+#include "libslic3r/FlushVolCalc.hpp"
 #include "libslic3r/ModelObject.hpp"
 
 namespace Slic3r {
@@ -37,6 +38,9 @@ bool Check3mfVendor::check(const std::string& fileName, const std::string& print
     m_isCreality3mf = bRet;
     if (!bRet) {
         m_bNeedSelectPrinterPreset = false;
+        m_new_config_loaded.clear();
+        m_process_config.clear();
+        m_defaultProcess.clear();
         if (busy != nullptr)
             busy->reset();
         ChoosePresetDlg dlg((wxWindow*)wxGetApp().mainframe, printerSettingId, m_isCurPrinterProject);
@@ -46,6 +50,9 @@ bool Check3mfVendor::check(const std::string& fileName, const std::string& print
         m_bNeedSelectPrinterPreset = true;
         m_printerPresetName = dlg.m_printerPresetName;
         m_printerPresetIdx = dlg.m_printerPresetIdx;
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                                   << ": confirmed third-party 3mf printer preset=" << m_printerPresetName
+                                   << ", combo_index=" << m_printerPresetIdx;
     }
     return bRet;
 }
@@ -293,12 +300,30 @@ bool Check3mfVendor::get3mfConfig(const DynamicPrintConfig& config_loaded, Dynam
     return bRet;
 }
 
-void Check3mfVendor::doSelectPrinterPreset()
+bool Check3mfVendor::doSelectPrinterPreset()
 {
+    bool printer_preset_changed = false;
+    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                               << ": called, pending=" << m_bNeedSelectPrinterPreset
+                               << ", confirmed=" << m_printerPresetName;
     if (m_bNeedSelectPrinterPreset) {
-        //if (m_printerPresetIdx != wxGetApp().plater()->sidebar_printer().get_selection_combo_printer()) {
-        //    wxGetApp().plater()->sidebar_printer().select_printer_preset(m_printerPresetName, m_printerPresetIdx);
-        //}
+        PresetBundle& preset_bundle = *wxGetApp().preset_bundle;
+        const std::string previous_preset = preset_bundle.printers.get_selected_preset_name();
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                                   << ": applying confirmed printer preset=" << m_printerPresetName
+                                   << ", previous=" << previous_preset;
+        if (!m_printerPresetName.empty() &&
+            previous_preset != m_printerPresetName) {
+            Preset* confirmed_preset = preset_bundle.printers.find_preset(m_printerPresetName, false, true);
+            if (confirmed_preset != nullptr && confirmed_preset->is_visible &&
+                preset_bundle.printers.select_preset_by_name(m_printerPresetName, true)) {
+                preset_bundle.update_compatible(PresetSelectCompatibleType::Always);
+                printer_preset_changed = preset_bundle.printers.get_selected_preset_name() == m_printerPresetName;
+            } else {
+                BOOST_LOG_TRIVIAL(error) << __FUNCTION__
+                                         << ": failed to select confirmed printer preset=" << m_printerPresetName;
+            }
+        }
         Preset* processPreset = wxGetApp().preset_bundle->prints.find_preset(m_defaultProcess);
         if (processPreset != nullptr) {
             std::vector<std::string> dirty_options = processPreset->config.diff(m_process_config);
@@ -306,12 +331,18 @@ void Check3mfVendor::doSelectPrinterPreset()
                 for (auto iter = m_process_config.cbegin(); iter != m_process_config.cend(); ++iter) {
                     processPreset->config.optptr(iter->first, true)->set(iter->second.get());
                 }
-                wxGetApp().preset_bundle->prints.get_selected_preset().set_dirty();
-                wxGetApp().preset_bundle->prints.get_edited_preset().set_dirty();
             }
         }
+        // Project-only settings (for example mixed filament definitions) do not
+        // modify the process preset. Use the same comparison as the preset editor.
+        preset_bundle.prints.update_dirty();
+        // Flushing settings are reconciled by the import caller after the final filament topology is loaded.
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                                   << ": completed, selected=" << preset_bundle.printers.get_selected_preset_name()
+                                   << ", changed=" << printer_preset_changed;
     }
     m_bNeedSelectPrinterPreset = false;
+    return printer_preset_changed;
 }
 
 bool Check3mfVendor::isCreality3mf() {
@@ -533,44 +564,20 @@ ChoosePresetDlg::ChoosePresetDlg(wxWindow* parent, const std::string& printerSet
     main_sizer->Add(tip, 0, wxEXPAND | wxLEFT | wxRIGHT, content_margin);
     main_sizer->AddSpacer(FromDIP(16));
     m_combo = new ::ComboBox(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(), 0, nullptr, wxCB_READONLY);
+    // Let the printer list extend beyond this small dialog, bounded by the screen.
+    m_combo->EnableAutoPopupDirection(false);
     m_combo->SetMinSize(wxSize(content_width, FromDIP(40)));
     m_combo->SetMaxSize(wxSize(content_width, FromDIP(40)));
     m_combo->Bind(wxEVT_COMBOBOX, &ChoosePresetDlg::OnComboboxSelected, this);
 
-    /* std::list<std::string> userPresets;
-    std::list<std::string> systemPresets;
-    const std::deque<Preset>& presets = wxGetApp().preset_bundle->printers.get_presets();
-    for (auto& preset : presets) {
-        if (!preset.is_visible)
-            continue;
-        if (preset.is_user()) {
-            userPresets.push_back(preset.name);
-        } else if (preset.is_system) {
-            systemPresets.push_back(preset.name);
-        }
-    }
-    if (userPresets.size() > 0) {
-        m_combo->AppendString("-----" + _L("User presets") + "-----");
-        m_vtComboText.push_back("-----User Presets-----");
-        for (auto& preset : userPresets) {
-            m_combo->AppendString(wxString::FromUTF8(preset.c_str()));
-            m_vtComboText.push_back(preset);
-        }
-    }
-    if (systemPresets.size() > 0) {
-        m_combo->AppendString("-----" + _L("System presets") + "-----");
-        m_vtComboText.push_back("-----System Presets-----");
-        for (auto& preset : systemPresets) {
-            m_combo->AppendString(wxString::FromUTF8(preset.c_str()));
-            m_vtComboText.push_back(preset);
-        }
-    }*/
-    m_vtComboText = wxGetApp().plater()->sidebar_printer().texts_of_combo_printer();
+    const std::vector<std::string> sidebarItems = wxGetApp().plater()->sidebar_printer().texts_of_combo_printer();
+    const int sidebarSelection = wxGetApp().plater()->sidebar_printer().get_selection_combo_printer();
     bool isProjectPreset = false;
     int  firstCrealityPresetIdx = -1;
     int  defaultPrinterSettingId = -1;
-    for (int i = 0; i < m_vtComboText.size(); ++i) {
-        auto& item = m_vtComboText[i];
+    int  currentPrinterPresetIdx = -1;
+    for (int i = 0; i < sidebarItems.size(); ++i) {
+        const std::string& item = sidebarItems[i];
         if (wxString::FromUTF8(item) == wxString("------ " + _L("User presets") + " ------") ||
             wxString::FromUTF8(item) == wxString("------ " + _L("System presets") + " ------")) {
             isProjectPreset = false;
@@ -579,7 +586,6 @@ ChoosePresetDlg::ChoosePresetDlg(wxWindow* parent, const std::string& printerSet
             isProjectPreset = true;
         }
         if (isProjectPreset) {
-            m_projectPresetCount++;
             continue;
         }
         if (wxString::FromUTF8(item) == wxString("------ " + _L("Select/Remove printers(system presets)") + " ------") ||
@@ -588,70 +594,48 @@ ChoosePresetDlg::ChoosePresetDlg(wxWindow* parent, const std::string& printerSet
             continue;
         }
 
-        auto preset = wxGetApp().preset_bundle->printers.find_preset(item);
-        std::string presetName = item;
-        if (preset == nullptr && item.c_str()[0] == '*') {
-            preset = wxGetApp().preset_bundle->printers.find_preset(item.substr(2));
-            presetName = item.substr(2);
-        }
+        const std::string displayName = Preset::remove_suffix_modified(item);
+        const std::string presetName = wxGetApp().preset_bundle->get_preset_name_by_alias(Preset::TYPE_PRINTER, displayName);
+        auto preset = wxGetApp().preset_bundle->printers.find_preset(presetName, false, true);
+        const int comboIdx = m_combo->GetCount();
 
         // Get index of the first Creality system preset
         if (firstCrealityPresetIdx == -1 && /*item.find("Creality") != std::string::npos*/
             preset != nullptr && preset->is_system && 
             (preset->name.find("Creality") != std::string::npos||preset->name.find("SPARKX") != std::string::npos)) {
-            firstCrealityPresetIdx = i;
+            firstCrealityPresetIdx = comboIdx;
         }
 
         // Get index of the printer preset referenced by 3mf file
         if (!printerSettingId.empty() && defaultPrinterSettingId == -1 && presetName == printerSettingId &&
             preset != nullptr && !preset->is_project_embedded){
-            defaultPrinterSettingId = i;
+            defaultPrinterSettingId = comboIdx;
         }
 
         m_combo->AppendString(wxString::FromUTF8(item.c_str()));
         m_combo->SetItemTooltip(m_combo->GetCount() - 1, wxString::FromUTF8(item.c_str()));
-    }
-    int idx = wxGetApp().plater()->sidebar_printer().get_selection_combo_printer();
-    std::string leftSelectedPresetName;
-    if (idx >= 0 && idx < m_vtComboText.size()) {
-        leftSelectedPresetName = m_vtComboText[idx];
+        m_comboPresetNames.emplace_back(preset != nullptr ? preset->name : std::string());
+        if (i == sidebarSelection && preset != nullptr)
+            currentPrinterPresetIdx = comboIdx;
     }
 
-    //if (defaultPrinterSettingId != -1) {//如果找到3mf文件中的预设，则选择该预设
-    //    m_comboLastSelected = defaultPrinterSettingId;
-    //} else {
-    //    auto preset = wxGetApp().preset_bundle->printers.find_preset(leftSelectedPresetName);
-    //    if (preset != nullptr && preset->is_system &&
-    //        preset->name.find("Creality") != std::string::npos) { // 如果找到3mf文件中的预设，则判断当前选择中的是创想的系统预设
-    //        m_comboLastSelected = idx;
-    //    } else {
-    //        if (firstCrealityPresetIdx != -1) {//如果没有找到3mf文件中的预设，且当前选中的不是创想的系统预设，则选择第一个创想的系统预设
-    //            m_comboLastSelected = firstCrealityPresetIdx;
-    //        } else { 
-    //            if (idx >= 0 && idx < m_vtComboText.size()){
-    //                m_comboLastSelected = idx+m_projectPresetCount;
-    //            }
-    //            else {
-    //                m_comboLastSelected = 1+m_projectPresetCount;
-    //            }
-    //        }
-    //    }
-    //}
-
-    auto preset = wxGetApp().preset_bundle->printers.find_preset(leftSelectedPresetName);
-    if (preset != nullptr && (preset->is_system || preset->is_user())) {
-        if (isCurPrinterProject) {
-            m_comboLastSelected = firstCrealityPresetIdx;
-        } else {
-            m_comboLastSelected = idx + m_projectPresetCount;
+    m_comboLastSelected = isCurPrinterProject ? firstCrealityPresetIdx : currentPrinterPresetIdx;
+    if (m_comboLastSelected < 0)
+        m_comboLastSelected = defaultPrinterSettingId >= 0 ? defaultPrinterSettingId : firstCrealityPresetIdx;
+    if (m_comboLastSelected < 0) {
+        for (int i = 0; i < m_comboPresetNames.size(); ++i) {
+            if (!m_comboPresetNames[i].empty()) {
+                m_comboLastSelected = i;
+                break;
+            }
         }
-    } else {
-        m_comboLastSelected = firstCrealityPresetIdx;
     }
 
-    m_combo->SetSelection(m_comboLastSelected - m_projectPresetCount);
-    m_printerPresetName = m_vtComboText[m_comboLastSelected];
-    m_printerPresetIdx  = m_comboLastSelected;
+    if (m_comboLastSelected >= 0) {
+        m_combo->SetSelection(m_comboLastSelected);
+        m_printerPresetName = m_comboPresetNames[m_comboLastSelected];
+        m_printerPresetIdx  = m_comboLastSelected;
+    }
     m_combo->SetToolTip(wxString::FromUTF8(m_printerPresetName));
     main_sizer->Add(m_combo, 0, wxEXPAND | wxLEFT | wxRIGHT, content_margin);
     Button* btnOk = new Button(this, _L("OK"));
@@ -684,22 +668,15 @@ void ChoosePresetDlg::on_dpi_changed(const wxRect& suggested_rect) {}
 void ChoosePresetDlg::OnComboboxSelected(wxCommandEvent& evt)
 {
     auto selected_item = evt.GetSelection();
-    if (selected_item < 0 || (selected_item+m_projectPresetCount) >= m_vtComboText.size()) {
+    if (selected_item < 0 || selected_item >= m_comboPresetNames.size()) {
         return;
     }
-    static bool hasSelected = false;
-    if (wxString::FromUTF8(m_vtComboText[selected_item + m_projectPresetCount]) == wxString("------ " + _L("Project-inside presets") + " ------") ||
-        wxString::FromUTF8(m_vtComboText[selected_item + m_projectPresetCount]) == wxString("------ " + _L("User presets") + " ------") ||
-        wxString::FromUTF8(m_vtComboText[selected_item + m_projectPresetCount]) == wxString("------ " + _L("System presets") + " ------")) {
-        if (!hasSelected)
-            m_combo->SetSelection(m_comboLastSelected - m_projectPresetCount);
-        else
-            m_combo->SetSelection(m_comboLastSelected);
+    if (m_comboPresetNames[selected_item].empty()) {
+        m_combo->SetSelection(m_comboLastSelected);
     } else {
-        hasSelected = true;
         m_comboLastSelected = selected_item;
-        m_printerPresetName = m_vtComboText[selected_item + m_projectPresetCount];
-        m_printerPresetIdx  = selected_item + m_projectPresetCount;
+        m_printerPresetName = m_comboPresetNames[selected_item];
+        m_printerPresetIdx  = selected_item;
         m_combo->SetToolTip(wxString::FromUTF8(m_printerPresetName));
     }
     evt.Skip();

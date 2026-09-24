@@ -119,7 +119,6 @@ class MainFrame : public DPIFrame
     bool can_export_model() const;
     bool can_export_toolpaths() const;
     bool can_export_supports() const;
-    bool can_export_gcode() const;
     bool can_export_all_gcode() const;
     bool can_print_3mf() const;
     bool can_send_gcode() const;
@@ -187,10 +186,11 @@ class MainFrame : public DPIFrame
 
     ESettingsLayout m_layout{ ESettingsLayout::Unknown };
 
-    //jump to editor under preview only mode
-    bool preview_only_to_editor = false;
-
 protected:
+    bool m_preview_only_transition_in_progress = false;
+
+    wxSize GetMinimumWindowSize() const;
+    void UpdateMinimumWindowSize();
     virtual void on_dpi_changed(const wxRect &suggested_rect) override;
     virtual void on_sys_color_changed() override;
 
@@ -216,6 +216,7 @@ public:
         tpAuxiliary     = 8,
         toDebugTool     = 9,
         tpDeviceMgr     = 10,
+        tpAICreation    = 11,
     };
 
     //BBS: add slice&&print status update logic
@@ -262,6 +263,7 @@ public:
     void        destroy_webviews_for_recreate();
 
     Plater*     plater() { return m_plater; }
+    bool        can_export_gcode() const;
 
     // BBS
     BBLTopbar* topbar() { return m_topbar; }
@@ -376,6 +378,8 @@ public:
 
     PrinterMgrView* get_printer_mgr_view() { return m_printer_mgr_view; }
     WebModelLibraryView* get_modellibrary_view(){ return m_webmodellibrary_view; }
+    WebModelLibraryView* get_ai_creation_view() { return m_ai_creation_view; }
+    void update_model_webviews_user_agent();
     PA_Calibration_Dlg* m_pa_calib_dlg{ nullptr };
     Temp_Calibration_Dlg* m_temp_calib_dlg{ nullptr };
     MaxVolumetricSpeed_Test_Dlg* m_vol_test_dlg { nullptr };
@@ -394,6 +398,7 @@ public:
 
     // BBS. Replace title bar and menu bar with top bar.
     BBLTopbar*            m_topbar{ nullptr };
+    bool m_minimum_size_update_pending{false};
     PrintHostQueueDialog* printhost_queue_dlg() { return m_printhost_queue_dlg; }
     Plater*               m_plater { nullptr };
     //BBS: GUI refactor
@@ -408,6 +413,7 @@ public:
     PrinterWebView*       m_printer_view{nullptr};
     PrinterMgrView*       m_printer_mgr_view{nullptr};
     WebModelLibraryView*  m_webmodellibrary_view{ nullptr };
+    WebModelLibraryView*  m_ai_creation_view{ nullptr };
     wxLogWindow*          m_log_window { nullptr };
     // BBS
     //wxBookCtrlBase*       m_tabpanel { nullptr };

@@ -1,8 +1,11 @@
+#include "DataDirectoryMigration.hpp"
 #include <cassert>
 
 #include "Config.hpp"
 #include "Exception.hpp"
 #include "Preset.hpp"
+#include "PresetSyncUtils.hpp"
+#include <optional>
 #include "PresetBundle.hpp"
 #include "AppConfig.hpp"
 
@@ -24,6 +27,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <mutex>
 #include <stdexcept>
 #include <unordered_map>
 #include <boost/format.hpp>
@@ -53,6 +57,32 @@ using boost::property_tree::ptree;
 
 namespace Slic3r {
 
+// A Windows filename can retain its original case after another preset has
+// overwritten it. The embedded name identifies the actual owner of that file.
+static bool equivalent_preset_filename(const std::string& a, const std::string& b)
+{
+#ifdef _WIN32
+    const std::wstring wa = boost::nowide::widen(a);
+    const std::wstring wb = boost::nowide::widen(b);
+    return CompareStringOrdinal(wa.c_str(), -1, wb.c_str(), -1, TRUE) == CSTR_EQUAL;
+#else
+    return a == b;
+#endif
+}
+
+static std::optional<std::string> preset_file_owner(const fs::path& path)
+{
+    try {
+        boost::nowide::ifstream stream(path.string());
+        const json data = json::parse(stream, nullptr, false);
+        if (data.is_object() && data.contains(BBL_JSON_KEY_NAME) && data[BBL_JSON_KEY_NAME].is_string())
+            return data[BBL_JSON_KEY_NAME].get<std::string>();
+    } catch (const std::exception&) {
+        // Unreadable files are occupied, not safe targets for another preset.
+    }
+    return std::nullopt;
+}
+
 //BBS: add a function to load the version from xxx.json
 Semver get_version_from_json(std::string file_path)
 {
@@ -74,6 +104,95 @@ Semver get_version_from_json(std::string file_path)
         return Semver();
         //throw ConfigurationError(format("Failed loading configuration file \"%1%\": %2%", file_path, err.what()));
     }
+}
+
+//BBS: look up the "showVersion" of a printer model / nozzle combination in a single profile_version.json
+static std::string get_show_version_from_profile_version_json(const boost::filesystem::path &file_path,
+                                                             const std::string             &printer_model,
+                                                             double                         nozzle_diameter)
+{
+    try {
+        if (!boost::filesystem::is_regular_file(file_path))
+            return std::string();
+
+        boost::nowide::ifstream ifs(file_path.string());
+        json                    j;
+        ifs >> j;
+
+        // The file is keyed by vendor name ("Creality"), each value being an array of
+        // { "name", "showVersion", "nozzleDiameter": [...] } entries.
+        for (auto vendor_it = j.begin(); vendor_it != j.end(); ++vendor_it) {
+            if (!vendor_it.value().is_array())
+                continue;
+            for (const auto &entry : vendor_it.value()) {
+                if (!entry.is_object())
+                    continue;
+                auto name_it = entry.find("name");
+                if (name_it == entry.end() || !name_it->is_string() || name_it->get<std::string>() != printer_model)
+                    continue;
+                auto version_it = entry.find("showVersion");
+                if (version_it == entry.end() || !version_it->is_string())
+                    continue;
+                auto nozzle_it = entry.find("nozzleDiameter");
+                if (nozzle_it == entry.end() || !nozzle_it->is_array())
+                    continue;
+                // Multi extruder entries repeat the same diameter, matching any of them is enough.
+                for (const auto &nozzle : *nozzle_it) {
+                    if (!nozzle.is_string())
+                        continue;
+                    try {
+                        if (std::abs(std::stod(nozzle.get<std::string>()) - nozzle_diameter) < 1e-6)
+                            return version_it->get<std::string>();
+                    } catch (const std::exception &) {
+                        // Not a number, ignore this nozzle entry.
+                    }
+                }
+            }
+        }
+    } catch (const std::exception &err) {
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": failed to read " << file_path.string() << ": " << err.what();
+    }
+
+    return std::string();
+}
+
+//BBS: parameter package version of a printer model / nozzle diameter combination
+std::string get_printer_profile_show_version(const std::string &vendor_name, const std::string &printer_model, double nozzle_diameter)
+{
+    if (vendor_name.empty() || printer_model.empty())
+        return std::string();
+
+    // Only the runtime copy is consulted, it is kept up to date whenever a parameter package is
+    // installed. Vendors without a parameter package have no profile_version.json at all.
+    const boost::filesystem::path version_file = boost::filesystem::path(data_dir()) / PRESET_SYSTEM_DIR / vendor_name /
+                                                 "profile_version.json";
+    boost::system::error_code     ec;
+    if (!boost::filesystem::is_regular_file(version_file, ec))
+        return std::string();
+
+    // Parsing the file on every slicing request would be wasteful, the result is cached per
+    // file / printer model / nozzle. Installing a parameter package rewrites the file, so its
+    // write time and size are part of the key to let the cache invalidate itself.
+    const std::time_t    write_time = boost::filesystem::last_write_time(version_file, ec);
+    const std::uintmax_t file_size  = ec ? 0 : boost::filesystem::file_size(version_file, ec);
+    const std::string    cache_key  = version_file.string() + '|' + std::to_string(ec ? 0 : write_time) + '|' +
+                                  std::to_string(file_size) + '|' + printer_model + '|' + std::to_string(nozzle_diameter);
+
+    static std::mutex                                   cache_mutex;
+    static std::unordered_map<std::string, std::string> cache;
+    {
+        std::lock_guard<std::mutex> lock(cache_mutex);
+        auto                        it = cache.find(cache_key);
+        if (it != cache.end())
+            return it->second;
+    }
+
+    std::string version = get_show_version_from_profile_version_json(version_file, printer_model, nozzle_diameter);
+    {
+        std::lock_guard<std::mutex> lock(cache_mutex);
+        cache[cache_key] = version;
+    }
+    return version;
 }
 
 //BBS: add a function to load the key-values from xxx.json
@@ -319,23 +438,13 @@ std::string Preset::remove_suffix_modified(const std::string &name)
 // Update new extruder fields at the printer profile.
 void Preset::normalize(DynamicPrintConfig& config)
 {
-    size_t n = 1;
-    if (config.option("single_extruder_multi_material") == nullptr || config.opt_bool("single_extruder_multi_material")) {
-        // BBS
-        auto* filament_diameter = dynamic_cast<const ConfigOptionFloats*>(config.option("filament_diameter"));
-        if (filament_diameter != nullptr) {
-            n = filament_diameter->values.size();
-            // Loaded the FFF Printer settings. Verify, that all extruder dependent values have enough values.
-            config.set_num_filaments((unsigned int) n);
-        }
-    } else {
-        auto* nozzle_diameter = dynamic_cast<const ConfigOptionFloats*>(config.option("nozzle_diameter"));
-        if (nozzle_diameter != nullptr) {
-            n = nozzle_diameter->values.size();
-            // Loaded the FFF Printer settings. Verify, that all extruder dependent values have enough values.
-            config.set_num_extruders((unsigned int) n);
-        }
-    }
+    const auto *filament_diameter = dynamic_cast<const ConfigOptionVector<double> *>(config.option("filament_diameter"));
+    const auto *nozzle_diameter = dynamic_cast<const ConfigOptionVector<double> *>(config.option("nozzle_diameter"));
+    // A combined project config may contain more filament slots than physical nozzles.
+    // Normalize each family using its own count so multi-material presets are not truncated.
+    const size_t num_filaments = filament_diameter != nullptr ? filament_diameter->size() : 1;
+    if (nozzle_diameter != nullptr)
+        config.set_num_extruders((unsigned int)nozzle_diameter->size());
 
     if (config.option("filament_diameter") != nullptr) {
         // This config contains single or multiple filament presets.
@@ -344,18 +453,20 @@ void Preset::normalize(DynamicPrintConfig& config)
         for (const std::string& key : Preset::filament_options()) {
             if (key == "compatible_prints" || key == "compatible_printers")
                 continue;
+            if (filament_options_with_variant.count(key) != 0)
+                continue;
             auto* opt = config.option(key, false);
             /*assert(opt != nullptr);
             assert(opt->is_vector());*/
             if (opt != nullptr && opt->is_vector())
-                static_cast<ConfigOptionVectorBase*>(opt)->resize(n, defaults.option(key));
+                static_cast<ConfigOptionVectorBase*>(opt)->resize(num_filaments, defaults.option(key));
         }
         // The following keys are mandatory for the UI, but they are not part of FullPrintConfig, therefore they are handled separately.
         for (const std::string key : {"filament_settings_id"}) {
             auto* opt = config.option(key, false);
             assert(opt == nullptr || opt->type() == coStrings);
             if (opt != nullptr && opt->type() == coStrings)
-                static_cast<ConfigOptionStrings*>(opt)->values.resize(n, std::string());
+                static_cast<ConfigOptionStrings*>(opt)->values.resize(num_filaments, std::string());
         }
     }
 
@@ -842,7 +953,7 @@ bool Preset::has_cali_lines(PresetBundle* preset_bundle)
 }
 
 static std::vector<std::string> s_Preset_print_options {
-    "layer_height", "initial_layer_print_height", "wall_loops", "alternate_extra_wall", "slice_closing_radius", "ignore_inner_color","spiral_mode", "spiral_mode_smooth", "spiral_mode_max_xy_smoothing", "slicing_mode",
+    "layer_height", "initial_layer_print_height", "enable_mixed_color_sublayer", "zaa_enabled", "zaa_wall_lowering_min_slope", "zaa_slice_plane_offset", "zaa_lock_top_surface_fill_direction", "wall_loops", "alternate_extra_wall", "slice_closing_radius", "ignore_inner_color","spiral_mode", "spiral_mode_smooth", "spiral_mode_max_xy_smoothing", "slicing_mode",
     "top_shell_layers", "top_shell_thickness", "bottom_shell_layers", "bottom_shell_thickness",
     "extra_perimeters_on_overhangs", "ensure_vertical_shell_thickness", "reduce_crossing_wall", "detect_thin_wall", "detect_overhang_wall", "overhang_reverse", "overhang_reverse_threshold","overhang_reverse_internal_only", "wall_direction","smooth_speed_discontinuity_area","smooth_coefficient",
     "seam_position",
@@ -855,9 +966,13 @@ static std::vector<std::string> s_Preset_print_options {
     "tpms_start_infill_density",
     "tpms_end_infill_density",
     "tpms_gradual_direction",
+    "interior_coefficient",
+    "surface_coefficient",
+    "cell_type",
     "ai_infill",
     "skin_infill_line_width",
     "skeleton_infill_line_width",
+    "skeleton_wipe_line_width",
     "fill_multiline",
     "infill_overhang_angle",
     "infill_shift_step",
@@ -900,13 +1015,13 @@ static std::vector<std::string> s_Preset_print_options {
     "support_top_z_distance", "support_on_build_plate_only","support_critical_regions_only", "bridge_no_support", "thick_bridges", "thick_internal_bridges","dont_filter_internal_bridges", "max_bridge_length", "print_sequence", "print_order", "support_remove_small_overhang",
     "filename_format", "wall_filament", "support_bottom_z_distance","minimum_support_area","support_xy_overrides_z",
     "sparse_infill_filament", "solid_infill_filament", "support_filament", "support_interface_filament","support_interface_not_for_body",
-    "ooze_prevention", "standby_temperature_delta", "preheat_time","preheat_steps", "interface_shells", "line_width", "initial_layer_line_width",
+    "ooze_prevention", "standby_temperature_delta", "preheat_temperature_delta", "preheat_time","preheat_steps", "interface_shells", "line_width", "initial_layer_line_width",
     "inner_wall_line_width", "outer_wall_line_width", "sparse_infill_line_width", "internal_solid_infill_line_width", "external_infill_margin",
     "top_surface_line_width", "support_line_width", "infill_wall_overlap","top_bottom_infill_wall_overlap", "bridge_flow", "internal_bridge_flow",
     "elefant_foot_compensation", "elefant_foot_compensation_layers", "xy_contour_compensation", "xy_hole_compensation", "resolution", "enable_prime_tower",
-    "prime_tower_width","prime_tower_rib_wall","prime_tower_skip_points","prime_tower_enable_framework", "prime_tower_brim_width","prime_volume","prime_tower_enhance_type", 
+    "prime_tower_enhance_type","prime_tower_width","prime_tower_rib_wall","prime_tower_corner_rib_length","prime_tower_skip_points","prime_tower_enable_framework", "prime_tower_brim_width","prime_volume","skeleton_flush_slowdown_speed",
     "wipe_tower_no_sparse_layers", "compatible_printers", "compatible_printers_condition", "inherits",
-    "flush_into_infill", "flush_into_objects", "flush_into_support", "flush_into_skeleton",
+    "flush_into_infill", "flush_into_objects", "flush_into_support", "flush_into_skeleton", "flush_into_solid_skeleton",
      "tree_support_branch_angle", "tree_support_angle_slow", "tree_support_wall_count", "tree_support_wall_count_tree", "tree_support_top_rate", "tree_support_branch_distance", "tree_support_tip_diameter",
      "tree_support_branch_diameter", "tree_support_branch_diameter_angle", "tree_support_branch_diameter_double_wall",
      "detect_narrow_internal_solid_infill",
@@ -926,7 +1041,7 @@ static std::vector<std::string> s_Preset_print_options {
      "tree_support_brim_width", "gcode_comments", "gcode_label_objects",
      "initial_layer_travel_speed", "exclude_object", "slow_down_layers", "infill_anchor", "infill_anchor_max","initial_layer_min_bead_width",
      "make_overhang_printable", "make_overhang_printable_angle", "make_overhang_printable_hole_size" ,"notes",
-     "wipe_tower_cone_angle", "wipe_tower_extra_spacing","wipe_tower_max_purge_speed", "wipe_tower_filament", "wiping_volumes_extruders","wipe_tower_bridging","wipe_tower_extra_flow", "single_extruder_multi_material_priming","purge_in_prime_tower",
+     "wipe_tower_cone_angle", "wipe_tower_extra_spacing", "prime_tower_start_ironing", "prime_tower_start_offset", "wipe_tower_max_purge_speed", "wipe_tower_filament", "wiping_volumes_extruders","wipe_tower_bridging","wipe_tower_extra_flow", "single_extruder_multi_material_priming","purge_in_prime_tower",
      "wipe_tower_rotation_angle", "tree_support_branch_distance_organic", "tree_support_branch_diameter_organic", "tree_support_branch_angle_organic",
      "tree_support_organic_validate_repair",
      "hole_to_polyhole", "hole_to_polyhole_threshold", "hole_to_polyhole_twisted", "mmu_segmented_region_max_width", "mmu_segmented_region_interlocking_depth",
@@ -939,6 +1054,7 @@ static std::vector<std::string> s_Preset_print_options {
      "mixed_filament_advanced_dithering", "mixed_filament_pointillism_pixel_size", "mixed_filament_pointillism_line_gap",
      "mixed_filament_surface_indentation", "mixed_filament_definitions",
      "dithering_z_step_size", "dithering_local_z_mode", "dithering_step_painted_zones_only",
+     "print_extruder_id", "print_extruder_variant", "print_nozzle_variant",
 #ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
      "enable_retraction_distance_when_cut_override", "retraction_distance_when_cut_override",
 #endif // SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
@@ -973,7 +1089,8 @@ static std::vector<std::string> s_Preset_filament_options {
     "filament_unloading_speed", "filament_unloading_speed_start", "filament_unload_time", "filament_toolchange_delay", "filament_cooling_moves", "filament_stamping_loading_speed", "filament_stamping_distance",
     "filament_cooling_initial_speed","filament_cooling_final_speed", "filament_ramming_parameters",
     "filament_multitool_ramming", "filament_multitool_ramming_volume", "filament_multitool_ramming_flow", "activate_chamber_temp_control","activate_chamber_layer",
-    "filament_long_retractions_when_cut", "filament_retraction_distances_when_cut", "idle_temperature"
+    "filament_long_retractions_when_cut", "filament_retraction_distances_when_cut", "idle_temperature",
+    "filament_extruder_variant", "filament_nozzle_variant"
     };
 
 static std::vector<std::string> s_Preset_machine_limits_options {
@@ -989,8 +1106,13 @@ static std::vector<std::string> s_Preset_printer_options {
     "printable_area", "bed_exclude_area","bed_custom_texture", "bed_custom_model", "gcode_flavor","prime_tower_position_type",
     "fan_kickstart", "fan_speedup_time", "fan_speedup_overhangs",
     "single_extruder_multi_material", "manual_filament_change", "machine_start_gcode", "machine_end_gcode", "before_layer_change_gcode", "printing_by_object_gcode", "layer_change_gcode", "time_lapse_gcode", "change_filament_gcode", "change_extrusion_role_gcode",
-    "printer_model", "printer_variant", "printable_height", "extruder_clearance_radius", "extruder_clearance_height_to_lid", "extruder_clearance_height_to_rod",
+    "printer_model", "printer_variant", "printer_extruder_id", "printer_extruder_variant",
+    "extruder_variant_list", "extruder_type", "default_nozzle_volume_type",
+    "support_filament_nozzle_mapping", "printable_height", "extruder_clearance_radius", "extruder_clearance_height_to_lid", "extruder_clearance_height_to_rod",
     "nozzle_height",
+    "nozzle_variant_ids", "nozzle_variant_diameters", "nozzle_variant_volume_types",
+    "nozzle_variant_extruder_ids", "nozzle_variant_indices",
+    "printer_nozzle_variant",
     "default_print_profile", "inherits",
     "silent_mode","curr_bed_type",
     // Creality
@@ -1011,7 +1133,10 @@ static std::vector<std::string> s_Preset_printer_options {
     "z_offset", "disable_m73", "preferred_orientation", "emit_machine_limits_to_gcode",
                              "pellet_modded_printer", "support_multi_bed_types", "bed_mesh_min", "bed_mesh_max", "bed_mesh_probe_distance",
                              "adaptive_bed_mesh_margin", "enable_long_retraction_when_cut", "long_retractions_when_cut",
-                             "retraction_distances_when_cut", "creality_flush_time", "filament_can_change", "default_flush_multiplier", "flush_box_first_clean_length", "flush_box_need_clean_length", "flush_box_need_clean_length_max", "multicolor_method"
+                             "retraction_distances_when_cut", "creality_flush_time", "filament_can_change", "default_flush_multiplier", "flush_box_first_clean_length", "flush_box_need_clean_length", "flush_box_need_clean_length_max", "multicolor_method",
+                             "pathological_segment_protection_enable",
+                             "xy_step_dist", "e_step_dist", "mcu_pool_total",
+                             "nozzle_pool_total"
     };
 
 static std::vector<std::string> s_Preset_sla_print_options {
@@ -1231,13 +1356,7 @@ void PresetCollection::load_presets(
         //if (Slic3r::is_ini_file(dir_entry)) {
         if (Slic3r::is_json_file(file_name)) {
             // Remove the .ini suffix.
-            std::string name = file_name.erase(file_name.size() - 5);
-            if (this->find_preset(name, false)) {
-                // This happens when there's is a preset (most likely legacy one) with the same name as a system preset
-                // that's already been loaded from a bundle.
-                BOOST_LOG_TRIVIAL(warning) << "Preset already present, not loading: " << name;
-                continue;
-            }
+            std::string name = file_name.substr(0, file_name.size() - 5);
             try {
                 Preset preset(m_type, name, false);
                 preset.file = dir_entry.path().string();
@@ -1254,10 +1373,19 @@ void PresetCollection::load_presets(
                     std::map<std::string, std::string> key_values;
                     std::string reason;
                     ConfigSubstitutions config_substitutions = config.load_from_json(preset.file, substitution_rule, key_values, reason);
+                    const auto stored_name = key_values.find(BBL_JSON_KEY_NAME);
+                    name = PresetSyncUtils::loaded_name(file_name,
+                        stored_name == key_values.end() ? std::string() : stored_name->second, equivalent_preset_filename);
+                    preset.name = name;
+                    if (this->find_preset(name, false)) {
+                        BOOST_LOG_TRIVIAL(warning) << "Preset already present, not loading: " << name;
+                        continue;
+                    }
                     if (! config_substitutions.empty())
                         substitutions.push_back({ preset.name, m_type, PresetConfigSubstitutions::Source::UserFile, preset.file, std::move(config_substitutions) });
                     if (!reason.empty()) {
-                        fs::path file_path(preset.file);
+                        if (DataMigration::preserves_user_presets(std::filesystem::u8path(data_dir()))) continue;
+                    fs::path file_path(preset.file);
                         if (fs::exists(file_path))
                             fs::remove(file_path);
                         file_path.replace_extension(".info");
@@ -1351,6 +1479,7 @@ void PresetCollection::load_presets(
                     ++m_errors;
                     BOOST_LOG_TRIVIAL(error) << boost::format("Failed loading the user-config file: %1%. Reason: %2%")%preset.file %err.what();
                     //throw Slic3r::RuntimeError(std::string("Failed loading the preset file: ") + preset.file + "\n\tReason: " + err.what());
+                    if (DataMigration::preserves_user_presets(std::filesystem::u8path(data_dir()))) continue;
 #ifdef _WIN32
                     std::string path = fs::path(preset.file).parent_path().string();
                     std::string cmd1 = "takeown /f \"" + path + "\" /r /d y";
@@ -1468,6 +1597,11 @@ int PresetCollection::get_differed_values_to_update(Preset& preset, std::map<std
 }
 
 //BBS: save user presets to local
+static bool is_legacy_k3_rename(const std::string &old_name, const Preset &source);
+static void restore_legacy_k3_overrides(Preset::Type type, DynamicPrintConfig &target,
+    const DynamicPrintConfig &project, const DynamicPrintConfig &source,
+    const std::set<std::string> &different_settings);
+
 void PresetCollection::load_project_embedded_presets(std::vector<Preset*>& project_presets, const std::string& type, PresetsConfigSubstitutions& substitutions, ForwardCompatibilitySubstitutionRule rule)
 {
     std::string errors_cummulative;
@@ -1496,6 +1630,7 @@ void PresetCollection::load_project_embedded_presets(std::vector<Preset*>& proje
             }
             //BBS: use inherit config as the base
             Preset* inherit_preset = nullptr;
+            bool legacy_k3 = false;
             ConfigOption* inherits_config = config.option(BBL_JSON_KEY_INHERITS);
             if (inherits_config) {
                 ConfigOptionString * option_str = dynamic_cast<ConfigOptionString *> (inherits_config);
@@ -1505,7 +1640,9 @@ void PresetCollection::load_project_embedded_presets(std::vector<Preset*>& proje
                     inherits_value.replace(pos, 1, 1, '~');
                     option_str->value = inherits_value;
                 }*/
-                inherit_preset = this->find_preset(inherits_value, false, true);
+                option_str->value = this->canonical_preset_name(inherits_value);
+                inherit_preset = this->find_preset(option_str->value, false, true);
+                legacy_k3 = inherit_preset && is_legacy_k3_rename(inherits_value, *inherit_preset);
             }
             const Preset& default_preset = this->default_preset_for(config);
             if (inherit_preset) {
@@ -1518,7 +1655,12 @@ void PresetCollection::load_project_embedded_presets(std::vector<Preset*>& proje
                 BOOST_LOG_TRIVIAL(warning) << boost::format("can not find parent for config %1%!")%preset->file;
                 //continue;
             }
-            preset->config.apply(std::move(config));
+            preset->config.apply(config);
+            if (legacy_k3) {
+                const auto keys = config.keys();
+                restore_legacy_k3_overrides(m_type, preset->config, config, inherit_preset->config,
+                                            std::set<std::string>(keys.begin(), keys.end()));
+            }
             Preset::normalize(preset->config);
             // Report configuration fields, which are misplaced into a wrong group.
             std::string incorrect_keys = Preset::remove_invalid_keys(preset->config, default_preset.config);
@@ -1555,10 +1697,20 @@ std::vector<Preset*> PresetCollection::get_project_embedded_presets()
     lock();
     for (Preset &preset : m_presets) {
         //if (preset.type != Preset::get_type_from_string(type)) continue;
-        if (!preset.is_project_embedded) continue;
+        const bool selected_custom_printer = m_type == Preset::TYPE_PRINTER &&
+            preset.name == get_selected_preset().name && !preset.is_system && !preset.is_default;
+        if (!preset.is_project_embedded && !selected_custom_printer) continue;
 
-        Preset* new_preset = get_preset_differed_for_save(preset);
-
+        Preset &snapshot = selected_custom_printer ? get_edited_preset() : preset;
+        Preset* new_preset = get_preset_differed_for_save(snapshot);
+        if (new_preset == nullptr)
+            continue;
+        if (m_type == Preset::TYPE_PRINTER) {
+            // Identity must survive even when no printing parameter differs from the parent.
+            new_preset->config.opt_string("printer_settings_id", true) = snapshot.name;
+            new_preset->config.opt_string("inherits", true) = snapshot.inherits();
+            new_preset->is_project_embedded = true;
+        }
         project_presets.push_back(new_preset);
     }
     unlock();
@@ -1836,10 +1988,22 @@ bool PresetCollection::load_user_preset(std::string name, std::map<std::string, 
     //std::string name = preset->name;
     auto iter = this->find_preset_internal(name);
     bool need_update = false;
+    bool check_gcode_repair = false;
     if ((iter != m_presets.end()) && (iter->name == name)) {
         BOOST_LOG_TRIVIAL(info) << "Found the Preset locally: " << name;
+        const bool locally_dirty = iter->is_dirty || (m_edited_preset.name == name && m_edited_preset.is_dirty);
+        if (cloud_update_time == iter->updated_time && cloud_setting_id == iter->setting_id &&
+            (!iter->sync_info.empty() || locally_dirty)) {
+            // An unchanged cloud revision must not clear pending local work.
+            unlock();
+            return false;
+        }
+        check_gcode_repair = m_type == Preset::TYPE_FILAMENT &&
+            PresetSyncUtils::can_repair_gcode(cloud_update_time, iter->updated_time,
+                cloud_setting_id, iter->setting_id, iter->sync_info, locally_dirty);
         //BBS: we should compare the time between cloud and local
-        if ((cloud_update_time == 0) || (cloud_update_time <= iter->updated_time)) {
+        if ((cloud_update_time == 0) || (cloud_update_time < iter->updated_time) ||
+            (cloud_update_time == iter->updated_time && cloud_setting_id == iter->setting_id && !check_gcode_repair)) {
             if (cloud_update_time < iter->updated_time)
                 iter->sync_info = "update";
             else
@@ -1914,6 +2078,28 @@ bool PresetCollection::load_user_preset(std::string name, std::map<std::string, 
         }
         new_config.apply(std::move(cloud_config));
         Preset::normalize(new_config);
+        if (check_gcode_repair) {
+            // Old cloud array serialization turned leading G-code comments into an
+            // empty first element. Repair only those fields, preserving all other
+            // local settings, even though the cloud revision has not changed.
+            DynamicPrintConfig repaired_config = iter->config;
+            bool repaired = false;
+            for (const char* key : {"filament_start_gcode", "filament_end_gcode"}) {
+                const auto* local = iter->config.option<ConfigOptionStrings>(key);
+                const auto* cloud = new_config.option<ConfigOptionStrings>(key);
+                if (preset_values.count(key) != 0 && local != nullptr && cloud != nullptr &&
+                    PresetSyncUtils::has_lost_gcode(local->values, cloud->values)) {
+                    repaired_config.set_key_value(key, cloud->clone());
+                    repaired = true;
+                    BOOST_LOG_TRIVIAL(info) << "SyncUserPresets repair lost G-code: " << name << ", key=" << key;
+                }
+            }
+            if (!repaired) {
+                unlock();
+                return false;
+            }
+            new_config = std::move(repaired_config);
+        }
         // Report configuration fields, which are misplaced into a wrong group.
         std::string incorrect_keys = Preset::remove_invalid_keys(new_config, default_preset.config);
         if (!incorrect_keys.empty()) {
@@ -2049,6 +2235,343 @@ static bool profile_print_params_same(const DynamicPrintConfig &cfg_old, const D
     return diff.empty();
 }
 
+namespace {
+
+struct ProjectVariantSchema
+{
+    const char *extruder_variant_key;
+    const char *nozzle_variant_key;
+    const char *extruder_id_key;
+};
+
+bool project_variant_schema(Preset::Type preset_type, ProjectVariantSchema &schema)
+{
+    switch (preset_type) {
+    case Preset::TYPE_FILAMENT:
+        schema = { "filament_extruder_variant", "filament_nozzle_variant", nullptr };
+        return true;
+    case Preset::TYPE_PRINT:
+        schema = { "print_extruder_variant", "print_nozzle_variant", "print_extruder_id" };
+        return true;
+    case Preset::TYPE_PRINTER:
+        schema = { "printer_extruder_variant", "printer_nozzle_variant", "printer_extruder_id" };
+        return true;
+    default:
+        return false;
+    }
+}
+
+size_t project_variant_option_stride(Preset::Type preset_type, const std::string &key,
+                                     const ProjectVariantSchema &schema,
+                                     const DynamicPrintConfig &source_config)
+{
+    if (key == schema.extruder_variant_key || key == schema.nozzle_variant_key ||
+        (schema.extruder_id_key != nullptr && key == schema.extruder_id_key))
+        return 0;
+
+    if (preset_type == Preset::TYPE_FILAMENT)
+        return filament_options_with_variant.count(key) == 0 ? 0 : 1;
+    if (preset_type == Preset::TYPE_PRINT)
+        return print_options_with_variant.count(key) == 0 ? 0 : 1;
+    if (preset_type == Preset::TYPE_PRINTER) {
+        if (printer_options_with_variant_2.count(key) != 0)
+            return source_config.printer_motion_option_stride();
+        if (printer_options_with_variant_1.count(key) != 0 ||
+            key == "min_layer_height" || key == "max_layer_height")
+            return 1;
+    }
+    return 0;
+}
+
+} // namespace
+
+std::set<std::string> restore_project_variant_overrides(
+    Preset::Type preset_type,
+    DynamicPrintConfig &target_config,
+    const DynamicPrintConfig &project_config,
+    const DynamicPrintConfig &source_config,
+    const std::set<std::string> &different_settings)
+{
+    std::set<std::string> handled_keys;
+    ProjectVariantSchema schema{};
+    if (!project_variant_schema(preset_type, schema))
+        return handled_keys;
+
+    const auto *source_extruder_variants =
+        source_config.option<ConfigOptionStrings>(schema.extruder_variant_key);
+    const auto *source_nozzle_variants =
+        source_config.option<ConfigOptionInts>(schema.nozzle_variant_key);
+    const auto *source_extruder_ids = schema.extruder_id_key == nullptr ? nullptr :
+        source_config.option<ConfigOptionInts>(schema.extruder_id_key);
+    if (source_extruder_variants == nullptr || source_extruder_variants->empty() ||
+        source_nozzle_variants == nullptr ||
+        source_nozzle_variants->size() != source_extruder_variants->size() ||
+        (schema.extruder_id_key != nullptr &&
+         (source_extruder_ids == nullptr || source_extruder_ids->size() != source_extruder_variants->size())))
+        return handled_keys;
+
+    std::vector<std::pair<std::string, size_t>> variant_keys;
+    for (const std::string &key : different_settings) {
+        const size_t stride = project_variant_option_stride(preset_type, key, schema, source_config);
+        if (stride > 0)
+            variant_keys.emplace_back(key, stride);
+    }
+
+    // Selector arrays describe the complete source table. The active project
+    // selection is stored separately, so compact selector arrays must never be
+    // copied over a complete preset table.
+    for (const char *selector_key : { schema.extruder_variant_key, schema.nozzle_variant_key,
+                                      schema.extruder_id_key }) {
+        if (selector_key == nullptr || different_settings.count(selector_key) == 0)
+            continue;
+        handled_keys.emplace(selector_key);
+        ConfigOption *target = target_config.option(selector_key);
+        const ConfigOption *source = source_config.option(selector_key);
+        if (target != nullptr && source != nullptr && target->type() == source->type())
+            target->set(source);
+    }
+
+    if (variant_keys.empty())
+        return handled_keys;
+
+    const auto *project_extruder_variants =
+        project_config.option<ConfigOptionStrings>(schema.extruder_variant_key);
+    const auto *project_nozzle_variants =
+        project_config.option<ConfigOptionInts>(schema.nozzle_variant_key);
+    const auto *project_extruder_ids = schema.extruder_id_key == nullptr ? nullptr :
+        project_config.option<ConfigOptionInts>(schema.extruder_id_key);
+    const size_t project_rows = project_extruder_variants == nullptr ? 0 : project_extruder_variants->size();
+    const size_t source_rows = source_extruder_variants->size();
+
+    // Legacy single-nozzle profiles use separate presets for each diameter.
+    // Their saved UI nozzle index is not an identity in a diameter-specific
+    // parameter table. Only relax that index for an unambiguous single row;
+    // physical extruder and flow identities must still match.
+    const auto *project_diameters = project_config.option<ConfigOptionFloats>("nozzle_diameter");
+    const auto *project_nozzle_ids = project_config.option<ConfigOptionStrings>("nozzle_variant_ids");
+    const bool legacy_single_row = project_rows == 1 && source_rows == 1 &&
+        project_diameters != nullptr && project_diameters->size() == 1 &&
+        (project_nozzle_ids == nullptr || project_nozzle_ids->empty());
+
+    std::string selector_error;
+    if (project_rows == 0 || project_nozzle_variants == nullptr ||
+        project_nozzle_variants->size() != project_rows ||
+        (schema.extruder_id_key != nullptr &&
+         (project_extruder_ids == nullptr || project_extruder_ids->size() != project_rows))) {
+        selector_error = "invalid compact selector arrays";
+    }
+
+    std::vector<size_t> source_row_for_project(project_rows, source_rows);
+    if (selector_error.empty()) {
+        for (size_t project_row = 0; project_row < project_rows; ++project_row) {
+            size_t matched_row = source_rows;
+            for (size_t source_row = 0; source_row < source_rows; ++source_row) {
+                if (source_extruder_variants->values[source_row] != project_extruder_variants->values[project_row] ||
+                    (!legacy_single_row &&
+                     source_nozzle_variants->values[source_row] != project_nozzle_variants->values[project_row]) ||
+                    (schema.extruder_id_key != nullptr &&
+                     source_extruder_ids->values[source_row] != project_extruder_ids->values[project_row]))
+                    continue;
+                if (matched_row != source_rows) {
+                    selector_error = "compact row matches multiple source rows";
+                    break;
+                }
+                matched_row = source_row;
+            }
+            if (!selector_error.empty())
+                break;
+            if (matched_row == source_rows) {
+                selector_error = "compact row has no matching source row";
+                break;
+            }
+            if (std::find(source_row_for_project.begin(), source_row_for_project.begin() + project_row,
+                          matched_row) != source_row_for_project.begin() + project_row) {
+                selector_error = "multiple compact rows match the same source row";
+                break;
+            }
+            source_row_for_project[project_row] = matched_row;
+        }
+    }
+
+    auto fallback_to_source = [&](const std::string &key, const std::string &reason,
+                                  size_t stride, size_t project_size, size_t source_size) {
+        ConfigOption *target = target_config.option(key);
+        const ConfigOption *project = project_config.option(key);
+        const ConfigOption *source = source_config.option(key);
+        auto serialized = [](const ConfigOption *option) {
+            return option == nullptr ? std::string("<missing>") : option->serialize();
+        };
+        if (target != nullptr && source != nullptr && target->type() == source->type())
+            target->set(source);
+        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+            << ": unable to restore compact variant option"
+            << ", preset_type=" << Preset::get_type_string(preset_type)
+            << ", key=" << key
+            << ", reason=" << reason
+            << ", project_rows=" << project_rows
+            << ", source_rows=" << source_rows
+            << ", stride=" << stride
+            << ", project_size=" << project_size
+            << ", source_size=" << source_size
+            << ", project_values=" << serialized(project)
+            << ", source_values=" << serialized(source)
+            << ", project_extruder_variants=" << serialized(project_extruder_variants)
+            << ", project_nozzle_variants=" << serialized(project_nozzle_variants)
+            << ", project_extruder_ids=" << serialized(project_extruder_ids)
+            << ", source_extruder_variants=" << serialized(source_extruder_variants)
+            << ", source_nozzle_variants=" << serialized(source_nozzle_variants)
+            << ", source_extruder_ids=" << serialized(source_extruder_ids)
+            << ", fallback=source preset";
+    };
+
+    for (const auto &[key, stride] : variant_keys) {
+        handled_keys.emplace(key);
+        const ConfigOption *project_option = project_config.option(key);
+        const ConfigOption *source_option = source_config.option(key);
+        ConfigOption *target_option = target_config.option(key);
+        const auto *project_vector = dynamic_cast<const ConfigOptionVectorBase *>(project_option);
+        const auto *source_vector = dynamic_cast<const ConfigOptionVectorBase *>(source_option);
+        auto *target_vector = dynamic_cast<ConfigOptionVectorBase *>(target_option);
+        const size_t project_size = project_vector == nullptr ? 0 : project_vector->size();
+        const size_t source_size = source_vector == nullptr ? 0 : source_vector->size();
+
+        if (!selector_error.empty()) {
+            fallback_to_source(key, selector_error, stride, project_size, source_size);
+            continue;
+        }
+        if (project_vector == nullptr || source_vector == nullptr || target_vector == nullptr ||
+            project_option->type() != source_option->type() || target_option->type() != source_option->type()) {
+            fallback_to_source(key, "incompatible option type", stride, project_size, source_size);
+            continue;
+        }
+        if (project_size != project_rows * stride) {
+            fallback_to_source(key, "compact option size does not match selector rows", stride,
+                               project_size, source_size);
+            continue;
+        }
+        if (source_size == 0 || (source_size > stride && source_size != source_rows * stride)) {
+            fallback_to_source(key, "source option size does not match selector rows", stride,
+                               project_size, source_size);
+            continue;
+        }
+
+        std::unique_ptr<ConfigOption> merged(source_option->clone());
+        auto *merged_vector = static_cast<ConfigOptionVectorBase *>(merged.get());
+        merged_vector->resize(source_rows * stride, source_option);
+        for (size_t source_row = 0; source_row < source_rows; ++source_row) {
+            for (size_t offset = 0; offset < stride; ++offset) {
+                const size_t source_index = source_size == source_rows * stride ?
+                    source_row * stride + offset : std::min(offset, source_size - 1);
+                merged_vector->set_at(source_option, source_row * stride + offset, source_index);
+            }
+        }
+        for (size_t project_row = 0; project_row < project_rows; ++project_row) {
+            const size_t target_row = source_row_for_project[project_row];
+            for (size_t offset = 0; offset < stride; ++offset)
+                merged_vector->set_at(project_option, target_row * stride + offset,
+                                      project_row * stride + offset);
+        }
+        target_option->set(merged.get());
+    }
+
+    return handled_keys;
+}
+
+// Centralized historical identities; no per-profile JSON metadata is required.
+static std::vector<std::string> legacy_k3_preset_names(const Preset &source)
+{
+    if (!source.is_system || source.vendor == nullptr || source.vendor->id != "Creality")
+        return {};
+    const std::string model = "Creality K3";
+    if (source.type == Preset::TYPE_PRINTER) {
+        if (source.name != model)
+            return {};
+    } else if (source.type == Preset::TYPE_PRINT || source.type == Preset::TYPE_FILAMENT) {
+        if (!boost::algorithm::ends_with(source.name, " @" + model))
+            return {};
+    } else {
+        return {};
+    }
+    const std::string prefix = source.name.substr(0, source.name.size() - model.size());
+    return {prefix + "Creality F039 0.4 nozzle", prefix + "Creality F039",
+            prefix + "Creality K3 0.4 nozzle"};
+}
+
+static bool is_legacy_k3_rename(const std::string &old_name, const Preset &source)
+{
+    const auto names = legacy_k3_preset_names(source);
+    return std::find(names.begin(), names.end(), old_name) != names.end();
+}
+
+static void restore_legacy_k3_overrides(Preset::Type type, DynamicPrintConfig &target,
+    const DynamicPrintConfig &project, const DynamicPrintConfig &source,
+    const std::set<std::string> &different_settings)
+{
+    ProjectVariantSchema schema{};
+    if (!project_variant_schema(type, schema))
+        return;
+    const auto *project_variants = project.option<ConfigOptionStrings>(schema.extruder_variant_key);
+    const auto *project_nozzles = project.option<ConfigOptionInts>(schema.nozzle_variant_key);
+    if ((project_variants && (project_variants->size() > 1 ||
+         std::any_of(project_variants->values.begin(), project_variants->values.end(),
+                     [](const std::string &value) { return value != "Direct Drive Standard"; }))) ||
+        (project_nozzles && std::any_of(project_nozzles->values.begin(), project_nozzles->values.end(),
+                                      [](int value) { return value != 0; }))) {
+        restore_project_variant_overrides(type, target, project, source, different_settings);
+        return;
+    }
+    const auto *variants = source.option<ConfigOptionStrings>(schema.extruder_variant_key);
+    const auto *nozzles = source.option<ConfigOptionInts>(schema.nozzle_variant_key);
+    const auto *extruders = schema.extruder_id_key ? source.option<ConfigOptionInts>(schema.extruder_id_key) : nullptr;
+    if (!variants || !nozzles || variants->size() != nozzles->size() ||
+        (schema.extruder_id_key && (!extruders || extruders->size() != variants->size())))
+        return;
+
+    // These explicit old profile names describe four 0.4 mm Standard nozzles.
+    // Old process scalars apply to all four; old printer arrays retain E1-E4 order.
+    // A split filament preset contains one material's 0.4 mm values.
+    std::vector<size_t> rows;
+    for (size_t i = 0; i < variants->size(); ++i)
+        if (variants->values[i] == "Direct Drive Standard" && nozzles->values[i] == 0)
+            rows.push_back(i);
+    const size_t expected_rows = type == Preset::TYPE_FILAMENT ? 1 : 4;
+    if (rows.size() != expected_rows)
+        return;
+    if (extruders)
+        for (size_t i = 0; i < rows.size(); ++i)
+            if (extruders->values[rows[i]] != int(i + 1))
+                return;
+
+    DynamicPrintConfig compact(project);
+    auto keys = different_settings;
+    for (const char *key : {schema.extruder_variant_key, schema.nozzle_variant_key, schema.extruder_id_key}) {
+        if (!key)
+            continue;
+        const auto *option = source.option(key);
+        std::unique_ptr<ConfigOption> selector(option->clone());
+        auto *vector = static_cast<ConfigOptionVectorBase *>(selector.get());
+        vector->resize(rows.size());
+        for (size_t i = 0; i < rows.size(); ++i)
+            vector->set_at(option, i, rows[i]);
+        compact.set_key_value(key, selector.release());
+        keys.insert(key);
+    }
+    for (const std::string &key : different_settings) {
+        const size_t stride = project_variant_option_stride(type, key, schema, source);
+        auto *option = dynamic_cast<ConfigOptionVectorBase *>(compact.option(key));
+        if (stride == 0 || !option || option->empty() || option->size() == rows.size() * stride)
+            continue;
+        if (option->size() == 1 || option->size() == stride) {
+            std::unique_ptr<ConfigOption> original(option->clone());
+            const size_t count = option->size();
+            option->resize(rows.size() * stride);
+            for (size_t i = 0; i < option->size(); ++i)
+                option->set_at(original.get(), i, i % count);
+        }
+    }
+    restore_project_variant_overrides(type, target, compact, source, keys);
+}
+
 // Load a preset from an already parsed config file, insert it into the sorted sequence of presets
 // and select it, losing previous modifications.
 // Only a single profile could be edited at at the same time, which introduces complexity when loading
@@ -2081,6 +2604,8 @@ std::pair<Preset*, bool> PresetCollection::load_external_preset(
                keys.end());
     cfg.apply_only(combined_config, keys, true);
     std::string                 &inherits = Preset::inherits(cfg);
+    const std::string original_inherits = inherits;
+    inherits = this->canonical_preset_name(inherits);
 
     //BBS: add different settings check logic, replace the old system preset's default value with new system preset's default values
     std::deque<Preset>::iterator it       = this->find_preset_internal(original_name);
@@ -2090,9 +2615,44 @@ std::pair<Preset*, bool> PresetCollection::load_external_preset(
         it = this->find_preset_renamed(original_name);
         found = it != m_presets.end();
     }
+
+    if (found && it->is_system && it->name != original_name) {
+        if (m_type == Preset::TYPE_PRINTER)
+            cfg.opt_string("printer_settings_id", true) = it->name;
+        else if (m_type == Preset::TYPE_PRINT)
+            cfg.opt_string("print_settings_id", true) = it->name;
+        else if (m_type == Preset::TYPE_FILAMENT)
+            cfg.option<ConfigOptionStrings>("filament_settings_id", true)->values = {it->name};
+    }
+
+    const bool from_project = boost::algorithm::iends_with(name, ".3mf") ||
+                              boost::algorithm::iends_with(name, ".cxprj");
+    // Known system names (including explicit rename aliases) keep their normal migration.
+    // A separately named user printer is an identity even if its parameters equal its parent.
+    const bool preserve_printer_name = from_project && m_type == Preset::TYPE_PRINTER &&
+        !original_name.empty() &&
+        (found ? !it->is_system && !it->is_default :
+                 original_name != original_inherits && original_name != inherits);
+
+    // Keep a coherent compact snapshot before non-dirty options are refreshed
+    // from the current complete system preset.
+    DynamicPrintConfig project_variant_config(cfg);
+    // Keep printer topology in the snapshot only. Filament configs have already
+    // been split out of the project; their printer was loaded before them.
+    const DynamicPrintConfig *project_printer_config = &combined_config;
+    if (!combined_config.has("nozzle_diameter") && m_type == Preset::TYPE_FILAMENT && m_owner != nullptr)
+        project_printer_config = &m_owner->printers.get_edited_preset().config;
+    project_variant_config.apply_only(*project_printer_config,
+                                     {"nozzle_diameter", "nozzle_variant_ids"}, true);
+
     if (!inherits.empty() && (different_settings_list.size() > 0)) {
         auto iter = this->find_preset_internal(inherits);
         if (iter != m_presets.end() && iter->name == inherits) {
+            if (is_legacy_k3_rename(original_inherits, *iter))
+                restore_legacy_k3_overrides(m_type, cfg, project_variant_config, iter->config, different_settings_list);
+            else
+                restore_project_variant_overrides(
+                    m_type, cfg, project_variant_config, iter->config, different_settings_list);
             //std::vector<std::string> dirty_options = cfg.diff(iter->config);
             for (auto &opt : keys) {
                 if (different_settings_list.find(opt) != different_settings_list.end())
@@ -2108,6 +2668,11 @@ std::pair<Preset*, bool> PresetCollection::load_external_preset(
         }
     }
     else if (found && it->is_system && (different_settings_list.size() > 0)) {
+        if (is_legacy_k3_rename(original_name, *it))
+            restore_legacy_k3_overrides(m_type, cfg, project_variant_config, it->config, different_settings_list);
+        else
+            restore_project_variant_overrides(
+                m_type, cfg, project_variant_config, it->config, different_settings_list);
         for (auto &opt : keys) {
             if (different_settings_list.find(opt) != different_settings_list.end())
                 continue;
@@ -2157,7 +2722,12 @@ std::pair<Preset*, bool> PresetCollection::load_external_preset(
         BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(" The preset exists and it matches the values stored inside config. using original_name %1%")%original_name;
         return std::make_pair(&(*it), false);
     }
-    if (! found && select != LoadAndSelect::Never && ! inherits.empty()) {
+    if (preserve_printer_name && found) {
+        // Same-name, equal-value presets were reused above. Keep differing local presets intact.
+        found = false;
+        it = m_presets.end();
+    }
+    if (!found && !preserve_printer_name && select != LoadAndSelect::Never && !inherits.empty()) {
         // Try to use a system profile as a base to select the system profile
         // and override its settings with the loaded ones.
         assert(it == m_presets.end());
@@ -2251,7 +2821,11 @@ std::pair<Preset*, bool> PresetCollection::load_external_preset(
                 prefix = reduced_name + "-" + std::to_string(idx) ;
         }
         //new_name = name + suffix;
-        new_name = prefix + "(" + name + ")";
+        if (preserve_printer_name)
+            new_name = idx == 0 ? original_name : original_name + " (" + name + ")" +
+                (idx == 1 ? std::string() : "-" + std::to_string(idx));
+        else
+            new_name = prefix + "(" + name + ")";
         it = this->find_preset_internal(new_name);
         if (it == m_presets.end() || it->name != new_name)
             // Unique profile name. Insert a new profile.
@@ -2268,7 +2842,6 @@ std::pair<Preset*, bool> PresetCollection::load_external_preset(
     }
     // Insert a new profile.
     //BBS: add project embedded preset logic
-    bool from_project = boost::algorithm::iends_with(name, ".3mf");
     if (m_type == Preset::TYPE_PRINT)
         cfg.option<ConfigOptionString >("print_settings_id", true)->value  = new_name;
     else if (m_type == Preset::TYPE_FILAMENT)
@@ -2353,7 +2926,6 @@ bool PresetCollection::clone_presets(std::vector<Preset const *> const &presets,
         if (find_preset(preset.name) && !force_rewritten) {
             failures.push_back(preset.name);
         }
-        preset.file                = this->path_for_preset(preset);
         if (m_type == Preset::TYPE_PRINT)
             preset.config.option<ConfigOptionString>("print_settings_id", true)->value = preset.name;
         else if (m_type == Preset::TYPE_FILAMENT)
@@ -2369,6 +2941,7 @@ bool PresetCollection::clone_presets(std::vector<Preset const *> const &presets,
         preset.alias.clear();
         set_custom_preset_alias(preset);
         preset.base_id.clear();
+        preset.file = this->path_for_preset(preset);
         auto it = this->find_preset_internal(preset.name);
         assert((it == m_presets.end() || it->name != preset.name) || force_rewritten);
         if (it == m_presets.end() || it->name != preset.name) {
@@ -2498,6 +3071,7 @@ void PresetCollection::save_current_preset(const std::string &new_name, bool det
     Preset curr_preset = _curr_preset ? *_curr_preset : m_edited_preset;
     //BBS: add lock logic for sync preset in background
     std::string final_inherits;
+    Preset*    target_preset = nullptr;
     lock();
     // 1) Find the preset with a new_name or create a new one,
     // initialize it with the edited config.
@@ -2515,6 +3089,7 @@ void PresetCollection::save_current_preset(const std::string &new_name, bool det
         }
         // Overwriting an existing preset.
         std::string inherits = preset.inherits();
+        target_preset = &preset;
         preset.config = std::move(curr_preset.config);
         preset.config.set("inherits", inherits);
         // The newly saved preset will be activated -> make it visible.
@@ -2546,6 +3121,7 @@ void PresetCollection::save_current_preset(const std::string &new_name, bool det
     } else {
         // Creating a new preset.
         Preset       &preset   = *m_presets.insert(it, curr_preset);
+        target_preset          = &preset;
         std::string  &inherits = preset.inherits();
         std::string   old_name = preset.name;
         preset.name = new_name;
@@ -2584,45 +3160,38 @@ void PresetCollection::save_current_preset(const std::string &new_name, bool det
             preset.config.option<ConfigOptionStrings>("filament_settings_id", true)->values[0] = new_name;
         else if (m_type == Preset::TYPE_PRINTER)
             preset.config.option<ConfigOptionString>("printer_settings_id", true)->value = new_name;
-        // add    printer_select_mac    field in preset when system preset save as a user/project preset
-        if (m_type == Preset::TYPE_PRINTER) {
-            if (curr_preset.is_system) {
-                auto cache         = EasyCache::get_instance().data();
-                auto printer_model = curr_preset.config.opt_string("printer_model");
-                std::string selected_mac;
-                if (cache.contains("system_preset_bundle_deivce") && cache["system_preset_bundle_deivce"].contains(printer_model)) {
-                    std::string json_key   = "unique";
-                    auto        nozzle_dia = curr_preset.config.opt_serialize("nozzle_diameter");
-                    if (!nozzle_dia.empty())
-                        json_key = nozzle_dia;
-
-                    if (cache["system_preset_bundle_deivce"][printer_model].contains(json_key))
-                        selected_mac = cache["system_preset_bundle_deivce"][printer_model][json_key];
-                }
-                if (!selected_mac.empty())
-                    preset.config.set_key_value("printer_select_mac", new ConfigOptionString(selected_mac));
-            }
+        // add printer_select_mac field when a system printer preset is saved as a user/project preset
+        if (m_type == Preset::TYPE_PRINTER && curr_preset.is_system) {
+            const std::string selected_mac = get_preset_bound_device_mac(curr_preset);
+            if (!selected_mac.empty())
+                preset.config.set_key_value("printer_select_mac", new ConfigOptionString(selected_mac));
         }
 
         //BBS: add lock logic for sync preset in background
         final_inherits = inherits;
     }
-    // 2) Activate the saved preset.
-    this->select_preset_by_name(new_name, true);
-    // 2) Store the active preset to disk.
-    //BBS: only save difference for user preset
+    // 2) Finalize and store the target preset before activating it. Activation copies
+    // the selected preset into the edited and saved snapshots, so all identity fields
+    // have to be complete at that point.
+    assert(target_preset != nullptr);
     Preset* parent_preset = nullptr;
     if (!final_inherits.empty()) {
         parent_preset = this->find_preset(final_inherits, false, true);
-        if (parent_preset && this->get_selected_preset().base_id.empty()) {
-            this->get_selected_preset().base_id = parent_preset->setting_id;
+        if (parent_preset && target_preset->base_id.empty()) {
+            target_preset->base_id = parent_preset->setting_id;
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " base_id: " << parent_preset->setting_id;
         }
     }
+    if (detach)
+        target_preset->base_id.clear();
+
     if (parent_preset)
-        this->get_selected_preset().save(&(parent_preset->config));
+        target_preset->save(&(parent_preset->config));
     else
-        this->get_selected_preset().save(nullptr);
+        target_preset->save(nullptr);
+
+    // 3) Activate only after the canonical preset has its final identity.
+    this->select_preset_by_name(new_name, true);
     unlock();
 }
 
@@ -2822,6 +3391,14 @@ Preset* PresetCollection::find_preset(const std::string &name, bool first_visibl
     return (it != m_presets.end() && it->name == key.name) ? &this->preset(it - m_presets.begin(), real) :
         first_visible_if_not_found ? &this->first_visible() : nullptr;
 }
+std::string PresetCollection::canonical_preset_name(const std::string &name) const
+{
+    if (name.empty() || this->find_preset(name, false) != nullptr)
+        return name;
+    const auto it = this->find_preset_renamed(name);
+    return it != m_presets.end() && it->is_system ? it->name : name;
+}
+
 Preset* PresetCollection::find_preset_by_id(const std::string& settings_id)
 {
     auto it = this->find_preset_internal_by_id(settings_id);
@@ -2979,12 +3556,87 @@ static std::set<std::string> skipped_in_dirty = {"printer_settings_id", "print_s
     "mixed_filament_gradient_mode", "mixed_filament_height_lower_bound", "mixed_filament_height_upper_bound",
     "mixed_filament_advanced_dithering", "mixed_color_layer_height_a", "mixed_color_layer_height_b"};
 
+
+static void normalize_preset_variant_dirty_options(
+    std::vector<std::string> &changed,
+    const Preset *edited,
+    const Preset *reference)
+{
+    if (edited == nullptr || reference == nullptr || edited->type != reference->type ||
+        (edited->type != Preset::TYPE_PRINT && edited->type != Preset::TYPE_FILAMENT))
+        return;
+
+    const bool is_process = edited->type == Preset::TYPE_PRINT;
+    const std::set<std::string> &variant_options = is_process ?
+        print_options_with_variant : filament_options_with_variant;
+    const auto is_selector = [is_process](const std::string &key) {
+        return is_process ? is_process_variant_selector(key) : is_filament_variant_selector(key);
+    };
+
+    const bool selectors_changed = std::any_of(changed.begin(), changed.end(),
+        is_selector);
+
+    // Selector arrays describe row ownership. They are not independently
+    // editable values, but a selector change may alter the effective mapping
+    // of a multi-row option, so all affected options are checked below.
+    changed.erase(std::remove_if(changed.begin(), changed.end(),
+        is_selector), changed.end());
+
+    for (const std::string &key : variant_options) {
+        if (is_selector(key))
+            continue;
+
+        auto changed_it = std::find(changed.begin(), changed.end(), key);
+        if (changed_it == changed.end() && !selectors_changed)
+            continue;
+
+        std::vector<PresetVariantOptionDiff> differences;
+        const bool compared = is_process ?
+            compare_process_variant_option_by_identity(
+                reference->config, edited->config, key, differences) :
+            compare_filament_variant_option_by_identity(
+                reference->config, edited->config, key, differences);
+        if (compared) {
+            if (differences.empty()) {
+                changed.erase(std::remove(changed.begin(), changed.end(), key), changed.end());
+            } else if (changed_it == changed.end()) {
+                // Raw vectors may be equal while changed selectors assign
+                // their values to different preset-variant identities.
+                changed.emplace_back(key);
+            }
+            continue;
+        }
+
+        // Keep malformed or non-alignable multi-row options dirty when the
+        // selectors changed. Scalar common defaults are selector-independent.
+        if (selectors_changed && changed_it == changed.end()) {
+            const auto *reference_option = dynamic_cast<const ConfigOptionVectorBase *>(
+                reference->config.option(key));
+            const auto *edited_option = dynamic_cast<const ConfigOptionVectorBase *>(
+                edited->config.option(key));
+            if (reference_option != nullptr && edited_option != nullptr &&
+                (reference_option->size() > 1 || edited_option->size() > 1))
+                changed.emplace_back(key);
+        }
+    }
+}
+
+static void remove_skipped_dirty_options(std::vector<std::string> &changed)
+{
+    changed.erase(std::remove_if(changed.begin(), changed.end(), [](const std::string &key) {
+        return skipped_in_dirty.count(key) != 0;
+    }), changed.end());
+}
 bool PresetCollection::is_dirty(const Preset *edited, const Preset *reference)
 {
     if (edited != nullptr && reference != nullptr) {
-        // Only compares options existing in both configs.
-        if (! reference->config.equals(edited->config, &skipped_in_dirty))
-            return true;
+        if (!reference->config.equals(edited->config, &skipped_in_dirty)) {
+            std::vector<std::string> changed = reference->config.diff(edited->config);
+            remove_skipped_dirty_options(changed);
+            normalize_preset_variant_dirty_options(changed, edited, reference);
+            if (!changed.empty())
+                return true;
+        }
         // The "compatible_printers" option key is handled differently from the others:
         // It is not mandatory. If the key is missing, it means it is compatible with any printer.
         // If the key exists and it is empty, it means it is compatible with no printer.
@@ -3003,6 +3655,7 @@ std::vector<std::string> PresetCollection::dirty_options(const Preset *edited, c
         changed = deep_compare ?
                 deep_diff(edited->config, reference->config) :
                 reference->config.diff(edited->config);
+        normalize_preset_variant_dirty_options(changed, edited, reference);
         // The "compatible_printers" option key is handled differently from the others:
         // It is not mandatory. If the key is missing, it means it is compatible with any printer.
         // If the key exists and it is empty, it means it is compatible with no printer.
@@ -3022,6 +3675,7 @@ std::vector<std::string> PresetCollection::dirty_options_without_option_list(con
         changed = deep_compare ?
                 deep_diff(edited->config, reference->config) :
                 reference->config.diff(edited->config);
+        normalize_preset_variant_dirty_options(changed, edited, reference);
         // The "compatible_printers" option key is handled differently from the others:
         // It is not mandatory. If the key is missing, it means it is compatible with any printer.
         // If the key exists and it is empty, it means it is compatible with no printer.
@@ -3171,7 +3825,12 @@ void PresetCollection::update_map_alias_to_profile_name()
 void PresetCollection::update_map_system_profile_renamed()
 {
 	m_map_system_profile_renamed.clear();
-	for (Preset &preset : m_presets)
+	for (Preset &preset : m_presets) {
+        // Runtime aliases also serve callers that inspect Preset::renamed_from directly.
+        // Preserve existing aliases and make repeated lookup rebuilds idempotent.
+        for (const std::string &name : legacy_k3_preset_names(preset))
+            if (std::find(preset.renamed_from.begin(), preset.renamed_from.end(), name) == preset.renamed_from.end())
+                preset.renamed_from.push_back(name);
 		for (const std::string &renamed_from : preset.renamed_from) {
             const auto [it, success] = m_map_system_profile_renamed.insert(std::pair<std::string, std::string>(renamed_from, preset.name));
             if (!success) {
@@ -3181,6 +3840,7 @@ void PresetCollection::update_map_system_profile_renamed()
                                                 preset.name % renamed_from % it->second;
             }
         }
+    }
 }
 
 void PresetCollection::set_custom_preset_alias(Preset &preset)
@@ -3300,16 +3960,29 @@ std::vector<std::string> PresetCollection::system_preset_names() const
     return out;
 }
 
-// Generate a file path from a profile name. Add the ".ini" suffix if it is missing.
+// Generate a JSON path without overwriting a different preset on the filesystem.
 std::string PresetCollection::path_from_name(const std::string &new_name, bool detach) const
 {
-     //BBS: change to json format
-    //std::string file_name = boost::iends_with(new_name, ".ini") ? new_name : (new_name + ".ini");
-    std::string file_name = boost::iends_with(new_name, ".json") ? new_name : (new_name + ".json");
-    if (detach)
-        return (boost::filesystem::path(m_dir_path) / "base" / file_name).make_preferred().string();
-    else
-        return (boost::filesystem::path(m_dir_path) / file_name).make_preferred().string();
+    const fs::path directory = detach ? fs::path(m_dir_path) / "base" : fs::path(m_dir_path);
+    // Keep an existing disambiguated path stable across saves and restarts.
+    for (const Preset& preset : m_presets) {
+        if (preset.name != new_name || preset.file.empty())
+            continue;
+        fs::path current(preset.file);
+        if (current.parent_path().lexically_normal() == directory.lexically_normal() && fs::exists(current)) {
+            const auto owner = preset_file_owner(current);
+            if (owner && *owner == new_name)
+                return current.make_preferred().string();
+        }
+    }
+    const std::string file_name = PresetSyncUtils::available_filename(new_name, [&](const std::string& candidate) {
+        const fs::path path = directory / candidate;
+        if (!fs::exists(path))
+            return true;
+        const auto owner = preset_file_owner(path);
+        return owner && *owner == new_name;
+    });
+    return (directory / file_name).make_preferred().string();
 }
 
 std::string PresetCollection::path_for_preset(const Preset &preset) const
@@ -3704,7 +4377,7 @@ std::deque<PhysicalPrinter>::iterator PhysicalPrinterCollection::find_printer_in
     return m_printers.begin() + i;
 }
 
-// Generate a file path from a profile name. Add the ".ini" suffix if it is missing.
+// Generate a JSON path without overwriting a different preset on the filesystem.
 std::string PhysicalPrinterCollection::path_from_name(const std::string& new_name) const
 {
     //BBS: change to json format

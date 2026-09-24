@@ -31,6 +31,34 @@
 namespace Slic3r{ 
 namespace GUI{
 
+namespace {
+
+// Line indices are generated as a contiguous 0, 1, 2, ... sequence. On macOS,
+// drawing large indexed line buffers may GPU-fault inside AppleMetalOpenGLRenderer,
+// so draw the equivalent vertex ranges directly and avoid the index-buffer path.
+void draw_ranges(GLenum mode, const std::vector<unsigned int>& sizes, const std::vector<size_t>& offsets)
+{
+    assert(!sizes.empty());
+    assert(sizes.size() == offsets.size());
+    static_assert(sizeof(unsigned int) == sizeof(GLsizei));
+
+#ifdef __APPLE__
+    if (mode == GL_LINES) {
+        for (size_t i = 0; i < sizes.size(); ++i) {
+            assert(sizes[i] % 2 == 0);
+            assert(offsets[i] % sizeof(unsigned short) == 0);
+            glsafe(::glDrawArrays(GL_LINES, static_cast<GLint>(offsets[i] / sizeof(unsigned short)),
+                                  static_cast<GLsizei>(sizes[i])));
+        }
+        return;
+    }
+#endif
+    glsafe(::glMultiDrawElements(mode, reinterpret_cast<const GLsizei*>(sizes.data()), GL_UNSIGNED_SHORT,
+                                 reinterpret_cast<const void* const*>(offsets.data()), static_cast<GLsizei>(sizes.size())));
+}
+
+} // namespace
+
 static Vec2f calc_pt_in_screen(const Vec3d& pt, const Matrix4d& view_proj_mat, int window_width, int window_height)
 {
     auto  tran = view_proj_mat;
@@ -1715,10 +1743,11 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
             // layers zs
             const double* const last_z = m_layers.empty() ? nullptr : &m_layers.get_zs().back();
             const double z = static_cast<double>(move.position.z());
-            if (last_z == nullptr || z < *last_z - EPSILON || *last_z + EPSILON < z)
+            if (last_z == nullptr || z < *last_z - EPSILON || *last_z + EPSILON < z) {
                 m_layers.append(z, { last_travel_s_id, move_id });
-            else
+            } else {
                 m_layers.get_endpoints().back().last = move_id;
+            }
             // extruder ids
             m_extruder_ids.emplace_back(move.extruder_id);
             // roles
@@ -1778,10 +1807,15 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
 	}
     m_plater_extruder = plater_extruder;
 
-    // replace layers for spiral vase mode
+    // Existing spiral-vase/scarf preview layers take priority over ZAA layers.
     if (!gcode_result.spiral_vase_layers.empty()) {
         m_layers.reset();
         for (const auto& layer : gcode_result.spiral_vase_layers) {
+            m_layers.append(layer.first, { layer.second.first, layer.second.second });
+        }
+    } else if (!gcode_result.zaa_layers.empty()) {
+        m_layers.reset();
+        for (const auto& layer : gcode_result.zaa_layers) {
             m_layers.append(layer.first, { layer.second.first, layer.second.second });
         }
     }
@@ -2311,7 +2345,6 @@ void LegacyRenderer::refresh_render_paths(bool keep_sequential_current_first, bo
                     if (skip_start_corner_cap && chunk_min_s_id > sub_path.first.s_id)
                         size_in_indices -= 6; // remove 2 triangles for corner cap
 
-                    render_path->sizes.push_back(size_in_indices);
 
                     unsigned int delta_1st = static_cast<unsigned int>(chunk_min_s_id - sub_path.first.s_id);
                     delta_1st *= buffer.indices_per_segment();
@@ -2322,7 +2355,14 @@ void LegacyRenderer::refresh_render_paths(bool keep_sequential_current_first, bo
                             delta_1st += 6; // skip 2 triangles for corner cap
                     }
 
-                    render_path->offsets.push_back(static_cast<size_t>((sub_path.first.i_id + delta_1st) * sizeof(IBufferType)));
+                    const size_t offset = static_cast<size_t>((sub_path.first.i_id + delta_1st) * sizeof(IBufferType));
+                    if (!render_path->offsets.empty() &&
+                        render_path->offsets.back() + render_path->sizes.back() * sizeof(IBufferType) == offset) {
+                        render_path->sizes.back() += size_in_indices;
+                    } else {
+                        render_path->sizes.push_back(size_in_indices);
+                        render_path->offsets.push_back(offset);
+                    }
                 };
 
                 const bool    draw_is_trimmed_start = (draw_min > sub_path.first.s_id);
@@ -2456,7 +2496,6 @@ void LegacyRenderer::refresh_render_paths(bool keep_sequential_current_first, bo
                 size_in_indices -= 6; // remove 2 triangles for corner cap
         }
 
-        render_path->sizes.push_back(size_in_indices);
 
         if (buffer.render_primitive_type == TBuffer::ERenderPrimitiveType::Triangle) {
             delta_1st *= buffer.indices_per_segment();
@@ -2467,7 +2506,14 @@ void LegacyRenderer::refresh_render_paths(bool keep_sequential_current_first, bo
             }
         }
 
-        render_path->offsets.push_back(static_cast<size_t>((sub_path.first.i_id + delta_1st) * sizeof(IBufferType)));
+        const size_t offset = static_cast<size_t>((sub_path.first.i_id + delta_1st) * sizeof(IBufferType));
+        if (!render_path->offsets.empty() &&
+            render_path->offsets.back() + render_path->sizes.back() * sizeof(IBufferType) == offset) {
+            render_path->sizes.back() += size_in_indices;
+        } else {
+            render_path->sizes.push_back(size_in_indices);
+            render_path->offsets.push_back(offset);
+        }
 
 #if 0
         // check sizes and offsets against index buffer size on gpu
@@ -2795,7 +2841,7 @@ void LegacyRenderer::render_toolpaths()
             assert(! path.sizes.empty());
             assert(! path.offsets.empty());
             shader.set_uniform(uniform_color, path.color);
-            glsafe(::glMultiDrawElements(GL_LINES, (const GLsizei*)path.sizes.data(), GL_UNSIGNED_SHORT, (const void* const*)path.offsets.data(), (GLsizei)path.sizes.size()));
+            draw_ranges(GL_LINES, path.sizes, path.offsets);
 #if ENABLE_GCODE_VIEWER_STATISTICS
             ++m_statistics.gl_multi_lines_calls_count;
 #endif // ENABLE_GCODE_VIEWER_STATISTICS
@@ -2813,7 +2859,7 @@ void LegacyRenderer::render_toolpaths()
             assert(! path.sizes.empty());
             assert(! path.offsets.empty());
             shader.set_uniform(uniform_color, path.color);
-            glsafe(::glMultiDrawElements(GL_TRIANGLES, (const GLsizei*)path.sizes.data(), GL_UNSIGNED_SHORT, (const void* const*)path.offsets.data(), (GLsizei)path.sizes.size()));
+            draw_ranges(GL_TRIANGLES, path.sizes, path.offsets);
 #if ENABLE_GCODE_VIEWER_STATISTICS
             ++m_statistics.gl_multi_triangles_calls_count;
 #endif // ENABLE_GCODE_VIEWER_STATISTICS
@@ -2865,8 +2911,7 @@ void LegacyRenderer::render_toolpaths()
                 shader.set_uniform("view_model_matrix", camera.get_view_matrix() * model_matrix);
 			}*/
 			
-            glsafe(::glMultiDrawElements(GL_TRIANGLES, (const GLsizei*)path.sizes.data(), GL_UNSIGNED_SHORT,
-                                         (const void* const*) path.offsets.data(), (GLsizei) path.sizes.size()));
+            draw_ranges(GL_TRIANGLES, path.sizes, path.offsets);
 #if ENABLE_GCODE_VIEWER_STATISTICS
             ++m_statistics.gl_multi_triangles_calls_count;
 #endif // ENABLE_GCODE_VIEWER_STATISTICS
@@ -3721,7 +3766,7 @@ void LegacyRenderer::_render_calibration_thumbnail_internal(ThumbnailData& thumb
             assert(!path.sizes.empty());
             assert(!path.offsets.empty());
             shader.set_uniform(uniform_color, path.color);
-            glsafe(::glMultiDrawElements(GL_TRIANGLES, (const GLsizei*)path.sizes.data(), GL_UNSIGNED_SHORT, (const void* const*)path.offsets.data(), (GLsizei)path.sizes.size()));
+            draw_ranges(GL_TRIANGLES, path.sizes, path.offsets);
 #if ENABLE_GCODE_VIEWER_STATISTICS
             ++m_statistics.gl_multi_triangles_calls_count;
 #endif // ENABLE_GCODE_VIEWER_STATISTICS

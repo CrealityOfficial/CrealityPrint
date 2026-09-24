@@ -112,7 +112,6 @@ void PressureEqualizer::process_layer(const std::string &gcode)
             if (*gcode_begin == '\n')
                 ++gcode_begin;
         }
-        assert(!this->opened_extrude_set_speed_block);
     }
     
     // at this point, we have an entire layer of gcode lines loaded into m_gcode_lines
@@ -122,7 +121,7 @@ void PressureEqualizer::process_layer(const std::string &gcode)
     while (idx_end_current_extrusion < m_gcode_lines.size()) {
         // find beginning of next extrusion segment from current pos
         const long idx_begin_current_extrusion   = find_if(m_gcode_lines.begin() + idx_end_current_extrusion, m_gcode_lines.end(),
-                                                          [](GCodeLine line) { return line.extruding(); }) - m_gcode_lines.begin();
+                                                          [](const GCodeLine &line) { return line.extruding() && !line.zaa_protected; }) - m_gcode_lines.begin();
         // (extrusion begin idx = extrusion end idx) here because we start with extrusion length of zero
         idx_end_current_extrusion = idx_begin_current_extrusion;
 
@@ -130,7 +129,7 @@ void PressureEqualizer::process_layer(const std::string &gcode)
         while (idx_end_current_extrusion < m_gcode_lines.size()) {
             // find end of the current extrusion segment
             const auto just_after_end_extrusion = find_if(m_gcode_lines.begin() + idx_end_current_extrusion, m_gcode_lines.end(),
-                                                          [](GCodeLine line) { return !line.extruding(); });
+                                                          [](const GCodeLine &line) { return !line.extruding() || line.zaa_protected || line.zaa_boundary; });
             idx_end_current_extrusion = std::max<long>(0,(just_after_end_extrusion - m_gcode_lines.begin()) - 1);
             const long idx_begin_segment_continuation = advance_segment_beyond_small_gap(idx_end_current_extrusion);
             if (idx_begin_segment_continuation > idx_end_current_extrusion) {
@@ -162,6 +161,8 @@ long PressureEqualizer::advance_segment_beyond_small_gap(const long idx_orig)
     double distance_traveled = 0.0;
     // start at beginning of gap, advance till extrusion found or gap too big
     for (auto idx_cur_pos = idx_orig + 1; idx_cur_pos < m_gcode_lines.size(); idx_cur_pos++) {
+        if (m_gcode_lines[idx_cur_pos].zaa_protected || m_gcode_lines[idx_cur_pos].zaa_boundary)
+            return idx_orig;
         // started extruding again! return segment extension
         if (m_gcode_lines[idx_cur_pos].extruding()) {
             return idx_cur_pos;
@@ -184,6 +185,8 @@ LayerResult PressureEqualizer::process_layer(LayerResult &&input)
 
     if (!input.nop_layer_result) {
         this->process_layer(input.gcode);
+        if (input.cooling_buffer_flush)
+            m_zaa_interval.finish_layer();
         input.gcode.clear(); // GCode is already processed, so it isn't needed to store it.
         m_layer_results.emplace(new LayerResult(input));
     }
@@ -261,6 +264,8 @@ bool PressureEqualizer::process_line(const char *line, const char *line_end, GCo
 {
     const size_t len = line_end - line;
     const std::string str_line(line, line_end);
+    const ZaaIntervalMarker zaa_marker = m_zaa_interval.consume_line(str_line);
+    const bool              zaa_inside = m_zaa_interval.inside();
     if (strncmp(line, EXTRUSION_ROLE_TAG.data(), EXTRUSION_ROLE_TAG.length()) == 0) {
         line += EXTRUSION_ROLE_TAG.length();
         int role = atoi(line);
@@ -281,6 +286,8 @@ bool PressureEqualizer::process_line(const char *line, const char *line_end, GCo
         memcpy(buf.raw.data(), line, len);
     buf.raw[len] = 0;
     buf.raw_length = len;
+    buf.zaa_boundary  = zaa_marker != ZaaIntervalMarker::None;
+    buf.zaa_protected = zaa_inside && zaa_marker == ZaaIntervalMarker::None;
 
     memcpy(buf.pos_start, m_current_pos, sizeof(float)*5);
     memcpy(buf.pos_end, m_current_pos, sizeof(float)*5);
@@ -323,7 +330,7 @@ bool PressureEqualizer::process_line(const char *line, const char *line_end, GCo
         case 1:
         {
             // G0, G1: A FFF 3D printer does not make a difference between the two.
-            buf.adjustable_flow = this->opened_extrude_set_speed_block;
+            buf.adjustable_flow = this->opened_extrude_set_speed_block && !buf.zaa_protected;
             buf.extrude_set_speed_tag = found_extrude_set_speed_tag;
             buf.extrude_end_tag = found_extrude_end_tag;
             float new_pos[5];

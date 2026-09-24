@@ -2,6 +2,7 @@
 #include "GUI_App.hpp"
 #include "I18N.hpp"
 #include "Field.hpp"
+#include "ParameterSwitchTrace.hpp"
 #include "libslic3r/GCode/Thumbnails.hpp"
 #include "wxExtensions.hpp"
 #include "Plater.hpp"
@@ -123,6 +124,7 @@ void Field::PostInitialize()
 	switch (m_opt.type)
 	{
 	case coPercents:
+    case coFloatsOrPercents:
 	case coFloats:
 	case coStrings:
 	case coBools:
@@ -198,20 +200,36 @@ void Field::on_kill_focus()
 void Field::on_change_field()
 {
 //       std::cerr << "calling Field::_on_change \n";
-    if (m_on_change != nullptr && !m_disable_change_event)
-        m_on_change(m_opt_id, get_value());
+    if (m_on_change != nullptr && !m_disable_change_event) {
+        // Updating the group can delete this Field. Neither the executing
+        // callback nor its reference arguments may live in the retired Field.
+        auto on_change = m_on_change;
+        const auto opt_id = m_opt_id;
+        const boost::any value = get_value();
+        on_change(opt_id, value);
+    }
 }
 
 void Field::on_back_to_initial_value()
 {
-	if (m_back_to_initial_value != nullptr && m_is_modified_value)
-		m_back_to_initial_value(m_opt_id);
+    ParameterSwitchTrace trace("PAReset.click", this, trace_pa_reset(m_opt_id) ? 4 : 6);
+    if (trace_pa_reset(m_opt_id))
+        trace.note("DISPATCH", " key=", m_opt_id, " modified=", m_is_modified_value,
+                   " callback=", bool(m_back_to_initial_value));
+    if (m_back_to_initial_value != nullptr && m_is_modified_value) {
+        auto callback = m_back_to_initial_value;
+        const auto opt_id = m_opt_id;
+        callback(opt_id);
+    }
 }
 
 void Field::on_back_to_sys_value()
 {
-	if (m_back_to_sys_value != nullptr && m_is_nonsys_value)
-		m_back_to_sys_value(m_opt_id);
+    if (m_back_to_sys_value != nullptr && m_is_nonsys_value) {
+        auto callback = m_back_to_sys_value;
+        const auto opt_id = m_opt_id;
+        callback(opt_id);
+    }
 }
 
 void Field::on_edit_value()
@@ -380,8 +398,10 @@ void Field::get_value_by_opt_type(wxString& str, const bool check_value/* = true
 		break; }
 	case coString:
 	case coStrings:
-    case coFloatOrPercent: {
-        if (m_opt.type == coFloatOrPercent && !str.IsEmpty() &&  str.Last() != '%')
+    case coFloatOrPercent:
+    case coFloatsOrPercents: {
+        if ((m_opt.type == coFloatOrPercent || m_opt.type == coFloatsOrPercents) &&
+            !str.IsEmpty() && str.Last() != '%')
         {
             double val = 0.;
             const char dec_sep = is_decimal_separator_point() ? '.' : ',';
@@ -866,6 +886,7 @@ bool TextCtrl::value_was_changed()
     case coString:
     case coStrings:
     case coFloatOrPercent:
+    case coFloatsOrPercents:
         return boost::any_cast<std::string>(m_value) != boost::any_cast<std::string>(val);
     default:
         return true;
@@ -886,7 +907,12 @@ void TextCtrl::propagate_value()
 
 void TextCtrl::set_value(const boost::any& value, bool change_event/* = false*/) {
     m_disable_change_event = !change_event;
-    if (m_opt.nullable) {
+    if (value.empty()) {
+        // An empty value represents a mixed selection in the object/process UI.
+        // Handle it before any_cast so nullable vector fields may be cleared safely.
+        text_ctrl()->SetValue("");
+    }
+    else if (m_opt.nullable) {
         if (boost::any_cast<wxString>(value) != _(L("N/A")))
             m_last_meaningful_value = value;
 
@@ -919,12 +945,15 @@ void TextCtrl::update_na_value(const boost::any& value)
     m_na_value = boost::any_cast<wxString>(value);
 }
 
-void TextCtrl::set_na_value()
+void TextCtrl::set_na_value(bool change_event)
 {
+    m_disable_change_event = true;
     text_ctrl()->SetValue(m_na_value); // BBS
     //propagate_value();
     get_value();
-    on_change_field();
+    m_disable_change_event = false;
+    if (change_event)
+        on_change_field();
 }
 
 boost::any& TextCtrl::get_value()
@@ -948,10 +977,6 @@ void TextCtrl::msw_rescale()
         size.SetHeight(lround(opt_height*m_em_unit));
     if (m_opt.width >= 0) size.SetWidth(m_opt.width*m_em_unit);
 
-    const int padding  = 4;
-    auto  size_add = wxSize(size.GetWidth(), size.GetHeight() + padding);
-
-
     if (size != wxDefaultSize)
     {
         wxTextCtrl *field = text_ctrl(); // BBS
@@ -960,16 +985,29 @@ void TextCtrl::msw_rescale()
         else
             field->SetMinSize(size);
         if (field != window)
-        {            
-            window->SetMinSize(size_add);
-            if(nullptr != dynamic_cast<::TextInput *>(window))
+        {
+            if (auto* input = dynamic_cast<::TextInput *>(window))
             {
-				dynamic_cast<::TextInput*>(window)->Rescale();
-                window->SetSize(size_add); // Do not change the current form size when displaying multiple lines
+                input->Rescale();
+
+                // The current window height may still be the physical height from
+                // the previous monitor. Derive the single-line height again from
+                // the text control so a 300% -> 100% move can shrink the field.
+                wxSize input_size = size;
+                // opt_height is captured from the inner wxTextCtrl. It must not
+                // be reused as the outer TextInput height or the child covers
+                // the top and bottom border. Only m_opt.height is an explicit
+                // outer height; otherwise rebuild it from current text metrics.
+                if (m_opt.height < 0)
+                    input_size.SetHeight(field->GetBestSize().GetHeight() + input->FromDIP(8));
+                input->SetMinSize(input_size);
+                input->SetSize(input_size);
+                input->Refresh();
             }
-			else if (nullptr != dynamic_cast<::TextInputCtrl*>(window))
+            else if (auto* input = dynamic_cast<::TextInputCtrl*>(window))
             {
-                dynamic_cast<::TextInputCtrl*>(window)->Rescale();
+                // Do not change the current form size when displaying multiple lines.
+                input->Rescale();
             }
         }
     }
@@ -1053,7 +1091,12 @@ void CheckBox::set_value(const bool value, bool change_event)
 void CheckBox::set_value(const boost::any& value, bool change_event)
 {
     m_disable_change_event = !change_event;
-    if (m_opt.nullable) {
+    if (value.empty()) {
+        // Empty means that the selected objects have different values.
+        m_is_na_val = false;
+        dynamic_cast<::CheckBox*>(window)->SetValue(false);
+    }
+    else if (m_opt.nullable) {
         const bool is_value_unsigned_char = value.type() == typeid(unsigned char);
         m_is_na_val = is_value_unsigned_char && boost::any_cast<unsigned char>(value) == ConfigOptionBoolsNullable::nil_value();
         if (!m_is_na_val)
@@ -1072,17 +1115,25 @@ void CheckBox::set_last_meaningful_value()
 {
     if (m_opt.nullable) {
         m_is_na_val = false;
-        dynamic_cast<::CheckBox*>(window)->SetValue(boost::any_cast<unsigned char>(m_last_meaningful_value) != 0); // BBS
+        auto* checkbox = dynamic_cast<::CheckBox*>(window);
+        checkbox->SetValue(boost::any_cast<unsigned char>(m_last_meaningful_value) != 0); // BBS
+        checkbox->SetHalfChecked(false);
         on_change_field();
     }
 }
 
-void CheckBox::set_na_value()
+void CheckBox::set_na_value(bool change_event)
 {
     if (m_opt.nullable) {
+        m_disable_change_event = true;
         m_is_na_val = true;
-        dynamic_cast<::CheckBox *>(window)->SetValue(false); // BBS
-        on_change_field();
+        auto* checkbox = dynamic_cast<::CheckBox*>(window);
+        checkbox->SetValue(false); // BBS
+        checkbox->SetHalfChecked(true);
+        get_value();
+        m_disable_change_event = false;
+        if (change_event)
+            on_change_field();
     }
 }
 
@@ -1285,7 +1336,6 @@ void SpinCtrl::msw_rescale()
         field->GetTextCtrl()->SetMinSize(wxSize(def_width_wider() * m_em_unit, int(1.9f * field->GetFont().GetPixelSize().y)));
     }
     field->SetSize(wxSize(def_width_wider() * m_em_unit, lround(opt_height * m_em_unit)));
-    field->Rescale();
 }
 
 #ifdef __WXOSX__
@@ -1746,10 +1796,21 @@ void Choice::set_last_meaningful_value()
     }
 }
 
-void Choice::set_na_value()
+void Choice::update_na_value(const boost::any& value)
 {
-    dynamic_cast<choice_ctrl *>(window)->SetSelection(-1);
-    on_change_field();
+    m_na_value = boost::any_cast<wxString>(value);
+}
+
+void Choice::set_na_value(bool change_event)
+{
+    m_disable_change_event = true;
+    auto* field = dynamic_cast<choice_ctrl*>(window);
+    field->SetSelection(-1);
+    field->SetValue(m_na_value);
+    get_value();
+    m_disable_change_event = false;
+    if (change_event)
+        on_change_field();
 }
 
 void Choice::enable()  { dynamic_cast<choice_ctrl*>(window)->Enable(); }
@@ -2050,17 +2111,33 @@ void PointCtrl::msw_rescale()
     Field::msw_rescale();
 
     //wxSize field_size(4 * m_em_unit, -1);
-    wxSize  field_size((m_opt.width >= 0 ? m_opt.width : def_width_wider()) * m_em_unit, -1); // ORCA match width with other components
-
-    if (parent_is_custom_ctrl) {
+    wxSize field_size((m_opt.width >= 0 ? m_opt.width : def_width_wider()) * m_em_unit, -1); // ORCA match width with other components
+    if (parent_is_custom_ctrl)
         field_size.SetHeight(lround(opt_height * m_em_unit));
-        x_input->SetSize(field_size);
-        y_input->SetSize(field_size);
+
+    // Refresh the child font/icon metrics first, then use a concrete height. Passing
+    // wxDefaultCoord (-1) back to SetSize() during a DPI transition may collapse the
+    // X/Y controls to zero height on Windows.
+    for (TextInput* input : {x_input, y_input}) {
+        input->Rescale();
+
+        wxSize scaled_size = field_size;
+        if (m_opt.height < 0) {
+            wxTextCtrl* text = input->GetTextCtrl();
+            scaled_size.SetHeight(text ? text->GetBestSize().GetHeight() + input->FromDIP(8)
+                                       : (m_parent ? m_parent->FromDIP(24) : 24));
+        }
+        input->SetMinSize(scaled_size);
+        input->SetSize(scaled_size);
+        input->Refresh();
     }
-    else {
-        x_input->SetMinSize(field_size);
-        y_input->SetMinSize(field_size);
-    }
+
+    // OG_CustomCtrl positions both inputs directly. Its detached field sizer
+    // has no allocated size, so Layout() would collapse the inputs to 0x0.
+    if (!parent_is_custom_ctrl)
+        sizer->Layout();
+    if (m_parent)
+        m_parent->Layout();
 }
 
 void PointCtrl::sys_color_changed()
@@ -2253,6 +2330,300 @@ boost::any& SliderCtrl::get_value()
 // 	int ret_val;
 // 	x_textctrl->GetValue().ToDouble(&val);
 	return m_value = int(m_slider->GetValue()/m_scale);
+}
+
+t_field MultiVariantField::create_field(int opt_index, wxWindow* parent)
+{
+    ConfigOptionDef child_opt = m_opt;
+    child_opt.gui_type = ConfigOptionDef::GUIType::undefined;
+    if (child_opt.gui_flags == "filament_override")
+        child_opt.gui_flags.clear();
+    const std::string indexed_id = m_opt_id + "#" + std::to_string(opt_index);
+    t_field field;
+    switch (child_opt.type) {
+    case coFloatOrPercent:
+    case coFloatsOrPercents:
+    case coFloat:
+    case coFloats:
+    case coPercent:
+    case coPercents:
+    case coString:
+    case coStrings:
+        field = TextCtrl::Create<TextCtrl>(parent, child_opt, indexed_id);
+        break;
+    case coBool:
+    case coBools:
+        field = CheckBox::Create<CheckBox>(parent, child_opt, indexed_id);
+        break;
+    case coInt:
+    case coInts:
+        field = SpinCtrl::Create<SpinCtrl>(parent, child_opt, indexed_id);
+        break;
+    case coEnum:
+    case coEnums:
+        field = Choice::Create<Choice>(parent, child_opt, indexed_id);
+        break;
+    default:
+        throw Slic3r::LogicError("Unsupported nozzle-variant field type");
+    }
+
+    field->m_opt_idx = opt_index;
+    field->m_on_change = [this, indexed_id, opt_index](const t_config_option_key&, const boost::any& value) {
+        if (get_field(opt_index) != nullptr && m_on_change && !m_disable_change_event)
+            m_on_change(indexed_id, value);
+    };
+    field->m_on_kill_focus = [this, indexed_id, opt_index](const std::string&) {
+        if (get_field(opt_index) != nullptr && m_on_kill_focus && !m_disable_change_event)
+            m_on_kill_focus(indexed_id);
+    };
+    field->m_back_to_initial_value = [this, indexed_id, opt_index](std::string) {
+        if (get_field(opt_index) != nullptr && m_back_to_initial_value)
+            m_back_to_initial_value(indexed_id);
+    };
+    field->m_back_to_sys_value = [this, indexed_id, opt_index](std::string) {
+        if (get_field(opt_index) != nullptr && m_back_to_sys_value)
+            m_back_to_sys_value(indexed_id);
+    };
+    return field;
+}
+
+MultiVariantField::VariantControl MultiVariantField::create_control(int opt_index, const wxString& label_text)
+{
+    auto* row = new wxPanel(m_panel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
+    row->SetBackgroundColour(m_panel->GetBackgroundColour());
+    auto* label = new wxStaticText(row, wxID_ANY, wxEmptyString);
+    label->SetFont(wxGetApp().normal_font());
+    label->SetForegroundColour(StateColor::darkModeColorFor("#6B6B6B"));
+    t_field field = create_field(opt_index, row);
+
+    auto* row_sizer = new wxBoxSizer(wxHORIZONTAL);
+    row_sizer->Add(label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, m_panel->FromDIP(4));
+    wxCheckBox* override_checkbox = nullptr;
+    if (m_opt.gui_flags == "filament_override" && m_opt.nullable) {
+        override_checkbox = new wxCheckBox(row, wxID_ANY, _(L("Override")));
+        override_checkbox->SetFont(wxGetApp().normal_font());
+        wxGetApp().UpdateDarkUI(override_checkbox);
+        row_sizer->Add(override_checkbox, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, m_panel->FromDIP(4));
+        override_checkbox->Bind(wxEVT_CHECKBOX, [this, opt_index](wxCommandEvent& event) {
+            if (m_disable_change_event)
+                return;
+            if (Field* child = get_field(opt_index)) {
+                child->toggle(event.IsChecked());
+                child->update_na_value(_(L("N/A")));
+                // The child emits key#source_index, including when clearing an override.
+                if (event.IsChecked())
+                    child->set_last_meaningful_value();
+                else
+                    child->set_na_value();
+            }
+        });
+    }
+    if (wxWindow* window = field->getWindow())
+        row_sizer->Add(window, 0, wxALIGN_CENTER_VERTICAL);
+    row->SetSizer(row_sizer);
+    VariantControl control(std::move(field), row, label, opt_index, label_text);
+    control.override_checkbox = override_checkbox;
+    return control;
+}
+
+void MultiVariantField::BUILD()
+{
+    m_panel = new wxPanel(m_parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
+    m_panel->SetBackgroundColour(m_parent->GetBackgroundColour());
+    m_variant_sizer = new wxBoxSizer(wxVERTICAL);
+    m_panel->SetSizer(m_variant_sizer);
+    refresh_layout();
+}
+
+void MultiVariantField::clear_controls()
+{
+    if (m_variant_sizer != nullptr)
+        m_variant_sizer->Clear(false);
+
+    for (VariantControl& control : m_controls) {
+        if (control.field != nullptr) {
+            if (wxWindow* window = control.field->getWindow();
+                window != nullptr && !window->IsBeingDeleted())
+                free_window(window);
+            control.field.reset();
+        }
+        if (control.override_checkbox != nullptr)
+            unbind_events(control.override_checkbox);
+        if (control.row != nullptr && !control.row->IsBeingDeleted())
+            control.row->Destroy();
+        control.row = nullptr;
+        control.label = nullptr;
+    }
+    m_controls.clear();
+}
+
+void MultiVariantField::release_windows()
+{
+    m_disable_change_event = true;
+    clear_controls();
+
+    if (m_panel != nullptr && !m_panel->IsBeingDeleted()) {
+        unbind_events(m_panel);
+        if (wxSizer* containing_sizer = m_panel->GetContainingSizer())
+            containing_sizer->Detach(m_panel);
+        m_panel->Destroy();
+    }
+    m_panel = nullptr;
+    m_variant_sizer = nullptr;
+}
+
+void MultiVariantField::refresh_layout()
+{
+    std::vector<std::pair<int, wxString>> layout = get_multi_variant_input_layout(m_opt_id);
+    if (layout.empty())
+        layout.emplace_back(0, wxString());
+
+    bool unchanged = layout.size() == m_controls.size();
+    if (unchanged) {
+        for (size_t index = 0; index < layout.size(); ++index) {
+            if (layout[index].first != m_controls[index].opt_index ||
+                layout[index].second != m_controls[index].label_text) {
+                unchanged = false;
+                break;
+            }
+        }
+    }
+    if (unchanged)
+        return;
+
+    m_disable_change_event = true;
+    m_panel->Freeze();
+    clear_controls();
+
+    const bool show_labels = show_variant_labels(layout.size());
+    for (const auto& entry : layout) {
+        VariantControl control = create_control(entry.first, entry.second);
+        control.label->SetLabel(show_labels && !entry.second.empty() ? entry.second + ":" : wxString());
+        control.label->Show(show_labels && !entry.second.empty());
+        if (show_labels)
+            control.label->SetMinSize(wxSize(8 * m_em_unit, -1));
+        else
+            control.label->SetMinSize(wxDefaultSize);
+        control.row->Show();
+        control.row->Layout();
+        control.row->SetMinSize(control.row->GetSizer()->CalcMin());
+        m_variant_sizer->Add(control.row, 0, wxEXPAND | wxBOTTOM, m_panel->FromDIP(4));
+        m_controls.emplace_back(std::move(control));
+    }
+
+    update_panel_size();
+    m_panel->Thaw();
+    m_disable_change_event = false;
+}
+
+void MultiVariantField::update_panel_size()
+{
+    if (m_panel == nullptr || m_variant_sizer == nullptr)
+        return;
+    const wxSize best_size = m_variant_sizer->CalcMin();
+    m_panel->SetMinSize(best_size);
+    m_panel->SetSize(best_size);
+    m_panel->Layout();
+    if (m_parent != nullptr)
+        m_parent->Layout();
+}
+
+Field* MultiVariantField::get_field(int opt_index) const
+{
+    const auto iter = std::find_if(m_controls.begin(), m_controls.end(), [opt_index](const VariantControl& control) {
+        return control.opt_index == opt_index;
+    });
+    return iter == m_controls.end() ? nullptr : iter->field.get();
+}
+
+void MultiVariantField::set_index_value(int opt_index, const boost::any& value)
+{
+    if (Field* field = get_field(opt_index))
+        field->set_value(value, false);
+}
+
+void MultiVariantField::set_override_state(int opt_index, bool overridden, bool allowed)
+{
+    for (VariantControl& control : m_controls) {
+        if (control.opt_index != opt_index || control.override_checkbox == nullptr)
+            continue;
+        control.override_allowed = allowed;
+        control.override_checkbox->SetValue(overridden);
+        control.override_checkbox->Enable(allowed);
+        const wxString inheritance_tooltip = _(L("Not overridden (inherits nozzle settings after grouping)"));
+        control.override_checkbox->SetToolTip(overridden ? wxString() : inheritance_tooltip);
+        control.field->update_na_value(_(L("N/A")));
+        if (!overridden)
+            control.field->set_na_value(false);
+        control.field->toggle(allowed && overridden);
+        if (wxWindow* window = control.field->getWindow())
+            window->SetToolTip(overridden ? control.field->get_tooltip_text(wxEmptyString) : inheritance_tooltip);
+        break;
+    }
+}
+
+void MultiVariantField::set_value(const boost::any& value, bool change_event)
+{
+    m_disable_change_event = !change_event;
+    m_value = value;
+    m_disable_change_event = false;
+}
+
+void MultiVariantField::set_na_value(bool change_event)
+{
+    for (VariantControl& control : m_controls)
+        control.field->set_na_value(change_event);
+}
+
+void MultiVariantField::enable()
+{
+    for (VariantControl& control : m_controls) {
+        if (control.override_checkbox != nullptr) {
+            control.override_checkbox->Enable(control.override_allowed);
+            control.field->toggle(control.override_allowed && control.override_checkbox->GetValue());
+        } else
+            control.field->enable();
+    }
+}
+
+void MultiVariantField::disable()
+{
+    for (VariantControl& control : m_controls) {
+        if (control.override_checkbox != nullptr)
+            control.override_checkbox->Disable();
+        control.field->disable();
+    }
+}
+
+void MultiVariantField::msw_rescale()
+{
+    Field::msw_rescale();
+    for (VariantControl& control : m_controls) {
+        control.field->msw_rescale();
+        control.label->SetFont(wxGetApp().normal_font());
+        if (control.label->IsShown())
+            control.label->SetMinSize(wxSize(8 * m_em_unit, -1));
+        if (control.override_checkbox != nullptr)
+            control.override_checkbox->SetFont(wxGetApp().normal_font());
+        control.row->SetMinSize(control.row->GetSizer()->CalcMin());
+        control.row->Layout();
+    }
+    update_panel_size();
+}
+
+void MultiVariantField::sys_color_changed()
+{
+    Field::sys_color_changed();
+    if (m_panel != nullptr)
+        m_panel->SetBackgroundColour(m_parent->GetBackgroundColour());
+    for (VariantControl& control : m_controls) {
+        control.row->SetBackgroundColour(m_panel->GetBackgroundColour());
+        control.label->SetForegroundColour(StateColor::darkModeColorFor("#6B6B6B"));
+        control.label->Refresh();
+        control.field->sys_color_changed();
+        if (control.override_checkbox != nullptr)
+            wxGetApp().UpdateDarkUI(control.override_checkbox);
+    }
 }
 
 

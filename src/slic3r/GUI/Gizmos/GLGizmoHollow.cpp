@@ -659,6 +659,8 @@ void GLGizmoHollow::on_render_input_window(float x, float y, float bottom_limit,
     ImGui::SetCursorPosX(start_x);
     if (ImGui::Button(btn_title)) {
 
+        wxGetApp().plater()->take_snapshot("Mesh Hollow");
+
         //check whether need repairing or not before Hollow
         wxGetApp().plater()->check_object_need_repair(m_parent.get_selection().get_object_idx());
 
@@ -667,7 +669,6 @@ void GLGizmoHollow::on_render_input_window(float x, float y, float bottom_limit,
        mesh1 = mo->volumes[0]->mesh();
       // mesh1.write_ascii("after.stl");
          //-------update render-----------------
-       wxGetApp().plater()->take_snapshot("Mesh Hollow");
        ModelObject* curr_model_object = m_c->selection_info()->model_object();
        // assign to new_volume from old_volume
        ModelVolume* old_volume = curr_model_object->volumes[0];

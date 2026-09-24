@@ -33,6 +33,7 @@
 #include "GUI_App.hpp"
 #include "GUI_ObjectList.hpp"
 #include "GUI_Colors.hpp"
+#include "FilamentPanel.h"
 #include "Mouse3DController.hpp"
 #include "I18N.hpp"
 #include "NotificationManager.hpp"
@@ -121,7 +122,44 @@ void GLCanvas3D::load_render_colors() { RenderColor::colors[RenderCol_3D_Backgro
 static constexpr const size_t MAX_VERTEX_BUFFER_SIZE = 131072 * 6; // 3.15MB
 
 namespace Slic3r { namespace GUI {
+void        report_gui_open_first_render(GLCanvas3D* canvas);
 static bool s_simple_arrange_close_requested = false;
+
+static bool supports_filament_nozzle_mapping()
+{
+    const auto* bundle = wxGetApp().preset_bundle;
+    if (bundle == nullptr)
+        return false;
+
+    const auto& config = bundle->printers.get_edited_preset().config;
+    const auto* option = config.option<ConfigOptionBool>("support_filament_nozzle_mapping");
+    return option != nullptr && option->value;
+}
+
+static bool should_show_filament_nozzle_mapping_ui()
+{
+    const auto* bundle = wxGetApp().preset_bundle;
+    return bundle != nullptr && supports_filament_nozzle_mapping() &&
+           bundle->has_mixed_selected_nozzle_variants();
+}
+
+static void set_filament_nozzle_mapping_mode(FilamentMapMode mode)
+{
+    auto* bundle = wxGetApp().preset_bundle;
+    if (bundle == nullptr)
+        return;
+
+    auto* option = bundle->project_config.option<ConfigOptionEnum<FilamentMapMode>>("filament_map_mode", true);
+    if (option == nullptr || option->value == mode)
+        return;
+
+    option->value = mode;
+    if (auto* plater = wxGetApp().plater()) {
+        plater->update_project_dirty_from_presets();
+        plater->on_config_change(bundle->full_config());
+        plater->invalid_slice_result_need_reslice();
+    }
+}
 
 bool consume_simple_arrange_close_requested()
 {
@@ -1597,6 +1635,11 @@ void GLCanvas3D::reset_volumes()
     if (!m_initialized)
         return;
 
+    // SceneRaycasterItem keeps a non-owning pointer to GLVolume::mesh_raycaster.
+    // Remove the picking entries before their owning volumes are destroyed, and
+    // also clean up any stale entries when the volume collection is already empty.
+    m_scene_raycaster.remove_raycasters(SceneRaycaster::EType::Volume);
+
     if (m_volumes.empty())
         return;
 
@@ -2058,6 +2101,38 @@ void GLCanvas3D::select_plate()
         m_canvas->Refresh();
 }
 
+// Sync GLVolume extruder_ids from ModelVolume extruder_ids.
+// Called after filament add/delete to ensure GLVolume colors are updated correctly.
+void GLCanvas3D::sync_volumes_extruder_ids()
+{
+    const Model* model = get_model();
+    if (model == nullptr)
+        return;
+
+    for (GLVolume* volume : m_volumes.volumes) {
+        if (volume == nullptr || volume->is_modifier || volume->is_wipe_tower || volume->volume_idx() < 0)
+            continue;
+
+        const ModelVolume* mv = get_model_volume(*volume, *model);
+        if (mv != nullptr) {
+            int new_extruder_id = mv->extruder_id();
+            if (new_extruder_id >= 0 && new_extruder_id != volume->extruder_id) {
+                volume->extruder_id = new_extruder_id;
+            }
+        }
+    }
+}
+
+void GLCanvas3D::sync_shells_extruder_ids()
+{
+    m_gcode_viewer.sync_shells_extruder_ids();
+}
+
+void GLCanvas3D::update_shells_color_by_extruder(const DynamicPrintConfig* config)
+{
+    m_gcode_viewer.update_shells_color_by_extruder(config);
+}
+
 void GLCanvas3D::update_volumes_colors_by_extruder()
 {
     if (m_config != nullptr)
@@ -2168,6 +2243,8 @@ void GLCanvas3D::render(bool only_init)
 
     if (only_init)
         return;
+
+    begin_lod_render_diagnostics(static_cast<int>(m_canvas_type));
 
 #if ENABLE_ENVIRONMENT_MAP
     if (wxGetApp().is_editor())
@@ -2453,6 +2530,8 @@ void GLCanvas3D::render(bool only_init)
     wxGetApp().imgui()->render();
 
     m_canvas->SwapBuffers();
+    report_lod_render_diagnostics(static_cast<int>(m_canvas_type));
+    report_gui_open_first_render(this);
     m_render_stats.increment_fps_counter();
 
     Test::EVENT_SPREAD("canvas_render_finished");
@@ -2714,6 +2793,10 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
         return;
 
     _set_current();
+    // A successful explicit reload satisfies the reload requested while OpenGL was
+    // not initialized. Keeping this flag set causes render() to reload the same
+    // large scene a second time.
+    m_needs_deferred_reload = false;
 
     m_hover_volume_idxs.clear();
     // reset cliper slider
@@ -2854,6 +2937,13 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
         }
     }
 
+    // SceneRaycasterItem keeps a non-owning pointer to GLVolume::mesh_raycaster.
+    // A non-delayed reload may destroy GLVolumes below, so stop volume picking
+    // before the first volume can be released. Picking entries are rebuilt after
+    // the scene reload is complete.
+    if (!m_reload_delayed)
+        m_scene_raycaster.remove_raycasters(SceneRaycaster::EType::Volume);
+
     // Release all ModelVolume based GLVolumes not found in the current Model. Find the GLVolume of a hollowed mesh.
     for (size_t volume_id = 0; volume_id < m_volumes.volumes.size(); ++volume_id) {
         GLVolume*         volume = m_volumes.volumes[volume_id];
@@ -2986,7 +3076,11 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
         }
     }
     m_volumes.volumes = std::move(glvolumes_new);
-    bool enable_lod   = GUI::wxGetApp().app_config->get_bool("enable_lod");
+    // LOD construction is already deferred by load_object_volume(). Keep it
+    // consistent with the user setting so imported volumes receive their LODs.
+    bool   enable_lod            = GUI::wxGetApp().app_config->get_bool("enable_lod");
+    size_t new_glvolume_count    = 0;
+    size_t reused_glvolume_count = 0;
     for (unsigned int obj_idx = 0; obj_idx < (unsigned int) m_model->objects.size(); ++obj_idx) {
         const ModelObject& model_object = *m_model->objects[obj_idx];
         for (int volume_idx = 0; volume_idx < (int) model_object.volumes.size(); ++volume_idx) {
@@ -2999,6 +3093,7 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
                 auto it = std::lower_bound(model_volume_state.begin(), model_volume_state.end(), key, model_volume_state_lower);
                 assert(it != model_volume_state.end() && it->geometry_id == key.geometry_id);
                 if (it->new_geometry()) {
+                    ++new_glvolume_count;
                     // New volume.
                     auto it_old_volume = std::lower_bound(deleted_volumes.begin(), deleted_volumes.end(), GLVolumeState(it->composite_id),
                                                           deleted_volumes_lower);
@@ -3013,6 +3108,7 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
                     m_volumes.volumes.back()->geometry_id = key.geometry_id;
                     update_object_list                    = true;
                 } else {
+                    ++reused_glvolume_count;
                     // Recycling an old GLVolume.
                     GLVolume& existing_volume = *m_volumes.volumes[it->volume_idx];
                     assert(existing_volume.geometry_id == key.geometry_id);
@@ -3025,6 +3121,44 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
             }
         }
     }
+    std::set<const TriangleMesh*> unique_meshes;
+    size_t                        shared_mesh_glvolumes = 0;
+    size_t                        middle_missing        = 0;
+    size_t                        middle_pending        = 0;
+    size_t                        middle_ready          = 0;
+    size_t                        small_missing         = 0;
+    size_t                        small_pending         = 0;
+    size_t                        small_ready           = 0;
+    for (const GLVolume* volume : m_volumes.volumes) {
+        if (volume == nullptr || volume->ori_mesh == nullptr)
+            continue;
+        if (!unique_meshes.insert(volume->ori_mesh).second) {
+            ++shared_mesh_glvolumes;
+            continue;
+        }
+
+        if (!volume->model_middle)
+            ++middle_missing;
+        else if (volume->model_middle->is_initialized())
+            ++middle_ready;
+        else
+            ++middle_pending;
+
+        if (!volume->model_small)
+            ++small_missing;
+        else if (volume->model_small->is_initialized())
+            ++small_ready;
+        else
+            ++small_pending;
+    }
+    BOOST_LOG_TRIVIAL(warning) << "[LOD_DIAG] stage=scene_reload canvas=" << static_cast<int>(m_canvas_type)
+                               << " force_full=" << force_full_scene_refresh << " config_enabled=" << enable_lod
+                               << " objects=" << m_model->objects.size() << " new_glvolumes=" << new_glvolume_count
+                               << " reused_glvolumes=" << reused_glvolume_count << " gl_volumes=" << m_volumes.volumes.size()
+                               << " unique_meshes=" << unique_meshes.size() << " shared_mesh_glvolumes=" << shared_mesh_glvolumes
+                               << " middle_missing=" << middle_missing << " middle_pending=" << middle_pending
+                               << " middle_ready=" << middle_ready << " small_missing=" << small_missing
+                               << " small_pending=" << small_pending << " small_ready=" << small_ready;
     if (printer_technology == ptSLA) {
         size_t              idx       = 0;
         const SLAPrint*     sla_print = this->sla_print();
@@ -3306,7 +3440,6 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
 
     // @Enrico suggest this solution to preven accessing pointer on caster without data
     m_scene_raycaster.remove_raycasters(SceneRaycaster::EType::Bed);
-    m_scene_raycaster.remove_raycasters(SceneRaycaster::EType::Volume);
     m_gizmos.update_data();
     m_gizmos.update_assemble_view_data();
     m_gizmos.refresh_on_off_state();
@@ -8947,7 +9080,12 @@ bool GLCanvas3D::_init_main_toolbar()
             item.tooltip       = obj->get_name(true);
             item.sprite_id++;
             item.left.action_callback = [this]() { m_gizmos.open_gizmo(GLGizmosManager::EType::Hollowing); };
-            item.enabling_callback    = [obj]() -> bool { return obj->is_activable(); };
+            item.enabling_callback    = [this, obj, enabled = obj->is_activable()]() mutable -> bool {
+                // Rotation previews may cross the bed; keep the last stable toolbar state until release.
+                if (m_gizmos.get_current_type() != GLGizmosManager::EType::Rotate || !m_gizmos.is_dragging())
+                    enabled = obj->is_activable();
+                return enabled;
+            };
             if (!m_main_toolbar.add_item(item))
                 return false;
         }
@@ -8961,7 +9099,12 @@ bool GLCanvas3D::_init_main_toolbar()
             item.tooltip       = obj->get_name(true);
             item.sprite_id++;
             item.left.action_callback = [this]() { m_gizmos.open_gizmo(GLGizmosManager::EType::Drill); };
-            item.enabling_callback    = [obj]() -> bool { return obj->is_activable(); };
+            item.enabling_callback    = [this, obj, enabled = obj->is_activable()]() mutable -> bool {
+                // Rotation previews may cross the bed; keep the last stable toolbar state until release.
+                if (m_gizmos.get_current_type() != GLGizmosManager::EType::Rotate || !m_gizmos.is_dragging())
+                    enabled = obj->is_activable();
+                return enabled;
+            };
             if (!m_main_toolbar.add_item(item))
                 return false;
         }
@@ -10457,9 +10600,45 @@ void GLCanvas3D::_render_slice_control() const
             auto   slicePlateItem = ImGui::GetCursorScreenPos(); // ImGui::GetCursorPos();
             ImVec2 main_pos       = ImGui::GetCursorScreenPos();
             ImVec2 main_size      = bigcfg.size;
+            static bool main_click_pending = false;
+            static bool suppress_mapping_popup_until_leave = false;
+            static bool suppress_mapping_popup_after_dialog = false;
+            static bool mapping_dialog_in_progress = false;
+            static ImVec2 mapping_popup_suppression_mouse_pos(0.0f, 0.0f);
+            const ImVec2 main_mouse_pos = ImGui::GetIO().MousePos;
+            const bool main_pointer_inside = en != 1 &&
+                main_mouse_pos.x >= main_pos.x && main_mouse_pos.x < main_pos.x + main_size.x &&
+                main_mouse_pos.y >= main_pos.y && main_mouse_pos.y < main_pos.y + main_size.y;
             ImGui::InvisibleButton("slice_main_custom", main_size);
-            bool   main_hovered = ImGui::IsItemHovered() && en != 1;
-            bool   main_active  = ImGui::IsItemActive() && en != 1;
+            bool   main_hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup) && en != 1;
+            const bool main_mouse_pressed = main_pointer_inside && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+            if (main_mouse_pressed) {
+                main_click_pending = true;
+                suppress_mapping_popup_until_leave = true;
+                imgui.set_requires_extra_frame();
+            }
+
+            const bool main_mouse_released = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+            const bool main_clicked = main_click_pending && main_mouse_released && main_pointer_inside;
+            if (main_mouse_released ||
+                (main_click_pending && !ImGui::IsMouseDown(ImGuiMouseButton_Left) && !main_mouse_pressed))
+                main_click_pending = false;
+            const float suppression_mouse_move_x =
+                std::abs(main_mouse_pos.x - mapping_popup_suppression_mouse_pos.x);
+            const float suppression_mouse_move_y =
+                std::abs(main_mouse_pos.y - mapping_popup_suppression_mouse_pos.y);
+            if (!mapping_dialog_in_progress && suppress_mapping_popup_after_dialog && !main_pointer_inside &&
+                (suppression_mouse_move_x > 1.0f || suppression_mouse_move_y > 1.0f)) {
+                suppress_mapping_popup_after_dialog = false;
+                suppress_mapping_popup_until_leave = false;
+            } else if (!mapping_dialog_in_progress && !suppress_mapping_popup_after_dialog &&
+                       !main_pointer_inside && !main_click_pending) {
+                suppress_mapping_popup_until_leave = false;
+            }
+
+            bool   main_active  = (ImGui::IsItemActive() ||
+                                   (main_click_pending && ImGui::IsMouseDown(ImGuiMouseButton_Left))) &&
+                                  en != 1;
             ImVec4 main_bg      = en == 2 ? config.getColor(bigcfg.fg) : config.getColor(bigcfg.bg);
             ImVec4 main_hv      = ImVec4(68.f / 255.f, 205.f / 255.f, 122.f / 255.f, 1.0f);
             ImVec4 main_ac      = config.getColor(bigcfg.fg);
@@ -10474,10 +10653,6 @@ void GLCanvas3D::_render_slice_control() const
             ImVec2      text_pos   = ImVec2(main_pos.x + (main_size.x - text_sz.x) * 0.5f, main_pos.y + (main_size.y - text_sz.y) * 0.5f);
             ImU32       text_col   = (en == 2) ? IM_COL32(255, 255, 255, 255) : ImGui::GetColorU32(config.getColor(DispConfig::e_ct_text));
             dl->AddText(text_pos, text_col, main_label);
-            if (ImGui::IsItemClicked() && en != 1) {
-                if (wxGetApp().mainframe)
-                    wxGetApp().mainframe->slice_plate(static_cast<MainFrame::SliceSelectType>(s_sst));
-            }
             ImVec2 slicePlateSize = ImGui::GetItemRectSize();
 #ifdef __APPLE__
             slicePlateItem       = ImVec2(slicePlateItem.x / scale, slicePlateItem.y / scale);
@@ -10500,7 +10675,7 @@ void GLCanvas3D::_render_slice_control() const
             ImVec2 drop_pos  = ImGui::GetCursorScreenPos();
             ImVec2 drop_size = smallcfg.size;
             ImGui::InvisibleButton("slice_drop_custom", drop_size);
-            bool   drop_hovered = ImGui::IsItemHovered();
+            bool   drop_hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup);
             bool   drop_active  = ImGui::IsItemActive();
             ImVec4 sm_bg        = (en == 2 ? config.getColor(bigcfg.fg) : config.getColor(bigcfg.bg));
             ImVec4 sm_hv        = ImVec4(68.f / 255.f, 205.f / 255.f, 122.f / 255.f, 1.0f);
@@ -10531,8 +10706,230 @@ void GLCanvas3D::_render_slice_control() const
             ImU32 sep_col = IM_COL32(0xE1, 0xE4, 0xE9, 255);
             dl2->AddLine(ImVec2(drop_pos.x, drop_pos.y + 1.0f), ImVec2(drop_pos.x, drop_pos.y + drop_size.y - 1.0f), sep_col, 1.0f);
             ImVec2 drop_min_slice = drop_pos;
-            if (ImGui::IsItemClicked())
+            if (ImGui::IsItemClicked() || (drop_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)))
                 ImGui::OpenPopup("^##id0");
+            // The mapping mode is derived from the selected nozzle variants; no hover selector is needed.
+            const bool mapping_mode_trigger_hovered = false;
+            const bool slice_options_popup_open = ImGui::IsPopupOpen("^##id0");
+            if (should_show_filament_nozzle_mapping_ui()) {
+                constexpr const char* mapping_mode_popup_id = "filament_mapping_mode_popup";
+                static ImVec2 mapping_mode_popup_pos(0.0f, 0.0f);
+                static ImVec2 mapping_mode_popup_size(0.0f, 0.0f);
+                static bool mapping_mode_popup_rect_valid = false;
+                const auto is_point_in_rect = [](const ImVec2& point, const ImVec2& position, const ImVec2& size) {
+                    return point.x >= position.x && point.x < position.x + size.x &&
+                           point.y >= position.y && point.y < position.y + size.y;
+                };
+                const ImVec2 mouse_pos = ImGui::GetIO().MousePos;
+                const bool mapping_mode_popup_open = ImGui::IsPopupOpen(mapping_mode_popup_id);
+                if (suppress_mapping_popup_until_leave || slice_options_popup_open)
+                    mapping_mode_popup_rect_valid = false;
+
+                const bool mapping_mode_popup_rect_hovered =
+                    mapping_mode_popup_rect_valid && is_point_in_rect(mouse_pos, mapping_mode_popup_pos, mapping_mode_popup_size);
+                if (!mapping_mode_trigger_hovered && !mapping_mode_popup_open && !mapping_mode_popup_rect_hovered)
+                    mapping_mode_popup_rect_valid = false;
+
+                if ((mapping_mode_trigger_hovered || mapping_mode_popup_rect_hovered) && !slice_options_popup_open && !mapping_mode_popup_open) {
+                    ImGui::OpenPopup(mapping_mode_popup_id);
+                    imgui.set_requires_extra_frame();
+                }
+
+                struct FilamentMappingModeOption {
+                    FilamentMapMode mode;
+                    std::string     title;
+                    std::string     description;
+                    bool            visible;
+                };
+                const FilamentMappingModeOption mapping_mode_options[] = {
+                    {fmmAutoForSaving,
+                     _u8L("Filament-Saving Mode"),
+                     _u8L("Automatically assign project filaments to the available nozzles to reduce material waste."),
+                     true},
+                    // Keep the mode definition ready for its device-data implementation, but do not show it yet.
+                    {fmmAutoForMatch,
+                     _u8L("Convenience Mode"),
+                     _u8L("Automatically assign project filaments according to the connected printer's filament status."),
+                     false},
+                    {fmmManual,
+                     _u8L("Custom Mode"),
+                     _u8L("Manually assign each project filament to an available nozzle."),
+                     true},
+                };
+
+                const auto* mode_option = wxGetApp().preset_bundle->project_config
+                                              .option<ConfigOptionEnum<FilamentMapMode>>("filament_map_mode", false);
+                FilamentMapMode selected_mode = mode_option != nullptr ? mode_option->value : fmmAutoForSaving;
+                const bool bold_font_was_pushed = imgui.pop_bold_font();
+                const float popup_right = main_pos.x + main_size.x + smallcfg.size.x;
+                const float popup_edge_margin = 10.0f * scale;
+                const float popup_preferred_width = 440.0f * scale;
+                const float popup_width = std::min(popup_preferred_width, std::max(1.0f, popup_right - popup_edge_margin));
+                const float popup_padding = 12.0f * scale;
+                const float option_padding_y = 8.0f * scale;
+                const float option_gap = 8.0f * scale;
+                const float title_to_description_gap = 3.0f * scale;
+                const float radio_control_size = 24.0f * scale;
+                const float radio_diameter = 14.0f * scale;
+                const float radio_to_text_gap = 3.0f * scale;
+                const float option_min_height = 58.0f * scale;
+                const float popup_to_button_gap = 4.0f * scale;
+                const float option_width = popup_width - 2.0f * popup_padding;
+                const float text_x_offset = radio_control_size + radio_to_text_gap;
+                const float text_width = option_width - text_x_offset;
+                const float title_height = ImGui::GetTextLineHeight();
+                const auto option_height = [&](const FilamentMappingModeOption& option) {
+                    const float description_height = ImGui::CalcTextSize(option.description.c_str(), nullptr, false, text_width).y;
+                    return std::max(option_min_height, option_padding_y * 2.0f + title_height + title_to_description_gap + description_height);
+                };
+
+                const FilamentMappingModeOption* first_visible_mode = nullptr;
+                bool selected_mode_visible = false;
+                size_t visible_mode_count = 0;
+                for (const FilamentMappingModeOption& option : mapping_mode_options) {
+                    if (!option.visible)
+                        continue;
+                    if (first_visible_mode == nullptr)
+                        first_visible_mode = &option;
+                    if (option.mode == selected_mode)
+                        selected_mode_visible = true;
+                    ++visible_mode_count;
+                }
+                if (!selected_mode_visible && first_visible_mode != nullptr) {
+                    selected_mode = first_visible_mode->mode;
+                    set_filament_nozzle_mapping_mode(selected_mode);
+                }
+
+                float popup_height = popup_padding * 2.0f;
+                size_t visible_mode_index = 0;
+                for (const FilamentMappingModeOption& option : mapping_mode_options) {
+                    if (!option.visible)
+                        continue;
+
+                    popup_height += option_height(option);
+                    if (++visible_mode_index < visible_mode_count)
+                        popup_height += option_gap;
+                }
+
+                const ImVec2 popup_size(popup_width, popup_height);
+                const ImVec2 popup_pos(popup_right - popup_size.x, main_pos.y - popup_size.y - popup_to_button_gap);
+                if (mapping_mode_trigger_hovered || mapping_mode_popup_open || mapping_mode_popup_rect_hovered) {
+                    mapping_mode_popup_pos = popup_pos;
+                    mapping_mode_popup_size = ImVec2(popup_size.x, popup_size.y + popup_to_button_gap);
+                    mapping_mode_popup_rect_valid = true;
+                }
+                const bool mapping_mode_popup_rect_hovered_now =
+                    mapping_mode_popup_rect_valid && is_point_in_rect(mouse_pos, mapping_mode_popup_pos, mapping_mode_popup_size);
+                const ImVec4 popup_bg = wxGetApp().dark_mode() ? ImVec4(0x53 / 255.f, 0x58 / 255.f, 0x5F / 255.f, 1.0f) :
+                                                                 ImVec4(0x4E / 255.f, 0x59 / 255.f, 0x69 / 255.f, 1.0f);
+                const ImVec4 item_active = config.getColor(bigcfg.fg);
+                const ImVec4 title_text = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+                ImVec4 detail_text = title_text;
+                detail_text.w = 0.88f;
+                const ImVec4 option_hover = ImVec4(1.0f, 1.0f, 1.0f, 0.10f);
+                const ImVec4 radio_border = ImVec4(1.0f, 1.0f, 1.0f, 0.65f);
+
+                ImGui::PushStyleColor(ImGuiCol_PopupBg, popup_bg);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+                ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f * scale);
+                ImGui::SetNextWindowSize(popup_size);
+                ImGui::SetNextWindowPos(popup_pos, ImGuiCond_Always);
+
+                if (ImGui::BeginPopup(mapping_mode_popup_id)) {
+                    const bool popup_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup);
+                    const bool keep_mapping_mode_popup_open =
+                        mapping_mode_trigger_hovered || popup_hovered || mapping_mode_popup_rect_hovered_now;
+                    if (keep_mapping_mode_popup_open)
+                        imgui.set_requires_extra_frame();
+
+                    if (main_mouse_pressed || slice_options_popup_open) {
+                        ImGui::CloseCurrentPopup();
+                    } else {
+                        ImDrawList* popup_draw_list = ImGui::GetWindowDrawList();
+                        const ImVec2 popup_origin = ImGui::GetWindowPos();
+                        float option_y = popup_origin.y + popup_padding;
+                        size_t option_index = 0;
+
+                        for (const FilamentMappingModeOption& option : mapping_mode_options) {
+                            if (!option.visible)
+                                continue;
+
+                            const float current_option_height = option_height(option);
+                            const ImVec2 option_pos(popup_origin.x + popup_padding, option_y);
+                            const ImVec2 option_size(option_width, current_option_height);
+                            ImGui::SetCursorScreenPos(option_pos);
+                            ImGui::PushID(static_cast<int>(option.mode));
+                            ImGui::InvisibleButton("filament_mapping_mode", option_size);
+                            const bool option_hovered = ImGui::IsItemHovered();
+                            if (ImGui::IsItemClicked()) {
+                                set_filament_nozzle_mapping_mode(option.mode);
+                                selected_mode = option.mode;
+                            }
+                            ImGui::PopID();
+
+                            const bool option_selected = option.mode == selected_mode;
+                            if (option_hovered) {
+                                popup_draw_list->AddRectFilled(option_pos, ImVec2(option_pos.x + option_size.x, option_pos.y + option_size.y),
+                                                               ImGui::GetColorU32(option_hover), 4.0f * scale);
+                            }
+
+                            const ImVec2 radio_center(option_pos.x + radio_control_size * 0.5f,
+                                                      option_pos.y + option_padding_y + title_height * 0.5f);
+                            const ImVec4 current_radio_border = option_selected ? item_active : radio_border;
+                            popup_draw_list->AddCircle(radio_center, radio_diameter * 0.5f,
+                                                       ImGui::GetColorU32(current_radio_border), 16, 2.0f * scale);
+                            if (option_selected)
+                                popup_draw_list->AddCircleFilled(radio_center, radio_diameter * 0.5f - 4.0f * scale, ImGui::GetColorU32(item_active), 16);
+
+                            const ImVec2 text_pos(option_pos.x + text_x_offset, option_pos.y + option_padding_y);
+                            ImGui::SetCursorScreenPos(text_pos);
+                            ImGui::PushStyleColor(ImGuiCol_Text, option_selected ? item_active : title_text);
+                            const bool title_bold_font_pushed = imgui.push_bold_font();
+                            ImGui::TextUnformatted(option.title.c_str());
+                            if (title_bold_font_pushed)
+                                imgui.pop_bold_font();
+                            ImGui::PopStyleColor();
+
+                            ImGui::SetCursorScreenPos(ImVec2(text_pos.x, text_pos.y + title_height + title_to_description_gap));
+                            ImGui::PushStyleColor(ImGuiCol_Text, detail_text);
+                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + text_width);
+                            ImGui::TextUnformatted(option.description.c_str());
+                            ImGui::PopTextWrapPos();
+                            ImGui::PopStyleColor();
+
+                            option_y += current_option_height;
+                            if (++option_index < visible_mode_count)
+                                option_y += option_gap;
+                        }
+
+                        if (!keep_mapping_mode_popup_open) {
+                            mapping_mode_popup_rect_valid = false;
+                            ImGui::CloseCurrentPopup();
+                        }
+                    }
+                    ImGui::EndPopup();
+                }
+
+                ImGui::PopStyleVar(3);
+                ImGui::PopStyleColor();
+                if (bold_font_was_pushed)
+                    imgui.push_bold_font();
+            }
+            if (main_clicked) {
+                const MainFrame::SliceSelectType slice_type = static_cast<MainFrame::SliceSelectType>(s_sst);
+                mapping_dialog_in_progress = true;
+                imgui.set_requires_extra_frame();
+                wxGetApp().CallAfter([slice_type]() {
+                    if (wxGetApp().mainframe)
+                        wxGetApp().mainframe->slice_plate(slice_type);
+                    mapping_dialog_in_progress = false;
+                    suppress_mapping_popup_until_leave = true;
+                    suppress_mapping_popup_after_dialog = true;
+                    mapping_popup_suppression_mouse_pos = ImGui::GetIO().MousePos;
+                });
+            }
+
             // Popup menu width equals main+dropdown width; white menu background; no padding
             {
                 ImVec4 dark_bg  = ImVec4(0x59 / 255.f, 0x59 / 255.f, 0x5D / 255.f, 1.0f); // #59595D
@@ -11536,14 +11933,19 @@ void GLCanvas3D::_render_imgui_select_plate_toolbar()
                 gcode_result_valid = false;
             }
         }
+        // Results become valid before on_process_completed finishes its UI
+        // cleanup. Keep the overview hidden until the whole run has settled.
+        const bool slicing_finished = !wxGetApp().plater()->is_background_process_slicing() &&
+                                      (!m_process || !m_process->running());
         if (all_plates_stats_item->selected && all_plates_stats_item->slice_state == IMToolbarItem::SliceState::SLICED &&
-            gcode_result_valid) {
+            gcode_result_valid && slicing_finished &&
+            !wxGetApp().plater()->get_notification_manager()->is_slicing_progress_completing()) {
             m_gcode_viewer.render_all_plates_stats(plate_list.get_nonempty_plates_slice_results());
-            m_render_preview = false;
         } else {
             m_gcode_viewer.render_all_plates_stats(plate_list.get_nonempty_plates_slice_results(), false);
-            m_render_preview = true;
         }
+        // The overview must not render a previously loaded plate while waiting.
+        m_render_preview = !all_plates_stats_item->selected;
     } else
         m_render_preview = true;
 
@@ -11706,17 +12108,28 @@ void GLCanvas3D::_render_imgui_select_plate_toolbar()
         if (ImGui::ImageButton2(btn_texture_id, size, {0, 0}, {1, 1}, frame_padding, bg_col, tint_col, margin)) {
             if (all_plates_stats_item->slice_state != IMToolbarItem::SliceState::SLICE_FAILED) {
                 if (m_process && !m_process->running()) {
-                    for (int i = 0; i < m_sel_plate_toolbar.m_items.size(); i++) {
-                        m_sel_plate_toolbar.m_items[i]->selected = false;
-                    }
-                    all_plates_stats_item->selected = true;
+                    // Valid results may still need loading; only slicing requires mapping.
+                    const bool needs_processing = all_plates_stats_item->slice_state != IMToolbarItem::SliceState::SLICED;
+                    const auto plates = plate_list.get_nonempty_plate_list();
+                    const bool needs_slice = std::any_of(plates.begin(), plates.end(), [](const PartPlate* plate) {
+                        return !plate->is_slice_result_valid();
+                    });
+                    const bool grouping_confirmed = !needs_slice ||
+                        wxGetApp().plater()->sidebar().prepare_filament_nozzle_mapping_for_slice(true, true);
+                    if (grouping_confirmed) {
+                        for (int i = 0; i < m_sel_plate_toolbar.m_items.size(); i++) {
+                            m_sel_plate_toolbar.m_items[i]->selected = false;
+                        }
+                        all_plates_stats_item->selected = true;
 
-                    enable_select_plate_toolbar(false); //==>To: force update all plate thumbnails
-                    enable_select_plate_toolbar(true);
-                    wxGetApp().plater()->set_need_update(true);
-                    wxGetApp().plater()->update(true, true);
-                    wxCommandEvent evt = wxCommandEvent(EVT_GLTOOLBAR_SLICE_ALL);
-                    wxPostEvent(wxGetApp().plater(), evt);
+                        enable_select_plate_toolbar(false); //==>To: force update all plate thumbnails
+                        enable_select_plate_toolbar(true);
+                        if (needs_processing) {
+                            wxGetApp().plater()->set_need_update(true);
+                            if (wxGetApp().mainframe)
+                                wxGetApp().mainframe->slice_plate(MainFrame::eSliceAll);
+                        }
+                    }
                 }
             }
         }
@@ -11801,18 +12214,25 @@ void GLCanvas3D::_render_imgui_select_plate_toolbar()
         }
         if (ImGui::Button("##invisible_button", button_size)) {
             if (m_process && !m_process->running()) {
-                all_plates_stats_item->selected = false;
-                item->selected                  = true;
-                // begin to slicing plate
-                if (item->slice_state != IMToolbarItem::SliceState::SLICED) {
-                    enable_select_plate_toolbar(false); //==>To: force update all plate thumbnails
-                    enable_select_plate_toolbar(true);
-                    wxGetApp().plater()->set_need_update(true);
-                    wxGetApp().plater()->update(true, true);
+                // Selecting an unloaded but valid plate loads its existing G-code.
+                const PartPlate* target_plate = plate_list.get_plate(i);
+                const bool needs_slice = target_plate != nullptr && !target_plate->is_slice_result_valid();
+                const bool grouping_confirmed = !needs_slice ||
+                    wxGetApp().plater()->sidebar().prepare_filament_nozzle_mapping_for_slice(true, false, i);
+                if (grouping_confirmed) {
+                    all_plates_stats_item->selected = false;
+                    item->selected                  = true;
+                    // begin to slicing plate
+                    if (needs_slice) {
+                        enable_select_plate_toolbar(false); //==>To: force update all plate thumbnails
+                        enable_select_plate_toolbar(true);
+                        wxGetApp().plater()->set_need_update(true);
+                        wxGetApp().plater()->update(true, true);
+                    }
+                    wxCommandEvent* evt = new wxCommandEvent(EVT_GLTOOLBAR_SELECT_SLICED_PLATE);
+                    evt->SetInt(i);
+                    wxQueueEvent(wxGetApp().plater(), evt);
                 }
-                wxCommandEvent* evt = new wxCommandEvent(EVT_GLTOOLBAR_SELECT_SLICED_PLATE);
-                evt->SetInt(i);
-                wxQueueEvent(wxGetApp().plater(), evt);
             }
         }
         ImGui::PopStyleColor(4);
@@ -13690,6 +14110,247 @@ void GLCanvas3D::_update_process_toolbar_item_icons() const
     }
 }
 
+static bool s_filament_grouping_preview_folded = false;
+static ImTextureID s_filament_grouping_collapse_texture = nullptr;
+static unsigned s_filament_grouping_collapse_texture_size = 0;
+
+static void render_filament_nozzle_mapping_preview_summary(float scale)
+{
+    Plater* plater = wxGetApp().plater();
+    if (plater == nullptr)
+        return;
+
+    PartPlate* current_plate = plater->get_partplate_list().get_curr_plate();
+    if (plater->is_background_process_slicing() || current_plate == nullptr ||
+        !current_plate->is_slice_result_valid())
+        return;
+
+    const GCodeProcessorResult* slice_result = current_plate->get_slice_result();
+    if (slice_result == nullptr || !slice_result->generated_filament_map_present ||
+        slice_result->generated_filament_map.empty())
+        return;
+
+    const std::vector<int>& filament_map = slice_result->generated_filament_map;
+    const size_t filament_count = filament_map.size();
+    const int mapped_nozzle_count = *std::max_element(filament_map.begin(), filament_map.end());
+    const size_t nozzle_count = std::min<size_t>(
+        4, !slice_result->nozzle_diameters.empty()
+               ? slice_result->nozzle_diameters.size()
+               : static_cast<size_t>(std::max(0, mapped_nozzle_count)));
+    if (nozzle_count == 0)
+        return;
+
+    std::vector<std::string> filament_types(filament_count, _u8L("Filament"));
+    for (size_t filament = 0; filament < filament_count; ++filament) {
+        if (filament < slice_result->creality_extruder_types.size() &&
+            !slice_result->creality_extruder_types[filament].empty())
+            filament_types[filament] = slice_result->creality_extruder_types[filament];
+    }
+
+    std::vector<std::string> filament_colours(filament_count, "#4F5965");
+    const std::vector<std::string>* sliced_filament_colours = nullptr;
+    if (!slice_result->creality_complete_extruder_colors.empty())
+        sliced_filament_colours = &slice_result->creality_complete_extruder_colors;
+    else if (!slice_result->extruder_colors.empty())
+        sliced_filament_colours = &slice_result->extruder_colors;
+    if (sliced_filament_colours != nullptr) {
+        const size_t colour_count = std::min(filament_count, sliced_filament_colours->size());
+        std::copy_n(sliced_filament_colours->begin(), colour_count, filament_colours.begin());
+    }
+
+    std::vector<std::vector<size_t>> nozzle_filaments(nozzle_count);
+    for (size_t filament = 0; filament < filament_count; ++filament) {
+        if (filament >= slice_result->rendered_extruder_used.size() ||
+            !slice_result->rendered_extruder_used[filament])
+            continue;
+        const int nozzle = filament_map[filament];
+        if (nozzle >= 1 && static_cast<size_t>(nozzle) <= nozzle_count)
+            nozzle_filaments[static_cast<size_t>(nozzle - 1)].emplace_back(filament);
+    }
+
+    const bool dark_mode = wxGetApp().dark_mode();
+    const ImU32 card_header = dark_mode ? IM_COL32(0x56, 0x56, 0x58, 255) : IM_COL32(0xF5, 0xF6, 0xFA, 255);
+    const ImU32 card_body = dark_mode ? IM_COL32(0x30, 0x30, 0x31, 255) : IM_COL32(0xFF, 0xFF, 0xFF, 255);
+    const ImU32 card_border = dark_mode ? IM_COL32(0x4B, 0x4C, 0x4E, 255) : IM_COL32(0xC5, 0xCB, 0xD5, 255);
+    const ImU32 primary_text = dark_mode ? IM_COL32(0xF2, 0xF2, 0xF3, 255) : IM_COL32(0x4A, 0x53, 0x5F, 255);
+    const ImU32 secondary_text = dark_mode ? IM_COL32(0x9B, 0x9B, 0xA0, 255) : IM_COL32(0x7A, 0x84, 0x92, 255);
+
+    ImGuiWrapper& imgui = *wxGetApp().imgui();
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const float panel_header_height = 24.0f * scale;
+    const float title_y = ImGui::GetCursorPosY();
+    const ImVec2 header_screen_pos = ImGui::GetCursorScreenPos();
+    const std::string title_label = _u8L("Nozzle filament grouping");
+    const bool title_font_pushed = imgui.push_bold_font();
+    const ImVec2 title_size = ImGui::CalcTextSize(title_label.c_str());
+    draw_list->AddText(ImVec2(header_screen_pos.x,
+                              header_screen_pos.y + (panel_header_height - title_size.y) * 0.5f),
+                       primary_text, title_label.c_str());
+    if (title_font_pushed)
+        imgui.pop_bold_font();
+
+    const float collapse_size = panel_header_height;
+    const float right_edge = ImGui::GetWindowContentRegionMax().x;
+    const float collapse_x = right_edge - collapse_size;
+    const float collapse_canvas_size = 22.0f * scale;
+    const unsigned collapse_raster_size =
+        std::max(1u, static_cast<unsigned>(std::ceil(collapse_canvas_size)));
+    if (s_filament_grouping_collapse_texture == nullptr ||
+        s_filament_grouping_collapse_texture_size != collapse_raster_size) {
+        IMTexture::release_texture(s_filament_grouping_collapse_texture);
+        s_filament_grouping_collapse_texture_size = 0;
+        if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + "/images/fold_dark_default.svg",
+                                           collapse_raster_size, collapse_raster_size,
+                                           s_filament_grouping_collapse_texture))
+            s_filament_grouping_collapse_texture_size = collapse_raster_size;
+    }
+    ImGui::SetCursorPos(ImVec2(collapse_x, title_y));
+    const ImVec2 collapse_pos = ImGui::GetCursorScreenPos();
+    if (ImGui::InvisibleButton("##filament_grouping_collapse",
+                               ImVec2(collapse_size, collapse_size))) {
+        s_filament_grouping_preview_folded = !s_filament_grouping_preview_folded;
+        if (GLCanvas3D* canvas = plater->get_current_canvas3D()) {
+            canvas->set_as_dirty();
+            canvas->request_extra_frames(3);
+        }
+        imgui.set_requires_extra_frame();
+    }
+    const bool collapse_hovered = ImGui::IsItemHovered();
+    if (s_filament_grouping_collapse_texture != nullptr) {
+        const float canvas_inset = (collapse_size - collapse_canvas_size) * 0.5f;
+        const ImVec2 canvas_min = collapse_pos + ImVec2(canvas_inset, canvas_inset);
+        const ImVec2 canvas_max = canvas_min + ImVec2(collapse_canvas_size, collapse_canvas_size);
+        const float uv_top = s_filament_grouping_preview_folded ? 1.0f : 0.0f;
+        const float uv_bottom = s_filament_grouping_preview_folded ? 0.0f : 1.0f;
+        const ImU32 arrow_tint = dark_mode ? IM_COL32_WHITE : IM_COL32(65, 65, 65, 255);
+        draw_list->AddImage(s_filament_grouping_collapse_texture, canvas_min, canvas_max,
+                            ImVec2(0.0f, uv_top), ImVec2(1.0f, uv_bottom), arrow_tint);
+    }
+    if (collapse_hovered) {
+        draw_list->AddRect(collapse_pos,
+                           collapse_pos + ImVec2(collapse_size, collapse_size),
+                           IM_COL32(21, 191, 89, 255), 6.0f * scale,
+                           ImDrawFlags_RoundCornersAll, 1.0f * scale);
+    }
+
+    const std::string regroup_label = _u8L("Regroup");
+    const ImVec2 regroup_text_size = ImGui::CalcTextSize(regroup_label.c_str());
+    const float regroup_right = collapse_x - 8.0f * scale;
+    ImGui::SetCursorPos(ImVec2(regroup_right - regroup_text_size.x, title_y));
+    const ImVec2 regroup_pos = ImGui::GetCursorScreenPos();
+    if (ImGui::InvisibleButton("##regroup_filaments", ImVec2(regroup_text_size.x, panel_header_height))) {
+        if (FilamentPanel* filament_panel = dynamic_cast<FilamentPanel*>(plater->sidebar().filament_panel())) {
+            filament_panel->CallAfter([filament_panel]() {
+                if (!filament_panel->IsBeingDeleted())
+                    filament_panel->open_filament_grouping_dialog();
+            });
+        }
+    }
+    const bool regroup_hovered = ImGui::IsItemHovered();
+    const ImU32 regroup_colour = regroup_hovered ? IM_COL32(0x27, 0xD2, 0x6C, 255)
+                                                  : IM_COL32(0x15, 0xC0, 0x59, 255);
+    draw_list->AddText(
+        ImVec2(regroup_pos.x, regroup_pos.y + (panel_header_height - regroup_text_size.y) * 0.5f),
+        regroup_colour, regroup_label.c_str());
+    ImGui::SetCursorPosY(title_y + panel_header_height);
+    if (s_filament_grouping_preview_folded)
+        return;
+
+    ImGui::Dummy(ImVec2(0.0f, 5.0f * scale));
+
+    const float available_width = ImGui::GetContentRegionAvail().x;
+    const float column_gap = 6.0f * scale;
+    const float row_gap = 6.0f * scale;
+    const float card_width = (available_width - column_gap) * 0.5f;
+    const float header_height = 26.0f * scale;
+    const float body_min_height = 40.0f * scale;
+    const float body_padding = 7.0f * scale;
+    const float filament_row_height = 22.0f * scale;
+    const float swatch_size = 18.0f * scale;
+    const float card_rounding = 4.0f * scale;
+
+    for (size_t row = 0; row < (nozzle_count + 1) / 2; ++row) {
+        const size_t first_nozzle = row * 2;
+        const size_t second_nozzle = first_nozzle + 1;
+        size_t max_filament_rows = nozzle_filaments[first_nozzle].size();
+        if (second_nozzle < nozzle_count)
+            max_filament_rows = std::max(max_filament_rows, nozzle_filaments[second_nozzle].size());
+        const float body_height = std::max(body_min_height,
+            body_padding * 2.0f + static_cast<float>(max_filament_rows) * filament_row_height);
+        const float card_height = header_height + body_height;
+        const ImVec2 row_origin = ImGui::GetCursorScreenPos();
+
+        for (size_t column = 0; column < 2; ++column) {
+            const size_t nozzle = first_nozzle + column;
+            if (nozzle >= nozzle_count)
+                continue;
+
+            const ImVec2 card_min(row_origin.x + static_cast<float>(column) * (card_width + column_gap), row_origin.y);
+            const ImVec2 card_max(card_min.x + card_width, card_min.y + card_height);
+            const ImVec2 header_max(card_max.x, card_min.y + header_height);
+            draw_list->AddRectFilled(card_min, card_max, card_body, card_rounding);
+            draw_list->AddRectFilled(card_min, header_max, card_header, card_rounding, ImDrawFlags_RoundCornersTop);
+            draw_list->AddRect(card_min, card_max, card_border, card_rounding, ImDrawFlags_RoundCornersAll, 1.0f * scale);
+
+            const std::string nozzle_title = into_u8(wxString::Format(_L("Nozzle %d"), static_cast<int>(nozzle + 1)));
+            const ImVec2 header_text_size = ImGui::CalcTextSize(nozzle_title.c_str());
+            draw_list->AddText(ImVec2(card_min.x + 8.0f * scale,
+                                      card_min.y + (header_height - header_text_size.y) * 0.5f),
+                               primary_text, nozzle_title.c_str());
+
+            const auto& filaments = nozzle_filaments[nozzle];
+            if (filaments.empty()) {
+                const std::string empty_text = _u8L("No filament");
+                const ImVec2 empty_size = ImGui::CalcTextSize(empty_text.c_str());
+                draw_list->AddText(ImVec2(card_min.x + (card_width - empty_size.x) * 0.5f,
+                                          header_max.y + (body_height - empty_size.y) * 0.5f),
+                                   secondary_text, empty_text.c_str());
+                continue;
+            }
+
+            for (size_t item = 0; item < filaments.size(); ++item) {
+                const size_t filament = filaments[item];
+                wxColour colour(from_u8(filament_colours[filament]));
+                if (!colour.IsOk())
+                    colour = wxColour("#4F5965");
+                const ImU32 swatch_colour = IM_COL32(colour.Red(), colour.Green(), colour.Blue(), 255);
+                const int luminance = (299 * colour.Red() + 587 * colour.Green() + 114 * colour.Blue()) / 1000;
+                const ImU32 swatch_text = luminance >= 150 ? IM_COL32(35, 42, 50, 255) : IM_COL32_WHITE;
+                const float row_y = header_max.y + body_padding + static_cast<float>(item) * filament_row_height;
+                const ImVec2 swatch_min(card_min.x + 7.0f * scale, row_y);
+                const ImVec2 swatch_max(swatch_min.x + swatch_size, swatch_min.y + swatch_size);
+                const float swatch_rounding = 3.0f * scale;
+                draw_list->AddRectFilled(swatch_min, swatch_max, swatch_colour, swatch_rounding);
+                if (luminance >= 150) {
+                    const float border_width = std::max(1.0f, 1.0f * scale);
+                    const float border_inset = border_width * 0.5f;
+                    draw_list->AddRect(swatch_min + ImVec2(border_inset, border_inset),
+                                       swatch_max - ImVec2(border_inset, border_inset),
+                                       IM_COL32(0xD5, 0xD9, 0xE1, 255), swatch_rounding,
+                                       ImDrawFlags_RoundCornersAll, border_width);
+                }
+
+                const std::string filament_number = std::to_string(filament + 1);
+                const ImVec2 number_size = ImGui::CalcTextSize(filament_number.c_str());
+                draw_list->AddText(ImVec2(swatch_min.x + (swatch_size - number_size.x) * 0.5f,
+                                          swatch_min.y + (swatch_size - number_size.y) * 0.5f),
+                                   swatch_text, filament_number.c_str());
+
+                const float label_x = swatch_max.x + 5.0f * scale;
+                const float label_width = std::max(1.0f, card_max.x - 7.0f * scale - label_x);
+                const std::string label = ImGuiWrapper::trunc(filament_types[filament], label_width, "...");
+                const ImVec2 label_size = ImGui::CalcTextSize(label.c_str());
+                draw_list->AddText(ImVec2(label_x, swatch_min.y + (swatch_size - label_size.y) * 0.5f),
+                                   primary_text, label.c_str());
+            }
+        }
+
+        ImGui::Dummy(ImVec2(available_width, card_height));
+        if (row + 1 < (nozzle_count + 1) / 2)
+            ImGui::Dummy(ImVec2(0.0f, row_gap));
+    }
+}
+
 void GLCanvas3D::_render_printer_preset_and_obj_list()
 {
     m_printer_objects_panel_size = m_printer_objects_panel_pos = ImVec2(0.0f, 0.0f);
@@ -13731,63 +14392,110 @@ void GLCanvas3D::_render_printer_preset_and_obj_list()
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, transparent);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, transparent);
 
-        if (m_canvas_type == ECanvasType::CanvasView3D) {
-            imgui.set_next_window_pos(0.0f, 0.0f, ImGuiCond_Always, 0.0f, 0.0f);
-        } else {
-            // CanvasPreview
-            imgui.set_next_window_pos((90.0f + 35.0f) * view_scale, 10.0f * view_scale, ImGuiCond_Always, 0.0f, 0.0f);
-        }
-
         int window_flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
                            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
-        // int child_window_flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
-
         ObjectList* obj_list = wxGetApp().obj_list();
         bool        fold     = obj_list->get_left_panel_fold();
-
         float min_width = 300 * view_scale;
+        const ImVec2 panel_origin = m_canvas_type == ECanvasType::CanvasView3D
+                                        ? ImVec2(0.0f, 0.0f)
+                                        : ImVec2((90.0f + 35.0f) * view_scale, 10.0f * view_scale);
+        const float panel_gap = 8.0f * view_scale;
 
-        ImGui::SetNextWindowSizeConstraints(ImVec2(min_width, -1), ImVec2(300 * view_scale, -1));
-
-        if (fold && m_canvas_type == ECanvasType::CanvasView3D)
-            imgui.set_next_window_size(min_width, get_main_toolbar_height(), ImGuiCond_Always);
-
-        if (ImGui::Begin("##obj_tree", nullptr, (ImGuiWindowFlags) window_flags)) {
-            {
-                const ImGuiStyle& style     = ImGui::GetStyle();
-                ImVec2            win_pos   = ImGui::GetWindowPos();
-                ImVec2            win_sz    = ImGui::GetWindowSize();
-                ImDrawList*       bg        = ImGui::GetBackgroundDrawList();
-                const ImVec4      sh_rgb    = ImVec4(118.0f / 255.0f, 142.0f / 255.0f, 171.0f / 255.0f, 1.0f);
-                const float       alphas[8] = {0.050f, 0.040f, 0.032f, 0.026f, 0.020f, 0.014f, 0.010f, 0.006f};
-                const float       steps[8]  = {2.00f, 1.60f, 1.20f, 0.90f, 0.70f, 0.50f, 0.35f, 0.20f};
-                for (int i = 0; i < 8; ++i) {
-                    float spread = steps[i] * view_scale;
-                    float round  = style.WindowRounding + spread;
-                    float off_x  = spread * 0.10f;
-                    float off_y  = spread * 0.80f;
-                    ImU32 col    = ImGui::ColorConvertFloat4ToU32(ImVec4(sh_rgb.x, sh_rgb.y, sh_rgb.z, alphas[i]));
-                    bg->AddRectFilled(ImVec2(win_pos.x - off_x, win_pos.y + off_y),
-                                      ImVec2(win_pos.x + win_sz.x + off_x, win_pos.y + win_sz.y + off_y), col, round);
-                }
+        const auto set_next_panel_layout = [&](const ImVec2& position) {
+            imgui.set_next_window_pos(position.x, position.y, ImGuiCond_Always, 0.0f, 0.0f);
+            ImGui::SetNextWindowSizeConstraints(ImVec2(min_width, -1), ImVec2(min_width, -1));
+        };
+        const auto draw_panel_shadow = [&]() {
+            const ImGuiStyle& style     = ImGui::GetStyle();
+            const ImVec2      win_pos   = ImGui::GetWindowPos();
+            const ImVec2      win_sz    = ImGui::GetWindowSize();
+            ImDrawList*       bg        = ImGui::GetBackgroundDrawList();
+            const ImVec4      sh_rgb    = ImVec4(118.0f / 255.0f, 142.0f / 255.0f, 171.0f / 255.0f, 1.0f);
+            const float       alphas[8] = {0.050f, 0.040f, 0.032f, 0.026f, 0.020f, 0.014f, 0.010f, 0.006f};
+            const float       steps[8]  = {2.00f, 1.60f, 1.20f, 0.90f, 0.70f, 0.50f, 0.35f, 0.20f};
+            for (int i = 0; i < 8; ++i) {
+                const float spread = steps[i] * view_scale;
+                const float round  = style.WindowRounding + spread;
+                const float off_x  = spread * 0.10f;
+                const float off_y  = spread * 0.80f;
+                const ImU32 col    = ImGui::ColorConvertFloat4ToU32(
+                    ImVec4(sh_rgb.x, sh_rgb.y, sh_rgb.z, alphas[i]));
+                bg->AddRectFilled(ImVec2(win_pos.x - off_x, win_pos.y + off_y),
+                                  ImVec2(win_pos.x + win_sz.x + off_x, win_pos.y + win_sz.y + off_y),
+                                  col, round);
             }
+        };
+        const auto render_object_preview = [&]() {
+            if (fold)
+                return;
 
-            obj_list->render_printer_preset_by_ImGui(fold);
-
-            if (!fold) {
-                ImGui::Dummy(ImVec2(0, 5));
-
-                bool show_objects = _render_global_objects_switch_button();
-                if (show_objects) {
-                    ImGui::Dummy(ImVec2(0, 5));
-                    obj_list->render_plate_tree_by_ImGui();
-                }
+            ImGui::Dummy(ImVec2(0.0f, 5.0f * view_scale));
+            const bool show_objects = _render_global_objects_switch_button();
+            if (show_objects) {
+                ImGui::Dummy(ImVec2(0.0f, 5.0f * view_scale));
+                obj_list->render_plate_tree_by_ImGui();
             }
+        };
 
-            m_printer_objects_panel_size = ImGui::GetWindowSize();
-            m_printer_objects_panel_pos  = ImGui::GetWindowPos();
+        PartPlate* grouping_plate = wxGetApp().plater()->get_partplate_list().get_curr_plate();
+        const GCodeProcessorResult* grouping_result =
+            grouping_plate != nullptr ? grouping_plate->get_slice_result() : nullptr;
+        const bool has_filament_grouping_result =
+            !wxGetApp().plater()->is_background_process_slicing() && grouping_plate != nullptr &&
+            grouping_plate->is_slice_result_valid() && grouping_result != nullptr &&
+            grouping_result->generated_filament_map_present && !grouping_result->generated_filament_map.empty();
+        const bool separate_grouping_panel =
+            m_canvas_type == ECanvasType::CanvasPreview && should_show_filament_nozzle_mapping_ui() &&
+            !is_all_plates_selected() && has_filament_grouping_result;
+        if (separate_grouping_panel) {
+            const ImGuiWindowFlags auto_size_flags =
+                static_cast<ImGuiWindowFlags>(window_flags | ImGuiWindowFlags_AlwaysAutoResize);
+            ImVec2 printer_position = panel_origin;
+            ImVec2 printer_size(min_width, 0.0f);
+            float printer_bottom = panel_origin.y;
+
+            set_next_panel_layout(panel_origin);
+            if (ImGui::Begin("##printer_panel", nullptr, auto_size_flags)) {
+                draw_panel_shadow();
+                obj_list->render_printer_preset_by_ImGui(fold);
+                render_object_preview();
+                printer_position = ImGui::GetWindowPos();
+                printer_size = ImGui::GetWindowSize();
+                printer_bottom = printer_position.y + ImGui::GetCursorPosY() + ImGui::GetStyle().WindowPadding.y;
+            }
+            ImGui::End();
+
+            const ImVec2 grouping_position(panel_origin.x, printer_bottom + panel_gap);
+            float grouping_bottom = grouping_position.y;
+            set_next_panel_layout(grouping_position);
+            if (ImGui::Begin("##filament_grouping_panel", nullptr, auto_size_flags)) {
+                draw_panel_shadow();
+                render_filament_nozzle_mapping_preview_summary(view_scale);
+                grouping_bottom = grouping_position.y + ImGui::GetCursorPosY() + ImGui::GetStyle().WindowPadding.y;
+            }
+            ImGui::End();
+
+            // BaseRenderer positions the real G-code preview below this public
+            // panel rectangle. Include the independent grouping module in that
+            // rectangle so the two separately rendered overlays cannot overlap.
+            m_printer_objects_panel_pos = printer_position;
+            m_printer_objects_panel_size = ImVec2(
+                printer_size.x, std::max(0.0f, grouping_bottom - printer_position.y));
+        } else {
+            set_next_panel_layout(panel_origin);
+            if (fold && m_canvas_type == ECanvasType::CanvasView3D)
+                imgui.set_next_window_size(min_width, get_main_toolbar_height(), ImGuiCond_Always);
+
+            if (ImGui::Begin("##obj_tree", nullptr, (ImGuiWindowFlags) window_flags)) {
+                draw_panel_shadow();
+                obj_list->render_printer_preset_by_ImGui(fold);
+                render_object_preview();
+                m_printer_objects_panel_size = ImGui::GetWindowSize();
+                m_printer_objects_panel_pos  = ImGui::GetWindowPos();
+            }
+            ImGui::End();
         }
-        ImGui::End();
 
         ImGui::PopStyleColor(13);
         ImGui::PopStyleVar(2);

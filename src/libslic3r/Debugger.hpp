@@ -6,6 +6,7 @@
 #include "libslic3r/SurfaceCollection.hpp"
 #include "libslic3r/GCode/SeamPlacer.hpp"
 
+
 namespace Slic3r {
 
 	class Debugger
@@ -108,6 +109,7 @@ namespace Slic3r {
     void to_obj(const char* dir, const std::vector<std::vector<TriangleMesh>>& tmss, bool sperate_file = false);
 
     ///////////////////////////////////////////////////////////////////////////////
+
 }
 
 #endif

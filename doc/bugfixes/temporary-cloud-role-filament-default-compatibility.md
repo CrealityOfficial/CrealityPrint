@@ -107,3 +107,41 @@
 - 当前临时语义下，用户在界面选择第一项耗材 1，切片时仍会被解释为缺省，而不是强制使用耗材 1。
 - 本兼容不应长期保留；云端参数更新后必须按还原清单恢复正式语义。
 - 还原时不要删除旧 3MF 迁移代码，只恢复迁移开关和参数语义。
+
+## 7. 当前已还原后的正式逻辑
+
+云端参数已更新为使用 `0` 表示缺省后，当前代码已经移除临时兼容语义，恢复正式规则：
+
+- `wall_filament`、`sparse_infill_filament`、`solid_infill_filament` 的参数定义仍保持 `min=0`，默认值恢复为 `0`。
+- 值 `0` 表示缺省：墙、稀疏填充、实心填充不强制指定角色耗材，后续由模型体或对象的 `extruder` 兜底。
+- 值 `1`、`2`、`3` 等大于 `0` 的值表示显式指定对应耗材；用户在界面选择耗材 1 时，切片时会按耗材 1 生效，不再被解释为缺省。
+- `PrintConfig.cpp` 中已删除三项角色耗材参数 `0 -> 1` 的临时归一处理。
+- `PrintObject.cpp` 中 `is_default_role_filament()` 已恢复为仅 `filament == 0` 表示缺省，并删除 `normalize_temporary_role_filament()`。
+- 普通模型体优先级保持为：显式 `wall_filament` / `sparse_infill_filament` / `solid_infill_filament` > 模型体 `extruder` > 对象 `extruder` > 工艺默认值。
+- 对象 `extruder` 仍只作为兜底值；如果模型体自身有 `extruder`，模型体值可以覆盖对象兜底值，避免多色 3MF 被对象耗材统一覆盖。
+- 修改器和高度范围中的显式 `extruder` 仍表示局部覆盖，优先级高于父区域继承值；显式角色耗材仍可继续覆盖局部 `extruder`。
+
+界面逻辑同步恢复：
+
+- `Plater.cpp` 中三项角色耗材参数已从 `dynamic_filament_list_1_based` 切回 `dynamic_filament_list`。
+- 界面重新显示“缺省”选项。
+- 删除耗材后，如果 `wall_filament`、`sparse_infill_filament`、`solid_infill_filament` 引用了被删耗材或越界耗材，兜底值恢复为 `0`。
+- 删除临时 `DynamicFilamentList1Based` 逻辑后，不再把值 `0` 或越界值映射到第一个可见耗材项。
+
+已用耗材统计同步恢复：
+
+- `PartPlate.cpp` 和 `PrintApply.cpp` 中角色耗材显式统计条件已从 `> 1` 恢复为 `> 0`。
+- 因此值 `1` 会被统计为实际使用耗材 1，值 `0` 不计入显式耗材。
+
+旧 3MF 迁移逻辑保留并恢复启用：
+
+- `ENABLE_LEGACY_ROLE_FILAMENT_MIGRATION` 已恢复为 `true`。
+- 我们自己生成的 Creality 3MF 仍按 `AppVersion < 7.2` 判断是否执行旧版本迁移。
+- 创想云生成的 3MF 会通过 `creality.config` 中的 `<metadata key="Application" value="MakeNow"/>` 识别；只要识别为 `MakeNow`，无论版本号是多少，都按旧版本处理，执行 `1/1/1 -> 0/0/0` 迁移。
+- 没有 `creality.config` 或非 Creality 信息无法可靠判断版本时，仍按旧逻辑保守迁移。
+
+测试同步调整：
+
+- `tests/fff_print/test_printobject.cpp` 中保留 `0` 继承模型体耗材的用例。
+- 新增/调整 `1` 为显式耗材 1 的断言，确保 `1` 不再按缺省处理。
+- 保留模型体 `extruder` 覆盖对象 `extruder` 兜底值的用例，防止 Bambu/多色 3MF 再次被对象耗材统一覆盖。

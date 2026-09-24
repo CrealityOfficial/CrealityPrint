@@ -7,6 +7,7 @@
 #include "GUI_Utils.hpp"
 #include "I18N.hpp"
 #include "libslic3r/AppConfig.hpp"
+#include "libslic3r/MaterialListManager.hpp"
 #include "slic3r/GUI/wxExtensions.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/WebViewDialog.hpp"
@@ -42,6 +43,9 @@
 #include "buildinfo.h"
 #include "libslic3r/common_header/common_header.h"
 #include "slic3r/Utils/ProfileFamilyLoader.hpp"
+#include "libslic3r/PrinterCover.hpp"
+#include "PrinterCoverRoute.hpp"
+#include <boost/algorithm/string/replace.hpp>
 
 using namespace nlohmann;
 
@@ -49,6 +53,34 @@ namespace Slic3r { namespace GUI {
 
 json m_ProfileJson;
 json m_MachineJson;
+
+static void set_guide_cover_urls(json& profile)
+{
+    auto& app = wxGetApp();
+    if (!app.get_server()->is_started())
+        return;
+    // Build URLs when replying, after the guide HTTP server has started.
+    // Resolve the actual file at request time so downloaded covers replace fallbacks.
+    for (auto& model : profile["model"]) {
+        if (model.is_object())
+            model["cover"] = printer_cover_url(app.get_server_port(),
+                model.value("vendor", std::string("Creality")), model.value("model", std::string()));
+    }
+}
+
+
+static std::string filament_display_name_with_material_alias(const std::string& filament_name)
+{
+    const std::string alias = Slic3r::MaterialListManager::instance().display_name_from_preset_name(filament_name);
+    if (alias.empty())
+        return filament_name;
+
+    std::string base_name = Preset::remove_suffix_modified(filament_name);
+    const std::string::size_type printer_suffix_pos = base_name.find(" @");
+    const std::string::size_type at_pos = printer_suffix_pos != std::string::npos ? printer_suffix_pos : base_name.find('@');
+    return alias + (at_pos != std::string::npos ? base_name.substr(at_pos) : std::string());
+}
+
 struct NozzleSelected
     {
         int index;
@@ -291,21 +323,23 @@ wxString GuideFrame::SetStartPage(GuidePage startpage, bool load)
     TargetUrl.Replace("#", "%23");
     wxURI uri(TargetUrl);
     wxString encodedUrl = uri.BuildURI();
-    int port = wxGetApp().get_server_port();
-    if (startpage == BBL_FILAMENT_ONLY) {
-        wxString url = wxString::Format("http://localhost:%d/homepage/index.html?lang=%s&isScale=false#/Guide/createFilament", port, strlang);
-         TargetUrl    = url;
-        // 本地调试
-      //   TargetUrl    = "http://localhost:9090/#/Guide/createFilament?lang=zh_CN&isScale=false";
-    } else if (startpage == BBL_MODELS_ONLY) {
-        wxString url = wxString::Format(
-            "http://localhost:%d/homepage/index.html?lang=%s&isScale=false&customized=%d&customer_name=%s#/Guide/addPrinter", port, strlang,
-            customized, customer_name);
-         TargetUrl    = url;
-        // 本地调试
-        // TargetUrl    = "http://localhost:9090/index.html?lang=zh_CN&isScale=false&debug=false&customized=1&customer_name=Creality#/Guide/addPrinter";
-    }
-    else {
+    if (startpage == BBL_FILAMENT_ONLY || startpage == BBL_MODELS_ONLY) {
+        wxGetApp().start_http_server();
+        if (wxGetApp().get_server()->is_started()) {
+            const int port = wxGetApp().get_server_port();
+            if (startpage == BBL_FILAMENT_ONLY) {
+                TargetUrl = wxString::Format(
+                    "http://localhost:%d/homepage/index.html?lang=%s&isScale=false#/Guide/createFilament", port, strlang);
+            } else {
+                TargetUrl = wxString::Format(
+                    "http://localhost:%d/homepage/index.html?lang=%s&isScale=false&customized=%d&customer_name=%s#/Guide/addPrinter", port, strlang,
+                    customized, customer_name);
+            }
+        } else {
+            TargetUrl = "file://" + encodedUrl;
+            BOOST_LOG_TRIVIAL(error) << "Failed to start the local guide server; using the bundled guide page";
+        }
+    } else {
         TargetUrl = "file://" + encodedUrl;
     }
     // TargetUrl = "file://" + encodedUrl;
@@ -480,6 +514,7 @@ void GuideFrame::OnScriptMessage(wxWebViewEvent &evt)
             m_Res["command"] = "response_userguide_profile";
             m_Res["sequence_id"] = "10001";
             m_Res["response"]        = m_ProfileJson;
+            set_guide_cover_urls(m_Res["response"]);
             //m_Res["MachineJson"]     = m_MachineJson;
 
             string strRoleType = GUI::wxGetApp().app_config->get("role_type");
@@ -517,6 +552,7 @@ void GuideFrame::OnScriptMessage(wxWebViewEvent &evt)
             m_Res["command"] = "response_userguide_profile";
             m_Res["sequence_id"] = "10001";
             m_Res["response"]        = m_ProfileJson;
+            set_guide_cover_urls(m_Res["response"]);
 			m_Res["MachineJson"]     = m_MachineJson;
             m_Res["user_preset"] = json::array(); 
             
@@ -690,9 +726,14 @@ void GuideFrame::OnScriptMessage(wxWebViewEvent &evt)
                                     {
                                         if(nozzle.selected[i] > 0)
                                         {
-                                            std::string new_material = material + " @"+ nozzle.model + " " + nozzle.diameters[i] + " nozzle";
-                                            if (m_ProfileJson["filament"].contains(new_material))
+                                            std::string new_material = material + " @" + nozzle.model;
+                                            if (m_ProfileJson["filament"].contains(new_material)) {
                                                 selected_filaments.emplace(new_material);
+                                            } else {
+                                                new_material += " " + nozzle.diameters[i] + " nozzle";
+                                                if (m_ProfileJson["filament"].contains(new_material))
+                                                    selected_filaments.emplace(new_material);
+                                            }
                                         }
                                     }
                                 }
@@ -712,9 +753,14 @@ void GuideFrame::OnScriptMessage(wxWebViewEvent &evt)
                                     {
                                         if(nozzle.selected[i] > 0)
                                         {
-                                            std::string new_material = material + " @"+ nozzle.model + " " + nozzle.diameters[i] + " nozzle";
-                                            if (m_ProfileJson["filament"].contains(new_material))
+                                            std::string new_material = material + " @" + nozzle.model;
+                                            if (m_ProfileJson["filament"].contains(new_material)) {
                                                 un_selected_filaments.emplace(new_material);
+                                            } else {
+                                                new_material += " " + nozzle.diameters[i] + " nozzle";
+                                                if (m_ProfileJson["filament"].contains(new_material))
+                                                    un_selected_filaments.emplace(new_material);
+                                            }
                                         }
                                     }
                                 }
@@ -1240,7 +1286,10 @@ bool GuideFrame::apply_config(AppConfig *app_config, PresetBundle *preset_bundle
         //for (const auto& vendor_profile : preset_bundle->vendors) {
         for (const auto model_it: model_maps) {
             if (model_it.second.size() > 0) {
-                variant = *model_it.second.begin();
+                // Keep all enabled nozzle variants, but prefer the standard 0.4 mm nozzle
+                // for the printer selected after completing the configuration guide.
+                const auto default_variant = model_it.second.find("0.4");
+                variant = default_variant != model_it.second.end() ? *default_variant : *model_it.second.begin();
                 const auto config_old = old_enabled_vendors.find(bundle_name);
                 if (config_old == old_enabled_vendors.end())
                     return model_it.first;
@@ -1392,7 +1441,7 @@ bool GuideFrame::run()
 int GuideFrame::LoadProfile()
 {
     try {
-        ProfileFamilyLoader::get_instance()->request_and_wait();
+        ProfileFamilyLoader::get_instance()->wait_until_loaded();
         ProfileFamilyLoader::get_instance()->get_result(m_ProfileJson, m_MachineJson, bbl_bundle_rsrc);
         
         const auto enabled_filaments = wxGetApp().app_config->has_section(AppConfig::SECTION_FILAMENTS) ? wxGetApp().app_config->get_section(AppConfig::SECTION_FILAMENTS) : std::map<std::string, std::string>();
@@ -1405,6 +1454,14 @@ int GuideFrame::LoadProfile()
                 json& temp_model = it.value();
                 std::string model_name = temp_model["model"];
                 std::string vendor_name = temp_model["vendor"];
+                // Recheck local covers when opening the guide: the loader result may predate a parameter update.
+                std::string cover = find_printer_cover(data_dir(), resources_dir(), vendor_name, model_name);
+                if (cover.empty())
+                    cover = (boost::filesystem::path(resources_dir()) / "images" / "printer_default.png").string();
+                boost::replace_all(cover, "\\", "/");
+                boost::replace_all(cover, "#", "%23");
+                temp_model["cover"] = cover;
+
                 std::string nozzle_diameter = temp_model["nozzle_diameter"];
                 std::string selected;
                 boost::trim(nozzle_diameter);
@@ -1448,6 +1505,12 @@ int GuideFrame::LoadProfile()
         for (auto it = m_ProfileJson["filament"].begin(); it != m_ProfileJson["filament"].end(); ++it) {
             //json temp_filament = it.value();
             std::string filament_name = it.key();
+            if (it.value().is_object()) {
+                std::string display_name = filament_name;
+                if (it.value().contains("name") && it.value()["name"].is_string())
+                    display_name = it.value()["name"].get<std::string>();
+                m_ProfileJson["filament"][filament_name]["name"] = filament_display_name_with_material_alias(display_name);
+            }
             if (enabled_filaments.find(filament_name) != enabled_filaments.end())
                 m_ProfileJson["filament"][filament_name]["selected"] = 1;
         }

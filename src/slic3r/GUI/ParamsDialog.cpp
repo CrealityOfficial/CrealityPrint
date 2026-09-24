@@ -128,7 +128,15 @@ void ParamsDialog::Popup()
     if (m_panel && m_panel->get_current_tab()) {
         bool just_edit = false;
         if (!m_editing_filament_id.empty()) just_edit = true;
-        dynamic_cast<Tab *>(m_panel->get_current_tab())->set_just_edit(just_edit);
+        Tab* tab = dynamic_cast<Tab *>(m_panel->get_current_tab());
+        tab->set_just_edit(just_edit);
+        // The printer/nozzle selection may have changed while this reusable
+        // dialog was hidden. Refresh process and filament variant tabs before
+        // showing it.
+        tab->update_process_extruder_switch(false);
+        tab->update_filament_nozzle_variant_switch(false);
+        if (auto* printer_tab = dynamic_cast<TabPrinter*>(tab))
+            printer_tab->refresh_nozzle_variant_ui(true);
     }
     Show();
     adjust_dialog_in_screen(this, 1300, 650);
@@ -136,10 +144,27 @@ void ParamsDialog::Popup()
 
 void ParamsDialog::on_dpi_changed(const wxRect &suggested_rect)
 {
-    m_panel->msw_rescale();
-    Layout();
-    apply_params_dialog_size(this);
-	Refresh();
+    if (m_panel == nullptr)
+        return;
+
+    // Windows delivers WM_DPICHANGED before all child HWNDs have adopted the
+    // destination DPI. Rescaling here and again in CallAfter() makes fields feed
+    // intermediate physical sizes back into their min sizes. Do one final,
+    // idempotent pass after the native DPI transition has completed.
+    CallAfter([this]() {
+        if (m_panel == nullptr)
+            return;
+
+        Freeze();
+        m_panel->msw_rescale();
+        m_panel->InvalidateBestSize();
+        m_panel->Layout();
+        Layout();
+        apply_params_dialog_size(this);
+        SendSizeEvent();
+        Refresh();
+        Thaw();
+    });
 }
 
 PrinterDialog::PrinterDialog(wxWindow* parent)

@@ -16,6 +16,7 @@ public:
         if (m_share_extruder) {
             m_share_E = 0.;
             m_share_retracted = 0.;
+            m_share_restart_extra = 0.;
         } else {
             m_E             = 0;
             m_retracted     = 0;
@@ -25,6 +26,8 @@ public:
     }
 
     unsigned int id() const { return m_id; }
+    // Temporary diagnostics: expose the address without dereferencing the config.
+    const GCodeConfig* diagnostic_config_address() const noexcept { return m_config; }
 
     double extrude(double dE);
     double retract(double length, double restart_extra);
@@ -44,7 +47,7 @@ public:
     // Get current retraction value. Only non-negative values.
     double retracted() const { return m_share_extruder ? m_share_retracted : m_retracted; }
     // Get extra retraction planned after
-    double restart_extra() const { return m_restart_extra; }
+    double restart_extra() const { return m_share_extruder ? m_share_restart_extra : m_restart_extra; }
     // Setters for the PlaceholderParser.
     // Set current extruder position. Only applicable with absolute extruder addressing.
     void   set_position(double e) { m_E = e; }
@@ -91,6 +94,7 @@ private:
     bool          m_share_extruder;
     static double m_share_E;
     static double m_share_retracted;
+    static double m_share_restart_extra;
 };
 
 // Sort Extruder objects by the extruder id by default.

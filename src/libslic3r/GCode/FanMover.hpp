@@ -9,6 +9,7 @@
 #include "../Point.hpp"
 #include "../GCodeReader.hpp"
 #include "../GCodeWriter.hpp"
+#include "ZaaIntervalProtocol.hpp"
 #include <regex>
 
 namespace Slic3r {
@@ -19,9 +20,11 @@ public:
     float time;
     int16_t fan_speed;
     bool is_kickstart;
+    bool zaa_protected;
     float x = 0, y = 0, z = 0, e = 0;
     float dx = 0, dy = 0, dz = 0, de = 0;
-    BufferData(std::string line, float time = 0, int16_t fan_speed = 0, float is_kickstart = false) : raw(line), time(time), fan_speed(fan_speed), is_kickstart(is_kickstart){
+    BufferData(std::string line, float time = 0, int16_t fan_speed = 0, bool is_kickstart = false, bool zaa_protected = false)
+        : raw(line), time(time), fan_speed(fan_speed), is_kickstart(is_kickstart), zaa_protected(zaa_protected) {
         //avoid double \n
         if(!line.empty() && line.back() == '\n') line.pop_back();
     }
@@ -58,6 +61,8 @@ private:
 
     // The output of process_layer()
     std::string m_process_output;
+    ZaaIntervalTracker m_zaa_interval;
+    bool m_processing_zaa = false;
 
 public:
     FanMover(const GCodeWriter& writer, const float nb_seconds_delay, const bool with_D_option, const bool relative_e,
@@ -82,6 +87,7 @@ private:
     }
     // Processes the given gcode line
     void _process_gcode_line(GCodeReader& reader, const GCodeReader::GCodeLine& line);
+    void _flush_at_zaa_boundary();
     void _process_T(const std::string_view command);
     void _put_in_middle_G1(std::list<BufferData>::iterator item_to_split, float nb_sec, BufferData&& line_to_write);
     void _print_in_middle_G1(BufferData& line_to_split, float nb_sec, const std::string& line_to_write);

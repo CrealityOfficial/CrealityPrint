@@ -74,10 +74,19 @@ void TextInputCtrl::paintEvent(wxPaintEvent& evt)
 
 void TextInputCtrl::Rescale()
 {
+    if (text_ctrl == nullptr)
+        return;
+
+    text_ctrl->SetFont(Label::Body_14);
+    text_ctrl->InvalidateBestSize();
+    InvalidateBestSize();
+    Layout();
+    Refresh();
 }
 
 void TextInputCtrl::OnSize(wxSizeEvent& event)
 {
     event.Skip();
-    Rescale();
+    Layout();
+    Refresh();
 }

@@ -405,6 +405,8 @@ protected:
     IMSlider*   m_moves_slider{nullptr};
     IMSlider* m_cliper_slider{nullptr};
     IMSlider* m_layers_slider{nullptr};
+    bool   m_moves_slider_keep_min{false};
+    bool   m_moves_slider_position_valid{false};
     Shells m_shells;
     /*BBS GUI refactor, store displayed items in color scheme combobox */
     std::vector<EViewType> view_type_items;
@@ -462,6 +464,7 @@ public:
     // recalculate ranges in dependence of what is visible and sets tool/print colors
     virtual void refresh(const GCodeProcessorResult& gcode_result, const std::vector<std::string>& str_tool_colors);
     virtual void refresh_render_paths() = 0;
+    void sync_shells_extruder_ids();
     void update_shells_color_by_extruder(const DynamicPrintConfig* config);
     void set_shell_transparency(float alpha = 0.15f);
 

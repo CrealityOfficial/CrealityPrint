@@ -26,6 +26,24 @@ endif()
 add_subdirectory(video)
 # Adding libnest2d project for bin packing...
 add_subdirectory(libnest2d)
+
+# Diagnostics are exposed through one configuration-gated interface. Release
+# builds receive neither fingerprint nor performance instrumentation.
+add_library(slic3r_diagnostics_relwithdebinfo INTERFACE)
+target_compile_definitions(slic3r_diagnostics_relwithdebinfo INTERFACE
+    $<$<CONFIG:RelWithDebInfo>:SLIC3R_DIAGNOSTICS_FINGERPRINT_ENABLED>)
+
+# Tracy remains an implementation detail of performance diagnostics. Compiling
+# its client directly into the consumer avoids an unconditional Visual Studio
+# project dependency.
+target_include_directories(slic3r_diagnostics_relwithdebinfo SYSTEM INTERFACE
+    $<$<CONFIG:RelWithDebInfo>:${CMAKE_CURRENT_SOURCE_DIR}/tracy/public>)
+target_compile_definitions(slic3r_diagnostics_relwithdebinfo INTERFACE
+    $<$<CONFIG:RelWithDebInfo>:SLIC3R_DIAGNOSTICS_PERFORMANCE_ENABLED>
+    $<$<CONFIG:RelWithDebInfo>:TRACY_ENABLE>
+    $<$<CONFIG:RelWithDebInfo>:TRACY_ON_DEMAND>
+    $<$<CONFIG:RelWithDebInfo>:TRACY_ONLY_LOCALHOST>)
+
 #_VLD_ENABLED 
 set(CGAL_ENABLE_VLD 0)
 if(CMAKE_VLD_ENABLED)
@@ -182,11 +200,40 @@ set(PROJECT_DLL ${PROJECT_DLL_NAME_WIN32})
 elseif(APPLE)
 set(PROJECT_DLL ${PROCESS_NAME})
 endif()
+
+add_subdirectory(slic3r/CLI)
+
 if (WIN32)
-    add_library(${PROJECT_DLL} SHARED CrealityPrint.cpp CrealityPrint.hpp BaseException.cpp BaseException.h StackWalker.cpp StackWalker.h CxMiniDump.h CxMiniDump.cpp CrealityrintDump.hpp CrealityrintDump.cpp)
+    add_library(${PROJECT_DLL} SHARED CrealityPrint.cpp BaseException.cpp BaseException.h StackWalker.cpp StackWalker.h CxMiniDump.h CxMiniDump.cpp CrealityrintDump.hpp CrealityrintDump.cpp)
+elseif (APPLE AND CMAKE_MACOSX_BUNDLE)
+    add_executable(${PROJECT_DLL} MACOSX_BUNDLE CrealityPrint.cpp CrealityrintDump.hpp CrealityrintDump.cpp)
 else ()
-    add_executable(${PROJECT_DLL} CrealityPrint.cpp CrealityPrint.hpp CrealityrintDump.hpp CrealityrintDump.cpp)
+    add_executable(${PROJECT_DLL} CrealityPrint.cpp CrealityrintDump.hpp CrealityrintDump.cpp)
 endif ()
+
+set(slic3r_tracy_client_source
+    ${CMAKE_CURRENT_SOURCE_DIR}/tracy/public/TracyClient.cpp)
+target_sources(${PROJECT_DLL} PRIVATE
+    $<$<CONFIG:RelWithDebInfo>:${slic3r_tracy_client_source}>)
+set_source_files_properties(${slic3r_tracy_client_source}
+    PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+target_link_libraries(${PROJECT_DLL} slic3r_diagnostics_relwithdebinfo)
+
+if (WIN32)
+    # Extract only Plot.cpp from libslic3r; its exported viewers remain in the DLL.
+    set(slic3r_plot_anchor slic3r_diagnostics_plot_anchor)
+    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(slic3r_plot_anchor _${slic3r_plot_anchor})
+    endif ()
+    if (MSVC)
+        target_link_options(${PROJECT_DLL} PRIVATE "/INCLUDE:${slic3r_plot_anchor}")
+    elseif (MINGW)
+        target_link_options(${PROJECT_DLL} PRIVATE "-Wl,--undefined=${slic3r_plot_anchor}")
+    endif ()
+endif ()
+
+target_include_directories(${PROJECT_DLL} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(${PROJECT_DLL} libslic3r_cli)
 
 if (MINGW)
     target_link_options(${PROJECT_DLL} PUBLIC "-Wl,-allow-multiple-definition")
@@ -202,6 +249,7 @@ if (NOT WIN32 AND NOT APPLE)
     set(SLIC3R_APP_CMD "${PROCESS_NAME}")
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/unix/BuildLinuxImage.sh.in ${CMAKE_CURRENT_BINARY_DIR}/BuildLinuxImage.sh @ONLY)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/unix/BuildLinuxDeb.sh.in ${CMAKE_CURRENT_BINARY_DIR}/BuildLinuxDeb.sh @ONLY)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/unix/BuildUosV25Deb.sh.in ${CMAKE_CURRENT_BINARY_DIR}/BuildUosV25Deb.sh @ONLY)
 endif ()
 
 option(ENABLE_BREAKPAD "Enable Breakpad" ON)
@@ -288,11 +336,76 @@ else()
         message(FATAL_ERROR "Missing CR_TPMS library: cr_tpms_library")
     endif()
 endif()
+
+# cr_km_recipe: closed-source K-M recipe library.
+# The library and header are installed under <prefix>/{lib,include}.
+find_library(CP_KM_Recipe cr_km_recipe)
+if(NOT CP_KM_Recipe)
+    message(FATAL_ERROR "Missing CR_KM_RECIPE library. Build and install dep_CR_KM_RECIPE first.")
+endif()
+get_filename_component(_cr_km_recipe_libdir "${CP_KM_Recipe}" DIRECTORY)
+get_filename_component(_cr_km_recipe_root "${_cr_km_recipe_libdir}" DIRECTORY)
+target_include_directories(${PROJECT_DLL} PRIVATE "${_cr_km_recipe_root}/include")
+target_compile_definitions(${PROJECT_DLL} PRIVATE CR_CLOSE_STATIC_DEFINE)
+target_link_libraries(${PROJECT_DLL} ${CP_KM_Recipe})
+
+find_library(CP_FILLTENSOR_Gradual cr_FillTensor_library)
+if (CP_FILLTENSOR_Gradual)
+    target_compile_definitions(libslic3r PUBLIC CR_FILLTENSOR_STATIC_DEFINE)
+    target_link_libraries(libslic3r ${CP_FILLTENSOR_Gradual})
+else()
+    set(_msvc_arch "${CMAKE_SYSTEM_PROCESSOR}")
+    if (MSVC AND CMAKE_GENERATOR_PLATFORM)
+        string(TOUPPER "${CMAKE_GENERATOR_PLATFORM}" _msvc_arch)
+    endif()
+    if ("${_msvc_arch}" STREQUAL "ARM64")
+        message(FATAL_ERROR "Missing Windows ARM64 CR_FILLTENSOR library: cr_FillTensor_library.lib")
+    else()
+        message(FATAL_ERROR "Missing CR_FILLTENSOR library: cr_FillTensor_library")
+    endif()
+endif()
 if (APPLE)
 #    add_compile_options(-stdlib=libc++)
 #    add_definitions(-DBOOST_THREAD_DONT_USE_CHRONO -DBOOST_NO_CXX11_RVALUE_REFERENCES -DBOOST_THREAD_USES_MOVE)
     # -liconv: boost links to libiconv by default
     target_link_libraries(${PROJECT_DLL} "-liconv -framework IOKit" "-framework CoreFoundation" "-framework AVFoundation" "-framework AVKit" "-framework CoreMedia" "-framework VideoToolbox" -lc++)
+    if (CREALITYPRINT_APP_STORE)
+        target_link_libraries(${PROJECT_DLL} "-framework AuthenticationServices")
+    # Firebase Auth (only when the prebuilt static SDK is vendored in the tree)
+    # backs the unified Apple login (loginV2 type 23) on the App Store build.
+    # The frameworks are static archives, so they link into the executable and
+    # nothing needs to be embedded or signed separately.
+    set(FIREBASE_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../deps/Darwin/FirebaseAuthSDK")
+    if(EXISTS "${FIREBASE_SDK_DIR}/FirebaseAuth.framework")
+        target_link_libraries(${PROJECT_DLL}
+            "-Wl,-F${FIREBASE_SDK_DIR}"
+            "-framework FirebaseAuth"
+            "-framework FirebaseCore"
+            "-framework FirebaseCoreExtension"
+            "-framework FirebaseCoreInternal"
+            "-framework FirebaseInstallations"
+            "-framework GoogleUtilities"
+            # GoogleUtilities carries an NSData category (GULGzip gzip helpers)
+            # that FirebaseCoreInternal's Swift Data.zipped()/unzipped() calls
+            # via objc_msgSend at runtime. Static archives never pull in the
+            # category object file by itself, so the selector went unrecognized
+            # and aborted inside the daily heartbeat flush (1158 crash).
+            "-Wl,-force_load,${FIREBASE_SDK_DIR}/GoogleUtilities.framework/Versions/A/GoogleUtilities"
+            "-framework GTMSessionFetcher"
+            "-framework FBLPromises"
+            "-framework FirebaseAuthInterop"
+            "-framework FirebaseAppCheckInterop"
+            "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/libswiftCompatibility56.a"
+            "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/libswiftCompatibility51.a"
+            "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/libswiftCompatibilityConcurrency.a")
+    endif()
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../GoogleService-Info.plist")
+        add_custom_command(TARGET ${PROJECT_DLL} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_CURRENT_SOURCE_DIR}/../GoogleService-Info.plist"
+                "$<TARGET_FILE_DIR:${PROJECT_DLL}>/../Resources/GoogleService-Info.plist")
+    endif()
+    endif()
 elseif (MSVC)
     # Manifest is provided through CrealityPrint.rc, don't generate your own.
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /MANIFEST:NO")
@@ -464,7 +577,9 @@ else ()
         endif()
         set(MACOSX_BUNDLE_ICON_FILE Icon.icns)
         set(MACOSX_BUNDLE_NAME "CrealityPrint")
+        set(MACOSX_BUNDLE_DISPLAY_NAME "CrealityPrint")
         set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${CREALITYPRINT_VERSION})
+        set(MACOSX_BUNDLE_BUNDLE_VERSION ${CREALITYPRINT_BUILD_NUMBER})
         set(MACOSX_BUNDLE_COPYRIGHT "Copyright(C) 2022-2024 Creality All Rights Reserved")
         
     endif()
@@ -473,9 +588,9 @@ else ()
     message("BIN_RESOURCES_DIR=${BIN_RESOURCES_DIR}")
     if(APPLE)
         add_custom_command(TARGET ${PROJECT_DLL} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_DLL}>/Resources"
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_DLL}>/Resources"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory "${SLIC3R_RESOURCES_DIR}" "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_DLL}>/Resources"
+            COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:${PROJECT_DLL}>/../Resources"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_DLL}>/../Resources"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${SLIC3R_RESOURCES_DIR}" "$<TARGET_FILE_DIR:${PROJECT_DLL}>/../Resources"
             COMMENT "Copying resources to .app bundle"
             )
     else()
@@ -525,3 +640,14 @@ else ()
     message(STATUS "CMAKE_INSTALL_BINDIR=${CMAKE_INSTALL_BINDIR}")
     install(TARGETS ${PROJECT_DLL} RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif ()
+
+# Native configuration parsing pulls in engine objects also used by the GUI.
+target_sources(data_directory_migrate PRIVATE ../tools/data_migration/nanosvg.cpp)
+target_link_libraries(data_directory_migrate PRIVATE ${CP_TPMS_Gradual} OpenSSL::SSL OpenSSL::Crypto)
+if(WIN32)
+    target_link_libraries(data_directory_migrate PRIVATE bcrypt
+        $<$<CONFIG:Debug>:${LIB_ASSIMP_DEBUG}>
+        $<$<NOT:$<CONFIG:Debug>>:${LIB_ASSIMP_RELEASE}>)
+else()
+    target_link_libraries(data_directory_migrate PRIVATE ${LIB_ASSIMP})
+endif()

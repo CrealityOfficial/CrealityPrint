@@ -88,7 +88,7 @@ if exist "%BUILD_DEPLIB%" (
 :DepBuild
 echo "Current ACTION = DepBuild"
 echo "build dep release"
-call build_deps.bat Release
+call build_deps.bat Release || exit /b 1
 
 :C3DGenerate
 echo "C3DGenerate..."
@@ -114,7 +114,7 @@ cmake .. -G "%VS_Version%" -A x64 -DBBL_RELEASE_TO_PUBLIC=1 -DUPDATE_ONLINE_MACH
 -DCMAKE_BUILD_TYPE=Release ^
 -DPROCESS_NAME=%APPNAME% ^
 -DCREALITYPRINT_VERSION=%TAG_NAME% ^
--DPROJECT_VERSION_EXTRA=%VERSION_EXTRA%
+-DPROJECT_VERSION_EXTRA=%VERSION_EXTRA% || exit /b 1
 
 cd ..
 echo call run_gettext.bat
@@ -122,7 +122,7 @@ call run_gettext.bat || exit /b 1
 
 
 cd %C3D_BUILD_DIR%
-cmake --build . --config %build_type% --target ALL_BUILD -- -m
+cmake --build . --config %build_type% --target ALL_BUILD -- -m || exit /b 1
 
 for /f "tokens=1-3 delims=/ " %%1 in ("%date%") do set currentdate=%%1%%2%%3
 echo currentdate=%currentdate%
@@ -132,36 +132,58 @@ set zipName=CrealityPrint_%TAG_NAME%_%currentdate%.zip
 set EXE_NAME=%APPNAME%_%TAG_NAME%_%VERSION_EXTRA%.exe
 if [%INSTALL_TYPE%]==[nsis] (
     echo package....
-    cmake --build . --target package --config %build_type%
+    cmake --build . --target package --config %build_type% || exit /b 1
+    if not exist "%EXE_NAME%" (
+        echo ERROR: NSIS package was not generated: %EXE_NAME%
+        exit /b 1
+    )
     if [%LOCAL_BUILD%]==[OFF] (
         echo EXE_NAME=%EXE_NAME%
-        "C:\curl.exe" -X POST -F file=@%EXE_NAME% http://172.20.180.14:3001/sign
-        "C:\curl.exe" -L http://172.20.180.14:3001/exe/%EXE_NAME% -O
+        "C:\curl.exe" --fail --show-error -X POST -F "file=@%EXE_NAME%" http://172.20.180.14:3001/sign || exit /b 1
+        del /q "%EXE_NAME%.signed" 2>nul
+        "C:\curl.exe" --fail --show-error -L http://172.20.180.14:3001/exe/%EXE_NAME% -o "%EXE_NAME%.signed" || exit /b 1
+        if not exist "%EXE_NAME%.signed" (
+            echo ERROR: Signed package was not downloaded: %EXE_NAME%
+            exit /b 1
+        )
+        for %%F in ("%EXE_NAME%.signed") do if %%~zF LEQ 0 (
+            echo ERROR: Signed package is empty: %EXE_NAME%
+            exit /b 1
+        )
+        move /y "%EXE_NAME%.signed" "%EXE_NAME%" >nul || exit /b 1
         echo SIGN_PACKAGE_PATH=%APPNAME%> %ROOT_C3D%\var.prop
         echo SIGN_PACKAGE_NAME=%EXE_NAME%>> %ROOT_C3D%\var.prop
         mkdir %JOB_NAME%
-        scp -P 9122 -r %JOB_NAME% cxsw@172.20.180.14:/vagrant_data/www/shared/build
-        scp -P 9122 %EXE_NAME% cxsw@172.20.180.14:/vagrant_data/www/shared/build/%JOB_NAME%/%EXE_NAME%
+        scp -P 9122 -r %JOB_NAME% cxsw@172.20.180.14:/vagrant_data/www/shared/build || exit /b 1
+        scp -P 9122 "%EXE_NAME%" cxsw@172.20.180.14:/vagrant_data/www/shared/build/%JOB_NAME%/%EXE_NAME% || exit /b 1
     )
-    cmake --build . --target install --config %build_type%   
+    cmake --build . --target install --config %build_type% || exit /b 1
     echo zipname=%zipName%
-    %ROOT_C3D%\tools\7z.exe a -tzip %zipName% %C3D_BUILD_DIR%\CrealityPrint -xr!MicrosoftEdgeWebView2RuntimeInstallerX64.exe
+    "%ROOT_C3D%\tools\7z.exe" a -tzip "%zipName%" "%C3D_BUILD_DIR%\CrealityPrint" -xr!MicrosoftEdgeWebView2RuntimeInstallerX64.exe || exit /b 1
+    if not exist "%zipName%" (
+        echo ERROR: ZIP package was not generated: %zipName%
+        exit /b 1
+    )
     echo zipfinished : %zipName%
     if [%LOCAL_BUILD%]==[OFF] (
-        scp -P 9122 %zipName% cxsw@172.20.180.14:/vagrant_data/www/shared/build/%JOB_NAME%/%zipName%
+        scp -P 9122 "%zipName%" cxsw@172.20.180.14:/vagrant_data/www/shared/build/%JOB_NAME%/%zipName% || exit /b 1
     )
 ) else if [%INSTALL_TYPE%]==[zip] (
-    cmake --build . --target install --config %build_type%   
+    cmake --build . --target install --config %build_type% || exit /b 1
     echo zipname=%zipName%
-    %ROOT_C3D%\tools\7z.exe a -tzip %zipName% %C3D_BUILD_DIR%\CrealityPrint
+    "%ROOT_C3D%\tools\7z.exe" a -tzip "%zipName%" "%C3D_BUILD_DIR%\CrealityPrint" || exit /b 1
+    if not exist "%zipName%" (
+        echo ERROR: ZIP package was not generated: %zipName%
+        exit /b 1
+    )
     echo zipfinished : %zipName%
     set EXE_NAME=%zipName%
     echo SIGN_PACKAGE_PATH=%JOB_NAME%> %ROOT_C3D%\var.prop
     echo SIGN_PACKAGE_NAME=%EXE_NAME%>> %ROOT_C3D%\var.prop
     if [%LOCAL_BUILD%]==[OFF] (
         mkdir %JOB_NAME%
-        scp -P 9122 -r %JOB_NAME% cxsw@172.20.180.14:/vagrant_data/www/shared/build
-        scp -P 9122 %EXE_NAME% cxsw@172.20.180.14:/vagrant_data/www/shared/build/%JOB_NAME%/%EXE_NAME%
+        scp -P 9122 -r %JOB_NAME% cxsw@172.20.180.14:/vagrant_data/www/shared/build || exit /b 1
+        scp -P 9122 "%EXE_NAME%" cxsw@172.20.180.14:/vagrant_data/www/shared/build/%JOB_NAME%/%EXE_NAME% || exit /b 1
     )
 )
 cd ..

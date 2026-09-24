@@ -49,6 +49,11 @@ struct PrinterStatus
 class EasyPrintSender
 {
 public:
+    enum class DeviceDetailOpenReason {
+        Navigation,
+        SuccessfulPrint
+    };
+
     struct CloudPrintCallbacks {
         std::function<void(int, const std::string&, const std::string&)> onProgress;
         std::function<void(const nlohmann::json&)>                        onSuccess;
@@ -90,7 +95,10 @@ public:
     void setCloudClosedLoopEnabled(bool enabled);
     void setCloudPrintCallbacks(CloudPrintCallbacks callbacks);
 
-    void jumpToDeviceDetail(const std::string& ip, const std::string& name);
+    void jumpToDeviceDetail(const std::string& ip,
+                            const std::string& name,
+                            DeviceDetailOpenReason reason = DeviceDetailOpenReason::Navigation,
+                            std::string operation_id = {});
     void cancelUpload();
 
     bool updatePrinterState();

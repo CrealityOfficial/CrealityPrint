@@ -759,53 +759,18 @@ static bool scene_item_matches_slot(int item_index, const DeviceMaterialSlot& sl
 
 std::vector<unsigned int> FilamentMappingService::resolve_physical_source_filament_ids(unsigned int filament_id, size_t num_physical)
 {
-    std::vector<unsigned int> component_ids;
     if (filament_id < 1 || num_physical == 0)
-        return component_ids;
-
-    auto append_component = [&component_ids, num_physical](unsigned int component_id) {
-        if (component_id < 1 || component_id > num_physical)
-            return;
-        if (std::find(component_ids.begin(), component_ids.end(), component_id) == component_ids.end())
-            component_ids.push_back(component_id);
-    };
-
-    if (filament_id <= num_physical) {
-        append_component(filament_id);
-        return component_ids;
-    }
+        return {};
+    if (filament_id <= num_physical)
+        return {filament_id};
 
     auto* bundle = wxGetApp().preset_bundle;
     if (bundle == nullptr)
-        return component_ids;
+        return {};
 
-    const MixedFilament* mixed = bundle->mixed_filaments.mixed_filament_from_id(filament_id, num_physical);
-    if (mixed == nullptr)
-        return component_ids;
-
-    if (!mixed->gradient_component_ids.empty()) {
-        for (const char component_token : mixed->gradient_component_ids) {
-            if (component_token >= '1' && component_token <= '9')
-                append_component(static_cast<unsigned int>(component_token - '0'));
-        }
-    } else if (!mixed->manual_pattern.empty()) {
-        for (const char component_token : mixed->manual_pattern) {
-            if (component_token < '1' || component_token > '9')
-                continue;
-            const unsigned int component_id = static_cast<unsigned int>(component_token - '0');
-            if (component_id == 1)
-                append_component(mixed->component_a);
-            else if (component_id == 2)
-                append_component(mixed->component_b);
-            else
-                append_component(component_id);
-        }
-    } else {
-        append_component(mixed->component_a);
-        append_component(mixed->component_b);
-    }
-
-    return component_ids;
+    const ExpandedFilamentUsage usage =
+        bundle->mixed_filaments.expand_filament_usage({filament_id}, num_physical);
+    return usage.valid() ? usage.physical_filament_ids : std::vector<unsigned int>();
 }
 
 std::unordered_set<int> FilamentMappingService::collect_plate_item_indices(int item_count, int preferred_plate_index)
@@ -1282,6 +1247,10 @@ bool FilamentMappingService::apply_mapping_to_scene(
     }
 
     if (applied_any) {
+        // The colors we just wrote are the mapping result, not a user edit of
+        // the scene, so keep the captured original source colors and only move
+        // the snapshot fingerprint forward.
+        plater->rebaseline_scene_filament_source_snapshot();
         plater->update_project_dirty_from_presets();
         if (wxGetApp().app_config != nullptr)
             wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);

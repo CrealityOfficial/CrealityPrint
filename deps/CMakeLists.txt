@@ -22,9 +22,12 @@
 
 cmake_minimum_required(VERSION 3.2)
 if (APPLE)
-    # if CMAKE_OSX_DEPLOYMENT_TARGET is not set, set it to 11.3
     if (NOT CMAKE_OSX_DEPLOYMENT_TARGET)
-        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.3" CACHE STRING "Minimum OS X deployment version" FORCE)
+        if (CREALITYPRINT_APP_STORE)
+            set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum OS X deployment version" FORCE)
+        else()
+            set(CMAKE_OSX_DEPLOYMENT_TARGET "11.3" CACHE STRING "Minimum OS X deployment version" FORCE)
+        endif()
     endif ()
     message(STATUS "CMAKE_OSX_DEPLOYMENT_TARGET: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
 
@@ -281,6 +284,14 @@ if (NOT EXPAT_FOUND)
 endif ()
 
 set(DEP_Boost_COMPONENTS system iostreams filesystem thread log locale regex date_time)
+
+# Boost.Iostreams detects zstd while Boost is being configured.  Declare the
+# macOS static zstd project first so a clean parallel build cannot configure
+# Boost before zstd has been installed into DESTDIR.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    include(ZSTD/ZSTD.cmake)
+endif()
+
 include(Boost/Boost.cmake)
 
 # The order of includes respects the dependencies between libraries
@@ -300,6 +311,9 @@ include(OpenVDB/OpenVDB.cmake)
 include(GMP/GMP.cmake)
 include(MPFR/MPFR.cmake)
 include(CR_TPMS/cr_tpms.cmake)
+include(CR_KM_RECIPE/cr_km_recipe.cmake)
+
+include(CR_CLOSED/CR_FILLTENSOR/cr_FillTensor.cmake)
 include(CGAL/CGAL.cmake)
 
 include(NLopt/NLopt.cmake)
@@ -446,6 +460,10 @@ endif()
     
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND _dep_list "dep_metartc")
+    if (NOT FLATPAK)
+        include(Pango/Pango.cmake)
+        list(APPEND _dep_list dep_Pango)
+    endif ()
 endif()
 
 if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "loongarch|loongarch64")
@@ -465,20 +483,30 @@ if (MSVC)
     #list(APPEND _dep_list "dep_qhull")
     if (NOT "${DEPS_BITS}" STREQUAL "ARM64")
 	list(APPEND _dep_cr_tpms "dep_CR_TPMS")
+	list(APPEND _dep_cr_filltensor "dep_CR_FILLTENSOR")
     elseif (EXISTS "${CMAKE_CURRENT_LIST_DIR}/CR_TPMS/cr_tpms/lib/winARM64/cr_tpms_library.lib")
 	list(APPEND _dep_cr_tpms "dep_CR_TPMS")
     else()
         message(WARNING "Skipping CR_TPMS dependency for Windows ARM64: no winARM64 binary is present.")
     endif()
+    list(APPEND _dep_cr_tpms "dep_CR_KM_RECIPE")
+    if (NOT "${DEPS_BITS}" STREQUAL "ARM64")
+	# dep_CR_FILLTENSOR already appended above
+    elseif (EXISTS "${CMAKE_CURRENT_LIST_DIR}/CR_CLOSED/CR_FILLTENSOR/cr_FillTensor/lib/winARM64/cr_FillTensor_library.lib")
+	list(APPEND _dep_cr_filltensor "dep_CR_FILLTENSOR")
+    else()
+        message(WARNING "Skipping CR_FILLTENSOR dependency for Windows ARM64: no winARM64 binary is present.")
+    endif()
 else()
     list(APPEND _dep_list "dep_Qhull")
     list(APPEND _dep_cr_tpms "dep_CR_TPMS")
+    list(APPEND _dep_cr_filltensor "dep_CR_FILLTENSOR")
+    list(APPEND _dep_cr_tpms "dep_CR_KM_RECIPE")
     # list(APPEND _dep_list "dep_x264")   #mac need build x264
     # Not working, static build has different Eigen
     #list(APPEND _dep_list "dep_libigl")
 endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    include(ZSTD/ZSTD.cmake)
     list(APPEND _dep_list_first "dep_zstd")
 endif()
 # Include LERC for UOS or LoongArch systems
@@ -489,7 +517,7 @@ if(IS_UOS OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "loongarch")
         list(APPEND _dep_list_first "dep_Lerc")
     endif()
 endif()
-add_custom_target(deps ALL DEPENDS ${_dep_list_first} ${_dep_list} ${_dep_cr_tpms}  )
+add_custom_target(deps ALL DEPENDS ${_dep_list_first} ${_dep_list} ${_dep_cr_tpms} ${_dep_cr_filltensor}  )
 
 
 

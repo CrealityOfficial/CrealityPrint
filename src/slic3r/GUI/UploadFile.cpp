@@ -78,15 +78,24 @@ private:
 };
 }
 
-UploadFile::UploadFile() {
-    std::lock_guard<std::mutex> lock(g_oss_sdk_mutex);
-    if (g_oss_sdk_users++ == 0)
-        AlibabaCloud::OSS::InitializeSdk();
+UploadFile::UploadFile() = default;
+
+UploadFile::UploadFile(std::map<std::string, std::string> request_headers)
+    : m_request_headers(std::move(request_headers))
+    , m_has_request_headers(true)
+{
 }
-UploadFile::~UploadFile(){
-    std::lock_guard<std::mutex> lock(g_oss_sdk_mutex);
-    if (g_oss_sdk_users > 0 && --g_oss_sdk_users == 0)
-        AlibabaCloud::OSS::ShutdownSdk();
+
+UploadFile::~UploadFile() = default;
+
+std::map<std::string, std::string> UploadFile::requestHeaders() const
+{
+    if (m_has_request_headers)
+        return m_request_headers;
+
+    std::map<std::string, std::string> headers;
+    wxGetApp().getExtraHeader(headers);
+    return headers;
 }
 json UploadFile::getCloudUploadInfo()
 {
@@ -113,10 +122,15 @@ int UploadFile::getAliyunInfo()
     auto               preupload_profile_url = "/api/cxy/account/v2/getAliyunInfo";
     std::string url                   = base_url + preupload_profile_url;
 
-    std::map<std::string, std::string> mapHeader;
-    wxGetApp().getExtraHeader(mapHeader);
-    Http::set_extra_headers(mapHeader);
+    const std::map<std::string, std::string> mapHeader = requestHeaders();
+    if (!m_has_request_headers)
+        Http::set_extra_headers(mapHeader);
     Http               http                  = Http::post(url);
+    if (m_has_request_headers) {
+        http.clear_header();
+        for (const auto& header : mapHeader)
+            http.header(header.first, header.second);
+    }
     http.enable_active_cancel();
     RemotePrint::UploadRequestCancelWatcher cancel_watcher(
         m_cancel_token, [&http] { http.cancel(); });
@@ -189,10 +203,15 @@ int UploadFile::getOssInfo()
     auto               preupload_profile_url = "/api/cxy/v2/common/getOssInfo";
     std::string        url                   = base_url + preupload_profile_url;
 
-    std::map<std::string, std::string> mapHeader;
-    wxGetApp().getExtraHeader(mapHeader);
-    Http::set_extra_headers(mapHeader);
+    const std::map<std::string, std::string> mapHeader = requestHeaders();
+    if (!m_has_request_headers)
+        Http::set_extra_headers(mapHeader);
     Http               http                  = Http::post(url);
+    if (m_has_request_headers) {
+        http.clear_header();
+        for (const auto& header : mapHeader)
+            http.header(header.first, header.second);
+    }
     http.enable_active_cancel();
     RemotePrint::UploadRequestCancelWatcher cancel_watcher(
         m_cancel_token, [&http] { http.cancel(); });

@@ -26,6 +26,7 @@ struct GUI_InitParams
 };
 
 int GUI_Run(GUI_InitParams &params);
+int GUI_Run(int argc, char **argv);
 
 } // namespace GUI
 } // namespace Slic3r

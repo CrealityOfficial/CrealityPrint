@@ -55,4 +55,11 @@ void macos_set_menu_bar_hidden(bool enabled)
 {
     [NSMenu setMenuBarVisible:!enabled];
 }
-}; // namespace Slic3r
+
+void activate_app()
+{
+    @autoreleasepool {
+        [NSApp activateIgnoringOtherApps:YES];
+    }
+}
+} // namespace Slic3r

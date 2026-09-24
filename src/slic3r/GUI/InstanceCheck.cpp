@@ -516,6 +516,9 @@ void OtherInstanceMessageHandler::handle_message(const std::string& message)
 		//wxGetApp().mainframe->select_tab(size_t(0));
 		wxGetApp().reload_homepage();
 		wxGetApp().reload_region_sensitive_views();
+		// The printer catalogue is region specific: refetch it so the add-printer tree
+		// does not keep the previous region's series.
+		wxGetApp().refresh_machine_list_for_region();
 	}
 	if(message.find("dark_mode|") != std::string::npos) {
 		std::string dark_color_mode = wxGetApp().app_config->get("dark_color_mode");

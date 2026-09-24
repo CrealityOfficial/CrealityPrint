@@ -232,6 +232,7 @@ private:
 #endif //__APPLE__
     static bool s_compressed_textures_supported;
     static bool s_force_power_of_two_textures;
+    static bool s_software_renderer;
 
     static EMultisampleState s_multisample;
     static EFramebufferType s_framebuffers_type;
@@ -268,6 +269,7 @@ public:
     static bool are_compressed_textures_supported() { return s_compressed_textures_supported; }
     static bool can_multisample() { return s_multisample == EMultisampleState::Enabled; }
     static bool are_framebuffers_supported() { return (s_framebuffers_type != EFramebufferType::Unknown); }
+    static bool is_software_renderer() { return s_software_renderer; }
     static EFramebufferType get_framebuffers_type() { return s_framebuffers_type; }
     static wxGLCanvas* create_wxglcanvas(wxWindow& parent);
     static const GLInfo& get_gl_info() { return s_gl_info; }

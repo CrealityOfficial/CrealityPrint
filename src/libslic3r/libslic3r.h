@@ -39,14 +39,10 @@
 // for a trheshold in a difference of radians,
 // for a threshold of a cross product of two non-normalized vectors etc.
 static constexpr double EPSILON = 1e-4;
-// Scaling factor for a conversion from coord_t to coordf_t: 10e-6
-// This scaling generates a following fixed point representation with for a 32bit integer:
-// 0..4294mm with 1nm resolution
-// int32_t fits an interval of (-2147.48mm, +2147.48mm)
-// with int64_t we don't have to worry anymore about the size of the int.
-
-// Orca todo: might be better to use 1e-5 for all, namometer resolution is not needed for 3D printing
-static constexpr double SCALING_FACTOR_INTERNAL = 0.000001;
+// Scaling factor for converting coord_t to millimetres.
+// One integer unit is 1e-5 mm (10 nm), giving int32_t an approximate
+// representable range of (-21474.84 mm, +21474.84 mm).
+static constexpr double SCALING_FACTOR_INTERNAL = 0.00001;
 static constexpr double SCALING_FACTOR_INTERNAL_LARGE_PRINTER = 0.00001;
 static constexpr double LARGE_BED_THRESHOLD = 2147;
 

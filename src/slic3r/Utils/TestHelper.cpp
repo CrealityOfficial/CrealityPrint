@@ -1,5 +1,8 @@
+#include <atomic>
+#include <chrono>
 #include <thread>
 #include <memory>
+#include <stdexcept>
 
 #include <miniz.h>
 #include <boost/asio.hpp>
@@ -31,6 +34,14 @@ static std::unordered_map<std::string, std::vector<std::pair<nlohmann::json, ASy
 namespace Test {
 
 bool enable_test;
+static std::atomic<bool> application_ready{false};
+
+void mark_app_ready()
+{
+    // Called on the GUI thread only after startup has completed successfully.
+    if (wxGetApp().initialized() && wxGetApp().preset_bundle && wxGetApp().plater())
+        application_ready.store(true);
+}
 /////////////////////////////////////BASE////////////////////////////////////////
 
 // static inline void test_helper_app_respone(std::string cmd, nlohmann::json ret)
@@ -223,6 +234,12 @@ std::string TestHelper::call_cmd_inner(std::string cmd, std::string json_str)
             return "";
         }
     }
+    // Internal dispatch and replies must remain available during startup.
+    if (!application_ready.load() && cmd != "ping" && cmd != "query_status" &&
+        cmd != "app_ready" && cmd != "handle_app_cmd" && cmd != "cmd_respone") {
+        cmd_respone(cmd, gen_failed_json("app not ready"));
+        return "_";
+    }
     // socket exposed cmd
     auto it = m_cmd2func.find(cmd);
     if (it == m_cmd2func.end()) {
@@ -283,6 +300,24 @@ void call_when_event_spread(std::string event, nlohmann::json& arg, ASync_Callba
     event_async_callback_list[event].emplace_back(std::pair{arg, callback});
 }
 
+static void remove_event_spread_callbacks_for_cmd(const std::string& event, const std::string& cmd)
+{
+    auto event_it = event_async_callback_list.find(event);
+    if (event_it == event_async_callback_list.end())
+        return;
+
+    auto& callbacks = event_it->second;
+    for (auto callback_it = callbacks.begin(); callback_it != callbacks.end();) {
+        const auto& callback_arg = callback_it->first;
+        if (callback_arg.is_object() && callback_arg.value("cmd", std::string()) == cmd)
+            callback_it = callbacks.erase(callback_it);
+        else
+            ++callback_it;
+    }
+    if (callbacks.empty())
+        event_async_callback_list.erase(event_it);
+}
+
 static int event_spread(nlohmann::json arg, std::string& payload, std::string& error)
 {
     auto event = arg["event"].get<std::string>();
@@ -296,6 +331,7 @@ static int event_spread(nlohmann::json arg, std::string& payload, std::string& e
         //    "canvas_render_finished"
         //    "slice_compete"
         //    "slice_started"
+        //    "slice_all_completed"
         //    "sendToPrint_loaded"
         //    "test_exec_js_respone"
         //
@@ -324,7 +360,6 @@ public:
         AppReady = 0,
         AsyncCmd = 1
     };
-    bool                               app_ready = false;
     std::string                        app_id;
     std::map<std::string, AsyncCmdStatus> cmd_status;
     bool                                  capture_mode = false;
@@ -356,7 +391,12 @@ public:
 
 static int app_ready(nlohmann::json arg, std::string& payload, std::string& error)
 {
-    status.app_ready = true;
+    // Keep the command callable, but clients must not set readiness.
+    if (!application_ready.load()) {
+        error = "app not ready";
+        return 3;
+    }
+    payload = status.app_id;
     return 0;
 }
 
@@ -365,7 +405,7 @@ static int query_status(nlohmann::json arg, std::string& payload, std::string& e
     int status_type = arg["type"].get<int>();
     if (status_type == Status::AppReady)
     {
-        if (!status.app_ready)
+        if (!application_ready.load())
         {
             error = "app not ready";
             return 3;
@@ -450,11 +490,69 @@ static int capture(nlohmann::json arg, std::string& payload, std::string& error)
     return -1;
 }
 
+static int capture_plate_overview_cmd(nlohmann::json arg, std::string& payload, std::string& error)
+{
+    call_when_target_eventloop_exec("capture_plate_overview", arg, [](nlohmann::json j) {
+        nlohmann::json output;
+        try {
+            const std::string save_as = j.at("save_as").get<std::string>();
+            const std::string view    = j.value("view", "top");
+
+            auto plater = wxGetApp().plater();
+            if (plater == nullptr) {
+                throw std::runtime_error("plater object is nullptr");
+            }
+
+            auto canvas = plater->get_view3D_canvas3D();
+            if (canvas == nullptr) {
+                throw std::runtime_error("3D canvas object is nullptr");
+            }
+
+            canvas->select_view(view);
+            canvas->zoom_to_plate(REQUIRES_ZOOM_TO_ALL_PLATE);
+
+            wxImage image;
+            canvas->render_on_image(image);
+            if (!image.IsOk()) {
+                throw std::runtime_error("failed to capture 3D canvas");
+            }
+            if (!image.SaveFile(wxString::FromUTF8(save_as), wxBITMAP_TYPE_PNG)) {
+                throw std::runtime_error("failed to save captured image: " + save_as);
+            }
+
+            output["ret"]     = 0;
+            output["save_as"] = save_as;
+            output["width"]   = image.GetWidth();
+            output["height"]  = image.GetHeight();
+        } catch (const std::exception& e) {
+            output["ret"]   = 1;
+            output["error"] = e.what();
+        }
+
+        Test::Visitor().call_cmd("cmd_respone", output.dump(-1, ' ', true));
+    });
+
+    return -1;
+}
+
 // This function handles EVT_TEST_HELPER_CMD events
 static int handle_app_cmd(nlohmann::json arg, std::string& payload, std::string& error)
 {
     std::string cmd = arg["cmd"].get<std::string>();
-    async_callback_list[cmd](arg); // GUI thread executes stored callback
+    auto it = async_callback_list.find(cmd);
+    if (it == async_callback_list.end()) {
+        error = "unknown app callback";
+        return 1;
+    }
+    // Check again on the GUI thread before touching application objects.
+    if (!application_ready.load() || !wxGetApp().initialized() ||
+        !wxGetApp().preset_bundle || !wxGetApp().plater()) {
+        async_callback_list.erase(it);
+        nlohmann::json out = {{"ret", 1}, {"error", "app not ready"}};
+        Test::Visitor().call_cmd("cmd_respone", out.dump());
+        return -1;
+    }
+    it->second(arg);
     async_callback_list.erase(cmd);
     return -1;
 }
@@ -492,26 +590,74 @@ static int trigger_load_project(nlohmann::json arg, std::string& payload, std::s
 
 static int trigger_load_project2(nlohmann::json arg, std::string& payload, std::string& error)
 {
-    call_when_target_eventloop_exec("trigger_load_project2", arg, [](nlohmann::json j) {
+    const auto started_at = std::chrono::steady_clock::now();
+    call_when_target_eventloop_exec("trigger_load_project2", arg, [started_at](nlohmann::json j) {
+        static const std::string render_event = "canvas_render_finished";
         nlohmann::json out;
+        bool                 render_callback_registered = false;
+        std::string          render_callback_cmd;
+        auto                 response_sent = std::make_shared<bool>(false);
         try {
             auto file                   = j.at("file").get<std::string>();
             bool discard_preset_changes = j.value("discard_preset_changes", false);
+            render_callback_cmd          = j.at("cmd").get<std::string>();
+            auto* plater                 = wxGetApp().plater();
+            if (plater == nullptr)
+                throw std::runtime_error("plater is not available");
 
             if (discard_preset_changes) {
                 wxGetApp().discard_all_current_preset_changes(); // Reset presets
             }
 
-            wxGetApp().plater()->load_project(wxString::FromUTF8(file)); // Load project synchronously
+            plater->load_project(wxString::FromUTF8(file)); // Load project synchronously
 
-            out["ret"]    = 0;
-            out["error"]  = "OK";
-            out["file"]   = file;
-            out["status"] = "loaded";
+            if (!plater->is_view3D_shown())
+                throw std::runtime_error("View3D is not the current canvas after loading project");
+            auto* canvas = plater->get_view3D_canvas3D();
+            if (canvas == nullptr || canvas->get_canvas_type() != GLCanvas3D::ECanvasType::CanvasView3D)
+                throw std::runtime_error("View3D canvas is not available");
+            if (!canvas->is_rendering_enabled())
+                throw std::runtime_error("View3D rendering is disabled");
+
+            call_when_event_spread(render_event, j, [started_at, file, response_sent](nlohmann::json) {
+                if (*response_sent)
+                    return;
+                *response_sent = true;
+                const auto duration_ms = std::chrono::duration<double, std::milli>(
+                    std::chrono::steady_clock::now() - started_at).count();
+
+                nlohmann::json response;
+                response["ret"]         = 0;
+                response["error"]       = "OK";
+                response["file"]        = file;
+                response["status"]      = "loaded";
+                response["duration_ms"] = duration_ms;
+                Test::Visitor().call_cmd("cmd_respone", response.dump(-1, ' ', true));
+            });
+            render_callback_registered = true;
+
+            canvas->set_as_dirty();
+            canvas->render();
+            if (!*response_sent) {
+                *response_sent = true;
+                remove_event_spread_callbacks_for_cmd(render_event, render_callback_cmd);
+                render_callback_registered = false;
+                throw std::runtime_error("View3D render did not reach canvas_render_finished");
+            }
+
+            return; // The render callback already sent the successful response.
         } catch (const std::exception& e) {
+            if (render_callback_registered) {
+                *response_sent = true;
+                remove_event_spread_callbacks_for_cmd(render_event, render_callback_cmd);
+            }
             out["ret"]   = 1;
             out["error"] = std::string("load_project exception: ") + e.what();
         } catch (...) {
+            if (render_callback_registered) {
+                *response_sent = true;
+                remove_event_spread_callbacks_for_cmd(render_event, render_callback_cmd);
+            }
             out["ret"]   = 1;
             out["error"] = "load_project unknown error";
         }
@@ -641,8 +787,9 @@ static int click_button_cmd(nlohmann::json arg, std::string& payload, std::strin
 
 static int export_gcode_cmd(nlohmann::json arg, std::string& payload, std::string& error)
 {
+    const auto started_at = std::chrono::steady_clock::now();
     // Run in GUI thread
-    call_when_target_eventloop_exec("export_gcode_3mf", arg, [](nlohmann::json j) {
+    call_when_target_eventloop_exec("export_gcode_3mf", arg, [started_at](nlohmann::json j) {
         nlohmann::json out;
 
         try {
@@ -680,7 +827,9 @@ static int export_gcode_cmd(nlohmann::json arg, std::string& payload, std::strin
             int         ret = plater->export_gcode_3mf_headless(output, export_all, err);
 
             if (ret == 0) {
-                out["ret"]        = 0;
+                out["ret"] = 0;
+                out["duration_ms"] = std::chrono::duration<double, std::milli>(
+                    std::chrono::steady_clock::now() - started_at).count();
                 out["export_all"] = export_all;
                 out["output"]     = output.string();
             } else {
@@ -874,22 +1023,183 @@ static int move_model_instance(nlohmann::json arg, std::string& payload, std::st
 }
 static int trigger_slice(nlohmann::json arg, std::string& payload, std::string& error)
 {
-    call_when_target_eventloop_exec("trigger_slice", arg, [](nlohmann::json arg) {
-        // Slice start
-        call_when_event_spread("slice_started", arg, [](nlohmann::json arg) {
-            status.set_cmd_status("trigger_slice", Status::Unfinished);
-            nlohmann::json output;
-            output["ret"] = 0;
+    const auto started_at = std::chrono::steady_clock::now();
+    call_when_target_eventloop_exec("trigger_slice", arg, [started_at](nlohmann::json arg) {
+        static const std::string slice_completed_event     = "slice_all_completed";
+        static const std::string render_event              = "canvas_render_finished";
+        bool                     slice_callback_registered = false;
+        std::string              callback_cmd;
+        auto                     response_sent = std::make_shared<bool>(false);
+
+        try {
+            callback_cmd    = arg.at("cmd").get<std::string>();
+            auto* plater    = wxGetApp().plater();
+            auto* mainframe = wxGetApp().mainframe;
+            if (plater == nullptr || mainframe == nullptr)
+                throw std::runtime_error("plater or mainframe is not available");
+
+            call_when_event_spread(slice_completed_event, arg, [started_at, response_sent](nlohmann::json completed_arg) {
+                bool        render_callback_registered = false;
+                std::string render_callback_cmd;
+                try {
+                    if (*response_sent)
+                        return;
+
+                    render_callback_cmd = completed_arg.at("cmd").get<std::string>();
+                    const std::string completion_status = completed_arg.value("param", std::string());
+                    if (completion_status != "success")
+                        throw std::runtime_error("slicing did not complete successfully: " + completion_status);
+
+                    auto* plater = wxGetApp().plater();
+                    if (plater == nullptr)
+                        throw std::runtime_error("plater is not available after slicing");
+                    if (!plater->is_preview_shown())
+                        throw std::runtime_error("Preview is not the current canvas after slicing");
+
+                    auto* canvas = plater->get_preview_canvas3D();
+                    if (canvas == nullptr || canvas->get_canvas_type() != GLCanvas3D::ECanvasType::CanvasPreview)
+                        throw std::runtime_error("Preview canvas is not available");
+                    if (!canvas->is_rendering_enabled())
+                        throw std::runtime_error("Preview rendering is disabled");
+
+                    call_when_event_spread(render_event, completed_arg, [started_at, response_sent](nlohmann::json) {
+                        if (*response_sent)
+                            return;
+                        *response_sent = true;
+                        const auto duration_ms = std::chrono::duration<double, std::milli>(
+                            std::chrono::steady_clock::now() - started_at).count();
+
+                        nlohmann::json response;
+                        response["ret"]         = 0;
+                        response["error"]       = "OK";
+                        response["status"]      = "sliced";
+                        response["duration_ms"] = duration_ms;
+                        Test::Visitor().call_cmd("cmd_respone", response.dump(-1, ' ', true));
+                    });
+                    render_callback_registered = true;
+
+                    canvas->set_as_dirty();
+                    canvas->render();
+                    if (!*response_sent) {
+                        remove_event_spread_callbacks_for_cmd(render_event, render_callback_cmd);
+                        render_callback_registered = false;
+                        throw std::runtime_error("Preview render did not reach canvas_render_finished");
+                    }
+                } catch (const std::exception& e) {
+                    if (render_callback_registered)
+                        remove_event_spread_callbacks_for_cmd(render_event, render_callback_cmd);
+                    if (*response_sent)
+                        return;
+                    *response_sent = true;
+                    nlohmann::json response;
+                    response["ret"]   = 1;
+                    response["error"] = std::string("trigger_slice exception: ") + e.what();
+                    Test::Visitor().call_cmd("cmd_respone", response.dump(-1, ' ', true));
+                } catch (...) {
+                    if (render_callback_registered)
+                        remove_event_spread_callbacks_for_cmd(render_event, render_callback_cmd);
+                    if (*response_sent)
+                        return;
+                    *response_sent = true;
+                    nlohmann::json response;
+                    response["ret"]   = 1;
+                    response["error"] = "trigger_slice unknown error";
+                    Test::Visitor().call_cmd("cmd_respone", response.dump(-1, ' ', true));
+                }
+            });
+            slice_callback_registered = true;
+
+            mainframe->slice_plate(MainFrame::eSliceAll); // Default: slice all plates
+        } catch (const std::exception& e) {
+            if (slice_callback_registered)
+                remove_event_spread_callbacks_for_cmd(slice_completed_event, callback_cmd);
+            if (*response_sent)
+                return;
+            *response_sent = true;
+            nlohmann::json response;
+            response["ret"]   = 1;
+            response["error"] = std::string("trigger_slice exception: ") + e.what();
+            Test::Visitor().call_cmd("cmd_respone", response.dump(-1, ' ', true));
+        } catch (...) {
+            if (slice_callback_registered)
+                remove_event_spread_callbacks_for_cmd(slice_completed_event, callback_cmd);
+            if (*response_sent)
+                return;
+            *response_sent = true;
+            nlohmann::json response;
+            response["ret"]   = 1;
+            response["error"] = "trigger_slice unknown error";
+            Test::Visitor().call_cmd("cmd_respone", response.dump(-1, ' ', true));
+        }
+    });
+    return -1; // Async: respond after the first Preview frame has been rendered
+}
+
+static int trigger_slice_plate(nlohmann::json arg, std::string& payload, std::string& error)
+{
+    call_when_target_eventloop_exec("trigger_slice_plate", arg, [](nlohmann::json arg) {
+        nlohmann::json output;
+        try {
+            auto* plater    = wxGetApp().plater();
+            auto* mainframe = wxGetApp().mainframe;
+            if (plater == nullptr || mainframe == nullptr) {
+                throw std::runtime_error("plater or mainframe object is nullptr");
+            }
+
+            const int plate_number = arg.at("plate_number").get<int>();
+            const int plate_count  = plater->get_partplate_list().get_plate_count();
+            if (plate_number < 1 || plate_number > plate_count) {
+                output["ret"]          = 1;
+                output["error"]        = "plate_number out of range";
+                output["plate_number"] = plate_number;
+                output["plate_count"]  = plate_count;
+                Test::Visitor().call_cmd("cmd_respone", output.dump(-1, ' ', true));
+                return;
+            }
+
+            const int plate_index = plate_number - 1;
+            auto*     plate       = plater->get_partplate_list().get_plate(plate_index);
+            if (plate == nullptr || plate->empty() || !plate->has_printable_instances()) {
+                output["ret"]          = 1;
+                output["error"]        = "target plate has no printable model";
+                output["plate_number"] = plate_number;
+                output["plate_index"]  = plate_index;
+                Test::Visitor().call_cmd("cmd_respone", output.dump(-1, ' ', true));
+                return;
+            }
+
+            if (plater->select_plate(plate_index) != 0) {
+                output["ret"]          = 1;
+                output["error"]        = "failed to select target plate";
+                output["plate_number"] = plate_number;
+                output["plate_index"]  = plate_index;
+                Test::Visitor().call_cmd("cmd_respone", output.dump(-1, ' ', true));
+                return;
+            }
+
+            call_when_event_spread("slice_started", arg, [](nlohmann::json started_arg) {
+                status.set_cmd_status("trigger_slice_plate", Status::Unfinished);
+                nlohmann::json started_output;
+                const int     started_plate_number = started_arg.at("plate_number").get<int>();
+                started_output["ret"]          = 0;
+                started_output["plate_number"] = started_plate_number;
+                started_output["plate_index"]  = started_plate_number - 1;
+                Test::Visitor().call_cmd("cmd_respone", started_output.dump(-1, ' ', true));
+            });
+
+            mainframe->slice_plate(MainFrame::eSlicePlate);
+        } catch (const std::exception& e) {
+            output["ret"]   = 1;
+            output["error"] = e.what();
             Test::Visitor().call_cmd("cmd_respone", output.dump(-1, ' ', true));
-        });
-        wxGetApp().mainframe->slice_plate(MainFrame::eSliceAll); // Default: slice all plates
+        }
     });
     return -1;
 }
 
 static int get_slicing_progress(nlohmann::json arg, std::string& payload, std::string& error)
 {
-    call_when_target_eventloop_exec("get_slicing_progress", arg, [](nlohmann::json) {
+    call_when_target_eventloop_exec("get_slicing_progress", arg, [](nlohmann::json arg) {
         nlohmann::json ret;
         auto*          nm = wxGetApp().notification_manager();
         if (!nm) {
@@ -900,7 +1210,29 @@ static int get_slicing_progress(nlohmann::json arg, std::string& payload, std::s
             bool   all_plate_finished  = true;
             size_t slicable_plate_cnt  = 0;
             auto   plate_count         = plater->get_partplate_list().get_plate_count();
-            for (int i = 0; i < plate_count; ++i) {
+            int    begin_plate_index   = 0;
+            int    end_plate_index     = plate_count;
+
+            if (arg.contains("plate_number")) {
+                if (!arg["plate_number"].is_number_integer()) {
+                    ret["ret"]   = 1;
+                    ret["error"] = "plate_number must be an integer";
+                    Test::Visitor().call_cmd("cmd_respone", ret.dump(-1, ' ', true));
+                    return;
+                }
+                const int plate_number = arg["plate_number"].get<int>();
+                if (plate_number < 1 || plate_number > plate_count) {
+                    ret["ret"]   = 1;
+                    ret["error"] = "plate_number out of range";
+                    Test::Visitor().call_cmd("cmd_respone", ret.dump(-1, ' ', true));
+                    return;
+                }
+                begin_plate_index = plate_number - 1;
+                end_plate_index   = plate_number;
+                ret["plate_number"] = plate_number;
+            }
+
+            for (int i = begin_plate_index; i < end_plate_index; ++i) {
                 auto* plate = plater->get_partplate_list().get_plate(i);
                 if (plate == nullptr || plate->empty() || !plate->has_printable_instances())
                     continue;
@@ -1229,6 +1561,7 @@ void TestHelper::register_cmd()
     m_cmd2func["cmd_respone"]          = cmd_respone_wrapper;
     m_cmd2func["handle_app_cmd"]       = handle_app_cmd;
     m_cmd2func["capture"]              = capture;
+    m_cmd2func["capture_plate_overview"] = capture_plate_overview_cmd;
     m_cmd2func["set_capture_mode"]     = set_capture_mode;
     m_cmd2func["ping"]                 = empty_respone;
     m_cmd2func["trigger_load_project"] = trigger_load_project;
@@ -1238,6 +1571,7 @@ void TestHelper::register_cmd()
     m_cmd2func["new_project"]          = new_project;
     m_cmd2func["move_model_instance"]  = move_model_instance;
     m_cmd2func["trigger_slice"]        = trigger_slice;
+    m_cmd2func["trigger_slice_plate"]  = trigger_slice_plate;
     m_cmd2func["get_slicing_progress"] = get_slicing_progress;
     m_cmd2func["select_printer"]       = select_printer;
     m_cmd2func["binding_phy_printer"]  = binding_phy_printer;
