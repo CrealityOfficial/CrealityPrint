@@ -1457,7 +1457,7 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Density of external bridges. 100% means solid bridge. Default is 100%.");
     def->sidetext = L("%");
     def->min = 10;
-    def->max = 100;
+    def->max = 120;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionPercent(100));
 
